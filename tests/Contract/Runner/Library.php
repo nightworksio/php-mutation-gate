@@ -21,6 +21,9 @@ use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnit;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\ProcessShell as PhpUnitShell;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\Project as PhpUnitProject;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -33,13 +36,20 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
+use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Extension\Extensions;
+use NightWorksIO\MutationGate\Mutator\Engine\Engine;
+use NightWorksIO\MutationGate\Mutator\Engine\SetEngine;
+use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Port\Runner;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
+use NightWorksIO\MutationGateDefault\DefaultExtension;
 use Pest\Mutate\Mutators\Arithmetic\MinusToPlus;
 use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
 use Pest\Mutate\Mutators\Arithmetic\PostDecrementToPostIncrement;
@@ -64,6 +74,13 @@ final class Library
 
     /** The Infection library, the same code, tested by PHPUnit, installed by its own runner contracts job. */
     public const string INFECTION_DIRECTORY = 'tests/Contract/Runner/infection-fixture';
+
+    /**
+     * The PHPUnit runner's library, the same code, tested by PHPUnit, in the
+     * PHPUnit runner's fixture, whose vendor directory, one level up, its own
+     * runner contracts steps install.
+     */
+    public const string PHPUNIT_DIRECTORY = 'tests/Contract/Runner/phpunit-fixture/library';
 
     public const string CANARY = 'mutation-canary';
 
@@ -142,6 +159,15 @@ final class Library
         'held' => ['Plus', MutatorFamily::Arithmetic],
     ];
 
+    /** @var array<string, array{string, MutatorFamily}> the default set's mutator for each change, and its family */
+    private const array PHPUNIT = [
+        'adds' => ['default/PlusToMinus', MutatorFamily::Arithmetic],
+        'large' => ['default/GreaterToGreaterOrEqual', MutatorFamily::Boundary],
+        'unused' => ['default/MinusToPlus', MutatorFamily::Arithmetic],
+        'drains' => ['default/PostDecrementToPostIncrement', MutatorFamily::Arithmetic],
+        'held' => ['default/PlusToMinus', MutatorFamily::Arithmetic],
+    ];
+
     /** @var array<string, string> what the fake names each test it is asked, by the test's id */
     private const array FAKE_NAMES = [
         'MoneyTest::adds' => 'tests/MoneyTest.php::it adds',
@@ -183,6 +209,9 @@ final class Library
      * @param Runner                                       $outside      the runner built in the directory around the
      *                                                                   library, which holds no project of its own
      * @param Path                                         $package      the library's directory, from that one
+     * @param list<string>                                 $markers      where the runner's own ignore markers are,
+     *                                                                   which a runner without any finds none of
+     * @param string                                       $prints       what the runner prints of a mutant it runs
      */
     private function __construct(
         private readonly string $name,
@@ -194,6 +223,8 @@ final class Library
         private readonly Runner $outside,
         private readonly Path $package,
         private readonly string $root,
+        private readonly array $markers = [self::MARKER],
+        private readonly string $prints = 'src/Money.php',
     ) {
     }
 
@@ -248,6 +279,42 @@ final class Library
     public static function isInfectionInstalled(): bool
     {
         return is_dir(Tree::at(sprintf('%s/vendor', self::INFECTION_DIRECTORY)));
+    }
+
+    /**
+     * The PHPUnit runner over its installed library, making its mutants with
+     * the default set, allowing each mutant 10 s. It has no ignore marker of
+     * its own, and prints what PHPUnit printed, its banner first.
+     */
+    public static function phpunit(): self
+    {
+        $root = Tree::at(self::PHPUNIT_DIRECTORY);
+        $phpunit = static fn(string $root): PhpUnit => new PhpUnit(
+            PhpUnitProject::at($root, Paths::of(Path::of('tests')), Path::of('../vendor'), Path::of('.mutation-gate')),
+            new PhpUnitShell($root, getenv()),
+            self::defaultSet(),
+            Seconds::of(10.0),
+            new CapDirectory(),
+        );
+
+        return new self(
+            'phpunit',
+            $phpunit($root),
+            self::PHPUNIT,
+            endsReported: true,
+            defining: Paths::of(Path::of('phpunit.xml')),
+            naming: self::INFECTION_NAMES,
+            outside: $phpunit(dirname($root)),
+            package: Path::of(basename($root)),
+            root: $root,
+            markers: [],
+            prints: 'by Sebastian Bergmann and contributors',
+        );
+    }
+
+    public static function isPhpUnitInstalled(): bool
+    {
+        return is_dir(Tree::at(sprintf('%s/../vendor', self::PHPUNIT_DIRECTORY)));
     }
 
     /** The Pest adapter over the installed library, with `pest:patch` off or on. */
@@ -317,6 +384,18 @@ final class Library
     public function package(): Path
     {
         return $this->package;
+    }
+
+    /** @return list<string> where the runner's own ignore markers are in the library */
+    public function markers(): array
+    {
+        return $this->markers;
+    }
+
+    /** What the runner prints of a mutant it runs again on its own. */
+    public function prints(): string
+    {
+        return $this->prints;
     }
 
     /** The files of the library that define its runner, from the library's root. */
@@ -414,5 +493,14 @@ final class Library
     public static function canary(): Group
     {
         return Group::named(self::CANARY);
+    }
+
+    /** The engine of the default set, as the flows hand it to the PHPUnit runner. */
+    private static function defaultSet(): Engine
+    {
+        $registry = new DefaultExtension()->extend(new Extensions(Origin::of(self::class)));
+        $set = $registry->registered(ExtensionPoint::MutatorSet, MutatorSet::defaultName());
+
+        return SetEngine::of($set instanceof MutatorSet ? $set : MutatorSet::of());
     }
 }

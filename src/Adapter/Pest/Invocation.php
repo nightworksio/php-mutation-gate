@@ -54,13 +54,18 @@ final readonly class Invocation
 
     public function listingGroups(Withheld $withheld): Command
     {
-        return Command::pest($this->script, $withheld, '--list-groups', '--colors=never');
+        return Command::pest(
+            $this->script,
+            $withheld,
+            PhpUnitOption::ListGroups->value,
+            PhpUnitOption::NoColors->value,
+        );
     }
 
     /** Every test, listed and never run, with the plugin naming each in a file. */
     public function listingTests(Withheld $withheld, string $names): Command
     {
-        return Command::pest($this->script, $withheld, '--list-tests', '--colors=never')
+        return Command::pest($this->script, $withheld, '--list-tests', PhpUnitOption::NoColors->value)
             ->with([GateVariable::Names->value => $names]);
     }
 
@@ -111,7 +116,7 @@ final readonly class Invocation
             '--stop-on-untested=false',
             '--stop-on-uncovered=false',
             '--retry=false',
-            '--colors=never',
+            PhpUnitOption::NoColors->value,
             sprintf('--path=%s', PathList::of($request->files())->joined(',')),
             sprintf('--ignore=%s', $this->ignored($request->leftOut())),
             ...$this->narrowedTo($judgedBy),
@@ -133,7 +138,7 @@ final readonly class Invocation
             $withheld,
             '--no-tia',
             '--bail',
-            '--colors=never',
+            PhpUnitOption::NoColors->value,
             ...$this->narrowedTo(Filter::nothing()),
         )->with([
             Recorder::MUTANT => $original,
@@ -169,7 +174,7 @@ final readonly class Invocation
             $withheld,
             '--no-tia',
             '--bail',
-            '--colors=never',
+            PhpUnitOption::NoColors->value,
             ...$this->narrowedTo($judgedBy),
             ...$options,
             ...$files,

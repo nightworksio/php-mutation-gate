@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use function array_map;
 use function array_unique;
 use function array_values;
 use function implode;
@@ -24,9 +25,6 @@ use function sprintf;
  */
 final readonly class RunnerLayer
 {
-    /** The runners the builder has a method of its own for. */
-    private const array RUNNERS = [BuiltinRunner::Pest->value, BuiltinRunner::Infection->value];
-
     /** @param list<string> $withhold */
     private function __construct(
         private Choice|Absent $runner,
@@ -107,7 +105,7 @@ final readonly class RunnerLayer
                 GateMethod::Runner,
                 sprintf(
                     '%s%s',
-                    PhpCalls::chosen($this->runner, AdapterBuilder::Runner, ...self::RUNNERS),
+                    PhpCalls::chosen($this->runner, AdapterBuilder::Runner, ...$this->builtins()),
                     implode('', $also),
                 ),
             );
@@ -116,6 +114,12 @@ final readonly class RunnerLayer
         $calls = $this->withhold === [] ? PhpCalls::none() : PhpCalls::onGate(GateMethod::Withholding, $withheld);
 
         return $memory === '' ? $calls : $calls->and(PhpCalls::onGate(GateMethod::CappedAt, $memory));
+    }
+
+    /** @return list<string> the runners the builder has a method of its own for: every one this package builds in */
+    private function builtins(): array
+    {
+        return array_map(static fn(BuiltinRunner $runner): string => $runner->value, BuiltinRunner::cases());
     }
 
     /** A memory cap as the builder writes it. */

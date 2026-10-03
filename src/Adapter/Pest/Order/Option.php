@@ -19,7 +19,7 @@ enum Option: string
     case CacheDirectory = '--cache-directory';
     case OrderBy = '--order-by';
     case Record = '--record-test-run-history';
-    case DoNotRecord = '--do-not-record-test-run-history';
+    case DoNotRecord = PhpUnitOption::DoNotRecordTestRunHistory->value;
     case CacheResult = '--cache-result';
     case DoNotCacheResult = PhpUnitOption::DoNotCacheResult->value;
 

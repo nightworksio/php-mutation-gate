@@ -4,14 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
-use DOMDocument;
-use DOMXPath;
-
+use function file_get_contents;
 use function is_file;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ErrorDisplay;
-use NightWorksIO\MutationGate\Core\Runner\InertSetting;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitIni;
 
 use function sprintf;
 
@@ -21,9 +19,6 @@ use function sprintf;
  */
 final readonly class ProjectPhpUnit
 {
-    /** Every value the config's `<php>` sets a setting of this name to; PHPUnit sets each in turn, so the last wins. */
-    private const string INI = '/phpunit/php/ini[@name="%s"]/@value';
-
     /** The config's file on disk; none where the project has none. */
     public static function file(Project $project, OwnConfig $config): string|NotGiven
     {
@@ -44,12 +39,9 @@ final readonly class ProjectPhpUnit
     public static function display(Project $project, OwnConfig $config): ErrorDisplay|NotGiven
     {
         $file = self::file($project, $config);
-        $document = $file instanceof NotGiven ? $file : XmlFile::document($file);
-        $values = $document instanceof DOMDocument
-            ? new DOMXPath($document)->query(sprintf(self::INI, InertSetting::DisplayErrors->value))
-            : false;
-        $last = $values === false ? null : $values->item($values->length - 1);
 
-        return $last === null ? NotGiven::value() : ErrorDisplay::read($last->nodeValue ?? '');
+        return $file instanceof NotGiven
+            ? $file
+            : PhpUnitIni::displayIn(sprintf('%s', file_get_contents($file)));
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Installed;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -61,3 +62,21 @@ it('cannot judge with a manifest that is not JSON, or that holds no list of pack
         $file,
     )));
 })->with(['{', '{"packages": "none"}']);
+
+it('leaves the test run history as it was with the option the installed PHPUnit names it by', function (string $version, PhpUnitOption $option): void {
+    expect(Installed::historyIn(installedPhpUnit($version)))->toBe($option);
+})->with([
+    'before the history' => ['13.2.9', PhpUnitOption::DoNotCacheResult],
+    'a tag before it' => ['v13.2.0', PhpUnitOption::DoNotCacheResult],
+    'the first with it' => ['13.3.0', PhpUnitOption::DoNotRecordTestRunHistory],
+    'a later one' => ['14.0.0', PhpUnitOption::DoNotRecordTestRunHistory],
+    'a branch' => ['13.2.x-dev', PhpUnitOption::DoNotRecordTestRunHistory],
+]);
+
+it('names the history\'s own option where it cannot read which PHPUnit is installed', function (string $text): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'installed.json', $text);
+
+    expect(Installed::historyIn(sprintf('%s/installed.json', $root)))->toBe(PhpUnitOption::DoNotRecordTestRunHistory)
+        ->and(Installed::historyIn(sprintf('%s/none.json', $root)))->toBe(PhpUnitOption::DoNotRecordTestRunHistory);
+})->with(['not JSON' => ['{'], 'no PHPUnit' => [(string) json_encode(['packages' => []])]]);

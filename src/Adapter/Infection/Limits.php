@@ -5,28 +5,22 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use function array_keys;
-use function min;
 
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 use NightWorksIO\MutationGate\Core\Test\TestMethod;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
- * The seconds Infection allows each mutant: 5 s for PHPUnit to start, plus
- * five times the time of the test classes that cover it, each counted once,
- * and never more than the configured timeout, the cap. A mutant whose
- * classes alone take the cap is skipped.
+ * The seconds Infection allows each mutant: the standard mutant limit of the
+ * time of the test classes that cover it, each counted once, under the
+ * configured timeout, the cap. A mutant whose classes alone take the cap is
+ * skipped.
  */
 final readonly class Limits
 {
-    /** What Infection allows PHPUnit to start in, in seconds. */
-    private const float BOOTSTRAP = 5.0;
-
-    /** How many times its covering tests' own time Infection allows a mutant. */
-    private const int FACTOR = 5;
-
     private function __construct(private CoverageMap $map, private JUnit $junit, private Seconds $cap)
     {
     }
@@ -51,6 +45,6 @@ final readonly class Limits
             $time += $this->junit->classSeconds($class);
         }
 
-        return Seconds::of(min(self::BOOTSTRAP + self::FACTOR * $time, $this->cap->seconds()));
+        return MutantLimit::standard()->of(Seconds::of($time), $this->cap);
     }
 }

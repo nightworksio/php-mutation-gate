@@ -34,3 +34,7 @@ it('is spelt by its tag where it is a release, and by its branch and commit wher
     'a branch with no commit known' => ['dev-main', '', 'dev-main'],
     'nothing known' => ['', '', ''],
 ]);
+
+it('is a number as a release, its tag without the v', function (string $version, string $release): void {
+    expect(Version::of('phpunit/phpunit', $version, 'abc')->release())->toBe($release);
+})->with([['v13.3.0', '13.3.0'], ['13.3.0', '13.3.0'], ['dev-main', 'dev-main']]);

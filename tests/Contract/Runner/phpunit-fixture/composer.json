@@ -1,6 +1,6 @@
 {
     "name": "nightworksio/mutation-gate-phpunit-fixture",
-    "description": "The library the runner contract suite mutates with the gate's own PHPUnit runner, the gate's source autoloaded beside it.",
+    "description": "The PHPUnit runner's libraries, beside the gate's source: in library/, the code every runner's contract mutates, and here, the quirks of a project's tests, sharing one vendor directory.",
     "license": "MIT",
     "type": "project",
     "require": {
@@ -11,8 +11,9 @@
     "prefer-stable": true,
     "autoload": {
         "psr-4": {
-            "Library\\": "src/",
-            "NightWorksIO\\MutationGate\\": "../../../../src/"
+            "Library\\": "library/src/",
+            "NightWorksIO\\MutationGate\\": "../../../../src/",
+            "Quirks\\": "src/"
         },
         "files": [
             "src/helpers.php"
@@ -20,7 +21,10 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Tests\\": "tests/"
+            "Tests\\": [
+                "library/tests/",
+                "tests/"
+            ]
         }
     },
     "config": {

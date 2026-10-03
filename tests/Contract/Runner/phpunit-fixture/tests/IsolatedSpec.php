@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests;
 
-use Library\Money;
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Quirks\Tally;
 
 final class IsolatedSpec extends TestCase
 {
@@ -15,6 +15,6 @@ final class IsolatedSpec extends TestCase
     #[RunInSeparateProcess]
     public function addsInAProcessOfItsOwn(): void
     {
-        self::assertSame(5, new Money()->add(2, 3));
+        self::assertSame(5, new Tally()->add(2, 3));
     }
 }

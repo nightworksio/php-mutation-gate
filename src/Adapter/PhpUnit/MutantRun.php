@@ -10,7 +10,12 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\ErrorDisplay;
+use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\PrematureEnd;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -37,6 +42,12 @@ use function trim;
  *   as it ran, and a `setUpBeforeClass` that fails or errors, which kills it
  *   by each test of its class the run selected.
  * - A run stopped at its limit timed out.
+ * - A run that killed it, or errored, whose output holds PHP's fatal error
+ *   for exactly the memory cap is out of memory, with the cap; under a cap,
+ *   so is one where PHPUnit says its process ended mid-test and PHP's errors
+ *   were visibly hidden, as PHPUnit says it hid them or as the project's
+ *   config shows them nowhere, with no limit known, which memory triage
+ *   never counts as a kill (ADR-0004, decision 9).
  * - A run that fails before any test started errored: the mutant broke
  *   PHPUnit itself, such as by a fatal error as its file loaded.
  * - A run that fails with no test failing is unjudged, with what PHPUnit
@@ -78,6 +89,8 @@ final readonly class MutantRun
         private Shell $shell,
         private Invocation $invocation,
         private TestFiles $tests,
+        private MemoryScan $scan,
+        private ErrorDisplay|NotGiven $display,
     ) {
     }
 
@@ -93,16 +106,20 @@ final readonly class MutantRun
             return $files;
         }
 
-        $ran = $this->shell->run($this->invocation->of($files, $request->judgedBy(), $limit, $request->withheld()));
+        $command = $this->invocation->of($files, $request->judgedBy(), $limit, $request->withheld());
+        $ran = $this->shell->run($this->scan->onto($command));
         $recorded = Recorded::in($files->results(), $covering);
         $verdict = $this->verdict($ran, $recorded, Guard::in($files->guard()), count($covering));
-        $status = $verdict instanceof Reason ? MutantStatus::Unjudged : $verdict;
+        $cap = $request->memory();
+        $status = $verdict instanceof Reason ? MutantStatus::Unjudged : $this->weighed($verdict, $ran, $cap);
         $mutant = $this->mutant($made, $status, $ran->duration());
 
         return match (true) {
             $verdict instanceof Reason => $mutant->because($verdict),
-            $verdict === MutantStatus::TimedOut => $mutant->withLimit($limit),
-            $verdict === MutantStatus::Killed => $mutant->killedBy($recorded->credited()),
+            $status === MutantStatus::TimedOut => $mutant->withLimit($limit),
+            $status === MutantStatus::OutOfMemory && Exhaustion::isOf(Exhaustion::in($ran->output()), $cap)
+                => $mutant->withLimit($cap),
+            $status === MutantStatus::Killed => $mutant->killedBy($recorded->credited()),
             default => $mutant,
         };
     }
@@ -150,6 +167,20 @@ final readonly class MutantRun
             ! $recorded->ranAny() => MutantStatus::Errored,
             default => $this->said(self::NO_KILLER, $ran),
         };
+    }
+
+    /**
+     * What a run that killed the mutant, or errored, comes to where the
+     * memory cap stopped it: out of memory; any other as it was judged.
+     */
+    private function weighed(MutantStatus $status, Ran $ran, MemoryCap $cap): MutantStatus
+    {
+        $output = $ran->output();
+        $died = $status === MutantStatus::Killed || $status === MutantStatus::Errored;
+        $capped = Exhaustion::isOf(Exhaustion::in($output), $cap)
+            || ($cap->caps() && PrematureEnd::hidingIn($output, $this->display === ErrorDisplay::Nowhere));
+
+        return $died && $capped ? MutantStatus::OutOfMemory : $status;
     }
 
     /** Why a run whose every test was set aside judged nothing, with what PHPUnit said where it failed the run. */

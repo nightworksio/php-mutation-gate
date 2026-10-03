@@ -31,6 +31,10 @@ use function sprintf;
  */
 final readonly class Detected
 {
+    /** Why Pest alone, without its mutation plugin, leaves nothing to mutate with. */
+    private const string PEST_WITHOUT_PLUGIN
+        = '%s is installed without %s, so nothing can mutate its tests. Install %2$s, or set runner in the config.';
+
     /** The package that says each preset fits, in the order they are asked about (ADR-0008). */
     private const array PRESETS = [
         Package::Laravel->value => BuiltinPreset::Laravel,
@@ -62,7 +66,11 @@ final readonly class Detected
         return BuiltinPreset::Library;
     }
 
-    /** Pest when its mutation plugin is installed, Infection when Infection is; both is a choice to make. */
+    /**
+     * Pest when its mutation plugin is installed, Infection when Infection
+     * is, and both is a choice to make; PHPUnit where neither is but PHPUnit
+     * is, and Pest is not (ADR-0023, decision 11).
+     */
     public function runner(): BuiltinRunner|CannotJudge
     {
         $installed = $this->installed();
@@ -112,10 +120,15 @@ final readonly class Detected
             )),
             $pest => BuiltinRunner::Pest,
             $infection => BuiltinRunner::Infection,
+            $installed->has(Package::Pest->value) => CannotJudge::because(
+                sprintf(self::PEST_WITHOUT_PLUGIN, Package::Pest->value, Package::PestMutate->value),
+            ),
+            $installed->has(Package::PhpUnit->value) => BuiltinRunner::PhpUnit,
             default => CannotJudge::because(sprintf(
-                'Neither %s nor %s is installed, so nothing can mutate. Install one of them.',
+                'None of %s, %s and %s is installed, so nothing can mutate. Install one of them.',
                 Package::PestMutate->value,
                 Package::Infection->value,
+                Package::PhpUnit->value,
             )),
         };
     }

@@ -18,8 +18,10 @@ use NightWorksIO\MutationGate\Adapter\Http\HttpExchange;
 use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnit;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
+use NightWorksIO\MutationGate\Cli\ComposerVendor;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
@@ -32,6 +34,7 @@ use NightWorksIO\MutationGate\Config\Proofs;
 use NightWorksIO\MutationGate\Config\Runner;
 use NightWorksIO\MutationGate\Config\Shards;
 use NightWorksIO\MutationGate\Config\StaticCheck;
+use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
@@ -47,9 +50,11 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Mutator\Engine\SetEngine;
@@ -418,4 +423,27 @@ it('tells an Azure store which scope is the default branch\'s, which its public 
     ));
 
     expect($wired->proofs)->toEqual($expected instanceof ContainerLedger ? $expected->forDefaultBranch(Scope::branch('trunk')) : $expected);
+});
+
+it('tells the PHPUnit runner the cap on each mutant\'s limit, timeouts.seconds, and the mutators of the default set', function (): void {
+    $registry = new DefaultExtension()->extend(wiringRegistry());
+    $set = $registry->registered(ExtensionPoint::MutatorSet, MutatorSet::defaultName());
+    $mutators = $set instanceof MutatorSet ? [...$set] : [];
+    $adapters = new Wiring($registry, Variables::of([]), wiringDetected())
+        ->adapters(Flows::settings(Runner::phpunit(), Timeouts::seconds(45)), Directory::at(Flows::project()));
+
+    expect($mutators)->not->toBe([])
+        ->and($adapters instanceof Adapters ? $adapters->runner : $adapters)->toEqual(PhpUnit::fromOptions(
+            Configs::options((string) json_encode(['timeout' => 45.0, 'mutators' => $mutators])),
+            ComposerVendor::of('.'),
+            new CapDirectory(),
+        ));
+});
+
+it('tells the PHPUnit runner no mutator where no extension registers the default set', function (): void {
+    $runner = wiredOf(Flows::settings(Runner::phpunit()), Variables::of([]))->runner;
+
+    expect($runner)->toBeInstanceOf(PhpUnit::class)
+        ->and($runner->mutate(MutationRequest::of(Paths::none(), WholeSuite::tests())))
+        ->toEqual(CannotJudge::because('The phpunit runner makes its mutants with the default mutator set, and no extension registers one.'));
 });

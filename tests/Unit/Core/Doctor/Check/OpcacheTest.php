@@ -34,3 +34,9 @@ it('finds nothing where OPcache is off, not loaded, or the PHP was not observed'
         ->and(Opcache::in(Observations::none()->withPhp(RunnerPhp::at('php'))))->toEqual(Findings::none())
         ->and(Opcache::in(Observations::none()))->toEqual(Findings::none());
 });
+
+it('finds nothing where the runner turns opcache off on each mutant\'s command line, whatever its settings', function (): void {
+    $php = RunnerPhp::at('php')->setting('opcache.enable_cli', 'On')->setting('opcache.file_cache', '/tmp/opcache')->turningOpcacheOff();
+
+    expect(Opcache::in(Observations::none()->withPhp($php)))->toEqual(Findings::none());
+});

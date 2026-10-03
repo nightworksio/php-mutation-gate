@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use function ltrim;
 use function sprintf;
 use function str_ends_with;
 use function str_starts_with;
@@ -15,6 +16,9 @@ final readonly class Version
     private const string DEV = 'dev-';
 
     private const string BRANCH = '-dev';
+
+    /** What a release's tag may start with before its number: `v13.3.0`. */
+    private const string TAG_PREFIX = 'v';
 
     private function __construct(private string $package, private string $version, private string $reference)
     {
@@ -33,6 +37,12 @@ final readonly class Version
     public function version(): string
     {
         return $this->version;
+    }
+
+    /** The version as a number, a release's tag without its `v`. */
+    public function release(): string
+    {
+        return ltrim($this->version, self::TAG_PREFIX);
     }
 
     public function reference(): string

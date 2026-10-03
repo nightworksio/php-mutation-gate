@@ -2,10 +2,11 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Project\PhpUnitIni;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\ErrorDisplay;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitIni;
 
 $config = static fn(string $php): string => sprintf('<?xml version="1.0"?><phpunit><php>%s</php></phpunit>', $php);
 
@@ -28,3 +29,20 @@ it('reads no memory_limit from a config that sets none, one PHP cannot read, or 
     'not XML' => ['<phpunit'],
     'empty' => [''],
 ]);
+
+it('reads where a PHPUnit config has PHP print errors: the last display_errors it sets', function (
+    string $text,
+    ErrorDisplay|NotGiven $display,
+) use ($config): void {
+    expect(PhpUnitIni::displayIn($text === '' ? '' : $config($text)))->toEqual($display);
+})->with([
+    'hidden' => ['<ini name="display_errors" value="0"/>', ErrorDisplay::Nowhere],
+    'shown again, last' => ['<ini name="display_errors" value="Off"/><ini name="display_errors" value="On"/>', ErrorDisplay::Stdout],
+    'on standard error' => ['<ini name="display_errors" value="stderr"/>', ErrorDisplay::Stderr],
+    'another setting' => ['<ini name="memory_limit" value="0"/>', NotGiven::value()],
+    'no config' => ['', NotGiven::value()],
+]);
+
+it('reads no display_errors set outside the php section', function (): void {
+    expect(PhpUnitIni::displayIn('<phpunit><ini name="display_errors" value="0"/></phpunit>'))->toEqual(NotGiven::value());
+});

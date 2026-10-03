@@ -11,6 +11,9 @@ enum BuiltinRunner: string
 
     case Infection = 'infection';
 
+    /** The gate's own PHPUnit runner, on the gate's own mutants (ADR-0023). */
+    case PhpUnit = 'phpunit';
+
     public function named(): Name
     {
         return Name::of($this->value);

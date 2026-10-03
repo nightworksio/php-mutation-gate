@@ -113,15 +113,20 @@ has tested, which its `conflict` pins exactly.
 Requirements:
 
 - PHP 8.5 or a later 8.x, with pcov or Xdebug for coverage.
-- One of the two runners:
+- One of the runners:
   - **Pest**: `pestphp/pest` ^5.1 with `pestphp/pest-plugin-mutate` ^5.0, on
     the PHPUnit 13 release Pest pins;
   - **Infection**: `infection/infection` ~0.35.0, with PHPUnit 12 or 13. The
     adapter reads the project's `infection.json5` and PHPUnit's XML coverage
-    with `colinodell/json5` and `ext-dom`, which Infection itself requires.
+    with `colinodell/json5` and `ext-dom`, which Infection itself requires;
+  - **PHPUnit** on its own: `phpunit/phpunit` 13.2 or later, the first with
+    `--test-id-filter-file`. The gate makes each mutant with its `default`
+    mutator set, and the project's PHPUnit runs the tests that cover it, one
+    mutant after another, loading the gate's extension from the project's
+    vendor directory, where `composer require --dev` puts it.
 
-  Infection does not run Pest suites, so a Pest project uses Pest's own
-  mutation testing.
+  Infection and the PHPUnit runner do not run Pest suites, so a Pest project
+  uses Pest's own mutation testing.
 
 Optional packages, each needed only for what it enables:
 
@@ -139,7 +144,8 @@ With no config file, the gate works everything out:
 
 - **trees**: from the `<source>` of `phpunit.xml` (or `phpunit.dist.xml`, or
   `phpunit.xml.dist`);
-- **runner**: whichever of Pest and Infection is installed;
+- **runner**: whichever of Pest's mutation plugin and Infection is installed,
+  or the PHPUnit runner where neither is, PHPUnit is, and Pest is not;
 - **preset**: Laravel, Symfony or library, from your `composer.json`.
 
 It runs the suite once under coverage, mutates every tree and prints each tree's
@@ -434,9 +440,9 @@ and `?` match within one directory, and `**` across any number of them.
 |-----|------|---------|------------|
 | `extensions` | list of class names | `[]` | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
 | `preset` | a preset name, or a list of them: `library`, `laravel`, `symfony` | chosen from `composer.json` | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
-| `runner` | adapter: `pest`, `infection` | the one installed | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
+| `runner` | adapter: `pest`, `infection`, `phpunit` | the one installed: `phpunit` only where neither of the others is, and Pest is not | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md), [0023](.docs/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
 | `runner.withhold` | list of environment-variable names or globs the runner never hands the project's tests, added to those every run withholds | `[]` | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
-| `runner.memory` | the `memory_limit` of every PHP process a mutation run starts, as PHP writes it (`512M`, `1G`), or `-1` for none; a `memory_limit` the project sets in `phpunit.xml` or a bootstrap file wins over it. Under Infection it also sets `display_errors=stdout`, so a warning raised outside a test, such as in a bootstrap file, also prints on standard output | `1G` | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
+| `runner.memory` | the `memory_limit` of every PHP process a mutation run starts, as PHP writes it (`512M`, `1G`), or `-1` for none; a `memory_limit` the project sets in `phpunit.xml` or a bootstrap file wins over it. Under Infection and the PHPUnit runner it also sets `display_errors=stdout`, so a warning raised outside a test, such as in a bootstrap file, also prints on standard output | `1G` | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | `treeSource` | adapter: `phpunit`, `composer` | `phpunit` | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `treeSource.with.fallback` | list of paths, the trees when `phpunit.xml` has no `<source>` | `[]`, or the preset's; `[]` takes the `autoload` paths of `composer.json` | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
 | `trees` | list of `{path, floor, reason, exclude}`, laid over the tree source's trees: a listed path takes its floor, reason and exclude from here | the tree source's trees | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
@@ -527,7 +533,8 @@ Environment variables that change what the gate does:
 | `MUTATION_GATE_SLACK_URL`, `MUTATION_GATE_DISCORD_URL`, `MUTATION_GATE_WEBHOOK_URL` | The webhook URLs of the `slack`, `discord` and `webhook` reporters, unless their `with.urlEnv` names other variables | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
 | `MUTATION_GATE_WEBHOOK_SECRET` | Signs each `webhook` request, with the time it was sent, as `X-Mutation-Gate-Signature`, unless `with.secretEnv` names another variable | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES` | Where and how the `otlp` reporter sends | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
-| `MUTATION_GATE_RESULTS` | Set by the Pest adapter for its own plugin; not for users | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
+| `MUTATION_GATE_RESULTS` | Set by the Pest adapter for its own plugin, and by the PHPUnit runner for its extension; not for users | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md), [0023](.docs/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
+| `MUTATION_GATE_MUTANT`, `MUTATION_GATE_MUTATED`, `MUTATION_GATE_GUARD` | Set by the PHPUnit runner for each mutant's run: the file its override serves the mutated file in place of, the mutated file, and where the override and the extension say what they served; not for users | [0023](.docs/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
 | `MUTATION_GATE_SHARED_COVERAGE`, `MUTATION_GATE_SUITE_SECONDS`, `MUTATION_GATE_CANARY`, `MUTATION_GATE_ONLY` | Set by the Pest adapter for the lines `pest:patch` writes into pest-plugin-mutate: the planning job's coverage map, its suite's seconds, the canary group, and the file listing the only mutants a run again makes; not for users | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 
 Files the gate reads and writes:
@@ -542,6 +549,7 @@ Files the gate reads and writes:
 | `.mutation-gate/mutants/<native id>.php` | The mutated file of a mutant judged by reference (Pest) | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | `infection.json5`, `infection.json`, `infection.json5.dist` or `infection.json.dist` | The project's own Infection config, the first found, whose mutators, `bootstrap`, `phpUnit`, `initialTestsPhpOptions`, `testFrameworkExtraArgs` and static analysis the gate keeps | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | `.mutation-gate/infection/` | The config the gate writes for each run of Infection, Infection's logs, its temporary files, and the coverage the adapter runs PHPUnit for | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
+| `.mutation-gate/phpunit/` | The PHPUnit runner's override, each mutant's mutated file, the tests its run selects, what the extension recorded and the guard, the coverage it runs PHPUnit for, and its memory cap | [0023](.docs/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
 | `.mutation-gate/publish/badge.json`, `trend.json`, `trend.svg` | The badge and trend | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | `.mutation-gate/publish/savings.json` | A shields.io endpoint with the time saved in the last 30 days | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 | `.mutation-gate/baseline.measured.json` | The baseline a CI run measured for trees with no floor, to commit as `mutation-gate.baseline.json` | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |

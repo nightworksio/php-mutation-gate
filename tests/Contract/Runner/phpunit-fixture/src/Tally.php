@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Library;
+namespace Quirks;
 
 use function str_repeat;
 
-final class Money
+/** The class the quirks of a project's tests run against, apart from the library every runner mutates. */
+final class Tally
 {
     private int $counted = 0;
 

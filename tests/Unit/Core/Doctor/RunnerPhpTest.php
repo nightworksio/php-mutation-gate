@@ -27,3 +27,12 @@ it('names the php.ini it loads, or describes it where it loads none', function (
     expect($php->loadingIni('/etc/php/8.5/cli/php.ini')->iniFile())->toBe('/etc/php/8.5/cli/php.ini')
         ->and($php->iniFile())->toBe('the php.ini this PHP loads');
 });
+
+it('says whether the runner turns opcache off on each mutant\'s command line, keeping all else it holds', function (): void {
+    $php = RunnerPhp::at('/usr/bin/php')->loading('Zend OPcache')->setting('opcache.enable_cli', '1');
+    $off = $php->turningOpcacheOff();
+
+    expect($php->turnsOpcacheOff())->toBeFalse()
+        ->and($off->turnsOpcacheOff())->toBeTrue()
+        ->and([$off->binary(), $off->loads('zend opcache'), $off->valueOf('opcache.enable_cli')])->toBe(['/usr/bin/php', true, '1']);
+});

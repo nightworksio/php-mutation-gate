@@ -2,12 +2,11 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Adapter\Infection;
+namespace NightWorksIO\MutationGate\Core\Runner;
 
 use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 
@@ -15,8 +14,11 @@ use function preg_match;
 use function preg_match_all;
 use function sprintf;
 
-/** The groups `phpunit --list-groups` prints, each on a line of its own under its heading. */
-final readonly class Listing
+/**
+ * The groups `phpunit --list-groups` prints, each on a line of its own under
+ * its heading, as both runners that start PHPUnit itself read them.
+ */
+final readonly class PhpUnitGroups
 {
     private const string HEADING = '/^Available test groups?:$/m';
 
@@ -25,7 +27,7 @@ final readonly class Listing
 
     private const string UNLISTED = "PHPUnit did not list the suite's groups. PHPUnit said:\n%s";
 
-    public static function groupsIn(Ran $ran): Groups|CannotJudge
+    public static function listedIn(Ran $ran): Groups|CannotJudge
     {
         if (! $ran->succeeded() || preg_match(self::HEADING, $ran->output(), $heading, PREG_OFFSET_CAPTURE) !== 1) {
             return CannotJudge::because(sprintf(self::UNLISTED, $ran->output()));

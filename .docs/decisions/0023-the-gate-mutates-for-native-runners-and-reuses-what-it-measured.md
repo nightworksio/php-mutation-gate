@@ -186,10 +186,17 @@ manual.
      auto_prepend_file=<override> vendor/bin/phpunit --extension
      'NightWorksIO\MutationGate\Adapter\PhpUnit\Extension'
      --test-id-filter-file=<ids> --stop-on-error --stop-on-failure
-     --no-progress`. Opcache is off, so no cached original runs in the
+     --no-coverage --no-logging --do-not-record-test-run-history
+     --no-progress`, with `--group` or `--filter` where a group or a filter
+     judges the unit. Opcache is off, so no cached original runs in the
      mutated file's place and no mutated file is cached for a later run. The
      run stops at the first test that fails or errors, and not at one that is
-     only risky or warns.
+     only risky or warns. It collects no coverage, writes none of the
+     project's logs and leaves PHPUnit's test run history as it was. Below
+     PHPUnit 13.3, which deprecates `--do-not-cache-result` for
+     `--do-not-record-test-run-history`, it passes `--do-not-cache-result`
+     instead, so a project that fails on PHPUnit's own deprecations runs on
+     either.
    - The prepended override is the gate's own `file://` wrapper. It serves
      the mutated file from before Composer's autoloader loads anything,
      `files` autoloads included, wherever PHP includes the file by any path
@@ -220,7 +227,24 @@ manual.
      project fails on, leaves the mutant unjudged, with what PHPUnit said. A
      run whose every test was skipped or marked incomplete leaves it
      unjudged too, with what PHPUnit said where it failed the run.
-   - The gate enforces the timeout on the process.
+   - The gate enforces the timeout on the process: a mutant's run is allowed
+     the smaller of 5 s plus five times its covering tests' own time, as the
+     coverage map timed them, and `timeouts.seconds`, which the flows hand
+     the runner; `timeouts.seconds` alone where a covering test is untimed.
+     A run again takes the cap the flows give it in place of
+     `timeouts.seconds` (ADR-0008 decision 2).
+   - Each mutant's PHPUnit, and every process it starts, runs under the
+     memory cap (ADR-0004 decision 9): the cap's ini, in the runner's own
+     directory, also sets `display_errors=stdout`, and the run's
+     `PHP_INI_SCAN_DIR` names its directory after those the gate's own
+     names, or PHP's own where it names none. A run that killed the mutant,
+     or errored, whose output holds PHP's fatal error for exactly the cap is
+     out of memory, with the cap. Under a cap, so is one where PHPUnit says
+     its process ended mid-test with PHP's errors visibly hidden, as PHPUnit
+     says it hid them or as the project's PHPUnit config shows them nowhere,
+     with no limit known, which memory triage never counts as a kill. The
+     gate reads both of PHPUnit's streams, so a config that prints errors on
+     standard error hides nothing.
    - The runner supports PHPUnit 13.2.0 and later, the first release with
      `--test-id-filter-file`: PHPUnit 12, 13.0 and 13.1 refuse the option.
      The gate cannot judge with a lower PHPUnit, and names the version
@@ -243,19 +267,36 @@ manual.
       says nothing where it passes.
     - **Groups:** `--list-groups`. `#[Holds]` is read from tokens, and a held
       unit is narrowed by `--group=holds:<path>` or by the holding tests' ids.
+    - **Start-up:** a run of no test, started as a mutant's own run of the
+      file, its mutant the file unchanged, narrowed by `Filter::nothing()`
+      and passing with `--do-not-fail-on-empty-test-suite`.
+    - **Mutants:** the flows hand the runner the classes of the `default`
+      set's mutators. Without them it cannot judge, and says so. A run again
+      makes only the mutants it is asked for, by their ids, on the map the
+      run it follows read, and a mutant it no longer makes is unjudged.
+    - **Markers:** none of its own; `ignores.entries` is the one way to
+      ignore a mutant it makes.
     - **Kills:** the first killer from events, and `--kill-matrix=full` by
       leaving out `--stop-on-error` and `--stop-on-failure` (ADR-0014
       decision 7).
     - **Costs:** learned from the gate's own process timings (ADR-0006
       decision 4).
     - `Adapter\PhpUnit` holds the extension, the runner and the override. No
-      port changes.
+      port changes. It behaves as `RunnerBehaviour::standard()` says: it lists
+      `#[Holds]` as groups, can raise a limit, reads the map the plan handed
+      each shard, and runs one mutant at a time.
 
 11. **Zero-config chooses the PHPUnit runner only where nothing else fits.**
     - `runner: phpunit` is chosen only when neither Pest's mutate plugin nor
-      Infection is installed. With Infection installed it stays Infection,
-      and with both runners installed the refusal of ADR-0002 decision 5
-      applies.
+      Infection is installed, and PHPUnit is. With Infection installed it
+      stays Infection, and with both runners installed the refusal of
+      ADR-0002 decision 5 applies.
+    - With Pest installed but not its mutate plugin, zero-config refuses (exit
+      code 2) and names the plugin to install: PHPUnit cannot run a Pest
+      suite. With none of the three installed, the refusal names all three.
+    - `doctor` describes the PHP the runner starts as one whose opcache it
+      turns off on each mutant's command line, so its opcache finding never
+      fires for it.
     - `init` asks, and suggests `phpunit` for a PHPUnit project with no
       Infection config.
     - This amends ADR-0001 decision 2's runner row, ADR-0002 decision 5, and

@@ -73,7 +73,7 @@ it('runs PHPUnit under coverage and reads the map it wrote', function (): void {
             sprintf('%s/vendor/bin/phpunit', $project->root()),
             sprintf('--coverage-php=%s/.mutation-gate/coverage/coverage.php', $project->root()),
             '--no-logging',
-            '--do-not-cache-result',
+            '--do-not-record-test-run-history',
             '--no-progress',
         ])
         ->and($command->withheld())->toEqual($withheld)

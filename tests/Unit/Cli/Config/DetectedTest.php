@@ -52,8 +52,9 @@ it('chooses the preset from what composer.json requires', function (string $mani
 it('chooses the runner that is installed', function (array $installed, BuiltinRunner $runner) use ($detected): void {
     expect($detected('', $installed)->runner())->toBe($runner);
 })->with([
-    'Pest' => [['pestphp/pest', 'pestphp/pest-plugin-mutate'], BuiltinRunner::Pest],
-    'Infection' => [['infection/infection'], BuiltinRunner::Infection],
+    'Pest' => [['pestphp/pest', 'pestphp/pest-plugin-mutate', 'phpunit/phpunit'], BuiltinRunner::Pest],
+    'Infection' => [['infection/infection', 'phpunit/phpunit'], BuiltinRunner::Infection],
+    'PHPUnit alone' => [['phpunit/phpunit'], BuiltinRunner::PhpUnit],
 ]);
 
 it('asks for a choice when both runners are installed', function () use ($detected): void {
@@ -65,9 +66,16 @@ it('asks for a choice when both runners are installed', function () use ($detect
 });
 
 it('cannot judge without a runner installed', function () use ($detected): void {
-    expect($detected('', ['pestphp/pest'])->runner())->toEqual(CannotJudge::because(
-        'Neither pestphp/pest-plugin-mutate nor infection/infection is installed, so nothing can mutate. '
-        . 'Install one of them.',
+    expect($detected('', ['symfony/console'])->runner())->toEqual(CannotJudge::because(
+        'None of pestphp/pest-plugin-mutate, infection/infection and phpunit/phpunit is installed, '
+        . 'so nothing can mutate. Install one of them.',
+    ));
+});
+
+it('cannot judge a Pest suite without Pest\'s mutation plugin, which PHPUnit cannot run', function () use ($detected): void {
+    expect($detected('', ['pestphp/pest', 'phpunit/phpunit'])->runner())->toEqual(CannotJudge::because(
+        'pestphp/pest is installed without pestphp/pest-plugin-mutate, so nothing can mutate its tests. '
+        . 'Install pestphp/pest-plugin-mutate, or set runner in the config.',
     ));
 });
 

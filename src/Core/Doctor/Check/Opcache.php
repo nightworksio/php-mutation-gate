@@ -19,7 +19,9 @@ use function sprintf;
 /**
  * OPcache on for the command line, or keeping a file cache, which could serve
  * a file's original in place of its mutant, so a mutant judged by reference
- * is left unjudged (ADR-0004, decision 8).
+ * is left unjudged (ADR-0004, decision 8). A runner that turns opcache off on
+ * each mutant's command line is never served a cached original (ADR-0023,
+ * decision 9).
  */
 final readonly class Opcache
 {
@@ -35,7 +37,7 @@ final readonly class Opcache
     {
         $php = $observed->php();
 
-        if (! $php instanceof RunnerPhp || ! self::cached($php)) {
+        if (! $php instanceof RunnerPhp || $php->turnsOpcacheOff() || ! self::cached($php)) {
             return Findings::none();
         }
 

@@ -13,8 +13,9 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 /**
  * The PHP a runner runs its tests on, as it describes itself with the
  * runner's own options: the extensions it loads, the ones installed beside
- * them that it does not, its settings, the php.ini it loads, and the
- * variables it sees.
+ * them that it does not, its settings, the php.ini it loads, the variables it
+ * sees, and whether the runner turns opcache off on each mutant's command
+ * line.
  */
 final readonly class RunnerPhp
 {
@@ -31,70 +32,59 @@ final readonly class RunnerPhp
         private array $settings,
         private array $variables,
         private string|NotGiven $iniFile,
+        private bool $opcacheOff,
     ) {
     }
 
     public static function at(string $binary): self
     {
-        return new self($binary, [], [], [], [], NotGiven::value());
+        return new self($binary, [], [], [], [], NotGiven::value(), opcacheOff: false);
     }
 
     /** This PHP, loading these extensions as well, by name in any case. */
     public function loading(string ...$extensions): self
     {
-        return new self(
-            $this->binary,
-            $this->named($this->loaded, $extensions),
-            $this->offered,
-            $this->settings,
-            $this->variables,
-            $this->iniFile,
-        );
+        return clone($this, ['loaded' => $this->named($this->loaded, $extensions)]);
     }
 
     /** This PHP, with these extensions installed where it could load them. */
     public function offering(string ...$extensions): self
     {
-        return new self(
-            $this->binary,
-            $this->loaded,
-            $this->named($this->offered, $extensions),
-            $this->settings,
-            $this->variables,
-            $this->iniFile,
-        );
+        return clone($this, ['offered' => $this->named($this->offered, $extensions)]);
     }
 
     /** This PHP, with a setting's value. */
     public function setting(string $name, string $value): self
     {
-        return new self(
-            $this->binary,
-            $this->loaded,
-            $this->offered,
-            [...$this->settings, $name => $value],
-            $this->variables,
-            $this->iniFile,
-        );
+        return clone($this, ['settings' => [...$this->settings, $name => $value]]);
     }
 
     /** This PHP, seeing a variable of the environment it runs in. */
     public function seeing(string $name, string $value): self
     {
-        return new self(
-            $this->binary,
-            $this->loaded,
-            $this->offered,
-            $this->settings,
-            [...$this->variables, $name => $value],
-            $this->iniFile,
-        );
+        return clone($this, ['variables' => [...$this->variables, $name => $value]]);
     }
 
     /** This PHP, loading a php.ini. */
     public function loadingIni(string $file): self
     {
-        return new self($this->binary, $this->loaded, $this->offered, $this->settings, $this->variables, $file);
+        return clone($this, ['iniFile' => $file]);
+    }
+
+    /**
+     * This PHP, as a runner starts each mutant's run on it with opcache off
+     * on its command line, so opcache serves nothing, whatever its settings
+     * (ADR-0023, decision 9).
+     */
+    public function turningOpcacheOff(): self
+    {
+        return clone($this, ['opcacheOff' => true]);
+    }
+
+    /** Whether the runner turns opcache off on each mutant's command line. */
+    public function turnsOpcacheOff(): bool
+    {
+        return $this->opcacheOff;
     }
 
     /** The PHP binary the runner starts. */

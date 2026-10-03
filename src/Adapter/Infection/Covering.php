@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\CoverageFailure;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Program;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -94,6 +95,6 @@ final readonly class Covering
     /** The directory the adapter runs PHPUnit under coverage into, for a run of its own. */
     private function ownCoverage(): DiskPath
     {
-        return $this->project->directory(Path::of($this->project->own(Invocation::COVERAGE)));
+        return $this->project->directory(Path::of($this->project->own(CoverageRun::OWN_DIRECTORY)));
     }
 }

@@ -21,6 +21,9 @@
 /tests/Contract/Runner/phpunit-fixture/.mutation-gate/
 /tests/Contract/Runner/phpunit-fixture/.phpunit.cache/
 /tests/Contract/Runner/phpunit-fixture/.phpunit.result.cache
+/tests/Contract/Runner/phpunit-fixture/library/.mutation-gate/
+/tests/Contract/Runner/phpunit-fixture/library/.phpunit.cache/
+/tests/Contract/Runner/phpunit-fixture/library/.phpunit.result.cache
 
 # What the bot's evidence steps write, what installs the markdownlint they run,
 # and what Python compiles of the scripts it runs.

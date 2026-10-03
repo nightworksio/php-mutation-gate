@@ -37,9 +37,6 @@ final readonly class Invocation
 
     public const string TMP = 'tmp';
 
-    /** Where the adapter runs the suite under coverage for a mutation run of its own. */
-    public const string COVERAGE = 'coverage';
-
     /** PHPUnit's XML coverage in a coverage directory, where Infection's `--coverage` looks for it. */
     public const string XML = 'coverage-xml';
 
@@ -63,8 +60,8 @@ final readonly class Invocation
         return Command::php(
             $config->phpunit($project),
             sprintf('--configuration=%s', $config->configDirectory($project)),
-            '--list-groups',
-            '--colors=never',
+            PhpUnitOption::ListGroups->value,
+            PhpUnitOption::NoColors->value,
         );
     }
 
@@ -81,7 +78,7 @@ final readonly class Invocation
         return Command::php(
             $config->phpunit($project),
             sprintf('--configuration=%s', $startUpConfig),
-            '--colors=never',
+            PhpUnitOption::NoColors->value,
             ...$config->extraArguments(),
             ...self::narrowedTo(Filter::nothing()),
             ...[PhpUnitOption::DoNotFailOnEmptyTestSuite->value],
@@ -102,7 +99,7 @@ final readonly class Invocation
                 sprintf('--configuration=%s', $config->configDirectory($project)),
                 sprintf('--coverage-xml=%s', $directory->child(self::XML)->value()),
                 sprintf('%s=%s', PhpUnitOption::LogJunit->value, $directory->child(self::JUNIT)->value()),
-                '--colors=never',
+                PhpUnitOption::NoColors->value,
                 ...$config->extraArguments(),
                 ...self::narrowedTo($tests),
             ],

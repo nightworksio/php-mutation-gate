@@ -27,6 +27,12 @@ final readonly class Runner
         return self::uses(BuiltinRunner::Infection->value);
     }
 
+    /** The gate's own PHPUnit runner, on the gate's own mutants (ADR-0023). */
+    public static function phpunit(): self
+    {
+        return self::uses(BuiltinRunner::PhpUnit->value);
+    }
+
     /** A runner another extension registers by name, or a class, with its options. */
     public static function uses(string $runner, Option ...$options): self
     {

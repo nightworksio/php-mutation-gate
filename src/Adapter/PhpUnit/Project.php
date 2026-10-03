@@ -5,15 +5,23 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
 use function dirname;
+use function file_get_contents;
 use function file_put_contents;
 use function is_dir;
 use function is_file;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Composer\Installed;
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
+use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\ErrorDisplay;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitIni;
 
 use function realpath;
 use function sprintf;
@@ -24,9 +32,6 @@ use function sprintf;
  */
 final readonly class Project
 {
-    /** The adapter's own directory in the gate's. */
-    private const string OWN = 'phpunit';
-
     /** PHPUnit's script, in the vendor directory's `bin`. */
     private const string PHPUNIT = 'bin/phpunit';
 
@@ -40,10 +45,18 @@ final readonly class Project
     ) {
     }
 
-    /** The project at a directory, held as its real path. */
+    /** The project at a directory, held as its real path, or as it is named where it is not there. */
     public static function at(string $root, Paths $tests, Path $vendor, Path $workspace): self
     {
-        return new self(Root::of((string) realpath($root)), $tests, $vendor, $workspace);
+        $real = realpath($root);
+
+        return new self(Root::of($real === false ? $root : $real), $tests, $vendor, $workspace);
+    }
+
+    /** The project in a directory of this one, with its tests, vendor and gate's directory named as this one's are. */
+    public function in(Path $directory): self
+    {
+        return self::at($this->absolute($directory), $this->tests, $this->vendor, $this->workspace);
     }
 
     public function root(): string
@@ -69,15 +82,61 @@ final readonly class Project
         return $this->root->relative($file);
     }
 
+    /** The vendor directory PHPUnit is installed in, as a path of the project. */
+    public function vendor(): Path
+    {
+        return $this->vendor;
+    }
+
     public function phpunit(): string
     {
         return $this->absolute($this->vendor->child(Path::of(self::PHPUNIT)));
     }
 
-    /** A path of the adapter's own, inside the gate's directory. */
+    /** Whether PHPUnit's script is in the project's vendor directory, so the project holds a PHPUnit to run. */
+    public function hasPhpUnit(): bool
+    {
+        return is_file($this->phpunit());
+    }
+
+    /** Where Composer lists what it installed in the project's vendor directory. */
+    public function installed(): string
+    {
+        return $this->absolute(Installed::fileIn($this->vendor));
+    }
+
+    /** The gate's directory, on disk. */
+    public function workspace(): DiskPath
+    {
+        return $this->root->at($this->workspace);
+    }
+
+    /**
+     * Where the PHPUnit config PHPUnit reads in the root has PHP print
+     * errors, as its `<php>` sets `display_errors`; none where it sets none,
+     * or the project has no config.
+     */
+    public function errorDisplay(): ErrorDisplay|NotGiven
+    {
+        foreach (PhpUnitConfig::candidatesIn(Path::root()) as $candidate) {
+            if (is_file($this->absolute($candidate))) {
+                return PhpUnitIni::displayIn(sprintf('%s', file_get_contents($this->absolute($candidate))));
+            }
+        }
+
+        return NotGiven::value();
+    }
+
+    /** A path of the adapter's own, inside the gate's directory, on disk. */
     public function own(string $name): string
     {
-        return $this->absolute($this->workspace->child(Path::of(self::OWN))->child(Path::of($name)));
+        return $this->absolute($this->ownPath($name));
+    }
+
+    /** A path of the adapter's own, inside the gate's directory, as a path of the project. */
+    public function ownPath(string $name): Path
+    {
+        return $this->workspace->child(Path::of(BuiltinRunner::PhpUnit->value))->child(Path::of($name));
     }
 
     /** A file of the adapter's own, written with its directory made, or why it cannot be. */

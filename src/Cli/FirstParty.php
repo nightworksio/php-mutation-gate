@@ -47,6 +47,7 @@ use NightWorksIO\MutationGate\Adapter\Mago\Mago;
 use NightWorksIO\MutationGate\Adapter\Otlp\OtlpReporter;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnit;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Cli\Config\KeyedStore;
@@ -221,6 +222,14 @@ final readonly class FirstParty implements Extension
             ->withRunner(
                 BuiltinRunner::Infection->named(),
                 static fn(Options $options): Infection|Invalid => Infection::fromOptions($options, new CapDirectory()),
+            )
+            ->withRunner(
+                BuiltinRunner::PhpUnit->named(),
+                static fn(Options $options): PhpUnit|Invalid => PhpUnit::fromOptions(
+                    $options,
+                    ComposerVendor::of(self::HERE),
+                    new CapDirectory(),
+                ),
             )
             ->withStaticChecker(
                 BuiltinAnalyser::Mago->named(),

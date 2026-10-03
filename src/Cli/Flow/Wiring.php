@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
 use NightWorksIO\MutationGate\Adapter\Infection\Setup;
 use NightWorksIO\MutationGate\Adapter\Infection\StaticAnalysis;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnitOptions;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\Config\DeclaredTrees;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
@@ -76,7 +77,7 @@ final readonly class Wiring
         $lookup = Lookup::in($this->extensions);
         $source = BuiltinVersionControl::in($this->environment)->named();
         $checker = $this->checker($settings->staticCheck(), $chosen);
-        $runner = $chosen->runner($this->runnerChoice($settings->runner()->choice(), $checker));
+        $runner = $chosen->runner($this->runnerChoice($settings, $checker, $lookup));
         $found = $chosen->treeSource($settings->treeSource());
         $trees = $found instanceof TreeSource ? new DeclaredTrees($found, $settings->floors()->trees()) : $found;
         $costs = $lookup->costModel(BuiltinCostModel::Learned->named(), $settings->shards()->costOptions());
@@ -125,15 +126,37 @@ final readonly class Wiring
     /**
      * The runner the config chooses: Infection told that the gate checks its
      * survivors, where an analyser does, so it runs no static analysis of its
-     * own (ADR-0020, decision 13).
+     * own (ADR-0020, decision 13); and the PHPUnit runner told the cap on
+     * each mutant's limit, `timeouts.seconds`, and the mutators it makes its mutants with,
+     * the `default` set's (ADR-0023, decision 8).
      */
-    private function runnerChoice(Choice $runner, StaticChecker|NoAnalyser|Invalid|CannotJudge $checker): Choice
-    {
+    private function runnerChoice(
+        Settings $settings,
+        StaticChecker|NoAnalyser|Invalid|CannotJudge $checker,
+        Lookup $lookup,
+    ): Choice {
+        $runner = $settings->runner()->choice();
+        $use = $runner->use()->value();
         $gate = Json::object(Member::of(Setup::STATIC_ANALYSIS, StaticAnalysis::Gate->value));
+        $native = Json::object(
+            Member::of(PhpUnitOptions::TIMEOUT, $settings->triage()->limit()->seconds()),
+            Member::of(PhpUnitOptions::MUTATORS, Json::items(...$this->mutators($lookup))),
+        );
 
-        return $checker instanceof StaticChecker && $runner->use()->value() === BuiltinRunner::Infection->value
-            ? Choice::of($runner->use()->value(), $runner->options()->over($gate))
-            : $runner;
+        return match (true) {
+            $checker instanceof StaticChecker && $use === BuiltinRunner::Infection->value
+                => Choice::of($use, $runner->options()->over($gate)),
+            $use === BuiltinRunner::PhpUnit->value => Choice::of($use, $runner->options()->over($native)),
+            default => $runner,
+        };
+    }
+
+    /** @return list<string> the classes of the mutators the `default` set holds, where it is registered */
+    private function mutators(Lookup $lookup): array
+    {
+        $set = $lookup->mutatorSet(MutatorSet::defaultName());
+
+        return $set instanceof MutatorSet ? [...$set] : [];
     }
 
     /**

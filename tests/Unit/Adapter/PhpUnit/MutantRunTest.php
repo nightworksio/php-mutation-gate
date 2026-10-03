@@ -5,18 +5,25 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Command;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Extension;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Invocation;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\MemoryScan;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\MutantRun;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Outcome;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Project;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\TestFiles;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Variable;
+use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\ErrorDisplay;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -26,10 +33,12 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestMethod;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 use NightWorksIO\MutationGate\Mutator\Engine\MadeMutant;
 use NightWorksIO\MutationGate\Mutator\Engine\MadeMutants;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
+use NightWorksIO\MutationGate\Tests\Support\PhpUnitScan;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitShellFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -94,7 +103,7 @@ $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite:
 
 $judged = static function (PhpUnitShellFake $shell, TestIds $covering) use ($request): Mutant|CannotJudge {
     $project = phpUnitProject();
-    $run = new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project));
+    $run = new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project), PhpUnitScan::uncapped($project), NotGiven::value());
 
     return $run->judged(moneyMutant($project), $covering, $request, Seconds::of(3.0));
 };
@@ -123,7 +132,7 @@ it('starts PHPUnit with opcache off, the override, the extension and the coverin
             '--stop-on-failure',
             '--no-coverage',
             '--no-logging',
-            '--do-not-cache-result',
+            '--do-not-record-test-run-history',
             '--no-progress',
         ])
         ->and($ids)->toBe("Tests\\MoneySpec::addsTwoAmounts\n")
@@ -265,7 +274,7 @@ it('selects the covering tests by their files where an id has a line break or en
     Scratch::write($project->root(), 'tests/PriceSpec.php', "<?php\nnamespace Tests;\nfinal class PriceSpec {}\n");
     $shell = recording(Outcome::Failed->line($adds->value()), Ran::finished(succeeded: false, output: ''));
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
-    $mutant = new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project))
+    $mutant = new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project), PhpUnitScan::uncapped($project), NotGiven::value())
         ->judged(moneyMutant($project), TestIds::of($adds, TestId::of($id)), $request, Seconds::of(3.0));
     $selection = $shell->commands()[0]->arguments()[8];
 
@@ -282,7 +291,7 @@ it('selects the covering tests by their ids where a carriage return is inside on
     $project = phpUnitProject();
     $shell = recording('', Ran::finished(succeeded: true, output: ''));
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
-    new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project))
+    new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project), PhpUnitScan::uncapped($project), NotGiven::value())
         ->judged(moneyMutant($project), TestIds::of($adds, TestId::of("Tests\\MoneySpec::adds#a\rb")), $request, Seconds::of(3.0));
 
     expect($shell->commands()[0]->arguments()[8])->toStartWith('--test-id-filter-file=');
@@ -303,7 +312,7 @@ it('keeps the run to the unit\'s group', function () use ($adds): void {
     $project = phpUnitProject();
     $shell = recording('', Ran::finished(succeeded: true, output: ''));
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Money.php'));
-    new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project))
+    new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project), PhpUnitScan::uncapped($project), NotGiven::value())
         ->judged(moneyMutant($project), TestIds::of($adds), $request, Seconds::of(3.0));
 
     expect(array_slice($shell->commands()[0]->arguments(), -2))->toBe(['--group', 'holds:src/Money.php']);
@@ -312,9 +321,9 @@ it('keeps the run to the unit\'s group', function () use ($adds): void {
 it('starts each run with no earlier run\'s records or guard', function () use ($adds): void {
     $project = phpUnitProject();
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
-    $run = new MutantRun($project, recording(Outcome::Failed->line('T::fails'), Ran::finished(succeeded: false, output: '')), new Invocation($project, '/gate/override.php'), new TestFiles($project));
+    $run = new MutantRun($project, recording(Outcome::Failed->line('T::fails'), Ran::finished(succeeded: false, output: '')), new Invocation($project, '/gate/override.php'), new TestFiles($project), PhpUnitScan::uncapped($project), NotGiven::value());
     $run->judged(moneyMutant($project), TestIds::of($adds), $request, Seconds::of(3.0));
-    $again = new MutantRun($project, new PhpUnitShellFake(static fn(): Ran => Ran::finished(succeeded: true, output: '')), new Invocation($project, '/gate/override.php'), new TestFiles($project))
+    $again = new MutantRun($project, new PhpUnitShellFake(static fn(): Ran => Ran::finished(succeeded: true, output: '')), new Invocation($project, '/gate/override.php'), new TestFiles($project), PhpUnitScan::uncapped($project), NotGiven::value())
         ->judged(moneyMutant($project), TestIds::of($adds), $request, Seconds::of(3.0));
 
     expect(judgedAs($again))->toBe([MutantStatus::Unjudged, [], 'PHPUnit ran none of the 1 tests that cover it: the selection matched no test.']);
@@ -325,7 +334,7 @@ it('cannot judge a mutant whose files it cannot write', function () use ($adds, 
     Scratch::write($project->root(), '.mutation-gate/phpunit', 'a file where the directory goes');
     $shell = recording('', Ran::finished(succeeded: true, output: ''));
     set_error_handler(static fn(): bool => true);
-    $run = new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project));
+    $run = new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project), PhpUnitScan::uncapped($project), NotGiven::value());
     $judged = $run->judged(moneyMutant($project), TestIds::of($adds), $request, Seconds::of(3.0));
     restore_error_handler();
 
@@ -335,4 +344,105 @@ it('cannot judge a mutant whose files it cannot write', function () use ($adds, 
         moneyMutant($project)->id()->value(),
     )))
         ->and($shell->commands())->toBe([]);
+});
+
+/**
+ * A mutant's status, its limit, and the tests that killed it, judged under a cap by a run that recorded these lines
+ * and printed this, in a project whose PHPUnit config shows errors where given.
+ *
+ * @return list<mixed>
+ */
+$weighed = static function (string $lines, Ran $ran, MemoryCap $cap, ErrorDisplay|NotGiven $display) use ($adds): array {
+    $project = phpUnitProject();
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->cappedAt($cap);
+    $run = new MutantRun($project, recording($lines, $ran), new Invocation($project, '/gate/override.php'), new TestFiles($project), PhpUnitScan::uncapped($project), $display);
+    $mutant = $run->judged(moneyMutant($project), TestIds::of($adds, TestId::of('T::dies')), $request, Seconds::of(3.0));
+
+    return $mutant instanceof Mutant
+        ? [$mutant->status(), $mutant->limit(), array_map(static fn(TestId $test): string => $test->value(), [...$mutant->killers()])]
+        : [$mutant->why()];
+};
+
+$died = records(Outcome::Started->line('T::dies'));
+$exhausted = 'PHP Fatal error:  Allowed memory size of 67108864 bytes exhausted (tried to allocate 4096 bytes)';
+$hidden = "Fatal error: Premature end of PHPUnit's PHP process. Use display_errors=On to see the error message.";
+$ended = 'Fatal error: Premature end of PHP process when running Tests\MoneySpec::dies.';
+
+it('reads a mutant whose process ran out of exactly the cap as out of memory, with the cap and no killer', function (
+    string $lines,
+    string $output,
+) use ($weighed, $exhausted): void {
+    $cap = MemoryCap::of(64, MemoryUnit::Megabytes);
+
+    expect($weighed($lines, Ran::finished(succeeded: false, output: sprintf('%s%s', $output, $exhausted)), $cap, NotGiven::value()))
+        ->toEqual([MutantStatus::OutOfMemory, $cap, []]);
+})->with([
+    'as a test ran' => [records(Outcome::Started->line('T::dies')), ''],
+    'before any test started' => ['', 'PHPUnit 13.3.4 by Sebastian Bergmann and contributors.'],
+]);
+
+it('reads a mutant as out of memory, with no limit known, where PHPUnit says its process ended with errors visibly hidden under a cap', function (
+    string $output,
+    ErrorDisplay|NotGiven $display,
+) use ($weighed, $died): void {
+    expect($weighed($died, Ran::finished(succeeded: false, output: $output), MemoryCap::of(64, MemoryUnit::Megabytes), $display))
+        ->toEqual([MutantStatus::OutOfMemory, Unmeasured::duration(), []]);
+})->with([
+    'as PHPUnit says it hid them' => [$hidden, NotGiven::value()],
+    'where the project\'s config shows them nowhere' => [$ended, ErrorDisplay::Nowhere],
+]);
+
+it('keeps the status a run gave a mutant the cap did not stop', function (
+    string $lines,
+    Ran $ran,
+    MemoryCap $cap,
+    ErrorDisplay|NotGiven $display,
+    MutantStatus $status,
+) use ($weighed): void {
+    expect($weighed($lines, $ran, $cap, $display)[0])->toBe($status);
+})->with([
+    'out of a limit the project set itself' => [
+        records(Outcome::Started->line('T::dies')),
+        Ran::finished(succeeded: false, output: 'Allowed memory size of 50331648 bytes exhausted'),
+        MemoryCap::of(64, MemoryUnit::Megabytes),
+        NotGiven::value(),
+        MutantStatus::Killed,
+    ],
+    'ended mid-test where the config shows errors on standard error, which the gate reads' => [
+        records(Outcome::Started->line('T::dies')),
+        Ran::finished(succeeded: false, output: 'Fatal error: Premature end of PHP process when running T::dies.'),
+        MemoryCap::of(64, MemoryUnit::Megabytes),
+        ErrorDisplay::Stderr,
+        MutantStatus::Killed,
+    ],
+    'ended mid-test with errors hidden, and no cap' => [
+        records(Outcome::Started->line('T::dies')),
+        Ran::finished(succeeded: false, output: "Fatal error: Premature end of PHPUnit's PHP process. Use display_errors=On to see the error message."),
+        MemoryCap::none(),
+        ErrorDisplay::Nowhere,
+        MutantStatus::Killed,
+    ],
+    'survived, whatever it printed' => [
+        records(Outcome::Started->line('T::dies'), Outcome::Passed->line('T::dies')),
+        Ran::finished(succeeded: true, output: 'Allowed memory size of 67108864 bytes exhausted'),
+        MemoryCap::of(64, MemoryUnit::Megabytes),
+        NotGiven::value(),
+        MutantStatus::Survived,
+    ],
+]);
+
+it('runs a mutant\'s PHPUnit under the memory cap the run wrote, with its errors shown on the standard output', function () use ($adds, $request): void {
+    $project = phpUnitProject();
+    $scan = MemoryScan::in($project, MemoryCap::of(64, MemoryUnit::Megabytes), new CapDirectory());
+    $seen = [];
+    $shell = new PhpUnitShellFake(static function (Command $command) use (&$seen): Ran {
+        $directory = $command->scanned();
+        $seen[] = $directory instanceof DiskPath ? (string) file_get_contents($directory->child('memory-cap.ini')->value()) : '';
+
+        return Ran::finished(succeeded: true, output: '');
+    });
+    $run = new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project), $scan instanceof MemoryScan ? $scan : PhpUnitScan::uncapped($project), NotGiven::value());
+    $run->judged(moneyMutant($project), TestIds::of($adds), $request, Seconds::of(3.0));
+
+    expect($seen)->toBe(["memory_limit=64M\ndisplay_errors=stdout\n"]);
 });

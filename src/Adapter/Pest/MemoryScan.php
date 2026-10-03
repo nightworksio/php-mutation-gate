@@ -26,9 +26,6 @@ use function sprintf;
  */
 final readonly class MemoryScan
 {
-    /** Beside the results, by the id of the gate's process. */
-    private const string DIRECTORY = '%s/php/%d';
-
     private function __construct(private DiskPath|Uncapped $directory, private CapFiles $files)
     {
     }
@@ -36,7 +33,7 @@ final readonly class MemoryScan
     /** The directory this process of the gate writes the cap of a run to, by the run's results file. */
     public static function directoryBeside(string $results): string
     {
-        return sprintf(self::DIRECTORY, dirname($results), getmypid());
+        return sprintf('%s/%s', dirname($results), sprintf(MemoryCap::DIRECTORY, getmypid()));
     }
 
     /** The cap written beside a run's results file, or none where it caps nothing; or why it cannot be written. */

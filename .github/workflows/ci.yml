@@ -464,9 +464,11 @@ jobs:
         run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection' --log-junit=evidence/raw/infection-highest-13.xml
         env:
           RUNNER_CONTRACTS: infection
-      # The PHPUnit runner's library is a project of its own, installed at the
+      # The PHPUnit runner's fixture is a project of its own, installed at the
       # lowest PHPUnit the runner supports, the one `Installed::FLOOR` names,
-      # and at the highest (ADR-0023). The filter runs its contracts alone. It
+      # and at the highest (ADR-0023). It holds the quirks of a project's tests
+      # and, in library/, the code every runner's contract mutates, which
+      # shares its vendor directory. The filter runs its contracts alone. It
       # gets the php-code-coverage this package is locked at, as the Pest
       # library does: the adapter reads the maps the library's PHPUnit writes.
       # In a user's project the gate and PHPUnit share one vendor directory,
