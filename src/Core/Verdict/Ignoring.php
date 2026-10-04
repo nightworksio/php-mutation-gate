@@ -7,10 +7,15 @@ namespace NightWorksIO\MutationGate\Core\Verdict;
 use function count;
 
 use DateTimeImmutable;
+
+use function in_array;
+
 use NightWorksIO\MutationGate\Core\Config\Expiry;
 use NightWorksIO\MutationGate\Core\Config\Ignored;
+use NightWorksIO\MutationGate\Core\Config\IgnoredPattern;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
+use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Time\Day;
 
@@ -132,21 +137,36 @@ final readonly class Ignoring
      * a survivor, an uncovered mutant, or one an ignore left out or a proof
      * found equivalent (ADR-0013, decision 12); none where a unit has no
      * result, as the failures of the units that did not run say, or a mutant
-     * is unjudged, since either could hold the mutant an entry names.
+     * is unjudged, since either could hold the mutant an entry names. A run
+     * that made mutants with some mutators alone, as `--security` does,
+     * checks only the entries that name one of those mutators: of any other,
+     * it made no mutant to match (ADR-0021, decision 20).
      */
-    public function stale(TreeVerdicts $verdicts, Failures $unrun): Failures
+    public function stale(TreeVerdicts $verdicts, Failures $unrun, Mutators $made): Failures
     {
         $failures = Failures::none();
         $judgedEveryMutant = count($unrun) === 0
             && $verdicts->mutants()->counts()->number(MutantJudgement::Unjudged) === 0;
 
         foreach ($judgedEveryMutant ? $this->applying : [] as $entry) {
-            $failures = $this->names($entry, $verdicts)
+            $failures = ! $this->couldMatch($entry, $made) || $this->names($entry, $verdicts)
                 ? $failures
                 : $failures->with(Failure::that(sprintf(self::STALE, $entry->named())));
         }
 
         return $failures;
+    }
+
+    /**
+     * Whether a run that made mutants with these mutators made any an entry
+     * could match: any, in a run of every mutator; in a narrowed run, only
+     * where the entry names one of its mutators by its full name, since a
+     * family, or a mutant's id, may name a mutant the run never made.
+     */
+    private function couldMatch(Ignored $entry, Mutators $made): bool
+    {
+        return $made->isAll()
+            || ($entry instanceof IgnoredPattern && in_array($entry->mutator(), [...$made], strict: true));
     }
 
     private function names(Ignored $entry, TreeVerdicts $verdicts): bool

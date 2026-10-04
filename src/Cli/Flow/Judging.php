@@ -236,7 +236,7 @@ final readonly class Judging
             $unrun
                 ->and(Unfinished::failures($fresh->and($unjudged->results())))
                 ->and($refused ? $this->unfloored($baseline, $verdicts, $security) : Failures::none())
-                ->and($ignoring->stale($verdicts, $unrun)),
+                ->and($ignoring->stale($verdicts, $unrun, $this->adapters->narrowedTo)),
             $judge,
             $verdicts,
             $security,
