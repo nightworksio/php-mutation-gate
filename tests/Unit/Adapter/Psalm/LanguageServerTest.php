@@ -69,3 +69,13 @@ it('reads nothing the server published of a file\'s text older than the one sent
 
     expect($server->analysed([$money => "<?php\n// error: A late\n"]))->toBe([]);
 });
+
+it('reads a server that frames each message with its length alone, from its first message on', function (): void {
+    $project = FakeAnalyser::psalm('Psalm 6.19.1@abc');
+    Scratch::write($project, 'vendor/bin/server.mode', 'bare');
+    $server = languageServerIn($project);
+    $money = sprintf('%s/src/Money.php', $project);
+    $uri = sprintf('file://%s/src/Money.php', implode('/', array_map(rawurlencode(...), explode('/', $project))));
+
+    expect(languageServerVersions($server->analysed([$money => "<?php\n// error: A first\n"])))->toBe([$uri => 1]);
+});

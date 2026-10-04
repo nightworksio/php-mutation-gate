@@ -70,8 +70,10 @@ final readonly class FakeAnalyser
      * with the version it read; it answers every `$/` request with the error
      * the protocol gives one it does not implement. It writes to its error
      * stream as it starts. `server.mode` makes it end at once (`ends`), end
-     * once a file is sent, saying it gave up (`ends-on-file`), or publish
-     * each file with the version before the one it read (`stale`).
+     * once a file is sent, saying it gave up (`ends-on-file`), publish each
+     * file with the version before the one it read (`stale`), or frame each
+     * message with its `Content-Length` alone, as the protocol allows
+     * (`bare`).
      */
     private const string SERVER = <<<'PHP'
         <?php
@@ -83,9 +85,10 @@ final readonly class FakeAnalyser
             fwrite(STDERR, 'no server here');
             exit(1);
         }
-        $send = static function (array $message): void {
+        $type = $mode === 'bare' ? '' : "Content-Type: application/vscode-jsonrpc; charset=utf8\r\n";
+        $send = static function (array $message) use ($type): void {
             $json = json_encode(['jsonrpc' => '2.0', ...$message], JSON_UNESCAPED_SLASHES);
-            fwrite(STDOUT, sprintf("Content-Type: application/vscode-jsonrpc; charset=utf8\r\nContent-Length: %d\r\n\r\n%s", strlen($json), $json));
+            fwrite(STDOUT, sprintf("%sContent-Length: %d\r\n\r\n%s", $type, strlen($json), $json));
             fflush(STDOUT);
         };
         while (($line = fgets(STDIN)) !== false) {
