@@ -113,6 +113,9 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
      by the default set, so the PHPUnit runner can turn off a single one of
      the default set's. A name neither holds is exit 2, with the nearest
      name where one is close.
+   - Under Pest or Infection, which run their own mutators in place of the
+     default set's, a name only the default set holds would turn nothing
+     off, so it is a config error, exit 2.
 
 4. **The gate writes a bridge for each runner.**
    - For each enabled mutator the gate writes one bridge class per runner,

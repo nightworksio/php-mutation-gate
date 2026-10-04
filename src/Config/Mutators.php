@@ -24,7 +24,8 @@ final readonly class Mutators implements Setting
 
     /**
      * `mutators.except`: single mutators of those sets or of the default set
-     * turned off, each by its name, `<set>/<Name>`.
+     * turned off, each by its name, `<set>/<Name>`; under Pest or
+     * Infection, only of those sets.
      */
     public static function except(string ...$names): self
     {

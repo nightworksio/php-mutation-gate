@@ -638,7 +638,7 @@ it('tells each runner the classes of the registered mutators the config turns on
         ->toEqual(Enabled::of(MutatorSet::of(...$native))->engine());
 });
 
-it('tells the PHPUnit runner the default set\'s mutators less one mutators.except turns off, and Pest none', function (): void {
+it('tells the PHPUnit runner the default set\'s mutators less one mutators.except turns off, and refuses that under Pest', function (): void {
     $registry = new DefaultExtension()->extend(wiringRegistry());
     $default = $registry->registered(ExtensionPoint::MutatorSet, MutatorSet::defaultName());
     $mutators = [...Enabled::of($default instanceof MutatorSet ? $default : MutatorSet::of())];
@@ -658,7 +658,10 @@ it('tells the PHPUnit runner the default set\'s mutators less one mutators.excep
         ComposerVendor::of('.'),
         new CapDirectory(),
     ))
-        ->and($pest instanceof Adapters ? count($pest->mutators) : $pest)->toBe(0);
+        ->and($pest)->toEqual(Invalid::because(Problem::at(
+            'mutators.except',
+            sprintf('expected a mutator of a set in mutators.sets, got "%s", a default mutator the pest runner does not run', $off),
+        )));
 });
 
 it('cannot wire a mutator set nobody registered, naming the one most likely meant', function (): void {

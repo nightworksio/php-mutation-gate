@@ -7,9 +7,12 @@ namespace NightWorksIO\MutationGate\Cli\Registry;
 use function in_array;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Definition\Nearest;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Mutators;
+use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
@@ -22,20 +25,32 @@ use function sprintf;
  * nobody registered, or a mutator to turn off that neither those sets nor
  * the `default` set holds, cannot be judged, and says which name was most
  * likely meant. A runner that makes its own mutants takes these beside its
- * own, and the gate's own engine beside the `default` set's (ADR-0023,
- * decision 8).
+ * own, so a mutator to turn off that only the `default` set holds would turn
+ * nothing off there, and the config is refused. The gate's own engine takes
+ * them beside the `default` set's (ADR-0023, decision 8).
  */
 final readonly class EnabledMutators
 {
-    private const string UNHELD = 'mutators.except names "%s", which no mutator set in mutators.sets holds.';
+    /** Where the mutators a config turns off are written. */
+    private const string EXCEPT = 'mutators.except';
+
+    private const string UNHELD
+        = 'mutators.except names "%s", which neither a mutator set in mutators.sets nor the default set holds.';
+
+    private const string ONLY_DEFAULT
+        = 'expected a mutator of a set in mutators.sets, got "%s", a default mutator the %s runner does not run';
 
     /** @param Listed<string> $except */
     private function __construct(private MutatorSet $turnedOn, private MutatorSet $default, private Listed $except)
     {
     }
 
-    public static function in(Lookup $lookup, Mutators $config): self|CannotJudge
-    {
+    /** The mutators a config turns on, for the built-in runner it chooses, where it chooses one. */
+    public static function in(
+        Lookup $lookup,
+        Mutators $config,
+        BuiltinRunner|NotGiven $runner = new NotGiven(),
+    ): self|CannotJudge|Invalid {
         $classes = [];
 
         foreach ($config->sets() as $name) {
@@ -51,9 +66,9 @@ final readonly class EnabledMutators
         $turnedOn = MutatorSet::of(...$classes);
         $registered = $lookup->mutatorSet(MutatorSet::defaultName());
         $default = $registered instanceof MutatorSet ? $registered : MutatorSet::of();
-        $unheld = self::unheld(MutatorSet::of(...$default, ...$turnedOn), $config->except());
+        $refusal = self::refusal($turnedOn, $default, $config->except(), $runner);
 
-        return $unheld instanceof CannotJudge ? $unheld : new self($turnedOn, $default, $config->except());
+        return $refusal instanceof NotGiven ? new self($turnedOn, $default, $config->except()) : $refusal;
     }
 
     /** The mutators the config turns on, which a runner that makes its own mutants runs beside its own. */
@@ -69,26 +84,45 @@ final readonly class EnabledMutators
     }
 
     /**
-     * Why a mutator `mutators.except` names cannot be turned off, where
-     * neither a set the config turns on nor the `default` set holds one of
-     * that name: it says the name, and the name it most likely meant.
+     * Why a mutator `mutators.except` names cannot be turned off: neither a
+     * set the config turns on nor the `default` set holds one of that name,
+     * which says the name it most likely meant; or only the `default` set
+     * does, under a runner that makes its own mutants.
      *
      * @param Listed<string> $except
      */
-    private static function unheld(MutatorSet $held, Listed $except): CannotJudge|NotGiven
-    {
-        $names = [];
-
-        foreach (Enabled::of($held) as $mutator) {
-            $names[] = $mutator->name()->value();
-        }
+    private static function refusal(
+        MutatorSet $turnedOn,
+        MutatorSet $default,
+        Listed $except,
+        BuiltinRunner|NotGiven $runner,
+    ): CannotJudge|Invalid|NotGiven {
+        $on = self::names($turnedOn);
+        $held = [...self::names($default), ...$on];
+        $ownMutants = $runner instanceof BuiltinRunner && $runner->makesItsOwnMutants();
 
         foreach ($except as $name) {
-            if (! in_array($name, $names, strict: true)) {
-                return CannotJudge::because(Nearest::suggested(sprintf(self::UNHELD, $name), $name, $names));
+            if (! in_array($name, $held, strict: true)) {
+                return CannotJudge::because(Nearest::suggested(sprintf(self::UNHELD, $name), $name, $held));
+            }
+
+            if ($ownMutants && ! in_array($name, $on, strict: true)) {
+                return Invalid::because(Problem::at(self::EXCEPT, sprintf(self::ONLY_DEFAULT, $name, $runner->value)));
             }
         }
 
         return NotGiven::value();
+    }
+
+    /** @return list<string> the name of each of a set's mutators */
+    private static function names(MutatorSet $set): array
+    {
+        $names = [];
+
+        foreach (Enabled::of($set) as $mutator) {
+            $names[] = $mutator->name()->value();
+        }
+
+        return $names;
     }
 }
