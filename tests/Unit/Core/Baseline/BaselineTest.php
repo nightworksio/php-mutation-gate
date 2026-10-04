@@ -16,12 +16,14 @@ use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
+use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
+use NightWorksIO\MutationGate\Tests\Support\Secured;
 
 $trees = static fn(Baseline $baseline): array => array_map(
-    static fn(Entry $entry): string => sprintf('%s %d', $entry->tree()->value(), $entry->floor()->hundredths()),
+    static fn(Entry $entry): string => sprintf('%s %d', $entry->path()->value(), $entry->floor()->hundredths()),
     iterator_to_array($baseline, preserve_keys: true),
 );
 $verdict = static fn(string $path, Floor|Exempt|Undeclared $declared, Floor|Unrecorded $baseline, JudgedMutants $mutants): TreeVerdict => TreeVerdict::judged(
@@ -77,7 +79,7 @@ it('raises each floor a verdict raised to its score, dropping its lowered, and k
         $verdict('app/Http', Undeclared::floor(), Floor::of(90), $threeOfFour),
         $verdict('app/New', Undeclared::floor(), Unrecorded::floor(), $threeOfFour),
         $verdict('app/Declared', Floor::of(100), Unrecorded::floor(), Judged::mutants(MutantJudgement::Killed)),
-    ));
+    ), SecurityVerdicts::none());
 
     expect($trees($raised))->toBe(['app/Gone 2000', 'app/Http 9000', 'app/Legacy 7500', 'app/New 7500'])
         ->and($raised->entryOf(Path::of('app/Legacy')))->toEqual(Entry::of(Path::of('app/Legacy'), Floor::of(75)))
@@ -93,4 +95,35 @@ it('replaces the entry of a tree whose path reads as a number, as it does any ot
     expect($baseline)->toHaveCount(2)
         ->and($baseline->floorOf(Path::of('12')))->toEqual(Floor::of(85))
         ->and($baseline->floorOf(Path::of('src')))->toEqual(Floor::of(70));
+});
+
+it('holds each package\'s security floor apart from the trees, keyed by its path in byte order', function (): void {
+    $baseline = Baseline::of(Entry::of(Path::of('app'), Floor::of(90)))
+        ->withSecurity(Entry::of(Path::of('packages/b'), Floor::of(80)), Entry::of(Path::root(), Floor::of(97.5)))
+        ->withSecurity(Entry::of(Path::of('packages/b'), Floor::of(85)));
+
+    expect(array_map(static fn(Entry $entry): string => $entry->path()->value(), $baseline->security()))->toBe(['.', 'packages/b'])
+        ->and($baseline->securityOf(Path::of('packages/b')))->toEqual(Entry::of(Path::of('packages/b'), Floor::of(85)))
+        ->and($baseline->securityOf(Path::of('packages/c')))->toEqual(Unrecorded::floor())
+        ->and($baseline)->toHaveCount(1)
+        ->and($baseline->entryOf(Path::root()))->toEqual(Unrecorded::floor())
+        ->and($baseline->with(Entry::of(Path::of('lib'), Floor::of(70)))->security())->toBe($baseline->security());
+});
+
+it('raises each security floor a set\'s score rose above, and keeps the rest', function (): void {
+    $baseline = Baseline::none()->withSecurity(
+        Entry::of(Path::root(), Floor::of(40))->lowered(Lowered::from(Floor::of(60), 'Why.')),
+        Entry::of(Path::of('packages/kept'), Floor::of(90)),
+    );
+    $raised = $baseline->raisedBy(TreeVerdicts::none(), SecurityVerdicts::of(
+        Secured::set('.', Undeclared::floor(), Floor::of(40), Secured::mutant(MutantJudgement::Killed)),
+        Secured::set('packages/new', Undeclared::floor(), Unrecorded::floor(), Secured::mutant(MutantJudgement::Killed)),
+        Secured::set('packages/kept', Undeclared::floor(), Floor::of(90), Secured::mutant(MutantJudgement::Survived)),
+    ));
+
+    expect($raised->security())->toEqual([
+        Entry::of(Path::root(), Floor::of(100)),
+        Entry::of(Path::of('packages/kept'), Floor::of(90)),
+        Entry::of(Path::of('packages/new'), Floor::of(100)),
+    ]);
 });

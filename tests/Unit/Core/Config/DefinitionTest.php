@@ -52,6 +52,7 @@ it('declares every setting as affecting results or as judging or reporting only'
         'trees[].reason' => $judges,
         'trees[].exclude' => $results,
         'newCode.floor' => $judges,
+        'security.floor' => $judges,
         'uncovered' => $judges,
         'baseline.path' => $judges,
         'baseline.improvement' => $judges,

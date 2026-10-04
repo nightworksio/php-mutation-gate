@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
+use NightWorksIO\MutationGate\Core\Verdict\HeldSets;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Survivors;
@@ -73,7 +74,7 @@ it('knows which mutants are in a set that failed, a tree or new code', function 
     $failing = Verdicts::failing();
     $overview = Overview::of($failing);
     $passing = Overview::of(Verdicts::passing());
-    $inNewCodeOnly = Verdicts::failing()->withNewCode(Verdicts::failing()->newCode());
+    $inNewCodeOnly = Verdicts::failing()->withSets(HeldSets::newCodeOnly(Verdicts::failing()->sets()->newCode()));
 
     expect($overview->isFailing(Verdicts::survivor()))->toBeTrue()
         ->and($passing->isFailing(Verdicts::survivor()))->toBeFalse()
@@ -82,7 +83,7 @@ it('knows which mutants are in a set that failed, a tree or new code', function 
 });
 
 it('knows a mutant in new code that failed is failing though its tree passed', function (): void {
-    $passing = Verdicts::passing()->withNewCode(Verdicts::failing()->newCode());
+    $passing = Verdicts::passing()->withSets(HeldSets::newCodeOnly(Verdicts::failing()->sets()->newCode()));
 
     expect(Overview::of($passing)->isFailing(Verdicts::survivor()))->toBeTrue()
         ->and(Overview::of(Verdicts::passing())->isFailing(Verdicts::survivor()))->toBeFalse();

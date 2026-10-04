@@ -154,7 +154,7 @@ final readonly class Markdown
 
         $sets = [];
 
-        foreach ($verdict->newCode() as $set) {
+        foreach ($verdict->sets()->newCode() as $set) {
             $sets[] = sprintf('- %s', Escape::text(SetText::newCode($set)));
         }
 

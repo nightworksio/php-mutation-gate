@@ -140,6 +140,7 @@ final readonly class ReportSchema
                 'counts' => self::counts(),
                 'trees' => self::listOfObjects(self::tree()),
                 'newCode' => self::listOfObjects(self::newCode()),
+                'security' => self::listOfObjects(self::security()),
                 'matrix' => self::oneOf(...MatrixKind::cases()),
                 'tests' => self::listOf(self::test([])),
                 'mutants' => self::listOfObjects(self::mutant()),
@@ -322,6 +323,22 @@ final readonly class ReportSchema
             'counts' => self::counts(),
             'mutants' => self::listOf(self::ID_SPELLING),
         ], ['score']);
+    }
+
+    /** @return Shallow */
+    private static function security(): array
+    {
+        return self::object([
+            'package' => self::TEXT,
+            'declared' => self::PERCENT,
+            'baseline' => self::PERCENT,
+            'floor' => self::PERCENT,
+            'score' => self::PERCENT,
+            'raised' => self::PERCENT,
+            'judgement' => self::oneOf(Judgement::Passed, Judgement::Failed, Judgement::NothingToMutate),
+            'counts' => self::counts(),
+            'mutants' => self::listOf(self::ID_SPELLING),
+        ], ['declared', 'baseline', 'floor', 'score', 'raised']);
     }
 
     /**

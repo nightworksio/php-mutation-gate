@@ -41,13 +41,14 @@ use NightWorksIO\MutationGate\Tests\Support\Clustered;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Removing;
 use NightWorksIO\MutationGate\Tests\Support\Schema;
+use NightWorksIO\MutationGate\Tests\Support\Secured;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 it('writes everything in the verdict, and what the committed schema describes', function (string $verdict): void {
     $json = JsonReport::encode(Verdicts::named($verdict));
 
     expect(Schema::errors($json, Schema::at('resources/report.schema.json')))->toBe([]);
-})->with(['failing', 'passing', 'empty', 'with a matrix', 'cannot judge', 'proved', 'clustered']);
+})->with(['failing', 'passing', 'empty', 'with a matrix', 'cannot judge', 'proved', 'clustered', 'secured']);
 
 it('says the run cannot judge, and why', function (): void {
     $report = JsonReport::encode(Verdicts::named('cannot judge'));
@@ -320,4 +321,24 @@ it('marks the removal whose callee may be deleted, and no other mutant, as the s
 
     expect(Schema::errors($json, Schema::at('resources/report.schema.json')))->toBe([])
         ->and($removable)->toBe([true, 'absent', 'absent', 'absent', 'absent', 'absent', 'absent', 'absent']);
+});
+
+it('writes each package\'s security set, with its floors, score, judgement, counts and mutants', function (): void {
+    $report = JsonReport::encode(Verdicts::secured());
+    $security = Decoded::at($report, 'security');
+
+    expect(is_array($security) ? count($security) : $security)->toBe(2)
+        ->and(Decoded::at($report, 'security', 0))->toBe([
+            'package' => '.',
+            'declared' => 100.0,
+            'floor' => 100.0,
+            'score' => 0.0,
+            'judgement' => 'failed',
+            'counts' => Decoded::at($report, 'security', 0, 'counts'),
+            'mutants' => [Secured::mutant(MutantJudgement::Survived, 3)->mutant()->id()->value()],
+        ])
+        ->and(Decoded::at($report, 'security', 1, 'baseline'))->toBe(50.0)
+        ->and(Decoded::at($report, 'security', 1, 'raised'))->toBe(100.0)
+        ->and(Decoded::at($report, 'security', 1, 'judgement'))->toBe('passed')
+        ->and(Decoded::at(JsonReport::encode(Verdicts::failing()), 'security'))->toBe([]);
 });

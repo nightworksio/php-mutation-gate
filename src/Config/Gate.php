@@ -88,6 +88,12 @@ final readonly class Gate
         return $this->merge(Json::object(Member::of('newCode', Json::object(Member::of('floor', $floor->percent())))));
     }
 
+    /** `security.floor` */
+    public function security(Floor $floor): self
+    {
+        return $this->merge(Json::object(Member::of('security', Json::object(Member::of('floor', $floor->percent())))));
+    }
+
     /** `ignores.entries`, added to those already given. */
     public function ignoring(Ignore ...$ignores): self
     {

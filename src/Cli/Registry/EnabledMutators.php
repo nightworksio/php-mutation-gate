@@ -20,6 +20,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
+use NightWorksIO\MutationGate\Mutator\SameChange;
+use NightWorksIO\MutationGate\Mutator\Tag;
 
 use function sprintf;
 
@@ -109,6 +111,31 @@ final readonly class EnabledMutators
         $mutators = MutatorSet::of(...$this->default, ...$this->turnedOn);
 
         return Enabled::of($mutators, ...$this->except)->besides(NamedMutators::of());
+    }
+
+    /**
+     * The mutators whose mutants are security mutants (ADR-0021, decision
+     * 16): each security-tagged mutator of the `default` set and those the
+     * config turns on, and each other one its `SameChange` names, whether or
+     * not it stands down.
+     */
+    public function security(): NamedMutators
+    {
+        $names = [];
+
+        foreach (Enabled::of(MutatorSet::of(...$this->default, ...$this->turnedOn), ...$this->except) as $mutator) {
+            if (! $mutator->tags()->has(Tag::security())) {
+                continue;
+            }
+
+            $names = [
+                ...$names,
+                $mutator->name()->value(),
+                ...$mutator instanceof SameChange ? $mutator->madeAlsoBy() : [],
+            ];
+        }
+
+        return NamedMutators::of(...$names);
     }
 
     /**

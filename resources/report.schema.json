@@ -407,6 +407,141 @@
                 "additionalProperties": false
             }
         },
+        "security": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "package": {
+                        "type": "string"
+                    },
+                    "declared": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "baseline": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "floor": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "score": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "raised": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "judgement": {
+                        "enum": [
+                            "passed",
+                            "failed",
+                            "nothing-to-mutate"
+                        ]
+                    },
+                    "counts": {
+                        "type": "object",
+                        "properties": {
+                            "killed": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "killed-by-static-analysis": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "errored": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "killed-by-timeout": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "killed-by-memory-cap": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "survived": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "uncovered": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "unjudged": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "flaky": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "too-slow-to-judge": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "too-heavy-to-judge": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "ignored": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "ignored-by-marker": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "equivalent": {
+                                "type": "integer",
+                                "minimum": 0
+                            }
+                        },
+                        "required": [
+                            "killed",
+                            "killed-by-static-analysis",
+                            "errored",
+                            "killed-by-timeout",
+                            "killed-by-memory-cap",
+                            "survived",
+                            "uncovered",
+                            "unjudged",
+                            "flaky",
+                            "too-slow-to-judge",
+                            "too-heavy-to-judge",
+                            "ignored",
+                            "ignored-by-marker",
+                            "equivalent"
+                        ],
+                        "additionalProperties": false
+                    },
+                    "mutants": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{12}$"
+                        }
+                    }
+                },
+                "required": [
+                    "package",
+                    "judgement",
+                    "counts",
+                    "mutants"
+                ],
+                "additionalProperties": false
+            }
+        },
         "matrix": {
             "enum": [
                 "first-killer",
@@ -1023,6 +1158,7 @@
         "counts",
         "trees",
         "newCode",
+        "security",
         "matrix",
         "tests",
         "mutants",

@@ -57,22 +57,27 @@ final readonly class BaselineFile
     private const string FILE = <<<'JSON'
         {
             "format": %d,
-            "trees": {%s}
+            "trees": {%s}%s
         }
 
         JSON;
 
+    /** The packages' security entries, where there are any (ADR-0021, decision 17). */
+    private const string SECURITY = <<<'JSON'
+        ,
+            "security": {%s}
+        JSON;
+
     public static function encode(Baseline $baseline): string
     {
-        $entries = [];
+        $security = $baseline->security();
 
-        foreach ($baseline as $entry) {
-            $entries[] = self::entry($entry);
-        }
-
-        $trees = $entries === [] ? '' : sprintf("\n%s\n    ", implode(",\n", $entries));
-
-        return sprintf(self::FILE, self::FORMAT, $trees);
+        return sprintf(
+            self::FILE,
+            self::FORMAT,
+            self::entries([...$baseline]),
+            $security === [] ? '' : sprintf(self::SECURITY, self::entries($security)),
+        );
     }
 
     /** The baseline a file holds, or why it cannot be read, naming where it went wrong. */
@@ -95,10 +100,22 @@ final readonly class BaselineFile
         return Percentage::of($floor)->written();
     }
 
+    /** @param list<Entry> $entries */
+    private static function entries(array $entries): string
+    {
+        $written = [];
+
+        foreach ($entries as $entry) {
+            $written[] = self::entry($entry);
+        }
+
+        return $written === [] ? '' : sprintf("\n%s\n    ", implode(",\n", $written));
+    }
+
     private static function entry(Entry $entry): string
     {
         $lowered = $entry->lowering();
-        $tree = self::text($entry->tree()->value());
+        $tree = self::text($entry->path()->value());
 
         return $lowered instanceof Lowered
             ? sprintf(
@@ -123,19 +140,32 @@ final readonly class BaselineFile
             throw NotInShape::at($file->field('format')->at(), sprintf('format %d', self::FORMAT));
         }
 
+        $security = $file->field('security');
+
+        return Baseline::of(...self::entriesIn($file->field('trees')))
+            ->withSecurity(...$security->isPresent() ? self::entriesIn($security) : []);
+    }
+
+    /**
+     * @return list<Entry> each entry of a map of them, by its path
+     *
+     * @throws NotInShape
+     */
+    private static function entriesIn(Node $map): array
+    {
         $entries = [];
 
-        foreach ($file->field('trees')->entries() as $tree => $entry) {
-            $entries[] = self::entryIn(Path::of(sprintf('%s', $tree)), $entry);
+        foreach ($map->entries() as $path => $entry) {
+            $entries[] = self::entryIn(Path::of(sprintf('%s', $path)), $entry);
         }
 
-        return Baseline::of(...$entries);
+        return $entries;
     }
 
     /** @throws NotInShape */
-    private static function entryIn(Path $tree, Node $entry): Entry
+    private static function entryIn(Path $path, Node $entry): Entry
     {
-        $read = Entry::of($tree, self::floorIn($entry->field(self::FLOOR)));
+        $read = Entry::of($path, self::floorIn($entry->field(self::FLOOR)));
         $lowered = $entry->field(self::LOWERED);
 
         return $lowered->isPresent()

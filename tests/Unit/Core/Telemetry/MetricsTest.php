@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Telemetry\Metric;
 use NightWorksIO\MutationGate\Core\Telemetry\MetricKind;
 use NightWorksIO\MutationGate\Core\Telemetry\Metrics;
 use NightWorksIO\MutationGate\Core\Tree\Package;
+use NightWorksIO\MutationGate\Core\Verdict\HeldSets;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdicts;
@@ -68,9 +69,9 @@ it('emits each phase\'s duration and the runner minutes for a timed run', functi
 });
 
 it('leaves out the score of a set with nothing to mutate', function () use ($byName, $points): void {
-    $verdict = Verdicts::empty()->withNewCode(NewCodeVerdicts::of(
+    $verdict = Verdicts::empty()->withSets(HeldSets::newCodeOnly(NewCodeVerdicts::of(
         NewCodeVerdict::judged(Package::at(Path::root()), Floor::of(100), JudgedMutants::none(), Uncovered::Count),
-    ));
+    )));
 
     expect($points($byName(Metrics::of($verdict))['mutation_gate.score']))->toBe([]);
 });

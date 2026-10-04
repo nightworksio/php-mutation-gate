@@ -139,7 +139,7 @@ final readonly class OtlpReporter implements Reporter
             ...$known,
             'cicd.pipeline.run.id' => $timings->run(),
             ...$runner instanceof Identity ? ['mutation_gate.runner' => $runner->runner()] : [],
-            'mutation_gate.mode' => count($verdict->newCode()) > 0 ? 'change' : 'full',
+            'mutation_gate.mode' => count($verdict->sets()->newCode()) > 0 ? 'change' : 'full',
         ];
     }
 

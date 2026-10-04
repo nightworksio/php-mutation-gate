@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
@@ -192,6 +193,24 @@ it('judges one empty new-code set, which passes and says so, when no changed lin
         ->and($sets[0]->package()->path())->toEqual(Path::root())
         ->and($sets[0]->floor())->toEqual(Floor::of(90))
         ->and($sets[0]->judgement())->toBe(Judgement::NothingToMutate);
+});
+
+it('judges each package\'s security set over the mutants its mutators made, against its baseline entry', function () use ($trees, $reach, $results): void {
+    $judge = Judge::of(
+        $trees,
+        Baseline::none()->withSecurity(Entry::of(Path::root(), Floor::of(25))),
+        $reach,
+        Uncovered::Count,
+        TimeoutMode::Confirm,
+        Ignoring::none(),
+    );
+    $sets = [...$judge->security($judge->trees($results), NamedMutators::of('LessThan'), Floor::of(20))];
+
+    expect($sets)->toHaveCount(1)
+        ->and($sets[0]->package()->path())->toEqual(Path::root())
+        ->and($sets[0]->declared())->toEqual(Floor::of(20))
+        ->and($sets[0]->floor())->toEqual(Floor::of(25))
+        ->and($sets[0]->mutants())->toHaveCount(5);
 });
 
 it('judges a mutant flaky where its unit\'s result names it so, and every other as reported', function () use (

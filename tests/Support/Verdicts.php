@@ -8,6 +8,7 @@ use function explode;
 
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
+use NightWorksIO\MutationGate\Core\Baseline\Lowered;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\Cost;
 use NightWorksIO\MutationGate\Core\Cost\Phase;
@@ -39,6 +40,7 @@ use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Core\Score\Score;
+use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -55,6 +57,7 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\Failures;
+use NightWorksIO\MutationGate\Core\Verdict\HeldSets;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
@@ -64,6 +67,7 @@ use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement as Judged;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
+use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
@@ -262,10 +266,26 @@ final class Verdicts
         $newCode = NewCodeVerdict::judged($root, Floor::of(100), JudgedMutants::of(self::survivor()), Uncovered::Count);
 
         return Verdict::of(TreeVerdicts::of($src, self::bare($legacy), self::bare($empty)))
-            ->withNewCode(NewCodeVerdicts::of($newCode))
+            ->withSets(HeldSets::newCodeOnly(NewCodeVerdicts::of($newCode)))
             ->withReach(Reasons::of(Cause::that('src/Money.php changed, so it is reached.')))
             ->withWarnings(Warnings::of(Warning::that('src/Kernel.php is run by 412 of 430 tests and nothing holds it.')))
             ->withFailures(Failures::of(Failure::that('The ignore of 3f9a1c2b7d04 matched no mutant. Remove it.')));
+    }
+
+    /**
+     * The failing verdict, with two security sets: the root package's below
+     * the floor of 100 `security.floor` declares, on a survivor, and the
+     * billing package's above its lowered baseline floor of 50, which it
+     * raises.
+     */
+    public static function secured(): Verdict
+    {
+        $root = Secured::set('.', Floor::of(100), Unrecorded::floor(), Secured::mutant(Judged::Survived, 3));
+        $billing = Secured::set('packages/billing', Undeclared::floor(), Floor::of(50), Secured::mutant(Judged::Killed, 7, file: 'packages/billing/src/Refund.php'))
+            ->withLowering(Lowered::from(Floor::of(60), 'The refund flow left with its tests.'));
+        $failing = self::failing();
+
+        return $failing->withSets(HeldSets::of($failing->sets()->newCode(), SecurityVerdicts::of($root, $billing)));
     }
 
     /** A full run that passes, with its one mutant killed and its floor able to rise. */
@@ -365,6 +385,7 @@ final class Verdicts
             'cannot judge' => self::failing()->withCannotJudge(CannotJudge::because(self::UNJUDGED)),
             'proved' => self::proved(),
             'clustered' => Clustered::verdict(),
+            'secured' => self::secured(),
             default => self::empty(),
         };
     }

@@ -18,10 +18,10 @@ use NightWorksIO\MutationGate\Core\Report\Folded;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
 use NightWorksIO\MutationGate\Core\Report\Overview;
 use NightWorksIO\MutationGate\Core\Report\Percent;
+use NightWorksIO\MutationGate\Core\Report\RisingFloors;
 use NightWorksIO\MutationGate\Core\Report\SavingsText;
 use NightWorksIO\MutationGate\Core\Report\SetText;
 use NightWorksIO\MutationGate\Core\Report\TestsText;
-use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
@@ -36,17 +36,21 @@ use function sprintf;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * The reporter `console`, which every run has: the verdict, every tree and
- * new-code set, the units and where their results came from, what the change
- * reached and why, every mutant the score counts as not killed with its diff,
- * hint, judging tests, reproduce and explain commands, and each cluster of
- * them once with its members' diffs and stub command, the ignored mutants
- * with their reasons, the mutants proven equivalent, the floors that can
- * rise, the failures and warnings, and last what the run took and saved.
+ * The reporter `console`, which every run has: the verdict, every tree,
+ * new-code set and package's security set, the units and where their
+ * results came from, what the change reached and why, every mutant the score
+ * counts as not killed with its diff, hint, judging tests, reproduce and
+ * explain commands, and each cluster of them once with its members' diffs
+ * and stub command, the ignored mutants with their reasons, the mutants
+ * proven equivalent, the floors that can rise, the failures and warnings,
+ * and last what the run took and saved.
  */
 final readonly class ConsoleReport implements Configurable, Reporter
 {
     private const string RAISE = 'Raise them with vendor/bin/mutation-gate baseline --write, and commit the baseline.';
+
+    /** A floor that can rise: what it is of, and what to. */
+    private const string RISES = '%s to %s';
 
     private function __construct(private OutputInterface $output)
     {
@@ -72,6 +76,7 @@ final readonly class ConsoleReport implements Configurable, Reporter
             ...$this->section('Cannot judge', $this->obstacles($verdict)),
             ...$this->section('Trees', $this->trees($verdict)),
             ...$this->section('New code', $this->newCode($verdict)),
+            ...$this->section('Security', $this->security($verdict)),
             ...$this->section('Units', $this->units($verdict)),
             ...$this->section('Reach', $this->texts($verdict->reach())),
             ...$this->section(
@@ -133,8 +138,20 @@ final readonly class ConsoleReport implements Configurable, Reporter
     {
         $lines = [];
 
-        foreach ($verdict->newCode() as $set) {
+        foreach ($verdict->sets()->newCode() as $set) {
             $lines[] = SetText::newCode($set);
+        }
+
+        return $lines;
+    }
+
+    /** @return list<string> */
+    private function security(Verdict $verdict): array
+    {
+        $lines = [];
+
+        foreach ($verdict->sets()->security() as $set) {
+            $lines[] = SetText::security($set);
         }
 
         return $lines;
@@ -202,11 +219,8 @@ final readonly class ConsoleReport implements Configurable, Reporter
     {
         $lines = [];
 
-        foreach ($verdict->trees() as $tree) {
-            $raised = $tree->raised();
-            $lines = $raised instanceof Floor
-                ? [...$lines, sprintf('%s to %s', $tree->tree()->path()->value(), Percent::of($raised))]
-                : $lines;
+        foreach (RisingFloors::of($verdict) as [$named, $raised]) {
+            $lines[] = sprintf(self::RISES, $named, Percent::of($raised));
         }
 
         return $lines === [] ? [] : [...$lines, self::RAISE];

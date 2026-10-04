@@ -12,6 +12,7 @@ enum GateMethod: string
     case CappedAt = 'cappedAt';
     case Trees = 'trees';
     case NewCode = 'newCode';
+    case Security = 'security';
     case Reporting = 'reporting';
     case Extensions = 'extensions';
     case Preset = 'preset';

@@ -167,6 +167,7 @@ const EVERYTHING = [
         ['path' => 'app/Legacy'],
     ],
     'newCode' => ['floor' => 90],
+    'security' => ['floor' => 97.5],
     'uncovered' => 'exclude',
     'baseline' => ['path' => 'build/baseline.json', 'improvement' => 'report'],
     'packages' => ['packages/*'],
@@ -251,6 +252,7 @@ it('reads the defaults into their types', function (): void {
         ->and($settings->treeSource())->toEqual(Choice::of('phpunit', Configs::options('{"fallback":[]}')))
         ->and($floors->trees())->toEqual(Absent::setting())
         ->and($floors->newCode())->toEqual(Floor::of(100))
+        ->and($floors->security())->toEqual(Undeclared::floor())
         ->and($floors->uncovered())->toBe(Uncovered::Count)
         ->and($floors->baseline())->toEqual(Path::of('mutation-gate.baseline.json'))
         ->and($floors->improvement())->toBe(Improvement::Require)
@@ -318,6 +320,7 @@ it('reads every setting a config writes into its type', function (): void {
             ['app/Legacy', Undeclared::floor()],
         ])
         ->and($floors->newCode())->toEqual(Floor::of(90))
+        ->and($floors->security())->toEqual(Floor::of(97.5))
         ->and($floors->uncovered())->toBe(Uncovered::Exclude)
         ->and($floors->baseline())->toEqual(Path::of('build/baseline.json'))
         ->and($floors->improvement())->toBe(Improvement::Report)

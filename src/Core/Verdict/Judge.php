@@ -14,10 +14,12 @@ use NightWorksIO\MutationGate\Core\Baseline\Unlowered;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
+use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Tree\Package;
@@ -107,6 +109,12 @@ final readonly class Judge
         }
 
         return $this->mutable(array_values($sets), $floor);
+    }
+
+    /** The security set of each package (ADR-0021, decision 16), of the mutants these mutators made. */
+    public function security(TreeVerdicts $verdicts, NamedMutators $mutators, Floor|Undeclared $floor): SecurityVerdicts
+    {
+        return SecurityJudge::of($this->baseline, $this->uncovered, $floor)->judged($verdicts, $mutators);
     }
 
     private function tree(Tree $tree, UnitResults $results): TreeVerdict
