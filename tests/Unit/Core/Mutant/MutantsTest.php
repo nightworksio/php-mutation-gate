@@ -52,3 +52,17 @@ it('replaces each mutant another list holds by its id, and keeps the rest and th
         ->toBe(['a again', 'b'])
         ->and($natives(Mutants::of($of('a', 'a'))->replacing(Mutants::none())))->toBe(['a']);
 });
+
+it('replaces a mutant whose id is digits alone, by its id', function () use ($natives): void {
+    $digits = MutantId::parse('123456789012');
+    $of = static fn(string $native): Mutant => Mutant::of(
+        $digits instanceof MutantId ? $digits : MutantId::hash(Path::of('src/Money.php'), 'LessThan', '', 0),
+        $native,
+        Location::of(Path::of('src/Money.php'), Line::of(1), Line::of(1)),
+        Mutation::of('LessThan', MutatorFamily::Boundary, ''),
+        MutantStatus::Killed,
+        Unmeasured::duration(),
+    );
+
+    expect($natives(Mutants::of($of('first'))->replacing(Mutants::of($of('again')))))->toBe(['again']);
+});

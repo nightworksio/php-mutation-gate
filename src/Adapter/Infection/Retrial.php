@@ -78,7 +78,7 @@ final readonly class Retrial
         $found = [];
 
         foreach ($again as $mutant) {
-            $found[$mutant->id()->value()] = $mutant;
+            $found[$mutant->id()->key()] = $mutant;
         }
 
         $matched = Mutants::none();
@@ -86,7 +86,7 @@ final readonly class Retrial
         foreach ($asked as $mutant) {
             $matched = $matched->with(match (true) {
                 ! $this->takes($mutant) => $mutant,
-                array_key_exists($mutant->id()->value(), $found) => $found[$mutant->id()->value()],
+                array_key_exists($mutant->id()->key(), $found) => $found[$mutant->id()->key()],
                 default => $this->unjudged($mutant),
             });
         }

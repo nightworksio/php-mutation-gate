@@ -26,6 +26,9 @@ final readonly class MutantId
 {
     private const int LENGTH = 12;
 
+    /** How an id is written as an array key: behind a letter no hex character is. */
+    private const string KEY = 'm%s';
+
     private const string SPELLING = '/^[0-9a-f]{12}$/D';
 
     /** A run of anything but whitespace. */
@@ -69,6 +72,16 @@ final readonly class MutantId
     public function value(): string
     {
         return $this->value;
+    }
+
+    /**
+     * The id as an array key: behind an `m`, which no hex character is, as
+     * PHP stores an all-digit string key as an integer, which a merge or a
+     * spread numbers afresh.
+     */
+    public function key(): string
+    {
+        return sprintf(self::KEY, $this->value);
     }
 
     /**

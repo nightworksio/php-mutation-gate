@@ -17,7 +17,7 @@ use NightWorksIO\MutationGate\Core\Removal\Removable;
  */
 final readonly class Findings
 {
-    /** @param array<string, WeaklyAsserted|Removable> $found by mutant id */
+    /** @param array<string, WeaklyAsserted|Removable> $found by its id's key */
     private function __construct(private array $found)
     {
     }
@@ -31,7 +31,7 @@ final readonly class Findings
     public function with(MutantId $survivor, WeaklyAsserted|Removable $finding): self
     {
         $found = $this->found;
-        $found[$survivor->value()] = $finding;
+        $found[$survivor->key()] = $finding;
 
         return new self($found);
     }
@@ -45,8 +45,8 @@ final readonly class Findings
     /** What was found of this survivor; nothing where nothing was. */
     public function of(MutantId $survivor): WeaklyAsserted|Removable|NoFinding
     {
-        return array_key_exists($survivor->value(), $this->found)
-            ? $this->found[$survivor->value()]
+        return array_key_exists($survivor->key(), $this->found)
+            ? $this->found[$survivor->key()]
             : NoFinding::survivor();
     }
 }

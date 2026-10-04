@@ -59,12 +59,12 @@ it('puts changes that overlap in one statement in an expression, and calls of on
     $gap = sprintf('gap %s', ClusterId::of($idsOf(...$calls))->value());
 
     expect(clustersOf(Clustering::of(survivorList(Clustered::survivors()), Clustered::sources())))->toBe([
-        $comparisons[2]->mutant()->id()->value() => $expression,
-        $comparisons[0]->mutant()->id()->value() => $expression,
-        $comparisons[1]->mutant()->id()->value() => $expression,
-        $calls[0]->mutant()->id()->value() => $gap,
-        $calls[1]->mutant()->id()->value() => $gap,
-        $calls[2]->mutant()->id()->value() => $gap,
+        $comparisons[2]->mutant()->id()->key() => $expression,
+        $comparisons[0]->mutant()->id()->key() => $expression,
+        $comparisons[1]->mutant()->id()->key() => $expression,
+        $calls[0]->mutant()->id()->key() => $gap,
+        $calls[1]->mutant()->id()->key() => $gap,
+        $calls[2]->mutant()->id()->key() => $gap,
     ]);
 });
 

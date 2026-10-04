@@ -31,7 +31,7 @@ use Traversable;
 final readonly class KillHistory
 {
     /**
-     * @param array<string, RankedMutant>   $mutants   by mutant id
+     * @param array<string, RankedMutant>   $mutants   by its id's key
      * @param array<string, RankedFunction> $functions by file and function
      */
     private function __construct(private array $mutants, private array $functions)
@@ -55,8 +55,8 @@ final readonly class KillHistory
         $mutants = $this->mutants;
 
         foreach ($ranked as $one) {
-            unset($mutants[$one->mutant()->value()]);
-            $mutants[$one->mutant()->value()] = $one;
+            unset($mutants[$one->mutant()->key()]);
+            $mutants[$one->mutant()->key()] = $one;
         }
 
         return new self($mutants, $this->functions);
@@ -98,9 +98,9 @@ final readonly class KillHistory
             $in = $lesson->in();
 
             if ($teaches) {
-                $ranking = $this->rankingIn($mutants, $mutant->id()->value())->killedBy($killers[0]);
-                unset($mutants[$mutant->id()->value()]);
-                $mutants[$mutant->id()->value()] = RankedMutant::of($mutant->id(), $ranking);
+                $ranking = $this->rankingIn($mutants, $mutant->id()->key())->killedBy($killers[0]);
+                unset($mutants[$mutant->id()->key()]);
+                $mutants[$mutant->id()->key()] = RankedMutant::of($mutant->id(), $ranking);
             }
 
             if ($teaches && $in instanceof Enclosing) {
@@ -157,7 +157,7 @@ final readonly class KillHistory
         $kept = [];
 
         foreach ($held as $id) {
-            $ids[$id->value()] = true;
+            $ids[$id->key()] = true;
         }
 
         foreach ($this->mutants as $key => $mutant) {
@@ -198,7 +198,7 @@ final readonly class KillHistory
 
     private function mutantRanking(MutantId $mutant): Ranking
     {
-        return $this->rankingIn($this->mutants, $mutant->value());
+        return $this->rankingIn($this->mutants, $mutant->key());
     }
 
     private function functionRanking(Enclosing $function): Ranking

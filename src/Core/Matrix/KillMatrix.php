@@ -32,8 +32,9 @@ use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 final readonly class KillMatrix
 {
     /**
-     * @param array<string, TestIds> $carried the covering tests of each carried mutant, by its id
-     * @param array<string, true>    $moved   the carried mutants whose coverage moved since their proof, by id
+     * @param array<string, TestIds> $carried the covering tests of each carried mutant, by its id's key
+     * @param array<string, true>    $moved   the carried mutants whose coverage moved since their proof,
+     *                                        by its id's key
      */
     private function __construct(
         private MatrixKind $kind,
@@ -62,7 +63,7 @@ final readonly class KillMatrix
     public function carried(MutantId $mutant, TestIds $covering): self
     {
         $carried = $this->carried;
-        $carried[$mutant->value()] = $covering;
+        $carried[$mutant->key()] = $covering;
 
         return clone($this, ['carried' => $carried]);
     }
@@ -74,7 +75,7 @@ final readonly class KillMatrix
     public function moved(MutantId $mutant): self
     {
         $moved = $this->moved;
-        $moved[$mutant->value()] = true;
+        $moved[$mutant->key()] = true;
 
         return clone($this, ['moved' => $moved]);
     }
@@ -129,7 +130,7 @@ final readonly class KillMatrix
     public function coveredBy(JudgedMutant|JudgedKill $judged): TestIds
     {
         $mutant = $judged->mutant();
-        $id = $mutant->id()->value();
+        $id = $mutant->id()->key();
         $covering = array_key_exists($id, $this->carried) ? $this->carried[$id] : $this->onLines($judged);
 
         foreach ($mutant->killers() as $killer) {
@@ -158,7 +159,7 @@ final readonly class KillMatrix
     public function outcome(JudgedMutant|JudgedKill $judged, TestId $test): Outcome
     {
         $mutant = $judged->mutant();
-        $unknown = array_key_exists($mutant->id()->value(), $this->moved)
+        $unknown = array_key_exists($mutant->id()->key(), $this->moved)
             || $judged->judgement() === MutantJudgement::Flaky
             || $mutant->status() === MutantStatus::TimedOut
             || $mutant->status() === MutantStatus::OutOfMemory;

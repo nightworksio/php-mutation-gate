@@ -30,3 +30,12 @@ it('joins and subtracts sets of ids, and walks them in the order they were added
         ->and(iterator_to_array($joined->without(MutantIds::of($a)), preserve_keys: false))->toEqual([$b, $c])
         ->and($joined->without(MutantIds::of($a, $b, $c)))->toHaveCount(0);
 });
+
+it('holds an id of digits alone as it holds any other, through and and without', function () use ($id): void {
+    $digits = MutantId::parse('123456789012');
+    $ids = $digits instanceof MutantId ? MutantIds::of($digits) : MutantIds::none();
+
+    expect([...$ids->and(MutantIds::of($id(0)))])->toEqual([$digits, $id(0)])
+        ->and($digits instanceof MutantId && $ids->has($digits))->toBeTrue()
+        ->and([...$ids->and(MutantIds::of($id(0)))->without(MutantIds::of($id(0)))])->toEqual([$digits]);
+});

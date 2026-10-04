@@ -28,7 +28,7 @@ final readonly class Clustering
     /**
      * @param  list<JudgedMutant>        $survivors
      * @param  ByPath<Contents>          $sources   each file's source, by its path
-     * @return array<string, Membership>            by mutant id
+     * @return array<string, Membership>            by its id's key
      */
     public static function of(array $survivors, ByPath $sources): array
     {
@@ -57,7 +57,7 @@ final readonly class Clustering
         $rest = [];
 
         foreach ($mutants as $judged) {
-            if (! array_key_exists($judged->mutant()->id()->value(), $expressions)) {
+            if (! array_key_exists($judged->mutant()->id()->key(), $expressions)) {
                 $rest[] = $judged;
             }
         }
@@ -83,7 +83,7 @@ final readonly class Clustering
             $membership = Membership::of(ClusterId::of($ids), $kind);
 
             foreach ($group as $judged) {
-                $memberships[$judged->mutant()->id()->value()] = $membership;
+                $memberships[$judged->mutant()->id()->key()] = $membership;
             }
         }
 
