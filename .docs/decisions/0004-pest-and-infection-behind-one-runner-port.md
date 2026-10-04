@@ -626,7 +626,15 @@ its parser attributes. Both change when the checkout moves.
        uncovered. A line that starts no statement, such as a `match` arm's or
        an `else`, can stay unrun while the lines around it run, so an
        uncovered mutant there, as on a statement of one line, stays
-       uncovered.
+       uncovered, but for one in the head of a `match`.
+     - A mutant Pest left uncovered in the head of a `match`, which is the
+       `match` keyword, its subject in parentheses and the `{` that opens its
+       arms, is judged by the trial with the test files that cover the lines
+       inside its braces, wherever the match stands: as a statement, inside
+       an argument list, after a ternary's `?`, or in another match's arm.
+       PHP evaluates a match's subject before any arm, so a test that runs a
+       line of its arms ran its head. Where its arms close on the line its
+       head opens them on, or no test covers them, it stays uncovered.
      - A global `const` or `define()` sits on an executable line, so an
        uncovered mutant there stays uncovered.
      - pest-plugin-mutate makes no mutant of a string-backed enum case's
