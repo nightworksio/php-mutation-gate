@@ -42,11 +42,14 @@ it('turns on the mutators of each set the config names, less those it turns off'
         ->toBe([DecrementToIncrement::class, PlusToMinus::class, RemoveItem::class]);
 });
 
-it('turns off a mutator of the default set for the engine', function (): void {
-    $enabled = EnabledMutators::in(enablingLookup(), Mutators::of(except: Listed::of('acme/DecrementToIncrement')));
+it('cannot judge a mutator to turn off that no set the config turns on holds, naming the one most likely meant', function (): void {
+    expect(EnabledMutators::in(enablingLookup(), Mutators::of(Listed::of('acme'), Listed::of('acme/RemoveEcho', 'acme/RemoveEco'))))
+        ->toEqual(CannotJudge::because('mutators.except names "acme/RemoveEco", which no mutator set in mutators.sets holds. Did you mean "acme/RemoveEcho"?'));
+});
 
-    expect($enabled instanceof EnabledMutators ? count($enabled->forTheEngine()) : $enabled)->toBe(0)
-        ->and($enabled instanceof EnabledMutators ? count($enabled->besideTheRunners()) : $enabled)->toBe(0);
+it('cannot judge a mutator to turn off that only the default set holds, naming none where nothing is close', function (): void {
+    expect(EnabledMutators::in(enablingLookup(), Mutators::of(except: Listed::of('acme/DecrementToIncrement'))))
+        ->toEqual(CannotJudge::because('mutators.except names "acme/DecrementToIncrement", which no mutator set in mutators.sets holds.'));
 });
 
 it('cannot judge a set nobody registered, naming the one most likely meant', function (): void {

@@ -18,12 +18,11 @@ use function sprintf;
  * How the keys a config writes are read into the mutators of its `Setup`
  * part (ADR-0021).
  * Both affect results: they decide which mutants are made. Each list keeps
- * an entry once.
+ * an entry once, and `mutators.sets` never names the set this repository
+ * ships.
  */
 final readonly class MutatorsKeys
 {
-    private const string SET = "a mutator set's name: lower case letters and digits, joined by single hyphens";
-
     private const string MUTATOR = "a mutator's name, <set>/<Name>";
 
     /** @return list<Field<Layer>> */
@@ -31,12 +30,11 @@ final readonly class MutatorsKeys
     {
         $results = Effect::AffectsResults;
         $named = static fn(string $name): string => $name;
-        $set = Text::matching(self::SET, sprintf('^%s$', MutatorNamePattern::SET));
         $mutator = Text::matching(
             self::MUTATOR,
             sprintf('^%s/%s$', MutatorNamePattern::SET, MutatorNamePattern::OWN),
         );
-        $sets = Field::optional('sets', Items::distinct($set, $named), $results);
+        $sets = Field::optional('sets', Items::distinct(MutatorSetName::turnedOn(), $named), $results);
         $except = Field::optional('except', Items::distinct($mutator, $named), $results);
 
         return [Field::section(

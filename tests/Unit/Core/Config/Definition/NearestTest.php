@@ -29,3 +29,10 @@ it('suggests nothing when no known key is close', function (string $key, string 
     'more than a third of a long key away' => ['preBudgetPushed', 'prePushBudget'],
     'no key known at all' => ['workers'],
 ]);
+
+it('follows a sentence with the known name it most likely meant, and with nothing where none is close', function (): void {
+    expect(Nearest::suggested('No set is "acme-list".', 'acme-list', ['acme-lists', 'laravel']))
+        ->toBe('No set is "acme-list". Did you mean "acme-lists"?')
+        ->and(Nearest::suggested('No set is "symfony".', 'symfony', ['acme-lists', 'laravel']))
+        ->toBe('No set is "symfony".');
+});

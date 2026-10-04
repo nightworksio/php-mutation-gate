@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Config\Definition\MutatorSetName;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
 it('reads the sets turned on and the mutators turned off, each once', function (): void {
@@ -31,3 +32,16 @@ it('refuses a set or a mutator not written as its name is', function (array $mut
         "mutators.except[0]: expected a mutator's name, <set>/<Name>, got \"laravel/removeAbort\"",
     ],
 ]);
+
+it('refuses the set this repository ships, which is always on', function (): void {
+    expect(Configs::problems(Configs::validated(['runner' => 'pest', 'mutators' => ['sets' => ['laravel', 'default']]])))->toBe([
+        'mutators.sets[1]: expected a set other than "default", which is always on: Pest and Infection run their own mutators in its place',
+    ]);
+});
+
+it('describes a set\'s name to the schema, never the set this repository ships', function (): void {
+    expect(MutatorSetName::turnedOn()->schema()->line())->toBe(
+        '{"type":"string","minLength":1,"pattern":"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$","not":{"const":"default"}}',
+    )->and(MutatorSetName::turnedOn()->expected())->toBe("a mutator set's name: lower case letters and digits, joined by single hyphens")
+        ->and(MutatorSetName::turnedOn()->effects())->toBe([]);
+});

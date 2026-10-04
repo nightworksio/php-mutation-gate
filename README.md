@@ -503,8 +503,8 @@ and `?` match within one directory, and `**` across any number of them.
 | `pest.canary` | group name, with no whitespace | `mutation-canary` | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | `staticCheck.tool` | adapter: `mago`, `phpstan`, `psalm`; or `auto`, the first installed and configured, or `none` | `auto` | [0020](.docs/decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
 | `staticCheck.config` | path | the analyser's own | [0020](.docs/decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
-| `mutators.sets` | list of mutator set names | `[]` | [0021](.docs/decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md) |
-| `mutators.except` | list of mutator names, `<set>/<Name>` | `[]` | [0021](.docs/decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md) |
+| `mutators.sets` | list of mutator set names, never `default`, which is always on | `[]` | [0021](.docs/decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md) |
+| `mutators.except` | list of mutator names, `<set>/<Name>`, each held by a set in `mutators.sets` | `[]` | [0021](.docs/decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md) |
 | `local.watchBudget` | duration | `1m` | [0010](.docs/decisions/0010-the-gate-runs-while-you-work-and-before-you-push.md) |
 | `local.prePushBudget` | duration | `5m` | [0010](.docs/decisions/0010-the-gate-runs-while-you-work-and-before-you-push.md) |
 
