@@ -249,7 +249,9 @@ its parser attributes. Both change when the checkout moves.
      PHP had loaded when it boots, before it loads anything itself, and
      records a mutant whose file was among it. Such a mutant is unjudged,
      whatever Pest made of it, with the reason *`<file>` was loaded before the
-     mutant was in place, so its tests ran the original code*.
+     mutant was in place, so its tests ran the original code*. That holds on
+     every run, so an ignore that names the mutant by its id can leave it out
+     (ADR-0008, decision 4).
    - **Where a survivor's own run ran no test.** The package's plugin counts
      the tests that finish in each mutant's own process and writes the count
      once PHPUnit ends the run, which it does whether or not its filter

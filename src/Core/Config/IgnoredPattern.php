@@ -61,6 +61,11 @@ final readonly class IgnoredPattern implements Ignored
             && ($this->mutator === $mutation->mutator() || $this->mutator === $mutation->family()->value);
     }
 
+    public function namesOne(): bool
+    {
+        return false;
+    }
+
     public function named(): string
     {
         return sprintf('%s in %s', $this->mutator, $this->path->value());

@@ -79,6 +79,22 @@ it('leaves a mutant no entry names, and one that does not ask for a test, as jud
         ->and($ignoring->judged($unnamed))->toBe($unnamed);
 });
 
+it('leaves out a mutant unjudged because its file loaded before it was in place only by an entry naming its id', function (): void {
+    $preloaded = Judged::mutant('a', MutantJudgement::Unjudged);
+    $preloaded = JudgedMutant::of($preloaded->mutant()->because(Reason::preloaded(Path::of('src/Money.php'))), MutantJudgement::Unjudged);
+    $timedOut = JudgedMutant::of($preloaded->mutant()->because(Reason::that('the budget ran out')), MutantJudgement::Unjudged);
+    $killed = JudgedMutant::of($preloaded->mutant(), MutantJudgement::Killed);
+    $pattern = IgnoredPattern::of(Glob::of('src/**'), 'boundary', 'The bound is never reached', Absent::setting());
+    $judged = ignoring($pattern, ignoreOf($preloaded, 'Loaded by the plugin before Pest can mutate it'))->judged($preloaded);
+    $reason = $judged->mutant()->reason();
+
+    expect($judged->judgement())->toBe(MutantJudgement::Ignored)
+        ->and($reason instanceof Reason ? $reason->text() : '')->toBe('Loaded by the plugin before Pest can mutate it')
+        ->and(ignoring($pattern)->judged($preloaded))->toBe($preloaded)
+        ->and(ignoring(ignoreOf($timedOut))->judged($timedOut))->toBe($timedOut)
+        ->and(ignoring(ignoreOf($killed))->judged($killed))->toBe($killed);
+});
+
 it('gives the reason of the first entry that names the mutant', function (): void {
     $mutant = Judged::mutant('a', MutantJudgement::Survived);
     $reason = ignoring(

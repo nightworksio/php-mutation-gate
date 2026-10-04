@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
@@ -22,4 +23,13 @@ it('records what a time budget ran out before where one did, and nothing where a
 it('tells the reason no test reaches a value from any other, by its words', function (): void {
     expect(Reason::that(Reason::UNREACHED)->isUnreached())->toBeTrue()
         ->and(Reason::that('the budget ran out')->isUnreached())->toBeFalse();
+});
+
+it('says a file was loaded before its mutant was in place, and tells that reason from any other, by its words', function (): void {
+    $preloaded = Reason::preloaded(Path::of('src/Plugin.php'));
+
+    expect($preloaded->text())->toBe('src/Plugin.php was loaded before the mutant was in place, so its tests ran the original code')
+        ->and($preloaded->isPreloaded())->toBeTrue()
+        ->and(Reason::that($preloaded->text())->isPreloaded())->toBeTrue()
+        ->and(Reason::that(Reason::UNREACHED)->isPreloaded())->toBeFalse();
 });

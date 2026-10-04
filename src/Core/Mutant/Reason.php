@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Mutant;
 
+use NightWorksIO\MutationGate\Core\File\Path;
+
+use function sprintf;
+use function str_ends_with;
+
 /**
  * Why a mutant stands as it does, in the sentence a report prints beside it:
  * why a runner left it unjudged, and the time budget that ran out before it,
@@ -19,6 +24,15 @@ final readonly class Reason
      */
     public const string UNREACHED = 'no test reaches this value';
 
+    /**
+     * Why a mutant is unjudged where its own run had loaded the file it
+     * mutates before Pest's override could put the mutant in its place
+     * (ADR-0004), as the ledger keeps it after the file's name. It holds on
+     * every run, and an ignore by the mutant's id can leave it out (ADR-0008,
+     * decision 4).
+     */
+    private const string PRELOADED = ' was loaded before the mutant was in place, so its tests ran the original code';
+
     private function __construct(private string $text, private OutOfTime|Unreported $outOfTime)
     {
     }
@@ -32,6 +46,18 @@ final readonly class Reason
     public static function ranOutOf(OutOfTime $before, string $text): self
     {
         return new self($text, $before);
+    }
+
+    /** Why a mutant of this file is unjudged where its own run loaded the file before the mutant was in place. */
+    public static function preloaded(Path $file): self
+    {
+        return self::that(sprintf('%s%s', $file->value(), self::PRELOADED));
+    }
+
+    /** Whether it says the mutated file was loaded before the mutant was in place, as the ledger keeps it. */
+    public function isPreloaded(): bool
+    {
+        return str_ends_with($this->text, self::PRELOADED);
     }
 
     /** Whether it says no test reaches the mutant's value, as the ledger keeps it, in its words. */

@@ -80,12 +80,20 @@ final readonly class Ignoring
         return new self($applying, $expired, $expiring);
     }
 
-    /** The mutant, left out with the reason of the first entry that names it, where it asks for a test. */
+    /**
+     * The mutant, left out with the reason of the first entry that names it
+     * and leaves it out: one that asks for a test, or one unjudged because its
+     * file was loaded before it was in place, by an entry that names its id.
+     */
     public function judged(JudgedMutant $mutant): JudgedMutant
     {
         foreach ($this->applying as $entry) {
-            if ($entry->matches($mutant->mutant())) {
-                return $mutant->ignoredBecause(Reason::that($entry->reason()));
+            $ignored = $entry->matches($mutant->mutant())
+                ? $mutant->ignoredBecause(Reason::that($entry->reason()), $entry->namesOne())
+                : $mutant;
+
+            if ($ignored->judgement() === MutantJudgement::Ignored) {
+                return $ignored;
             }
         }
 
