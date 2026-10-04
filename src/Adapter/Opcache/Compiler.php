@@ -7,7 +7,6 @@ namespace NightWorksIO\MutationGate\Adapter\Opcache;
 use function array_chunk;
 use function array_filter;
 use function array_intersect_key;
-use function array_key_exists;
 use function array_keys;
 use function array_map;
 use function array_merge;
@@ -273,7 +272,7 @@ final readonly class Compiler
 
     /**
      * What a child that has ended compiled of these programs; each of them
-     * failed, where it stopped before it compiled them all.
+     * failed, where it did not end well or did not answer for each.
      *
      * @template TKey of array-key
      *
@@ -288,7 +287,7 @@ final readonly class Compiler
 
         $answers = trim($child->getOutput());
 
-        return mb_strlen($answers) === count($paths)
+        return $child->getExitCode() === 0 && mb_strlen($answers) === count($paths)
             ? $this->read($paths, mb_str_split($answers), explode(self::BETWEEN, $child->getErrorOutput()))
             : $this->failed($paths);
     }
@@ -305,6 +304,11 @@ final readonly class Compiler
     }
 
     /**
+     * Each program as the child answered for it: a program it compiled has
+     * the opcodes it dumped of it, where its dump splits into one section for
+     * each program, and fails where it does not, since a section can then be
+     * another program's.
+     *
      * @template TKey of array-key
      *
      * @param  array<TKey, string>             $paths
@@ -315,16 +319,22 @@ final readonly class Compiler
     private function read(array $paths, array $answers, array $dumps): array
     {
         $read = [];
+        $whole = count($dumps) === count($paths) + 1;
 
         foreach (array_keys($paths) as $index => $key) {
-            $dump = array_key_exists($index + 1, $dumps) ? $dumps[$index + 1] : '';
-            $read[$key] = match ($answers[$index]) {
-                self::COMPILED => trim($dump) === '' ? Uncompiled::NoOpcache : Opcodes::dumped($dump, $paths[$key]),
-                self::NO_OPCACHE => Uncompiled::NoOpcache,
-                default => Uncompiled::Failed,
+            $read[$key] = match (true) {
+                $answers[$index] === self::NO_OPCACHE => Uncompiled::NoOpcache,
+                $answers[$index] !== self::COMPILED || ! $whole => Uncompiled::Failed,
+                default => $this->opcodesOf($dumps[$index + 1], $paths[$key]),
             };
         }
 
         return $read;
+    }
+
+    /** The opcodes of a program compiled at a path, from its section of the dump; none where opcache dumped none. */
+    private function opcodesOf(string $dump, string $path): Opcodes|Uncompiled
+    {
+        return trim($dump) === '' ? Uncompiled::NoOpcache : Opcodes::dumped($dump, $path);
     }
 }

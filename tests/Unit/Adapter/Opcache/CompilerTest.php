@@ -93,3 +93,57 @@ it('says each program failed where its child cannot start, is given no time or r
     'no time at all' => [PHP_BINARY, -1.0],
     'no time to compile' => [PHP_BINARY, 0.001],
 ]);
+
+/** What a child writes to the dump's stream: each of these sections after the marker. */
+function dumpSections(string ...$sections): string
+{
+    $written = '';
+
+    foreach ($sections as $section) {
+        $written .= sprintf("\x1Emutation-gate\x1E%s", $section);
+    }
+
+    return $written;
+}
+
+/** A child that compiles nothing, but answers both of two programs compiled, writes this dump, and exits so. */
+function fakeChild(string $dump, int $exit): string
+{
+    $child = sprintf('%s/fake-php', Scratch::directory());
+    file_put_contents($child, sprintf(
+        "#!%s\n<?php\nfwrite(STDERR, %s);\necho '11';\nexit(%d);\n",
+        PHP_BINARY,
+        var_export($dump, return: true),
+        $exit,
+    ));
+    chmod($child, 0o755);
+
+    return $child;
+}
+
+it('says each program failed where its child\'s dump does not read back whole, rather than compare what it holds', function (
+    string $dump,
+    int $exit,
+): void {
+    $compiler = new Compiler(fakeChild($dump, $exit), sprintf('%s/equivalence', Scratch::directory()), 30.0, 1);
+
+    expect($compiler->compiled(['one' => Contents::of(COMPILED_PROGRAM), 'two' => Contents::of(COMPILED_PROGRAM)]))
+        ->toBe(['one' => Uncompiled::Failed, 'two' => Uncompiled::Failed]);
+})->with([
+    'a child that exits with an error' => [dumpSections("\n\$_main:\n0000 RETURN int(1)\n", "\n\$_main:\n0000 RETURN int(1)\n"), 1],
+    'more sections than programs' => [
+        dumpSections("\n\$_main:\n0000 RETURN int(1)\n", "\n\$_main:\n0000 RETURN int(1)\n", "\n\$_main:\n0000 RETURN int(2)\n"),
+        0,
+    ],
+    'fewer sections than programs' => [dumpSections("\n\$_main:\n0000 RETURN int(1)\n"), 0],
+    'sections that are not dumps' => [dumpSections("Opcache cannot allocate shared memory\n", "Opcache cannot allocate shared memory\n"), 0],
+]);
+
+it('reads each program of a child that ends well and dumps one section for each', function (): void {
+    $dump = dumpSections("\n\$_main:\n0000 RETURN int(1)\n", "\n\$_main:\n0000 RETURN int(2)\n");
+    $compiled = new Compiler(fakeChild($dump, 0), sprintf('%s/equivalence', Scratch::directory()), 30.0, 1)
+        ->compiled(['one' => Contents::of(COMPILED_PROGRAM), 'two' => Contents::of(COMPILED_PROGRAM)]);
+
+    expect(array_map(static fn(Opcodes|Uncompiled $one): string => $one instanceof Opcodes ? $one->text() : $one->name, $compiled))
+        ->toBe(['one' => "\n\$_main:\n0000 RETURN int(1)\n", 'two' => "\n\$_main:\n0000 RETURN int(2)\n"]);
+});
