@@ -16,6 +16,8 @@ it('keeps a percentage as written in hundredths, truncated rather than rounded',
     'two decimals' => [83.41, 8341],
     'more decimals' => [83.419, 8341],
     'binary noise below' => [0.29, 29],
+    'short of a hundredth past six decimals, which is noise' => [0.1299999951, 13],
+    'short of a hundredth within six decimals, which is not' => [0.129999951, 12],
     'whole' => [100, 10_000],
     'none' => [0, 0],
 ]);

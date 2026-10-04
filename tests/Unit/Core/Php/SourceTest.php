@@ -56,3 +56,19 @@ it('finds each name that may stand for a class, but not where it is declared, im
         ->and($lines)->toBe([5, 5])
         ->and($source->namesOf('Nowhere'))->toBe([]);
 });
+
+it('finds no use of a class where its name is declared as a class-like, a function or a constant, or read through ?->', function (): void {
+    $source = Php::source(<<<'PHP'
+        <?php
+        namespace App;
+        class Status {}
+        interface Status {}
+        trait Status {}
+        function Status() {}
+        const Status = 1;
+        $x?->Status;
+        new Status();
+        PHP);
+
+    expect(array_map($source->tokens()->line(...), $source->namesOf('App\Status')))->toBe([9]);
+});

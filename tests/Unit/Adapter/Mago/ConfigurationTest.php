@@ -28,6 +28,8 @@ it('says the configuration Mago merges, alike from two roots, without its other 
 
     expect($here instanceof AnalyserSettings ? $here->written() : $here)->toBe($there instanceof AnalyserSettings ? $there->written() : $there)
         ->and($here instanceof AnalyserSettings ? $here->written() : '')->not->toContain('print-width')
+        ->and($here instanceof AnalyserSettings ? $here->written() : '')->not->toContain('linter')
+        ->and($here instanceof AnalyserSettings ? $here->written() : '')->not->toContain('guard')
         ->and($here instanceof AnalyserSettings ? $here->references() : $here)->toEqual(Paths::of(
             Path::of('mago.toml'),
             Path::of('mago-baseline.toml'),
