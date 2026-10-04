@@ -10,6 +10,7 @@ use function array_replace;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistory;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
+use NightWorksIO\MutationGate\Core\Analysis\DependentCap;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
 use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
@@ -36,13 +37,14 @@ use Psr\Clock\ClockInterface;
  * Static analysis's check of a shard's survivors, after their tests
  * (ADR-0020, decisions 9, 11 and 13). The analyser runs once over the
  * original files, then checks each survivor that did not prove flaky, in
- * place of its file, as its runner gives it. A survivor with an error its
- * original does not have is killed by static analysis. One the analyser
- * cannot check, or the time budget has no room for, stays a survivor, and
- * the checks say why. A survivor printed as its runner prints its mutants
- * is judged against its original printed the same way, which must first
- * analyse as the file itself does. The checks record their time alone
- * (ADR-0020, decision 11).
+ * place of its file, as its runner gives it, with the files it can break
+ * where it changes what its file declares and the analyser reads them. A
+ * survivor with an error its original does not have is killed by static
+ * analysis. One the analyser cannot check, or the time budget has no room
+ * for, stays a survivor, and the checks say why. A survivor printed as its
+ * runner prints its mutants is judged against its original printed the same
+ * way, which must first analyse as the file itself does. The checks record
+ * their time alone (ADR-0020, decision 11).
  */
 final readonly class SurvivorChecking
 {
@@ -108,9 +110,13 @@ final readonly class SurvivorChecking
         $found = $checker->findings(Paths::none(), $this->adapters->withheld);
         $took = Seconds::between($started, $this->clock->now());
 
-        return $found instanceof CannotJudge
-            ? new Checked($mutants, $this->leaving($survivors, Unchecked::NoWarmUp))
-            : $this->each(new WarmedUp($checker, $identity, $found, $took), $mutants, $survivors);
+        if ($found instanceof CannotJudge) {
+            return new Checked($mutants, $this->leaving($survivors, Unchecked::NoWarmUp));
+        }
+
+        $dependents = new Dependents(new NameGraph($this->adapters), DependentCap::standard());
+
+        return $this->each(new WarmedUp($checker, $identity, $found, $took, $dependents), $mutants, $survivors);
     }
 
     private function leaving(Mutants $survivors, Unchecked $why): SurvivorChecks
@@ -207,7 +213,12 @@ final readonly class SurvivorChecking
         }
 
         $at = Workspace::checkedOriginal($survivor->id());
-        [$print, $history] = $this->analysed($warm->checker, $survivor->location()->file(), $at, $original, $history);
+        [$print, $history] = $this->analysed(
+            $warm->checker,
+            MutantCheck::of($survivor->location()->file(), $at),
+            $original,
+            $history,
+        );
 
         $differs = $print instanceof Findings && ! $print->same($warm->findings);
 
@@ -228,9 +239,12 @@ final readonly class SurvivorChecking
         Findings $baseline,
         AnalyserHistory $history,
     ): array {
-        $at = Workspace::checkedMutant($survivor->id());
         $file = $survivor->location()->file();
-        [$findings, $history] = $this->analysed($warm->checker, $file, $at, $checkable->mutant(), $history);
+        $check = MutantCheck::of($file, Workspace::checkedMutant($survivor->id()));
+        $listed = $warm->checker->readsDependents()
+            ? $check->withDependents($this->dependents($warm, $file, $checkable))
+            : $check;
+        [$findings, $history] = $this->analysed($warm->checker, $listed, $checkable->mutant(), $history);
 
         if (! $findings instanceof Findings) {
             return [$findings, $history];
@@ -244,27 +258,39 @@ final readonly class SurvivorChecking
     }
 
     /**
-     * What the analyser finds in this text read in place of the file,
-     * written for the check alone and removed after it, with the check's
-     * time learned; or why it finds nothing.
+     * The files a survivor can break, read against its original as its
+     * runner gives it: the print, or the file as it is written.
+     */
+    private function dependents(WarmedUp $warm, Path $file, Checkable $checkable): Paths
+    {
+        $original = $checkable->original();
+        $text = $original instanceof Contents ? $original : $this->adapters->project->read($file);
+
+        return $text instanceof Contents ? $warm->dependents->of($file, $text, $checkable->mutant()) : Paths::none();
+    }
+
+    /**
+     * What the analyser finds in this text read in place of the check's
+     * file, written where the check names the mutant for it alone and
+     * removed after it, with the check's time learned; or why it finds
+     * nothing.
      *
      * @return array{Findings|Unchecked, AnalyserHistory}
      */
     private function analysed(
         StaticChecker $checker,
-        Path $file,
-        Path $at,
+        MutantCheck $check,
         Contents $text,
         AnalyserHistory $history,
     ): array {
-        if ($this->adapters->project->write($at, $text) instanceof CannotJudge) {
+        if ($this->adapters->project->write($check->mutant(), $text) instanceof CannotJudge) {
             return [Unchecked::Failed, $history];
         }
 
         $started = $this->clock->now();
-        $found = $checker->check(MutantCheck::of($file, $at)->withholding($this->adapters->withheld));
+        $found = $checker->check($check->withholding($this->adapters->withheld));
         $history = $history->checked(Seconds::between($started, $this->clock->now()));
-        $this->adapters->project->remove($at);
+        $this->adapters->project->remove($check->mutant());
 
         $findings = match (true) {
             $found instanceof OutOfScope => Unchecked::OutOfScope,

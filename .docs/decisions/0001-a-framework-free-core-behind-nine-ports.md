@@ -84,7 +84,7 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
    | `ChangeSource` | The repository as version control sees it: what changed since a base and on which lines, every file with a digest of its content and the time it last changed, and files as they were at the base, one or many read together | git, with GitHub as a source for the base (ADR-0005) |
    | `Repository` | Where the checkout stands: the commit it is at, whether the working tree holds anything that commit does not, the branch it is on or that its `HEAD` is detached, and the branch the remote calls its default | git (ADR-0006) |
    | `ConfigLoader` | One config file read into its typed layer of config, through the definition ADR-0002 validates every layer with | PHP, JSON, YAML, NEON (ADR-0002) |
-   | `StaticChecker` | A static analyser's identity, the configuration it runs with, the findings of the original files, and the findings of one mutant analysed in place of its original (ADR-0020) | Mago, PHPStan, Psalm (ADR-0020) |
+   | `StaticChecker` | A static analyser's identity, the configuration it runs with, the findings of the original files, whether it reads the dependents a check lists, and the findings of one mutant analysed in place of its original (ADR-0020) | Mago, PHPStan, Psalm (ADR-0020) |
 
    Time is read through PSR-20's `Psr\Clock\ClockInterface`, a standard
    interface rather than a port of its own. `Psr\Clock` is the only package

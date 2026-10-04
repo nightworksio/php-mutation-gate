@@ -134,26 +134,40 @@ final readonly class NamedFiles
      */
     public function naming(string ...$names): array
     {
+        $namedBy = [];
+
+        foreach ($this->naming as $file => $named) {
+            foreach ($named as $declaring) {
+                $namedBy[$declaring][] = $file;
+            }
+        }
+
+        return $this->walk($namedBy, $this->mentioning(...$names));
+    }
+
+    /**
+     * Every file that mentions one of these names itself: the files a change
+     * to what declares them can break directly, in the order of the graph.
+     *
+     * @return list<string>
+     */
+    public function mentioning(string ...$names): array
+    {
         $asked = [];
 
         foreach ($names as $name) {
             $asked[$name] = true;
         }
 
-        $first = [];
-        $namedBy = [];
+        $mentioning = [];
 
         foreach ($this->mentions as $file => $mentioned) {
             if (array_any($mentioned, static fn(string $name): bool => array_key_exists($name, $asked))) {
-                $first[] = $file;
-            }
-
-            foreach ($this->naming[$file] as $named) {
-                $namedBy[$named][] = $file;
+                $mentioning[] = $file;
             }
         }
 
-        return $this->walk($namedBy, $first);
+        return $mentioning;
     }
 
     /**

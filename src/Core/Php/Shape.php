@@ -14,9 +14,6 @@ use function array_values;
  */
 final readonly class Shape
 {
-    /** What declares a class-like body. */
-    private const array CLASS_LIKE = [T_CLASS, T_INTERFACE, T_TRAIT, T_ENUM];
-
     /**
      * @param array<int, ClassLike> $classes    each class-like declaration, by where its body opens
      * @param array<int, Signature> $signatures each parameter list, by where it opens
@@ -30,7 +27,7 @@ final readonly class Shape
     {
         $classes = [];
 
-        foreach ($tokens->indicesOf(...self::CLASS_LIKE) as $at) {
+        foreach ($tokens->indicesOf(...Tokens::CLASS_LIKE) as $at) {
             $body = self::braceAfter($tokens, $at, $at + 1);
             $classes = $tokens->is($at - 1, T_DOUBLE_COLON) || $body === Tokens::NONE
                 ? $classes

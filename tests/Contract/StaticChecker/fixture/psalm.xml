@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<psalm
+    errorLevel="1"
+    autoloader="bootstrap.php"
+    findUnusedCode="false"
+    findUnusedBaselineEntry="false"
+    xmlns="https://getpsalm.org/schema/config"
+>
+    <projectFiles>
+        <directory name="src"/>
+        <ignoreFiles>
+            <file name="src/Excluded.php"/>
+        </ignoreFiles>
+    </projectFiles>
+</psalm>

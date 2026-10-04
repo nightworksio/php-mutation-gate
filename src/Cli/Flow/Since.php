@@ -17,7 +17,6 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Php\NamedFiles;
-use NightWorksIO\MutationGate\Core\Php\PhpFile;
 use NightWorksIO\MutationGate\Core\Reach\FileRoles;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -104,20 +103,14 @@ final readonly class Since
             return $suite;
         }
 
-        $files = [];
-
-        foreach ($suite->sources()->php() as $path => $php) {
-            $files[$path->value()] = $php;
-        }
-
-        $outside = $this->phpOutside($suite->outside());
+        $named = new NameGraph($this->adapters)->of($suite);
         $loaded = $this->loadedBy($all);
 
         return match (true) {
-            $outside instanceof CannotJudge => $outside,
+            $named instanceof CannotJudge => $named,
             $loaded instanceof CannotJudge => $loaded,
             default => [
-                NamedFiles::read($files + $outside),
+                $named,
                 FileRoles::of(Reached::layout($this->adapters, $this->settings, $suite), Packages::of($trees), $loaded),
             ],
         };
@@ -149,30 +142,6 @@ final readonly class Since
         }
 
         return Paths::of(...$loaded);
-    }
-
-    /** @return array<string, PhpFile>|CannotJudge every PHP file outside the test directories, by its path */
-    private function phpOutside(Fingerprints $outside): array|CannotJudge
-    {
-        $files = [];
-
-        foreach ($outside as $file) {
-            if (! $file->path()->isPhp()) {
-                continue;
-            }
-
-            $contents = $this->adapters->project->read($file->path());
-
-            if ($contents instanceof CannotJudge) {
-                return $contents;
-            }
-
-            if ($contents instanceof Contents) {
-                $files[$file->path()->value()] = PhpFile::read($contents);
-            }
-        }
-
-        return $files;
     }
 
     /** Every PHP file a change touched, as it is named now and as it was named before a rename. */

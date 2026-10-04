@@ -124,6 +124,12 @@ final readonly class Mago implements StaticChecker
         };
     }
 
+    /** None: Mago analyses the whole workspace in each check. */
+    public function readsDependents(): bool
+    {
+        return false;
+    }
+
     /** A mutant, where Mago analyses its original; out of scope where it does not. */
     public function check(MutantCheck $check): Findings|OutOfScope|CannotJudge
     {
