@@ -15,7 +15,9 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\CiMarker;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Runner\PeakMemory;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -69,11 +71,27 @@ final readonly class FlowCommands
     /**
      * How the command line composes a flow in a project, with these ports in
      * place of the ones the gate would choose, over the flows' trees, in no
-     * environment variables.
+     * environment variables, its processes having held the most memory this
+     * reads.
      */
-    public static function composition(string $project, Runner $runner, ProofStore $proofs, CiPlan $ci): Composition
-    {
-        return self::over(Flows::trees(), $project, $runner, $proofs, $ci, Variables::of([]));
+    public static function composition(
+        string $project,
+        Runner $runner,
+        ProofStore $proofs,
+        CiPlan $ci,
+        PeakMemory $memory = new PeakMemoryFake(new NotGiven()),
+    ): Composition {
+        return self::reading(
+            Flows::trees(),
+            $project,
+            $runner,
+            $proofs,
+            $ci,
+            Variables::of([]),
+            RepositoryFake::onMain(Revision::ref(Flows::HEAD)),
+            Flows::checkout(),
+            $memory,
+        );
     }
 
     /**
@@ -153,6 +171,7 @@ final readonly class FlowCommands
         Variables $environment,
         Repository $repository,
         ChangeSource $changes,
+        PeakMemory $memory = new PeakMemoryFake(new NotGiven()),
     ): Composition {
         $registry = new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))
             ->withRunner(Name::of('fake'), static fn(): Runner => $runner)
@@ -172,6 +191,7 @@ final readonly class FlowCommands
             $project,
             $vendor,
             new StoppedClock(Configs::NOW),
+            $memory,
             $environment,
         );
     }

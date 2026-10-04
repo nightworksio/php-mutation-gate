@@ -50,7 +50,7 @@ it('is invalid where the settings no longer hold on the day its clock reads', fu
     $earlier = new Composed(
         $before->settings,
         $before->adapters,
-        new Setup($before->setup->configFile, $before->setup->gate, $before->setup->installed, new StoppedClock('2026-09-01T12:00:00+00:00')),
+        new Setup($before->setup->configFile, $before->setup->gate, $before->setup->installed, new StoppedClock('2026-09-01T12:00:00+00:00'), $before->setup->memory),
         $before->reporting,
     );
 

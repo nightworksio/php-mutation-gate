@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
@@ -35,6 +36,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Origin;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\PeakMemoryFake;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
@@ -176,6 +178,7 @@ it('takes no unit a budget ran out before as run, and names every one', function
         Version::of('nightworksio/mutation-gate', '1.0.0', 'gate'),
         Digest::sha256Of('installed'),
         new StoppedClock('2026-09-30T12:00:00Z'),
+        new PeakMemoryFake(NotGiven::value()),
     );
     new Running(Flows::adapters($project), Flows::settings(Budget::of('1s')), $setup)->runAll($plan, Workspace::results());
     $results = Results::read($plan, Workspace::results(), Directory::at($project));
@@ -207,6 +210,7 @@ it('says a run was cut short where its budget ran out before a unit or left a mu
         Version::of('nightworksio/mutation-gate', '1.0.0', 'gate'),
         Digest::sha256Of('installed'),
         new TickingClock('2026-09-30T12:00:00+00:00', $step),
+        new PeakMemoryFake(NotGiven::value()),
     );
     new Running(Flows::adapters($project, [], ScriptedRunner::fixture()->answering(Mutants::of($timedOut), 0)), $settings, $setup)
         ->runAll($plan, Workspace::results());
