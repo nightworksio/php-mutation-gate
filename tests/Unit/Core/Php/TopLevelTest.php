@@ -154,3 +154,17 @@ it('runs each statement that declares nothing, whole, a block inside its bracket
         '$shared = 5 ;',
     ]);
 });
+
+it('reads the braces of a variable in a string as ending no statement, and an attribute as a bracket a block can follow', function () use ($top): void {
+    $running = $top(<<<'PHP'
+        <?php
+        #[Attribute] final class Held {}
+        $label = "${name} held by {$owner}";
+        it('holds', function (): void { expect(1)->toBe(1); });
+        PHP)->running();
+
+    expect(array_map(static fn(array $statement): string => TopLevel::spelt(...$statement), $running))->toBe([
+        '$label = " ${ name }  held by  { $owner } " ;',
+        "it ( 'holds' , function ( ) : void { expect ( 1 ) -> toBe ( 1 ) ; } ) ;",
+    ]);
+});

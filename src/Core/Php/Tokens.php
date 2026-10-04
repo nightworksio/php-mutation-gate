@@ -43,10 +43,10 @@ final readonly class Tokens implements Countable
      * What opens a bracket, an attribute group's `#[` among them. A token is
      * matched by its text too, so `{` also opens the `{$` of a string.
      */
-    private const array OPENS = ['(', '[', '{', T_ATTRIBUTE, T_DOLLAR_OPEN_CURLY_BRACES];
+    public const array OPENS = ['(', '[', '{', T_ATTRIBUTE, T_DOLLAR_OPEN_CURLY_BRACES];
 
     /** What closes one. */
-    private const array CLOSES = [')', ']', '}'];
+    public const array CLOSES = [')', ']', '}'];
 
     /**
      * @param list<PhpToken>  $tokens
