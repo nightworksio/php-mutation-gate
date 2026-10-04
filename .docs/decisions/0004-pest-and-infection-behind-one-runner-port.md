@@ -610,7 +610,12 @@ its parser attributes. Both change when the checkout moves.
      attribute arguments. Pest marks every mutant there *uncovered* and runs no
      test. The gate takes these mutants from the `Uncovered` events, reads
      what the first token the mutated copy writes differently stands in, and
-     judges them itself.
+     judges them itself. Pest writes the mutated copy as php-parser's print of
+     the whole file, which lays the code out its own way: it drops a trailing
+     comma, adds parentheses and respells a number. So the gate prints the
+     original the same way, finds the first token the two prints write
+     differently, and carries it back to the file through the tokens the file
+     and its print share.
      - Coverage may also leave a statement's first line unmarked though the
        statement ran: pcov never marks the head of a `match (true)`. A mutant
        Pest left uncovered on the first line of a statement inside a

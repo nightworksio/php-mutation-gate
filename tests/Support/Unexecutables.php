@@ -121,7 +121,7 @@ final class Unexecutables
             $copied = ! in_array($id, $uncopied, strict: true);
 
             if ($copied) {
-                file_put_contents(Recorder::mutantBeside($results, $id), str_replace($removed, $added, self::MONEY));
+                file_put_contents(Recorder::mutantBeside($results, $id), PestPrint::of(str_replace($removed, $added, self::MONEY)));
             }
         }
 

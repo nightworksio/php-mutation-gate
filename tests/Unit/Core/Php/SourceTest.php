@@ -27,12 +27,14 @@ it('says what a token stands in, and the class around it', function (): void {
         ->and($source->classAround(Php::indexOf($source, '3')))->toEqual(ClassLike::none());
 });
 
-it('finds the first token a changed copy writes differently, or none', function (): void {
-    $source = Php::source('<?php $a = 1 + 2;');
+it('finds the first token a change to a print of the file writes differently, carried back to the file', function (): void {
+    $source = Php::source('<?php f(1, 2,); $a = 0o17 + 2; g(3,);');
+    $print = Contents::of("<?php\n\nf(1, 2);\n\$a = 017 + 2;\ng(3);\n");
 
-    expect($source->changedAt(Contents::of('<?php $a = 1 - 2;')))->toBe(Php::indexOf($source, '+'))
-        ->and($source->changedAt(Contents::of("<?php\n\n\$a  =  1 + 2;")))->toBe($source->tokens()->count())
-        ->and($source->changedAt(Contents::of('<?php $a = 1;')))->toBe(Php::indexOf($source, '+'));
+    expect($source->changedAt($print, Contents::of('<?php f(1, 2); $a = 017 - 2; g(3);')))->toBe(Php::indexOf($source, '+'))
+        ->and($source->changedAt($print, Contents::of('<?php f(1, 2); $a = 016 + 2; g(3);')))->toBe(Php::indexOf($source, '0o17'))
+        ->and($source->changedAt($print, Contents::of('<?php f(1, 2); $a = 017;')))->toBe(Php::indexOf($source, '+'))
+        ->and($source->changedAt($print, $print))->toBe($source->tokens()->count());
 });
 
 it('finds each name that may stand for a class, but not where it is declared, imported or a member', function (): void {

@@ -13,17 +13,20 @@ use function is_string;
 use NightWorksIO\MutationGate\Adapter\Pest\Covering;
 use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
 use NightWorksIO\MutationGate\Adapter\Pest\MemoryScan;
+use NightWorksIO\MutationGate\Adapter\Pest\Printed;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Records;
 use NightWorksIO\MutationGate\Adapter\Pest\Shell;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Php\Source;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
@@ -118,15 +121,11 @@ final readonly class Judging
     {
         $file = $mutant->location()->file();
         $copy = Recorder::mutantBeside($results, $mutant->nativeId());
-        $original = $this->contentsOf($this->project->absolute($file));
-        $mutated = $this->contentsOf($copy);
+        $choice = $this->choice($selector, $file, $copy);
 
-        if (! $original instanceof Contents || ! $mutated instanceof Contents) {
-            return $this->judged($mutant, Outcome::unjudged(self::MISSING), $trial->limit());
+        if ($choice instanceof Outcome) {
+            return $this->judged($mutant, $choice, $trial->limit());
         }
-
-        $source = Source::read($file, $original, test: false);
-        $choice = $selector->judging($source, $source->changedAt($mutated));
 
         if (! $choice instanceof Choice) {
             return $mutant;
@@ -143,6 +142,31 @@ final readonly class Judging
         };
 
         return $this->judged($mutant, $judged, $trial->limit());
+    }
+
+    /**
+     * Which test files judge the mutant of a file whose mutated copy, as Pest
+     * prints it, is kept at a path; none where coverage speaks for its line;
+     * or why it stays unjudged.
+     */
+    private function choice(Selector $selector, Path $file, string $copy): Choice|NotGiven|Outcome
+    {
+        $original = $this->contentsOf($this->project->absolute($file));
+        $mutated = $this->contentsOf($copy);
+
+        if (! $original instanceof Contents || ! $mutated instanceof Contents) {
+            return Outcome::unjudged(self::MISSING);
+        }
+
+        $printed = Printed::of($original, $file);
+
+        if ($printed instanceof CannotJudge) {
+            return Outcome::unjudged($printed->why());
+        }
+
+        $source = Source::read($file, $original, test: false);
+
+        return $selector->judging($source, $source->changedAt($printed, $mutated));
     }
 
     /** The mutant as an outcome judges it, with the limit Pest allowed each mutant where it timed out. */
