@@ -27,14 +27,14 @@ it('reads two copies of one program, compiled at two paths with their closures o
             '{closure:App\K::run()}:',
             '     ; (lines=2, args=0, vars=0, tmps=0)',
             '     ; (after optimizer)',
-            '0000 RETURN string("<file>")',
+            sprintf('0000 RETURN string("%s")', Opcodes::FILE),
         ]));
 });
 
 it('names the program\'s directory alike, as written and as the dump escapes it', function (): void {
     $dump = opcodesDump('/a/b"c/program.php', '1', '0000 RETURN string("/a/b\\"c")');
 
-    expect(Opcodes::dumped($dump, '/a/b"c/program.php')->text())->toEndWith('0000 RETURN string("<directory>")');
+    expect(Opcodes::dumped($dump, '/a/b"c/program.php')->text())->toEndWith(sprintf('0000 RETURN string("%s")', Opcodes::DIRECTORY));
 });
 
 it('keeps every literal and opcode line as it is, so a changed one never compares equal', function (string $before, string $after): void {

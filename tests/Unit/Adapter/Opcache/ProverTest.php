@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Opcache\Compiler;
+use NightWorksIO\MutationGate\Adapter\Opcache\Opcodes;
 use NightWorksIO\MutationGate\Adapter\Opcache\Prover;
 use NightWorksIO\MutationGate\Adapter\Opcache\Uncompiled;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -62,3 +63,29 @@ it('says opcache dumped nothing, and proves none, where it gives no opcodes', fu
 
     expect(new Prover($compiler)->proven([provedPair('same', '$a * 2', '$a + $a')]))->toBe(Uncompiled::NoOpcache);
 });
+
+it('proves no mutant whose literal reads as the name it gives the program\'s own path', function (
+    string $original,
+    string $mutant,
+): void {
+    $prover = Prover::of(PHP_BINARY, Root::of(Scratch::directory())->at(Path::of('equivalence')), Processes::of(1));
+
+    expect($prover->proven([['forged', Contents::of($original), Contents::of($mutant)]]))->toBe([]);
+})->with([
+    'its file, as plain text named it' => [
+        "<?php\n\nfunction ownFile(): string\n{\n    return __FILE__;\n}\n",
+        "<?php\n\nfunction ownFile(): string\n{\n    return '<file>';\n}\n",
+    ],
+    'its directory, as plain text named it' => [
+        "<?php\n\nfunction ownDirectory(): string\n{\n    return __DIR__;\n}\n",
+        "<?php\n\nfunction ownDirectory(): string\n{\n    return '<directory>';\n}\n",
+    ],
+    'its file, as it is named' => [
+        "<?php\n\nfunction ownFile(): string\n{\n    return __FILE__;\n}\n",
+        sprintf("<?php\n\nfunction ownFile(): string\n{\n    return \"%s\";\n}\n", addcslashes(Opcodes::FILE, "\0..\37")),
+    ],
+    'its directory, as it is named' => [
+        "<?php\n\nfunction ownDirectory(): string\n{\n    return __DIR__;\n}\n",
+        sprintf("<?php\n\nfunction ownDirectory(): string\n{\n    return \"%s\";\n}\n", addcslashes(Opcodes::DIRECTORY, "\0..\37")),
+    ],
+]);
