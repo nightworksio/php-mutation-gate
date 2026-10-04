@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
@@ -105,6 +106,27 @@ it('leaves a tree with a unit that has no result yet unmeasured', function () us
     ) : $measured)->toBe(['src/Money.php'])
         ->and($measured instanceof Measured ? [...$measured->unmeasured()] : $measured)
         ->toEqual([Path::of('src/Held.php')]);
+});
+
+it('judges each package\'s security set whose every tree was measured, and names the packages of the rest', function () use ($proofOf): void {
+    $store = new ProofStoreFake();
+    $store->write(Scope::branch('main'), Ledger::empty()->withProof($proofOf('src/Money.php', '2026-09-29T10:00:00Z')));
+    $trees = new TreeSourceFake(Trees::of(
+        Tree::at(Path::of('src/Money.php'), Floor::of(50), Package::at(Path::root())),
+        Tree::at(Path::of('src/Held.php'), Floor::of(50), Package::at(Path::of('src'))),
+    ));
+    $baseline = Baseline::none()->withSecurity(Entry::of(Path::of('src'), Floor::of(80)));
+    $plus = NamedMutators::of('Plus');
+
+    $measured = Measured::of(Flows::adapters(Flows::project(), [], $store, $trees, $plus), Flows::settings(), $baseline, new DateTimeImmutable(Configs::NOW));
+    $none = Measured::of(Flows::adapters(Flows::project(), [], $store, $trees), Flows::settings(), $baseline, new DateTimeImmutable(Configs::NOW));
+    $sets = $measured instanceof Measured ? [...$measured->security()] : [];
+
+    expect(count($sets))->toBe(1)
+        ->and($sets[0]->package()->path())->toEqual(Path::root())
+        ->and($measured instanceof Measured ? [...$measured->unmeasuredSecurity()] : $measured)->toEqual([Path::of('src')])
+        ->and($none instanceof Measured ? $none->security() : $none)->toHaveCount(0)
+        ->and($none instanceof Measured ? $none->unmeasuredSecurity() : $none)->toHaveCount(0);
 });
 
 it('scores the results with uncovered mutants left out where the config says so', function () use (

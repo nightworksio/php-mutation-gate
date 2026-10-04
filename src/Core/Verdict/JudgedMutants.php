@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Verdict;
 
+use function array_filter;
 use function array_key_exists;
 use function array_merge;
 use function array_values;
 
 use ArrayIterator;
+use Closure;
 
 use function count;
 
@@ -18,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Cluster\Clustering;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
+use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use Traversable;
@@ -148,22 +151,16 @@ final readonly class JudgedMutants implements Countable, IteratorAggregate
     /** The mutants and kills on lines the change added or modified, in order. */
     public function changed(): self
     {
-        $changed = [];
-        $kills = [];
+        return $this->kept(static fn(JudgedMutant|JudgedKill $mutant): bool => $mutant->isOnChangedLine());
+    }
 
-        foreach ($this->mutants as $mutant) {
-            if ($mutant->isOnChangedLine()) {
-                $changed[] = $mutant;
-            }
-        }
-
-        foreach ($this->kills as $kill) {
-            if ($kill->isOnChangedLine()) {
-                $kills[] = $kill;
-            }
-        }
-
-        return new self($changed, $kills);
+    /** The mutants and kills these mutators made, in order. */
+    public function madeBy(NamedMutators $mutators): self
+    {
+        return $this->kept(
+            static fn(JudgedMutant|JudgedKill $mutant): bool => NamedMutators::of($mutant->mutant()->mutator())
+                ->meet($mutators),
+        );
     }
 
     /**
@@ -206,5 +203,18 @@ final readonly class JudgedMutants implements Countable, IteratorAggregate
     public function getIterator(): Traversable
     {
         return new ArrayIterator([...$this->mutants, ...$this->kills]);
+    }
+
+    /**
+     * The mutants and kills this keeps, in order.
+     *
+     * @param Closure(JudgedMutant|JudgedKill): bool $keeps
+     */
+    private function kept(Closure $keeps): self
+    {
+        return new self(
+            array_values(array_filter($this->mutants, $keeps)),
+            array_values(array_filter($this->kills, $keeps)),
+        );
     }
 }

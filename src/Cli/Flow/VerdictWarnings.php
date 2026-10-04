@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Ratchet;
+use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
@@ -32,6 +33,9 @@ final readonly class VerdictWarnings
 
     private const string UNFLOORED = '%s has no floor yet. Run mutation-gate baseline --write and commit %s.';
 
+    private const string SECURITY_UNFLOORED
+        = 'The security set of %s has no floor yet. Run mutation-gate baseline --write and commit %s.';
+
     public function __construct(private Adapters $adapters, private Settings $settings)
     {
     }
@@ -44,6 +48,22 @@ final readonly class VerdictWarnings
             : $this->hotPathsIn($plan, $map, $shards);
 
         return $this->listed($plan, $verdicts, $raised);
+    }
+
+    /** Outside CI, a warning for each security set held to no floor (ADR-0021, decision 17). */
+    public function unfloored(SecurityVerdicts $security): Warnings
+    {
+        $warnings = Warnings::none();
+
+        foreach ($this->adapters->environment->inCi() ? [] : Ratchet::securityUnfloored($security) as $package) {
+            $warnings = $warnings->with(Warning::that(sprintf(
+                self::SECURITY_UNFLOORED,
+                $package->value(),
+                $this->settings->floors()->baseline()->value(),
+            )));
+        }
+
+        return $warnings;
     }
 
     /**

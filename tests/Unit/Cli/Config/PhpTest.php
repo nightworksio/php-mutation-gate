@@ -54,6 +54,7 @@ it('writes a config that reads back into the same effective config', function (a
             ['path' => 'app/Legacy'],
         ],
         'newCode' => ['floor' => 90],
+        'security' => ['floor' => 97.5],
         'uncovered' => 'exclude',
         'baseline' => ['path' => 'build/baseline.json', 'improvement' => 'report'],
         'packages' => ['packages/*'],

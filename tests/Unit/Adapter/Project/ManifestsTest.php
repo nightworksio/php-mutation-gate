@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -95,4 +96,30 @@ it('cannot judge a floor a manifest declares wrongly', function (string $setting
         '{"floor": 0}',
         'src/composer.json declares extra.mutation-gate.floor as 0 without a floorReason beside it.',
     ],
+    'a security floor, which is no package\'s' => [
+        '{"securityFloor": 90}',
+        "src/composer.json declares extra.mutation-gate.securityFloor, and it is not a package's manifest.\nA package's security set has one floor: declare it in the composer.json of the package.",
+    ],
 ]);
+
+it('gives the root package the floor the root composer.json declares for its security set', function (): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'composer.json', '{"extra": {"mutation-gate": {"securityFloor": 97.5}}}');
+    Scratch::write($project, 'src/Domain/composer.json', '{"extra": {"mutation-gate": {"floor": 90}}}');
+    $trees = Manifests::in(Root::of($project))->trees(Paths::of(Path::of('src/Domain'), Path::of('lib')));
+
+    expect($trees instanceof Trees
+        ? array_map(static fn(Tree $tree): mixed => $tree->package(), [...$trees])
+        : $trees)->toEqual([
+            Package::at(Path::root())->withSecurityFloor(Floor::of(97.5)),
+            Package::at(Path::root())->withSecurityFloor(Floor::of(97.5)),
+        ]);
+});
+
+it('cannot judge the trees where the root composer.json declares a security floor wrongly', function (): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'composer.json', '{"extra": {"mutation-gate": {"securityFloor": "all"}}}');
+
+    expect(Manifests::in(Root::of($project))->trees(Paths::of(Path::of('src'))))
+        ->toEqual(CannotJudge::because('composer.json: extra.mutation-gate.securityFloor is not a number from 0 to 100.'));
+});

@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
@@ -182,6 +183,7 @@ final readonly class Flows
             self::given(Engine::class, NotGiven::value(), $ports),
             self::given(Enabled::class, Enabled::of(MutatorSet::of()), $ports),
             self::given(Warnings::class, Warnings::none(), $ports),
+            self::given(NamedMutators::class, NamedMutators::of(), $ports),
         );
     }
 

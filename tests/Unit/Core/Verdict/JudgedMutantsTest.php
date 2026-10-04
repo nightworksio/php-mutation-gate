@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
@@ -172,4 +173,25 @@ it('clusters nothing without the sources', function (): void {
     foreach (Clustered::listed(Clustered::survivors()->clustered(Uncovered::Count, ByPath::none())) as $judged) {
         expect($judged->cluster())->toEqual(Unclustered::mutant());
     }
+});
+
+it('keeps the mutants and kills these mutators made, in order', function (): void {
+    $made = static fn(int $line, string $mutator): JudgedMutant => JudgedMutant::of(
+        Verdicts::mutant(sprintf('src/Auth.php:%d', $line), $mutator, MutatorFamily::Condition, Verdicts::diff('a', 'b')),
+        MutantJudgement::Survived,
+    );
+    $kill = static fn(int $line, string $mutator): JudgedKill => JudgedKill::of(ProvedKill::of(
+        MutantId::hash(Path::of('src/Auth.php'), $mutator, sprintf('%d', $line), 0),
+        Path::of('src/Auth.php'),
+        Line::of($line),
+        $mutator,
+        TestIds::none(),
+    ));
+    $mutants = JudgedMutants::of($made(1, 'security/HashEqualsToTrue'), $made(2, 'Plus'), $made(3, 'default/UnwrapStripTags'))
+        ->and(JudgedMutants::kills($kill(4, 'Plus'), $kill(5, 'security/HashEqualsToTrue')));
+    $security = $mutants->madeBy(NamedMutators::of('security/HashEqualsToTrue', 'default/UnwrapStripTags'));
+
+    expect(array_map(static fn(JudgedMutant|JudgedKill $judged): string => $judged->mutant()->mutator(), [...$security]))
+        ->toBe(['security/HashEqualsToTrue', 'default/UnwrapStripTags', 'security/HashEqualsToTrue'])
+        ->and($mutants->madeBy(NamedMutators::of()))->toHaveCount(0);
 });

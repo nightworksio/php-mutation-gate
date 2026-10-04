@@ -118,7 +118,11 @@ final readonly class RunCommand
     private static function raised(Composed $composed, Judged $judged): Judged|CannotJudge
     {
         $baselines = new Baselines($composed->adapters, $composed->settings->floors()->baseline());
-        $raised = new Raising($baselines)->raise($judged->baseline, $judged->verdict->trees());
+        $raised = new Raising($baselines)->raise(
+            $judged->baseline,
+            $judged->verdict->trees(),
+            $judged->verdict->sets()->security(),
+        );
 
         return $raised instanceof CannotJudge ? $raised : $judged->saying(...$raised);
     }

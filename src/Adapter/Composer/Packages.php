@@ -20,13 +20,16 @@ use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
+use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 
 /**
  * The packages of a repository: the project at its root, each directory a
  * `packages` glob matches that has a `composer.json`, and each of the root's
  * path repositories that has a PHPUnit config too; each with the packages it
- * requires among them.
+ * requires among them, and the floor its manifest declares for its security
+ * set.
  */
 final readonly class Packages
 {
@@ -98,7 +101,16 @@ final readonly class Packages
         $packages = [];
 
         foreach ($held as $directory => $manifest) {
-            $packages[] = self::package($directory, $manifest, $named);
+            $package = self::package($directory, $manifest, $named);
+            $floor = $manifest instanceof Manifest
+                ? $manifest->gate()->securityFloor(ofAPackage: true)
+                : Undeclared::floor();
+
+            if ($floor instanceof CannotJudge) {
+                return $floor;
+            }
+
+            $packages[] = $floor instanceof Floor ? $package->withSecurityFloor($floor) : $package;
         }
 
         return new self($packages);

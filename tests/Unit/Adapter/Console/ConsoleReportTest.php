@@ -154,3 +154,23 @@ it('prints each cluster once, in the place of its first member, among what was n
         ])),
     ]));
 });
+
+it('prints each package\'s security set after new code, and the security floors that can rise', function () use ($printed): void {
+    $said = $printed(Verdicts::secured());
+
+    expect($said)->toContain(implode("\n", [
+        'New code',
+        '  New code scores 0.00%, below its floor of 100.00%.',
+        '',
+        'Security',
+        '  Security scores 0.00%, below its floor of 100.00%.',
+        '  Security in packages/billing scores 100.00% against its floor of 50.00%.',
+        '',
+        'Units',
+    ]))
+        ->and($said)->toContain(implode("\n", [
+            'Floors that can rise',
+            '  security set of packages/billing to 100.00%',
+            '  Raise them with vendor/bin/mutation-gate baseline --write, and commit the baseline.',
+        ]));
+});

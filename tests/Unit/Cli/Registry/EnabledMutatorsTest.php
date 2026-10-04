@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Config\Mutators;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\PresetSet;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
@@ -25,6 +26,10 @@ use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinusToo;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveEcho;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveItem;
+use NightWorksIO\MutationGateDefault\String\UnwrapStripTags as DefaultUnwrapStripTags;
+use NightWorksIO\MutationGateSecurity\Mutators\HashEqualsToTrue;
+use NightWorksIO\MutationGateSecurity\Mutators\UnwrapStripTags;
+use Pest\Mutate\Mutators\String\UnwrapStripTags as PestUnwrapStripTags;
 
 /** A registry with a `default` set and two others. */
 function enablingLookup(): Lookup
@@ -147,4 +152,23 @@ it('stands down beside the default set for the engine, and beside the sets the c
         ->toBe([PlusToMinusToo::class, RemoveEcho::class])
         ->and($beside instanceof EnabledMutators ? enabledClasses($beside->besideTheRunners()) : $beside)
         ->toBe([RemoveEcho::class, PlusToMinus::class]);
+});
+
+it('names the security-tagged mutators the config turns on, and those each names as making its change', function (): void {
+    $lookup = Lookup::in(new Extensions(Origin::of('acme/gate'))
+        ->withMutators(MutatorSet::defaultName(), MutatorSet::of(DefaultUnwrapStripTags::class))
+        ->withMutators(Name::of('security'), MutatorSet::of(HashEqualsToTrue::class, UnwrapStripTags::class))
+        ->withMutators(Name::of('acme'), MutatorSet::of(RemoveEcho::class)));
+    $on = EnabledMutators::in($lookup, Mutators::of(Listed::of('security', 'acme')));
+    $off = EnabledMutators::in($lookup, Mutators::of(Listed::of('security'), Listed::of('security/UnwrapStripTags')));
+    $none = EnabledMutators::in($lookup, Mutators::of(Listed::of('acme')));
+
+    expect($on instanceof EnabledMutators ? $on->security() : $on)->toEqual(NamedMutators::of(
+        'security/HashEqualsToTrue',
+        'security/UnwrapStripTags',
+        'default/UnwrapStripTags',
+        PestUnwrapStripTags::class,
+    ))
+        ->and($off instanceof EnabledMutators ? $off->security() : $off)->toEqual(NamedMutators::of('security/HashEqualsToTrue'))
+        ->and($none instanceof EnabledMutators ? $none->security() : $none)->toEqual(NamedMutators::of());
 });

@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
+use NightWorksIO\MutationGate\Tests\Support\Secured;
 
 $tree = static fn(Floor|Exempt|Undeclared $floor, JudgedMutants $mutants): TreeVerdict => TreeVerdict::judged(
     Tree::at(Path::of('src'), $floor, Package::at(Path::root())),
@@ -68,4 +69,14 @@ it('prints a floor, an exemption, or none', function (): void {
         ->and(SetText::floor(Exempt::because('Replaced')))->toBe('exempt')
         ->and(SetText::floor(Undeclared::floor()))->toBe('none')
         ->and(SetText::floor(Unrecorded::floor()))->toBe('none');
+});
+
+it('says what a security set scored, named by its package where it is not the root', function (): void {
+    $root = Secured::set('.', Floor::of(100), Unrecorded::floor(), Secured::mutant(MutantJudgement::Survived));
+    $billing = Secured::set('packages/billing', Undeclared::floor(), Floor::of(90), Secured::mutant(MutantJudgement::Killed));
+
+    expect(SetText::security($root))->toBe('Security scores 0.00%, below its floor of 100.00%.')
+        ->and(SetText::security($billing))->toBe('Security in packages/billing scores 100.00% against its floor of 90.00%.')
+        ->and(SetText::securityName($billing))->toBe('Security in packages/billing')
+        ->and(SetText::security(Secured::set('.', Undeclared::floor(), Unrecorded::floor())))->toBe('Security has nothing to mutate.');
 });

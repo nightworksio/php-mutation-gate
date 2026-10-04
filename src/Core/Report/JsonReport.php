@@ -37,6 +37,7 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedUnit;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\NoFinding;
+use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
@@ -70,6 +71,17 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *     package: string,
  *     floor: float,
  *     score?: float,
+ *     judgement: string,
+ *     counts: Numbers,
+ *     mutants: list<string>,
+ * }
+ * @phpstan-type SecurityEntry array{
+ *     package: string,
+ *     declared?: float,
+ *     baseline?: float,
+ *     floor?: float,
+ *     score?: float,
+ *     raised?: float,
  *     judgement: string,
  *     counts: Numbers,
  *     mutants: list<string>,
@@ -118,7 +130,8 @@ final readonly class JsonReport
             ...self::scored($overview->score()),
             'counts' => self::counts($verdict->trees()->mutants()->counts()),
             'trees' => self::each($verdict->trees(), self::tree(...)),
-            'newCode' => self::each($verdict->newCode(), self::newCode(...)),
+            'newCode' => self::each($verdict->sets()->newCode(), self::newCode(...)),
+            'security' => self::each($verdict->sets()->security(), self::security(...)),
             'matrix' => $verdict->matrix()->kind()->value,
             'tests' => self::each(
                 $table->tests(),
@@ -243,6 +256,27 @@ final readonly class JsonReport
             'counts' => self::counts($tree->counts()),
             'units' => self::each($tree->units(), self::unit(...)),
             'mutants' => self::ids($tree->mutants()),
+        ];
+    }
+
+    /** @return SecurityEntry */
+    private static function security(SecurityVerdict $set): array
+    {
+        $declared = $set->declared();
+        $baseline = $set->baseline();
+        $floor = $set->floor();
+        $raised = $set->raised();
+
+        return [
+            'package' => $set->package()->path()->value(),
+            ...$declared instanceof Floor ? ['declared' => self::percent($declared)] : [],
+            ...$baseline instanceof Floor ? ['baseline' => self::percent($baseline)] : [],
+            ...$floor instanceof Floor ? ['floor' => self::percent($floor)] : [],
+            ...self::scored($set->score()),
+            ...$raised instanceof Floor ? ['raised' => self::percent($raised)] : [],
+            'judgement' => $set->judgement()->value,
+            'counts' => self::counts($set->counts()),
+            'mutants' => self::ids($set->mutants()),
         ];
     }
 

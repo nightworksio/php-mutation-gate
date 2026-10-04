@@ -657,6 +657,11 @@ services:
                     - PROTOCOL # the file:// stream protocol
                 'NightWorksIO\MutationGate\Mutator\Literals':
                     - 'TRUE' # PHP's constant, not Infection's setting
+                'NightWorksIO\MutationGate\Mutator\Tag':
+                    - SECURITY # a tag a mutator carries, not the config section of the same name
+                'NightWorksIO\MutationGate\Core\Report\JUnit':
+                    - SECURITY # the name of the security sets' JUnit suite, not the config section
+                    - FLOOR # the name of a floor's JUnit test case, not a manifest key
                 'NightWorksIO\MutationGateLaravel\LaravelSet':
                     - NAME # a mutator set's name, not the preset that turns it on
                 'NightWorksIO\MutationGateSymfony\SymfonySet':

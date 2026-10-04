@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
+use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\Survivors;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
@@ -20,8 +21,9 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use function sprintf;
 
 /**
- * The verdict as JUnit XML: a suite per tree and one for new code, each with
- * one test case per floor that fails exactly when the gate fails that set, a
+ * The verdict as JUnit XML: a suite per tree, one for new code and one for
+ * the packages' security sets, each with one test case per floor that fails
+ * exactly when the gate fails that set, a
  * `run` suite with a test case for each thing that kept the run from judging
  * and each failure that belongs to no floor, and an `ignored` suite with a
  * skipped test case for each mutant an ignore left out, with why (ADR-0008,
@@ -46,6 +48,11 @@ final readonly class JUnit
 
     private const string NEW_CODE = 'new code';
 
+    private const string SECURITY = 'security';
+
+    /** The case of a set's floor. */
+    private const string FLOOR = 'floor';
+
     public static function xml(Verdict $verdict): string
     {
         $suites = [];
@@ -58,12 +65,22 @@ final readonly class JUnit
 
         $sets = [];
 
-        foreach ($verdict->newCode() as $set) {
+        foreach ($verdict->sets()->newCode() as $set) {
             $sets[] = self::newCode($set, $names);
         }
 
         if ($sets !== []) {
             $suites[] = self::suite(self::NEW_CODE, $sets);
+        }
+
+        $secured = [];
+
+        foreach ($verdict->sets()->security() as $set) {
+            $secured[] = self::security($set, $names);
+        }
+
+        if ($secured !== []) {
+            $suites[] = self::suite(self::SECURITY, $secured);
         }
 
         $run = self::run($verdict);
@@ -121,7 +138,20 @@ final readonly class JUnit
     {
         $path = $tree->tree()->path()->value();
 
-        return self::case('floor', $path, $tree->judgement(), SetText::tree($tree), $tree->survivors(), $names);
+        return self::case(self::FLOOR, $path, $tree->judgement(), SetText::tree($tree), $tree->survivors(), $names);
+    }
+
+    /** @return array{string, bool} a package's security set, as the `floor` case of the package */
+    private static function security(SecurityVerdict $set, TestNames $names): array
+    {
+        return self::case(
+            self::FLOOR,
+            $set->package()->path()->value(),
+            $set->judgement(),
+            SetText::security($set),
+            $set->survivors(),
+            $names,
+        );
     }
 
     /** @return array{string, bool} */

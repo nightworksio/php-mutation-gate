@@ -63,3 +63,27 @@ it('fails a tree that left the baseline while it is still a tree, and lets a tre
 it('names every failure, in the base\'s order', function () use ($base, $trees): void {
     expect(Lowering::against($base, Baseline::none(), $trees))->toHaveCount(2);
 });
+
+it('holds each package\'s security floor to the same rules, and lets a set leave only with its package', function () use ($trees): void {
+    $base = Baseline::none()->withSecurity(Entry::of(Path::root(), Floor::of(97.5)), Entry::of(Path::of('packages/gone'), Floor::of(80)));
+    $lowered = Entry::of(Path::root(), Floor::of(95))->lowered(Lowered::from(Floor::of(97.5), 'The legacy login left with its tests.'));
+
+    expect(Lowering::against($base, Baseline::none()->withSecurity(Entry::of(Path::root(), Floor::of(98))), $trees))->toEqual(Failures::none())
+        ->and(Lowering::against($base, Baseline::none()->withSecurity($lowered), $trees))->toEqual(Failures::none())
+        ->and(Lowering::against($base, Baseline::none()->withSecurity(Entry::of(Path::root(), Floor::of(95))), $trees))
+        ->toEqual(Failures::of(Failure::that(
+            "The floor of the security set of . went down from 97.5 to 95 with no reason. A floor goes down only on purpose:\n"
+            . 'add "lowered": { "from": 97.5, "reason": "…" } to its entry in the baseline.',
+        )))
+        ->and(Lowering::against($base, Baseline::none()->withSecurity(
+            Entry::of(Path::root(), Floor::of(95))->lowered(Lowered::from(Floor::of(96), 'Why.')),
+        ), $trees))
+        ->toEqual(Failures::of(Failure::that(
+            "The floor of the security set of . went down from 97.5, and its \"lowered\" says it came from 96.\n"
+            . 'Write "from": 97.5, the floor the base branch holds.',
+        )))
+        ->and(Lowering::against($base, Baseline::none(), $trees))->toEqual(Failures::of(Failure::that(
+            "The security set of . left the baseline, and it is still a package.\n"
+            . 'A security set leaves the baseline only when its package is gone.',
+        )));
+});

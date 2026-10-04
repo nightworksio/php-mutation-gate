@@ -96,17 +96,7 @@ final readonly class TreeVerdict
     /** The higher of the declared floor and the baseline's; undeclared when neither holds one. */
     public function floor(): Floor|Exempt|Undeclared
     {
-        $declared = $this->tree->declared();
-
-        if ($declared instanceof Exempt || $this->baseline instanceof Unrecorded) {
-            return $declared;
-        }
-
-        if ($declared instanceof Undeclared || $this->baseline->hundredths() > $declared->hundredths()) {
-            return $this->baseline;
-        }
-
-        return $declared;
+        return HeldFloor::of($this->tree->declared(), $this->baseline)->floor();
     }
 
     /** The score the tree had on the base; unrecorded where the base's results were not read. */
@@ -152,27 +142,9 @@ final readonly class TreeVerdict
         return $this->mutants->survivors($this->uncovered);
     }
 
-    /**
-     * The floor the baseline rises to: the score, where it is above the floor
-     * the tree was held to, or where no floor holds it at all. A floor only
-     * the declaration holds and the score merely meets is left unrecorded, and
-     * so is the floor of a tree with an unjudged mutant, which the run did
-     * not judge whole (ADR-0003, decision 4).
-     */
+    /** The floor the baseline rises to (ADR-0003, decision 6). */
     public function raised(): Floor|Unraised
     {
-        $score = $this->score();
-        $floor = $this->floor();
-        $unjudged = $this->counts()->number(MutantJudgement::Unjudged) > 0;
-
-        if ($unjudged || $score instanceof NothingToMutate || $floor instanceof Exempt) {
-            return Unraised::floor();
-        }
-
-        if ($floor instanceof Floor && $floor->hundredths() >= $score->hundredths()) {
-            return Unraised::floor();
-        }
-
-        return Floor::ofHundredths($score->hundredths());
+        return HeldFloor::of($this->tree->declared(), $this->baseline)->raisedBy($this->counts(), $this->uncovered);
     }
 }

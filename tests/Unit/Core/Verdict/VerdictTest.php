@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\Failures;
+use NightWorksIO\MutationGate\Core\Verdict\HeldSets;
 use NightWorksIO\MutationGate\Core\Verdict\HeldTo;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
@@ -23,12 +24,14 @@ use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdicts;
+use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
+use NightWorksIO\MutationGate\Tests\Support\Secured;
 
 $tree = static fn(string $path, JudgedUnits $units, JudgedMutants $mutants): TreeVerdict => TreeVerdict::judged(
     Tree::at(Path::of($path), Floor::of(100), Package::at(Path::root())),
@@ -51,7 +54,8 @@ it('holds its trees, and nothing else to begin with', function () use ($passed):
     $verdict = Verdict::of($trees);
 
     expect($verdict->trees())->toBe($trees)
-        ->and($verdict->newCode())->toHaveCount(0)
+        ->and($verdict->sets()->newCode())->toHaveCount(0)
+        ->and($verdict->sets()->security())->toHaveCount(0)
         ->and($verdict->reach())->toHaveCount(0)
         ->and($verdict->warnings())->toHaveCount(0)
         ->and($verdict->failures())->toHaveCount(0)
@@ -85,13 +89,13 @@ it('takes the new-code sets, the reach, the warnings and the failures, each with
     $warnings = Warnings::of(Warning::that('src/Kernel.php is run by 412 of 430 tests and nothing holds it.'));
     $failures = Failures::of(Failure::that('The ignore of src/Money.php:12 matched no mutant.'));
     $verdict = Verdict::of(TreeVerdicts::of($passed))
-        ->withNewCode($sets)
+        ->withSets(HeldSets::newCodeOnly($sets))
         ->withReach($reach)
         ->withWarnings($warnings)
         ->withFailures($failures);
-    $again = $verdict->withNewCode($sets)->withReach($reach)->withWarnings($warnings)->withFailures($failures);
+    $again = $verdict->withSets(HeldSets::newCodeOnly($sets))->withReach($reach)->withWarnings($warnings)->withFailures($failures);
 
-    expect($again->newCode())->toBe($sets)
+    expect($again->sets()->newCode())->toBe($sets)
         ->and($again->reach())->toBe($reach)
         ->and($again->warnings())->toBe($warnings)
         ->and($again->failures())->toBe($failures)
@@ -103,7 +107,7 @@ it('shows the trees it does not hold, and fails on its new code and the failures
     Failures $failures,
     Judgement $whole,
 ) use ($failed): void {
-    $verdict = Verdict::of(TreeVerdicts::of($failed), HeldTo::NewCode)->withNewCode($newCode)->withFailures($failures);
+    $verdict = Verdict::of(TreeVerdicts::of($failed), HeldTo::NewCode)->withSets(HeldSets::newCodeOnly($newCode))->withFailures($failures);
 
     expect($verdict->judgement())->toBe($whole)
         ->and($verdict->cutShort()->judgement())->toBe($whole)
@@ -129,7 +133,7 @@ it('fails when any tree or new-code set failed, or anything else did, and passes
     Failures $failures,
     Judgement $whole,
 ): void {
-    expect(Verdict::of($trees)->withNewCode($newCode)->withFailures($failures)->judgement())->toBe($whole);
+    expect(Verdict::of($trees)->withSets(HeldSets::newCodeOnly($newCode))->withFailures($failures)->judgement())->toBe($whole);
 })->with([
     'no tree' => [TreeVerdicts::none(), NewCodeVerdicts::none(), Failures::none(), Judgement::Passed],
     'every tree passed' => [TreeVerdicts::of($passed, $passed), NewCodeVerdicts::none(), Failures::none(), Judgement::Passed],
@@ -139,3 +143,16 @@ it('fails when any tree or new-code set failed, or anything else did, and passes
     'the new code failed' => [TreeVerdicts::of($passed), NewCodeVerdicts::of($newCode(MutantJudgement::Survived)), Failures::none(), Judgement::Failed],
     'a failure no floor decides' => [TreeVerdicts::of($passed), NewCodeVerdicts::none(), Failures::of(Failure::that('A stale ignore.')), Judgement::Failed],
 ]);
+
+it('fails on a security set that failed where it holds its trees, and shows it where it holds new code alone', function () use ($passed): void {
+    $failing = SecurityVerdicts::of(Secured::set('.', Floor::of(100), Unrecorded::floor(), Secured::mutant(MutantJudgement::Survived)));
+    $passing = SecurityVerdicts::of(Secured::set('.', Floor::of(100), Unrecorded::floor(), Secured::mutant(MutantJudgement::Killed)));
+    $sets = HeldSets::of(NewCodeVerdicts::none(), $failing);
+
+    expect(Verdict::of(TreeVerdicts::of($passed))->withSets($sets)->judgement())->toBe(Judgement::Failed)
+        ->and(Verdict::of(TreeVerdicts::of($passed))->withSets(HeldSets::of(NewCodeVerdicts::none(), $passing))->judgement())
+        ->toBe(Judgement::Passed)
+        ->and(Verdict::of(TreeVerdicts::of($passed), HeldTo::NewCode)->withSets($sets)->judgement())->toBe(Judgement::Passed)
+        ->and(Verdict::of(TreeVerdicts::of($passed))->withSets($sets)->sets()->security())->toBe($failing)
+        ->and(HeldSets::none())->toEqual(HeldSets::of(NewCodeVerdicts::none(), SecurityVerdicts::none()));
+});

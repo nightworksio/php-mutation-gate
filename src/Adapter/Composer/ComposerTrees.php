@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Composer;
 
+use function array_any;
 use function dirname;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -11,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
@@ -120,7 +122,37 @@ final readonly class ComposerTrees implements TreeSource
     {
         $above = $this->manifestsAbove($path);
 
-        return $above instanceof CannotJudge ? $above : $this->treeFrom($path, $above, $packages->holding($path));
+        if ($above instanceof CannotJudge) {
+            return $above;
+        }
+
+        $module = $this->moduleSecurityFloor($above, $packages);
+
+        return $module instanceof CannotJudge ? $module : $this->treeFrom($path, $above, $packages->holding($path));
+    }
+
+    /**
+     * Why a manifest at or above a tree that is no package's cannot declare
+     * `securityFloor`, where one does (ADR-0021).
+     *
+     * @param list<Manifest> $above
+     */
+    private function moduleSecurityFloor(array $above, Packages $packages): CannotJudge|NotGiven
+    {
+        foreach ($above as $manifest) {
+            $directory = Path::of(dirname($manifest->file()->value()));
+            $ofAPackage = array_any(
+                $packages->directories(),
+                static fn(Path $package): bool => $package->equals($directory),
+            );
+            $floor = $manifest->gate()->securityFloor($ofAPackage);
+
+            if ($floor instanceof CannotJudge) {
+                return $floor;
+            }
+        }
+
+        return NotGiven::value();
     }
 
     /** @param list<Manifest> $above the manifests at and above the tree, the nearest first */

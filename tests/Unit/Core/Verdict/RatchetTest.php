@@ -17,9 +17,11 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Ratchet;
+use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
+use NightWorksIO\MutationGate\Tests\Support\Secured;
 
 // Three killed of four: 75%.
 $threeOfFour = Judged::mutants(
@@ -106,4 +108,44 @@ it('fails each tree whose score rose above the floor it was held to, until the r
     expect($texts(Ratchet::required($verdicts, $baseline)))
         ->toBe([$said('app/Http', '50'), $said('app/Legacy', '62.5')])
         ->and(Ratchet::required(TreeVerdicts::none(), $baseline))->toHaveCount(0);
+});
+
+it('names each package whose security set has a score and no floor, and stops a run on each, saying how to give it one', function () use (
+    $values,
+    $texts,
+    $baseline,
+): void {
+    $killed = Secured::mutant(MutantJudgement::Killed);
+    $sets = SecurityVerdicts::of(
+        Secured::set('.', Undeclared::floor(), Unrecorded::floor(), $killed),
+        Secured::set('packages/declared', Floor::of(90), Unrecorded::floor(), $killed),
+        Secured::set('packages/recorded', Undeclared::floor(), Floor::of(90), $killed),
+        Secured::set('packages/empty', Undeclared::floor(), Unrecorded::floor()),
+        Secured::set('packages/b', Undeclared::floor(), Unrecorded::floor(), $killed),
+    );
+
+    expect($values(Ratchet::securityUnfloored($sets)))->toBe(['.', 'packages/b'])
+        ->and($texts(Ratchet::securityUnflooredBecause(Paths::of(Path::root()), $baseline)))->toBe([<<<'SAID'
+            The security set of . has no floor: neither security.floor nor the package's securityFloor
+            declares one, and the baseline holds none.
+            A security set is never held to no floor. Run mutation-gate baseline --write and commit mutation-gate.baseline.json.
+            SAID])
+        ->and(Ratchet::securityUnflooredBecause(Paths::none(), $baseline))->toHaveCount(0);
+});
+
+it('fails each security set whose score rose above the floor it was held to, until the raise is committed', function () use (
+    $texts,
+    $baseline,
+): void {
+    $sets = SecurityVerdicts::of(
+        Secured::set('.', Floor::of(40), Floor::of(50), Secured::mutant(MutantJudgement::Killed)),
+        Secured::set('packages/b', Undeclared::floor(), Unrecorded::floor(), Secured::mutant(MutantJudgement::Killed)),
+        Secured::set('packages/c', Floor::of(100), Unrecorded::floor(), Secured::mutant(MutantJudgement::Killed)),
+    );
+
+    expect($texts(Ratchet::securityRequired($sets, $baseline)))->toBe([<<<'SAID'
+        The security set of . scored 100, above the floor of 50 it was held to.
+        Commit the raised floor with this change: run mutation-gate baseline --write and commit mutation-gate.baseline.json.
+        SAID])
+        ->and(Ratchet::securityRequired(SecurityVerdicts::none(), $baseline))->toHaveCount(0);
 });

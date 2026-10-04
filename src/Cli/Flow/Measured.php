@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function count;
+
 use DateTimeImmutable;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -18,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Verdict\Ignoring;
 use NightWorksIO\MutationGate\Core\Verdict\Judge;
+use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 
 /**
@@ -27,8 +30,12 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
  */
 final readonly class Measured
 {
-    private function __construct(private TreeVerdicts $trees, private Paths $unmeasured)
-    {
+    private function __construct(
+        private TreeVerdicts $trees,
+        private Paths $unmeasured,
+        private SecurityVerdicts $security,
+        private Paths $unmeasuredSecurity,
+    ) {
     }
 
     public static function of(
@@ -66,7 +73,11 @@ final readonly class Measured
             Ignoring::of($settings->ignores()->entries(), $now),
         );
 
-        return new self($judge->trees($newest->carried()), $unmeasured);
+        $trees = $judge->trees($newest->carried());
+        $security = $judge->security($trees, $adapters->security, $settings->floors()->security());
+        [$measured, $unmeasuredSecurity] = self::secured($security, $inventory->trees, $unmeasured);
+
+        return new self($trees, $unmeasured, $measured, $unmeasuredSecurity);
     }
 
     /** Every tree whose every unit has a result, judged over those results. */
@@ -79,6 +90,42 @@ final readonly class Measured
     public function unmeasured(): Paths
     {
         return $this->unmeasured;
+    }
+
+    /** Each package's security set whose every tree was measured (ADR-0021, decision 17). */
+    public function security(): SecurityVerdicts
+    {
+        return $this->security;
+    }
+
+    /** The packages whose security set has a tree with a unit that has no result yet. */
+    public function unmeasuredSecurity(): Paths
+    {
+        return $this->unmeasuredSecurity;
+    }
+
+    /**
+     * The security sets whose package holds no unmeasured tree, and the
+     * packages of those that do; none of either where there is no security
+     * set.
+     *
+     * @return array{SecurityVerdicts, Paths}
+     */
+    private static function secured(SecurityVerdicts $security, Trees $trees, Paths $unmeasured): array
+    {
+        $partial = Paths::none();
+
+        foreach (count($security) > 0 ? $trees : Trees::none() as $tree) {
+            $partial = $unmeasured->has($tree->path()) ? $partial->with($tree->package()->path()) : $partial;
+        }
+
+        $measured = [];
+
+        foreach ($security as $set) {
+            $measured = $partial->has($set->package()->path()) ? $measured : [...$measured, $set];
+        }
+
+        return [SecurityVerdicts::of(...$measured), $partial];
     }
 
     private static function measuredOf(Trees $trees, Paths $unmeasured): Trees

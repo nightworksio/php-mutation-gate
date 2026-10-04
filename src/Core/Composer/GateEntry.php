@@ -39,6 +39,8 @@ final readonly class GateEntry
 
     private const string NEW_CODE = 'newCodeFloor';
 
+    private const string SECURITY = 'securityFloor';
+
     private const string EXTENSIONS = 'extensions';
 
     /** The lowest floor there is, which needs a reason. */
@@ -48,6 +50,11 @@ final readonly class GateEntry
     private const string NOT_A_FLOOR = '%s: extra.mutation-gate.%s is not a number from 0 to 100.';
 
     private const string NO_REASON = '%s declares extra.mutation-gate.floor as 0 without a floorReason beside it.';
+
+    private const string NOT_A_PACKAGE = <<<'SAID'
+        %s declares extra.mutation-gate.securityFloor, and it is not a package's manifest.
+        A package's security set has one floor: declare it in the composer.json of the package.
+        SAID;
 
     private const string NOT_CLASS_NAMES
         = '%s names extra.mutation-gate.extensions, and it is not a list of class names.';
@@ -97,6 +104,20 @@ final readonly class GateEntry
     public function newCodeFloor(): Floor|Undeclared|CannotJudge
     {
         return $this->floorAt(self::NEW_CODE);
+    }
+
+    /**
+     * The floor `securityFloor` declares for the security set of the package
+     * whose manifest this is (ADR-0021); a manifest that is no package's
+     * cannot declare one.
+     */
+    public function securityFloor(bool $ofAPackage): Floor|Undeclared|CannotJudge
+    {
+        $floor = $this->floorAt(self::SECURITY);
+
+        return $ofAPackage || ! $floor instanceof Floor
+            ? $floor
+            : CannotJudge::because(sprintf(self::NOT_A_PACKAGE, $this->file->value()));
     }
 
     /** The extension classes `extensions` names, in its order. */

@@ -299,6 +299,17 @@
             },
             "additionalProperties": false
         },
+        "security": {
+            "type": "object",
+            "properties": {
+                "floor": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                }
+            },
+            "additionalProperties": false
+        },
         "uncovered": {
             "enum": [
                 "count",

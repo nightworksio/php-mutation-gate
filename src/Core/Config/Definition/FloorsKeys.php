@@ -50,6 +50,13 @@ final readonly class FloorsKeys
                     static fn(Floor|Absent $newCode): Layer => Layer::of(Floors::of(newCode: $newCode)),
                 ),
             ),
+            Field::section(
+                'security',
+                Section::single(
+                    $floor,
+                    static fn(Floor|Absent $security): Layer => Layer::of(Floors::of(security: $security)),
+                ),
+            ),
             Field::optional(
                 'uncovered',
                 Into::of(

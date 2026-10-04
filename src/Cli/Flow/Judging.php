@@ -42,6 +42,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Carrying;
 use NightWorksIO\MutationGate\Core\Verdict\ChangesSince;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\Failures;
+use NightWorksIO\MutationGate\Core\Verdict\HeldSets;
 use NightWorksIO\MutationGate\Core\Verdict\HeldTo;
 use NightWorksIO\MutationGate\Core\Verdict\Ignoring;
 use NightWorksIO\MutationGate\Core\Verdict\Judge;
@@ -50,6 +51,7 @@ use NightWorksIO\MutationGate\Core\Verdict\LeftUnjudged;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Ratchet;
+use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Unfinished;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
@@ -196,24 +198,26 @@ final readonly class Judging
                 $fresh->and($proving->proved())->and($carrying->carried())->and($unjudged->results()),
             ),
         );
-        $unfloored = Ratchet::unfloored($verdicts);
+        $security = $judge->security($verdicts, $this->adapters->security, $this->settings->floors()->security());
+        $unfloored = count(Ratchet::unfloored($verdicts)) + count(Ratchet::securityUnfloored($security));
         $committed = $this->resolved($proving, $carrying, $this->committedBefore($plan));
 
         if ($committed instanceof CannotJudge) {
             return $committed;
         }
 
-        $refused = count($unfloored) > 0 && $this->adapters->environment->inCi();
+        $refused = $unfloored > 0 && $this->adapters->environment->inCi();
         $unrun = $this->missed($results->misses())->and($unjudged->failures());
         $verdict = $this->verdictOf(
             $plan,
             Lowering::against($committed, $baseline, $trees),
             $unrun
                 ->and(Unfinished::failures($fresh->and($unjudged->results())))
-                ->and($refused ? $this->unfloored($baseline, $verdicts) : Failures::none())
+                ->and($refused ? $this->unfloored($baseline, $verdicts, $security) : Failures::none())
                 ->and($ignoring->stale($verdicts, $unrun)),
             $judge,
             $verdicts,
+            $security,
             $ledgers->unread()
                 ->and($results->warnings())
                 ->and($results->checks()->warnings())
@@ -252,20 +256,22 @@ final readonly class Judging
     }
 
     /**
-     * Why a CI run stops on trees held to no floor (ADR-0003, decision 9):
-     * each tree, and the baseline the run measured, ready to commit. The run
-     * judges, records and reports before it stops, so nothing it measured is
-     * lost.
+     * Why a CI run stops on trees and security sets held to no floor
+     * (ADR-0003 decision 9, ADR-0021 decision 17): each tree and set, and the
+     * baseline the run measured, ready to commit. The run judges, records and
+     * reports before it stops, so nothing it measured is lost.
      */
-    private function unfloored(Baseline $baseline, TreeVerdicts $verdicts): Failures
+    private function unfloored(Baseline $baseline, TreeVerdicts $verdicts, SecurityVerdicts $security): Failures
     {
         $file = $this->settings->floors()->baseline();
 
-        return Ratchet::unflooredBecause(Ratchet::unfloored($verdicts), $file)->with(Failure::that(sprintf(
-            self::MEASURED,
-            $file->value(),
-            BaselineFile::encode($baseline->raisedBy($verdicts)),
-        )));
+        return Ratchet::unflooredBecause(Ratchet::unfloored($verdicts), $file)
+            ->and(Ratchet::securityUnflooredBecause(Ratchet::securityUnfloored($security), $file))
+            ->with(Failure::that(sprintf(
+                self::MEASURED,
+                $file->value(),
+                BaselineFile::encode($baseline->raisedBy($verdicts, $security)),
+            )));
     }
 
     /**
@@ -280,6 +286,7 @@ final readonly class Judging
         Failures $missed,
         Judge $judge,
         TreeVerdicts $verdicts,
+        SecurityVerdicts $security,
         Warnings $shards,
         CoverageMap|CannotJudge $map,
         KillMatrix $matrix,
@@ -290,13 +297,15 @@ final readonly class Judging
             ? $judge->newCode($verdicts, $this->settings->floors()->newCode())
             : NewCodeVerdicts::none();
         $failures = $pullRequest
-            ? $this->pullRequestFailures($lowered, $verdicts)->and($missed)
+            ? $this->pullRequestFailures($lowered, $verdicts, $security)->and($missed)
             : $missed;
+        $warnings = new VerdictWarnings($this->adapters, $this->settings);
+
         return Verdict::of($verdicts, $heldTo)
-            ->withNewCode($newCode)
+            ->withSets(HeldSets::of($newCode, $security))
             ->withReach($plan->considered()->reach())
             ->withMatrix($matrix)
-            ->withWarnings(new VerdictWarnings($this->adapters, $this->settings)->of($plan, $verdicts, $shards, $map))
+            ->withWarnings($warnings->of($plan, $verdicts, $shards, $map)->and($warnings->unfloored($security)))
             ->withFailures($failures);
     }
 
@@ -313,10 +322,14 @@ final readonly class Judging
     }
 
     /** In a pull request, a raise that must be committed with it, and a floor lowered without its reason. */
-    private function pullRequestFailures(Failures $lowered, TreeVerdicts $verdicts): Failures
-    {
+    private function pullRequestFailures(
+        Failures $lowered,
+        TreeVerdicts $verdicts,
+        SecurityVerdicts $security,
+    ): Failures {
+        $file = $this->settings->floors()->baseline();
         $required = $this->settings->floors()->improvement() === Improvement::Require
-            ? Ratchet::required($verdicts, $this->settings->floors()->baseline())
+            ? Ratchet::required($verdicts, $file)->and(Ratchet::securityRequired($security, $file))
             : Failures::none();
 
         return $required->and($lowered);

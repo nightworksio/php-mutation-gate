@@ -131,6 +131,7 @@ final readonly class Wiring
                 $this->counting($mutators->forTheEngine()),
                 $mutators->besideTheRunners(),
                 $mutators->skipped(),
+                $mutators->security(),
             ),
         };
     }

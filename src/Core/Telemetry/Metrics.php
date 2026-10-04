@@ -61,7 +61,7 @@ final readonly class Metrics
                 : $points;
         }
 
-        foreach ($verdict->newCode() as $set) {
+        foreach ($verdict->sets()->newCode() as $set) {
             $score = $set->score();
             $name = sprintf('new code in %s', $set->package()->path()->value());
             $points = $score instanceof Score

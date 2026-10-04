@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
+use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 
 use function sprintf;
@@ -39,6 +40,10 @@ final readonly class SetText
     private const string NEW_CODE = 'New code in %s';
 
     private const string NEW_CODE_HERE = 'New code';
+
+    private const string SECURITY = 'Security in %s';
+
+    private const string SECURITY_HERE = 'Security';
 
     public static function tree(TreeVerdict $tree): string
     {
@@ -70,6 +75,19 @@ final readonly class SetText
         $package = $set->package()->path();
 
         return $package->equals(Path::root()) ? self::NEW_CODE_HERE : sprintf(self::NEW_CODE, $package->value());
+    }
+
+    public static function security(SecurityVerdict $set): string
+    {
+        return self::sentence(self::securityName($set), $set->floor(), $set->score(), $set->judgement());
+    }
+
+    /** What a security set is called: `Security`, or `Security in <package>` in a monorepo's package. */
+    public static function securityName(SecurityVerdict $set): string
+    {
+        $package = $set->package()->path();
+
+        return $package->equals(Path::root()) ? self::SECURITY_HERE : sprintf(self::SECURITY, $package->value());
     }
 
     /** A floor as a report prints it: its percentage, `exempt`, or `none`. */

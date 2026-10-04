@@ -20,7 +20,7 @@ final readonly class Verdict
 {
     private function __construct(
         private TreeVerdicts $trees,
-        private NewCodeVerdicts $newCode,
+        private HeldSets $sets,
         private Reasons $reach,
         private Warnings $warnings,
         private Failures $failures,
@@ -40,7 +40,7 @@ final readonly class Verdict
     {
         return new self(
             $trees,
-            NewCodeVerdicts::none(),
+            HeldSets::none(),
             Reasons::of(),
             Warnings::none(),
             Failures::none(),
@@ -52,10 +52,10 @@ final readonly class Verdict
         );
     }
 
-    /** This verdict, with the new-code sets a change-scoped run judged. */
-    public function withNewCode(NewCodeVerdicts $newCode): self
+    /** This verdict, with the sets it judges beside its trees: a change-scoped run's new code, and security. */
+    public function withSets(HeldSets $sets): self
     {
-        return clone($this, ['newCode' => $newCode]);
+        return clone($this, ['sets' => $sets]);
     }
 
     /** This verdict, with the reasons for what the change reached. */
@@ -103,10 +103,10 @@ final readonly class Verdict
         return $this->trees;
     }
 
-    /** The new-code sets; none where the run was not change-scoped. */
-    public function newCode(): NewCodeVerdicts
+    /** The sets it judges beside its trees: the new-code sets, and each package's security set. */
+    public function sets(): HeldSets
     {
-        return $this->newCode;
+        return $this->sets;
     }
 
     /** Why the change reached what it did; none for a full run. */
@@ -151,7 +151,8 @@ final readonly class Verdict
 
     /**
      * Cannot judge when anything kept the run from judging; failed when any
-     * tree it holds or new-code set failed, or anything else did; passed
+     * tree or security set it holds or new-code set failed, or anything else
+     * did; passed
      * otherwise.
      */
     public function judgement(): Judgement
@@ -160,7 +161,10 @@ final readonly class Verdict
             return Judgement::CannotJudge;
         }
 
-        $sets = $this->heldTo->holdsTrees() ? [...$this->trees, ...$this->newCode] : [...$this->newCode];
+        $newCode = $this->sets->newCode();
+        $sets = $this->heldTo->holdsTrees()
+            ? [...$this->trees, ...$newCode, ...$this->sets->security()]
+            : [...$newCode];
 
         foreach ($sets as $set) {
             if ($set->judgement() === Judgement::Failed) {

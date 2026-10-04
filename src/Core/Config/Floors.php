@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Score\Undeclared;
 
 use function sprintf;
 
@@ -26,6 +27,7 @@ final readonly class Floors implements Part
     private function __construct(
         private Listed|Absent $trees,
         private Floor|Absent $newCode,
+        private Floor|Absent $security,
         private Uncovered|Absent $uncovered,
         private Path|Absent $baseline,
         private Improvement|Absent $improvement,
@@ -36,11 +38,12 @@ final readonly class Floors implements Part
     public static function of(
         Listed|Absent $trees = new Absent(),
         Floor|Absent $newCode = new Absent(),
+        Floor|Absent $security = new Absent(),
         Uncovered|Absent $uncovered = new Absent(),
         Path|Absent $baseline = new Absent(),
         Improvement|Absent $improvement = new Absent(),
     ): self {
-        return new self($trees, $newCode, $uncovered, $baseline, $improvement);
+        return new self($trees, $newCode, $security, $uncovered, $baseline, $improvement);
     }
 
     public static function none(): self
@@ -66,6 +69,7 @@ final readonly class Floors implements Part
             ? new self(
                 $later->trees instanceof Listed ? $later->trees : $this->trees,
                 $later->newCode instanceof Floor ? $later->newCode : $this->newCode,
+                $later->security instanceof Floor ? $later->security : $this->security,
                 $later->uncovered instanceof Uncovered ? $later->uncovered : $this->uncovered,
                 $later->baseline instanceof Path ? $later->baseline : $this->baseline,
                 $later->improvement instanceof Improvement ? $later->improvement : $this->improvement,
@@ -83,6 +87,12 @@ final readonly class Floors implements Part
     public function newCode(): Floor
     {
         return $this->newCode instanceof Floor ? $this->newCode : Floor::whole();
+    }
+
+    /** `security.floor`, which declares none by default (ADR-0021, decision 17) */
+    public function security(): Floor|Undeclared
+    {
+        return $this->security instanceof Floor ? $this->security : Undeclared::floor();
     }
 
     public function uncovered(): Uncovered
@@ -115,6 +125,15 @@ final readonly class Floors implements Part
                 'newCode',
                 Json::object(
                     Member::of('floor', $this->newCode instanceof Floor ? $this->newCode->written() : $this->newCode),
+                ),
+            ),
+            Member::unlessEmpty(
+                'security',
+                Json::object(
+                    Member::of(
+                        'floor',
+                        $this->security instanceof Floor ? $this->security->written() : $this->security,
+                    ),
                 ),
             ),
             Member::of(
@@ -153,6 +172,14 @@ final readonly class Floors implements Part
                 PhpCalls::onGate(
                     GateMethod::NewCode,
                     sprintf('Floor::of(%s)', PhpCalls::literal($this->newCode->written())),
+                ),
+            )
+            : $calls;
+        $calls = $this->security instanceof Floor
+            ? $calls->and(
+                PhpCalls::onGate(
+                    GateMethod::Security,
+                    sprintf('Floor::of(%s)', PhpCalls::literal($this->security->written())),
                 ),
             )
             : $calls;

@@ -15,18 +15,22 @@ use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
+use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Verdict\Ignoring;
 use NightWorksIO\MutationGate\Core\Verdict\Judge;
+use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
+use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\Secured;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -61,7 +65,7 @@ it('writes every floor a score raised into the baseline, and says which lines to
     $project = Flows::project();
     $committed = Baseline::of(Entry::of(Path::of('src/Money.php'), Floor::of(42.5)));
 
-    $said = new Raising($baselines($project))->raise($committed, $judged(Floor::of(30), $committed));
+    $said = new Raising($baselines($project))->raise($committed, $judged(Floor::of(30), $committed), SecurityVerdicts::none());
 
     expect($said)->toBe(['Raised the floors in floors.json. Commit it:', '  src/Money.php: 50, was 42.5'])
         ->and(file_get_contents(sprintf('%s/floors.json', $project)))
@@ -71,7 +75,7 @@ it('writes every floor a score raised into the baseline, and says which lines to
 it('writes a missing floor at its measured score', function () use ($judged, $baselines): void {
     $project = Flows::project();
 
-    $said = new Raising($baselines($project))->raise(Baseline::none(), $judged(Undeclared::floor(), Baseline::none()));
+    $said = new Raising($baselines($project))->raise(Baseline::none(), $judged(Undeclared::floor(), Baseline::none()), SecurityVerdicts::none());
 
     expect($said)->toBe(['Raised the floors in floors.json. Commit it:', '  src/Money.php: 50, was none'])
         ->and(file_get_contents(sprintf('%s/floors.json', $project)))
@@ -81,7 +85,7 @@ it('writes a missing floor at its measured score', function () use ($judged, $ba
 it('writes nothing where no floor rose', function () use ($judged, $baselines): void {
     $project = Flows::project();
 
-    $said = new Raising($baselines($project))->raise(Baseline::none(), $judged(Floor::of(50), Baseline::none()));
+    $said = new Raising($baselines($project))->raise(Baseline::none(), $judged(Floor::of(50), Baseline::none()), SecurityVerdicts::none());
 
     expect($said)->toBe(['No floor in floors.json rose.'])
         ->and(is_file(sprintf('%s/floors.json', $project)))->toBeFalse();
@@ -91,6 +95,26 @@ it('cannot judge where the baseline cannot be written', function () use ($judged
     $project = Flows::project();
     mkdir(sprintf('%s/floors.json', $project));
 
-    expect(new Raising($baselines($project))->raise(Baseline::none(), $judged(Floor::of(30), Baseline::none())))
+    expect(new Raising($baselines($project))->raise(Baseline::none(), $judged(Floor::of(30), Baseline::none()), SecurityVerdicts::none()))
         ->toBeInstanceOf(CannotJudge::class);
+});
+
+it('writes every security floor a set\'s score raised, each named by its package', function () use ($judged, $baselines): void {
+    $project = Flows::project();
+    $committed = Baseline::none()->withSecurity(Entry::of(Path::root(), Floor::of(60)));
+    $security = SecurityVerdicts::of(
+        Secured::set('.', Undeclared::floor(), Floor::of(60), Secured::mutant(MutantJudgement::Killed)),
+        Secured::set('packages/billing', Undeclared::floor(), Unrecorded::floor(), Secured::mutant(MutantJudgement::Killed)),
+    );
+
+    $said = new Raising($baselines($project))->raise($committed, $judged(Floor::of(50), $committed), $security);
+
+    expect($said)->toBe([
+        'Raised the floors in floors.json. Commit it:',
+        '  security set of .: 100, was 60',
+        '  security set of packages/billing: 100, was none',
+    ])
+        ->and(file_get_contents(sprintf('%s/floors.json', $project)))->toBe(BaselineFile::encode(
+            Baseline::none()->withSecurity(Entry::of(Path::root(), Floor::of(100)), Entry::of(Path::of('packages/billing'), Floor::of(100))),
+        ));
 });

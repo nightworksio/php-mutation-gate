@@ -93,3 +93,33 @@ it('reads back a tree whose path reads as a number', function (): void {
 
     expect(BaselineFile::decode(BaselineFile::encode($numeric), Path::of('b.json')))->toEqual($numeric);
 });
+
+it('writes each package\'s security floor after the trees, in byte order, and reads it back', function (): void {
+    $secured = Baseline::of(Entry::of(Path::of('app'), Floor::of(90)))->withSecurity(
+        Entry::of(Path::of('packages/billing'), Floor::of(80))->lowered(Lowered::from(Floor::of(85), 'The refund flow left.')),
+        Entry::of(Path::root(), Floor::of(97.5)),
+    );
+    $written = <<<'JSON'
+        {
+            "format": 1,
+            "trees": {
+                "app": { "floor": 90 }
+            },
+            "security": {
+                ".": { "floor": 97.5 },
+                "packages/billing": {
+                    "floor": 80,
+                    "lowered": { "from": 85, "reason": "The refund flow left." }
+                }
+            }
+        }
+
+        JSON;
+
+    expect(BaselineFile::encode($secured))->toBe($written)
+        ->and(BaselineFile::decode($written, Path::of('b.json')))->toEqual($secured)
+        ->and(BaselineFile::decode('{"format": 1, "trees": {}, "security": {"packages/a": {"floor": "high"}}}', Path::of('b.json')))
+        ->toEqual(CannotJudge::because(
+            'The baseline b.json cannot be read: the file.security.packages/a.floor is not a number. Fix it, or run mutation-gate baseline --write.',
+        ));
+});

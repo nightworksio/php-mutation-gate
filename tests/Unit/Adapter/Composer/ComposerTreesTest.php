@@ -62,6 +62,24 @@ it('finds the trees of every package in the package, depending on what it requir
     ));
 });
 
+it('gives each package the floor its own manifest declares for its security set', function (): void {
+    $root = Project::with([
+        'composer.json' => '{"autoload": {"psr-4": {"App\\\\": "src/"}}, "extra": {"mutation-gate": {"securityFloor": 90}}}',
+        'packages/money/composer.json' => '{"autoload": {"psr-4": {"Money\\\\": "src/"}}, "extra": {"mutation-gate": {"securityFloor": 97.5}}}',
+        'packages/clock/composer.json' => '{"autoload": {"psr-4": {"Clock\\\\": "src/"}}}',
+    ]);
+
+    expect(ComposerTrees::at(Root::of($root), ['composer.json'], ['packages/*'])->trees())->toEqual(Trees::of(
+        Tree::at(Path::of('src'), Undeclared::floor(), Package::at(Path::root())->withSecurityFloor(Floor::of(90))),
+        Tree::at(Path::of('packages/clock/src'), Undeclared::floor(), Package::at(Path::of('packages/clock'))),
+        Tree::at(
+            Path::of('packages/money/src'),
+            Undeclared::floor(),
+            Package::at(Path::of('packages/money'))->withSecurityFloor(Floor::of(97.5)),
+        ),
+    ));
+});
+
 it('finds no tree where no manifest autoloads anything', function (): void {
     expect(ComposerTrees::at(Root::of(Project::with(['composer.json' => '{}'])), ['composer.json'], [])->trees())->toEqual(Trees::none())
         ->and(ComposerTrees::at(Root::of(Project::with([])), ['composer.json'], [])->trees())->toEqual(Trees::none());
@@ -88,6 +106,18 @@ it('cannot judge the trees where a manifest cannot be read or declares a floor i
         'composer.json',
         '{"autoload": {"psr-4": {"App\\\\": "src/"}}, "extra": {"mutation-gate": {"floor": 0}}}',
         'composer.json declares extra.mutation-gate.floor as 0 without a floorReason beside it.',
+    ],
+    'a security floor in a module' => [
+        '{"autoload": {"psr-4": {"App\\\\": "app/"}}}',
+        'modules/billing/composer.json',
+        '{"autoload": {"psr-4": {"Billing\\\\": "src/"}}, "extra": {"mutation-gate": {"securityFloor": 90}}}',
+        "modules/billing/composer.json declares extra.mutation-gate.securityFloor, and it is not a package's manifest.\nA package's security set has one floor: declare it in the composer.json of the package.",
+    ],
+    'a security floor of a package' => [
+        '{}',
+        'packages/money/composer.json',
+        '{"extra": {"mutation-gate": {"securityFloor": -1}}}',
+        'packages/money/composer.json: extra.mutation-gate.securityFloor is not a number from 0 to 100.',
     ],
     'a floor for new lines' => [
         '{}',

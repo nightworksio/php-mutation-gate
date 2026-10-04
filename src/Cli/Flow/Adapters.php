@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -32,8 +33,8 @@ use NightWorksIO\MutationGate\Port\TreeSource;
  * was started in, the cores of the machine it runs on, the engine that
  * counts a plan's mutants with the default set and the sets the config turns
  * on, where any is registered, the registered mutators the config turns
- * on, and a warning for each set a preset offers that nothing registers
- * (ADR-0021).
+ * on, a warning for each set a preset offers that nothing registers, and
+ * the mutators whose mutants are security mutants (ADR-0021).
  */
 final readonly class Adapters
 {
@@ -54,6 +55,7 @@ final readonly class Adapters
         public Engine|NotGiven $engine,
         public Enabled $mutators,
         public Warnings $skippedSets,
+        public NamedMutators $security,
     ) {
     }
 

@@ -6,6 +6,8 @@ namespace NightWorksIO\MutationGate\Core\Tree;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Score\Undeclared;
 
 /**
  * A project with its own `composer.json` and test suite, in which a runner
@@ -14,13 +16,13 @@ use NightWorksIO\MutationGate\Core\File\Paths;
  */
 final readonly class Package
 {
-    private function __construct(private Path $path, private Paths $dependencies)
+    private function __construct(private Path $path, private Paths $dependencies, private Floor|Undeclared $security)
     {
     }
 
     public static function at(Path $path): self
     {
-        return new self($path, Paths::none());
+        return new self($path, Paths::none(), Undeclared::floor());
     }
 
     /**
@@ -41,12 +43,24 @@ final readonly class Package
     /** This package, requiring the package at another path through a path repository. */
     public function dependingOn(Path $package): self
     {
-        return new self($this->path, $this->dependencies->with($package));
+        return new self($this->path, $this->dependencies->with($package), $this->security);
+    }
+
+    /** This package, with the floor its manifest's `securityFloor` declares for its security set (ADR-0021). */
+    public function withSecurityFloor(Floor $floor): self
+    {
+        return new self($this->path, $this->dependencies, $floor);
     }
 
     public function path(): Path
     {
         return $this->path;
+    }
+
+    /** The floor its manifest declares for its security set; undeclared where it declares none. */
+    public function securityFloor(): Floor|Undeclared
+    {
+        return $this->security;
     }
 
     /** The paths of the packages this one requires through a path repository. */

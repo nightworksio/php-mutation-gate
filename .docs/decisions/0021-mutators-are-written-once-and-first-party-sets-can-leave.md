@@ -312,19 +312,32 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
 
 16. **A mutator tagged `security`, from any set, makes security mutants, and
     they are judged twice.**
+    - A mutant is a security mutant when its mutator is a security-tagged
+      mutator the config turns on, from the `default` set or a set in
+      `mutators.sets`, or one that such a mutator's `SameChange` names. The
+      mutators `mutators.except` turns off make none, and a mutator that
+      stands down still names the others (decision 18).
     - A security mutant counts in its tree as every mutant does.
-    - It is also judged in one more set, *security*, against a floor of its
+    - It is also judged in its package's security set, against a floor of its
       own, as new code is (ADR-0003 decision 8). So a security survivor fails
       the security floor even where it does not move its tree's score.
+    - A package has a security set where its trees hold a security mutant or
+      the baseline holds its floor. Where no package has one, one empty set at
+      the root passes and says so. Where no security-tagged mutator is turned
+      on, there is none.
 
-17. **The security floor ratchets like a tree's.**
-    - The baseline gains a top-level `"security": {"floor": …}`, with
-      `lowered` as trees have. The entry is part of the baseline's
-      `"format": 1`. This amends ADR-0003 decisions 3, 6 and 7.
+17. **Each package's security floor ratchets like a tree's.**
+    - The baseline gains a top-level `"security"` map, keyed by each
+      package's path as `"trees"` is by each tree's, with `lowered` as trees
+      have: `"security": {".": {"floor": 97.5}}`. The map is part of the
+      baseline's `"format": 1`, and the file leaves it out where it is empty.
+      A package's entry leaves it only when the package is gone. This amends
+      ADR-0003 decisions 3, 6 and 7.
     - `security.floor`, a number from 0 to 100 with no default, is the
-      declared minimum. `extra.mutation-gate.securityFloor` in a module's or
-      package's `composer.json` sets it there, as `newCodeFloor` does
-      (ADR-0005 decision 7).
+      declared minimum. `extra.mutation-gate.securityFloor` in a package's
+      `composer.json` declares it for that package's set in its place. A
+      module's manifest that declares it stops the run with exit code 2, as a
+      module shares its package's set (ADR-0005 decision 7).
     - A first CI run with no security floor measures it and hands the entry
       over, as ADR-0017 decision 6 does for trees. There is no default floor
       (ADR-0003 decision 9).
@@ -374,17 +387,19 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
 
 20. **`run --only=security` audits the defences alone.**
     - It runs only the security-tagged mutators, through
-      `MutationRequest::narrowedTo`, and judges only the security set. It
+      `MutationRequest::narrowedTo`, and judges only the security sets. It
       says the trees were not judged.
     - Its results are keyed by the narrowed mutator list (decision 7), so
       they never stand in for a whole unit's proof.
 
 21. **Security survivors are reported apart.**
-    - The security set is a row of its own after new code in the console, in
-      JSON (`security: {floor, declared, baseline, score, judgement, counts,
-      mutants}`) and in JUnit (a `security` suite with one `floor` case).
+    - Each package's security set is a row of its own after new code in the
+      console (`Security`, or `Security in <package>`), in JSON (a `security`
+      list of `{package, declared, baseline, floor, score, raised, judgement,
+      counts, mutants}`) and in JUnit (a `security` suite with one `floor`
+      case per package).
     - SARIF results carry `properties.security: true`, at `error` level when
-      the security set fails.
+      their security set fails.
     - The PR comment lists security survivors in a section before the trees.
       Annotations rank them after changed lines. A chat alert names a failing
       security set.

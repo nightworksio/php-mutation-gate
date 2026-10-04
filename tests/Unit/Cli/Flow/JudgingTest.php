@@ -20,10 +20,12 @@ use NightWorksIO\MutationGate\Config\Baseline as BaselineSetting;
 use NightWorksIO\MutationGate\Config\Budget;
 use NightWorksIO\MutationGate\Config\Ci;
 use NightWorksIO\MutationGate\Config\Floor as NewCodeFloor;
+use NightWorksIO\MutationGate\Config\Gate;
 use NightWorksIO\MutationGate\Config\Ignore;
 use NightWorksIO\MutationGate\Config\Ignores;
 use NightWorksIO\MutationGate\Config\Proofs;
 use NightWorksIO\MutationGate\Config\Report;
+use NightWorksIO\MutationGate\Config\Runner as ConfiguredRunner;
 use NightWorksIO\MutationGate\Config\Setting;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Config\Uncovered;
@@ -63,6 +65,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
 use NightWorksIO\MutationGate\Core\Mutant\Reason as MutantReason;
@@ -121,6 +124,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\CountedChanges;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
@@ -220,7 +224,7 @@ it('judges every tree whole, records the run, and reports it', function () use (
         ->and($verdict->judgement())->toBe(Judgement::Failed)
         ->and(count($verdict->trees()->units()))->toBe(2)
         ->and(count($verdict->trees()->mutants()))->toBe(5)
-        ->and(count($verdict->newCode()))->toBe(0)
+        ->and(count($verdict->sets()->newCode()))->toBe(0)
         ->and(count($verdict->failures()))->toBe(0)
         ->and($judgement instanceof Judged ? $judgement->exitCode() : $judgement)->toBe(ExitCode::Failed)
         ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->lastPassed())->toBeInstanceOf(CannotTell::class);
@@ -487,7 +491,7 @@ it('judges a pull request\'s new code against its own floor, and fails a raise n
         judgingSettings(NewCodeFloor::of(80)),
         $reporting(new ReporterFake()),
     ));
-    $newCode = [...$verdict->newCode()];
+    $newCode = [...$verdict->sets()->newCode()];
 
     expect(count($newCode))->toBe(1)
         ->and($newCode[0]->floor())->toEqual(Floor::of(80))
@@ -1562,4 +1566,87 @@ it('fails a run that judged every unit on an ignore that names no mutant it leav
         'The ignore of MethodCallRemoval in src/Log/** names no mutant it could leave out, in a run that judged every unit: remove it.',
     ])
         ->and($judgement instanceof Judged ? $judgement->exitCode() : $judgement)->toBe(ExitCode::Failed);
+});
+
+it('stops a CI run on a security set held to no floor, and hands over its measured floor', function () use ($tree, $reporting, $judged): void {
+    $judgement = $judged(
+        Planned::twoShards(),
+        Flows::adapters(Flows::project(), ['CI' => 'true'], $tree(Floor::of(10)), NamedMutators::of('Plus')),
+        judgingSettings(),
+        $reporting(new ReporterFake()),
+    );
+    $verdict = judgingVerdictOf($judgement);
+    $sets = [...$verdict->sets()->security()];
+
+    expect($judgement instanceof Judged ? $judgement->exitCode() : $judgement)->toBe(ExitCode::CannotJudge)
+        ->and(count($sets))->toBe(1)
+        ->and($sets[0]->mutants())->toHaveCount(2)
+        ->and(judgingTexts($verdict->failures()))->toBe([
+            <<<'SAID'
+                The security set of . has no floor: neither security.floor nor the package's securityFloor
+                declares one, and the baseline holds none.
+                A security set is never held to no floor. Run mutation-gate baseline --write and commit mutation-gate.baseline.json.
+                SAID,
+            sprintf(
+                "The baseline this run measured, ready to commit as mutation-gate.baseline.json:\n%s",
+                BaselineFile::encode(
+                    Baseline::of(Entry::of(Path::of('src'), Floor::of(40)))->withSecurity(Entry::of(Path::root(), Floor::of(50))),
+                ),
+            ),
+        ]);
+});
+
+it('warns of a security set held to no floor outside CI', function () use ($tree, $reporting, $judged): void {
+    $verdict = judgingVerdictOf($judged(
+        Planned::twoShards(),
+        Flows::adapters(Flows::project(), [], $tree(Floor::of(10)), NamedMutators::of('Plus')),
+        judgingSettings(),
+        $reporting(new ReporterFake()),
+    ));
+
+    expect(judgingTexts($verdict->warnings()))
+        ->toContain('The security set of . has no floor yet. Run mutation-gate baseline --write and commit mutation-gate.baseline.json.');
+});
+
+it('fails a security set below the floor security.floor declares, though its tree passes', function () use ($tree, $reporting, $judged): void {
+    $settings = Configs::built(Gate::configure()
+        ->runner(ConfiguredRunner::uses('fake'))
+        ->reporting(Report::uses('recorded'))
+        ->security(NewCodeFloor::of(60)));
+    $verdict = judgingVerdictOf($judged(
+        Planned::twoShards(),
+        Flows::adapters(Flows::project(), [], $tree(Floor::of(10)), NamedMutators::of('Plus')),
+        $settings,
+        $reporting(new ReporterFake()),
+    ));
+    $sets = [...$verdict->sets()->security()];
+
+    expect($sets[0]->judgement())->toBe(Judgement::Failed)
+        ->and([...$verdict->trees()][0]->judgement())->toBe(Judgement::Passed)
+        ->and($verdict->judgement())->toBe(Judgement::Failed)
+        ->and(judgingTexts($verdict->warnings()))->not->toContain(
+            'The security set of . has no floor yet. Run mutation-gate baseline --write and commit mutation-gate.baseline.json.',
+        );
+});
+
+it('fails a pull request until a raised security floor is committed with it', function () use ($tree, $reporting, $judged): void {
+    $project = Flows::project();
+    $committed = Baseline::of(Entry::of(Path::of('src'), Floor::of(40)))->withSecurity(Entry::of(Path::root(), Floor::of(40)));
+    Scratch::write($project, 'mutation-gate.baseline.json', BaselineFile::encode($committed));
+    $changes = new ChangeSourceFake(Revision::ref('base'), Changes::none(), [
+        Revision::workingTree()->name() => Flows::FILES,
+        'refs/remotes/origin/main' => ['mutation-gate.baseline.json' => BaselineFile::encode($committed)],
+    ]);
+
+    $verdict = judgingVerdictOf($judged(
+        Planned::twoShards()->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main'))),
+        Flows::adapters($project, [], $tree(Floor::of(30)), $changes, NamedMutators::of('Plus')),
+        judgingSettings(NewCodeFloor::of(0)),
+        $reporting(new ReporterFake()),
+    ));
+
+    expect(judgingTexts($verdict->failures()))->toBe([<<<'SAID'
+        The security set of . scored 50, above the floor of 40 it was held to.
+        Commit the raised floor with this change: run mutation-gate baseline --write and commit mutation-gate.baseline.json.
+        SAID]);
 });

@@ -62,6 +62,25 @@ it('declares the floor extra.mutation-gate.newCodeFloor says for new lines', fun
         ->toEqual(CannotJudge::because('modules/billing/composer.json: extra.mutation-gate.newCodeFloor is not a number from 0 to 100.'));
 });
 
+it('declares the floor extra.mutation-gate.securityFloor says for a package\'s security set', function (): void {
+    expect(gateEntryOf('{"extra": {"mutation-gate": {"securityFloor": 97.5}}}')->securityFloor(ofAPackage: true))
+        ->toEqual(Floor::of(97.5))
+        ->and(gateEntryOf('{"extra": {"mutation-gate": {"floor": 95}}}')->securityFloor(ofAPackage: true))
+        ->toEqual(Undeclared::floor())
+        ->and(gateEntryOf('{"extra": {"mutation-gate": {"securityFloor": "high"}}}')->securityFloor(ofAPackage: true))
+        ->toEqual(CannotJudge::because('modules/billing/composer.json: extra.mutation-gate.securityFloor is not a number from 0 to 100.'));
+});
+
+it('refuses a securityFloor in a manifest that is no package\'s, and lets one declare none', function (): void {
+    expect(gateEntryOf('{"extra": {"mutation-gate": {"securityFloor": 90}}}')->securityFloor(ofAPackage: false))
+        ->toEqual(CannotJudge::because(<<<'SAID'
+            modules/billing/composer.json declares extra.mutation-gate.securityFloor, and it is not a package's manifest.
+            A package's security set has one floor: declare it in the composer.json of the package.
+            SAID))
+        ->and(gateEntryOf('{"extra": {"mutation-gate": {"floor": 90}}}')->securityFloor(ofAPackage: false))
+        ->toEqual(Undeclared::floor());
+});
+
 it('names the extension classes extra.mutation-gate.extensions lists, in its order', function (): void {
     expect(gateEntryOf('{"extra": {"mutation-gate": {"extensions": ["Acme\\\\One", "Acme\\\\Two"]}}}')->extensions())
         ->toEqual(Names::of('Acme\\One', 'Acme\\Two'))

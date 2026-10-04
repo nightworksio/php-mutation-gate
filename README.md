@@ -157,12 +157,13 @@ vendor/bin/mutation-gate reproduce 3f9a1c2b7d04
 ```
 
 On a first local run there is no baseline yet, so the gate writes
-`mutation-gate.baseline.json` with each tree's floor at the score it measured,
-and asks you to commit it. From then on a tree's score may not fall below its
-floor. When the score improves, `vendor/bin/mutation-gate baseline --write`
-raises the floor. In CI, a tree with no floor at all fails the run with exit
-code 2, after mutating: the step summary and the PR comment carry the baseline
-it measured, ready to commit.
+`mutation-gate.baseline.json` with each tree's floor, and each package's
+security floor, at the score it measured, and asks you to commit it. From then
+on a score may not fall below its floor. When the score improves,
+`vendor/bin/mutation-gate baseline --write` raises the floor. In CI, a tree or
+security set with no floor at all fails the run with exit code 2, after
+mutating: the step summary and the PR comment carry the baseline it measured,
+ready to commit.
 
 `vendor/bin/mutation-gate init` sets a project up in one command, and
 `vendor/bin/mutation-gate doctor` says what would fail or run slowly before a
@@ -380,9 +381,9 @@ Each reporter is registered by a name:
 
 | Name | When it runs | What it writes |
 |------|--------------|----------------|
-| `console` | Always | The verdict, each tree and new-code set, the units, the reach, every mutant counted as not killed with its diff, judging tests, hint, and reproduce and explain commands, the ignores, the mutants proven equivalent, the floors that can rise, failures and warnings, and last what a timed run took and saved |
+| `console` | Always | The verdict, each tree, new-code set and package's security set, the units, the reach, every mutant counted as not killed with its diff, judging tests, hint, and reproduce and explain commands, the ignores, the mutants proven equivalent, the floors that can rise, failures and warnings, and last what a timed run took and saved |
 | `json` | Listed in `reports` | The gate's own report at `path`, `"format": 1`, described by [`resources/report.schema.json`](resources/report.schema.json); every score and floor in it is a percentage with at most two decimals, truncated; the tests are listed once, and each mutant points at those that cover and killed it; a mutant a static analyser killed has its `rejection`: the analyser, the `file` its finding sits in, and the finding's `code` and `message`; a timed run adds its `run`, `cost` and `savings` |
-| `junit` | Listed in `reports` | JUnit XML at `path`: a suite per tree with a `floor` test case, a `new code` suite, a `run` suite for failures no floor decides, and an `ignored` suite with a skipped test case per ignored mutant, its message why |
+| `junit` | Listed in `reports` | JUnit XML at `path`: a suite per tree with a `floor` test case, a `new code` suite, a `security` suite with a `floor` test case per package, a `run` suite for failures no floor decides, and an `ignored` suite with a skipped test case per ignored mutant, its message why |
 | `sarif` | Listed in `reports` | SARIF 2.1.0 at `path`, for code scanning, with each ignored mutant a `note` result suppressed with why: `external` for the config's ignores, `inSource` for a runner's own marker; with `CI` unset it also names the repository's root as a `file://` URI, for an editor's SARIF viewer |
 | `html` | Listed in `reports` | `mutation-report.json` and a self-contained `index.html` under the `path` directory, shown with Stryker's viewer |
 | `gitlab` | Listed in `reports` | GitLab's Code Quality JSON at `path`: an issue per mutant counted as not killed, `major` in a set that failed and `minor` otherwise |
@@ -450,6 +451,7 @@ and `?` match within one directory, and `**` across any number of them.
 | `trees[].reason` | string | none; required when `floor` is 0, and refused beside any other | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
 | `trees[].exclude` | list of globs, each matching a file in the tree | `[]` | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
 | `newCode.floor` | number, 0 to 100 | `100` | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
+| `security.floor` | number, 0 to 100 | none | [0021](.docs/decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md) |
 | `uncovered` | `count` or `exclude` | `count` | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
 | `baseline.path` | path | `mutation-gate.baseline.json` | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
 | `baseline.improvement` | `require` or `report` | `require` | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
@@ -516,6 +518,7 @@ In a `composer.json`, under `extra.mutation-gate`:
 | `floor` | number, 0 to 100 | none | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `floorReason` | string | none; required when `floor` is 0 | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `newCodeFloor` | number, 0 to 100 | `newCode.floor` | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
+| `securityFloor` | number, 0 to 100, in a package's `composer.json` only | `security.floor` | [0021](.docs/decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md) |
 
 Environment variables that change what the gate does:
 

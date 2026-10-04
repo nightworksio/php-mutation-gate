@@ -86,6 +86,7 @@ it('writes every setting of the configuration reference', function (): void {
             ->treeSource(Source::composer())
             ->trees(Tree::at('src'), Tree::at('app', floor: 83.5), Tree::at('gen', floor: 0, because: 'Generated'))
             ->newCode(Floor::of(90))
+            ->security(Floor::of(97.5))
             ->ignoring(
                 Ignore::mutant('3f9a1c2b7d04', because: 'Same'),
                 Ignore::mutator('Plus', in: 'src/**', because: 'Why', until: '2027-01-01'),
@@ -148,6 +149,7 @@ it('writes every setting of the configuration reference', function (): void {
             ['path' => 'gen', 'floor' => 0, 'reason' => 'Generated'],
         ],
         'newCode' => ['floor' => 90],
+        'security' => ['floor' => 97.5],
         'ignores' => [
             'entries' => [
                 ['mutant' => '3f9a1c2b7d04', 'reason' => 'Same'],
