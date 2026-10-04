@@ -34,6 +34,8 @@ final readonly class Opcodes
 
     /** What the program's own directory is named in its place, as its path is. */
     public const string DIRECTORY = "\x1Edirectory\x1E";
+    /** The header opcache dumps a program's own code under, on a line of its own before any function's. */
+    private const string MAIN = "\$_main:\n";
 
     /** A function's header names a closure with the line it starts on, each closure inside the one around it. */
     private const string CLOSURE_HEADER = '/^\{closure:.*\}:$/';
@@ -44,9 +46,17 @@ final readonly class Opcodes
     {
     }
 
-    /** The opcodes opcache dumped of the program it compiled at a path. */
-    public static function dumped(string $dump, string $path): self
+    /**
+     * The opcodes opcache dumped of the program it compiled at a path; or
+     * that what was dumped is not a dump, which does not begin with the
+     * program's own code, and proves nothing.
+     */
+    public static function dumped(string $dump, string $path): self|Uncompiled
     {
+        if (! str_starts_with(ltrim($dump), self::MAIN)) {
+            return Uncompiled::Failed;
+        }
+
         $spans = sprintf('; %s:', $path);
         $kept = [];
 
