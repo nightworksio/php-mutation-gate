@@ -44,6 +44,11 @@ final readonly class IgnoredMutant implements Ignored
         return $mutant->id()->value() === $this->mutant->value();
     }
 
+    public function namesOne(): bool
+    {
+        return true;
+    }
+
     public function named(): string
     {
         return $this->mutant->value();

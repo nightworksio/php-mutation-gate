@@ -100,12 +100,14 @@ final readonly class JudgedMutant
 
     /**
      * This mutant, left out of the score by an ignore with this reason where
-     * it is a survivor or uncovered; a mutant judged otherwise stays as it was
-     * (ADR-0008, decision 4).
+     * it is a survivor or uncovered, or, by an ignore that names it by its
+     * id, where it is unjudged because the file it mutates was loaded before
+     * it was in place; a mutant judged otherwise stays as it was (ADR-0008,
+     * decision 4).
      */
-    public function ignoredBecause(Reason $reason): self
+    public function ignoredBecause(Reason $reason, bool $byItsId): self
     {
-        return $this->judgement->asksForATest()
+        return $this->judgement->asksForATest() || ($byItsId && $this->loadedTooEarly())
             ? clone($this, [
                 'mutant' => $this->mutant->because($reason),
                 'judgement' => MutantJudgement::Ignored,
@@ -164,5 +166,13 @@ final readonly class JudgedMutant
     public function explain(): string
     {
         return sprintf(self::EXPLAIN, $this->mutant->id()->value());
+    }
+
+    /** Whether it is unjudged because the file it mutates was loaded before it was in place. */
+    private function loadedTooEarly(): bool
+    {
+        $reason = $this->mutant->reason();
+
+        return $this->judgement === MutantJudgement::Unjudged && $reason instanceof Reason && $reason->isPreloaded();
     }
 }

@@ -20,6 +20,12 @@ interface Ignored
     /** Whether it names this mutant: by its id, or by its file and its mutator or the mutator's family. */
     public function matches(Mutant $mutant): bool;
 
+    /**
+     * Whether it names one mutant by its id, which alone may leave out a
+     * mutant unjudged because its file was loaded before it was in place.
+     */
+    public function namesOne(): bool;
+
     /** How a report names it: the mutant's id, or the mutator and the glob. */
     public function named(): string;
 

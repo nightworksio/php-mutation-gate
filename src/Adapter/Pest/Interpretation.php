@@ -51,8 +51,6 @@ final readonly class Interpretation
 
     private const string UNSELECTED = "Pest's --filter cannot select %s, so Pest cannot run it against this mutant.";
 
-    private const string PRELOADED = '%s was loaded before the mutant was in place, so its tests ran the original code';
-
     private const string RAN_NO_TEST = 'its own run ran no test';
 
     private const string OUT_OF_MEMORY
@@ -200,7 +198,7 @@ final readonly class Interpretation
         $names = array_map(static fn(TestId $test): string => $test->value(), [...$unselected]);
 
         return match (true) {
-            $ranTheOriginal => $limited->because(Reason::that(sprintf(self::PRELOADED, $file->value()))),
+            $ranTheOriginal => $limited->because(Reason::preloaded($file)),
             $ranNoTest => $limited->because(Reason::that(self::RAN_NO_TEST)),
             $judged => $limited,
             default => $limited->because(Reason::that(sprintf(self::UNSELECTED, implode(', ', $names)))),

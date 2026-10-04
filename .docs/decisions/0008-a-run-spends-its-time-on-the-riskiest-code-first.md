@@ -263,6 +263,12 @@ presets for Laravel, Symfony and plain libraries.
    - **Every entry needs a non-empty `reason`.** `expires` (`YYYY-MM-DD`) is
      optional. `ignores.maxDays`, an integer with no limit by default, requires
      every entry to expire within that many days of the run.
+   - **What an ignore leaves out.** A survivor or an uncovered mutant that an
+     entry matches. An entry that names one mutant by its id also leaves it
+     out where it is unjudged because the file it mutates was loaded before
+     the mutant was in place (ADR-0004), which no run can change. A mutant
+     unjudged for any other reason, such as a time budget that ran out,
+     counts as not killed whatever an entry says.
    - **Ignored mutants** are left out of the score (ADR-0003) and listed with
      their reasons in every report.
    - **An expired ignore** stops applying: the mutant counts again, and the
