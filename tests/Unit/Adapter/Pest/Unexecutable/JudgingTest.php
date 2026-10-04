@@ -188,7 +188,7 @@ it('lets the tests that read an ambiguous value kill it whatever the fallback ho
         ->toBe(['rate' => 'unjudged ambiguous reference; src/Money.php is covered by 11 test files']);
 });
 
-it('judges a mutant of a statement\'s first line by the tests that run its other lines, and leaves an arm and a statement of one line uncovered', function (): void {
+it('judges a mutant of a statement\'s first line by the tests that run its other lines, one in a match\'s head by those that run its arms, and leaves an arm and a statement of one line uncovered', function (): void {
     $at = MatchHeads::project();
     $results = MatchHeads::run($at);
     $band = MutationRequest::of(Paths::of(Path::of('src/Band.php')), WholeSuite::tests());
@@ -197,14 +197,16 @@ it('judges a mutant of a statement\'s first line by the tests that run its other
         new ShellFake(static fn(Command $command): Ran => Unexecutables::answering($command, array_values($killing))),
         new CapDirectory(),
     )->of(
-        MutationResult::of(Mutants::of(...array_map(MatchHeads::mutant(...), ['head', 'arm', 'flat'])), 0),
+        MutationResult::of(Mutants::of(...array_map(MatchHeads::mutant(...), ['head', 'arm', 'flat', 'inner'])), 0),
         $band,
         $results,
         judgingCoverage($results),
     );
 
-    expect(judgingOutcomes($judged('tests/BandSpec.php')))->toBe(['head' => 'killed', 'arm' => 'uncovered', 'flat' => 'uncovered'])
-        ->and(judgingOutcomes($judged()))->toBe(['head' => 'survived', 'arm' => 'uncovered', 'flat' => 'uncovered']);
+    expect(judgingOutcomes($judged('tests/BandSpec.php')))
+        ->toBe(['head' => 'killed', 'arm' => 'uncovered', 'flat' => 'uncovered', 'inner' => 'killed'])
+        ->and(judgingOutcomes($judged()))
+        ->toBe(['head' => 'survived', 'arm' => 'uncovered', 'flat' => 'uncovered', 'inner' => 'survived']);
 });
 
 it('gives a mutant that timed out the limit Pest allows each mutant', function () use ($money): void {

@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Php\Codebase;
 use NightWorksIO\MutationGate\Core\Php\Executable;
+use NightWorksIO\MutationGate\Core\Php\MatchArms;
 use NightWorksIO\MutationGate\Core\Php\Source;
 use NightWorksIO\MutationGate\Core\Php\StatementTail;
 use NightWorksIO\MutationGate\Core\Php\Symbol;
@@ -76,17 +77,20 @@ final readonly class Selector
      * Which test files judge a mutant whose first changed token stands at an
      * index of its file's source: by the value it changes, on a line that is
      * not executable; by the statement's other lines, on the first line of a
-     * statement that spans more; or none, where coverage speaks for its line
-     * and the mutant stays uncovered.
+     * statement that spans more; by the lines of its arms, in the head of a
+     * `match`; or none, where coverage speaks for its line and the mutant
+     * stays uncovered.
      */
     public function judging(Source $source, int $changed): Choice|NotGiven
     {
         $symbol = $source->symbolAt($changed);
         $tail = $symbol instanceof Executable ? StatementTail::of($source, $changed) : NotGiven::value();
+        $arms = $symbol instanceof Executable ? MatchArms::of($source->tokens(), $changed) : NotGiven::value();
 
         return match (true) {
             ! $symbol instanceof Executable => $this->choose($symbol, $source->path()),
-            $tail instanceof StatementTail => $this->running($tail, $source->path()),
+            $tail instanceof StatementTail => $this->running($tail->first(), $tail->last(), $source->path()),
+            $arms instanceof MatchArms => $this->running($arms->first(), $arms->last(), $source->path()),
             default => NotGiven::value(),
         };
     }
@@ -112,13 +116,13 @@ final readonly class Selector
     }
 
     /**
-     * Which test files judge a mutant of a statement's first line, which
-     * coverage may not mark run: those that run its other lines; none where
-     * no test does, and the mutant stays uncovered.
+     * Which test files judge a mutant on a line coverage may not mark run,
+     * by the lines that run only after it: those whose tests run any of
+     * them; none where no test does, and the mutant stays uncovered.
      */
-    private function running(StatementTail $tail, Path $file): Choice|NotGiven
+    private function running(Line $first, Line $last, Path $file): Choice|NotGiven
     {
-        $tests = $this->covering($file, $tail->first()->number(), $tail->last()->number());
+        $tests = $this->covering($file, $first->number(), $last->number());
 
         return count($tests) === 0 ? NotGiven::value() : Choice::of($tests, Paths::none(), ambiguous: false);
     }

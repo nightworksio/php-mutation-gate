@@ -31,8 +31,10 @@ use function str_replace;
  * A project whose Band returns a `match (true)`, a statement whose first line
  * pcov never marks run, beside a statement of one line no test runs. Its
  * run's map has BandSpec cover the default arm on line 9 alone, so the arm
- * on line 8 and the head on line 7 are uncovered. Band ends a parameter list
- * with a comma, which the print Pest writes for each mutant leaves out.
+ * on line 8 and the head on line 7 are uncovered; and the default arm on
+ * line 21 of a `match` an argument list holds, whose head on line 19 starts
+ * no statement. Band ends a parameter list with a comma, which the print
+ * Pest writes for each mutant leaves out.
  */
 final class MatchHeads
 {
@@ -52,6 +54,15 @@ final class MatchHeads
             {
                 return true;
             }
+            public function shout(int $n): string
+            {
+                return strtoupper(
+                    match ($n > 0) {
+                        true => 'up',
+                        default => 'down',
+                    },
+                );
+            }
         }
         PHP;
 
@@ -60,6 +71,7 @@ final class MatchHeads
         'head' => [7, 'match (true)', 'match (false)'],
         'arm' => [8, "\$n > 10 => 'high'", "\$n > 10 => 'low'"],
         'flat' => [14, 'return true', 'return false'],
+        'inner' => [19, 'match ($n > 0)', 'match ($n >= 0)'],
     ];
 
     private const string BANDS = 'P\Tests\BandSpec::__pest_evaluable_it_bands';
@@ -83,7 +95,7 @@ final class MatchHeads
         CoverageMaps::write(
             Recorder::coverageBeside($results),
             sprintf('%s/', $project->root()),
-            ['src/Band.php' => [9 => [0]]],
+            ['src/Band.php' => [9 => [0], 21 => [0]]],
             [self::BANDS],
             [self::BANDS => 0.1],
         );
