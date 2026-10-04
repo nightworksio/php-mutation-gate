@@ -40,6 +40,11 @@
                 "mutant": "07c3b2ec795f",
                 "reason": "Equivalent: the step only sets how many compressed bytes each inflate call takes. A stream inflates to the same text, TooLarge or CannotJudge at any step size, since inflating stops where the stream ends.",
                 "expires": "2027-10-03"
+            },
+            {
+                "mutant": "f4a4dedec0da",
+                "reason": "Equivalent: the map file a held run's key names is a placeholder each key spells the same way, so any text in its place gives every run the same key, and the key is never read but to find the map again.",
+                "expires": "2027-10-04"
             }
         ]
     }
