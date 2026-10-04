@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\Hint;
@@ -111,12 +112,15 @@ final readonly class Bridges
     {
     }
 
-    /** The bridges to these mutators. */
+    /**
+     * The bridges to these mutators, less each that stands down beside them
+     * and Pest's `DefaultSet` (ADR-0021, decision 18).
+     */
     public static function to(Enabled $mutators): self
     {
         $named = [];
 
-        foreach ($mutators as $mutator) {
+        foreach ($mutators->besides(NamedMutators::of(...DefaultSet::mutators())) as $mutator) {
             $named[$mutator->name()->value()] = $mutator;
         }
 

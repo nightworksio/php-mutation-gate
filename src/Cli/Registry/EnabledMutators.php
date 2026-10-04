@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Mutators;
 use NightWorksIO\MutationGate\Core\Config\PresetSet;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
@@ -89,16 +90,25 @@ final readonly class EnabledMutators
         return $this->skipped;
     }
 
-    /** The mutators the config turns on, which a runner that makes its own mutants runs beside its own. */
+    /**
+     * The mutators the config turns on, which a runner that makes its own
+     * mutants runs beside its own, less each that stands down beside them.
+     */
     public function besideTheRunners(): Enabled
     {
-        return Enabled::of($this->turnedOn, ...$this->except);
+        return Enabled::of($this->turnedOn, ...$this->except)->besides(NamedMutators::of());
     }
 
-    /** The `default` set's mutators and those the config turns on, which the gate's own engine makes mutants with. */
+    /**
+     * The `default` set's mutators and those the config turns on, less each
+     * that stands down beside them (ADR-0021, decision 18), which the gate's
+     * own engine makes mutants with.
+     */
     public function forTheEngine(): Enabled
     {
-        return Enabled::of(MutatorSet::of(...$this->default, ...$this->turnedOn), ...$this->except);
+        $mutators = MutatorSet::of(...$this->default, ...$this->turnedOn);
+
+        return Enabled::of($mutators, ...$this->except)->besides(NamedMutators::of());
     }
 
     /**

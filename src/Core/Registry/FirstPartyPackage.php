@@ -17,4 +17,5 @@ enum FirstPartyPackage: string
     case DefaultSet = 'nightworksio/mutation-gate-default';
     case LaravelSet = 'nightworksio/mutation-gate-laravel';
     case SymfonySet = 'nightworksio/mutation-gate-symfony';
+    case SecuritySet = 'nightworksio/mutation-gate-security';
 }

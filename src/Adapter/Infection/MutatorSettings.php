@@ -7,12 +7,18 @@ namespace NightWorksIO\MutationGate\Adapter\Infection;
 use function array_flip;
 use function array_intersect_key;
 use function array_key_exists;
+use function class_exists;
+
+use Closure;
+
 use function in_array;
 
+use NightWorksIO\MutationGate\Adapter\Infection\Import\Profiles;
 use NightWorksIO\MutationGate\Core\Format\JsonObject;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 
 use function sprintf;
 use function str_starts_with;
@@ -43,13 +49,15 @@ final readonly class MutatorSettings
     /** The profile Infection turns on where its config turns on no mutator. */
     private const string DEFAULTS = '@default';
 
-    private function __construct(private Node $block)
+    /** @param Closure(string): bool $exists whether a class can be loaded, Infection's profiles among them */
+    private function __construct(private Node $block, private Closure $exists)
     {
     }
 
-    public static function of(Node $block): self
+    /** @param Closure(string): bool $exists whether a class can be loaded, Infection's profiles among them */
+    public static function of(Node $block, Closure $exists = class_exists(...)): self
     {
-        return new self($block);
+        return new self($block, $exists);
     }
 
     /**
@@ -84,7 +92,8 @@ final readonly class MutatorSettings
      * The JSON of the `mutators` block the gate writes, by its key: for a run
      * of every mutator, the whole block, or Infection's default profile where
      * the project's turns on nothing, and every bridge to a registered mutator
-     * the config turns on; none where there is neither. For a run that names
+     * the config turns on, less those that stand down beside Infection's own
+     * (ADR-0021, decision 18); none where there is neither. For a run that names
      * mutators, only those, a bridged one by its bridge's class, with the
      * project's settings for each, and its global ignores.
      *
@@ -100,7 +109,8 @@ final readonly class MutatorSettings
 
     /**
      * Every entry of the project's block, or the default profile where it has
-     * none and there are bridges, then every bridge.
+     * none and there are bridges, then every bridge, less each to a mutator
+     * that stands down beside the mutators of Infection's own those turn on.
      *
      * @param array<array-key, Node> $own
      *
@@ -109,12 +119,36 @@ final readonly class MutatorSettings
     private function all(array $own, Bridges $bridges): array
     {
         $kept = $own === [] && ! $bridges->isEmpty() ? [self::DEFAULTS => self::ON] : $this->entries($own);
+        $profiles = Profiles::installed($this->exists);
+        $running = NamedMutators::of(...$profiles instanceof Profiles ? $profiles->on($this->switches($own)) : []);
 
-        foreach ($bridges->classes() as $bridge) {
+        foreach ($bridges->besides($running)->classes() as $bridge) {
             $kept[$bridge] = self::ON;
         }
 
         return $kept;
+    }
+
+    /**
+     * Whether the block turns each profile or mutator on, in its order: the
+     * default profile, where it names none.
+     *
+     * @param array<array-key, Node> $own
+     *
+     * @return list<array{string, bool}>
+     */
+    private function switches(array $own): array
+    {
+        $switches = $own === [] ? [[self::DEFAULTS, true]] : [];
+
+        foreach ($own as $key => $settings) {
+            $name = sprintf('%s', $key);
+            $switches = in_array($name, self::GLOBAL, strict: true)
+                ? $switches
+                : [...$switches, [$name, Lenient::boolean($settings, otherwise: true)]];
+        }
+
+        return $switches;
     }
 
     /**

@@ -12,10 +12,12 @@ use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\Hint;
 use NightWorksIO\MutationGate\Mutator\Mutator;
+use NightWorksIO\MutationGate\Mutator\MutatorSet;
 
 use function sprintf;
 use function var_export;
@@ -100,6 +102,21 @@ final readonly class Bridges
         }
 
         return new self($named);
+    }
+
+    /**
+     * These bridges, less each to a mutator that stands down beside them and
+     * the mutators of Infection's own that run (ADR-0021, decision 18).
+     */
+    public function besides(NamedMutators $own): self
+    {
+        $classes = [];
+
+        foreach ($this->mutators as $mutator) {
+            $classes[] = $mutator::class;
+        }
+
+        return $this->isEmpty() ? $this : self::to(Enabled::of(MutatorSet::of(...$classes))->besides($own));
     }
 
     /** No bridge, and why Infection cannot make mutants with what the options name, which every mutation run says. */

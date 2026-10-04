@@ -18,9 +18,14 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
+use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinusToo;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveEcho;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
+use NightWorksIO\MutationGateSecurity\Mutators\UnwrapHtmlentities;
+use NightWorksIO\MutationGateSecurity\Mutators\UnwrapHtmlspecialchars;
+use NightWorksIO\MutationGateSecurity\Mutators\UnwrapShellEscape;
+use NightWorksIO\MutationGateSecurity\Mutators\UnwrapStripTags;
 use Pest\Mutate\Contracts\Mutator;
 use Pest\Mutate\Mutators\Arithmetic\MinusToPlus;
 use Pest\Mutate\Mutators\Sets\DefaultSet;
@@ -50,6 +55,21 @@ it('names Pest\'s default set beside every bridge for a run of every mutator', f
         DefaultSet::class,
         PEST_BRIDGE,
         'NightWorksIO\\MutationGateBridge\\Pest\\NightWorksIO\\MutationGate\\Tests\\Support\\Mutators\\RemoveEcho',
+    ]);
+});
+
+it('bridges no mutator that stands down beside Pest\'s default set, as the security set\'s HTML unwraps do', function (): void {
+    $bridges = Bridges::to(Enabled::of(MutatorSet::of(
+        PlusToMinusToo::class,
+        UnwrapHtmlspecialchars::class,
+        UnwrapHtmlentities::class,
+        UnwrapStripTags::class,
+        UnwrapShellEscape::class,
+    )));
+
+    expect($bridges->applying(Mutators::all()))->toBe([
+        DefaultSet::class,
+        'NightWorksIO\\MutationGateBridge\\Pest\\NightWorksIO\\MutationGateSecurity\\Mutators\\UnwrapShellEscape',
     ]);
 });
 

@@ -94,6 +94,7 @@
         "psr-4": {
             "NightWorksIO\\MutationGateDefault\\": "plugins/default/src/",
             "NightWorksIO\\MutationGateLaravel\\": "plugins/laravel/src/",
+            "NightWorksIO\\MutationGateSecurity\\": "plugins/security/src/",
             "NightWorksIO\\MutationGateSymfony\\": "plugins/symfony/src/",
             "NightWorksIO\\MutationGate\\": "src/"
         }
@@ -102,6 +103,7 @@
         "psr-4": {
             "NightWorksIO\\MutationGateDefault\\Tests\\": "plugins/default/tests/",
             "NightWorksIO\\MutationGateLaravel\\Tests\\": "plugins/laravel/tests/",
+            "NightWorksIO\\MutationGateSecurity\\Tests\\": "plugins/security/tests/",
             "NightWorksIO\\MutationGateSymfony\\Tests\\": "plugins/symfony/tests/",
             "NightWorksIO\\MutationGate\\PHPStan\\": "phpstan/",
             "NightWorksIO\\MutationGate\\Tests\\": "tests/"
@@ -128,7 +130,8 @@
                 "NightWorksIO\\MutationGate\\Cli\\FirstParty",
                 "NightWorksIO\\MutationGateDefault\\DefaultExtension",
                 "NightWorksIO\\MutationGateLaravel\\LaravelExtension",
-                "NightWorksIO\\MutationGateSymfony\\SymfonyExtension"
+                "NightWorksIO\\MutationGateSymfony\\SymfonyExtension",
+                "NightWorksIO\\MutationGateSecurity\\SecurityExtension"
             ]
         },
         "pest": {

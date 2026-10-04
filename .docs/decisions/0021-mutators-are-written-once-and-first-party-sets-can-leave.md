@@ -97,6 +97,10 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
    - `Removal` becomes Pest's `NodeTraverser::REMOVE_NODE` and a yielded
      `Node\Stmt\Nop` under Infection.
    - A `MutatorSet` is a named, typed list of mutator classes.
+   - A mutator whose change other mutators also make implements
+     `SameChange` too. Its `madeAlsoBy(): NamedMutators` names them as the
+     gate names their mutants: a registered one `<set>/<Name>`, and a
+     runner's own as that runner names it (decision 18).
 
 3. **Sets are registered by name, and enabled by config.**
    - `Extensions::withMutators(Name $set, MutatorSet $mutators)` adds an
@@ -335,11 +339,28 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
     | `HashEqualsToTrue` | `hash_equals($a, $b)` → `true` | Condition | a test with a wrong token |
     | `HashEqualsToIdentical` | `hash_equals($a, $b)` → `$a === $b` | Condition | only a test that reads the source |
     | `PasswordVerifyToTrue` | `password_verify(…)` → `true` | Condition | a test with a wrong password |
-    | `UnwrapHtmlEscape` | `htmlspecialchars($x, …)`, `htmlentities($x, …)`, `strip_tags($x, …)` → `$x` | Unwrap | a test with markup in the input |
+    | `UnwrapHtmlspecialchars` | `htmlspecialchars($x, …)` → `$x` | Unwrap | a test with markup in the input |
+    | `UnwrapHtmlentities` | `htmlentities($x, …)` → `$x` | Unwrap | a test with markup in the input |
+    | `UnwrapStripTags` | `strip_tags($x, …)` → `$x` | Unwrap | a test with markup in the input |
     | `UnwrapShellEscape` | `escapeshellarg($x)`, `escapeshellcmd($x)` → `$x` | Unwrap | a test with a shell metacharacter |
     | `UnwrapUrlEncode` | `urlencode($x)`, `rawurlencode($x)` → `$x` | Unwrap | a test with a reserved character |
     | `FilterVarToInput` | `filter_var($x, FILTER_VALIDATE_…)` → `$x` | Unwrap | a test with invalid input |
     | `RemoveSessionRegenerate` | `session_regenerate_id(…)` removed | Removed call | a test of the session id around login |
+
+    Each is tagged `security`.
+
+    - A mutator that names others making its same change stands down
+      wherever one of them runs that names none.
+    - What runs is what the gate enables for each runner: for its engine,
+      the `default` set and the sets in `mutators.sets`; under Pest, Pest's
+      `DefaultSet` and those sets; under Infection, the mutators the
+      project's Infection config turns on, its `@default` profile where it
+      turns on none, and those sets.
+    - The three HTML unwraps name the `default` set's and Pest's own unwraps
+      of the same function. They stand down for the engine and under Pest,
+      and make their mutants under Infection, whose own mutators unwrap none
+      of the three. A config that turns one of the `default` set's unwraps
+      off gets that function's unwrap from the `security` set.
 
 19. **A constant-time comparison is pinned by a test that reads the
     source.**
