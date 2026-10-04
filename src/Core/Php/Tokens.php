@@ -132,6 +132,19 @@ final readonly class Tokens implements Countable
         return array_key_exists($at, $this->tokens) && $this->tokens[$at]->is($kinds);
     }
 
+    /**
+     * Where the name a `function` keyword declares stands: the token between
+     * the keyword, past a `&`, and its parameter list; or no index where none
+     * does, as for a closure. A method may take a semi-reserved word such as
+     * `and` or `for` as its name, which PHP does not read as a `T_STRING`.
+     */
+    public function functionName(int $keyword): int
+    {
+        $name = $this->is($keyword + 1, '&') ? $keyword + 2 : $keyword + 1;
+
+        return $this->is($name + 1, '(') && ! $this->is($name, '(') ? $name : self::NONE;
+    }
+
     /** The text of the token at an index. */
     public function text(int $at): string
     {

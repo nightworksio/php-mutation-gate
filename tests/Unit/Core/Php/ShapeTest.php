@@ -51,3 +51,15 @@ it('finds a brace inside a bracket, and no body where a statement ends first', f
 
     expect($bodies)->toBe([Php::indexOf($source, '{')]);
 });
+
+it('finds the parameter list and body of a method named with a semi-reserved word', function (): void {
+    $source = Php::source('<?php final class K { public function and($h = 5) { return $h; } public static function for() { } }');
+    $shape = $source->shape();
+    $and = Php::indexOf($source, '(', 0);
+
+    expect($shape->isSignature($and))->toBeTrue()
+        ->and($shape->signatureOf($and))->toEqual(Signature::ofMethod())
+        ->and($shape->isBody(Php::indexOf($source, '{', 1)))->toBeTrue()
+        ->and($shape->isSignature(Php::indexOf($source, '(', 1)))->toBeTrue()
+        ->and($shape->isBody(Php::indexOf($source, '{', 2)))->toBeTrue();
+});

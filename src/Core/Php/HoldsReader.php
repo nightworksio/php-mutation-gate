@@ -162,9 +162,9 @@ final readonly class HoldsReader
      */
     private function functionAt(int $at, int $start): array
     {
-        $name = $this->tokens->is($at + 1, T_AMPERSAND_NOT_FOLLOWED_BY_VAR_OR_VARARG) ? $at + 2 : $at + 1;
+        $name = $this->tokens->functionName($at);
 
-        if (! $this->tokens->is($name, T_STRING)) {
+        if ($name === Tokens::NONE) {
             return [ClosureCall::standingOf($this->tokens, $start), ''];
         }
 

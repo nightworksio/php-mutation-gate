@@ -67,8 +67,8 @@ final readonly class TestAssertions
         $methods = [];
 
         foreach ($tokens->indicesOf(T_FUNCTION) as $at) {
-            $named = $tokens->is($at + 1, '&') ? $at + 2 : $at + 1;
-            $name = $tokens->is($named, T_STRING) ? mb_strtolower($tokens->text($named)) : '';
+            $named = $tokens->functionName($at);
+            $name = $named === Tokens::NONE ? '' : mb_strtolower($tokens->text($named));
 
             if ($name !== '' && ! array_key_exists($name, $methods)) {
                 $methods[$name] = self::bodyAfter($tokens, $helpers, $named);

@@ -109,3 +109,11 @@ it('reads a string literal without its quotes, each escaped backslash as one', f
         ->and($read->unquoted(2))->toBe('\App\Base::RATE')
         ->and($read->unquoted(4))->toBe('plain');
 });
+
+it('finds the name a function keyword declares, a semi-reserved word among them, and none for a closure', function () use ($tokens): void {
+    $read = $tokens('<?php function f() {} function &g() {} class C { function and() {} function for() {} } $h = function () {}; $i = function &() {}; $j = fn () => 1;');
+    $names = array_map($read->functionName(...), $read->indicesOf(T_FUNCTION, T_FN));
+
+    expect(array_map(static fn(int $at): string => $at === Tokens::NONE ? '' : $read->text($at), $names))
+        ->toBe(['f', 'g', 'and', 'for', '', '', '']);
+});
