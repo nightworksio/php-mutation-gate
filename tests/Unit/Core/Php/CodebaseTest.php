@@ -72,3 +72,21 @@ it('cannot follow a value no reference names at all', function () use ($codebase
     expect(Php::sites($read))->toBe([])
         ->and($read->isAmbiguous())->toBeTrue();
 });
+
+it('reads a constant and an enum case named with a semi-reserved word where they are declared and read', function (): void {
+    $source = Php::source(<<<'PHP'
+        <?php
+        namespace App;
+        enum Mode: string { case Default = 'd'; }
+        final class Box {
+            const array GLOBAL = [1];
+            public function all(): array { return [self::GLOBAL, Mode::Default]; }
+        }
+        PHP, 'src/Box.php');
+    $codebase = Codebase::of($source);
+
+    expect($source->symbolAt(Php::indexOf($source, '1')))->toEqual(Symbol::constant('App\Box', 'GLOBAL'))
+        ->and(Php::sites($codebase->references(Symbol::constant('App\Box', 'GLOBAL'))))->toBe(['src/Box.php:6'])
+        ->and($source->symbolAt(Php::indexOf($source, "'d'")))->toEqual(Symbol::enumCase('App\Mode', 'Default'))
+        ->and(Php::sites($codebase->references(Symbol::enumCase('App\Mode', 'Default'))))->toBe(['src/Box.php:6']);
+});
