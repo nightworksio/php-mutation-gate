@@ -25,9 +25,15 @@ use function str_starts_with;
  */
 final readonly class Opcodes
 {
-    private const string FILE = '<file>';
+    /**
+     * What the program's own path is named in its place: with a control
+     * character, which the dump escapes in every literal, so that no literal
+     * reads as it.
+     */
+    public const string FILE = "\x1Efile\x1E";
 
-    private const string DIRECTORY = '<directory>';
+    /** What the program's own directory is named in its place, as its path is. */
+    public const string DIRECTORY = "\x1Edirectory\x1E";
 
     /** A function's header names a closure with the line it starts on, each closure inside the one around it. */
     private const string CLOSURE_HEADER = '/^\{closure:.*\}:$/';
