@@ -8,6 +8,7 @@ use function array_map;
 use function array_merge;
 use function array_pad;
 use function array_pop;
+use function ctype_digit;
 use function explode;
 use function file_get_contents;
 use function is_file;
@@ -70,6 +71,12 @@ final readonly class KillerFile
         return sprintf('%s%s', RecordEvent::Preloaded->value, self::LINE);
     }
 
+    /** The line that says how many tests the process ran. */
+    public static function ran(int $tests): string
+    {
+        return sprintf('%s%s%d%s', RecordEvent::Ran->value, self::SEPARATOR, $tests, self::LINE);
+    }
+
     /** The line that names a test that failed or errored, by the record Pest's own process writes for it. */
     public static function line(RecordEvent $event, string $test): string
     {
@@ -113,6 +120,7 @@ final readonly class KillerFile
             RecordEvent::Killed => [RecordLine::killed($mutated, rawurldecode($test))],
             RecordEvent::Errored => [RecordLine::errored($mutated, rawurldecode($test))],
             RecordEvent::Preloaded => [RecordLine::preloaded($mutated)],
+            RecordEvent::Ran => ctype_digit($test) ? [RecordLine::ran($mutated, (int) $test)] : [],
             default => [],
         };
     }

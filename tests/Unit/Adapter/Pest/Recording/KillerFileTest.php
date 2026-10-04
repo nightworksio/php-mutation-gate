@@ -30,25 +30,27 @@ it('writes a test on a line of its own after its record, with a line break in it
         ->toBe("errored Tests%5CLegacySpec%3A%3AtestAdds%20with%20data%20set%20%22a%0Ab%22\n");
 });
 
-it('takes the record of every line, the preload and each test, in the order written, and removes the file', function (): void {
+it('takes the record of every line, the preload, each test and the count, in the order written, and removes the file', function (): void {
     $file = sprintf('%s/results.jsonl.abc.killers', Scratch::directory());
     file_put_contents($file, sprintf(
-        '%s%s%s',
+        '%s%s%s%s',
         KillerFile::preloaded(),
         KillerFile::line(RecordEvent::Errored, 'P\Tests\MoneySpec::first'),
         KillerFile::line(RecordEvent::Killed, "Tests\\LegacySpec::testAdds#(1)\na"),
+        KillerFile::ran(12),
     ));
 
     expect(KillerFile::taken($file, '/m/a.php'))->toBe([
         RecordLine::preloaded('/m/a.php'),
         RecordLine::errored('/m/a.php', 'P\Tests\MoneySpec::first'),
         RecordLine::killed('/m/a.php', "Tests\\LegacySpec::testAdds#(1)\na"),
+        RecordLine::ran('/m/a.php', 12),
     ])->and(is_file($file))->toBeFalse();
 });
 
-it('takes no record from a line that names no test as failed or errored', function (): void {
+it('takes no record from a line that names no test as failed or errored, nor from a count that is no whole number', function (): void {
     $file = sprintf('%s/results.jsonl.abc.killers', Scratch::directory());
-    file_put_contents($file, "{\"mutated\":\"/m/a.php\"}\n\nplanned P%5CTests\nkilled\n");
+    file_put_contents($file, "{\"mutated\":\"/m/a.php\"}\n\nplanned P%5CTests\nran\nran -1\nran 2x\nkilled\n");
 
     expect(KillerFile::taken($file, '/m/a.php'))->toBe([RecordLine::killed('/m/a.php', '')]);
 });
