@@ -116,3 +116,15 @@ it('finds the files that hold a test, by the class Pest declares for each or one
         ->and($files->holdingAny(TestIds::of($adds, $old)))->toBe($held)
         ->and($files->holdingAny(TestIds::none()))->toEqual(Paths::none());
 });
+
+it('holds the tests of the class Pest declares for a file past a quote, a directory\'s separator kept before it', function (): void {
+    $root = Scratch::directory();
+    Scratch::write($root, "tests/'Odd/QuoteSpec.php", "<?php\nit('quotes', fn () => true);");
+    Scratch::write($root, "tests/Ev'en/MoneySpec.php", "<?php\nit('adds', fn () => true);");
+    $files = new TestFiles(Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('vendor')));
+    $quotes = TestId::of('P\Tests\Odd\QuoteSpec::__pest_evaluable_it_quotes');
+    $adds = TestId::of('P\Tests\Even\MoneySpec::__pest_evaluable_it_adds');
+
+    expect($files->holdingAny(TestIds::of($quotes, $adds)))
+        ->toEqual(Paths::of(Path::of("tests/'Odd/QuoteSpec.php"), Path::of("tests/Ev'en/MoneySpec.php")));
+});

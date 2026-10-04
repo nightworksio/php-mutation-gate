@@ -59,8 +59,13 @@ final class TestFiles
     /** The first letter of a path where `ucfirst` raises it: an ASCII lower-case one. */
     private const string LOWER_FIRST = '/^[a-z]/';
 
-    /** What Pest removes from a file's path to make its class's full name. */
-    private const array NOT_IN_A_CLASS_PATH = ['/%[a-fA-F0-9]{2}/', '/\\\\[\'"]/', '/[^\p{L}\p{N}\\\\]/u'];
+    /**
+     * What Pest removes from a file's path to make its class's full name: a
+     * percent-encoded byte, then all but letters, digits and namespace
+     * separators. Pest also removes a `\` before a quote, but only one its
+     * own escaping added, so a path as written keeps the separator before it.
+     */
+    private const array NOT_IN_A_CLASS_PATH = ['/%[a-fA-F0-9]{2}/', '/[^\p{L}\p{N}\\\\]/u'];
 
     /** @var list<array<string, string>> each test file's class name, by its path, once listed */
     private array $listed = [];
