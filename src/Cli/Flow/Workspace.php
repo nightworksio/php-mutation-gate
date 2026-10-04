@@ -70,6 +70,12 @@ final readonly class Workspace
         return Path::of(sprintf('%s/staticcheck/originals/%s.php', GateDirectory::root()->value(), $mutant->value()));
     }
 
+    /** Where survivors and their originals are compiled, to prove a survivor equivalent. */
+    public static function equivalence(): Path
+    {
+        return Path::of(sprintf('%s/equivalence', GateDirectory::root()->value()));
+    }
+
     public static function results(): Path
     {
         return Path::of(sprintf('%s/results', GateDirectory::root()->value()));

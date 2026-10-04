@@ -7,11 +7,13 @@ use NightWorksIO\MutationGate\Cli\Flow\Inventory;
 use NightWorksIO\MutationGate\Cli\Flow\Keying;
 use NightWorksIO\MutationGate\Cli\Flow\ScoreChanging;
 use NightWorksIO\MutationGate\Config\Ignore;
+use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
@@ -34,6 +36,7 @@ use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -124,6 +127,19 @@ it('scores each reached tree with the survivors the config ignores left out', fu
     );
 
     expect(new ScoreChanging($adapters, $settings, Flows::setup())->text())->toBe(
+        "src scores 50.00% against its floor of 50.00%. That is ±0.00 against the base.\n"
+        . "1 unit unjudged since your last run: mutation-gate watch\n"
+        . 'The scores include unstaged changes in 1 file.',
+    );
+});
+
+it('scores each reached tree with the survivors proven equivalent left out', function () use ($feature, $onMain): void {
+    $store = new ProofStoreFake();
+    $store->write(Scope::branch('main'), $onMain('src/Money.php', 'src/Held.php'));
+    $runner = ScriptedRunner::fixture()->checking(Checkable::inPlace(Contents::of("<?php\n\nfinal class Money\n{\n\n}\n")));
+    $adapters = Flows::adapters(Flows::project(), [], $store, $runner, ...$feature());
+
+    expect(new ScoreChanging($adapters, Flows::settings(), Flows::setup())->text())->toBe(
         "src scores 50.00% against its floor of 50.00%. That is ±0.00 against the base.\n"
         . "1 unit unjudged since your last run: mutation-gate watch\n"
         . 'The scores include unstaged changes in 1 file.',

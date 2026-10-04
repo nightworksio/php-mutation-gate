@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Opcache\Compiler;
+use NightWorksIO\MutationGate\Adapter\Opcache\Prover;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\FirstParty;
@@ -19,6 +21,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Baseline as BaselineSetting;
 use NightWorksIO\MutationGate\Config\Budget;
 use NightWorksIO\MutationGate\Config\Ci;
+use NightWorksIO\MutationGate\Config\Equivalence;
 use NightWorksIO\MutationGate\Config\Floor as NewCodeFloor;
 use NightWorksIO\MutationGate\Config\Gate;
 use NightWorksIO\MutationGate\Config\Ignore;
@@ -30,6 +33,7 @@ use NightWorksIO\MutationGate\Config\Setting;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Config\Uncovered;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
+use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Assertion\WeaklyAsserted;
@@ -49,6 +53,7 @@ use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
@@ -139,6 +144,8 @@ use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
+use const PHP_BINARY;
+
 afterEach(function (): void {
     Scratch::sweep();
 });
@@ -207,6 +214,88 @@ function judgingTexts(iterable $said): array
         iterator_to_array($said, preserve_keys: false),
     );
 }
+
+/** A runner whose every survivor, as an analyser checks it, is the project's src/Money.php laid out otherwise. */
+function judgingMoneyLaidOut(): ScriptedRunner
+{
+    return ScriptedRunner::fixture()->checking(Checkable::inPlace(Contents::of("<?php\n\nfinal class Money\n{\n\n}\n")));
+}
+
+/**
+ * @return array<string, string> each mutant's judgement, by its runner's id
+ */
+function judgingJudgements(Verdict $verdict): array
+{
+    $judgements = [];
+
+    foreach ($verdict->trees()->mutants() as $judged) {
+        if ($judged instanceof JudgedMutant) {
+            $judgements[$judged->mutant()->nativeId()] = $judged->judgement()->value;
+        }
+    }
+
+    return $judgements;
+}
+
+it('proves a survivor equivalent where it compiles to its original program, and leaves the others survivors', function (
+    Setting $equivalence,
+    string $judgement,
+) use ($tree, $reporting, $judged): void {
+    $verdict = judgingVerdictOf($judged(
+        Planned::twoShards(),
+        Flows::adapters(Flows::project(), [], $tree(Floor::of(0)), judgingMoneyLaidOut()),
+        judgingSettings($equivalence),
+        $reporting(new ReporterFake()),
+    ));
+
+    expect(judgingJudgements($verdict))->toMatchArray(['GreaterThan-16' => $judgement, 'Plus-11' => 'survived'])
+        ->and(judgingTexts($verdict->warnings()))->toBe([]);
+})->with([
+    'by default' => [Equivalence::provenStatically(), 'equivalent'],
+    'not where equivalence.static is false' => [Equivalence::notProvenStatically(), 'survived'],
+]);
+
+it('says no mutant was checked, and proves none, where opcache gives no opcodes', function () use ($tree, $reporting, $judged): void {
+    $project = Flows::project();
+    $silent = new Prover(new Compiler(PHP_BINARY, sprintf('%s/.mutation-gate/equivalence', $project), 30.0, 1, ['opcache.opt_debug_level=0']));
+    $verdict = judgingVerdictOf($judged(
+        Planned::twoShards(),
+        Flows::adapters($project, [], $tree(Floor::of(0)), judgingMoneyLaidOut(), $silent),
+        judgingSettings(),
+        $reporting(new ReporterFake()),
+    ));
+
+    expect(judgingJudgements($verdict))->toMatchArray(['GreaterThan-16' => 'survived'])
+        ->and(judgingTexts($verdict->warnings()))->toBe(['No mutant was checked for equivalence: opcache is not available.']);
+});
+
+it('keeps an ignore that leaves out only mutants proven equivalent, and says it can go', function (
+    Ignore $ignore,
+    array $judgements,
+    array $said,
+) use ($tree, $reporting, $judged): void {
+    $verdict = judgingVerdictOf($judged(
+        Planned::twoShards(),
+        Flows::adapters(Flows::project(), [], $tree(Floor::of(0)), judgingMoneyLaidOut()),
+        judgingSettings($ignore),
+        $reporting(new ReporterFake()),
+    ));
+
+    expect(judgingJudgements($verdict))->toMatchArray($judgements)
+        ->and(judgingTexts($verdict->warnings()))->toBe($said)
+        ->and(judgingTexts($verdict->failures()))->toBe([]);
+})->with([
+    'one that leaves out only proven ones' => [
+        Ignore::mutator('GreaterThan', 'src/Money.php', 'The bound is never reached'),
+        ['GreaterThan-16' => 'ignored', 'Plus-11' => 'survived'],
+        ['The ignore of GreaterThan in src/Money.php leaves out only mutants proven equivalent: this ignore can go.'],
+    ],
+    'not one that leaves out a survivor no proof covers' => [
+        Ignore::mutator('Plus', 'src/**', 'Both sums are the same'),
+        ['GreaterThan-16' => 'equivalent', 'Plus-11' => 'ignored'],
+        [],
+    ],
+]);
 
 it('judges every tree whole, records the run, and reports it', function () use ($tree, $reporting, $judged): void {
     $project = Flows::project();

@@ -90,9 +90,10 @@ final readonly class ScoreChanging
             $this->settings->triage()->timeouts(),
             Ignoring::of($this->settings->ignores()->entries(), $this->setup->clock->now()),
         );
-        $verdicts = BaseScores::of($judge, $trees, $inventory->units, $defaultBranch)->compare($judge->trees(
-            $proving->proved()->and($considering->carried())->and($completing->carried()),
-        ));
+        $judged = $proving->proved()->and($considering->carried())->and($completing->carried());
+        $proven = $judge->proving(new StaticEquivalence($this->adapters, $this->settings)->among($judged)->proven);
+        $verdicts = BaseScores::of($proven, $trees, $inventory->units, $defaultBranch)
+            ->compare($proven->trees($judged));
         $unmeasured = $this->treesOf($completing->considered(), $trees);
 
         return ScoreChangeText::of(

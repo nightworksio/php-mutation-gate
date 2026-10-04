@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Baseline\Unlowered;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
+use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Run;
@@ -50,6 +51,7 @@ final readonly class Judge
         private KillMatrix $matrix,
         private Ignoring $ignoring,
         private NamedMutators|NotGiven $only,
+        private MutantIds $equivalent,
     ) {
     }
 
@@ -70,6 +72,7 @@ final readonly class Judge
             KillMatrix::none(),
             $ignoring,
             NotGiven::value(),
+            MutantIds::none(),
         );
     }
 
@@ -81,6 +84,15 @@ final readonly class Judge
     public function onlyMadeBy(NamedMutators $mutators): self
     {
         return clone($this, ['only' => $mutators]);
+    }
+
+    /**
+     * This judge, with the survivors among these ids proven equivalent
+     * (ADR-0013, decision 10); none are proven without them.
+     */
+    public function proving(MutantIds $equivalent): self
+    {
+        return clone($this, ['equivalent' => $equivalent]);
     }
 
     /** This judge, naming each mutant's judging tests from this kill matrix; none are named without one. */
@@ -162,7 +174,8 @@ final readonly class Judge
     /**
      * Each mutant of a unit's result as its status reports it after triage,
      * or flaky where it gave two answers, then left out where an ignore names
-     * it, with the tests that judged it; and each kill a ledger proved.
+     * it, with the tests that judged it, and proven equivalent where it
+     * survived and is; and each kill a ledger proved.
      */
     private function judged(UnitResult $result): JudgedMutants
     {
@@ -183,7 +196,10 @@ final readonly class Judge
             $proved[] = JudgedKill::of($kill);
         }
 
-        $mutants = JudgedMutants::of(...$judged)->and(JudgedMutants::kills(...$proved))->within($this->reach);
+        $mutants = JudgedMutants::of(...$judged)
+            ->provenEquivalent($this->equivalent)
+            ->and(JudgedMutants::kills(...$proved))
+            ->within($this->reach);
 
         return $this->only instanceof NamedMutators ? $mutants->madeBy($this->only) : $mutants;
     }

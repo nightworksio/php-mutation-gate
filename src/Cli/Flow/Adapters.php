@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Opcache\Prover;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -36,9 +37,9 @@ use NightWorksIO\MutationGate\Port\TreeSource;
  * counts a plan's mutants with the default set and the sets the config turns
  * on, where any is registered, the registered mutators the config turns
  * on, a warning for each set a preset offers that nothing registers, the
- * mutators whose mutants are security mutants, and the mutators a run makes
+ * mutators whose mutants are security mutants, the mutators a run makes
  * mutants with: every one, or the security mutators `--security` narrows it to
- * (ADR-0021).
+ * (ADR-0021), and what proves a survivor equivalent (ADR-0013, decision 10).
  */
 final readonly class Adapters
 {
@@ -66,6 +67,7 @@ final readonly class Adapters
         public Warnings $skippedSets,
         public NamedMutators $security,
         public Mutators $narrowedTo,
+        public Prover $equivalence,
     ) {
     }
 

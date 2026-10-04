@@ -139,18 +139,26 @@ final readonly class Invoking
 
     /**
      * Survivor confirmation (ADR-0008): each survivor run once more, alone and
-     * by the same tests, where `flaky.confirmSurvivors` asks for it. Those
-     * killed the second time are flaky, and those the time left had no room
-     * for are unjudged.
+     * by the same tests, where `flaky.confirmSurvivors` asks for it, unless
+     * it is proven equivalent, so no test can tell it from its original
+     * (ADR-0013, decision 10); the verdict proves the survivors again itself.
+     * Those killed the second time are flaky, and those the time left had no
+     * room for are unjudged.
      */
     private function confirmed(Mutants $mutants, MutationRequest $request): Confirmed|CannotJudge
     {
+        if (! $this->settings->triage()->confirmSurvivors()) {
+            return new Confirmed($mutants, MutantIds::none());
+        }
+
+        $equivalent = new StaticEquivalence($this->adapters, $this->settings)->proven($mutants)->proven;
         $survivors = array_values(array_filter(
             [...$mutants],
-            static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Survived,
+            static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Survived
+                && ! $equivalent->has($mutant->id()),
         ));
 
-        if (! $this->settings->triage()->confirmSurvivors() || $survivors === []) {
+        if ($survivors === []) {
             return new Confirmed($mutants, MutantIds::none());
         }
 
