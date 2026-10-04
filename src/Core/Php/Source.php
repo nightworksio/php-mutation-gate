@@ -92,19 +92,25 @@ final readonly class Source
         return Line::of($this->tokens->line($at));
     }
 
-    /** Where the first token a changed copy of the file writes differently stands, or past its last where none does. */
-    public function changedAt(Contents $changed): int
+    /**
+     * Where the first token a change to a print of the file writes
+     * differently stands in the file: where the print and the changed print
+     * first differ, carried back through the tokens the file and its print
+     * share, since a print lays the code out its own way. Past the file's
+     * last token where the two prints agree.
+     */
+    public function changedAt(Contents $print, Contents $changed): int
     {
+        $printed = Tokens::of(self::significant($print));
         $other = Tokens::of(self::significant($changed));
-        $shorter = min($this->tokens->count(), $other->count());
+        $shorter = min($printed->count(), $other->count());
+        $at = 0;
 
-        for ($at = 0; $at < $shorter; $at++) {
-            if ($this->tokens->text($at) !== $other->text($at)) {
-                return $at;
-            }
+        while ($at < $shorter && $printed->text($at) === $other->text($at)) {
+            $at++;
         }
 
-        return $shorter;
+        return TokenAlignment::of($this->tokens->texts(), $printed->texts())->inFirst($at);
     }
 
     /** The class-like whose body encloses a token most closely, or none where no class-like does. */

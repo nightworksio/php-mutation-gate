@@ -10,6 +10,7 @@ use function is_file;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\DiffPatch;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use PhpParser\Error;
@@ -39,7 +40,7 @@ final readonly class Printed
         $written = is_file($absolute) ? file_get_contents($absolute) : false;
         $printed = $written === false
             ? CannotJudge::because(sprintf(self::UNREAD, $file->value()))
-            : self::printed($written, $file->value());
+            : self::of(Contents::of($written), $file);
         $patched = $printed instanceof Contents
             ? DiffPatch::of($mutant->mutation())->ontoTheOnlyPlace($printed, $file)
             : $printed;
@@ -51,12 +52,13 @@ final readonly class Printed
         };
     }
 
-    private static function printed(string $written, string $file): Contents|CannotJudge
+    /** A file's text as Pest prints it, or why it cannot be printed: it does not parse. */
+    public static function of(Contents $written, Path $file): Contents|CannotJudge
     {
         try {
-            $statements = new ParserFactory()->createForNewestSupportedVersion()->parse($written);
+            $statements = new ParserFactory()->createForNewestSupportedVersion()->parse($written->text());
         } catch (Error $error) {
-            return CannotJudge::because(sprintf(self::UNPARSED, $file, $error->getMessage()));
+            return CannotJudge::because(sprintf(self::UNPARSED, $file->value(), $error->getMessage()));
         }
 
         return Contents::of(new Standard()->prettyPrintFile($statements ?? []));

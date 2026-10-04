@@ -9,6 +9,7 @@ use function array_filter;
 use function array_key_exists;
 use function array_keys;
 use function array_last;
+use function array_map;
 use function array_pop;
 use function array_slice;
 use function array_values;
@@ -144,6 +145,12 @@ final readonly class Tokens implements Countable
     public function unquoted(int $at): string
     {
         return str_replace('\\\\', '\\', trim($this->tokens[$at]->text, '\'"'));
+    }
+
+    /** @return list<string> the text of each token, in order */
+    public function texts(): array
+    {
+        return array_map(static fn(PhpToken $token): string => $token->text, $this->tokens);
     }
 
     /** The byte the token at an index begins at, from 0. */

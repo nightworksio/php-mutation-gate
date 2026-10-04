@@ -31,7 +31,8 @@ use function str_replace;
  * A project whose Band returns a `match (true)`, a statement whose first line
  * pcov never marks run, beside a statement of one line no test runs. Its
  * run's map has BandSpec cover the default arm on line 9 alone, so the arm
- * on line 8 and the head on line 7 are uncovered.
+ * on line 8 and the head on line 7 are uncovered. Band ends a parameter list
+ * with a comma, which the print Pest writes for each mutant leaves out.
  */
 final class MatchHeads
 {
@@ -40,7 +41,7 @@ final class MatchHeads
         namespace App;
         final class Band
         {
-            public function of(int $n): string
+            public function of(int $n,): string
             {
                 return match (true) {
                     $n > 10 => 'high',
@@ -92,7 +93,7 @@ final class MatchHeads
         foreach (self::MUTANTS as $id => [$line, $removed, $added]) {
             $records[] = PestRun::planned($id, sprintf('%s/src/Band.php', $project->root()), $line, self::MUTATOR, $removed, $added);
             $finished[] = PestRun::finished($id, PestStatus::Uncovered, 0.0);
-            file_put_contents(Recorder::mutantBeside($results, $id), str_replace($removed, $added, self::BAND));
+            file_put_contents(Recorder::mutantBeside($results, $id), PestPrint::of(str_replace($removed, $added, self::BAND)));
         }
 
         PestRun::write($results, [...$records, PestRun::made(count(self::MUTANTS)), ...$finished, PestRun::end()]);

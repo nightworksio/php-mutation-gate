@@ -235,6 +235,17 @@ it('judges nothing without the mutated copy, and leaves the rest of a run as it 
         ->and($shell->commands())->toBe([]);
 });
 
+it('leaves unjudged a mutant of a file that no longer parses, so cannot be printed as Pest prints it', function () use ($money): void {
+    $at = Unexecutables::project();
+    $results = Unexecutables::run($at, ['rate']);
+    Scratch::write($at->root(), 'src/Money.php', "<?php\nfinal class Money {\n");
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+
+    expect(judgingOutcomes(new Judging($at, $shell, new CapDirectory())->of(judgingResult('rate'), $money, $results, judgingCoverage($results))))
+        ->toBe(['rate' => 'unjudged src/Money.php does not parse, so its mutant cannot be printed as Pest prints it: Syntax error, unexpected EOF on line 3'])
+        ->and($shell->commands())->toBe([]);
+});
+
 it('cannot judge where the run left no records to read', function () use ($money): void {
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
     $unrecorded = Unexecutables::project();
