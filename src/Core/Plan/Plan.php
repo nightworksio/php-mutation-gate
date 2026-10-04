@@ -18,11 +18,9 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\File\Digest;
-use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Undigested;
-use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 
 use function sprintf;
@@ -51,7 +49,7 @@ final readonly class Plan implements Countable, IteratorAggregate
         private Considered $considered,
         private TestNames|CannotJudge $names,
         private Digests|Undigested $digests,
-        private MemoryCap|NotGiven $peak,
+        private Briefing $briefing,
     ) {
     }
 
@@ -73,7 +71,7 @@ final readonly class Plan implements Countable, IteratorAggregate
             Considered::everything(),
             CannotJudge::because(self::UNNAMED),
             Undigested::proof(),
-            NotGiven::value(),
+            Briefing::standard(),
         );
     }
 
@@ -107,20 +105,16 @@ final readonly class Plan implements Countable, IteratorAggregate
         return $this->digests;
     }
 
-    /**
-     * This plan, with the most memory the unmutated suite's largest process
-     * held in the coverage run it was planned from, which every shard's
-     * memory triage weighs its mutants against (ADR-0004, decision 9).
-     */
-    public function weighing(MemoryCap|NotGiven $peak): self
+    /** This plan, telling every shard and the verdict this about how its units run. */
+    public function briefed(Briefing $briefing): self
     {
-        return clone($this, ['peak' => $peak]);
+        return clone($this, ['briefing' => $briefing]);
     }
 
-    /** The most memory the unmutated suite's largest process held; none where the plan did not measure it. */
-    public function peak(): MemoryCap|NotGiven
+    /** What the plan tells every shard and the verdict about how its units run. */
+    public function briefing(): Briefing
     {
-        return $this->peak;
+        return $this->briefing;
     }
 
     /** This plan, having considered this beyond its shards. */

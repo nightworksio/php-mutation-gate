@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
+use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Order\Ordering;
 use NightWorksIO\MutationGate\Core\Plan\Batching;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -145,7 +146,8 @@ final readonly class Running
             $this->settings->triage()->order(),
             $history instanceof KillHistory ? $history : KillHistory::none(),
         );
-        $outcome = $map instanceof CoverageMap ? $this->mutated($plan, $shard, $map, $ordering, $deadline) : $map;
+        $search = KillSearch::of($ordering, $plan->briefing()->matrix());
+        $outcome = $map instanceof CoverageMap ? $this->mutated($plan, $shard, $map, $search, $deadline) : $map;
         $ended = $this->setup->clock->now();
         $spent = Seconds::between($started, $ended);
         $identity = $this->adapters->runner->identity($this->adapters->withheld);
@@ -191,7 +193,7 @@ final readonly class Running
         Plan $plan,
         Shard $shard,
         CoverageMap $map,
-        Ordering $ordering,
+        KillSearch $search,
         Deadline|Unlimited $deadline,
     ): Mutated|CannotJudge {
         $held = new HeldCoverage($this->adapters)->checked($shard, $map);
@@ -203,8 +205,8 @@ final readonly class Running
         $kept = HeldCoverage::kept($shard, $held->misses());
         $invoking = new Invoking($this->adapters, $this->settings, $this->setup->clock, $deadline);
         $spent = $deadline instanceof Deadline
-            ? $this->spentWithin($invoking, $deadline, $plan, $kept, $map, $ordering)
-            : $this->spentWhole($invoking, $kept, $ordering);
+            ? $this->spentWithin($invoking, $deadline, $plan, $kept, $map, $search)
+            : $this->spentWhole($invoking, $kept, $search);
 
         if ($spent instanceof CannotJudge) {
             return $spent;
@@ -215,7 +217,7 @@ final readonly class Running
 
         return new Mutated(
             MutationResult::of(
-                MemoryTriage::weighed(TimeoutTriage::timed($checked->mutants, $map), $plan->peak()),
+                MemoryTriage::weighed(TimeoutTriage::timed($checked->mutants, $map), $plan->briefing()->peak()),
                 $spent->skipped,
             ),
             $spent->flaky,
@@ -226,12 +228,12 @@ final readonly class Running
     }
 
     /** Every invocation the shard plans, one after another. */
-    private function spentWhole(Invoking $invoking, Shard $kept, Ordering $ordering): Spent|CannotJudge
+    private function spentWhole(Invoking $invoking, Shard $kept, KillSearch $search): Spent|CannotJudge
     {
         $spent = Spent::none($this->settings->triage()->retries());
 
         foreach ($kept->invocations() as $units) {
-            $invoked = $invoking->invoked($this->requestFor($units, $kept->id(), $ordering), $spent->retries);
+            $invoked = $invoking->invoked($this->requestFor($units, $kept->id(), $search), $spent->retries);
 
             if ($invoked instanceof CannotJudge) {
                 return $invoked;
@@ -255,7 +257,7 @@ final readonly class Running
         Plan $plan,
         Shard $kept,
         CoverageMap $map,
-        Ordering $ordering,
+        KillSearch $search,
     ): Spent|CannotJudge {
         $queue = $this->weighed($kept, $plan);
         $batching = Batching::opening($map->suiteDuration());
@@ -264,7 +266,7 @@ final readonly class Running
         $batch = $this->batchOf($batching, $queue, $left);
 
         while ($batch->count() > 0) {
-            $request = $this->requestFor($batch, $kept->id(), $ordering)->within($left);
+            $request = $this->requestFor($batch, $kept->id(), $search)->within($left);
             $invoked = $invoking->invoked($request, $spent->retries);
             $queue = array_slice($queue, $batch->count());
             $spent = match (true) {
@@ -316,10 +318,10 @@ final readonly class Running
 
     /**
      * One invocation: a held unit alone by the tests that hold it, or files
-     * by the whole suite, reading the maps the plan handed the shard, its
-     * tests in the order asked.
+     * by the whole suite, reading the maps the plan handed the shard, each
+     * mutant's killers looked for as asked.
      */
-    private function requestFor(Units $units, ShardId $shard, Ordering $ordering): MutationRequest
+    private function requestFor(Units $units, ShardId $shard, KillSearch $search): MutationRequest
     {
         $files = Paths::none();
         $judgedBy = WholeSuite::tests();
@@ -332,7 +334,7 @@ final readonly class Running
         return RunRequest::of($this->adapters, $this->settings, $files, $judgedBy)
             ->across($this->adapters->processes())
             ->reusingCoverage(Handed::maps(Workspace::shardCoverage($shard), Workspace::coverage()))
-            ->orderedBy($ordering);
+            ->searching($search);
     }
 
     private function keysOf(Units $units, Keys $planned): Keys

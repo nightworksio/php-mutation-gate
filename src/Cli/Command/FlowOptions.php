@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Command;
 
+use function array_key_exists;
 use function intval;
 use function is_string;
 
@@ -13,6 +14,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
@@ -39,6 +41,8 @@ final readonly class FlowOptions
 
     public const string SHARDS = 'shards';
 
+    public const string KILL_MATRIX = 'kill-matrix';
+
     public const string PLAN = 'plan';
 
     public const string SHARD = 'shard';
@@ -52,9 +56,18 @@ final readonly class FlowOptions
     /** The option that has a command write what it would otherwise print: `baseline --write`, `stub --write`. */
     public const string WRITE = 'write';
 
+    /** What `--kill-matrix` takes, each for the kind of kill matrix it asks for. */
+    private const array MATRICES = ['first' => MatrixKind::FirstKiller, 'full' => MatrixKind::Full];
+
     private const string OUTPUTS = '--output is console or problems, not "%s".';
 
     private const string ONLY_WHAT = '--only takes changed, not "%s".';
+
+    private const string MATRIX_SAID = <<<'SAID'
+        Record the first test that kills each mutant (first, the default), or every test that does (full)
+        SAID;
+
+    private const string MATRIX_WHAT = '--kill-matrix takes first or full, not "%s".';
 
     private const string ONLY_WHERE = '--only=changed limits the problems output. Add --output=problems.';
 
@@ -73,7 +86,12 @@ final readonly class FlowOptions
                 mode: InputOption::VALUE_REQUIRED,
                 description: 'Read the coverage map an earlier job left here, instead of running the suite',
             )
-            ->addOption(self::SHARDS, mode: InputOption::VALUE_REQUIRED, description: 'Cut exactly this many shards');
+            ->addOption(self::SHARDS, mode: InputOption::VALUE_REQUIRED, description: 'Cut exactly this many shards')
+            ->addOption(
+                self::KILL_MATRIX,
+                mode: InputOption::VALUE_REQUIRED,
+                description: self::MATRIX_SAID,
+            );
     }
 
     /**
@@ -122,6 +140,18 @@ final readonly class FlowOptions
             ),
             $since !== '' => Mode::since($since),
             default => Mode::full(),
+        };
+    }
+
+    /** How much of the kill matrix the options ask the run to record: first killers, unless `--kill-matrix=full`. */
+    public static function killMatrix(InputInterface $input): MatrixKind|CannotJudge
+    {
+        $asked = self::text($input, self::KILL_MATRIX);
+
+        return match (true) {
+            $asked === '' => MatrixKind::FirstKiller,
+            array_key_exists($asked, self::MATRICES) => self::MATRICES[$asked],
+            default => CannotJudge::because(sprintf(self::MATRIX_WHAT, $asked)),
         };
     }
 

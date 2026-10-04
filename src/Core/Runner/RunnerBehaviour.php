@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Runner;
 
 use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Matrix\NotFull;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
@@ -129,6 +130,15 @@ final readonly class RunnerBehaviour
     public function whyNotFull(): NotFull
     {
         return $this->whyNotFull;
+    }
+
+    /**
+     * Whether the runner can record this much of the kill matrix: first
+     * killers always, and every killer unless it is Infection.
+     */
+    public function records(MatrixKind $matrix): bool
+    {
+        return $matrix === MatrixKind::FirstKiller || $this->whyNotFull !== NotFull::Infection;
     }
 
     /** How the runner runs mutants side by side. */

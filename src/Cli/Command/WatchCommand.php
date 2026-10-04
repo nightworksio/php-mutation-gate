@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
@@ -151,7 +152,12 @@ final readonly class WatchCommand
         $running = new Running($composed->adapters, $composed->settings, $composed->setup)->interrupted($arrived);
         $this->printing->begin($this->output, $composed->adapters->project);
         $plan = new Planning($composed->adapters, $composed->settings, $composed->setup)
-            ->plan(Mode::since(Revision::head()->name()), $coverage, FlowOptions::configuredCut($composed->settings));
+            ->plan(
+                Mode::since(Revision::head()->name()),
+                $coverage,
+                FlowOptions::configuredCut($composed->settings),
+                MatrixKind::FirstKiller,
+            );
         $results = Workspace::results();
         $ran = $plan instanceof Plan ? $running->runAllBy($plan, $results, $running->deadline()) : $plan;
         $judged = match (true) {

@@ -37,6 +37,18 @@ it('names the tests that failed or errored, and each that started and never fini
         ->and($recorded->skippedEach())->toBeFalse();
 });
 
+it('credits a stopped run\'s kill to the selected tests that failed or errored, and to none that never finished', function (): void {
+    $recorded = recordedFrom(
+        implode('', [Outcome::Started->line('T::fails'), Outcome::Failed->line('T::fails'), Outcome::Started->line('T::errs'), Outcome::Errored->line('T::errs'), Outcome::Started->line('U::beside'), Outcome::Failed->line('U::beside'), Outcome::Started->line('T::dies')]),
+        TestId::of('T::fails'),
+        TestId::of('T::errs'),
+        TestId::of('T::dies'),
+    );
+
+    expect(array_map(static fn(TestId $test): string => $test->value(), [...$recorded->creditedFailures()]))->toBe(['T::fails', 'T::errs'])
+        ->and(array_map(static fn(TestId $test): string => $test->value(), [...$recorded->credited()]))->toBe(['T::fails', 'T::errs', 'T::dies']);
+});
+
 it('says every test that ran was skipped only where none passed, failed or died', function (string $lines, bool $skipped): void {
     expect(recordedFrom($lines, TestId::of('T::a'), TestId::of('T::b'))->skippedEach())->toBe($skipped);
 })->with([

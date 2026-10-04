@@ -186,6 +186,26 @@ it('keeps what a stopped run judged, with limits, and leaves the rest', function
     ), 0));
 });
 
+it('reads a mutant Pest timed out after its own process recorded a failing test as killed by it', function () use ($mutant, $plan, $read): void {
+    [$project, $results, $root] = interpretedRun([11 => [0], 12 => [0]], []);
+    PestRun::write($results, [
+        $plan($root, 'n1', 'src/Money.php:11', 'ab'),
+        $plan($root, 'n2', 'src/Money.php:12', 'cd'),
+        PestRun::made(2),
+        PestRun::killed('n1', INTERPRETED_TESTS[0]),
+        PestRun::finished('n1', PestStatus::Timeout, 5.0),
+        PestRun::finished('n2', PestStatus::Timeout, 5.0),
+        PestRun::end(),
+    ]);
+
+    expect($read($project, Ran::finished(succeeded: true, output: "\n  Mutations: 2 timeout\n"), $results))
+        ->toEqual(MutationResult::of(Mutants::of(
+            $mutant('n1', 'src/Money.php:11', 'ab', MutantStatus::Killed, 5.0)
+                ->killedBy(TestIds::of(TestId::of(INTERPRETED_TESTS[0]))),
+            $mutant('n2', 'src/Money.php:12', 'cd', MutantStatus::TimedOut, 5.0)->withLimit(Seconds::of(6.0)),
+        ), 0));
+});
+
 it('cannot judge a run stopped while the plugin wrote the mutants Pest made', function () use ($plan, $read): void {
     [$project, $results, $root] = interpretedRun([11 => [0]], []);
     PestRun::write($results, [$plan($root, 'n1', 'src/Money.php:11', 'ab')]);

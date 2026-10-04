@@ -197,6 +197,7 @@ has to bring its result with it.
                "base": "5be0…64 hex…",
                "at": "2026-09-29T20:48:17Z",
                "run": "github:<run id>/<attempt>",
+               "matrix": "full",
                "mutants": [
                    { "id": "3f9a1c2b7d04", "line": 42, "status": "survived", "mutator": "LessThan", "diff": "…" },
                    ["81d0c9e2aa17", 44, 0, [0]]
@@ -231,6 +232,10 @@ has to bring its result with it.
      `gitlab:<CI_PIPELINE_ID>`, on Buildkite `buildkite:<BUILDKITE_BUILD_ID>`,
      on CircleCI `circleci:<CIRCLE_WORKFLOW_ID>`, and otherwise
      `local:<time of the run>`.
+   - `matrix` is `full` where that run recorded every test that kills each
+     mutant (`--kill-matrix=full`, ADR-0014 decision 7). A proof without it
+     holds first killers. Where two proofs share a key, the ledger keeps the
+     first, unless only the later has `matrix`.
    - Each proof also keeps the digest of each item of its content key, so
      that `doctor` can name the file whose change invalidated most proofs
      (ADR-0017). The digests are read for that alone, never to match a key.

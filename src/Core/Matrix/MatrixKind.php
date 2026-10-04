@@ -13,4 +13,13 @@ enum MatrixKind: string
 {
     case FirstKiller = 'first-killer';
     case Full = 'full';
+
+    /**
+     * Whether a matrix of this kind holds what a run of that one asks for:
+     * every kind holds first killers, and only a full one every killer.
+     */
+    public function holds(self $asked): bool
+    {
+        return $this === self::Full || $asked === self::FirstKiller;
+    }
 }

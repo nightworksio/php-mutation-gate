@@ -44,6 +44,25 @@ it('leaves the arguments of a process that is no mutant\'s as they are', functio
         ->toBe(['vendor/bin/pest', '--cache-directory', '/v/.temp']);
 });
 
+it('drops --bail from a mutant\'s own process under a full kill matrix', function (): void {
+    $variables = ['PEST_MUTATION_FILE' => getenv('PEST_MUTATION_FILE'), 'MUTATION_GATE_KILL_MATRIX' => getenv('MUTATION_GATE_KILL_MATRIX')];
+
+    try {
+        putenv(sprintf('PEST_MUTATION_FILE=%s', __FILE__));
+        putenv('MUTATION_GATE_KILL_MATRIX=full');
+        $full = new Plugin()->handleArguments([2 => 'vendor/bin/pest', 5 => '--bail', 6 => '--parallel']);
+        putenv('MUTATION_GATE_KILL_MATRIX=first-killer');
+        $first = new Plugin()->handleArguments([2 => 'vendor/bin/pest', 5 => '--bail', 6 => '--parallel']);
+    } finally {
+        foreach ($variables as $name => $value) {
+            putenv(is_string($value) ? sprintf('%s=%s', $name, $value) : $name);
+        }
+    }
+
+    expect($full)->toBe(['vendor/bin/pest', '--parallel'])
+        ->and($first)->toBe(['vendor/bin/pest', '--bail', '--parallel']);
+});
+
 it('guards a run the adapter starts on one mutant, writing what it saw when the run ends', function (): void {
     $variables = ['PEST_MUTATION_TESTING' => getenv('PEST_MUTATION_TESTING'), 'MUTATION_GATE_GUARD' => false];
     $guard = sprintf('%s/guard.json', Scratch::untilExit());

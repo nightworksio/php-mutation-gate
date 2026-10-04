@@ -9,8 +9,10 @@ use NightWorksIO\MutationGate\Core\Ci\Detached;
 use NightWorksIO\MutationGate\Core\Cost\Estimated;
 use NightWorksIO\MutationGate\Core\Cost\FirstRun;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
+use NightWorksIO\MutationGate\Core\Plan\Considering;
 use NightWorksIO\MutationGate\Core\Plan\Proving;
 use NightWorksIO\MutationGate\Core\Proof\Access;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
@@ -23,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
+use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -155,16 +158,35 @@ final readonly class Ledgers
 
     /**
      * Of these units, those a proof whose key still matches covers, and those
-     * left to run. A ledger with no proof at the base the keys are built on
-     * is not looked in, since none of its proofs can match.
+     * left to run, from the proofs that record what a run of this kind asks
+     * for. A ledger with no proof at the base the keys are built on is not
+     * looked in, since none of its proofs can match.
      */
-    public function proving(Units $units, Keys $keys, Digest $base): Proving
+    public function proving(Units $units, Keys $keys, Digest $base, MatrixKind $matrix): Proving
     {
+        $defaultBranch = $this->defaultBranch->proofs()->recording($matrix);
+        $own = $this->own->proofs()->recording($matrix);
+
         return Proving::of(
             $units,
             $keys,
-            $this->defaultBranch->proofs()->provesAt($base) ? $this->defaultBranch->proofs() : Proofs::none(),
-            $this->own->proofs()->provesAt($base) ? $this->own->proofs() : Proofs::none(),
+            $defaultBranch->provesAt($base) ? $defaultBranch : Proofs::none(),
+            $own->provesAt($base) ? $own : Proofs::none(),
+        );
+    }
+
+    /**
+     * Of these units, those the run considers, and those that carry the
+     * newest proof of their path that records what a run of this kind asks
+     * for.
+     */
+    public function considering(Units $units, Reach $reach, MatrixKind $matrix): Considering
+    {
+        return Considering::of(
+            $units,
+            $reach,
+            $this->defaultBranch->proofs()->recording($matrix),
+            $this->own->proofs()->recording($matrix),
         );
     }
 

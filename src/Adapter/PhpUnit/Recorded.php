@@ -93,6 +93,22 @@ final readonly class Recorded
         return $credited;
     }
 
+    /**
+     * The tests the run selected that failed or errored, to which a kill is
+     * credited where the run was stopped: a test it stopped as it ran never
+     * ended, which says nothing of the mutant.
+     */
+    public function creditedFailures(): TestIds
+    {
+        $credited = TestIds::none();
+
+        foreach ($this->failed as $test) {
+            $credited = $this->selected->has($test) ? $credited->with($test) : $credited;
+        }
+
+        return $credited;
+    }
+
     /** Whether any test started or finished. */
     public function ranAny(): bool
     {

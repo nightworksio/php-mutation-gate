@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
 use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanFile;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -119,6 +120,20 @@ it('cannot plan what the options contradict', function (string $input, string $w
         '--full and --changed-since ask for different runs. Give one of them.',
     ],
     'no shards' => ['--shards=0', '--shards=0 is not a number of shards.'],
+    'a kill matrix it does not record' => ['--kill-matrix=every', '--kill-matrix takes first or full, not "every".'],
+]);
+
+it('writes into the plan the kill matrix the run records', function (string $input, MatrixKind $matrix) use ($plan): void {
+    $project = FlowCommands::project();
+    $planned = $plan($project, $input, ScriptedRunner::fixture(), Flows::ci());
+    $written = PlanFile::decode((string) file_get_contents(sprintf('%s/.mutation-gate/plan.json', $project)));
+
+    expect($planned->code)->toBe(0)
+        ->and($written instanceof Plan ? $written->briefing()->matrix() : $written)->toBe($matrix);
+})->with([
+    'every killer' => ['--kill-matrix=full', MatrixKind::Full],
+    'first killers, as asked' => ['--kill-matrix=first', MatrixKind::FirstKiller],
+    'first killers, unasked' => ['', MatrixKind::FirstKiller],
 ]);
 
 it('cannot plan where the runner cannot run the suite', function () use ($plan): void {

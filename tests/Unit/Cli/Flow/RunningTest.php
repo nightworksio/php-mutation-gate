@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Hold\NotCovered;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -40,6 +41,7 @@ use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\Kills;
 use NightWorksIO\MutationGate\Core\Order\Ordering;
 use NightWorksIO\MutationGate\Core\Order\Ranking;
+use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -130,7 +132,7 @@ $flaky = static fn(ShardResult|CannotJudge $result): array => $result instanceof
 
 /** @return list<Ordering> the order each invocation asked its tests in */
 $orderings = static fn(ScriptedRunner $runner): array => array_map(
-    static fn(MutationRequest $request): Ordering => $request->ordering(),
+    static fn(MutationRequest $request): Ordering => $request->search()->ordering(),
     $runner->requests(),
 );
 
@@ -618,7 +620,7 @@ it('weighs each mutant out of memory by the peak its plan measured, and leaves a
     $scripted = ScriptedRunner::fixture()->answering(Mutants::of($outOfMemory), 0);
 
     new Running(Flows::adapters($project, [], $scripted), Flows::settings(), Flows::setup())
-        ->run(Planned::handedIn($project, Planned::oneShard()->weighing($peak)), ShardId::of(1), Workspace::results());
+        ->run(Planned::handedIn($project, Planned::oneShard()->briefed(Briefing::standard()->weighing($peak))), ShardId::of(1), Workspace::results());
     $result = $resultIn($project, 1);
     $outcome = $result instanceof ShardResult ? $result->outcome() : $result;
     $mutants = $outcome instanceof MutationResult ? [...$outcome->mutants()] : [];
@@ -669,6 +671,27 @@ it('runs each mutant\'s likely killers first, by the kill history the plan hande
 
     expect($orderings($runner))->toEqual([$ordered, $ordered])
         ->and($handed)->not->toEqual(KillHistory::none());
+});
+
+it('asks the runner for every killer of each mutant where the plan records a full kill matrix, and the first otherwise', function (): void {
+    $project = Flows::project();
+    $full = ScriptedRunner::fixture();
+    $first = ScriptedRunner::fixture();
+
+    new Running(Flows::adapters($project, [], $full), Flows::settings(), Flows::setup())->run(
+        Planned::handedIn($project, Planned::oneShard()->briefed(Briefing::standard()->recording(MatrixKind::Full))),
+        ShardId::of(1),
+        Workspace::results(),
+    );
+    new Running(Flows::adapters($project, [], $first), Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $matrices = static fn(ScriptedRunner $runner): array => array_map(
+        static fn(MutationRequest $request): MatrixKind => $request->search()->matrix(),
+        $runner->requests(),
+    );
+
+    expect($matrices($full))->toBe([MatrixKind::Full, MatrixKind::Full])
+        ->and($matrices($first))->toBe([MatrixKind::FirstKiller, MatrixKind::FirstKiller]);
 });
 
 it('runs the tests in the runner\'s own order where tests.order says so', function () use ($orderings): void {

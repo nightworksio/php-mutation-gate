@@ -7,8 +7,10 @@ use NightWorksIO\MutationGate\Core\Coverage\Fresh;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
+use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Order\Ordering;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
@@ -30,7 +32,7 @@ it('asks for some files judged by some tests, and by default nothing more', func
         ->and($request->deadline())->toEqual(Unlimited::time())
         ->and($request->processes())->toEqual(Processes::of(1))
         ->and($request->coverage())->toEqual(Fresh::coverage())
-        ->and($request->ordering())->toEqual(Ordering::runner())
+        ->and($request->search())->toEqual(KillSearch::standard())
         ->and($request->memory())->toEqual(MemoryCap::none());
 });
 
@@ -41,7 +43,7 @@ it('takes each setting on its own, leaving the rest as they were', function (): 
         ->within(Seconds::of(600.0))
         ->across(Processes::of(8))
         ->reusingCoverage(Handed::maps(Path::of('.mutation-gate/coverage/shard-1'), Path::of('.mutation-gate/coverage')))
-        ->orderedBy(Ordering::of(TestOrder::KillersFirst, KillHistory::none()))
+        ->searching(KillSearch::of(Ordering::of(TestOrder::KillersFirst, KillHistory::none()), MatrixKind::Full))
         ->cappedAt(MemoryCap::standard());
 
     expect($request->files())->toEqual(Paths::of(Path::of('src')))
@@ -51,7 +53,7 @@ it('takes each setting on its own, leaving the rest as they were', function (): 
         ->and($request->deadline())->toEqual(Seconds::of(600.0))
         ->and($request->processes())->toEqual(Processes::of(8))
         ->and($request->coverage())->toEqual(Handed::maps(Path::of('.mutation-gate/coverage/shard-1'), Path::of('.mutation-gate/coverage')))
-        ->and($request->ordering())->toEqual(Ordering::of(TestOrder::KillersFirst, KillHistory::none()))
+        ->and($request->search())->toEqual(KillSearch::of(Ordering::of(TestOrder::KillersFirst, KillHistory::none()), MatrixKind::Full))
         ->and($request->memory())->toEqual(MemoryCap::standard());
 });
 

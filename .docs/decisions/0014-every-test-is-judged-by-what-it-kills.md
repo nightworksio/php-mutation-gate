@@ -153,13 +153,24 @@ running it: why is this mutant here, and has it always been?
      JSON report's `tests` takes them from there too. A test named nothing
      is listed by its id.
 
-7. **`run --kill-matrix=full` records every killer, under Pest.**
+7. **`run --kill-matrix=full` records every killer, under Pest and the PHPUnit
+   runner.**
    - In each mutant's child the plugin drops `--bail`, so every covering test
      runs, and records every test that fails. The adapter reads a mutant with
      a recorded failure as killed, whatever the child's exit, so a child that
      runs past Pest's limit after its first failure still counts as killed.
      Statuses are therefore those of an ordinary run, and the option is not
      in the proof key.
+   - Under the PHPUnit runner the gate drops `--stop-on-error` and
+     `--stop-on-failure` from each mutant's run, and credits every covering
+     test that fails. A run stopped at its limit after a covering test failed
+     is killed by the tests that failed.
+   - `plan` takes the option too, and the plan holds it as `"matrix": "full"`
+     within its digest, so every shard and the verdict run as the plan asks.
+   - Each proof records whether its run recorded every killer (ADR-0007,
+     decision 3). A full run proves and carries a unit only from such a
+     proof, so its matrix holds every killer of each mutant it judges. An
+     ordinary run takes either.
    - It costs about a second mutation run of every killed mutant's covering
      tests, so it is for a scheduled job, never a pull request.
    - Under Infection the option is refused with exit code 2: *a full kill

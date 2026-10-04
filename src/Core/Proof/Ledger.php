@@ -47,7 +47,10 @@ final readonly class Ledger
         return clone($this, ['proofs' => $this->proofs->with($proof)]);
     }
 
-    /** This ledger, with these proofs; a key it proves already keeps its own proof. */
+    /**
+     * This ledger, with these proofs; a key it proves already keeps its own
+     * proof, unless only theirs recorded every killer.
+     */
     public function withProofs(Proofs $proofs): self
     {
         return clone($this, ['proofs' => Proofs::of(...$this->proofs, ...$proofs)]);

@@ -152,14 +152,19 @@ final readonly class Interpretation
     }
 
     /**
-     * A mutant's status as Pest ended it; a kill whose process ran out of
-     * exactly the gate's memory cap is out of memory (ADR-0004, decision 9).
+     * A mutant's status as Pest ended it, or killed where Pest timed it out
+     * after its own process recorded a failing test, as one that runs on
+     * past its limit after its first failure under a full kill matrix does
+     * (ADR-0014, decision 7); a kill whose process ran out of exactly the
+     * gate's memory cap is out of memory (ADR-0004, decision 9).
      */
     private function statusOf(PlannedMutant $planned, Records $records): MutantStatus
     {
+        $run = $records->runOf($planned);
         $status = $records->statusOf($planned)->status();
+        $status = $status === MutantStatus::TimedOut && count($run->killers()) > 0 ? MutantStatus::Killed : $status;
 
-        return $status === MutantStatus::Killed && Exhaustion::isOf($records->runOf($planned)->exhaustion(), $this->cap)
+        return $status === MutantStatus::Killed && Exhaustion::isOf($run->exhaustion(), $this->cap)
             ? MutantStatus::OutOfMemory
             : $status;
     }

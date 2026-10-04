@@ -226,7 +226,8 @@ manual.
      started and neither finished nor was skipped or marked incomplete, whose
      process died, and a `setUpBeforeClass` that fails or errors, by each
      test of its class the run selected. A run stopped at its limit timed
-     out, where the mutated file ran.
+     out, where the mutated file ran, unless a test it selected had already
+     failed or errored, which killed it.
    - A run PHPUnit fails with no test failing, such as for a warning the
      project fails on, leaves the mutant unjudged, with what PHPUnit said. A
      run that passes with no test run, as its selection matched none, leaves

@@ -21,7 +21,6 @@ use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
-use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Considering;
@@ -159,12 +158,12 @@ final readonly class Judging
         Writing $writing,
     ): Assessed|CannotJudge {
         $ledgers = Ledgers::read($this->adapters->proofs, Standing::planned($plan), $writing);
-        $proving = $ledgers->proving($plan->considered()->proved(), $plan->keys(), $plan->base());
-        $carrying = Considering::of(
+        $kind = $plan->briefing()->matrix();
+        $proving = $ledgers->proving($plan->considered()->proved(), $plan->keys(), $plan->base(), $kind);
+        $carrying = $ledgers->considering(
             $plan->considered()->carried(),
             Reach::nothing(Packages::of($trees)),
-            $ledgers->defaultBranch()->proofs(),
-            $ledgers->own()->proofs(),
+            $kind,
         );
         $uncovered = Uncovered::from($this->settings->floors()->uncovered()->value);
         $ignoring = Ignoring::of($this->settings->ignores()->entries(), $this->setup->clock->now());
@@ -367,16 +366,16 @@ final readonly class Judging
     }
 
     /**
-     * The kill matrix of first killers (ADR-0014, decisions 9 to 11): over
-     * the map the plan handed the verdict, which holds the lines of every
-     * unit it considered, with the names the plan holds for the tests, and
-     * why the runner's run holds first killers only. Without a map it holds
-     * each mutant's killers alone.
+     * The kill matrix of the kind the plan records (ADR-0014, decisions 7
+     * and 9 to 11): over the map the plan handed the verdict, which holds the
+     * lines of every unit it considered, with the names the plan holds for
+     * the tests, and why a matrix of first killers holds no more. Without a
+     * map it holds each mutant's killers alone.
      */
     private function matrixOf(Plan $plan, CoverageMap|CannotJudge $map): KillMatrix
     {
         $names = $plan->names();
-        $matrix = KillMatrix::of(MatrixKind::FirstKiller, $map instanceof CoverageMap ? $map : CoverageMap::empty())
+        $matrix = KillMatrix::of($plan->briefing()->matrix(), $map instanceof CoverageMap ? $map : CoverageMap::empty())
             ->cannotBeFull($this->adapters->runner->behaviour()->whyNotFull());
 
         return $names instanceof TestNames ? $matrix->named($names) : $matrix;
@@ -417,7 +416,8 @@ final readonly class Judging
         Verdict $verdict,
         int $ownScopeProofs,
     ): string|CannotJudge {
-        $run = RunName::of($this->adapters->environment, Instant::at($this->setup->clock->now()), $plan->base());
+        $run = RunName::of($this->adapters->environment, Instant::at($this->setup->clock->now()), $plan->base())
+            ->recording($plan->briefing()->matrix());
         $unjudged = $verdict->trees()->mutants()->counts()->number(MutantJudgement::Unjudged);
         $passed = match (true) {
             $verdict->judgement() !== Judgement::Passed => CannotTell::because(self::FAILED),

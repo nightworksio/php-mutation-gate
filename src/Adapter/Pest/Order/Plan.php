@@ -39,7 +39,7 @@ final readonly class Plan
         MutationRequest $request,
         Command|CannotJudge $command,
     ): Command|CannotJudge {
-        if ($command instanceof CannotJudge || ! $request->ordering()->putsKillersFirst()) {
+        if ($command instanceof CannotJudge || ! $request->search()->ordering()->putsKillersFirst()) {
             return $command;
         }
 
@@ -49,7 +49,7 @@ final readonly class Plan
             return $order;
         }
 
-        self::write($order, $request->ordering()->history());
+        self::write($order, $request->search()->ordering()->history());
 
         return $command->with([GateVariable::Order->value => $order]);
     }

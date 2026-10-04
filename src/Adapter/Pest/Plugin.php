@@ -119,14 +119,17 @@ final class Plugin implements Bootable, HandlesArguments
 
     /**
      * A mutant's own process's arguments, running its tests in the order the
-     * plugin wrote for it where it wrote one, and every other process's as
-     * they are.
+     * plugin wrote for it where it wrote one, and on past a failure under a
+     * full kill matrix; every other process's as they are.
      *
      * @param  array<int, string> $arguments
      * @return list<string>
      */
     public function handleArguments(array $arguments): array
     {
-        return Reordering::of(array_values($arguments), getenv(GateVariable::Order->value), getenv(Recorder::MUTATED));
+        $mutated = getenv(Recorder::MUTATED);
+        $ordered = Reordering::of(array_values($arguments), getenv(GateVariable::Order->value), $mutated);
+
+        return EveryKiller::of($ordered, getenv(GateVariable::KillMatrix->value), $mutated);
     }
 }
