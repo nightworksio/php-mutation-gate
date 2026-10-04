@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_any;
+use function array_flip;
 use function array_key_exists;
 use function array_keys;
 use function array_map;
 use function array_push;
 use function array_unique;
+use function array_values;
 use function basename;
 use function dirname;
 use function explode;
@@ -38,10 +40,12 @@ use function str_ends_with;
 use function str_replace;
 
 /**
- * The test files of a project, and which of them hold a class a filter's
- * `<Class>::` selects. Pest names a test file's class after its path, keeping
- * only its letters and digits, and PHPUnit names it after its file, so a file
- * is selected when that name ends in the class the filter names.
+ * The test files of a project, which of them hold a class a filter's
+ * `<Class>::` selects, and which hold a test. Pest names a test file's class
+ * after its path, keeping only its letters and digits, and PHPUnit names it
+ * after its file, so a file is selected when that name ends in the class the
+ * filter names; a file holds a test where Pest declares its class for the
+ * file, or the file declares it itself.
  *
  * It lists the files, and names each one's class, once, and answers each set
  * of classes once: many units share a set, and a project holds thousands of
@@ -63,6 +67,9 @@ final class TestFiles
 
     /** @var array<string, Paths> the files each set of classes names, by the set */
     private array $named = [];
+
+    /** @var array<string, Paths> the files that hold a test of each set of classes, by the set */
+    private array $held = [];
 
     public function __construct(private readonly Project $project)
     {
@@ -119,6 +126,47 @@ final class TestFiles
         }
 
         return $placed;
+    }
+
+    /**
+     * The test files that hold one of these tests: the file Pest declares a
+     * test's class for, or the file named after the class that declares it
+     * itself. A file under the test directories that holds none of them, such
+     * as a helper whose name ends in a test's class name, is not one.
+     */
+    public function holdingAny(TestIds $tests): Paths
+    {
+        $classes = array_values(array_unique(array_map(TestMethod::classOf(...), [...$tests])));
+        sort($classes);
+        $key = implode("\n", $classes);
+
+        if (! array_key_exists($key, $this->held)) {
+            $this->held[$key] = $this->holdingAClassOf($classes);
+        }
+
+        return $this->held[$key];
+    }
+
+    /**
+     * The test files that hold a test of one of these classes: those Pest
+     * declares one for, in the order they are listed, then those that declare
+     * one themselves.
+     *
+     * @param list<string> $classes fully qualified
+     */
+    private function holdingAClassOf(array $classes): Paths
+    {
+        $wanted = array_flip($classes);
+        $declaring = TestClassFiles::wanting($classes);
+        $pest = [];
+
+        foreach ($this->all() as $file) {
+            $code = $declaring->mayDeclare($file) ? $this->contentsOf($file) : Missing::at($file);
+            $declaring = $code instanceof Contents ? $declaring->readIn($file, $code) : $declaring;
+            $pest = array_key_exists($this->pestClassOf($file), $wanted) ? [...$pest, $file] : $pest;
+        }
+
+        return Paths::of(...$pest, ...$declaring->files());
     }
 
     /** What a test file holds, or that it is gone. */

@@ -640,10 +640,12 @@ its parser attributes. Both change when the checkout moves.
    - **Which tests judge it.** A scan of tokens, with names resolved through
      namespaces, imports and aliases, finds every reference to the symbol:
      - in test files, the test files themselves, where the coverage map
-       names a test of theirs: another file under the test directories, such
-       as a helper or a fixture, is no test file Pest runs;
-     - in source files, the test files that cover the line of each reference,
-       read from a coverage map that holds every file: the run's own opening
+       names a test of theirs, whose class is the one Pest declares for the
+       file or one the file declares itself: another file under the test
+       directories, such as a helper or a fixture, is no test file Pest runs,
+       even where its name ends in a test's class name;
+     - in source files, the test files that hold a test covering the line of
+       each reference, read from a coverage map that holds every file: the run's own opening
        map, or, in a shard that opened on the map of its own files, the plan's
        whole map (ADR-0006). So a constant read through `self::RATE`
        inside a covered method is judged by that method's tests. References

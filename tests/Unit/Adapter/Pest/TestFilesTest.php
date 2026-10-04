@@ -99,3 +99,20 @@ it('holds the tests of the class Pest declares for each file, and of each class 
         ->and($files->holding(Paths::of(Path::of('lower/case/Spec.php')), TestIds::of(TestId::of('P\Lower\case\Spec::x'))))
         ->toEqual(TestIds::of(TestId::of('P\Lower\case\Spec::x')));
 });
+
+it('finds the files that hold a test, by the class Pest declares for each or one it declares itself, answering each set once', function (): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'tests/Unit/MoneySpec.php', "<?php\nit('adds', fn () => true);");
+    Scratch::write($root, 'tests/Other/MoneySpec.php', "<?php\nit('adds', fn () => true);");
+    Scratch::write($root, 'tests/Support/BigMoneySpec.php', "<?php\nnamespace Tests\\Support;\nfinal class BigMoneySpec {}");
+    Scratch::write($root, 'tests/Legacy/OldTest.php', "<?php\nnamespace Tests\\Legacy;\nfinal class OldTest {}");
+    Scratch::write($root, 'tests/Elsewhere/OldTest.php', "<?php\nnamespace Tests\\Elsewhere;\nfinal class OldTest {}");
+    $files = new TestFiles(Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('vendor')));
+    $adds = TestId::of('P\Tests\Unit\MoneySpec::__pest_evaluable_it_adds');
+    $old = TestId::of('Tests\Legacy\OldTest::testOld');
+    $held = $files->holdingAny(TestIds::of($old, $adds, TestId::of('P\Tests\Unit\MoneySpec::__pest_evaluable_it_adds#1')));
+
+    expect($held)->toEqual(Paths::of(Path::of('tests/Unit/MoneySpec.php'), Path::of('tests/Legacy/OldTest.php')))
+        ->and($files->holdingAny(TestIds::of($adds, $old)))->toBe($held)
+        ->and($files->holdingAny(TestIds::none()))->toEqual(Paths::none());
+});

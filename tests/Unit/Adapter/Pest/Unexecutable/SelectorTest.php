@@ -55,9 +55,10 @@ it('chooses the test files that read a value, and those that cover the mutant\'s
         ->toEqual(Choice::of(Paths::none(), $covering, ambiguous: true));
 });
 
-it('reads only the files still there, and falls back on every test file of the run where Pest\'s filter cannot name them', function (): void {
+it('reads only the files still there, and selects the files that hold a covering test, never one whose name only ends in its class', function (): void {
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, []);
+    Scratch::write($at->root(), 'tests/Support/NotInternalSpec.php', "<?php\nnamespace Tests\\Support;\nfinal class NotInternalSpec { const RATE = \\App\\Money::INTERNAL; }\n");
     $long = sprintf('P\Tests\InternalSpec::%s', str_repeat('x', 100_000));
     CoverageMaps::write(
         Recorder::coverageBeside($results),

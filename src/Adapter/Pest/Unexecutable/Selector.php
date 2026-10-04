@@ -11,7 +11,6 @@ use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Covering;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
-use NightWorksIO\MutationGate\Adapter\Pest\Selection;
 use NightWorksIO\MutationGate\Adapter\Pest\TestFiles;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
@@ -68,7 +67,7 @@ final readonly class Selector
             $sources = $listed->has($file) ? $sources : [...$sources, ...self::read($project, $file, test: false)];
         }
 
-        $suite = $tests->naming(Selection::of($map->tests())->classes());
+        $suite = $tests->holdingAny($map->tests());
 
         return new self($project, $coverage, $tests, $suite, Codebase::of(...$sources));
     }
@@ -130,23 +129,14 @@ final readonly class Selector
         return $this->suite->has($file) ? Paths::of($file) : Paths::none();
     }
 
-    /**
-     * The test files whose tests run any line from the first to the last of a
-     * file, or the whole suite's where Pest cannot say.
-     */
+    /** The test files whose tests run any line from the first to the last of a file. */
     private function covering(Path $file, int $first, int $last): Paths
     {
-        $selection = Selection::of($this->coverage->testsCovering(
+        return $this->tests->holdingAny($this->coverage->testsCovering(
             DiskPath::of($this->project->absolute($file)),
             Line::of($first),
             Line::of($last),
         ));
-
-        return match (true) {
-            $selection->count() === 0 => Paths::none(),
-            $selection->fits() => $this->tests->naming($selection->classes()),
-            default => $this->suite,
-        };
     }
 
     /**
