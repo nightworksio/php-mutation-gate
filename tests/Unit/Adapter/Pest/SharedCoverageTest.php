@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -73,4 +74,20 @@ it('writes a map as --coverage-php writes one, which reads back as the same map'
         TimedTest::of('MoneyTest::subtracts', 0.5),
         TimedTest::of('TaxTest::rates', 0.0),
     ))->and($read instanceof CoverageFile ? $read->seconds() : 0.0)->toBe(0.75);
+});
+
+it('hands each line the tests that cover it, wherever they stand among the map\'s tests', function (): void {
+    $at = sharedProject();
+    $target = sprintf('%s/shared.coverage.php', $at->root());
+    $map = CoverageMap::of(
+        CoveredLine::of(Path::of('src/Money.php'), 3, 'MoneyTest::adds'),
+        CoveredLine::of(Path::of('src/Money.php'), 4, 'MoneyTest::subtracts'),
+        CoveredLine::of(Path::of('src/Tax.php'), 7, 'TaxTest::rounds', 'TaxTest::rates'),
+    );
+
+    SharedCoverage::write($map, $at, $target);
+    $read = CoverageFile::at($target);
+
+    expect($read instanceof CoverageFile ? $read->map($at)->testsCovering(Path::of('src/Tax.php'), Line::of(7)) : $read)
+        ->toEqual(TestIds::of(TestId::of('TaxTest::rounds'), TestId::of('TaxTest::rates')));
 });
