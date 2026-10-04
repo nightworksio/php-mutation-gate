@@ -59,6 +59,47 @@ $file = <<<'PHP'
             return $value;
         }
     };
+
+    abstract class Shelf
+    {
+        static public function a(int $x): int
+        {
+            return $x;
+        }
+
+        static protected function b(int $x): int
+        {
+            return $x;
+        }
+
+        static private function c(int $x): int
+        {
+            return $x;
+        }
+
+        static final function d(int $x): int
+        {
+            return $x;
+        }
+    }
+
+    trait Counts
+    {
+        public function count(): int
+        {
+            return 1;
+        }
+    }
+
+    enum Size
+    {
+        case Small;
+
+        public static function smallest(): self
+        {
+            return self::Small;
+        }
+    }
     PHP;
 
 /** What a test would call for the function around a line of the file, or nothing. */
@@ -77,6 +118,15 @@ it('calls a constructor with new, a static method on its class, and any other me
         ->and($called(23))->toBe('Cart::of($items)')
         ->and($called(32))->toBe('$cart->fits($amount, $limit)')
         ->and($called(37))->toBe('$cart->items()');
+});
+
+it('calls a method static whatever modifiers stand between static and function, on its class, its trait or its enum', function () use ($called): void {
+    expect($called(57))->toBe('Shelf::a($x)')
+        ->and($called(62))->toBe('Shelf::b($x)')
+        ->and($called(67))->toBe('Shelf::c($x)')
+        ->and($called(72))->toBe('Shelf::d($x)')
+        ->and($called(80))->toBe('$counts->count()')
+        ->and($called(90))->toBe('Size::smallest()');
 });
 
 it('reads a line inside a closure as inside the function around it', function () use ($called): void {

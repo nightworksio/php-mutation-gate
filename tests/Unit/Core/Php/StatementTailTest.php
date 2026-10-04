@@ -33,6 +33,30 @@ const STATEMENT_TAIL_CODE = <<<'PHP'
                 );
             }
         }
+        public function named(object $o): array
+        {
+            $a = $o->{
+                strtolower(
+                    'A',
+                )
+            };
+            $b = $o?->{
+                strtoupper(
+                    'b',
+                )
+            };
+            $c = self::{
+                trim(
+                    'C',
+                )
+            };
+            $d = ${
+                ltrim(
+                    'd',
+                )
+            };
+            return [$a, $b, $c, $d];
+        }
         private array $levels = [
             1,
             2,
@@ -79,6 +103,13 @@ it('has no tail on a line that starts no statement: an arm, an else, or a value 
         ->and(statementTailAt('>', 0))->toEqual(NotGiven::value())
         ->and(statementTailAt('else'))->toEqual(NotGiven::value())
         ->and(statementTailAt('static', 0))->toEqual(NotGiven::value());
+});
+
+it('has no tail on a line inside the braces of a name, after ->, ?->, :: or $', function (): void {
+    expect(statementTailAt('strtolower'))->toEqual(NotGiven::value())
+        ->and(statementTailAt('strtoupper'))->toEqual(NotGiven::value())
+        ->and(statementTailAt('trim'))->toEqual(NotGiven::value())
+        ->and(statementTailAt('ltrim'))->toEqual(NotGiven::value());
 });
 
 it('has no tail on a statement of one line', function (): void {

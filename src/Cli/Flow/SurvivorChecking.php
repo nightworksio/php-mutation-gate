@@ -266,10 +266,12 @@ final readonly class SurvivorChecking
         $history = $history->checked(Seconds::between($started, $this->clock->now()));
         $this->adapters->project->remove($at);
 
-        return [match (true) {
+        $findings = match (true) {
             $found instanceof OutOfScope => Unchecked::OutOfScope,
             $found instanceof CannotJudge => Unchecked::Failed,
             default => $found,
-        }, $history];
+        };
+
+        return [$findings, $history];
     }
 }
