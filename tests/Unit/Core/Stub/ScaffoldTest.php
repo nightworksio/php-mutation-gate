@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\SourcePin;
 use NightWorksIO\MutationGate\Core\Php\Enclosing;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Stub\Scaffold;
@@ -75,5 +76,26 @@ it('expects the exception the removed code throws, by its class, in each style',
             'Expect the exception it throws:',
             '$this->expectException(/* the exception */);',
             '/* the code it changes */;',
+        ]);
+});
+
+it('runs the code, then reads its file for what the pin names, where only a test that reads the source kills the mutant', function () use ($fits, $phpUnit): void {
+    $pin = SourcePin::call('hash_equals');
+    $read = "file_get_contents((new \\ReflectionMethod(Cart::class, 'fits'))->getFileName())";
+
+    expect(Scaffold::pinned($pin, $fits(), AssertionStyle::Pest))->toBe([
+        'Run it, then read the file it is in, which the mutant changes:',
+        'expect($cart->fits($amount, $limit))->toBe(/* expected */);',
+        sprintf("expect(%s)->toContain('hash_equals(');", $read),
+    ])
+        ->and(Scaffold::pinned($pin, $fits(), AssertionStyle::PhpUnit))->toBe([
+            'Run it, then read the file it is in, which the mutant changes:',
+            $phpUnit('expected', '$cart->fits($amount, $limit)'),
+            sprintf("\$this->%s('hash_equals(', (string) %s);", 'assertStringContainsString', $read),
+        ])
+        ->and(Scaffold::pinned($pin, Nameless::code(), AssertionStyle::Pest))->toBe([
+            'Run it, then read the file it is in, which the mutant changes:',
+            'expect(/* the code it changes */)->toBe(/* expected */);',
+            "expect(file_get_contents(/* the file it changes */))->toContain('hash_equals(');",
         ]);
 });

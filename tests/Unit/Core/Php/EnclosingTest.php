@@ -155,3 +155,15 @@ it('names the function it found', function () use ($file): void {
     expect($enclosing instanceof Enclosing ? $enclosing->name() : $enclosing)->toBe('price')
         ->and(Enclosing::in(Contents::of('<?php return 1;'), Line::of(1)))->toBeInstanceOf(Nameless::class);
 });
+
+it('reflects a function by its name, and a method by its class and its name', function () use ($file): void {
+    $reflected = static function (int $line) use ($file): string {
+        $enclosing = Enclosing::in(Contents::of($file), Line::of($line));
+
+        return $enclosing instanceof Enclosing ? $enclosing->reflected() : 'nothing';
+    };
+
+    expect($reflected(7))->toBe("new \\ReflectionFunction('free')")
+        ->and($reflected(32))->toBe("new \\ReflectionMethod(Cart::class, 'fits')")
+        ->and($reflected(23))->toBe("new \\ReflectionMethod(Cart::class, 'of')");
+});

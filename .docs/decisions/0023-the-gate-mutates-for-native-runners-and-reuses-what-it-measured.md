@@ -203,9 +203,11 @@ manual.
      either.
    - The prepended override is the gate's own `file://` wrapper. It serves
      the mutated file from before Composer's autoloader loads anything,
-     `files` autoloads included, wherever PHP includes the file by any path
-     that names it, and falls back to the real file for every other path.
-     The file and the mutated file each have a variable of their own.
+     `files` autoloads included, wherever PHP includes or reads the file by
+     any path that names it, so a test that reads the source sees the mutant
+     (ADR-0021 decision 19). It falls back to the real file for every other
+     path, and for an open that writes. The file and the mutated file each
+     have a variable of their own.
    - ADR-0004 decision 8's guards check it: the wrapper writes to the file
      `MUTATION_GATE_GUARD` names each time it serves the mutated file, in any
      of the run's processes, and the extension writes there where opcache
@@ -396,6 +398,6 @@ operators to keep beside Pest's and Infection's.
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): the rejected alternative this supersedes, and state treated as order is
 - [ADR-0014](0014-every-test-is-judged-by-what-it-kills.md): the full kill matrix
 - [ADR-0020](0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md): the map's `commit` and `dirty`, and the static-analysis checks
-- [ADR-0021](0021-mutators-are-written-once-and-first-party-sets-can-leave.md): the SDK the gate's mutants are made with
+- [ADR-0021](0021-mutators-are-written-once-and-first-party-sets-can-leave.md): the SDK the gate's mutants are made with, and the read of a mutated file a source pin needs
 - [ADR-0025](0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md): pruning, whose carried results the gate matches by mutant
 - [ADR-0027](0027-codeception-phpspec-and-testo-get-native-runners.md): the other native runners, on the same engine and override

@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\Hint;
 use NightWorksIO\MutationGate\Mutator\Mutator;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
+use NightWorksIO\MutationGate\Mutator\PinnedBySource;
 
 use function sprintf;
 use function var_export;
@@ -95,13 +96,19 @@ final readonly class Bridges
     {
     }
 
-    /** The bridges to these mutators. */
+    /**
+     * The bridges to these mutators, less each pinned by source: Infection
+     * shows a mutant only to an include, so no test that reads the file sees
+     * it (ADR-0021, decision 19).
+     */
     public static function to(Enabled $mutators): self
     {
         $named = [];
 
         foreach ($mutators as $mutator) {
-            $named[$mutator->name()->value()] = $mutator;
+            if (! $mutator instanceof PinnedBySource) {
+                $named[$mutator->name()->value()] = $mutator;
+            }
         }
 
         return new self($named);

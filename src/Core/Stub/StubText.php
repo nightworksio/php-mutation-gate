@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Config\IgnoredMutant;
 use NightWorksIO\MutationGate\Core\Config\PhpCalls;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Format\Fit;
+use NightWorksIO\MutationGate\Core\Mutant\SourcePin;
 use NightWorksIO\MutationGate\Core\Php\Enclosing;
 use NightWorksIO\MutationGate\Core\Php\HoldsReader;
 use NightWorksIO\MutationGate\Core\Removal\Removable;
@@ -36,8 +37,10 @@ use function str_replace;
 /**
  * One failing test for a mutant or a cluster, in a style (ADR-0015, decision
  * 4): comments that hold each mutant's heading and diff, its hint and the
- * call to the function around it, one assertion scaffold for each family, an
- * assertion of value a weak test could make (ADR-0025, decision 6); then the
+ * call to the function around it, one assertion scaffold for each family, or
+ * for a mutator pinned by source a call and a read of the function's file
+ * (ADR-0021, decision 19), an assertion of value a weak test could make
+ * (ADR-0025, decision 6); then the
  * line that fails until the test is filled in; then the `ignores.entries`
  * item that is the other way out (decision 5). A test for a held unit holds
  * it too, so the tests that hold it still cover it (ADR-0005, decision 9): a
@@ -108,9 +111,13 @@ final readonly class StubText
         $lines[] = $first->hint()->text();
         $lines = $function instanceof Enclosing ? [...$lines, sprintf('%s;', $function->call())] : $lines;
 
+        $pin = $subject->pin();
+        $lines = [...$lines, ...$pin instanceof SourcePin ? Scaffold::pinned($pin, $function, $style) : []];
+        $pinned = $pin instanceof SourcePin ? $first->mutant()->mutator() : '';
+
         foreach ($subject->members() as $member) {
             $family = $member->mutant()->mutation()->family();
-            $scaffold = in_array($family, $families, strict: true)
+            $scaffold = in_array($family, $families, strict: true) || $member->mutant()->mutator() === $pinned
                 ? []
                 : Scaffold::of($member->mutant(), $function, $style);
             $lines = [...$lines, ...$scaffold];

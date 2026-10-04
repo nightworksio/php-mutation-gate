@@ -368,22 +368,35 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
       the `default` set and the sets in `mutators.sets`; under Pest, Pest's
       `DefaultSet` and those sets; under Infection, the mutators the
       project's Infection config turns on, its `@default` profile where it
-      turns on none, and those sets.
+      turns on none, and those sets, less each mutator pinned by source
+      (decision 19).
     - The three HTML unwraps name the `default` set's and Pest's own unwraps
       of the same function. They stand down for the engine and under Pest,
       and make their mutants under Infection, whose own mutators unwrap none
       of the three. A config that turns one of the `default` set's unwraps
       off gets that function's unwrap from the `security` set.
 
-19. **A constant-time comparison is pinned by a test that reads the
-    source.**
+19. **A constant-time comparison is pinned by a test that runs it and
+    reads its source.**
     - `HashEqualsToIdentical` behaves the same in every behavioural test:
-      only timing differs. A test that reads source text kills it, as a Pest
-      `arch()` test expecting `hash_equals` does.
+      only timing differs. Every runner judges a mutant by the tests that
+      cover its line, so a test that runs none of the code, such as a Pest
+      `arch()` test, never runs against it. Only a test that runs the
+      comparison and then reads its file kills it.
+    - A mutator says so by implementing the SDK's optional `PinnedBySource`,
+      whose `pin(): SourcePin` names what that test must find in the file.
+      `HashEqualsToIdentical`'s is a call to `hash_equals`.
+    - Pest's stream wrapper and the gate's PHPUnit runner serve the mutant to
+      every open of the file during its run, so the test reads it. This
+      amends ADR-0023 decision 9. Infection serves it to an include only, so
+      a mutator pinned by source stands down under Infection.
     - Its hint: *Only a test that reads the source can pin a constant-time
-      comparison: an arch test that expects `hash_equals`.*
-    - `stub` writes that arch test under Pest, and under Infection a PHPUnit
-      test that scans the file's tokens. This amends ADR-0015 decision 1.
+      comparison: one that runs it, then asserts that its file still calls
+      `hash_equals`.*
+    - `stub` writes that test in Pest's or PHPUnit's style: it calls the
+      function, asserts on its result, and asserts that the function's file,
+      found through reflection, still holds the pin. This amends ADR-0015
+      decision 1.
 
 20. **`--security` audits the defences alone.**
     - `plan --security` and `run --security` make mutants with the security
@@ -451,6 +464,7 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
 | **A security floor over new code only** | The new-code floor already does that, and nothing old would be judged. |
 | **The generic set inside `src/`** | The first user of the SDK would sit inside the code the SDK stands apart from. |
 | **A constant-time finding from names instead of a mutant** | It would guess from a variable's name. |
+| **An arch test that expects `hash_equals` as the stub** | It runs none of the code, so no runner runs it against the mutant. |
 | **Leaving the constant-time mutant out** | "Constant-time comparisons" would then mean only `HashEqualsToTrue`. |
 | **No narrowed security run** | A scheduled audit of the defences would pay for every other mutant. |
 | **`--only=security`** | `--only` filters the problems output, so one option would narrow the run with one value and the output with another, and the two could not be combined. |
@@ -487,6 +501,6 @@ listed where a reviewer reads first.
 - [ADR-0009](0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md): families, hints, and the security row
 - [ADR-0010](0010-the-gate-runs-while-you-work-and-before-you-push.md): `pre-push` and `watch` take no `--security`
 - [ADR-0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): four trees at 100, the tool paths, and the SDK as public API
-- [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): the arch-test stub
+- [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): the stub that runs the code and reads its source
 - [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): the first run that hands over a floor
-- [ADR-0023](0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md): the gate's own engine, built on this SDK
+- [ADR-0023](0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md): the gate's own engine, built on this SDK, and its wrapper serving a read of the mutated file

@@ -52,9 +52,9 @@ use function var_export;
 /**
  * The gate's own `file://` wrapper, which the override registers before
  * Composer's autoloader loads anything (ADR-0023 decision 9). Where PHP
- * includes the one file it serves, by any name of that file, it opens the
- * mutated file in its place, and says so in the guard file; every other use
- * of every file it hands to PHP's own wrapper.
+ * includes or reads the one file it serves, by any name of that file, it
+ * opens the mutated file in its place, and says so in the guard file; every
+ * other use of every file it hands to PHP's own wrapper.
  *
  * PHP loads it before Composer's autoloader, so it names no other class of
  * this package.
@@ -80,9 +80,6 @@ final class MutantFile
 
     /** The protocol it stands in for. */
     private const string PROTOCOL = 'file';
-
-    /** The bit PHP sets in `stream_open`'s options when it opens a file for `include` or `require`. */
-    private const int FOR_INCLUDE = 0x80;
 
     /** The characters of a mode that opens a file to write it, or makes it. */
     private const string WRITING = 'waxc+';
@@ -144,17 +141,20 @@ final class MutantFile
     }
 
     /**
-     * Opens a file, or the mutated file where PHP includes the file served.
-     * A file that is not there is not opened to read it, so that the only
-     * warning is PHP's own. PHP resolves the include path before it calls a
-     * wrapper, handing it the file's full path, so a path it hands over is
-     * opened as it is written.
+     * Opens a file, or the mutated file where PHP includes or reads the file
+     * served, so a test that reads its source sees the mutant (ADR-0021,
+     * decision 19), and says so in the guard file. A file opened to write is
+     * the file itself. A file that is not there is not opened to read it, so
+     * that the only warning is PHP's own. PHP resolves the include path
+     * before it calls a wrapper, handing it the file's full path, so a path
+     * it hands over is opened as it is written.
      */
-    public function stream_open(string $path, string $mode, int $options): bool
+    public function stream_open(string $path, string $mode): bool
     {
-        $serving = ($options & self::FOR_INCLUDE) !== 0 && $this->isServed($path);
+        $writing = strpbrk($mode, self::WRITING) !== false;
+        $serving = ! $writing && $this->isServed($path);
         $opened = $serving ? self::$mutated : $path;
-        $there = strpbrk($mode, self::WRITING) !== false || $this->natively(static fn(): bool => file_exists($opened));
+        $there = $writing || $this->natively(static fn(): bool => file_exists($opened));
         $handle = $there ? $this->natively(static fn(): mixed => fopen($opened, $mode)) : false;
 
         return is_resource($handle) && $this->opened($handle, $serving);

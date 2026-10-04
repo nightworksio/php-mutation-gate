@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\SourcePin;
 use NightWorksIO\MutationGate\Mutator\Hint;
 use NightWorksIO\MutationGate\Mutator\Tag;
 use NightWorksIO\MutationGate\Mutator\Tags;
@@ -11,13 +12,17 @@ use NightWorksIO\MutationGate\Mutator\Unchanged;
 use NightWorksIO\MutationGateSecurity\Mutators\HashEqualsToIdentical;
 use PhpParser\Node\Stmt\Nop;
 
-it('is named in the security set, a condition, about security, with its own hint', function (): void {
+it('is named in the security set, a condition, about security, with its own hint, pinned by its call to hash_equals', function (): void {
     $mutator = new HashEqualsToIdentical();
 
     expect($mutator->name()->value())->toBe('security/HashEqualsToIdentical')
         ->and($mutator->family())->toBe(MutatorFamily::Condition)
         ->and($mutator->tags())->toEqual(Tags::of(Tag::security()))
-        ->and($mutator->hint())->toEqual(Hint::that('Only a test that reads the source can pin a constant-time comparison: an arch test that expects `hash_equals`.'));
+        ->and($mutator->hint())->toEqual(Hint::that(
+            'Only a test that reads the source can pin a constant-time comparison: one that runs it, then asserts that its file still calls `hash_equals`.',
+        ))
+        ->and($mutator->pin())->toEqual(SourcePin::call('hash_equals'))
+        ->and($mutator->pin()->text())->toBe('hash_equals(');
 });
 
 it('compares in variable time under both runners', function (): void {

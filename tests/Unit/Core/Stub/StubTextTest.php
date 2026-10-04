@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\SourcePin;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Php\Enclosing;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
@@ -69,6 +71,25 @@ it('writes a Pest test that holds the mutant, its hint, the call and the scaffol
             // {"mutant":"%1$s","reason":""}
         });
         PHP, $id, $mutant->hint()->text(), str_replace("'", "\\'", $mutant->hint()->text())));
+});
+
+it('writes a Pest test that runs the code and reads its file in place of the scaffold, where the mutator is pinned by source', function () use ($fits, $whole): void {
+    $mutant = JudgedMutant::of(
+        Verdicts::mutant('src/Cart.php:7', 'security/HashEqualsToIdentical', MutatorFamily::Condition, Verdicts::diff('return \\hash_equals($a, $b);', 'return $a === $b;')),
+        MutantJudgement::Survived,
+    );
+    $subject = Subject::of($mutant, $fits(), $whole)->pinned(SourcePin::call('hash_equals'));
+    $text = StubText::of($subject, AssertionStyle::Pest, Format::Json, RunnerBehaviour::standard());
+
+    expect($text)->toContain(implode("\n", [
+        '    // Run it, then read the file it is in, which the mutant changes:',
+        '    // expect($cart->fits($amount, $limit))->toBe(/* expected */);',
+        "    // expect(file_get_contents((new \\ReflectionMethod(Cart::class, 'fits'))->getFileName()))->toContain('hash_equals(');",
+        sprintf("    expect(true)->toBeFalse('Mutant %s", $mutant->mutant()->id()->value()),
+    ]))
+        ->and($text)->not->toContain('Assert on its result:')
+        ->and($subject->pin())->toEqual(SourcePin::call('hash_equals'))
+        ->and(Subject::of($mutant, $fits(), $whole)->pin())->toEqual(NotGiven::value());
 });
 
 it('writes a PHPUnit method that holds the unit, and offers the ignore as a PHP config writes it', function () use ($survivor, $held): void {

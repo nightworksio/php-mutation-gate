@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
+use NightWorksIO\MutationGate\Core\Mutant\SourcePin;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Php\Enclosing;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Proof\Ambiguous;
@@ -30,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnit;
+use NightWorksIO\MutationGate\Mutator\PinnedBySource;
 
 use function pathinfo;
 
@@ -111,8 +114,25 @@ final readonly class Stubbing
             $unit instanceof JudgedUnit ? $unit->unit() : Unit::file($location->file()),
         );
         $cluster = $explained->cluster();
+        $subject = $cluster instanceof Cluster ? $subject->forCluster($cluster) : $subject;
+        $pin = $this->pinOf($first);
 
-        return $cluster instanceof Cluster ? $subject->forCluster($cluster) : $subject;
+        return $pin instanceof SourcePin ? $subject->pinned($pin) : $subject;
+    }
+
+    /**
+     * What a test that reads the source must find to kill the mutant, where
+     * its mutator is a registered one pinned by source (ADR-0021, decision 19).
+     */
+    private function pinOf(JudgedMutant $mutant): SourcePin|NotGiven
+    {
+        foreach ($this->composed->adapters->mutators as $mutator) {
+            if ($mutator instanceof PinnedBySource && $mutator->name()->value() === $mutant->mutant()->mutator()) {
+                return $mutator->pin();
+            }
+        }
+
+        return NotGiven::value();
     }
 
     /** The covering test file the stub follows; none where no test covers the mutant. */
