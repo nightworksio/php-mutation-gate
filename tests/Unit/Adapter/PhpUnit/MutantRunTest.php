@@ -17,10 +17,13 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Order\KillSearch;
+use NightWorksIO\MutationGate\Core\Order\Ordering;
 use NightWorksIO\MutationGate\Core\Runner\ErrorDisplay;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
@@ -143,6 +146,20 @@ it('starts PHPUnit with opcache off, the override, the extension and the coverin
         ->and($command->withheld())->toEqual(Withheld::standard());
 });
 
+it('runs every covering test of a mutant under a full kill matrix, stopping at none that fails', function () use ($adds, $request): void {
+    $project = phpUnitProject();
+    $shell = recording(Outcome::Passed->line($adds->value()), Ran::finished(succeeded: true, output: '')->took(Seconds::of(0.5)));
+    $run = new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project), PhpUnitScan::uncapped($project), NotGiven::value());
+    $run->judged(moneyMutant($project), TestIds::of($adds), $request->searching(KillSearch::of(Ordering::runner(), MatrixKind::Full)), Seconds::of(3.0));
+
+    expect(array_slice($shell->commands()[0]->arguments(), 9))->toBe([
+        '--no-coverage',
+        '--no-logging',
+        '--do-not-record-test-run-history',
+        '--no-progress',
+    ]);
+});
+
 it('judges a mutant by what its run recorded, ended as and served', function (string $lines, Ran $ran, string $guard, array $verdict) use ($adds, $judged): void {
     $selected = TestIds::of($adds, TestId::of('T::fails'), TestId::of('T::errs'), TestId::of('T::dies'));
 
@@ -177,6 +194,12 @@ it('judges a mutant by what its run recorded, ended as and served', function (st
         Ran::stopped(''),
         "served\n",
         [MutantStatus::TimedOut, [], ''],
+    ],
+    'killed by the tests that failed, where stopped at its limit after them, crediting none it stopped' => [
+        records(Outcome::Started->line('T::fails'), Outcome::Failed->line('T::fails'), Outcome::Started->line('T::dies')),
+        Ran::stopped(''),
+        "served\n",
+        [MutantStatus::Killed, ['T::fails'], ''],
     ],
     'errored where PHPUnit failed before any test started' => [
         '',

@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Hook\Hook;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Push\Pushes;
@@ -173,6 +174,7 @@ final readonly class PrePushCommand
             Mode::since($base->name()),
             FlowOptions::coverage($this->input),
             FlowOptions::configuredCut($composed->settings),
+            MatrixKind::FirstKiller,
         );
         $results = Workspace::results();
         $ran = $plan instanceof Plan ? $this->running()->runAllBy($plan, $results, $deadline) : $plan;

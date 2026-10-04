@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Config\Shards;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
@@ -51,7 +52,7 @@ $given = static fn(array $options): InputInterface => new ArrayInput(
 /** What `baseline` is handed, a command with none of the flows' options. */
 $bare = static fn(): InputInterface => new ArrayInput([], BaselineCommand::command($composed())->getDefinition());
 
-it('offers plan\'s options: a ref to change since, a full run, a coverage map, a count of shards', function () use (
+it('offers plan\'s options: a ref to change since, a full run, a coverage map, a count of shards, a kill matrix', function () use (
     $composed,
 ): void {
     $definition = PlanCommand::command($composed())->getDefinition();
@@ -60,7 +61,8 @@ it('offers plan\'s options: a ref to change since, a full run, a coverage map, a
         ->and($definition->getOption('full')->acceptValue())->toBeFalse()
         ->and($definition->getOption('coverage')->isValueRequired())->toBeTrue()
         ->and($definition->getOption('shards')->isValueRequired())->toBeTrue()
-        ->and(array_keys($definition->getOptions()))->toBe(['changed-since', 'full', 'coverage', 'shards']);
+        ->and($definition->getOption('kill-matrix')->isValueRequired())->toBeTrue()
+        ->and(array_keys($definition->getOptions()))->toBe(['changed-since', 'full', 'coverage', 'shards', 'kill-matrix']);
 });
 
 it('runs in full unless asked to consider a change', function (array $options, Mode $mode, bool $full) use (
@@ -113,6 +115,18 @@ it('refuses a count of shards that is not one or more', function (string $shards
     expect(FlowOptions::cut($given(['--shards' => $shards]), Flows::settings()))
         ->toEqual(CannotJudge::because(sprintf('--shards=%s is not a number of shards.', $shards)));
 })->with(['0', '03', 'two', '2x', '-1', ' 2']);
+
+it('records first killers unless asked for every killer', function () use ($given, $bare): void {
+    expect(FlowOptions::killMatrix($given([])))->toBe(MatrixKind::FirstKiller)
+        ->and(FlowOptions::killMatrix($bare()))->toBe(MatrixKind::FirstKiller)
+        ->and(FlowOptions::killMatrix($given(['--kill-matrix' => 'first'])))->toBe(MatrixKind::FirstKiller)
+        ->and(FlowOptions::killMatrix($given(['--kill-matrix' => 'full'])))->toBe(MatrixKind::Full);
+});
+
+it('refuses a kill matrix it does not record', function (string $matrix) use ($given): void {
+    expect(FlowOptions::killMatrix($given(['--kill-matrix' => $matrix])))
+        ->toEqual(CannotJudge::because(sprintf('--kill-matrix takes first or full, not "%s".', $matrix)));
+})->with(['first-killer', 'Full', 'every', ' full']);
 
 it('names the shard --shard gives, and none where it gives none', function () use ($given, $bare): void {
     expect(FlowOptions::shard($given(['--shard' => '2'])))->toEqual(ShardId::of(2))

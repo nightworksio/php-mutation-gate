@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\TooLarge;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -41,6 +42,7 @@ use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Uncommitted;
+use NightWorksIO\MutationGate\Core\Proof\Unproved;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Instant;
@@ -331,6 +333,7 @@ it('drops a proof that is not well formed and keeps the rest', function (Closure
     'a base that is not text' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['base' => null]])],
     'an instant that is not one' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['at' => 'yesterday']])],
     'no run' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['run' => 5]])],
+    'a matrix that is not full' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['matrix' => 'first-killer']])],
     'mutants that are not a list' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['mutants' => 'none']])],
     'a killed mutant whose killers are not a list' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['mutants' => [0 => [3 => null]]]])],
     'a killed mutant of five fields' => [static fn(array $proofs, string $key): array => array_replace_recursive($proofs, [$key => ['mutants' => [0 => [4 => 'more']]]])],
@@ -610,4 +613,24 @@ it('drops a held unit\'s proof whose judging tests point past the ledger\'s test
     $spoilt = is_array($file) ? array_replace($file, ['tests' => []]) : [];
 
     expect(count(LedgerFile::decode($written($spoilt))->proofs()))->toBe(0);
+});
+
+it('writes the matrix of a proof whose run recorded every killer, and reads one without it as first killers', function () use ($run, $base): void {
+    $key = str_repeat('c', 64);
+    $full = Proof::of(Digest::of($key), Path::of('src/Money.php'), Mutants::none(), $run('github:3/1', '2026-09-29T22:00:00Z')->recording(MatrixKind::Full));
+    $first = Proof::of(Digest::of($key), Path::of('src/Money.php'), Mutants::none(), $run('github:3/1', '2026-09-29T22:00:00Z'));
+    $text = static function (Proof $proof) use ($base): string {
+        $json = Gzip::unpack(LedgerFile::encode(Ledger::empty()->withProof($proof)->atBase(Digest::of($base))), 'the ledger');
+
+        return is_string($json) ? $json : '';
+    };
+    $read = static fn(Proof $proof): Proof|Unproved => LedgerFile::decode(LedgerFile::encode(Ledger::empty()->withProof($proof)->atBase(Digest::of($base))))->proofs()->proofFor(Digest::of($key));
+    $fullRead = $read($full);
+    $firstRead = $read($first);
+
+    expect(Decoded::at($text($full), 'proofs', $key, 'matrix'))->toBe('full')
+        ->and(Decoded::at($text($first), 'proofs', $key, 'unit'))->toBe('src/Money.php')
+        ->and(Decoded::at($text($first), 'proofs', $key, 'matrix'))->toBeNull()
+        ->and($fullRead instanceof Proof ? $fullRead->run()->matrix() : $fullRead)->toBe(MatrixKind::Full)
+        ->and($firstRead instanceof Proof ? $firstRead->run()->matrix() : $firstRead)->toBe(MatrixKind::FirstKiller);
 });

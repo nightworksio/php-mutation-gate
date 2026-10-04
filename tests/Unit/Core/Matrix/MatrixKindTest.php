@@ -17,3 +17,10 @@ it('spells each outcome as the reports write it, and knows which ran to an answe
         ['unknown', false],
     ]);
 });
+
+it('holds first killers in either kind, and every killer in a full one only', function (): void {
+    expect(MatrixKind::Full->holds(MatrixKind::Full))->toBeTrue()
+        ->and(MatrixKind::Full->holds(MatrixKind::FirstKiller))->toBeTrue()
+        ->and(MatrixKind::FirstKiller->holds(MatrixKind::FirstKiller))->toBeTrue()
+        ->and(MatrixKind::FirstKiller->holds(MatrixKind::Full))->toBeFalse();
+});

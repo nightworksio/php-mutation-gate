@@ -36,6 +36,7 @@ use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -49,6 +50,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\Kills;
+use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Order\Ordering;
 use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
@@ -439,7 +441,7 @@ it('puts the likely killers first where the request asks, handing the plugin the
         Enclosing::named(Path::of('src/Money.php'), 'add'),
         Ranking::of(Kills::of(TestId::of(RUN_ADDS), 1)),
     );
-    $request = adapterMoney()->orderedBy(Ordering::of(TestOrder::KillersFirst, $history));
+    $request = adapterMoney()->searching(KillSearch::of(Ordering::of(TestOrder::KillersFirst, $history), MatrixKind::FirstKiller));
 
     new Pest($at, $shell, Patching::off(), new CapDirectory())->mutate($request);
 
@@ -453,7 +455,7 @@ it('cannot judge where an earlier run\'s orders cannot be removed', function ():
     $at = adapterProject();
     mkdir(sprintf('%s/.mutation-gate/order/plan.json', $at->root()), recursive: true);
     $shell = new ShellFake(static fn(Command $command): Ran => adapterKilled($command, $at));
-    $request = adapterMoney()->orderedBy(Ordering::of(TestOrder::KillersFirst, KillHistory::none()));
+    $request = adapterMoney()->searching(KillSearch::of(Ordering::of(TestOrder::KillersFirst, KillHistory::none()), MatrixKind::FirstKiller));
 
     expect(new Pest($at, $shell, Patching::off(), new CapDirectory())->mutate($request))->toEqual(CannotJudge::because(sprintf(
         'An earlier run left orders in %s/.mutation-gate/order, and the gate cannot remove them.',

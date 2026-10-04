@@ -62,12 +62,14 @@ final readonly class PlanCommand
     {
         $mode = FlowOptions::mode($input);
         $cut = FlowOptions::cut($input, $composed->settings);
+        $matrix = FlowOptions::killMatrix($input);
 
         return match (true) {
             $mode instanceof CannotJudge => $mode,
             $cut instanceof CannotJudge => $cut,
+            $matrix instanceof CannotJudge => $matrix,
             default => new Planning($composed->adapters, $composed->settings, $composed->setup)
-                ->plan($mode, FlowOptions::coverage($input), $cut),
+                ->plan($mode, FlowOptions::coverage($input), $cut, $matrix),
         };
     }
 

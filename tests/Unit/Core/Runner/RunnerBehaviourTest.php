@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Matrix\NotFull;
 use NightWorksIO\MutationGate\Core\Runner\Parallelism;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
@@ -40,4 +41,14 @@ it('says each way it behaves otherwise, and nothing more', function (): void {
         ->and(RunnerBehaviour::standard()->stoppingAtFirstKiller(NotFull::Infection)->raisesLimits())->toBeTrue()
         ->and(RunnerBehaviour::standard()->runningPerCore()->parallelism())->toBe(Parallelism::PerCore)
         ->and(RunnerBehaviour::standard()->runningPerCore()->raisesLimits())->toBeTrue();
+});
+
+it('records first killers always, and every killer unless it is Infection', function (): void {
+    $infection = RunnerBehaviour::standard()->stoppingAtFirstKiller(NotFull::Infection);
+
+    expect(RunnerBehaviour::standard()->records(MatrixKind::Full))->toBeTrue()
+        ->and(RunnerBehaviour::standard()->records(MatrixKind::FirstKiller))->toBeTrue()
+        ->and(RunnerBehaviour::standard()->stoppingAtFirstKiller(NotFull::FirstKillers)->records(MatrixKind::Full))->toBeTrue()
+        ->and($infection->records(MatrixKind::FirstKiller))->toBeTrue()
+        ->and($infection->records(MatrixKind::Full))->toBeFalse();
 });

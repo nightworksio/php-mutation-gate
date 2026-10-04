@@ -7,7 +7,9 @@ namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 use function array_map;
 
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
+use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
@@ -55,13 +57,15 @@ final readonly class Invocation
         $this->history = Installed::historyIn($project->installed());
     }
 
-    public function of(
-        MutantFiles $files,
-        WholeSuite|Group|Filter $judgedBy,
-        Seconds $limit,
-        Withheld $withheld,
-    ): Command {
-        return $this->mutant($files, ...$this->judgedBy($judgedBy))->withholding($withheld)->within($limit);
+    /**
+     * A mutant's own run, judged by the tests the request asks for, stopping
+     * at the first that fails or, for a full kill matrix, running every one.
+     */
+    public function of(MutantFiles $files, MutationRequest $request, Seconds $limit): Command
+    {
+        return $this->mutant($files, $request->search()->matrix(), ...$this->judgedBy($request->judgedBy()))
+            ->withholding($request->withheld())
+            ->within($limit);
     }
 
     /** A run of no test, started as a mutant's own run is, its mutant the file unchanged. */
@@ -69,7 +73,7 @@ final readonly class Invocation
     {
         $none = [...$this->judgedBy(Filter::nothing()), PhpUnitOption::DoNotFailOnEmptyTestSuite->value];
 
-        return $this->mutant($files, ...$none)->withholding($withheld);
+        return $this->mutant($files, MatrixKind::FirstKiller, ...$none)->withholding($withheld);
     }
 
     /** The suite's groups, listed and no test run. */
@@ -102,9 +106,17 @@ final readonly class Invocation
             ->withholding($request->withheld());
     }
 
-    /** A mutant's own run: opcache off, the override, the extension and its selection, with these options after. */
-    private function mutant(MutantFiles $files, string ...$options): Command
+    /**
+     * A mutant's own run: opcache off, the override, the extension and its
+     * selection, stopped at the first test that fails or errors unless the
+     * matrix is full, with these options after.
+     */
+    private function mutant(MutantFiles $files, MatrixKind $matrix, string ...$options): Command
     {
+        $stops = $matrix === MatrixKind::Full
+            ? []
+            : [PhpUnitOption::StopOnError->value, PhpUnitOption::StopOnFailure->value];
+
         return Command::php(
             '-d',
             sprintf(self::OFF, Opcache::CLI),
@@ -113,14 +125,15 @@ final readonly class Invocation
             $this->project->phpunit(),
             PhpUnitOption::Extension->value,
             Extension::class,
-            $files->selection(),
-            PhpUnitOption::StopOnError->value,
-            PhpUnitOption::StopOnFailure->value,
-            PhpUnitOption::NoCoverage->value,
-            PhpUnitOption::NoLogging->value,
-            $this->history->value,
-            PhpUnitOption::NoProgress->value,
-            ...$options,
+            ...[
+                $files->selection(),
+                ...$stops,
+                PhpUnitOption::NoCoverage->value,
+                PhpUnitOption::NoLogging->value,
+                $this->history->value,
+                PhpUnitOption::NoProgress->value,
+                ...$options,
+            ],
         )
             ->telling(Variable::Results, $files->results())
             ->telling(Variable::Guard, $files->guard())

@@ -72,6 +72,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Reason as MutantReason;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
+use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Plan\Considered;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -897,6 +898,27 @@ it('builds the kill matrix of first killers over the map the plan handed it, as 
     ],
 ]);
 
+it('builds a full kill matrix where the plan records one, and writes proofs whose runs recorded every killer', function () use (
+    $tree,
+    $reporting,
+    $judged,
+): void {
+    $store = new ProofStoreFake();
+    $verdict = judgingVerdictOf($judged(
+        Planned::twoShards()->briefed(Briefing::standard()->recording(MatrixKind::Full)),
+        Flows::adapters(Flows::project(), ['CI' => 'true'], $tree(Floor::of(0)), $store),
+        judgingSettings(),
+        $reporting(new ReporterFake()),
+    ));
+    $matrices = array_map(
+        static fn(Proof $proof): MatrixKind => $proof->run()->matrix(),
+        [...LedgerRead::ledger($store->read(Scope::branch('main')))->proofs()],
+    );
+
+    expect($verdict->matrix()->kind())->toBe(MatrixKind::Full)
+        ->and($matrices)->toBe([MatrixKind::Full, MatrixKind::Full]);
+});
+
 it('holds each mutant\'s killers alone, and warns, where the plan handed the verdict no map', function () use (
     $tree,
     $reporting,
@@ -1430,7 +1452,12 @@ it('keeps the last commit that passed where a budget left a kill unjudged, so th
         $reporting(new ReporterFake()),
     ));
     $next = new Planning($adapters, Flows::settings(), Flows::setup())
-        ->plan(Mode::since(Mode::LAST_PASSED), CoverageRun::of(WholeSuite::tests(), Workspace::coverage()), Cut::exactly(1));
+        ->plan(
+            Mode::since(Mode::LAST_PASSED),
+            CoverageRun::of(WholeSuite::tests(), Workspace::coverage()),
+            Cut::exactly(1),
+            MatrixKind::FirstKiller,
+        );
     $planned = [];
 
     foreach ($next instanceof Plan ? $next : [] as $shard) {

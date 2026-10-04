@@ -40,6 +40,9 @@ enum GateVariable: string
     /** Set where a patched run loads only the test files each mutant's covering tests need (see CoveringFiles). */
     case Narrow = 'MUTATION_GATE_NARROW';
 
+    /** How much of the kill matrix a mutation run records: every killer where it is `full` (see EveryKiller). */
+    case KillMatrix = 'MUTATION_GATE_KILL_MATRIX';
+
     /** The file of bridges the plugin loads, through which Pest makes registered mutators' mutants (see Bridges). */
     case Mutators = 'MUTATION_GATE_MUTATORS';
 }

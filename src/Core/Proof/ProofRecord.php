@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixRecord;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -20,11 +21,12 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 
 /**
- * A proof as a ledger holds it, under its key: its unit, the base, the time
- * and the id of the run that established it, its mutants, each one a test
- * killed as a killed record and every other in full, the digests of its
- * inputs, where it records them, and, for a held unit, the holding tests that
- * run it, as indices into the ledger's tests, where it names any.
+ * A proof as a ledger holds it, under its key: its unit; the base, the time
+ * and the id of the run that established it, and `matrix`, `full` where that
+ * run recorded every killer; its mutants, each one a test killed as a killed
+ * record and every other in full; the digests of its inputs, where it records
+ * them; and, for a held unit, the holding tests that run it, as indices into
+ * the ledger's tests, where it names any.
  *
  * @internal the shape of a proof in the ledger file
  *
@@ -36,6 +38,7 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
  *     base: string,
  *     at: string,
  *     run: string,
+ *     matrix?: string,
  *     mutants: list<array{string, int, int, list<int>}|Full>,
  *     digests?: ProofDigests,
  *     judging?: list<int>,
@@ -66,6 +69,7 @@ final readonly class ProofRecord
             self::BASE => $proof->run()->base()->value(),
             self::AT => $proof->run()->at()->value(),
             'run' => $proof->run()->id(),
+            ...MatrixRecord::of($proof->run()->matrix()),
             'mutants' => [
                 ...array_map(
                     static fn(Mutant $mutant): array => $mutant->status() === MutantStatus::Killed
@@ -112,7 +116,12 @@ final readonly class ProofRecord
             $unit,
             Mutants::of(...$reported),
             ProvedKills::of(...$kills),
-            $read->run($entry->field('run')->text(), self::instantIn($entry), self::baseIn($entry)),
+            $read->run(
+                $entry->field('run')->text(),
+                self::instantIn($entry),
+                self::baseIn($entry),
+                MatrixRecord::read($entry->field(MatrixRecord::FIELD)),
+            ),
         )->withInputs($inputs)->judgedBy(self::judgingIn($entry->field(self::JUDGING), $read));
     }
 

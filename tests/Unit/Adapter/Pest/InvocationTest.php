@@ -136,7 +136,7 @@ it('mutates some files against the whole suite, over the project\'s own config, 
         '--colors=never',
         '--path=src/Money.php,src/Held.php',
         '--ignore=.mutation-gate',
-    )->with(['MUTATION_GATE_RESULTS' => '/p/results.jsonl']));
+    )->with(['MUTATION_GATE_RESULTS' => '/p/results.jsonl', 'MUTATION_GATE_KILL_MATRIX' => 'first-killer']));
 });
 
 it('mutates a tree less its held paths, by a group and some mutators, by a deadline', function (): void {

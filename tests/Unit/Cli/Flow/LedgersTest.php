@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
@@ -31,9 +32,12 @@ use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
+use NightWorksIO\MutationGate\Core\Reach\Packages;
+use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
@@ -177,11 +181,30 @@ it('takes a proof whose key still matches from either ledger, and runs the rest'
         ->with(Path::of('src/B.php'), Digest::of('b'))
         ->with(Path::of('src/C.php'), Digest::of('c'));
     $proving = $read(RunOn::at(Scope::pullRequest(7), Scope::branch('main')))
-        ->proving($units, $keys, Digest::sha256Of('now'));
+        ->proving($units, $keys, Digest::sha256Of('now'), MatrixKind::FirstKiller);
 
     expect($proving->proved())->toHaveCount(2)
         ->and($proving->toRun())->toEqual(Units::of(Unit::file(Path::of('src/C.php'))))
         ->and($proving->ownScopeProofs())->toBe(1);
+});
+
+it('proves and carries a run that records every killer only from proofs whose runs recorded every killer', function () use ($ledger): void {
+    $store = new ProofStoreFake();
+    $full = Run::of('local', Moment::at('2026-09-30T10:00:00Z'), Digest::sha256Of('now'))->recording(MatrixKind::Full);
+    $store->write(Scope::branch('main'), Ledger::empty()->withProof(Proof::of(Digest::of('a'), Path::of('src/A.php'), Mutants::none(), $full)));
+    $store->write(Scope::pullRequest(7), $ledger('src/B.php', 'b', 'now', 'pr-passed'));
+    $ledgers = ledgersOn(RunOn::at(Scope::pullRequest(7), Scope::branch('main')), Writing::Auto, $store);
+    $units = Units::of(Unit::file(Path::of('src/A.php')), Unit::file(Path::of('src/B.php')));
+    $keys = Keys::none()->with(Path::of('src/A.php'), Digest::of('a'))->with(Path::of('src/B.php'), Digest::of('b'));
+    $unreached = Reach::nothing(Packages::of(Trees::none()));
+
+    expect($ledgers->proving($units, $keys, Digest::sha256Of('now'), MatrixKind::Full)->toRun())
+        ->toEqual(Units::of(Unit::file(Path::of('src/B.php'))))
+        ->and($ledgers->proving($units, $keys, Digest::sha256Of('now'), MatrixKind::FirstKiller)->toRun())->toEqual(Units::none())
+        ->and($ledgers->considering($units, $unreached, MatrixKind::Full)->considered())
+        ->toEqual(Units::of(Unit::file(Path::of('src/B.php'))))
+        ->and($ledgers->considering($units, $unreached, MatrixKind::Full)->carried())->toHaveCount(1)
+        ->and($ledgers->considering($units, $unreached, MatrixKind::FirstKiller)->carried())->toHaveCount(2);
 });
 
 it('looks for no proof in a ledger that holds none at the base the keys are built on', function () use (
@@ -193,8 +216,8 @@ it('looks for no proof in a ledger that holds none at the base the keys are buil
     $ledgers = ledgersOn(RunOn::at(Scope::pullRequest(7), Scope::branch('main')), Writing::Auto, $moved);
     $units = Units::of(Unit::file(Path::of('src/A.php')), Unit::file(Path::of('src/B.php')));
     $keys = Keys::none()->with(Path::of('src/A.php'), Digest::of('a'))->with(Path::of('src/B.php'), Digest::of('b'));
-    $proving = $ledgers->proving($units, $keys, Digest::sha256Of('now'));
-    $atBefore = $ledgers->proving($units, $keys, Digest::sha256Of('before'));
+    $proving = $ledgers->proving($units, $keys, Digest::sha256Of('now'), MatrixKind::FirstKiller);
+    $atBefore = $ledgers->proving($units, $keys, Digest::sha256Of('before'), MatrixKind::FirstKiller);
 
     expect($proving->toRun())->toEqual(Units::of(Unit::file(Path::of('src/B.php'))))
         ->and($proving->ownScopeProofs())->toBe(0)

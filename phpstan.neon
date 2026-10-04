@@ -555,6 +555,8 @@ services:
                     - STDERR # PHP's number for display_errors=stderr
                 'NightWorksIO\MutationGate\Core\Troubleshooting\Guide':
                     - UNRELEASED # the package's own branch, in a link to its guide
+                'NightWorksIO\MutationGate\Core\Matrix\MatrixRecord':
+                    - FIELD # the plan's and a proof's field, not Azure's output variable
                 'NightWorksIO\MutationGate\Core\Php\OwnMember':
                     - PARENT # PHP's keyword, not php-parser's attribute
                 'NightWorksIO\MutationGate\Core\Assertion\AssertionScan':
@@ -746,6 +748,7 @@ services:
                 'NightWorksIO\MutationGate\Cli\Command\FlowOptions':
                     - COVERAGE # an option of the gate's commands
                     - FULL # an option of the gate's commands
+                    - KILL_MATRIX # an option of the gate's commands, not the report's name
                 'NightWorksIO\MutationGate\Core\Ci\DefaultBranch':
                     - FALLBACK # the project's default branch when none is configured or detected
                 'NightWorksIO\MutationGate\Core\Plan\PlanFile':

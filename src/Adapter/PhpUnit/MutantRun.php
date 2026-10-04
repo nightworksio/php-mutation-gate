@@ -106,7 +106,7 @@ final readonly class MutantRun
             return $files;
         }
 
-        $command = $this->invocation->of($files, $request->judgedBy(), $limit, $request->withheld());
+        $command = $this->invocation->of($files, $request, $limit);
         $ran = $this->shell->run($this->scan->onto($command));
         $recorded = Recorded::in($files->results(), $covering);
         $verdict = $this->verdict($ran, $recorded, Guard::in($files->guard()), count($covering));
@@ -119,6 +119,7 @@ final readonly class MutantRun
             $status === MutantStatus::TimedOut => $mutant->withLimit($limit),
             $status === MutantStatus::OutOfMemory && Exhaustion::isOf(Exhaustion::in($ran->output()), $cap)
                 => $mutant->withLimit($cap),
+            $status === MutantStatus::Killed && $ran->wasStopped() => $mutant->killedBy($recorded->creditedFailures()),
             $status === MutantStatus::Killed => $mutant->killedBy($recorded->credited()),
             default => $mutant,
         };
@@ -148,6 +149,7 @@ final readonly class MutantRun
     {
         return match (true) {
             $guard->cached() => Reason::that(self::CACHED),
+            $ran->wasStopped() && $guard->served() && count($recorded->creditedFailures()) > 0 => MutantStatus::Killed,
             $ran->wasStopped() && $guard->served() => MutantStatus::TimedOut,
             $ran->wasStopped() => Reason::that(self::STOPPED_UNSERVED),
             $ran->succeeded() && ! $recorded->ranAny() => Reason::that(sprintf(self::NO_TEST_RAN, $listed)),

@@ -14,11 +14,12 @@ use NightWorksIO\MutationGate\Core\Cost\StartUpSamples;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\RiskOrder;
+use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Plan\Considered;
-use NightWorksIO\MutationGate\Core\Plan\Considering;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
@@ -67,13 +68,24 @@ final readonly class Planning
         memory_limit does. %s
         SAID;
 
+    private const string NOT_FULL = <<<'SAID'
+        A full kill matrix needs Infection to keep running after a failure, which it cannot.
+        SAID;
+
     public function __construct(private Adapters $adapters, private Settings $settings, private Setup $setup)
     {
     }
 
-    public function plan(Mode $mode, CoverageRun|CoverageRead $coverage, Cut $cut): Plan|CannotJudge
-    {
-        $inventory = Inventory::of($this->adapters, $this->settings);
+    /** The plan of a run that records this much of the kill matrix, or why there is none. */
+    public function plan(
+        Mode $mode,
+        CoverageRun|CoverageRead $coverage,
+        Cut $cut,
+        MatrixKind $matrix,
+    ): Plan|CannotJudge {
+        $inventory = $this->adapters->runner->behaviour()->records($matrix)
+            ? Inventory::of($this->adapters, $this->settings)
+            : CannotJudge::because(self::NOT_FULL);
 
         if ($inventory instanceof CannotJudge) {
             return $inventory;
@@ -91,9 +103,13 @@ final readonly class Planning
         }
 
         $keying = Keying::of($this->adapters, $this->settings, $this->setup, $inventory->suite, $map);
-        $planned = $keying instanceof Keying ? $this->planned($inventory, $map, $keying, $mode, $cut) : $keying;
+        $planned = $keying instanceof Keying
+            ? $this->planned($inventory, $map, $keying, $mode, $cut, $matrix)
+            : $keying;
 
-        return $planned instanceof Plan ? $planned->weighing($peak) : $planned;
+        return $planned instanceof Plan
+            ? $planned->briefed(Briefing::standard()->weighing($peak)->recording($matrix))
+            : $planned;
     }
 
     /**
@@ -124,6 +140,7 @@ final readonly class Planning
         Keying $keying,
         Mode $mode,
         Cut $cut,
+        MatrixKind $matrix,
     ): Plan|CannotJudge {
         $writing = Writing::from($this->settings->proofs()->write()->value);
         $ledgers = Ledgers::read($this->adapters->proofs, $inventory->standing, $writing);
@@ -131,14 +148,9 @@ final readonly class Planning
         $reached = $base instanceof Revision
             ? Reached::since($base, $inventory->trees, $this->adapters, $this->settings, $inventory->suite, $map)
             : Reached::everything($inventory->trees, $base);
-        $considering = Considering::of(
-            $inventory->units,
-            $reached->reach(),
-            $ledgers->defaultBranch()->proofs(),
-            $ledgers->own()->proofs(),
-        );
+        $considering = $ledgers->considering($inventory->units, $reached->reach(), $matrix);
         $keys = $keying->keysOf($considering->considered());
-        $proving = $ledgers->proving($considering->considered(), $keys, $keying->base());
+        $proving = $ledgers->proving($considering->considered(), $keys, $keying->base(), $matrix);
         $opening = $map->suiteDuration();
         $firstRun = new FirstRuns($this->adapters, StartUpSamples::standard())
             ->measured($map, $ledgers->untimed($proving->toRun()));

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Proof;
 
 use function array_any;
+use function array_filter;
 use function array_key_exists;
 use function array_values;
 
@@ -15,10 +16,12 @@ use function count;
 use Countable;
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use Traversable;
 
 /**
- * Proofs, one per key. When two results prove the same key, the first is kept.
+ * Proofs, one per key. When two results prove the same key, the first is
+ * kept, unless only the later recorded every killer.
  *
  * @implements IteratorAggregate<int, Proof>
  */
@@ -39,7 +42,9 @@ final readonly class Proofs implements Countable, IteratorAggregate
         $collected = [];
 
         foreach ($proofs as $proof) {
-            $collected += [$proof->key()->value() => $proof];
+            if (! self::holdsAlready($collected, $proof)) {
+                $collected[$proof->key()->value()] = $proof;
+            }
         }
 
         return new self($collected);
@@ -47,7 +52,7 @@ final readonly class Proofs implements Countable, IteratorAggregate
 
     public function with(Proof $proof): self
     {
-        if ($this->has($proof->key())) {
+        if (self::holdsAlready($this->proofs, $proof)) {
             return $this;
         }
 
@@ -55,6 +60,15 @@ final readonly class Proofs implements Countable, IteratorAggregate
         $proofs[$proof->key()->value()] = $proof;
 
         return new self($proofs);
+    }
+
+    /** Of these proofs, those whose run recorded what a run of this kind asks for. */
+    public function recording(MatrixKind $asked): self
+    {
+        return new self(array_filter(
+            $this->proofs,
+            static fn(Proof $proof): bool => $proof->run()->matrix()->holds($asked),
+        ));
     }
 
     /** These proofs without the one under a key, such as one a fresh result disagrees with. */
@@ -101,5 +115,18 @@ final readonly class Proofs implements Countable, IteratorAggregate
     public function getIterator(): Traversable
     {
         return new ArrayIterator(array_values($this->proofs));
+    }
+
+    /**
+     * Whether these proofs already hold one under this proof's key that
+     * records as much of the kill matrix as it does.
+     *
+     * @param array<string, Proof> $proofs by key
+     */
+    private static function holdsAlready(array $proofs, Proof $proof): bool
+    {
+        $key = $proof->key()->value();
+
+        return array_key_exists($key, $proofs) && $proofs[$key]->run()->matrix()->holds($proof->run()->matrix());
     }
 }

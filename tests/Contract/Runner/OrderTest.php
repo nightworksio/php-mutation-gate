@@ -13,10 +13,12 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\Kills;
+use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Order\Ordering;
 use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
@@ -60,13 +62,13 @@ function orderJudged(MutationResult|CannotJudge $result): array
     return $judged;
 }
 
-/** Money's killed and surviving mutant, their tests run in an order. */
-function orderRun(Ordering $ordering): MutationResult|CannotJudge
+/** Money's killed and surviving mutant, their tests run in an order, recording this much of the kill matrix. */
+function orderRun(Ordering $ordering, MatrixKind $matrix = MatrixKind::FirstKiller): MutationResult|CannotJudge
 {
     $library = Library::pest(Patching::off());
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
         ->narrowedTo(Paths::of(Path::of('src/Money.php')), $library->mutators('adds', 'large'))
-        ->orderedBy($ordering);
+        ->searching(KillSearch::of($ordering, $matrix));
 
     return $library->runner()->mutate($request);
 }
@@ -99,6 +101,20 @@ it('judges every mutant as the runner\'s own order does, with no history at all'
     expect(array_map(static fn(array $judged): string => $judged[0], $cold))->toBe([11 => 'killed', 16 => 'survived'])
         ->and($own)->toBe([11 => ['killed', [ORDER_FIRST]], 16 => ['survived', []]]);
 })->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+
+it('records every test that kills a mutant under a full kill matrix, whatever order runs them', function (Ordering $ordering): void {
+    $judged = orderJudged(orderRun($ordering, MatrixKind::Full));
+
+    expect($judged[11][0] ?? '')->toBe('killed')
+        ->and($judged[11][1] ?? [])->toEqualCanonicalizing([ORDER_FIRST, ORDER_TWICE])
+        ->and($judged[16] ?? [])->toBe(['survived', []]);
+})->with([
+    'the runner\'s own' => fn(): Ordering => Ordering::runner(),
+    'the second killer first' => fn(): Ordering => Ordering::of(
+        TestOrder::KillersFirst,
+        KillHistory::none()->withMutant(orderAdds(), Ranking::of(Kills::of(TestId::of(ORDER_TWICE), 3))),
+    ),
+])->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 /**
  * Runs the fixture's MoneySpec as a mutant's own process does, on a mutated

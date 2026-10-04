@@ -8,7 +8,7 @@ use NightWorksIO\MutationGate\Core\Coverage\Fresh;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
-use NightWorksIO\MutationGate\Core\Order\Ordering;
+use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -19,9 +19,10 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
  * What a runner is asked to mutate: some files, judged by the whole suite, a
  * group or a filter. By default it leaves nothing out, applies every mutator,
  * has no deadline, runs one process, collects its own coverage, runs each
- * mutant's tests in the runner's own order and caps no process's memory. It never says how uncovered
- * mutants score: a runner reports every one, and the gate applies `uncovered`
- * when it judges (ADR-0003, ADR-0004).
+ * mutant's tests in the runner's own order, stopping at the first killer,
+ * and caps no process's memory. It never says how uncovered mutants score:
+ * a runner reports every one, and the gate applies `uncovered` when it
+ * judges (ADR-0003, ADR-0004).
  */
 final readonly class MutationRequest
 {
@@ -34,7 +35,7 @@ final readonly class MutationRequest
         private Processes $processes,
         private Handed|Fresh $coverage,
         private Withheld $withheld,
-        private Ordering $ordering,
+        private KillSearch $search,
         private MemoryCap $memory,
     ) {
     }
@@ -50,7 +51,7 @@ final readonly class MutationRequest
             Processes::single(),
             Fresh::coverage(),
             Withheld::standard(),
-            Ordering::runner(),
+            KillSearch::standard(),
             MemoryCap::none(),
         );
     }
@@ -112,15 +113,19 @@ final readonly class MutationRequest
         return $this->memory;
     }
 
-    /** This request, running each mutant's covering tests in this order where the runner can. */
-    public function orderedBy(Ordering $ordering): self
+    /**
+     * This request, looking for each mutant's killers this way: its covering
+     * tests in this order where the runner can, stopping at the first that
+     * fails or recording every one.
+     */
+    public function searching(KillSearch $search): self
     {
-        return clone($this, ['ordering' => $ordering]);
+        return clone($this, ['search' => $search]);
     }
 
-    public function ordering(): Ordering
+    public function search(): KillSearch
     {
-        return $this->ordering;
+        return $this->search;
     }
 
     public function files(): Paths

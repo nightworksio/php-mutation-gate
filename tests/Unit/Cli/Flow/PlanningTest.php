@@ -22,6 +22,8 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
+use NightWorksIO\MutationGate\Core\Matrix\NotFull;
 use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -50,6 +52,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
+use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -106,7 +109,14 @@ $plan = (static fn(string $project, Mode $mode, Cut $cut, object ...$ports): Pla
     Flows::adapters($project, [], ...$ports),
     Flows::settings(),
     Flows::setup(),
-)->plan($mode, $coverage(), $cut));
+)->plan($mode, $coverage(), $cut, MatrixKind::FirstKiller));
+
+/** A plan over the project of a run that records this much of the kill matrix, with these ports in place of the fakes. */
+$recordingPlan = (static fn(string $project, Mode $mode, MatrixKind $matrix, object ...$ports): Plan|CannotJudge => new Planning(
+    Flows::adapters($project, [], ...$ports),
+    Flows::settings(),
+    Flows::setup(),
+)->plan($mode, $coverage(), Cut::exactly(1), $matrix));
 
 it('plans every unit of a full run into shards, on the commit HEAD is at', function () use (
     $plan,
@@ -150,7 +160,12 @@ $cappedPlan = static function (
         Flows::adapters($project, [], RunnerFake::ofTheFixture()->definedBy(Paths::of(Path::of($reads)))),
         Flows::settings(ConfiguredRunner::uses('fake')->cappedAt(MemoryCap::of(512, MemoryUnit::Megabytes))),
         new Setup($setup->configFile, $setup->gate, $setup->installed, $setup->clock, new PeakMemoryFake($peak)),
-    )->plan(Mode::full(), $handedOver ? CoverageRead::from(Path::of('.mutation-gate/planned')) : $coverage(), Cut::exactly(2));
+    )->plan(
+        Mode::full(),
+        $handedOver ? CoverageRead::from(Path::of('.mutation-gate/planned')) : $coverage(),
+        Cut::exactly(2),
+        MatrixKind::FirstKiller,
+    );
 };
 
 it('refuses to plan where the suite held more memory in its coverage run than the cap', function () use (
@@ -208,9 +223,9 @@ it('records in the plan the peak its coverage run measured, for every shard\'s m
     $uncounted = $cappedPlan(NotGiven::value());
     $handed = $cappedPlan(MemoryCap::of(200, MemoryUnit::Megabytes), handedOver: true);
 
-    expect($measured instanceof Plan ? $measured->peak() : $measured)->toEqual(MemoryCap::of(200, MemoryUnit::Megabytes))
-        ->and($uncounted instanceof Plan ? $uncounted->peak() : $uncounted)->toEqual(NotGiven::value())
-        ->and($handed instanceof Plan ? $handed->peak() : $handed)->toEqual(NotGiven::value());
+    expect($measured instanceof Plan ? $measured->briefing()->peak() : $measured)->toEqual(MemoryCap::of(200, MemoryUnit::Megabytes))
+        ->and($uncounted instanceof Plan ? $uncounted->briefing()->peak() : $uncounted)->toEqual(NotGiven::value())
+        ->and($handed instanceof Plan ? $handed->briefing()->peak() : $handed)->toEqual(NotGiven::value());
 });
 
 it('plans a map another job wrote, whatever this job\'s processes held', function () use ($cappedPlan): void {
@@ -366,7 +381,7 @@ it('leaves the whole map, in CI and out, where every shard and a later local com
         Flows::adapters($ci, ['CI' => 'true'], new CoverageAsked(RunnerFake::ofTheFixture(), $map)),
         Flows::settings(),
         Flows::setup(),
-    )->plan(Mode::full(), CoverageRun::of(WholeSuite::tests(), Workspace::coverage()), Cut::exactly(1));
+    )->plan(Mode::full(), CoverageRun::of(WholeSuite::tests(), Workspace::coverage()), Cut::exactly(1), MatrixKind::FirstKiller);
 
     expect(file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $local)))->toBe(CoverageMapFile::encode($map))
         ->and(file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $ci)))->toBe(CoverageMapFile::encode($map));
@@ -449,6 +464,55 @@ it('drops every unit a proof with a matching key covers, and carries what the ch
         ->and($scoped instanceof Plan ? $scoped->base() : $scoped)->toEqual($base)
         ->and($scoped instanceof Plan ? $scoped->keys()->units() : $scoped)
         ->toEqual(Paths::of(Path::of('src/Money.php')));
+});
+
+it('proves and carries a run that records every killer only from proofs whose runs recorded every killer, and says so in the plan', function () use (
+    $plan,
+    $recordingPlan,
+    $shards,
+    $money,
+    $held,
+): void {
+    $project = Flows::project();
+    $full = $plan($project, Mode::full(), Cut::exactly(1));
+    $key = $full instanceof Plan ? $full->keys()->keyOf(Path::of('src/Money.php')) : $full;
+    $base = $full instanceof Plan ? $full->base() : Digest::of('none');
+    $store = static function (MatrixKind $recorded) use ($key, $base): ProofStoreFake {
+        $run = Run::of('local', Moment::at('2026-09-30T10:00:00Z'), $base)->recording($recorded);
+        $store = new ProofStoreFake();
+        $store->write(Scope::branch('main'), Ledger::empty()
+            ->withProof(Proof::of($key instanceof Digest ? $key : Digest::of('none'), Path::of('src/Money.php'), Mutants::none(), $run))
+            ->withProof(Proof::of(Digest::of('old'), Path::of('src/Held.php'), Mutants::none(), $run)));
+
+        return $store;
+    };
+    $checkout = static fn(): ChangeSourceFake => new ChangeSourceFake(
+        Revision::ref('base'),
+        Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(2)))),
+        [Revision::workingTree()->name() => Flows::FILES, 'base' => Flows::FILES],
+    );
+    $fromFirst = $recordingPlan($project, Mode::since('base'), MatrixKind::Full, $store(MatrixKind::FirstKiller), $checkout());
+    $fromFull = $recordingPlan($project, Mode::since('base'), MatrixKind::Full, $store(MatrixKind::Full), $checkout());
+    $firstFromFull = $recordingPlan($project, Mode::since('base'), MatrixKind::FirstKiller, $store(MatrixKind::Full), $checkout());
+
+    expect($shards($fromFirst))->toEqual([1 => [$money, $held]])
+        ->and($fromFirst instanceof Plan ? $fromFirst->considered()->proved() : $fromFirst)->toEqual(Units::none())
+        ->and($fromFirst instanceof Plan ? $fromFirst->considered()->carried() : $fromFirst)->toEqual(Units::none())
+        ->and($fromFirst instanceof Plan ? $fromFirst->briefing()->matrix() : $fromFirst)->toBe(MatrixKind::Full)
+        ->and($fromFull instanceof Plan ? $fromFull->considered()->proved() : $fromFull)->toEqual(Units::of($money))
+        ->and($fromFull instanceof Plan ? $fromFull->considered()->carried() : $fromFull)->toEqual(Units::of($held))
+        ->and($firstFromFull instanceof Plan ? $firstFromFull->considered()->proved() : $firstFromFull)->toEqual(Units::of($money))
+        ->and($firstFromFull instanceof Plan ? $firstFromFull->briefing()->matrix() : $firstFromFull)->toBe(MatrixKind::FirstKiller);
+});
+
+it('refuses a run that records every killer under a runner that cannot, and plans one that records first killers', function () use (
+    $recordingPlan,
+): void {
+    $infection = RunnerFake::ofTheFixture()->behaving(RunnerBehaviour::standard()->stoppingAtFirstKiller(NotFull::Infection));
+
+    expect($recordingPlan(Flows::project(), Mode::full(), MatrixKind::Full, $infection))->toEqual(CannotJudge::because(
+        'A full kill matrix needs Infection to keep running after a failure, which it cannot.',
+    ))->and($recordingPlan(Flows::project(), Mode::full(), MatrixKind::FirstKiller, $infection))->toBeInstanceOf(Plan::class);
 });
 
 it('cannot plan where the units cannot be found, the coverage taken or the run keyed', function (
@@ -581,7 +645,7 @@ it('plans with the runner\'s own markers where ignores.native allows them, or wi
         Flows::adapters(Flows::project(), [], $runner),
         Flows::settings(Ignores::allowingNativeMarkers()),
         Flows::setup(),
-    )->plan(Mode::full(), CoverageRun::of(WholeSuite::tests(), Workspace::coverage()), Cut::exactly(1));
+    )->plan(Mode::full(), CoverageRun::of(WholeSuite::tests(), Workspace::coverage()), Cut::exactly(1), MatrixKind::FirstKiller);
 
     expect($planned)->toBeInstanceOf(Plan::class);
 })->with([

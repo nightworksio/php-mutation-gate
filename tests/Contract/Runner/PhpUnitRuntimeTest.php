@@ -16,9 +16,12 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Order\KillSearch;
+use NightWorksIO\MutationGate\Core\Order\Ordering;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
@@ -57,7 +60,7 @@ function isPhpUnitLibraryInstalled(): bool
 /**
  * One mutant of a library file, the nth the mutator makes, judged by these of
  * the library's tests, in the order given, by a PHPUnit that inherits these
- * variables besides the gate's.
+ * variables besides the gate's, recording this much of the kill matrix.
  *
  * @param list<string>          $covering
  * @param array<string, string> $inherited
@@ -69,6 +72,7 @@ function judgedByPhpUnit(
     array $covering,
     float $limit = 30.0,
     array $inherited = [],
+    MatrixKind $matrix = MatrixKind::FirstKiller,
 ): Mutant|CannotJudge {
     $project = Project::at(Tree::at(PHPUNIT_LIBRARY), Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'));
     $override = Override::writtenFor($project);
@@ -86,7 +90,7 @@ function judgedByPhpUnit(
     return new MutantRun($project, $shell, new Invocation($project, $override), new TestFiles($project), PhpUnitScan::uncapped($project), NotGiven::value())->judged(
         [...$made][$nth],
         TestIds::of(...array_map(static fn(string $test): TestId => TestId::of(sprintf('Tests\%s', $test)), $covering)),
-        MutationRequest::of(Paths::of(Path::of($file)), WholeSuite::tests()),
+        MutationRequest::of(Paths::of(Path::of($file)), WholeSuite::tests())->searching(KillSearch::of(Ordering::runner(), $matrix)),
         Seconds::of($limit),
     );
 }
@@ -142,6 +146,17 @@ it('leaves unjudged a mutant whose tests\' ids match no test', function (): void
 it('judges a mutant by the test that fails, however many risky tests run before it', function (): void {
     expect(verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Tally.php', 0, ['AaRiskySpec::addsAndChecksNothing', 'TallySpec::addsTwoAmounts'])))
         ->toBe(['killed', 'Tests\TallySpec::addsTwoAmounts']);
+})->skip(! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+
+it('names every test that kills a mutant under a full kill matrix, and the first that does otherwise', function (): void {
+    $covering = ['TallySpec::addsTwoAmounts', 'IsolatedSpec::addsInAProcessOfItsOwn'];
+    $full = verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Tally.php', 0, $covering, matrix: MatrixKind::Full));
+    $first = verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Tally.php', 0, $covering));
+
+    expect($full[0] ?? '')->toBe('killed')
+        ->and(array_slice($full, 1))->toEqualCanonicalizing(['Tests\TallySpec::addsTwoAmounts', 'Tests\IsolatedSpec::addsInAProcessOfItsOwn'])
+        ->and($first[0] ?? '')->toBe('killed')
+        ->and(array_slice($first, 1))->toHaveCount(1);
 })->skip(! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
 
 it('serves the mutant to a test PHPUnit runs in a process of its own, and names that test', function (): void {

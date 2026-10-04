@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Proof\NeverProved;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
@@ -41,6 +42,34 @@ it('keeps the proof it holds when one more proves the same key', function () use
 
     expect($proofs->with($proof('b', 'src/C.php')))->toBe($proofs)
         ->and($units($proofs->with($proof('1', 'src/A.php'))))->toBe(['src/B.php', 'src/A.php']);
+});
+
+it('takes a proof that records every killer over one under its key that records first killers', function () use ($proof, $units): void {
+    $full = static fn(string $key, string $unit): Proof => Proof::of(
+        Digest::of($key),
+        Path::of($unit),
+        Mutants::none(),
+        $proof($key, $unit)->run()->recording(MatrixKind::Full),
+    );
+    $first = Proofs::of($proof('b', 'src/B.php'));
+    $held = Proofs::of($full('b', 'src/C.php'));
+
+    expect($units(Proofs::of($proof('b', 'src/B.php'), $full('b', 'src/C.php'))))->toBe(['src/C.php'])
+        ->and($units(Proofs::of($full('b', 'src/C.php'), $proof('b', 'src/B.php'))))->toBe(['src/C.php'])
+        ->and($units(Proofs::of($full('b', 'src/C.php'), $full('b', 'src/D.php'))))->toBe(['src/C.php'])
+        ->and($units($first->with($full('b', 'src/C.php'))))->toBe(['src/C.php'])
+        ->and($held->with($proof('b', 'src/B.php')))->toBe($held)
+        ->and($held->with($full('b', 'src/D.php')))->toBe($held)
+        ->and($units($first))->toBe(['src/B.php']);
+});
+
+it('keeps, of its proofs, those that record what a run of a kind asks for', function () use ($proof, $units): void {
+    $full = Proof::of(Digest::of('c'), Path::of('src/C.php'), Mutants::none(), $proof('c', 'src/C.php')->run()->recording(MatrixKind::Full));
+    $proofs = Proofs::of($proof('b', 'src/B.php'), $full);
+
+    expect($units($proofs->recording(MatrixKind::FirstKiller)))->toBe(['src/B.php', 'src/C.php'])
+        ->and($units($proofs->recording(MatrixKind::Full)))->toBe(['src/C.php'])
+        ->and($proofs)->toHaveCount(2);
 });
 
 it('adds a proof without changing the proofs it came from', function () use ($proof): void {

@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Proof;
 use ArrayObject;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\KilledRecords;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 
@@ -23,11 +24,11 @@ use function sprintf;
  */
 final readonly class ProofsRead
 {
-    private const string RAN = '%s %s %s';
+    private const string RAN = '%s %s %s %s';
 
     /**
      * @param ArrayObject<string, Path> $units each unit read so far, by its path
-     * @param ArrayObject<string, Run>  $runs  each run read so far, by its id, its time and its base
+     * @param ArrayObject<string, Run>  $runs  each run read so far, by its id, its time, its base and its matrix
      */
     private function __construct(
         private KilledRecords $killed,
@@ -59,8 +60,9 @@ final readonly class ProofsRead
     }
 
     /** A run, one for every proof it established. */
-    public function run(string $id, Instant $at, Digest $base): Run
+    public function run(string $id, Instant $at, Digest $base, MatrixKind $matrix): Run
     {
-        return $this->runs[sprintf(self::RAN, $id, $at->value(), $base->value())] ??= Run::of($id, $at, $base);
+        return $this->runs[sprintf(self::RAN, $id, $at->value(), $base->value(), $matrix->value)]
+            ??= Run::of($id, $at, $base)->recording($matrix);
     }
 }

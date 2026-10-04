@@ -129,7 +129,10 @@ final readonly class Invocation
             sprintf('--ignore=%s', $this->ignored($request->leftOut())),
             ...$this->narrowedTo($judgedBy),
             ...$this->applying($request->mutators(), $bridges),
-        )->with([GateVariable::Results->value => $results])->within($request->deadline());
+        )->with([
+            GateVariable::Results->value => $results,
+            GateVariable::KillMatrix->value => $request->search()->matrix()->value,
+        ])->within($request->deadline());
     }
 
     /**

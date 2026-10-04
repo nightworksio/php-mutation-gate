@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Plan\Considering;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
@@ -74,7 +75,7 @@ final readonly class ScoreChanging
         )->reach();
         $considering = Considering::of($inventory->units, $reach, $defaultBranch, $ledgers->own()->proofs());
         $reached = $considering->considered();
-        $proving = $ledgers->proving($reached, $keying->keysOf($reached), $keying->base());
+        $proving = $ledgers->proving($reached, $keying->keysOf($reached), $keying->base(), MatrixKind::FirstKiller);
         $completing = Considering::of(
             $proving->toRun(),
             Reach::nothing(Packages::of($trees)),

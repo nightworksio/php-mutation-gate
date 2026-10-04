@@ -223,7 +223,7 @@ Options:
 | `--dry-run` | `init` | Print every file instead of writing it | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 | `--measure` | `doctor` | Add one coverage run: a green suite, a working driver and the hot paths | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 | `--online` | `doctor` | Also read GitHub's settings with the token: the required verdict, the fork approval policy, the schedule | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
-| `--kill-matrix=first\|full` | `run` | `full` records every test that kills each mutant, for the redundant-test report (Pest only) | [0014](.docs/decisions/0014-every-test-is-judged-by-what-it-kills.md) |
+| `--kill-matrix=first\|full` | `plan`, `run` | `full` records every test that kills each mutant, for the redundant-test report (Pest and the PHPUnit runner) | [0014](.docs/decisions/0014-every-test-is-judged-by-what-it-kills.md) |
 | `--publish-dir=<dir>` | `verdict`, `run` without a plan | Where the badge and trend are written, `.mutation-gate/publish` by default | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 
 Exit codes: `0` passed, `1` failed, `2` could not judge. The last means, for
