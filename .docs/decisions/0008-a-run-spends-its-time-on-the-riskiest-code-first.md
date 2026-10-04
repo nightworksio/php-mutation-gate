@@ -326,7 +326,7 @@ presets for Laravel, Symfony and plain libraries.
    | Also decides how the gate runs (ADR-0005, rule 1) | nothing beyond the defaults | `bootstrap/**`, `config/**`, `routes/**`, `.env.testing` | `config/**`, `.env.test`, `tests/bootstrap.php` |
    | `timeouts.seconds` | 10 | 30 | 30 |
    | `newCode.floor` | 100 | 100 | 100 |
-   | `mutators.sets`, each offered (ADR-0021) | none | `laravel` | `symfony` |
+   | `mutators.sets`, each offered (ADR-0021) | `security` | `laravel`, `security` | `symfony`, `security` |
 
    Framework tests boot the application, so their covering tests are slower
    and their timeouts are longer. Paths every framework test runs through,

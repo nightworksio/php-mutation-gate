@@ -661,6 +661,8 @@ services:
                     - NAME # a mutator set's name, not the preset that turns it on
                 'NightWorksIO\MutationGateSymfony\SymfonySet':
                     - NAME # a mutator set's name, not the preset that turns it on
+                'NightWorksIO\MutationGateSecurity\SecuritySet':
+                    - NAME # a mutator set's name, not the tag its mutators carry
                 'NightWorksIO\MutationGateLaravel\Mutators\UnwrapCacheRemember':
                     - CALLBACK # where Cache::remember() takes its callback
                 'NightWorksIO\MutationGateDefault\Calls':
@@ -834,6 +836,11 @@ services:
                     - onThis # vocabulary: AbstractController's methods
                     - named # vocabulary: Symfony's and Doctrine's methods
                 'NightWorksIO\MutationGateSymfony\SymfonySet':
+                    - mutator # names: each mutator's own, which it alone spells
+                'NightWorksIO\MutationGateSecurity\Calls':
+                    - ofFunction # vocabulary: PHP's functions
+                    - unwrapped # vocabulary: PHP's functions
+                'NightWorksIO\MutationGateSecurity\SecuritySet':
                     - mutator # names: each mutator's own, which it alone spells
         tags:
             - phpstan.rules.rule

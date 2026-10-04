@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Mutator\Engine;
 
+use function array_filter;
 use function array_flip;
 use function array_key_exists;
+use function array_values;
 
 use ArrayIterator;
 
@@ -18,8 +20,10 @@ use function is_a;
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
+use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Mutator\Mutator;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
+use NightWorksIO\MutationGate\Mutator\SameChange;
 
 use function sprintf;
 
@@ -75,6 +79,28 @@ final readonly class Enabled implements Countable, IteratorAggregate
         }
 
         return self::of(MutatorSet::of(...$mutators));
+    }
+
+    /**
+     * These, less each that stands down (ADR-0021, decision 18): one that
+     * names a mutator making its change, where that mutator is among a
+     * runner's own that run, or is one of these that names none.
+     */
+    public function besides(NamedMutators $own): self
+    {
+        $names = [];
+
+        foreach ($this->mutators as $mutator) {
+            $names = $mutator instanceof SameChange ? $names : [...$names, $mutator->name()->value()];
+        }
+
+        $running = NamedMutators::of(...[...$own, ...$names]);
+
+        return new self(array_values(array_filter(
+            $this->mutators,
+            static fn(Mutator $mutator): bool => ! $mutator instanceof SameChange
+                || ! $mutator->madeAlsoBy()->meet($running),
+        )));
     }
 
     /** The gate's own engine, making mutants with these mutators. */

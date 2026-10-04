@@ -99,7 +99,7 @@
     "checks": {
       "check": "checks",
       "checks": "The manifests, the root's and each plugin's, the formatting (Pint), the static analysis (PHPStan), dead idioms (Rector), the advisories and the dependencies.",
-      "reproduce": "composer validate --strict && composer normalize --dry-run && composer validate --strict --no-check-lock plugins/default/composer.json && composer normalize --dry-run plugins/default/composer.json && composer validate --strict --no-check-lock plugins/laravel/composer.json && composer normalize --dry-run plugins/laravel/composer.json && composer validate --strict --no-check-lock plugins/symfony/composer.json && composer normalize --dry-run plugins/symfony/composer.json && composer audit --locked && composer lint && composer analyse && composer refactor && composer deps",
+      "reproduce": "composer validate --strict && composer normalize --dry-run && composer validate --strict --no-check-lock plugins/default/composer.json && composer normalize --dry-run plugins/default/composer.json && composer validate --strict --no-check-lock plugins/laravel/composer.json && composer normalize --dry-run plugins/laravel/composer.json && composer validate --strict --no-check-lock plugins/symfony/composer.json && composer normalize --dry-run plugins/symfony/composer.json && composer validate --strict --no-check-lock plugins/security/composer.json && composer normalize --dry-run plugins/security/composer.json && composer audit --locked && composer lint && composer analyse && composer refactor && composer deps",
       "fix": "composer refactor:fix && composer lint:fix && composer normalize",
       "evidence": [
         {"step": "validate", "tool": "composer-validate"},

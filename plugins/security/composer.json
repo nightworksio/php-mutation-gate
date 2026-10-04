@@ -1,0 +1,47 @@
+{
+    "name": "nightworksio/mutation-gate-security",
+    "description": "The security mutator set of NightWorksIO's mutation gate: mutants of PHP's constant-time comparisons, password checks, escaping, input filtering and session regeneration, written against the gate's mutator SDK.",
+    "license": "MIT",
+    "type": "library",
+    "keywords": [
+        "mutation testing",
+        "mutators",
+        "security"
+    ],
+    "authors": [
+        {
+            "name": "NightWorksIO",
+            "homepage": "https://nightworks.io"
+        },
+        {
+            "name": "Wessel Verheij",
+            "email": "info@nightworks.io"
+        }
+    ],
+    "homepage": "https://github.com/nightworksio/php-mutation-gate",
+    "require": {
+        "php": "^8.5",
+        "nightworksio/mutation-gate": "^1",
+        "nikic/php-parser": "^5.9"
+    },
+    "require-dev": {
+        "pestphp/pest": "^5.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "NightWorksIO\\MutationGateSecurity\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "NightWorksIO\\MutationGateSecurity\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "mutation-gate": {
+            "extensions": [
+                "NightWorksIO\\MutationGateSecurity\\SecurityExtension"
+            ]
+        }
+    }
+}

@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
+use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinusToo;
 
 it('reads every pattern that hides mutants, with the key it is under and the mutator it applies to', function (): void {
     $settings = MutatorSettings::of(Node::decode((string) json_encode([
@@ -58,6 +59,31 @@ it('turns every bridge on beside the project\'s block, and beside Infection\'s d
         ->toBe(['mutators' => sprintf('{"@arithmetic":true,"%s":true}', $bridge)])
         ->and(MutatorSettings::of(Node::decode('{}'))->narrowedTo(Mutators::all(), $bridges))
         ->toBe(['mutators' => sprintf('{"@default":true,"%s":true}', $bridge)]);
+});
+
+it('turns on no bridge to a mutator that stands down beside Infection\'s own mutators the block turns on', function (string $block, string $written): void {
+    $bridges = Bridges::to(Enabled::of(MutatorSet::of(PlusToMinusToo::class)));
+    $bridge = 'NightWorksIO\\\\MutationGateBridge\\\\Infection\\\\NightWorksIO\\\\MutationGate\\\\Tests\\\\Support\\\\Mutators\\\\PlusToMinusToo';
+
+    expect(MutatorSettings::of(Node::decode($block))->narrowedTo(Mutators::all(), $bridges))
+        ->toBe(['mutators' => sprintf($written, $bridge)]);
+})->with([
+    'the default profile, where the block names none' => ['{}', '{"@default":true}'],
+    'a profile that holds it' => ['{"@arithmetic": true}', '{"@arithmetic":true}'],
+    'it by its class' => ['{"Infection\\\\Mutator\\\\Arithmetic\\\\Plus": true}', '{"Infection\\\\Mutator\\\\Arithmetic\\\\Plus":true}'],
+    'a profile that holds it, then it turned off' => ['{"@arithmetic": true, "Plus": false}', '{"@arithmetic":true,"Plus":false,"%s":true}'],
+    'a profile that does not hold it, and a global ignore' => ['{"@boolean": true, "global-ignore": ["A"]}', '{"@boolean":true,"global-ignore":["A"],"%s":true}'],
+    'a profile Infection does not have' => ['{"@nonsense": true}', '{"@nonsense":true,"%s":true}'],
+]);
+
+it('stands no bridge down beside Infection\'s own mutators where Infection is not installed', function (): void {
+    $bridges = Bridges::to(Enabled::of(MutatorSet::of(PlusToMinusToo::class)));
+    $settings = MutatorSettings::of(Node::decode('{"@arithmetic": true}'), static fn(): bool => false);
+
+    expect($settings->narrowedTo(Mutators::all(), $bridges))->toBe(['mutators' => sprintf(
+        '{"@arithmetic":true,"%s":true}',
+        'NightWorksIO\\\\MutationGateBridge\\\\Infection\\\\NightWorksIO\\\\MutationGate\\\\Tests\\\\Support\\\\Mutators\\\\PlusToMinusToo',
+    )]);
 });
 
 it('names a bridged mutator by its bridge for a run that names it', function (): void {

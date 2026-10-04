@@ -39,18 +39,29 @@ final readonly class Presets
      * ADR-0008's table gives it, so a later preset in a list replaces each of an earlier one's.
      */
     private const array SHIPPED = [
-        BuiltinPreset::Library->value => ['fallback' => [], 'everything' => [], 'seconds' => 10, 'sets' => []],
+        BuiltinPreset::Library->value => [
+            'fallback' => [],
+            'everything' => [],
+            'seconds' => 10,
+            'sets' => ['security' => FirstPartyPackage::SecuritySet->value],
+        ],
         BuiltinPreset::Laravel->value => [
             'fallback' => ['app'],
             'everything' => ['bootstrap/**', 'config/**', 'routes/**', '.env.testing'],
             'seconds' => 30,
-            'sets' => ['laravel' => FirstPartyPackage::LaravelSet->value],
+            'sets' => [
+                'laravel' => FirstPartyPackage::LaravelSet->value,
+                'security' => FirstPartyPackage::SecuritySet->value,
+            ],
         ],
         BuiltinPreset::Symfony->value => [
             'fallback' => ['src'],
             'everything' => ['config/**', '.env.test', 'tests/bootstrap.php'],
             'seconds' => 30,
-            'sets' => ['symfony' => FirstPartyPackage::SymfonySet->value],
+            'sets' => [
+                'symfony' => FirstPartyPackage::SymfonySet->value,
+                'security' => FirstPartyPackage::SecuritySet->value,
+            ],
         ],
     ];
 

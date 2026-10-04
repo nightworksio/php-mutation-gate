@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Mutator\Mutator;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\DecrementToIncrement;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
+use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinusToo;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveEcho;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveItem;
 
@@ -130,4 +131,20 @@ it('skips nothing where every set is registered', function (): void {
     $enabled = EnabledMutators::in(enablingLookup(), Mutators::of(Listed::of('acme')));
 
     expect($enabled instanceof EnabledMutators ? $enabled->skipped() : $enabled)->toEqual(Warnings::none());
+});
+
+it('stands down beside the default set for the engine, and beside the sets the config turns on for a runner', function (): void {
+    $lookup = Lookup::in(new Extensions(Origin::of('acme/gate'))
+        ->withMutators(MutatorSet::defaultName(), MutatorSet::of(PlusToMinus::class))
+        ->withMutators(Name::of('acme'), MutatorSet::of(PlusToMinusToo::class, RemoveEcho::class))
+        ->withMutators(Name::of('acme-plus'), MutatorSet::of(PlusToMinus::class)));
+    $alone = EnabledMutators::in($lookup, Mutators::of(Listed::of('acme')));
+    $beside = EnabledMutators::in($lookup, Mutators::of(Listed::of('acme', 'acme-plus')));
+
+    expect($alone instanceof EnabledMutators ? enabledClasses($alone->forTheEngine()) : $alone)
+        ->toBe([PlusToMinus::class, RemoveEcho::class])
+        ->and($alone instanceof EnabledMutators ? enabledClasses($alone->besideTheRunners()) : $alone)
+        ->toBe([PlusToMinusToo::class, RemoveEcho::class])
+        ->and($beside instanceof EnabledMutators ? enabledClasses($beside->besideTheRunners()) : $beside)
+        ->toBe([RemoveEcho::class, PlusToMinus::class]);
 });

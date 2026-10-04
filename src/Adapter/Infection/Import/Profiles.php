@@ -19,10 +19,10 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use function str_starts_with;
 
 /**
- * Infection's mutator profiles, as the installed Infection lists them, and
- * a set of its mutators as the fewest names a gate ignore takes: each family
- * whose every mutator is in the set, then the rest by name (ADR-0016,
- * decision 4).
+ * Infection's mutator profiles, as the installed Infection lists them, the
+ * mutators a config's `mutators` block turns on, and a set of its mutators
+ * as the fewest names a gate ignore takes: each family whose every mutator
+ * is in the set, then the rest by name (ADR-0016, decision 4).
  */
 final readonly class Profiles
 {
@@ -66,6 +66,31 @@ final readonly class Profiles
         return array_key_exists($profile, $this->profiles)
             ? $this->grouped($this->mutators($profile))
             : Unmapped::NoProfile;
+    }
+
+    /**
+     * The mutators a `mutators` block turns on, by name, as Infection reads
+     * it: each profile or mutator in the block's order, turning its mutators
+     * on, or off where it is `false`.
+     *
+     * @param list<array{string, bool}> $entries each profile or mutator, and whether the block turns it on
+     *
+     * @return list<string>
+     */
+    public function on(array $entries): array
+    {
+        $on = [];
+
+        foreach ($entries as [$entry, $enabled]) {
+            $named = match (true) {
+                ! str_starts_with($entry, '@') => [$this->name($entry)],
+                array_key_exists($entry, $this->profiles) => $this->mutators($entry),
+                default => [],
+            };
+            $on = $enabled ? [...$on, ...$named] : array_diff($on, $named);
+        }
+
+        return array_values(array_unique($on));
     }
 
     /**
