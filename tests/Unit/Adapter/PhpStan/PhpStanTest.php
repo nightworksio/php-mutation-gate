@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\FakeAnalyser;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -280,4 +281,20 @@ it('cannot judge in a root that is not there, where its process never starts', f
 
 it('reads no dependents a check lists, finding them itself', function (): void {
     expect(phpstanIn(FakeAnalyser::phpstan('PHPStan - PHP Static Analysis Tool 2.2.16'))->readsDependents())->toBeFalse();
+});
+
+it('cannot judge a check that takes longer than its limit, stopping it there', function (): void {
+    $project = FakeAnalyser::phpstan('PHPStan - PHP Static Analysis Tool 2.2.16');
+    Scratch::write($project, 'vendor/bin/answer.json', '{"totals": {}, "files": {}, "errors": []}');
+    Scratch::write($project, 'src/Money.php', '<?php');
+    Scratch::write($project, 'vendor/bin/params.json', sprintf('{"paths": ["%s/src"]}', $project));
+    $phpstan = phpstanIn($project);
+    $phpstan->findings(Paths::none(), Withheld::standard());
+    Scratch::write($project, 'vendor/bin/answer.sleep', '30');
+    $started = microtime(as_float: true);
+
+    $checked = $phpstan->check(MutantCheck::of(Path::of('src/Money.php'), Path::of('/tmp/mutant.php'))->within(Seconds::of(1.0)));
+
+    expect($checked)->toEqual(CannotJudge::because('PHPStan did not finish a check in 1s.'))
+        ->and(microtime(as_float: true) - $started)->toBeLessThan(20.0);
 });

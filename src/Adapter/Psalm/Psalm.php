@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ChildProcess;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -208,14 +209,13 @@ final class Psalm implements StaticChecker
             return $sent;
         }
 
-        $server = $this->server($check->withheld(), $xml);
+        $server = $this->server($check, $xml);
 
         if (! $server instanceof LanguageServer) {
             return $server;
         }
 
-        $published = $server->analysed($sent->texts());
-        $server->restore($sent->restoring());
+        $published = $this->published($server, $sent, $check);
 
         return match (true) {
             $published instanceof CannotJudge => $published,
@@ -224,8 +224,34 @@ final class Psalm implements StaticChecker
         };
     }
 
-    /** The server, started the first time it is needed, without what is withheld; or why it could not start. */
-    private function server(Withheld $withheld, PsalmXml $xml): LanguageServer|CannotJudge
+    /**
+     * What the server publishes of the files a check sends, with their texts
+     * sent again after; or why it did not answer. A server stopped because it
+     * did not answer in time is let go, for the next check to start another.
+     *
+     * @return array<string, Node>|CannotJudge
+     */
+    private function published(LanguageServer $server, Sent $sent, MutantCheck $check): array|CannotJudge
+    {
+        $published = $server->analysed($sent->texts(), $check->limit());
+
+        if ($server->wasStopped()) {
+            $this->server = NotGiven::value();
+
+            return $published;
+        }
+
+        $server->restore($sent->restoring());
+
+        return $published;
+    }
+
+    /**
+     * The server, started the first time it is needed, and again after one
+     * stopped because it did not answer a check in time, without what is
+     * withheld and within the check's limit; or why it could not start.
+     */
+    private function server(MutantCheck $check, PsalmXml $xml): LanguageServer|CannotJudge
     {
         if ($this->server instanceof NotGiven) {
             $this->server = LanguageServer::started(
@@ -237,7 +263,8 @@ final class Psalm implements StaticChecker
                     ...self::EDITOR_ONLY,
                 ],
                 $this->root->value(),
-                Withholding::of($withheld, getenv()),
+                Withholding::of($check->withheld(), getenv()),
+                $check->limit(),
             );
         }
 

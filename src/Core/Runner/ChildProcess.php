@@ -11,7 +11,8 @@ use function sprintf;
 /**
  * A command the gate ran to its end, as the adapter that started it tells
  * it: how it exited, what it wrote on its standard output, and what it said
- * on its error output; or, where it never started, why. Adapters share no
+ * on its error output; or, where it never started, why; or that it was
+ * stopped at its limit, with what it wrote until then. Adapters share no
  * code (A3), so each starts its own process, and this is what they have in
  * common.
  */
@@ -21,19 +22,37 @@ final readonly class ChildProcess
 
     private const string NEVER_STARTED = 'it did not run: %s';
 
-    private function __construct(private int|NotGiven $exit, private string $output, private string $errors)
-    {
+    private const string STOPPED = 'it was stopped at its limit: %s';
+
+    private function __construct(
+        private int|NotGiven $exit,
+        private string $output,
+        private string $errors,
+        private bool $stopped,
+    ) {
     }
 
     public static function exited(int $exit, string $output, string $errors): self
     {
-        return new self($exit, $output, $errors);
+        return new self($exit, $output, $errors, stopped: false);
     }
 
     /** A command that never started, and why. */
     public static function neverStarted(string $why): self
     {
-        return new self(NotGiven::value(), '', $why);
+        return new self(NotGiven::value(), '', $why, stopped: false);
+    }
+
+    /** A command stopped at its limit, with what it wrote and said until then. */
+    public static function stopped(string $output, string $errors): self
+    {
+        return new self(NotGiven::value(), $output, $errors, stopped: true);
+    }
+
+    /** Whether it was stopped at its limit, before it exited. */
+    public function wasStopped(): bool
+    {
+        return $this->stopped;
     }
 
     /** How it exited, or nothing where it never started. */
@@ -63,8 +82,10 @@ final readonly class ChildProcess
     /** How it exited and what it said on its error output, or why it never started, for a message that says why. */
     public function said(): string
     {
-        return $this->exit instanceof NotGiven
-            ? sprintf(self::NEVER_STARTED, $this->errors)
-            : sprintf(self::EXITED, $this->exit, $this->errors);
+        return match (true) {
+            $this->stopped => sprintf(self::STOPPED, $this->errors),
+            $this->exit instanceof NotGiven => sprintf(self::NEVER_STARTED, $this->errors),
+            default => sprintf(self::EXITED, $this->exit, $this->errors),
+        };
     }
 }

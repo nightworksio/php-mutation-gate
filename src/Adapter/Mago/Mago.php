@@ -33,11 +33,14 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ChildProcess;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Withholding;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Port\StaticChecker;
 
 use function preg_match;
 use function sprintf;
 
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Exception\RuntimeException;
 use Symfony\Component\Process\Process;
 
@@ -130,35 +133,38 @@ final readonly class Mago implements StaticChecker
         return false;
     }
 
-    /** A mutant, where Mago analyses its original; out of scope where it does not. */
+    /**
+     * A mutant, where Mago analyses its original; out of scope where it does
+     * not. The listing and the analysis together take at most the check's
+     * limit, and a check stopped there cannot judge.
+     */
     public function check(MutantCheck $check): Findings|OutOfScope|CannotJudge
     {
-        $outside = $this->withinScope(Paths::of($check->original()), $check->withheld());
+        $limit = $check->limit();
+        $bound = $limit instanceof Seconds ? CheckLimit::from($limit) : $limit;
+        $outside = $this->withinScope(Paths::of($check->original()), $check->withheld(), $bound);
         $files = FindingFiles::under($this->root)->substituting($check);
 
         return $outside instanceof Paths ? $this->analysed($check->withheld(), $files, [
             '--substitute',
             sprintf('%s=%s', $this->absolute($check->original()), $this->absolute($check->mutant())),
-        ]) : $outside;
+        ], $bound) : $outside;
     }
 
     /**
      * These files, where Mago analyses every one of them; the first it does
      * not, or why it cannot say.
      */
-    private function withinScope(Paths $files, Withheld $withheld): Paths|OutOfScope|CannotJudge
-    {
-        $listed = $this->mago($withheld, ['list-files', '-0']);
+    private function withinScope(
+        Paths $files,
+        Withheld $withheld,
+        CheckLimit|Unlimited $limit = new Unlimited(),
+    ): Paths|OutOfScope|CannotJudge {
+        $analysed = $this->analysedFiles($withheld, $limit);
 
-        if ($listed instanceof CannotJudge || $listed->exit() !== 0) {
-            return CannotJudge::because(sprintf(
-                self::UNLISTED,
-                $listed instanceof CannotJudge ? $listed->why() : $listed->said(),
-            ));
+        if ($analysed instanceof CannotJudge) {
+            return $analysed;
         }
-
-        $names = array_filter(explode("\0", $listed->output()), static fn(string $file): bool => $file !== '');
-        $analysed = Paths::of(...array_map(Path::of(...), $names));
 
         foreach ($files as $file) {
             if (! $analysed->has($this->root->relative($this->absolute($file)))) {
@@ -167,6 +173,25 @@ final readonly class Mago implements StaticChecker
         }
 
         return $files;
+    }
+
+    /** Every file Mago analyses, as it lists them, or why it cannot say. */
+    private function analysedFiles(Withheld $withheld, CheckLimit|Unlimited $limit): Paths|CannotJudge
+    {
+        $listed = $this->mago($withheld, ['list-files', '-0'], $limit);
+
+        return match (true) {
+            $listed instanceof ChildProcess && $listed->wasStopped() && $limit instanceof CheckLimit
+                => $limit->unfinished(),
+            $listed instanceof CannotJudge || $listed->exit() !== 0 => CannotJudge::because(sprintf(
+                self::UNLISTED,
+                $listed instanceof CannotJudge ? $listed->why() : $listed->said(),
+            )),
+            default => Paths::of(...array_map(
+                Path::of(...),
+                array_filter(explode("\0", $listed->output()), static fn(string $file): bool => $file !== ''),
+            )),
+        };
     }
 
     /** Mago's name and version, as its binary says them, with the digest of the config it reads. */
@@ -190,11 +215,19 @@ final readonly class Mago implements StaticChecker
      *
      * @param list<string> $arguments
      */
-    private function analysed(Withheld $withheld, FindingFiles $files, array $arguments): Findings|CannotJudge
-    {
-        $ran = $this->mago($withheld, ['--threads=1', 'analyze', '--reporting-format=json', ...$arguments]);
+    private function analysed(
+        Withheld $withheld,
+        FindingFiles $files,
+        array $arguments,
+        CheckLimit|Unlimited $limit = new Unlimited(),
+    ): Findings|CannotJudge {
+        $ran = $this->mago($withheld, ['--threads=1', 'analyze', '--reporting-format=json', ...$arguments], $limit);
 
-        return $ran instanceof CannotJudge ? $ran : Report::of($ran, $files);
+        return match (true) {
+            $ran instanceof CannotJudge => $ran,
+            $ran->wasStopped() && $limit instanceof CheckLimit => $limit->unfinished(),
+            default => Report::of($ran, $files),
+        };
     }
 
     /**
@@ -202,8 +235,11 @@ final readonly class Mago implements StaticChecker
      *
      * @param list<string> $arguments
      */
-    private function mago(Withheld $withheld, array $arguments): ChildProcess|CannotJudge
-    {
+    private function mago(
+        Withheld $withheld,
+        array $arguments,
+        CheckLimit|Unlimited $limit = new Unlimited(),
+    ): ChildProcess|CannotJudge {
         $binary = $this->binary;
         $config = $this->config();
 
@@ -213,20 +249,31 @@ final readonly class Mago implements StaticChecker
             ...$config instanceof Path ? [sprintf('--config=%s', $this->absolute($config))] : [],
             '--colors=never',
             ...$arguments,
-        ]) : $binary;
+        ], $limit) : $binary;
     }
 
     /**
-     * A command, run to its end in the project's root without what is withheld.
+     * A command, run to its end in the project's root without what is
+     * withheld, or stopped once what is left of a check's limit has passed.
      *
      * @param list<string> $arguments
      */
-    private function ran(Withheld $withheld, array $arguments): ChildProcess
-    {
-        $process = new Process($arguments, $this->root->value(), Withholding::of($withheld, getenv()), timeout: null);
+    private function ran(
+        Withheld $withheld,
+        array $arguments,
+        CheckLimit|Unlimited $limit = new Unlimited(),
+    ): ChildProcess {
+        $process = new Process(
+            $arguments,
+            $this->root->value(),
+            Withholding::of($withheld, getenv()),
+            timeout: $limit instanceof CheckLimit ? $limit->left()->seconds() : null,
+        );
 
         try {
             return ChildProcess::exited($process->run(), $process->getOutput(), $process->getErrorOutput());
+        } catch (ProcessTimedOutException) {
+            return ChildProcess::stopped($process->getOutput(), $process->getErrorOutput());
         } catch (RuntimeException $failure) {
             return ChildProcess::neverStarted($failure->getMessage());
         }

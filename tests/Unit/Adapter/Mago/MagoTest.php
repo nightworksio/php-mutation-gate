@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\FakeAnalyser;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -161,3 +162,23 @@ it('cannot judge where its process never starts', function (): void {
 it('reads no dependents a check lists, analysing the whole workspace', function (): void {
     expect(magoIn(FakeAnalyser::mago('1.50.0', "src/Money.php\0"))->readsDependents())->toBeFalse();
 });
+
+it('cannot judge a check whose listing and analysis together take longer than its limit, stopping it there', function (
+    string $listing,
+    string $analysis,
+): void {
+    $project = FakeAnalyser::mago('1.50.0', "src/Money.php\0");
+    magoAnswers($project, '{"issues": []}', 0);
+    Scratch::write(FakeAnalyser::scripts($project), 'files.sleep', $listing);
+    Scratch::write(FakeAnalyser::scripts($project), 'answer.sleep', $analysis);
+    $started = microtime(as_float: true);
+
+    $checked = magoIn($project)->check(MutantCheck::of(Path::of('src/Money.php'), Path::of('/tmp/mutant.php'))->within(Seconds::of(2.0)));
+
+    expect($checked)->toEqual(CannotJudge::because('Mago did not finish a check in 2s.'))
+        ->and(microtime(as_float: true) - $started)->toBeLessThan(20.0);
+})->with([
+    'a listing past the limit' => ['30', '0'],
+    'an analysis past the limit' => ['0', '30'],
+    'each within the limit, but not both' => ['1.2', '1.2'],
+]);

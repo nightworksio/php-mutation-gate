@@ -255,7 +255,13 @@ needs remain, and the runners' own behaviour shapes each answer.
    - `staticCheck.config` is a path, or by default the first of the config
      files `auto` looks for. The gate hands it to the analyser it builds as
      the option `config`, which a user never sets under `with`.
-   - Both keys **affect results**, and are in key item 3 (ADR-0007
+   - `staticCheck.seconds`, an integer of at least 1, `60` by default, is
+     how long the gate waits for one check, and for Psalm's language server
+     to start. A check that takes longer is stopped, and its survivor is
+     left unchecked, with the reason *Psalm's language server did not
+     answer in 60s.*, or for Mago and PHPStan *Mago did not finish a check
+     in 60s.* and *PHPStan did not finish a check in 60s.*
+   - All three keys **affect results**, and are in key item 3 (ADR-0007
      decision 2.3). Checking one mutant pays off only when a check is fast,
      which is why Mago leads.
    - The choice never changes by itself between runs, because the analyser

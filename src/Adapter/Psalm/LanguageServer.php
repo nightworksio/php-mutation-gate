@@ -6,15 +6,19 @@ namespace NightWorksIO\MutationGate\Adapter\Psalm;
 
 use function array_key_exists;
 use function getmypid;
+use function microtime;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
 use function sprintf;
 
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Exception\RuntimeException;
 use Symfony\Component\Process\InputStream;
 use Symfony\Component\Process\Process;
@@ -31,7 +35,8 @@ use Symfony\Component\Process\Process;
  * one no server implements, which the protocol has every server answer
  * with an error. The gate answers each request the server makes with
  * nothing, and lets every other message go by. It is started once, and kept
- * running, warm, for the checks that follow.
+ * running, warm, for the checks that follow. Its start, and each check, may
+ * take as long as the gate allows one check.
  */
 final class LanguageServer
 {
@@ -40,6 +45,10 @@ final class LanguageServer
     private const string NOT_STARTED = 'Psalm\'s language server did not start (%s).';
 
     private const string ENDED = 'Psalm\'s language server ended before it answered (%s).';
+
+    /** Why a check, or the server's start, that took longer than `staticCheck.seconds` cannot judge. */
+    private const string UNANSWERED = 'Psalm\'s language server did not answer in %s.';
+
 
     private const string PUBLISHED = 'textDocument/publishDiagnostics';
 
@@ -58,6 +67,9 @@ final class LanguageServer
 
     private int $requests = 0;
 
+    /** Whether the server was stopped at a limit it did not answer within. */
+    private bool $stopped = false;
+
     /** @var array<string, int> the version of each file's text the server was last sent, by its URI */
     private array $versions = [];
 
@@ -67,9 +79,6 @@ final class LanguageServer
      *                                     version, by its URI
      */
     private array $published = [];
-
-    /** The id of the last request of the gate's the server answered; the gate awaits each before the next. */
-    private int $answered = 0;
 
     private function __construct(private readonly Process $process, private readonly InputStream $input)
     {
@@ -83,13 +92,17 @@ final class LanguageServer
 
     /**
      * The server, started in the project's root without what is withheld,
-     * and initialised; or why it is not.
+     * and initialised within this limit; or why it is not.
      *
      * @param list<string>          $command
      * @param array<string, string|false> $environment
      */
-    public static function started(array $command, string $root, array $environment): self|CannotJudge
-    {
+    public static function started(
+        array $command,
+        string $root,
+        array $environment,
+        Seconds|Unlimited $limit = new Unlimited(),
+    ): self|CannotJudge {
         $input = new InputStream();
         $process = new Process($command, $root, $environment, $input, timeout: null);
 
@@ -99,18 +112,18 @@ final class LanguageServer
             return CannotJudge::because(sprintf(self::NOT_STARTED, $failure->getMessage()));
         }
 
-        return new self($process, $input)->initialized($root);
+        return new self($process, $input)->initialized($root, $limit);
     }
 
     /**
      * What the server publishes of each of these files read with this text,
      * at the version it was sent, by its URI, for each file it analyses; or
-     * why it did not answer.
+     * why it did not answer within this limit.
      *
      * @param  array<string, string>     $texts each file's text, by its absolute path
      * @return array<string, Node>|CannotJudge
      */
-    public function analysed(array $texts): array|CannotJudge
+    public function analysed(array $texts, Seconds|Unlimited $limit = new Unlimited()): array|CannotJudge
     {
         $sent = [];
 
@@ -120,7 +133,7 @@ final class LanguageServer
         }
 
         $fence = $this->request(self::FENCE, JsonText::object([]));
-        $answered = $this->awaited(fn(): bool => $this->answered === $fence);
+        $answered = $this->awaited($fence, $limit);
 
         if ($answered instanceof CannotJudge) {
             return $answered;
@@ -149,8 +162,14 @@ final class LanguageServer
         }
     }
 
+    /** Whether the server was stopped because it did not answer within a limit, and answers nothing more. */
+    public function wasStopped(): bool
+    {
+        return $this->stopped;
+    }
+
     /** The server, once it answered its initialisation, told what the gate reads; or why not. */
-    private function initialized(string $root): self|CannotJudge
+    private function initialized(string $root, Seconds|Unlimited $limit): self|CannotJudge
     {
         $pid = getmypid();
         $params = JsonText::object([
@@ -159,7 +178,7 @@ final class LanguageServer
             'capabilities' => self::CAPABILITIES,
         ]);
         $id = $this->request('initialize', $params);
-        $answered = $this->awaited(fn(): bool => $this->answered === $id);
+        $answered = $this->awaited($id, $limit);
 
         if ($answered instanceof CannotJudge) {
             return $answered;
@@ -190,44 +209,79 @@ final class LanguageServer
         return $version;
     }
 
-    /**
-     * Read what the server says until this holds, handling each message as
-     * it comes; or why it ended first. Each read waits for what the server
-     * writes next, or its end, and takes all it wrote since the last, so
-     * what it writes is never kept past its handling.
-     *
-     * @param callable(): bool $holds
-     */
-    private function awaited(callable $holds): true|CannotJudge
+    /** The answer to this request of the gate's, within this limit, where there is one; or why not. */
+    private function awaited(int $request, Seconds|Unlimited $limit): true|CannotJudge
     {
-        while (! $holds()) {
-            $written = $this->process->getIterator(Process::ITER_SKIP_ERR);
-
-            if (! $written->valid()) {
-                return CannotJudge::because(sprintf(self::ENDED, $this->process->getErrorOutput()));
-            }
-
-            $this->read($written->current());
-        }
-
-        $this->process->clearErrorOutput();
-
-        return true;
+        return $limit instanceof Seconds ? $this->awaitedWithin($request, $limit) : $this->answered($request);
     }
 
-    /** Handle each whole message in what the server wrote, keeping what is not yet whole for the next read. */
-    private function read(string $output): void
+    /**
+     * The answer to this request of the gate's, where the server gives it
+     * within this limit; or why not. A server that does not is stopped.
+     */
+    private function awaitedWithin(int $request, Seconds $limit): true|CannotJudge
+    {
+        $this->process->setTimeout(microtime(as_float: true) - $this->process->getStartTime() + $limit->seconds());
+
+        try {
+            return $this->answered($request);
+        } catch (ProcessTimedOutException) {
+            $this->stopped = true;
+
+            return CannotJudge::because(sprintf(self::UNANSWERED, $limit->written()));
+        } finally {
+            $this->process->setTimeout(null);
+        }
+    }
+
+    /**
+     * Read what the server says until it answers this request of the gate's,
+     * handling each message as it comes; or why it ended first. The gate
+     * awaits each request before it makes the next. Each read waits for what
+     * the server writes next, or its end, and takes all it wrote since the
+     * last, so what it writes is never kept past its handling.
+     */
+    private function answered(int $request): true|CannotJudge
+    {
+        foreach ($this->process->getIterator(Process::ITER_SKIP_ERR) as $written) {
+            if (array_key_exists($request, $this->read($written))) {
+                $this->process->clearErrorOutput();
+
+                return true;
+            }
+        }
+
+        return CannotJudge::because(sprintf(self::ENDED, $this->process->getErrorOutput()));
+    }
+
+    /**
+     * Handle each whole message in what the server wrote, keeping what is not
+     * yet whole for the next read, and say which of the gate's requests they
+     * answer.
+     *
+     * @return array<int, true> the ids of the requests answered
+     */
+    private function read(string $output): array
     {
         $frames = Frames::read(sprintf('%s%s', $this->carried, $output));
         $this->carried = $frames->rest();
+        $answered = [];
 
         foreach ($frames->bodies() as $body) {
-            $this->handled(Node::decode($body));
+            $answered += $this->handled(Node::decode($body));
         }
+
+        return $answered;
     }
 
-    /** Keep what a message says the gate waits for, and answer a request of the server's with nothing. */
-    private function handled(Node $message): void
+    /**
+     * Keep what a message says the gate waits for, answer a request of the
+     * server's with nothing, and say the id of a request of the gate's that
+     * the message answers.
+     *
+     * @return array<int, true>
+     */
+    private function handled(Node $message): array
     {
         $method = Lenient::text($message->field('method'));
         $id = $message->field('id');
@@ -235,7 +289,7 @@ final class LanguageServer
         if ($method === self::PUBLISHED) {
             $this->keptPublished($message->field('params'));
 
-            return;
+            return [];
         }
 
         if ($method !== '' && $id->isPresent()) {
@@ -245,12 +299,10 @@ final class LanguageServer
                 'result' => 'null',
             ]));
 
-            return;
+            return [];
         }
 
-        if ($id->kind() === Kind::Integer) {
-            $this->answered = Lenient::integer($id);
-        }
+        return $id->kind() === Kind::Integer ? [Lenient::integer($id) => true] : [];
     }
 
     private function keptPublished(Node $params): void

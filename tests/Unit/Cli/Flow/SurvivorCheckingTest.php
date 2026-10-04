@@ -98,17 +98,21 @@ function checkedByOneReadingDependents(string $project, array $answers): Recordi
     );
 }
 
-/** The checks, in a project, by this analyser, of this runner's mutants, with the time a budget leaves. */
+/**
+ * The checks, in a project, by this analyser, of this runner's mutants, with
+ * the time a budget leaves, each check allowed these seconds.
+ */
 function checking(
     string $project,
     RecordingChecker|NoAnalyser $checker,
     ScriptedRunner $runner,
     Deadline|Unlimited $deadline,
     ClockInterface $clock = new TickingClock('2026-01-01T00:00:00Z', 1),
+    int $perCheck = 60,
 ): SurvivorChecking {
     $ports = $checker instanceof RecordingChecker ? [$runner, $checker] : [$runner];
 
-    return new SurvivorChecking(Flows::adapters($project, [], ...$ports), $clock, $deadline);
+    return new SurvivorChecking(Flows::adapters($project, [], ...$ports), $clock, $deadline, Seconds::of((float) $perCheck));
 }
 
 /** @return list<string> each warning the checks raise */
@@ -186,11 +190,11 @@ it('lists the files a survivor can break where it changes what its file declares
     $unread = checkedBy($project, []);
     $clock = new TickingClock('2026-01-01T00:00:00Z', 1);
 
-    new SurvivorChecking(Flows::adapters($project, [], ScriptedRunner::fixture(), $bodies, $checkout), $clock, Unlimited::time())
+    new SurvivorChecking(Flows::adapters($project, [], ScriptedRunner::fixture(), $bodies, $checkout), $clock, Unlimited::time(), Seconds::of(60.0))
         ->checked(checkedMutants(), MutantIds::none());
-    new SurvivorChecking(Flows::adapters($project, [], $retyped, $declarations, $checkout), $clock, Unlimited::time())
+    new SurvivorChecking(Flows::adapters($project, [], $retyped, $declarations, $checkout), $clock, Unlimited::time(), Seconds::of(60.0))
         ->checked(checkedMutants(), MutantIds::none());
-    new SurvivorChecking(Flows::adapters($project, [], $retyped, $unread, $checkout), $clock, Unlimited::time())
+    new SurvivorChecking(Flows::adapters($project, [], $retyped, $unread, $checkout), $clock, Unlimited::time(), Seconds::of(60.0))
         ->checked(checkedMutants(), MutantIds::none());
 
     expect($bodies->dependents())->toBe([[], []])
@@ -224,7 +228,7 @@ it('reads what a printed survivor declares against its file printed, not as the 
     ]);
     $checkout = new ChangeSourceFake(Revision::ref('base'), Changes::none(), [Revision::workingTree()->name() => $files]);
 
-    new SurvivorChecking(Flows::adapters($project, [], $printed, $checker, $checkout), new TickingClock('2026-01-01T00:00:00Z', 1), Unlimited::time())
+    new SurvivorChecking(Flows::adapters($project, [], $printed, $checker, $checkout), new TickingClock('2026-01-01T00:00:00Z', 1), Unlimited::time(), Seconds::of(60.0))
         ->checked($mutants, MutantIds::none());
 
     expect($checker->dependents())->toBe([[], []]);
@@ -454,4 +458,16 @@ it('leaves a survivor unchecked where its code cannot be written for its check',
 
     expect(checkedWarnings($checked))->toBe([$unwritten('src/Money.php'), $unwritten('src/Held.php')])
         ->and($checker->checks())->toBe([]);
+});
+
+it('allows each check, of the original as printed and of the mutant, the seconds staticCheck.seconds sets', function (): void {
+    $project = Scratch::directory();
+    $checker = checkedBy($project, []);
+    $printed = ScriptedRunner::fixture()->checking(Checkable::printed(Contents::of('<?php // printed'), Contents::of('<?php // mutant')));
+
+    checking($project, $checker, $printed, Unlimited::time(), perCheck: 45)->checked(checkedMutants(), MutantIds::none());
+
+    expect($checker->limits())->not->toBeEmpty()
+        ->and($checker->limits())->each->toEqual(Seconds::of(45.0))
+        ->and(count($checker->limits()))->toBe(count($checker->checks()));
 });

@@ -27,3 +27,12 @@ it('says why a command never started, and that it did not run', function (): voi
         'it did not run: The provided cwd "/nowhere" does not exist.',
     ]);
 });
+
+it('was stopped at its limit, with what it wrote until then, and says so', function (): void {
+    $stopped = ChildProcess::stopped('{"half', 'analysing');
+
+    expect([$stopped->wasStopped(), $stopped->exit(), $stopped->output(), $stopped->succeeded(), $stopped->said()])
+        ->toEqual([true, NotGiven::value(), '{"half', false, 'it was stopped at its limit: analysing'])
+        ->and(ChildProcess::exited(1, '', '')->wasStopped())->toBeFalse()
+        ->and(ChildProcess::neverStarted('no binary')->wasStopped())->toBeFalse();
+});

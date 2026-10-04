@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Port\StaticChecker;
 use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 
@@ -37,6 +39,9 @@ final class RecordingChecker implements StaticChecker
 
     /** @var list<list<string>> the dependents each check listed */
     private array $dependents = [];
+
+    /** @var list<Seconds|Unlimited> */
+    private array $limits = [];
 
     public function __construct(private readonly StaticCheckerFake $answers, private readonly string $project)
     {
@@ -73,6 +78,7 @@ final class RecordingChecker implements StaticChecker
             is_file($file) ? sprintf('%s', file_get_contents($file)) : '',
         ];
         $this->dependents[] = array_map(static fn(Path $dependent): string => $dependent->value(), [...$check->dependents()]);
+        $this->limits[] = $check->limit();
 
         return $this->answers->check($check);
     }
@@ -93,5 +99,11 @@ final class RecordingChecker implements StaticChecker
     public function dependents(): array
     {
         return $this->dependents;
+    }
+
+    /** @return list<Seconds|Unlimited> how long each check was allowed, in order */
+    public function limits(): array
+    {
+        return $this->limits;
     }
 }

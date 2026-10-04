@@ -16,7 +16,8 @@ use function sprintf;
  * says the version it is given for `--version`, lists the files it is given
  * for `list-files`, dumps the parameters it is given for `dump-parameters`,
  * or else `src` under the project as PHPStan's one path, and otherwise writes the answer it is given and exits as
- * told, keeping the arguments it was run with in `argv.txt` beside it.
+ * told, keeping the arguments it was run with in `argv.txt` beside it. `files.sleep` and `answer.sleep` make it
+ * wait that many seconds before it lists or answers.
  */
 final readonly class FakeAnalyser
 {
@@ -51,9 +52,11 @@ final readonly class FakeAnalyser
             exit((int) $said('params.exit'));
         }
         if (in_array('list-files', $arguments, true)) {
+            usleep((int) ((float) $said('files.sleep') * 1000000));
             echo $said('files.txt');
             exit((int) $said('files.exit'));
         }
+        usleep((int) ((float) $said('answer.sleep') * 1000000));
         echo $said('answer.json');
         fwrite(STDERR, $said('answer.err'));
         exit((int) $said('answer.exit'));
@@ -71,9 +74,10 @@ final readonly class FakeAnalyser
      * the protocol gives one it does not implement. It writes to its error
      * stream as it starts. `server.mode` makes it end at once (`ends`), end
      * once a file is sent, saying it gave up (`ends-on-file`), publish each
-     * file with the version before the one it read (`stale`), or frame each
+     * file with the version before the one it read (`stale`), frame each
      * message with its `Content-Length` alone, as the protocol allows
-     * (`bare`).
+     * (`bare`), never answer `initialize` (`mute-start`), or never answer a
+     * `$/` request (`mute`).
      */
     private const string SERVER = <<<'PHP'
         <?php
@@ -105,10 +109,12 @@ final readonly class FakeAnalyser
                 fwrite(STDERR, 'starting');
                 $send(['method' => 'window/logMessage', 'params' => ['type' => 3, 'message' => 'Starting']]);
                 $send(['id' => 'ask', 'method' => 'workspace/configuration', 'params' => ['items' => []]]);
-                $send(['id' => $message['id'], 'result' => ['capabilities' => []]]);
+                if ($mode !== 'mute-start') {
+                    $send(['id' => $message['id'], 'result' => ['capabilities' => []]]);
+                }
                 $send(['method' => 'telemetry/event', 'params' => ['type' => 3, 'message' => 'running']]);
             }
-            if (str_starts_with($method, '$/')) {
+            if (str_starts_with($method, '$/') && $mode !== 'mute') {
                 $send(['id' => $message['id'], 'error' => ['code' => -32601, 'message' => "Method $method is not implemented"]]);
             }
             if ($method === 'textDocument/didOpen' || $method === 'textDocument/didChange') {
