@@ -32,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
 use NightWorksIO\MutationGate\Core\Runner\Unmade;
@@ -119,7 +120,7 @@ $onDisk = array_diff_key($libraries, ['the fake' => true]);
 $money = static fn(Library $library): MutationResult|CannotJudge => $library->mutate(
     'money',
     MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
-        ->narrowedTo(Paths::of(Path::of('src/Money.php')), $library->mutators('adds', 'large', 'unused', 'drains')),
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('adds', 'large', 'unused', 'drains'))),
 );
 
 /** @return list<string> */
@@ -209,7 +210,7 @@ it('measures each mutant it ran, and gives a timed-out one its limit', function 
 
 it('reports only the files it was asked for, less the paths left out', function (Library $library) use ($files): void {
     $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())
-        ->narrowedTo(Paths::of(Path::of('src')), $library->mutators('adds'));
+        ->narrowedTo(Paths::of(Path::of('src')), Narrowing::none()->toMutators($library->mutators('adds')));
     $everything = $library->mutate('src', $request);
     $leftOut = $library->mutate('src less held', $request->leavingOut(Paths::of(Path::of('src/Held.php'))));
 
@@ -231,7 +232,7 @@ it('gives every mutant an id of its own in the gate\'s spelling', function (Libr
 
 it('judges a held path by its group alone, where a test outside it would kill it', function (Library $library): void {
     $request = MutationRequest::of(Paths::of(Path::of('src/Held.php')), Group::named('holds:src/Held.php'))
-        ->narrowedTo(Paths::of(Path::of('src/Held.php')), $library->mutators('held'));
+        ->narrowedTo(Paths::of(Path::of('src/Held.php')), Narrowing::none()->toMutators($library->mutators('held')));
     $result = $library->mutate('held', $request);
 
     $records = $result instanceof MutationResult ? Library::records($result->mutants()) : [];
@@ -518,7 +519,7 @@ it('times a run of no test that loads no test file, through the mutant\'s wrappe
 it('judges a held path by the tests its #[Holds] filter names, with Infection', function (): void {
     $library = Library::infection(Seconds::of(10.0));
     $request = MutationRequest::of(Paths::of(Path::of('src/Held.php')), Filter::matching('HeldSpec'))
-        ->narrowedTo(Paths::of(Path::of('src/Held.php')), $library->mutators('held'));
+        ->narrowedTo(Paths::of(Path::of('src/Held.php')), Narrowing::none()->toMutators($library->mutators('held')));
     $result = $library->mutate('held by filter', $request);
 
     expect($result instanceof MutationResult ? Library::records($result->mutants()) : $result)
@@ -549,7 +550,7 @@ it('judges a mutant on a method\'s signature by the map the planning job handed 
         CoverageMapFile::encode($planned instanceof CoverageMap ? $planned : CoverageMap::empty()),
     );
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
-        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Mutators::named('PublicVisibility'));
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators(Mutators::named('PublicVisibility')));
     $own = $library->mutate('signatures', $request);
     $reused = $library->mutate('signatures reused', $request->reusingCoverage(Handed::maps($handedOver, $handedOver)));
     $killed = [];
@@ -583,7 +584,7 @@ it('names the test that killed a mutant, as the coverage map names it, with Pest
 it('reports a mutant Infection skips, allowed the cap, and judges it when run again at a higher cap', function (): void {
     $library = Library::infection(Seconds::of(1.0));
     $request = MutationRequest::of(Paths::of(Path::of('src/Slow.php')), WholeSuite::tests())
-        ->narrowedTo(Paths::of(Path::of('src/Slow.php')), Mutators::named('Minus'));
+        ->narrowedTo(Paths::of(Path::of('src/Slow.php')), Narrowing::none()->toMutators(Mutators::named('Minus')));
     $result = $library->mutate('slow', $request);
     $skipped = $result instanceof MutationResult ? $result->mutants() : Mutants::none();
     $limits = array_map(
@@ -604,7 +605,7 @@ it('reports a mutant Infection skips, allowed the cap, and judges it when run ag
 it('allows a mutant Infection times out five seconds and five times its tests\' time, and runs it again only at the cap', function (): void {
     $library = Library::infection(Seconds::of(10.0));
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
-        ->narrowedTo(Paths::of(Path::of('src/Money.php')), $library->mutators('drains'));
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('drains')));
     $result = $library->mutate('drains', $request);
     $timedOut = $result instanceof MutationResult ? $result->mutants() : Mutants::none();
     $limits = array_map(
@@ -621,7 +622,7 @@ it('allows a mutant Infection times out five seconds and five times its tests\' 
 it('leaves a mutant unjudged, naming the test, when Pest\'s filter cannot select a covering test', function (): void {
     $library = Library::pest(Patching::off());
     $request = MutationRequest::of(Paths::of(Path::of('src/Legacy.php')), WholeSuite::tests())
-        ->narrowedTo(Paths::of(Path::of('src/Legacy.php')), $library->mutators('unused'));
+        ->narrowedTo(Paths::of(Path::of('src/Legacy.php')), Narrowing::none()->toMutators($library->mutators('unused')));
     $result = $library->mutate('legacy', $request);
     $mutants = $result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false) : [];
 
@@ -645,7 +646,7 @@ it('opens a patched shard on the canary group and reads the map the planning job
         CoverageMapFile::encode($map instanceof CoverageMap ? $map : CoverageMap::empty()),
     );
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
-        ->narrowedTo(Paths::of(Path::of('src/Money.php')), $library->mutators('adds', 'large'))
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('adds', 'large')))
         ->reusingCoverage(Handed::maps(Path::of('.mutation-gate/planned'), Path::of('.mutation-gate/planned')));
     $result = $library->mutate('shared', $request);
 
@@ -690,7 +691,7 @@ it('narrows a mutant\'s own run over a test that needs another test file, loaded
             CoverageMapFile::encode($map instanceof CoverageMap ? $map : CoverageMap::empty()),
         );
         $result = $runner->mutate(MutationRequest::of(Paths::of(Path::of('src/Reach.php')), WholeSuite::tests())
-            ->narrowedTo(Paths::of(Path::of('src/Reach.php')), Mutators::named(PlusToMinus::class))
+            ->narrowedTo(Paths::of(Path::of('src/Reach.php')), Narrowing::none()->toMutators(Mutators::named(PlusToMinus::class)))
             ->reusingCoverage(Handed::maps(Path::of('.mutation-gate/reach'), Path::of('.mutation-gate/reach'))));
     } finally {
         array_map(static fn(string $file): bool => unlink(sprintf('%s/%s', $into, $file)), $files);
@@ -741,7 +742,7 @@ it('hands each mutant\'s own run the test files its covering tests need as paths
 
     try {
         $result = $library->runner()->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
-            ->narrowedTo(Paths::of(Path::of('src/Money.php')), $library->mutators('large'))
+            ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('large')))
             ->reusingCoverage(Handed::maps(Path::of('.mutation-gate/planned'), Path::of('.mutation-gate/planned'))));
     } finally {
         unset($_ENV['CONTRACT_ARGV']);
@@ -772,7 +773,7 @@ it('runs again, patched, only the mutants the file it hands over names, on the m
         CoverageMapFile::encode($map instanceof CoverageMap ? $map : CoverageMap::empty()),
     );
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
-        ->narrowedTo(Paths::of(Path::of('src/Money.php')), $library->mutators('adds', 'large'))
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('adds', 'large')))
         ->reusingCoverage(Handed::maps(Path::of('.mutation-gate/planned'), Path::of('.mutation-gate/planned')));
     $result = $library->mutate('shared', $request);
     $survivors = Mutants::none();

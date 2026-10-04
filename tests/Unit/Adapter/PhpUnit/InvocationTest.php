@@ -10,9 +10,13 @@ use NightWorksIO\MutationGate\Adapter\PhpUnit\Variable;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
+use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -99,3 +103,21 @@ it('leaves the test run history as it was with the option the installed PHPUnit 
     'PHPUnit 13.3 on, which deprecates --do-not-cache-result' => ['13.3.0', '--do-not-record-test-run-history', '--do-not-cache-result'],
     'PHPUnit before 13.3, which has no --do-not-record-test-run-history' => ['13.2.0', '--do-not-cache-result', '--do-not-record-test-run-history'],
 ]);
+
+it('keeps the coverage run and each mutant\'s run to one suite where the run names one', function () use ($project): void {
+    $at = $project();
+    $files = MutantFiles::startingUp($at, Path::of('src/Money.php'));
+    $invocation = new Invocation($at, '/gate/override.php');
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
+    $suited = $request->narrowedTo($request->files(), Narrowing::none()->toSuite(SuiteName::of('unit')));
+    $run = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
+    $mutant = static fn(MutationRequest $asked): array => $files instanceof MutantFiles
+        ? $invocation->of($files, $asked, Seconds::of(10.0))->arguments()
+        : [];
+
+    expect($mutant($suited))->toContain('--testsuite=unit')
+        ->and($mutant($request))->not->toContain('--testsuite=unit')
+        ->and(array_slice($invocation->coverage($run->inSuite(SuiteName::of('unit')), '/map.php')->arguments(), -1))
+        ->toBe(['--testsuite=unit'])
+        ->and($invocation->coverage($run, '/map.php')->arguments())->not->toContain('--testsuite=unit');
+});

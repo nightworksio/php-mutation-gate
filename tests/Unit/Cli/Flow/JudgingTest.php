@@ -99,12 +99,14 @@ use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Removal\Removable;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Score\Unraised;
 use NightWorksIO\MutationGate\Core\Test\DeclaredSuite;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestName;
@@ -1728,7 +1730,7 @@ it('holds only the security sets in a run of the security mutators alone, exempt
         ->security(NewCodeFloor::of(0)));
     $verdict = judgingVerdictOf($judged(
         Planned::twoShards(),
-        Flows::adapters(Flows::project(), [], $store, $tree(Floor::of(100)), NamedMutators::of('Plus'), Mutators::named('Plus')),
+        Flows::adapters(Flows::project(), [], $store, $tree(Floor::of(100)), NamedMutators::of('Plus'), Narrowing::none()->toMutators(Mutators::named('Plus'))),
         $settings,
         $reporting(new ReporterFake()),
     ));
@@ -1741,6 +1743,59 @@ it('holds only the security sets in a run of the security mutators alone, exempt
         ->and([...$verdict->sets()->security()][0]->mutants())->toHaveCount(2)
         ->and([...$verdict->sets()->newCode()])->toBe([])
         ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->lastPassed())->toBeInstanceOf(CannotTell::class);
+});
+
+it('holds no floor in a run of one suite\'s tests alone, exempting each tree and security set and recording no pass', function () use (
+    $tree,
+    $reporting,
+    $judged,
+): void {
+    $store = new ProofStoreFake();
+    $settings = Configs::built(Gate::configure()
+        ->runner(ConfiguredRunner::uses('fake'))
+        ->reporting(Report::uses('recorded'))
+        ->security(NewCodeFloor::of(100))
+        ->newCode(NewCodeFloor::of(100)));
+    $judgement = $judged(
+        Planned::twoShards()->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main'))),
+        Flows::adapters(Flows::project(), ['CI' => 'true'], $store, $tree(Floor::of(100)), NamedMutators::of('Plus'), Narrowing::none()->toSuite(SuiteName::of('unit'))),
+        $settings,
+        $reporting(new ReporterFake()),
+    );
+    $verdict = judgingVerdictOf($judgement);
+    $sets = [...$verdict->sets()->security()];
+
+    expect($verdict->judgement())->toBe(Judgement::Passed)
+        ->and($judgement instanceof Judged ? $judgement->exitCode() : $judgement)->toBe(ExitCode::Passed)
+        ->and([...$verdict->trees()][0]->floor())->toEqual(Exempt::because('--suite judges no floor'))
+        ->and($sets[0]->floor())->toEqual(Exempt::because('--suite judges no floor'))
+        ->and($sets[0]->raised())->toBeInstanceOf(Unraised::class)
+        ->and([...$verdict->sets()->newCode()])->toBe([])
+        ->and(LedgerRead::ledger($store->read(Scope::pullRequest(7)))->lastPassed())->toBeInstanceOf(CannotTell::class);
+});
+
+it('holds the security sets in a run of one suite\'s tests and the security mutators alone', function () use (
+    $tree,
+    $reporting,
+    $judged,
+): void {
+    $settings = Configs::built(Gate::configure()
+        ->runner(ConfiguredRunner::uses('fake'))
+        ->reporting(Report::uses('recorded'))
+        ->security(NewCodeFloor::of(60)));
+    $narrowing = Narrowing::none()->toMutators(Mutators::named('Plus'))->toSuite(SuiteName::of('unit'));
+    $verdict = judgingVerdictOf($judged(
+        Planned::twoShards(),
+        Flows::adapters(Flows::project(), [], $tree(Floor::of(100)), NamedMutators::of('Plus'), $narrowing),
+        $settings,
+        $reporting(new ReporterFake()),
+    ));
+    $sets = [...$verdict->sets()->security()];
+
+    expect($verdict->judgement())->toBe(Judgement::Failed)
+        ->and([...$verdict->trees()][0]->floor())->toEqual(Exempt::because('--security judges only the security sets'))
+        ->and($sets[0]->floor())->toEqual(Floor::of(60))
+        ->and($sets[0]->judgement())->toBe(Judgement::Failed);
 });
 
 it('warns of a security set held to no floor outside CI', function () use ($tree, $reporting, $judged): void {

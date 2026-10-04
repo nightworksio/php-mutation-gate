@@ -85,7 +85,10 @@ final readonly class Rerunning
         MutationRequest $request,
         Seconds $limit,
     ): Reproduction|CannotJudge {
-        $request = $request->narrowedTo(Paths::of($mutant->file()), Mutators::named($mutant->mutator()));
+        $request = $request->narrowedTo(
+            Paths::of($mutant->file()),
+            $request->narrowing()->toMutators(Mutators::named($mutant->mutator())),
+        );
         $prepared = $this->prepared($request);
         $shell = Transcribing::over($this->shell);
         $result = $prepared instanceof Prepared
@@ -144,8 +147,9 @@ final readonly class Rerunning
             $this->analysis,
             $this->bridges,
         );
-        $result = $run
-            ->of($request->narrowedTo(Paths::of($file), Mutators::named($mutator)), $prepared->coverage, $limit);
+        $narrowing = $request->narrowing()->toMutators(Mutators::named($mutator));
+        $narrowed = $request->narrowedTo(Paths::of($file), $narrowing);
+        $result = $run->of($narrowed, $prepared->coverage, $limit);
 
         return $result instanceof CannotJudge ? $result : $result->mutants();
     }

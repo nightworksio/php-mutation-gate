@@ -60,6 +60,7 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
@@ -630,7 +631,7 @@ it('runs the mutants again in one run of their files with their mutators, naming
     $invocation = MutationRequest::of(Paths::of(Path::of('src'), Path::of('lib')), WholeSuite::tests())
         ->leavingOut(Paths::of(Path::of('src/Held')))
         ->within(Seconds::of(42.0));
-    $request = $invocation->narrowedTo(Paths::of(Path::of('src/Money.php'), Path::of('src/Held.php')), Mutators::named(RUN_PLUS));
+    $request = $invocation->narrowedTo(Paths::of(Path::of('src/Money.php'), Path::of('src/Held.php')), Narrowing::none()->toMutators(Mutators::named(RUN_PLUS)));
     $retried = new Pest($at, $shell, Patching::off(), new CapDirectory())
         ->retry($invocation, Mutants::of($survivor, $gone, $elsewhere), Seconds::of(20.0));
     $notFound = Reason::that('Run again alone, Pest made no mutant with this id.');
@@ -659,7 +660,7 @@ it('runs mutants again on the canary group, reading the map the planning job han
 
     expect($retried)->toEqual(Mutants::of(adapterMutant()))
         ->and($shell->commands()[1] ?? null)->toEqual(adapterInvocation()->mutation(
-            $invocation->narrowedTo(Paths::of(Path::of('src/Money.php')), Mutators::named(RUN_PLUS)),
+            $invocation->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators(Mutators::named(RUN_PLUS))),
             WholeSuite::tests(),
             adapterResults($at),
         )->with([
@@ -676,7 +677,7 @@ it('runs a held unit\'s mutant again by the group that holds it, withholding wha
     $shell = new ShellFake(static fn(Command $command): Ran => adapterKilled($command, $at));
     $holding = Group::named('holds:src/Money.php');
     $invocation = MutationRequest::of(Paths::of(Path::of('src')), $holding)->withholding(Withheld::of('DEPLOY_*'));
-    $request = $invocation->narrowedTo(Paths::of(Path::of('src/Money.php')), Mutators::named(RUN_PLUS));
+    $request = $invocation->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators(Mutators::named(RUN_PLUS)));
 
     new Pest($at, $shell, Patching::off(), new CapDirectory())->retry($invocation, Mutants::of(adapterMutant()), Seconds::of(20.0));
 
@@ -1061,7 +1062,7 @@ it('reproduces a mutant in one run of its file with only its mutator, by the tes
     $shell = new ShellFake(static fn(Command $command): Ran => adapterKilled($command, $at));
     $holding = Group::named('holds:src/Money.php');
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), $holding)
-        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Mutators::named(RUN_PLUS))
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators(Mutators::named(RUN_PLUS)))
         ->withholding(Withheld::of('DEPLOY_*'));
 
     $reproduced = new Pest($at, $shell, Patching::off(), new CapDirectory())
@@ -1117,7 +1118,7 @@ it('mutates nothing, and runs nothing, where no file is asked for', function ():
 it('mutates nothing, and runs nothing, where Pest runs none of the mutators a request names', function (): void {
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
     $bridges = Bridges::to(Enabled::of(MutatorSet::of(AcmePlusToMinus::class)));
-    $request = adapterMoney()->narrowedTo(adapterMoney()->files(), Mutators::named('default/UnwrapHtmlspecialchars'));
+    $request = adapterMoney()->narrowedTo(adapterMoney()->files(), Narrowing::none()->toMutators(Mutators::named('default/UnwrapHtmlspecialchars')));
 
     expect(new Pest(adapterProject(), $shell, Patching::off(), new CapDirectory(), bridges: $bridges)->mutate($request))
         ->toEqual(MutationResult::of(Mutants::none(), 0))

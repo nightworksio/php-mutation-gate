@@ -10,10 +10,12 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -141,10 +143,10 @@ it('mutates some files against the whole suite, over the project\'s own config, 
 
 it('mutates a tree less its held paths, by a group and some mutators, by a deadline', function (): void {
     $request = MutationRequest::of(Paths::of(Path::of('src')), Group::named('holds:src'))
-        ->narrowedTo(Paths::of(Path::of('src')), Mutators::named(
+        ->narrowedTo(Paths::of(Path::of('src')), Narrowing::none()->toMutators(Mutators::named(
             PlusToMinus::class,
             TrueToFalse::class,
-        ))
+        )))
         ->leavingOut(Paths::of(Path::of('src/Kernel.php'), Path::of('src/Boot')))
         ->across(Processes::of(8))
         ->within(Seconds::of(600.0));
@@ -251,7 +253,7 @@ it('names Pest\'s default set beside the bridges for a run of every mutator, and
     $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests());
     $every = invocation()->mutation($request, WholeSuite::tests(), '/p/r.jsonl', $bridges)->arguments();
     $some = invocation()->mutation(
-        $request->narrowedTo(Paths::of(Path::of('src')), Mutators::named('acme/PlusToMinus', TrueToFalse::class)),
+        $request->narrowedTo(Paths::of(Path::of('src')), Narrowing::none()->toMutators(Mutators::named('acme/PlusToMinus', TrueToFalse::class))),
         WholeSuite::tests(),
         '/p/r.jsonl',
         $bridges,
@@ -261,4 +263,17 @@ it('names Pest\'s default set beside the bridges for a run of every mutator, and
         ->and($some)->toContain(sprintf('--mutator=%s,%s', $bridge, TrueToFalse::class))
         ->and(invocation()->mutation($request, WholeSuite::tests(), '/p/r.jsonl')->arguments())
         ->not->toContain(sprintf('--mutator=Pest\\Mutate\\Mutators\\Sets\\DefaultSet,%s', $bridge));
+});
+
+it('keeps the coverage run and the mutation run to one suite where the run names one', function (): void {
+    $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests());
+    $suited = $request->narrowedTo($request->files(), Narrowing::none()->toSuite(SuiteName::of('unit')));
+    $run = CoverageRun::of(WholeSuite::tests(), Path::of('cov'));
+
+    expect(invocation()->mutation($suited, WholeSuite::tests(), '/p/results.jsonl')->arguments())->toContain('--testsuite=unit')
+        ->and(invocation()->mutation($request, WholeSuite::tests(), '/p/results.jsonl')->arguments())
+        ->not->toContain('--testsuite=unit')
+        ->and(array_slice(invocation()->coverage($run->inSuite(SuiteName::of('unit')), '/p/cov')->arguments(), -1))
+        ->toBe(['--testsuite=unit'])
+        ->and(invocation()->coverage($run, '/p/cov')->arguments())->not->toContain('--testsuite=unit');
 });

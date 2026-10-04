@@ -82,6 +82,12 @@ final readonly class Judging
     /** Why a passing run of the security mutators alone records no commit as passed: its trees were not judged. */
     private const string SECURITY_ONLY = 'A run of the security mutators alone records no commit as passed.';
 
+    /** Why each tree and security set of one suite's run is held to no floor (ADR-0025, decision 9). */
+    private const string UNHELD = '--suite judges no floor';
+
+    /** Why a passing run of one suite's tests alone records no commit as passed: no floor held it. */
+    private const string SUITE_ONLY = 'A run of one suite\'s tests alone records no commit as passed.';
+
     /** Why a passing verdict's commit is not recorded as passed: a run from it must still reach what it left. */
     private const string UNJUDGED = 'The run left mutants unjudged, so its commit is not recorded as passed.';
 
@@ -155,20 +161,50 @@ final readonly class Judging
         };
     }
 
-    /** The trees, each exempt in a run of the security mutators alone, which judges none of them. */
+    /**
+     * The trees, each exempt in a run of the security mutators alone, which
+     * judges none of them, and in a run of one suite's tests alone, which
+     * holds no floor.
+     */
     private function held(Trees $trees): Trees
     {
-        if (! $this->adapters->isSecurityOnly()) {
+        $why = match (true) {
+            $this->adapters->isSecurityOnly() => Exempt::because(self::UNJUDGED_TREES),
+            $this->adapters->isSuiteOnly() => Exempt::because(self::UNHELD),
+            default => NotGiven::value(),
+        };
+
+        if (! $why instanceof Exempt) {
             return $trees;
         }
 
         $exempt = Trees::none();
 
         foreach ($trees as $tree) {
-            $exempt = $exempt->with($tree->declaring(Exempt::because(self::UNJUDGED_TREES)));
+            $exempt = $exempt->with($tree->declaring($why));
         }
 
         return $exempt;
+    }
+
+    /**
+     * Each package's security set, exempt in a run of one suite's tests alone
+     * that does not make mutants with the security mutators alone, which
+     * holds no floor (ADR-0025, decision 9).
+     */
+    private function secured(SecurityVerdicts $security): SecurityVerdicts
+    {
+        if ($this->adapters->isSecurityOnly() || ! $this->adapters->isSuiteOnly()) {
+            return $security;
+        }
+
+        $exempt = [];
+
+        foreach ($security as $set) {
+            $exempt[] = $set->exempting(Exempt::because(self::UNHELD));
+        }
+
+        return SecurityVerdicts::of(...$exempt);
     }
 
     /**
@@ -220,7 +256,9 @@ final readonly class Judging
         $judged = $fresh->and($proving->proved())->and($carrying->carried())->and($unjudged->results());
         $equivalents = new StaticEquivalence($this->adapters, $this->settings)->among($judged);
         $verdicts = $this->read($matrix, $judge->judging($matrix)->proving($equivalents->proven)->trees($judged));
-        $security = $judge->security($verdicts, $this->adapters->security, $this->settings->floors()->security());
+        $security = $this->secured(
+            $judge->security($verdicts, $this->adapters->security, $this->settings->floors()->security()),
+        );
         $unfloored = count(Ratchet::unfloored($verdicts)) + count(Ratchet::securityUnfloored($security));
         $committed = $this->resolved($proving, $carrying, $this->committedBefore($plan));
 
@@ -316,7 +354,11 @@ final readonly class Judging
         KillMatrix $matrix,
     ): Verdict {
         $pullRequest = $plan->runOn()->isPullRequest();
-        $named = $this->adapters->isSecurityOnly() ? HeldTo::Security : $this->heldTo;
+        $named = match (true) {
+            $this->adapters->isSecurityOnly() => HeldTo::Security,
+            $this->adapters->isSuiteOnly() => HeldTo::Nothing,
+            default => $this->heldTo,
+        };
         $heldTo = HeldTo::named($named, pullRequest: $pullRequest);
         $newCode = $heldTo->holdsNewCode()
             ? $judge->newCode($verdicts, $this->settings->floors()->newCode())
@@ -452,6 +494,7 @@ final readonly class Judging
             $verdict->judgement() !== Judgement::Passed => CannotTell::because(self::FAILED),
             $unjudged > 0 => CannotTell::because(self::UNJUDGED),
             $this->adapters->isSecurityOnly() => CannotTell::because(self::SECURITY_ONLY),
+            $this->adapters->isSuiteOnly() => CannotTell::because(self::SUITE_ONLY),
             default => Passed::of($plan->commit(), $this->settings->ci()->check(), $ownScopeProofs),
         };
         $written = new Recorded($this->adapters)->write($plan, $results, $ledgers, $run, $passed);

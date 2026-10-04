@@ -118,7 +118,7 @@ final readonly class MutationRun
      */
     public function of(MutationRequest $request): MutationResult|CannotJudge
     {
-        if (count($request->files()) === 0 || $this->bridges->appliesNone($request->mutators())) {
+        if (count($request->files()) === 0 || $this->bridges->appliesNone($request->narrowing()->mutators())) {
             return MutationResult::of(Mutants::none(), 0);
         }
 
@@ -261,7 +261,10 @@ final readonly class MutationRun
         }
 
         $result = $this->only(...$natives)->of(
-            $request->narrowedTo(Paths::of(...array_values($files)), Mutators::named(...array_values($mutators))),
+            $request->narrowedTo(
+                Paths::of(...array_values($files)),
+                $request->narrowing()->toMutators(Mutators::named(...array_values($mutators))),
+            ),
         );
 
         return $result instanceof CannotJudge

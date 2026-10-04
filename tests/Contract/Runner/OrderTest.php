@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Order\Ordering;
 use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
@@ -67,7 +68,7 @@ function orderRun(Ordering $ordering, MatrixKind $matrix = MatrixKind::FirstKill
 {
     $library = Library::pest(Patching::off());
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
-        ->narrowedTo(Paths::of(Path::of('src/Money.php')), $library->mutators('adds', 'large'))
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('adds', 'large')))
         ->searching(KillSearch::of($ordering, $matrix));
 
     return $library->runner()->mutate($request);

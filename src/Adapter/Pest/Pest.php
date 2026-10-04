@@ -256,7 +256,10 @@ final readonly class Pest implements Runner
 
         $result = $this->run($this->shell)
             ->only(...$natives)
-            ->of($request->narrowedTo(Paths::of(...array_values($files)), Mutators::named(...array_values($mutators))));
+            ->of($request->narrowedTo(
+                Paths::of(...array_values($files)),
+                $request->narrowing()->toMutators(Mutators::named(...array_values($mutators))),
+            ));
 
         return $result instanceof CannotJudge
             ? $result
@@ -285,7 +288,10 @@ final readonly class Pest implements Runner
     ): Reproduction|CannotJudge {
         $shell = Transcribing::over($this->shell);
         $result = $this->run($shell)
-            ->of($request->narrowedTo(Paths::of($mutant->file()), Mutators::named($mutant->mutator())));
+            ->of($request->narrowedTo(
+                Paths::of($mutant->file()),
+                $request->narrowing()->toMutators(Mutators::named($mutant->mutator())),
+            ));
 
         $unmade = Reason::that(FoundAgain::NOT_FOUND_AGAIN);
 

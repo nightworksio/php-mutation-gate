@@ -137,8 +137,9 @@ final readonly class MutationRun
      */
     private function isAsked(MutationRequest $request, MadeMutant $mutant): bool
     {
-        $named = iterator_to_array($request->mutators(), preserve_keys: false);
-        $mutator = $request->mutators()->isAll() || in_array($mutant->mutation()->mutator(), $named, strict: true);
+        $mutators = $request->narrowing()->mutators();
+        $named = iterator_to_array($mutators, preserve_keys: false);
+        $mutator = $mutators->isAll() || in_array($mutant->mutation()->mutator(), $named, strict: true);
 
         return $mutator && ($this->only instanceof NotGiven || $this->only->has($mutant->id()));
     }

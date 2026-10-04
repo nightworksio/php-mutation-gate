@@ -12,10 +12,6 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageFailure;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Program;
-use NightWorksIO\MutationGate\Core\Runner\Withheld;
-use NightWorksIO\MutationGate\Core\Test\Filter;
-use NightWorksIO\MutationGate\Core\Test\Group;
-use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
 /**
@@ -48,24 +44,22 @@ final readonly class Covering
         }
 
         $own = $this->ownCoverage();
-        $run = Invocation::coverage($this->project, $config, $request->judgedBy(), $own)
+        $run = Invocation::coverage($this->project, $config, $request->judgedBy(), $own, $request->narrowing()->suite())
             ->withholding($request->withheld());
 
         return $this->held->ranBy($run, fn(): DiskPath|CannotJudge => $this->covered($run, $own));
     }
 
     /**
-     * The directory, once PHPUnit has run these tests under coverage into it,
-     * never seeing a variable withheld, with no earlier run's reports left.
+     * The directory, once PHPUnit has run the tests a coverage run asks for
+     * under coverage into it, of its suite alone where it names one, never
+     * seeing a variable withheld, with no earlier run's reports left.
      */
-    public function run(
-        OwnConfig $config,
-        WholeSuite|Group|Filter|TestPaths $tests,
-        Withheld $withheld,
-        DiskPath $directory,
-    ): DiskPath|CannotJudge {
+    public function run(OwnConfig $config, CoverageRun $request, DiskPath $directory): DiskPath|CannotJudge
+    {
         return $this->covered(
-            Invocation::coverage($this->project, $config, $tests, $directory)->withholding($withheld),
+            Invocation::coverage($this->project, $config, $request->tests(), $directory, $request->suite())
+                ->withholding($request->withheld()),
             $directory,
         );
     }

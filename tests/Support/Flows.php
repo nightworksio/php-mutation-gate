@@ -29,12 +29,12 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
-use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -100,7 +100,6 @@ final readonly class Flows
             new PeakMemoryFake(NotGiven::value()),
         );
     }
-
 
     /**
      * The settings of a config the flows run on: the fake runner, unless one
@@ -189,7 +188,7 @@ final readonly class Flows
             self::given(Enabled::class, Enabled::of(MutatorSet::of()), $ports),
             self::given(Warnings::class, Warnings::none(), $ports),
             self::given(NamedMutators::class, NamedMutators::of(), $ports),
-            self::given(Mutators::class, Mutators::all(), $ports),
+            self::given(Narrowing::class, Narrowing::none(), $ports),
             self::given(Prover::class, Prover::of(PHP_BINARY, Root::of($project)->at(Path::of('.mutation-gate/equivalence')), Processes::of(2)), $ports),
         );
     }

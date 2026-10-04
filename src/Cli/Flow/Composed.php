@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /** What a command runs its flow with: the settings, the adapters they chose, the setup and the reporting. */
@@ -51,11 +52,30 @@ final readonly class Composed
     }
 
     /**
+     * The same, its runs' mutants judged by one suite's tests alone, as
+     * `--suite` asks (ADR-0025, decision 9); or why that suite cannot judge
+     * them.
+     */
+    public function inSuite(SuiteName $suite): self|CannotJudge
+    {
+        $adapters = $this->adapters->inSuite($suite);
+
+        return $adapters instanceof Adapters
+            ? new self($this->settings, $adapters, $this->setup, $this->reporting)
+            : $adapters;
+    }
+
+    /**
      * The same, narrowed as the plan says it was made: to the security
-     * mutators, where it was made with `--security`; or why it cannot be.
+     * mutators, where it was made with `--security`, and to one suite's tests,
+     * where it was made with `--suite`; or why it cannot be.
      */
     public function following(Plan $plan): self|CannotJudge
     {
-        return $plan->briefing()->isSecurityOnly() ? $this->securityOnly() : $this;
+        $briefing = $plan->briefing();
+        $suite = $briefing->suite();
+        $secured = $briefing->isSecurityOnly() ? $this->securityOnly() : $this;
+
+        return $secured instanceof self && $suite instanceof SuiteName ? $secured->inSuite($suite) : $secured;
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Baseline\Lowered;
 use NightWorksIO\MutationGate\Core\Baseline\Unlowered;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
 use NightWorksIO\MutationGate\Core\Score\Score;
@@ -57,4 +58,19 @@ it('carries why the baseline lowered its floor', function (): void {
 
     expect($set->lowering())->toEqual(Unlowered::floor())
         ->and($set->withLowering($lowered)->lowering())->toBe($lowered);
+});
+
+it('holds an exempt set to no floor and raises none, keeping its declared floor and baseline', function (): void {
+    $set = Secured::set('.', Floor::of(90), Floor::of(95), Secured::mutant(MutantJudgement::Survived))
+        ->exempting(Exempt::because('--suite judges no floor'));
+    $unfloored = Secured::set('.', Undeclared::floor(), Unrecorded::floor(), Secured::mutant(MutantJudgement::Killed))
+        ->exempting(Exempt::because('--suite judges no floor'));
+
+    expect($set->floor())->toEqual(Exempt::because('--suite judges no floor'))
+        ->and($set->judgement())->toBe(Judgement::Exempt)
+        ->and($set->raised())->toEqual(Unraised::floor())
+        ->and($set->declared())->toEqual(Floor::of(90))
+        ->and($set->baseline())->toEqual(Floor::of(95))
+        ->and($unfloored->floor())->toEqual(Exempt::because('--suite judges no floor'))
+        ->and($unfloored->raised())->toEqual(Unraised::floor());
 });

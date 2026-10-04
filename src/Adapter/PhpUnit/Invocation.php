@@ -63,7 +63,12 @@ final readonly class Invocation
      */
     public function of(MutantFiles $files, MutationRequest $request, Seconds $limit): Command
     {
-        return $this->mutant($files, $request->search()->matrix(), ...$this->judgedBy($request->judgedBy()))
+        $options = [
+            ...$this->judgedBy($request->judgedBy()),
+            ...PhpUnitOption::inSuite($request->narrowing()->suite()),
+        ];
+
+        return $this->mutant($files, $request->search()->matrix(), ...$options)
             ->withholding($request->withheld())
             ->within($limit);
     }
@@ -102,6 +107,7 @@ final readonly class Invocation
             $this->history->value,
             PhpUnitOption::NoProgress->value,
             ...$this->covering($request->tests()),
+            ...PhpUnitOption::inSuite($request->suite()),
         )
             ->withholding($request->withheld());
     }

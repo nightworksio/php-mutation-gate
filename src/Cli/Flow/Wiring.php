@@ -44,9 +44,9 @@ use NightWorksIO\MutationGate\Core\Config\StaticCheck;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
-use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
@@ -136,7 +136,7 @@ final readonly class Wiring
                 $mutators->besideTheRunners(),
                 $mutators->skipped(),
                 $mutators->security(),
-                Mutators::all(),
+                Narrowing::none(),
                 Prover::of(PHP_BINARY, $project->root()->at(Workspace::equivalence()), Cores::counted()),
             ),
         };

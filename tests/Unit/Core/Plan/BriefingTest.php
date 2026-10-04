@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
 
 it('measures no peak and records first killers, by default', function (): void {
     expect(Briefing::standard()->peak())->toEqual(NotGiven::value())
@@ -23,4 +24,13 @@ it('takes each of what it tells on its own, leaving the other as it was', functi
         ->and($recording->matrix())->toBe(MatrixKind::Full)
         ->and($recording->peak())->toEqual(NotGiven::value())
         ->and($weighed->recording(MatrixKind::Full)->peak())->toBe($peak);
+});
+
+it('has every test judge the mutants by default, and one suite\'s tests alone where it is told', function (): void {
+    $suite = Briefing::standard()->recording(MatrixKind::Full)->inSuite(SuiteName::of('unit'));
+
+    expect(Briefing::standard()->suite())->toEqual(NotGiven::value())
+        ->and($suite->suite())->toEqual(SuiteName::of('unit'))
+        ->and($suite->matrix())->toBe(MatrixKind::Full)
+        ->and($suite->isSecurityOnly())->toBeFalse();
 });

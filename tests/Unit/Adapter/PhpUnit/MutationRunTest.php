@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -113,7 +114,7 @@ it('allows each mutant 5 s plus five times its covering tests\' own time under t
 it('makes only the mutators asked for, of the files not left out', function () use ($covered): void {
     [$run] = killingRun(library());
     $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())
-        ->narrowedTo(Paths::of(Path::of('src')), Mutators::named('acme/PlusToMinus'))
+        ->narrowedTo(Paths::of(Path::of('src')), Narrowing::none()->toMutators(Mutators::named('acme/PlusToMinus')))
         ->leavingOut(Paths::of(Path::of('src/Tax.php')));
 
     expect(judgedMutants($run->of($request, $covered, Seconds::of(5.0))))->toBe([['src/Money.php', 'acme/PlusToMinus', 'killed']]);

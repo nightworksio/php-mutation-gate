@@ -52,8 +52,7 @@ final readonly class HeldCoverage
             }
 
             $group = $this->adapters->runner->coverage(
-                CoverageRun::of($judgedBy, Workspace::heldCoverage($shard->id()))
-                    ->withholding($this->adapters->withheld),
+                $this->adapters->covering(CoverageRun::of($judgedBy, Workspace::heldCoverage($shard->id()))),
             );
 
             if ($group instanceof CannotJudge) {

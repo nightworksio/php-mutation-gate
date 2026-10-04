@@ -160,7 +160,7 @@ final readonly class Infection implements Runner
         $directory = $this->project->directory($request->directory());
         $covered = $config instanceof CannotJudge
             ? $config
-            : $this->covering()->run($config, $request->tests(), $request->withheld(), $directory);
+            : $this->covering()->run($config, $request, $directory);
 
         return $covered instanceof CannotJudge ? $covered : CoverageXml::read($this->project, $directory);
     }
@@ -212,7 +212,7 @@ final readonly class Infection implements Runner
             return $config;
         }
 
-        if ($config->mutators()->appliesNone($request->mutators(), $this->bridges)) {
+        if ($config->mutators()->appliesNone($request->narrowing()->mutators(), $this->bridges)) {
             return MutationResult::of(Mutants::none(), 0);
         }
 
