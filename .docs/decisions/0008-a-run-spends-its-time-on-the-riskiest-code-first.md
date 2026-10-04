@@ -279,7 +279,11 @@ presets for Laravel, Symfony and plain libraries.
      PHPStan's `reportUnmatchedIgnoredErrors` does. Otherwise dead ignores would
      pile up, and one could come back to life and hide a new mutant. An
      ignore that matches a mutant proven equivalent is not stale: it still
-     applies, and a notice says it can go (ADR-0013, decision 12).
+     applies, and a notice says it can go (ADR-0013, decision 12). A run
+     narrowed to some mutators, as `--security` is, checks only the ignores
+     that name one of them by its full name: an ignore of any other mutator,
+     of a family, or of a mutant's id may name a mutant that run never made
+     (ADR-0021 decision 20).
    - **Native markers are refused by default.** These are `@pest-mutate-ignore`
      and `@infection-ignore-all` in source, and `ignore` or
      `ignoreSourceCodeByRegex` under `mutators` in `infection.json5`. With

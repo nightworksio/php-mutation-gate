@@ -1825,3 +1825,21 @@ it('groups the verdict\'s tests into the suites the PHPUnit config declares, and
     expect($suites($project))->toBe(['Unit', 'Feature'])
         ->and($suites(Flows::project()))->toBe([]);
 });
+
+it('checks, in a run of the security mutators alone, only the ignores of the mutators it made mutants with', function () use (
+    $tree,
+    $reporting,
+    $judged,
+): void {
+    $failures = static fn(Ignore $ignore): array => judgingTexts(judgingVerdictOf($judged(
+        Planned::twoShards(),
+        Flows::adapters(Flows::project(), [], $tree(Floor::of(0)), NamedMutators::of('Plus'), Mutators::named('Plus')),
+        judgingSettings($ignore),
+        $reporting(new ReporterFake()),
+    ))->failures());
+
+    expect($failures(Ignore::mutator('MethodCallRemoval', 'src/Log/**', 'Logged elsewhere')))->toBe([])
+        ->and($failures(Ignore::mutator('Plus', 'src/Log/**', 'Logged elsewhere')))->toBe([
+            'The ignore of Plus in src/Log/** names no mutant it could leave out, in a run that judged every unit: remove it.',
+        ]);
+});
