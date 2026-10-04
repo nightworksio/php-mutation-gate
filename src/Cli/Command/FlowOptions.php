@@ -8,10 +8,12 @@ use function array_key_exists;
 use function intval;
 use function is_string;
 
+use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Mode;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
@@ -53,6 +55,9 @@ final readonly class FlowOptions
 
     public const string ONLY = 'only';
 
+    /** The option that has `plan` and `run` make mutants with the security mutators alone (ADR-0021, decision 20). */
+    public const string SECURITY = 'security';
+
     /** The option that has a command write what it would otherwise print: `baseline --write`, `stub --write`. */
     public const string WRITE = 'write';
 
@@ -91,7 +96,29 @@ final readonly class FlowOptions
                 self::KILL_MATRIX,
                 mode: InputOption::VALUE_REQUIRED,
                 description: self::MATRIX_SAID,
+            )
+            ->addOption(
+                self::SECURITY,
+                mode: InputOption::VALUE_NONE,
+                description: 'Make mutants with the security mutators alone, and judge only the security sets',
             );
+    }
+
+    /** Whether the options ask for mutants made with the security mutators alone: `--security`. */
+    public static function isSecurityOnly(InputInterface $input): bool
+    {
+        return $input->getOption(self::SECURITY) === true;
+    }
+
+    /**
+     * What the flow runs with, narrowed to the security mutators where the
+     * options ask for it (ADR-0021, decision 20), or why it cannot run.
+     */
+    public static function narrowed(
+        Composed|Invalid|CannotJudge $composed,
+        InputInterface $input,
+    ): Composed|Invalid|CannotJudge {
+        return $composed instanceof Composed && self::isSecurityOnly($input) ? $composed->securityOnly() : $composed;
     }
 
     /**

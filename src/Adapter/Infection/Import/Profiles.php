@@ -15,6 +15,7 @@ use Closure;
 use Infection\Mutator\ProfileList;
 use NightWorksIO\MutationGate\Adapter\Infection\Families;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 
 use function str_starts_with;
 
@@ -44,6 +45,12 @@ final readonly class Profiles
         return $exists(ProfileList::class)
             ? new self(ProfileList::ALL_PROFILES, array_flip(ProfileList::ALL_MUTATORS))
             : Unmapped::NoInfection;
+    }
+
+    /** Every mutator Infection has, by its name. */
+    public function named(): NamedMutators
+    {
+        return NamedMutators::of(...array_values($this->names));
     }
 
     /**

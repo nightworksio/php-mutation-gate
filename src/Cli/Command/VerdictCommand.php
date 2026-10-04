@@ -77,8 +77,9 @@ final readonly class VerdictCommand
 
     /**
      * A plan's results judged, held to the floors a command names or, where
-     * it names none, to those its run decides, with what was written, or why
-     * they cannot be.
+     * it names none, to those its run decides; to the security sets alone,
+     * where the plan was made with `--security`. With what was written, or
+     * why they cannot be.
      */
     public static function judgedOf(
         Composed $composed,
@@ -86,12 +87,20 @@ final readonly class VerdictCommand
         Path $results,
         HeldTo|NotGiven $heldTo = new NotGiven(),
     ): Judged|Invalid|CannotJudge {
+        $following = $composed->following($plan);
         $read = Results::read($plan, $results, $composed->adapters->project);
 
-        return $read instanceof Results
-            ? new Judging($composed->adapters, $composed->settings, $composed->setup, $composed->reporting, $heldTo)
-                ->verdict($plan, $read)
-            : $read;
+        return match (true) {
+            ! $following instanceof Composed => $following,
+            ! $read instanceof Results => $read,
+            default => new Judging(
+                $following->adapters,
+                $following->settings,
+                $following->setup,
+                $following->reporting,
+                $heldTo,
+            )->verdict($plan, $read),
+        };
     }
 
     /**

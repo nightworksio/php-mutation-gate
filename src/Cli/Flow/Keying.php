@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Format\JsonText;
+use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinition;
 use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinitions;
@@ -59,7 +61,7 @@ final readonly class Keying
             ? new self(
                 ContentKeys::of(
                     $setup->gate,
-                    $settings->canonical(),
+                    self::config($settings, $adapters->narrowedTo),
                     $identity,
                     self::analyser($adapters),
                     $setup->installed,
@@ -119,6 +121,18 @@ final readonly class Keying
         }
 
         return $exceptions;
+    }
+
+    /**
+     * The config as it affects results (ADR-0007, decision 2.3), and the
+     * mutators a narrowed run makes mutants with, so its proofs never stand in
+     * for a whole unit's (ADR-0021, decision 20).
+     */
+    private static function config(Settings $settings, Mutators $narrowedTo): string
+    {
+        return $narrowedTo->isAll()
+            ? $settings->canonical()
+            : JsonText::encode(['config' => $settings->canonical(), 'mutators' => [...$narrowedTo]]);
     }
 
     /**

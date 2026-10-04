@@ -474,3 +474,35 @@ it('refuses a plan whose matrix was dropped after it was made, or is not full', 
         'The plan does not match its digest, so it was changed after it was made. Plan again.',
     ));
 });
+
+it('writes a run of the security mutators alone within its digest, and reads it back', function (): void {
+    $plan = planFileEmpty()->on(RunOn::at(Scope::branch('main'), Scope::branch('main')))
+        ->briefed(Briefing::standard()->securityOnly());
+    $written = PlanFile::encode($plan);
+    $read = PlanFile::decode($written);
+
+    expect($read)->toEqual($plan)
+        ->and($read instanceof Plan ? $read->briefing()->isSecurityOnly() : $read)->toBeTrue()
+        ->and($written)->toContain('"security": true')
+        ->and($plan->digest())->not->toEqual(planFileEmpty()->digest())
+        ->and(PlanFile::encode(planFileEmpty()))->not->toContain('"security"');
+});
+
+it('reads a plan that holds no security field as one that makes mutants with every mutator', function (): void {
+    $read = PlanFile::decode(PlanFile::encode(planFileEmpty()));
+
+    expect($read instanceof Plan ? $read->briefing()->isSecurityOnly() : $read)->toBeFalse();
+});
+
+it('refuses a plan whose security field is anything but true', function (string $value, string $refusal): void {
+    $written = str_replace('"security": true', sprintf('"security": %s', $value), PlanFile::encode(
+        planFileEmpty()->briefed(Briefing::standard()->securityOnly()),
+    ));
+
+    expect(PlanFile::decode($written))->toEqual(CannotJudge::because(
+        sprintf('The plan cannot be read, so no shard can follow it: %s', $refusal),
+    ));
+})->with([
+    'false' => ['false', 'the file.security is not true.'],
+    'a string' => ['"yes"', 'the file.security is not true or false.'],
+]);

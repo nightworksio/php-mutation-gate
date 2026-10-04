@@ -65,6 +65,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
@@ -94,6 +95,7 @@ use NightWorksIO\MutationGate\Core\Removal\Removable;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
+use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Score\Unraised;
@@ -1621,6 +1623,33 @@ it('stops a CI run on a security set held to no floor, and hands over its measur
                 ),
             ),
         ]);
+});
+
+it('holds only the security sets in a run of the security mutators alone, exempting each tree and recording no pass', function () use (
+    $tree,
+    $reporting,
+    $judged,
+): void {
+    $store = new ProofStoreFake();
+    $settings = Configs::built(Gate::configure()
+        ->runner(ConfiguredRunner::uses('fake'))
+        ->reporting(Report::uses('recorded'))
+        ->security(NewCodeFloor::of(0)));
+    $verdict = judgingVerdictOf($judged(
+        Planned::twoShards(),
+        Flows::adapters(Flows::project(), [], $store, $tree(Floor::of(100)), NamedMutators::of('Plus'), Mutators::named('Plus')),
+        $settings,
+        $reporting(new ReporterFake()),
+    ));
+    $trees = [...$verdict->trees()];
+    $mutators = array_map(static fn(JudgedMutant|JudgedKill $judged): string => $judged->mutant()->mutator(), [...$trees[0]->mutants()]);
+
+    expect($verdict->judgement())->toBe(Judgement::Passed)
+        ->and($trees[0]->floor())->toEqual(Exempt::because('--security judges only the security sets'))
+        ->and($mutators)->toBe(['Plus', 'Plus'])
+        ->and([...$verdict->sets()->security()][0]->mutants())->toHaveCount(2)
+        ->and([...$verdict->sets()->newCode()])->toBe([])
+        ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->lastPassed())->toBeInstanceOf(CannotTell::class);
 });
 
 it('warns of a security set held to no floor outside CI', function () use ($tree, $reporting, $judged): void {

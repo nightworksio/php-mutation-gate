@@ -62,7 +62,7 @@ it('offers plan\'s options: a ref to change since, a full run, a coverage map, a
         ->and($definition->getOption('coverage')->isValueRequired())->toBeTrue()
         ->and($definition->getOption('shards')->isValueRequired())->toBeTrue()
         ->and($definition->getOption('kill-matrix')->isValueRequired())->toBeTrue()
-        ->and(array_keys($definition->getOptions()))->toBe(['changed-since', 'full', 'coverage', 'shards', 'kill-matrix']);
+        ->and(array_keys($definition->getOptions()))->toBe(['changed-since', 'full', 'coverage', 'shards', 'kill-matrix', 'security']);
 });
 
 it('runs in full unless asked to consider a change', function (array $options, Mode $mode, bool $full) use (

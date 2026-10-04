@@ -38,6 +38,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
@@ -162,6 +163,24 @@ it('writes a proof of every unit that ran to the end, at the plan\'s base, and w
         ->and($ledger->proofs()->has(Digest::sha256Of('held')))->toBeTrue()
         ->and(count($ledger->timings()))->toBe(2)
         ->and($ledger->lastPassed())->toBeInstanceOf(CannotTell::class);
+});
+
+it('writes the proofs of a run of the security mutators alone, and teaches the cost model nothing from it', function () use (
+    $map,
+    $run,
+    $ledgers,
+): void {
+    $project = Flows::project();
+    $store = new ProofStoreFake();
+    $plan = Planned::twoShards();
+    $results = recordedRan($project, ScriptedRunner::fixture(), $map());
+
+    new Recorded(Flows::adapters($project, [], $store, Mutators::named('Plus')))
+        ->write($plan, $results, $ledgers($store, $plan), $run($plan), CannotTell::because('It failed.'));
+    $ledger = LedgerRead::ledger($store->read(Scope::branch('main')));
+
+    expect(count($ledger->proofs()))->toBe(2)
+        ->and(count($ledger->timings()))->toBe(0);
 });
 
 it('adds the time each analyser\'s checks of the shards\' survivors took to what the ledger held of it', function () use (

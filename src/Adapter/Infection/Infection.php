@@ -203,13 +203,17 @@ final readonly class Infection implements Runner
         };
     }
 
-    /** Every mutant of the requested files. */
+    /** Every mutant of the requested files; none, running nothing, where Infection runs none of the mutators named. */
     public function mutate(MutationRequest $request): MutationResult|CannotJudge
     {
         $config = OwnConfig::in($this->project);
 
         if ($config instanceof CannotJudge) {
             return $config;
+        }
+
+        if ($config->mutators()->appliesNone($request->mutators(), $this->bridges)) {
+            return MutationResult::of(Mutants::none(), 0);
         }
 
         $this->held->forget();

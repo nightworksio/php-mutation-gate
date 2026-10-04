@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
@@ -48,6 +49,7 @@ final readonly class Judge
         private MutantTriage $triage,
         private KillMatrix $matrix,
         private Ignoring $ignoring,
+        private NamedMutators|NotGiven $only,
     ) {
     }
 
@@ -67,7 +69,18 @@ final readonly class Judge
             MutantTriage::under($timeouts),
             KillMatrix::none(),
             $ignoring,
+            NotGiven::value(),
         );
+    }
+
+    /**
+     * This judge, keeping only the mutants and kills these mutators made, as
+     * a run of the security mutators alone judges its units (ADR-0021,
+     * decision 20).
+     */
+    public function onlyMadeBy(NamedMutators $mutators): self
+    {
+        return clone($this, ['only' => $mutators]);
     }
 
     /** This judge, naming each mutant's judging tests from this kill matrix; none are named without one. */
@@ -170,7 +183,9 @@ final readonly class Judge
             $proved[] = JudgedKill::of($kill);
         }
 
-        return JudgedMutants::of(...$judged)->and(JudgedMutants::kills(...$proved))->within($this->reach);
+        $mutants = JudgedMutants::of(...$judged)->and(JudgedMutants::kills(...$proved))->within($this->reach);
+
+        return $this->only instanceof NamedMutators ? $mutants->madeBy($this->only) : $mutants;
     }
 
     /**

@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 /**
  * A mutation request as every run makes one, and every reproduction of a
  * run's mutant (ADR-0004, decisions 6 and 9): these files by these tests,
+ * with the mutators the run is narrowed to (ADR-0021, decision 20),
  * withholding what the run withholds, under the memory cap the config sets.
  * What decides a mutant's outcome is set here once, so a run and its
  * reproduction cannot differ in it.
@@ -27,6 +28,7 @@ final readonly class RunRequest
         WholeSuite|Group|Filter $judgedBy,
     ): MutationRequest {
         return MutationRequest::of($files, $judgedBy)
+            ->narrowedTo($files, $adapters->narrowedTo)
             ->withholding($adapters->withheld)
             ->cappedAt($settings->runner()->memory());
     }

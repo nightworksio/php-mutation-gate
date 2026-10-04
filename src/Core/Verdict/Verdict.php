@@ -161,10 +161,11 @@ final readonly class Verdict
             return Judgement::CannotJudge;
         }
 
-        $newCode = $this->sets->newCode();
-        $sets = $this->heldTo->holdsTrees()
-            ? [...$this->trees, ...$newCode, ...$this->sets->security()]
-            : [...$newCode];
+        $sets = [
+            ...$this->heldTo->holdsTrees() ? $this->trees : [],
+            ...$this->heldTo->holdsNewCode() ? $this->sets->newCode() : [],
+            ...$this->heldTo->holdsSecurity() ? $this->sets->security() : [],
+        ];
 
         foreach ($sets as $set) {
             if ($set->judgement() === Judgement::Failed) {

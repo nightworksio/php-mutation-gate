@@ -34,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Removal\Removals;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -72,6 +73,12 @@ use function sprintf;
 final readonly class Judging
 {
     private const string FAILED = 'The verdict failed, so the commit did not pass.';
+
+    /** Why each tree of a run of the security mutators alone is held to no floor (ADR-0021, decision 20). */
+    private const string UNJUDGED_TREES = '--security judges only the security sets';
+
+    /** Why a passing run of the security mutators alone records no commit as passed: its trees were not judged. */
+    private const string SECURITY_ONLY = 'A run of the security mutators alone records no commit as passed.';
 
     /** Why a passing verdict's commit is not recorded as passed: a run from it must still reach what it left. */
     private const string UNJUDGED = 'The run left mutants unjudged, so its commit is not recorded as passed.';
@@ -142,8 +149,24 @@ final readonly class Judging
         return match (true) {
             $trees instanceof CannotJudge => $trees,
             $baseline instanceof CannotJudge => $baseline,
-            default => $this->assessed($plan, $results, $trees, $baseline, $writing),
+            default => $this->assessed($plan, $results, $this->held($trees), $baseline, $writing),
         };
+    }
+
+    /** The trees, each exempt in a run of the security mutators alone, which judges none of them. */
+    private function held(Trees $trees): Trees
+    {
+        if (! $this->adapters->isSecurityOnly()) {
+            return $trees;
+        }
+
+        $exempt = Trees::none();
+
+        foreach ($trees as $tree) {
+            $exempt = $exempt->with($tree->declaring(Exempt::because(self::UNJUDGED_TREES)));
+        }
+
+        return $exempt;
     }
 
     /**
@@ -175,6 +198,7 @@ final readonly class Judging
             $this->settings->triage()->timeouts(),
             $ignoring,
         );
+        $judge = $this->adapters->isSecurityOnly() ? $judge->onlyMadeBy($this->adapters->security) : $judge;
         $fresh = Agreement::checked(
             $results->units(),
             $plan->keys(),
@@ -291,7 +315,8 @@ final readonly class Judging
         KillMatrix $matrix,
     ): Verdict {
         $pullRequest = $plan->runOn()->isPullRequest();
-        $heldTo = HeldTo::named($this->heldTo, pullRequest: $pullRequest);
+        $named = $this->adapters->isSecurityOnly() ? HeldTo::Security : $this->heldTo;
+        $heldTo = HeldTo::named($named, pullRequest: $pullRequest);
         $newCode = $heldTo->holdsNewCode()
             ? $judge->newCode($verdicts, $this->settings->floors()->newCode())
             : NewCodeVerdicts::none();
@@ -422,6 +447,7 @@ final readonly class Judging
         $passed = match (true) {
             $verdict->judgement() !== Judgement::Passed => CannotTell::because(self::FAILED),
             $unjudged > 0 => CannotTell::because(self::UNJUDGED),
+            $this->adapters->isSecurityOnly() => CannotTell::because(self::SECURITY_ONLY),
             default => Passed::of($plan->commit(), $this->settings->ci()->check(), $ownScopeProofs),
         };
         $written = new Recorded($this->adapters)->write($plan, $results, $ledgers, $run, $passed);

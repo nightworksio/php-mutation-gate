@@ -14,9 +14,11 @@ use NightWorksIO\MutationGate\Cli\Flow\Raising;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Written;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -35,6 +37,9 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 final readonly class RunCommand
 {
+    private const string SECURITY_WITH_PLAN
+        = 'A shard makes the mutants its plan was made for, so run --plan takes no --security. Give it to plan.';
+
     public static function command(Composition $composition): Command
     {
         return FlowOptions::editing(FlowOptions::planning(new Command('run')))
@@ -47,12 +52,17 @@ final readonly class RunCommand
                 description: 'Where the shards leave their results',
             )
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
-                $composed = $composition->compose($input);
+                $planned = $input->getOption(FlowOptions::PLAN) !== null;
+                $composed = $planned
+                    ? $composition->compose($input)
+                    : FlowOptions::narrowed($composition->compose($input), $input);
 
                 return match (true) {
                     ! $composed instanceof Composed => Failed::because($output, $composed),
-                    $input->getOption(FlowOptions::PLAN) === null => self::allInOne($composed, $input, $output),
-                    default => self::oneShard($composed, $input, $output),
+                    $planned && FlowOptions::isSecurityOnly($input)
+                        => Failed::because($output, CannotJudge::because(self::SECURITY_WITH_PLAN)),
+                    $planned => self::oneShard($composed, $input, $output),
+                    default => self::allInOne($composed, $input, $output),
                 };
             });
     }
@@ -65,8 +75,7 @@ final readonly class RunCommand
         $written = match (true) {
             $plan instanceof CannotJudge => $plan,
             $shard instanceof CannotJudge => $shard,
-            default => new Running($composed->adapters, $composed->settings, $composed->setup)
-                ->run($plan, $shard, $results),
+            default => self::ranShard($composed->following($plan), $plan, $shard, $results),
         };
 
         if ($written instanceof CannotJudge) {
@@ -76,6 +85,18 @@ final readonly class RunCommand
         $output->writeln($written->said(), OutputInterface::OUTPUT_RAW);
 
         return ExitCode::Passed->value;
+    }
+
+    /** One shard of a plan run as the plan was made, narrowed where it was made with `--security`. */
+    private static function ranShard(
+        Composed|CannotJudge $following,
+        Plan $plan,
+        ShardId|Absent $shard,
+        Path $results,
+    ): Written|CannotJudge {
+        return $following instanceof Composed
+            ? new Running($following->adapters, $following->settings, $following->setup)->run($plan, $shard, $results)
+            : $following;
     }
 
     private static function allInOne(Composed $composed, InputInterface $input, OutputInterface $output): int

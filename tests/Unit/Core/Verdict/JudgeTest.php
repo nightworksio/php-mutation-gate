@@ -213,6 +213,25 @@ it('judges each package\'s security set over the mutants its mutators made, agai
         ->and($sets[0]->mutants())->toHaveCount(5);
 });
 
+it('keeps only the mutants these mutators made, as a run of the security mutators alone judges its units', function () use ($judge): void {
+    $made = static fn(string $mutator, int $line): Mutant => Mutant::of(
+        MutantId::hash(Path::of('app/Kernel.php'), $mutator, sprintf('%d', $line), 0),
+        sprintf('app/Kernel.php:%d', $line),
+        Location::of(Path::of('app/Kernel.php'), Line::of($line), Line::of($line)),
+        Mutation::of($mutator, MutatorFamily::Condition, ''),
+        MutantStatus::Survived,
+        Unmeasured::duration(),
+    );
+    $results = UnitResults::of(UnitResult::of(Unit::file(Path::of('app/Kernel.php')), Origin::Run, Mutants::of(
+        $made('security/HashEqualsToTrue', 1),
+        $made('LessThan', 2),
+    )));
+
+    expect(Judged::natives([...$judge->onlyMadeBy(NamedMutators::of('security/HashEqualsToTrue'))->trees($results)][0]->survivors()))
+        ->toBe(['app/Kernel.php:1'])
+        ->and(Judged::natives([...$judge->trees($results)][0]->survivors()))->toBe(['app/Kernel.php:1', 'app/Kernel.php:2']);
+});
+
 it('judges a mutant flaky where its unit\'s result names it so, and every other as reported', function () use (
     $trees,
     $reach,
