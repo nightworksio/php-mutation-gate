@@ -33,3 +33,12 @@ it('writes an object a member at a time from JSON text, as the whole would be wr
         ->and(JsonText::object([]))->toBe('{}')
         ->and(JsonText::object(['a' => '1', '12' => '2']))->toBe('{"a":1,"12":2}');
 });
+
+it('writes a list an item at a time from JSON text, as the whole would be written compactly', function (): void {
+    expect(JsonText::items(['1', '"a/b"', '{"c":true}']))->toBe(JsonText::compact([1, 'a/b', ['c' => true]]))
+        ->and(JsonText::items([]))->toBe('[]');
+});
+
+it('writes a text as JSON, with slashes and letters as they are', function (): void {
+    expect(JsonText::text('src/Café "x".php'))->toBe('"src/Café \"x\".php"');
+});

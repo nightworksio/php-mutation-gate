@@ -592,6 +592,8 @@ services:
                     - PER_MEBIBYTE # bytes in PHP's M, not GitHub's summary cap
                 'NightWorksIO\MutationGate\Core\Proof\LedgerMemory':
                     - PER_BYTE # bytes of memory per byte of ledger
+                'NightWorksIO\MutationGate\Core\Format\Lenient':
+                    - NOTHING # JSON's value for nothing, not the PHP literal a mutator writes
                 'NightWorksIO\MutationGate\Adapter\Infection\OwnConfig':
                     - FRAMEWORK # Infection's name for PHPUnit
                     - TOOLS # infection.json's sections, not the analysers the gate runs

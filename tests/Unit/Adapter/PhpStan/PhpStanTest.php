@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserSettings;
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
@@ -52,6 +53,58 @@ it('reads the config the gate hands it before the one it finds', function (): vo
         ->toEqual(AnalyserIdentity::of('phpstan', '2.2.16', Digest::sha256Of('parameters: {}')))
         ->and(file_get_contents(sprintf('%s/.mutation-gate/phpstan/check.neon', $project)))
         ->toBe(sprintf("includes:\n    - %s/build/phpstan.neon\nparameters:\n    parallel:\n        maximumNumberOfProcesses: 1\n    reportUnmatchedIgnoredErrors: false\n", $project));
+});
+
+/** What PHPStan in this project says it runs with, where its parameters name its own root and this machine's. */
+function phpstanSettingsIn(string $project, string $machine): AnalyserSettings|CannotJudge
+{
+    Scratch::write($project, 'vendor/bin/params.json', sprintf(
+        '{"level": 9, "paths": ["%1$s/src"], "tmpDir": "/tmp/%2$s", "sysGetTempDir": "/tmp", "resultCachePath": "/tmp/%2$s/r.php",'
+        . ' "env": {"HOME": "/home/%2$s"}, "pro": {"tmpDir": "/tmp/%2$s"},'
+        . ' "allConfigFiles": ["phar://%1$s/vendor/phpstan/phpstan/phpstan.phar/conf/config.neon", "%1$s/phpstan.neon", "%1$s/phpstan-baseline.neon"],'
+        . ' "bootstrapFiles": ["%1$s/tests/bootstrap.php"], "stubFiles": ["%1$s/stubs/a.stub"], "scanFiles": ["%1$s/lib/x.php"],'
+        . ' "scanDirectories": ["%1$s/legacy"]}',
+        $project,
+        $machine,
+    ));
+
+    return phpstanIn($project)->configuration(Withheld::standard());
+}
+
+it('says the parameters PHPStan resolves alike from two roots and machines, with every file they name but its own', function (): void {
+    $here = FakeAnalyser::phpstan('PHPStan - PHP Static Analysis Tool 2.2.16');
+    $settings = phpstanSettingsIn($here, 'ada');
+    $there = phpstanSettingsIn(FakeAnalyser::phpstan('PHPStan - PHP Static Analysis Tool 2.2.16'), 'runner');
+
+    expect($settings)->toBeInstanceOf(AnalyserSettings::class)
+        ->and($settings instanceof AnalyserSettings ? $settings->written() : '')->toBe($there instanceof AnalyserSettings ? $there->written() : 'none')
+        ->and($settings instanceof AnalyserSettings ? $settings->written() : '')->not->toContain('/tmp')
+        ->and($settings instanceof AnalyserSettings ? $settings->references() : $settings)->toEqual(Paths::of(
+            Path::of('phpstan.neon'),
+            Path::of('phpstan-baseline.neon'),
+            Path::of('tests/bootstrap.php'),
+            Path::of('stubs/a.stub'),
+            Path::of('lib/x.php'),
+            Path::of('legacy'),
+        ))
+        ->and(explode("\n", (string) file_get_contents(sprintf('%s/vendor/bin/argv.txt', $here))))
+        ->toBe(['dump-parameters', '--json', sprintf('--configuration=%s/phpstan.neon', $here), 'withheld']);
+});
+
+it('cannot say the configuration where it cannot dump its parameters, dumps no object, or has no config to read', function (): void {
+    $failing = FakeAnalyser::phpstan('PHPStan - PHP Static Analysis Tool 2.2.16');
+    Scratch::write($failing, 'vendor/bin/params.exit', '1');
+    $garbled = FakeAnalyser::phpstan('PHPStan - PHP Static Analysis Tool 2.2.16');
+    Scratch::write($garbled, 'vendor/bin/params.json', 'Deprecated: something');
+    $unconfigured = FakeAnalyser::phpstan('PHPStan - PHP Static Analysis Tool 2.2.16');
+    unlink(sprintf('%s/phpstan.neon', $unconfigured));
+
+    expect(phpstanIn($failing)->configuration(Withheld::standard()))
+        ->toEqual(CannotJudge::because('PHPStan could not say the configuration it runs with (exit 1: ).'))
+        ->and(phpstanIn($garbled)->configuration(Withheld::standard()))
+        ->toEqual(CannotJudge::because('The analyser\'s resolved configuration is no object: null'))
+        ->and(phpstanIn($unconfigured)->configuration(Withheld::standard()))
+        ->toEqual(CannotJudge::because('PHPStan has no config to read: add a phpstan.neon, or name one in staticCheck.config.'));
 });
 
 it('refuses a config option that is no path', function (): void {

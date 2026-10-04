@@ -11,6 +11,9 @@ namespace NightWorksIO\MutationGate\Core\Format;
  */
 final readonly class Lenient
 {
+    /** JSON's word for a value that is not there. */
+    private const string NOTHING = 'null';
+
     /** The text a place holds; none where it holds something else, or nothing. */
     public static function text(Node $place): string
     {
@@ -38,6 +41,16 @@ final readonly class Lenient
             return $place->integer();
         } catch (NotInShape) {
             return 0;
+        }
+    }
+
+    /** What a place holds, written back out as JSON; `null` where it holds nothing. */
+    public static function json(Node $place): string
+    {
+        try {
+            return $place->json();
+        } catch (NotInShape) {
+            return self::NOTHING;
         }
     }
 

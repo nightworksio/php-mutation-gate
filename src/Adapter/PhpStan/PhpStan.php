@@ -16,6 +16,7 @@ use function is_writable;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserSettings;
 use NightWorksIO\MutationGate\Core\Analysis\FindingFiles;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
@@ -32,6 +33,8 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\File\Workspace;
+use NightWorksIO\MutationGate\Core\Format\Lenient;
+use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ChildProcess;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -94,6 +97,18 @@ final readonly class PhpStan implements StaticChecker
 
     private const string NO_SCOPE = 'PHPStan\'s run over the originals has not said which files it analyses.';
 
+    private const string UNRESOLVED = 'PHPStan could not say the configuration it runs with (%s).';
+
+    /** The members of PHPStan's resolved parameters that differ between machines and runs, not what it judges. */
+    private const array MACHINE = ['env', 'tmpDir', 'sysGetTempDir', 'resultCachePath', 'pro'];
+
+    /**
+     * The members of PHPStan's resolved parameters that name what it reads
+     * besides the code it analyses: every config file, its includes and a
+     * baseline among them, and the bootstrap, stub and scanned files.
+     */
+    private const array REFERENCES = ['allConfigFiles', 'bootstrapFiles', 'stubFiles', 'scanFiles', 'scanDirectories'];
+
     private function __construct(private Root $root, private Path|Absent $config)
     {
     }
@@ -127,6 +142,29 @@ final readonly class PhpStan implements StaticChecker
     }
 
     /**
+     * The parameters PHPStan resolves from the project's config, its
+     * includes and the environment, as `dump-parameters` says them, with
+     * every file they name that PHPStan reads besides the code.
+     */
+    public function configuration(Withheld $withheld): AnalyserSettings|CannotJudge
+    {
+        $config = $this->config();
+        $dumped = $config instanceof Path ? $this->ran($withheld, [
+            PHP_BINARY,
+            self::SCRIPT,
+            'dump-parameters',
+            '--json',
+            sprintf('--configuration=%s', $this->absolute($config)),
+        ]) : $config;
+
+        return match (true) {
+            $dumped instanceof CannotJudge => $dumped,
+            ! $dumped->succeeded() => CannotJudge::because(sprintf(self::UNRESOLVED, $dumped->said())),
+            default => $this->settings($dumped->output()),
+        };
+    }
+
+    /**
      * Every file the config names, analysed once, which saves the result
      * cache each check starts from, with the files PHPStan analyses kept for
      * the checks to read; or why it cannot say which those are.
@@ -154,6 +192,24 @@ final readonly class PhpStan implements StaticChecker
                 sprintf('--instead-of=%s', $original),
             ]),
         };
+    }
+
+    /** PHPStan's resolved parameters, as every machine writes them, with the files they name. */
+    private function settings(string $dumped): AnalyserSettings|CannotJudge
+    {
+        $parameters = Node::decode($dumped, Scope::PARAMETERS);
+        $settings = AnalyserSettings::resolved($dumped, $this->root->value(), ...self::MACHINE);
+        $named = [];
+
+        foreach (self::REFERENCES as $member) {
+            foreach (Lenient::items($parameters->field($member)) as $file) {
+                $named[] = Lenient::text($file);
+            }
+        }
+
+        return $settings instanceof AnalyserSettings
+            ? $settings->referencing(AnalyserSettings::filesNamed($this->root->value(), ...$named))
+            : $settings;
     }
 
     /** The files PHPStan analyses, as its parameters say them, kept where each check reads them. */

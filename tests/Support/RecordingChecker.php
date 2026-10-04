@@ -8,6 +8,7 @@ use function file_get_contents;
 use function is_file;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserSettings;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
 use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
@@ -39,6 +40,11 @@ final class RecordingChecker implements StaticChecker
     public function identity(Withheld $withheld): AnalyserIdentity|CannotJudge
     {
         return $this->answers->identity($withheld);
+    }
+
+    public function configuration(Withheld $withheld): AnalyserSettings|CannotJudge
+    {
+        return $this->answers->configuration($withheld);
     }
 
     public function findings(Paths $files, Withheld $withheld): Findings|CannotJudge

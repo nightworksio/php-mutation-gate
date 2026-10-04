@@ -13,6 +13,7 @@ use function is_file;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserSettings;
 use NightWorksIO\MutationGate\Core\Analysis\FindingFiles;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
@@ -92,6 +93,23 @@ final readonly class Mago implements StaticChecker
         return is_string($contents)
             ? $this->identified($withheld, Digest::sha256Of($contents))
             : CannotJudge::because(sprintf(self::UNREAD, $config->value()));
+    }
+
+    /**
+     * The configuration Mago runs with, as `mago config` merges it from its
+     * config file, the environment and its defaults, with the files it
+     * names besides the code: its config file, the analyser's baseline, and
+     * the included and patched sources.
+     */
+    public function configuration(Withheld $withheld): AnalyserSettings|CannotJudge
+    {
+        $config = $this->config();
+
+        return Configuration::shown(
+            $this->mago($withheld, ['--threads=1', 'config']),
+            $this->root,
+            ...$config instanceof Path ? [$this->absolute($config)] : [],
+        );
     }
 
     /** The whole workspace, analysed once, which holds every one of these files, or cannot judge. */

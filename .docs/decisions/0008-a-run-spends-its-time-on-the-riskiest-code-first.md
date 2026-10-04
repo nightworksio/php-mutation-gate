@@ -143,13 +143,16 @@ presets for Laravel, Symfony and plain libraries.
        was established at this run's base, or where nothing that changed
        since the commit it records reaches its unit or that file by a name.
        The mutant's file and the finding's are what the rejection depended
-       on, and the analyser, its version and its config's digest are in the
-       mutation digest (ADR-0020, decision 14). One whose result records no
-       finding, as a kill Infection reports, or whose finding sits in a file
-       outside the repository, whose changes git does not say, is unjudged.
-       Following names also misses a change to a file the analyser's config
-       reads besides itself, such as its baseline or a file it includes. A
-       kill across such a change stands. A full run judges it again.
+       on. The analyser, its version and the digest of the configuration it
+       runs with, with every file that configuration references, such as a
+       baseline, an included config or a bootstrap file, are in the mutation
+       digest (ADR-0020, decision 14), so a result established before a
+       change to any of them does not count. Where the analyser cannot say
+       its configuration, its config file's digest stands for it, and a
+       change to another file it reads is not followed. One whose result
+       records no finding, as a kill Infection reports, or whose finding
+       sits in a file outside the repository, whose changes git does not
+       say, is unjudged.
 
      The one assumption left is ADR-0007's: a test's outcome depends on the
      files it reads, not on state another test in the same process leaves

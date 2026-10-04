@@ -7,6 +7,9 @@ namespace NightWorksIO\MutationGate\Core\File;
 /** A file that is not there. */
 final readonly class Missing
 {
+    /** What a digest of several files holds in place of one that is not there. */
+    public const string DIGESTED = 'missing';
+
     private function __construct(private Path $path)
     {
     }
