@@ -572,6 +572,28 @@ it('mutates no held unit whose holding tests miss lines of it, and leaves why', 
         ))->toBe([WholeSuite::class]);
 });
 
+it('mutates a unit the whole suite judges, though the map reaches none of it, and runs no holding tests for it', function () use (
+    $resultIn,
+): void {
+    $project = Flows::project();
+    new Handoff(Directory::at($project))->write(Planned::oneShard(), CoverageMap::empty(), KillHistory::none());
+    $scripted = ScriptedRunner::fixture();
+    $runner = new CoverageAsked($scripted, Flows::map());
+    $adapters = Flows::adapters($project, [], $runner);
+
+    new Running($adapters, Flows::settings(), Flows::setup())
+        ->run(Planned::oneShard(), ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+
+    expect($runner->asked())->toEqual([
+        CoverageRun::of(Group::named('holds:src/Held.php'), Path::of('.mutation-gate/held/shard-1'))
+            ->withholding($adapters->withheld),
+    ])
+        ->and($result instanceof ShardResult ? [...$result->misses()] : $result)->toBe([])
+        ->and(array_map(static fn(MutationRequest $request): array => [...$request->files()], $scripted->requests()))
+        ->toEqual([[Path::of('src/Held.php')], [Path::of('src/Money.php')]]);
+});
+
 it('mutates each held unit its holding tests cover, and cannot judge a shard whose held tests fail alone', function (
     CoverageMap|CannotJudge $answer,
     string $outcome,
