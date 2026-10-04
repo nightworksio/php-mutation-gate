@@ -19,10 +19,11 @@ use PHPUnit\Event\UnknownSubscriberTypeException;
 
 /**
  * What the Pest plugin writes in a mutant's own process: whether the process
- * had loaded the original file before the mutant was in its place, and each
- * test that fails or errors there, with the mutated copy Pest serves, one
- * JSON line at a time in the results file the process inherits. Pest stops the process at the
- * first, so the first line a mutant has names the test that killed it. It
+ * had loaded the original file before the mutant was in its place, each
+ * test that fails or errors there, and how many tests it ran, with the
+ * mutated copy Pest serves, one JSON line at a time in the results file the
+ * process inherits. Pest stops the process at the first failure, so the
+ * first killer line a mutant has names the test that killed it. It
  * logs PHP's errors in that process to a file of the mutant's own, which the
  * recorder reads for a fatal error Pest's own handling would lose, such as
  * running out of memory (ADR-0004, decision 9). A test or config that sets
@@ -53,11 +54,12 @@ final readonly class Killers
     }
 
     /**
-     * Naming killers, subscribed to PHPUnit's events, where a results file and
-     * a mutated copy are named and PHPUnit still takes subscribers. A mutant
-     * it cannot name a killer for is killed by a test nobody knows. Where the
-     * process had loaded the original before the override started, which
-     * then cannot put the mutant in its place, it writes that first.
+     * Naming killers, and counting the tests the process runs, subscribed to
+     * PHPUnit's events, where a results file and a mutated copy are named and
+     * PHPUnit still takes subscribers. A mutant it cannot name a killer for
+     * is killed by a test nobody knows, and its run writes no count. Where
+     * the process had loaded the original before the override started,
+     * which then cannot put the mutant in its place, it writes that first.
      */
     public static function listening(
         string|false $results,
@@ -77,7 +79,13 @@ final readonly class Killers
         }
 
         try {
-            $events->registerSubscribers(new OnFailed($killers), new OnErrored($killers));
+            $ran = new RanTests($results, $mutated);
+            $events->registerSubscribers(
+                new OnFailed($killers),
+                new OnErrored($killers),
+                new OnTestFinished($ran),
+                new OnExecutionFinished($ran),
+            );
         } catch (EventFacadeIsSealedException|UnknownSubscriberTypeException) {
             return Off::NamingKillers;
         }

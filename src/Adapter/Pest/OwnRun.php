@@ -16,10 +16,10 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
  * What the plugin recorded of a mutant's own process, by the mutated copy it
  * ran on: the tests that failed or errored in it, in the order they did,
  * which of them errored, the test files it was narrowed to load, the
- * memory limit it ran out of, where it did, and whether it had loaded the
- * original file before the mutant was in its place. Any two mutants that leave the
- * same source share their mutated copy, and so this, even under different
- * mutators.
+ * memory limit it ran out of, where it did, whether it had loaded the
+ * original file before the mutant was in its place, and how many tests it
+ * ran, where it said. Any two mutants that leave the same source share their
+ * mutated copy, and so this, even under different mutators.
  */
 final readonly class OwnRun
 {
@@ -34,6 +34,7 @@ final readonly class OwnRun
         private array $loaded,
         private MemoryCap|NotGiven $exhaustion,
         private bool $preloaded,
+        private int|NotGiven $tests,
     ) {
     }
 
@@ -43,6 +44,7 @@ final readonly class OwnRun
      * @param list<string>       $loaded     the test files it was narrowed to load, or none where it loaded every one
      * @param MemoryCap|NotGiven $exhaustion the memory limit it ran out of, or none where it did not
      * @param bool               $preloaded  whether it had loaded the original file before the mutant was in place
+     * @param int|NotGiven       $tests      how many tests it ran, or none where it never said
      */
     public static function of(
         array $killers,
@@ -50,8 +52,9 @@ final readonly class OwnRun
         array $loaded,
         MemoryCap|NotGiven $exhaustion,
         bool $preloaded,
+        int|NotGiven $tests,
     ): self {
-        return new self($killers, $errored, $loaded, $exhaustion, $preloaded);
+        return new self($killers, $errored, $loaded, $exhaustion, $preloaded, $tests);
     }
 
     /** The tests that failed in it, in the order they failed: the first killed the mutant. */
@@ -93,5 +96,14 @@ final readonly class OwnRun
     public function ranTheOriginal(): bool
     {
         return $this->preloaded;
+    }
+
+    /**
+     * Whether it said it ran no test, so nothing judged the mutant; one that
+     * never said how many it ran is not known to have run none.
+     */
+    public function ranNoTest(): bool
+    {
+        return $this->tests === 0;
     }
 }

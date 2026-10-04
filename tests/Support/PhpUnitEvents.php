@@ -147,6 +147,13 @@ final readonly class PhpUnitEvents
         self::emitterOf($events)->testFinished(TestMethodBuilder::fromCallStack(), 1);
     }
 
+    /** Emits that the test runner ended its run. */
+    public static function executionFinished(Facade $events): void
+    {
+        $events->seal();
+        self::emitterOf($events)->testRunnerExecutionFinished();
+    }
+
     private static function emitterOf(Facade $events): Emitter
     {
         return (fn(): Emitter => $this->emitter)->call($events);

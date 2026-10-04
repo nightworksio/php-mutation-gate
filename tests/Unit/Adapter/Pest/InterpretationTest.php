@@ -263,6 +263,37 @@ it('leaves unjudged a mutant whose own process had loaded its file before the mu
         ), 0));
 });
 
+it('leaves unjudged a survivor whose own process ran no test, and judges every other as Pest did', function () use (
+    $mutant,
+    $plan,
+    $read,
+): void {
+    [$project, $results, $root] = interpretedRun([11 => [0], 12 => [0], 13 => [0], 14 => [0]], []);
+    PestRun::write($results, [
+        $plan($root, 'n1', 'src/Money.php:11', 'ab'),
+        $plan($root, 'n2', 'src/Money.php:12', 'cd'),
+        $plan($root, 'n3', 'src/Money.php:13', 'ef'),
+        $plan($root, 'n4', 'src/Money.php:14', 'amount'),
+        PestRun::made(4),
+        PestRun::ran('n1', 0),
+        PestRun::ran('n2', 3),
+        PestRun::ran('n4', 0),
+        PestRun::finished('n1', PestStatus::Untested, 0.25),
+        PestRun::finished('n2', PestStatus::Untested, 0.25),
+        PestRun::finished('n3', PestStatus::Untested, 0.25),
+        PestRun::finished('n4', PestStatus::Tested, 0.25),
+        PestRun::end(),
+    ]);
+
+    expect($read($project, Ran::finished(succeeded: true, output: "\n  Mutations: 3 untested, 1 tested\n"), $results))
+        ->toEqual(MutationResult::of(Mutants::of(
+            $mutant('n1', 'src/Money.php:11', 'ab', MutantStatus::Unjudged, 0.25)->because(Reason::that('its own run ran no test')),
+            $mutant('n2', 'src/Money.php:12', 'cd', MutantStatus::Survived, 0.25),
+            $mutant('n3', 'src/Money.php:13', 'ef', MutantStatus::Survived, 0.25),
+            $mutant('n4', 'src/Money.php:14', 'amount', MutantStatus::Killed, 0.25),
+        ), 0));
+});
+
 it('cannot judge a run whose own process ran out of the gate\'s cap, and says to raise it', function (): void {
     [$project, $results] = interpretedRun([], []);
     PestRun::write($results, []);

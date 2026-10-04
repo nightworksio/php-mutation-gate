@@ -60,7 +60,9 @@ final readonly class NarrowedKills
             }
 
             $recorded = array_key_exists($mutant->nativeId(), $runs);
-            $run = $recorded ? $runs[$mutant->nativeId()] : OwnRun::of([], [], [], NotGiven::value(), preloaded: false);
+            $run = $recorded
+                ? $runs[$mutant->nativeId()]
+                : OwnRun::of([], [], [], NotGiven::value(), preloaded: false, tests: NotGiven::value());
 
             if (! $recorded || count($mutant->killers()) === 0 || $run->killedByErrorsOnly()) {
                 $doubtful[] = $mutant;

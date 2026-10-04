@@ -250,6 +250,18 @@ its parser attributes. Both change when the checkout moves.
      records a mutant whose file was among it. Such a mutant is unjudged,
      whatever Pest made of it, with the reason *`<file>` was loaded before the
      mutant was in place, so its tests ran the original code*.
+   - **Where a survivor's own run ran no test.** The package's plugin counts
+     the tests that finish in each mutant's own process and writes the count
+     once PHPUnit ends the run, which it does whether or not its filter
+     selected a test. A survivor whose own process says it ran none is
+     unjudged, with the reason *its own run ran no test*: nothing ran against
+     the mutant, so its survival says nothing. A process that never ends its
+     run, as one stopped at its limit does, writes no count, and its mutant
+     is read as Pest reports it. Mutants that leave the same source share an
+     own run's record, so their counts add up. The PHPUnit runner reads the
+     same from its own records (ADR-0023, decision 9). Infection's log says
+     nothing of how many tests ran in a mutant's process, so an Infection
+     survivor is read as Infection reports it.
    - **A small Pest plugin** ships in this package, listed in its
      `composer.json` under `extra.pest.plugins`, which is how Pest finds
      plugins. It implements Pest's `Bootable`, `TestCaseMethodFilter` and
@@ -283,7 +295,7 @@ its parser attributes. Both change when the checkout moves.
      mutant's child process inherits it, and there the plugin appends the
      mutated file Pest serves and the id of the first test that fails
      (ADR-0013, decision 1), or of every test that fails under a full kill
-     matrix (ADR-0014, decision 7).
+     matrix (ADR-0014, decision 7), and how many tests the process ran.
      - At `FinishMutationSuite` it walks the suite's mutants and writes one JSON
        line per mutant: native id, file, lines, mutator class (a bridged
        mutator's own name, ADR-0021), diff, status and

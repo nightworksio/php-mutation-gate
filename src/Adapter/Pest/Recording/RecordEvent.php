@@ -31,6 +31,9 @@ enum RecordEvent: string
     /** A mutant's own process had loaded the original file before Pest put the mutant in its place. */
     case Preloaded = 'preloaded';
 
+    /** How many tests a mutant's own process ran. */
+    case Ran = 'ran';
+
     /** A mutant's own process ran out of its memory limit. */
     case Exhausted = 'exhausted';
 

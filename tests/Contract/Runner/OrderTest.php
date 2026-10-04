@@ -6,10 +6,13 @@ use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Seed;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Format\Lenient;
+use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
@@ -142,22 +145,25 @@ function orderChild(string $from, string $to, string ...$arguments): array
 }
 
 /**
- * The tests the plugin named as killers in a results file, in order.
+ * The tests the plugin named as killers in a results file, in order: its
+ * other lines, such as how many tests the run ran, name none.
  *
  * @return list<string>
  */
 function orderKilled(string $results): array
 {
-    $killed = [];
     $lines = is_file($results) ? explode("\n", trim((string) file_get_contents($results))) : [];
+    $records = array_map(
+        static fn(string $line): Node => Node::decode($line),
+        array_values(array_filter($lines, static fn(string $line): bool => $line !== '')),
+    );
+    $killers = array_filter($records, static fn(Node $record): bool => in_array(
+        Lenient::text($record->field('event')),
+        [RecordEvent::Killed->value, RecordEvent::Errored->value],
+        strict: true,
+    ));
 
-    foreach (array_filter($lines, static fn(string $line): bool => $line !== '') as $line) {
-        $record = json_decode($line, associative: true);
-        $test = is_array($record) && array_key_exists('test', $record) ? $record['test'] : '';
-        $killed[] = is_string($test) ? $test : '';
-    }
-
-    return $killed;
+    return array_values(array_map(static fn(Node $record): string => Lenient::text($record->field('test')), $killers));
 }
 
 it('keeps a survivor a survivor and a kill a kill, first by the likely killer, whatever a mutant\'s process starts with', function (string ...$arguments): void {

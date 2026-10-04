@@ -32,6 +32,7 @@ it('writes each event as one line of JSON, slashes as they are and whole seconds
         RecordLine::errored('/tmp/mutations/a1', 'T::adds'),
         RecordLine::narrowed('/tmp/mutations/a1', ['/p/tests/AddsSpec.php']),
         RecordLine::preloaded('/tmp/mutations/a1'),
+        RecordLine::ran('/tmp/mutations/a1', 3),
         RecordLine::end(),
     ])->toBe([
         '{"event":"planned","id":"a1","file":"/p/src/Money.php","start":11,"end":12,'
@@ -45,6 +46,7 @@ it('writes each event as one line of JSON, slashes as they are and whole seconds
         "{\"event\":\"errored\",\"mutated\":\"/tmp/mutations/a1\",\"test\":\"T::adds\"}\n",
         "{\"event\":\"narrowed\",\"mutated\":\"/tmp/mutations/a1\",\"files\":[\"/p/tests/AddsSpec.php\"]}\n",
         "{\"event\":\"preloaded\",\"mutated\":\"/tmp/mutations/a1\"}\n",
+        "{\"event\":\"ran\",\"mutated\":\"/tmp/mutations/a1\",\"count\":3}\n",
         "{\"event\":\"end\"}\n",
     ]);
 });

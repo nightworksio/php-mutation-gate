@@ -88,6 +88,12 @@ final readonly class PestRun
         return self::line(RecordLine::preloaded(self::mutated($id)));
     }
 
+    /** How many tests the own process of the mutant with this native id ran. */
+    public static function ran(string $id, int $tests): string
+    {
+        return self::line(RecordLine::ran(self::mutated($id), $tests));
+    }
+
     /** The memory limit the own process of the mutant with this native id ran out of. */
     public static function exhausted(string $id, MemoryCap $limit): string
     {

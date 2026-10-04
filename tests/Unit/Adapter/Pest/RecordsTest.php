@@ -326,6 +326,26 @@ it('keeps whether each mutant\'s own process had loaded the original before the 
         ->toBeFalse();
 });
 
+it('keeps how many tests the own runs on each copy ran together, and none where no run said', function () use ($results, $planned, $mutant): void {
+    $records = Records::in($results([
+        $planned('a', '/p/src/Money.php', 10),
+        $planned('b', '/p/src/Money.php', 20),
+        $planned('c', '/p/src/Money.php', 30),
+        RecordLine::ran('/tmp/a', 2),
+        RecordLine::ran('/tmp/a', 0),
+        RecordLine::ran('/tmp/b', 0),
+    ]));
+    $refused = Records::in($results(['{"event": "ran", "mutated": "/tmp/a", "count": -1}', RecordLine::end()]));
+    $ranNone = static fn(string $id, int $line): bool => $records instanceof Records
+        && $records->runOf($mutant($id, '/p/src/Money.php', $line))->ranNoTest();
+
+    expect($ranNone('a', 10))->toBeFalse()
+        ->and($ranNone('b', 20))->toBeTrue()
+        ->and($ranNone('c', 30))->toBeFalse()
+        ->and($refused instanceof CannotJudge ? $refused->why() : '')
+        ->toEndWith('is not a record the gate reads: the record.count is not a number of tests, which is never below 0.');
+});
+
 it('keeps apart the mutants Pest gives one id, as two changes that leave the same source share it', function () use ($results, $planned, $mutant): void {
     $records = Records::in($results([
         $planned('same', '/p/src/Money.php', 10),
