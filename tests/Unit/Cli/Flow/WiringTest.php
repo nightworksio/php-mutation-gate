@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Adapter\Http\HttpExchange;
 use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
+use NightWorksIO\MutationGate\Adapter\Pest\Pest as PestRunner;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnit;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
@@ -28,6 +29,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\Cores;
 use NightWorksIO\MutationGate\Cli\Flow\Wiring;
 use NightWorksIO\MutationGate\Config\Ci;
+use NightWorksIO\MutationGate\Config\Mutators;
 use NightWorksIO\MutationGate\Config\Option;
 use NightWorksIO\MutationGate\Config\Pest;
 use NightWorksIO\MutationGate\Config\Proofs;
@@ -57,7 +59,7 @@ use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Extension\Extensions;
-use NightWorksIO\MutationGate\Mutator\Engine\SetEngine;
+use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Fakes\ExtensionFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
@@ -65,6 +67,8 @@ use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
+use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveEcho;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGateDefault\DefaultExtension;
 use Symfony\Component\HttpClient\HttpClient;
@@ -133,7 +137,7 @@ it('counts a plan\'s mutants with the default set, where the set is registered',
     $adapters = new Wiring($registry, Variables::of([]), wiringDetected())->adapters(Flows::settings(), Directory::at(Flows::project()));
 
     expect($adapters instanceof Adapters ? $adapters->engine : $adapters)
-        ->toEqual($set instanceof MutatorSet ? SetEngine::of($set) : $set);
+        ->toEqual($set instanceof MutatorSet ? Enabled::of($set)->engine() : $set);
 });
 
 it('keeps a local run\'s proofs on the machine, and a CI run\'s in the store the config names', function (): void {
@@ -446,4 +450,46 @@ it('tells the PHPUnit runner no mutator where no extension registers the default
     expect($runner)->toBeInstanceOf(PhpUnit::class)
         ->and($runner->mutate(MutationRequest::of(Paths::none(), WholeSuite::tests())))
         ->toEqual(CannotJudge::because('The phpunit runner makes its mutants with the default mutator set, and no extension registers one.'));
+});
+
+it('tells each runner the classes of the registered mutators the config turns on: Pest and Infection beside their own, the PHPUnit runner beside the default set\'s', function (): void {
+    $registry = new DefaultExtension()->extend(wiringRegistry())
+        ->withMutators(Name::of('acme'), MutatorSet::of(PlusToMinus::class, RemoveEcho::class));
+    $default = $registry->registered(ExtensionPoint::MutatorSet, MutatorSet::defaultName());
+    $wired = static fn(Runner $runner): Adapters|Invalid|CannotJudge => new Wiring($registry, Variables::of([]), wiringDetected())->adapters(
+        Flows::settings($runner, Timeouts::seconds(45), Mutators::sets('acme'), Mutators::except('acme/RemoveEcho')),
+        Directory::at(Flows::project()),
+    );
+    $pest = $wired(Runner::pest());
+    $infection = $wired(Runner::infection());
+    $phpunit = $wired(Runner::phpunit());
+    $native = [...$default instanceof MutatorSet ? $default : [], PlusToMinus::class];
+
+    expect($pest instanceof Adapters ? $pest->runner : $pest)->toEqual(PestRunner::fromOptions(
+        Configs::options((string) json_encode(['mutators' => [PlusToMinus::class]])),
+        ComposerVendor::of('.'),
+        new CapDirectory(),
+    ))
+        ->and($infection instanceof Adapters ? $infection->runner : $infection)->toEqual(Infection::fromOptions(
+            Configs::options((string) json_encode(['timeout' => 45.0, 'mutators' => [PlusToMinus::class]])),
+            new CapDirectory(),
+        ))
+        ->and($phpunit instanceof Adapters ? $phpunit->runner : $phpunit)->toEqual(PhpUnit::fromOptions(
+            Configs::options((string) json_encode(['timeout' => 45.0, 'mutators' => $native])),
+            ComposerVendor::of('.'),
+            new CapDirectory(),
+        ))
+        ->and($pest instanceof Adapters ? array_map(static fn(object $mutator): string => $mutator::class, [...$pest->mutators]) : $pest)
+        ->toBe([PlusToMinus::class])
+        ->and($phpunit instanceof Adapters ? $phpunit->engine : $phpunit)
+        ->toEqual(Enabled::of(MutatorSet::of(...$native))->engine());
+});
+
+it('cannot wire a mutator set nobody registered, naming the one most likely meant', function (): void {
+    $registry = wiringRegistry()->withMutators(Name::of('acme'), MutatorSet::of(PlusToMinus::class));
+
+    expect(new Wiring($registry, Variables::of([]), wiringDetected())->adapters(
+        Flows::settings(Runner::pest(), Mutators::sets('acmee')),
+        Directory::at(Flows::project()),
+    ))->toEqual(CannotJudge::because('No mutator set is registered as "acmee". Did you mean "acme"?'));
 });

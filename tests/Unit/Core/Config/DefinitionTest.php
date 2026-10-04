@@ -116,6 +116,8 @@ it('declares every setting as affecting results or as judging or reporting only'
         'pest.canary' => $results,
         'staticCheck.tool' => $results,
         'staticCheck.config' => $results,
+        'mutators.sets' => $results,
+        'mutators.except' => $results,
         'local.watchBudget' => $judges,
         'local.prePushBudget' => $judges,
     ]);

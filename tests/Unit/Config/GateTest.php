@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Config\Ignore;
 use NightWorksIO\MutationGate\Config\Ignores;
 use NightWorksIO\MutationGate\Config\Load;
 use NightWorksIO\MutationGate\Config\Local;
+use NightWorksIO\MutationGate\Config\Mutators;
 use NightWorksIO\MutationGate\Config\Option;
 use NightWorksIO\MutationGate\Config\Pest;
 use NightWorksIO\MutationGate\Config\Preset;
@@ -128,6 +129,8 @@ it('writes every setting of the configuration reference', function (): void {
                 Pest::canary('canary'),
                 StaticCheck::phpstan(),
                 StaticCheck::config('phpstan.dist.neon'),
+                Mutators::sets('acme', 'acme-auth'),
+                Mutators::except('acme/RemoveAudit'),
                 Local::watchBudget('2m'),
                 Local::prePushBudget('10m'),
             ),
@@ -189,6 +192,7 @@ it('writes every setting of the configuration reference', function (): void {
         'badge' => ['colors' => ['green' => 85]],
         'pest' => ['patch' => true, 'canary' => 'canary'],
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon'],
+        'mutators' => ['sets' => ['acme', 'acme-auth'], 'except' => ['acme/RemoveAudit']],
         'local' => ['watchBudget' => '2m', 'prePushBudget' => '10m'],
     ]);
 });

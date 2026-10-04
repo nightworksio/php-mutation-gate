@@ -43,8 +43,8 @@ use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Extension\Extensions;
+use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
-use NightWorksIO\MutationGate\Mutator\Engine\SetEngine;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Port\Runner;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
@@ -501,6 +501,6 @@ final class Library
         $registry = new DefaultExtension()->extend(new Extensions(Origin::of(self::class)));
         $set = $registry->registered(ExtensionPoint::MutatorSet, MutatorSet::defaultName());
 
-        return SetEngine::of($set instanceof MutatorSet ? $set : MutatorSet::of());
+        return Enabled::of($set instanceof MutatorSet ? $set : MutatorSet::of())->engine();
     }
 }

@@ -33,6 +33,7 @@ final readonly class Php
         'Ignores' => self::BUILDER,
         'Load' => self::BUILDER,
         'Local' => self::BUILDER,
+        'Mutators' => self::BUILDER,
         'Option' => self::BUILDER,
         'Pest' => self::BUILDER,
         'Preset' => self::BUILDER,

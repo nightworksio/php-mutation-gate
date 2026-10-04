@@ -11,6 +11,7 @@ use function levenshtein;
 use function max;
 use function mb_strlen;
 use function mb_strtolower;
+use function sprintf;
 use function usort;
 
 /**
@@ -23,6 +24,9 @@ final readonly class Nearest
     private const int FEWEST_EDITS = 1;
 
     private const int LETTERS_PER_EDIT = 3;
+
+    /** A sentence, then the name it most likely meant. */
+    private const string SUGGESTED = '%s Did you mean "%s"?';
 
     /**
      * The nearest known key, the first of those equally near, or nothing near when none is close.
@@ -40,6 +44,19 @@ final readonly class Nearest
         $allowed = max(self::FEWEST_EDITS, intdiv(mb_strlen($key), self::LETTERS_PER_EDIT));
 
         return is_string($nearest) && self::edits($key, $nearest) <= $allowed ? $nearest : NothingNear::of();
+    }
+
+    /**
+     * A sentence about a name nothing knows, then the known name it most
+     * likely meant, where one is close enough.
+     *
+     * @param list<string> $known
+     */
+    public static function suggested(string $sentence, string $name, array $known): string
+    {
+        $nearest = self::to($name, $known);
+
+        return $nearest instanceof NothingNear ? $sentence : sprintf(self::SUGGESTED, $sentence, $nearest);
     }
 
     private static function edits(string $key, string $known): int

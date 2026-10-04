@@ -33,11 +33,14 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
+use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 use NightWorksIO\MutationGate\Tests\Support\StoppedClock;
@@ -301,4 +304,27 @@ it('keys the analyser that checks the mutants, and none where it cannot say what
     expect(keyedWith($named))->toBeInstanceOf(Digest::class)
         ->and(keyedWith($named))->not->toEqual(keyedWith())
         ->and(keyedWith($unnamed))->toEqual(keyedWith());
+});
+
+/** The base of a run over a suite with a mutator under its test directory, whose body holds this text. */
+function keyedMutatorBase(string $body, Enabled $mutators): Digest
+{
+    $project = Scratch::directory();
+    $text = sprintf("<?php\nnamespace Tests\\Mutators;\nfinal class PlusToMinus { /* %s */ }\n", $body);
+    Scratch::write($project, 'tests/Mutators/PlusToMinus.php', $text);
+    $files = Fingerprints::of(Fingerprint::of(Path::of('tests/Mutators/PlusToMinus.php'), Digest::sha256Of($text)));
+    $suite = Suite::read(Flows::trees(), $files, Directory::at($project));
+    $keying = $suite instanceof Suite
+        ? Keying::of(Flows::adapters(Flows::project(), [], keyingRunner('fake'), $mutators), Flows::settings(), Flows::setup(), $suite, keyingMap())
+        : $suite;
+
+    return $keying instanceof Keying ? $keying->base() : throw new RuntimeException($keying->why());
+}
+
+it('reads a test file that declares a registered mutator the config turns on into every key', function (): void {
+    $on = Enabled::of(MutatorSet::of(PlusToMinus::class));
+    $off = Enabled::of(MutatorSet::of());
+
+    expect(keyedMutatorBase('2', $on))->not->toEqual(keyedMutatorBase('1', $on))
+        ->and(keyedMutatorBase('2', $off))->toEqual(keyedMutatorBase('1', $off));
 });

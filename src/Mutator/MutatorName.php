@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Mutator;
 
+use NightWorksIO\MutationGate\Core\Mutant\MutatorNamePattern;
+
 use function preg_match;
 use function sprintf;
 
@@ -13,11 +15,8 @@ use function sprintf;
  */
 final readonly class MutatorName
 {
-    /** A set's name: lower case letters and digits, joined by single hyphens. */
-    private const string SET = '/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/D';
-
-    /** A mutator's own name: a letter, then letters and digits. */
-    private const string OWN = '/^[A-Z][A-Za-z0-9]*$/D';
+    /** A whole name, as a pattern matches it. */
+    private const string WHOLE = '/^%s$/D';
 
     private function __construct(private string $set, private string $own)
     {
@@ -26,7 +25,7 @@ final readonly class MutatorName
     /** @throws NotAMutatorName where either part is not written as a name is */
     public static function of(string $set, string $own): self
     {
-        return preg_match(self::SET, $set) === 1 && preg_match(self::OWN, $own) === 1
+        return self::matches(MutatorNamePattern::SET, $set) && self::matches(MutatorNamePattern::OWN, $own)
             ? new self($set, $own)
             : throw NotAMutatorName::of($set, $own);
     }
@@ -47,5 +46,10 @@ final readonly class MutatorName
     public function value(): string
     {
         return sprintf('%s/%s', $this->set, $this->own);
+    }
+
+    private static function matches(string $pattern, string $name): bool
+    {
+        return preg_match(sprintf(self::WHOLE, $pattern), $name) === 1;
     }
 }

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Mutator\Engine;
 
-use function array_diff_key;
 use function array_filter;
 use function array_key_exists;
 use function array_values;
@@ -20,7 +19,6 @@ use PhpParser\ErrorHandler\Collecting;
 use PhpParser\Node;
 use PhpParser\Node\Stmt;
 use PhpParser\Node\Stmt\ClassMethod;
-use PhpParser\Node\Stmt\Nop;
 use PhpParser\NodeFinder;
 use PhpParser\NodeTraverser;
 use PhpParser\NodeVisitor;
@@ -161,18 +159,10 @@ final readonly class Source
         return $at instanceof ClassMethod;
     }
 
-    /**
-     * A visitor that puts a change in the place of the node it was made for.
-     * A node built from the original's attributes loses `origNode`, which
-     * names the original's class and would make php-parser's printer refuse
-     * it.
-     */
+    /** A visitor that puts a change in the place of the node it was made for, as the runner would. */
     private function replacing(Node $target, Node|Removal $change, Offered $offered): NodeVisitor
     {
         return new class ($target, $change, $offered) extends NodeVisitorAbstract {
-            /** The attribute php-parser's cloning keeps a node's original in. */
-            private const string ORIGINAL = 'origNode';
-
             public function __construct(
                 private readonly Node $target,
                 private readonly Node|Removal $change,
@@ -182,19 +172,7 @@ final readonly class Source
 
             public function leaveNode(Node $node): Node|int
             {
-                return match (true) {
-                    $node !== $this->target => $node,
-                    $this->change instanceof Node => $this->withoutOriginal($this->change),
-                    $this->offered === Offered::InClassMethods && $node instanceof Stmt => new Nop(),
-                    default => NodeVisitor::REMOVE_NODE,
-                };
-            }
-
-            private function withoutOriginal(Node $node): Node
-            {
-                $node->setAttributes(array_diff_key($node->getAttributes(), [self::ORIGINAL => true]));
-
-                return $node;
+                return $node === $this->target ? $this->offered->replacing($node, $this->change) : $node;
             }
         };
     }

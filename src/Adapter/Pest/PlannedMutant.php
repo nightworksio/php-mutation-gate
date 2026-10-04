@@ -13,8 +13,10 @@ use function usort;
 
 /**
  * A mutant as Pest made it: its native id, its file as Pest spells it on
- * disk, the lines it spans, its mutator class, Pest's diff of it, and the
- * mutated copy Pest serves in the mutant's own process.
+ * disk, the lines it spans, its mutator as the gate names it (Pest's class
+ * for one Pest ships, a bridged mutator's own name for a registered one),
+ * Pest's diff of it, and the mutated copy Pest serves in the mutant's own
+ * process.
  */
 final readonly class PlannedMutant
 {
@@ -114,7 +116,7 @@ final readonly class PlannedMutant
         return $this->end;
     }
 
-    /** The mutator's class, as Pest names it. */
+    /** The mutator, as the gate names it: Pest's class for one Pest ships, and its own name for a bridged one. */
     public function mutator(): string
     {
         return $this->mutator;

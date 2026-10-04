@@ -14,6 +14,7 @@ use function is_file;
 use function is_string;
 use function mkdir;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Bridged;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
@@ -39,9 +40,10 @@ use function unlink;
  * event arrives, so a run stopped at its deadline leaves every result it had:
  * - the opening run's coverage map, copied beside the results before Pest
  *   deletes it;
- * - `planned`, every mutant with its file, lines, mutator class, diff and the
- *   mutated copy Pest serves in a mutant's own process, once they are all
- *   made, and `made`, how many there are and the opening run's seconds;
+ * - `planned`, every mutant with its file, lines, mutator as the gate names
+ *   it, diff and the mutated copy Pest serves in a mutant's own process,
+ *   once they are all made, and `made`, how many there are and the opening
+ *   run's seconds;
  * - `outcome`, each mutant's status as Pest decides it, and `exhausted`, the
  *   memory limit a caught mutant's own process ran out of, where its output
  *   says it did;
@@ -208,7 +210,7 @@ final readonly class Recorder
             DiskPath::of(sprintf('%s', $test->mutation->file->getRealPath())),
             Line::of($test->mutation->startLine),
             Line::of($test->mutation->endLine),
-            $test->mutation->mutator,
+            Bridged::nameOf($test->mutation->mutator),
             $test->mutation->diff,
             DiskPath::of($test->mutation->modifiedSourcePath),
         );

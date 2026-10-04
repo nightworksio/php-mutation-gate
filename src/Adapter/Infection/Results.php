@@ -101,6 +101,7 @@ final readonly class Results
         MemoryCap $cap,
         ErrorDisplay|NotGiven $display,
         bool $nativeMarkersAllowed,
+        Bridges $bridges = new Bridges(),
     ): MutationResult|CannotJudge {
         $log = $project->own(Invocation::JSON);
         $found = is_file($log)
@@ -109,7 +110,7 @@ final readonly class Results
 
         return $found instanceof CannotJudge
             ? $found
-            : MutationResult::of(self::mutants($project, $found, $text, $limits), 0);
+            : MutationResult::of(self::mutants($project, $found, $text, $limits, $bridges), 0);
     }
 
     /** Why a run that wrote no log cannot be judged: Infection's own process out of the memory cap, or what it said. */
@@ -240,9 +241,9 @@ final readonly class Results
 
     /**
      * The mutants, by file and then by line, each with the gate's id, the
-     * native id the text log gives it, its family and, for one that timed out
-     * or was skipped, its limit, and for one out of memory, the cap where
-     * its output named it.
+     * native id the text log gives it, its family, a bridged mutator's own,
+     * and, for one that timed out or was skipped, its limit, and for one out
+     * of memory, the cap where its output named it.
      *
      * @param list<Found> $found
      */
@@ -251,6 +252,7 @@ final readonly class Results
         array $found,
         TextLog $text,
         Limits $limits,
+        Bridges $bridges,
     ): Mutants {
         usort(
             $found,
@@ -271,7 +273,7 @@ final readonly class Results
                 MutantId::hash($file, $mutant['mutator'], $mutant['diff'], $occurrence),
                 $text->idOf($mutant['file'], $mutant['line'], $mutant['mutator'], $mutant['diff']),
                 Location::of($file, $line, Unreported::line()),
-                Mutation::of($mutant['mutator'], Families::of($mutant['mutator']), $mutant['diff']),
+                Mutation::of($mutant['mutator'], $bridges->familyOf($mutant['mutator']), $mutant['diff']),
                 $mutant['status'],
                 Unmeasured::duration(),
             )->killedBy($mutant['killers']);

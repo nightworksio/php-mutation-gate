@@ -186,6 +186,10 @@ its parser attributes. Both change when the checkout moves.
        what is mutated and which tests judge it. A contract test proves that a
        suite using `covers()` is still judged by every covering test.
      - `--no-cache` keeps a stale cache from deciding a result.
+     - `--mutator` names the mutators a narrowed run applies. Where the config
+       turns on registered mutators, a run of every mutator names Pest's
+       `DefaultSet` beside their bridges, since `--mutator` replaces Pest's
+       list (ADR-0021, decision 4).
      - `--min` is never passed, and the options after `--no-tia` undo what a
        project's own mutation config could set: covered lines only, a class
        list, an ignore list, a stop at the first escaped or uncovered
@@ -281,7 +285,8 @@ its parser attributes. Both change when the checkout moves.
      (ADR-0013, decision 1), or of every test that fails under a full kill
      matrix (ADR-0014, decision 7).
      - At `FinishMutationSuite` it walks the suite's mutants and writes one JSON
-       line per mutant: native id, file, lines, mutator class, diff, status and
+       line per mutant: native id, file, lines, mutator class (a bridged
+       mutator's own name, ADR-0021), diff, status and
        duration, and one line with the opening run's duration, from which the
        adapter computes each mutant's limit. That walk is the only place that
        sees a mutant with no result.
@@ -458,6 +463,9 @@ its parser attributes. Both change when the checkout moves.
        release adds), so the gate writes it itself or leaves it out.
      - Every path is absolute, and `phpUnit.configDir` is set, because the
        generated file lives under `.mutation-gate/`.
+     - Where the config turns on registered mutators, `bootstrap` names the
+       file of their bridges, which loads the project's own bootstrap, and
+       `mutators` turns each bridge on (ADR-0021, decision 4).
      - `source.directories` are the directories of the files the run mutates.
      - `logs.json` and `logs.text` point into `.mutation-gate/infection/logs/`,
        and every other log is off.

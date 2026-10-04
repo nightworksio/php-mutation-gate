@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Infection\Bridges;
 use NightWorksIO\MutationGate\Adapter\Infection\OwnConfig;
 use NightWorksIO\MutationGate\Adapter\Infection\Project;
 use NightWorksIO\MutationGate\Adapter\Infection\StaticAnalysis;
@@ -10,7 +11,11 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
+use NightWorksIO\MutationGate\Mutator\MutatorSet;
+use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -193,4 +198,26 @@ it('drops a setting whose key reads as a number, as any other it does not keep',
 
     expect($generated)->toHaveKey('source')
         ->and(array_key_exists(12, $generated))->toBeFalse();
+});
+
+it('names the file of bridges as Infection\'s bootstrap where there are bridges, and turns each bridge on', function (): void {
+    $project = Project::at(Root::of('/project'), Paths::none(), Path::of('.gate'));
+    $bridges = Bridges::to(Enabled::of(MutatorSet::of(PlusToMinus::class)));
+    $generated = json_decode(
+        ownConfig('{"bootstrap": "tests/bootstrap.php"}')->generated($project, ['/project/src'], Seconds::of(5.0), Mutators::all(), StaticAnalysis::Infection, $bridges),
+        associative: true,
+    );
+
+    expect(is_array($generated) ? [$generated['bootstrap'] ?? null, $generated['mutators'] ?? null] : [])->toBe([
+        '/project/.gate/mutators/infection/bridges.php',
+        ['@default' => true, 'NightWorksIO\\MutationGateBridge\\Infection\\NightWorksIO\\MutationGate\\Tests\\Support\\Mutators\\PlusToMinus' => true],
+    ]);
+});
+
+it('names the project\'s own bootstrap by its path on disk, and none where it names none', function (): void {
+    $project = Project::at(Root::of('/project'), Paths::none(), Path::of('.gate'));
+
+    expect(ownConfig('{"bootstrap": "tests/bootstrap.php"}')->bootstrap($project))->toBe('/project/tests/bootstrap.php')
+        ->and(ownConfig('{"bootstrap": "/elsewhere/boot.php"}')->bootstrap($project))->toBe('/elsewhere/boot.php')
+        ->and(ownConfig('{}')->bootstrap($project))->toEqual(NotGiven::value());
 });

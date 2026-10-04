@@ -12,10 +12,10 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Extension\Extensions;
+use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 use NightWorksIO\MutationGate\Mutator\Engine\MadeMutant;
 use NightWorksIO\MutationGate\Mutator\Engine\MadeMutants;
-use NightWorksIO\MutationGate\Mutator\Engine\SetEngine;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToPlus;
@@ -132,7 +132,7 @@ function defaultEngine(): Engine
 {
     $set = new DefaultExtension()->extend(new Extensions(Origin::of('nightworksio/mutation-gate')))
         ->registered(ExtensionPoint::MutatorSet, MutatorSet::defaultName());
-    return SetEngine::of($set instanceof MutatorSet ? $set : MutatorSet::of());
+    return Enabled::of($set instanceof MutatorSet ? $set : MutatorSet::of())->engine();
 }
 
 /**

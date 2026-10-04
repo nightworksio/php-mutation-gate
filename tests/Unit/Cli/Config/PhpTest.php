@@ -96,6 +96,7 @@ it('writes a config that reads back into the same effective config', function (a
         'badge' => ['colors' => ['green' => 95]],
         'pest' => ['patch' => true, 'canary' => 'canary'],
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon'],
+        'mutators' => ['sets' => ['acme', 'acme-auth'], 'except' => ['acme/RemoveAudit']],
         'local' => ['watchBudget' => '2m', 'prePushBudget' => '90s'],
     ]],
     'adapters another extension registers' => [[
@@ -199,6 +200,13 @@ it('writes every other setting in one call to with', function () use ($php): voi
                     Budget::of('15m'),
                 );
             PHP);
+});
+
+it('writes the mutator sets and the mutators turned off with the Mutators builder', function () use ($php): void {
+    expect($php(['runner' => 'pest', 'mutators' => ['sets' => ['acme'], 'except' => ['acme/RemoveAudit']]]))
+        ->toContain("Mutators::sets('acme'),")
+        ->toContain("Mutators::except('acme/RemoveAudit'),")
+        ->toContain('use NightWorksIO\\MutationGate\\Config\\Mutators;');
 });
 
 it('writes a report that writes no file with uses, and one that writes a file with writing', function () use ($php): void {

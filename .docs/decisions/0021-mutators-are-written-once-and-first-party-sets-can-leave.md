@@ -107,26 +107,40 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
    - An unknown set the config file names is exit 2 with the nearest name
      (ADR-0002 decision 6). Installing a package never changes a score by
      itself.
+   - `default` in `mutators.sets` is a config error, exit 2: that set is
+     always on, and Pest and Infection run their own mutators in its place.
+   - A mutator `mutators.except` names that no set in `mutators.sets` holds
+     is exit 2, with the nearest name where one is close.
 
 4. **The gate writes a bridge for each runner.**
-   - For each enabled mutator the gate writes one bridge class per runner
-     under `.mutation-gate/mutators/<runner>/`, delegating to the SDK class.
-     The generator writes class names from the registry, so it joins the
-     files ARCHITECTURE.md's P2 allows dynamic names.
-   - **Pest:** the package's plugin, which boots in Pest's parent and in
-     every mutant's child, registers an autoloader for that directory. It
-     appends the bridges to Pest's effective mutator list inside Pest's
-     process, after `tests/Pest.php` has configured it, so a project's own
-     `mutate()->mutator(…)` or `->except(…)` choice survives. This relies on
-     Pest's configuration repository, which is `@internal`, covered by the
-     contract suite and the `conflict` pin.
+   - For each enabled mutator the gate writes one bridge class per runner,
+     all of a runner's into `.mutation-gate/mutators/<runner>/bridges.php`,
+     each delegating to the SDK class. A bridge's class is the SDK class's
+     own name under `NightWorksIO\MutationGateBridge\Pest\` or
+     `NightWorksIO\MutationGateBridge\Infection\`. The generator writes
+     class names from the registry, so it joins the files ARCHITECTURE.md's
+     P2 allows dynamic names.
+   - **Pest:** the adapter names the file in `MUTATION_GATE_MUTATORS`, and
+     the package's plugin, which boots in Pest's parent and in every
+     mutant's child, loads it. The file registers each bridge in
+     pest-plugin-mutate's `MutatorMap::$map` under each node class its
+     mutator handles and each php-parser subclass of one, since Pest drops a
+     mutator the map does not hold and looks a mutator up by a node's exact
+     class. That map is a public static of a class without a stability
+     promise, covered by the contract suite and the `conflict` pin.
+     - `--mutator` replaces Pest's list, so a run of every mutator passes
+       `--mutator=Pest\Mutate\Mutators\Sets\DefaultSet,<bridges>`, and a
+       narrowed run names each mutator it applies, a bridged one by its
+       bridge's class. Pest 5 configures its mutators only on the command
+       line, so no project setting is lost.
    - **Infection:** the config the adapter writes adds each bridge,
      `"<bridge class>": true`, to `mutators` beside the project's own
-     settings. Its `bootstrap` is a generated file that registers the
-     autoloader and then includes the project's own bootstrap.
-   - The first step of the build proves that Infection resolves `mutators`
-     after loading `bootstrap`, and that the plugin can append to Pest's
-     effective list.
+     settings, and keeps `"@default": true` where the project sets none. Its
+     `bootstrap` is the file of bridges, which declares them and then
+     includes the project's own bootstrap. Infection loads `bootstrap`
+     before it resolves `mutators`.
+   - The runner contract suite runs a registered mutator through each
+     bridge under the real runner.
    - This amends ADR-0004 decisions 3 and 4.
 
 5. **A custom mutant looks the same under every runner.**
@@ -350,7 +364,7 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
 | **Several changes per node**, with a declared variant count | Pest takes one per node, so its bridge would double in complexity for fewer classes to write. |
 | **Every registered mutator on as soon as its package is installed** | A `composer require` would silently move every score. |
 | **SDK authors shipping both bridges by hand** | Defeats the SDK. |
-| **`--mutator=<Pest's default set>,<bridges>`** | No internal API, and a project's own narrowing in `tests/Pest.php` would be lost silently. |
+| **Appending the bridges to Pest's configured mutator list** through its configuration repository | Relies on an `@internal` class, and Pest 5 configures mutators only on the command line, so there is no project list to keep. |
 | **The bridge's class name in ids and ignores** | Leaks a generated name, which changes if generation changes. |
 | **Only node classes both runners offer** | Drops the attribute and property mutators the framework and security sets need. |
 | **Only the config keys in the proof key** | A project's own mutator under `tests/` could change without moving any key. |

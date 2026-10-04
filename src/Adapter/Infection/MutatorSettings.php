@@ -10,8 +10,8 @@ use function array_key_exists;
 use function in_array;
 
 use NightWorksIO\MutationGate\Core\Format\JsonObject;
+use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
-use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 
 use function sprintf;
@@ -40,6 +40,9 @@ final readonly class MutatorSettings
     /** What an empty object reads back as, which the block writes as the object it was. */
     private const string EMPTY_LIST = '[]';
 
+    /** The profile Infection turns on where its config turns on no mutator. */
+    private const string DEFAULTS = '@default';
+
     private function __construct(private Node $block)
     {
     }
@@ -61,7 +64,7 @@ final readonly class MutatorSettings
     {
         $patterns = [];
 
-        foreach ($this->entriesOf($this->block) as $key => $settings) {
+        foreach (Lenient::entries($this->block) as $key => $settings) {
             $name = sprintf('%s', $key);
             $mutator = str_starts_with($name, '@') ? AnyMutator::of() : $name;
             $patterns = [...$patterns, ...match ($name) {
@@ -78,19 +81,40 @@ final readonly class MutatorSettings
     }
 
     /**
-     * The JSON of the `mutators` block the gate writes, by its key: the whole
-     * block for a run of every mutator, none where the project has none; for
-     * a run that names mutators, only those, with the project's settings for
-     * each, and its global ignores.
+     * The JSON of the `mutators` block the gate writes, by its key: for a run
+     * of every mutator, the whole block, or Infection's default profile where
+     * the project's turns on nothing, and every bridge to a registered mutator
+     * the config turns on; none where there is neither. For a run that names
+     * mutators, only those, a bridged one by its bridge's class, with the
+     * project's settings for each, and its global ignores.
      *
      * @return array<string, string>
      */
-    public function narrowedTo(Mutators $mutators): array
+    public function narrowedTo(Mutators $mutators, Bridges $bridges = new Bridges()): array
     {
-        $own = $this->entriesOf($this->block);
-        $kept = $mutators->isAll() ? $this->all($own) : $this->named($own, $mutators);
+        $own = Lenient::entries($this->block);
+        $kept = $mutators->isAll() ? $this->all($own, $bridges) : $this->named($own, $mutators, $bridges);
 
         return $kept === [] ? [] : ['mutators' => JsonObject::of($kept)];
+    }
+
+    /**
+     * Every entry of the project's block, or the default profile where it has
+     * none and there are bridges, then every bridge.
+     *
+     * @param array<array-key, Node> $own
+     *
+     * @return array<string, string>
+     */
+    private function all(array $own, Bridges $bridges): array
+    {
+        $kept = $own === [] && ! $bridges->isEmpty() ? [self::DEFAULTS => self::ON] : $this->entries($own);
+
+        foreach ($bridges->classes() as $bridge) {
+            $kept[$bridge] = self::ON;
+        }
+
+        return $kept;
     }
 
     /**
@@ -98,7 +122,7 @@ final readonly class MutatorSettings
      *
      * @return array<string, string>
      */
-    private function all(array $own): array
+    private function entries(array $own): array
     {
         $kept = [];
 
@@ -111,25 +135,26 @@ final readonly class MutatorSettings
     }
 
     /**
-     * The global ignores, and each named mutator: with the project's settings
-     * for it where it has some, and turned on bare where it has none.
+     * The global ignores, and each named mutator, a bridged one by its
+     * bridge's class: with the project's settings for it where it has some,
+     * and turned on bare where it has none.
      *
      * @param array<array-key, Node> $own
      *
      * @return array<string, string>
      */
-    private function named(array $own, Mutators $mutators): array
+    private function named(array $own, Mutators $mutators, Bridges $bridges): array
     {
-        $kept = array_intersect_key($this->all($own), array_flip(self::GLOBAL));
+        $kept = array_intersect_key($this->entries($own), array_flip(self::GLOBAL));
 
         foreach ($mutators as $mutator) {
-            $kept[$mutator] = self::ON;
+            $kept[$bridges->keyOf($mutator)] = self::ON;
         }
 
         foreach ($own as $key => $settings) {
             $name = sprintf('%s', $key);
 
-            if (array_key_exists($name, $kept) && $this->entriesOf($settings) !== []) {
+            if (array_key_exists($name, $kept) && Lenient::entries($settings) !== []) {
                 $kept[$name] = $this->written($name, $settings);
             }
         }
@@ -160,10 +185,10 @@ final readonly class MutatorSettings
     {
         $patterns = [];
 
-        foreach ($this->itemsOf($values) as $value) {
+        foreach (Lenient::items($values) as $value) {
             $patterns[] = $regex
-                ? IgnorePattern::overSource($key, $mutator, $this->textOf($value))
-                : IgnorePattern::overNames($key, $mutator, $this->textOf($value));
+                ? IgnorePattern::overSource($key, $mutator, Lenient::text($value))
+                : IgnorePattern::overNames($key, $mutator, Lenient::text($value));
         }
 
         return $patterns;
@@ -177,34 +202,5 @@ final readonly class MutatorSettings
         return $json === self::EMPTY_LIST && ! in_array($name, self::GLOBAL, strict: true)
             ? JsonObject::of([])
             : $json;
-    }
-
-    /** @return array<array-key, Node> each entry, by its key, which PHP keys as a number where it reads as one */
-    private function entriesOf(Node $node): array
-    {
-        try {
-            return $node->entries();
-        } catch (NotInShape) {
-            return [];
-        }
-    }
-
-    /** @return list<Node> */
-    private function itemsOf(Node $node): array
-    {
-        try {
-            return $node->items();
-        } catch (NotInShape) {
-            return [];
-        }
-    }
-
-    private function textOf(Node $node): string
-    {
-        try {
-            return $node->text();
-        } catch (NotInShape) {
-            return '';
-        }
     }
 }

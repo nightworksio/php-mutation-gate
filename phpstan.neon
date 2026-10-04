@@ -697,8 +697,10 @@ services:
                 'NightWorksIO\MutationGate\Adapter\Infection\Setup':
                     - TESTS # a key of the runner's options
                     - TIMEOUT # a key of the runner's options
+                    - MUTATORS # a key of the runner's options
                 'NightWorksIO\MutationGate\Adapter\Pest\PestOptions':
                     - TESTS # a key of the runner's options
+                    - MUTATORS # a key of the runner's options
                 'NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnitOptions':
                     - TESTS # a key of the runner's options
                     - TIMEOUT # a key of the runner's options
@@ -865,16 +867,17 @@ services:
         class: NightWorksIO\MutationGate\PHPStan\Rules\NoMagicMethodRule
         tags:
             - phpstan.rules.rule
-    # P2, with the two files that construct a class by a name they read: the
-    # extension classes the Composer manifests name (ADR-0001), and the
-    # extensions and adapters a config names by class (ADR-0002).
+    # P2, with the three files that construct a class by a name they read: the
+    # extension classes the Composer manifests name (ADR-0001), the extensions
+    # and adapters a config names by class (ADR-0002), and the mutators a set
+    # registers by class (ADR-0021).
     -
         class: NightWorksIO\MutationGate\PHPStan\Rules\NoDynamicAccessRule
         arguments:
             classNamedAtRuntimeIn:
                 - src/Cli/Discovery/Discovery.php
                 - src/Cli/Config/Chosen.php
-                - src/Mutator/Engine/SetEngine.php
+                - src/Mutator/Engine/Enabled.php
         tags:
             - phpstan.rules.rule
     # Q3

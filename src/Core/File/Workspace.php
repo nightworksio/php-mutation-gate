@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\File;
 
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
+
 use function sprintf;
 
 /** The directory the gate keeps its own files under in a project, wherever nothing else is configured. */
@@ -12,6 +14,9 @@ final readonly class Workspace
     private const string ROOT = '.mutation-gate';
 
     private const string LEDGER = 'ledger';
+
+    /** Where a runner's bridges are, under the directory. */
+    private const string BRIDGES = 'mutators/%s/bridges.php';
 
     /** The directory itself. */
     public static function root(): Path
@@ -23,5 +28,15 @@ final readonly class Workspace
     public static function ledger(): Path
     {
         return Path::of(sprintf('%s/%s', self::ROOT, self::LEDGER));
+    }
+
+    /**
+     * Where under the directory the gate writes the bridges a runner makes
+     * the registered mutators' mutants through (ADR-0021):
+     * `mutators/<runner>/bridges.php`.
+     */
+    public static function bridges(BuiltinRunner $runner): Path
+    {
+        return Path::of(sprintf(self::BRIDGES, $runner->value));
     }
 }

@@ -1,6 +1,6 @@
 {
     "name": "nightworksio/mutation-gate-infection-fixture",
-    "description": "The library the runner contract suite mutates with Infection, the same as the Pest fixture's, tested by PHPUnit.",
+    "description": "The library the runner contract suite mutates with Infection, the same as the Pest fixture's, tested by PHPUnit, with the package it tests and the mutator the contract registers.",
     "license": "MIT",
     "type": "project",
     "require": {
@@ -15,7 +15,9 @@
     "prefer-stable": true,
     "autoload": {
         "psr-4": {
-            "Library\\": "src/"
+            "Library\\": "src/",
+            "NightWorksIO\\MutationGate\\": "../../../../src/",
+            "NightWorksIO\\MutationGate\\Tests\\Contract\\Runner\\Mutators\\": "../Mutators/"
         }
     },
     "autoload-dev": {
