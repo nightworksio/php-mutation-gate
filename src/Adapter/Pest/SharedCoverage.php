@@ -105,8 +105,9 @@ final readonly class SharedCoverage
     }
 
     /**
-     * Each covered line's tests, by their places in the list of tests, which
-     * leaves out a test with no name, as php-code-coverage cannot hold one.
+     * Each covered line's tests, keyed by their places in the list of tests,
+     * which leaves out a test with no name, as php-code-coverage cannot hold
+     * one. The keys are the tests: a spread would number them afresh.
      *
      * @param  array<string, int<0, max>>                                              $places
      * @return array<non-empty-string, array<int<1, max>, array<int<0, max>, int<1, max>>>>
@@ -119,7 +120,7 @@ final readonly class SharedCoverage
             $hits = [];
 
             foreach ($covered as $test) {
-                $hits = array_key_exists($test, $places) ? [...$hits, $places[$test] => 1] : $hits;
+                $hits += array_key_exists($test, $places) ? [$places[$test] => 1] : [];
             }
 
             $lines[$covered->file()->value()][max(1, $covered->line())] = $hits;
