@@ -67,6 +67,22 @@ it('speaks for the function a doc comment documents, and for none where it docum
     ))->toBe(['src/Money.php:2 -', 'src/Money.php:8 add', 'src/Money.php:13 add']);
 });
 
+it('speaks for no function past the end of what its doc comment documents', function (): void {
+    expect(sourceMarkers(
+        '<?php',
+        'final class Money',
+        '{',
+        '    /** @mark */',
+        '    public int $cents = 0;',
+        '    public function add(): void',
+        '    {',
+        '        /** @mark */',
+        '    }',
+        '    public function name(): void {}',
+        '}',
+    ))->toBe(['src/Money.php:4 -', 'src/Money.php:8 add']);
+});
+
 it('finds nothing in a source with no marker', function (): void {
     expect(sourceMarkers('<?php', 'echo "@mark";'))->toBe([]);
 });

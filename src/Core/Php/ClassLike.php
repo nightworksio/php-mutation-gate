@@ -17,8 +17,12 @@ final readonly class ClassLike
     /** What introduces the names a class extends or implements. */
     private const array PARENTS = [T_EXTENDS, T_IMPLEMENTS];
 
-    /** What a member's statement directly inside a class-like body begins with or follows. */
-    private const array STARTS = [T_CONST, T_CASE, T_VARIABLE, ';', '{'];
+    /**
+     * What a walk back from a member's `=` directly inside a class-like body
+     * stops at: the `const` that declares a constant, or the `;` that ends
+     * the member before it.
+     */
+    private const array STOPS = [T_CONST, ';'];
 
     /** @param list<string> $constants */
     private function __construct(
@@ -109,7 +113,7 @@ final readonly class ClassLike
     {
         $at = $equals - 1;
 
-        while ($at > $body && ($tokens->enclosing($at) !== $body || !$tokens->is($at, ...self::STARTS))) {
+        while ($at > $body && ($tokens->enclosing($at) !== $body || !$tokens->is($at, ...self::STOPS))) {
             $at--;
         }
 
