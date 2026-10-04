@@ -555,6 +555,10 @@ services:
                     - STDERR # PHP's number for display_errors=stderr
                 'NightWorksIO\MutationGate\Core\Troubleshooting\Guide':
                     - UNRELEASED # the package's own branch, in a link to its guide
+                'NightWorksIO\MutationGate\Adapter\Opcache\Compiler':
+                    - PER_CHILD # programs one opcache child compiles, not a percentage
+                'NightWorksIO\MutationGate\Adapter\Opcache\Prover':
+                    - CHILD_LIMIT # seconds an opcache child may take, not the ledger's limit
                 'NightWorksIO\MutationGate\Core\Matrix\MatrixRecord':
                     - FIELD # the plan's and a proof's field, not Azure's output variable
                 'NightWorksIO\MutationGate\Core\Php\OwnMember':

@@ -215,12 +215,9 @@ final readonly class Judging
             Carrying::against($plan->digests(), $plan->base(), $plan->names(), $map, $since),
         );
         $matrix = $this->matrixOf($plan, $map);
-        $verdicts = $this->read(
-            $matrix,
-            $judge->judging($matrix)->trees(
-                $fresh->and($proving->proved())->and($carrying->carried())->and($unjudged->results()),
-            ),
-        );
+        $judged = $fresh->and($proving->proved())->and($carrying->carried())->and($unjudged->results());
+        $equivalents = new StaticEquivalence($this->adapters, $this->settings)->among($judged);
+        $verdicts = $this->read($matrix, $judge->judging($matrix)->proving($equivalents->proven)->trees($judged));
         $security = $judge->security($verdicts, $this->adapters->security, $this->settings->floors()->security());
         $unfloored = count(Ratchet::unfloored($verdicts)) + count(Ratchet::securityUnfloored($security));
         $committed = $this->resolved($proving, $carrying, $this->committedBefore($plan));
@@ -245,7 +242,9 @@ final readonly class Judging
                 ->and($results->warnings())
                 ->and($results->checks()->warnings())
                 ->and($since->warnings())
-                ->and($ignoring->warnings()),
+                ->and($ignoring->warnings())
+                ->and($equivalents->warnings)
+                ->and($ignoring->redundant($verdicts, $equivalents->proven)),
             $map,
             $matrix,
         );

@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
 use NightWorksIO\MutationGate\Adapter\Infection\Setup;
 use NightWorksIO\MutationGate\Adapter\Infection\StaticAnalysis;
+use NightWorksIO\MutationGate\Adapter\Opcache\Prover;
 use NightWorksIO\MutationGate\Adapter\Pest\PestOptions;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnitOptions;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
@@ -58,6 +59,8 @@ use NightWorksIO\MutationGate\Port\Repository;
 use NightWorksIO\MutationGate\Port\Runner;
 use NightWorksIO\MutationGate\Port\StaticChecker;
 use NightWorksIO\MutationGate\Port\TreeSource;
+
+use const PHP_BINARY;
 
 /**
  * The adapters the settings choose, built from the registry: the runner, the
@@ -134,6 +137,7 @@ final readonly class Wiring
                 $mutators->skipped(),
                 $mutators->security(),
                 Mutators::all(),
+                Prover::of(PHP_BINARY, $project->root()->at(Workspace::equivalence()), Cores::counted()),
             ),
         };
     }

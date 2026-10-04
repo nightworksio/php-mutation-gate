@@ -214,15 +214,34 @@ decides are accepted for that release too.
     - **The check.** For each survived mutant, a child `php` compiles the
       original file and the mutated file with opcache
       (`opcache.enable_cli=1`, `opcache_compile_file()`), and dumps their
-      optimized opcodes (`opcache.opt_debug_level=0x20000`). With line
-      numbers stripped, identical opcodes prove the mutant equivalent. The
-      mutated file is Pest's `Mutation::$modifiedSourcePath`, or
-      Infection's `mutatedSourceCode` in `logs.json`.
+      optimized opcodes (`opcache.opt_debug_level=0x20000`). The mutant is
+      proven equivalent where, with the line each function spans, the line
+      in each closure's name and the file's own path taken out, its opcodes
+      are its original's, and it declares what its original declares. The
+      opcodes do not show declarations: a class constant, a property
+      default, an enum case, an attribute, a modifier or a static variable's
+      initial value. So each file is also printed by php-parser with every
+      function body taken out, keeping each signature and what a body
+      declares, and the two prints must be identical.
+    - **The child.** It runs as `php -n`, so no php.ini setting of the
+      project's, such as `auto_prepend_file`, `opcache.preload` or a lowered
+      optimization level, reaches it. It sets
+      `opcache.file_update_protection=0`, since each file is written just
+      before it is compiled. Many files go to one child, children run side
+      by side, and a file that fails in a shared child is compiled again
+      alone, since PHP declares a file's functions as it compiles it.
+    - **The mutated file.** It is the survivor as its runner gives it to a
+      static analyser (ADR-0020, decision 9): the file as written with its
+      change made, or under Pest, compared with the original printed as
+      Pest prints it. Every survivor in the verdict is checked, whether run,
+      proved or carried, and an ignored one too. One whose change does not
+      go back onto the checkout's file is proven nothing.
     - **Survivors only.** A killed mutant is never checked, so a kill can
       never become a pass. A test that reads source text rather than running
       it, such as a Pest `arch()` test, had its chance before the mutant
-      survived. A proven mutant is not re-run for survivor confirmation
-      (ADR-0008 decision 3), which is the time it saves.
+      survived. Each shard proves its own survivors before survivor
+      confirmation (ADR-0008 decision 3), only to leave the proven ones out
+      of it, which is the time it saves; it judges nothing by that.
     - **Scoring.** A proven mutant is left out of the score as an ignored
       one is (ADR-0003 decision 1). It is listed in every report as
       *equivalent, proven* (ADR-0009).
@@ -231,13 +250,8 @@ decides are accepted for that release too.
       verdict flow, like its file adapter. It is not a port. The raw record
       stays *survived*, so the check enters neither the proof key nor the
       ledger, and a new PHP or a new gate version changes no proof. It is
-      recomputed each verdict, because survivors are few.
-    - **The first step of the build proves** that on PHP 8.5 a child `php`
-      with `opcache.enable_cli=1` and `opcache.opt_debug_level=0x20000`
-      dumps the optimized opcodes of a file through `opcache_compile_file()`,
-      and that an original and a mutant the optimizer makes identical dump
-      the same once line numbers are stripped. If it does not,
-      `equivalence.static` is not added, and no mutant is proven equivalent.
+      recomputed each verdict, because survivors are few. The verdict proves
+      every survivor again, so no verdict depends on the PHP a shard ran on.
 
 11. **`equivalence.static` turns the check on, and it is on by default.** It
     is a boolean, `true` by default, and it judges or reports only
@@ -246,8 +260,9 @@ decides are accepted for that release too.
     available* and scores as it would with the check off.
 
 12. **An ignore that a proof makes redundant is not stale.** An
-    `ignores.entries` item that matches a mutant proven equivalent still
-    applies, and a notice says *proven equivalent; this ignore can go*. It
+    `ignores.entries` item that leaves out only mutants proven equivalent
+    still applies, and a notice says *the ignore of <entry> leaves out only
+    mutants proven equivalent: this ignore can go*. It
     never fails the run (ADR-0008 decision 4), so a PHP upgrade that changes
     the optimizer cannot turn a clean run red.
 

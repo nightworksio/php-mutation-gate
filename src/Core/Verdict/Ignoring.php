@@ -10,6 +10,7 @@ use DateTimeImmutable;
 use NightWorksIO\MutationGate\Core\Config\Expiry;
 use NightWorksIO\MutationGate\Core\Config\Ignored;
 use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Time\Day;
 
@@ -20,8 +21,9 @@ use function sprintf;
  * entry that has not expired leaves each survivor and uncovered mutant it
  * names out of the score, with its reason. An expired one stops applying and
  * is named with the day it expired, one that expires soon is named in
- * advance, and one that names no mutant in a run that judged every unit
- * fails the run.
+ * advance, one that names no mutant in a run that judged every unit
+ * fails the run, and one that leaves out only mutants proven equivalent is
+ * named as one that can go.
  */
 final readonly class Ignoring
 {
@@ -114,6 +116,15 @@ final readonly class Ignoring
         }
 
         return $warnings;
+    }
+
+    /**
+     * A notice of each entry that still applies and leaves out only
+     * survivors proven equivalent (ADR-0013, decision 12).
+     */
+    public function redundant(TreeVerdicts $verdicts, MutantIds $proven): Warnings
+    {
+        return RedundantIgnores::among($this->applying, $verdicts, $proven);
     }
 
     /**
