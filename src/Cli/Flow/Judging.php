@@ -8,6 +8,7 @@ use function count;
 use function implode;
 use function is_array;
 
+use NightWorksIO\MutationGate\Adapter\Project\PhpUnitSuite;
 use NightWorksIO\MutationGate\Core\Assertion\TestFiles;
 use NightWorksIO\MutationGate\Core\Assertion\Weakness;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
@@ -35,6 +36,7 @@ use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Removal\Removals;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
+use NightWorksIO\MutationGate\Core\Test\DeclaredSuites;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -394,14 +396,17 @@ final readonly class Judging
      * The kill matrix of the kind the plan records (ADR-0014, decisions 7
      * and 9 to 11): over the map the plan handed the verdict, which holds the
      * lines of every unit it considered, with the names the plan holds for
-     * the tests, and why a matrix of first killers holds no more. Without a
-     * map it holds each mutant's killers alone.
+     * the tests, the suites the PHPUnit config declares them in, and why a
+     * matrix of first killers holds no more. Without a map it holds each
+     * mutant's killers alone.
      */
     private function matrixOf(Plan $plan, CoverageMap|CannotJudge $map): KillMatrix
     {
         $names = $plan->names();
+        $configured = Suite::configured($this->adapters->project);
         $matrix = KillMatrix::of($plan->briefing()->matrix(), $map instanceof CoverageMap ? $map : CoverageMap::empty())
-            ->cannotBeFull($this->adapters->runner->behaviour()->whyNotFull());
+            ->cannotBeFull($this->adapters->runner->behaviour()->whyNotFull())
+            ->grouping($configured instanceof PhpUnitSuite ? $configured->suites() : DeclaredSuites::none());
 
         return $names instanceof TestNames ? $matrix->named($names) : $matrix;
     }

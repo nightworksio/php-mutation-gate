@@ -8,12 +8,14 @@ use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\Sources;
 use NightWorksIO\MutationGate\Core\Report\Stryker;
 use NightWorksIO\MutationGate\Core\Report\StrykerPage;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
+use NightWorksIO\MutationGate\Tests\Support\Killings;
 use NightWorksIO\MutationGate\Tests\Support\Schema;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
@@ -37,6 +39,29 @@ it('writes the report and a page that shows it with the viewer the package carri
             (string) file_get_contents(sprintf('%s/mutation-test-elements.js', $viewer)),
             (string) file_get_contents(sprintf('%s/LICENSE', $viewer)),
         ));
+});
+
+it('shows what each suite alone kills above the viewer', function (): void {
+    $project = Scratch::directory();
+    $html = sprintf('%s/build/html', $project);
+    HtmlReportDirectory::at($html, $project, Schema::at('resources/mutation-testing-elements'))
+        ->report(Killings::suited(MatrixKind::Full));
+
+    expect(file_get_contents(sprintf('%s/index.html', $html)))->toContain(
+        '<h2>Suites</h2><p>unit alone kills 66.66% of the 3 mutants its tests cover.</p>'
+        . '<p>feature alone kills 50.00% of the 2 mutants its tests cover.</p></section>',
+    );
+});
+
+it('shows a hostile suite\'s name above the viewer as escaped text', function (): void {
+    $project = Scratch::directory();
+    $html = sprintf('%s/build/html', $project);
+    HtmlReportDirectory::at($html, $project, Schema::at('resources/mutation-testing-elements'))->report(Killings::hostile());
+    $page = (string) file_get_contents(sprintf('%s/index.html', $html));
+
+    expect($page)->toContain('<p>&lt;script&gt;alert(1)&lt;/script&gt;|x [31mred alone kills 66.66% of the 3 mutants its tests cover.</p>')
+        ->and($page)->not->toContain('<script>alert(1)</script>')
+        ->and($page)->not->toContain("\e");
 });
 
 it('carries the viewer at the version it names, with its licence', function (): void {

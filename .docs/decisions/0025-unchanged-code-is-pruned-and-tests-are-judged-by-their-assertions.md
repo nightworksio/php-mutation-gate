@@ -210,14 +210,27 @@ decision 3). The kill matrix knows which tests cover and which kill
 
 8. **A suite's score is what that suite alone kills.**
    - It is killed over counted, among the mutants that suite's tests cover.
+     A mutant the score leaves out counts for no suite, and so does one no
+     test of the suite has a known outcome for: a timeout's, a flaky one's,
+     one whose coverage moved since its proof, and one no test of the suite
+     ran with, as for a mutant a static analyser killed (ADR-0014 decision
+     3). A held unit's mutants count only for its group's tests.
    - It is **exact under a full kill matrix** (`--kill-matrix=full`, which
      Pest and the native runners of ADR-0023 and ADR-0027 give), and
-     otherwise a **lower bound**, shown as *at least*, from first killers.
-   - Suites are read from the PHPUnit configuration's `<testsuites>` and
-     Pest's directories, so there is no key for them.
-   - The console, the JSON report (`suites: [{name, covered, killed, score,
-     exact}]`), the HTML report and the step summary show them. This amends
-     ADR-0009 decision 2 and ADR-0014 decision 7.
+     otherwise a **lower bound**, shown as *at least*, from first killers;
+     a test stopped behind another suite's first kill counts as not killing.
+   - Suites are the `<testsuite>` elements of the PHPUnit configuration,
+     which Pest runs on too, so there is no key for them. A test is in a
+     suite by the file the runner names it in; a run whose tests the runner
+     named none of scores no suite and says so.
+   - The console and the HTML report, above Stryker's viewer, say each
+     suite's score in a sentence; the step summary gives a table; each says
+     why the scores are lower bounds where they are. They show the suites
+     where the configuration declares two or more, since one suite's score
+     is the run's own. The JSON report lists every declared suite as
+     `suites: [{name, covered, killed, score, exact}]`, or none with
+     `suitesUnscored` saying why. This amends ADR-0009 decision 2 and
+     ADR-0014 decision 7.
 
 9. **`run --suite=<name>` judges one suite's tests alone,** for a scheduled
    job, exactly under every runner. It narrows `judgedBy` as a group does, so

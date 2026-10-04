@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
+use function array_map;
+use function htmlspecialchars;
+use function implode;
 use function sprintf;
 use function str_replace;
 
@@ -25,6 +28,14 @@ final readonly class StrykerPage
      * the only place in JSON such a character can be.
      */
     private const array ESCAPES = ['\u0026', '\u003c', '\u003e', '\u2028', '\u2029'];
+    /** What each suite alone kills, above the viewer, which has no view of suites. */
+    private const string SUITES = <<<'HTML'
+        <section id="suites" style="font-family: sans-serif; padding: 0 1rem"><h2>Suites</h2>%s</section>
+
+        HTML;
+
+    private const string LINE = '<p>%s</p>';
+
     private const string PAGE = <<<'HTML'
         <!DOCTYPE html>
         <html lang="en">
@@ -34,7 +45,7 @@ final readonly class StrykerPage
         <title>mutation-gate</title>
         </head>
         <body>
-        <mutation-test-report-app title-postfix="mutation-gate"></mutation-test-report-app>
+        %5$s<mutation-test-report-app title-postfix="mutation-gate"></mutation-test-report-app>
         <!--
         The viewer below is mutation-testing-elements %1$s, by the Stryker Mutator team, under this licence:
 
@@ -54,7 +65,13 @@ final readonly class StrykerPage
 
         HTML;
 
-    public static function html(string $report, string $viewer, string $licence): string
+    /**
+     * The page, with what each suite alone kills above the viewer, a line
+     * each, escaped, where there is any to say (ADR-0025, decision 8).
+     *
+     * @param list<string> $suites
+     */
+    public static function html(string $report, string $viewer, string $licence, array $suites = []): string
     {
         return sprintf(
             self::PAGE,
@@ -62,6 +79,22 @@ final readonly class StrykerPage
             str_replace('--', '- -', $licence),
             str_replace(['</script', '<!--'], ['<\/script', '\x3C!--'], $viewer),
             str_replace(['&', '<', '>', "\u{2028}", "\u{2029}"], self::ESCAPES, $report),
+            self::suites($suites),
         );
+    }
+
+    /** @param list<string> $lines */
+    private static function suites(array $lines): string
+    {
+        if ($lines === []) {
+            return '';
+        }
+
+        $items = array_map(
+            static fn(string $line): string => sprintf(self::LINE, htmlspecialchars($line, ENT_QUOTES | ENT_HTML5)),
+            $lines,
+        );
+
+        return sprintf(self::SUITES, implode('', $items));
     }
 }

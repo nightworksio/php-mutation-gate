@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Report;
 
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
@@ -74,7 +75,9 @@ final readonly class SetText
     {
         $package = $set->package()->path();
 
-        return $package->equals(Path::root()) ? self::NEW_CODE_HERE : sprintf(self::NEW_CODE, $package->value());
+        return $package->equals(Path::root())
+            ? self::NEW_CODE_HERE
+            : sprintf(self::NEW_CODE, Fit::plain($package->value()));
     }
 
     public static function security(SecurityVerdict $set): string
@@ -87,7 +90,9 @@ final readonly class SetText
     {
         $package = $set->package()->path();
 
-        return $package->equals(Path::root()) ? self::SECURITY_HERE : sprintf(self::SECURITY, $package->value());
+        return $package->equals(Path::root())
+            ? self::SECURITY_HERE
+            : sprintf(self::SECURITY, Fit::plain($package->value()));
     }
 
     /** A floor as a report prints it: its percentage, `exempt`, or `none`. */
@@ -100,14 +105,21 @@ final readonly class SetText
         };
     }
 
+    /**
+     * A set's sentence by its name, and an exempt one's reason, which a config
+     * or a manifest writes: each one plain line, with no control character
+     * that could colour a terminal or break the line.
+     */
     private static function sentence(
-        string $name,
+        string $named,
         Floor|Exempt|Undeclared $floor,
         Score|NothingToMutate $score,
         Judgement $judgement,
     ): string {
+        $name = Fit::plain($named);
+
         return match (true) {
-            $floor instanceof Exempt => sprintf(self::EXEMPT, $name, $floor->reason()),
+            $floor instanceof Exempt => sprintf(self::EXEMPT, $name, Fit::plain($floor->reason())),
             $judgement === Judgement::NothingToMutate => sprintf(self::NOTHING, $name),
             ! $floor instanceof Floor => sprintf(self::UNHELD, $name, Percent::of($score)),
             $judgement === Judgement::Failed => sprintf(self::BELOW, $name, Percent::of($score), Percent::of($floor)),

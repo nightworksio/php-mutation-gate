@@ -663,6 +663,8 @@ services:
                     - SECURITY # a tag a mutator carries, not the config section of the same name
                 'NightWorksIO\MutationGate\Core\Plan\BriefingRecord':
                     - SECURITY # a field of the plan file, not the config section of the same name
+                'NightWorksIO\MutationGate\Core\Report\SuiteText':
+                    - SHOWN_FROM # the fewest suites a report shows, not an argument's position or an exit code
                 'NightWorksIO\MutationGate\Core\Report\JUnit':
                     - SECURITY # the name of the security sets' JUnit suite, not the config section
                     - FLOOR # the name of a floor's JUnit test case, not a manifest key

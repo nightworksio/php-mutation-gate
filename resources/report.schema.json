@@ -542,6 +542,43 @@
                 "additionalProperties": false
             }
         },
+        "suites": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "covered": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "killed": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "score": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "exact": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "name",
+                    "covered",
+                    "killed",
+                    "exact"
+                ],
+                "additionalProperties": false
+            }
+        },
+        "suitesUnscored": {
+            "type": "string"
+        },
         "matrix": {
             "enum": [
                 "first-killer",
@@ -1159,6 +1196,7 @@
         "trees",
         "newCode",
         "security",
+        "suites",
         "matrix",
         "tests",
         "mutants",

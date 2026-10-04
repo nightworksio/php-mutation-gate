@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
+use function count;
+
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
@@ -12,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Cluster\Unclustered;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
+use NightWorksIO\MutationGate\Core\Matrix\SuiteScore;
+use NightWorksIO\MutationGate\Core\Matrix\SuiteScores;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
@@ -86,6 +90,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *     counts: Numbers,
  *     mutants: list<string>,
  * }
+ * @phpstan-type SuiteEntry array{name: string, covered: int, killed: int, score?: float, exact: bool}
  * @phpstan-type MutantEntry array{
  *     id: string,
  *     file: string,
@@ -132,6 +137,7 @@ final readonly class JsonReport
             'trees' => self::each($verdict->trees(), self::tree(...)),
             'newCode' => self::each($verdict->sets()->newCode(), self::newCode(...)),
             'security' => self::each($verdict->sets()->security(), self::security(...)),
+            ...self::suites(SuiteScores::of($verdict)),
             'matrix' => $verdict->matrix()->kind()->value,
             'tests' => self::each(
                 $table->tests(),
@@ -256,6 +262,31 @@ final readonly class JsonReport
             'counts' => self::counts($tree->counts()),
             'units' => self::each($tree->units(), self::unit(...)),
             'mutants' => self::ids($tree->mutants()),
+        ];
+    }
+
+    /**
+     * What each suite the PHPUnit config declares alone kills; none, with
+     * why, where the runner named no test (ADR-0025, decision 8).
+     *
+     * @return array{suites: list<SuiteEntry>, suitesUnscored?: string}
+     */
+    private static function suites(SuiteScores $scores): array
+    {
+        return $scores->arePlaced() || count($scores) === 0
+            ? ['suites' => self::each($scores, self::suite(...))]
+            : ['suites' => [], 'suitesUnscored' => SuiteText::unplaced()];
+    }
+
+    /** @return SuiteEntry */
+    private static function suite(SuiteScore $score): array
+    {
+        return [
+            'name' => $score->suite(),
+            'covered' => $score->covered(),
+            'killed' => $score->killed(),
+            ...self::scored($score->score()),
+            'exact' => $score->isExact(),
         ];
     }
 

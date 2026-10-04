@@ -50,3 +50,14 @@ it('lets nothing the project wrote end the report\'s element, open a comment or 
 it('keeps the licence from closing its comment', function (): void {
     expect(StrykerPage::html('{}', 'viewer', 'a -- b -->'))->toContain('a - - b - ->');
 });
+
+it('shows what each suite alone kills above the viewer, escaped, and nothing where there is none to say', function () use ($viewer): void {
+    $page = StrykerPage::html('{}', $viewer, 'licence', ['unit alone kills <b>66.66%</b> & more.', 'Each is a lower bound.']);
+
+    expect($page)->toContain(
+        '<section id="suites" style="font-family: sans-serif; padding: 0 1rem"><h2>Suites</h2>'
+        . '<p>unit alone kills &lt;b&gt;66.66%&lt;/b&gt; &amp; more.</p><p>Each is a lower bound.</p></section>'
+        . "\n<mutation-test-report-app",
+    )
+        ->and(StrykerPage::html('{}', $viewer, 'licence'))->not->toContain('<section');
+});

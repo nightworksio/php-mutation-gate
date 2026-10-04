@@ -6,9 +6,11 @@ namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Matrix\SuiteScores;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\Stryker;
 use NightWorksIO\MutationGate\Core\Report\StrykerPage;
+use NightWorksIO\MutationGate\Core\Report\SuiteText;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
@@ -72,6 +74,11 @@ final readonly class HtmlReportDirectory implements Configurable, Reporter
 
         return $written instanceof NotWritten
             ? $written
-            : $this->path->file(self::PAGE)->write(StrykerPage::html($report, $script, $licence));
+            : $this->path->file(self::PAGE)->write(StrykerPage::html(
+                $report,
+                $script,
+                $licence,
+                SuiteText::lines(SuiteScores::of($verdict), $verdict->matrix()->whyNotFull()),
+            ));
     }
 }

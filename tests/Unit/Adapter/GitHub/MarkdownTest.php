@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
@@ -33,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Tests\Support\Clustered;
+use NightWorksIO\MutationGate\Tests\Support\Killings;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 $run = 'https://github.com/octo/gate/actions/runs/7';
@@ -145,6 +147,32 @@ it('writes the step summary with every mutant counted as not killed in one table
         ->and(substr_count($summary, '| <code>vendor/bin/mutation-gate reproduce '))->toBe(5)
         ->and($summary)->not->toContain('<details>')
         ->and($summary)->toEndWith(sprintf("[The run](%s) keeps the HTML report among its artifacts.\n", $run));
+});
+
+it('writes what each suite alone kills in the step summary, and never in the comment', function () use ($run): void {
+    $verdict = Killings::suited(MatrixKind::FirstKiller);
+
+    expect(Markdown::summary($verdict, $run, Verdicts::monthAgo()))->toContain(implode("\n", [
+        "### Suites\n",
+        '| Suite | Covered | Killed | Score |',
+        '|---|---|---|---|',
+        '| <code>unit</code> | 3 | 2 | at least 66.66% |',
+        "| <code>feature</code> | 2 | 1 | at least 50.00% |\n",
+        'Each is a lower bound, from first killers: <code>mutation-gate run --kill-matrix=full</code> makes it exact.',
+    ]))
+        ->and(Markdown::summary(Killings::suited(MatrixKind::Full), $run, Verdicts::monthAgo()))
+        ->toContain('| <code>unit</code> | 3 | 2 | 66.66% |')
+        ->and(Markdown::summary(Killings::unplaced(), $run, Verdicts::monthAgo()))
+        ->toContain("### Suites\n\nThe runner named no test, so no suite can be scored.")
+        ->and(Markdown::comment($verdict, $run))->not->toContain('Suites');
+});
+
+it('writes a hostile suite\'s name in the step summary as inert text in one table cell', function () use ($run): void {
+    $summary = Markdown::summary(Killings::hostile(), $run, Verdicts::monthAgo());
+
+    expect($summary)->toContain('| <code>&lt;script&gt;alert(1)&lt;/script&gt;&#124;x &#91;31mred</code> | 3 | 2 | 66.66% |')
+        ->and($summary)->not->toContain('<script>')
+        ->and($summary)->not->toContain("\e");
 });
 
 it('fits the step summary into the size one step may write, saying how many it left out', function (): void {

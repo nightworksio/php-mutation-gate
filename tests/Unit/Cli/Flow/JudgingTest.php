@@ -99,6 +99,7 @@ use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Score\Unraised;
+use NightWorksIO\MutationGate\Core\Test\DeclaredSuite;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestName;
@@ -1705,4 +1706,33 @@ it('fails a pull request until a raised security floor is committed with it', fu
         The security set of . scored 50, above the floor of 40 it was held to.
         Commit the raised floor with this change: run mutation-gate baseline --write and commit mutation-gate.baseline.json.
         SAID]);
+});
+
+it('groups the verdict\'s tests into the suites the PHPUnit config declares, and into none without one', function () use (
+    $tree,
+    $reporting,
+    $judged,
+): void {
+    $project = Flows::project();
+    Scratch::write($project, 'phpunit.xml', <<<'XML'
+        <?xml version="1.0"?>
+        <phpunit>
+            <testsuites>
+                <testsuite name="Unit"><directory>tests/Unit</directory></testsuite>
+                <testsuite name="Feature"><directory>tests/Feature</directory></testsuite>
+            </testsuites>
+        </phpunit>
+        XML);
+    $suites = static fn(string $at): array => array_map(
+        static fn(DeclaredSuite $suite): string => $suite->name(),
+        iterator_to_array(judgingVerdictOf($judged(
+            Planned::twoShards(),
+            Flows::adapters($at, [], $tree(Floor::of(0))),
+            judgingSettings(),
+            $reporting(new ReporterFake()),
+        ))->matrix()->suites(), preserve_keys: false),
+    );
+
+    expect($suites($project))->toBe(['Unit', 'Feature'])
+        ->and($suites(Flows::project()))->toBe([]);
 });

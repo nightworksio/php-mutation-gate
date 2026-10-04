@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Report\ClusterText;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
 use NightWorksIO\MutationGate\Core\Report\SavingsText;
@@ -12,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Clustered;
+use NightWorksIO\MutationGate\Tests\Support\Killings;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 use Symfony\Component\Console\Output\BufferedOutput;
 
@@ -173,4 +175,24 @@ it('prints each package\'s security set after new code, and the security floors 
             '  security set of packages/billing to 100.00%',
             '  Raise them with vendor/bin/mutation-gate baseline --write, and commit the baseline.',
         ]));
+});
+
+it('prints what each suite alone kills after security, and why each is a lower bound', function () use ($printed): void {
+    expect($printed(Killings::suited(MatrixKind::FirstKiller)))->toContain(implode("\n", [
+        '',
+        'Suites',
+        '  unit alone kills at least 66.66% of the 3 mutants its tests cover.',
+        '  feature alone kills at least 50.00% of the 2 mutants its tests cover.',
+        '  Each is a lower bound, from first killers: `mutation-gate run --kill-matrix=full` makes it exact.',
+        '',
+        'Units',
+    ]))
+        ->and($printed(Verdicts::failing()))->not->toContain('Suites');
+});
+
+it('prints a hostile suite\'s name as one plain line, with no control character', function () use ($printed): void {
+    $said = $printed(Killings::hostile());
+
+    expect($said)->toContain("\n  <script>alert(1)</script>|x [31mred alone kills 66.66% of the 3 mutants its tests cover.\n")
+        ->and($said)->not->toContain("\e");
 });

@@ -141,6 +141,14 @@ final readonly class ReportSchema
                 'trees' => self::listOfObjects(self::tree()),
                 'newCode' => self::listOfObjects(self::newCode()),
                 'security' => self::listOfObjects(self::security()),
+                'suites' => self::listOfObjects(self::object([
+                    'name' => self::TEXT,
+                    'covered' => self::WHOLE,
+                    'killed' => self::WHOLE,
+                    'score' => self::PERCENT,
+                    'exact' => self::FLAG,
+                ], ['score'])),
+                'suitesUnscored' => self::TEXT,
                 'matrix' => self::oneOf(...MatrixKind::cases()),
                 'tests' => self::listOf(self::test([])),
                 'mutants' => self::listOfObjects(self::mutant()),
@@ -174,7 +182,7 @@ final readonly class ReportSchema
                     ], ['sharding']),
                     self::object(['noHistory' => self::PRESENT], []),
                 ]],
-            ], ['score', 'run', 'cost', 'savings']),
+            ], ['score', 'suitesUnscored', 'run', 'cost', 'savings']),
         ]);
     }
 
