@@ -6,11 +6,11 @@ namespace NightWorksIO\MutationGate\Core\Php;
 
 use function array_filter;
 use function array_key_exists;
+use function array_pop;
 use function array_slice;
 use function array_values;
 use function count;
 use function implode;
-use function max;
 
 use PhpToken;
 
@@ -20,14 +20,8 @@ use PhpToken;
  */
 final readonly class TopLevel
 {
-    /** What opens a block, at the top or inside a function alike. */
-    public const array OPENS = ['{', T_DOLLAR_OPEN_CURLY_BRACES];
-
-    /**
-     * What opens a bracket a block can sit inside, as a closure passed to a
-     * call does, and which the block's end does not end the statement in.
-     */
-    private const array BRACKETS = ['(', '[', T_ATTRIBUTE];
+    /** What opens a variable inside a string, whose `}` ends no statement. */
+    private const array INTERPOLATES = [T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES];
 
     /** What ends a statement at the top. */
     private const array ENDS = [';', '}'];
@@ -74,16 +68,14 @@ final readonly class TopLevel
     {
         $statements = [];
         $statement = [];
-        $depth = 0;
-        $inside = 0;
+        $open = [];
 
         foreach ($tokens as $token) {
             $statement[] = $token;
-            $block = self::opensNamespace($statement, $depth + $inside);
-            $depth = max(0, $depth + ($block ? 0 : self::deepens($token, self::OPENS, ['}'])));
-            $inside += self::deepens($token, self::BRACKETS, [')', ']']);
+            $block = self::opensNamespace($statement, count($open));
+            [$open, $ends] = self::past($open, $token, $block);
 
-            if ($block || ($depth < 1 && $inside < 1 && $token->is(self::ENDS))) {
+            if ($block || $ends) {
                 $statements[] = $statement;
                 $statement = [];
             }
@@ -155,18 +147,22 @@ final readonly class TopLevel
     }
 
     /**
-     * How far a token takes the depth: one in where it opens, one out where it closes.
+     * The brackets left open past a token, and whether it ends a statement at
+     * the top: a `;`, or a `}` that closes the last bracket open, but for one
+     * that closes a variable inside a string. The `{` that opens a namespace's
+     * block is no bracket of a statement.
      *
-     * @param list<int|string> $opens
-     * @param list<string>     $closes
+     * @param list<PhpToken> $open
+     *
+     * @return array{list<PhpToken>, bool}
      */
-    private static function deepens(PhpToken $token, array $opens, array $closes): int
+    private static function past(array $open, PhpToken $token, bool $block): array
     {
-        return match (true) {
-            $token->is($opens) => 1,
-            $token->is($closes) => -1,
-            default => 0,
-        };
+        $closes = $token->is(Tokens::CLOSES) && $open !== [];
+        $opener = $closes ? array_pop($open) : $token;
+        $open = $block || ! $token->is(Tokens::OPENS) ? $open : [...$open, $token];
+
+        return [$open, $open === [] && $token->is(self::ENDS) && ! $opener->is(self::INTERPOLATES)];
     }
 
     /**

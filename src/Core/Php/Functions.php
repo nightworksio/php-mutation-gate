@@ -19,6 +19,9 @@ use PhpToken;
  */
 final readonly class Functions
 {
+    /** What opens a block, at the top or inside a function alike. */
+    private const array OPENS = ['{', T_DOLLAR_OPEN_CURLY_BRACES];
+
     /** @param list<array{string, int, int}> $spans each function's name, first line and last line */
     private function __construct(private array $spans)
     {
@@ -39,7 +42,7 @@ final readonly class Functions
             $pending = $token->is(T_FUNCTION) ? [self::nameAfter($read, $at), $token->line] : $pending;
             $pending = $token->is(';') ? [] : $pending;
 
-            if ($token->is(TopLevel::OPENS)) {
+            if ($token->is(self::OPENS)) {
                 $blocks[] = $pending;
                 $pending = [];
             }
