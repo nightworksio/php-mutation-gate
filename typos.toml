@@ -7,6 +7,10 @@ ignore-hidden = false
 # The vendored viewer is minified, and the fixtures are other projects' schemas.
 extend-exclude = [".git/", "vendor/", "composer.lock", "resources/mutation-testing-elements/", "tests/Fixtures/"]
 
+[default]
+# A mutant's id is twelve hex digits, read as words where it starts with letters.
+extend-ignore-re = ['"mutant": "[0-9a-f]{12}"']
+
 [default.extend-identifiers]
 # Pest's own expectation is spelled this way, and the stub mirrors its API.
 toBeInvokable = "toBeInvokable"
