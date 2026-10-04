@@ -22,7 +22,10 @@ final readonly class Mutators implements Setting
         return new self(Json::at('mutators.sets', Json::items(...$names)));
     }
 
-    /** `mutators.except`: single mutators of those sets turned off, each by its name, `<set>/<Name>`. */
+    /**
+     * `mutators.except`: single mutators of those sets or of the default set
+     * turned off, each by its name, `<set>/<Name>`.
+     */
     public static function except(string ...$names): self
     {
         return new self(Json::at('mutators.except', Json::items(...$names)));

@@ -19,10 +19,11 @@ use function sprintf;
 /**
  * The registered mutators a config turns on (ADR-0021): those of each set
  * `mutators.sets` names, less the ones `mutators.except` turns off. A set
- * nobody registered, or a mutator to turn off that none of those sets holds,
- * cannot be judged, and says which name was most likely meant. A runner
- * that makes its own mutants takes these beside its own, and the gate's own
- * engine beside the `default` set's (ADR-0023, decision 8).
+ * nobody registered, or a mutator to turn off that neither those sets nor
+ * the `default` set holds, cannot be judged, and says which name was most
+ * likely meant. A runner that makes its own mutants takes these beside its
+ * own, and the gate's own engine beside the `default` set's (ADR-0023,
+ * decision 8).
  */
 final readonly class EnabledMutators
 {
@@ -48,14 +49,11 @@ final readonly class EnabledMutators
         }
 
         $turnedOn = MutatorSet::of(...$classes);
-        $unheld = self::unheld($turnedOn, $config->except());
-        $default = $lookup->mutatorSet(MutatorSet::defaultName());
+        $registered = $lookup->mutatorSet(MutatorSet::defaultName());
+        $default = $registered instanceof MutatorSet ? $registered : MutatorSet::of();
+        $unheld = self::unheld(MutatorSet::of(...$default, ...$turnedOn), $config->except());
 
-        return $unheld instanceof CannotJudge ? $unheld : new self(
-            $turnedOn,
-            $default instanceof MutatorSet ? $default : MutatorSet::of(),
-            $config->except(),
-        );
+        return $unheld instanceof CannotJudge ? $unheld : new self($turnedOn, $default, $config->except());
     }
 
     /** The mutators the config turns on, which a runner that makes its own mutants runs beside its own. */
@@ -71,23 +69,23 @@ final readonly class EnabledMutators
     }
 
     /**
-     * Why a mutator `mutators.except` names cannot be turned off, where a
-     * set the config turns on holds none of that name: it says the name, and
-     * the name it most likely meant.
+     * Why a mutator `mutators.except` names cannot be turned off, where
+     * neither a set the config turns on nor the `default` set holds one of
+     * that name: it says the name, and the name it most likely meant.
      *
      * @param Listed<string> $except
      */
-    private static function unheld(MutatorSet $turnedOn, Listed $except): CannotJudge|NotGiven
+    private static function unheld(MutatorSet $held, Listed $except): CannotJudge|NotGiven
     {
-        $held = [];
+        $names = [];
 
-        foreach (Enabled::of($turnedOn) as $mutator) {
-            $held[] = $mutator->name()->value();
+        foreach (Enabled::of($held) as $mutator) {
+            $names[] = $mutator->name()->value();
         }
 
         foreach ($except as $name) {
-            if (! in_array($name, $held, strict: true)) {
-                return CannotJudge::because(Nearest::suggested(sprintf(self::UNHELD, $name), $name, $held));
+            if (! in_array($name, $names, strict: true)) {
+                return CannotJudge::because(Nearest::suggested(sprintf(self::UNHELD, $name), $name, $names));
             }
         }
 
