@@ -29,10 +29,10 @@ final readonly class Functions
 
     public static function in(Contents $contents): self
     {
-        $tokens = array_values(array_filter(
+        $tokens = Identifiers::of(array_values(array_filter(
             PhpToken::tokenize($contents->text()),
             static fn(PhpToken $token): bool => ! $token->isIgnorable(),
-        ));
+        )));
         $read = Tokens::of($tokens);
         $spans = [];
         $blocks = [];

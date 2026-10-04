@@ -149,9 +149,9 @@ final readonly class Source
     /** @return list<PhpToken> */
     private static function significant(Contents $contents): array
     {
-        return array_values(array_filter(
+        return Identifiers::of(array_values(array_filter(
             PhpToken::tokenize($contents->text()),
             static fn(PhpToken $token): bool => ! $token->isIgnorable() && ! $token->is(T_CLOSE_TAG),
-        ));
+        )));
     }
 }

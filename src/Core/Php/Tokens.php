@@ -61,13 +61,16 @@ final readonly class Tokens implements Countable
     {
     }
 
-    /** A file's significant tokens: every token but whitespace and comments. */
+    /**
+     * A file's significant tokens: every token but whitespace and comments,
+     * each semi-reserved word that stands as a name read as one.
+     */
     public static function in(Contents $file): self
     {
-        return self::of(array_values(array_filter(
+        return self::of(Identifiers::of(array_values(array_filter(
             PhpToken::tokenize($file->text()),
             static fn(PhpToken $token): bool => ! $token->isIgnorable(),
-        )));
+        ))));
     }
 
     /** @param list<PhpToken> $tokens a file's significant tokens, in order */
