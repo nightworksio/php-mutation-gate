@@ -14,9 +14,10 @@ use function sprintf;
 /**
  * The registered mutators a run makes mutants with besides its runner's own
  * (ADR-0021): `mutators.sets`, the sets turned on by name, and
- * `mutators.except`, single mutators of theirs turned off by name. Both lists
- * grow layer by layer, so a preset's sets stay on beside the config file's.
- * They are part of what a config builds on (see Setup).
+ * `mutators.except`, single mutators of theirs or of the default set turned
+ * off by name, and under Pest or Infection only of theirs. Both lists grow
+ * layer by layer, so a preset's sets stay on beside the config file's. They
+ * are part of what a config builds on (see Setup).
  */
 final readonly class Mutators
 {

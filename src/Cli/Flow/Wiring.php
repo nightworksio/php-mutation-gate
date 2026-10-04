@@ -80,9 +80,10 @@ final readonly class Wiring
     public function adapters(Settings $settings, Directory $project): Adapters|Invalid|CannotJudge
     {
         $lookup = Lookup::in($this->extensions);
-        $mutators = EnabledMutators::in($lookup, $settings->mutators());
+        $runner = BuiltinRunner::tryFrom($settings->runner()->choice()->use()->value());
+        $mutators = EnabledMutators::in($lookup, $settings->mutators(), $runner ?? NotGiven::value());
 
-        return $mutators instanceof CannotJudge ? $mutators : $this->built($settings, $project, $lookup, $mutators);
+        return $mutators instanceof EnabledMutators ? $this->built($settings, $project, $lookup, $mutators) : $mutators;
     }
 
     private function built(

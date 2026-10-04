@@ -638,6 +638,32 @@ it('tells each runner the classes of the registered mutators the config turns on
         ->toEqual(Enabled::of(MutatorSet::of(...$native))->engine());
 });
 
+it('tells the PHPUnit runner the default set\'s mutators less one mutators.except turns off, and refuses that under Pest', function (): void {
+    $registry = new DefaultExtension()->extend(wiringRegistry());
+    $default = $registry->registered(ExtensionPoint::MutatorSet, MutatorSet::defaultName());
+    $mutators = [...Enabled::of($default instanceof MutatorSet ? $default : MutatorSet::of())];
+    $off = $mutators[0]->name()->value();
+    $wired = static fn(Runner $runner): Adapters|Invalid|CannotJudge => new Wiring($registry, Variables::of([]), wiringDetected())->adapters(
+        Flows::settings($runner, Timeouts::seconds(45), Mutators::except($off)),
+        Directory::at(Flows::project()),
+    );
+    $phpunit = $wired(Runner::phpunit());
+    $pest = $wired(Runner::pest());
+
+    expect($phpunit instanceof Adapters ? $phpunit->runner : $phpunit)->toEqual(PhpUnit::fromOptions(
+        Configs::options((string) json_encode([
+            'timeout' => 45.0,
+            'mutators' => array_map(static fn(object $mutator): string => $mutator::class, array_slice($mutators, 1)),
+        ])),
+        ComposerVendor::of('.'),
+        new CapDirectory(),
+    ))
+        ->and($pest)->toEqual(Invalid::because(Problem::at(
+            'mutators.except',
+            sprintf("expected a mutator of a set in mutators.sets, got \"%s\": the pest runner runs its own mutators in place of the default set's", $off),
+        )));
+});
+
 it('cannot wire a mutator set nobody registered, naming the one most likely meant', function (): void {
     $registry = wiringRegistry()->withMutators(Name::of('acme'), MutatorSet::of(PlusToMinus::class));
 

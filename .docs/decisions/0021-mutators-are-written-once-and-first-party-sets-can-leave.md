@@ -109,8 +109,13 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
      itself.
    - `default` in `mutators.sets` is a config error, exit 2: that set is
      always on, and Pest and Infection run their own mutators in its place.
-   - A mutator `mutators.except` names that no set in `mutators.sets` holds
-     is exit 2, with the nearest name where one is close.
+   - `mutators.except` names mutators held by a set in `mutators.sets` or
+     by the default set, so the PHPUnit runner can turn off a single one of
+     the default set's. A name neither holds is exit 2, with the nearest
+     name where one is close.
+   - Under Pest or Infection, which run their own mutators in place of the
+     default set's, a name only the default set holds would turn nothing
+     off, so it is a config error, exit 2.
 
 4. **The gate writes a bridge for each runner.**
    - For each enabled mutator the gate writes one bridge class per runner,

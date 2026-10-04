@@ -5,9 +5,13 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Cli\Registry\EnabledMutators;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Mutators;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
@@ -44,12 +48,44 @@ it('turns on the mutators of each set the config names, less those it turns off'
 
 it('cannot judge a mutator to turn off that no set the config turns on holds, naming the one most likely meant', function (): void {
     expect(EnabledMutators::in(enablingLookup(), Mutators::of(Listed::of('acme'), Listed::of('acme/RemoveEcho', 'acme/RemoveEco'))))
-        ->toEqual(CannotJudge::because('mutators.except names "acme/RemoveEco", which no mutator set in mutators.sets holds. Did you mean "acme/RemoveEcho"?'));
+        ->toEqual(CannotJudge::because('mutators.except names "acme/RemoveEco", which neither a mutator set in mutators.sets nor the default set holds. Did you mean "acme/RemoveEcho"?'));
 });
 
-it('cannot judge a mutator to turn off that only the default set holds, naming none where nothing is close', function (): void {
-    expect(EnabledMutators::in(enablingLookup(), Mutators::of(except: Listed::of('acme/DecrementToIncrement'))))
-        ->toEqual(CannotJudge::because('mutators.except names "acme/DecrementToIncrement", which no mutator set in mutators.sets holds.'));
+it('turns off a mutator of the default set for the engine, under the PHPUnit runner or none named', function (BuiltinRunner|NotGiven $runner): void {
+    $enabled = EnabledMutators::in(enablingLookup(), Mutators::of(except: Listed::of('acme/DecrementToIncrement')), $runner);
+
+    expect($enabled instanceof EnabledMutators ? count($enabled->forTheEngine()) : $enabled)->toBe(0)
+        ->and($enabled instanceof EnabledMutators ? count($enabled->besideTheRunners()) : $enabled)->toBe(0);
+})->with([
+    'the PHPUnit runner' => [BuiltinRunner::PhpUnit],
+    'no built-in runner' => [NotGiven::value()],
+]);
+
+it('refuses a mutator to turn off that only the default set holds under a runner that runs its own', function (BuiltinRunner $runner): void {
+    expect(EnabledMutators::in(enablingLookup(), Mutators::of(Listed::of('acme'), Listed::of('acme/RemoveEcho', 'acme/DecrementToIncrement')), $runner))
+        ->toEqual(Invalid::because(Problem::at(
+            'mutators.except',
+            sprintf("expected a mutator of a set in mutators.sets, got \"acme/DecrementToIncrement\": the %s runner runs its own mutators in place of the default set's", $runner->value),
+        )));
+})->with([
+    'Pest' => [BuiltinRunner::Pest],
+    'Infection' => [BuiltinRunner::Infection],
+]);
+
+it('turns off a mutator of a set the config turns on under a runner that runs its own', function (): void {
+    $enabled = EnabledMutators::in(enablingLookup(), Mutators::of(Listed::of('acme'), Listed::of('acme/RemoveEcho')), BuiltinRunner::Pest);
+
+    expect($enabled instanceof EnabledMutators ? enabledClasses($enabled->besideTheRunners()) : $enabled)->toBe([PlusToMinus::class]);
+});
+
+it('names the default set\'s mutator most likely meant by a mutator to turn off that no set holds', function (): void {
+    expect(EnabledMutators::in(enablingLookup(), Mutators::of(except: Listed::of('acme/DecrementToIncremnt'))))
+        ->toEqual(CannotJudge::because('mutators.except names "acme/DecrementToIncremnt", which neither a mutator set in mutators.sets nor the default set holds. Did you mean "acme/DecrementToIncrement"?'));
+});
+
+it('cannot judge a mutator to turn off that no set holds, naming none where nothing is close', function (): void {
+    expect(EnabledMutators::in(enablingLookup(), Mutators::of(Listed::of('acme'), Listed::of('acme/SwapArguments'))))
+        ->toEqual(CannotJudge::because('mutators.except names "acme/SwapArguments", which neither a mutator set in mutators.sets nor the default set holds.'));
 });
 
 it('cannot judge a set nobody registered, naming the one most likely meant', function (): void {

@@ -18,4 +18,10 @@ enum BuiltinRunner: string
     {
         return Name::of($this->value);
     }
+
+    /** Whether it makes its mutants with its own mutators, as Pest and Infection do, rather than the gate's. */
+    public function makesItsOwnMutants(): bool
+    {
+        return $this !== self::PhpUnit;
+    }
 }
