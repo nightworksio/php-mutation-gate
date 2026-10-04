@@ -338,6 +338,14 @@ needs remain, and the runners' own behaviour shapes each answer.
       over the originals failed, the file is out of its scope, the runner
       could not give the mutant, the print analyses otherwise than the
       file, the check could not run, or the budget ran out.
+      A check that could not run warns once for each reason the analyser
+      gave, for the first three reasons given, and the reason follows the
+      warning, as in *Static analysis left 1 survivor unchecked, as the
+      analyser could not check them: src/Money.php. Psalm's language server
+      did not answer in 60s.* The survivors of any more reasons, and of a
+      check given none, are warned of together without one. Each shard's
+      result file keeps that reason with the survivor, under `reason`; a
+      result file without one warns without it.
     - A check after the tests records its time alone, in the ledger's
       `analysers` section. Rates are learned only from checks before the
       tests, since the survivors are no fair sample of a mutator's mutants.

@@ -24,8 +24,11 @@ use function trim;
  */
 final readonly class Fit
 {
-    /** How many names a shortened list shows. */
+    /** How many items a shortened list shows: names, or the reasons a warning is told apart by. */
     public const int SHOWN = 3;
+
+    /** Two texts on one line, the second after the first and a space. */
+    public const string JOINED = '%s %s';
 
     private const string MORE = 'And %d more.';
 

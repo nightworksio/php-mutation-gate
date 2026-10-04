@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Hook\Hook;
 use NightWorksIO\MutationGate\Core\Hook\Occupant;
 use NightWorksIO\MutationGate\Core\ThisPackage;
@@ -52,8 +53,6 @@ final readonly class HookCommand
     /** What install says of such a hook: what it does with it, and the line to add there. */
     private const string SHARED_LINE = 'it is left as it is. To run the gate from a hook there, add: %s';
 
-    /** The two halves of what install says of a hook other repositories run too, on one line. */
-    private const string SHARED = '%s %s';
 
     /** What uninstall says where the gate wrote no hook. */
     private const string NONE = 'There is no hook the gate wrote to remove.';
@@ -99,7 +98,7 @@ final readonly class HookCommand
 
         foreach ($chosen as $hook) {
             $left = match (true) {
-                $hooks->isShared() => sprintf(self::SHARED, self::SHARED_WHERE, self::SHARED_LINE),
+                $hooks->isShared() => sprintf(Fit::JOINED, self::SHARED_WHERE, self::SHARED_LINE),
                 $hook->occupant($hooks->read($hook)) === Occupant::Someone => self::FOREIGN,
                 default => '',
             };

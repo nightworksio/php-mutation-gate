@@ -833,7 +833,8 @@ it('kills a survivor static analysis rejects, and warns once for each reason it 
     expect(count($survivor))->toBe(1)
         ->and($statuses)->toContain('killed-by-static-analysis')
         ->and(judgingTexts($verdict->warnings()))->toBe([
-            'Static analysis left 1 survivor unchecked, as the analyser could not check them: src/Held.php.',
+            'Static analysis left 1 survivor unchecked, as the analyser could not check them: src/Held.php. '
+            . '.mutation-gate/staticcheck/mutants/8705b7dc7d27.php is no mutant the fake was told about.',
         ]);
 });
 

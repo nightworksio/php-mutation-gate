@@ -74,6 +74,8 @@ final readonly class MutantRecord
 
     /** A field of a rejection, as {@see self::rejection()} writes it. */
     public const string MESSAGE = 'message';
+
+    public const string REASON = 'reason';
     private const string ID = 'id';
 
     private const string LINE = 'line';
@@ -90,8 +92,6 @@ final readonly class MutantRecord
 
     /** A registered mutator's own sentence for a survivor, where it has one. */
     private const string HINT = 'hint';
-
-    private const string REASON = 'reason';
 
     /** What a time budget ran out before, where one left the mutant unjudged. */
     private const string OUT_OF_TIME = 'outOfTime';
