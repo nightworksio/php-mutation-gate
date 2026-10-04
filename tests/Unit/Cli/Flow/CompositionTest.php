@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\Version;
@@ -26,6 +27,7 @@ use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Tests\Fakes\ExtensionFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
+use NightWorksIO\MutationGate\Tests\Support\PeakMemoryFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\StoppedClock;
 use Symfony\Component\Console\Input\ArrayInput;
@@ -62,7 +64,7 @@ function compositionOf(array $files, Variables $environment, bool $fake): Compos
         $clock->now(),
     );
 
-    return new Composition($effective, $extensions, $project, $vendor, $clock, $environment);
+    return new Composition($effective, $extensions, $project, $vendor, $clock, new PeakMemoryFake(NotGiven::value()), $environment);
 }
 
 /**

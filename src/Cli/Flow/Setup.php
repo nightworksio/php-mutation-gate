@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
-use NightWorksIO\MutationGate\Adapter\Runtime\ChildMemory;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -25,7 +24,7 @@ final readonly class Setup
         public Version $gate,
         public Digest $installed,
         public ClockInterface $clock,
-        public PeakMemory $memory = new ChildMemory(),
+        public PeakMemory $memory,
     ) {
     }
 }

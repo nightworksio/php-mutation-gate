@@ -8,11 +8,13 @@ use NightWorksIO\MutationGate\Core\Doctor\Measurement;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Port\Runner;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\PeakMemoryFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 use Symfony\Component\Console\Input\ArrayInput;
@@ -21,13 +23,17 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
+/** The most memory the suite's processes held, as the measuring flow reads it. */
+$peak = MemoryCap::of(300, MemoryUnit::Megabytes);
+
 /** What `--measure` adds to nothing observed, in a project whose suite this runner runs. */
 $measuring = static fn(string $project, Runner $runner): Observations => new Measure(
-    FlowCommands::composition($project, $runner, new ProofStoreFake(), Flows::ci()),
+    FlowCommands::composition($project, $runner, new ProofStoreFake(), Flows::ci(), new PeakMemoryFake($peak)),
 )->into(Observations::none(), new ArrayInput([]));
 
 it('runs the whole suite once under coverage, withholding every CI\'s tokens, writes no map, and reads its peak memory', function () use (
     $measuring,
+    $peak,
 ): void {
     $project = FlowCommands::project();
     $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
@@ -37,7 +43,7 @@ it('runs the whole suite once under coverage, withholding every CI\'s tokens, wr
     expect($measured)->toBeInstanceOf(Measurement::class)
         ->and($measured instanceof Measurement ? $measured->coverage() : null)->toEqual(Flows::map())
         ->and($measured instanceof Measurement ? count($measured->held()) : 0)->toBeGreaterThan(0)
-        ->and($measured instanceof Measurement ? $measured->peak() : null)->toBeInstanceOf(MemoryCap::class)
+        ->and($measured instanceof Measurement ? $measured->peak() : null)->toEqual($peak)
         ->and($runner->asked())->toHaveCount(1)
         ->and(preg_match($withheld->pattern(), 'CI_JOB_TOKEN'))->toBe(1)
         ->and(file_exists(sprintf('%s/.mutation-gate/coverage/map.json.gz', $project)))->toBeFalse();

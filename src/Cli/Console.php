@@ -11,6 +11,7 @@ use function ini_parse_quantity;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Waiting;
+use NightWorksIO\MutationGate\Adapter\Runtime\ChildMemory;
 use NightWorksIO\MutationGate\Adapter\Runtime\PhpProbe;
 use NightWorksIO\MutationGate\Cli\Command\BaselineCommand;
 use NightWorksIO\MutationGate\Cli\Command\ConfigSchema;
@@ -112,7 +113,15 @@ final readonly class Console
         $detected = new Detected(Directory::at($project), Directory::at($vendor));
         $now = $clock->now();
         $effective = new Effective($project, $extensions, $detected, $now);
-        $composition = new Composition($effective, $extensions, $project, $vendor, $clock, $environment);
+        $composition = new Composition(
+            $effective,
+            $extensions,
+            $project,
+            $vendor,
+            $clock,
+            new ChildMemory(),
+            $environment,
+        );
         $application->addCommand(RunCommand::command($composition));
         $application->addCommand(PlanCommand::command($composition));
         $application->addCommand(VerdictCommand::command($composition));

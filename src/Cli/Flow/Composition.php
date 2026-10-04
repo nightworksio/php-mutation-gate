@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Runner\PeakMemory;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\Console\Input\InputInterface;
@@ -43,6 +44,7 @@ final readonly class Composition
         private string $project,
         private string $vendor,
         private ClockInterface $clock,
+        private PeakMemory $memory,
         private Variables $environment,
     ) {
     }
@@ -56,6 +58,7 @@ final readonly class Composition
             InstalledGate::version(),
             Digest::sha256Of($installed instanceof Contents ? $installed->text() : ''),
             $this->clock,
+            $this->memory,
         );
     }
 
