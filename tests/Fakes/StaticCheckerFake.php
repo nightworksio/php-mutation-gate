@@ -8,12 +8,14 @@ use function array_key_exists;
 use function getenv;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserSettings;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
 use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Port\StaticChecker;
 
@@ -21,8 +23,9 @@ use function preg_match;
 use function sprintf;
 
 /**
- * A static analyser that answers what it was told: about the originals, and
- * about each mutant it knows by its file. It cannot judge any other mutant.
+ * A static analyser that answers what it was told: the configuration it runs
+ * with, where told one, the originals, and each mutant it knows by its file.
+ * It cannot judge any other mutant.
  * Each answer stands for a process started in this process's environment
  * without what is withheld, which stops, as the contract fixture's bootstrap
  * does, where it can still see `LEAK`.
@@ -32,11 +35,18 @@ final readonly class StaticCheckerFake implements StaticChecker
     /** The variable the contract suite sets and withholds, which the fixture's bootstrap refuses to see. */
     public const string LEAK = 'MUTATION_GATE_CONTRACT_TOKEN';
 
-    /** @param array<string, Findings|OutOfScope|CannotJudge> $mutants what it answers of each mutant, by the mutant's file */
+    private const string UNRESOLVED = 'The fake was told no configuration it runs with.';
+
+    /**
+     * @param array<string, Findings|OutOfScope|CannotJudge> $mutants       what it answers of each mutant, by the mutant's file
+     * @param AnalyserSettings|CannotJudge|NotGiven          $configuration the configuration it says it runs with, or
+     *                                                                     none it can say
+     */
     public function __construct(
         private AnalyserIdentity|CannotJudge $identity,
         private Findings|CannotJudge $originals,
         private array $mutants,
+        private AnalyserSettings|CannotJudge|NotGiven $configuration = new NotGiven(),
     ) {
     }
 
@@ -49,6 +59,16 @@ final readonly class StaticCheckerFake implements StaticChecker
     public function identity(Withheld $withheld): AnalyserIdentity|CannotJudge
     {
         return $this->unlessLeaked($withheld, $this->identity);
+    }
+
+    public function configuration(Withheld $withheld): AnalyserSettings|CannotJudge
+    {
+        $configuration = $this->configuration;
+
+        return $this->unlessLeaked(
+            $withheld,
+            $configuration instanceof NotGiven ? CannotJudge::because(self::UNRESOLVED) : $configuration,
+        );
     }
 
     public function findings(Paths $files, Withheld $withheld): Findings|CannotJudge

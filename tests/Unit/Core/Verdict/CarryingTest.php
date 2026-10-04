@@ -69,11 +69,11 @@ function carryMutant(int $line, MutantStatus $status): Mutant
     );
 }
 
-/** A mutant of src/Money.php on this line, which PHPStan rejected. */
-function carryRejected(int $line): Mutant
+/** A mutant of src/Money.php on this line, which PHPStan rejected by a finding in this file. */
+function carryRejected(int $line, string $file = 'src/Money.php'): Mutant
 {
     return carryMutant($line, MutantStatus::Survived)
-        ->rejected(Rejection::by('phpstan', Finding::error(Path::of('src/Money.php'), 'return.type', 'Method Money::add() should return int.')));
+        ->rejected(Rejection::by('phpstan', Finding::error(Path::of($file), 'return.type', 'Method Money::add() should return int.')));
 }
 
 /** A kill of src/Money.php on this line, by these tests. */
@@ -200,8 +200,11 @@ it('carries each mutant of a counted result as it stands, or unjudged, and says 
     'a kill by a test file the run no longer has' => ['base', carryKill(3, TestId::of('RateTest::rates')), Carry::KillerChanged],
     'a kill by a deleted test the run cannot name' => ['base', carryKill(3, TestId::of('GoneTest::adds')), Carry::KillerUnknown],
     'a kill no test is known for' => ['base', carryKill(3), Carry::KillerUnknown],
-    'a kill by static analysis at the same base' => ['base', carryRejected(3), Carry::Rejected],
-    'a kill by static analysis at another base' => ['other base', carryRejected(3), Carry::Rejected],
+    'a kill by static analysis at the same base' => ['base', carryRejected(3), Carry::Stands],
+    'a kill by static analysis in another file, at the same base' => ['base', carryRejected(3, 'src/Wallet.php'), Carry::Stands],
+    'a kill by static analysis that records no finding, as Infection reports one' => ['base', carryMutant(3, MutantStatus::KilledByStaticAnalysis), Carry::RejectionUnknown],
+    'a kill by static analysis in a file outside the repository' => ['base', carryRejected(3, '/elsewhere/Lib.php'), Carry::FindingOutside],
+    'a kill by static analysis in a file above the repository' => ['base', carryRejected(3, '../lib/Lib.php'), Carry::FindingOutside],
     'a timeout, which triage may count a kill' => ['base', carryMutant(3, MutantStatus::TimedOut), Carry::KillerUnknown],
     'out of memory, which triage may count a kill' => ['base', carryMutant(3, MutantStatus::OutOfMemory), Carry::KillerUnknown],
     'a crash, which counts a kill' => ['base', carryMutant(3, MutantStatus::Errored), Carry::KillerUnknown],
@@ -232,6 +235,29 @@ it('carries a kill from another base only where nothing changed since its commit
     'a result from a changed working tree, which records no commit' => [$recorded, carryKill(3, TestId::of('MoneyTest::adds')), Carry::NoCommit],
     'a killing test that changed, whatever changed since' => [$recorded->takenAt(carryCommit('unrelated')), carryKill(3, TestId::of('TaxTest::rounds')), Carry::KillerChanged],
     'a killing test unknown, whatever changed since' => [$recorded->takenAt(carryCommit('unrelated')), carryKill(3), Carry::KillerUnknown],
+]);
+
+it('carries a kill by static analysis from another base only where nothing changed since reaches its unit or the file its finding sits in', function (
+    Inputs $inputs,
+    Mutant $rejected,
+    Carry $carry,
+) use ($carrying): void {
+    expect($carrying->carry(carryProof('other base', $inputs), $rejected))->toBe($carry);
+})->with([
+    'an unrelated class changed' => [$recorded->takenAt(carryCommit('unrelated')), carryRejected(3), Carry::Stands],
+    'the trait its unit uses changed' => [$recorded->takenAt(carryCommit('callee')), carryRejected(3), Carry::Reached],
+    'the file its finding sits in changed, which nothing of its unit names' => [
+        $recorded->takenAt(carryCommit('unrelated')),
+        carryRejected(3, 'src/Tax.php'),
+        Carry::Reached,
+    ],
+    'git cannot say what changed since' => [$recorded->takenAt(carryCommit('shallow')), carryRejected(3), Carry::ChangeUnknown],
+    'a result from a changed working tree, which records no commit' => [$recorded, carryRejected(3), Carry::NoCommit],
+    'a finding outside the repository, whatever changed since' => [
+        $recorded->takenAt(carryCommit('unrelated')),
+        carryRejected(3, '/elsewhere/Lib.php'),
+        Carry::FindingOutside,
+    ],
 ]);
 
 it('carries no kill where the run cannot name its tests, nor a proof without digests', function () use ($now, $map, $recorded, $names, $since): void {

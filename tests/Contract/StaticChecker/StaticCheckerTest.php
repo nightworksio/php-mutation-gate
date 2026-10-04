@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Mago\Mago;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserSettings;
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
@@ -21,7 +22,9 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 // What every static analyser answers over the fixture in this directory: who
-// it is, what it reports of the original, that a mutant which is no valid
+// it is, the configuration it runs with, written alike wherever the fixture
+// lies, with its config file among what it reads, what it reports of the
+// original, that a mutant which is no valid
 // program has an error the original does not, that one which is has none,
 // that each finding names the file it sits in, as the fixture spells it,
 // the original's for one in the mutant and a dependent's for one there,
@@ -45,6 +48,14 @@ function built(StaticChecker|Invalid $analyser): StaticChecker
     return $analyser instanceof StaticChecker ? $analyser : throw new LogicException('The fixture\'s options are refused.');
 }
 
+/** The configuration the fake says it runs with, under the fixture's root. */
+function fakeSettings(string $root): AnalyserSettings
+{
+    $settings = AnalyserSettings::resolved('{"level": 9}', $root);
+
+    return $settings instanceof AnalyserSettings ? $settings : throw new LogicException('The fake\'s settings are unread.');
+}
+
 /** The fake, and the analysers that load the project's code, whose bootstrap sees a variable not withheld. */
 $loading = [
     'the fake' => fn(): StaticChecker => new StaticCheckerFake(
@@ -61,6 +72,7 @@ $loading = [
             $fixture('mutants/Other.invalid.php')->value() => OutOfScope::of($fixture('outside/Other.php')),
             $fixture('mutants/Excluded.invalid.php')->value() => OutOfScope::of($fixture('src/Excluded.php')),
         ],
+        fakeSettings($root)->referencing(Paths::of(Path::of('phpstan.neon'))),
     ),
     ...getenv('ANALYSER_CONTRACTS') === '1' ? [
         'PHPStan' => fn(): StaticChecker => built(PhpStan::fromOptions(Configs::options('{}'), $root)),
@@ -79,6 +91,17 @@ it('names the analyser and its exact version', function (StaticChecker $checker)
 
     expect($identity)->toBeInstanceOf(AnalyserIdentity::class)
         ->and($identity instanceof AnalyserIdentity ? [$identity->analyser(), $identity->version()] : [])->not->toContain('');
+})->with($checkers);
+
+it('says the configuration it runs with, under the fixture\'s root, with its config file among the files it reads', function (StaticChecker $checker) use ($root): void {
+    $settings = $checker->configuration(Withheld::standard());
+    $references = $settings instanceof AnalyserSettings ? [...$settings->references()] : [];
+
+    expect($settings)->toBeInstanceOf(AnalyserSettings::class)
+        ->and($settings instanceof AnalyserSettings ? $settings->written() : $root)->not->toContain($root)
+        ->and(array_filter($references, static fn(Path $file): bool => $file->escapes()))->toBe([])
+        ->and(array_intersect(array_map(static fn(Path $file): string => $file->value(), $references), ['phpstan.neon', 'mago.toml']))
+        ->not->toBe([]);
 })->with($checkers);
 
 it('rejects a mutant that is no valid program, by an error the original does not have', function (StaticChecker $checker) use ($fixture): void {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Format;
 
+use function implode;
 use function json_encode;
 use function sprintf;
 use function str_replace;
@@ -22,6 +23,11 @@ final readonly class JsonText
     private const string MEMBER = '%s%s:%s';
 
     private const string OBJECT = '{%s}';
+
+    private const string ITEMS = '[%s]';
+
+    /** What separates two members of an object, or two items of a list, on one line. */
+    private const string COMMA = ',';
 
     private const string HASH = '#';
 
@@ -79,9 +85,25 @@ final readonly class JsonText
 
         foreach ($members as $key => $value) {
             $name = json_encode(sprintf('%s', $key), self::FLAGS);
-            $text .= sprintf(self::MEMBER, $text === '' ? '' : ',', $name, $value);
+            $text .= sprintf(self::MEMBER, $text === '' ? '' : self::COMMA, $name, $value);
         }
 
         return sprintf(self::OBJECT, $text);
+    }
+
+    /**
+     * A JSON list on one line, written from each item as JSON text already.
+     *
+     * @param list<string> $items each item, as JSON text
+     */
+    public static function items(array $items): string
+    {
+        return sprintf(self::ITEMS, implode(self::COMMA, $items));
+    }
+
+    /** A string as JSON text. */
+    public static function text(string $text): string
+    {
+        return json_encode($text, self::FLAGS);
     }
 }

@@ -547,6 +547,7 @@ Files the gate reads and writes:
 |------|------------|------------|
 | `mutation-gate.php`, `.json`, `.yaml`, `.yml` or `.neon` | The config | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
 | `mutation-gate.baseline.json` | The committed floors | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
+| The file `staticCheck.config` names, or else the analyser's own: `mago.toml`, `mago.yaml` or `mago.json`; `phpstan.neon`, `phpstan.neon.dist` or `phpstan.dist.neon` | The static analyser's config. Every proof key holds the digest of the configuration the analyser resolves from it and of each file that configuration names, such as a baseline, an included config, or a bootstrap, stub or scanned file; where the analyser cannot say its configuration, of the config file alone | [0020](.docs/decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
 | `.mutation-gate/plan.json`, `.mutation-gate/coverage/`, `.mutation-gate/results/<id>.json` | The plan, its coverage and each shard's result, which `plan` and a run in one process leave and `explain` reads as the last run | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md), [0014](.docs/decisions/0014-every-test-is-judged-by-what-it-kills.md) |
 | `.mutation-gate/pipeline.yml` | GitLab's child pipeline | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `.mutation-gate/ledger/<scope>/ledger.json.gz` | The proof ledger of one ref; outside CI, the one a run writes whatever store the config names | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md), [0010](.docs/decisions/0010-the-gate-runs-while-you-work-and-before-you-push.md) |
@@ -1146,17 +1147,18 @@ A run under a budget, as `watch` and `pre-push` are, counts each unit it
 never started by its newest result where that result still stands for the
 code: its survivors always, and a kill proved at an earlier commit where
 nothing that changed since reaches the unit, or a test that killed it, by a
-name the code uses. A file that is not PHP, or a PHP file that runs code
-when it is loaded, is named by the words of its file name. A change to a
-file that decides how the gate runs, such as `composer.json`,
-`composer.lock` or the gate's config, or to a file `autoload.files` lists,
-carries no kill. Following names misses a class wired only in YAML or XML
-service definitions, or that a container builds for a key other than its
-name, a name built by concatenation, a call through `__call` onto a class
-nothing names, and a file read by a path built from pieces or found by
-listing a directory; a full run judges those again. In CI, a kill carries only where
-the clone holds the commit it was proved at, which `fetch-depth: 0` makes
-sure of.
+name the code uses. For a kill by static analysis, the file the analyser's
+finding sits in takes the place of the tests. A file that is not PHP, or a
+PHP file that runs code when it is loaded, is named by the words of its file
+name. A change to a file that decides how the gate runs, such as
+`composer.json`, `composer.lock` or the gate's config, or to a file
+`autoload.files` lists, carries no kill. Following names misses a class
+wired only in YAML or XML service definitions, or that a container builds
+for a key other than its name, a name built by concatenation, a call through
+`__call` onto a class nothing names, a file read by a path built from pieces
+or found by listing a directory; a full run judges those again. In CI, a
+kill carries only where the clone holds the commit it was proved at, which
+`fetch-depth: 0` makes sure of.
 
 ## How it is built
 

@@ -113,12 +113,13 @@ final readonly class ChangesSince
         return implode(' ', array_map(static fn(Reason $reason): string => $reason->text(), [...$since->everything()]));
     }
 
+    /** How many of a result's reported mutants were killed, by a test or by static analysis. */
     private static function killed(Proof $proof): int
     {
         $killed = 0;
 
         foreach ($proof->reported() as $mutant) {
-            $killed += $mutant->status() === MutantStatus::Killed ? 1 : 0;
+            $killed += $mutant->status()->answer() === MutantStatus::Killed ? 1 : 0;
         }
 
         return $killed;

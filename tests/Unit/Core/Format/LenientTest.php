@@ -46,3 +46,11 @@ it('tells a place that holds members, a map or a list, from one that holds a sin
         ->and(Lenient::holdsMembers($node->field('none')))->toBeFalse()
         ->and(Lenient::holdsMembers($node->field('missing')))->toBeFalse();
 });
+
+it('writes what a place holds back out as JSON, and a place that holds nothing as null', function (): void {
+    $node = Node::decode('{"number": 1.5, "list": [true, "a/b"]}');
+
+    expect(Lenient::json($node->field('number')))->toBe('1.5')
+        ->and(Lenient::json($node->field('list')))->toBe('[true,"a/b"]')
+        ->and(Lenient::json($node->field('missing')))->toBe('null');
+});

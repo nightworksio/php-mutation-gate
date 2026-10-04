@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest as PestRunner;
+use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnit;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
@@ -37,7 +38,10 @@ use NightWorksIO\MutationGate\Config\Runner;
 use NightWorksIO\MutationGate\Config\Shards;
 use NightWorksIO\MutationGate\Config\StaticCheck;
 use NightWorksIO\MutationGate\Config\Timeouts;
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
+use NightWorksIO\MutationGate\Core\Analysis\Finding;
 use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
+use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -46,18 +50,53 @@ use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Fingerprint;
+use NightWorksIO\MutationGate\Core\File\Fingerprints;
+use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Location;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\Mutation;
+use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Proof\Digests;
+use NightWorksIO\MutationGate\Core\Proof\Inputs;
+use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinitions;
+use NightWorksIO\MutationGate\Core\Proof\Key\ContentKeys;
+use NightWorksIO\MutationGate\Core\Proof\Key\Exceptions;
+use NightWorksIO\MutationGate\Core\Proof\Key\Ignored;
+use NightWorksIO\MutationGate\Core\Proof\Key\Source;
+use NightWorksIO\MutationGate\Core\Proof\Key\TestFiles;
+use NightWorksIO\MutationGate\Core\Proof\Key\Tests;
+use NightWorksIO\MutationGate\Core\Proof\Proof;
+use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\Version;
+use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\ThisPackage;
+use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
+use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Verdict\Carry;
+use NightWorksIO\MutationGate\Core\Verdict\Carrying;
+use NightWorksIO\MutationGate\Core\Verdict\ChangesSince;
+use NightWorksIO\MutationGate\Core\Verdict\Uncounted;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
@@ -66,7 +105,9 @@ use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
+use NightWorksIO\MutationGate\Tests\Support\FakeAnalyser;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveEcho;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -392,6 +433,118 @@ it('wires the analyser chosen, handing it staticCheck.config as its config', fun
         ->and($adapters instanceof Adapters ? $adapters->analyser : $adapters)
         ->toEqual(StaticCheckerFake::findingNothing()->identity(Withheld::standard()))
         ->and($handed)->toEqual([Path::of('config/analyser.neon')]);
+});
+
+/**
+ * A project whose PHPStan, a stand-in, resolves parameters naming its own
+ * root: its config, which includes another and a baseline, and a bootstrap
+ * file, each with these contents.
+ */
+function wiringPhpStanProject(string $include = 'parameters: {}', string $baseline = 'parameters: {ignoreErrors: []}', string $bootstrap = '<?php'): string
+{
+    $project = FakeAnalyser::phpstan('PHPStan - PHP Static Analysis Tool 2.2.16');
+    Scratch::write($project, 'phpstan-extra.neon', $include);
+    Scratch::write($project, 'phpstan-baseline.neon', $baseline);
+    Scratch::write($project, 'tests/bootstrap.php', $bootstrap);
+    Scratch::write($project, 'vendor/bin/params.json', sprintf(
+        '{"level": 9, "paths": ["%1$s/src"], "tmpDir": "%1$s/../tmp-%2$s",'
+        . ' "allConfigFiles": ["%1$s/phpstan.neon", "%1$s/phpstan-extra.neon", "%1$s/phpstan-baseline.neon"],'
+        . ' "bootstrapFiles": ["%1$s/tests/bootstrap.php"]}',
+        $project,
+        basename($project),
+    ));
+
+    return $project;
+}
+
+/** Who the analyser wired for a project is: PHPStan, read through its adapter, over the project's directory. */
+function wiredAnalyserIn(string $project): AnalyserIdentity|NoAnalyser|CannotJudge
+{
+    $registry = wiringRegistry()->withStaticChecker(
+        Name::of('stand-in'),
+        static fn(Options $options): PhpStan|Invalid => PhpStan::fromOptions($options, $project),
+    );
+    $adapters = new Wiring($registry, Variables::of([]), wiringDetected())
+        ->adapters(Flows::settings(StaticCheck::uses('stand-in')), Directory::at($project));
+
+    return $adapters instanceof Adapters ? $adapters->analyser : throw new RuntimeException('The adapters could not be wired.');
+}
+
+/** What decides src/Money.php's mutant set, and its source, in a run whose static analyser is this one. */
+function wiringDigestsWith(AnalyserIdentity|NoAnalyser|CannotJudge $analyser): Digests
+{
+    return ContentKeys::of(
+        Version::of('nightworksio/mutation-gate', '1.0.0', 'abc123'),
+        '{}',
+        Identity::of('pest', Versions::none(), Digest::of('platform')),
+        $analyser instanceof AnalyserIdentity ? $analyser : NoAnalyser::configured(),
+        Digest::of('installed'),
+        Source::of(
+            Fingerprints::of(Fingerprint::of(Path::of('src/Money.php'), Digest::of('money'))),
+            CiDefinitions::none(),
+            Exceptions::of(Path::of('mutation-gate.json'), Path::of('mutation-gate.baseline.json'), Ignored::nothing(), Paths::none()),
+        ),
+        Tests::of(TestFiles::of(), Paths::none(), Paths::none()),
+    )->digestsOf(Units::of(Unit::file(Path::of('src/Money.php'))));
+}
+
+/** Whether a kill by static analysis proved under one analyser carries into a run under another, at the same base. */
+function wiringCarriesStaticKill(AnalyserIdentity|NoAnalyser|CannotJudge $then, AnalyserIdentity|NoAnalyser|CannotJudge $now): Carry|Uncounted
+{
+    $recorded = wiringDigestsWith($then);
+    $source = $recorded->sourceOf(Path::of('src/Money.php'));
+    $rejected = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', '3', 0),
+        '3',
+        Location::of(Path::of('src/Money.php'), Line::of(3), Line::of(3)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, ''),
+        MutantStatus::Survived,
+        Unmeasured::duration(),
+    )->rejected(Rejection::by('phpstan', Finding::error(Path::of('src/Money.php'), 'return.type', 'Method Money::add() should return int.')));
+    $proof = Proof::held(
+        Digest::sha256Of('old key'),
+        Path::of('src/Money.php'),
+        Mutants::of($rejected),
+        ProvedKills::none(),
+        Run::of('main', Moment::at('2026-09-29T10:00:00Z'), Digest::sha256Of('base')),
+    )->withInputs(Inputs::of($source instanceof Digest ? $source : Digest::of('none'), $recorded->mutation()));
+    $carrying = Carrying::against(wiringDigestsWith($now), Digest::sha256Of('base'), TestNames::none(), CoverageMap::empty(), ChangesSince::none());
+    $counted = $carrying->counted($proof);
+
+    return $counted instanceof Proof ? $carrying->carry($counted, $rejected) : $counted;
+}
+
+it('keys the analyser by the configuration it resolves, so a static kill carries while nothing it read changed', function (): void {
+    $project = wiringPhpStanProject();
+    $analyser = wiredAnalyserIn($project);
+
+    expect($analyser)->toBeInstanceOf(AnalyserIdentity::class)
+        ->and($analyser instanceof AnalyserIdentity ? $analyser->config() : $analyser)
+        ->not->toEqual(Digest::sha256Of("parameters:\n    level: 9\n"))
+        ->and(wiringCarriesStaticKill($analyser, wiredAnalyserIn($project)))->toBe(Carry::Stands);
+});
+
+it('carries no static kill once the analyser\'s baseline, an included config or a bootstrap file reads otherwise', function (string $file, string $contents): void {
+    $project = wiringPhpStanProject();
+    $then = wiredAnalyserIn($project);
+    Scratch::write($project, $file, $contents);
+
+    expect(wiringCarriesStaticKill($then, wiredAnalyserIn($project)))->toBe(Uncounted::MutationChanged);
+})->with([
+    'the baseline' => ['phpstan-baseline.neon', "parameters:\n    ignoreErrors:\n        - '#return type#'\n"],
+    'an included config' => ['phpstan-extra.neon', "services:\n    - Acme\\StrictRule\n"],
+    'a bootstrap file' => ['tests/bootstrap.php', "<?php\ndefine('ACME_STRICT', true);\n"],
+]);
+
+it('keys the analyser alike for the same project at two roots', function (): void {
+    expect(wiredAnalyserIn(wiringPhpStanProject()))->toEqual(wiredAnalyserIn(wiringPhpStanProject()));
+});
+
+it('keys the analyser by its config file where it cannot say the configuration it resolves', function (): void {
+    $project = wiringPhpStanProject();
+    Scratch::write($project, 'vendor/bin/params.exit', '1');
+
+    expect(wiredAnalyserIn($project))->toEqual(AnalyserIdentity::of('phpstan', '2.2.16', Digest::sha256Of("parameters:\n    level: 9\n")));
 });
 
 it('tells Infection each mutant\'s cap, timeouts.seconds, and that the gate checks its survivors only where an analyser is wired', function (): void {

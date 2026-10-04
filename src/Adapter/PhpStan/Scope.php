@@ -27,6 +27,9 @@ use function strpbrk;
  */
 final readonly class Scope
 {
+    /** What a message calls the parameters `dump-parameters` writes. */
+    public const string PARAMETERS = 'the parameters';
+
     private const string UNREAD = 'PHPStan did not say which files it analyses: %s';
 
     /** The exclusions PHPStan dumps: of what it neither analyses nor scans, and of what it scans alone. */
@@ -43,7 +46,7 @@ final readonly class Scope
     /** The scope PHPStan's dumped parameters give; none where they cannot be read. */
     public static function dumped(string $json): self|CannotJudge
     {
-        $parameters = Node::decode($json, 'the parameters');
+        $parameters = Node::decode($json, self::PARAMETERS);
 
         try {
             $paths = self::texts($parameters->field('paths'));

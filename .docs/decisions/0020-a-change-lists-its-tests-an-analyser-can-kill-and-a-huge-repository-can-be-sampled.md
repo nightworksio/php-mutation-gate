@@ -128,7 +128,10 @@ needs remain, and the runners' own behaviour shapes each answer.
 6. **A tenth port, `StaticChecker`, asks a static analyser about one
    mutant.**
    - `identity(Withheld): AnalyserIdentity|CannotJudge` gives the analyser,
-     its version and its config's digest.
+     its version and its config file's digest.
+   - `configuration(Withheld): AnalyserSettings|CannotJudge` gives the
+     configuration the analyser runs with and the files it references
+     (decision 14).
    - `findings(Paths, Withheld): Findings|CannotJudge` gives the findings
      of every file the analyser analyses, which must hold these files, from
      one warm-up run. Each check reports on the whole of that scope too, so
@@ -268,7 +271,8 @@ needs remain, and the runners' own behaviour shapes each answer.
       no finding. A record that gives a rejection to a mutant of any other
       status, or a reason or an `outOfTime` beside its rejection, or a
       rejection with no file, is not well formed.
-    - A kill by static analysis a time budget carries is unjudged (ADR-0008,
+    - A kill by static analysis a time budget carries stands as a kill
+      does, by its unit and the file its finding sits in (ADR-0008,
       decision 1).
     - `explain` prints the analyser, the file the finding sits in, the
       finding's code and its message.
@@ -358,6 +362,36 @@ needs remain, and the runners' own behaviour shapes each answer.
       process read one answer. For Mago the version comes
       from `mago --version`, since its Composer package fetches the binary
       that analyses.
+    - The identity's config digest is that of the configuration the
+      analyser runs with. The port's `configuration()` answers the
+      settings the analyser resolves from its config files and the
+      environment, and the files those settings reference. Every adapter,
+      an extension's among them, answers it.
+      - PHPStan's settings are the parameters `phpstan dump-parameters
+        --json` prints for the project's config, less `env`, `tmpDir`,
+        `sysGetTempDir`, `resultCachePath` and `pro`, which differ between
+        machines and runs. They reference every config file it read, in
+        `allConfigFiles`, its includes and a baseline among them, and its
+        `bootstrapFiles`, `stubFiles`, `scanFiles` and `scanDirectories`.
+      - Mago's are what `mago --threads=1 config` prints, less the
+        `linter`, `formatter` and `guard` sections, which are its other
+        commands'. They reference its config file, the analyser's
+        `baseline`, and the `includes` and `patches` of its `source`.
+    - Each path under the project's root is spelt from the root, in the
+      settings and among the files, and each map's keys are in order, so
+      the digest is the same on every machine. A file named by a stream,
+      such as `phar://`, is inside the analyser itself, which its version
+      decides. Each file referenced, and each file under a directory
+      referenced, found without following a linked directory, is digested
+      by its contents, and one that is not there as missing. A file outside
+      the root keeps the path it is named by.
+    - The config digest is the digest of the settings and of those files.
+      An analyser that cannot say the configuration it runs with is keyed
+      by the digest of its config file instead.
+    - So a change to the analyser's baseline, to a config it includes, or
+      to a bootstrap, stub or scanned file changes key item 4 and the
+      mutation digest, and no result established before it counts for a
+      unit a time budget never started (ADR-0008, decision 1).
     - The analyser's config and baseline files are in item 6. Its bootstrap
       files under a test directory are in item 7.
     - This amends ADR-0007 decisions 2.4 and 2.7.

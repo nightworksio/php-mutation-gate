@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Fingerprint;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
@@ -47,7 +48,8 @@ use function sprintf;
  * 4. The runner's identity: its name, the version and reference of every
  *    package it drives, and the digest of the PHP it runs on; and the
  *    identity of the static analyser that checks its mutants, its name,
- *    version and config's digest, or that none does (ADR-0020, decision 14).
+ *    version and config's digest, of the configuration it resolves with every
+ *    file that references, or that none does (ADR-0020, decision 14).
  * 5. The digest of `vendor/composer/installed.json`.
  * 6. Every file outside the test directories, by its digest, less the
  *    exceptions.
@@ -68,8 +70,6 @@ use function sprintf;
 final readonly class ContentKeys
 {
     public const string FORMAT = 'mutation-gate proof 3';
-
-    private const string MISSING = 'missing';
 
     private function __construct(
         private HashContext $everyKey,
@@ -307,7 +307,7 @@ final readonly class ContentKeys
 
         foreach ($values as $value) {
             $digest = $tests->digestOf($paths[$value]);
-            $read .= self::framed($value, $digest instanceof Digest ? $digest->value() : self::MISSING);
+            $read .= self::framed($value, $digest instanceof Digest ? $digest->value() : Missing::DIGESTED);
         }
 
         return $read;

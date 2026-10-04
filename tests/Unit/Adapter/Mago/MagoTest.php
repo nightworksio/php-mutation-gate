@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Mago\Mago;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserSettings;
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
@@ -104,6 +105,32 @@ it('cannot judge where it cannot list its files, read its config, or say its ver
         ->toEqual(CannotJudge::because('Mago\'s config missing.toml cannot be read.'))
         ->and(magoIn($silent)->identity(Withheld::standard()))
         ->toEqual(CannotJudge::because('Mago did not say its version (exit 0: ).'));
+});
+
+it('says the configuration it merges, in one thread, with its config file among the files it names', function (): void {
+    $project = FakeAnalyser::mago('1.50.0', '');
+    Scratch::write($project, 'mago.toml', "[source]\npaths = [\"src\"]\n");
+    magoAnswers($project, sprintf('{"threads": 1, "source": {"workspace": "%s"}, "analyzer": {"baseline": null}}', $project), 0);
+    $settings = magoIn($project)->configuration(Withheld::standard());
+
+    expect($settings instanceof AnalyserSettings ? [$settings->written(), $settings->references()] : $settings)
+        ->toEqual(['{"analyzer":{"baseline":null},"source":{"workspace":"."},"threads":1}', Paths::of(Path::of('mago.toml'))])
+        ->and(explode("\n", (string) file_get_contents(sprintf('%s/argv.txt', FakeAnalyser::scripts($project)))))->toBe([
+            sprintf('--workspace=%s', $project),
+            sprintf('--config=%s/mago.toml', $project),
+            '--colors=never',
+            '--threads=1',
+            'config',
+            'withheld',
+        ]);
+});
+
+it('names no config file among what it reads where it reads none', function (): void {
+    $project = FakeAnalyser::mago('1.50.0', '');
+    magoAnswers($project, '{"threads": 1}', 0);
+    $settings = magoIn($project)->configuration(Withheld::standard());
+
+    expect($settings instanceof AnalyserSettings ? $settings->references() : $settings)->toEqual(Paths::none());
 });
 
 it('refuses a config option that is no path', function (): void {

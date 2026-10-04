@@ -9,6 +9,7 @@ use function count;
 use NightWorksIO\MutationGate\Adapter\Azure\ContainerLedger;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LocalLedgers;
+use NightWorksIO\MutationGate\Adapter\Filesystem\ReferencedFiles;
 use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
 use NightWorksIO\MutationGate\Adapter\Infection\Setup;
@@ -20,6 +21,8 @@ use NightWorksIO\MutationGate\Cli\Config\DeclaredTrees;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Registry\EnabledMutators;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserSettings;
 use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\CiEnvironment;
@@ -113,7 +116,7 @@ final readonly class Wiring
             default => new Adapters(
                 $runner,
                 $checker,
-                $checker instanceof StaticChecker ? $checker->identity($withheld) : $checker,
+                $checker instanceof StaticChecker ? $this->identified($checker, $withheld, $project) : $checker,
                 $trees,
                 $proofs,
                 $costs,
@@ -128,6 +131,26 @@ final readonly class Wiring
                 $mutators->besideTheRunners(),
             ),
         };
+    }
+
+    /**
+     * Who the analyser is, its config's digest that of the configuration it
+     * resolves and every file that references, where it can say them, and
+     * that of its config file where it cannot (ADR-0020, decision 14).
+     */
+    private function identified(
+        StaticChecker $checker,
+        Withheld $withheld,
+        Directory $project,
+    ): AnalyserIdentity|CannotJudge {
+        $identity = $checker->identity($withheld);
+        $settings = $checker->configuration($withheld);
+
+        return $identity instanceof AnalyserIdentity && $settings instanceof AnalyserSettings
+            ? $identity->configuredBy(
+                $settings->digest(ReferencedFiles::under($project->root())->digests($settings->references())),
+            )
+            : $identity;
     }
 
     /**
