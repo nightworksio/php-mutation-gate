@@ -130,14 +130,20 @@ final class Trial
         return sprintf('%s/%s', dirname($this->guard), JUnitLog::NAME);
     }
 
-    /** What a run that finished found, where its guard says the mutated copy is what ran. */
+    /**
+     * What a run that finished found, where its guard says the mutated copy is
+     * what ran. A run a signal ended writes no guard, and kills the mutant:
+     * its tests passed on their own, so only the mutated copy ended it.
+     */
     private function guarded(Ran $ran, Paths $tests): Outcome
     {
         $text = is_file($this->guard) ? file_get_contents($this->guard) : false;
 
-        return is_string($text)
-            ? $this->read(Node::decode($text), $ran, $tests)
-            : $this->unjudged(self::UNGUARDED, $ran, $tests);
+        return match (true) {
+            is_string($text) => $this->read(Node::decode($text), $ran, $tests),
+            $ran->endedBySignal() => Outcome::killed(),
+            default => $this->unjudged(self::UNGUARDED, $ran, $tests),
+        };
     }
 
     private function read(Node $seen, Ran $ran, Paths $tests): Outcome

@@ -748,7 +748,11 @@ its parser attributes. Both change when the checkout moves.
      - `opcache.enable_cli` or `opcache.file_cache` on, because a cached
        original could be served instead of the mutant;
      - no guard written at all: *the run wrote no guard, so the gate cannot
-       tell the mutated file ran*.
+       tell the mutated file ran*. A run that a signal ended, whose exit code
+       is 128 plus the signal's number, from 129 to 192, writes none either,
+       and kills the mutant instead: its tests passed on their own in step 2,
+       so only the mutated file can have ended it. PHP's exit code for a
+       fatal error, 255, is no signal's.
    - **What a run that judges nothing says.** Each run writes PHPUnit's
      JUnit log beside the guard (`--log-junit`). A mutant left unjudged by a
      run, on its own or with the override, carries after its reason, in

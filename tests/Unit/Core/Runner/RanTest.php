@@ -58,3 +58,12 @@ it('says how long a run took only where the shell measured it', function (): voi
         ->and(Ran::finished(succeeded: true, output: '')->timed())->toBeInstanceOf(CannotJudge::class)
         ->and(Ran::stopped('')->timed())->toBeInstanceOf(CannotJudge::class);
 });
+
+it('was ended by a signal where its exit code is 128 plus a signal\'s number, from 1 to 64', function (): void {
+    expect(Ran::exited(129, '')->endedBySignal())->toBeTrue()
+        ->and(Ran::exited(192, '')->endedBySignal())->toBeTrue()
+        ->and(Ran::exited(128, '')->endedBySignal())->toBeFalse()
+        ->and(Ran::exited(193, '')->endedBySignal())->toBeFalse()
+        ->and(Ran::exited(NotGiven::value(), '')->endedBySignal())->toBeFalse()
+        ->and(Ran::stopped('')->endedBySignal())->toBeFalse();
+});
