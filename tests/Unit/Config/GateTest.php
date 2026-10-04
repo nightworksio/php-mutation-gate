@@ -130,6 +130,7 @@ it('writes every setting of the configuration reference', function (): void {
                 Pest::canary('canary'),
                 StaticCheck::phpstan(),
                 StaticCheck::config('phpstan.dist.neon'),
+                StaticCheck::seconds(45),
                 Mutators::sets('acme', 'acme-auth'),
                 Mutators::except('acme/RemoveAudit'),
                 Local::watchBudget('2m'),
@@ -193,7 +194,7 @@ it('writes every setting of the configuration reference', function (): void {
         'flaky' => ['confirmSurvivors' => false],
         'badge' => ['colors' => ['green' => 85]],
         'pest' => ['patch' => true, 'canary' => 'canary'],
-        'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon'],
+        'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45],
         'mutators' => ['sets' => ['acme', 'acme-auth'], 'except' => ['acme/RemoveAudit']],
         'local' => ['watchBudget' => '2m', 'prePushBudget' => '10m'],
     ]);

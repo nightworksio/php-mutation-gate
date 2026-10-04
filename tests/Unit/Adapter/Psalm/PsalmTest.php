@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\FakeAnalyser;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -308,4 +309,32 @@ it('starts every process without what the runner withholds', function (): void {
 
 it('reads the dependents a check lists, as its server analyses only what it is sent', function (): void {
     expect(psalmIn(psalmProject())->readsDependents())->toBeTrue();
+});
+
+it('cannot judge where its server does not answer a check within the limit, and starts another for the next', function (): void {
+    $project = psalmProject();
+    Scratch::write($project, 'vendor/bin/server.mode', 'mute');
+    $psalm = psalmIn($project);
+    $psalm->findings(Paths::none(), Withheld::standard());
+    $check = MutantCheck::of(Path::of('src/Money.php'), Path::of('src/Money.php'))->within(Seconds::of(1.0));
+    $first = $psalm->check($check);
+    unlink(sprintf('%s/vendor/bin/server-argv.txt', $project));
+
+    expect($first)->toEqual(CannotJudge::because('Psalm\'s language server did not answer in 1s.'))
+        ->and($psalm->check($check))->toEqual(CannotJudge::because('Psalm\'s language server did not answer in 1s.'))
+        ->and(file_exists(sprintf('%s/vendor/bin/server-argv.txt', $project)))->toBeTrue();
+});
+
+it('cannot judge where its server does not answer its start within the limit, and starts it no second time', function (): void {
+    $project = psalmProject();
+    Scratch::write($project, 'vendor/bin/server.mode', 'mute-start');
+    $psalm = psalmIn($project);
+    $psalm->findings(Paths::none(), Withheld::standard());
+    $check = MutantCheck::of(Path::of('src/Money.php'), Path::of('src/Money.php'))->within(Seconds::of(1.0));
+    $first = $psalm->check($check);
+    unlink(sprintf('%s/vendor/bin/server-argv.txt', $project));
+
+    expect($first)->toEqual(CannotJudge::because('Psalm\'s language server did not answer in 1s.'))
+        ->and($psalm->check($check))->toEqual(CannotJudge::because('Psalm\'s language server did not answer in 1s.'))
+        ->and(file_exists(sprintf('%s/vendor/bin/server-argv.txt', $project)))->toBeFalse();
 });

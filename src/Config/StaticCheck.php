@@ -57,6 +57,12 @@ final readonly class StaticCheck implements Setting
         return new self(Json::at('staticCheck.config', $path));
     }
 
+    /** `staticCheck.seconds`: how long one check may take, and Psalm's language server to start. */
+    public static function seconds(int $seconds): self
+    {
+        return new self(Json::at('staticCheck.seconds', $seconds));
+    }
+
     public function written(): Json
     {
         return $this->json;

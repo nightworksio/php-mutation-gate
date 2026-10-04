@@ -143,7 +143,8 @@ const DEFAULTS = <<<'JSON'
             "canary": "mutation-canary"
         },
         "staticCheck": {
-            "tool": "auto"
+            "tool": "auto",
+            "seconds": 60
         },
         "local": {
             "watchBudget": "1m",
@@ -212,7 +213,7 @@ const EVERYTHING = [
     ],
     'badge' => ['colors' => ['green' => 95]],
     'pest' => ['patch' => true, 'canary' => 'canary'],
-    'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon'],
+    'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45],
     'local' => ['watchBudget' => '2m', 'prePushBudget' => '90s'],
 ];
 
@@ -290,6 +291,7 @@ it('reads the defaults into their types', function (): void {
         ->and($settings->effective()->pest()->canary())->toEqual(Group::named('mutation-canary'))
         ->and($settings->staticCheck()->tool())->toEqual(Choice::of('auto', Configs::options('{}')))
         ->and($settings->staticCheck()->config())->toEqual(Absent::setting())
+        ->and($settings->staticCheck()->seconds())->toEqual(Seconds::of(60))
         ->and($settings->local()->watchBudget())->toEqual(Budgets::standard()->watch())
         ->and($settings->local()->prePushBudget())->toEqual(Budgets::standard()->prePush());
 });
@@ -357,6 +359,7 @@ it('reads every setting a config writes into its type', function (): void {
         ->and($settings->effective()->pest()->canary())->toEqual(Group::named('canary'))
         ->and($settings->staticCheck()->tool())->toEqual(Choice::of('phpstan', Configs::options('{}')))
         ->and($settings->staticCheck()->config())->toEqual(Path::of('phpstan.dist.neon'))
+        ->and($settings->staticCheck()->seconds())->toEqual(Seconds::of(45))
         ->and($settings->local()->watchBudget())->toEqual(Seconds::of(120))
         ->and($settings->local()->prePushBudget())->toEqual(Seconds::of(90));
 });
@@ -440,7 +443,7 @@ it('serialises the settings that affect results canonically, and only those', fu
         . '"gitlab":{"template":".gitlab/mutation-gate.yml"},"jenkins":{"definition":"Jenkinsfile"}},'
         . '"flaky":{"confirmSurvivors":true},"mutators":{"except":[],"sets":[]},"packages":[],'
         . '"pest":{"canary":"mutation-canary","patch":false},'
-        . '"runner":{"memory":"1G","use":"pest"},"staticCheck":{"tool":"auto"},"tests":{"order":"killers-first"},'
+        . '"runner":{"memory":"1G","use":"pest"},"staticCheck":{"seconds":60,"tool":"auto"},"tests":{"order":"killers-first"},'
         . '"timeouts":{"retries":20,"seconds":10},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
     )->and(Configs::settings(EVERYTHING)->canonical())->toBe(
         '{"ci":{"azure":{"definition":"ci/azure.yml"},"bitbucket":{"definition":"ci/bitbucket.yml"},'
@@ -449,7 +452,8 @@ it('serialises the settings that affect results canonically, and only those', fu
         . '"flaky":{"confirmSurvivors":false},'
         . '"mutators":{"except":["acme/RemoveAudit"],"sets":["acme","acme-auth"]},"packages":["packages/*"],'
         . '"pest":{"canary":"canary","patch":true},'
-        . '"runner":{"memory":"512M","use":"infection"},"staticCheck":{"config":"phpstan.dist.neon","tool":"phpstan"},'
+        . '"runner":{"memory":"512M","use":"infection"},'
+        . '"staticCheck":{"config":"phpstan.dist.neon","seconds":45,"tool":"phpstan"},'
         . '"tests":{"order":"killers-first"},"timeouts":{"retries":0,"seconds":30},'
         . '"treeSource":{"use":"phpunit","with":{"fallback":["app","lib"]}},'
         . '"trees":[{"path":"app/Domain"},{"path":"app/Http"},'
@@ -502,7 +506,8 @@ it('changes the canonical form with every setting that affects results', functio
     'the Pest patches' => [['pest' => ['patch' => false]]],
     'the canary group' => [['pest' => ['canary' => 'other']]],
     'the static analyser' => [['staticCheck' => ['tool' => 'psalm', 'config' => 'phpstan.dist.neon']]],
-    'the static analyser\'s config' => [['staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.neon']]],
+    'the static analyser\'s config' => [['staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.neon', 'seconds' => 45]]],
+    'the static analyser\'s limit' => [['staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 46]]],
     'a tree\'s exclude' => [['trees' => [...EVERYTHING['trees'], ['path' => 'lib', 'exclude' => ['lib/Gen/**']]]]],
     'the test order' => [['tests' => ['order' => 'runner']]],
     'the tree source\'s fallback' => [['treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app']]]]],
@@ -546,7 +551,7 @@ it('reports every problem at once, each at its path with what was expected', fun
         ]],
         'reports' => [['use' => 'sarif'], ['path' => 'build/report']],
         'pest' => ['patch' => 'yes'],
-        'staticCheck' => ['tool' => ['use' => 'phpstan', 'with' => ['level' => 9]], 'config' => ''],
+        'staticCheck' => ['tool' => ['use' => 'phpstan', 'with' => ['level' => 9]], 'config' => '', 'seconds' => 0],
     ])))->toBe([
         'runner: expected a name, a class, or an object with use and with, got 3',
         'treeSource.with.fallback: expected a list, got "app"',
@@ -568,6 +573,7 @@ it('reports every problem at once, each at its path with what was expected', fun
         'pest.patch: expected true or false, got "yes"',
         'staticCheck.tool.with.level: unknown key',
         'staticCheck.config: expected a path, got ""',
+        'staticCheck.seconds: expected an integer of at least 1, got 0',
         'newcode: unknown key, did you mean newCode?',
     ]);
 });
@@ -587,12 +593,13 @@ it('refuses a config that is not an object', function (string $json, string $pro
 it('refuses a string where a number belongs, and a fraction where an integer does', function (): void {
     expect(Configs::problems(Configs::validated(
         '{"runner": "pest", "newCode": {"floor": "100"}, "timeouts": {"seconds": 10.0, "retries": -1}, '
-        . '"flaky": {"confirmSurvivors": 1}}',
+        . '"flaky": {"confirmSurvivors": 1}, "staticCheck": {"seconds": 2.5}}',
     )))->toBe([
         'newCode.floor: expected a number from 0 to 100, got "100"',
         'timeouts.seconds: expected an integer of at least 1, got 10.0',
         'timeouts.retries: expected an integer of at least 0, got -1',
         'flaky.confirmSurvivors: expected true or false, got 1',
+        'staticCheck.seconds: expected an integer of at least 1, got 2.5',
     ]);
 });
 
@@ -1073,7 +1080,8 @@ it('names each CI\'s pipeline file in a config written as PHP', function (): voi
     expect(Configs::valid(EVERYTHING)->php(ProjectRoot::origin())->code())
         ->toContain("Ci::azureDefinition('ci/azure.yml')")
         ->toContain("Ci::bitbucketDefinition('ci/bitbucket.yml')")
-        ->toContain("Ci::jenkinsDefinition('ci/Jenkinsfile')");
+        ->toContain("Ci::jenkinsDefinition('ci/Jenkinsfile')")
+        ->toContain('StaticCheck::seconds(45)');
 });
 
 it('hands on a name in a map that reads as a number as text, to the cost model and to a config written as PHP', function (): void {

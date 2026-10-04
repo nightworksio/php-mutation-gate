@@ -58,6 +58,7 @@ final readonly class SurvivorChecking
         private Adapters $adapters,
         private ClockInterface $clock,
         private Deadline|Unlimited $deadline,
+        private Seconds $perCheck,
     ) {
     }
 
@@ -222,7 +223,7 @@ final readonly class SurvivorChecking
         $at = Workspace::checkedOriginal($survivor->id());
         [$print, $history] = $this->analysed(
             $warm->checker,
-            MutantCheck::of($survivor->location()->file(), $at),
+            MutantCheck::of($survivor->location()->file(), $at)->within($this->perCheck),
             $original,
             $history,
         );
@@ -247,7 +248,7 @@ final readonly class SurvivorChecking
         AnalyserHistory $history,
     ): array {
         $file = $survivor->location()->file();
-        $check = MutantCheck::of($file, Workspace::checkedMutant($survivor->id()));
+        $check = MutantCheck::of($file, Workspace::checkedMutant($survivor->id()))->within($this->perCheck);
         $listed = $warm->checker->readsDependents()
             ? $check->withDependents($this->dependents($warm, $file, $checkable))
             : $check;

@@ -46,6 +46,7 @@ use const PHP_BINARY;
 use function preg_match;
 use function sprintf;
 
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Exception\RuntimeException;
 use Symfony\Component\Process\Process;
 
@@ -196,7 +197,7 @@ final readonly class PhpStan implements StaticChecker
             default => $this->analysed($check->withheld(), FindingFiles::under($this->root)->substituting($check), [
                 sprintf('--tmp-file=%s', $this->absolute($check->mutant())),
                 sprintf('--instead-of=%s', $original),
-            ]),
+            ], new CheckLimit($check->limit())),
         };
     }
 
@@ -257,12 +258,16 @@ final readonly class PhpStan implements StaticChecker
 
     /**
      * What PHPStan reports, each finding in the file it sits in, given
-     * these editing arguments.
+     * these editing arguments; a run stopped at this limit cannot judge.
      *
      * @param list<string> $editing
      */
-    private function analysed(Withheld $withheld, FindingFiles $files, array $editing): Findings|CannotJudge
-    {
+    private function analysed(
+        Withheld $withheld,
+        FindingFiles $files,
+        array $editing,
+        CheckLimit $limit = new CheckLimit(),
+    ): Findings|CannotJudge {
         $check = $this->checkConfig();
         $ran = $check instanceof CannotJudge ? $check : $this->ran($withheld, [
             PHP_BINARY,
@@ -272,22 +277,27 @@ final readonly class PhpStan implements StaticChecker
             '--error-format=json',
             '--no-progress',
             ...$editing,
-        ]);
+        ], $limit);
+        $judged = $limit->judged($ran);
 
-        return $ran instanceof CannotJudge ? $ran : Report::of($ran, $files);
+        return $judged instanceof CannotJudge ? $judged : Report::of($judged, $files);
     }
 
     /**
-     * A command, run to its end in the project's root without what is withheld.
+     * A command, run to its end in the project's root without what is
+     * withheld, or stopped at this limit.
      *
      * @param list<string> $arguments
      */
-    private function ran(Withheld $withheld, array $arguments): ChildProcess
+    private function ran(Withheld $withheld, array $arguments, CheckLimit $limit = new CheckLimit()): ChildProcess
     {
-        $process = new Process($arguments, $this->root->value(), Withholding::of($withheld, getenv()), timeout: null);
+        $environment = Withholding::of($withheld, getenv());
+        $process = new Process($arguments, $this->root->value(), $environment, timeout: $limit->timeout());
 
         try {
             return ChildProcess::exited($process->run(), $process->getOutput(), $process->getErrorOutput());
+        } catch (ProcessTimedOutException) {
+            return ChildProcess::stopped($process->getOutput(), $process->getErrorOutput());
         } catch (RuntimeException $failure) {
             return ChildProcess::neverStarted($failure->getMessage());
         }

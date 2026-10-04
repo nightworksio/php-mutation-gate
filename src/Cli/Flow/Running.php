@@ -212,7 +212,12 @@ final readonly class Running
             return $spent;
         }
 
-        $checked = new SurvivorChecking($this->adapters, $this->setup->clock, $deadline)
+        $checked = new SurvivorChecking(
+            $this->adapters,
+            $this->setup->clock,
+            $deadline,
+            $this->settings->staticCheck()->seconds(),
+        )
             ->checked($spent->mutants, $spent->flaky);
 
         return new Mutated(

@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
 it('rejects a mutant by an error its original does not have', function (): void {
     $original = Findings::of(Finding::error(Path::of('src/Money.php'), 'return.type', 'Method add() should return int but returns string.'));
@@ -55,17 +57,20 @@ it('names an analyser by its name, its version and its config\'s digest', functi
         ->and($identity->config())->toEqual(Digest::sha256Of('includes: []'));
 });
 
-it('asks about a mutant alone, without what every run withholds, unless told more', function (): void {
+it('asks about a mutant alone, without what every run withholds, for as long as it takes, unless told more', function (): void {
     $check = MutantCheck::of(Path::of('src/Money.php'), Path::of('/tmp/mutant.php'));
-    $told = $check->withDependents(Paths::of(Path::of('src/Wallet.php')))->withholding(Withheld::of('DEPLOY_*'));
+    $told = $check->withDependents(Paths::of(Path::of('src/Wallet.php')))
+        ->withholding(Withheld::of('DEPLOY_*'))
+        ->within(Seconds::of(60.0));
 
-    expect([$check->original(), $check->mutant(), $check->dependents(), $check->withheld()])
-        ->toEqual([Path::of('src/Money.php'), Path::of('/tmp/mutant.php'), Paths::none(), Withheld::standard()])
-        ->and([$told->original(), $told->mutant(), $told->dependents(), $told->withheld()])->toEqual([
+    expect([$check->original(), $check->mutant(), $check->dependents(), $check->withheld(), $check->limit()])
+        ->toEqual([Path::of('src/Money.php'), Path::of('/tmp/mutant.php'), Paths::none(), Withheld::standard(), Unlimited::time()])
+        ->and([$told->original(), $told->mutant(), $told->dependents(), $told->withheld(), $told->limit()])->toEqual([
             Path::of('src/Money.php'),
             Path::of('/tmp/mutant.php'),
             Paths::of(Path::of('src/Wallet.php')),
             Withheld::of('DEPLOY_*'),
+            Seconds::of(60.0),
         ]);
 });
 
