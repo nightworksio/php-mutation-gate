@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Stub;
 
 use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
+use NightWorksIO\MutationGate\Core\Config\PhpCalls;
 use NightWorksIO\MutationGate\Core\Hint\Change;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\SourcePin;
 use NightWorksIO\MutationGate\Core\Php\Enclosing;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Php\Names;
@@ -19,7 +21,8 @@ use function sprintf;
  * test's style, on the call to the function around the mutant (ADR-0015,
  * decision 4): two cases for a boundary, the value a function returns, the
  * effect of a removed call, the exception a test expects, and otherwise one
- * assertion on the function's result.
+ * assertion on the function's result; and, for a mutant only a test that
+ * reads the source kills, that assertion then a read of the function's file.
  */
 final readonly class Scaffold
 {
@@ -47,6 +50,15 @@ final readonly class Scaffold
 
     /** What a scaffold expects where the diff names no exception. */
     private const string EXCEPTION = '/* the exception */';
+
+    private const string READ = 'Run it, then read the file it is in, which the mutant changes:';
+
+    /** What a scaffold reads where the mutant is in no named function. */
+    private const string UNREFLECTED = '/* the file it changes */';
+
+    private const string PEST_READ = 'expect(file_get_contents(%s))->toContain(%s);';
+
+    private const string PHPUNIT_READ = '$this->assertStringContainsString(%s, (string) file_get_contents(%s));';
 
     private const string PEST = 'expect(%s)->toBe(/* %s */);';
 
@@ -84,6 +96,30 @@ final readonly class Scaffold
             MutatorFamily::None,
             MutatorFamily::Unknown => [self::RESULT, self::asserted($style, $call, self::EXPECTED)],
         };
+    }
+
+    /**
+     * The scaffold's lines for a mutant only a test that reads the source
+     * kills (ADR-0021, decision 19): a call that covers its code, then the
+     * assertion that its file still holds what the pin names.
+     *
+     * @return list<string>
+     */
+    public static function pinned(SourcePin $pin, Enclosing|Nameless $function, AssertionStyle $style): array
+    {
+        $call = $function instanceof Enclosing ? $function->call() : self::UNCALLED;
+        $file = $function instanceof Enclosing
+            ? sprintf('(%s)->getFileName()', $function->reflected())
+            : self::UNREFLECTED;
+        $expected = PhpCalls::literal($pin->text());
+
+        return [
+            self::READ,
+            self::asserted($style, $call, self::EXPECTED),
+            $style === AssertionStyle::Pest
+                ? sprintf(self::PEST_READ, $file, $expected)
+                : sprintf(self::PHPUNIT_READ, $expected, $file),
+        ];
     }
 
     /** An assertion of a value on a subject, in a style, the value left as a placeholder that says what it is. */

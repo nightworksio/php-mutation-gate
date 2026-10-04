@@ -81,6 +81,20 @@ final readonly class Enclosing
         };
     }
 
+    /**
+     * What a test reflects it with, to find the file it is in:
+     * `new \ReflectionFunction('fits')`, or
+     * `new \ReflectionMethod(Cart::class, 'fits')` for a method.
+     */
+    public function reflected(): string
+    {
+        $class = $this->class;
+
+        return $class instanceof Nameless
+            ? sprintf("new \\ReflectionFunction('%s')", $this->name)
+            : sprintf("new \\ReflectionMethod(%s::class, '%s')", $class, $this->name);
+    }
+
     /** The named function a `function` keyword declares, where its body holds the line; nothing otherwise. */
     private static function read(Tokens $tokens, int $keyword, Line $line): self|Nameless
     {

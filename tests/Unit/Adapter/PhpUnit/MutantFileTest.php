@@ -94,7 +94,7 @@ function nativeThenServed(Closure $operation): array
     return [$natively, inPlace(warnedBy(static fn(): mixed => $operation($served)), $served)];
 }
 
-it('serves the mutant where PHP includes the file it serves, by any path that names it, and nothing else', function (): void {
+it('serves the mutant where PHP includes or reads the file it serves, by any path that names it', function (): void {
     $directory = servedIn();
     symlink(sprintf('%s/Original.php', $directory), sprintf('%s/Linked.php', $directory));
     mkdir(sprintf('%s/through', $directory));
@@ -104,20 +104,21 @@ it('serves the mutant where PHP includes the file it serves, by any path that na
         ->and(require sprintf('%s/../%s/Original.php', $directory, basename($directory)))->toBe('mutant')
         ->and(require sprintf('%s/Linked.php', $directory))->toBe('mutant')
         ->and(require sprintf('%s/through/here/Original.php', $directory))->toBe('mutant')
-        ->and(file_get_contents(sprintf('%s/Original.php', $directory)))->toBe("<?php\n\nreturn 'original';\n")
-        ->and(file_get_contents(sprintf('%s/Original.php', $directory), use_include_path: true))->toBe("<?php\n\nreturn 'original';\n");
+        ->and(file_get_contents(sprintf('%s/Original.php', $directory)))->toBe("<?php\n\nreturn 'mutant';\n")
+        ->and(file_get_contents(sprintf('%s/Linked.php', $directory)))->toBe("<?php\n\nreturn 'mutant';\n")
+        ->and(file_get_contents(sprintf('%s/Original.php', $directory), use_include_path: true))->toBe("<?php\n\nreturn 'mutant';\n");
 });
 
-it('serves the mutant only where the options mark an include, whatever else they mark', function (): void {
+it('serves the mutant to an open that reads the file, and the file itself to one that writes it', function (): void {
     $original = sprintf('%s/Original.php', servedIn());
-    $read = static function (int $options) use ($original): string|false {
+    $read = static function (string $mode) use ($original): string|false {
         $file = new MutantFile();
 
-        return $file->stream_open($original, 'rb', $options) ? $file->stream_read(64) : false;
+        return $file->stream_open($original, $mode) ? $file->stream_read(64) : false;
     };
 
-    expect($read(STREAM_USE_PATH | STREAM_REPORT_ERRORS))->toBe("<?php\n\nreturn 'original';\n")
-        ->and($read(0x80))->toBe("<?php\n\nreturn 'mutant';\n");
+    expect($read('rb'))->toBe("<?php\n\nreturn 'mutant';\n")
+        ->and($read('r+b'))->toBe("<?php\n\nreturn 'original';\n");
 });
 
 it('serves the mutant of a file named through a link', function (): void {
@@ -143,10 +144,10 @@ it('serves the mutant by another case of its name where the filesystem ignores c
     'only a filesystem that ignores case names one file by two cases',
 );
 
-it('says in the guard file each time it serves the mutant', function (): void {
+it('says in the guard file each time it serves the mutant, to an include or a read', function (): void {
     $directory = servedIn();
     require sprintf('%s/Original.php', $directory);
-    require sprintf('%s/Original.php', $directory);
+    file_get_contents(sprintf('%s/Original.php', $directory));
 
     expect(file_get_contents(sprintf('%s/guard.txt', $directory)))->toBe("served\nserved\n");
 });
@@ -164,7 +165,12 @@ it('opens a file that is not there for writing, and a directory only where it is
 
 it('says nothing in the guard file where it served nothing', function (): void {
     $directory = servedIn();
-    file_get_contents(sprintf('%s/Original.php', $directory));
+    file_get_contents(sprintf('%s/mutant.php', $directory));
+    $written = fopen(sprintf('%s/Original.php', $directory), 'ab');
+
+    if (is_resource($written)) {
+        fclose($written);
+    }
 
     expect(file_get_contents(sprintf('%s/guard.txt', $directory)))->toBe('');
 });
@@ -461,7 +467,7 @@ it('reads a byte where asked for none, and truncates to nothing where asked for 
     $directory = servedIn();
     Scratch::write($directory, 'file.txt', 'abc');
     $file = new MutantFile();
-    $file->stream_open(sprintf('%s/file.txt', $directory), 'r+b', 0);
+    $file->stream_open(sprintf('%s/file.txt', $directory), 'r+b');
 
     expect($file->stream_read(0))->toBe('a')
         ->and($file->stream_truncate(-1))->toBeTrue()

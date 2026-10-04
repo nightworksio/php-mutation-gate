@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinusToo;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveEcho;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGateSecurity\Mutators\HashEqualsToIdentical;
+use NightWorksIO\MutationGateSecurity\Mutators\HashEqualsToTrue;
 use PhpParser\Node\Expr\BinaryOp\Minus;
 use PhpParser\Node\Expr\BinaryOp\Plus;
 use PhpParser\Node\Expr\Variable;
@@ -105,4 +107,12 @@ it('runs the named mutators of Infection\'s own, and those bridged that do not s
         ->toBe(['acme/PlusToMinusToo', 'acme/RemoveEcho', 'Minus'])
         ->and($bridges->runnable(Mutators::named('acme/PlusToMinusToo', 'Plus', PlusToMinus::class), $infection))
         ->toBe(['Plus']);
+});
+
+it('bridges no mutator pinned by source, whose mutant Infection shows only to an include', function (): void {
+    $bridges = Bridges::to(Enabled::of(MutatorSet::of(HashEqualsToIdentical::class, HashEqualsToTrue::class)));
+
+    expect($bridges->classes())->toBe([
+        'NightWorksIO\\MutationGateBridge\\Infection\\NightWorksIO\\MutationGateSecurity\\Mutators\\HashEqualsToTrue',
+    ]);
 });
