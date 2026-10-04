@@ -89,3 +89,21 @@ it('proves no mutant whose literal reads as the name it gives the program\'s own
         sprintf("<?php\n\nfunction ownDirectory(): string\n{\n    return \"%s\";\n}\n", addcslashes(Opcodes::DIRECTORY, "\0..\37")),
     ],
 ]);
+
+it('proves no mutant whose code stands on other lines than its original\'s, since a program can read its lines', function (
+    string $original,
+    string $mutant,
+): void {
+    $prover = Prover::of(PHP_BINARY, Root::of(Scratch::directory())->at(Path::of('equivalence')), Processes::of(1));
+
+    expect($prover->proven([['moved', Contents::of($original), Contents::of($mutant)]]))->toBe([]);
+})->with([
+    'a method that ends a line later, as what it throws does' => [
+        PROVED,
+        str_replace('return $a * 2;', "return \$a\n            * 2;", PROVED),
+    ],
+    'a closure a line further down, whose name holds its line' => [
+        "<?php\n\nfunction made(): Closure\n{\n    \$made = fn (): int => 1;\n\n    return \$made;\n}\n",
+        "<?php\n\nfunction made(): Closure\n{\n\n    \$made = fn (): int => 1;\n    return \$made;\n}\n",
+    ],
+]);

@@ -24,7 +24,7 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-const EQUIVALENT_MONEY = "<?php\n\nfinal class Money\n{\n\n}\n";
+const EQUIVALENT_MONEY = "<?php\n\nfinal  class Money\n{\n}\n";
 
 /** @return list<string> the native ids of the mutants of src/Money.php a check proves equivalent */
 function provenOfMoney(ScriptedRunner $runner, string $project = '', Setting ...$settings): array
@@ -56,7 +56,7 @@ it('proves each survivor that compiles to its original as written, and no mutant
 });
 
 it('proves a survivor against its original printed as its runner prints it, where the runner gives one', function (): void {
-    $printed = Checkable::printed(Contents::of("<?php\nclass Other {}\n"), Contents::of("<?php\n\nclass Other\n{\n}\n"));
+    $printed = Checkable::printed(Contents::of("<?php\n\nclass Other\n{\n}\n"), Contents::of("<?php\n\nclass  Other\n{\n}\n"));
 
     expect(provenOfMoney(ScriptedRunner::fixture()->checking($printed)))->not->toBe([]);
 });

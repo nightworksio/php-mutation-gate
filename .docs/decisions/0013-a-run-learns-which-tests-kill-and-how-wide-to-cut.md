@@ -215,9 +215,12 @@ decides are accepted for that release too.
       original file and the mutated file with opcache
       (`opcache.enable_cli=1`, `opcache_compile_file()`), and dumps their
       optimized opcodes (`opcache.opt_debug_level=0x20000`). The mutant is
-      proven equivalent where, with the line each function spans, the line
-      in each closure's name and the file's own path taken out, its opcodes
-      are its original's, and it declares what its original declares. The
+      proven equivalent where, with the file's own path taken out, its
+      opcodes are its original's, and it declares what its original
+      declares. The lines each function spans and the line in each
+      closure's name stay in, since a program can read them, as an
+      exception's line or a closure's name: a mutant that moves code to
+      other lines is never proven. The
       opcodes do not show declarations: a class constant, a property
       default, an enum case, an attribute, a modifier or a static variable's
       initial value. So each file is also printed by php-parser with every

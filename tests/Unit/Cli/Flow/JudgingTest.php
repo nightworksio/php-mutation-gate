@@ -221,7 +221,7 @@ function judgingTexts(iterable $said): array
 /** A runner whose every survivor, as an analyser checks it, is the project's src/Money.php laid out otherwise. */
 function judgingMoneyLaidOut(): ScriptedRunner
 {
-    return ScriptedRunner::fixture()->checking(Checkable::inPlace(Contents::of("<?php\n\nfinal class Money\n{\n\n}\n")));
+    return ScriptedRunner::fixture()->checking(Checkable::inPlace(Contents::of("<?php\n\nfinal  class Money\n{\n}\n")));
 }
 
 /**

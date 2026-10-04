@@ -21,22 +21,30 @@ function opcodesDump(string $path, string $line, string $body): string
     ]);
 }
 
-it('reads two copies of one program, compiled at two paths with their closures on other lines, as the same', function (): void {
+it('reads two copies of one program, compiled at two paths, as the same', function (): void {
     $one = Opcodes::dumped(opcodesDump('/a/1/program.php', '6', '0000 RETURN string("/a/1/program.php")'), '/a/1/program.php');
-    $two = Opcodes::dumped(opcodesDump('/a/2/program.php', '9', '0000 RETURN string("/a/2/program.php")'), '/a/2/program.php');
+    $two = Opcodes::dumped(opcodesDump('/a/2/program.php', '6', '0000 RETURN string("/a/2/program.php")'), '/a/2/program.php');
 
     expect($one instanceof Opcodes && $two instanceof Opcodes && $one->same($two))->toBeTrue()
-
         ->and($one instanceof Opcodes ? $one->text() : $one)->toBe(implode("\n", [
             '',
             '$_main:',
             '0000 RETURN int(1)',
             '',
-            '{closure:App\K::run()}:',
+            '{closure:App\K::run():6}:',
             '     ; (lines=2, args=0, vars=0, tmps=0)',
             '     ; (after optimizer)',
+            sprintf('     ; %s:6-6', Opcodes::FILE),
             sprintf('0000 RETURN string("%s")', Opcodes::FILE),
         ]));
+});
+
+it('reads a program whose code stands on other lines as another, since it can read its lines', function (): void {
+    $one = Opcodes::dumped(opcodesDump('/a/1/program.php', '6', '0000 RETURN int(1)'), '/a/1/program.php');
+    $two = Opcodes::dumped(opcodesDump('/a/2/program.php', '9', '0000 RETURN int(1)'), '/a/2/program.php');
+
+    expect($one instanceof Opcodes && $two instanceof Opcodes)->toBeTrue()
+        ->and($one instanceof Opcodes && $two instanceof Opcodes && $one->same($two))->toBeFalse();
 });
 
 it('names the program\'s directory alike, as written and as the dump escapes it', function (): void {

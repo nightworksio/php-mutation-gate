@@ -136,7 +136,7 @@ it('scores each reached tree with the survivors the config ignores left out', fu
 it('scores each reached tree with the survivors proven equivalent left out', function () use ($feature, $onMain): void {
     $store = new ProofStoreFake();
     $store->write(Scope::branch('main'), $onMain('src/Money.php', 'src/Held.php'));
-    $runner = ScriptedRunner::fixture()->checking(Checkable::inPlace(Contents::of("<?php\n\nfinal class Money\n{\n\n}\n")));
+    $runner = ScriptedRunner::fixture()->checking(Checkable::inPlace(Contents::of("<?php\n\nfinal  class Money\n{\n}\n")));
     $adapters = Flows::adapters(Flows::project(), [], $store, $runner, ...$feature());
 
     expect(new ScoreChanging($adapters, Flows::settings(), Flows::setup())->text())->toBe(

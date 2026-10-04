@@ -374,7 +374,7 @@ it('keeps no survivor as flaky that survives again', function () use ($resultIn,
 
 it('runs no survivor proven equivalent again, unless equivalence.static is false', function (Equivalence|Flaky $setting, array $retried): void {
     $project = Flows::project();
-    $runner = ScriptedRunner::fixture()->checking(Checkable::inPlace(Contents::of("<?php\n\nfinal class Money\n{\n\n}\n")));
+    $runner = ScriptedRunner::fixture()->checking(Checkable::inPlace(Contents::of("<?php\n\nfinal  class Money\n{\n}\n")));
 
     new Running(Flows::adapters($project, [], $runner), Flows::settings($setting), Flows::setup())
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
