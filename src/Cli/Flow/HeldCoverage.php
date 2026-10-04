@@ -9,7 +9,6 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Hold\GroupCoverage;
 use NightWorksIO\MutationGate\Core\Hold\HeldChecks;
 use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
-use NightWorksIO\MutationGate\Core\Hold\NotCovered;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -38,7 +37,8 @@ final readonly class HeldCoverage
     /**
      * The shard's held units whose holding tests miss lines of them, by the
      * map the plan handed the shard, and those they cover, with the tests of
-     * theirs that run each.
+     * theirs that run each. A unit the whole suite judges is not checked, and
+     * is mutated as any other.
      */
     public function checked(Shard $shard, CoverageMap $suite): HeldChecks|CannotJudge
     {
@@ -46,7 +46,12 @@ final readonly class HeldCoverage
 
         foreach ($shard->units() as $unit) {
             $judgedBy = $unit->judgedBy();
-            $group = $judgedBy instanceof WholeSuite ? $suite : $this->adapters->runner->coverage(
+
+            if ($judgedBy instanceof WholeSuite) {
+                continue;
+            }
+
+            $group = $this->adapters->runner->coverage(
                 CoverageRun::of($judgedBy, Workspace::heldCoverage($shard->id()))
                     ->withholding($this->adapters->withheld),
             );
@@ -55,8 +60,7 @@ final readonly class HeldCoverage
                 return CannotJudge::because(sprintf(self::FAILED, $unit->path()->value(), $group->why()));
             }
 
-            $checked = GroupCoverage::of($unit, $suite, $group);
-            $checks = $unit->isHeld() || $checked instanceof NotCovered ? $checks->with($checked) : $checks;
+            $checks = $checks->with(GroupCoverage::of($unit, $suite, $group));
         }
 
         return $checks;
