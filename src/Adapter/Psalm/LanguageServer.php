@@ -68,9 +68,6 @@ final class LanguageServer
      */
     private array $published = [];
 
-    /** The id of the last request of the gate's the server answered; the gate awaits each before the next. */
-    private int $answered = 0;
-
     private function __construct(private readonly Process $process, private readonly InputStream $input)
     {
     }
@@ -120,7 +117,7 @@ final class LanguageServer
         }
 
         $fence = $this->request(self::FENCE, JsonText::object([]));
-        $answered = $this->awaited(fn(): bool => $this->answered === $fence);
+        $answered = $this->awaited($fence);
 
         if ($answered instanceof CannotJudge) {
             return $answered;
@@ -159,7 +156,7 @@ final class LanguageServer
             'capabilities' => self::CAPABILITIES,
         ]);
         $id = $this->request('initialize', $params);
-        $answered = $this->awaited(fn(): bool => $this->answered === $id);
+        $answered = $this->awaited($id);
 
         if ($answered instanceof CannotJudge) {
             return $answered;
@@ -191,43 +188,55 @@ final class LanguageServer
     }
 
     /**
-     * Read what the server says until this holds, handling each message as
-     * it comes; or why it ended first. Each read waits for what the server
-     * writes next, or its end, and takes all it wrote since the last, so
-     * what it writes is never kept past its handling.
-     *
-     * @param callable(): bool $holds
+     * Read what the server says until it answers this request of the gate's,
+     * handling each message as it comes; or why it ended first. The gate
+     * awaits each request before it makes the next. Each read waits for what
+     * the server writes next, or its end, and takes all it wrote since the
+     * last, so what it writes is never kept past its handling.
      */
-    private function awaited(callable $holds): true|CannotJudge
+    private function awaited(int $request): true|CannotJudge
     {
-        while (! $holds()) {
+        do {
             $written = $this->process->getIterator(Process::ITER_SKIP_ERR);
 
             if (! $written->valid()) {
                 return CannotJudge::because(sprintf(self::ENDED, $this->process->getErrorOutput()));
             }
-
-            $this->read($written->current());
-        }
+        } while (! array_key_exists($request, $this->read($written->current())));
 
         $this->process->clearErrorOutput();
 
         return true;
     }
 
-    /** Handle each whole message in what the server wrote, keeping what is not yet whole for the next read. */
-    private function read(string $output): void
+    /**
+     * Handle each whole message in what the server wrote, keeping what is not
+     * yet whole for the next read, and say which of the gate's requests they
+     * answer.
+     *
+     * @return array<int, true> the ids of the requests answered
+     */
+    private function read(string $output): array
     {
         $frames = Frames::read(sprintf('%s%s', $this->carried, $output));
         $this->carried = $frames->rest();
+        $answered = [];
 
         foreach ($frames->bodies() as $body) {
-            $this->handled(Node::decode($body));
+            $answered += $this->handled(Node::decode($body));
         }
+
+        return $answered;
     }
 
-    /** Keep what a message says the gate waits for, and answer a request of the server's with nothing. */
-    private function handled(Node $message): void
+    /**
+     * Keep what a message says the gate waits for, answer a request of the
+     * server's with nothing, and say the id of a request of the gate's that
+     * the message answers.
+     *
+     * @return array<int, true>
+     */
+    private function handled(Node $message): array
     {
         $method = Lenient::text($message->field('method'));
         $id = $message->field('id');
@@ -235,7 +244,7 @@ final class LanguageServer
         if ($method === self::PUBLISHED) {
             $this->keptPublished($message->field('params'));
 
-            return;
+            return [];
         }
 
         if ($method !== '' && $id->isPresent()) {
@@ -245,12 +254,10 @@ final class LanguageServer
                 'result' => 'null',
             ]));
 
-            return;
+            return [];
         }
 
-        if ($id->kind() === Kind::Integer) {
-            $this->answered = Lenient::integer($id);
-        }
+        return $id->kind() === Kind::Integer ? [Lenient::integer($id) => true] : [];
     }
 
     private function keptPublished(Node $params): void
