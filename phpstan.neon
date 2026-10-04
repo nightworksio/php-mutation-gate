@@ -752,6 +752,9 @@ services:
                     - FULL # an option of the gate's commands
                     - KILL_MATRIX # an option of the gate's commands, not the report's name
                     - SECURITY # an option of the gate's commands, not the config section of the same name
+                'NightWorksIO\MutationGate\Cli\Command\TriageCommand':
+                    - ORDER # an option of triage, not the Pest plugin's directory of orders
+                    - FEWEST # the fewest runs that can disagree, not an exit code
                 'NightWorksIO\MutationGate\Core\Ci\DefaultBranch':
                     - FALLBACK # the project's default branch when none is configured or detected
                 'NightWorksIO\MutationGate\Core\Plan\PlanFile':

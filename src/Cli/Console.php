@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Cli\Command\ReproduceCommand;
 use NightWorksIO\MutationGate\Cli\Command\RunCommand;
 use NightWorksIO\MutationGate\Cli\Command\StubCommand;
 use NightWorksIO\MutationGate\Cli\Command\TestsCommand;
+use NightWorksIO\MutationGate\Cli\Command\TriageCommand;
 use NightWorksIO\MutationGate\Cli\Command\VerdictCommand;
 use NightWorksIO\MutationGate\Cli\Command\WatchCommand;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
@@ -55,11 +56,6 @@ final readonly class Console
     private const string NAME = 'mutation-gate';
 
     private const string DEFAULT = 'run';
-
-    /** The commands the README lists that are not built yet, each of which says so. */
-    private const array NOT_BUILT = [
-        'triage' => 'Run a file n times and list every mutant whose result varied',
-    ];
 
     /**
      * The command line of a project, with the extensions found for it, the vendor directory it was installed
@@ -103,10 +99,6 @@ final readonly class Console
             default: false,
         ));
 
-        foreach (self::NOT_BUILT as $name => $description) {
-            $application->addCommand(NotBuilt::command($name, $description));
-        }
-
         $application->addCommand(PestPatch::command(ComposerVendor::on($project)));
         $application->addCommand(HookCommand::command($project));
 
@@ -134,6 +126,7 @@ final readonly class Console
         $application->addCommand(ExplainCommand::command($composition));
         $application->addCommand(TestsCommand::command($composition));
         $application->addCommand(StubCommand::command($composition));
+        $application->addCommand(TriageCommand::command($composition));
         $formats = new Formats(class_exists(...));
         $installed = $detected->installed();
         $gate = $installed instanceof Installed ? GatePin::in($installed) : GatePin::unknown();

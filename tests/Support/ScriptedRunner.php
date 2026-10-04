@@ -71,6 +71,12 @@ final class ScriptedRunner implements Runner
     /** @var non-empty-list<Seconds|CannotJudge> how long each run of no test takes, or why it cannot start; the last again for every run after */
     private array $startingUp;
 
+    /**
+     * @var list<MutationResult|CannotJudge> what each request to mutate is answered, the last again for every request
+     *                                       after; with none, each is answered as `mutating` says
+     */
+    private array $turns = [];
+
     /** How it gives a mutant as an analyser checks it: as the fake does, or always so. */
     private Checkable|CannotJudge|RunnerFake $checking;
 
@@ -193,6 +199,15 @@ final class ScriptedRunner implements Runner
         return $scripted;
     }
 
+    /** This runner, answering its first request to mutate so, each after it the next of these, then the last again. */
+    public function answeringInTurn(MutationResult|CannotJudge $first, MutationResult|CannotJudge ...$then): self
+    {
+        $scripted = clone $this;
+        $scripted->turns = [$first, ...array_values($then)];
+
+        return $scripted;
+    }
+
     /** This runner, giving every mutant as an analyser checks it so, or unable to. */
     public function checking(Checkable|CannotJudge $answer): self
     {
@@ -242,6 +257,20 @@ final class ScriptedRunner implements Runner
             $this->mutating,
             $this->retrying,
             CannotJudge::because($why),
+            $this->covering,
+            $this->marking,
+        );
+    }
+
+    /** This runner, listing these groups of its suite. */
+    public function listing(Groups $groups): self
+    {
+        return new self(
+            $this->fake,
+            $this->identity,
+            $this->mutating,
+            $this->retrying,
+            $groups,
             $this->covering,
             $this->marking,
         );
@@ -348,6 +377,10 @@ final class ScriptedRunner implements Runner
     public function mutate(MutationRequest $request): MutationResult|CannotJudge
     {
         $this->requests[] = $request;
+
+        if ($this->turns !== []) {
+            return $this->turns[min(count($this->requests), count($this->turns)) - 1];
+        }
 
         return $this->mutating instanceof RunnerFake ? $this->mutating->mutate($request) : $this->mutating;
     }
