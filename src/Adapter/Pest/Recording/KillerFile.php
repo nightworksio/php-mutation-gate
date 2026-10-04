@@ -8,7 +8,6 @@ use function array_map;
 use function array_merge;
 use function array_pad;
 use function array_pop;
-use function ctype_digit;
 use function explode;
 use function file_get_contents;
 use function is_file;
@@ -16,6 +15,7 @@ use function is_string;
 
 use NightWorksIO\MutationGate\Core\File\Digest;
 
+use function preg_match;
 use function rawurldecode;
 use function rawurlencode;
 use function sprintf;
@@ -40,6 +40,9 @@ final readonly class KillerFile
     private const string FILE = '%s.%s.killers';
 
     private const string LINE = "\n";
+
+    /** How a count of tests is written: a whole number. */
+    private const string COUNT = '/\A\d+\z/';
 
     /** What parts a line: the record before it, the test after. */
     private const string SEPARATOR = ' ';
@@ -120,7 +123,7 @@ final readonly class KillerFile
             RecordEvent::Killed => [RecordLine::killed($mutated, rawurldecode($test))],
             RecordEvent::Errored => [RecordLine::errored($mutated, rawurldecode($test))],
             RecordEvent::Preloaded => [RecordLine::preloaded($mutated)],
-            RecordEvent::Ran => ctype_digit($test) ? [RecordLine::ran($mutated, (int) $test)] : [],
+            RecordEvent::Ran => preg_match(self::COUNT, $test) === 1 ? [RecordLine::ran($mutated, (int) $test)] : [],
             default => [],
         };
     }
