@@ -41,6 +41,7 @@ use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Verdict\TimeoutTriage;
+use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
@@ -180,6 +181,7 @@ final readonly class Flows
             Processes::of(2),
             self::given(Engine::class, NotGiven::value(), $ports),
             self::given(Enabled::class, Enabled::of(MutatorSet::of()), $ports),
+            self::given(Warnings::class, Warnings::none(), $ports),
         );
     }
 

@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Hunks;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Mutator\Hint;
 use NightWorksIO\MutationGate\Mutator\Mutator;
 
 use function sprintf;
@@ -124,11 +126,20 @@ final readonly class Engine
             $mutants[] = MadeMutant::of(
                 MutantId::hash($file, $name, $diff, $occurrence),
                 Location::of($file, $edit->start(), $edit->end()),
-                Mutation::of($name, $mutator->family(), $diff),
+                Mutation::of($name, $mutator->family(), $diff, $this->hintOf($mutator)),
                 Contents::of($edit->mutated()),
             );
         }
 
         return MadeMutants::of(...$mutants);
     }
+
+    /** A mutator's own sentence for its survivors; nothing where it uses its family's. */
+    private function hintOf(Mutator $mutator): string|NotGiven
+    {
+        $hint = $mutator->hint();
+
+        return $hint instanceof Hint ? $hint->sentence() : NotGiven::value();
+    }
+
 }

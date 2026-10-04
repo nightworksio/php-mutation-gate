@@ -20,8 +20,12 @@ return (new Configuration())
     ->enableAnalysisOfUnusedDevDependencies()
     ->addPathToScan(__DIR__ . '/src', isDev: false)
     ->addPathToScan(__DIR__ . '/plugins/default/src', isDev: false)
+    ->addPathToScan(__DIR__ . '/plugins/laravel/src', isDev: false)
+    ->addPathToScan(__DIR__ . '/plugins/symfony/src', isDev: false)
     ->addPathToScan(__DIR__ . '/tests', isDev: true)
     ->addPathToScan(__DIR__ . '/plugins/default/tests', isDev: true)
+    ->addPathToScan(__DIR__ . '/plugins/laravel/tests', isDev: true)
+    ->addPathToScan(__DIR__ . '/plugins/symfony/tests', isDev: true)
     ->addPathToScan(__DIR__ . '/phpstan', isDev: true)
     // The runner contract suite's fixture is a project of its own, with its own
     // dependencies.

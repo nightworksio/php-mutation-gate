@@ -7,6 +7,8 @@ namespace Tests\Reach;
 use Library\Reach;
 use PHPUnit\Framework\TestCase;
 
+use function trait_exists;
+
 trait ReachAAsserts
 {
     public function testComesFromATraitInAnotherTestFile(): void

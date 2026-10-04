@@ -112,6 +112,7 @@ use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\NoFinding;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
+use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Port\Reporter;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
@@ -373,6 +374,18 @@ it('warns of a tree held to no floor outside CI', function () use ($tree, $repor
 
     expect(judgingTexts($verdict->warnings()))
         ->toBe(['src has no floor yet. Run mutation-gate baseline --write and commit floors.json.']);
+});
+
+it('warns of each mutator set a preset turns on that is not installed', function () use ($reporting, $judged): void {
+    $skipped = Warning::that('The laravel preset turns on the mutator set "laravel", which is not installed: `composer require --dev nightworksio/mutation-gate-laravel`');
+    $verdict = judgingVerdictOf($judged(
+        Planned::twoShards(),
+        Flows::adapters(Flows::project(), [], Warnings::of($skipped)),
+        judgingSettings(),
+        $reporting(new ReporterFake()),
+    ));
+
+    expect(judgingTexts($verdict->warnings()))->toContain($skipped->text());
 });
 
 it('says in the verdict why a ledger could not be read, before what else it warns of', function () use (

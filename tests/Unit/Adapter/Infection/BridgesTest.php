@@ -36,6 +36,12 @@ it('turns each bridge on by its class, and names a bridged mutator by it', funct
         ->and(new Bridges()->isEmpty())->toBeTrue();
 });
 
+it('gives a bridged mutant its mutator\'s own hint, and none where the mutator uses its family\'s or is Infection\'s', function (): void {
+    expect(infectionBridges()->hintOf('acme/RemoveEcho'))->toBe('No test checks what is printed.')
+        ->and(infectionBridges()->hintOf('acme/PlusToMinus'))->toEqual(NotGiven::value())
+        ->and(infectionBridges()->hintOf('Minus'))->toEqual(NotGiven::value());
+});
+
 it('gives a bridged mutant its mutator\'s own family, and any other Infection\'s', function (): void {
     expect(infectionBridges()->familyOf('acme/RemoveEcho'))->toBe(MutatorFamily::RemovedCall)
         ->and(infectionBridges()->familyOf('Minus'))->toBe(MutatorFamily::Arithmetic);

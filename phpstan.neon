@@ -650,8 +650,14 @@ services:
                     - INDENT # a line of Pest's diff
                 'NightWorksIO\MutationGate\Adapter\PhpUnit\MutantFile':
                     - PROTOCOL # the file:// stream protocol
-                'NightWorksIO\MutationGateDefault\Literals':
+                'NightWorksIO\MutationGate\Mutator\Literals':
                     - 'TRUE' # PHP's constant, not Infection's setting
+                'NightWorksIO\MutationGateLaravel\LaravelSet':
+                    - NAME # a mutator set's name, not the preset that turns it on
+                'NightWorksIO\MutationGateSymfony\SymfonySet':
+                    - NAME # a mutator set's name, not the preset that turns it on
+                'NightWorksIO\MutationGateLaravel\Mutators\UnwrapCacheRemember':
+                    - CALLBACK # where Cache::remember() takes its callback
                 'NightWorksIO\MutationGateDefault\Calls':
                     - VALUE # the name of a parameter the mutant's code declares
                 'NightWorksIO\MutationGate\Core\Proof\LedgerFile':
@@ -806,10 +812,23 @@ services:
                     - at # prose: what a place should hold
                 'NightWorksIO\MutationGate\Core\Runner\Withheld':
                     - of # vocabulary: a CI's secret variables
+                'NightWorksIO\MutationGate\Mutator\Hint':
+                    - that # prose: each mutator's own sentence for its survivors
                 'NightWorksIO\MutationGateDefault\Calls':
                     - unwrapped # vocabulary: PHP's functions
                     - renamed # vocabulary: PHP's functions
                 'NightWorksIO\MutationGateDefault\DefaultSet':
+                    - mutator # names: each mutator's own, which it alone spells
+                'NightWorksIO\MutationGateLaravel\Calls':
+                    - onFacade # vocabulary: Laravel's facade methods
+                    - ofFunction # vocabulary: Laravel's helper functions
+                'NightWorksIO\MutationGateLaravel\LaravelSet':
+                    - mutator # names: each mutator's own, which it alone spells
+                'NightWorksIO\MutationGateSymfony\Calls':
+                    - ofMethod # vocabulary: Symfony's methods
+                    - onThis # vocabulary: AbstractController's methods
+                    - named # vocabulary: Symfony's and Doctrine's methods
+                'NightWorksIO\MutationGateSymfony\SymfonySet':
                     - mutator # names: each mutator's own, which it alone spells
         tags:
             - phpstan.rules.rule

@@ -11,6 +11,7 @@ use function array_unique;
 use function count;
 use function implode;
 use function in_array;
+use function is_string;
 use function iterator_to_array;
 
 use NightWorksIO\MutationGate\Core\Assertion\WeaklyAsserted;
@@ -222,9 +223,15 @@ final readonly class Hint
             : sprintf(self::WEAK, $sentence, $name, $asserted);
     }
 
-    /** What the tests miss about a survivor, by its mutator's family. */
+    /** What the tests miss about a survivor: its mutator's own sentence, or its family's. */
     private static function missed(Mutant $mutant, Contents|Missing $source): string
     {
+        $own = $mutant->mutation()->hint();
+
+        if (is_string($own)) {
+            return $own;
+        }
+
         $change = Change::of($mutant->mutation()->diff());
         $line = $mutant->location()->start();
         $function = $source instanceof Contents ? Functions::in($source)->around($line) : Nameless::code();

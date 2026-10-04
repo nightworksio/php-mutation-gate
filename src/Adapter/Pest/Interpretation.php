@@ -178,6 +178,7 @@ final readonly class Interpretation
                 $planned->mutator(),
                 $this->bridges->familyOf($planned->mutator()),
                 Diff::fromPest($planned->diff()),
+                $this->bridges->hintOf($planned->mutator()),
             ),
             $judged ? $this->statusOf($planned, $records) : MutantStatus::Unjudged,
             $records->durationOf($planned),

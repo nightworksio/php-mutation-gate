@@ -904,7 +904,7 @@ it('leaves static analysis to the gate where it checks the survivors itself, in 
         ->not->toEqual(Infection::fromOptions(Configs::options('{}'), new CapDirectory()));
 });
 
-it('makes the registered mutators\' mutants through the bridges it writes as Infection\'s bootstrap, by their names and families', function (): void {
+it('makes the registered mutators\' mutants through the bridges it writes as Infection\'s bootstrap, by their names, families and hints', function (): void {
     $at = infectionProject('{"bootstrap": "tests/bootstrap.php"}');
     $shell = infectionShell($at, infectionKilled($at, 'acme/RemoveEcho'));
     $bridges = Bridges::to(Enabled::of(MutatorSet::of(RemoveEcho::class)));
@@ -913,8 +913,8 @@ it('makes the registered mutators\' mutants through the bridges it writes as Inf
     $generated = json_decode((string) file_get_contents($at->own('infection.json5')), associative: true);
     $mutants = $result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false) : [];
 
-    expect(array_map(static fn(Mutant $mutant): array => [$mutant->mutation()->mutator(), $mutant->mutation()->family()], $mutants))
-        ->toBe([['acme/RemoveEcho', MutatorFamily::RemovedCall]])
+    expect(array_map(static fn(Mutant $mutant): array => [$mutant->mutation()->mutator(), $mutant->mutation()->family(), $mutant->mutation()->hint()], $mutants))
+        ->toBe([['acme/RemoveEcho', MutatorFamily::RemovedCall, 'No test checks what is printed.']])
         ->and(is_array($generated) ? $generated['bootstrap'] : null)->toBe($at->bridges())
         ->and((string) file_get_contents($at->bridges()))
         ->toContain("return 'acme/RemoveEcho';")

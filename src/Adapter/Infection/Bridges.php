@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
+use NightWorksIO\MutationGate\Mutator\Hint;
 use NightWorksIO\MutationGate\Mutator\Mutator;
 
 use function sprintf;
@@ -134,6 +135,14 @@ final readonly class Bridges
     public function keyOf(string $mutator): string
     {
         return array_key_exists($mutator, $this->mutators) ? $this->bridge($this->mutators[$mutator]) : $mutator;
+    }
+
+    /** A bridged mutator's own sentence for its survivors, by its name; nothing where the family's is used. */
+    public function hintOf(string $mutator): string|NotGiven
+    {
+        $hint = array_key_exists($mutator, $this->mutators) ? $this->mutators[$mutator]->hint() : false;
+
+        return $hint instanceof Hint ? $hint->sentence() : NotGiven::value();
     }
 
     /** A mutant's family, by the name Infection's logs give its mutator: a bridged mutator's own, or Infection's. */

@@ -232,7 +232,7 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
       "security"]`. This amends ADR-0008 decision 5: the presets table gains a
       row for mutator sets.
     - A set a preset's layer names and nobody registered is skipped, with one
-      line naming the package to install: *the laravel preset turns on the
+      warning naming the package to install: *The laravel preset turns on the
       mutator set "laravel", which is not installed: `composer require --dev
       nightworksio/mutation-gate-laravel`*.
     - The same name in the config file is exit 2. The gate names a set only
@@ -250,8 +250,9 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
       fixture it leaves alone, and a test that kills it. The sets require
       neither `laravel/framework` nor any `symfony/*` package.
     - A hint says what is missing in the framework's own terms, such as *No
-      test checks that the action is refused when `Gate::allows()` says no*,
-      filled from the diff as ADR-0009's are.
+      test checks that the action is refused when the gate says no*. It is
+      fixed text, reviewed as code is, and a survivor gets it in place of its
+      family's sentence (ADR-0009, decision 7).
 
 14. **The `laravel` set** (`NightWorksIO\MutationGateLaravel\Mutators`).
     "Pest only" marks a node Infection never offers.
@@ -260,11 +261,12 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
     |------|--------|--------|-----|
     | `GateAllowsToTrue` | `Gate::allows(…)`, `Gate::check(…)` → `true`; `Gate::denies(…)` → `false` | Condition | security |
     | `RemoveAuthorize` | `$this->authorize(…)` (a class using `AuthorizesRequests`), `Gate::authorize(…)` removed | Removed call | security |
-    | `RemoveAbort` | `abort_if(…)`, `abort_unless(…)` removed | Removed call | security when the code literal is 401 or 403 |
+    | `RemoveAbort` | `abort_if(…)`, `abort_unless(…)` removed, but those `RemoveAuthAbort` makes | Removed call | none |
+    | `RemoveAuthAbort` | `abort_if(…)`, `abort_unless(…)` whose code literal is 401 or 403 removed | Removed call | security |
     | `AuthCheckToTrue` | `Auth::check()` → `true`, `Auth::guest()` → `false` | Condition | security |
     | `HashCheckToTrue` | `Hash::check(…)` → `true` | Condition | security |
     | `UnwrapEscape` | `e($x)` → `$x` | Unwrap | security |
-    | `RemoveValidationRule` | one rule dropped from a `validate([...])` or `Validator::make(…)` rule list or `'a\|b'` string | Collection | none |
+    | `RemoveValidationRule` | one rule dropped from a `validate([...])` or `Validator::make(…)` rule list; a `'a\|b'` string loses its first rule | Collection | none |
     | `FirstOrFailToFirst` | `->firstOrFail()` → `->first()`, `->findOrFail(…)` → `->find(…)` | Exception | none |
     | `UnwrapTransaction` | `DB::transaction(fn)` → `fn()` | Unwrap | none |
     | `UnwrapCacheRemember` | `Cache::remember($k, $t, fn)` → `fn()` | Unwrap | none |
@@ -276,6 +278,11 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
     and only a test that posts the guarded field notices. That is the
     vulnerability, so no mutator drops from `$fillable`.
 
+    A tag belongs to a mutator, not to one of its mutants, so the aborts that
+    refuse with 401 or 403 are a mutator of their own. A mutator makes one
+    change per node, so a rule string loses its first rule only, and a rule
+    list each of its items.
+
 15. **The `symfony` set** (`NightWorksIO\MutationGateSymfony\Mutators`).
 
     | Name | Change | Family | Tag |
@@ -283,12 +290,19 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
     | `RemoveDenyAccess` | `$this->denyAccessUnlessGranted(…)` removed (an `AbstractController`) | Removed call | security |
     | `IsGrantedToTrue` | `->isGranted(…)` → `true` | Condition | security |
     | `CsrfValidToTrue` | `$this->isCsrfTokenValid(…)` → `true` | Condition | security |
-    | `RemoveIsGrantedAttribute` | `#[IsGranted(…)]` removed (Pest only) | Removed call | security |
+    | `RemoveIsGrantedAttribute` | `#[IsGranted(…)]` removed (on a class, Pest only) | Removed call | security |
     | `RemoveAccessDeniedThrow` | `throw $this->createAccessDeniedException(…)` removed | Exception | security |
     | `PasswordValidToTrue` | `->isPasswordValid(…)` → `true` | Condition | security |
     | `FormValidToTrue` | `$form->isValid()` → `true` | Condition | none |
     | `RemoveFlush` | `->flush()` on an entity manager variable or property removed | Removed call | none |
     | `RemoveMessageDispatch` | `->dispatch(…)` on a `MessageBusInterface`-typed property or parameter removed | Removed call | none |
+
+    An attribute of a method is inside the method, so Infection offers it;
+    only one on a class is Pest's alone. `RemoveFlush` tells an entity manager
+    by its name: `$em`, `$manager`, a name ending in `EntityManager` or
+    `ObjectManager`, a property of `$this` so named, or what `getManager()`
+    hands out. `FormValidToTrue` tells a form the same way: `$form`, or a name
+    ending in `Form`.
 
 ### Security mode
 

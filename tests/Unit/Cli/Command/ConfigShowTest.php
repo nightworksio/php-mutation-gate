@@ -60,6 +60,7 @@ it('prints the effective config as JSON, every setting with its value', function
         'reach' => ['everything' => ['config/**', '.env.test', 'tests/bootstrap.php', 'migrations/**']],
         'timeouts' => ['seconds' => 30],
         'reports' => [['use' => 'sarif', 'path' => 'build/mutation.sarif']],
+        'mutators' => ['sets' => ['symfony']],
     ]);
 
     expect([$shown->code, $shown->output, $shown->errors])->toBe([0, sprintf("%s\n", Configs::effective($settings)), '']);

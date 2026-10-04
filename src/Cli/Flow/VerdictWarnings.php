@@ -20,8 +20,9 @@ use function sprintf;
  * What a verdict warns of beside what it fails: the files most of the suite
  * runs through that nothing holds, or why the kill matrix holds killers
  * alone; each tree held to no floor outside CI; the runner's own ignore
- * markers the config lets through; why the tests go by their ids; and what
- * the shards warn of.
+ * markers the config lets through; why the tests go by their ids; each
+ * mutator set a preset turns on that is not installed; and what the shards
+ * warn of.
  */
 final readonly class VerdictWarnings
 {
@@ -52,7 +53,8 @@ final readonly class VerdictWarnings
      */
     private function listed(Plan $plan, TreeVerdicts $verdicts, Warnings $shards): Warnings
     {
-        $warnings = new RunnerMarkers($this->adapters, $this->settings)->allowed($plan);
+        $warnings = new RunnerMarkers($this->adapters, $this->settings)->allowed($plan)
+            ->and($this->adapters->skippedSets);
         $names = $plan->names();
         $warnings = $names instanceof CannotJudge
             ? $warnings->with(Warning::that(sprintf(self::UNNAMED, $names->why())))

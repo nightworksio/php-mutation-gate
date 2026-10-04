@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
+use NightWorksIO\MutationGate\Mutator\Hint;
 use NightWorksIO\MutationGate\Mutator\Mutator;
 use Pest\Mutate\Mutators\Sets\DefaultSet;
 
@@ -151,6 +152,14 @@ final readonly class Bridges
         }
 
         return $named;
+    }
+
+    /** A bridged mutator's own sentence for its survivors, by its name; nothing where the family's is used. */
+    public function hintOf(string $mutator): string|NotGiven
+    {
+        $hint = array_key_exists($mutator, $this->mutators) ? $this->mutators[$mutator]->hint() : false;
+
+        return $hint instanceof Hint ? $hint->sentence() : NotGiven::value();
     }
 
     /** A mutant's family, by its mutator's name as the gate names it: a bridged mutator's own, or Pest's. */

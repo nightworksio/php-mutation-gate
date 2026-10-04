@@ -138,6 +138,21 @@ it('writes and reads back in full the rejection that killed a mutant, with the f
         ->and(MutantRecord::readFull($read(MutantRecord::full($rejected))))->toEqual($rejected);
 });
 
+it('writes and reads back a registered mutator\'s own hint, and writes none where it has none', function () use ($id, $killed, $read): void {
+    $hinted = Mutant::of(
+        $id,
+        '19',
+        Location::of(Path::of('src/Money.php'), Line::of(3), Unreported::line()),
+        Mutation::of('acme/RemoveEcho', MutatorFamily::RemovedCall, "-echo 1;", 'No test checks what is printed.'),
+        MutantStatus::Survived,
+        Unmeasured::duration(),
+    );
+
+    expect(MutantRecord::full($hinted))->toHaveKey('hint', 'No test checks what is printed.')
+        ->and(MutantRecord::full($killed))->not->toHaveKey('hint')
+        ->and(MutantRecord::readFull($read(MutantRecord::full($hinted))))->toEqual($hinted);
+});
+
 it('reads back the mutant it wrote in full', function () use ($timedOut, $killed, $unjudged, $read): void {
     expect(MutantRecord::readFull($read(MutantRecord::full($timedOut))))->toEqual($timedOut)
         ->and(MutantRecord::readFull($read(MutantRecord::full($killed))))->toEqual($killed)

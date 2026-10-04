@@ -15,4 +15,6 @@ enum FirstPartyPackage: string
 {
     case Gate = ThisPackage::COMPOSER;
     case DefaultSet = 'nightworksio/mutation-gate-default';
+    case LaravelSet = 'nightworksio/mutation-gate-laravel';
+    case SymfonySet = 'nightworksio/mutation-gate-symfony';
 }

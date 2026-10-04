@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGateDefault\Logical;
 
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Mutator\FamilyHint;
+use NightWorksIO\MutationGate\Mutator\Literals;
 use NightWorksIO\MutationGate\Mutator\Mutator;
 use NightWorksIO\MutationGate\Mutator\MutatorName;
 use NightWorksIO\MutationGate\Mutator\NodeClasses;
@@ -13,7 +14,6 @@ use NightWorksIO\MutationGate\Mutator\Tags;
 use NightWorksIO\MutationGate\Mutator\Unchanged;
 use NightWorksIO\MutationGateDefault\Calls;
 use NightWorksIO\MutationGateDefault\DefaultSet;
-use NightWorksIO\MutationGateDefault\Literals;
 use PhpParser\Node;
 use PhpParser\Node\Expr\ConstFetch;
 
