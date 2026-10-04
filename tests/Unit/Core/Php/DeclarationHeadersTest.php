@@ -68,7 +68,7 @@ it('reads a change to a type\'s header, or a statement of its body, as declaring
         ->and($same($type, str_replace("'EUR'", "'USD'", $type)))->toBeFalse();
 });
 
-it('reads a function\'s signature and a constant outside a type, and a namespace\'s body', function () use (
+it('reads a function\'s signature and a constant outside a type, and a namespace\'s name and body', function () use (
     $same,
 ): void {
     $functions = <<<'PHP'
@@ -92,7 +92,8 @@ it('reads a function\'s signature and a constant outside a type, and a namespace
     expect($same($functions, str_replace('min($n, LIMIT)', 'max($n, LIMIT)', $functions)))->toBeTrue()
         ->and($same($functions, str_replace('LIMIT = 10', 'LIMIT = 11', $functions)))->toBeFalse()
         ->and($same($functions, str_replace('int $n = LIMIT', 'int $n = 0', $functions)))->toBeFalse()
-        ->and($same($functions, str_replace('$count = 1', '$count = 2', $functions)))->toBeFalse();
+        ->and($same($functions, str_replace('$count = 1', '$count = 2', $functions)))->toBeFalse()
+        ->and($same($functions, str_replace('namespace App {', 'namespace Other {', $functions)))->toBeFalse();
 });
 
 it('reads no statement outside a type as declaring unless it declares, nor `Name::class` as a type', function () use (

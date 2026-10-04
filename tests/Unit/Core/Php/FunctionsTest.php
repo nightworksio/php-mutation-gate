@@ -51,6 +51,13 @@ $file = <<<'PHP'
         }
     }
 
+    function label(string $name): string
+    {
+        $text = "${name} is";
+
+        return $text;
+    }
+
     PHP;
 
 it('names the innermost named function a line is in', function (int $line, string|Nameless $function) use ($file): void {
@@ -67,6 +74,7 @@ it('names the innermost named function a line is in', function (int $line, strin
     'the method again after it' => [26, 'items'],
     'a function outside any class' => [30, 'outside'],
     'a method named with a semi-reserved word' => [40, 'and'],
+    'past a variable in braces in a string' => [48, 'label'],
     'past the end' => [60, Nameless::code()],
 ]);
 
@@ -85,5 +93,6 @@ it('gives the line the innermost named function a line is in begins on, which te
     'a function outside any class' => [30, Line::of(30)],
     'the class around a method' => [8, Nameless::code()],
     'a method named with a semi-reserved word' => [40, Line::of(38)],
+    'past a variable in braces in a string' => [48, Line::of(44)],
     'past the end' => [60, Nameless::code()],
 ]);
