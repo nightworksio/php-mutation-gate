@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Config\PresetSet;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\Setup;
@@ -57,6 +58,15 @@ $nothing = static fn(): CommandLine => CommandLine::nothing();
 $shown = static fn(Settings|Invalid|CannotJudge $settings): array => $settings instanceof Settings
     ? (static fn(mixed $shown): array => is_array($shown) ? $shown : [])(Configs::decoded($settings->effective()))
     : ['not settings' => Configs::problems($settings)];
+
+it('keeps a preset\'s mutator sets offered, so a run skips one nothing registers', function () use ($effective, $nothing): void {
+    $settings = $effective(Tree::at('tests/Fixtures/Projects/Laravel'))->settings($nothing());
+    $offered = $settings instanceof Settings ? $settings->mutators()->offering(Name::of('laravel')) : $settings;
+
+    expect($offered)->toBeInstanceOf(PresetSet::class)
+        ->and($offered instanceof PresetSet ? [$offered->preset()->value(), $offered->package()] : $offered)
+        ->toBe(['laravel', 'nightworksio/mutation-gate-laravel']);
+});
 
 it('finds the preset and the runner of a project with no config', function () use (
     $effective,

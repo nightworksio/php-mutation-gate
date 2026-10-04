@@ -4,12 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Config;
 
-use function array_map;
-use function count;
-
 use DateTimeImmutable;
 use NightWorksIO\MutationGate\Cli\CommandLine;
-use NightWorksIO\MutationGate\Cli\Registry\Lookup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\BuiltinPreset;
@@ -17,21 +13,16 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
 use NightWorksIO\MutationGate\Core\Config\Definition;
-use NightWorksIO\MutationGate\Core\Config\Definition\At;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
-use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
-use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\Setup;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Extension\Extensions;
-
-use function sprintf;
 
 /**
  * The effective config of a project (ADR-0002): zero-config defaults, then
@@ -105,76 +96,13 @@ final readonly class Effective
 
         $found = $detected instanceof BuiltinPreset ? Listed::of($detected->value) : $detected;
         $presets = $found instanceof Listed ? $found : $named;
-        [$layers, $problems] = $this->presetLayers($this->named($presets), $registry);
-        $laid = Layer::none();
-
-        foreach ($layers as $layer) {
-            $laid = $laid->over($layer);
-        }
-
-        $merged = $laid->over($written);
+        $layers = PresetLayers::named($presets, $registry);
+        $problems = $layers->problems();
+        $merged = $layers->laid()->over($written);
         $base = $this->base($merged, $found);
         $settings = $base instanceof Layer ? Settings::settled($base->over($merged), $this->now) : $base;
 
         return $problems === [] ? $settings : $this->joined($problems, $settings);
-    }
-
-    /**
-     * The presets a layer names, by the path it names each at: `preset` for one, `preset[1]` in a list.
-     *
-     * @param  Listed<string>|Absent $named
-     * @return array<string, string>
-     */
-    private function named(Listed|Absent $named): array
-    {
-        $presets = $named instanceof Listed ? [...$named] : [];
-
-        if (count($presets) === 1) {
-            return ['preset' => $presets[0]];
-        }
-
-        $paths = [];
-
-        foreach ($presets as $index => $preset) {
-            $paths[At::index('preset', $index)] = $preset;
-        }
-
-        return $paths;
-    }
-
-    /**
-     * The layer of each preset, in order, and a problem at its path for each one nothing registered.
-     *
-     * @param  array<string, string>             $presets by the path the config names each at
-     * @return array{list<Layer>, list<Problem>}
-     */
-    private function presetLayers(array $presets, Extensions $registry): array
-    {
-        $layers = [];
-        $problems = [];
-
-        foreach ($presets as $path => $preset) {
-            $layer = Lookup::in($registry)->preset(Name::of($preset));
-            $judged = $layer instanceof Layer ? Definition::judged($layer, ProjectRoot::origin()) : $layer;
-
-            if ($judged instanceof Layer) {
-                $layers[] = $judged;
-
-                continue;
-            }
-
-            $problems = [...$problems, ...$judged instanceof Invalid
-                ? array_map(
-                    static fn(Problem $problem): Problem => Problem::at(
-                        $path,
-                        sprintf('%s sets %s: %s', $preset, $problem->path(), $problem->message()),
-                    ),
-                    [...$judged],
-                )
-                : [Problem::at($path, $judged->why())]];
-        }
-
-        return [$layers, $problems];
     }
 
     /**
