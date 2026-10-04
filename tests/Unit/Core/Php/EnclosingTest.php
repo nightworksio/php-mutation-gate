@@ -99,6 +99,11 @@ $file = <<<'PHP'
         {
             return self::Small;
         }
+
+        public function for(int $step): self
+        {
+            return $this;
+        }
     }
     PHP;
 
@@ -120,13 +125,14 @@ it('calls a constructor with new, a static method on its class, and any other me
         ->and($called(37))->toBe('$cart->items()');
 });
 
-it('calls a method static whatever modifiers stand between static and function, on its class, its trait or its enum', function () use ($called): void {
+it('calls a method static whatever modifiers stand between static and function, on its class, its trait or its enum, a semi-reserved name among them', function () use ($called): void {
     expect($called(57))->toBe('Shelf::a($x)')
         ->and($called(62))->toBe('Shelf::b($x)')
         ->and($called(67))->toBe('Shelf::c($x)')
         ->and($called(72))->toBe('Shelf::d($x)')
         ->and($called(80))->toBe('$counts->count()')
-        ->and($called(90))->toBe('Size::smallest()');
+        ->and($called(90))->toBe('Size::smallest()')
+        ->and($called(95))->toBe('$size->for($step)');
 });
 
 it('reads a line inside a closure as inside the function around it', function () use ($called): void {

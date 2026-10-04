@@ -40,9 +40,9 @@ final readonly class Helpers
         $names = [];
 
         foreach ($tokens->indicesOf(T_FUNCTION) as $at) {
-            $named = $tokens->is($at + 1, '&') ? $at + 2 : $at + 1;
+            $named = $tokens->functionName($at);
 
-            if ($tokens->is($named, T_STRING)) {
+            if ($named !== Tokens::NONE) {
                 $names[mb_strtolower($tokens->text($named))] = true;
             }
         }

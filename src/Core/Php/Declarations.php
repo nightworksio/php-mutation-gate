@@ -76,10 +76,8 @@ final readonly class Declarations
     private static function declaredAt(Source $source, int $at): array
     {
         $tokens = $source->tokens();
-        $named = $tokens->is($at + 1, '&') ? $at + 2 : $at + 1;
-        $body = $tokens->is($named, T_STRING) && $tokens->is($named + 1, '(')
-            ? self::bodyAfter($source, $tokens->closing($named + 1))
-            : Tokens::NONE;
+        $named = $tokens->functionName($at);
+        $body = $named === Tokens::NONE ? Tokens::NONE : self::bodyAfter($source, $tokens->closing($named + 1));
         $key = $body === Tokens::NONE ? '' : self::keyOf($source, $at, $tokens->text($named));
 
         return $key === '' ? [] : [$key => Declared::in(

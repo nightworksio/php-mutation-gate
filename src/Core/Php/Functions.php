@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Core\Php;
 
 use function array_filter;
 use function array_pop;
-use function array_slice;
 use function array_values;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -20,9 +19,6 @@ use PhpToken;
  */
 final readonly class Functions
 {
-    /** How a function's name is spelt after `function` and an optional `&`. */
-    private const array NAMES = [T_STRING];
-
     /** @param list<array{string, int, int}> $spans each function's name, first line and last line */
     private function __construct(private array $spans)
     {
@@ -34,12 +30,13 @@ final readonly class Functions
             PhpToken::tokenize($contents->text()),
             static fn(PhpToken $token): bool => ! $token->isIgnorable(),
         ));
+        $read = Tokens::of($tokens);
         $spans = [];
         $blocks = [];
         $pending = [];
 
         foreach ($tokens as $at => $token) {
-            $pending = $token->is(T_FUNCTION) ? [self::nameAfter($tokens, $at), $token->line] : $pending;
+            $pending = $token->is(T_FUNCTION) ? [self::nameAfter($read, $at), $token->line] : $pending;
             $pending = $token->is(';') ? [] : $pending;
 
             if ($token->is(TopLevel::OPENS)) {
@@ -84,16 +81,11 @@ final readonly class Functions
         return $found;
     }
 
-    /**
-     * The name after a `function` keyword, past a `&`; nothing for a closure.
-     *
-     * @param list<PhpToken> $tokens
-     */
-    private static function nameAfter(array $tokens, int $at): string
+    /** The name after a `function` keyword, past a `&`; nothing for a closure. */
+    private static function nameAfter(Tokens $tokens, int $at): string
     {
-        $name = array_slice($tokens, $at + 1, 2);
-        $name = $name !== [] && $name[0]->is('&') ? array_slice($name, 1) : $name;
+        $name = $tokens->functionName($at);
 
-        return $name !== [] && $name[0]->is(self::NAMES) ? $name[0]->text : '';
+        return $name === Tokens::NONE ? '' : $tokens->text($name);
     }
 }

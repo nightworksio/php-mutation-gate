@@ -111,8 +111,8 @@ final readonly class Shape
     /** Where the parameter list after `function` or `fn` opens, past a `&` and a name, if one does. */
     private static function parametersAfter(Tokens $tokens, int $at): int
     {
-        $list = $at + 1 + ($tokens->is($at + 1, '&') ? 1 : 0);
-        $list += $tokens->is($list, T_STRING) ? 1 : 0;
+        $name = $tokens->functionName($at);
+        $list = $name === Tokens::NONE ? $at + 1 + ($tokens->is($at + 1, '&') ? 1 : 0) : $name + 1;
 
         return $tokens->is($list, '(') ? $list : Tokens::NONE;
     }
@@ -120,10 +120,10 @@ final readonly class Shape
     /** @param array<int, ClassLike> $classes */
     private static function signatureAt(Tokens $tokens, Scope $scope, int $at, array $classes): Signature
     {
-        $name = $at + 1 + ($tokens->is($at + 1, '&') ? 1 : 0);
+        $name = $tokens->functionName($at);
 
         return match (true) {
-            $tokens->is($at, T_FN) || ! $tokens->is($name, T_STRING) => Signature::ofClosure(),
+            $tokens->is($at, T_FN) || $name === Tokens::NONE => Signature::ofClosure(),
             array_key_exists($tokens->enclosing($at), $classes) => Signature::ofMethod(),
             default => Signature::ofFunction($scope->declared($tokens->text($name))),
         };

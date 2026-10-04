@@ -54,7 +54,7 @@ it('reads a #[Holds] on a class and on its methods, with PHPUnit\'s group beside
         ->with(HoldsAttribute::onClass(HeldPath::literal('src/Base.php'), 24, 'Tests\BaseTest', grouped: false)));
 });
 
-it('reads a method of a trait, an interface and an enum as held by it', function () use ($read): void {
+it('reads a method of a trait, an interface and an enum as held by it, and one named with a semi-reserved word', function () use ($read): void {
     $code = <<<'PHP'
         <?php
 
@@ -65,12 +65,14 @@ it('reads a method of a trait, an interface and an enum as held by it', function
         trait Boots { #[Holds('src/Boot.php')] public function testBoots(): void {} }
         interface Serves { #[Holds('src/Http')] public function testServes(): void; }
         enum Suite: string implements Serves { #[Holds('src/Suite.php')] public function testServes(): void {} }
+        final class Keyed { #[Holds('src/Keyed.php')] public function and(): void {} }
         PHP;
 
     expect($read($code))->toEqual(HoldsAttributes::none()
         ->with(HoldsAttribute::onMethod(HeldPath::literal('src/Boot.php'), 7, 'Tests\Boots::testBoots', grouped: false))
         ->with(HoldsAttribute::onMethod(HeldPath::literal('src/Http'), 8, 'Tests\Serves::testServes', grouped: false))
-        ->with(HoldsAttribute::onMethod(HeldPath::literal('src/Suite.php'), 9, 'Tests\Suite::testServes', grouped: false)));
+        ->with(HoldsAttribute::onMethod(HeldPath::literal('src/Suite.php'), 9, 'Tests\Suite::testServes', grouped: false))
+        ->with(HoldsAttribute::onMethod(HeldPath::literal('src/Keyed.php'), 10, 'Tests\Keyed::and', grouped: false)));
 });
 
 it('reads the attribute however its name is spelt, and no other attribute', function () use ($read): void {

@@ -41,6 +41,16 @@ $file = <<<'PHP'
     {
     }
 
+    enum Size
+    {
+        case Small;
+
+        public function and(self $other): self
+        {
+            return $other;
+        }
+    }
+
     PHP;
 
 it('names the innermost named function a line is in', function (int $line, string|Nameless $function) use ($file): void {
@@ -56,7 +66,8 @@ it('names the innermost named function a line is in', function (int $line, strin
     'a function declared inside it, with a brace in a string' => [23, 'helper'],
     'the method again after it' => [26, 'items'],
     'a function outside any class' => [30, 'outside'],
-    'past the end' => [40, Nameless::code()],
+    'a method named with a semi-reserved word' => [40, 'and'],
+    'past the end' => [60, Nameless::code()],
 ]);
 
 it('reads a file that is not PHP, or closes more than it opens, as declaring nothing', function (): void {
@@ -73,5 +84,6 @@ it('gives the line the innermost named function a line is in begins on, which te
     'the method again after it' => [26, Line::of(19)],
     'a function outside any class' => [30, Line::of(30)],
     'the class around a method' => [8, Nameless::code()],
-    'past the end' => [40, Nameless::code()],
+    'a method named with a semi-reserved word' => [40, Line::of(38)],
+    'past the end' => [60, Nameless::code()],
 ]);

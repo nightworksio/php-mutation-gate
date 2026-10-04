@@ -122,3 +122,22 @@ it('has no tail outside a function\'s body: a property\'s value, or code outside
         ->and(statementTailAt('$top'))->toEqual(NotGiven::value())
         ->and(statementTailAt('$kept'))->toEqual(NotGiven::value());
 });
+
+it('spans the lines past a match (true) head in a method named with a semi-reserved word', function (): void {
+    $source = Php::source(<<<'PHP'
+        <?php
+        enum E: string
+        {
+            case A = 'a';
+            public function and(self $r): self
+            {
+                return match (true) {
+                    $r === self::A => $r,
+                    default => $this,
+                };
+            }
+        }
+        PHP);
+
+    expect(statementTailLines(StatementTail::of($source, Php::indexOf($source, 'true'))))->toBe([8, 10]);
+});

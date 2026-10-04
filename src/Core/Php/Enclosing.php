@@ -84,10 +84,10 @@ final readonly class Enclosing
     /** The named function a `function` keyword declares, where its body holds the line; nothing otherwise. */
     private static function read(Tokens $tokens, int $keyword, Line $line): self|Nameless
     {
-        $named = $tokens->is($keyword + 1, '&') ? $keyword + 2 : $keyword + 1;
+        $named = $tokens->functionName($keyword);
         $opener = $named + 1;
 
-        if (! $tokens->is($named, T_STRING) || ! $tokens->is($opener, '(')) {
+        if ($named === Tokens::NONE) {
             return Nameless::code();
         }
 
