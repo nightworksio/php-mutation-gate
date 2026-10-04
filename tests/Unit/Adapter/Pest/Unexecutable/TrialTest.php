@@ -120,6 +120,23 @@ it('judges nothing where the guard says the original ran, or cannot say', functi
     'a guard of another shape' => ['{"before":1}', 'the run wrote no guard, so the gate cannot tell the mutated file ran'],
 ]);
 
+it('kills a mutant whose run a signal ended, writing no guard, where its tests pass on their own', function (
+    int $code,
+    MutantStatus $status,
+): void {
+    $outcome = trialOf(trialProject(), new ShellFake(trialAnswering('', Ran::exited($code, ''))))
+        ->of(Paths::of(Path::of('tests/A.php')), Path::of('src/Money.php'), '/c');
+
+    expect($outcome->status())->toBe($status);
+})->with([
+    'the first signal' => [129, MutantStatus::Killed],
+    'a segmentation fault' => [139, MutantStatus::Killed],
+    'the last signal' => [192, MutantStatus::Killed],
+    'no signal' => [128, MutantStatus::Unjudged],
+    'past the last signal' => [193, MutantStatus::Unjudged],
+    'PHP\'s fatal error' => [255, MutantStatus::Unjudged],
+]);
+
 it('says the first test that failed on its own, from the JUnit log the run wrote, and the files it ran', function (): void {
     $at = trialProject();
     $log = sprintf('%s/junit.xml', $at->root());

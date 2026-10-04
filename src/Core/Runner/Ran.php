@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use function is_int;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -17,6 +19,12 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 final readonly class Ran
 {
     private const string UNTIMED = 'The run was not timed, so how long it took cannot be told.';
+
+    /** What a shell adds to a signal's number for the exit code of a process that signal ended. */
+    private const int SIGNALLED = 128;
+
+    /** The highest signal number there is: Linux's SIGRTMAX. */
+    private const int LAST_SIGNAL = 64;
 
     private function __construct(
         private string $output,
@@ -70,6 +78,17 @@ final readonly class Ran
     public function exitCode(): int|NotGiven
     {
         return $this->code;
+    }
+
+    /**
+     * Whether a signal ended it, as its exit code says: 128 plus the signal's
+     * number. PHP's own exit code for a fatal error, 255, is none.
+     */
+    public function endedBySignal(): bool
+    {
+        return is_int($this->code)
+            && $this->code > self::SIGNALLED
+            && $this->code <= self::SIGNALLED + self::LAST_SIGNAL;
     }
 
     public function succeeded(): bool
