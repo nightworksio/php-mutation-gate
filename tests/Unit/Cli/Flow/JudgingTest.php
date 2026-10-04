@@ -1889,7 +1889,7 @@ it('checks, in a run of the security mutators alone, only the ignores of the mut
 ): void {
     $failures = static fn(Ignore $ignore): array => judgingTexts(judgingVerdictOf($judged(
         Planned::twoShards(),
-        Flows::adapters(Flows::project(), [], $tree(Floor::of(0)), NamedMutators::of('Plus'), Mutators::named('Plus')),
+        Flows::adapters(Flows::project(), [], $tree(Floor::of(0)), NamedMutators::of('Plus'), Narrowing::none()->toMutators(Mutators::named('Plus'))),
         judgingSettings($ignore),
         $reporting(new ReporterFake()),
     ))->failures());
