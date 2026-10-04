@@ -24,9 +24,6 @@ use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
-use NightWorksIO\MutationGate\Core\NotGiven;
-use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
-use NightWorksIO\MutationGate\Core\Runner\WrittenBytes;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -68,20 +65,8 @@ final class Records
     /** @var array<string, list<PestStatus>> the final status, by native id, one for each mutant that shares it */
     private array $finished = [];
 
-    /** @var array<string, list<string>> the tests that errored, by the mutated copy they ran on */
-    private array $errored = [];
-
-    /** @var array<string, list<string>> the tests that failed or errored, in order, by the mutated copy they ran on */
-    private array $killers = [];
-
-    /** @var array<string, MemoryCap> the memory limit a mutant's own process ran out of, by the copy it ran on */
-    private array $exhausted = [];
-
-    /** @var array<string, true> each own run that loaded the original before the mutant was in place, by its copy */
-    private array $preloaded = [];
-
-    /** @var array<string, list<string>> the test files each narrowed own run loaded, by the mutated copy it ran on */
-    private array $narrowed = [];
+    /** What each mutant's own process recorded, by the mutated copy it ran on. */
+    private readonly OwnRuns $runs;
 
     private Seconds|Unmeasured $opening;
 
@@ -92,6 +77,7 @@ final class Records
     private function __construct()
     {
         $this->opening = Unmeasured::duration();
+        $this->runs = new OwnRuns();
     }
 
     public static function in(string $file): self|CannotJudge
@@ -145,15 +131,7 @@ final class Records
     /** What the plugin recorded of a mutant's own process. */
     public function runOf(PlannedMutant $mutant): OwnRun
     {
-        $mutated = $mutant->mutated()->value();
-
-        return OwnRun::of(
-            array_key_exists($mutated, $this->killers) ? $this->killers[$mutated] : [],
-            array_key_exists($mutated, $this->errored) ? $this->errored[$mutated] : [],
-            array_key_exists($mutated, $this->narrowed) ? $this->narrowed[$mutated] : [],
-            array_key_exists($mutated, $this->exhausted) ? $this->exhausted[$mutated] : NotGiven::value(),
-            array_key_exists($mutated, $this->preloaded),
-        );
+        return $this->runs->of($mutant->mutated()->value());
     }
 
     /** The seconds Pest allowed each mutant, from the opening run's. */
@@ -215,11 +193,12 @@ final class Records
             RecordEvent::Made => $this->withMade($record),
             RecordEvent::Outcome => $this->withOutcome($record),
             RecordEvent::Finished => $this->withFinished($record),
-            RecordEvent::Killed, RecordEvent::Errored => $this->withKiller($record, RecordEvent::from($event->text())),
-            RecordEvent::Exhausted => $this->exhausted[$record->field(RecordField::Mutated->value)->text()]
-                = WrittenBytes::read($record->field(RecordField::Bytes->value)),
-            RecordEvent::Preloaded => $this->preloaded[$record->field(RecordField::Mutated->value)->text()] = true,
-            RecordEvent::Narrowed => $this->withNarrowed($record),
+            RecordEvent::Killed => $this->runs->killed($record),
+            RecordEvent::Errored => $this->runs->errored($record),
+            RecordEvent::Exhausted => $this->runs->exhausted($record),
+            RecordEvent::Preloaded => $this->runs->preloaded($record),
+            RecordEvent::Narrowed => $this->runs->narrowed($record),
+            RecordEvent::Ran => $this->runs->ran($record),
             RecordEvent::End => $this->ended = true,
             null => throw NotInShape::at($event->at(), 'an event the plugin writes'),
         };
@@ -303,28 +282,6 @@ final class Records
         $id = $record->field(RecordField::Id->value)->text();
         $this->finished[$id][] = $this->statusIn($record);
         $this->durations[$id][] = $record->field(RecordField::Duration->value)->number();
-    }
-
-    /** @throws NotInShape */
-    private function withKiller(Node $record, RecordEvent $event): void
-    {
-        $mutated = $record->field(RecordField::Mutated->value)->text();
-        $test = $record->field(RecordField::Test->value)->text();
-        $this->killers[$mutated][] = $test;
-
-        if ($event === RecordEvent::Errored) {
-            $this->errored[$mutated][] = $test;
-        }
-    }
-
-    /** @throws NotInShape */
-    private function withNarrowed(Node $record): void
-    {
-        $mutated = $record->field(RecordField::Mutated->value)->text();
-        $this->narrowed[$mutated] = array_map(
-            static fn(Node $file): string => $file->text(),
-            $record->field(RecordField::Files->value)->items(),
-        );
     }
 
     /** @throws NotInShape */

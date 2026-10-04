@@ -229,8 +229,9 @@ manual.
      out, where the mutated file ran.
    - A run PHPUnit fails with no test failing, such as for a warning the
      project fails on, leaves the mutant unjudged, with what PHPUnit said. A
-     run whose every test was skipped or marked incomplete leaves it
-     unjudged too, with what PHPUnit said where it failed the run.
+     run that passes with no test run, as its selection matched none, leaves
+     it unjudged, and so does a run whose every test was skipped or marked
+     incomplete, with what PHPUnit said where it failed the run.
    - The gate enforces the timeout on the process: a mutant's run is allowed
      the smaller of 5 s plus five times its covering tests' own time, as the
      coverage map timed them, and `timeouts.seconds`, which the flows hand

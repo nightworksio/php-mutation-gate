@@ -34,9 +34,10 @@ use function sprintf;
  * one whose own process ran out of the memory cap says to raise it. A run
  * stopped at its deadline keeps every result it had, and leaves the rest
  * unjudged. So does a covering test Pest's filter cannot select, because Pest
- * would have called that mutant killed or uncovered without running the test,
- * and a mutant whose own process had loaded its file before the mutant was in
- * place, because its tests ran the original code.
+ * would have called that mutant killed or uncovered without running the test;
+ * a mutant whose own process had loaded its file before the mutant was in
+ * place, because its tests ran the original code; and a survivor whose own
+ * process said it ran no test, because nothing judged it.
  */
 final readonly class Interpretation
 {
@@ -51,6 +52,8 @@ final readonly class Interpretation
     private const string UNSELECTED = "Pest's --filter cannot select %s, so Pest cannot run it against this mutant.";
 
     private const string PRELOADED = '%s was loaded before the mutant was in place, so its tests ran the original code';
+
+    private const string RAN_NO_TEST = 'its own run ran no test';
 
     private const string OUT_OF_MEMORY
         = "Pest ran out of the %s memory cap in its own process, so the run did not finish. %s Pest said:\n%s";
@@ -168,8 +171,10 @@ final readonly class Interpretation
     {
         $unselected = $selection->fits() ? $selection->unselected() : TestIds::none();
         $file = $this->project->relative($planned->file()->value());
-        $ranTheOriginal = $records->runOf($planned)->ranTheOriginal();
-        $judged = count($unselected) === 0 && ! $ranTheOriginal;
+        $run = $records->runOf($planned);
+        $ranTheOriginal = $run->ranTheOriginal();
+        $ranNoTest = $records->statusOf($planned)->status() === MutantStatus::Survived && $run->ranNoTest();
+        $judged = count($unselected) === 0 && ! $ranTheOriginal && ! $ranNoTest;
         $mutant = Mutant::of(
             $gate,
             $planned->id(),
@@ -189,13 +194,14 @@ final readonly class Interpretation
         $limited = match (true) {
             $status === MutantStatus::OutOfMemory => $mutant->withLimit($this->cap),
             $status === MutantStatus::TimedOut && $limit instanceof Seconds => $mutant->withLimit($limit),
-            $status === MutantStatus::Killed => $mutant->killedBy($records->runOf($planned)->killers()),
+            $status === MutantStatus::Killed => $mutant->killedBy($run->killers()),
             default => $mutant,
         };
         $names = array_map(static fn(TestId $test): string => $test->value(), [...$unselected]);
 
         return match (true) {
             $ranTheOriginal => $limited->because(Reason::that(sprintf(self::PRELOADED, $file->value()))),
+            $ranNoTest => $limited->because(Reason::that(self::RAN_NO_TEST)),
             $judged => $limited,
             default => $limited->because(Reason::that(sprintf(self::UNSELECTED, implode(', ', $names)))),
         };

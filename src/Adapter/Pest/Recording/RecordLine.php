@@ -113,6 +113,16 @@ final readonly class RecordLine
         ]);
     }
 
+    /** How many tests the own process of the mutant Pest serves this mutated copy for ran. */
+    public static function ran(string $mutated, int $tests): string
+    {
+        return self::line([
+            RecordField::Event->value => RecordEvent::Ran->value,
+            RecordField::Mutated->value => $mutated,
+            RecordField::Count->value => $tests,
+        ]);
+    }
+
     /** The memory limit the own process of the mutant Pest serves this mutated copy for ran out of. */
     public static function exhausted(string $mutated, MemoryCap $limit): string
     {

@@ -31,7 +31,7 @@ enum RecordField: string
     /** The mutated copy Pest serves in a mutant's own process. */
     case Mutated = 'mutated';
 
-    /** How many mutants Pest made. */
+    /** How many: the mutants Pest made, or the tests a mutant's own process ran. */
     case Count = 'count';
 
     /** The opening run's seconds. */
