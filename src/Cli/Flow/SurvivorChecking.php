@@ -144,9 +144,12 @@ final readonly class SurvivorChecking
 
         foreach ($survivors as $survivor) {
             [$answer, $history, $baselines] = $this->one($warm, $survivor, $history, $baselines);
-            $checks = $answer instanceof Unchecked
-                ? $checks->leaving(UncheckedSurvivor::of($answer, $survivor->location()->file()))
-                : $checks;
+            $file = $survivor->location()->file();
+            $checks = match (true) {
+                $answer instanceof Unchecked => $checks->leaving(UncheckedSurvivor::of($answer, $file)),
+                $answer instanceof CannotJudge => $checks->leaving(UncheckedSurvivor::failed($answer->why(), $file)),
+                default => $checks,
+            };
             $rejected = $answer instanceof Mutant ? $rejected->with($answer) : $rejected;
         }
 
@@ -158,8 +161,12 @@ final readonly class SurvivorChecking
      * room for every check it needs: the print of its file too, where that
      * is not yet analysed. It is killed, as it was, or left with why.
      *
-     * @param  array<string, Findings|Unchecked> $baselines by file
-     * @return array{Mutant|Findings|Unchecked, AnalyserHistory, array<string, Findings|Unchecked>}
+     * @param  array<string, Findings|Unchecked|CannotJudge> $baselines by file
+     * @return array{
+     *     Mutant|Findings|Unchecked|CannotJudge,
+     *     AnalyserHistory,
+     *     array<string, Findings|Unchecked|CannotJudge>,
+     * }
      */
     private function one(WarmedUp $warm, Mutant $survivor, AnalyserHistory $history, array $baselines): array
     {
@@ -202,7 +209,7 @@ final readonly class SurvivorChecking
      * file as written, and for one printed as its runner prints, the
      * print's, where they are the warm-up's; or why the survivor is left.
      *
-     * @return array{Findings|Unchecked, AnalyserHistory}
+     * @return array{Findings|Unchecked|CannotJudge, AnalyserHistory}
      */
     private function baseline(WarmedUp $warm, Mutant $survivor, Checkable $checkable, AnalyserHistory $history): array
     {
@@ -230,7 +237,7 @@ final readonly class SurvivorChecking
      * its original does not have, and as it was where it finds none; or why
      * it is left.
      *
-     * @return array{Mutant|Unchecked|Findings, AnalyserHistory}
+     * @return array{Mutant|Unchecked|Findings|CannotJudge, AnalyserHistory}
      */
     private function answer(
         WarmedUp $warm,
@@ -273,9 +280,9 @@ final readonly class SurvivorChecking
      * What the analyser finds in this text read in place of the check's
      * file, written where the check names the mutant for it alone and
      * removed after it, with the check's time learned; or why it finds
-     * nothing.
+     * nothing: out of its scope, or the reason the check could not run.
      *
-     * @return array{Findings|Unchecked, AnalyserHistory}
+     * @return array{Findings|Unchecked|CannotJudge, AnalyserHistory}
      */
     private function analysed(
         StaticChecker $checker,
@@ -283,8 +290,10 @@ final readonly class SurvivorChecking
         Contents $text,
         AnalyserHistory $history,
     ): array {
-        if ($this->adapters->project->write($check->mutant(), $text) instanceof CannotJudge) {
-            return [Unchecked::Failed, $history];
+        $written = $this->adapters->project->write($check->mutant(), $text);
+
+        if ($written instanceof CannotJudge) {
+            return [$written, $history];
         }
 
         $started = $this->clock->now();
@@ -292,12 +301,6 @@ final readonly class SurvivorChecking
         $history = $history->checked(Seconds::between($started, $this->clock->now()));
         $this->adapters->project->remove($check->mutant());
 
-        $findings = match (true) {
-            $found instanceof OutOfScope => Unchecked::OutOfScope,
-            $found instanceof CannotJudge => Unchecked::Failed,
-            default => $found,
-        };
-
-        return [$findings, $history];
+        return [$found instanceof OutOfScope ? Unchecked::OutOfScope : $found, $history];
     }
 }

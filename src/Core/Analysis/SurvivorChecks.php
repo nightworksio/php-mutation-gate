@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Analysis;
 
 use function array_filter;
+use function array_key_exists;
 use function array_map;
+use function array_merge;
+use function array_slice;
 use function array_unique;
 use function array_values;
 
@@ -15,6 +18,7 @@ use function count;
 
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\Format\Fit;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
@@ -38,6 +42,10 @@ final readonly class SurvivorChecks implements IteratorAggregate
     private const string ONE = 'survivor';
 
     private const string MANY = 'survivors';
+
+    /** How a reason is told apart from none as it gathers files: as said, after a mark no reason starts with. */
+    private const string SAID = ':%s';
+
 
     /** @param list<UncheckedSurvivor> $unchecked */
     private function __construct(private AnalyserHistories $histories, private array $unchecked)
@@ -73,20 +81,20 @@ final readonly class SurvivorChecks implements IteratorAggregate
         return $this->histories;
     }
 
-    /** One warning for each reason a survivor was left unchecked, in the order the reasons are declared. */
+    /**
+     * One warning for each reason a survivor was left unchecked, in the order
+     * the reasons are declared; for a check that could not run, one for each
+     * reason given, as many as a shortened list shows, that reason after
+     * it, and one for the survivors of any more, with none.
+     */
     public function warnings(): Warnings
     {
         $warnings = Warnings::none();
 
         foreach (Unchecked::cases() as $why) {
-            $files = array_map(
-                static fn(UncheckedSurvivor $survivor): string => $survivor->file()->value(),
-                array_values(array_filter(
-                    $this->unchecked,
-                    static fn(UncheckedSurvivor $survivor): bool => $survivor->why() === $why,
-                )),
-            );
-            $warnings = $files === [] ? $warnings : $warnings->with($this->warning($why, $files));
+            foreach ($this->said($why) as [$reason, $files]) {
+                $warnings = $warnings->with($this->warning($why, $files, $reason));
+            }
         }
 
         return $warnings;
@@ -98,18 +106,68 @@ final readonly class SurvivorChecks implements IteratorAggregate
         return new ArrayIterator($this->unchecked);
     }
 
+    /**
+     * The files of the survivors left unchecked for this reason, gathered by
+     * the reason each was given, for as many reasons as a shortened list
+     * shows, in the order they first come; then, together, those given none
+     * or any other.
+     *
+     * @return list<array{string|NotGiven, non-empty-list<string>}>
+     */
+    private function said(Unchecked $why): array
+    {
+        [$said, $unsaid] = $this->byReason($why);
+        $unsaid = [...$unsaid, ...array_merge(...array_map(
+            static fn(array $group): array => $group[1],
+            array_slice($said, Fit::SHOWN),
+        ))];
+
+        return [...array_slice($said, 0, Fit::SHOWN), ...$unsaid === [] ? [] : [[NotGiven::value(), $unsaid]]];
+    }
+
+    /**
+     * The files of the survivors left unchecked for this reason, by the
+     * reason each was given, in the order they first come, and those given
+     * none.
+     *
+     * @return array{list<array{string, non-empty-list<string>}>, list<string>}
+     */
+    private function byReason(Unchecked $why): array
+    {
+        $reasons = [];
+        $unsaid = [];
+        $mine = array_filter($this->unchecked, static fn(UncheckedSurvivor $one): bool => $one->why() === $why);
+
+        foreach ($mine as $survivor) {
+            $reason = $survivor->reason();
+            $file = $survivor->file()->value();
+
+            if ($reason instanceof NotGiven) {
+                $unsaid[] = $file;
+
+                continue;
+            }
+
+            $key = sprintf(self::SAID, $reason);
+            $reasons[$key] = [$reason, [...array_key_exists($key, $reasons) ? $reasons[$key][1] : [], $file]];
+        }
+
+        return [array_values($reasons), $unsaid];
+    }
+
     /** @param non-empty-list<string> $files each unchecked survivor's file */
-    private function warning(Unchecked $why, array $files): Warning
+    private function warning(Unchecked $why, array $files, string|NotGiven $reason): Warning
     {
         $distinct = array_values(array_unique($files));
         sort($distinct);
-
-        return Warning::that(sprintf(
+        $left = sprintf(
             self::LEFT,
             count($files),
             count($files) === 1 ? self::ONE : self::MANY,
             $why->because(),
             Fit::named($distinct),
-        ));
+        );
+
+        return Warning::that($reason instanceof NotGiven ? $left : sprintf(Fit::JOINED, $left, $reason));
     }
 }

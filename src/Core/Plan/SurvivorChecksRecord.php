@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Core\Analysis\UncheckedSurvivor;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\AnalysersRecord;
 
 /**
@@ -31,14 +33,19 @@ final readonly class SurvivorChecksRecord
 
     private const string FILE = 'file';
 
-    /** @return array{}|array{analysers: Written, unchecked: list<array{why: string, file: string}>} */
+    /** @return array{}|array{analysers: Written, unchecked: list<array{why: string, file: string, reason?: string}>} */
     public static function of(SurvivorChecks $checks): array
     {
         $analysers = AnalysersRecord::of($checks->histories());
         $unchecked = [];
 
         foreach ($checks as $survivor) {
-            $unchecked[] = [ShardResultFile::WHY => $survivor->why()->value, self::FILE => $survivor->file()->value()];
+            $reason = $survivor->reason();
+            $unchecked[] = [
+                ShardResultFile::WHY => $survivor->why()->value,
+                self::FILE => $survivor->file()->value(),
+                ...$reason instanceof NotGiven ? [] : [MutantRecord::REASON => $reason],
+            ];
         }
 
         return $analysers === [] && $unchecked === []
@@ -47,7 +54,8 @@ final readonly class SurvivorChecksRecord
     }
 
     /**
-     * The checks a result holds, none where it holds none.
+     * The checks a result holds, none where it holds none; a check that could
+     * not run with the reason it was given, where the result keeps one.
      *
      * @throws NotInShape
      */
@@ -66,7 +74,13 @@ final readonly class SurvivorChecksRecord
         foreach ($section->field(self::UNCHECKED)->items() as $item) {
             $why = Unchecked::tryFrom($item->field(ShardResultFile::WHY)->text())
                 ?? throw NotInShape::at($item->field(ShardResultFile::WHY)->at(), 'why a survivor was left unchecked');
-            $checks = $checks->leaving(UncheckedSurvivor::of($why, Path::of($item->field(self::FILE)->text())));
+            $file = Path::of($item->field(self::FILE)->text());
+            $reason = $item->field(MutantRecord::REASON);
+            $checks = $checks->leaving(
+                $why === Unchecked::Failed && $reason->isPresent()
+                    ? UncheckedSurvivor::failed($reason->text(), $file)
+                    : UncheckedSurvivor::of($why, $file),
+            );
         }
 
         return $checks;

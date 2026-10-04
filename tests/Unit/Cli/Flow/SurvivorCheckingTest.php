@@ -276,7 +276,8 @@ it('leaves a survivor unchecked, and says why, where its runner cannot give it, 
     ])
         ->and(checkedWarnings($unchecked))->toBe([
             'Static analysis left 1 survivor unchecked, as their files are outside the paths the analyser analyses: src/Money.php.',
-            'Static analysis left 1 survivor unchecked, as the analyser could not check them: src/Held.php.',
+            'Static analysis left 1 survivor unchecked, as the analyser could not check them: src/Held.php. '
+            . '.mutation-gate/staticcheck/mutants/8705b7dc7d27.php is no mutant the fake was told about.',
         ])
         ->and($unchecked->mutants)->toEqual($mutants)
         ->and($unchecked->checks->histories()->of(checkedIdentity())->time()->checks())->toBe(2);
@@ -441,10 +442,16 @@ it('leaves a survivor unchecked where its code cannot be written for its check',
     Scratch::write($project, '.mutation-gate/staticcheck/mutants', 'a file where the directory goes');
     $checker = checkedBy($project, []);
 
-    $checked = checking($project, $checker, ScriptedRunner::fixture(), Unlimited::time())->checked(checkedMutants(), MutantIds::none());
+    $mutants = checkedMutants();
+    $unwritten = static fn(string $file): string => sprintf(
+        'Static analysis left 1 survivor unchecked, as the analyser could not check them: %s. %s/%s could not be written.',
+        $file,
+        $project,
+        checkedAt(checkedSurvivor($mutants, $file)),
+    );
 
-    expect(checkedWarnings($checked))->toBe([
-        'Static analysis left 2 survivors unchecked, as the analyser could not check them: src/Held.php, src/Money.php.',
-    ])
+    $checked = checking($project, $checker, ScriptedRunner::fixture(), Unlimited::time())->checked($mutants, MutantIds::none());
+
+    expect(checkedWarnings($checked))->toBe([$unwritten('src/Money.php'), $unwritten('src/Held.php')])
         ->and($checker->checks())->toBe([]);
 });

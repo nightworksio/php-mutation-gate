@@ -28,3 +28,24 @@ it('writes each analyser\'s time and each survivor left, by why and its file', f
         ->and(SurvivorChecksRecord::read(Node::decode(sprintf('{"s": %s}', json_encode(SurvivorChecksRecord::of($timedOnly))))->field('s')))
         ->toEqual($timedOnly);
 });
+
+it('keeps the reason a check could not run with its survivor, and reads a record that keeps none as given none', function (): void {
+    $checks = SurvivorChecks::none()
+        ->timing(AnalyserHistory::of('psalm')->checked(Seconds::of(1.0)))
+        ->leaving(UncheckedSurvivor::failed('Psalm\'s language server did not answer in 60s.', Path::of('src/A.php')))
+        ->leaving(UncheckedSurvivor::of(Unchecked::Failed, Path::of('src/B.php')));
+    $written = json_encode(SurvivorChecksRecord::of($checks));
+    $older = '{"analysers": {}, "unchecked": [{"why": "failed", "file": "src/A.php"}, {"why": "no-mutant", "file": "src/B.php", "reason": "x"}]}';
+
+    expect($written)->toBe(
+        '{"analysers":{"psalm":{"checks":1,"seconds":1,"mutators":{}}},"unchecked":['
+        . '{"why":"failed","file":"src\/A.php","reason":"Psalm\'s language server did not answer in 60s."},'
+        . '{"why":"failed","file":"src\/B.php"}]}',
+    )
+        ->and(SurvivorChecksRecord::read(Node::decode(sprintf('{"s": %s}', $written))->field('s')))->toEqual($checks)
+        ->and(SurvivorChecksRecord::read(Node::decode(sprintf('{"s": %s}', $older))->field('s')))->toEqual(
+            SurvivorChecks::none()
+                ->leaving(UncheckedSurvivor::of(Unchecked::Failed, Path::of('src/A.php')))
+                ->leaving(UncheckedSurvivor::of(Unchecked::NoMutant, Path::of('src/B.php'))),
+        );
+});

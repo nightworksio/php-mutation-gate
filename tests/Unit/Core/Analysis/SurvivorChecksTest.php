@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
 use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
 use NightWorksIO\MutationGate\Core\Analysis\UncheckedSurvivor;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 
@@ -88,4 +89,36 @@ it('holds the time each analyser\'s checks took, and adds another shard\'s check
         ->and(array_map(static fn(UncheckedSurvivor $survivor): string => $survivor->file()->value(), [...$added]))
         ->toBe(['src/A.php', 'src/B.php'])
         ->and(SurvivorChecks::none()->warnings()->count())->toBe(0);
+});
+
+it('warns of checks that could not run once for each reason given, that reason after, in the order they first come', function () use ($left, $texts): void {
+    $timedOut = 'Psalm\'s language server did not answer in 60s.';
+    $checks = SurvivorChecks::none()
+        ->leaving(UncheckedSurvivor::failed($timedOut, Path::of('src/B.php')))
+        ->leaving($left(Unchecked::Failed, 'src/C.php'))
+        ->leaving(UncheckedSurvivor::failed('src/D.php cannot be read.', Path::of('src/A.php')))
+        ->leaving(UncheckedSurvivor::failed($timedOut, Path::of('src/A.php')));
+
+    expect($texts($checks))->toBe([
+        sprintf('Static analysis left 2 survivors unchecked, as the analyser could not check them: src/A.php, src/B.php. %s', $timedOut),
+        'Static analysis left 1 survivor unchecked, as the analyser could not check them: src/A.php. src/D.php cannot be read.',
+        'Static analysis left 1 survivor unchecked, as the analyser could not check them: src/C.php.',
+    ])
+        ->and(array_map(static fn(UncheckedSurvivor $survivor): string|NotGiven => $survivor->reason(), [...$checks]))
+        ->toEqual([$timedOut, NotGiven::value(), 'src/D.php cannot be read.', $timedOut]);
+});
+
+it('tells as many reasons apart as a shortened list shows, warning of the survivors of any more with those given none', function () use ($left, $texts): void {
+    $checks = SurvivorChecks::none()->leaving($left(Unchecked::Failed, 'src/Z.php'));
+
+    foreach (['A', 'B', 'C', 'D', 'E'] as $name) {
+        $checks = $checks->leaving(UncheckedSurvivor::failed(sprintf('%s failed.', $name), Path::of(sprintf('src/%s.php', $name))));
+    }
+
+    expect($texts($checks))->toBe([
+        'Static analysis left 1 survivor unchecked, as the analyser could not check them: src/A.php. A failed.',
+        'Static analysis left 1 survivor unchecked, as the analyser could not check them: src/B.php. B failed.',
+        'Static analysis left 1 survivor unchecked, as the analyser could not check them: src/C.php. C failed.',
+        'Static analysis left 3 survivors unchecked, as the analyser could not check them: src/D.php, src/E.php, src/Z.php.',
+    ]);
 });
