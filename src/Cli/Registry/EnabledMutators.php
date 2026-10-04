@@ -37,8 +37,10 @@ final readonly class EnabledMutators
     private const string UNHELD
         = 'mutators.except names "%s", which neither a mutator set in mutators.sets nor the default set holds.';
 
-    private const string ONLY_DEFAULT
-        = 'expected a mutator of a set in mutators.sets, got "%s", a default mutator the %s runner does not run';
+    /** A mutator only the `default` set holds, named under a runner that makes its own mutants: the name, then why. */
+    private const string ONLY_DEFAULT = 'expected a mutator of a set in mutators.sets, got "%s": %s';
+
+    private const string OWN_MUTATORS = "the %s runner runs its own mutators in place of the default set's";
 
     /** @param Listed<string> $except */
     private function __construct(private MutatorSet $turnedOn, private MutatorSet $default, private Listed $except)
@@ -107,7 +109,9 @@ final readonly class EnabledMutators
             }
 
             if ($ownMutants && ! in_array($name, $on, strict: true)) {
-                return Invalid::because(Problem::at(self::EXCEPT, sprintf(self::ONLY_DEFAULT, $name, $runner->value)));
+                $why = sprintf(self::OWN_MUTATORS, $runner->value);
+
+                return Invalid::because(Problem::at(self::EXCEPT, sprintf(self::ONLY_DEFAULT, $name, $why)));
             }
         }
 

@@ -65,7 +65,7 @@ it('refuses a mutator to turn off that only the default set holds under a runner
     expect(EnabledMutators::in(enablingLookup(), Mutators::of(Listed::of('acme'), Listed::of('acme/RemoveEcho', 'acme/DecrementToIncrement')), $runner))
         ->toEqual(Invalid::because(Problem::at(
             'mutators.except',
-            sprintf('expected a mutator of a set in mutators.sets, got "acme/DecrementToIncrement", a default mutator the %s runner does not run', $runner->value),
+            sprintf("expected a mutator of a set in mutators.sets, got \"acme/DecrementToIncrement\": the %s runner runs its own mutators in place of the default set's", $runner->value),
         )));
 })->with([
     'Pest' => [BuiltinRunner::Pest],

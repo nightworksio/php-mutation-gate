@@ -660,7 +660,7 @@ it('tells the PHPUnit runner the default set\'s mutators less one mutators.excep
     ))
         ->and($pest)->toEqual(Invalid::because(Problem::at(
             'mutators.except',
-            sprintf('expected a mutator of a set in mutators.sets, got "%s", a default mutator the pest runner does not run', $off),
+            sprintf("expected a mutator of a set in mutators.sets, got \"%s\": the pest runner runs its own mutators in place of the default set's", $off),
         )));
 });
 
