@@ -29,8 +29,8 @@ it('hands the command line to the console once the extensions are found', functi
     $output = new BufferedOutput();
     $errors = new BufferedOutput();
 
-    expect(Gate::in($project, sprintf('%s/vendor', $project))->run(new ArrayInput(['command' => 'triage']), $output, $errors))->toBe(2)
-        ->and($output->fetch())->toBe("mutation-gate triage is not built yet, so it cannot judge anything.\n")
+    expect(Gate::in($project, sprintf('%s/vendor', $project))->run(new ArrayInput(['command' => 'triage', 'path' => 'src', '--repeat' => '1']), $output, $errors))->toBe(2)
+        ->and($output->fetch())->toBe("--repeat takes a whole number of 2 or more, not \"1\".\n")
         ->and($errors->fetch())->toBe('');
 });
 
@@ -39,7 +39,7 @@ it('stops before any command when the extensions cannot be loaded', function () 
     $output = new BufferedOutput();
     $errors = new BufferedOutput();
 
-    expect(Gate::in($project, sprintf('%s/vendor', $project))->run(new ArrayInput(['command' => 'triage']), $output, $errors))->toBe(2)
+    expect(Gate::in($project, sprintf('%s/vendor', $project))->run(new ArrayInput(['command' => 'triage', 'path' => 'src', '--repeat' => '1']), $output, $errors))->toBe(2)
         ->and($output->fetch())->toBe('')
         ->and($errors->fetch())->toBe("Two packages register a runner named \"fake\": acme/one and acme/two. Remove one of the packages, or run with --no-extensions.\n");
 });
@@ -48,8 +48,8 @@ it('loads this package\'s own extension alone under --no-extensions', function (
     $project = $conflicted();
     $output = new BufferedOutput();
 
-    expect(Gate::in($project, sprintf('%s/vendor', $project))->run(new ArrayInput(['--no-extensions' => true, 'command' => 'triage']), $output, new BufferedOutput()))->toBe(2)
-        ->and($output->fetch())->toBe("mutation-gate triage is not built yet, so it cannot judge anything.\n");
+    expect(Gate::in($project, sprintf('%s/vendor', $project))->run(new ArrayInput(['--no-extensions' => true, 'command' => 'triage', 'path' => 'src', '--repeat' => '1']), $output, new BufferedOutput()))->toBe(2)
+        ->and($output->fetch())->toBe("--repeat takes a whole number of 2 or more, not \"1\".\n");
 });
 
 it('reads --no-extensions as an option only before the end of the options', function () use ($conflicted): void {
@@ -61,12 +61,12 @@ it('reads --no-extensions as an option only before the end of the options', func
     expect($errors->fetch())->toContain('Two packages register a runner named "fake"');
 });
 
-it('runs from its binary, with exit code 2 for a command not built', function (): void {
-    $process = new Process([PHP_BINARY, 'bin/mutation-gate', 'triage', 'src'], Tree::root());
+it('runs from its binary, with exit code 2 for a command that cannot judge', function (): void {
+    $process = new Process([PHP_BINARY, 'bin/mutation-gate', 'triage', 'src', '--repeat=1'], Tree::root());
     $process->run();
 
     expect($process->getExitCode())->toBe(2)
-        ->and($process->getOutput())->toBe("mutation-gate triage is not built yet, so it cannot judge anything.\n");
+        ->and($process->getErrorOutput())->toBe("--repeat takes a whole number of 2 or more, not \"1\".\n");
 });
 
 it('raises its own memory_limit to what its ledgers may need, and doctor says where PHP will not let it', function (): void {

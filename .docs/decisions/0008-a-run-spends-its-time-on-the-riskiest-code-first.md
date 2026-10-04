@@ -233,14 +233,19 @@ presets for Laravel, Symfony and plain libraries.
      of the ledger, and is reported with its judging tests, which are the
      suspects.
    - **On demand.** `mutation-gate triage <path> --repeat=<n>` runs a unit n
-     times, 5 by default, and lists every mutant whose status varied.
+     times, 5 by default and never fewer than 2, and lists every mutant whose
+     status varied, with the runs that gave each status and the tests that
+     killed it in them. A mutant some runs made and others did not varied
+     too. Each run is the runner's own: no timeout is retried, no survivor
+     confirmed or checked by an analyser, and nothing is recorded.
      `--order=runner|killers-first`, `tests.order` by default, chooses the
-     order of each mutant's tests, to hunt a kill an order made (ADR-0013). Its
-     mutants judged by reference run through ADR-0004's decision 8 each
-     time. This is
-     the tool for a kill that might be flaky. A flaky kill cannot be told from a
-     real one without re-running every killed mutant, and the gate does not do
-     that unasked.
+     order of each mutant's tests, to hunt a kill an order made (ADR-0013);
+     killers first reads the history every ledger holds of the unit's files.
+     Its mutants judged by reference run through ADR-0004's decision 8 each
+     time. It exits 1 where a mutant varied, 0 where none did, and 2 where
+     the unit cannot be run. This is the tool for a kill that might be flaky.
+     A flaky kill cannot be told from a real one without re-running every
+     killed mutant, and the gate does not do that unasked.
    - **A failed opening run** is *cannot judge* (exit code 2) and is not
      retried. A suite that fails without mutants has to be fixed first.
 
