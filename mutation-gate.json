@@ -215,26 +215,6 @@
                 "mutant": "f064e59320c4",
                 "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
                 "expires": "2027-10-04"
-            },
-            {
-                "mutant": "79c347116ade",
-                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
-                "expires": "2027-10-04"
-            },
-            {
-                "mutant": "3e4992d2fdb8",
-                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
-                "expires": "2027-10-04"
-            },
-            {
-                "mutant": "73d063ccf500",
-                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
-                "expires": "2027-10-04"
-            },
-            {
-                "mutant": "d98a7bd2a3ec",
-                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
-                "expires": "2027-10-04"
             }
         ]
     }
