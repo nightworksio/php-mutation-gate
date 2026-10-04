@@ -1,0 +1,47 @@
+{
+    "name": "nightworksio/mutation-gate-symfony",
+    "description": "The symfony mutator set of NightWorksIO's mutation gate: mutants of Symfony's access checks, CSRF and password checks, forms, flushes and message dispatches, written against the gate's mutator SDK.",
+    "license": "MIT",
+    "type": "library",
+    "keywords": [
+        "mutation testing",
+        "mutators",
+        "symfony"
+    ],
+    "authors": [
+        {
+            "name": "NightWorksIO",
+            "homepage": "https://nightworks.io"
+        },
+        {
+            "name": "Wessel Verheij",
+            "email": "info@nightworks.io"
+        }
+    ],
+    "homepage": "https://github.com/nightworksio/php-mutation-gate",
+    "require": {
+        "php": "^8.5",
+        "nightworksio/mutation-gate": "^1",
+        "nikic/php-parser": "^5.9"
+    },
+    "require-dev": {
+        "pestphp/pest": "^5.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "NightWorksIO\\MutationGateSymfony\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "NightWorksIO\\MutationGateSymfony\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "mutation-gate": {
+            "extensions": [
+                "NightWorksIO\\MutationGateSymfony\\SymfonyExtension"
+            ]
+        }
+    }
+}

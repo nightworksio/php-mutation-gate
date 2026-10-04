@@ -5,6 +5,18 @@
         {
             "path": "src",
             "floor": 100
+        },
+        {
+            "path": "plugins/default/src",
+            "floor": 100
+        },
+        {
+            "path": "plugins/laravel/src",
+            "floor": 100
+        },
+        {
+            "path": "plugins/symfony/src",
+            "floor": 100
         }
     ],
     "pest": {

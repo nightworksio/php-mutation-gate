@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGateDefault;
 use function array_map;
 use function in_array;
 
+use NightWorksIO\MutationGate\Mutator\Literals;
 use NightWorksIO\MutationGate\Mutator\Mutator;
 use PhpParser\Node;
 use PhpParser\Node\Expr;

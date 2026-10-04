@@ -93,12 +93,16 @@
     "autoload": {
         "psr-4": {
             "NightWorksIO\\MutationGateDefault\\": "plugins/default/src/",
+            "NightWorksIO\\MutationGateLaravel\\": "plugins/laravel/src/",
+            "NightWorksIO\\MutationGateSymfony\\": "plugins/symfony/src/",
             "NightWorksIO\\MutationGate\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
             "NightWorksIO\\MutationGateDefault\\Tests\\": "plugins/default/tests/",
+            "NightWorksIO\\MutationGateLaravel\\Tests\\": "plugins/laravel/tests/",
+            "NightWorksIO\\MutationGateSymfony\\Tests\\": "plugins/symfony/tests/",
             "NightWorksIO\\MutationGate\\PHPStan\\": "phpstan/",
             "NightWorksIO\\MutationGate\\Tests\\": "tests/"
         }
@@ -122,7 +126,9 @@
         "mutation-gate": {
             "extensions": [
                 "NightWorksIO\\MutationGate\\Cli\\FirstParty",
-                "NightWorksIO\\MutationGateDefault\\DefaultExtension"
+                "NightWorksIO\\MutationGateDefault\\DefaultExtension",
+                "NightWorksIO\\MutationGateLaravel\\LaravelExtension",
+                "NightWorksIO\\MutationGateSymfony\\SymfonyExtension"
             ]
         },
         "pest": {

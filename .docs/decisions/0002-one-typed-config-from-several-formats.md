@@ -221,6 +221,10 @@ cannot.
      beside an earlier one's. `badge.colors` is the exception: its colours are
      bands of one scale, so a layer that sets them replaces them whole.
    - Lists concatenate, and an entry equal to an earlier one is dropped.
+   - The layer an entry comes from can decide what it means. A mutator set
+     only presets turn on is skipped with a warning where nothing registers
+     it, and the same set named in the config file or on the command line is
+     exit code 2 (ADR-0021, decision 12).
    - `trees` is the exception: a layer that sets it replaces the list whole, so
      declaring trees never adds them to the ones `phpunit.xml` or a preset
      found.

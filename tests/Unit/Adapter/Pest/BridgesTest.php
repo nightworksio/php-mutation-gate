@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
@@ -55,6 +56,12 @@ it('names Pest\'s default set beside every bridge for a run of every mutator', f
 it('names a bridged mutator by its bridge and any other as it is named, for a run of some', function (): void {
     expect(pestBridges()->applying(Mutators::named('acme/PlusToMinus', MinusToPlus::class)))
         ->toBe([PEST_BRIDGE, MinusToPlus::class]);
+});
+
+it('gives a bridged mutant its mutator\'s own hint, and none where the mutator uses its family\'s or is Pest\'s', function (): void {
+    expect(pestBridges()->hintOf('acme/RemoveEcho'))->toBe('No test checks what is printed.')
+        ->and(pestBridges()->hintOf('acme/PlusToMinus'))->toEqual(NotGiven::value())
+        ->and(pestBridges()->hintOf(MinusToPlus::class))->toEqual(NotGiven::value());
 });
 
 it('gives a bridged mutant its mutator\'s own family, and any other Pest\'s', function (): void {

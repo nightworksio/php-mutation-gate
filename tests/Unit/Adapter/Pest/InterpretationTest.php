@@ -379,7 +379,7 @@ it('leaves a mutant it made before unjudged, keeping all but its status', functi
     );
 });
 
-it('gives a bridged mutant its mutator\'s own name and family', function () use ($read): void {
+it('gives a bridged mutant its mutator\'s own name, family and hint', function () use ($read): void {
     [$project, $results, $root] = interpretedRun([11 => [0]], []);
     PestRun::write($results, [
         PestRun::planned('n1', sprintf('%s/src/Money.php', $root), 11, 'acme/RemoveEcho', 'echo $a;', ''),
@@ -396,6 +396,8 @@ it('gives a bridged mutant its mutator\'s own name and family', function () use 
         ->toBe(MutatorFamily::RemovedCall)
         ->and($bridged instanceof MutationResult ? [...$bridged->mutants()][0]->mutation()->mutator() : $bridged)
         ->toBe('acme/RemoveEcho')
+        ->and($bridged instanceof MutationResult ? [...$bridged->mutants()][0]->mutation()->hint() : $bridged)
+        ->toBe('No test checks what is printed.')
         ->and($unbridged instanceof MutationResult ? [...$unbridged->mutants()][0]->mutation()->family() : $unbridged)
         ->toBe(MutatorFamily::Unknown);
 });

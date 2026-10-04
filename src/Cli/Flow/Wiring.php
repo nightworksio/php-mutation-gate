@@ -130,6 +130,7 @@ final readonly class Wiring
                 Cores::counted(),
                 $this->counting($mutators->forTheEngine()),
                 $mutators->besideTheRunners(),
+                $mutators->skipped(),
             ),
         };
     }

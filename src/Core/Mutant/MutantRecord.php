@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Mutant;
 
 use function array_map;
 use function count;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
@@ -14,6 +15,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -43,6 +45,7 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  *     mutator: string,
  *     family: string,
  *     diff: string,
+ *     hint?: string,
  *     status: string,
  *     seconds?: float,
  *     limit?: float,
@@ -85,6 +88,9 @@ final readonly class MutantRecord
 
     private const string DIFF = 'diff';
 
+    /** A registered mutator's own sentence for a survivor, where it has one. */
+    private const string HINT = 'hint';
+
     private const string REASON = 'reason';
 
     /** What a time budget ran out before, where one left the mutant unjudged. */
@@ -101,6 +107,7 @@ final readonly class MutantRecord
         $end = $mutant->location()->end();
         $duration = $mutant->duration();
         $reason = $mutant->reason();
+        $hint = $mutant->mutation()->hint();
 
         return [
             self::ID => $mutant->id()->value(),
@@ -111,6 +118,7 @@ final readonly class MutantRecord
             self::MUTATOR => $mutant->mutation()->mutator(),
             'family' => $mutant->mutation()->family()->value,
             self::DIFF => $mutant->mutation()->diff(),
+            ...is_string($hint) ? [self::HINT => $hint] : [],
             self::STATUS => $mutant->status()->value,
             ...$duration instanceof Seconds ? [self::SECONDS => $duration->seconds()] : [],
             ...LimitRecord::of($mutant),
@@ -168,6 +176,7 @@ final readonly class MutantRecord
                 $record->field(self::MUTATOR)->text(),
                 self::familyIn($record),
                 $record->field(self::DIFF)->text(),
+                self::hintIn($record),
             ),
             self::statusIn($record),
             self::secondsIn($record->field(self::SECONDS)),
@@ -288,6 +297,18 @@ final readonly class MutantRecord
         $family = $record->field('family');
 
         return MutatorFamily::tryFrom($family->text()) ?? throw NotInShape::at($family->at(), 'a mutator family');
+    }
+
+    /**
+     * A registered mutator's own sentence, where the record holds one.
+     *
+     * @throws NotInShape
+     */
+    private static function hintIn(Node $record): string|NotGiven
+    {
+        $hint = $record->field(self::HINT);
+
+        return $hint->isPresent() ? $hint->text() : NotGiven::value();
     }
 
     /** @throws NotInShape */

@@ -12,8 +12,11 @@ use NightWorksIO\MutationGate\Core\Config\Definition\Nearest;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Mutators;
+use NightWorksIO\MutationGate\Core\Config\PresetSet;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Verdict\Warning;
+use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 
@@ -22,7 +25,9 @@ use function sprintf;
 /**
  * The registered mutators a config turns on (ADR-0021): those of each set
  * `mutators.sets` names, less the ones `mutators.except` turns off. A set
- * nobody registered, or a mutator to turn off that neither those sets nor
+ * only a preset offers that nobody registered is skipped with a warning
+ * naming its package (ADR-0021, decision 12). Any other set nobody
+ * registered, or a mutator to turn off that neither those sets nor
  * the `default` set holds, cannot be judged, and says which name was most
  * likely meant. A runner that makes its own mutants takes these beside its
  * own, so a mutator to turn off that only the `default` set holds would turn
@@ -42,9 +47,20 @@ final readonly class EnabledMutators
 
     private const string OWN_MUTATORS = "the %s runner runs its own mutators in place of the default set's";
 
-    /** @param Listed<string> $except */
-    private function __construct(private MutatorSet $turnedOn, private MutatorSet $default, private Listed $except)
-    {
+    /** A set a preset offers that nothing registers: the preset, the set, and the package that registers it. */
+    private const string NOT_INSTALLED
+        = 'The %s preset turns on the mutator set "%s", which is not installed: `composer require --dev %s`';
+
+    /**
+     * @param Listed<string> $except
+     * @param Warnings       $skipped one for each set a preset offers that nothing registers
+     */
+    private function __construct(
+        private MutatorSet $turnedOn,
+        private MutatorSet $default,
+        private Listed $except,
+        private Warnings $skipped,
+    ) {
     }
 
     /** The mutators a config turns on, for the built-in runner it chooses, where it chooses one. */
@@ -53,24 +69,24 @@ final readonly class EnabledMutators
         Mutators $config,
         BuiltinRunner|NotGiven $runner = new NotGiven(),
     ): self|CannotJudge|Invalid {
-        $classes = [];
+        $sets = self::sets($lookup, $config);
 
-        foreach ($config->sets() as $name) {
-            $set = $lookup->mutatorSet($name);
-
-            if ($set instanceof CannotJudge) {
-                return $set;
-            }
-
-            $classes = [...$classes, ...$set];
+        if ($sets instanceof CannotJudge) {
+            return $sets;
         }
 
-        $turnedOn = MutatorSet::of(...$classes);
+        [$turnedOn, $skipped] = $sets;
         $registered = $lookup->mutatorSet(MutatorSet::defaultName());
         $default = $registered instanceof MutatorSet ? $registered : MutatorSet::of();
         $refusal = self::refusal($turnedOn, $default, $config->except(), $runner);
 
-        return $refusal instanceof NotGiven ? new self($turnedOn, $default, $config->except()) : $refusal;
+        return $refusal instanceof NotGiven ? new self($turnedOn, $default, $config->except(), $skipped) : $refusal;
+    }
+
+    /** A warning for each set a preset offers that nothing registers, which the run skips. */
+    public function skipped(): Warnings
+    {
+        return $this->skipped;
     }
 
     /** The mutators the config turns on, which a runner that makes its own mutants runs beside its own. */
@@ -116,6 +132,48 @@ final readonly class EnabledMutators
         }
 
         return NotGiven::value();
+    }
+
+    /**
+     * The mutators of each set the config turns on, and a warning for each set
+     * a preset offers that nothing registers; or why a set the config chooses
+     * cannot be found.
+     *
+     * @return array{MutatorSet, Warnings}|CannotJudge
+     */
+    private static function sets(Lookup $lookup, Mutators $config): array|CannotJudge
+    {
+        $classes = [];
+        $skipped = Warnings::none();
+
+        foreach ($config->sets() as $name) {
+            $set = $lookup->mutatorSet($name);
+            $offer = $config->offering($name);
+
+            if ($set instanceof MutatorSet) {
+                $classes = [...$classes, ...$set];
+
+                continue;
+            }
+
+            if (! $offer instanceof PresetSet) {
+                return $set;
+            }
+
+            $skipped = $skipped->with(self::notInstalled($offer));
+        }
+
+        return [MutatorSet::of(...$classes), $skipped];
+    }
+
+    private static function notInstalled(PresetSet $offer): Warning
+    {
+        return Warning::that(sprintf(
+            self::NOT_INSTALLED,
+            $offer->preset()->value(),
+            $offer->set()->value(),
+            $offer->package(),
+        ));
     }
 
     /** @return list<string> the name of each of a set's mutators */

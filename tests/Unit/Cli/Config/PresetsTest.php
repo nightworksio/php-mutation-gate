@@ -34,6 +34,7 @@ it('is a layer of config, as data', function (string $preset, array $expected) u
     'laravel' => [
         'laravel',
         [
+            'mutators' => ['sets' => ['laravel']],
             'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app']]],
             'newCode' => ['floor' => 100],
             'reach' => ['everything' => ['bootstrap/**', 'config/**', 'routes/**', '.env.testing']],
@@ -43,6 +44,7 @@ it('is a layer of config, as data', function (string $preset, array $expected) u
     'symfony, whose tree keeps src/Kernel.php' => [
         'symfony',
         [
+            'mutators' => ['sets' => ['symfony']],
             'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['src']]],
             'newCode' => ['floor' => 100],
             'reach' => ['everything' => ['config/**', '.env.test', 'tests/bootstrap.php']],

@@ -10,9 +10,12 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Mutators;
 use NightWorksIO\MutationGate\Core\Config\Name;
+use NightWorksIO\MutationGate\Core\Config\PresetSet;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Verdict\Warning;
+use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\Mutator;
@@ -98,4 +101,33 @@ it('gives the engine only the sets the config names where no default set is regi
     $enabled = EnabledMutators::in($lookup, Mutators::of(Listed::of('acme')));
 
     expect($enabled instanceof EnabledMutators ? enabledClasses($enabled->forTheEngine()) : $enabled)->toBe([PlusToMinus::class]);
+});
+
+it('skips a set a preset offers that nobody registered, saying which package registers it', function (): void {
+    $offered = Mutators::offered(
+        PresetSet::of(Name::of('acme'), Name::of('laravel'), 'acme/mutation-gate-acme'),
+        PresetSet::of(Name::of('laravel'), Name::of('laravel'), 'nightworksio/mutation-gate-laravel'),
+    );
+    $enabled = EnabledMutators::in(enablingLookup(), $offered);
+
+    expect($enabled instanceof EnabledMutators ? enabledClasses($enabled->besideTheRunners()) : $enabled)
+        ->toBe([PlusToMinus::class, RemoveEcho::class])
+        ->and($enabled instanceof EnabledMutators ? $enabled->skipped() : $enabled)->toEqual(Warnings::of(Warning::that(
+            'The laravel preset turns on the mutator set "laravel", which is not installed: `composer require --dev nightworksio/mutation-gate-laravel`',
+        )));
+});
+
+it('cannot judge a set nobody registered that a layer chooses, though a preset offers it too', function (): void {
+    $chosen = Mutators::offered(PresetSet::of(Name::of('laravel'), Name::of('laravel'), 'nightworksio/mutation-gate-laravel'))
+        ->over(Mutators::of(Listed::of('laravel')));
+
+    expect(EnabledMutators::in(enablingLookup(), $chosen))
+        ->toEqual(CannotJudge::because('No mutator set is registered as "laravel".'))
+        ->and(EnabledMutators::in(enablingLookup(), Mutators::none()))->toEqual(EnabledMutators::in(enablingLookup(), Mutators::standard()));
+});
+
+it('skips nothing where every set is registered', function (): void {
+    $enabled = EnabledMutators::in(enablingLookup(), Mutators::of(Listed::of('acme')));
+
+    expect($enabled instanceof EnabledMutators ? $enabled->skipped() : $enabled)->toEqual(Warnings::none());
 });

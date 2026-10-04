@@ -273,7 +273,12 @@ final readonly class Results
                 MutantId::hash($file, $mutant['mutator'], $mutant['diff'], $occurrence),
                 $text->idOf($mutant['file'], $mutant['line'], $mutant['mutator'], $mutant['diff']),
                 Location::of($file, $line, Unreported::line()),
-                Mutation::of($mutant['mutator'], $bridges->familyOf($mutant['mutator']), $mutant['diff']),
+                Mutation::of(
+                    $mutant['mutator'],
+                    $bridges->familyOf($mutant['mutator']),
+                    $mutant['diff'],
+                    $bridges->hintOf($mutant['mutator']),
+                ),
                 $mutant['status'],
                 Unmeasured::duration(),
             )->killedBy($mutant['killers']);

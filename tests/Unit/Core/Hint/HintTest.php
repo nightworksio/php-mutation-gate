@@ -12,12 +12,19 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Hint\Hint;
+use NightWorksIO\MutationGate\Core\Mutant\Location;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\Php\Declared;
 use NightWorksIO\MutationGate\Core\Removal\Removable;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestName;
+use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\NoFinding;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
@@ -47,6 +54,20 @@ it('says what the tests miss about a survivor of each family', function (Mutator
     'no family, removed' => [MutatorFamily::None, 'return $a . $b;', '', 'These tests run line 9, but none fails when it is removed.'],
     'an unknown family' => [MutatorFamily::Unknown, 'return $a . $b;', 'return $b . $a;', 'These tests run line 9, but none fails when it becomes `return $b . $a;`.'],
 ]);
+
+it('says a registered mutator\'s own sentence about its survivor, in place of its family\'s', function () use ($source): void {
+    $mutant = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'acme/GateAllowsToTrue', '-a', 0),
+        '1',
+        Location::of(Path::of('src/Money.php'), Line::of(9), Unreported::line()),
+        Mutation::of('acme/GateAllowsToTrue', MutatorFamily::Condition, Verdicts::diff('if ($a) {', 'if (true) {'), 'No test checks that the action is refused.'),
+        MutantStatus::Survived,
+        Unmeasured::duration(),
+    );
+
+    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), NoFinding::survivor())->text())
+        ->toBe('No test checks that the action is refused.');
+});
 
 it('has a sentence for every family', function (MutatorFamily $family) use ($source): void {
     $mutant = Verdicts::mutant('src/Money.php:9', 'Mutator', $family, Verdicts::diff('return true;', 'return false;'));

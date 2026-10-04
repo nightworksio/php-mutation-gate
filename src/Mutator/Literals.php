@@ -2,14 +2,17 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGateDefault;
+namespace NightWorksIO\MutationGate\Mutator;
 
 use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\ConstFetch;
 use PhpParser\Node\Name;
 
-/** The constants and the empty array the set's mutators put in place of code, and how they are recognised. */
+/**
+ * The constants and the empty array a mutator puts in place of code, as PHP
+ * writes them, and how each is recognised.
+ */
 final readonly class Literals
 {
     /** `null`, as a constant and as a type. */
