@@ -356,3 +356,17 @@ it('writes a cluster as one row of the step summary, with its size and its stub 
         ->and($summary)->toContain('| <code>src/Cart.php:11</code> | FalseValue | survived | ')
         ->and(substr_count($summary, '| <code>src/Cart.php:'))->toBe(3);
 });
+
+it('comments on the security survivors in a section before the trees, and lists each security set with the new code', function () use ($run): void {
+    $comment = Markdown::comment(Verdicts::secured(), $run);
+    $section = strpos($comment, '### Security survivors (1)');
+    $trees = strpos($comment, '| Tree | Floor | Score | Against the base | Result |');
+
+    expect($section)->toBeInt()
+        ->and($trees)->toBeGreaterThan($section === false ? PHP_INT_MAX : $section)
+        ->and($comment)->toContain("- New code scores 0.00%, below its floor of 100.00%.\n- Security scores 0.00%, below its floor of 100.00%.\n- Security in packages/billing scores 100.00% against its floor of 50.00%.")
+        ->and($comment)->toContain('### Survivors on changed lines (1)')
+        ->and(substr_count($comment, '<code>src/Auth.php:3</code>'))->toBe(1)
+        ->and($comment)->toContain("### Floors that can rise\n\n- <code>security set of packages/billing</code> to 100.00%")
+        ->and(Markdown::summary(Verdicts::secured(), $run, Verdicts::monthAgo()))->toContain('- Security scores 0.00%, below its floor of 100.00%.');
+});

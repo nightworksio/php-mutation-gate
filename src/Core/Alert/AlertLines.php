@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Report\Label;
 use NightWorksIO\MutationGate\Core\Report\Mutator;
 use NightWorksIO\MutationGate\Core\Report\Overview;
 use NightWorksIO\MutationGate\Core\Report\Percent;
+use NightWorksIO\MutationGate\Core\Report\SetText;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
@@ -59,6 +60,7 @@ final readonly class AlertLines
         $groups = match ($alert->event()) {
             AlertEvent::Failed => [
                 ['Below the floor', self::trees($alert, $chat, Judgement::Failed)],
+                ['Security below its floor', self::security($alert, $chat)],
                 ['Failures', self::said($verdict->failures(), $chat)],
                 ['Survivors', self::survivors($alert, $chat)],
             ],
@@ -86,6 +88,31 @@ final readonly class AlertLines
 
         foreach ($alert->verdict()->trees() as $tree) {
             $lines = $tree->judgement() === $judged ? [...$lines, self::tree($alert, $tree, $chat)] : $lines;
+        }
+
+        return $lines;
+    }
+
+    /**
+     * Each package's security set that failed, with its score and floor (ADR-0021, decision 21).
+     *
+     * @return list<string>
+     */
+    private static function security(Alert $alert, Chat $chat): array
+    {
+        $lines = [];
+
+        foreach ($alert->verdict()->sets()->security() as $set) {
+            $floor = $set->floor();
+            $lines = $set->judgement() === Judgement::Failed
+                ? [...$lines, sprintf(
+                    self::BELOW,
+                    $chat->text(Fit::line(SetText::securityName($set), self::LONGEST)),
+                    Percent::of($set->score()),
+                    $floor instanceof Floor ? Percent::of($floor) : '',
+                    '',
+                )]
+                : $lines;
         }
 
         return $lines;

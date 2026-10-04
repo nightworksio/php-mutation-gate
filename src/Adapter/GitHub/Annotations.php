@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
+use Closure;
+
 use function count;
 use function file_put_contents;
 use function implode;
@@ -96,18 +98,35 @@ final readonly class Annotations implements Configurable, Reporter
     }
 
     /**
-     * How far forward a mutant or cluster goes: on a changed line counts
-     * most, then in a set that failed; a cluster is either where any member is.
+     * How far forward a mutant or cluster goes, compared in order: on a
+     * changed line, then a security mutant (ADR-0021, decision 21), then in a
+     * set that failed; a cluster is each where any member is.
+     *
+     * @return array{int, int, int} 1 where it is, 0 where it is not
      */
-    private static function rank(JudgedMutant|Cluster $item, Overview $overview): int
+    private static function rank(JudgedMutant|Cluster $item, Overview $overview): array
     {
-        return ($item->isOnChangedLine() ? 2 : 0) + (self::isFailing($item, $overview) ? 1 : 0);
+        return [
+            $item->isOnChangedLine() ? 1 : 0,
+            self::isAny($item, $overview->isSecurity(...)) ? 1 : 0,
+            self::isFailing($item, $overview) ? 1 : 0,
+        ];
     }
 
     private static function isFailing(JudgedMutant|Cluster $item, Overview $overview): bool
     {
+        return self::isAny($item, $overview->isFailing(...));
+    }
+
+    /**
+     * Whether a mutant, or any member of a cluster, is so.
+     *
+     * @param Closure(JudgedMutant): bool $is
+     */
+    private static function isAny(JudgedMutant|Cluster $item, Closure $is): bool
+    {
         foreach ($item instanceof Cluster ? $item->members() : [$item] as $mutant) {
-            if ($overview->isFailing($mutant)) {
+            if ($is($mutant)) {
                 return true;
             }
         }

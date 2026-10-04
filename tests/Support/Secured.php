@@ -54,11 +54,11 @@ final class Secured
         ), $judgement);
     }
 
-    /** A tree at a path of a package, holding these mutants, with no floor anywhere. */
-    public static function tree(string $path, Package $package, JudgedMutant ...$mutants): TreeVerdict
+    /** A tree at a path of a package, holding these mutants, with this floor declared and none in the baseline. */
+    public static function tree(string $path, Package $package, Floor|Undeclared $declared, JudgedMutant ...$mutants): TreeVerdict
     {
         return TreeVerdict::judged(
-            Tree::at(Path::of($path), Undeclared::floor(), $package),
+            Tree::at(Path::of($path), $declared, $package),
             Unrecorded::floor(),
             JudgedUnits::none(),
             JudgedMutants::of(...$mutants),

@@ -253,37 +253,27 @@ final class Verdicts
      */
     public static function failing(): Verdict
     {
-        $root = Package::at(Path::root());
-        $units = JudgedUnits::of(
-            JudgedUnit::of(Unit::file(Path::of('src/Money.php')), Origin::Run),
-            JudgedUnit::of(Unit::file(Path::of('src/Order.php')), Origin::Proved),
-            JudgedUnit::of(Unit::held(Path::of('src/Log.php'), Group::named('holds:src/Log.php')), Origin::Carried),
-        );
-        $src = TreeVerdict::judged(Tree::at(Path::of('src'), Floor::of(80), $root), Floor::of(75.5), $units, self::everyJudgement(), Uncovered::Count)
-            ->comparedWith(Score::ofHundredths(4_694));
-        $legacy = Tree::at(Path::of('app/Legacy'), Exempt::because('Replaced by the new billing module'), $root);
-        $empty = Tree::at(Path::of('src/Empty'), Floor::of(90), $root);
-        $newCode = NewCodeVerdict::judged($root, Floor::of(100), JudgedMutants::of(self::survivor()), Uncovered::Count);
-
-        return Verdict::of(TreeVerdicts::of($src, self::bare($legacy), self::bare($empty)))
-            ->withSets(HeldSets::newCodeOnly(NewCodeVerdicts::of($newCode)))
-            ->withReach(Reasons::of(Cause::that('src/Money.php changed, so it is reached.')))
-            ->withWarnings(Warnings::of(Warning::that('src/Kernel.php is run by 412 of 430 tests and nothing holds it.')))
-            ->withFailures(Failures::of(Failure::that('The ignore of 3f9a1c2b7d04 matched no mutant. Remove it.')));
+        return self::failingWith();
     }
 
     /**
-     * The failing verdict, with two security sets: the root package's below
-     * the floor of 100 `security.floor` declares, on a survivor, and the
-     * billing package's above its lowered baseline floor of 50, which it
-     * raises.
+     * The failing verdict, with two more trees and their packages' security
+     * sets: `src/Auth.php`, whose security survivor leaves the root package's
+     * set below the floor of 100 `security.floor` declares, and the billing
+     * package's tree, whose set is above its lowered baseline floor of 50,
+     * which it raises.
      */
     public static function secured(): Verdict
     {
-        $root = Secured::set('.', Floor::of(100), Unrecorded::floor(), Secured::mutant(Judged::Survived, 3));
-        $billing = Secured::set('packages/billing', Undeclared::floor(), Floor::of(50), Secured::mutant(Judged::Killed, 7, file: 'packages/billing/src/Refund.php'))
+        $survivor = Secured::mutant(Judged::Survived, 3);
+        $refund = Secured::mutant(Judged::Killed, 7, file: 'packages/billing/src/Refund.php');
+        $root = Secured::set('.', Floor::of(100), Unrecorded::floor(), $survivor);
+        $billing = Secured::set('packages/billing', Undeclared::floor(), Floor::of(50), $refund)
             ->withLowering(Lowered::from(Floor::of(60), 'The refund flow left with its tests.'));
-        $failing = self::failing();
+        $failing = self::failingWith(
+            Secured::tree('src/Auth.php', Package::at(Path::root()), Floor::of(0), $survivor),
+            Secured::tree('packages/billing/src', Package::at(Path::of('packages/billing')), Floor::of(100), $refund),
+        );
 
         return $failing->withSets(HeldSets::of($failing->sets()->newCode(), SecurityVerdicts::of($root, $billing)));
     }
@@ -414,6 +404,28 @@ final class Verdicts
         return $added === ''
             ? sprintf("@@ @@\n-        %s\n", $removed)
             : sprintf("@@ @@\n-        %s\n+        %s\n", $removed, $added);
+    }
+
+    /** The failing verdict, with these trees after its own. */
+    private static function failingWith(TreeVerdict ...$more): Verdict
+    {
+        $root = Package::at(Path::root());
+        $units = JudgedUnits::of(
+            JudgedUnit::of(Unit::file(Path::of('src/Money.php')), Origin::Run),
+            JudgedUnit::of(Unit::file(Path::of('src/Order.php')), Origin::Proved),
+            JudgedUnit::of(Unit::held(Path::of('src/Log.php'), Group::named('holds:src/Log.php')), Origin::Carried),
+        );
+        $src = TreeVerdict::judged(Tree::at(Path::of('src'), Floor::of(80), $root), Floor::of(75.5), $units, self::everyJudgement(), Uncovered::Count)
+            ->comparedWith(Score::ofHundredths(4_694));
+        $legacy = Tree::at(Path::of('app/Legacy'), Exempt::because('Replaced by the new billing module'), $root);
+        $empty = Tree::at(Path::of('src/Empty'), Floor::of(90), $root);
+        $newCode = NewCodeVerdict::judged($root, Floor::of(100), JudgedMutants::of(self::survivor()), Uncovered::Count);
+
+        return Verdict::of(TreeVerdicts::of($src, self::bare($legacy), self::bare($empty), ...$more))
+            ->withSets(HeldSets::newCodeOnly(NewCodeVerdicts::of($newCode)))
+            ->withReach(Reasons::of(Cause::that('src/Money.php changed, so it is reached.')))
+            ->withWarnings(Warnings::of(Warning::that('src/Kernel.php is run by 412 of 430 tests and nothing holds it.')))
+            ->withFailures(Failures::of(Failure::that('The ignore of 3f9a1c2b7d04 matched no mutant. Remove it.')));
     }
 
     private static function bare(Tree $tree): TreeVerdict

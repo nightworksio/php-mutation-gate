@@ -21,10 +21,10 @@ use NightWorksIO\MutationGate\Core\Report\Escape;
 use NightWorksIO\MutationGate\Core\Report\Folded;
 use NightWorksIO\MutationGate\Core\Report\Overview;
 use NightWorksIO\MutationGate\Core\Report\Percent;
+use NightWorksIO\MutationGate\Core\Report\RisingFloors;
 use NightWorksIO\MutationGate\Core\Report\SavingsText;
 use NightWorksIO\MutationGate\Core\Report\SetText;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
-use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -41,11 +41,14 @@ use function sprintf;
 /**
  * The verdict as GitHub Markdown, for the sticky comment and the step
  * summary: the verdict, each tree's floor and score with its change against
- * the base, the new-code sets, the survivors, the unjudged and flaky
- * mutants, the ignored mutants with why, why the run could not judge, the
- * failures, the warnings, the floors that can rise, and a link to the run.
- * The comment holds up to 20 survivors on changed lines, each with its diff,
- * hint and reproduce command, and up to 20 ignored mutants; the summary lists
+ * the base, the new-code sets and each package's security set, the
+ * survivors, the unjudged and flaky mutants, the ignored mutants with why,
+ * why the run could not judge, the failures, the warnings, the floors that
+ * can rise, and a link to the run. The comment holds up to 20 security
+ * survivors, in a section before the trees (ADR-0021, decision 21), up to 20
+ * other survivors on changed lines, each with its diff, hint and reproduce
+ * command, up to 20 other unjudged and flaky mutants, and up to 20 ignored
+ * mutants; the summary lists
  * every mutant counted as not killed and every ignored one in a table each
  * (ADR-0009, decision 3; ADR-0008, decision 4). A cluster of survivors is one item of either, with
  * its members' diffs, one hint and its stub command (ADR-0022, decision 17).
@@ -74,6 +77,10 @@ final readonly class Markdown
         $other = [];
 
         foreach ($overview->survivors() as $mutant) {
+            if ($overview->isSecurity($mutant)) {
+                continue;
+            }
+
             if (self::isUnsettled($mutant)) {
                 $other[] = $mutant;
 
@@ -84,10 +91,17 @@ final readonly class Markdown
         }
 
         $shown = Folded::of($changed, $clusters);
+        $security = $overview->securitySurvivors();
+        $secured = Folded::of($security, $clusters);
 
         return self::document([
             self::MARKER,
             ...self::head($verdict, $overview, NoHistory::yet()),
+            ...self::section(
+                sprintf('Security survivors (%d)', count($security)),
+                MarkdownItems::details(array_slice($secured, 0, self::COMMENTED), count($secured)),
+            ),
+            ...self::sets($verdict),
             ...self::section(
                 sprintf('Survivors on changed lines (%d)', count($changed)),
                 MarkdownItems::details(array_slice($shown, 0, self::COMMENTED), count($shown)),
@@ -117,6 +131,7 @@ final readonly class Markdown
         do {
             $summary = self::document([
                 ...$head,
+                ...self::sets($verdict),
                 ...self::section(
                     sprintf('Not killed (%d)', count($overview->survivors())),
                     MarkdownItems::table(array_slice($items, 0, $shown), count($items)),
@@ -140,11 +155,28 @@ final readonly class Markdown
     }
 
     /**
-     * The verdict, what the run took and saved, the project's score, the trees and the new-code sets.
+     * The verdict, what the run took and saved, and the project's score.
      *
      * @return list<string>
      */
     private static function head(Verdict $verdict, Overview $overview, Seconds|NoHistory $lately): array
+    {
+        return [
+            sprintf('## mutation-gate: %s', $verdict->judgement()->value),
+            SavingsText::of($verdict, $lately),
+            implode(' ', [
+                SetText::project($overview->score()),
+                ...$verdict->wasCutShort() ? ['The run\'s budget stopped it before every mutant was judged.'] : [],
+            ]),
+        ];
+    }
+
+    /**
+     * The trees, then the new-code sets and each package's security set.
+     *
+     * @return list<string>
+     */
+    private static function sets(Verdict $verdict): array
     {
         $trees = ['| Tree | Floor | Score | Against the base | Result |', '|---|---|---|---|---|'];
 
@@ -158,13 +190,11 @@ final readonly class Markdown
             $sets[] = sprintf('- %s', Escape::text(SetText::newCode($set)));
         }
 
+        foreach ($verdict->sets()->security() as $set) {
+            $sets[] = sprintf('- %s', Escape::text(SetText::security($set)));
+        }
+
         return [
-            sprintf('## mutation-gate: %s', $verdict->judgement()->value),
-            SavingsText::of($verdict, $lately),
-            implode(' ', [
-                SetText::project($overview->score()),
-                ...$verdict->wasCutShort() ? ['The run\'s budget stopped it before every mutant was judged.'] : [],
-            ]),
             ...count($verdict->trees()) > 0 ? [implode("\n", $trees)] : [],
             ...$sets === [] ? [] : [implode("\n", $sets)],
         ];
@@ -208,11 +238,8 @@ final readonly class Markdown
     {
         $raised = [];
 
-        foreach ($verdict->trees() as $tree) {
-            $floor = $tree->raised();
-            $raised = $floor instanceof Floor
-                ? [...$raised, sprintf('- %s to %s', Escape::code($tree->tree()->path()->value()), Percent::of($floor))]
-                : $raised;
+        foreach (RisingFloors::of($verdict) as [$named, $floor]) {
+            $raised[] = sprintf('- %s to %s', Escape::code($named), Percent::of($floor));
         }
 
         return [

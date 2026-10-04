@@ -216,9 +216,10 @@ What SonarQube documents:
      the quality each affects. A description is SARIF's text for the rule,
      then the section of the guide of the release that wrote it:
      `survived`, `uncovered`, `unjudged` or `flaky`, and `survived` for
-     `survived-security`. The verdict does not record which mutants a
-     security-tagged mutator made, so no issue is raised under
-     `survived-security` yet.
+     `survived-security`. A surviving security mutant, one its package's
+     security set holds (ADR-0021 decision 16), is raised under
+     `survived-security`, and every other issue under the rule SARIF reports
+     it by.
 
 9. **Each issue is a mutant the score counts as not killed.**
    - The mutants are exactly those SARIF reports (ADR-0009 decision 2). A

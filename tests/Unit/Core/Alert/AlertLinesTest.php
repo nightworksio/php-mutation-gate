@@ -90,3 +90,9 @@ it('says of each lowered floor where it went, and why, where the baseline says',
         '`lib`: its floor went from 75.00% to 70.00%. The baseline gives no reason.',
     ]]]);
 });
+
+it('names each security set below its floor when a run fails', function () use ($was): void {
+    $groups = AlertLines::of(Alert::of(AlertEvent::Failed, Verdicts::secured(), $was), Chat::Slack);
+
+    expect($groups[1] ?? null)->toBe(['Security below its floor', ['Security: 0.00%, below its floor of 100.00%.']]);
+});

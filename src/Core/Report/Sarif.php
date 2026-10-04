@@ -21,6 +21,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  * so a result is matched across commits when code above it moves
  * (ADR-0009, decision 2). A mutant in a cluster stays a result of its own,
  * so no fingerprint moves, and names its cluster (ADR-0022, decision 17).
+ * A security mutant's result says so, and is an error when its package's
+ * security set fails (ADR-0021, decision 21).
  *
  * @phpstan-type Result array{
  *     ruleId: value-of<ResultRule>,
@@ -40,6 +42,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  *         diff: string,
  *         reproduce: string,
  *         cluster?: string,
+ *         security?: true,
  *     },
  * }
  */
@@ -80,11 +83,11 @@ final readonly class Sarif
         }
 
         foreach ($overview->survivors() as $mutant) {
-            $results[] = self::result($mutant, $overview->isFailing($mutant) ? 'error' : 'warning');
+            $results[] = self::result($mutant, $overview->isFailing($mutant) ? 'error' : 'warning', $overview);
         }
 
         foreach ($overview->ignored() as $mutant) {
-            $results[] = [...self::result($mutant, self::IGNORED), 'suppressions' => [[
+            $results[] = [...self::result($mutant, self::IGNORED, $overview), 'suppressions' => [[
                 'kind' => $mutant->judgement() === MutantJudgement::IgnoredByMarker ? 'inSource' : 'external',
                 'status' => 'accepted',
                 'justification' => MutantText::ignoredBecause($mutant),
@@ -103,7 +106,7 @@ final readonly class Sarif
     }
 
     /** @return Result */
-    private static function result(JudgedMutant $judged, string $level): array
+    private static function result(JudgedMutant $judged, string $level, Overview $overview): array
     {
         $mutant = $judged->mutant();
         $rule = ResultRule::of($judged->judgement());
@@ -132,6 +135,7 @@ final readonly class Sarif
                 'diff' => $mutant->mutation()->diff(),
                 'reproduce' => $judged->reproduce(),
                 ...$cluster instanceof Membership ? ['cluster' => $cluster->id()->value()] : [],
+                ...$overview->isSecurity($judged) ? ['security' => true] : [],
             ],
         ];
     }

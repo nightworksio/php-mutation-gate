@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
 use NightWorksIO\MutationGate\Core\Report\Sonar;
+use NightWorksIO\MutationGate\Core\Report\SonarRule;
 use NightWorksIO\MutationGate\Core\Report\Sources;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -143,4 +144,18 @@ it('counts the issues under each directory at the root, in the order their first
     expect(Sonar::tally($verdict))->toBe('Issues by top directory: 2 under src, 1 under app, 1 under ..')
         ->and(Sonar::tally(Verdicts::failing()))->toBe('Issues by top directory: 5 under src.')
         ->and(Sonar::tally(Verdicts::passing()))->toBe('');
+});
+
+it('raises a security survivor under survived-security, and every other issue as SARIF reports it', function () use ($sources): void {
+    $json = Sonar::json(Verdicts::secured(), $sources(), Guide::unreleased());
+    $issues = Decoded::at($json, 'issues');
+    $rules = array_map(
+        static fn(int $at): array => [Decoded::at($json, 'issues', $at, 'ruleId'), Decoded::at($json, 'issues', $at, 'primaryLocation', 'filePath')],
+        array_keys(is_array($issues) ? $issues : []),
+    );
+
+    expect($rules)->toContain(['survived-security', 'src/Auth.php'])
+        ->and(array_filter($rules, static fn(array $rule): bool => $rule[0] === 'survived-security'))->toHaveCount(1)
+        ->and(SonarRule::Survived->ofSecurity())->toBe(SonarRule::SurvivedSecurity)
+        ->and(SonarRule::Uncovered->ofSecurity())->toBe(SonarRule::Uncovered);
 });

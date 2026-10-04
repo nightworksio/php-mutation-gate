@@ -103,11 +103,12 @@ it('names the judging tests of a failed floor\'s mutants as the runner named the
 it('writes a security suite with the floor case of each package\'s set, failing as the gate does', function (): void {
     $secured = static fn(string $query): array => Xpath::of(JUnit::xml(Verdicts::secured()), $query);
 
-    expect($secured('/testsuites/testsuite/@name'))->toBe(['src', 'app/Legacy', 'src/Empty', 'new code', 'security', 'run', 'ignored'])
-        ->and($secured('/testsuites/testsuite[5]/@tests'))->toBe(['2'])
-        ->and($secured('/testsuites/testsuite[5]/@failures'))->toBe(['1'])
-        ->and($secured('/testsuites/testsuite[5]/testcase/@name'))->toBe(['floor', 'floor'])
-        ->and($secured('/testsuites/testsuite[5]/testcase/@classname'))->toBe(['.', 'packages/billing'])
-        ->and($secured('/testsuites/testsuite[5]/testcase[1]/failure/@message'))
+    expect($secured('/testsuites/testsuite/@name'))
+        ->toBe(['src', 'app/Legacy', 'src/Empty', 'src/Auth.php', 'packages/billing/src', 'new code', 'security', 'run', 'ignored'])
+        ->and($secured('/testsuites/testsuite[7]/@tests'))->toBe(['2'])
+        ->and($secured('/testsuites/testsuite[7]/@failures'))->toBe(['1'])
+        ->and($secured('/testsuites/testsuite[7]/testcase/@name'))->toBe(['floor', 'floor'])
+        ->and($secured('/testsuites/testsuite[7]/testcase/@classname'))->toBe(['.', 'packages/billing'])
+        ->and($secured('/testsuites/testsuite[7]/testcase[1]/failure/@message'))
         ->toBe(['Security scores 0.00%, below its floor of 100.00%.']);
 });
