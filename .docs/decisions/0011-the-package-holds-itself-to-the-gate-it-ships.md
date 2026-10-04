@@ -160,14 +160,14 @@ about Laravel, NativePHP or the project's modules, and does not.
    | checks | validate, normalize, lint, analyse, refactor, deps, audit | yes |
    | tests and coverage | `test:report` and `test:floors`, with the highest dependencies | yes |
    | lowest dependencies | the suite after `composer update --prefer-lowest` | yes |
-   | runner contracts | the Runner contract suite (ADR-0004) and the StaticChecker contract suite (ADR-0020) against the lowest supported Pest, Infection, PHPUnit, Mago and PHPStan, and the highest the fixtures' committed locks hold, which Dependabot moves | yes |
+   | runner contracts | the Runner contract suite (ADR-0004) and the StaticChecker contract suite (ADR-0020) against the lowest supported Pest, Infection, PHPUnit, Mago, PHPStan and Psalm, each analyser lowest with the other packages as high as it allows, and the highest the fixtures' committed locks hold, which Dependabot moves | yes |
    | mutation testing | the package's own plan, shards and verdict, through the local reusable workflow, with its `verdict` job as the check | yes |
    | sonar, sonar gate | SonarCloud's analysis, and its quality gate with no open issue allowed | yes |
    | evidence | every job's evidence, gathered into the one artifact the bot reads (ADR-0019) | no |
    | analyze | CodeQL for the workflows, the reusable workflow and the action | yes |
    | scorecard | OpenSSF Scorecard | no |
    | full mutation | the weekly scheduled full run | no |
-   | runner canary | daily, `canary.yml`: the Runner and StaticChecker contract suites against the newest Pest, Infection, PHPUnit, Mago and PHPStan releases, red when a pinned release `composer.json` refuses passes (ADR-0017), and against the newest release of every native runner's framework (ADR-0027) | no |
+   | runner canary | daily, `canary.yml`: the Runner and StaticChecker contract suites against the newest Pest, Infection, PHPUnit, Mago, PHPStan and Psalm releases, red when a pinned release `composer.json` refuses passes (ADR-0017), and against the newest release of every native runner's framework (ADR-0027) | no |
    | phar | builds the PHAR and runs its smoke suite, publishing nothing (ADR-0022) | yes |
    | benchmark | `bench.yml`, on demand and monthly: the gate against plain Pest and Infection on four open-source projects (ADR-0017) | no |
    | the contributor bot | `bot-*.yml`: the relay, the explainer, the commands, the checklist and the release draft (ADR-0019) | no |

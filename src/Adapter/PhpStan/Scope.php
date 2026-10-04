@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Adapter\PhpStan;
 
 use function array_any;
 use function array_map;
-use function fnmatch;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\ShellPattern;
@@ -14,10 +13,7 @@ use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 
-use function rtrim;
 use function sprintf;
-use function str_starts_with;
-use function strpbrk;
 
 /**
  * The files PHPStan analyses, as `phpstan dump-parameters --json` gives
@@ -61,8 +57,11 @@ final readonly class Scope
     /** Whether PHPStan analyses this file, by its absolute path. */
     public function holds(string $file): bool
     {
-        return array_any($this->paths, static fn(string $path): bool => self::under($file, $path))
-            && ! array_any($this->excluded, static fn(string $excluded): bool => self::under($file, $excluded));
+        return array_any($this->paths, static fn(string $path): bool => ShellPattern::covers($path, $file))
+            && ! array_any(
+                $this->excluded,
+                static fn(string $excluded): bool => ShellPattern::covers($excluded, $file),
+            );
     }
 
     /**
@@ -99,11 +98,4 @@ final readonly class Scope
         return array_map(static fn(Node $item): string => $item->text(), $list->items());
     }
 
-    /** Whether a file is this path, inside it, or matched by it as a pattern. */
-    private static function under(string $file, string $path): bool
-    {
-        return $file === $path
-            || str_starts_with($file, sprintf('%s/', rtrim($path, '/')))
-            || (strpbrk($path, ShellPattern::WILDCARDS) !== false && fnmatch($path, $file));
-    }
 }

@@ -39,6 +39,13 @@ it('finds every file that mentions a name, and every file that names those, in t
         ->and($cycle->naming())->toBe([]);
 });
 
+it('finds only the files that mention a name themselves, in the order of the graph', function () use ($cycle): void {
+    expect($cycle->mentioning('d'))->toBe(['b.php', 'c.php'])
+        ->and($cycle->mentioning('a', 'unknown', 'a'))->toBe(['b.php', 'e.php'])
+        ->and($cycle->mentioning('e'))->toBe([])
+        ->and($cycle->mentioning())->toBe([]);
+});
+
 it('links a file only to those that declare what it mentions', function (): void {
     $named = NamedFiles::byName(['support.php' => ['helper']], ['test.php' => ['helper', 'other'], 'other.php' => ['test']]);
 

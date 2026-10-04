@@ -42,6 +42,7 @@ use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnit;
 use NightWorksIO\MutationGate\Adapter\Project\AutoloadTrees;
 use NightWorksIO\MutationGate\Adapter\Project\PhpUnitTrees;
+use NightWorksIO\MutationGate\Adapter\Psalm\Psalm;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
@@ -310,9 +311,12 @@ it('keeps GitHub Actions for github where an extension claims it too, and detect
         ->toEqual(Name::of('acme-own'));
 });
 
-it('registers Mago and PHPStan as static analysers, reading the config the gate hands them', function () use ($registry): void {
+it('registers Mago, PHPStan and Psalm as static analysers, reading the config the gate hands them', function () use ($registry): void {
     expect(Lookup::in($registry())->staticChecker(Name::of('mago'), Options::none()))->toBeInstanceOf(Mago::class)
         ->and(Lookup::in($registry())->staticChecker(Name::of('phpstan'), Options::none()))->toBeInstanceOf(PhpStan::class)
+        ->and(Lookup::in($registry())->staticChecker(Name::of('psalm'), Options::none()))->toBeInstanceOf(Psalm::class)
         ->and(Lookup::in($registry())->staticChecker(Name::of('phpstan'), Configs::options('{"config": 5}')))
+        ->toBeInstanceOf(Invalid::class)
+        ->and(Lookup::in($registry())->staticChecker(Name::of('psalm'), Configs::options('{"config": 5}')))
         ->toBeInstanceOf(Invalid::class);
 });

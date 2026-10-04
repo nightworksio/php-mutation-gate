@@ -277,3 +277,7 @@ it('cannot judge in a root that is not there, where its process never starts', f
     expect($gone instanceof PhpStan ? $gone->identity(Withheld::standard()) : $gone)
         ->toEqual(CannotJudge::because('PHPStan has no config to read: add a phpstan.neon, or name one in staticCheck.config.'));
 });
+
+it('reads no dependents a check lists, finding them itself', function (): void {
+    expect(phpstanIn(FakeAnalyser::phpstan('PHPStan - PHP Static Analysis Tool 2.2.16'))->readsDependents())->toBeFalse();
+});

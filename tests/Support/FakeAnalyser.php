@@ -20,6 +20,19 @@ use function sprintf;
  */
 final readonly class FakeAnalyser
 {
+    /** The psalm.xml of a project {@see psalm()} makes. */
+    private const string PSALM_XML = <<<'XML'
+        <?xml version="1.0"?>
+        <psalm errorLevel="1" xmlns="https://getpsalm.org/schema/config">
+            <projectFiles>
+                <directory name="src"/>
+                <ignoreFiles>
+                    <file name="src/Excluded.php"/>
+                </ignoreFiles>
+            </projectFiles>
+        </psalm>
+        XML;
+
     private const string SCRIPT = <<<'PHP'
         <?php
         $arguments = array_slice($argv, 1);
@@ -46,6 +59,75 @@ final readonly class FakeAnalyser
         exit((int) $said('answer.exit'));
         PHP;
 
+    /**
+     * A stand-in for Psalm's language server. It keeps the arguments it was
+     * started with, and whether it saw the withheld variable, in
+     * `server-argv.txt`, and each message the gate sent it, a line each, in
+     * `server-got.txt`. It asks the gate to answer a request of its own
+     * before it answers `initialize`, and tells it something after. For each file opened or changed under
+     * `src/` but not `src/Excluded.php`, it publishes a diagnostic for each
+     * `// error: Type message` or `// info: Type message` line of the text,
+     * with the version it read; it answers every `$/` request with the error
+     * the protocol gives one it does not implement. It writes to its error
+     * stream as it starts. `server.mode` makes it end at once (`ends`), end
+     * once a file is sent, saying it gave up (`ends-on-file`), or publish
+     * each file with the version before the one it read (`stale`).
+     */
+    private const string SERVER = <<<'PHP'
+        <?php
+        $here = __DIR__;
+        $mode = (string) @file_get_contents("$here/server.mode");
+        $leaked = getenv('MUTATION_GATE_CONTRACT_TOKEN') !== false ? 'leaked' : 'withheld';
+        file_put_contents("$here/server-argv.txt", implode("\n", [...array_slice($argv, 1), $leaked]));
+        if ($mode === 'ends') {
+            fwrite(STDERR, 'no server here');
+            exit(1);
+        }
+        $send = static function (array $message): void {
+            $json = json_encode(['jsonrpc' => '2.0', ...$message], JSON_UNESCAPED_SLASHES);
+            fwrite(STDOUT, sprintf("Content-Type: application/vscode-jsonrpc; charset=utf8\r\nContent-Length: %d\r\n\r\n%s", strlen($json), $json));
+            fflush(STDOUT);
+        };
+        while (($line = fgets(STDIN)) !== false) {
+            $length = 0;
+            while (trim($line) !== '') {
+                $length = preg_match('~^Content-Length: (\d+)~i', $line, $m) === 1 ? (int) $m[1] : $length;
+                $line = (string) fgets(STDIN);
+            }
+            $message = json_decode((string) fread(STDIN, $length), true);
+            $method = $message['method'] ?? '';
+            $document = $message['params']['textDocument'] ?? [];
+            file_put_contents("$here/server-got.txt", sprintf("%s %s %s %s\n", $method === '' ? 'answer' : $method, $message['id'] ?? '-', $document['uri'] ?? '-', $document['version'] ?? '-'), FILE_APPEND);
+            if ($method === 'initialize') {
+                fwrite(STDERR, 'starting');
+                $send(['method' => 'window/logMessage', 'params' => ['type' => 3, 'message' => 'Starting']]);
+                $send(['id' => 'ask', 'method' => 'workspace/configuration', 'params' => ['items' => []]]);
+                $send(['id' => $message['id'], 'result' => ['capabilities' => []]]);
+                $send(['method' => 'telemetry/event', 'params' => ['type' => 3, 'message' => 'running']]);
+            }
+            if (str_starts_with($method, '$/')) {
+                $send(['id' => $message['id'], 'error' => ['code' => -32601, 'message' => "Method $method is not implemented"]]);
+            }
+            if ($method === 'textDocument/didOpen' || $method === 'textDocument/didChange') {
+                if ($mode === 'ends-on-file') {
+                    fwrite(STDERR, 'gave up');
+                    exit(1);
+                }
+                $path = rawurldecode(substr($document['uri'], strlen('file://')));
+                $text = $document['text'] ?? $message['params']['contentChanges'][0]['text'];
+                preg_match_all('~// (error|info): (\w+) (.*)~', $text, $found, PREG_SET_ORDER);
+                $diagnostics = array_map(static fn(array $f): array => [
+                    'severity' => $f[1] === 'error' ? 1 : 3,
+                    'message' => sprintf('[%s] %s', $f[2], $f[3]),
+                    'data' => ['type' => $f[2]],
+                ], $found);
+                if (str_contains($path, '/src/') && ! str_ends_with($path, '/src/Excluded.php')) {
+                    $send(['method' => 'textDocument/publishDiagnostics', 'params' => ['uri' => $document['uri'], 'version' => $document['version'] - ($mode === 'stale' ? 1 : 0), 'diagnostics' => $diagnostics]]);
+                }
+            }
+        }
+        PHP;
+
     /** A project whose `vendor/bin/phpstan` is the stand-in, with a phpstan.neon, saying this version. */
     public static function phpstan(string $version): string
     {
@@ -53,6 +135,22 @@ final readonly class FakeAnalyser
         Scratch::write($project, 'vendor/bin/phpstan', self::SCRIPT);
         Scratch::write($project, 'vendor/bin/version.txt', $version);
         Scratch::write($project, 'phpstan.neon', "parameters:\n    level: 9\n");
+
+        return $project;
+    }
+
+    /**
+     * A project whose `vendor/bin/psalm` is the stand-in, and whose
+     * `vendor/bin/psalm-language-server` is the server's, saying this version,
+     * with a psalm.xml that analyses `src` but `src/Excluded.php`.
+     */
+    public static function psalm(string $version): string
+    {
+        $project = Scratch::directory();
+        Scratch::write($project, 'vendor/bin/psalm', self::SCRIPT);
+        Scratch::write($project, 'vendor/bin/psalm-language-server', self::SERVER);
+        Scratch::write($project, 'vendor/bin/version.txt', $version);
+        Scratch::write($project, 'psalm.xml', self::PSALM_XML);
 
         return $project;
     }

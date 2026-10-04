@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -30,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
+use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\RecordingChecker;
@@ -37,6 +40,7 @@ use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedClock;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 use NightWorksIO\MutationGate\Tests\Support\TickingClock;
+use NightWorksIO\MutationGate\Tests\Support\Tree;
 use Psr\Clock\ClockInterface;
 
 afterEach(function (): void {
@@ -83,6 +87,15 @@ function checkedOriginals(): Findings
 function checkedBy(string $project, array $answers): RecordingChecker
 {
     return new RecordingChecker(new StaticCheckerFake(checkedIdentity(), checkedOriginals(), $answers), $project);
+}
+
+/** @param array<string, Findings|OutOfScope|CannotJudge> $answers what the analyser answers of each mutant, by where it reads it */
+function checkedByOneReadingDependents(string $project, array $answers): RecordingChecker
+{
+    return new RecordingChecker(
+        new StaticCheckerFake(checkedIdentity(), checkedOriginals(), $answers, dependents: true),
+        $project,
+    );
 }
 
 /** The checks, in a project, by this analyser, of this runner's mutants, with the time a budget leaves. */
@@ -149,6 +162,72 @@ it('kills a survivor whose check finds an error its original does not have, by t
         ->and($checked->checks->histories()->of(checkedIdentity())->time()->seconds())->toEqual(Seconds::of(2.0))
         ->and([...$checked->checks->histories()->of(checkedIdentity())])->toBe([])
         ->and(checkedWarnings($checked))->toBe([]);
+});
+
+it('lists the files a survivor can break where it changes what its file declares and the analyser reads them, and none where it changes a body', function (): void {
+    $library = 'tests/Contract/Runner/phpunit-fixture/library/src';
+    $files = [
+        'src/Money.php' => (string) file_get_contents(Tree::at(sprintf('%s/Money.php', $library))),
+        'src/Held.php' => (string) file_get_contents(Tree::at(sprintf('%s/Held.php', $library))),
+        'src/Wallet.php' => "<?php\n\nnamespace Library;\n\nfinal class Wallet\n{\n    public function large(Money \$money): bool { return \$money->isLarge(1); }\n}\n",
+    ];
+    $project = Scratch::directory();
+
+    foreach ($files as $path => $contents) {
+        Scratch::write($project, $path, $contents);
+    }
+
+    $checkout = new ChangeSourceFake(Revision::ref('base'), Changes::none(), [Revision::workingTree()->name() => $files]);
+    $retyped = ScriptedRunner::fixture()->checking(Checkable::inPlace(Contents::of(
+        str_replace('public function isLarge', 'protected function isLarge', $files['src/Money.php']),
+    )));
+    $bodies = checkedByOneReadingDependents($project, []);
+    $declarations = checkedByOneReadingDependents($project, []);
+    $unread = checkedBy($project, []);
+    $clock = new TickingClock('2026-01-01T00:00:00Z', 1);
+
+    new SurvivorChecking(Flows::adapters($project, [], ScriptedRunner::fixture(), $bodies, $checkout), $clock, Unlimited::time())
+        ->checked(checkedMutants(), MutantIds::none());
+    new SurvivorChecking(Flows::adapters($project, [], $retyped, $declarations, $checkout), $clock, Unlimited::time())
+        ->checked(checkedMutants(), MutantIds::none());
+    new SurvivorChecking(Flows::adapters($project, [], $retyped, $unread, $checkout), $clock, Unlimited::time())
+        ->checked(checkedMutants(), MutantIds::none());
+
+    expect($bodies->dependents())->toBe([[], []])
+        ->and($declarations->dependents())->toBe([['src/Wallet.php'], []])
+        ->and($unread->dependents())->toBe([[], []]);
+});
+
+it('reads what a printed survivor declares against its file printed, not as the file is written', function (): void {
+    $library = 'tests/Contract/Runner/phpunit-fixture/library/src';
+    $money = (string) file_get_contents(Tree::at(sprintf('%s/Money.php', $library)));
+    $files = [
+        'src/Money.php' => $money,
+        'src/Wallet.php' => "<?php\n\nnamespace Library;\n\nfinal class Wallet\n{\n    public function large(Money \$money): bool { return \$money->isLarge(1); }\n}\n",
+    ];
+    $project = Scratch::directory();
+
+    foreach ($files as $path => $contents) {
+        Scratch::write($project, $path, $contents);
+    }
+
+    $print = str_replace('): bool', ') : bool', $money);
+    $printed = ScriptedRunner::fixture()->checking(Checkable::printed(
+        Contents::of($print),
+        Contents::of(str_replace('return $amount > 100;', 'return $amount >= 100;', $print)),
+    ));
+    $mutants = Flows::mutantsOf('src/Money.php');
+    $survivor = checkedSurvivor($mutants, 'src/Money.php');
+    $checker = checkedByOneReadingDependents($project, [
+        Workspace::checkedOriginal($survivor->id())->value() => checkedOriginals(),
+        checkedAt($survivor) => checkedOriginals(),
+    ]);
+    $checkout = new ChangeSourceFake(Revision::ref('base'), Changes::none(), [Revision::workingTree()->name() => $files]);
+
+    new SurvivorChecking(Flows::adapters($project, [], $printed, $checker, $checkout), new TickingClock('2026-01-01T00:00:00Z', 1), Unlimited::time())
+        ->checked($mutants, MutantIds::none());
+
+    expect($checker->dependents())->toBe([[], []]);
 });
 
 it('leaves a flaky survivor to its second answer, unchecked', function (): void {

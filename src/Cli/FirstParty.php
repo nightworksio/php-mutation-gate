@@ -49,6 +49,7 @@ use NightWorksIO\MutationGate\Adapter\Otlp\OtlpReporter;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnit;
+use NightWorksIO\MutationGate\Adapter\Psalm\Psalm;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Cli\Config\KeyedStore;
@@ -249,6 +250,10 @@ final readonly class FirstParty implements Extension
             ->withStaticChecker(
                 BuiltinAnalyser::PhpStan->named(),
                 static fn(Options $options): PhpStan|Invalid => PhpStan::fromOptions($options, self::root()),
+            )
+            ->withStaticChecker(
+                BuiltinAnalyser::Psalm->named(),
+                static fn(Options $options): Psalm|Invalid => Psalm::fromOptions($options, self::root()),
             );
     }
 

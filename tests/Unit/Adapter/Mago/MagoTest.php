@@ -157,3 +157,7 @@ it('cannot judge where its process never starts', function (): void {
         $project,
     )));
 });
+
+it('reads no dependents a check lists, analysing the whole workspace', function (): void {
+    expect(magoIn(FakeAnalyser::mago('1.50.0', "src/Money.php\0"))->readsDependents())->toBeFalse();
+});

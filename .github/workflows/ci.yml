@@ -501,26 +501,34 @@ jobs:
         env:
           RUNNER_CONTRACTS: phpunit
       # The analysers the static checkers drive are a project of their own
-      # too, installed at the highest Mago and PHPStan its lock holds and at
-      # the lowest the adapters support. Mago's package downloads its binary
-      # the first time it runs, which the gate itself never does (ADR-0020,
-      # decision 18).
-      - name: install the locked highest Mago and PHPStan into the analysers' fixture
+      # too, installed at the highest Mago, PHPStan and Psalm its lock holds
+      # and at the lowest the adapters support. Mago's package downloads its
+      # binary the first time it runs, which the gate itself never does
+      # (ADR-0020, decision 18).
+      - name: install the locked highest Mago, PHPStan and Psalm into the analysers' fixture
         working-directory: tests/Contract/StaticChecker/fixture
         run: |
           composer install --no-interaction --no-progress
           vendor/bin/mago --version
-          composer show | grep -E '^(carthage-software/mago|phpstan/phpstan) '
+          composer show | grep -E '^(carthage-software/mago|phpstan/phpstan|vimeo/psalm) '
       - id: analysers-highest
         run: vendor/bin/pest --testsuite=Contract --filter='StaticChecker' --log-junit=evidence/raw/analysers-highest.xml
         env:
           ANALYSER_CONTRACTS: '1'
-      - name: install the lowest Mago and PHPStan into the analysers' fixture
+      # Each analyser at its lowest, and every other package raised again to
+      # the highest that allows them, as a project requiring that analyser
+      # installs it: Psalm 6.14.0's lowest dependencies predate PHP 8.5.
+      - name: install the lowest Mago, PHPStan and Psalm into the analysers' fixture
         working-directory: tests/Contract/StaticChecker/fixture
         run: |
+          analysers='carthage-software/mago|phpstan/phpstan|vimeo/psalm'
           composer update --prefer-lowest --prefer-stable --no-interaction --no-progress
+          locked=$(composer show --locked --name-only)
+          mapfile -t others < <(grep -v -x -E "$analysers" <<< "$locked")
+          test "${#others[@]}" -gt 0
+          composer update --no-interaction --no-progress "${others[@]}"
           vendor/bin/mago --version
-          composer show | grep -E '^(carthage-software/mago|phpstan/phpstan) '
+          composer show | grep -E "^($analysers) "
       - id: analysers-lowest
         run: vendor/bin/pest --testsuite=Contract --filter='StaticChecker' --log-junit=evidence/raw/analysers-lowest.xml
         env:

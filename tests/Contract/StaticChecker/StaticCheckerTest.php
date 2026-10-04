@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Mago\Mago;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
+use NightWorksIO\MutationGate\Adapter\Psalm\Psalm;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserSettings;
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
@@ -28,6 +29,7 @@ use NightWorksIO\MutationGate\Tests\Support\Tree;
 // program has an error the original does not, that one which is has none,
 // that each finding names the file it sits in, as the fixture spells it,
 // the original's for one in the mutant and a dependent's for one there,
+// which the check lists only to an analyser that reads the dependents,
 // that a mutant it cannot analyse is left to its tests rather than killed,
 // that one of a file outside the paths it analyses, or excluded from them,
 // is out of its scope, and that no process it starts sees what the runner
@@ -76,6 +78,7 @@ $loading = [
     ),
     ...getenv('ANALYSER_CONTRACTS') === '1' ? [
         'PHPStan' => fn(): StaticChecker => built(PhpStan::fromOptions(Configs::options('{}'), $root)),
+        'Psalm' => fn(): StaticChecker => built(Psalm::fromOptions(Configs::options('{}'), $root)),
     ] : [],
 ];
 
@@ -100,7 +103,7 @@ it('says the configuration it runs with, under the fixture\'s root, with its con
     expect($settings)->toBeInstanceOf(AnalyserSettings::class)
         ->and($settings instanceof AnalyserSettings ? $settings->written() : $root)->not->toContain($root)
         ->and(array_filter($references, static fn(Path $file): bool => $file->escapes()))->toBe([])
-        ->and(array_intersect(array_map(static fn(Path $file): string => $file->value(), $references), ['phpstan.neon', 'mago.toml']))
+        ->and(array_intersect(array_map(static fn(Path $file): string => $file->value(), $references), ['phpstan.neon', 'mago.toml', 'psalm.xml']))
         ->not->toBe([]);
 })->with($checkers);
 
@@ -122,17 +125,18 @@ it('leaves a mutant that is a valid program to its tests', function (StaticCheck
         ->and($mutant)->toBeInstanceOf(Findings::class);
 })->with($checkers);
 
-it('names the file each new error sits in: the original for one in the mutant, and a dependent\'s own for one there', function (
+it('names the file each new error sits in: the original for one in the mutant, and a dependent\'s own for one there, listed where it reads them', function (
     StaticChecker $checker,
 ) use ($fixture): void {
     $original = $checker->findings(Paths::of($fixture('src/Money.php')), Withheld::standard());
+    $retyped = MutantCheck::of($fixture('src/Money.php'), $fixture('mutants/Money.retyped.php'));
     $files = static fn(Findings|OutOfScope|CannotJudge $mutant): array => $mutant instanceof Findings && $original instanceof Findings
-        ? array_map(static fn(Finding $error): string => $error->file()->value(), [...$mutant->newErrors($original)])
+        ? array_values(array_unique(array_map(static fn(Finding $error): string => $error->file()->value(), [...$mutant->newErrors($original)])))
         : [];
 
     expect($files($checker->check(MutantCheck::of($fixture('src/Money.php'), $fixture('mutants/Money.invalid.php')))))
         ->toBe(['src/Money.php'])
-        ->and($files($checker->check(MutantCheck::of($fixture('src/Money.php'), $fixture('mutants/Money.retyped.php')))))
+        ->and($files($checker->check($checker->readsDependents() ? $retyped->withDependents(Paths::of($fixture('src/Wallet.php'))) : $retyped)))
         ->toBe(['src/Wallet.php']);
 })->with($checkers);
 

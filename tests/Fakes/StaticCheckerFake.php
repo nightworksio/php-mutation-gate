@@ -24,7 +24,8 @@ use function sprintf;
 
 /**
  * A static analyser that answers what it was told: the configuration it runs
- * with, where told one, the originals, and each mutant it knows by its file.
+ * with, where told one, whether it reads a check's dependents, the
+ * originals, and each mutant it knows by its file.
  * It cannot judge any other mutant.
  * Each answer stands for a process started in this process's environment
  * without what is withheld, which stops, as the contract fixture's bootstrap
@@ -41,12 +42,15 @@ final readonly class StaticCheckerFake implements StaticChecker
      * @param array<string, Findings|OutOfScope|CannotJudge> $mutants       what it answers of each mutant, by the mutant's file
      * @param AnalyserSettings|CannotJudge|NotGiven          $configuration the configuration it says it runs with, or
      *                                                                     none it can say
+     * @param bool                                           $dependents    whether it says it reads the dependents a
+     *                                                                     check lists
      */
     public function __construct(
         private AnalyserIdentity|CannotJudge $identity,
         private Findings|CannotJudge $originals,
         private array $mutants,
         private AnalyserSettings|CannotJudge|NotGiven $configuration = new NotGiven(),
+        private bool $dependents = false,
     ) {
     }
 
@@ -74,6 +78,11 @@ final readonly class StaticCheckerFake implements StaticChecker
     public function findings(Paths $files, Withheld $withheld): Findings|CannotJudge
     {
         return $this->unlessLeaked($withheld, $this->originals);
+    }
+
+    public function readsDependents(): bool
+    {
+        return $this->dependents;
     }
 
     public function check(MutantCheck $check): Findings|OutOfScope|CannotJudge

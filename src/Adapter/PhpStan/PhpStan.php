@@ -177,6 +177,12 @@ final readonly class PhpStan implements StaticChecker
         return $scope instanceof CannotJudge ? $scope : $this->analysed($withheld, $findingFiles, []);
     }
 
+    /** None: PHPStan analyses again the files whose view of the mutant changed, which it finds itself. */
+    public function readsDependents(): bool
+    {
+        return false;
+    }
+
     /** A mutant, where PHPStan analyses its original, as its warm-up said; out of scope where it does not. */
     public function check(MutantCheck $check): Findings|OutOfScope|CannotJudge
     {

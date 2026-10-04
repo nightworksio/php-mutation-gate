@@ -136,6 +136,11 @@ needs remain, and the runners' own behaviour shapes each answer.
      of every file the analyser analyses, which must hold these files, from
      one warm-up run. Each check reports on the whole of that scope too, so
      a finding the originals already had is never read as new.
+   - `readsDependents(): bool` says whether the analyser analyses again
+     only the dependents a check lists, so the gate lists them (decision
+     7). One that finds what a mutant can break itself, or analyses
+     everything in each check, answers `false`, and the gate lists it no
+     dependents.
    - `check(MutantCheck): Findings|OutOfScope|CannotJudge` checks one
      mutant. The request holds the original, the mutant, the dependents to
      analyse again unchanged against it (none by default), and what is
@@ -186,14 +191,53 @@ needs remain, and the runners' own behaviour shapes each answer.
      them is `OutOfScope`, left unchecked, and the run says so.
      Where PHPStan cannot say which files it analyses, the warm-up fails,
      and no survivor is checked.
-   - **Psalm:** one `psalm --language-server` per worker. Each mutant is sent
-     as the original file's changed content (`textDocument/didChange`), the
-     findings are read from `publishDiagnostics`, and the original content is
-     restored after each check. The first step of the build proves that the
-     server answers a change with its diagnostics. If it does not, Psalm
-     checks a scratch copy per worker with the file replaced, and then only
-     after the tests, since a full run per mutant is never worth running
-     before them.
+   - **Psalm:** the warm-up is Psalm's command line, `psalm
+     --config=<config> --output-format=json --no-progress --ignore-baseline
+     --show-info=true`, which reports every file Psalm analyses. The
+     baseline is set aside, so a finding it hides is never read as new.
+     Psalm has no substitution on its command line, so the checks go to its
+     language server, `psalm-language-server --config=<config>
+     --in-memory=true` with its editor features off, started at the first
+     check and kept running for the checks that follow. In memory, the
+     server leaves the project's Psalm cache alone: otherwise it removes the
+     cache as it starts, and holds a lock on the cache it writes for as long
+     as it runs, which a later Psalm process waits on.
+     - Each check sends the mutant as its original file's text
+       (`textDocument/didOpen`, then `didChange`), and each dependent the
+       check lists that Psalm analyses with its own unchanged text, so the
+       server analyses it again against the mutant. A file is never
+       written. Then the gate sends a request no server implements, which
+       the protocol has a server answer with an error. The server handles
+       messages in turn, so that answer comes after every diagnostic the
+       files caused.
+     - The check's findings are what the server published of each file
+       sent, at the version sent, each read by its `data.type` and its
+       message without the `[Type]` and the space the server puts before
+       it. For every other file, they are the warm-up's. The original's text
+       is sent back after, and not waited for: a diagnostic is read only at
+       the version a check sends.
+     - A mutant of a file outside the `<projectFiles>` of the project's
+       `psalm.xml`, or among their `<ignoreFiles>`, is `OutOfScope`, as is
+       one whose original the server publishes nothing for. Psalm names a
+       file in a directory the config names through a link by where it
+       really is, so the gate names it by the directory as the config names
+       it.
+   - **A mutant's dependents** are listed where the analyser reads them
+     (decision 6) and the mutant changes what its file declares: a class,
+     interface, trait or enum's header, a statement of its body other than
+     a method's body, such as a method's signature, a property, a
+     constant, an enum case or a trait use, or a function's signature or a
+     constant outside one. They are the files of the project's name graph
+     (ADR-0008, decision 1) that mention a name the original declares,
+     other than the original: the files a change to its declarations can
+     break directly. A mutant that changes only bodies has none. Of more
+     than 25, the first 25 in path order are listed, so the same mutant
+     always lists the same files. A dependent past them is not analysed
+     against the mutant, which can leave a mutant unkilled, never kill
+     one. Where the name graph cannot be read, a mutant has none. Psalm
+     reads them. Mago analyses the whole workspace and PHPStan finds a
+     file's dependents itself, so neither does, and for them the gate
+     reads no name graph.
 
 8. **`staticCheck.tool` chooses the analyser, and Mago comes first.**
    - `staticCheck.tool` is `auto`, `mago`, `phpstan`, `psalm` or `none`,
@@ -377,6 +421,12 @@ needs remain, and the runners' own behaviour shapes each answer.
         `linter`, `formatter` and `guard` sections, which are its other
         commands'. They reference its config file, the analyser's
         `baseline`, and the `includes` and `patches` of its `source`.
+      - Psalm prints no configuration, so its settings are its `psalm.xml`
+        as an element tree: each element's name, attributes, text and
+        children, in order. They reference the config file, its
+        `errorBaseline` and `autoloader`, its stub files, each plugin's
+        `filename`, and every file an `xi:include` pulls in, each spelt from
+        the config's directory.
     - Each path under the project's root is spelt from the root, in the
       settings and among the files, and each map's keys are in order, so
       the digest is the same on every machine. A file named by a stream,

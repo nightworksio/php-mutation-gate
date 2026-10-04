@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
+use function array_map;
 use function file_get_contents;
 use function is_file;
 
@@ -13,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
 use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Port\StaticChecker;
@@ -32,6 +34,9 @@ final class RecordingChecker implements StaticChecker
 
     /** @var list<array{string, string, string}> each check's original, the file read in its place, and that file's text */
     private array $checks = [];
+
+    /** @var list<list<string>> the dependents each check listed */
+    private array $dependents = [];
 
     public function __construct(private readonly StaticCheckerFake $answers, private readonly string $project)
     {
@@ -54,6 +59,11 @@ final class RecordingChecker implements StaticChecker
         return $this->answers->findings($files, $withheld);
     }
 
+    public function readsDependents(): bool
+    {
+        return $this->answers->readsDependents();
+    }
+
     public function check(MutantCheck $check): Findings|OutOfScope|CannotJudge
     {
         $file = sprintf('%s/%s', $this->project, $check->mutant()->value());
@@ -62,6 +72,7 @@ final class RecordingChecker implements StaticChecker
             $check->mutant()->value(),
             is_file($file) ? sprintf('%s', file_get_contents($file)) : '',
         ];
+        $this->dependents[] = array_map(static fn(Path $dependent): string => $dependent->value(), [...$check->dependents()]);
 
         return $this->answers->check($check);
     }
@@ -76,5 +87,11 @@ final class RecordingChecker implements StaticChecker
     public function checks(): array
     {
         return $this->checks;
+    }
+
+    /** @return list<list<string>> */
+    public function dependents(): array
+    {
+        return $this->dependents;
     }
 }

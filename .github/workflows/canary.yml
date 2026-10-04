@@ -85,13 +85,13 @@ jobs:
         run: vendor/bin/pest --testsuite=Contract --filter='PhpUnit' --log-junit=evidence/raw/phpunit-newest.xml
         env:
           RUNNER_CONTRACTS: phpunit
-      - name: install the newest Mago and PHPStan into the analysers' fixture
+      - name: install the newest Mago, PHPStan and Psalm into the analysers' fixture
         working-directory: tests/Contract/StaticChecker/fixture
         run: |
           rm composer.lock
           composer update --no-interaction --no-progress
           vendor/bin/mago --version
-          composer show | grep -E '^(carthage-software/mago|phpstan/phpstan) '
+          composer show | grep -E '^(carthage-software/mago|phpstan/phpstan|vimeo/psalm) '
       - id: analysers-newest
         run: vendor/bin/pest --testsuite=Contract --filter='StaticChecker' --log-junit=evidence/raw/analysers-newest.xml
         env:

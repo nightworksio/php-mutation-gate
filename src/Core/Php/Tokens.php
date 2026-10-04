@@ -33,6 +33,9 @@ final readonly class Tokens implements Countable
     /** Where a call's first argument stands, from the name it calls: past the name and its `(`. */
     public const int ARGUMENT = 2;
 
+    /** What declares a class-like: a class, an interface, a trait or an enum. */
+    public const array CLASS_LIKE = [T_CLASS, T_INTERFACE, T_TRAIT, T_ENUM];
+
     /** What ends or opens a statement. */
     public const array STATEMENT_BOUNDS = [';', '{', '}'];
 

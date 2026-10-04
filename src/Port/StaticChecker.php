@@ -41,6 +41,13 @@ interface StaticChecker
     public function findings(Paths $files, Withheld $withheld): Findings|CannotJudge;
 
     /**
+     * Whether the analyser analyses again only the dependents a check
+     * lists, so the gate lists them; for one that finds what a mutant can
+     * break itself, or analyses everything in each check, it lists none.
+     */
+    public function readsDependents(): bool;
+
+    /**
      * What the analyser reports about a mutant, analysed in place of its
      * original file, and about the dependents the check lists, analysed
      * unchanged against it. Each finding names the file it sits in, as the
