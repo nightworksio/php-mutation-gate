@@ -232,9 +232,21 @@ decision 3). The kill matrix knows which tests cover and which kill
      `suitesUnscored` saying why. This amends ADR-0009 decision 2 and
      ADR-0014 decision 7.
 
-9. **`run --suite=<name>` judges one suite's tests alone,** for a scheduled
-   job, exactly under every runner. It narrows `judgedBy` as a group does, so
-   its results are keyed apart from a whole-suite run's.
+9. **`--suite=<name>` judges one suite's tests alone,** for a scheduled job,
+   exactly under every runner.
+   - `plan` and `run` without a plan take it. A plan made with it briefs
+     every shard and the verdict with the suite, inside its digest, and
+     `run --plan` refuses it, since a shard runs the tests its plan was made
+     for.
+   - It narrows every run's tests, the coverage run's among them, to that
+     suite, and its results are keyed apart from a whole-suite run's. It
+     takes no `--coverage`, whose map may hold every suite's tests.
+   - It holds no floor: each tree and security set is shown exempt, as
+     *--suite judges no floor*, except that a run that also takes
+     `--security` still holds the security sets (ADR-0021 decision 20). The
+     run records no commit as passed and teaches the cost model nothing.
+   - A name the PHPUnit configuration does not declare fails the run with
+     exit code 2, naming the suites it does declare.
 
 10. **Suite scores are reported, never judged.** A lower bound cannot gate
     soundly, so there are no floors per suite.

@@ -47,13 +47,14 @@ use stdClass;
  * most bytes the unmutated suite's largest process held in the coverage run
  * the plan was made from, where it was measured, `matrix`, `full` where the
  * run records every killer of each mutant, `security`, `true` where it makes
- * mutants with the security mutators alone, and the digest of all of that.
- * A plan without `peak` measured none, and every shard's memory triage reads
- * it so; one without `matrix` records first killers, and one without
- * `security` makes mutants with every mutator the run turns on. Beside it,
- * outside the digest since they judge nothing, `names` holds the names the
- * runner gives the suite's tests, or `unnamed` why it gave none; a plan with
- * neither was made without asking.
+ * mutants with the security mutators alone, `suite`, the one suite whose
+ * tests alone judge them, and the digest of all of that. A plan without
+ * `peak` measured none, and every shard's memory triage reads it so; one
+ * without `matrix` records first killers, one without `security` makes
+ * mutants with every mutator the run turns on, and one without `suite` has
+ * every test judge them. Beside it, outside the digest since they judge
+ * nothing, `names` holds the names the runner gives the suite's tests, or
+ * `unnamed` why it gave none; a plan with neither was made without asking.
  * A plan that cannot be read, or whose digest does not match what it holds,
  * is refused: a shard never guesses at its units.
  *

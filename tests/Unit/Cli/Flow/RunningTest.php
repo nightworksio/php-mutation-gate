@@ -59,11 +59,13 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -278,10 +280,10 @@ it('asks for the mutants of the mutators a run is narrowed to, and of every muta
         $project = Flows::project();
         $scripted = ScriptedRunner::fixture();
 
-        new Running(Flows::adapters($project, [], $scripted, $narrowedTo), Flows::settings(), Flows::setup())
+        new Running(Flows::adapters($project, [], $scripted, Narrowing::none()->toMutators($narrowedTo)), Flows::settings(), Flows::setup())
             ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
 
-        return array_map(static fn(MutationRequest $request): Mutators => $request->mutators(), $scripted->requests());
+        return array_map(static fn(MutationRequest $request): Mutators => $request->narrowing()->mutators(), $scripted->requests());
     };
     $secured = Mutators::named('security/HashEqualsToTrue');
 
@@ -590,6 +592,22 @@ it('mutates no held unit whose holding tests miss lines of it, and leaves why', 
             static fn(MutationRequest $request): string => $request->judgedBy()::class,
             $scripted->requests(),
         ))->toBe([WholeSuite::class]);
+});
+
+it('runs a held unit\'s holding tests under coverage of the one suite a narrowed run names alone', function (): void {
+    $project = Flows::project();
+    new Handoff(Directory::at($project))->write(Planned::oneShard(), Flows::map(), KillHistory::none());
+    $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
+    $adapters = Flows::adapters($project, [], $runner, Narrowing::none()->toSuite(SuiteName::of('unit')));
+
+    new Running($adapters, Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+
+    expect($runner->asked())->toEqual([
+        CoverageRun::of(Group::named('holds:src/Held.php'), Path::of('.mutation-gate/held/shard-1'))
+            ->withholding($adapters->withheld)
+            ->inSuite(SuiteName::of('unit')),
+    ]);
 });
 
 it('mutates a unit the whole suite judges, though the map reaches none of it, and runs no holding tests for it', function () use (

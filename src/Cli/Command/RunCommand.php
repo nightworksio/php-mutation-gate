@@ -40,6 +40,9 @@ final readonly class RunCommand
     private const string SECURITY_WITH_PLAN
         = 'A shard makes the mutants its plan was made for, so run --plan takes no --security. Give it to plan.';
 
+    private const string SUITE_WITH_PLAN
+        = 'A shard runs the tests its plan was made for, so run --plan takes no --suite. Give it to plan.';
+
     public static function command(Composition $composition): Command
     {
         return FlowOptions::editing(FlowOptions::planning(new Command('run')))
@@ -61,6 +64,8 @@ final readonly class RunCommand
                     ! $composed instanceof Composed => Failed::because($output, $composed),
                     $planned && FlowOptions::isSecurityOnly($input)
                         => Failed::because($output, CannotJudge::because(self::SECURITY_WITH_PLAN)),
+                    $planned && FlowOptions::isSuiteOnly($input)
+                        => Failed::because($output, CannotJudge::because(self::SUITE_WITH_PLAN)),
                     $planned => self::oneShard($composed, $input, $output),
                     default => self::allInOne($composed, $input, $output),
                 };

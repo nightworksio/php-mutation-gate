@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -71,7 +72,7 @@ function unexecutableJudged(Library $library, Paths $files, WholeSuite|Group $te
  */
 function unexecutableSaid(Library $library, Paths $files, WholeSuite|Group $tests, string $mutator): array
 {
-    $request = MutationRequest::of($files, $tests)->narrowedTo($files, Mutators::named($mutator));
+    $request = MutationRequest::of($files, $tests)->narrowedTo($files, Narrowing::none()->toMutators(Mutators::named($mutator)));
     $result = $library->runner()->mutate($request);
     $judged = [];
 

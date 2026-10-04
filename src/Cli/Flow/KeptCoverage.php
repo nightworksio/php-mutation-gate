@@ -99,8 +99,7 @@ final readonly class KeptCoverage
         return count($present) === 0
             ? CoverageMap::empty()
             : $this->adapters->runner->coverage(
-                CoverageRun::of(TestPaths::of($present), Workspace::remeasuredCoverage())
-                    ->withholding($this->adapters->withheld),
+                $this->adapters->covering(CoverageRun::of(TestPaths::of($present), Workspace::remeasuredCoverage())),
             );
     }
 }

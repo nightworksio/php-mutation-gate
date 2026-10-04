@@ -53,11 +53,13 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
+use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -232,12 +234,26 @@ it('records in the plan the peak its coverage run measured, for every shard\'s m
 it('briefs every shard and the verdict that a run narrowed to the security mutators makes mutants with those alone', function () use (
     $plan,
 ): void {
-    $secured = $plan(Flows::project(), Mode::full(), Cut::exactly(2), Mutators::named('security/HashEqualsToTrue'));
+    $secured = $plan(Flows::project(), Mode::full(), Cut::exactly(2), Narrowing::none()->toMutators(Mutators::named('security/HashEqualsToTrue')));
     $whole = $plan(Flows::project(), Mode::full(), Cut::exactly(2));
 
     expect($secured instanceof Plan ? $secured->briefing()->isSecurityOnly() : $secured)->toBeTrue()
         ->and($whole instanceof Plan ? $whole->briefing()->isSecurityOnly() : $whole)->toBeFalse()
         ->and($secured instanceof Plan && $whole instanceof Plan ? $secured->base() : $secured)
+        ->not->toEqual($whole instanceof Plan ? $whole->base() : $whole);
+});
+
+it('briefs every shard and the verdict that a run narrowed to one suite runs its tests alone, and covers that suite alone', function () use (
+    $plan,
+): void {
+    $runner = new CoverageAsked(RunnerFake::ofTheFixture(), CoverageMap::empty());
+    $suited = $plan(Flows::project(), Mode::full(), Cut::exactly(2), $runner, Narrowing::none()->toSuite(SuiteName::of('unit')));
+    $whole = $plan(Flows::project(), Mode::full(), Cut::exactly(2));
+
+    expect($suited instanceof Plan ? $suited->briefing()->suite() : $suited)->toEqual(SuiteName::of('unit'))
+        ->and($runner->ran()[0]->suite())->toEqual(SuiteName::of('unit'))
+        ->and($runner->ran()[0]->withheld())->toEqual(Withheld::standard()->and(Withheld::of('FAKE_CI_TOKEN')))
+        ->and($suited instanceof Plan && $whole instanceof Plan ? $suited->base() : $suited)
         ->not->toEqual($whole instanceof Plan ? $whole->base() : $whole);
 });
 

@@ -178,7 +178,7 @@ final readonly class RunnerFake implements Runner
 
             $asked = $this->within($file, $request->files()) && ! $this->within($file, $request->leftOut());
 
-            if ($asked && $this->applies($request->mutators(), $mutant)) {
+            if ($asked && $this->applies($request->narrowing()->mutators(), $mutant)) {
                 $found = $found->with($this->judged($mutant, $request->judgedBy()));
             }
         }

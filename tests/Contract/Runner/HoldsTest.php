@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -103,7 +104,7 @@ it('lists every holds: group among the suite\'s groups, one only #[Holds] on a c
 it('runs every test that holds a path, and no other, in a mutant\'s own process', function (): void {
     $trace = sprintf('%s/trace', Scratch::directory());
     $request = MutationRequest::of(Paths::of(Path::of('src/Shapes.php')), Group::named('holds:src/Shapes.php'))
-        ->narrowedTo(Paths::of(Path::of('src/Shapes.php')), Mutators::named(TrueToFalse::class));
+        ->narrowedTo(Paths::of(Path::of('src/Shapes.php')), Narrowing::none()->toMutators(Mutators::named(TrueToFalse::class)));
 
     // Symfony's Process passes on only the variables PHP also has in $_SERVER.
     putenv(sprintf('LIBRARY_TRACE=%s', $trace));

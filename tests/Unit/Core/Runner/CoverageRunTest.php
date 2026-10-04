@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
@@ -49,4 +51,14 @@ it('withholds the CI\'s credentials by default, and more where it is told, never
     expect($run->withheld())->toEqual(Withheld::standard())
         ->and($more->withheld())->toEqual(Withheld::standard()->and(Withheld::of('DEPLOY_*')))
         ->and($more->directory())->toBe($run->directory());
+});
+
+it('runs every suite\'s tests by default, and one suite\'s alone where it is told, leaving the rest as it was', function (): void {
+    $run = CoverageRun::of(WholeSuite::tests(), Path::of('cov'))->across(Processes::of(2));
+    $suite = $run->inSuite(SuiteName::of('unit'));
+
+    expect($run->suite())->toEqual(NotGiven::value())
+        ->and($suite->suite())->toEqual(SuiteName::of('unit'))
+        ->and($suite->processes())->toEqual(Processes::of(2))
+        ->and($suite->tests())->toEqual(WholeSuite::tests());
 });

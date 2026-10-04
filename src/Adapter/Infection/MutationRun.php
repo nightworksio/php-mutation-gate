@@ -62,6 +62,7 @@ final readonly class MutationRun
             $coverage,
             $request->processes(),
             $targets->paths(),
+            $request->narrowing()->suite(),
         )->withholding($request->withheld())->within($request->deadline());
         $scan = MemoryScan::in($this->project, $request->memory(), $this->files);
 
@@ -132,7 +133,7 @@ final readonly class MutationRun
                 $this->project,
                 $targets->directories(),
                 $cap,
-                $request->mutators(),
+                $request->narrowing()->mutators(),
                 $this->analysis,
                 $this->bridges,
             ),

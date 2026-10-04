@@ -28,7 +28,7 @@ final readonly class RunRequest
         WholeSuite|Group|Filter $judgedBy,
     ): MutationRequest {
         return MutationRequest::of($files, $judgedBy)
-            ->narrowedTo($files, $adapters->narrowedTo)
+            ->narrowedTo($files, $adapters->narrowing)
             ->withholding($adapters->withheld)
             ->cappedAt($settings->runner()->memory());
     }

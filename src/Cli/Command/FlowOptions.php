@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\WholeNumber;
@@ -58,11 +59,19 @@ final readonly class FlowOptions
     /** The option that has `plan` and `run` make mutants with the security mutators alone (ADR-0021, decision 20). */
     public const string SECURITY = 'security';
 
+    /** The option that has `plan` and `run` judge the mutants by one suite's tests alone (ADR-0025, decision 9). */
+    public const string SUITE = 'suite';
+
     /** The option that has a command write what it would otherwise print: `baseline --write`, `stub --write`. */
     public const string WRITE = 'write';
 
     /** What `--kill-matrix` takes, each for the kind of kill matrix it asks for. */
     private const array MATRICES = ['first' => MatrixKind::FirstKiller, 'full' => MatrixKind::Full];
+
+    private const string SUITE_WITH_COVERAGE = <<<'SAID'
+        --suite runs the coverage run with one suite's tests, so it takes no --coverage.
+        The map --coverage names may hold every suite's tests.
+        SAID;
 
     private const string OUTPUTS = '--output is console or problems, not "%s".';
 
@@ -101,6 +110,11 @@ final readonly class FlowOptions
                 self::SECURITY,
                 mode: InputOption::VALUE_NONE,
                 description: 'Make mutants with the security mutators alone, and judge only the security sets',
+            )
+            ->addOption(
+                self::SUITE,
+                mode: InputOption::VALUE_REQUIRED,
+                description: 'Judge the mutants by this test suite\'s tests alone, and hold no floor',
             );
     }
 
@@ -110,15 +124,31 @@ final readonly class FlowOptions
         return $input->getOption(self::SECURITY) === true;
     }
 
+    /** Whether the options ask for one suite's tests alone to judge the mutants: `--suite`. */
+    public static function isSuiteOnly(InputInterface $input): bool
+    {
+        return self::text($input, self::SUITE) !== '';
+    }
+
     /**
-     * What the flow runs with, narrowed to the security mutators where the
-     * options ask for it (ADR-0021, decision 20), or why it cannot run.
+     * What the flow runs with, narrowed to the security mutators (ADR-0021,
+     * decision 20) and to one suite's tests (ADR-0025, decision 9) where the
+     * options ask for it, or why it cannot run.
      */
     public static function narrowed(
         Composed|Invalid|CannotJudge $composed,
         InputInterface $input,
     ): Composed|Invalid|CannotJudge {
-        return $composed instanceof Composed && self::isSecurityOnly($input) ? $composed->securityOnly() : $composed;
+        $suite = self::text($input, self::SUITE);
+        $secured = $composed instanceof Composed && self::isSecurityOnly($input)
+            ? $composed->securityOnly()
+            : $composed;
+
+        return match (true) {
+            ! $secured instanceof Composed || $suite === '' => $secured,
+            self::text($input, self::COVERAGE) !== '' => CannotJudge::because(self::SUITE_WITH_COVERAGE),
+            default => $secured->inSuite(SuiteName::of($suite)),
+        };
     }
 
     /**

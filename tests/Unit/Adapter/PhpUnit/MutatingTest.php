@@ -32,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
@@ -39,6 +40,7 @@ use NightWorksIO\MutationGate\Core\Runner\Uncapped;
 use NightWorksIO\MutationGate\Core\Runner\Unmade;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -133,6 +135,17 @@ it('runs the tests that judge the request under coverage, then each covered muta
         ->and($coverage->scanned())->toBeInstanceOf(Uncapped::class)
         ->and($caps->getArrayCopy())->toBe(["memory_limit=64M\ndisplay_errors=stdout\n"])
         ->and(is_dir($project->own(sprintf('php/%d', getmypid()))))->toBeFalse();
+});
+
+it('runs the coverage run and each mutant\'s tests of the suite the request names alone', function () use ($whole): void {
+    $project = mutatingProject();
+    $shell = mutatingPhpUnit($project, new ArrayObject());
+    $request = $whole->narrowedTo($whole->files(), Narrowing::none()->toSuite(SuiteName::of('unit')));
+    mutating($project, $shell)->result($request, Seconds::of(5.0), NotGiven::value());
+
+    expect($shell->commands())->toHaveCount(2)
+        ->and($shell->commands()[0]->arguments())->toContain('--testsuite=unit')
+        ->and($shell->commands()[1]->arguments())->toContain('--testsuite=unit');
 });
 
 it('runs a held unit\'s coverage by its group, where the request reuses a map of the whole suite', function (): void {

@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Report\Problems;
 use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -203,6 +204,90 @@ it('cannot make mutants with the security mutators alone where the config turns 
     'plan --security' => ['plan', '--security'],
     'a shard of a plan made with --security' => ['run', '--plan=.mutation-gate/plan.json --shard=1'],
     'the verdict of a plan made with --security' => ['verdict', '--plan=.mutation-gate/plan.json'],
+]);
+
+/** A project whose PHPUnit config declares the suites `unit` and `feature`. */
+$suited = static function (): string {
+    $project = FlowCommands::project();
+    Scratch::write($project, 'phpunit.xml', <<<'XML'
+        <?xml version="1.0"?>
+        <phpunit>
+            <testsuites>
+                <testsuite name="unit"><directory>tests</directory></testsuite>
+                <testsuite name="feature"><directory>features</directory></testsuite>
+            </testsuites>
+        </phpunit>
+        XML);
+
+    return $project;
+};
+
+it('takes no --suite beside --plan, since a shard runs the tests its plan was made for', function () use ($composed, $suited): void {
+    $project = $suited();
+    $composition = $composed($project, 50);
+    FlowCommands::run(PlanCommand::command($composition));
+
+    $ran = FlowCommands::run(RunCommand::command($composition), '--plan=.mutation-gate/plan.json --shard=1 --suite=unit');
+
+    expect($ran->code)->toBe(2)
+        ->and($ran->errors)
+        ->toBe("A shard runs the tests its plan was made for, so run --plan takes no --suite. Give it to plan.\n");
+});
+
+it('plans, runs and judges one suite\'s tests alone, holding no floor', function () use ($composed, $suited): void {
+    $project = $suited();
+    $composition = $composed($project, 100);
+
+    $planned = FlowCommands::run(PlanCommand::command($composition), '--suite=unit');
+    $ran = FlowCommands::run(RunCommand::command($composition), '--suite=unit');
+    $whole = FlowCommands::run(RunCommand::command($composed($suited(), 100)));
+
+    expect($planned->code)->toBe(0)
+        ->and((string) file_get_contents(sprintf('%s/.mutation-gate/plan.json', $project)))->toContain('"suite": "unit"')
+        ->and($ran->code)->toBe(0)
+        ->and($ran->output)->toContain('--suite judges no floor')
+        ->and($whole->code)->toBe(1);
+});
+
+it('takes no --suite beside --coverage, whose map may hold every suite\'s tests', function (string $command) use (
+    $composed,
+    $suited,
+): void {
+    $composition = $composed($suited(), 50);
+    $commands = ['run' => RunCommand::command($composition), 'plan' => PlanCommand::command($composition)];
+
+    $ran = FlowCommands::run($commands[$command], '--suite=unit --coverage=.mutation-gate/coverage');
+
+    expect($ran->code)->toBe(2)
+        ->and($ran->errors)->toBe(<<<'SAID'
+            --suite runs the coverage run with one suite's tests, so it takes no --coverage.
+            The map --coverage names may hold every suite's tests.
+
+            SAID);
+})->with(['run', 'plan']);
+
+it('cannot judge by a suite the PHPUnit config does not declare', function (string $command, string $options) use (
+    $composed,
+    $suited,
+): void {
+    $project = $suited();
+    $composition = $composed($project, 50);
+    LastRun::keep(Directory::at($project), Planned::twoShards()->briefed(Briefing::standard()->inSuite(SuiteName::of('e2e'))));
+    $commands = [
+        'run' => RunCommand::command($composition),
+        'plan' => PlanCommand::command($composition),
+        'verdict' => VerdictCommand::command($composition),
+    ];
+
+    $ran = FlowCommands::run($commands[$command], $options);
+
+    expect($ran->code)->toBe(2)
+        ->and($ran->errors)->toBe("--suite=e2e names no test suite. The PHPUnit config declares: unit, feature.\n");
+})->with([
+    'run --suite' => ['run', '--suite=e2e'],
+    'plan --suite' => ['plan', '--suite=e2e'],
+    'a shard of a plan made with --suite' => ['run', '--plan=.mutation-gate/plan.json --shard=1'],
+    'the verdict of a plan made with --suite' => ['verdict', '--plan=.mutation-gate/plan.json'],
 ]);
 
 it('cannot run with a config it cannot read', function (string $input): void {

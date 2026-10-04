@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -112,7 +113,10 @@ final readonly class Mutating
         }
 
         $result = $this->result(
-            $request->narrowedTo(Paths::of(...array_values($files)), Mutators::named(...array_values($mutators))),
+            $request->narrowedTo(
+                Paths::of(...array_values($files)),
+                $request->narrowing()->toMutators(Mutators::named(...array_values($mutators))),
+            ),
             $cap,
             $ids,
         );
@@ -127,7 +131,10 @@ final readonly class Mutating
         Seconds $cap,
         Transcribing $printing,
     ): Reproduction|CannotJudge {
-        $narrowed = $request->narrowedTo(Paths::of($mutant->file()), Mutators::named($mutant->mutator()));
+        $narrowed = $request->narrowedTo(
+            Paths::of($mutant->file()),
+            $request->narrowing()->toMutators(Mutators::named($mutant->mutator())),
+        );
         $result = $this->result($narrowed, $cap, MutantIds::of($mutant->id()));
 
         $unmade = Reason::that(self::NOT_FOUND_AGAIN);
@@ -158,8 +165,10 @@ final readonly class Mutating
             );
         }
 
+        $suite = $request->narrowing()->suite();
         $run = CoverageRun::of($request->judgedBy(), $this->project->ownPath(CoverageRun::OWN_DIRECTORY))
             ->withholding($request->withheld());
+        $run = $suite instanceof SuiteName ? $run->inSuite($suite) : $run;
         $command = $invocation->coverage($run, self::NO_MAP_FILE);
 
         return $this->held->readFrom(

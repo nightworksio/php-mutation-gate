@@ -16,7 +16,6 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
-use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinition;
 use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinitions;
@@ -28,6 +27,8 @@ use NightWorksIO\MutationGate\Core\Proof\Key\Source;
 use NightWorksIO\MutationGate\Core\Proof\Key\Tests;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
+use NightWorksIO\MutationGate\Core\Runner\Narrowing;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
 /**
@@ -61,7 +62,7 @@ final readonly class Keying
             ? new self(
                 ContentKeys::of(
                     $setup->gate,
-                    self::config($settings, $adapters->narrowedTo),
+                    self::config($settings, $adapters->narrowing),
                     $identity,
                     self::analyser($adapters),
                     $setup->installed,
@@ -124,15 +125,22 @@ final readonly class Keying
     }
 
     /**
-     * The config as it affects results (ADR-0007, decision 2.3), and the
-     * mutators a narrowed run makes mutants with, so its proofs never stand in
-     * for a whole unit's (ADR-0021, decision 20).
+     * The config as it affects results (ADR-0007, decision 2.3), and what a
+     * narrowed run is narrowed to, the mutators it makes mutants with and the
+     * suite whose tests judge them, so its proofs never stand in for a whole
+     * unit's (ADR-0021 decision 20, ADR-0025 decision 9).
      */
-    private static function config(Settings $settings, Mutators $narrowedTo): string
+    private static function config(Settings $settings, Narrowing $narrowing): string
     {
-        return $narrowedTo->isAll()
+        $suite = $narrowing->suite();
+
+        return $narrowing->isNone()
             ? $settings->canonical()
-            : JsonText::encode(['config' => $settings->canonical(), 'mutators' => [...$narrowedTo]]);
+            : JsonText::encode([
+                'config' => $settings->canonical(),
+                'mutators' => [...$narrowing->mutators()],
+                ...$suite instanceof SuiteName ? ['suite' => $suite->value()] : [],
+            ]);
     }
 
     /**

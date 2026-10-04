@@ -32,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
@@ -505,4 +506,36 @@ it('refuses a plan whose security field is anything but true', function (string 
 })->with([
     'false' => ['false', 'the file.security is not true.'],
     'a string' => ['"yes"', 'the file.security is not true or false.'],
+]);
+
+it('writes a run of one suite\'s tests alone within its digest, and reads it back', function (): void {
+    $plan = planFileEmpty()->on(RunOn::at(Scope::branch('main'), Scope::branch('main')))
+        ->briefed(Briefing::standard()->securityOnly()->inSuite(SuiteName::of('unit')));
+    $written = PlanFile::encode($plan);
+    $read = PlanFile::decode($written);
+
+    expect($read)->toEqual($plan)
+        ->and($read instanceof Plan ? $read->briefing()->suite() : $read)->toEqual(SuiteName::of('unit'))
+        ->and($written)->toContain('"suite": "unit"')
+        ->and($plan->digest())->not->toEqual(planFileEmpty()->briefed(Briefing::standard()->securityOnly())->digest())
+        ->and(PlanFile::encode(planFileEmpty()))->not->toContain('"suite"');
+});
+
+it('reads a plan that holds no suite field as one that every test judges', function (): void {
+    $read = PlanFile::decode(PlanFile::encode(planFileEmpty()));
+
+    expect($read instanceof Plan ? $read->briefing()->suite() : $read)->toEqual(NotGiven::value());
+});
+
+it('refuses a plan whose suite field is no suite\'s name', function (string $value, string $refusal): void {
+    $written = str_replace('"suite": "unit"', sprintf('"suite": %s', $value), PlanFile::encode(
+        planFileEmpty()->briefed(Briefing::standard()->inSuite(SuiteName::of('unit'))),
+    ));
+
+    expect(PlanFile::decode($written))->toEqual(CannotJudge::because(
+        sprintf('The plan cannot be read, so no shard can follow it: %s', $refusal),
+    ));
+})->with([
+    'empty' => ['""', 'the file.suite is not a suite\'s name.'],
+    'a number' => ['1', 'the file.suite is not text.'],
 ]);

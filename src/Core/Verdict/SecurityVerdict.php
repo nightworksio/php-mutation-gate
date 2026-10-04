@@ -6,7 +6,9 @@ namespace NightWorksIO\MutationGate\Core\Verdict;
 
 use NightWorksIO\MutationGate\Core\Baseline\Lowered;
 use NightWorksIO\MutationGate\Core\Baseline\Unlowered;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
 use NightWorksIO\MutationGate\Core\Score\Score;
@@ -32,6 +34,7 @@ final readonly class SecurityVerdict
         private JudgedMutants $mutants,
         private Uncovered $uncovered,
         private Lowered|Unlowered $lowering,
+        private Exempt|NotGiven $exempt,
     ) {
     }
 
@@ -42,7 +45,16 @@ final readonly class SecurityVerdict
         JudgedMutants $mutants,
         Uncovered $uncovered,
     ): self {
-        return new self($package, $declared, $baseline, $mutants, $uncovered, Unlowered::floor());
+        return new self($package, $declared, $baseline, $mutants, $uncovered, Unlowered::floor(), NotGiven::value());
+    }
+
+    /**
+     * This verdict, held to no floor and raising none, for this reason: as a
+     * run of one suite's tests alone holds none (ADR-0025, decision 9).
+     */
+    public function exempting(Exempt $exempt): self
+    {
+        return clone($this, ['exempt' => $exempt]);
     }
 
     /** This verdict, with why the baseline lowered the set's floor, as its `lowered` says. */
@@ -74,12 +86,15 @@ final readonly class SecurityVerdict
         return $this->lowering;
     }
 
-    /** The higher of the declared floor and the baseline's; undeclared when neither holds one. */
-    public function floor(): Floor|Undeclared
+    /**
+     * The higher of the declared floor and the baseline's; undeclared when
+     * neither holds one; exempt where the run holds the set to none.
+     */
+    public function floor(): Floor|Exempt|Undeclared
     {
-        $floor = HeldFloor::of($this->declared, $this->baseline)->floor();
+        $floor = $this->held()->floor();
 
-        return $floor instanceof Floor ? $floor : Undeclared::floor();
+        return $floor instanceof Floor || $floor instanceof Exempt ? $floor : Undeclared::floor();
     }
 
     public function mutants(): JudgedMutants
@@ -111,6 +126,12 @@ final readonly class SecurityVerdict
     /** The floor the baseline rises to (ADR-0003, decision 6). */
     public function raised(): Floor|Unraised
     {
-        return HeldFloor::of($this->declared, $this->baseline)->raisedBy($this->counts(), $this->uncovered);
+        return $this->held()->raisedBy($this->counts(), $this->uncovered);
+    }
+
+    /** The floors that hold the set: the declared one and the baseline's, or none where it is exempt. */
+    private function held(): HeldFloor
+    {
+        return HeldFloor::of($this->exempt instanceof Exempt ? $this->exempt : $this->declared, $this->baseline);
     }
 }

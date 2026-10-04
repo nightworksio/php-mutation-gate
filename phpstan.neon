@@ -667,6 +667,7 @@ services:
                     - SECURITY # a tag a mutator carries, not the config section of the same name
                 'NightWorksIO\MutationGate\Core\Plan\BriefingRecord':
                     - SECURITY # a field of the plan file, not the config section of the same name
+                    - SUITE # a field of the plan file, not the command-line option of the same name
                 'NightWorksIO\MutationGate\Core\Report\SuiteText':
                     - SHOWN_FROM # the fewest suites a report shows, not an argument's position or an exit code
                 'NightWorksIO\MutationGate\Core\Report\JUnit':
@@ -758,6 +759,7 @@ services:
                     - FULL # an option of the gate's commands
                     - KILL_MATRIX # an option of the gate's commands, not the report's name
                     - SECURITY # an option of the gate's commands, not the config section of the same name
+                    - SUITE # an option of the gate's commands, not the plan file's field of the same name
                 'NightWorksIO\MutationGate\Cli\Command\TriageCommand':
                     - ORDER # an option of triage, not the Pest plugin's directory of orders
                     - FEWEST # the fewest runs that can disagree, not an exit code

@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
@@ -102,7 +103,7 @@ function summed(MutationResult|Mutants|CannotJudge $result): array|CannotJudge
 function moneyWith(Mutators $mutators): MutationRequest
 {
     return MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
-        ->narrowedTo(Paths::of(Path::of('src/Money.php')), $mutators);
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($mutators));
 }
 
 /** @return list<string> each mutant's id in the gate's spelling */

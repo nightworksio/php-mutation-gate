@@ -52,6 +52,7 @@ use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
@@ -64,6 +65,7 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestName;
@@ -384,7 +386,7 @@ it('writes the map another job handed on in its own layout for a run judged by t
     $shell = infectionShell($at, infectionKilled($at));
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
         ->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')))
-        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Mutators::named('Plus'));
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators(Mutators::named('Plus')));
     $result = new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())->mutate($request);
     $own = sprintf('%s/.gate/infection/coverage', $at->root());
 
@@ -525,7 +527,7 @@ it('runs a retry on the coverage its mutation run left, and collects it again fo
 
     expect([
         $retried($request),
-        $retried($request->narrowedTo(Paths::of(Path::of('src/Money.php')), Mutators::named('Plus'))),
+        $retried($request->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators(Mutators::named('Plus')))),
         $retried(MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Held.php'))),
         $retried($request->withholding(Withheld::of('DEPLOY_*'))),
     ])->toBe([1, 2, 4, 6]);
@@ -908,7 +910,7 @@ it('mutates nothing, and runs nothing, where Infection runs none of the mutators
     $at = infectionProject('{"mutators": {"@default": true}}');
     $shell = infectionShell($at, []);
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
-        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Mutators::named('default/UnwrapHtmlspecialchars'));
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators(Mutators::named('default/UnwrapHtmlspecialchars')));
 
     expect(new Infection($at, $shell, Seconds::of(4.0), nativeMarkersAllowed: false, files: new CapDirectory())->mutate($request))
         ->toEqual(MutationResult::of(Mutants::none(), 0))
@@ -939,4 +941,24 @@ it('cannot judge a run whose options name a class that is not a mutator', functi
 
     expect(new Infection($at, $shell, Seconds::of(4.0), nativeMarkersAllowed: false, files: new CapDirectory(), bridges: Bridges::refusing($why))
         ->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())))->toBe($why);
+});
+
+it('keeps the coverage run and every mutant\'s tests to the suite the request names', function (): void {
+    $at = infectionProject();
+    $shell = infectionShell($at, [
+        'killed' => [InfectionRun::entry('Plus', sprintf('%s/src/Money.php', $at->root()), 11, '$a + $b', '$a - $b')],
+    ]);
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Money.php'));
+    new Infection($at, $shell, Seconds::of(6.0), nativeMarkersAllowed: false, files: new CapDirectory())->mutate(
+        $request->narrowedTo($request->files(), Narrowing::none()->toSuite(SuiteName::of('unit'))),
+    );
+    new Infection($at, $shell, Seconds::of(6.0), nativeMarkersAllowed: false, files: new CapDirectory())->coverage(
+        CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'))->inSuite(SuiteName::of('unit')),
+    );
+    $ran = infectionRan($shell);
+
+    expect($ran)->toHaveCount(3)
+        ->and($ran[0])->toContain('--testsuite=unit')
+        ->and($ran[1])->toContain('--test-framework-extra-args=--group="holds:src/Money.php" --testsuite="unit"')
+        ->and($ran[2])->toContain('--testsuite=unit');
 });

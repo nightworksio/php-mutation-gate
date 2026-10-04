@@ -11,11 +11,13 @@ use function is_file;
 
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\JUnitLog;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
@@ -93,6 +95,7 @@ final readonly class Invocation
         OwnConfig $config,
         WholeSuite|Group|Filter|TestPaths $tests,
         DiskPath $directory,
+        SuiteName|NotGiven $suite,
     ): Command {
         return Command::php(
             ...[
@@ -104,6 +107,7 @@ final readonly class Invocation
                 PhpUnitOption::NoColors->value,
                 ...$config->extraArguments(),
                 ...($tests instanceof TestPaths ? self::filesOf($project, $tests) : self::narrowedTo($tests)),
+                ...PhpUnitOption::inSuite($suite),
             ],
         )->with(['XDEBUG_MODE' => 'coverage']);
     }
@@ -123,8 +127,9 @@ final readonly class Invocation
         DiskPath $coverage,
         Processes $processes,
         array $paths,
+        SuiteName|NotGiven $suite,
     ): Command {
-        $extra = [...$config->extraArguments(), ...self::narrowedTo($judgedBy)];
+        $extra = [...$config->extraArguments(), ...self::narrowedTo($judgedBy), ...PhpUnitOption::inSuite($suite)];
 
         return Command::php(
             $project->absolute(Path::of(self::INFECTION)),

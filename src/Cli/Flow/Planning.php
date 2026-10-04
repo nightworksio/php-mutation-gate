@@ -92,7 +92,7 @@ final readonly class Planning
         }
 
         $map = $this->adapters->runner->coverage(
-            $coverage instanceof CoverageRun ? $coverage->withholding($this->adapters->withheld) : $coverage,
+            $coverage instanceof CoverageRun ? $this->adapters->covering($coverage) : $coverage,
         );
 
         $peak = $coverage instanceof CoverageRun ? $this->setup->memory->peak() : NotGiven::value();

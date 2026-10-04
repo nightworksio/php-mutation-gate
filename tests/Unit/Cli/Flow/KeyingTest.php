@@ -26,11 +26,13 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
+use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -116,8 +118,14 @@ function keyedBase(string $definition): Digest
 /** The base of a run whose mutants these mutators make. */
 function keyedNarrowedTo(Mutators $narrowedTo): Digest
 {
+    return keyedNarrowing(Narrowing::none()->toMutators($narrowedTo));
+}
+
+/** The base of a run narrowed so. */
+function keyedNarrowing(Narrowing $narrowing): Digest
+{
     $keying = Keying::of(
-        Flows::adapters(Flows::project(), [], keyingRunner('fake'), $narrowedTo),
+        Flows::adapters(Flows::project(), [], keyingRunner('fake'), $narrowing),
         Flows::settings(),
         Flows::setup(),
         keyingSuite('1'),
@@ -148,6 +156,16 @@ it('keys a run narrowed to some mutators apart from one of every mutator, and ap
     expect($secured)->not->toEqual(keyedNarrowedTo(Mutators::all()))
         ->and($secured)->not->toEqual(keyedNarrowedTo(Mutators::named('default/Plus')))
         ->and($secured)->toEqual(keyedNarrowedTo(Mutators::named('security/HashEqualsToTrue')));
+});
+
+it('keys a run of one suite\'s tests apart from one of every test, and apart from one of another suite', function (): void {
+    $unit = keyedNarrowing(Narrowing::none()->toSuite(SuiteName::of('unit')));
+    $secured = Narrowing::none()->toMutators(Mutators::named('security/HashEqualsToTrue'));
+
+    expect($unit)->not->toEqual(keyedNarrowing(Narrowing::none()))
+        ->and($unit)->not->toEqual(keyedNarrowing(Narrowing::none()->toSuite(SuiteName::of('feature'))))
+        ->and($unit)->toEqual(keyedNarrowing(Narrowing::none()->toSuite(SuiteName::of('unit'))))
+        ->and(keyedNarrowing($secured->toSuite(SuiteName::of('unit'))))->not->toEqual(keyedNarrowing($secured));
 });
 
 it('reads the test file that judges a unit into its key alone', function (): void {

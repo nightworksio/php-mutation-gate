@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Runner;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
 
+use function sprintf;
 use function version_compare;
 
 /**
@@ -25,6 +27,9 @@ enum PhpUnitOption: string
 
     /** Runs the tests of the group named next. */
     case Group = '--group';
+
+    /** Runs the tests of the `<testsuite>` named after `=` alone, beside any group or filter. */
+    case TestSuite = '--testsuite';
 
     /** Runs the tests whose names match the pattern next. */
     case Filter = '--filter';
@@ -67,6 +72,17 @@ enum PhpUnitOption: string
 
     /** The first PHPUnit that names its result cache the test run history, and deprecates `--do-not-cache-result`. */
     private const string HISTORY_SINCE = '13.3.0';
+
+    /**
+     * The option that keeps a run to one suite's tests, as `--suite` asks
+     * (ADR-0025, decision 9); none where the run is narrowed to no suite.
+     *
+     * @return list<string>
+     */
+    public static function inSuite(SuiteName|NotGiven $suite): array
+    {
+        return $suite instanceof SuiteName ? [sprintf('%s=%s', self::TestSuite->value, $suite->value())] : [];
+    }
 
     /**
      * The option that leaves the test run history as it was, as this PHPUnit

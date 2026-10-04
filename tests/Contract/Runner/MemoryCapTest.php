@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -57,7 +58,7 @@ function inMutants(array $lines): array
 
 $capped = static function (Library $library) use ($probed): void {
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
-        ->narrowedTo(Paths::of(Path::of('src/Money.php')), $library->mutators('adds'))
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('adds')))
         ->cappedAt(MemoryCap::of(64, MemoryUnit::Megabytes));
     $result = null;
     $mutated = $probed(static function () use ($library, $request, &$result): void {
@@ -99,7 +100,7 @@ it('runs every mutant\'s process of a phpunit run, and of a reproduction, under 
  */
 $hogged = static function (Library $library, string $hog, string $also = '', string $alsoValue = ''): array {
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
-        ->narrowedTo(Paths::of(Path::of('src/Money.php')), $library->mutators('adds'))
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('adds')))
         ->cappedAt(MemoryCap::of(64, MemoryUnit::Megabytes));
     $set = ['LIBRARY_HOG' => $hog, ...($also === '' ? [] : [$also => $alsoValue])];
 

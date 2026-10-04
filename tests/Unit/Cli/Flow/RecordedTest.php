@@ -63,7 +63,9 @@ use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Undigested;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
+use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Version;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestName;
@@ -165,7 +167,7 @@ it('writes a proof of every unit that ran to the end, at the plan\'s base, and w
         ->and($ledger->lastPassed())->toBeInstanceOf(CannotTell::class);
 });
 
-it('writes the proofs of a run of the security mutators alone, and teaches the cost model nothing from it', function () use (
+it('writes the proofs of a narrowed run, and teaches the cost model nothing from it', function (Narrowing $narrowing) use (
     $map,
     $run,
     $ledgers,
@@ -175,13 +177,16 @@ it('writes the proofs of a run of the security mutators alone, and teaches the c
     $plan = Planned::twoShards();
     $results = recordedRan($project, ScriptedRunner::fixture(), $map());
 
-    new Recorded(Flows::adapters($project, [], $store, Mutators::named('Plus')))
+    new Recorded(Flows::adapters($project, [], $store, $narrowing))
         ->write($plan, $results, $ledgers($store, $plan), $run($plan), CannotTell::because('It failed.'));
     $ledger = LedgerRead::ledger($store->read(Scope::branch('main')));
 
     expect(count($ledger->proofs()))->toBe(2)
         ->and(count($ledger->timings()))->toBe(0);
-});
+})->with([
+    'to the security mutators' => [Narrowing::none()->toMutators(Mutators::named('Plus'))],
+    'to one suite' => [Narrowing::none()->toSuite(SuiteName::of('unit'))],
+]);
 
 it('adds the time each analyser\'s checks of the shards\' survivors took to what the ledger held of it', function () use (
     $map,

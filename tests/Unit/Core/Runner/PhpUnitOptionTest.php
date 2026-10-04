@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\Version;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
 
 it('leaves the test run history as it was with --do-not-cache-result only before PHPUnit 13.3', function (string $version, PhpUnitOption $option): void {
     expect(PhpUnitOption::leavingHistoryOf(Version::of('phpunit/phpunit', $version, 'abc')))->toBe($option);
@@ -19,4 +20,9 @@ it('leaves the test run history as it was with --do-not-cache-result only before
 it('leaves the test run history as it was with the history\'s own option where no version is known', function (): void {
     expect(PhpUnitOption::leavingHistoryOf(NotGiven::value()))->toBe(PhpUnitOption::DoNotRecordTestRunHistory)
         ->and(PhpUnitOption::DoNotRecordTestRunHistory->value)->toBe('--do-not-record-test-run-history');
+});
+
+it('keeps a run to one suite\'s tests with --testsuite, and to none where no suite is named', function (): void {
+    expect(PhpUnitOption::inSuite(SuiteName::of('unit')))->toBe(['--testsuite=unit'])
+        ->and(PhpUnitOption::inSuite(NotGiven::value()))->toBe([]);
 });
