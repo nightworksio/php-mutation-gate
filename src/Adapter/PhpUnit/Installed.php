@@ -18,7 +18,6 @@ use NightWorksIO\MutationGate\Core\Runner\Program;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 
 use function sprintf;
-use function version_compare;
 
 /**
  * The exact versions of the packages the PHPUnit runner drives, as Composer
@@ -28,9 +27,6 @@ use function version_compare;
  */
 final readonly class Installed
 {
-    /** The lowest PHPUnit with `--test-id-filter-file`, which selects a mutant's tests by their ids. */
-    public const string FLOOR = '13.2.0';
-
     /** The packages whose versions decide how the runner selects, runs and measures tests. */
     private const array DRIVEN = [Package::PhpUnit->value, Package::CodeCoverage->value];
 
@@ -79,12 +75,10 @@ final readonly class Installed
     {
         foreach ($versions as $version) {
             $release = $version->release();
-            $tooOld = $version->package() === Package::PhpUnit->value
-                && $version->isRelease()
-                && version_compare($release, self::FLOOR, '<');
+            $tooOld = $version->package() === Package::PhpUnit->value && ! PhpUnitOption::selectsByIdsIn($version);
 
             if ($tooOld) {
-                return CannotJudge::because(sprintf(self::TOO_OLD, self::FLOOR, $manifest, $release));
+                return CannotJudge::because(sprintf(self::TOO_OLD, PhpUnitOption::IDS_SINCE, $manifest, $release));
             }
         }
 

@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Mutator\Engine\MadeMutant;
@@ -133,7 +134,7 @@ final readonly class MutantFiles
         Selection $selection,
         array $lines,
     ): self|CannotJudge {
-        $listed = sprintf('%s%s', implode(Selection::LINE_END, $lines), Selection::LINE_END);
+        $listed = sprintf('%s%s', implode(PhpUnitOption::LINE_END, $lines), PhpUnitOption::LINE_END);
         $selected = $project->written(sprintf('%s/%s', $directory, $selection->value), $listed);
         $results = $project->written(sprintf('%s/%s', $directory, self::RESULTS), '');
         $guard = $project->written(sprintf('%s/%s', $directory, self::GUARD), '');

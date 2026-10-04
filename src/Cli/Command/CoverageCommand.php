@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Cli\Command;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
+use NightWorksIO\MutationGate\Cli\Flow\Measuring;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -54,8 +55,9 @@ final readonly class CoverageCommand
             ->withholding($composed->adapters->withheld);
         $map = $composed->adapters->runner->coverage($request);
         $file = CoverageMapFile::in($into);
+        $at = Measuring::now($composed->adapters);
         $written = $map instanceof CoverageMap
-            ? $composed->adapters->project->write($file, Contents::of(CoverageMapFile::encode($map)))
+            ? $composed->adapters->project->write($file, Contents::of(CoverageMapFile::encode($map, $at)))
             : $map;
 
         if ($written instanceof CannotJudge) {

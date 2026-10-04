@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethod;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
+use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -261,7 +262,7 @@ function infectionHandedOn(Project $at, string $directory): CoverageMap
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'))
         ->timed(TestId::of('Tests\MoneyTest::adds'), Seconds::of(0.5))
         ->executing(Path::of('src/Money.php'), ExecutedMethod::of('add', 9, 12));
-    Scratch::write($at->root(), sprintf('%s/map.json.gz', $directory), CoverageMapFile::encode($map));
+    Scratch::write($at->root(), sprintf('%s/map.json.gz', $directory), CoverageMapFile::encode($map, Unplaced::map()));
 
     return $map;
 }
@@ -400,6 +401,7 @@ it('cannot judge a handed-on map whose test class no test file declares', functi
     $at = infectionProject();
     Scratch::write($at->root(), 'planned/map.json.gz', CoverageMapFile::encode(
         CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\GoneTest::adds')),
+        Unplaced::map(),
     ));
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
 
@@ -831,7 +833,7 @@ it('runs a shard of the flows on the map the plan handed it, in its own layout',
     );
     new Handoff(Directory::at($at->root()))->write($plan, CoverageMap::empty()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'))
-        ->timed(TestId::of('Tests\MoneyTest::adds'), Seconds::of(0.5)), KillHistory::none());
+        ->timed(TestId::of('Tests\MoneyTest::adds'), Seconds::of(0.5)), KillHistory::none(), Unplaced::map());
     $shell = infectionShell($at, infectionKilled($at));
     $infection = new Infection($at, $shell, Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory());
 

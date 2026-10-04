@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethod;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethods;
 use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
+use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -38,7 +39,7 @@ $file = static fn(): array => [
 ];
 
 it('writes compact JSON, gzipped: each test once with its seconds, and each line\'s tests by their place, in the order covered', function () use ($map): void {
-    expect(Gzip::unpack(CoverageMapFile::encode($map()), 'the map'))->toBe(JsonText::compact([
+    expect(Gzip::unpack(CoverageMapFile::encode($map(), Unplaced::map()), 'the map'))->toBe(JsonText::compact([
         'format' => 1,
         'tests' => [
             ['id' => 'MoneyTest::adds', 'seconds' => 0.25],
@@ -57,16 +58,16 @@ it('is map.json.gz in the directory a job hands on', function (): void {
 });
 
 it('writes an empty map as no tests and no files', function (): void {
-    expect(Gzip::unpack(CoverageMapFile::encode(CoverageMap::empty()), 'the map'))->toBe('{"format":1,"tests":[],"files":{}}');
+    expect(Gzip::unpack(CoverageMapFile::encode(CoverageMap::empty(), Unplaced::map()), 'the map'))->toBe('{"format":1,"tests":[],"files":{}}');
 });
 
 it('reads back the map it wrote', function () use ($map): void {
-    expect(CoverageMapFile::decode(CoverageMapFile::encode($map())))->toEqual($map())
-        ->and(CoverageMapFile::decode(CoverageMapFile::encode(CoverageMap::empty())))->toEqual(CoverageMap::empty());
+    expect(CoverageMapFile::decode(CoverageMapFile::encode($map(), Unplaced::map())))->toEqual($map())
+        ->and(CoverageMapFile::decode(CoverageMapFile::encode(CoverageMap::empty(), Unplaced::map())))->toEqual(CoverageMap::empty());
 });
 
 it('writes a shard\'s map: only its files, and every test with its seconds', function () use ($map): void {
-    $shard = CoverageMapFile::decode(CoverageMapFile::encode($map()->onlyFor(Paths::of(Path::of('123'), Path::of('src/Gone.php')))));
+    $shard = CoverageMapFile::decode(CoverageMapFile::encode($map()->onlyFor(Paths::of(Path::of('123'), Path::of('src/Gone.php'))), Unplaced::map()));
 
     expect($shard instanceof CoverageMap ? $shard->files() : Paths::none())->toEqual(Paths::of(Path::of('123')))
         ->and($shard instanceof CoverageMap ? $shard->durationOf(TestId::of('MoneyTest::adds')) : null)->toEqual(Seconds::of(0.25))
@@ -136,7 +137,7 @@ it('writes and reads a map in time linear in its entries', function (): void {
 
         $map = CoverageMap::of(...$covered)->timedEach(...array_map(static fn(int $test): TimedTest => TimedTest::of(sprintf('T%d::t', $test), 0.5), range(0, $size - 1)));
 
-        return static fn(): CoverageMap|CannotJudge => CoverageMapFile::decode(CoverageMapFile::encode($map));
+        return static fn(): CoverageMap|CannotJudge => CoverageMapFile::decode(CoverageMapFile::encode($map, Unplaced::map()));
     };
     $few = $read(10)();
 
@@ -152,7 +153,7 @@ it('is found in the directory a job hands on, and says so where the gate wrote n
 });
 
 it('keeps a shard\'s files\' executed methods, and reads a map without methods as one with none', function () use ($map, $file, $written): void {
-    $shard = CoverageMapFile::decode(CoverageMapFile::encode($map()->onlyFor(Paths::of(Path::of('123')))));
+    $shard = CoverageMapFile::decode(CoverageMapFile::encode($map()->onlyFor(Paths::of(Path::of('123'))), Unplaced::map()));
     $whole = CoverageMapFile::decode($written($file()));
 
     expect($shard instanceof CoverageMap ? $shard->methods()->paths() : $shard)->toEqual(Paths::none())

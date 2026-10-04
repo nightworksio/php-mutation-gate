@@ -8,6 +8,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 
 use function sprintf;
+use function str_contains;
+use function str_ends_with;
 use function version_compare;
 
 /**
@@ -70,6 +72,15 @@ enum PhpUnitOption: string
     /** Logs each test's outcome as JUnit, to the file named after `=`. */
     case LogJunit = '--log-junit';
 
+    /** How a line of a file PHPUnit reads a list from ends. */
+    public const string LINE_END = "\n";
+
+    /** The first PHPUnit that selects tests by their ids, with `--test-id-filter-file`. */
+    public const string IDS_SINCE = '13.2.0';
+
+    /** What PHPUnit drops before a line's end. */
+    private const string CARRIAGE_RETURN = "\r";
+
     /** The first PHPUnit that names its result cache the test run history, and deprecates `--do-not-cache-result`. */
     private const string HISTORY_SINCE = '13.3.0';
 
@@ -99,5 +110,22 @@ enum PhpUnitOption: string
             && version_compare($phpunit->release(), self::HISTORY_SINCE, '<');
 
         return $beforeHistory ? self::DoNotCacheResult : self::DoNotRecordTestRunHistory;
+    }
+
+    /**
+     * Whether PHPUnit reads an entry of a list file back as it is: it reads
+     * the file a line at a time and drops a carriage return before a line's
+     * end, so an entry with a line break in it, as a data set's name can
+     * have, or one that ends in a carriage return, is not one it can.
+     */
+    public static function readsBack(string $entry): bool
+    {
+        return ! str_contains($entry, self::LINE_END) && ! str_ends_with($entry, self::CARRIAGE_RETURN);
+    }
+
+    /** Whether this PHPUnit selects tests by their ids: a release from 13.2 on, or a branch, taken as it is. */
+    public static function selectsByIdsIn(Version $phpunit): bool
+    {
+        return ! $phpunit->isRelease() || version_compare($phpunit->release(), self::IDS_SINCE, '>=');
     }
 }

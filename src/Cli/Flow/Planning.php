@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Cost\FirstRun;
 use NightWorksIO\MutationGate\Core\Cost\StartUpSamples;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
+use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
@@ -104,7 +106,7 @@ final readonly class Planning
 
         $keying = Keying::of($this->adapters, $this->settings, $this->setup, $inventory->suite, $map);
         $planned = $keying instanceof Keying
-            ? $this->planned($inventory, $map, $keying, $mode, $cut, $matrix)
+            ? $this->planned($inventory, $map, Measuring::of($this->adapters, $coverage), $keying, $mode, $cut, $matrix)
             : $keying;
 
         return $planned instanceof Plan
@@ -137,6 +139,7 @@ final readonly class Planning
     private function planned(
         Inventory $inventory,
         CoverageMap $map,
+        MeasuredAt|Unplaced $at,
         Keying $keying,
         Mode $mode,
         Cut $cut,
@@ -181,6 +184,7 @@ final readonly class Planning
                     )
                     ->naming($this->adapters->runner->names($map->tests(), $this->adapters->withheld)),
                 $map,
+                $at,
                 $ledgers->killers(),
             ),
         };
@@ -261,9 +265,13 @@ final readonly class Planning
      * later local command, such as `pre-commit`, reads it without running the
      * suite.
      */
-    private function handed(Plan $plan, CoverageMap $map, KillHistory $history): Plan|CannotJudge
-    {
-        $handed = new Handoff($this->adapters->project)->write($plan, $map, $history);
+    private function handed(
+        Plan $plan,
+        CoverageMap $map,
+        MeasuredAt|Unplaced $at,
+        KillHistory $history,
+    ): Plan|CannotJudge {
+        $handed = new Handoff($this->adapters->project)->write($plan, $map, $history, $at);
 
         return $handed instanceof CannotJudge ? $handed : $plan;
     }

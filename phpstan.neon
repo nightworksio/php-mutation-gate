@@ -754,6 +754,10 @@ services:
                     - THRESHOLDS # Stryker's own scores in percent
                 'NightWorksIO\MutationGate\Core\Report\SavingsText':
                     - DAYS # days the savings count
+                'NightWorksIO\MutationGate\Core\Report\AffectedText':
+                    - OWN # a listed test file and one of its reasons, not a config problem
+                'NightWorksIO\MutationGate\Core\Coverage\MeasuredAt':
+                    - COMMIT # a field of the coverage map, not of a proof's digests
                 'NightWorksIO\MutationGate\Cli\Command\FlowOptions':
                     - COVERAGE # an option of the gate's commands
                     - FULL # an option of the gate's commands

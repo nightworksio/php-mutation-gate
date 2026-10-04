@@ -11,6 +11,8 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
+use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
+use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -48,13 +50,17 @@ final readonly class Handoff
      * The whole map, each shard's map and the history of its files'
      * functions, in the directory `run` reads them from; and the verdict's map.
      */
-    public function write(Plan $plan, CoverageMap $map, KillHistory $history): Written|CannotJudge
-    {
+    public function write(
+        Plan $plan,
+        CoverageMap $map,
+        KillHistory $history,
+        MeasuredAt|Unplaced $at,
+    ): Written|CannotJudge {
         $written = Written::to(Workspace::coverage()->value());
         $considered = Units::none();
         $whole = $this->project->write(
             CoverageMapFile::in(Workspace::coverage()),
-            Contents::of(CoverageMapFile::encode($map)),
+            Contents::of(CoverageMapFile::encode($map, $at)),
         );
 
         if ($whole instanceof CannotJudge) {
@@ -66,7 +72,7 @@ final readonly class Handoff
             $files = $this->filesOf($shard->units(), $map);
             $wrote = $this->project->write(
                 $this->fileOf($shard->id()),
-                Contents::of(CoverageMapFile::encode($map->onlyFor($files))),
+                Contents::of(CoverageMapFile::encode($map->onlyFor($files), Unplaced::map())),
             );
             $wrote = $wrote instanceof CannotJudge ? $wrote : $this->project->write(
                 $this->killersOf($shard->id()),
@@ -81,7 +87,10 @@ final readonly class Handoff
         $considered = Units::of(...$considered, ...$plan->considered()->proved(), ...$plan->considered()->carried());
         $wrote = $this->project->write(
             CoverageMapFile::in(Workspace::verdictCoverage()),
-            Contents::of(CoverageMapFile::encode($map->onlyFor($this->filesOf($considered, $map)))),
+            Contents::of(CoverageMapFile::encode(
+                $map->onlyFor($this->filesOf($considered, $map)),
+                Unplaced::map(),
+            )),
         );
 
         return $wrote instanceof CannotJudge ? $wrote : $written;

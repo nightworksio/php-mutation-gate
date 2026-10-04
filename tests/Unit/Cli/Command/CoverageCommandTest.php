@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Command\CoverageCommand;
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
+use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
@@ -26,10 +28,10 @@ $coverage = static fn(string $project, string $input, ScriptedRunner $runner): F
     $input,
 );
 
-/** The map the fake runner measures. */
+/** The map the fake runner measures, at the commit the checkout is at, in a clean tree. */
 $measured = static fn(): string => CoverageMapFile::encode(RunnerFake::ofTheFixture()->coverage(
     CoverageRead::from(Path::of('anywhere')),
-));
+), MeasuredAt::of(Revision::ref(Flows::HEAD), dirty: false));
 
 it('writes the map the suite\'s coverage run measured into the directory it is told', function () use (
     $coverage,

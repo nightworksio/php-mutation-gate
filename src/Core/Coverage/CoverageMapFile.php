@@ -33,7 +33,8 @@ use function strval;
  * timed, and each covered line of each file names its tests by their place
  * in that list. Where the report of the run that measured it states them,
  * `methods` lists each file's executed methods with the lines they span,
- * `{"name", "start", "end"}`; a map without them is whole.
+ * `{"name", "start", "end"}`; a map without them is whole. A whole map says
+ * where it was measured, as `commit` and `dirty` ({@see MeasuredAt}).
  *
  * It is data, never code: a runner's own map may be PHP that reading runs,
  * and is read only by the job that wrote it.
@@ -48,6 +49,8 @@ use function strval;
  */
 final readonly class CoverageMapFile
 {
+    /** What a message calls the file. */
+    public const string NAMED = 'The coverage map';
     /** The map's name in the directory a job hands it over in. */
     private const string NAME = 'map.json.gz';
 
@@ -76,7 +79,8 @@ final readonly class CoverageMapFile
         return CannotJudge::because(sprintf(self::MISSING, $file));
     }
 
-    public static function encode(CoverageMap $map): string
+    /** A map as the gate writes it, with where it was measured, which a map of some files alone does not say. */
+    public static function encode(CoverageMap $map, MeasuredAt|Unplaced $at): string
     {
         $places = [];
         $tests = [];
@@ -99,6 +103,7 @@ final readonly class CoverageMapFile
 
         return Gzip::pack(JsonText::compact([
             'format' => self::FORMAT,
+            ...($at instanceof MeasuredAt ? $at->written() : []),
             'tests' => $tests,
             'files' => $files === [] ? new stdClass() : $files,
             ...($methods === [] ? [] : [self::METHODS => $methods]),
@@ -107,7 +112,7 @@ final readonly class CoverageMapFile
 
     public static function decode(string $bytes): CoverageMap|CannotJudge
     {
-        $json = Gzip::unpack($bytes, 'The coverage map');
+        $json = Gzip::unpack($bytes, self::NAMED);
         $file = Node::decode($json instanceof CannotJudge ? '' : $json);
 
         if (! self::isThisFormat($file)) {

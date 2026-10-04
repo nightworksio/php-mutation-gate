@@ -27,7 +27,7 @@ use function sprintf;
 final readonly class TestReach
 {
     /** What the project at the root is called in a sentence. */
-    private const string PROJECT = 'the project';
+    public const string PROJECT = 'the project';
 
     private const string GONE = '`%s` was deleted, so every unit of %s is reached.';
 

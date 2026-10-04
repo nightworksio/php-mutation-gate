@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Cost\CostBasis;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
+use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
+use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
@@ -270,10 +272,10 @@ it('hands each shard the map of its own files', function () use ($plan): void {
     $handed = new Handoff(Flows::adapters($project)->project);
 
     expect($handed->read(ShardId::of(1)))
-        ->toEqual(CoverageMapFile::decode(CoverageMapFile::encode($map->onlyFor(Paths::of(Path::of('src/Held.php'))))))
+        ->toEqual(CoverageMapFile::decode(CoverageMapFile::encode($map->onlyFor(Paths::of(Path::of('src/Held.php'))), Unplaced::map())))
         ->and($handed->read(ShardId::of(2)))
         ->toEqual(CoverageMapFile::decode(
-            CoverageMapFile::encode($map->onlyFor(Paths::of(Path::of('src/Money.php')))),
+            CoverageMapFile::encode($map->onlyFor(Paths::of(Path::of('src/Money.php'))), Unplaced::map()),
         ));
 });
 
@@ -412,8 +414,30 @@ it('leaves the whole map, in CI and out, where every shard and a later local com
         Flows::setup(),
     )->plan(Mode::full(), CoverageRun::of(WholeSuite::tests(), Workspace::coverage()), Cut::exactly(1), MatrixKind::FirstKiller);
 
-    expect(file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $local)))->toBe(CoverageMapFile::encode($map))
-        ->and(file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $ci)))->toBe(CoverageMapFile::encode($map));
+    $at = MeasuredAt::of(Revision::ref(Flows::HEAD), dirty: false);
+
+    expect(file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $local)))->toBe(CoverageMapFile::encode($map, $at))
+        ->and(file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $ci)))->toBe(CoverageMapFile::encode($map, $at));
+});
+
+it('leaves the whole map saying where it was measured: where another job measured a map it read, and dirty where the tree is', function (): void {
+    $read = Flows::project();
+    $dirty = Flows::project();
+    $elsewhere = MeasuredAt::of(Revision::ref('0123456789abcdef0123456789abcdef01234567'), dirty: false);
+    $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'));
+    Scratch::write($read, 'handed/map.json.gz', CoverageMapFile::encode($map, $elsewhere));
+    new Planning(Flows::adapters($read), Flows::settings(), Flows::setup())
+        ->plan(Mode::full(), CoverageRead::from(Path::of('handed')), Cut::exactly(1), MatrixKind::FirstKiller);
+    new Planning(
+        Flows::adapters($dirty, [], RepositoryFake::onMain(Revision::ref(Flows::HEAD))->changed(), new CoverageAsked(RunnerFake::ofTheFixture(), $map)),
+        Flows::settings(),
+        Flows::setup(),
+    )->plan(Mode::full(), CoverageRun::of(WholeSuite::tests(), Workspace::coverage()), Cut::exactly(1), MatrixKind::FirstKiller);
+
+    expect(MeasuredAt::recordedIn((string) file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $read))))
+        ->toEqual($elsewhere)
+        ->and(MeasuredAt::recordedIn((string) file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $dirty))))
+        ->toEqual(MeasuredAt::of(Revision::ref(Flows::HEAD), dirty: true));
 });
 
 it('cannot plan where it cannot leave the whole map', function () use ($plan): void {

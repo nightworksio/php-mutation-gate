@@ -80,7 +80,10 @@ final readonly class KeptCoverage
         $written = $kept instanceof CoverageMap && $held instanceof TestIds && $measured instanceof CoverageMap
             ? $this->adapters->project->write(
                 CoverageMapFile::in(Workspace::coverage()),
-                Contents::of(CoverageMapFile::encode(Remeasured::over($kept, $held, $measured))),
+                Contents::of(CoverageMapFile::encode(
+                    Remeasured::over($kept, $held, $measured),
+                    Measuring::now($this->adapters),
+                )),
             )
             : $measured;
 
