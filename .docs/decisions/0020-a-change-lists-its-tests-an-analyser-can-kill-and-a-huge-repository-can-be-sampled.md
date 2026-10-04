@@ -382,8 +382,9 @@ needs remain, and the runners' own behaviour shapes each answer.
       the digest is the same on every machine. A file named by a stream,
       such as `phar://`, is inside the analyser itself, which its version
       decides. Each file referenced, and each file under a directory
-      referenced, is digested by its contents, and one that is not there as
-      missing. A file outside the root keeps the path it is named by.
+      referenced, found without following a linked directory, is digested
+      by its contents, and one that is not there as missing. A file outside
+      the root keeps the path it is named by.
     - The config digest is the digest of the settings and of those files.
       An analyser that cannot say the configuration it runs with is keyed
       by the digest of its config file instead.
