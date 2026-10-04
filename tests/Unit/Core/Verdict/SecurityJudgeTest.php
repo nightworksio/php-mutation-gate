@@ -39,9 +39,9 @@ $described = static fn(SecurityVerdicts $sets): array => array_map(
 
 it('judges each package\'s security set over the mutants of its trees the security mutators made', function () use ($security, $root, $billing, $described): void {
     $trees = TreeVerdicts::of(
-        Secured::tree('app', $root, Secured::mutant(MutantJudgement::Killed, 1), Secured::mutant(MutantJudgement::Survived, 2, 'Plus')),
-        Secured::tree('lib', $root, Secured::mutant(MutantJudgement::Survived, 3, 'default/UnwrapStripTags')),
-        Secured::tree('packages/billing/src', $billing->withSecurityFloor(Floor::of(80)), Secured::mutant(MutantJudgement::Killed, 4)),
+        Secured::tree('app', $root, Undeclared::floor(), Secured::mutant(MutantJudgement::Killed, 1), Secured::mutant(MutantJudgement::Survived, 2, 'Plus')),
+        Secured::tree('lib', $root, Undeclared::floor(), Secured::mutant(MutantJudgement::Survived, 3, 'default/UnwrapStripTags')),
+        Secured::tree('packages/billing/src', $billing->withSecurityFloor(Floor::of(80)), Undeclared::floor(), Secured::mutant(MutantJudgement::Killed, 4)),
     );
     $sets = SecurityJudge::of(Baseline::none(), Uncovered::Count, Floor::of(90))->judged($trees, $security);
 
@@ -52,8 +52,8 @@ it('judges each package\'s security set over the mutants of its trees the securi
 
 it('takes the floor a package declares from whichever of its trees carries it', function () use ($security, $billing, $described): void {
     $trees = TreeVerdicts::of(
-        Secured::tree('packages/billing/src', $billing, Secured::mutant(MutantJudgement::Killed, 1)),
-        Secured::tree('packages/billing/lib', $billing->withSecurityFloor(Floor::of(70)), Secured::mutant(MutantJudgement::Killed, 2)),
+        Secured::tree('packages/billing/src', $billing, Undeclared::floor(), Secured::mutant(MutantJudgement::Killed, 1)),
+        Secured::tree('packages/billing/lib', $billing->withSecurityFloor(Floor::of(70)), Undeclared::floor(), Secured::mutant(MutantJudgement::Killed, 2)),
     );
 
     expect($described(SecurityJudge::of(Baseline::none(), Uncovered::Count, Undeclared::floor())->judged($trees, $security)))
@@ -67,9 +67,9 @@ it('holds a set to its baseline entry, with the reason it was lowered, and judge
         Entry::of(Path::of('packages/billing'), Floor::of(95)),
     );
     $trees = TreeVerdicts::of(
-        Secured::tree('app', $root, Secured::mutant(MutantJudgement::Killed, 1)),
-        Secured::tree('packages/billing/src', $billing, Secured::mutant(MutantJudgement::Killed, 2, 'Plus')),
-        Secured::tree('packages/clock/src', Package::at(Path::of('packages/clock')), Secured::mutant(MutantJudgement::Killed, 3, 'Plus')),
+        Secured::tree('app', $root, Undeclared::floor(), Secured::mutant(MutantJudgement::Killed, 1)),
+        Secured::tree('packages/billing/src', $billing, Undeclared::floor(), Secured::mutant(MutantJudgement::Killed, 2, 'Plus')),
+        Secured::tree('packages/clock/src', Package::at(Path::of('packages/clock')), Undeclared::floor(), Secured::mutant(MutantJudgement::Killed, 3, 'Plus')),
     );
     $sets = [...SecurityJudge::of($baseline, Uncovered::Count, Undeclared::floor())->judged($trees, $security)];
 
@@ -82,7 +82,7 @@ it('holds a set to its baseline entry, with the reason it was lowered, and judge
 });
 
 it('judges one empty set at the root where no tree holds a security mutant, and none where no mutator makes one', function () use ($security, $root): void {
-    $trees = TreeVerdicts::of(Secured::tree('app', $root, Secured::mutant(MutantJudgement::Survived, 1, 'Plus')));
+    $trees = TreeVerdicts::of(Secured::tree('app', $root, Undeclared::floor(), Secured::mutant(MutantJudgement::Survived, 1, 'Plus')));
     $judge = SecurityJudge::of(Baseline::none(), Uncovered::Count, Floor::of(90));
     $empty = [...$judge->judged($trees, $security)];
 

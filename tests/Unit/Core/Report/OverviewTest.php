@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Verdict\HeldSets;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Survivors;
@@ -19,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
+use NightWorksIO\MutationGate\Tests\Support\Secured;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 it('scores the whole project over every tree\'s mutants', function (): void {
@@ -91,4 +93,15 @@ it('knows a mutant in new code that failed is failing though its tree passed', f
 
 it('reads no mutant of an empty set as failing', function (): void {
     expect(Overview::of(Verdict::of(TreeVerdicts::none()))->survivors())->toEqual(Survivors::of());
+});
+
+it('knows the security mutants, fails those of a security set that failed, and lists its survivors', function (): void {
+    $overview = Overview::of(Verdicts::secured());
+    $survivor = Secured::mutant(MutantJudgement::Survived, 3);
+
+    expect($overview->isSecurity($survivor))->toBeTrue()
+        ->and($overview->isFailing($survivor))->toBeTrue()
+        ->and($overview->isSecurity(Verdicts::survivor()))->toBeFalse()
+        ->and(Judged::natives(...[JudgedMutants::of(...$overview->securitySurvivors())]))->toBe(['src/Auth.php:3'])
+        ->and(Overview::of(Verdicts::failing())->securitySurvivors())->toBe([]);
 });

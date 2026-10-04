@@ -154,3 +154,12 @@ it('writes a warning that holds a workflow command as one notice, encoded, which
 
     expect($printed($verdict))->toBe(['::notice title=mutation-gate::phpstan said: return.type, x:y%250A%0A::error::injected%0D%0A']);
 });
+
+it('ranks a security survivor after changed lines and before the others of a set that failed', function () use ($printed): void {
+    $files = array_map(
+        static fn(string $line): string => preg_match('/file=([^,]+),line=(\d+)/', $line, $at) === 1 ? sprintf('%s:%s', $at[1], $at[2]) : '',
+        $printed(Verdicts::secured()),
+    );
+
+    expect(array_slice($files, 0, 3))->toBe(['src/Money.php:7', 'src/Auth.php:3', 'src/Money.php:12']);
+});

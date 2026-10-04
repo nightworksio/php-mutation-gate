@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Tests\Support\Clustered;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Schema;
+use NightWorksIO\MutationGate\Tests\Support\Secured;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 it('writes SARIF 2.1.0 as its schema describes it', function (string $verdict): void {
@@ -106,4 +107,18 @@ it('keeps a message that holds a workflow command JSON-escaped, on no line of it
 
     expect(array_values(array_filter($lines, static fn(string $line): bool => str_starts_with(ltrim($line), '::'))))->toBe([])
         ->and(Decoded::at($sarif, 'runs', 0, 'results', 0, 'properties', 'mutator'))->toBe("Evil\n::error::injected,a:b%0A");
+});
+
+it('says a security mutant\'s result is one, and makes it an error where its security set failed', function (): void {
+    $sarif = Sarif::json(Verdicts::secured());
+    $results = Decoded::at($sarif, 'runs', 0, 'results');
+    $security = array_values(array_filter(
+        is_array($results) ? $results : [],
+        static fn(mixed $result): bool => is_array($result) && is_array($result['properties'] ?? null) && ($result['properties']['security'] ?? false) === true,
+    ));
+
+    expect(count($security))->toBe(1)
+        ->and($security[0]['level'] ?? null)->toBe('error')
+        ->and($security[0]['properties']['id'] ?? null)->toBe(Secured::mutant(MutantJudgement::Survived, 3)->mutant()->id()->value())
+        ->and(Schema::errors($sarif, Schema::at('tests/Fixtures/sarif-schema-2.1.0.json')))->toBe([]);
 });

@@ -49,7 +49,8 @@ final readonly class Sonar
 
     public static function json(Verdict $verdict, Sources $sources, Guide $guide): string
     {
-        $survivors = Overview::of($verdict)->survivors();
+        $overview = Overview::of($verdict);
+        $survivors = $overview->survivors();
         $columns = FileColumns::of($survivors, $sources);
         $rules = [];
         $issues = [];
@@ -66,7 +67,7 @@ final readonly class Sonar
         }
 
         foreach ($survivors as $judged) {
-            $issues[] = self::issue($judged, $columns->in($judged->mutant()->location()->file()));
+            $issues[] = self::issue($judged, $columns->in($judged->mutant()->location()->file()), $overview);
         }
 
         return JsonText::encode(['rules' => $rules, 'issues' => $issues]);
@@ -97,12 +98,13 @@ final readonly class Sonar
     }
 
     /** @return Issue */
-    private static function issue(JudgedMutant $judged, Columns $columns): array
+    private static function issue(JudgedMutant $judged, Columns $columns, Overview $overview): array
     {
         $mutant = $judged->mutant();
+        $rule = SonarRule::of(ResultRule::of($judged->judgement()));
 
         return [
-            'ruleId' => SonarRule::of(ResultRule::of($judged->judgement()))->value,
+            'ruleId' => ($overview->isSecurity($judged) ? $rule->ofSecurity() : $rule)->value,
             'primaryLocation' => [
                 'message' => MutantText::message($judged),
                 'filePath' => $mutant->location()->file()->value(),

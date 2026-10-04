@@ -30,6 +30,12 @@ enum SonarRule: string
         return self::from($rule->value);
     }
 
+    /** The rule of a security mutant under this rule: a surviving one's own, and any other's as it is. */
+    public function ofSecurity(): self
+    {
+        return $this === self::Survived ? self::SurvivedSecurity : $this;
+    }
+
     /** The rule's name, as SonarQube lists it. */
     public function title(): string
     {
