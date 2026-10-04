@@ -5,6 +5,11 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_values;
+use function class_exists;
+
+use Diag;
+
+use function dirname;
 use function get_declared_classes;
 use function get_included_files;
 use function getenv;
@@ -62,6 +67,8 @@ final class Plugin implements Bootable, HandlesArguments
     public function boot(): void
     {
         $loaded = get_included_files();
+        require_once dirname(__DIR__, 3) . '/diag/Diag.php';
+        Diag::boot($loaded);
         Bridged::load(getenv(GateVariable::Mutators->value));
         HoldsGroups::register(TestSuite::getInstance()->tests);
         $this->recorder = Recorder::fromEnvironment();
@@ -130,6 +137,11 @@ final class Plugin implements Bootable, HandlesArguments
         $mutated = getenv(Recorder::MUTATED);
         $ordered = Reordering::of(array_values($arguments), getenv(GateVariable::Order->value), $mutated);
 
-        return EveryKiller::of($ordered, getenv(GateVariable::KillMatrix->value), $mutated);
+        $handled = EveryKiller::of($ordered, getenv(GateVariable::KillMatrix->value), $mutated);
+        if (class_exists(Diag::class, false)) {
+            Diag::handled($handled);
+        }
+
+        return $handled;
     }
 }
