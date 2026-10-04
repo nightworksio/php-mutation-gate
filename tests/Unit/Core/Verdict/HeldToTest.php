@@ -12,7 +12,9 @@ it('holds the floors a command names, or a pull request\'s trees and new code, a
         ->and(HeldTo::named(NotGiven::value(), pullRequest: false))->toBe(HeldTo::Trees);
 });
 
-it('holds trees, new code, or both', function (): void {
-    expect(array_map(static fn(HeldTo $heldTo): array => [$heldTo->holdsTrees(), $heldTo->holdsNewCode()], HeldTo::cases()))
-        ->toBe([[true, false], [true, true], [false, true]]);
+it('holds trees, new code, or both, with the security sets beside the trees, or the security sets alone', function (): void {
+    expect(array_map(
+        static fn(HeldTo $heldTo): array => [$heldTo->holdsTrees(), $heldTo->holdsNewCode(), $heldTo->holdsSecurity()],
+        HeldTo::cases(),
+    ))->toBe([[true, false, true], [true, true, true], [false, true, false], [false, false, true]]);
 });

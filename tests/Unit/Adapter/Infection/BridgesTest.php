@@ -7,6 +7,7 @@ use Infection\Mutator\Mutator;
 use NightWorksIO\MutationGate\Adapter\Infection\Bridges;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
@@ -94,4 +95,14 @@ it('keeps each bridge but those to a mutator that stands down beside Infection\'
     ])
         ->and($bridges->besides(NamedMutators::of('Minus'))->classes())->toBe($bridges->classes())
         ->and(Bridges::refusing($why)->besides(NamedMutators::of('Plus'))->refusal())->toBe($why);
+});
+
+it('runs the named mutators of Infection\'s own, and those bridged that do not stand down beside them', function (): void {
+    $bridges = Bridges::to(Enabled::of(MutatorSet::of(PlusToMinusToo::class, RemoveEcho::class)));
+    $infection = NamedMutators::of('Plus', 'Minus');
+
+    expect($bridges->runnable(Mutators::named('acme/PlusToMinusToo', 'acme/RemoveEcho', 'default/Plus', 'Minus'), $infection))
+        ->toBe(['acme/PlusToMinusToo', 'acme/RemoveEcho', 'Minus'])
+        ->and($bridges->runnable(Mutators::named('acme/PlusToMinusToo', 'Plus', PlusToMinus::class), $infection))
+        ->toBe(['Plus']);
 });

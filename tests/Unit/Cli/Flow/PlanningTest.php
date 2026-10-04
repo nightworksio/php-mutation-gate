@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
@@ -226,6 +227,18 @@ it('records in the plan the peak its coverage run measured, for every shard\'s m
     expect($measured instanceof Plan ? $measured->briefing()->peak() : $measured)->toEqual(MemoryCap::of(200, MemoryUnit::Megabytes))
         ->and($uncounted instanceof Plan ? $uncounted->briefing()->peak() : $uncounted)->toEqual(NotGiven::value())
         ->and($handed instanceof Plan ? $handed->briefing()->peak() : $handed)->toEqual(NotGiven::value());
+});
+
+it('briefs every shard and the verdict that a run narrowed to the security mutators makes mutants with those alone', function () use (
+    $plan,
+): void {
+    $secured = $plan(Flows::project(), Mode::full(), Cut::exactly(2), Mutators::named('security/HashEqualsToTrue'));
+    $whole = $plan(Flows::project(), Mode::full(), Cut::exactly(2));
+
+    expect($secured instanceof Plan ? $secured->briefing()->isSecurityOnly() : $secured)->toBeTrue()
+        ->and($whole instanceof Plan ? $whole->briefing()->isSecurityOnly() : $whole)->toBeFalse()
+        ->and($secured instanceof Plan && $whole instanceof Plan ? $secured->base() : $secured)
+        ->not->toEqual($whole instanceof Plan ? $whole->base() : $whole);
 });
 
 it('plans a map another job wrote, whatever this job\'s processes held', function () use ($cappedPlan): void {

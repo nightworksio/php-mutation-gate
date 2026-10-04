@@ -144,6 +144,17 @@ it('fails when any tree or new-code set failed, or anything else did, and passes
     'a failure no floor decides' => [TreeVerdicts::of($passed), NewCodeVerdicts::none(), Failures::of(Failure::that('A stale ignore.')), Judgement::Failed],
 ]);
 
+it('holds only the security sets where it holds them alone, showing the trees and new code without holding them', function () use ($passed, $failed, $newCode): void {
+    $failing = SecurityVerdicts::of(Secured::set('.', Floor::of(100), Unrecorded::floor(), Secured::mutant(MutantJudgement::Survived)));
+    $passing = SecurityVerdicts::of(Secured::set('.', Floor::of(100), Unrecorded::floor(), Secured::mutant(MutantJudgement::Killed)));
+    $newCodeFailed = NewCodeVerdicts::of($newCode(MutantJudgement::Survived));
+
+    expect(Verdict::of(TreeVerdicts::of($failed), HeldTo::Security)->withSets(HeldSets::of($newCodeFailed, $passing))->judgement())
+        ->toBe(Judgement::Passed)
+        ->and(Verdict::of(TreeVerdicts::of($passed), HeldTo::Security)->withSets(HeldSets::of(NewCodeVerdicts::none(), $failing))->judgement())
+        ->toBe(Judgement::Failed);
+});
+
 it('fails on a security set that failed where it holds its trees, and shows it where it holds new code alone', function () use ($passed): void {
     $failing = SecurityVerdicts::of(Secured::set('.', Floor::of(100), Unrecorded::floor(), Secured::mutant(MutantJudgement::Survived)));
     $passing = SecurityVerdicts::of(Secured::set('.', Floor::of(100), Unrecorded::floor(), Secured::mutant(MutantJudgement::Killed)));

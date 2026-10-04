@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
+use function array_filter;
 use function array_key_exists;
+use function array_values;
 use function implode;
 use function mb_strlen;
 use function mb_strrpos;
@@ -12,6 +14,7 @@ use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
@@ -134,6 +137,26 @@ final readonly class Bridges
     public function isEmpty(): bool
     {
         return $this->mutators === [];
+    }
+
+    /**
+     * The named mutators Infection runs: those of its own, and those bridged
+     * that do not stand down beside the named ones of its own (ADR-0021,
+     * decision 18). A named mutator that stands down, or that only another
+     * runner has, is left out.
+     *
+     * @return list<string>
+     */
+    public function runnable(Mutators $mutators, NamedMutators $infection): array
+    {
+        $isOwn = static fn(string $mutator): bool => NamedMutators::of($mutator)->meet($infection);
+        $own = array_values(array_filter([...$mutators], $isOwn));
+        $bridged = $this->besides(NamedMutators::of(...$own))->mutators;
+
+        return array_values(array_filter(
+            [...$mutators],
+            static fn(string $mutator): bool => $isOwn($mutator) || array_key_exists($mutator, $bridged),
+        ));
     }
 
     /** @return list<string> each bridge's class, which Infection's `mutators` block turns it on by */

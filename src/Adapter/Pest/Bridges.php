@@ -11,6 +11,7 @@ use function array_pop;
 use function explode;
 use function file_put_contents;
 use function implode;
+use function is_subclass_of;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
@@ -22,6 +23,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\Hint;
 use NightWorksIO\MutationGate\Mutator\Mutator;
+use Pest\Mutate\Contracts\Mutator as PestMutator;
 use Pest\Mutate\Mutators\Sets\DefaultSet;
 
 use function sprintf;
@@ -142,7 +144,9 @@ final readonly class Bridges
      * What `--mutator` names for the mutators a run applies: nothing, so Pest
      * applies its own list, for a run of every mutator with no bridge; Pest's
      * `DefaultSet` and every bridge for one with bridges; and each mutator
-     * named, a bridged one by its bridge's class, for a run of some.
+     * named that runs under Pest, a bridged one by its bridge's class, for a
+     * run of some. A named mutator that stands down, or that only another
+     * runner has, is left out.
      *
      * @return list<string>
      */
@@ -151,11 +155,20 @@ final readonly class Bridges
         $named = $mutators->isAll() && ! $this->isEmpty() ? [DefaultSet::class] : [];
 
         foreach ($mutators->isAll() ? array_keys($this->mutators) : $mutators as $mutator) {
-            $bridged = array_key_exists($mutator, $this->mutators);
-            $named[] = $bridged ? $this->bridge($this->mutators[$mutator]) : $mutator;
+            $named = [...$named, ...match (true) {
+                array_key_exists($mutator, $this->mutators) => [$this->bridge($this->mutators[$mutator])],
+                is_subclass_of($mutator, PestMutator::class) => [$mutator],
+                default => [],
+            }];
         }
 
         return $named;
+    }
+
+    /** Whether a run of these mutators applies none under Pest: it names some, and none of them runs here. */
+    public function appliesNone(Mutators $mutators): bool
+    {
+        return ! $mutators->isAll() && $this->applying($mutators) === [];
     }
 
     /** A bridged mutator's own sentence for its survivors, by its name; nothing where the family's is used. */

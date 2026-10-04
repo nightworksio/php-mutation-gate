@@ -904,6 +904,17 @@ it('leaves static analysis to the gate where it checks the survivors itself, in 
         ->not->toEqual(Infection::fromOptions(Configs::options('{}'), new CapDirectory()));
 });
 
+it('mutates nothing, and runs nothing, where Infection runs none of the mutators a request names', function (): void {
+    $at = infectionProject('{"mutators": {"@default": true}}');
+    $shell = infectionShell($at, []);
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Mutators::named('default/UnwrapHtmlspecialchars'));
+
+    expect(new Infection($at, $shell, Seconds::of(4.0), nativeMarkersAllowed: false, files: new CapDirectory())->mutate($request))
+        ->toEqual(MutationResult::of(Mutants::none(), 0))
+        ->and($shell->commands())->toBe([]);
+});
+
 it('makes the registered mutators\' mutants through the bridges it writes as Infection\'s bootstrap, by their names, families and hints', function (): void {
     $at = infectionProject('{"bootstrap": "tests/bootstrap.php"}');
     $shell = infectionShell($at, infectionKilled($at, 'acme/RemoveEcho'));

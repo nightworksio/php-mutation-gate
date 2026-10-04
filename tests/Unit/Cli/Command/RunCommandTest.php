@@ -2,9 +2,12 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
 use NightWorksIO\MutationGate\Cli\Command\RunCommand;
+use NightWorksIO\MutationGate\Cli\Command\VerdictCommand;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
+use NightWorksIO\MutationGate\Cli\Flow\LastRun;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
 use NightWorksIO\MutationGate\Core\Baseline\Entry;
@@ -15,6 +18,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanFile;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
@@ -31,6 +35,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\Planned;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
@@ -137,6 +142,68 @@ it('cannot run a shard it is named wrongly', function () use ($composed): void {
     expect($ran->code)->toBe(2)
         ->and($ran->errors)->toBe("--shard=one is not a shard number.\n");
 });
+
+it('takes no --security beside --plan, since a shard makes the mutants its plan was made for', function () use ($composed): void {
+    $project = FlowCommands::project();
+    $composition = $composed($project, 50);
+    FlowCommands::run(PlanCommand::command($composition));
+
+    $ran = FlowCommands::run(RunCommand::command($composition), '--plan=.mutation-gate/plan.json --shard=1 --security');
+
+    expect($ran->code)->toBe(2)
+        ->and($ran->errors)
+        ->toBe("A shard makes the mutants its plan was made for, so run --plan takes no --security. Give it to plan.\n");
+});
+
+it('plans, runs and judges the security mutators alone, holding only the security sets', function () use ($floored): void {
+    $project = FlowCommands::project(
+        '"extensions": ["NightWorksIO\\\\MutationGateSecurity\\\\SecurityExtension"], "mutators": {"sets": ["security"]}',
+    );
+    $composition = FlowCommands::over(
+        $floored(100),
+        $project,
+        ScriptedRunner::fixture(),
+        new ProofStoreFake(),
+        Flows::ci(),
+        Variables::of([]),
+    );
+
+    $planned = FlowCommands::run(PlanCommand::command($composition), '--security');
+    $ran = FlowCommands::run(RunCommand::command($composition), '--security');
+
+    expect($planned->code)->toBe(0)
+        ->and((string) file_get_contents(sprintf('%s/.mutation-gate/plan.json', $project)))->toContain('"security": true')
+        ->and($ran->code)->toBe(0)
+        ->and($ran->output)->toContain('--security judges only the security sets');
+});
+
+it('cannot make mutants with the security mutators alone where the config turns none on', function (
+    string $command,
+    string $options,
+) use ($composed): void {
+    $project = FlowCommands::project();
+    $composition = $composed($project, 50);
+    LastRun::keep(Directory::at($project), Planned::twoShards()->briefed(Briefing::standard()->securityOnly()));
+    $commands = [
+        'run' => RunCommand::command($composition),
+        'plan' => PlanCommand::command($composition),
+        'verdict' => VerdictCommand::command($composition),
+    ];
+
+    $ran = FlowCommands::run($commands[$command], $options);
+
+    expect($ran->code)->toBe(2)
+        ->and($ran->errors)->toBe(<<<'SAID'
+            --security makes mutants with the security-tagged mutators, and the config turns none on.
+            Turn on the security set in mutators.sets, or a preset that offers it.
+
+            SAID);
+})->with([
+    'run --security' => ['run', '--security'],
+    'plan --security' => ['plan', '--security'],
+    'a shard of a plan made with --security' => ['run', '--plan=.mutation-gate/plan.json --shard=1'],
+    'the verdict of a plan made with --security' => ['verdict', '--plan=.mutation-gate/plan.json'],
+]);
 
 it('cannot run with a config it cannot read', function (string $input): void {
     $project = FlowCommands::project('"shards": {"max": 0}');

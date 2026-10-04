@@ -661,6 +661,8 @@ services:
                     - 'TRUE' # PHP's constant, not Infection's setting
                 'NightWorksIO\MutationGate\Mutator\Tag':
                     - SECURITY # a tag a mutator carries, not the config section of the same name
+                'NightWorksIO\MutationGate\Core\Plan\BriefingRecord':
+                    - SECURITY # a field of the plan file, not the config section of the same name
                 'NightWorksIO\MutationGate\Core\Report\JUnit':
                     - SECURITY # the name of the security sets' JUnit suite, not the config section
                     - FLOOR # the name of a floor's JUnit test case, not a manifest key
@@ -749,6 +751,7 @@ services:
                     - COVERAGE # an option of the gate's commands
                     - FULL # an option of the gate's commands
                     - KILL_MATRIX # an option of the gate's commands, not the report's name
+                    - SECURITY # an option of the gate's commands, not the config section of the same name
                 'NightWorksIO\MutationGate\Core\Ci\DefaultBranch':
                     - FALLBACK # the project's default branch when none is configured or detected
                 'NightWorksIO\MutationGate\Core\Plan\PlanFile':

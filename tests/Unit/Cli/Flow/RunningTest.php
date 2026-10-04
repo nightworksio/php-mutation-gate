@@ -34,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
@@ -267,6 +268,22 @@ it('runs the held path by its group, the rest by the suite, on the shard\'s map,
         ->and($rest->withheld())->toEqual(Withheld::standard()->and($adapters->withheld))
         ->and($runner->identified())->not->toBeEmpty()
         ->and($runner->identified())->each->toEqual($adapters->withheld);
+});
+
+it('asks for the mutants of the mutators a run is narrowed to, and of every mutator otherwise', function (): void {
+    $asked = static function (Mutators $narrowedTo): array {
+        $project = Flows::project();
+        $scripted = ScriptedRunner::fixture();
+
+        new Running(Flows::adapters($project, [], $scripted, $narrowedTo), Flows::settings(), Flows::setup())
+            ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+
+        return array_map(static fn(MutationRequest $request): Mutators => $request->mutators(), $scripted->requests());
+    };
+    $secured = Mutators::named('security/HashEqualsToTrue');
+
+    expect($asked($secured))->toEqual([$secured, $secured])
+        ->and($asked(Mutators::all()))->toEqual([Mutators::all(), Mutators::all()]);
 });
 
 it('caps each mutant\'s process at runner.memory, and at 1G where the config sets none', function (): void {
@@ -620,7 +637,11 @@ it('weighs each mutant out of memory by the peak its plan measured, and leaves a
     $scripted = ScriptedRunner::fixture()->answering(Mutants::of($outOfMemory), 0);
 
     new Running(Flows::adapters($project, [], $scripted), Flows::settings(), Flows::setup())
-        ->run(Planned::handedIn($project, Planned::oneShard()->briefed(Briefing::standard()->weighing($peak))), ShardId::of(1), Workspace::results());
+        ->run(
+            Planned::handedIn($project, Planned::oneShard()->briefed(Briefing::standard()->weighing($peak))),
+            ShardId::of(1),
+            Workspace::results(),
+        );
     $result = $resultIn($project, 1);
     $outcome = $result instanceof ShardResult ? $result->outcome() : $result;
     $mutants = $outcome instanceof MutationResult ? [...$outcome->mutants()] : [];

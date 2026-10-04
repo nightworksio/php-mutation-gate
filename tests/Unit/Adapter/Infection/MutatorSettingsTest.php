@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinusToo;
+use Pest\Mutate\Mutators\String\UnwrapHtmlspecialchars;
 
 it('reads every pattern that hides mutants, with the key it is under and the mutator it applies to', function (): void {
     $settings = MutatorSettings::of(Node::decode((string) json_encode([
@@ -91,4 +92,16 @@ it('names a bridged mutator by its bridge for a run that names it', function ():
 
     expect(MutatorSettings::of(Node::decode('{"global-ignore": ["A"]}'))->narrowedTo(Mutators::named('acme/PlusToMinus', 'Minus'), $bridges))
         ->toBe(['mutators' => '{"global-ignore":["A"],"NightWorksIO\\\\MutationGateBridge\\\\Infection\\\\NightWorksIO\\\\MutationGate\\\\Tests\\\\Support\\\\Mutators\\\\PlusToMinus":true,"Minus":true}']);
+});
+
+it('leaves out a named mutator Infection does not have, and applies none where that is every one', function (): void {
+    $settings = MutatorSettings::of(Node::decode('{"Plus": true, "global-ignore": ["A"]}'));
+    $bridges = Bridges::to(Enabled::of(MutatorSet::of(PlusToMinus::class)));
+    $elsewhere = Mutators::named('default/UnwrapHtmlspecialchars', UnwrapHtmlspecialchars::class);
+
+    expect($settings->narrowedTo(Mutators::named('default/UnwrapHtmlspecialchars', 'Minus'), $bridges))
+        ->toBe(['mutators' => '{"global-ignore":["A"],"Minus":true}'])
+        ->and($settings->appliesNone($elsewhere, $bridges))->toBeTrue()
+        ->and($settings->appliesNone(Mutators::named('acme/PlusToMinus'), $bridges))->toBeFalse()
+        ->and($settings->appliesNone(Mutators::all(), $bridges))->toBeFalse();
 });

@@ -43,7 +43,7 @@ final readonly class PlanCommand
         return FlowOptions::planning(new Command('plan'))
             ->setDescription('Work out the reach, drop proved units, cut shards and print the plan for a CI')
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
-                $composed = $composition->compose($input);
+                $composed = FlowOptions::narrowed($composition->compose($input), $input);
 
                 if (! $composed instanceof Composed) {
                     return Failed::because($output, $composed);

@@ -1114,6 +1114,16 @@ it('mutates nothing, and runs nothing, where no file is asked for', function ():
         ->and($shell->commands())->toBe([]);
 });
 
+it('mutates nothing, and runs nothing, where Pest runs none of the mutators a request names', function (): void {
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+    $bridges = Bridges::to(Enabled::of(MutatorSet::of(AcmePlusToMinus::class)));
+    $request = adapterMoney()->narrowedTo(adapterMoney()->files(), Mutators::named('default/UnwrapHtmlspecialchars'));
+
+    expect(new Pest(adapterProject(), $shell, Patching::off(), new CapDirectory(), bridges: $bridges)->mutate($request))
+        ->toEqual(MutationResult::of(Mutants::none(), 0))
+        ->and($shell->commands())->toBe([]);
+});
+
 it('refuses a path with a comma, which Pest\'s lists of paths split on', function (): void {
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
     $pest = new Pest(adapterProject(), $shell, Patching::off(), new CapDirectory());

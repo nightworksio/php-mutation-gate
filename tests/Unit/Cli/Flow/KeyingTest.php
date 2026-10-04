@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -112,6 +113,20 @@ function keyedBase(string $definition): Digest
     return $keying instanceof Keying ? $keying->base() : throw new RuntimeException($keying->why());
 }
 
+/** The base of a run whose mutants these mutators make. */
+function keyedNarrowedTo(Mutators $narrowedTo): Digest
+{
+    $keying = Keying::of(
+        Flows::adapters(Flows::project(), [], keyingRunner('fake'), $narrowedTo),
+        Flows::settings(),
+        Flows::setup(),
+        keyingSuite('1'),
+        keyingMap(),
+    );
+
+    return $keying instanceof Keying ? $keying->base() : throw new RuntimeException($keying->why());
+}
+
 it('keys every unit on the one base of the run, and each by the tests that judge it', function (): void {
     $keys = keyingOf(keyingRunner('fake'), Flows::settings(), keyingSuite('1'), Flows::setup())->keysOf(Units::of(
         Unit::file(Path::of('src/Money.php')),
@@ -125,6 +140,14 @@ it('keys every unit on the one base of the run, and each by the tests that judge
         ->and($keys->keyOf(Path::of('src/Held.php')))->toBeInstanceOf(Digest::class)
         ->and($keys->keyOf(Path::of('src/Money.php')))->not->toEqual($keys->keyOf(Path::of('src/Other.php')))
         ->and($keys->keyOf(Path::of('src/Held.php')))->not->toEqual($keys->keyOf(Path::of('src/Other.php')));
+});
+
+it('keys a run narrowed to some mutators apart from one of every mutator, and apart from one narrowed to others', function (): void {
+    $secured = keyedNarrowedTo(Mutators::named('security/HashEqualsToTrue'));
+
+    expect($secured)->not->toEqual(keyedNarrowedTo(Mutators::all()))
+        ->and($secured)->not->toEqual(keyedNarrowedTo(Mutators::named('default/Plus')))
+        ->and($secured)->toEqual(keyedNarrowedTo(Mutators::named('security/HashEqualsToTrue')));
 });
 
 it('reads the test file that judges a unit into its key alone', function (): void {

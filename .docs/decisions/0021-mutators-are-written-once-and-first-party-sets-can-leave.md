@@ -385,12 +385,24 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
     - `stub` writes that arch test under Pest, and under Infection a PHPUnit
       test that scans the file's tokens. This amends ADR-0015 decision 1.
 
-20. **`run --only=security` audits the defences alone.**
-    - It runs only the security-tagged mutators, through
-      `MutationRequest::narrowedTo`, and judges only the security sets. It
-      says the trees were not judged.
+20. **`--security` audits the defences alone.**
+    - `plan --security` and `run --security` make mutants with the security
+      mutators alone (decision 16), through `MutationRequest::narrowedTo`,
+      and judge only the security sets. Each tree is shown exempt, as
+      `--security judges only the security sets`, and no commit is recorded
+      as passed.
+    - Under each runner, a named mutator that stands down there, or that only
+      another runner has, makes no mutants. Where none of them runs, the
+      runner runs nothing.
+    - A plan made with `--security` holds `"security": true` inside its
+      digest, which extends the plan file of ADR-0006 decision 1. Every
+      shard and the verdict follow it, so an audit can be sharded: `run
+      --plan` takes no `--security`, and `verdict` reads it from the plan.
+    - `pre-push` and `watch` take no `--security`: `pre-push` makes the
+      judgement CI makes (ADR-0010), and `watch` holds new code.
     - Its results are keyed by the narrowed mutator list (decision 7), so
-      they never stand in for a whole unit's proof.
+      they never stand in for a whole unit's proof. It teaches the cost model
+      nothing, since its units' times are not those of a whole run.
 
 21. **Security survivors are reported apart.**
     - Each package's security set is a row of its own after new code in the
@@ -441,6 +453,8 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
 | **A constant-time finding from names instead of a mutant** | It would guess from a variable's name. |
 | **Leaving the constant-time mutant out** | "Constant-time comparisons" would then mean only `HashEqualsToTrue`. |
 | **No narrowed security run** | A scheduled audit of the defences would pay for every other mutant. |
+| **`--only=security`** | `--only` filters the problems output, so one option would narrow the run with one value and the output with another, and the two could not be combined. |
+| **`--security` on `run` alone** | A security audit could not be sharded. |
 
 ## Consequences
 
@@ -467,9 +481,11 @@ listed where a reviewer reads first.
 - [ADR-0002](0002-one-typed-config-from-several-formats.md): soft preset entries
 - [ADR-0003](0003-a-floor-only-rises.md): the security set and its baseline entry
 - [ADR-0004](0004-pest-and-infection-behind-one-runner-port.md): the bridges, the plugin's new job, and Infection's `bootstrap` and `mutators`
+- [ADR-0006](0006-shards-are-cut-by-learned-cost-and-planned-once.md): the plan's `security` field
 - [ADR-0007](0007-a-proof-is-keyed-by-everything-its-verdict-reads.md): the sets in the key
 - [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): presets turn the sets on
 - [ADR-0009](0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md): families, hints, and the security row
+- [ADR-0010](0010-the-gate-runs-while-you-work-and-before-you-push.md): `pre-push` and `watch` take no `--security`
 - [ADR-0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): four trees at 100, the tool paths, and the SDK as public API
 - [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): the arch-test stub
 - [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): the first run that hands over a floor

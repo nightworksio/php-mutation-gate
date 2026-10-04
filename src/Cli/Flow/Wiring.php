@@ -43,6 +43,7 @@ use NightWorksIO\MutationGate\Core\Config\StaticCheck;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -132,6 +133,7 @@ final readonly class Wiring
                 $mutators->besideTheRunners(),
                 $mutators->skipped(),
                 $mutators->security(),
+                Mutators::all(),
             ),
         };
     }

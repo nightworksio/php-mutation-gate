@@ -118,7 +118,7 @@ final readonly class MutationRun
      */
     public function of(MutationRequest $request): MutationResult|CannotJudge
     {
-        if (count($request->files()) === 0) {
+        if (count($request->files()) === 0 || $this->bridges->appliesNone($request->mutators())) {
             return MutationResult::of(Mutants::none(), 0);
         }
 

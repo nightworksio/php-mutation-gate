@@ -73,9 +73,22 @@ it('bridges no mutator that stands down beside Pest\'s default set, as the secur
     ]);
 });
 
-it('names a bridged mutator by its bridge and any other as it is named, for a run of some', function (): void {
+it('names a bridged mutator by its bridge and one of Pest\'s as it is named, for a run of some', function (): void {
     expect(pestBridges()->applying(Mutators::named('acme/PlusToMinus', MinusToPlus::class)))
-        ->toBe([PEST_BRIDGE, MinusToPlus::class]);
+        ->toBe([PEST_BRIDGE, MinusToPlus::class])
+        ->and(pestBridges()->appliesNone(Mutators::named('acme/PlusToMinus')))->toBeFalse()
+        ->and(pestBridges()->appliesNone(Mutators::all()))->toBeFalse()
+        ->and(new Bridges()->appliesNone(Mutators::all()))->toBeFalse();
+});
+
+it('leaves out a named mutator that stands down or that Pest does not have, and applies none where that is every one', function (): void {
+    $bridges = Bridges::to(Enabled::of(MutatorSet::of(PlusToMinusToo::class, UnwrapShellEscape::class)));
+    $standsDown = Mutators::named('acme/PlusToMinusToo', 'default/UnwrapHtmlspecialchars');
+
+    expect($bridges->applying(Mutators::named('acme/PlusToMinusToo', 'default/PlusToMinus', 'security/UnwrapShellEscape')))
+        ->toBe(['NightWorksIO\\MutationGateBridge\\Pest\\NightWorksIO\\MutationGateSecurity\\Mutators\\UnwrapShellEscape'])
+        ->and($bridges->applying($standsDown))->toBe([])
+        ->and($bridges->appliesNone($standsDown))->toBeTrue();
 });
 
 it('gives a bridged mutant its mutator\'s own hint, and none where the mutator uses its family\'s or is Pest\'s', function (): void {

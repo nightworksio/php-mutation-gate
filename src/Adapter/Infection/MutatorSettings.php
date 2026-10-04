@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
+use function array_column;
 use function array_flip;
 use function array_intersect_key;
 use function array_key_exists;
@@ -102,9 +103,17 @@ final readonly class MutatorSettings
     public function narrowedTo(Mutators $mutators, Bridges $bridges = new Bridges()): array
     {
         $own = Lenient::entries($this->block);
-        $kept = $mutators->isAll() ? $this->all($own, $bridges) : $this->named($own, $mutators, $bridges);
+        $kept = $mutators->isAll()
+            ? $this->all($own, $bridges)
+            : $this->named($own, $this->known($mutators, $bridges), $bridges);
 
         return $kept === [] ? [] : ['mutators' => JsonObject::of($kept)];
+    }
+
+    /** Whether a run of these mutators applies none under Infection: it names some, and Infection runs none of them. */
+    public function appliesNone(Mutators $mutators, Bridges $bridges): bool
+    {
+        return ! $mutators->isAll() && $this->known($mutators, $bridges) === [];
     }
 
     /**
@@ -127,6 +136,23 @@ final readonly class MutatorSettings
         }
 
         return $kept;
+    }
+
+    /**
+     * The named mutators Infection can run: those it has, those the
+     * project's block names, and those bridged.
+     *
+     * @return list<string>
+     */
+    private function known(Mutators $mutators, Bridges $bridges): array
+    {
+        $profiles = Profiles::installed($this->exists);
+        $named = array_column($this->switches(Lenient::entries($this->block)), 0);
+
+        return $bridges->runnable(
+            $mutators,
+            NamedMutators::of(...$profiles instanceof Profiles ? [...$profiles->named(), ...$named] : $named),
+        );
     }
 
     /**
@@ -174,10 +200,11 @@ final readonly class MutatorSettings
      * and turned on bare where it has none.
      *
      * @param array<array-key, Node> $own
+     * @param list<string>           $mutators
      *
      * @return array<string, string>
      */
-    private function named(array $own, Mutators $mutators, Bridges $bridges): array
+    private function named(array $own, array $mutators, Bridges $bridges): array
     {
         $kept = array_intersect_key($this->entries($own), array_flip(self::GLOBAL));
 

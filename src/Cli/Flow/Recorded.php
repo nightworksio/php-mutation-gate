@@ -33,7 +33,9 @@ use NightWorksIO\MutationGate\Core\Written;
 /**
  * The ledger a verdict leaves in the scope the run writes: a proof of every
  * unit that ran to the end, at the base its keys were built on, what each
- * shard taught the cost model, the time each analyser's checks of the
+ * shard taught the cost model, where it made mutants with every mutator, so
+ * that a run of the security mutators alone never stands in for a unit's
+ * time (ADR-0021, decision 20), the time each analyser's checks of the
  * shards' survivors took, and, where the verdict passed, the commit it
  * judged, the check-run it reported under and how many proofs of the scope's
  * own ledger it used.
@@ -60,7 +62,9 @@ final readonly class Recorded
         $fresh = $this->checked($plan, $results, $ledgers);
         $written = $ledgers->written()->atBase($plan->base());
         $written = $written->withAnalysers($written->analysers()->plus($results->checks()->histories()));
-        $ledger = $this->taught($this->learned($this->proved($written, $plan, $fresh, $run), $results), $fresh);
+        $proved = $this->proved($written, $plan, $fresh, $run);
+        $learned = $this->adapters->isSecurityOnly() ? $proved : $this->learned($proved, $results);
+        $ledger = $this->taught($learned, $fresh);
 
         if ($ledger instanceof CannotJudge) {
             return $ledger;

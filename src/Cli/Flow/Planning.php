@@ -108,7 +108,7 @@ final readonly class Planning
             : $keying;
 
         return $planned instanceof Plan
-            ? $planned->briefed(Briefing::standard()->weighing($peak)->recording($matrix))
+            ? $planned->briefed($this->adapters->briefing(Briefing::standard()->weighing($peak)->recording($matrix)))
             : $planned;
     }
 
