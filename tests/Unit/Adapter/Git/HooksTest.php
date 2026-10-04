@@ -84,7 +84,7 @@ it('cannot tell where the hooks are outside a repository', function (): void {
     expect(Hooks::of(Command::in(Scratch::directory())))->toBeInstanceOf(CannotTell::class);
 });
 
-it('writes a hook git can run, creating the directory, and reads it back', function (): void {
+it('writes a hook everyone can read and run and its owner can write, creating the directory, and reads it back', function (): void {
     $repository = Repository::empty();
     $repository->git('config', 'core.hooksPath', 'hooks/not-yet');
     $hooks = hooksFrom($repository->root);
@@ -92,7 +92,7 @@ it('writes a hook git can run, creating the directory, and reads it back', funct
     expect($hooks->read(Hook::PrePush))->toEqual(Missing::at(Path::of('pre-push')))
         ->and($hooks->write(Hook::PrePush, Contents::of("#!/bin/sh\nexit 0\n")))->toEqual(Written::to($hooks->where(Hook::PrePush)))
         ->and($hooks->read(Hook::PrePush))->toEqual(Contents::of("#!/bin/sh\nexit 0\n"))
-        ->and(is_executable($hooks->where(Hook::PrePush)))->toBeTrue();
+        ->and(fileperms($hooks->where(Hook::PrePush)) & 0o777)->toBe(0o755);
 });
 
 it('writes no hook where a directory is in its place, or where its directory is a file', function (): void {

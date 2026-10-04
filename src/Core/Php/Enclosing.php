@@ -21,11 +21,14 @@ use function sprintf;
  */
 final readonly class Enclosing
 {
-    /** What may stand between a method's modifiers and its `function` keyword, and so before it. */
-    private const array MODIFIERS = [T_PUBLIC, T_PROTECTED, T_PRIVATE, T_STATIC, T_FINAL, T_ABSTRACT];
+    /**
+     * What may stand before the `function` keyword of a method with a body,
+     * which no abstract method has.
+     */
+    private const array MODIFIERS = [T_PUBLIC, T_PROTECTED, T_PRIVATE, T_STATIC, T_FINAL];
 
-    /** What declares a class-like whose body a method stands inside. */
-    private const array CLASSES = [T_CLASS, T_TRAIT, T_ENUM, T_INTERFACE];
+    /** What declares a class-like whose body holds a method with a body, which no interface's method has. */
+    private const array CLASSES = [T_CLASS, T_TRAIT, T_ENUM];
 
     /** The method PHP calls to make an object, which a test calls with `new`. */
     private const string CONSTRUCTOR = '__construct';

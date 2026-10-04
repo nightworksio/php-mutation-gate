@@ -29,6 +29,7 @@ it('reads nothing from a comment or a blank line', function (): void {
     expect($properties->value('a'))->toEqual(NotGiven::value())
         ->and($properties->value('b'))->toEqual(NotGiven::value())
         ->and($properties->value('# a'))->toEqual(NotGiven::value())
+        ->and($properties->value('#'))->toEqual(NotGiven::value())
         ->and($properties->value('!'))->toEqual(NotGiven::value())
         ->and($properties->value('c'))->toBe('3')
         ->and($properties->value('d'))->toBe('4')
