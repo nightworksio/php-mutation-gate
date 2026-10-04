@@ -10,6 +10,9 @@ use function htmlspecialchars;
 use function implode;
 use function max;
 use function mb_strlen;
+
+use NightWorksIO\MutationGate\Core\Format\Fit;
+
 use function preg_match_all;
 use function sprintf;
 use function str_repeat;
@@ -18,7 +21,7 @@ use function strtr;
 /**
  * Text the project under test controls, such as a path, a diff or a test's
  * name, made inert in GitHub Markdown: no markup, no link, no mention, no
- * table cell or fence it can end.
+ * table cell or fence it can end, and no control character.
  */
 final readonly class Escape
 {
@@ -72,6 +75,8 @@ final readonly class Escape
 
     private static function plain(string $text): string
     {
-        return strtr(htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8'), self::ENTITIES);
+        $escaped = htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8');
+
+        return Fit::verbatim(strtr($escaped, self::ENTITIES));
     }
 }

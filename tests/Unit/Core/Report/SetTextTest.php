@@ -80,3 +80,17 @@ it('says what a security set scored, named by its package where it is not the ro
         ->and(SetText::securityName($billing))->toBe('Security in packages/billing')
         ->and(SetText::security(Secured::set('.', Undeclared::floor(), Unrecorded::floor())))->toBe('Security has nothing to mutate.');
 });
+
+it('says a tree\'s, a package\'s and an exempt reason\'s text as one plain line, with no control character', function (): void {
+    $hostile = TreeVerdict::judged(
+        Tree::at(Path::of("src/\e[31mred\nx"), Exempt::because("Replaced\e[0m\nlater"), Package::at(Path::root())),
+        Unrecorded::floor(),
+        JudgedUnits::none(),
+        JudgedMutants::none(),
+        Uncovered::Count,
+    );
+
+    expect(SetText::tree($hostile))->toBe('src/[31mred x is exempt: Replaced[0m later')
+        ->and(SetText::securityName(Secured::set("packages/\e[2Jbilling", Floor::of(100), Unrecorded::floor())))
+        ->toBe('Security in packages/[2Jbilling');
+});

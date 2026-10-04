@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
+use function array_map;
+
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
@@ -18,6 +21,8 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
+use NightWorksIO\MutationGate\Core\Test\DeclaredSuite;
+use NightWorksIO\MutationGate\Core\Test\DeclaredSuites;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -56,6 +61,9 @@ use function sprintf;
  */
 final class Killings
 {
+    /** A suite's name a hostile PHPUnit config could write. */
+    public const string HOSTILE = "<script>alert(1)</script>|x\n\e[31mred";
+
     /** The verdict, its fifth mutant, the one `E` covers, reported with this status. */
     public static function verdict(MatrixKind $kind, MutantStatus $fifth = MutantStatus::TimedOut): Verdict
     {
@@ -181,6 +189,53 @@ final class Killings
         );
 
         return Verdict::of(TreeVerdicts::of($tree))->withMatrix(KillMatrix::of(MatrixKind::Full, $coverage)->named($names));
+    }
+
+    /**
+     * The verdict, its tests in two suites: `A` and `B` in `unit`, which
+     * alone kills two of the three mutants they cover, and `C`, `D` and `E`
+     * in `feature`, which alone kills one of two.
+     */
+    public static function suited(MatrixKind $kind): Verdict
+    {
+        $verdict = self::verdict($kind);
+
+        return $verdict->withMatrix($verdict->matrix()->grouping(self::suites()));
+    }
+
+    /** The verdict in two suites, its tests named by no runner, so none is in a suite. */
+    public static function unplaced(): Verdict
+    {
+        $verdict = self::verdict(MatrixKind::FirstKiller);
+
+        return $verdict->withMatrix(
+            KillMatrix::of(MatrixKind::FirstKiller, $verdict->matrix()->coverage())->grouping(self::suites()),
+        );
+    }
+
+    /**
+     * The verdict in two suites, the unit suite named with markup, a table
+     * bar, a line break and an ANSI escape, as a hostile PHPUnit config could.
+     */
+    public static function hostile(): Verdict
+    {
+        $verdict = self::verdict(MatrixKind::Full);
+
+        return $verdict->withMatrix($verdict->matrix()->grouping(self::suites(self::HOSTILE)));
+    }
+
+    /** `A` and `B` in the unit suite, `C`, `D` and `E` in the feature suite, as files a PHPUnit config names. */
+    public static function suites(string $unit = 'unit'): DeclaredSuites
+    {
+        $files = static fn(string ...$tests): Paths => Paths::of(...array_map(
+            static fn(string $test): Path => self::name($test)->file(),
+            $tests,
+        ));
+
+        return DeclaredSuites::of(
+            DeclaredSuite::named($unit, $files('A', 'B'), Paths::none()),
+            DeclaredSuite::named('feature', $files('C', 'D', 'E'), Paths::none()),
+        );
     }
 
     public static function id(string $test): TestId

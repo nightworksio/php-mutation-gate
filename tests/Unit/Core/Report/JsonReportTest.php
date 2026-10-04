@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Cost\RunTimings;
 use NightWorksIO\MutationGate\Core\Cost\Savings;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -39,6 +40,7 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Tests\Support\Clustered;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
+use NightWorksIO\MutationGate\Tests\Support\Killings;
 use NightWorksIO\MutationGate\Tests\Support\Removing;
 use NightWorksIO\MutationGate\Tests\Support\Schema;
 use NightWorksIO\MutationGate\Tests\Support\Secured;
@@ -48,7 +50,27 @@ it('writes everything in the verdict, and what the committed schema describes', 
     $json = JsonReport::encode(Verdicts::named($verdict));
 
     expect(Schema::errors($json, Schema::at('resources/report.schema.json')))->toBe([]);
-})->with(['failing', 'passing', 'empty', 'with a matrix', 'cannot judge', 'proved', 'clustered', 'secured']);
+})->with(['failing', 'passing', 'empty', 'with a matrix', 'cannot judge', 'proved', 'clustered', 'secured', 'suited', 'unplaced']);
+
+it('writes what each suite alone kills, and whether it is exact', function (MatrixKind $kind): void {
+    $report = JsonReport::encode(Killings::suited($kind));
+
+    expect(Decoded::at($report, 'suites'))->toBe([
+        ['name' => 'unit', 'covered' => 3, 'killed' => 2, 'score' => 66.66, 'exact' => $kind === MatrixKind::Full],
+        ['name' => 'feature', 'covered' => 2, 'killed' => 1, 'score' => 50.0, 'exact' => $kind === MatrixKind::Full],
+    ])
+        ->and(json_decode($report, associative: true))->not->toHaveKey('suitesUnscored');
+})->with([MatrixKind::FirstKiller, MatrixKind::Full]);
+
+it('writes no suite, with why, where the runner named no test, and none where the config declares none', function (): void {
+    $unplaced = JsonReport::encode(Killings::unplaced());
+    $undeclared = JsonReport::encode(Verdicts::failing());
+
+    expect(Decoded::at($unplaced, 'suites'))->toBe([])
+        ->and(Decoded::at($unplaced, 'suitesUnscored'))->toBe('The runner named no test, so no suite can be scored.')
+        ->and(Decoded::at($undeclared, 'suites'))->toBe([])
+        ->and(json_decode($undeclared, associative: true))->not->toHaveKey('suitesUnscored');
+});
 
 it('says the run cannot judge, and why', function (): void {
     $report = JsonReport::encode(Verdicts::named('cannot judge'));

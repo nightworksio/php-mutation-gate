@@ -31,3 +31,9 @@ it('fences a block with more tildes than any run inside it', function (): void {
     expect(Escape::block('-  return 1;', 'diff'))->toBe("~~~diff\n-  return 1;\n~~~")
         ->and(Escape::block("~~~~\nx", 'diff'))->toBe("~~~~~diff\n~~~~\nx\n~~~~~");
 });
+
+it('drops every control character, an ANSI escape among them, from text the project controls', function (): void {
+    expect(Escape::code("<script>alert(1)</script>|x\n\e[31mred"))
+        ->toBe('<code>&lt;script&gt;alert(1)&lt;/script&gt;&#124;x &#91;31mred</code>')
+        ->and(Escape::text("a\e[0m b\u{200B}c"))->toBe('a&#91;0m bc');
+});

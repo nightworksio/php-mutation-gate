@@ -11,6 +11,7 @@ use function implode;
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
+use NightWorksIO\MutationGate\Core\Matrix\SuiteScores;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reason as Cause;
 use NightWorksIO\MutationGate\Core\Report\ClusterText;
@@ -21,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Report\Percent;
 use NightWorksIO\MutationGate\Core\Report\RisingFloors;
 use NightWorksIO\MutationGate\Core\Report\SavingsText;
 use NightWorksIO\MutationGate\Core\Report\SetText;
+use NightWorksIO\MutationGate\Core\Report\SuiteText;
 use NightWorksIO\MutationGate\Core\Report\TestsText;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
@@ -37,8 +39,9 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * The reporter `console`, which every run has: the verdict, every tree,
- * new-code set and package's security set, the units and where their
- * results came from, what the change reached and why, every mutant the score
+ * new-code set and package's security set, what each suite alone kills, the
+ * units and where their results came from, what the change reached and why,
+ * every mutant the score
  * counts as not killed with its diff, hint, judging tests, reproduce and
  * explain commands, and each cluster of them once with its members' diffs
  * and stub command, the ignored mutants with their reasons, the mutants
@@ -77,6 +80,7 @@ final readonly class ConsoleReport implements Configurable, Reporter
             ...$this->section('Trees', $this->trees($verdict)),
             ...$this->section('New code', $this->newCode($verdict)),
             ...$this->section('Security', $this->security($verdict)),
+            ...$this->section('Suites', SuiteText::lines(SuiteScores::of($verdict), $verdict->matrix()->whyNotFull())),
             ...$this->section('Units', $this->units($verdict)),
             ...$this->section('Reach', $this->texts($verdict->reach())),
             ...$this->section(

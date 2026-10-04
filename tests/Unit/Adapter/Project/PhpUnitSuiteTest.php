@@ -6,6 +6,9 @@ use NightWorksIO\MutationGate\Adapter\Project\PhpUnitSuite;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Test\DeclaredSuite;
+use NightWorksIO\MutationGate\Core\Test\DeclaredSuites;
 use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 
 /** The suite a PHPUnit config that says this declares. */
@@ -44,6 +47,30 @@ it('holds the files in every test suite\'s directories and those it names, less 
         ->and($holds('tests/Unit/fixture/tests/HeldSpec.php'))->toBeFalse()
         ->and($holds('tests/Support/Helper.php'))->toBeFalse()
         ->and($holds('src/Money.php'))->toBeFalse();
+});
+
+it('reads each test suite by its name, with its own directories, files and excludes', function () use ($suiteOf): void {
+    $suite = $suiteOf(<<<'XML'
+        <?xml version="1.0"?>
+        <phpunit>
+            <testsuites>
+                <testsuite name="Unit">
+                    <directory suffix="Spec.php">tests/Unit</directory>
+                    <exclude>tests/Unit/fixture</exclude>
+                </testsuite>
+                <testsuite name="Feature">
+                    <directory>tests/Feature</directory>
+                    <file>tests/SmokeTest.php</file>
+                </testsuite>
+            </testsuites>
+        </phpunit>
+        XML);
+
+    expect($suite instanceof PhpUnitSuite ? $suite->suites() : $suite)->toEqual(DeclaredSuites::of(
+        DeclaredSuite::named('Unit', Paths::none(), Paths::of(Path::of('tests/Unit/fixture')), SuiteDirectory::of(Path::of('tests/Unit'), 'Spec.php')),
+        DeclaredSuite::named('Feature', Paths::of(Path::of('tests/SmokeTest.php')), Paths::none(), SuiteDirectory::of(Path::of('tests/Feature'), '')),
+    ))
+        ->and(PhpUnitSuite::conventional()->suites())->toEqual(DeclaredSuites::none());
 });
 
 it('holds the conventional directory where the config names no test directory', function (

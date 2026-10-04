@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Xml;
+use NightWorksIO\MutationGate\Core\Test\DeclaredSuite;
+use NightWorksIO\MutationGate\Core\Test\DeclaredSuites;
 use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 
 use function simplexml_load_string;
@@ -25,8 +27,9 @@ use function trim;
  * The test suite the project's PHPUnit config declares: the `<directory>`
  * and `<file>` of every `<testsuite>`, less each `<exclude>`, as PHPUnit
  * itself, and the runners over it, read them, each directory with the suffix
- * that tells its files of test cases. Without a config, or one that names no
- * test directory, the tests are in the conventional directory.
+ * that tells its files of test cases, and each `<testsuite>` by its name.
+ * Without a config, or one that names no test directory, the tests are in the
+ * conventional directory.
  */
 final readonly class PhpUnitSuite
 {
@@ -36,17 +39,30 @@ final readonly class PhpUnitSuite
 
     private const string EXCLUDED = '/phpunit/testsuites/testsuite/exclude';
 
+    private const string SUITES = '/phpunit/testsuites/testsuite';
+
+    /** What a `<testsuite>` holds, read relative to it. */
+    private const string DIRECTORY = './directory';
+
+    private const string FILE = './file';
+
+    private const string EXCLUDE = './exclude';
+
     private const string NOT_XML = '%s is not XML, so the test suite it declares cannot be read.';
 
     /** @param non-empty-list<SuiteDirectory> $directories */
-    private function __construct(private array $directories, private Paths $files, private Paths $excluded)
-    {
+    private function __construct(
+        private array $directories,
+        private Paths $files,
+        private Paths $excluded,
+        private DeclaredSuites $suites,
+    ) {
     }
 
-    /** The tests in the conventional directory, and nothing left out. */
+    /** The tests in the conventional directory, and nothing left out, in no suite of a name. */
     public static function conventional(): self
     {
-        return new self([SuiteDirectory::conventional()], Paths::none(), Paths::none());
+        return new self([SuiteDirectory::conventional()], Paths::none(), Paths::none(), DeclaredSuites::none());
     }
 
     /** The suite a PHPUnit config, read from this file, declares. */
@@ -68,6 +84,7 @@ final readonly class PhpUnitSuite
             $directories === [] ? [SuiteDirectory::conventional()] : $directories,
             self::pathsIn($xml, self::FILES),
             self::pathsIn($xml, self::EXCLUDED),
+            self::suitesIn($xml),
         );
     }
 
@@ -97,6 +114,36 @@ final readonly class PhpUnitSuite
     public function directories(): array
     {
         return $this->directories;
+    }
+
+    /** Each `<testsuite>` the config declares, by its name, in its order (ADR-0025, decision 8). */
+    public function suites(): DeclaredSuites
+    {
+        return $this->suites;
+    }
+
+    /** Each `<testsuite>` of a config, by its name, with its own directories, files and excludes. */
+    private static function suitesIn(SimpleXMLElement $xml): DeclaredSuites
+    {
+        $suites = [];
+
+        foreach (self::nodesIn($xml, self::SUITES) as $suite) {
+            $directories = [];
+
+            foreach (self::nodesIn($suite, self::DIRECTORY) as $node) {
+                $suffix = (string) $node->attributes()?->suffix;
+                $directories[] = SuiteDirectory::of(Path::of(trim((string) $node)), $suffix);
+            }
+
+            $suites[] = DeclaredSuite::named(
+                (string) $suite->attributes()?->name,
+                self::pathsIn($suite, self::FILE),
+                self::pathsIn($suite, self::EXCLUDE),
+                ...$directories,
+            );
+        }
+
+        return DeclaredSuites::of(...$suites);
     }
 
     /** @return list<SimpleXMLElement> */

@@ -376,6 +376,8 @@ final class Verdicts
             'proved' => self::proved(),
             'clustered' => Clustered::verdict(),
             'secured' => self::secured(),
+            'suited' => Killings::suited(MatrixKind::FirstKiller),
+            'unplaced' => Killings::unplaced(),
             default => self::empty(),
         };
     }

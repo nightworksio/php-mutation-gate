@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Test\DeclaredSuites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
@@ -24,8 +25,9 @@ use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
  * Which tests cover each mutant of a verdict and what each did with it in
  * place: the run's coverage map for run and proved units, whose keys hold
  * each covered line's tests, and each proof's own tests for carried ones;
- * the killers each mutant's record names; and the names the runner gives its
- * tests (ADR-0014, decisions 9 to 11).
+ * the killers each mutant's record names; the names the runner gives its
+ * tests (ADR-0014, decisions 9 to 11); and the suites the project declares
+ * them in (ADR-0025, decision 8).
  */
 final readonly class KillMatrix
 {
@@ -40,6 +42,7 @@ final readonly class KillMatrix
         private array $moved,
         private TestNames $names,
         private NotFull $notFull,
+        private DeclaredSuites $suites,
     ) {
     }
 
@@ -52,7 +55,7 @@ final readonly class KillMatrix
     /** A matrix of this kind over the run's coverage map. */
     public static function of(MatrixKind $kind, CoverageMap $coverage): self
     {
-        return new self($kind, $coverage, [], [], TestNames::none(), NotFull::FirstKillers);
+        return new self($kind, $coverage, [], [], TestNames::none(), NotFull::FirstKillers, DeclaredSuites::none());
     }
 
     /** This matrix, with a carried mutant covered by the tests its proof names. */
@@ -80,6 +83,18 @@ final readonly class KillMatrix
     public function named(TestNames $names): self
     {
         return clone($this, ['names' => $names]);
+    }
+
+    /** This matrix, with the suites the project declares its tests in (ADR-0025, decision 8). */
+    public function grouping(DeclaredSuites $suites): self
+    {
+        return clone($this, ['suites' => $suites]);
+    }
+
+    /** The suites the project declares its tests in; none where it declares no suite by name. */
+    public function suites(): DeclaredSuites
+    {
+        return $this->suites;
     }
 
     /** This matrix, whose runner cannot record every killer, and why. */
