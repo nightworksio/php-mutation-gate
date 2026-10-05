@@ -559,6 +559,8 @@ services:
                 'NightWorksIO\MutationGate\Core\Delivery\DeliveryFile':
                     - LEDGER_KEY # a key of the delivery, not the workspace's directory
                     - OTLP # a key of the delivery, not the reporter's name
+                'NightWorksIO\MutationGate\Adapter\PhpUnit\MutationRun':
+                    - RUNS_PER_PLACE # mutant runs a place queues per batch, not a span id's length
                 'NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan':
                     - TRUSTED_SOURCES # Buildkite's build.source values, not another CI's event names
                 'NightWorksIO\MutationGate\Core\Cost\StartUpSamples':

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
+use function array_values;
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -17,8 +18,10 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\PrematureEnd;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Mutator\Engine\MadeMutant;
 
@@ -106,6 +109,34 @@ final readonly class MutantRun
         return $prepared instanceof PreparedRun
             ? $this->finished($prepared, $this->shell->run($prepared->command()))
             : $prepared;
+    }
+
+    /**
+     * Prepared runs, side by side, one in each place at a time, none started
+     * once the time to start them in has run out: each mutant whose run
+     * started, judged as its run ended, in the order the runs were given.
+     *
+     * @return list<Mutant>
+     */
+    public function judgedSideBySide(
+        WorkerSlots $slots,
+        Seconds|Unlimited $startingWithin,
+        PreparedRun ...$prepared,
+    ): array {
+        $runs = array_values($prepared);
+        $commands = [];
+
+        foreach ($runs as $run) {
+            $commands[] = $run->command();
+        }
+
+        $judged = [];
+
+        foreach ($this->shell->sideBySide($slots, $startingWithin, ...$commands) as $at => $ran) {
+            $judged[] = $this->finished($runs[$at], $ran);
+        }
+
+        return $judged;
     }
 
     /**

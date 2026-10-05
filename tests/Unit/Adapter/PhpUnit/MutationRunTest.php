@@ -22,7 +22,9 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
+use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\WorkerSlot;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -174,4 +176,87 @@ it('makes only the mutants a run again names, by their ids', function () use ($c
     expect(judgedMutants($again))->toBe([['src/Tax.php', 'acme/PlusToMinus', 'uncovered']])
         ->and($again instanceof MutationResult ? $again->skipped() : -1)->toBe(0)
         ->and($shell->commands())->toHaveCount(2);
+});
+
+/**
+ * A library whose one function sums this many pairs, each on a line of its own a test covers, and the map that says so.
+ *
+ * @return array{string, CoverageMap}
+ */
+function sums(int $count): array
+{
+    $root = Scratch::directory();
+    $sums = implode('', array_map(static fn(int $at): string => sprintf("    \$s[] = \$a + %d;\n", $at), range(1, $count)));
+    Scratch::write($root, 'src/Sums.php', sprintf("<?php\n\nfunction sums(\$a)\n{\n%s\n    return \$s;\n}\n", $sums));
+    $map = CoverageMap::empty();
+
+    foreach (range(1, $count) as $at) {
+        $map = $map->covered(Path::of('src/Sums.php'), Line::of($at + 4), TestId::of(sprintf('Tests\\SumsSpec::sums%d', $at)));
+    }
+
+    return [$root, $map];
+}
+
+it('runs the mutants side by side across the request\'s processes, each told its place', function () use ($covered): void {
+    [$run, $shell] = killingRun(library());
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->across(Processes::of(2));
+    $result = $run->of($request, $covered, Seconds::of(5.0));
+    $told = array_map(
+        static fn(WorkerSlot $slot): array => iterator_to_array($slot->variables(), preserve_keys: true),
+        $shell->places(),
+    );
+
+    expect(judgedMutants($result))->toHaveCount(2)
+        ->and(array_column($told, 'TEST_TOKEN'))->toBe(['1', '2'])
+        ->and(array_column($told, 'PARATEST'))->toBe(['1', '1']);
+});
+
+it('tells a mutant\'s run nothing of places where the request runs one process', function () use ($covered): void {
+    [$run, $shell] = killingRun(library());
+    $run->of(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $covered, Seconds::of(5.0));
+
+    expect(array_map(static fn(WorkerSlot $slot): array => iterator_to_array($slot->variables(), preserve_keys: true), $shell->places()))
+        ->toBe([[], []]);
+});
+
+it('runs sixteen runs a process in each batch, and the rest in the last', function (): void {
+    [$root, $map] = sums(17);
+    [$run, $shell] = killingRun($root);
+    $result = $run->of(MutationRequest::of(Paths::of(Path::of('src/Sums.php')), WholeSuite::tests()), $map, Seconds::of(5.0));
+
+    expect($shell->batches())->toBe([16, 1])
+        ->and($result instanceof MutationResult ? count($result->mutants()) : -1)->toBe(17);
+});
+
+it('runs as many runs in a batch as sixteen for each process, and no batch once the last is full', function (): void {
+    [$root, $map] = sums(33);
+    [$run, $shell] = killingRun($root);
+    $request = MutationRequest::of(Paths::of(Path::of('src/Sums.php')), WholeSuite::tests())->across(Processes::of(2));
+    $run->of($request, $map, Seconds::of(5.0));
+    [$exact, $full] = sums(16);
+    [$once, $one] = killingRun($exact);
+    $once->of(MutationRequest::of(Paths::of(Path::of('src/Sums.php')), WholeSuite::tests()), $full, Seconds::of(5.0));
+
+    expect($shell->batches())->toBe([32, 1])
+        ->and($one->batches())->toBe([16]);
+});
+
+it('judges every mutant whose batch starts in the time left before the deadline', function (): void {
+    [$root, $map] = sums(17);
+    [$run, $shell] = killingRun($root);
+    $request = MutationRequest::of(Paths::of(Path::of('src/Sums.php')), WholeSuite::tests())->within(Seconds::of(3600.0));
+    $result = $run->of($request, $map, Seconds::of(5.0));
+
+    expect($shell->batches())->toBe([16, 1])
+        ->and($result instanceof MutationResult ? [count($result->mutants()), $result->skipped()] : [])->toBe([17, 0]);
+});
+
+it('judges no mutant after a batch whose runs could not all start by the deadline', function (): void {
+    [$root, $map] = sums(17);
+    [$run, $shell] = killingRun($root);
+    $shell->startingAtMost(3);
+    $result = $run->of(MutationRequest::of(Paths::of(Path::of('src/Sums.php')), WholeSuite::tests()), $map, Seconds::of(5.0));
+
+    expect($shell->batches())->toBe([16])
+        ->and($result instanceof MutationResult ? [count($result->mutants()), $result->skipped()] : [])->toBe([3, 14]);
 });
