@@ -25,3 +25,12 @@ it('says a word has no whitespace, and writes it as a pattern', function (): voi
     expect(Text::word('a group name')->expected())->toBe('a group name, with no whitespace')
         ->and(Text::word('a group name')->schema()->line())->toBe('{"type":"string","minLength":1,"pattern":"^\\\\S+$"}');
 });
+
+it('admits text as its pattern allows it whole, and never nothing', function (string $text, bool $admitted): void {
+    expect(Text::matching('a region', '^[a-z]+$')->admits($text))->toBe($admitted);
+})->with([
+    'a name' => ['auto', true],
+    'nothing' => ['', false],
+    'more after the name' => ["auto\n", false],
+    'another name' => ['Auto', false],
+]);

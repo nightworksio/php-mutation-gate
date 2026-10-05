@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Required;
+use NightWorksIO\MutationGate\Core\Config\StoreName;
 use NightWorksIO\MutationGate\Core\Config\StoreOption;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
@@ -33,10 +34,10 @@ final readonly class ContainerOptions
 
     public static function read(Options $options): self|Invalid
     {
-        $account = Required::text($options, StoreOption::Account->value);
-        $container = Required::text($options, StoreOption::Container->value);
+        $account = Required::named($options, StoreOption::Account, StoreName::AzureAccount);
+        $container = Required::named($options, StoreOption::Container, StoreName::AzureContainer);
         $prefix = Required::text($options, StoreOption::Prefix->value);
-        $publicContainer = $options->text(Key::of(StoreOption::PublicContainer->value));
+        $publicContainer = StoreName::AzureContainer->in($options, StoreOption::PublicContainer);
         $publicUrl = $options->text(Key::of(StoreOption::PublicUrl->value));
 
         return match (true) {

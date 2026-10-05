@@ -50,9 +50,18 @@ final readonly class Text implements Shape
     {
         $text = $at->kind() === Kind::Text ? $at->text() : '';
 
-        return $text !== '' && preg_match(sprintf('#%s#Dsu', $this->pattern), $text) === 1
-            ? Reading::of($text)
-            : Reading::refused($at->mismatch($this->what));
+        return $this->admits($text) ? Reading::of($text) : Reading::refused($at->mismatch($this->what));
+    }
+
+    /**
+     * Whether this text is one the definition reads: not empty, and as the
+     * pattern allows.
+     *
+     * @phpstan-assert-if-true non-empty-string $text
+     */
+    public function admits(string $text): bool
+    {
+        return $text !== '' && preg_match(sprintf('#%s#Dsu', $this->pattern), $text) === 1;
     }
 
     public function expected(): string

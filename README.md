@@ -481,7 +481,7 @@ and `?` match within one directory, and `**` across any number of them.
 | `proofs.store.with.path` (`directory`) | path | `.mutation-gate/ledger` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.store.with.bucket` (`s3`) | string | none; required | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.store.with.prefix` (`s3`) | string | `mutation-gate` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
-| `proofs.store.with.region` (`s3`) | string | `us-east-1` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
+| `proofs.store.with.region` (`s3`) | a region's name: lowercase letters and digits in parts joined by single hyphens, such as `eu-west-1`, or R2's `auto` | `us-east-1` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.store.with.endpoint` (`s3`) | `https://` URL, or `http://` where `insecureEndpoint` is true | AWS's own | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.store.with.insecureEndpoint` (`s3`) | boolean: whether an `http://` endpoint is allowed, for a store on a network you trust; it sends the signed requests and the ledgers in the clear | `false` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.store.with.publicUrl` (`s3`) | `https://` URL a run without credentials reads the default branch's ledger from, at `<publicUrl>/<prefix>/refs/heads/<default branch>/ledger.json.gz`; one with a user, a query or a fragment is refused | none | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |

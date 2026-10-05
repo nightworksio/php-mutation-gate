@@ -1116,6 +1116,10 @@ it('reads the gcs and azure stores with their defaults, and refuses names their 
         ['use' => 'gcs', 'with' => ['bucket' => '../other?x']],
         ['proofs.store.with.bucket: expected a Cloud Storage bucket name, got "../other?x"'],
     ],
+    'a region that leaves its host' => [
+        ['use' => 's3', 'with' => ['bucket' => 'ledgers', 'region' => 'us-east-1@evil.example']],
+        ['proofs.store.with.region: expected a region, got "us-east-1@evil.example"'],
+    ],
     'an account that leaves its host' => [
         ['use' => 'azure', 'with' => ['account' => 'evil.example/x', 'container' => 'ledgers']],
         ['proofs.store.with.account: expected a storage account name, got "evil.example/x"'],

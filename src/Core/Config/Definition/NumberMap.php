@@ -59,9 +59,10 @@ final readonly class NumberMap implements Shape
             $key = sprintf('%s', $entryKey);
             $prefix = $this->keyed($key);
             $reading = $this->origin instanceof PathOrigin && Path::of($prefix)->escapes()
-                ? Reading::refused(Problem::at(
+                ? Reading::refused(Problem::mismatch(
                     $at->entry($key)->at(),
-                    sprintf('expected %s, got %s', Location::INSIDE, json_encode($key, JsonText::FLAGS)),
+                    Location::INSIDE,
+                    json_encode($key, JsonText::FLAGS),
                 ))
                 : $this->number->read($at->entry($key));
             $number = $reading->value();
