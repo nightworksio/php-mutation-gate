@@ -131,6 +131,7 @@ it('leaves evidence from every CI job, and explains every failure', function ():
 
     foreach (Gates::entries() as $gate => $entry) {
         $steps = array_key_exists($gate, $jobs) ? $jobs[$gate]['steps'] : [];
+        $shipped = array_key_exists($gate, $jobs) && $jobs[$gate]['shipped'];
         $ids = [...array_column($steps, 'id'), ...array_key_exists($gate, $jobs) ? $jobs[$gate]['legs'] : []];
         $runs = array_column($steps, 'run');
         $uploads = array_column(array_column($steps, 'with'), 'name');
@@ -141,6 +142,8 @@ it('leaves evidence from every CI job, and explains every failure', function ():
 
         $wrong[] = match (true) {
             $entry['none'] && $entry['why'] === '' => sprintf('%s leaves no evidence and does not say why', $gate),
+            $shipped && ! $entry['none'] => sprintf('%s is a job of the workflow this package ships, which leaves no evidence of this repository\'s: its entry says none, and why', $gate),
+            $shipped => '',
             ! $entry['none'] && $entry['evidence'] === [] => sprintf('%s names no step whose evidence it reads', $gate),
             ! $entry['none'] && ! in_array(sprintf('python3 .github/scripts/evidence.py %s', $gate), $runs, strict: true) => sprintf('%s writes no evidence', $gate),
             ! $entry['none'] && ! in_array(sprintf('evidence-%s', Gates::fileName($gate)), $uploads, strict: true) => sprintf('%s uploads no evidence', $gate),

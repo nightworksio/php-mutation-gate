@@ -136,7 +136,7 @@ about Laravel, NativePHP or the project's modules, and does not.
    | At most 20 methods per class, constructor included | NoManyMethodsRule (H3), alongside at most three returns per function (H8) and cognitive complexity of 8 per function and 30 per class |
    | Every class final, readonly where it can be; no magic numbers; no vague suffixes | arch (D7), NoMagicNumberRule (D6), arch (H1) |
 
-5. **The generic rules stay internal in v1.** The copied PHPStan rules live in
+5. **The generic rules stay internal in 0.1.0.** The copied PHPStan rules live in
    `phpstan/`, autoloaded for development only and left out of the dist
    archive. So do the arch helpers and the Guards support. Shipping them would
    make them public API, with their own versioning and support, and the
@@ -152,7 +152,7 @@ about Laravel, NativePHP or the project's modules, and does not.
    | what changed | Skips the PHP jobs for a documentation-only change | yes |
    | commitlint, attribution, description | Every commit's conventional subject and trailers, the title and the body; in the `pr` workflow, which also runs on an edited title or body, where `description` checks the `Spec:` numbers and a breaking change's *Migration* section (ADR-0019) | yes |
    | hygiene | actionlint, typos, lychee (links), markdownlint and zizmor | yes |
-   | scripts | `python3 -m unittest` over the deciding halves of `.github/scripts` (ADR-0019) | yes |
+   | scripts | `python3 -m unittest` over the deciding halves of `.github/scripts` and of the action's script in `resources/action` (ADR-0019) | yes |
    | security | gitleaks and osv-scanner | yes |
    | rules | `pest --testsuite=Arch` | yes |
    | docs | the Docs suite: every example, the generated reference and the message slugs (ADR-0018) | yes |
@@ -173,7 +173,7 @@ about Laravel, NativePHP or the project's modules, and does not.
    | benchmark | `bench.yml`, on demand and monthly: the gate against plain Pest and Infection on four open-source projects (ADR-0017) | no |
    | the contributor bot | `bot-*.yml`: the relay, the explainer, the commands, the checklist and the release draft (ADR-0019) | no |
 
-7. **The public API, and semantic versioning from 1.0.0.** What semver
+7. **The public API, and semantic versioning from 0.1.0.** What semver
    protects:
    - the CLI's commands, options and exit codes (0 passed, 1 failed, 2 cannot
      judge);
@@ -217,7 +217,7 @@ about Laravel, NativePHP or the project's modules, and does not.
      | `runner` | `pest`, `infection` or a registered name | none: the config's, or zero-config's |
      | `shard` | shard id | none: the whole gate runs |
      | `mode` | `auto`, `full` or `changed` | `auto`: change-scoped on pull requests and pushes, full on schedules, manual dispatches, releases and tags (ADR-0005 decision 2) |
-     | `changed-since` | a git ref, or `last-passed` | the pull request's base on `pull_request`, `last-passed` on a push to the default branch; used only when the mode is change-scoped |
+     | `changed-since` | a git ref, or `last-passed` | the pull request's base on `pull_request`, the default branch on any other branch, `last-passed` on the default branch; used only when the mode is change-scoped |
      | `budget` | duration | none |
      | `reports` | `<name>:<path>` lines, each added as `--report` | none |
      | `cache` | boolean | `true`: the ledger is kept in the Actions cache (ADR-0007) |
@@ -232,8 +232,8 @@ about Laravel, NativePHP or the project's modules, and does not.
      **What it does.** It sets up PHP at `php-version` with a coverage driver,
      installs the project's Composer dependencies, restores the proof ledgers
      from the Actions cache and runs the gate with the job's token as
-     `GITHUB_TOKEN`. It checks that the project's installed gate has its own
-     major version, and stops if not.
+     `GITHUB_TOKEN`. It checks that the project's installed gate is of its own
+     release line, the line whose tag it moves, and stops if not.
      - Without `shard` it runs the whole gate in one job: plan, run and
        verdict. It writes line annotations and the step summary, posts the
        sticky PR comment, and saves the ledger when the run may write it
@@ -245,21 +245,44 @@ about Laravel, NativePHP or the project's modules, and does not.
      `workflow_call`, for sharded runs.
      - **Inputs** are the action's less `shard`, with the same types and
        defaults.
-     - **Secrets**, all optional: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
-       and `AWS_SESSION_TOKEN`, passed to every job that reads or writes an S3
-       proof store; `MUTATION_GATE_SLACK_URL`, `MUTATION_GATE_DISCORD_URL`,
-       `MUTATION_GATE_WEBHOOK_URL` and `MUTATION_GATE_WEBHOOK_SECRET`, passed
-       to the `verdict` job; and `OTEL_EXPORTER_OTLP_ENDPOINT` and
-       `OTEL_EXPORTER_OTLP_HEADERS`, passed to every job (ADR-0016).
+     - **Secrets** come from two environments, never from the caller, and
+       reach only jobs that run none of the project's code (ADR-0007,
+       decision 5). `mutation-gate-read`, with no branch policy, holds
+       `MUTATION_GATE_READ_AWS_ACCESS_KEY_ID` and
+       `MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY`, a key that reads the default
+       branch's prefix alone, for `fetch`. `mutation-gate-store`, whose
+       deployment-branch policy admits the default branch alone, holds
+       `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SESSION_TOKEN`,
+       which write the store, and `MUTATION_GATE_SLACK_URL`,
+       `MUTATION_GATE_DISCORD_URL`, `MUTATION_GATE_WEBHOOK_URL`,
+       `MUTATION_GATE_WEBHOOK_SECRET`, `OTEL_EXPORTER_OTLP_ENDPOINT` and
+       `OTEL_EXPORTER_OTLP_HEADERS`, which alert and trace (ADR-0016), for
+       `deliver` on a trusted run. The store's location comes from the
+       repository variables `MUTATION_GATE_STORE` and `MUTATION_GATE_STORE_*`.
      - **Outputs** are `verdict`, `scores` and `plan`, as the action's. The
        reports are uploaded as the artifact `mutation-gate-reports`, and a
        baseline measured for trees with no floor as `mutation-gate-baseline`
        (ADR-0017).
      - **Jobs:**
-       - `plan` sets up as the action does, restores the ledgers, runs
-         `plan --ci=github` and uploads `.mutation-gate` as an artifact. The
+       - `fetch` runs where `MUTATION_GATE_STORE` names a store. It checks out
+         this repository alone at `job.workflow_sha`, installs the gate there
+         with no scripts and no plugins, runs `mutation-gate fetch` with the
+         read key, and uploads the default branch's ledger as the artifact
+         `mutation-gate-fetched`;
+       - `plan` sets up as the action does, restores the ledgers, downloads
+         what `fetch` read, runs `plan --ci=github --deliver-later` and
+         uploads the plan, the coverage maps and the delivery it left. The
          action has no plan-only or verdict-only mode, so this job and the
          verdict job run the CLI after the same setup steps;
+       - `deliver-plan` installs the gate as `fetch` does and runs `mutation-gate
+         deliver` over the plan's delivery, which posts the comment's planned
+         state (ADR-0009);
+       - `survivors`, on a pull request, beside the shards, runs `mutation-gate
+         survivors --plan --deliver-later` after the setup the plan has,
+         patching Pest where the config asks, and uploads the delivery it
+         left (ADR-0020, decision 21); `deliver-survivors` installs the gate as
+         `fetch` does and delivers it, which writes the comment over its
+         planned state alone;
        - `shard`, one matrix job per shard, checks out the calling repository,
          and this repository at `job.workflow_sha` (the commit the workflow
          was called at) into a directory of its own. It downloads the plan's
@@ -268,31 +291,37 @@ about Laravel, NativePHP or the project's modules, and does not.
          always the same commit, and uploads its result file;
        - `verdict` runs whenever the run was not cancelled, even after a failed
          shard. It restores the ledgers and the files published last time,
-         runs the verdict, writes the annotations and the step summary, posts
-         the sticky PR comment (ADR-0009) and saves the ledger. It is the check
-         a branch protects, shown as `<calling job> / verdict`;
+         downloads what `fetch` read, runs the verdict with `--deliver-later`,
+         writes the annotations and the step summary, saves the ledger to the
+         Actions cache and uploads the delivery it left. It is the check a
+         branch protects, shown as `<calling job> / verdict`;
+       - `deliver` installs the gate as `fetch` does and runs `mutation-gate
+         deliver` over the verdict's delivery: it posts the comment, and on a
+         trusted run, a push, schedule or dispatch on the default branch, it
+         enters `mutation-gate-store`, writes the ledger, alerts and traces;
        - `publish` pushes the badge and trend to the `mutation-gate` branch
          (ADR-0009). It runs only on the default branch, and it is the only job
          that asks for `contents: write`.
-     - **Permissions.** Every job has `contents: read`. `plan` also has
-       `actions: read` and `pull-requests: read`, because the GitHub
-       `ChangeSource` reads workflow runs and pull requests to prove that a
-       merged pull request's run passed (ADR-0005). `verdict` has
-       `actions: read` and `pull-requests: write`, for the same reason and for
-       the comment. `publish` has `contents: write`. The one-step action needs
-       `contents: read`, `actions: read` and `pull-requests: write` in its one
-       job. A job that reaches an S3 store through an OIDC role adds
-       `id-token: write`, and the role that can write the default branch's
-       prefix trusts only an environment restricted to the default branch,
-       or this workflow's `job_workflow_ref`, never a bare `ref`
-       (ADR-0007, ADR-0019).
+     - **Permissions.** Every job has `contents: read`, and `verdict` also
+       `actions: read`. No job that runs the project's code may write.
+       `deliver-plan` and `deliver` have `pull-requests: write`, for the
+       comment, and `publish` has `contents: write`. A step that holds the
+       token in a job that runs the project's code comes before its
+       dependencies install, and no step after it holds one. The one-step
+       action needs `contents: read`, `actions: read` and
+       `pull-requests: write` in its one job. A job that reaches an S3 store
+       through an OIDC role adds `id-token: write`, and the role that can write
+       the default branch's prefix trusts only an environment restricted to
+       the default branch, or this workflow's `job_workflow_ref`, never a bare
+       `ref` (ADR-0007, ADR-0019).
    - **Pinning.** Every action either one uses is pinned by a full commit SHA
      with its tag in a comment, and Dependabot moves the pins. The README's
      examples pin this repository the same way.
    - **Versions.** The action and the workflow are versioned with the package:
-     each release tag (`v1.4.0`) is theirs too. A release workflow runs the
-     gate over the package in `mode: full`, and only when that passes moves the
-     major tag (`v1`) to the new release.
+     each release tag (`v0.1.0`) is theirs too. A release workflow runs the
+     gate over the package in `mode: full`, and only when that passes moves
+     the tag of the release's line to it: `vMAJOR.MINOR` while the major is 0
+     (`v0.1`), and `vMAJOR` from 1.0.0.
    - **Dogfooding.** The package's own CI runs its self-gate through the local
      reusable workflow, whose shard jobs run the action from the same commit
      (decision 1). So the workflow and the action's shard mode are exercised on
@@ -309,9 +338,10 @@ about Laravel, NativePHP or the project's modules, and does not.
    - **A commit that implements a decision** names it in a `Spec:` trailer:
      `Spec: 0006`, or several numbers. The commit-msg hook checks that each
      number is an ADR in `.docs/decisions`.
-   - **The first release is 1.0.0.** It is tagged only when every feature the
-     README lists (ADR-0013, decision 17) is implemented, tested, gated at 100% and documented in the README. Nothing
-     is tagged before that: no 0.x and no release candidates. Until then a
+   - **The first release is 0.1.0, and the only one planned.** It holds every
+     feature the README lists (ADR-0013, decision 17), and is tagged only when
+     each is implemented, tested, gated at 100% and documented in the README.
+     Nothing is tagged before that: no release candidates. Until then a
      project can require `dev-main`.
    - **Each release** is a signed tag on `main` and a GitHub release with notes
      drawn from the conventional commits: the version's `CHANGELOG.md`
@@ -321,7 +351,7 @@ about Laravel, NativePHP or the project's modules, and does not.
      and a tag ruleset lets only the maintainer create `v*` tags
      (ADR-0019). Packagist follows through GitHub's webhook.
 
-10. **Supported versions at 1.0.0.**
+10. **Supported versions at 0.1.0.**
 
     | Dependency | Supported | Tested in CI |
     |------------|-----------|--------------|
@@ -347,9 +377,9 @@ about Laravel, NativePHP or the project's modules, and does not.
 | **Ship the generic PHPStan rules and arch presets in this package** | Makes them public API of a mutation tool, and ties their versioning to the gate's. A rules package of their own is the place, if they are shared. |
 | **Renaming the copied rules to slugs** (`no-else`, `method-cap`) instead of rule IDs (`C5`, `H3`) | `TheRulesAreRealTest` and Guards match on `<ID> —` at the start of each message, and the rules are copied as they are, so IDs stay. They identify code rules, not requirements: the widened check refuses requirement IDs (`<AREA>-R<n>`), and a rule ID in a comment beside an expectation stays allowed. |
 | **Deptrac for layer rules** | Pest arch and PHPStan already run in the suite, and Guards proves each of their rules refuses a violation. |
-| **Release candidates before 1.0.0** | The approved decision is no release before every feature the README lists. A release candidate is a release people depend on. |
+| **Release candidates before 0.1.0** | The approved decision is no release before every feature the README lists. A release candidate is a release people depend on. |
 | **A PHAR instead of a Composer package** | Would avoid Symfony version conflicts in consuming projects, but the Pest adapter's plugin, the `#[Holds]` attribute and extension discovery all need the package to be in the project's autoloader. Broad Symfony ranges are the answer to conflicts. ADR-0022 supersedes this row: a signed PHAR and a container image ship *beside* the Composer package, and the PHAR refuses a Pest project, whose plugin only the Composer package installs. |
-| **Referring to the action from the reusable workflow by tag** (`nightworksio/php-mutation-gate@v1`) | The workflow and the action could then be different commits, and the package's own CI would judge a change to the action with the released one. Checking out the workflow's own commit keeps them one version. |
+| **Referring to the action from the reusable workflow by tag** (`nightworksio/php-mutation-gate@v0.1`) | The workflow and the action could then be different commits, and the package's own CI would judge a change to the action with the released one. Checking out the workflow's own commit keeps them one version. |
 
 ## Consequences
 

@@ -27,7 +27,7 @@ use Symfony\Component\Yaml\Yaml;
  * .github/gates.json, read into shapes the arch tests compare (V1–V3).
  *
  * @phpstan-type Step array{id: string, if: string, run: string, uses: string, with: array<string, string>}
- * @phpstan-type Job array{check: string, steps: list<Step>, legs: list<string>}
+ * @phpstan-type Job array{check: string, shipped: bool, steps: list<Step>, legs: list<string>}
  * @phpstan-type Producer array{step: string, tool: string, raw: string}
  * @phpstan-type Entry array{check: string, checks: string, reproduce: string, troubleshooting: string, none: bool, why: string, evidence: list<Producer>, rules: array<string, string>}
  */
@@ -35,6 +35,15 @@ final readonly class Gates
 {
     /** The workflows every CI job starts from: the code's, the pull request text's, and the daily runner canary's. */
     public const array WORKFLOWS = ['.github/workflows/ci.yml', '.github/workflows/pr.yml', '.github/workflows/canary.yml'];
+
+    /**
+     * The reusable workflow this package ships, which other repositories
+     * call. Its jobs run where none of this repository's scripts are, so they
+     * leave no evidence of this repository's and explain no failure through
+     * it: the gate's own annotations, step summary, comment and reports are
+     * what a reader has.
+     */
+    public const string SHIPPED = '.github/workflows/mutation-gate.yml';
 
     /** The table of the gates. */
     public const string TABLE = '.github/gates.json';
@@ -123,7 +132,7 @@ final readonly class Gates
 
         foreach ($all as $id => $job) {
             if (preg_match(self::CALLED, Lenient::text($job->field('uses')), $calls) !== 1) {
-                $jobs[$id] = self::job(self::named($job, $id), $job, Legs::neededBy($job, $all));
+                $jobs[$id] = self::job(self::named($job, $id), $job, Legs::neededBy($job, $all), shipped: false);
 
                 continue;
             }
@@ -131,8 +140,12 @@ final readonly class Gates
             $inners = self::jobsOf($calls[1]);
 
             foreach ($inners as $inner => $called) {
-                $check = sprintf('%s / %s', $id, self::named($called, $inner));
-                $jobs[sprintf('%s/%s', $id, $inner)] = self::job($check, $called, Legs::neededBy($called, $inners));
+                $jobs[sprintf('%s/%s', $id, $inner)] = self::job(
+                    sprintf('%s / %s', $id, self::named($called, $inner)),
+                    $called,
+                    Legs::neededBy($called, $inners),
+                    shipped: $calls[1] === self::SHIPPED,
+                );
             }
         }
 
@@ -149,7 +162,7 @@ final readonly class Gates
      * @param  list<string> $legs
      * @return Job
      */
-    private static function job(string $check, Node $job, array $legs): array
+    private static function job(string $check, Node $job, array $legs, bool $shipped): array
     {
         $steps = [];
 
@@ -169,7 +182,7 @@ final readonly class Gates
             ];
         }
 
-        return ['check' => $check, 'steps' => $steps, 'legs' => $legs];
+        return ['check' => $check, 'shipped' => $shipped, 'steps' => $steps, 'legs' => $legs];
     }
 
     /** @return Entry */

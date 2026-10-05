@@ -366,11 +366,21 @@ has to bring its result with it.
      visible only to that pull request, and the default branch restores only
      its own.
    - **On S3**, only the credentials of trusted runs may write the default
-     branch's prefix. Where those credentials come from an OIDC role, the role
+     branch's prefix. The package's reusable workflow hands no key to its
+     plan, shards or verdict, which run the project's own code and could read
+     any key they held. Its `fetch` job reads the default branch's ledger with
+     a key that reads that prefix alone, from the environment
+     `mutation-gate-read`, and hands it on as an artifact. Its `deliver` job
+     writes the ledger the verdict left, and holds the writing key only on a
+     trusted run, a push, schedule or dispatch on the default branch, through
+     the environment `mutation-gate-store`, whose deployment-branch policy
+     admits the default branch alone, so GitHub holds the line even where a
+     branch rewrites the workflow. Neither job installs or runs the project's
+     code. A pull request's run there keeps no scope of its own in S3. Where those credentials come from an OIDC role, the role
      that writes the default branch's prefix trusts only a GitHub environment
      restricted to the default branch, or the `job_workflow_ref` of the
      workflow that runs the verdict, never a bare `ref`: every job a workflow
-     runs on the default branch carries that `ref` (ADR-0019). A run without credentials, such as a fork's, opens the
+     runs on the default branch carries that `ref` (ADR-0019). A run without credentials, such as a pull request's, opens the
      store read-only and reads the default branch's ledger from
      `publicUrl`, where the bucket policy makes only that prefix public
      (ADR-0013, decisions 13 to 15).

@@ -70,8 +70,8 @@ jobs:
         if: failure()
         run: python3 .github/scripts/gate_summary.py scope
 
-  # The deciding half of every script under .github/scripts, tested without a
-  # runner (ADR-0019, decision 1).
+  # The deciding half of every script under .github/scripts and of the
+  # action's script, tested without a runner (ADR-0019, decision 1).
   scripts:
     name: scripts
     runs-on: ubuntu-latest
@@ -100,8 +100,9 @@ jobs:
         run: python3 .github/scripts/gate_summary.py scripts
 
   # Workflow lint and audit, spelling, links and Markdown, over every change.
-  # The two calls below keep the `./` form, which zizmor's self-repository
-  # audit would change to `$/`: actionlint 1.7.12 refuses `$/`.
+  # Every call to a workflow of this repository keeps the `./` form, which
+  # zizmor's self-repository audit would change to `$/`: actionlint 1.7.12
+  # refuses `$/`.
   hygiene:
     uses: ./.github/workflows/hygiene.yml # zizmor: ignore[self-repository]
 
@@ -745,8 +746,18 @@ jobs:
 
   # G8 — every mutant of src is killed. The package holds its own code to a
   # floor of 100 through its own gate: the reusable workflow and the action in
-  # this repository, run from the same commit. Until the gate can run itself
-  # end to end, no mutation job runs here.
+  # this repository, run from the same commit, with mutation-gate.json. Its
+  # jobs are the shipped workflow's, which leaves the gate's own reports as its
+  # evidence (.github/gates.json). The permissions are what its jobs ask for:
+  # `contents: write` is used only by the default-branch publish job.
+  mutation:
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    permissions:
+      contents: write
+      actions: read
+      pull-requests: write
+    uses: ./.github/workflows/mutation-gate.yml # zizmor: ignore[self-repository]
 
   # SonarCloud, fed the reports `tests` wrote rather than running the suite a
   # second time. A pull request from a fork or from Dependabot is given no
@@ -828,7 +839,7 @@ jobs:
   # left none.
   evidence:
     name: evidence
-    needs: [scope, scripts, hygiene, security, rules, guards, checks, tests, lowest, runner-contract, runner-contracts, warm-workers, sonar, gate]
+    needs: [scope, scripts, hygiene, security, rules, guards, checks, tests, lowest, runner-contract, runner-contracts, warm-workers, mutation, sonar, gate]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

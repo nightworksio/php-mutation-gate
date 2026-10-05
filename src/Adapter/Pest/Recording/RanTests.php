@@ -8,7 +8,8 @@ use function file_put_contents;
 
 /**
  * How many tests a mutant's own process ran, counted as each finishes and
- * written once, as a `ran` line, when PHPUnit ends the run, which it does
+ * written once, as a `ran` line of the mutant's killer file (see
+ * KillerFile), when PHPUnit ends the run, which it does
  * whether or not its filter selected a test (ADR-0004, decision 9). A
  * process that never ends its run, as one stopped or crashed does, writes
  * no count.
@@ -30,6 +31,10 @@ final class RanTests
     /** Writes how many tests the run ran. */
     public function written(): void
     {
-        file_put_contents($this->results, RecordLine::ran($this->mutated, $this->finished), FILE_APPEND | LOCK_EX);
+        file_put_contents(
+            KillerFile::beside($this->results, $this->mutated),
+            KillerFile::ran($this->finished),
+            FILE_APPEND | LOCK_EX,
+        );
     }
 }

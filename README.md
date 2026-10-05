@@ -9,7 +9,7 @@
 > **In development, not yet released.** This README describes what the
 > decisions in [`.docs/decisions`](.docs/decisions/README.md) settle, and
 > nothing more. Nothing is tagged until every feature below is built, tested
-> and gated at 100%, and the first release is 1.0.0.
+> and gated at 100%, and the first release is 0.1.0.
 
 mutation-gate turns mutation testing into a CI gate for PHP projects. It
 decides:
@@ -649,7 +649,9 @@ Two things the setup relies on:
   (`pest.patch: true`, plus `@php vendor/bin/mutation-gate pest:patch` in
   `post-install-cmd` and `post-update-cmd`) lets every shard reuse the planning
   job's coverage instead of running the whole suite again, and allows each
-  mutant the time its own covering tests take, not the whole suite's.
+  mutant the time its own covering tests take, not the whole suite's. The
+  action and the reusable workflow apply the Pest patch in their own jobs, so
+  on GitHub its Composer hook is needed only for local runs.
 - **The Infection patch.** With Infection as the runner, add
   `@php vendor/bin/mutation-gate infection:patch` to `post-install-cmd` and
   `post-update-cmd`, so each mutant gets the gate's limit, with its
@@ -843,8 +845,9 @@ third-party action:
 ### Use it in GitHub Actions
 
 The repository is also a GitHub Action. Pin it to a full commit SHA, with its
-tag in a comment. A release workflow moves the major tag (`v1`) to each new
-release.
+tag in a comment. Each release has its own tag, such as `v0.1.0`, and a
+release workflow moves the tag of its line, `v0.1`, to each new release of
+0.1.
 
 **One step, for most projects.** The action sets up PHP, installs your
 dependencies, keeps the proof ledger in the Actions cache and runs the whole
@@ -866,7 +869,7 @@ permissions:
 
 jobs:
   mutation:
-    name: mutation testing
+    name: mutation / verdict # the check ci.check names by default
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -877,7 +880,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: nightworksio/php-mutation-gate@<sha> # v1.0.0
+      - uses: nightworksio/php-mutation-gate@<sha> # v0.1.0
         with:
           php-version: '8.5'
 ```
@@ -889,7 +892,7 @@ jobs:
 | `runner` | the config's, or the one installed |
 | `shard` | none: the whole gate runs |
 | `mode` | `auto`: change-scoped on pull requests and pushes, full on schedules, manual runs, releases and tags; or `full`, or `changed` |
-| `changed-since` | the pull request's base on `pull_request`, `last-passed` on a push to the default branch; used when the mode is change-scoped |
+| `changed-since` | the pull request's base on `pull_request`, the default branch on any other branch, `last-passed` on the default branch; used when the mode is change-scoped |
 | `budget` | none |
 | `reports` | none; `<name>:<path>` lines, such as `sarif:build/mutation.sarif` |
 | `cache` | `true`: keep the ledger in the Actions cache |
@@ -930,7 +933,7 @@ permissions:
 
 jobs:
   mutation:
-    uses: nightworksio/php-mutation-gate/.github/workflows/mutation-gate.yml@<sha> # v1.0.0
+    uses: nightworksio/php-mutation-gate/.github/workflows/mutation-gate.yml@<sha> # v0.1.0
     permissions:
       contents: write        # used only by the default-branch publish job
       actions: read
@@ -939,21 +942,88 @@ jobs:
       php-version: '8.5'
 ```
 
-It takes the action's inputs less `shard`, and the optional secrets
-`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SESSION_TOKEN` for an S3
-proof store, `MUTATION_GATE_SLACK_URL`, `MUTATION_GATE_DISCORD_URL`,
-`MUTATION_GATE_WEBHOOK_URL` and `MUTATION_GATE_WEBHOOK_SECRET` for chat alerts,
-and `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` for
-OpenTelemetry. Its outputs are `verdict`, `scores` and `plan`, and it uploads the
-reports as the artifact `mutation-gate-reports`, and a baseline measured for
-trees with no floor as `mutation-gate-baseline`.
+It takes the action's inputs less `shard`. Its outputs are `verdict`, `scores`
+and `plan`, and it uploads the reports as the artifact `mutation-gate-reports`.
+
+The `plan`, `shard` and `verdict` jobs run the project's own code, so they hold
+no secret and no token that can write. Whatever needs a credential runs in a
+job that installs none of the project's code and runs the gate from its own
+installation, at the workflow's commit:
+
+- `fetch` reads the default branch's ledger from the proof store, and hands it
+  to the plan and the verdict as the artifact `mutation-gate-fetched`, which
+  they read where the `directory` store keeps it, so the project's config
+  keeps `proofs.store` at `directory`. It runs
+  where the repository variable `MUTATION_GATE_STORE` names a store, in the
+  environment `mutation-gate-read`.
+- `deliver-plan` posts the pull request comment's planned state, which the plan
+  leaves as the artifact `mutation-gate-delivery-plan`.
+- On a pull request, `survivors` runs the last run's survivors again beside
+  the shards, and `deliver-survivors` writes the comment's *survivors
+  re-checked* state over its planned one, from the artifact
+  `mutation-gate-delivery-survivors`. The verdict judges nothing it found.
+- `deliver` sends what the verdict leaves as the artifact
+  `mutation-gate-delivery`. On every run it posts the comment. A trusted run, a
+  push, schedule or dispatch on the default branch, enters the environment
+  `mutation-gate-store`, and there it also writes the ledger, sends the alerts
+  and exports the trace. GitHub refuses that environment to a run on any other
+  branch, even one whose workflow names it.
+
+To keep the ledger in S3, R2 or MinIO, set these under Settings:
+
+1. **Repository variables**: `MUTATION_GATE_STORE` set to `s3`, and the
+   store's location, `MUTATION_GATE_STORE_BUCKET`,
+   `MUTATION_GATE_STORE_PREFIX`, `MUTATION_GATE_STORE_REGION` and, for R2 or
+   MinIO, `MUTATION_GATE_STORE_ENDPOINT`, an `https://` URL. A location is no
+   secret. The two jobs read it from these variables alone, never from a run
+   of the project's code.
+2. **The environment `mutation-gate-read`**, with no deployment branch rule and
+   the secrets `MUTATION_GATE_READ_AWS_ACCESS_KEY_ID` and
+   `MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY`. Their key may only read the
+   default branch's ledger: `s3:GetObject` on
+   `<bucket>/<prefix>/refs/heads/<default branch>/*`. Every run holds it, a
+   pull request's among them. A fork's pull request is given no secret, and
+   reads through `proofs.store.with.publicUrl` instead.
+3. **The environment `mutation-gate-store`**: under Deployment branches and
+   tags choose Selected branches and tags, and add the default branch's name
+   as its one rule. Its secrets are `AWS_ACCESS_KEY_ID`,
+   `AWS_SECRET_ACCESS_KEY` and, for temporary keys, `AWS_SESSION_TOKEN`,
+   whose key may read and write the default branch's ledger alone:
+   `s3:GetObject` and `s3:PutObject` on
+   `<bucket>/<prefix>/refs/heads/<default branch>/*`. For alerts and traces,
+   add `MUTATION_GATE_SLACK_URL`, `MUTATION_GATE_DISCORD_URL`,
+   `MUTATION_GATE_WEBHOOK_URL`, `MUTATION_GATE_WEBHOOK_SECRET`,
+   `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` there too.
+
+Add the secrets to the environments, never to the repository: a repository
+secret reaches a run on any branch.
+
+A public repository may read the ledger without a key instead: make the
+default branch's prefix public in the bucket policy, set
+`proofs.store.with.publicUrl`, and give `mutation-gate-read` no secrets. The
+plan and the verdict then read the ledger through that URL, and `fetch` hands
+over none.
+
+GitHub may give a scheduled run no default branch name. Set the repository
+variable `MUTATION_GATE_DEFAULT_BRANCH` to that name, and a scheduled run reads
+it there. Without either, a scheduled run holds no secrets and says so in the
+deliver job's summary.
+
+The reusable workflow reaches S3 with those key secrets only. To assume an AWS
+role through OIDC instead, call the one-step action in a job of your own: give
+that job `id-token: write`, add `aws-actions/configure-aws-credentials` before
+the action, and trust the role as described above: an environment only the
+default branch may deploy to, or the job's `job_workflow_ref`.
 
 Here is what the examples rely on:
 
-- **Branch protection** should require the verdict's check. In the one-step
-  example it is `mutation testing`. With the reusable workflow it is the
-  `verdict` job, shown as `mutation / verdict`. The verdict says *cannot
-  judge* (exit code 2) when any planned shard left no result.
+- **Branch protection** should require the verdict's check, `mutation /
+  verdict` in both examples: the one-step job is named so, and the reusable
+  workflow's `verdict` job shows as `<calling job> / verdict`. It is also
+  `ci.check`'s default, the check through which a merged pull request's
+  verdict proves its commit; a job named otherwise needs `ci.check` set to its
+  name. The verdict says *cannot judge* (exit code 2) when the plan could not
+  judge, or when any planned shard left no result.
 - **The schedule** is the full run, twice a week.
 - **The badge and trend** are published to a `mutation-gate` branch:
 
