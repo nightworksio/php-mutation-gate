@@ -774,6 +774,7 @@ services:
                     - PROVED # a field of the plan
                     - CARRIED # a field of the plan
                     - CHANGED # a field of the plan
+                    - UNTESTED # a field of the plan, not Pest's status of the same name
                 'NightWorksIO\MutationGate\Core\Plan\ShardResultFile':
                     - FLAKY # a field of a shard result
                     - UNJUDGED # a field of a shard result

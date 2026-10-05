@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Infection\CoverageFor;
 use NightWorksIO\MutationGate\Adapter\Infection\Invocation;
 use NightWorksIO\MutationGate\Adapter\Infection\OwnConfig;
 use NightWorksIO\MutationGate\Adapter\Infection\Project;
@@ -39,9 +40,9 @@ it('lists the groups with the project\'s PHPUnit and its config', function (): v
     ]);
 });
 
-it('runs the suite under coverage into the layout Infection reads, with the project\'s own PHP options and arguments', function (): void {
+it('runs the suite under coverage into the layout Infection reads and the lines no test ran, with the project\'s own PHP options and arguments', function (): void {
     $config = invoked('{"initialTestsPhpOptions": "-d pcov.directory=app", "testFrameworkExtraArgs": "--testsuite=unit"}');
-    $command = Invocation::coverage(invokedIn(), $config, WholeSuite::tests(), DiskPath::of('/project/.gate/coverage'), NotGiven::value());
+    $command = Invocation::coverage(invokedIn(), $config, WholeSuite::tests(), DiskPath::of('/project/.gate/coverage'), NotGiven::value(), CoverageFor::Map);
 
     expect($command->arguments())->toBe([
         PHP_BINARY,
@@ -50,6 +51,7 @@ it('runs the suite under coverage into the layout Infection reads, with the proj
         '/project/vendor/bin/phpunit',
         '--configuration=/project',
         '--coverage-xml=/project/.gate/coverage/coverage-xml',
+        '--coverage-clover=/project/.gate/coverage/clover.xml',
         '--log-junit=/project/.gate/coverage/junit.xml',
         '--colors=never',
         '--testsuite=unit',
@@ -57,8 +59,8 @@ it('runs the suite under coverage into the layout Infection reads, with the proj
 });
 
 it('runs only the tests that judge a held path under coverage', function (): void {
-    $group = Invocation::coverage(invokedIn(), invoked('{}'), Group::named('holds:src/Kernel.php'), DiskPath::of('/c'), NotGiven::value());
-    $filter = Invocation::coverage(invokedIn(), invoked('{}'), Filter::matching('KernelTest'), DiskPath::of('/c'), NotGiven::value());
+    $group = Invocation::coverage(invokedIn(), invoked('{}'), Group::named('holds:src/Kernel.php'), DiskPath::of('/c'), NotGiven::value(), CoverageFor::Mutation);
+    $filter = Invocation::coverage(invokedIn(), invoked('{}'), Filter::matching('KernelTest'), DiskPath::of('/c'), NotGiven::value(), CoverageFor::Mutation);
 
     expect(array_slice($group->arguments(), -1))->toBe(['--group=holds:src/Kernel.php'])
         ->and(array_slice($filter->arguments(), -1))->toBe(['--filter=KernelTest']);
@@ -67,7 +69,7 @@ it('runs only the tests that judge a held path under coverage', function (): voi
 it('runs some test files under coverage, by their paths on disk, in place of the config\'s suites', function (): void {
     $files = TestPaths::of(Paths::of(Path::of('tests/MoneyTest.php'), Path::of('tests/Unit/HeldTest.php')));
 
-    expect(array_slice(Invocation::coverage(invokedIn(), invoked('{}'), $files, DiskPath::of('/c'), NotGiven::value())->arguments(), -2))
+    expect(array_slice(Invocation::coverage(invokedIn(), invoked('{}'), $files, DiskPath::of('/c'), NotGiven::value(), CoverageFor::Mutation)->arguments(), -2))
         ->toBe(['/project/tests/MoneyTest.php', '/project/tests/Unit/HeldTest.php']);
 });
 
@@ -128,7 +130,7 @@ it('narrows each mutant\'s run to a group, and to the covering test methods of a
 });
 
 it('keeps the coverage run and each mutant\'s run to one suite where the run names one, quoting it among the extra arguments', function (): void {
-    $coverage = Invocation::coverage(invokedIn(), invoked('{}'), Group::named('slow'), DiskPath::of('/c'), SuiteName::of('Unit Tests'));
+    $coverage = Invocation::coverage(invokedIn(), invoked('{}'), Group::named('slow'), DiskPath::of('/c'), SuiteName::of('Unit Tests'), CoverageFor::Mutation);
     $mutation = Invocation::mutation(invokedIn(), invoked('{}'), Group::named('slow'), DiskPath::of('/c'), Processes::of(1), ['/p'], SuiteName::of('Unit Tests'));
 
     expect(array_slice($coverage->arguments(), -2))->toBe(['--group=slow', '--testsuite=Unit Tests'])
@@ -136,4 +138,13 @@ it('keeps the coverage run and each mutant\'s run to one suite where the run nam
             '--test-framework-extra-args=--group="slow" --testsuite="Unit Tests"',
             '/p',
         ]);
+});
+
+it('writes the report of the lines no test ran beside the layout only for the gate\'s map', function (): void {
+    $map = Invocation::coverage(invokedIn(), invoked('{}'), WholeSuite::tests(), DiskPath::of('/c'), NotGiven::value(), CoverageFor::Map);
+    $mutation = Invocation::coverage(invokedIn(), invoked('{}'), WholeSuite::tests(), DiskPath::of('/c'), NotGiven::value(), CoverageFor::Mutation);
+
+    expect($map->arguments())->toContain('--coverage-clover=/c/clover.xml')
+        ->and($mutation->arguments())->not->toContain('--coverage-clover=/c/clover.xml')
+        ->and(array_values(array_diff($map->arguments(), $mutation->arguments())))->toBe(['--coverage-clover=/c/clover.xml']);
 });

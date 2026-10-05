@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Cost\CostBasis;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
+use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -626,6 +627,24 @@ it('cannot plan a shard of a package other than the project\'s root', function (
             The package at packages/a has units to mutate, and the runner runs the suite of the project's root alone,
             which does not judge another package's code, so their mutants cannot be judged.
             SAID));
+});
+
+it('holds the changed lines its coverage map says no test runs', function () use ($plan): void {
+    $money = Path::of('src/Money.php');
+    $map = CoverageMap::of(
+        CoveredLine::of($money, 2, 'MoneyTest::adds'),
+        CoveredLine::of($money, 3),
+        CoveredLine::of($money, 8),
+    );
+    $checkout = new ChangeSourceFake(
+        Revision::ref('base'),
+        Changes::of(Change::modified($money, Lines::of(Line::of(1), Line::of(2), Line::of(3)))),
+        [Revision::workingTree()->name() => Flows::FILES, 'base' => Flows::FILES],
+    );
+    $planned = $plan(Flows::project(), Mode::since('base'), Cut::exactly(1), new CoverageAsked(RunnerFake::ofTheFixture(), $map), $checkout);
+
+    expect($planned instanceof Plan ? $planned->considered()->untested() : $planned)
+        ->toEqual(Changes::of(Change::modified($money, Lines::of(Line::of(3)))));
 });
 
 it('cannot plan where it cannot hand a shard its map', function () use ($plan): void {

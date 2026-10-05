@@ -183,3 +183,16 @@ it('reads a method of one line', function () use ($file, $written): void {
     expect($map instanceof CoverageMap ? $map->methods()->at(Path::of('src/Money.php'), ExecutedMethods::none()) : $map)
         ->toEqual(ExecutedMethods::of(ExecutedMethod::of('one', 1, 1)));
 });
+
+it('writes each line no test ran with no tests, and reads it back as one', function () use ($map): void {
+    $missing = CoverageMap::of(...[...$map()->lines(), CoveredLine::of(Path::of('src/Money.php'), 4), CoveredLine::of(Path::of('src/Gone.php'), 2)])
+        ->timedEach(TimedTest::of('MoneyTest::adds', 0.25));
+    $written = CoverageMapFile::encode($missing, Unplaced::map());
+    $read = CoverageMapFile::decode($written);
+    $json = Gzip::unpack($written, 'the map');
+
+    expect($json instanceof CannotJudge ? $json->why() : $json)->toContain('"src/Money.php":{"12":[0,1],"3":[0],"4":[]}')
+        ->and($json instanceof CannotJudge ? $json->why() : $json)->toContain('"src/Gone.php":{"2":[]}')
+        ->and($read instanceof CoverageMap ? [...$read->linesMissed(Path::of('src/Money.php'))] : $read)->toEqual([Line::of(4)])
+        ->and($read instanceof CoverageMap ? [...$read->linesMissed(Path::of('src/Gone.php'))] : $read)->toEqual([Line::of(2)]);
+});

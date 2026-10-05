@@ -177,16 +177,21 @@ sees the same verdict.
        another. It is updated in place on every run, passing runs included, so
        an old failure never lingers. The token needs `pull-requests: write`.
      - **Planned, then judged.** `plan`, and `run` without a plan, post it
-       first, in a *planned* state: the units to be mutated and the estimate
-       (ADR-0017). In order: the marker; `## mutation-gate: planned`;
-       *Mutating 12 units in 3 shards: about 6m wall, 14m runner time (94%
-       measured)*, or *Nothing to mutate* where the plan has no units; the
-       units, folded as `<details><summary>Units (12)</summary>`, cut like
-       the verdict's lists; and the link to the run. The flows write it with
+       first, in a *planned* state: the units to be mutated, the estimate
+       (ADR-0017), and the changed lines no test runs. The coverage map holds
+       each executable line no test ran beside those some test ran, so a
+       changed comment or blank line is never one of them. In order: the
+       marker; `## mutation-gate: planned`; *Mutating 12 units in 3 shards:
+       about 6m wall, 14m runner time (94% measured)*, or *Nothing to mutate*
+       where the plan has no units; the units, folded as
+       `<details><summary>Units (12)</summary>`; *Changed lines no test
+       covers (3)* as a heading over one `path:line` a line; and the link to
+       the run. Each list is cut like the verdict's. The plan file holds the
+       untested lines as `untested`. The flows write the state with
        `PullRequestComment::planned(PlannedWork)`, where `PlannedWork` holds
-       the plan, its estimate and the share of the estimate that was
-       measured. The verdict replaces that state with what follows
-       (ADR-0019).
+       the plan, its estimate, the share of the estimate that was measured,
+       and the untested lines by file. The verdict replaces that state with
+       what follows (ADR-0019).
      - **What it holds:**
        - the verdict, with the line saying what the run saved directly under
          it (ADR-0017);

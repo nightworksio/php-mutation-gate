@@ -162,7 +162,7 @@ final readonly class Infection implements Runner
             ? $config
             : $this->covering()->run($config, $request, $directory);
 
-        return $covered instanceof CannotJudge ? $covered : CoverageXml::read($this->project, $directory);
+        return $covered instanceof CannotJudge ? $covered : CoverageXml::measured($this->project, $directory);
     }
 
     /** The map's tests whose classes these test files declare, or whose files are gone. */

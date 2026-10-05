@@ -26,8 +26,9 @@ use function sprintf;
 
 /**
  * The map PHPUnit's `--coverage-php` wrote, read with php-code-coverage: the
- * tests that ran each line of each file, as paths of the project, and how
- * long each test took, as php-code-coverage timed it.
+ * tests that ran each executable line of each file, as paths of the project,
+ * none for a line no test ran, and how long each test took, as
+ * php-code-coverage timed it.
  */
 final readonly class CoverageFile
 {
@@ -62,7 +63,7 @@ final readonly class CoverageFile
             ->timedEach(...$timed);
     }
 
-    /** @return list<CoveredLine> each line a test ran, with the tests that ran it */
+    /** @return list<CoveredLine> each executable line, with the tests that ran it: none for a line no test ran */
     private static function lines(Project $project, string $base, ProcessedCodeCoverageData $data): array
     {
         $tests = $data->testIds();
@@ -72,7 +73,9 @@ final readonly class CoverageFile
             $path = $project->relative(sprintf('%s/%s', rtrim($base, '/'), $file));
 
             foreach ($covered as $line => $ran) {
-                $lines[] = CoveredLine::of($path, $line, ...array_values(array_intersect_key($tests, $ran ?? [])));
+                if ($ran !== null) {
+                    $lines[] = CoveredLine::of($path, $line, ...array_values(array_intersect_key($tests, $ran)));
+                }
             }
         }
 

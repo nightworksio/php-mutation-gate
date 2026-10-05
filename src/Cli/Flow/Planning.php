@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Cost\StartUpSamples;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
+use NightWorksIO\MutationGate\Core\Coverage\Untested;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
@@ -179,6 +180,7 @@ final readonly class Planning
                     ->considering(
                         Considered::everything()
                             ->reaching($changed, $reached->reach()->reasons())
+                            ->untesting(Untested::of($changed, $map))
                             ->proving($this->unitsOf($proving->proved()))
                             ->carrying($this->unitsOf($considering->carried())),
                     )
@@ -298,6 +300,7 @@ final readonly class Planning
             default => Changes::none(),
         };
     }
+
 
     /** The shards, each in this order, where each is of the project's root package. */
     private function rooted(Shards $shards, RiskOrder $order): Shards|CannotJudge

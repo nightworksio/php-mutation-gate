@@ -33,16 +33,18 @@ final readonly class CoverageXml
     /** The map a coverage directory holds, with each file as the project spells it. */
     public static function read(Project $project, DiskPath $directory): CoverageMap|CannotJudge
     {
-        $xml = $directory->child(Invocation::XML);
-        $index = self::loaded(self::indexIn($directory));
-        $junit = JUnit::at($directory->child(Invocation::JUNIT));
-        $map = $index instanceof CannotJudge ? $index : self::covered($project, $index, $xml);
+        return self::over(CoverageMap::empty(), $project, $directory);
+    }
 
-        return match (true) {
-            $map instanceof CannotJudge => $map,
-            $junit instanceof CannotJudge => $junit,
-            default => self::timed($map, $junit),
-        };
+    /**
+     * The map a coverage directory the gate's own coverage run wrote holds,
+     * with the lines its report beside the XML says no test ran.
+     */
+    public static function measured(Project $project, DiskPath $directory): CoverageMap|CannotJudge
+    {
+        $missed = MissedLines::in($project, $directory);
+
+        return $missed instanceof CannotJudge ? $missed : self::over(CoverageMap::of(...$missed), $project, $directory);
     }
 
     /** Where a coverage directory's index of every file's report is. */
@@ -51,9 +53,27 @@ final readonly class CoverageXml
         return $directory->child(Invocation::XML)->child(self::INDEX);
     }
 
-    private static function covered(Project $project, DOMDocument $index, DiskPath $xml): CoverageMap|CannotJudge
+    /** The lines and times a coverage directory holds, onto a map that holds the lines no test ran. */
+    private static function over(CoverageMap $missed, Project $project, DiskPath $directory): CoverageMap|CannotJudge
     {
-        $map = CoverageMap::empty();
+        $xml = $directory->child(Invocation::XML);
+        $index = self::loaded(self::indexIn($directory));
+        $junit = JUnit::at($directory->child(Invocation::JUNIT));
+        $map = $index instanceof CannotJudge ? $index : self::covered($project, $index, $xml, $missed);
+
+        return match (true) {
+            $map instanceof CannotJudge => $map,
+            $junit instanceof CannotJudge => $junit,
+            default => self::timed($map, $junit),
+        };
+    }
+
+    private static function covered(
+        Project $project,
+        DOMDocument $index,
+        DiskPath $xml,
+        CoverageMap $map,
+    ): CoverageMap|CannotJudge {
         $source = '';
 
         foreach ($index->getElementsByTagName('project') as $root) {

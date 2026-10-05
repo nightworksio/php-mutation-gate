@@ -269,6 +269,26 @@ it('writes and reads back the lines a change added or modified, and why it reach
         ->and(PlanFile::decode($written))->toEqual($plan);
 });
 
+it('writes and reads back the changed lines no test runs within its digest, and nothing where there are none', function (): void {
+    $considered = Considered::everything()->reaching(
+        Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(3), Line::of(4)))),
+        Reasons::of(Reason::that('`src/Money.php` changed, so its unit is reached.')),
+    );
+    $tested = planFileEmpty()->on(RunOn::detached(Scope::branch('main')))->considering($considered);
+    $untested = planFileEmpty()->on(RunOn::detached(Scope::branch('main')))->considering(
+        $considered->untesting(Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(4))))),
+    );
+    $written = PlanFile::encode($untested);
+    $read = PlanFile::decode($written);
+
+    expect($written)->toContain("\"untested\": {\n        \"src/Money.php\": [\n            4\n        ]\n    }")
+        ->and($read)->toEqual($untested)
+        ->and($read instanceof Plan ? $read->considered()->untested() : $read)
+        ->toEqual(Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(4)))))
+        ->and(PlanFile::encode($tested))->not->toContain('"untested"')
+        ->and($untested->digest())->not->toEqual($tested->digest());
+});
+
 it('writes neither changed lines nor reasons for a full run', function (): void {
     $written = PlanFile::encode(planFileEmpty());
 

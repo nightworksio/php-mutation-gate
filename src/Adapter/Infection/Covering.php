@@ -44,22 +44,35 @@ final readonly class Covering
         }
 
         $own = $this->ownCoverage();
-        $run = Invocation::coverage($this->project, $config, $request->judgedBy(), $own, $request->narrowing()->suite())
-            ->withholding($request->withheld());
+        $run = Invocation::coverage(
+            $this->project,
+            $config,
+            $request->judgedBy(),
+            $own,
+            $request->narrowing()->suite(),
+            CoverageFor::Mutation,
+        )->withholding($request->withheld());
 
         return $this->held->ranBy($run, fn(): DiskPath|CannotJudge => $this->covered($run, $own));
     }
 
     /**
      * The directory, once PHPUnit has run the tests a coverage run asks for
-     * under coverage into it, of its suite alone where it names one, never
-     * seeing a variable withheld, with no earlier run's reports left.
+     * under coverage into it for the gate's map, of its suite alone where it
+     * names one, never seeing a variable withheld, with no earlier run's
+     * reports left.
      */
     public function run(OwnConfig $config, CoverageRun $request, DiskPath $directory): DiskPath|CannotJudge
     {
         return $this->covered(
-            Invocation::coverage($this->project, $config, $request->tests(), $directory, $request->suite())
-                ->withholding($request->withheld()),
+            Invocation::coverage(
+                $this->project,
+                $config,
+                $request->tests(),
+                $directory,
+                $request->suite(),
+                CoverageFor::Map,
+            )->withholding($request->withheld()),
             $directory,
         );
     }

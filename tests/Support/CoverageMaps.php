@@ -19,7 +19,9 @@ final readonly class CoverageMaps
 {
     /**
      * @param non-empty-string                                               $file      where the map is written
-     * @param array<non-empty-string, array<positive-int, list<int<0, max>>>> $lines     each line's tests, by index
+     * @param array<non-empty-string, array<positive-int, list<int<0, max>>|null>> $lines each line's tests, by
+     *                                                                          index; null for a line that is not
+     *                                                                          executable
      * @param list<non-empty-string>                                         $tests     every test, by index
      * @param array<non-empty-string, float>                                 $durations each test's seconds
      */
@@ -29,7 +31,7 @@ final readonly class CoverageMaps
         $data->setTestIds($tests);
         $data->setLineCoverage(array_map(
             static fn(array $byLine): array => array_map(
-                static fn(array $indexes): array => array_fill_keys($indexes, 1),
+                static fn(?array $indexes): ?array => $indexes === null ? null : array_fill_keys($indexes, 1),
                 $byLine,
             ),
             $lines,

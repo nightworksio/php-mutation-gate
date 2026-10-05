@@ -57,7 +57,7 @@ it('adds up the seconds of the tests it timed', function (): void {
         ->and(SharedCoverage::seconds(CoverageMap::of(CoveredLine::of(Path::of('a.php'), 3, 'T::t'))))->toBe(0.0);
 });
 
-it('writes a map as --coverage-php writes one, which reads back as the same map', function (): void {
+it('writes a map as --coverage-php writes one, which reads back as the same map, a line only a nameless test ran as one none ran', function (): void {
     $at = sharedProject();
     $target = sprintf('%s/shared.coverage.php', $at->root());
     $untimed = sharedMap()->covered(Path::of('src/Money.php'), Line::of(14), TestId::of(''))
@@ -70,6 +70,7 @@ it('writes a map as --coverage-php writes one, which reads back as the same map'
         CoveredLine::of(Path::of('src/Money.php'), 1, 'MoneyTest::adds'),
         CoveredLine::of(Path::of('src/Money.php'), 12, 'MoneyTest::adds', 'MoneyTest::subtracts'),
         CoveredLine::of(Path::of('src/Tax.php'), 3, 'TaxTest::rates'),
+        CoveredLine::of(Path::of('src/Money.php'), 14),
     )->timedEach(
         TimedTest::of('MoneyTest::adds', 0.25),
         TimedTest::of('MoneyTest::subtracts', 0.5),
@@ -91,4 +92,15 @@ it('hands each line the tests that cover it, wherever they stand among the map\'
 
     expect($read instanceof CoverageFile ? $read->map($at)->testsCovering(Path::of('src/Tax.php'), Line::of(7)) : $read)
         ->toEqual(TestIds::of(TestId::of('TaxTest::rounds'), TestId::of('TaxTest::rates')));
+});
+
+it('leaves out a line no test ran, as php-code-coverage leaves out a line it does not know', function (): void {
+    $at = sharedProject();
+    $target = sprintf('%s/shared.coverage.php', $at->root());
+
+    $both = sprintf('%s/both.coverage.php', $at->root());
+    SharedCoverage::write(CoverageMap::of(...sharedMap()->lines()), $at, $target);
+    SharedCoverage::write(CoverageMap::of(...[...sharedMap()->lines(), CoveredLine::of(Path::of('src/Money.php'), 30)]), $at, $both);
+
+    expect((string) file_get_contents($both))->toBe((string) file_get_contents($target));
 });

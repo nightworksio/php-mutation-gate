@@ -162,3 +162,38 @@ it('times the whole suite, test after test, adding nothing for a test it did not
     expect($map->suiteDuration())->toEqual(Seconds::of(1.75))
         ->and(CoverageMap::empty()->suiteDuration())->toEqual(Seconds::of(0.0));
 });
+
+it('holds each executable line no test ran, never one some test covers, whatever the order it reads them in', function (): void {
+    $money = Path::of('src/Money.php');
+    $read = CoverageMap::of(
+        CoveredLine::of($money, 4),
+        CoveredLine::of($money, 5),
+        CoveredLine::of($money, 5, 'MoneyTest::adds'),
+        CoveredLine::of($money, 6, 'MoneyTest::adds'),
+        CoveredLine::of($money, 6),
+        CoveredLine::of(Path::of('src/Tax.php'), 9),
+    );
+
+    expect([...$read->linesMissed($money)])->toEqual([Line::of(4)])
+        ->and([...$read->linesMissed(Path::of('src/Tax.php'))])->toEqual([Line::of(9)])
+        ->and([...$read->linesMissed(Path::of('src/Other.php'))])->toBe([])
+        ->and([...$read->linesCovered($money)])->toEqual([Line::of(5), Line::of(6)])
+        ->and($read->files())->toEqual(Paths::of($money))
+        ->and([...$read->covered($money, Line::of(4), TestId::of('MoneyTest::adds'))->linesMissed($money)])->toBe([])
+        ->and(CoverageMap::of(CoveredLine::of($money, 4))->covered($money, Line::of(4), TestId::of('MoneyTest::adds')))
+        ->toEqual(CoverageMap::empty()->covered($money, Line::of(4), TestId::of('MoneyTest::adds')))
+        ->and([...$read->onlyFor(Paths::of($money))->linesMissed(Path::of('src/Tax.php'))])->toBe([])
+        ->and([...$read->onlyFor(Paths::of($money))->linesMissed($money)])->toEqual([Line::of(4)])
+        ->and($read->timed(TestId::of('MoneyTest::adds'), Seconds::of(1.0))->linesMissed($money))->toEqual($read->linesMissed($money))
+        ->and($read->executing($money, ExecutedMethod::of('add', 4, 6))->linesMissed($money))->toEqual($read->linesMissed($money));
+});
+
+it('lists every executable line: the covered ones with their tests, then those no test ran, with none', function (): void {
+    $money = Path::of('src/Money.php');
+    $lines = array_map(
+        static fn(CoveredLine $line): array => [$line->file()->value(), $line->line(), [...$line]],
+        iterator_to_array(CoverageMap::of(CoveredLine::of($money, 4), CoveredLine::of($money, 5, 'MoneyTest::adds'))->lines(), preserve_keys: false),
+    );
+
+    expect($lines)->toBe([['src/Money.php', 5, ['MoneyTest::adds']], ['src/Money.php', 4, []]]);
+});

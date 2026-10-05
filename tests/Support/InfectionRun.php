@@ -29,11 +29,12 @@ final readonly class InfectionRun
 {
     /**
      * A coverage directory: PHPUnit's XML coverage of files under a source
-     * directory, and its JUnit log.
+     * directory, its JUnit log, and the Clover report beside them, which
+     * holds a line no test ran, listed with none, as the XML does not.
      *
-     * @param array<string, array<int, list<string>>> $files   each file under the source, by its path there, with the tests covering each line
-     * @param array<string, float>                    $classes each test class's seconds
-     * @param array<string, float>                    $tests   each test's seconds, by its id
+     * @param array<non-empty-string, array<positive-int, list<non-empty-string>>> $files   each file under the source, by its path there, with the tests covering each line
+     * @param array<string, float>                                              $classes each test class's seconds
+     * @param array<non-empty-string, float>                                    $tests   each test's seconds, by its id
      */
     public static function coverage(string $directory, string $source, array $files, array $classes, array $tests): void
     {
@@ -50,6 +51,7 @@ final readonly class InfectionRun
             implode('', $entries),
         ));
         self::write(sprintf('%s/junit.xml', $directory), self::junit($classes, $tests));
+        self::clover($directory, $source, $files);
     }
 
     /**
@@ -129,6 +131,32 @@ final readonly class InfectionRun
     public static function diff(string $removed, string $added): string
     {
         return sprintf("@@ @@\n     {\n-        %s\n+        %s\n     }", $removed, $added);
+    }
+
+    /**
+     * The Clover report of the same lines, each file by its path on disk, a
+     * line no test ran with a count of none.
+     *
+     * @param array<non-empty-string, array<positive-int, list<non-empty-string>>> $files
+     */
+    private static function clover(string $directory, string $source, array $files): void
+    {
+        $entries = [];
+
+        foreach ($files as $path => $covered) {
+            $lines = [];
+
+            foreach ($covered as $line => $by) {
+                $lines[] = sprintf('<line num="%d" type="stmt" count="%d"/>', $line, count($by));
+            }
+
+            $entries[] = sprintf('<file name="%s/%s">%s</file>', $source, $path, implode('', $lines));
+        }
+
+        self::write(sprintf('%s/clover.xml', $directory), sprintf(
+            '<?xml version="1.0"?><coverage><project>%s</project></coverage>',
+            implode('', $entries),
+        ));
     }
 
     /** @param array<int, list<string>> $lines */
