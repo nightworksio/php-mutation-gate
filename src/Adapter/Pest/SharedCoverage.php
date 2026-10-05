@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_key_exists;
+use function base64_encode;
 use function count;
 use function file_get_contents;
 use function file_put_contents;
@@ -44,10 +45,14 @@ final readonly class SharedCoverage
         ],
     ];
 
-    /** How php-code-coverage writes a map it serialized, in the format of the version installed. */
+    /**
+     * A map php-code-coverage reads as one it serialized, in the format of the version installed, ending as it ends
+     * one. The serialized map is in base64 inside the nowdoc: base64 holds no line break, so no test name or path in
+     * the map can end the nowdoc and be read as code.
+     */
     private const string MAP = <<<'PHP'
         <?php // phpunit/php-code-coverage serialization format %d
-        return \unserialize(<<<'END_OF_COVERAGE_SERIALIZATION'
+        return (static fn(string $map): mixed => \unserialize(\base64_decode($map)))(<<<'END_OF_COVERAGE_SERIALIZATION'
         %s
         END_OF_COVERAGE_SERIALIZATION
         );
@@ -110,7 +115,10 @@ final readonly class SharedCoverage
             'testResults' => $results,
         ];
 
-        file_put_contents($target, sprintf(self::MAP, Serializer::SERIALIZATION_FORMAT, serialize($coverage)));
+        file_put_contents(
+            $target,
+            sprintf(self::MAP, Serializer::SERIALIZATION_FORMAT, base64_encode(serialize($coverage))),
+        );
     }
 
     /**

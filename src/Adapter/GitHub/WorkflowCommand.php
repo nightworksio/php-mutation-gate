@@ -7,13 +7,17 @@ namespace NightWorksIO\MutationGate\Adapter\GitHub;
 use function array_keys;
 use function array_values;
 use function implode;
+
+use NightWorksIO\MutationGate\Core\Format\Printable;
+
 use function sprintf;
 use function str_replace;
 
 /**
  * One GitHub Actions workflow command, such as `::error file=…,line=…::…`,
  * escaped as the runner reads it: `%`, line breaks, `:` and `,` in a
- * property, and `%` and line breaks in the message.
+ * property, and `%` and line breaks in the message. Each is printable first
+ * (Printable), so no escape sequence in it reaches the log.
  */
 final readonly class WorkflowCommand
 {
@@ -36,6 +40,6 @@ final readonly class WorkflowCommand
     /** @param array<string, string> $escapes */
     private static function escaped(string $text, array $escapes): string
     {
-        return str_replace(array_keys($escapes), array_values($escapes), $text);
+        return str_replace(array_keys($escapes), array_values($escapes), Printable::text($text));
     }
 }

@@ -36,3 +36,13 @@ it('says setup is estimated where the CI did not measure it, and prices each fig
         'At 0.20 EUR a runner minute: planned 3.00 EUR, measured 2.80 EUR, spared 8.20 EUR.',
     ]));
 });
+
+it('shows the team\'s currency as text, which mentions no one, links nowhere and loads no image', function (): void {
+    $cost = Cost::of(RunTime::estimated(Seconds::of(60.0), Seconds::of(60.0)), RunTime::estimated(Seconds::of(60.0), Seconds::of(60.0)), Seconds::of(0.0), Seconds::of(0.0))
+        ->pricedAt(Rate::perMinute(1.0, 'EUR @org/security ![](https://x.example/p.png) <img src=x>'));
+    $markdown = CostText::markdown($cost);
+
+    expect($markdown)->toContain('At 1.00 EUR &#64;org/security &#33;&#91;&#93;(https:&#47;&#47;x.example/p.png) &lt;img src=x&gt; a runner minute:')
+        ->and($markdown)->not->toContain('@org')
+        ->and($markdown)->not->toContain('![](');
+});

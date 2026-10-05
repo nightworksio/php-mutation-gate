@@ -332,6 +332,17 @@ parameters:
                     name: 'option'
                     typeString: "'log_errors'|'error_log'"
 
+        # --- base64 of what holds no secret ------------------------------------------
+        # The extension keys each entry by its call, so this entry replaces the timing-safe set's own for
+        # base64_encode() and keeps its message everywhere else.
+        -
+            function: 'base64_encode()'
+            message: 'it is not timing-safe, use sodium_bin2base64() instead'
+            allowIn:
+                # A coverage map holds no secret, so how long encoding it takes tells nothing; base64 holds no line
+                # break, so no test name in the map can end the nowdoc it is written in.
+                - src/Adapter/Pest/SharedCoverage.php
+
         # --- L3: bytes are not characters -----------------------------------------
         -
             function:
@@ -502,6 +513,9 @@ services:
                 - src/Adapter/Php/PhpConfig.php
                 - src/Cli/CommandLine.php
                 - src/Adapter/Infection/RelaxedJson.php
+                - src/Adapter/Console/InertOutput.php # Symfony's OutputInterface hands write() its messages untyped
+                - src/Adapter/Console/InertStream.php # Symfony's OutputInterface hands write() its messages untyped
+                - src/Adapter/Console/Messages.php # Symfony's OutputInterface hands write() its messages untyped
                 - tests/Support/Bucket.php
                 - tests/Support/Cloud.php # Symfony's MockHttpClient hands a responder request options untyped
                 - tests/Support/Commands.php
