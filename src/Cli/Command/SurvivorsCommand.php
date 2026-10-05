@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Cli\Flow\PlanMade;
 use NightWorksIO\MutationGate\Cli\Flow\Rechecking;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Delivery\Stage;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Recheck\NoRecheck;
 use NightWorksIO\MutationGate\Core\Recheck\Rechecked;
@@ -49,7 +50,7 @@ final readonly class SurvivorsCommand
 
     public static function command(Composition $composition): Command
     {
-        return FlowOptions::planning(new Command('survivors'))
+        return DeliverLater::option(FlowOptions::planning(new Command('survivors')))
             ->setDescription('Run the last run\'s survivors again first, on a pull request, before its shards')
             ->addOption(
                 FlowOptions::PLAN,
@@ -58,9 +59,12 @@ final readonly class SurvivorsCommand
             )
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
                 $planned = $input->getOption(FlowOptions::PLAN) !== null;
-                $composed = $planned
-                    ? $composition->compose($input)
-                    : FlowOptions::narrowed($composition->compose($input), $input);
+                $built = $composition->compose($input);
+                $composed = DeliverLater::composed(
+                    $planned ? $built : FlowOptions::narrowed($built, $input),
+                    $input,
+                    Stage::Survivors,
+                );
                 $lines = match (true) {
                     ! $composed instanceof Composed => $composed,
                     $planned && FlowOptions::isSecurityOnly($input) => CannotJudge::because(self::SECURITY_WITH_PLAN),

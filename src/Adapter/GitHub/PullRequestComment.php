@@ -171,7 +171,24 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
      */
     public function rechecked(Rechecked $rechecked): Written|NotWritten
     {
-        return $this->written(RecheckedMarkdown::comment($rechecked, $this->run), overPlanned: true);
+        return $this->writeOverPlanned(RecheckedMarkdown::comment($rechecked, $this->run));
+    }
+
+    /** A delivery, with the comment while the survivors are re-checked, where the run is a pull request's. */
+    public function recheckedLater(Rechecked $rechecked, Delivery $delivery): Delivery
+    {
+        return $this->commentedOn instanceof NotGiven
+            ? $delivery
+            : $delivery->withCommentOverPlanned(RecheckedMarkdown::comment($rechecked, $this->run));
+    }
+
+    /**
+     * The sticky comment, holding this, written only over its planned state: what `deliver` writes of the comment
+     * a re-check left for it.
+     */
+    public function writeOverPlanned(string $markdown): Written|NotWritten
+    {
+        return $this->written($markdown, overPlanned: true);
     }
 
     /**

@@ -41,6 +41,24 @@ it('writes nothing it does not hold, and reads back an empty delivery', function
         ->and(DeliveryFile::decode(DeliveryFile::encode($metricsOnly)))->toEqual($metricsOnly);
 });
 
+it('reads back a comment written only over its planned state, which a later comment or none leaves written in place', function (): void {
+    $overPlanned = deliveryWhole()->withCommentOverPlanned('## Re-checked');
+    $kept = $overPlanned->withLedger(LedgerPost::to(Scope::branch('main')))
+        ->withAlert(AlertPost::of(BuiltinReporter::Slack, '{}'))
+        ->withOtlp(OtlpPost::of(NotGiven::value(), '{}'))
+        ->withKept(KeptPost::of(Companion::Coverage, Scope::branch('main')));
+
+    expect(DeliveryFile::decode(DeliveryFile::encode($overPlanned)))->toEqual($overPlanned)
+        ->and(DeliveryFile::encode(Delivery::none()->withCommentOverPlanned('x')))
+        ->toBe("{\n    \"format\": 1,\n    \"comment\": \"x\",\n    \"overPlanned\": true\n}")
+        ->and($overPlanned->commentsOverPlanned())->toBeTrue()
+        ->and($kept->commentsOverPlanned())->toBeTrue()
+        ->and($overPlanned->withComment('## Passed')->commentsOverPlanned())->toBeFalse()
+        ->and(deliveryWhole()->commentsOverPlanned())->toBeFalse()
+        ->and(DeliveryFile::decode('{"format": 1, "comment": "x", "overPlanned": false}'))
+        ->toEqual(Delivery::none()->withComment('x'));
+});
+
 it('reads as many alerts to one channel as a verdict sends, one of each kind', function (): void {
     $alerts = Delivery::none();
 

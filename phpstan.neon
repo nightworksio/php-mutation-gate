@@ -597,6 +597,8 @@ services:
                     - ANSWER # characters of an answer repeated
                 'NightWorksIO\MutationGate\Core\Alert\AlertLines':
                     - SURVIVORS # survivors an alert names
+                'NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks':
+                    - MANY # the plural a sentence counts, not the delivery's stage
                 'NightWorksIO\MutationGate\Core\Alert\DiscordMessage':
                     - TITLE # characters Discord shows of a title
                 'NightWorksIO\MutationGate\Core\Config\Shards':

@@ -58,6 +58,9 @@ final readonly class DeliveryFile
 
     private const string KEPT = 'kept';
 
+    /** Whether the comment is written only over its planned state. */
+    private const string OVER_PLANNED = 'overPlanned';
+
     private const string TRACES = 'traces';
 
     private const string METRICS = 'metrics';
@@ -83,6 +86,7 @@ final readonly class DeliveryFile
             Member::of('format', self::FORMAT),
             Member::of(self::LEDGER_KEY, $ledger instanceof LedgerPost ? self::ledgerJson($ledger) : Absent::setting()),
             Member::of('comment', $comment instanceof NotGiven ? Absent::setting() : $comment),
+            Member::of(self::OVER_PLANNED, $delivery->commentsOverPlanned() ? true : Absent::setting()),
             Member::unlessEmpty(self::ALERTS, Json::items(...$alerts)),
             Member::of(self::OTLP, $otlp instanceof OtlpPost ? self::otlpJson($otlp) : Absent::setting()),
             Member::unlessEmpty(self::KEPT, Json::object(...$kept)),
@@ -96,6 +100,19 @@ final readonly class DeliveryFile
         } catch (NotInShape $refused) {
             return CannotJudge::because(sprintf(self::UNREAD, $refused->getMessage()));
         }
+    }
+
+    /**
+     * A delivery, with the comment the delivery holds, written only over its planned state where it says so.
+     *
+     * @throws NotInShape
+     */
+    private static function commentIn(Node $top, Delivery $delivery): Delivery
+    {
+        $markdown = $top->field('comment')->text();
+        $overPlanned = $top->field(self::OVER_PLANNED)->isPresent() && $top->field(self::OVER_PLANNED)->boolean();
+
+        return $overPlanned ? $delivery->withCommentOverPlanned($markdown) : $delivery->withComment($markdown);
     }
 
     private static function ledgerJson(LedgerPost $ledger): Json
@@ -116,7 +133,16 @@ final readonly class DeliveryFile
     /** @throws NotInShape */
     private static function deliveryIn(Node $top): Delivery
     {
-        self::onlyKeys($top, 'format', self::LEDGER_KEY, 'comment', self::ALERTS, self::OTLP, self::KEPT);
+        self::onlyKeys(
+            $top,
+            'format',
+            self::LEDGER_KEY,
+            'comment',
+            self::OVER_PLANNED,
+            self::ALERTS,
+            self::OTLP,
+            self::KEPT,
+        );
 
         if ($top->field('format')->integer() !== self::FORMAT) {
             throw NotInShape::at($top->field('format')->at(), sprintf('format %d', self::FORMAT));
@@ -126,9 +152,7 @@ final readonly class DeliveryFile
         $delivery = $top->field(self::LEDGER_KEY)->isPresent()
             ? $delivery->withLedger(self::ledgerIn($top->field(self::LEDGER_KEY)))
             : $delivery;
-        $delivery = $top->field('comment')->isPresent()
-            ? $delivery->withComment($top->field('comment')->text())
-            : $delivery;
+        $delivery = $top->field('comment')->isPresent() ? self::commentIn($top, $delivery) : $delivery;
 
         foreach ($top->field(self::ALERTS)->isPresent() ? $top->field(self::ALERTS)->items() : [] as $alert) {
             $delivery = $delivery->withAlert(self::alertIn($alert, $delivery));

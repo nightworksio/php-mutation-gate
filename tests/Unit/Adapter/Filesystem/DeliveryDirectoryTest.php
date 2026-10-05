@@ -49,7 +49,7 @@ function deliveredLedger(): Ledger
 
 it('keeps each stage in its own directory under .mutation-gate/delivery', function (): void {
     expect(array_map(static fn(Stage $stage): string => $stage->directory()->value(), Stage::cases()))
-        ->toBe(['.mutation-gate/delivery/planned', '.mutation-gate/delivery/verdict']);
+        ->toBe(['.mutation-gate/delivery/planned', '.mutation-gate/delivery/survivors', '.mutation-gate/delivery/verdict']);
 });
 
 it('begins empty, with no ledger beside it, whatever an earlier run left', function (): void {

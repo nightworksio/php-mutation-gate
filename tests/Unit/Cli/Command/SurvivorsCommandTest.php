@@ -7,6 +7,8 @@ use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
 use NightWorksIO\MutationGate\Cli\Command\SurvivorsCommand;
 use NightWorksIO\MutationGate\Cli\Flow\LastRun;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
+use NightWorksIO\MutationGate\Core\Delivery\Delivery;
+use NightWorksIO\MutationGate\Core\Delivery\DeliveryFile;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Briefing;
@@ -106,4 +108,17 @@ it('follows the plan it is named, as its shards do, and cannot re-check by a sui
     $ran = FlowCommands::run(SurvivorsCommand::command($composition), '--plan=.mutation-gate/plan.json');
 
     expect([$ran->code, $ran->errors])->toBe([2, "--suite=e2e names no test suite. The PHPUnit config declares: unit.\n"]);
+});
+
+it('begins the survivors stage\'s delivery under --deliver-later, emptying what an earlier run left', function () use ($store, $feature): void {
+    $project = FlowCommands::project();
+    $composition = FlowCommands::composition($project, ScriptedRunner::fixture(), $store(), $feature());
+    FlowCommands::run(PlanCommand::command($composition), '--shards=1');
+    Scratch::write($project, '.mutation-gate/delivery/survivors/delivery.json', '{"format": 1, "comment": "an earlier run\'s"}');
+
+    $ran = FlowCommands::run(SurvivorsCommand::command($composition), '--plan=.mutation-gate/plan.json --deliver-later');
+
+    expect([$ran->code, $ran->errors])->toBe([0, ''])
+        ->and(DeliveryFile::decode((string) file_get_contents(sprintf('%s/.mutation-gate/delivery/survivors/delivery.json', $project))))
+        ->toEqual(Delivery::none());
 });

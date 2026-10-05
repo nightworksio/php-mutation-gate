@@ -25,6 +25,7 @@ final readonly class Delivery
         private array $alerts,
         private OtlpPost|NotGiven $otlp,
         private array $kept,
+        private bool $overPlanned = false,
     ) {
     }
 
@@ -36,7 +37,7 @@ final readonly class Delivery
     /** This delivery, with the ledger to write. */
     public function withLedger(LedgerPost $ledger): self
     {
-        return new self($ledger, $this->comment, $this->alerts, $this->otlp, $this->kept);
+        return new self($ledger, $this->comment, $this->alerts, $this->otlp, $this->kept, $this->overPlanned);
     }
 
     /** This delivery, with the pull request comment's markdown. */
@@ -45,16 +46,32 @@ final readonly class Delivery
         return new self($this->ledger, $markdown, $this->alerts, $this->otlp, $this->kept);
     }
 
+    /**
+     * This delivery, with the pull request comment's markdown, to be written only over the comment's planned state,
+     * so a verdict already written is never replaced (ADR-0020 decision 21).
+     */
+    public function withCommentOverPlanned(string $markdown): self
+    {
+        return new self($this->ledger, $markdown, $this->alerts, $this->otlp, $this->kept, overPlanned: true);
+    }
+
     /** This delivery, with one alert more. */
     public function withAlert(AlertPost $alert): self
     {
-        return new self($this->ledger, $this->comment, [...$this->alerts, $alert], $this->otlp, $this->kept);
+        return new self(
+            $this->ledger,
+            $this->comment,
+            [...$this->alerts, $alert],
+            $this->otlp,
+            $this->kept,
+            $this->overPlanned,
+        );
     }
 
     /** This delivery, with the OTLP export. */
     public function withOtlp(OtlpPost $otlp): self
     {
-        return new self($this->ledger, $this->comment, $this->alerts, $otlp, $this->kept);
+        return new self($this->ledger, $this->comment, $this->alerts, $otlp, $this->kept, $this->overPlanned);
     }
 
     /** This delivery, with this object to keep beside a ledger, in the place of one of its kind kept before. */
@@ -63,7 +80,7 @@ final readonly class Delivery
         $all = $this->kept;
         $all[$kept->companion()->value] = $kept;
 
-        return new self($this->ledger, $this->comment, $this->alerts, $this->otlp, $all);
+        return new self($this->ledger, $this->comment, $this->alerts, $this->otlp, $all, $this->overPlanned);
     }
 
     public function ledger(): LedgerPost|NotGiven
@@ -74,6 +91,12 @@ final readonly class Delivery
     public function comment(): string|NotGiven
     {
         return $this->comment;
+    }
+
+    /** Whether the comment is written only over its planned state. */
+    public function commentsOverPlanned(): bool
+    {
+        return $this->overPlanned;
     }
 
     /** @return list<AlertPost> */
