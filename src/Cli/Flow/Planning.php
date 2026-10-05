@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Cost\FirstRun;
 use NightWorksIO\MutationGate\Core\Cost\StartUpSamples;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\Coverage\Untested;
@@ -101,7 +102,8 @@ final readonly class Planning
         }
 
         $kept = new KeptCoverage($this->adapters, $this->settings, $this->setup);
-        $measured = $kept->forRun($inventory, $coverage, $ownMap);
+        $entries = $kept->entries($inventory);
+        $measured = $kept->forRun($inventory, $entries, $coverage, $ownMap);
         $request = $measured->request();
         $map = $this->adapters->runner->coverage(
             $request instanceof CoverageRun ? $this->adapters->covering($request) : $request,
@@ -115,8 +117,9 @@ final readonly class Planning
         }
 
         $keying = Keying::of($this->adapters, $this->settings, $this->setup, $inventory->suite, $map);
+        $at = Measuring::of($this->adapters, $request);
         $planned = $keying instanceof Keying
-            ? $this->planned($inventory, $map, Measuring::of($this->adapters, $request), $keying, $mode, $cut, $matrix)
+            ? $this->planned($inventory, KeptCoverage::keysOf($entries, $map), $map, $at, $keying, $mode, $cut, $matrix)
             : $keying;
 
         return $planned instanceof Plan
@@ -151,6 +154,7 @@ final readonly class Planning
 
     private function planned(
         Inventory $inventory,
+        EntryKeys|NotGiven $entryKeys,
         CoverageMap $map,
         MeasuredAt|Unplaced $at,
         Keying $keying,
@@ -186,7 +190,7 @@ final readonly class Planning
             $shards instanceof CannotJudge => $shards,
             $changed instanceof CannotJudge => $changed,
             default => $this->handed(
-                $inventory,
+                $entryKeys,
                 Plan::of($inventory->standing->head(), $keying->base(), $keys, $shards)
                     ->on($inventory->standing->runOn())
                     ->digesting($digests)
@@ -281,13 +285,12 @@ final readonly class Planning
      * suite.
      */
     private function handed(
-        Inventory $inventory,
+        EntryKeys|NotGiven $keys,
         Plan $plan,
         CoverageMap $map,
         MeasuredAt|Unplaced $at,
         KillHistory $history,
     ): Plan|CannotJudge {
-        $keys = new KeptCoverage($this->adapters, $this->settings, $this->setup)->keysOf($inventory, $map);
         $handed = new Handoff($this->adapters->project)->write($plan, $map, $history, $at, $keys);
 
         return $handed instanceof CannotJudge ? $handed : $plan;

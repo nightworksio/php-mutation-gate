@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Key\EntryKeying;
 use NightWorksIO\MutationGate\Core\Test\Role;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -24,8 +26,12 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
  */
 final readonly class CoverageEntries
 {
-    private function __construct(private Adapters $adapters, private EntryKeying $keying, private Paths $testFiles)
-    {
+    private function __construct(
+        private Adapters $adapters,
+        private EntryKeying $keying,
+        private Paths $testFiles,
+        private EveryEntryReads $reads,
+    ) {
     }
 
     /** The entries of a project's test files, keyed as the project stands; or why they cannot be. */
@@ -34,10 +40,9 @@ final readonly class CoverageEntries
         Settings $settings,
         Setup $setup,
         Inventory $inventory,
-        CoverageMap $map,
     ): self|CannotJudge {
-        $keying = Keying::of($adapters, $settings, $setup, $inventory->suite, $map);
-        $names = $keying instanceof Keying ? new NameGraph($adapters)->of($inventory->suite) : $keying;
+        $base = Keying::coverageBaseOf($adapters, $settings, $setup, $inventory->suite);
+        $names = $base instanceof Digest ? new NameGraph($adapters)->of($inventory->suite) : $base;
 
         if ($names instanceof CannotJudge) {
             return $names;
@@ -53,15 +58,21 @@ final readonly class CoverageEntries
             $always = $reads->isReadByEvery($path) ? [...$always, $path] : $always;
         }
 
-        $keyed = EntryKeying::of($keying->coverageBase(), $names, $inventory->files, Paths::of(...$always));
+        $keyed = EntryKeying::of($base, $names, $inventory->files, Paths::of(...$always));
 
-        return new self($adapters, $keyed, Paths::of(...$cases));
+        return new self($adapters, $keyed, Paths::of(...$cases), $reads);
     }
 
     /** Every file of test cases, as the project stands. */
     public function testFiles(): Paths
     {
         return $this->testFiles;
+    }
+
+    /** The first file of a change, by either of its paths, that every entry reads; none where none is. */
+    public function firstReadByEvery(Changes $changes): Path|NotGiven
+    {
+        return $this->reads->firstIn($changes);
     }
 
     /** The tests of a map these test files hold, by the runner's rules for naming a test after its file. */
