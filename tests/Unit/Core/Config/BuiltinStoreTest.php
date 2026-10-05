@@ -26,13 +26,21 @@ it('reads the access key\'s id and secret, then a session token and a role, for 
         ->and([...BuiltinStore::Directory->variables()])->toBe([]);
 });
 
-it('needs the external-account file or a ready token to write Cloud Storage', function (): void {
+it('needs the external-account file, GitHub\'s OIDC request with the provider and service account, or a ready token, to write Cloud Storage', function (): void {
     $credentials = BuiltinStore::Gcs->credentials();
+    $github = [
+        'ACTIONS_ID_TOKEN_REQUEST_URL' => 'https://token',
+        'ACTIONS_ID_TOKEN_REQUEST_TOKEN' => 'request',
+        'MUTATION_GATE_GCS_PROVIDER' => 'projects/123/locations/global/workloadIdentityPools/github/providers/gate',
+        'MUTATION_GATE_GCS_SERVICE_ACCOUNT' => 'gate@acme.iam.gserviceaccount.com',
+    ];
 
     expect($credentials->heldIn(Variables::of(['GOOGLE_APPLICATION_CREDENTIALS' => '/creds.json'])))->toBeTrue()
         ->and($credentials->heldIn(Variables::of(['MUTATION_GATE_GCS_TOKEN' => 'ya29'])))->toBeTrue()
+        ->and($credentials->heldIn(Variables::of($github)))->toBeTrue()
+        ->and($credentials->heldIn(Variables::of([...$github, 'ACTIONS_ID_TOKEN_REQUEST_TOKEN' => ''])))->toBeFalse()
         ->and($credentials->heldIn(Variables::of(['ACTIONS_ID_TOKEN_REQUEST_URL' => 'https://token'])))->toBeFalse()
-        ->and([...BuiltinStore::Gcs->variables()])->toBe(['GOOGLE_APPLICATION_CREDENTIALS', 'MUTATION_GATE_GCS_TOKEN']);
+        ->and([...BuiltinStore::Gcs->variables()])->toBe(['GOOGLE_APPLICATION_CREDENTIALS', 'MUTATION_GATE_GCS_TOKEN', ...array_keys($github)]);
 });
 
 it('needs GitHub\'s OIDC request and the tenant and client, or a ready token, to write Azure', function (): void {

@@ -546,6 +546,7 @@ Environment variables that change what the gate does:
 | `GOOGLE_APPLICATION_CREDENTIALS` | The external-account credentials file `google-github-actions/auth` writes, which the `gcs` store exchanges the CI's token through, impersonating the service account it names; only its `file` and `url` credential sources are read, and a file holding a service-account key or any other long-lived credential is refused (exit 2) | [0028](.docs/decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
 | `MUTATION_GATE_GCS_TOKEN`, `MUTATION_GATE_AZURE_TOKEN` | A ready bearer token for the `gcs` or `azure` store, which a CI with a federation of its own hands over | [0028](.docs/decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
 | `ACTIONS_ID_TOKEN_REQUEST_URL`, `ACTIONS_ID_TOKEN_REQUEST_TOKEN`, `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` | The `azure` store's federation: GitHub's OIDC token, asked for the audience `api://AzureADTokenExchange`, exchanged at Microsoft Entra ID for the tenant and client `azure/login` reads | [0028](.docs/decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
+| `ACTIONS_ID_TOKEN_REQUEST_URL`, `ACTIONS_ID_TOKEN_REQUEST_TOKEN`, `MUTATION_GATE_GCS_PROVIDER`, `MUTATION_GATE_GCS_SERVICE_ACCOUNT` | The `gcs` store's federation on GitHub Actions: GitHub's OIDC token, asked for the provider's default audience, exchanged at `sts.googleapis.com` through the workload identity provider `projects/<number>/locations/global/workloadIdentityPools/<pool>/providers/<id>`, then for the token of the service account `<name>@<project>.iam.gserviceaccount.com` at `iamcredentials.googleapis.com`; any other provider or service account is refused (exit 2). It goes before `GOOGLE_APPLICATION_CREDENTIALS` where both are set | [0028](.docs/decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
 | `MUTATION_GATE_SLACK_URL`, `MUTATION_GATE_DISCORD_URL`, `MUTATION_GATE_WEBHOOK_URL` | The webhook URLs of the `slack`, `discord` and `webhook` reporters, unless their `with.urlEnv` names other variables | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
 | `MUTATION_GATE_WEBHOOK_SECRET` | Signs each `webhook` request, with the time it was sent, as `X-Mutation-Gate-Signature`, unless `with.secretEnv` names another variable | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES` | Where and how the `otlp` reporter sends | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
@@ -802,6 +803,24 @@ The store's credentials are its usual variables: `AWS_ACCESS_KEY_ID` and
 `MUTATION_GATE_GCS_TOKEN` for `gcs`, and the federation's or
 `MUTATION_GATE_AZURE_TOKEN` for `azure`
 ([ADR-0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md)).
+
+On GitHub Actions, `gcs` and `azure` federate the job's own OIDC token, so
+the jobs that run `deliver` and `fetch` hold no long-lived secret and run no
+third-party action:
+
+- `gcs` takes `MUTATION_GATE_GCS_PROVIDER`, the workload identity provider,
+  `projects/<number>/locations/global/workloadIdentityPools/<pool>/providers/<id>`,
+  and `MUTATION_GATE_GCS_SERVICE_ACCOUNT`, the service account it
+  impersonates, `<name>@<project>.iam.gserviceaccount.com`. It asks GitHub for
+  the token for the provider's default audience,
+  `https://iam.googleapis.com/<provider>`, and sends it only to
+  `sts.googleapis.com` and `iamcredentials.googleapis.com`.
+- `azure` takes `AZURE_TENANT_ID` and `AZURE_CLIENT_ID`, as `azure/login`
+  does.
+- Each job that holds them needs `permissions: id-token: write`. A reusable
+  workflow can grant it to a job only where the calling workflow grants it
+  too, so the caller's own `permissions` holds `id-token: write`. Without it,
+  GitHub hands the job no token, and the store says so.
 
 ### Use it in GitHub Actions
 
