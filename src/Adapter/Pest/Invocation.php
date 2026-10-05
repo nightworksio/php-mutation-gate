@@ -164,6 +164,25 @@ final readonly class Invocation
     }
 
     /**
+     * The tests a mutation run opens on, run alone and one after another,
+     * as the opening run selects them, logging PHPUnit's events to a file:
+     * how a run whose opening run failed no test and still failed shows the
+     * issues it failed on (see OpeningIssues).
+     */
+    public function opening(MutationRequest $request, WholeSuite|Group|Filter $opensOn, string $events): Command
+    {
+        return Command::pest(
+            $this->script,
+            $request->withheld(),
+            '--no-tia',
+            PhpUnitOption::NoColors->value,
+            sprintf('%s=%s', PhpUnitOption::LogEventsText->value, $events),
+            ...$this->narrowedTo($opensOn),
+            ...PhpUnitOption::inSuite($request->narrowing()->suite()),
+        );
+    }
+
+    /**
      * The tests in some files, one after another, stopping at the first that
      * fails, narrowed to what judges: the run that judges a mutant of a line
      * that is not executable through Pest's override, and the run on the

@@ -61,6 +61,7 @@ final readonly class Interpretation
         private Patching $patching,
         private MemoryCap $cap,
         private Bridges $bridges = new Bridges(),
+        private OpeningIssues|NoRerun $opening = NoRerun::Opening,
     ) {
     }
 
@@ -106,14 +107,23 @@ final readonly class Interpretation
         };
     }
 
-    /** Why a run that failed cannot be judged: Pest's own process out of the memory cap, or what Pest said. */
+    /**
+     * Why a run that failed cannot be judged: Pest's own process out of the
+     * memory cap; the issues of an opening run that failed no test, where
+     * the run ended after it (see OpeningIssues); or what Pest said.
+     */
     private function failed(Ran $ran): CannotJudge
     {
         $output = $ran->output();
 
-        return Exhaustion::isOf(Exhaustion::in($output), $this->cap)
-            ? CannotJudge::because(sprintf(self::OUT_OF_MEMORY, $this->cap->written(), Exhaustion::ADVICE, $output))
-            : CannotJudge::because(sprintf(self::FAILED, $output));
+        return match (true) {
+            Exhaustion::isOf(Exhaustion::in($output), $this->cap) => CannotJudge::because(
+                sprintf(self::OUT_OF_MEMORY, $this->cap->written(), Exhaustion::ADVICE, $output),
+            ),
+            $this->opening instanceof OpeningIssues && $this->opening->endedAfterOpening($ran)
+                => $this->opening->why($ran),
+            default => CannotJudge::because(sprintf(self::FAILED, $output)),
+        };
     }
 
     private function counted(Records $records, Ran $ran): Records|CannotJudge

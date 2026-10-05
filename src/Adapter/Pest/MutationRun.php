@@ -140,7 +140,7 @@ final readonly class MutationRun
         }
 
         $shared = $this->shared($request);
-        $result = $shared instanceof CannotJudge ? $shared : $this->ran($request, $results, $shared);
+        $result = $shared instanceof CannotJudge ? $shared : $this->ran($request, $results, $shared, $started);
 
         return $result instanceof CannotJudge || ! $this->narrows()
             ? $result
@@ -160,6 +160,7 @@ final readonly class MutationRun
         MutationRequest $request,
         string $results,
         CoverageMap|Unshared $shared,
+        float $started,
     ): MutationResult|CannotJudge {
         $command = Plan::handedOver($this->project, $request, $this->commandFor($request, $results, $shared));
         $scan = MemoryScan::beside($this->project, $results, $request->memory(), $this->files);
@@ -178,7 +179,11 @@ final readonly class MutationRun
         $coverage = $shared instanceof CoverageMap
             ? new HandedOver($shared, $this->project)
             : CoverageFile::at(Recorder::coverageBeside($results));
-        $interpretation = new Interpretation($this->project, $this->patching, $request->memory(), $this->bridges);
+        $opensOn = $this->patching->opensOn($request->judgedBy(), $shared instanceof CoverageMap);
+        $left = fn(): Seconds|Unlimited => $this->left($request, $started);
+        $opening = OpeningIssues::of($this->shell, $this->project, $request, $opensOn, $left, $results);
+        $memory = $request->memory();
+        $interpretation = new Interpretation($this->project, $this->patching, $memory, $this->bridges, $opening);
         $result = $interpretation->of($ran, $results, $coverage);
 
         if ($result instanceof CannotJudge || $coverage instanceof CannotJudge) {

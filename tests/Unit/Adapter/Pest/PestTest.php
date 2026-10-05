@@ -508,6 +508,39 @@ it('opens a patched shard on the canary group, with the planning job\'s map writ
         ]);
 });
 
+it('runs a patched shard\'s canary group again alone where its opening run failed no test and still failed', function (): void {
+    $at = adapterPatched();
+    $shell = new ShellFake(static fn(Command $command, int $before): Ran => $before === 0
+        ? Ran::finished(succeeded: true, output: RUN_LISTING)
+        : Ran::exited(1, "  Tests:    1 passed (1 assertions)\n"));
+    $request = adapterMoney()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
+
+    $result = new Pest($at, $shell, adapterCanary(), new CapDirectory(), Triage::standard()->limit())->mutate($request);
+
+    expect($result)->toBeInstanceOf(CannotJudge::class)
+        ->and($shell->commands())->toHaveCount(3)
+        ->and($shell->commands()[2])->toEqual(
+            adapterInvocation()
+                ->opening($request, Group::named('mutation-canary'), sprintf('%s.events', adapterResults($at)))
+                ->within(Unlimited::time()),
+        );
+});
+
+it('runs the held tests again alone where a patched run against them failed none and still failed', function (): void {
+    $at = adapterPatched();
+    $shell = new ShellFake(static fn(): Ran => Ran::exited(1, "  Tests:    1 passed (1 assertions)\n"));
+    $held = Group::named('holds:src/Money.php');
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), $held)
+        ->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
+
+    new Pest($at, $shell, adapterCanary(), new CapDirectory(), Triage::standard()->limit())->mutate($request);
+
+    expect($shell->commands())->toHaveCount(2)
+        ->and($shell->commands()[1])->toEqual(
+            adapterInvocation()->opening($request, $held, sprintf('%s.events', adapterResults($at)))->within(Unlimited::time()),
+        );
+});
+
 it('judges a patched shard\'s mutant on a line that is not executable by the tests the plan\'s whole map says read its value, within the cap where the map timed none of them', function (): void {
     $at = Unexecutables::project();
     MutatePlugin::pristine()->into(sprintf('%s/vendor', $at->root()));

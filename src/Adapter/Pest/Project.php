@@ -127,7 +127,7 @@ final readonly class Project
         $this->directory(Path::of(dirname($results)));
         $copies = glob(Recorder::mutantBeside($results, '*'));
         $logs = glob(Recorder::everyErrorLogBeside($results));
-        $beside = [Recorder::coverageBeside($results), OnlyList::beside($results)];
+        $beside = [Recorder::coverageBeside($results), OnlyList::beside($results), OpeningIssues::beside($results)];
         $beside = [...$beside, ...(is_array($copies) ? $copies : []), ...(is_array($logs) ? $logs : [])];
 
         return $this->without($results, ...$beside)
