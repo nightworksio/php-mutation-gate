@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 
+use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
@@ -51,6 +55,20 @@ final readonly class LocalLedgers implements ProofStore
             $local instanceof Unreadable => $local->besides($shared),
             default => $local->and($shared),
         };
+    }
+
+    /** An object beside the scope's local ledger, or, where there is none, the shared store's. */
+    public function companion(Scope $scope, Companion $companion): Contents|Missing|CannotJudge
+    {
+        $local = $this->local->companion($scope, $companion);
+
+        return $local instanceof Missing ? $this->shared->companion($scope, $companion) : $local;
+    }
+
+    /** An object beside the scope's local ledger; the shared store is never written. */
+    public function keep(Scope $scope, Companion $companion, Contents $bytes): Written|NotWritten
+    {
+        return $this->local->keep($scope, $companion, $bytes);
     }
 
     /** The scope's local ledger; the shared store is never written. */

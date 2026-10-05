@@ -3,11 +3,15 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
+use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
@@ -214,4 +218,20 @@ it('reads and writes nothing where no public URL is named, and sends no request'
             'read-only: no credentials; this run\'s proofs are not kept. No publicUrl names where the default branch\'s ledger is read from.',
         ))
         ->and($sent->count())->toBe(0);
+});
+
+it('reads the coverage map beside the default branch\'s ledger at the public URL, and says why one could not be read', function (): void {
+    [$client, $sent] = publicLedgerServer(new MockResponse('map bytes'), new MockResponse('', ['http_code' => 403]));
+    $store = PublicLedger::at($client, PUBLIC_LEDGERS, 'mutation-gate')->onlyReading(Scope::branch('main'));
+    $url = 'https://ledgers.example.com/mutation-gate/refs/heads/main/coverage.json.gz';
+
+    expect($store->companion(Scope::pullRequest(12), Companion::Coverage))->toEqual(Missing::at(Path::of('coverage.json.gz')))
+        ->and($store->companion(Scope::branch('main'), Companion::Coverage))->toEqual(Contents::of('map bytes'))
+        ->and($store->companion(Scope::branch('main'), Companion::Coverage))
+        ->toEqual(CannotJudge::because(sprintf('The kept coverage map at %s could not be read: HTTP 403.', $url)))
+        ->and($store->companion(Scope::branch('main'), Companion::Coverage))
+        ->toEqual(Missing::at(Path::of('mutation-gate/refs/heads/main/coverage.json.gz')))
+        ->and(PublicLedger::nowhere($client)->companion(Scope::branch('main'), Companion::Coverage))
+        ->toEqual(Missing::at(Path::of('coverage.json.gz')))
+        ->and(array_column($sent->getArrayCopy(), 1))->toBe([$url, $url, $url]);
 });

@@ -3,18 +3,23 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
+use NightWorksIO\MutationGate\Core\Coverage\MapLimits;
 use NightWorksIO\MutationGate\Core\Doctor\KeptLedger;
 use NightWorksIO\MutationGate\Core\Doctor\KeptLedgers;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
@@ -173,4 +178,31 @@ it('writes a ledger within its limits, dropping the oldest proofs, and says so',
     ))
         ->and($read->proofs()->has(Digest::sha256Of('src/Tax.php')))->toBeTrue()
         ->and($read->proofs())->toHaveCount(1);
+});
+
+it('keeps the coverage map beside a scope\'s ledger and reads it back, and reads none of a ref that is no scope', function (): void {
+    $root = Scratch::directory();
+    $store = LedgerDirectory::at($root);
+    $bytes = Contents::of('map bytes');
+
+    expect($store->keep(Scope::branch('main'), Companion::Coverage, $bytes))
+        ->toEqual(Written::to(sprintf('%s/refs/heads/main/coverage.json.gz', $root)))
+        ->and($store->companion(Scope::branch('main'), Companion::Coverage))->toEqual($bytes)
+        ->and($store->companion(Scope::of('refs/tags/v1'), Companion::Coverage))->toEqual(Missing::at(Path::of('coverage.json.gz')))
+        ->and($store->keep(Scope::of('refs/tags/v1'), Companion::Coverage, $bytes))->toBeInstanceOf(NotWritten::class);
+});
+
+it('says why it reads no coverage map past its limit, or one it cannot read', function (): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'refs/heads/main/coverage.json.gz', str_repeat('x', MapLimits::standard()->packed() + 1));
+    mkdir(sprintf('%s/refs/heads/next/coverage.json.gz', $root), recursive: true);
+    $store = LedgerDirectory::at($root);
+    $read = $store->companion(Scope::branch('next'), Companion::Coverage);
+
+    expect($store->companion(Scope::branch('main'), Companion::Coverage))->toEqual(CannotJudge::because(sprintf(
+        'The kept coverage map at %s/refs/heads/main/coverage.json.gz could not be read: it is larger than 1500000 bytes.',
+        $root,
+    )))
+        ->and($read instanceof CannotJudge ? $read->why() : '')
+        ->toStartWith(sprintf('The kept coverage map at %s/refs/heads/next/coverage.json.gz could not be read: ', $root));
 });

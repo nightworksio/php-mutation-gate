@@ -7,9 +7,14 @@ namespace NightWorksIO\MutationGate\Adapter\Http;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Missing;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Http\Request;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\CompanionRead;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
@@ -39,6 +44,7 @@ final readonly class PublicLedger implements ProofStore
     private const string READ_ONLY = 'read-only: no credentials; this run\'s proofs are not kept. %s';
 
     private const string READ_FROM = 'The default branch\'s ledger is read from %s.';
+
 
     private const string READ_NOWHERE = 'No publicUrl names where the default branch\'s ledger is read from.';
 
@@ -101,6 +107,32 @@ final readonly class PublicLedger implements ProofStore
         $read = is_string($fetched) ? LedgerFile::read($fetched, $this->limits) : $fetched;
 
         return $read instanceof Ledger || $read instanceof Unreadable ? $read : Unreadable::notRead($url, $read);
+    }
+
+    /** An object beside a scope's ledger, read from the public URL as the ledger is; none where it is not served. */
+    public function companion(Scope $scope, Companion $companion): Contents|Missing|CannotJudge
+    {
+        $path = $this->objects->companionOf($scope, $companion);
+        $unread = $this->readable instanceof Scope && ! $this->readable->equals($scope);
+
+        if ($this->url instanceof NotGiven || $path instanceof CannotJudge || $unread) {
+            return Missing::at(Path::of($companion->value));
+        }
+
+        $url = sprintf('%s/%s', $this->url, LedgerObject::encoded($path));
+        $fetched = $this->exchange->fetch(Request::get($url), CompanionRead::limitsOf($companion), $url);
+
+        return match (true) {
+            is_string($fetched) => Contents::of($fetched),
+            $fetched instanceof Unreadable => CompanionRead::unread($companion, $url, $fetched->detail()),
+            default => Missing::at(Path::of($path)),
+        };
+    }
+
+    /** Nothing, as for a ledger. */
+    public function keep(Scope $scope, Companion $companion, Contents $bytes): NotWritten
+    {
+        return $this->write($scope, Ledger::empty());
     }
 
     /** Nothing: without credentials, no request is made, and the run says so once. */

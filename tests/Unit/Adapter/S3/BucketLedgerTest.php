@@ -3,14 +3,19 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
+use NightWorksIO\MutationGate\Core\Coverage\MapLimits;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
@@ -150,4 +155,30 @@ it('writes a ledger within its limits, dropping the oldest proofs, and says so',
             's3://ledgers/mutation-gate/refs/heads/main/ledger.json.gz',
             'It keeps the newest 1 of 2 proofs, so a run can still read the ledger.',
         ));
+});
+
+it('keeps the coverage map beside a scope\'s ledger and reads it back, and reads none of a ref that is no scope', function () use ($store): void {
+    $bucket = new Bucket();
+    $bytes = Contents::of('map bytes');
+
+    expect($store($bucket)->keep(Scope::branch('main'), Companion::Coverage, $bytes))
+        ->toEqual(Written::to('s3://ledgers/mutation-gate/refs/heads/main/coverage.json.gz'))
+        ->and($store($bucket)->companion(Scope::branch('main'), Companion::Coverage))->toEqual($bytes)
+        ->and($store($bucket)->companion(Scope::of('refs/tags/v1'), Companion::Coverage))
+        ->toEqual(Missing::at(Path::of('coverage.json.gz')))
+        ->and($store($bucket)->keep(Scope::of('refs/tags/v1'), Companion::Coverage, $bytes))
+        ->toEqual(NotWritten::because('"refs/tags/v1" is not a scope. A scope is refs/heads/<branch> or refs/pull/<number>.'));
+});
+
+it('says why the bucket gave no coverage map, or one past its limit', function () use ($store): void {
+    $at = 's3://ledgers/mutation-gate/refs/heads/main/coverage.json.gz';
+    $large = new Bucket()->holding(
+        'https://ledgers.s3.eu-west-1.amazonaws.com/mutation-gate/refs/heads/main/coverage.json.gz',
+        str_repeat('x', MapLimits::standard()->packed() + 1),
+    );
+
+    expect($store(new Bucket(500))->companion(Scope::branch('main'), Companion::Coverage))
+        ->toEqual(CannotJudge::because(sprintf('The kept coverage map at %s could not be read: HTTP 500, no error code.', $at)))
+        ->and($store($large)->companion(Scope::branch('main'), Companion::Coverage))
+        ->toEqual(CannotJudge::because(sprintf('The kept coverage map at %s could not be read: it is larger than 1500000 bytes.', $at)));
 });

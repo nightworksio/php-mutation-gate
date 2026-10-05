@@ -7,6 +7,9 @@ namespace NightWorksIO\MutationGate\Core\Proof;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Missing;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Http\Exchange;
 use NightWorksIO\MutationGate\Core\Http\Token;
 use NightWorksIO\MutationGate\Core\NotWritten;
@@ -26,6 +29,7 @@ final readonly class ObjectLedger
     private const string NO_TOKEN = 'no token: %s';
 
     private const string UNWRITTEN = '%s could not be written: no token: %s';
+
 
     private function __construct(
         private Exchange $exchange,
@@ -89,5 +93,52 @@ final readonly class ObjectLedger
         $written = $this->exchange->put($request, $this->limits, $at);
 
         return $written instanceof Written ? $encoded->written($written) : $written;
+    }
+
+    /** The bytes of an object kept beside the scope's ledger; none where there is none yet; or why not. */
+    public function companion(ObjectStore $store, Scope $scope, Companion $companion): Contents|Missing|CannotJudge
+    {
+        $key = $this->objects->companionOf($scope, $companion);
+
+        if ($key instanceof CannotJudge) {
+            return Missing::at(Path::of($companion->value));
+        }
+
+        $at = $store->named($scope, $key);
+        $token = $store->token();
+
+        if (! $token instanceof Token) {
+            return CompanionRead::unread($companion, $at, sprintf(self::NO_TOKEN, $token->why()));
+        }
+
+        $request = $store->reading($scope, LedgerObject::encoded($key), $token);
+        $fetched = $this->exchange->fetch($request, CompanionRead::limitsOf($companion), $at);
+
+        return match (true) {
+            is_string($fetched) => Contents::of($fetched),
+            $fetched instanceof Unreadable => CompanionRead::unread($companion, $at, $fetched->detail()),
+            default => Missing::at(Path::of($key)),
+        };
+    }
+
+    /** Write an object beside the scope's ledger, saying where, or why not. */
+    public function keep(ObjectStore $store, Scope $scope, Companion $companion, Contents $bytes): Written|NotWritten
+    {
+        $key = $this->objects->companionOf($scope, $companion);
+
+        if ($key instanceof CannotJudge) {
+            return NotWritten::because($key->why());
+        }
+
+        $at = $store->named($scope, $key);
+        $token = $store->token();
+
+        if (! $token instanceof Token) {
+            return NotWritten::because(sprintf(self::UNWRITTEN, $at, $token->why()));
+        }
+
+        $request = $store->writing($scope, LedgerObject::encoded($key), $token, $bytes->text());
+
+        return $this->exchange->put($request, CompanionRead::limitsOf($companion), $at);
     }
 }
