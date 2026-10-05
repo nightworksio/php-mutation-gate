@@ -60,9 +60,18 @@ final readonly class MergedHeads
         return Revision::ref($this->head);
     }
 
-    /** Whether every commit from a base to the head is the tree of a pull request whose run passed. */
+    /**
+     * Whether every commit from a base to the head is the tree of a pull request whose run passed; never without
+     * the pull requests' ledgers to read, and then GitHub is not asked.
+     */
     public function provedSince(Revision $base): bool
     {
+        $ledgers = $this->ledgers;
+
+        if (! $ledgers instanceof ProofStore) {
+            return false;
+        }
+
         $comparison = $this->api->get(sprintf(
             '/repos/%s/compare/%s...%s',
             $this->repository,
@@ -78,23 +87,23 @@ final readonly class MergedHeads
 
         return count($commits) <= ProvingRange::standard()->farthest()
             && count($commits) === $comparison->number('total_commits')
-            && $this->provesAll($commits);
+            && $this->provesAll($commits, $ledgers);
     }
 
     /** @param list<Answer> $commits */
-    private function provesAll(array $commits): bool
+    private function provesAll(array $commits, ProofStore $ledgers): bool
     {
         $proved = true;
 
         foreach ($commits as $commit) {
-            $proved = $proved && $this->proves($commit);
+            $proved = $proved && $this->proves($commit, $ledgers);
         }
 
         return $proved;
     }
 
     /** Whether a commit's tree is the head of a pull request merged into the default branch that passed on it. */
-    private function proves(Answer $commit): bool
+    private function proves(Answer $commit, ProofStore $ledgers): bool
     {
         $pulls = $this->api->get(sprintf('/repos/%s/commits/%s/pulls', $this->repository, $commit->text('sha')));
         $tree = $commit->text('commit', 'tree', 'sha');
@@ -104,7 +113,7 @@ final readonly class MergedHeads
             fn(Answer $pull): bool => $pull->text('merged_at') !== ''
                 && $this->isIntoDefaultBranch($pull)
                 && $this->hasTree($pull->text('head', 'sha'), $tree)
-                && $this->passed($pull->number('number'), $pull->text('head', 'sha')),
+                && $this->passed($pull->number('number'), $pull->text('head', 'sha'), $ledgers),
         );
     }
 
@@ -134,9 +143,9 @@ final readonly class MergedHeads
      * concluded in success there, and its own ledger records the head as
      * passed under that check with no proof of its own scope used.
      */
-    private function passed(int $pullRequest, string $head): bool
+    private function passed(int $pullRequest, string $head, ProofStore $ledgers): bool
     {
-        return $pullRequest > 0 && $this->checkedAt($head) && $this->recordedAt($pullRequest, $head);
+        return $pullRequest > 0 && $this->checkedAt($head) && $this->recordedAt($ledgers, $pullRequest, $head);
     }
 
     /**
@@ -175,11 +184,9 @@ final readonly class MergedHeads
      * Whether a pull request's own ledger records this head as passed under
      * the check, using none of its own proofs; not where it cannot be read.
      */
-    private function recordedAt(int $pullRequest, string $head): bool
+    private function recordedAt(ProofStore $ledgers, int $pullRequest, string $head): bool
     {
-        $ledger = $this->ledgers instanceof ProofStore
-            ? $this->ledgers->read(Scope::pullRequest($pullRequest))
-            : NoLedgers::none();
+        $ledger = $ledgers->read(Scope::pullRequest($pullRequest));
         $passed = $ledger instanceof Ledger ? $ledger->lastPassed() : $ledger;
 
         return $passed instanceof Passed

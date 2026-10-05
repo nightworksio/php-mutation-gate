@@ -79,13 +79,16 @@ final readonly class Ci implements Setting
         return new self(Json::object(Member::of('ci', Json::object(Member::of('check', $name)))));
     }
 
-    /** `ci.trustMergedPullRequests`: the default branch takes a merged pull request's passing run as proof. */
+    /**
+     * `ci.trustMergedPullRequests`: the default branch takes a merged pull request's own recorded pass as proof of
+     * its tree, which trusts that pull request's run.
+     */
     public static function trustingMergedPullRequests(): self
     {
         return new self(Json::at('ci.trustMergedPullRequests', value: true));
     }
 
-    /** `ci.trustMergedPullRequests`: the default branch re-checks a merged pull request's tree. */
+    /** `ci.trustMergedPullRequests`: the default branch re-checks a merged pull request's tree, as by default. */
     public static function notTrustingMergedPullRequests(): self
     {
         return new self(Json::at('ci.trustMergedPullRequests', value: false));

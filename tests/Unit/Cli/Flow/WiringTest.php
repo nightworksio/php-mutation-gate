@@ -366,10 +366,10 @@ it('hands a plan the config names its template, its step and its definition', fu
         )));
 });
 
-it('reads changes through GitHub under GitHub Actions, by ci.check, trusting the store, withholding', function (): void {
+it('reads changes through GitHub under GitHub Actions, by ci.check, trusting the store where ci.trustMergedPullRequests is true, withholding', function (): void {
     $variables = ['GITHUB_REPOSITORY' => 'octo/gate', 'GITHUB_SHA' => 'head', 'CI_JOB_TOKEN' => 'job'];
     $adapters = Environment::during($variables, static fn(): Adapters => wiredOf(
-        Flows::settings(Ci::check('gate / verdict')),
+        Flows::settings(Ci::check('gate / verdict'), Ci::trustingMergedPullRequests()),
         Variables::of(['GITHUB_ACTIONS' => 'true']),
     ));
     $withheld = $adapters->withheld;
@@ -390,12 +390,9 @@ it('reads changes through GitHub under GitHub Actions, by ci.check, trusting the
         ->and($source->getValue($adapters->changes))->toEqual($git);
 });
 
-it('reads no pull request\'s ledger where ci.trustMergedPullRequests is false', function (): void {
+it('reads no pull request\'s ledger where ci.trustMergedPullRequests is false or not set', function (Settings $settings): void {
     $variables = ['GITHUB_REPOSITORY' => 'octo/gate', 'GITHUB_SHA' => 'head'];
-    $adapters = Environment::during($variables, static fn(): Adapters => wiredOf(
-        Flows::settings(Ci::notTrustingMergedPullRequests()),
-        Variables::of(['GITHUB_ACTIONS' => 'true']),
-    ));
+    $adapters = Environment::during($variables, static fn(): Adapters => wiredOf($settings, Variables::of(['GITHUB_ACTIONS' => 'true'])));
     $heads = new ReflectionProperty(PassedPullRequests::class, 'heads');
     $ledgers = new ReflectionProperty(MergedHeads::class, 'ledgers');
     $changed = $heads->getValue($adapters->changes);
@@ -403,7 +400,10 @@ it('reads no pull request\'s ledger where ci.trustMergedPullRequests is false', 
 
     expect($changed instanceof MergedHeads ? $ledgers->getValue($changed) : $changed)->toEqual(NoLedgers::none())
         ->and($standing instanceof MergedHeads ? $ledgers->getValue($standing) : $standing)->toEqual(NoLedgers::none());
-});
+})->with([
+    'false' => [Flows::settings(Ci::notTrustingMergedPullRequests())],
+    'not set' => [Flows::settings()],
+]);
 
 it('cannot wire a runner the registry does not have, or one that refuses its options', function (): void {
     $picky = wiringRegistry()->withRunner(

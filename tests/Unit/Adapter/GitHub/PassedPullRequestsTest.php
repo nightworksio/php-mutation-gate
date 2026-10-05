@@ -179,11 +179,13 @@ it('takes the latest run of the check, wherever GitHub lists it, over an earlier
         ->toEqual($uncommitted());
 });
 
-it('proves nothing without the pull requests\' ledgers to read', function () use ($source): void {
-    $untrusted = PassedPullRequests::over($source(), answering(provedCommits(['one'])), PULL_REQUESTS_RUN, PULL_REQUESTS_CHECK);
+it('proves nothing, and asks GitHub nothing, without the pull requests\' ledgers to read', function () use ($source): void {
+    $github = answering(provedCommits(['one']));
+    $untrusted = PassedPullRequests::over($source(), $github, PULL_REQUESTS_RUN, PULL_REQUESTS_CHECK);
 
     expect($untrusted->changesSince(Revision::ref('base')))
-        ->toEqual(CannotTell::because('base is not a revision this repository has.'));
+        ->toEqual(CannotTell::because('base is not a revision this repository has.'))
+        ->and($github->getRequestsCount())->toBe(0);
 });
 
 it('reads only what is uncommitted when the base is the head', function () use ($source, $uncommitted): void {

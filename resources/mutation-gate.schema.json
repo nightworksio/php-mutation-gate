@@ -612,7 +612,7 @@
                 },
                 "trustMergedPullRequests": {
                     "type": "boolean",
-                    "default": true
+                    "default": false
                 },
                 "gitlab": {
                     "type": "object",

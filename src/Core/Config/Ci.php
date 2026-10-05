@@ -138,11 +138,12 @@ final readonly class Ci implements Part
 
     /**
      * `ci.trustMergedPullRequests`: whether the default branch takes a merged pull request's passing run as proof
-     * of its tree, so that anyone who can push a branch of the repository can spare that tree a re-check (ADR-0005).
+     * of its tree, false unless the config says so. The proof is a record the pull request's own run computed and
+     * wrote to its own scope, an untrusted write, so turning it on trusts that run (ADR-0005).
      */
     public function trustsMergedPullRequests(): bool
     {
-        return $this->trustMergedPullRequests instanceof Absent || $this->trustMergedPullRequests;
+        return ! $this->trustMergedPullRequests instanceof Absent && $this->trustMergedPullRequests;
     }
 
     /** The file whose hidden `.mutation-gate` job GitLab's generated jobs extend. */
