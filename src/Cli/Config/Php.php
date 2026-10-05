@@ -25,6 +25,7 @@ final readonly class Php
         'Baseline' => self::BUILDER,
         'Budget' => self::BUILDER,
         'Ci' => self::BUILDER,
+        'Coverage' => self::BUILDER,
         'Equivalence' => self::BUILDER,
         'Flaky' => self::BUILDER,
         'Floor' => self::BUILDER,

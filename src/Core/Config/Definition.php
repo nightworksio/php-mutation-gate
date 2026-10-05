@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Config;
 
 use NightWorksIO\MutationGate\Core\Config\Definition\BadgeKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\CiKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\CoverageKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\FloorsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\IgnoresKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\LocalKeys;
@@ -64,6 +65,7 @@ final readonly class Definition
             ...StaticCheckKeys::fields($origin),
             ...MutatorsKeys::fields(),
             ...LocalKeys::fields(),
+            ...CoverageKeys::fields(),
         ];
 
         return Section::of(static function (Node $config) use ($fields): Layer|Invalid {
