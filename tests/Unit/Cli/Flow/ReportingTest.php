@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\JsonReportFile;
 use NightWorksIO\MutationGate\Adapter\GitHub\Annotations;
 use NightWorksIO\MutationGate\Adapter\GitHub\PlannedMarkdown;
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
+use NightWorksIO\MutationGate\Adapter\GitHub\RecheckedMarkdown;
 use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
 use NightWorksIO\MutationGate\Adapter\Otlp\OtlpReporter;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
@@ -35,6 +36,7 @@ use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Written;
+use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Port\Reporter;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
@@ -42,6 +44,7 @@ use NightWorksIO\MutationGate\Tests\Support\ConfigurableReporter;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
+use NightWorksIO\MutationGate\Tests\Support\Rechecks;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -277,4 +280,62 @@ it('chooses the comment on a pull request with no token under --deliver-later, a
     ])
         ->and(reporterClasses(new Reporting($chosen, $onAPullRequest)->reporters($settings, reportingOnMain())))
         ->toBe([OtlpReporter::class, JsonReportFile::class, Annotations::class, StepSummary::class]);
+});
+
+it('writes the re-checked survivors over the planned comment, and into the step summary, saying where', function (): void {
+    $patch = new JsonMockResponse(['html_url' => 'https://github.example/octo/gate/pull/12#issuecomment-5']);
+    $planned = PlannedMarkdown::comment(PlanEstimates::of(Planned::twoShards(), Flows::settings()->shards()->setup())->work(), '');
+    $client = new MockHttpClient([
+        new JsonMockResponse([['id' => 5, 'user' => ['login' => 'gate-bot'], 'body' => $planned]]),
+        $patch,
+    ]);
+    $summary = sprintf('%s/summary.md', Scratch::directory());
+    $chosen = new Chosen(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))
+        ->withReporter(
+            BuiltinReporter::GitHubComment->named(),
+            static fn(): Reporter => PullRequestComment::inRun(
+                ['GITHUB_EVENT_NAME' => 'pull_request', 'GITHUB_TOKEN' => 'secret', 'GITHUB_REPOSITORY' => 'octo/gate', 'GITHUB_API_URL' => 'https://api.github.example'],
+                (string) json_encode(['pull_request' => ['number' => 12]]),
+                $client,
+                'gate-bot',
+            ),
+        )
+        ->withReporter(
+            BuiltinReporter::GitHubSummary->named(),
+            static fn(): Reporter => StepSummary::appendingTo($summary, '', new SystemClock()),
+        ));
+    $onAPullRequest = Variables::of(['GITHUB_ACTIONS' => 'true', 'GITHUB_EVENT_NAME' => 'pull_request', 'GITHUB_TOKEN' => 'secret']);
+    $plan = Planned::twoShards()->on(RunOn::at(Scope::pullRequest(12), Scope::branch('main')));
+
+    $said = new Reporting($chosen, $onAPullRequest)->rechecked(Flows::settings(), $plan, Rechecks::mixed());
+
+    expect($said)->toBe([
+        Written::to($summary)->said(),
+        Written::to('https://github.example/octo/gate/pull/12#issuecomment-5')->said(),
+    ])
+        ->and(file_get_contents($summary))->toBe(RecheckedMarkdown::comment(Rechecks::mixed(), ''))
+        ->and(Decoded::at(is_string($patch->getRequestOptions()['body']) ? $patch->getRequestOptions()['body'] : '', 'body'))
+        ->toBe(RecheckedMarkdown::comment(Rechecks::mixed(), 'https://github.com/octo/gate/actions/runs/'));
+});
+
+it('writes no re-checked survivors where the run chooses neither, and says why where the reports cannot be built', function (): void {
+    $client = new MockHttpClient([]);
+    $plan = Planned::twoShards()->on(RunOn::at(Scope::pullRequest(12), Scope::branch('main')));
+    $broken = Flows::settings(Report::uses(sprintf('\\%s', ConfigurableReporter::class)));
+
+    expect(new Reporting(reportingCommentingThrough($client), Variables::of([]))->rechecked(Flows::settings(), $plan, Rechecks::mixed()))
+        ->toBe([])
+        ->and($client->getRequestsCount())->toBe(0)
+        ->and(new Reporting(reportingCommentingThrough($client), Variables::of([]))->rechecked($broken, $plan, Rechecks::mixed()))
+        ->toBe(['reports[0].with.channel: expected a channel name, got nothing', 'reports[0].with: needs a channel'])
+        ->and(new Reporting(reportingCommentingThrough($client), Variables::of([]))->rechecked(
+            Flows::settings(Report::uses('\\Acme\\Missing\\Reporter')),
+            $plan,
+            Rechecks::mixed(),
+        ))
+        ->toBe([sprintf(
+            '\\Acme\\Missing\\Reporter is not a class that implements %s and %s, so a config cannot choose it.',
+            Reporter::class,
+            Configurable::class,
+        )]);
 });

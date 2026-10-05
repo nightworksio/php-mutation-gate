@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Config\Runner;
 use NightWorksIO\MutationGate\Config\Shards;
 use NightWorksIO\MutationGate\Config\Source;
 use NightWorksIO\MutationGate\Config\StaticCheck;
+use NightWorksIO\MutationGate\Config\Survivors;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Config\Tree;
 use NightWorksIO\MutationGate\Config\Uncovered;
@@ -126,6 +127,7 @@ it('writes every setting of the configuration reference', function (): void {
                 Timeouts::seconds(30),
                 Timeouts::retries(5),
                 Flaky::notConfirmingSurvivors(),
+                Survivors::firstAtMost(5),
                 Ignores::within(30),
                 Ignores::allowingNativeMarkers(),
                 Badge::colour('green', 85),
@@ -196,6 +198,7 @@ it('writes every setting of the configuration reference', function (): void {
         'budget' => '15m',
         'timeouts' => ['mode' => 'unjudged', 'seconds' => 30, 'retries' => 5],
         'flaky' => ['confirmSurvivors' => false],
+        'survivorsFirst' => ['max' => 5],
         'badge' => ['colors' => ['green' => 85]],
         'pest' => ['patch' => true, 'canary' => 'canary'],
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45],

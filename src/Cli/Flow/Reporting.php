@@ -10,6 +10,7 @@ use function is_array;
 use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveredReport;
 use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveryDirectory;
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
+use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
@@ -31,9 +32,11 @@ use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanEstimates;
 use NightWorksIO\MutationGate\Core\Plan\PlannedWork;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Recheck\Rechecked;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\Reporter;
 
+use function sprintf;
 use function str_contains;
 
 /**
@@ -128,6 +131,57 @@ final readonly class Reporting
         }
 
         return $reporters;
+    }
+
+    /**
+     * The last run's survivors re-checked (ADR-0020, decision 21): what the
+     * sticky comment, over its planned state alone, and the step summary
+     * said of them, written or not; nothing where the run chooses neither;
+     * and where the reporters cannot be built, why, since the re-check is a
+     * signal that ends no run.
+     *
+     * @return list<string>
+     */
+    public function rechecked(Settings $settings, Plan $plan, Rechecked $rechecked): array
+    {
+        $reporters = $this->chosenReporters($settings, $plan->runOn());
+
+        if (! is_array($reporters)) {
+            return $this->why($reporters);
+        }
+
+        $said = [];
+
+        foreach ($reporters as $reporter) {
+            $written = match (true) {
+                $reporter instanceof PullRequestComment, $reporter instanceof StepSummary
+                    => $reporter->rechecked($rechecked),
+                default => NotGiven::value(),
+            };
+            $said = match (true) {
+                $written instanceof Written => [...$said, $written->said()],
+                $written instanceof NotWritten => [...$said, $written->why()],
+                default => $said,
+            };
+        }
+
+        return $said;
+    }
+
+    /** @return list<string> why the reporters cannot be built: each problem at its path, or the one reason */
+    private function why(Invalid|CannotJudge $unbuilt): array
+    {
+        if ($unbuilt instanceof CannotJudge) {
+            return [$unbuilt->why()];
+        }
+
+        $why = [];
+
+        foreach ($unbuilt as $problem) {
+            $why[] = sprintf('%s: %s', $problem->path(), $problem->message());
+        }
+
+        return $why;
     }
 
     /** @return list<Reporter|Invalid|CannotJudge> one for each entry of `reports`, with its path in its options */

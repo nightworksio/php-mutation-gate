@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\SurvivorsFirst;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\Config\Triage;
@@ -72,6 +73,15 @@ final readonly class TriageKeys
                 Section::single(
                     Field::optional('order', Enumerated::of(TestOrder::cases()), $results),
                     static fn(TestOrder|Absent $order): Layer => Layer::of(Triage::of(order: $order)),
+                ),
+            ),
+            Field::section(
+                'survivorsFirst',
+                Section::single(
+                    Field::optional('max', Integer::atLeast(0), $judges),
+                    static fn(int|Absent $most): Layer => Layer::of(Triage::of(
+                        survivorsFirst: $most instanceof Absent ? $most : SurvivorsFirst::atMost($most),
+                    )),
                 ),
             ),
         ];

@@ -5,12 +5,14 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\GitHub\Markdown;
 use NightWorksIO\MutationGate\Adapter\GitHub\PlannedMarkdown;
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
+use NightWorksIO\MutationGate\Adapter\GitHub\RecheckedMarkdown;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
+use NightWorksIO\MutationGate\Tests\Support\Rechecks;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
@@ -109,6 +111,43 @@ it('writes its planned state into the same comment the verdict later replaces', 
         ->and($patch->getRequestUrl())->toBe('https://api.github.example/repos/octo/gate/issues/comments/5')
         ->and(Decoded::at(is_string($patch->getRequestOptions()['body']) ? $patch->getRequestOptions()['body'] : '', 'body'))
         ->toBe(PlannedMarkdown::comment(ShardedPlan::planned(2), 'https://github.example/octo/gate/actions/runs/7'));
+});
+
+it('writes the re-checked survivors over its planned state alone, so a verdict already written stays', function (
+    string $body,
+    bool $written,
+) use ($environment, $event, $comment): void {
+    $patch = new JsonMockResponse(['html_url' => 'https://github.example/octo/gate/pull/12#issuecomment-5']);
+    $requests = [new JsonMockResponse([$comment(5, 'gate-bot', $body)]), $patch];
+    $answer = PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), 'gate-bot')
+        ->rechecked(Rechecks::mixed());
+
+    expect($answer)->toEqual($written
+        ? Written::to('https://github.example/octo/gate/pull/12#issuecomment-5')
+        : NotWritten::because(
+            'The pull request comment is no longer in its planned state, so the re-checked survivors leave it as it is.',
+        ));
+
+    if ($written) {
+        expect($patch->getRequestMethod())->toBe('PATCH')
+            ->and($patch->getRequestUrl())->toBe('https://api.github.example/repos/octo/gate/issues/comments/5')
+            ->and(Decoded::at(is_string($patch->getRequestOptions()['body']) ? $patch->getRequestOptions()['body'] : '', 'body'))
+            ->toBe(RecheckedMarkdown::comment(Rechecks::mixed(), 'https://github.example/octo/gate/actions/runs/7'));
+    }
+})->with([
+    'planned' => [PlannedMarkdown::comment(ShardedPlan::planned(2), ''), true],
+    'the verdict' => [Markdown::comment(Verdicts::failing(), ''), false],
+    'the heading quoted inside a line' => [sprintf("%s\nnot %s here", Markdown::MARKER, PlannedMarkdown::HEADING), false],
+]);
+
+it('writes no re-checked survivors where the pull request has no comment of its own yet', function () use ($environment, $event, $comment): void {
+    $requests = [new JsonMockResponse([$comment(5, 'someone', PlannedMarkdown::comment(ShardedPlan::planned(2), ''))])];
+    $answer = PullRequestComment::inRun($environment, $event(), new MockHttpClient($requests), 'gate-bot')
+        ->rechecked(Rechecks::mixed());
+
+    expect($answer)->toEqual(NotWritten::because(
+        'The pull request comment is no longer in its planned state, so the re-checked survivors leave it as it is.',
+    ));
 });
 
 it('writes no planned state, and says why, where the run cannot comment', function () use ($event): void {

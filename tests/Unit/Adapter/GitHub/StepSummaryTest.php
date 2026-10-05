@@ -3,12 +3,14 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\GitHub\Markdown;
+use NightWorksIO\MutationGate\Adapter\GitHub\RecheckedMarkdown;
 use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\Trend;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
+use NightWorksIO\MutationGate\Tests\Support\Rechecks;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\StoppedClock;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
@@ -60,4 +62,17 @@ it('counts what the default branch saved over the 30 days before its clock', fun
     StepSummary::appendingTo($file, '', $clock())->report($verdict);
 
     expect(file_get_contents($file))->toContain('In the last 30 days the gate saved 1h 27m of runner time.');
+});
+
+it('appends the re-checked survivors as the comment shows them, so a fork\'s pull request sees them too', function () use ($clock): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'summary.md', "Earlier step\n");
+    $file = sprintf('%s/summary.md', $root);
+
+    expect(StepSummary::appendingTo($file, 'https://github.com/octo/gate/actions/runs/7', $clock())->rechecked(Rechecks::mixed()))
+        ->toEqual(Written::to($file))
+        ->and(file_get_contents($file))
+        ->toBe(sprintf("Earlier step\n%s", RecheckedMarkdown::comment(Rechecks::mixed(), 'https://github.com/octo/gate/actions/runs/7')))
+        ->and(StepSummary::appendingTo('', '', $clock())->rechecked(Rechecks::mixed()))
+        ->toEqual(NotWritten::because('GITHUB_STEP_SUMMARY is not set, so there is no step summary to write.'));
 });

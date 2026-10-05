@@ -15,6 +15,7 @@ use function is_dir;
 
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Recheck\Rechecked;
 use NightWorksIO\MutationGate\Core\Report\SavingsText;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
@@ -61,14 +62,28 @@ final readonly class StepSummary implements Reporter
 
     public function report(Verdict $verdict): Written|NotWritten
     {
+        $since = Instant::at($this->clock->now()->sub(new DateInterval(sprintf('P%dD', SavingsText::DAYS))));
+
+        return $this->appended(Markdown::summary($verdict, $this->run, $since));
+    }
+
+    /**
+     * The last run's survivors re-checked, appended as the comment shows
+     * them, so a fork's pull request, which cannot be commented on, sees them
+     * too (ADR-0020, decision 21).
+     */
+    public function rechecked(Rechecked $rechecked): Written|NotWritten
+    {
+        return $this->appended(RecheckedMarkdown::comment($rechecked, $this->run));
+    }
+
+    private function appended(string $markdown): Written|NotWritten
+    {
         if ($this->file === '') {
             return NotWritten::because(self::UNSET);
         }
 
-        $since = Instant::at($this->clock->now()->sub(new DateInterval(sprintf('P%dD', SavingsText::DAYS))));
-
-        return ! is_dir(dirname($this->file))
-            || file_put_contents($this->file, Markdown::summary($verdict, $this->run, $since), FILE_APPEND) === false
+        return ! is_dir(dirname($this->file)) || file_put_contents($this->file, $markdown, FILE_APPEND) === false
             ? NotWritten::because(sprintf('The step summary could not be written to %s.', $this->file))
             : Written::to($this->file);
     }

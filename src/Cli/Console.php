@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Cli\Command\PrePushCommand;
 use NightWorksIO\MutationGate\Cli\Command\ReproduceCommand;
 use NightWorksIO\MutationGate\Cli\Command\RunCommand;
 use NightWorksIO\MutationGate\Cli\Command\StubCommand;
+use NightWorksIO\MutationGate\Cli\Command\SurvivorsCommand;
 use NightWorksIO\MutationGate\Cli\Command\TestsCommand;
 use NightWorksIO\MutationGate\Cli\Command\TriageCommand;
 use NightWorksIO\MutationGate\Cli\Command\VerdictCommand;
@@ -124,6 +125,7 @@ final readonly class Console
         $application->addCommand(PrePushCommand::command($composition));
         $application->addCommand(WatchCommand::command($composition, Waiting::every(Poll::interval())));
         $application->addCommand(ReproduceCommand::command($composition));
+        $application->addCommand(SurvivorsCommand::command($composition));
         $application->addCommand(ExplainCommand::command($composition));
         $application->addCommand(TestsCommand::command($composition));
         $application->addCommand(StubCommand::command($composition));

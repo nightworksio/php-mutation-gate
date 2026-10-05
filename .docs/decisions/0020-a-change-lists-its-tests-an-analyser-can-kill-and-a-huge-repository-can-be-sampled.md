@@ -511,10 +511,19 @@ needs remain, and the runners' own behaviour shapes each answer.
       lines first. There are at most `survivorsFirst.max` of them, an
       integer, `20` by default, the PR comment's own cap. `0` turns it off.
       The key **judges or reports only**.
-    - They run through the Runner port's `retry`, matched by the gate's id,
-      batched per file and mutator. The id holds no line number
-      (ADR-0004 decision 2), so most survivors are found again after an edit
-      elsewhere in the file. One whose id is gone is reported as *gone*.
+    - They run through the Runner port, one run per file over their
+      mutators alone, and each is matched by the gate's id. The id holds no
+      line number (ADR-0004 decision 2), so most survivors are found again
+      after an edit elsewhere in the file, where a runner's own id, such as
+      Pest's, which hashes the whole mutated file, is not. One whose id is
+      gone is reported as *gone*.
+    - `mutation-gate survivors [--plan=<file>]` re-checks them. The units
+      are those the plan reaches, to run or proved, and the survivors those
+      the comment lists: survived, and uncovered where the score counts
+      them, never ignored, proven equivalent, unjudged or flaky. A run that
+      plans and judges in one process re-checks them after its planned
+      comment, and says why it re-checks none only where a pull request's
+      run would expect it to.
     - A pull request's first push has no earlier run, and says so in one
       line. A push to the default branch does not re-check survivors.
 

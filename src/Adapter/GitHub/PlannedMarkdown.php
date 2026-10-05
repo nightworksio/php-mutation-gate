@@ -11,6 +11,7 @@ use function implode;
 
 use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Plan\PlannedWork;
+use NightWorksIO\MutationGate\Core\Report\Commented;
 use NightWorksIO\MutationGate\Core\Report\Escape;
 
 use function sprintf;
@@ -23,6 +24,12 @@ use function sprintf;
  */
 final readonly class PlannedMarkdown
 {
+    /** The heading the comment holds while it is in its planned state, which only the verdict replaces. */
+    public const string HEADING = '## mutation-gate: planned';
+
+    /** The link to the run, which replaces the comment with its verdict. */
+    public const string RUN = '[The run](%s) replaces this with its verdict.';
+
     private const string MUTATING = 'Mutating %s in %s: about %s wall, %s runner time (%d%% measured).';
 
     private const string NOTHING
@@ -32,14 +39,12 @@ final readonly class PlannedMarkdown
 
     private const string UNCOVERED = '### Changed lines no test covers (%d)';
 
-    private const string RUN = '[The run](%s) replaces this with its verdict.';
-
     /** The comment, with its marker, and a link to the run where there is one. */
     public static function comment(PlannedWork $work, string $run): string
     {
         $blocks = [
             Markdown::MARKER,
-            '## mutation-gate: planned',
+            self::HEADING,
             self::mutating($work),
             self::units($work),
             self::uncovered($work),
@@ -102,10 +107,10 @@ final readonly class PlannedMarkdown
      */
     private static function listed(array $entries): array
     {
-        $left = count($entries) - Markdown::COMMENTED;
+        $left = count($entries) - Commented::MOST;
 
         return [
-            implode("\n", array_slice($entries, 0, Markdown::COMMENTED)),
+            implode("\n", array_slice($entries, 0, Commented::MOST)),
             ...$left > 0 ? [Fit::more($left)] : [],
         ];
     }

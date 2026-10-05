@@ -16,7 +16,8 @@ use function sprintf;
 
 /**
  * How a run spends its time and what it does with a mutant it cannot settle
- * at once (ADR-0008, ADR-0013): `budget`, `timeouts`, `flaky` and `tests`.
+ * at once (ADR-0008, ADR-0013, ADR-0020): `budget`, `timeouts`, `flaky`,
+ * `tests` and `survivorsFirst`.
  */
 final readonly class Triage implements Part
 {
@@ -32,6 +33,7 @@ final readonly class Triage implements Part
         private int|Absent $retries,
         private bool|Absent $confirmSurvivors,
         private TestOrder|Absent $order,
+        private SurvivorsFirst|Absent $survivorsFirst,
     ) {
     }
 
@@ -42,8 +44,9 @@ final readonly class Triage implements Part
         int|Absent $retries = new Absent(),
         bool|Absent $confirmSurvivors = new Absent(),
         TestOrder|Absent $order = new Absent(),
+        SurvivorsFirst|Absent $survivorsFirst = new Absent(),
     ): self {
-        return new self($budget, $mode, $limit, $retries, $confirmSurvivors, $order);
+        return new self($budget, $mode, $limit, $retries, $confirmSurvivors, $order, $survivorsFirst);
     }
 
     public static function none(): self
@@ -61,6 +64,7 @@ final readonly class Triage implements Part
             retries: $none->retries(),
             confirmSurvivors: $none->confirmSurvivors(),
             order: $none->order(),
+            survivorsFirst: $none->survivorsFirst(),
         );
     }
 
@@ -74,6 +78,7 @@ final readonly class Triage implements Part
                 Absent::laid($this->retries, $later->retries),
                 Absent::laid($this->confirmSurvivors, $later->confirmSurvivors),
                 Absent::laid($this->order, $later->order),
+                Absent::laid($this->survivorsFirst, $later->survivorsFirst),
             )
             : $this;
     }
@@ -114,6 +119,12 @@ final readonly class Triage implements Part
         return $this->order instanceof TestOrder ? $this->order : TestOrder::KillersFirst;
     }
 
+    /** `survivorsFirst.max`: how many of the last run's survivors a pull request's run re-checks first. */
+    public function survivorsFirst(): SurvivorsFirst
+    {
+        return $this->survivorsFirst instanceof SurvivorsFirst ? $this->survivorsFirst : SurvivorsFirst::standard();
+    }
+
     public function written(PathOrigin $origin): Json
     {
         return Json::object(
@@ -136,6 +147,15 @@ final readonly class Triage implements Part
                     Member::of('order', $this->order instanceof TestOrder ? $this->order->value : $this->order),
                 ),
             ),
+            Member::unlessEmpty(
+                'survivorsFirst',
+                Json::object(Member::of(
+                    'max',
+                    $this->survivorsFirst instanceof SurvivorsFirst
+                        ? $this->survivorsFirst->most()
+                        : $this->survivorsFirst,
+                )),
+            ),
         );
     }
 
@@ -156,10 +176,21 @@ final readonly class Triage implements Part
             ...$this->confirmSurvivors instanceof Absent ? [] : [
                 $this->confirmSurvivors ? 'Flaky::confirmingSurvivors()' : 'Flaky::notConfirmingSurvivors()',
             ],
+            ...$this->orderCalls(),
+        ]);
+    }
+
+    /** @return list<string> the builder's calls for the order of each mutant's tests, and of the survivors' re-check */
+    private function orderCalls(): array
+    {
+        return [
             ...$this->order instanceof TestOrder ? [match ($this->order) {
                 TestOrder::KillersFirst => 'Tests::killersFirst()',
                 TestOrder::Runner => 'Tests::inRunnerOrder()',
             }] : [],
-        ]);
+            ...$this->survivorsFirst instanceof SurvivorsFirst
+                ? [sprintf('Survivors::firstAtMost(%d)', $this->survivorsFirst->most())]
+                : [],
+        ];
     }
 }

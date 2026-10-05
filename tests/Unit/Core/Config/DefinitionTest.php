@@ -96,6 +96,7 @@ it('declares every setting as affecting results or as judging or reporting only'
         'timeouts.retries' => $results,
         'flaky.confirmSurvivors' => $results,
         'tests.order' => $results,
+        'survivorsFirst.max' => $judges,
         'ignores.entries' => $judges,
         'ignores.entries[].mutant' => $judges,
         'ignores.entries[].path' => $judges,
