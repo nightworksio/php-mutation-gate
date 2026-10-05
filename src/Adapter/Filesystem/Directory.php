@@ -14,7 +14,9 @@ use function fopen;
 use function fwrite;
 use function is_dir;
 use function is_file;
+use function is_string;
 use function is_writable;
+use function max;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -22,6 +24,8 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\Format\Bytes;
+use NightWorksIO\MutationGate\Core\Format\TooLarge;
 use NightWorksIO\MutationGate\Core\Written;
 
 use function realpath;
@@ -69,6 +73,29 @@ final readonly class Directory
     public function read(Path $path): Contents|Missing|CannotJudge
     {
         return $this->leadsOut($path) ? $this->refused($path) : $this->readInside($path);
+    }
+
+    /**
+     * What a file under the directory holds, read no further than this many bytes, so a file past them is refused
+     * without being held whole; a path that leads out of it is refused.
+     */
+    public function readAtMost(Path $path, int $bytes): Contents|Missing|TooLarge|CannotJudge
+    {
+        $file = $this->pathTo($path);
+        $text = match (true) {
+            $this->leadsOut($path) => $this->refused($path),
+            ! file_exists($file) => Missing::at($path),
+            is_dir($file) => false,
+            default => file_get_contents($file, length: max(0, $bytes) + 1),
+        };
+
+        return match (true) {
+            $text === false => CannotJudge::because(sprintf('%s could not be read.', $file)),
+            ! is_string($text) => $text,
+            Bytes::length($text) > $bytes
+                => TooLarge::because(sprintf('%s is past %d bytes, so it is not read.', $file, $bytes)),
+            default => Contents::of($text),
+        };
     }
 
     /** Write a file, creating the directories it needs and replacing what was there; never outside the directory. */

@@ -15,6 +15,8 @@ final readonly class Workspace
 
     private const string LEDGER = 'ledger';
 
+    private const string DELIVERY = 'delivery';
+
     /** Where a runner's bridges are, under the directory. */
     private const string BRIDGES = 'mutators/%s/bridges.php';
 
@@ -28,6 +30,12 @@ final readonly class Workspace
     public static function ledger(): Path
     {
         return Path::of(sprintf('%s/%s', self::ROOT, self::LEDGER));
+    }
+
+    /** Where a run leaves what `deliver` sends: `.mutation-gate/delivery`. */
+    public static function delivery(): Path
+    {
+        return Path::of(sprintf('%s/%s', self::ROOT, self::DELIVERY));
     }
 
     /**

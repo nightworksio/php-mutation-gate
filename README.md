@@ -178,6 +178,8 @@ run does.
 | `plan` | Work out the reach, drop proved units, cut shards and print the plan for a CI (`--ci=github\|gitlab\|buildkite\|circleci\|azure\|bitbucket\|jenkins\|json`, or `--shards=<n>` for a fixed count; `--coverage=<dir>` reads the map `coverage` wrote instead of running the suite) |
 | `run --plan=<file> [--shard=<id>]` | Mutate one shard: the one `--shard` names, or the one the CI's environment names |
 | `verdict --plan=<file> --results=<dir>` | Merge every shard's results, judge the floors, write reports and the ledger |
+| `deliver [--from=<dir>]` | Send what a run left in `<dir>` (`.mutation-gate/delivery` by default), with credentials that run never held: write the ledger to the store, post the comment and the alerts, export OTLP. It runs from the gate's own installation and loads none of the project's code. Exits 2 where it cannot start or read the delivery, or where a trusted run's ledger is not written |
+| `fetch [--to=<dir>]` | Read the default branch's ledger from the store with a key that only reads, and write it into `<dir>` (`.mutation-gate/ledger` by default), where the `directory` store reads it. It runs from the gate's own installation and loads none of the project's code. Exits 0 where `MUTATION_GATE_STORE` names no store, the ledger cannot be read or the job holds no key, saying why, and 2 where it cannot start, locate the store it names, name the default branch or write the ledger |
 | `baseline [--write]` | Show, or write, floors raised to what was measured |
 | `reproduce <id>` | Run one recorded mutant again, alone, and show why it survives, with the runner's own output; the id may be a unique prefix of 6 or more. Exits 1 where the run finds other than what was recorded, and 2 where no ledger holds it or the run no longer makes it |
 | `explain <id> [--format=text\|json]` | Show one mutant's diff, hint, covering tests and their outcomes, for a kill by static analysis the analyser and its finding's file, code and message, how the last run took its unit, and its history, from the ledgers and the last run, running nothing; the id may be a unique prefix of 6 or more, or a cluster's id. `--format=json` is described by [`resources/explain.schema.json`](resources/explain.schema.json). Exits 2 where no record holds it |
@@ -729,6 +731,68 @@ A fork can plant no proof that another run trusts. It can
 influence only its own verdict, which its own workflow file could anyway, so
 require approval before outside contributors' workflows run
 ([ADR-0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md)).
+
+### Credentials in a job of their own
+
+A job that runs the project's code hands it every secret the job holds. So
+the store's keys, the comment's token, the alert URLs and the OpenTelemetry
+headers can go to jobs of their own that run none of it. Two commands run in
+such jobs, from the gate's own installation, with no config read and no
+extension loaded. Each refuses to start through Composer's proxy, or from the
+working directory's `vendor`
+([ADR-0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md)).
+
+- **`deliver`** sends what a run left in `.mutation-gate/delivery`. That
+  directory holds `delivery.json`, payloads only: the ledger's scope, the
+  comment's markdown, each alert's body (no more to one channel than a
+  verdict sends) and the OTLP export. Beside it is
+  the ledger, `ledger.json.gz`. Both are read as JSON within the ledger's
+  byte limits, and a key `deliver` does not take, such as a URL, a host or a
+  variable's name, refuses the whole delivery. Every destination and every
+  credential comes from `deliver`'s own environment:
+  - the comment goes to the pull request its own event names, with
+    `GITHUB_TOKEN`;
+  - each alert goes to `MUTATION_GATE_SLACK_URL`, `MUTATION_GATE_DISCORD_URL`
+    or `MUTATION_GATE_WEBHOOK_URL`, signed with `MUTATION_GATE_WEBHOOK_SECRET`.
+    A `with: {urlEnv: …}` or `with: {secretEnv: …}` in the config is not
+    read, so set these default variables;
+  - the export goes to `OTEL_EXPORTER_OTLP_ENDPOINT` with
+    `OTEL_EXPORTER_OTLP_HEADERS`. A `with: {endpoint: …}` is not read;
+  - the ledger goes to the store the variables below locate. `deliver`
+    writes it only on GitHub Actions, only on a push, a schedule or a manual
+    run of the default branch, and only where the delivery's scope is that
+    branch's. It decides that from its own event and ref before it reads the
+    delivery. The default branch is the one the event payload names, else
+    `MUTATION_GATE_DEFAULT_BRANCH`. On any other run it writes no ledger and
+    fails nothing.
+- **`fetch`** reads the default branch's ledger, and no other scope's, from
+  the store the variables below locate, with a key that only needs to read.
+  It writes the ledger into `.mutation-gate/ledger`, where the `directory`
+  store, the default, reads it, so the plan, the shards and the verdict hold
+  no credential. It writes nothing to the store. A ledger it cannot read,
+  or a job without the key, costs a run, never a verdict: `fetch` says why
+  and exits 0, as it does where `MUTATION_GATE_STORE` names no store. A public repository can read the default branch's ledger from
+  `publicUrl` instead, as a fork's run does.
+
+`deliver` and `fetch` take the store's whole location from their own
+environment, never from a delivery or a config:
+
+| Variable | What it sets |
+|----------|--------------|
+| `MUTATION_GATE_STORE` | The store: `s3`, `gcs` or `azure` |
+| `MUTATION_GATE_STORE_BUCKET` | `bucket`, for `s3` and `gcs` |
+| `MUTATION_GATE_STORE_PREFIX` | `prefix` (`mutation-gate` by default) |
+| `MUTATION_GATE_STORE_REGION` | `region`, for `s3` (`us-east-1` by default) |
+| `MUTATION_GATE_STORE_ENDPOINT` | `endpoint`, for `s3` alone, and only an `https://` URL |
+| `MUTATION_GATE_STORE_ACCOUNT` | `account`, for `azure` |
+| `MUTATION_GATE_STORE_CONTAINER` | `container`, for `azure` |
+| `MUTATION_GATE_STORE_PUBLIC_CONTAINER` | `publicContainer`, for `azure` |
+
+The store's credentials are its usual variables: `AWS_ACCESS_KEY_ID` and
+`AWS_SECRET_ACCESS_KEY` for `s3`, the federation's or
+`MUTATION_GATE_GCS_TOKEN` for `gcs`, and the federation's or
+`MUTATION_GATE_AZURE_TOKEN` for `azure`
+([ADR-0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md)).
 
 ### Use it in GitHub Actions
 

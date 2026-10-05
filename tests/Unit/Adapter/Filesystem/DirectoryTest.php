@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\Format\TooLarge;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -198,4 +199,37 @@ it('cannot judge removing a file from a directory it may not change', function (
     chmod(sprintf('%s/locked', $root), 0o755);
 
     expect($removed)->toEqual(CannotJudge::because(sprintf('%s/locked/a.php could not be removed.', $root)));
+});
+
+it('reads a file up to a number of bytes, and refuses one past them without holding it whole', function (): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'four', 'abcd');
+    $directory = Directory::at($root);
+
+    expect($directory->readAtMost(Path::of('four'), 4))->toEqual(Contents::of('abcd'))
+        ->and($directory->readAtMost(Path::of('four'), 3))
+        ->toEqual(TooLarge::because(sprintf('%s/four is past 3 bytes, so it is not read.', $root)))
+        ->and($directory->readAtMost(Path::of('none'), 3))->toEqual(Missing::at(Path::of('none')))
+        ->and($directory->readAtMost(Path::of('../four'), 3))->toBeInstanceOf(CannotJudge::class);
+});
+
+it('cannot read up to a number of bytes a directory where a file should be', function (): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'inner/file', 'x');
+
+    expect(Directory::at($root)->readAtMost(Path::of('inner'), 3))
+        ->toEqual(CannotJudge::because(sprintf('%s/inner could not be read.', $root)));
+});
+
+it('holds no more than a byte past the limit of a file far larger, while it refuses it', function (): void {
+    $root = Scratch::directory();
+    $handle = fopen(sprintf('%s/huge', $root), 'wb');
+    if ($handle !== false && ftruncate($handle, 512 * 1024 * 1024)) {
+        fclose($handle);
+    }
+    $before = memory_get_usage();
+    memory_reset_peak_usage();
+
+    expect(Directory::at($root)->readAtMost(Path::of('huge'), 1024))->toBeInstanceOf(TooLarge::class)
+        ->and(memory_get_peak_usage() - $before)->toBeLessThan(1024 * 1024);
 });

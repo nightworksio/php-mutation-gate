@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
+use NightWorksIO\MutationGate\Core\Delivery\OtlpPost;
 use NightWorksIO\MutationGate\Core\Http\Origin;
 use NightWorksIO\MutationGate\Core\Http\Reply;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -120,6 +121,21 @@ final readonly class OtlpReporter implements Reporter
                 => Written::noting($metrics->where(), self::NO_HEADERS),
             default => $metrics,
         };
+    }
+
+    /**
+     * The trace, where there is one, and the metrics a run left for `deliver`, posted as `report` posts its own
+     * (ADR-0007 decision 5).
+     */
+    public function exported(OtlpPost $otlp): Written|NotWritten
+    {
+        $traces = $otlp->traces();
+        $sent = $traces instanceof NotGiven
+            ? Written::to(Origin::of($this->endpoint))
+            : $this->post('/v1/traces', $traces);
+        $metrics = $this->post('/v1/metrics', $otlp->metrics());
+
+        return $sent instanceof NotWritten ? $sent : $metrics;
     }
 
     /**

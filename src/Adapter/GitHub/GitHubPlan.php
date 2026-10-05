@@ -7,7 +7,6 @@ namespace NightWorksIO\MutationGate\Adapter\GitHub;
 use function count;
 use function file_get_contents;
 use function getenv;
-use function in_array;
 use function is_file;
 use function json_encode;
 
@@ -63,8 +62,6 @@ final readonly class GitHubPlan implements CiPlan, Configurable
 
     private const string NO_PULL_REQUEST = 'This run is not for a pull request.';
 
-    /** The events whose ref is a branch the run may write for: none runs code from a pull request. */
-    private const array TRUSTED = ['push', 'schedule', 'workflow_dispatch'];
 
     private function __construct(private CiJob $job)
     {
@@ -141,7 +138,7 @@ final readonly class GitHubPlan implements CiPlan, Configurable
     {
         $number = $this->pullRequestIn($payload);
         $branch = $this->branch();
-        $trusted = in_array($this->job->variables()->valueOf(self::EVENT), self::TRUSTED, strict: true);
+        $trusted = TrustedEvent::names($this->job->variables()->valueOf(self::EVENT));
 
         return match (true) {
             $number instanceof PullRequestNumber => RunOn::pullRequest($number, $defaultBranch),

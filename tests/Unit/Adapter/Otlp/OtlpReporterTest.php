@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
+use NightWorksIO\MutationGate\Core\Delivery\OtlpPost;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -199,4 +200,18 @@ it('names an endpoint by its scheme, host and port alone, so a key in it reaches
         ->and($said)->not->toContain('s3cr3t')
         ->and($said)->not->toContain('k3y')
         ->and($said)->not->toContain('/otlp');
+});
+
+it('exports the trace and the metrics a run left as they were left, and says where the trace was refused', function () use ($github): void {
+    $traces = new MockResponse('{}');
+    $metrics = new MockResponse('{}');
+    $reporter = otlpReporter($github, [$traces, $metrics]);
+    $sent = $reporter instanceof OtlpReporter ? $reporter->exported(OtlpPost::of('{"resourceSpans": []}', '{"resourceMetrics": []}')) : 'invalid';
+    $refused = otlpReporter($github, [new MockResponse('bad', ['http_code' => 400]), new MockResponse('{}')]);
+
+    expect($sent)->toEqual(Written::to('https://otel.example'))
+        ->and([$traces->getRequestUrl(), $traces->getRequestOptions()['body']])->toBe(['https://otel.example/v1/traces', '{"resourceSpans": []}'])
+        ->and([$metrics->getRequestUrl(), $metrics->getRequestOptions()['body']])->toBe(['https://otel.example/v1/metrics', '{"resourceMetrics": []}'])
+        ->and($refused instanceof OtlpReporter ? $refused->exported(OtlpPost::of('{}', '{}')) : 'invalid')
+        ->toEqual(NotWritten::because('https://otel.example answered 400: bad'));
 });
