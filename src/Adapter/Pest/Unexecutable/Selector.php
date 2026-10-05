@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Unexecutable;
 
+use function array_merge;
 use function count;
 use function file_get_contents;
 use function is_file;
@@ -52,7 +53,7 @@ final readonly class Selector
         private Covering $coverage,
         private TestFiles $tests,
         private Paths $suite,
-        private Codebase $codebase,
+        private Followed $followed,
         private CoverageMap $map,
     ) {
     }
@@ -64,18 +65,19 @@ final readonly class Selector
         $sources = [];
 
         foreach ($listed as $test) {
-            $sources = [...$sources, ...self::read($project, $test, test: true)];
+            $sources[] = self::read($project, $test, test: true);
         }
 
         $map = $coverage->map($project);
 
         foreach ([...$map->files(), ...$mutated] as $file) {
-            $sources = $listed->has($file) ? $sources : [...$sources, ...self::read($project, $file, test: false)];
+            $sources[] = $listed->has($file) ? [] : self::read($project, $file, test: false);
         }
 
         $suite = $tests->holdingAny($map->tests());
+        $codebase = Codebase::of(...array_merge(...$sources));
 
-        return new self($project, $coverage, $tests, $suite, Codebase::of(...$sources), $map);
+        return new self($project, $coverage, $tests, $suite, new Followed($codebase), $map);
     }
 
     /**
@@ -115,7 +117,7 @@ final readonly class Selector
     /** Which test files judge a mutant of a file whose changed value a symbol names. */
     public function choose(Symbol|Unnamed $symbol, Path $file): Choice
     {
-        $references = $this->codebase->references($symbol);
+        $references = $this->followed->references($symbol);
         $reading = Paths::none();
 
         foreach ($references->sites() as $site) {

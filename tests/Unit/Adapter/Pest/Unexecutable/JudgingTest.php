@@ -247,6 +247,17 @@ it('judges nothing without the mutated copy, and leaves the rest of a run as it 
         ->and($shell->commands())->toBe([]);
 });
 
+it('judges nothing of a mutant whose original file is gone', function () use ($money): void {
+    $at = Unexecutables::project();
+    $results = Unexecutables::run($at, ['rate']);
+    unlink(sprintf('%s/src/Money.php', $at->root()));
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+
+    expect(judgingOutcomes(new Judging($at, $shell, new CapDirectory(), Triage::standard()->limit())->of(judgingResult('rate'), $money, $results, judgingCoverage($results))))
+        ->toBe(['rate' => 'unjudged mutated file missing'])
+        ->and($shell->commands())->toBe([]);
+});
+
 it('leaves unjudged a mutant of a file that no longer parses, so cannot be printed as Pest prints it', function () use ($money): void {
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, ['rate']);
