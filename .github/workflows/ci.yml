@@ -750,8 +750,10 @@ jobs:
   # floor of 100 through its own gate: the reusable workflow and the action in
   # this repository, run from the same commit, with mutation-gate.json. Its
   # jobs are the shipped workflow's, which leaves the gate's own reports as its
-  # evidence (.github/gates.json). The permissions are what its jobs ask for:
-  # `contents: write` is used only by the default-branch publish job.
+  # evidence (.github/gates.json). The permissions are what its jobs ask for,
+  # and a called job gets only what it asks for itself: `contents: write` goes
+  # only to the default-branch publish job, and `id-token: write` only to
+  # fetch and deliver.
   mutation:
     needs: scope
     if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
@@ -759,6 +761,7 @@ jobs:
       contents: write
       actions: read
       pull-requests: write
+      id-token: write
     uses: ./.github/workflows/mutation-gate.yml # zizmor: ignore[self-repository]
 
   # SonarCloud, fed the reports `tests` wrote rather than running the suite a

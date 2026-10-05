@@ -23,6 +23,7 @@ jobs:
       contents: write # used only by the default-branch publish job
       actions: read
       pull-requests: write
+      id-token: write # used only by fetch and deliver, for a store that signs in through OIDC
     with:
       php-version: '%%php%%'
       runner: '%%runner%%'

@@ -307,9 +307,10 @@ about Laravel, NativePHP or the project's modules, and does not.
        `deliver-plan` and `deliver` have `pull-requests: write`, for the
        comment, and `publish` has `contents: write`. A step that holds the
        token in a job that runs the project's code comes before its
-       dependencies install, and no step after it holds one. The one-step
-       action needs `contents: read`, `actions: read` and
-       `pull-requests: write` in its one job. A job that reaches an S3 store
+       dependencies install, and no step after it holds one. The action
+       needs `contents: read` and `actions: read` in the job that runs the
+       gate, and `contents: read` and `pull-requests: write` in its `deliver`
+       job. A job that reaches an S3 store
        through an OIDC role adds `id-token: write`, and the role that can write
        the default branch's prefix trusts only an environment restricted to
        the default branch, or this workflow's `job_workflow_ref`, never a bare

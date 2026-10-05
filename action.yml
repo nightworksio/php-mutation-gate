@@ -45,6 +45,12 @@ inputs:
     description: 'true to keep the proof ledger in the Actions cache.'
     required: false
     default: 'true'
+  deliver:
+    description: >-
+      true to send what a run of the action left: the pull request comment, and a store's ledger where the job's
+      environment names one. Use it in a job of its own that needs the run's job; it runs none of the project's code.
+    required: false
+    default: 'false'
 
 outputs:
   verdict:
@@ -70,6 +76,7 @@ runs:
       run: python3 "${GITHUB_ACTION_PATH}/resources/action/gate_action.py" guard
 
     - name: Set up PHP
+      if: inputs.deliver != 'true'
       uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
       with:
         php-version: ${{ inputs.php-version }}
@@ -79,6 +86,7 @@ runs:
     # while a step holds the token.
     - name: Name the default branch
       id: default
+      if: inputs.deliver != 'true'
       shell: bash
       env:
         NAMED: ${{ github.event.repository.default_branch }}
@@ -91,10 +99,12 @@ runs:
         echo "name=${NAMED}" >> "${GITHUB_OUTPUT}"
 
     - name: Install the project's dependencies
+      if: inputs.deliver != 'true'
       uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
 
     - name: Resolve the run
       id: resolve
+      if: inputs.deliver != 'true'
       shell: bash
       env:
         MODE: ${{ inputs.mode }}
@@ -111,6 +121,7 @@ runs:
     # and nothing else, so a config that keeps its ledger elsewhere runs uncached.
     - name: Read the effective config
       id: config
+      if: inputs.deliver != 'true'
       shell: bash
       env:
         GATE: ${{ steps.resolve.outputs.gate }}
@@ -126,7 +137,7 @@ runs:
     # pest-plugin-mutate. The action patches the vendor directory this job
     # installed, so the project's Composer hook is for its runs elsewhere.
     - name: Apply the optional Pest patches
-      if: steps.config.outputs.pest_patch == 'true'
+      if: inputs.deliver != 'true' && steps.config.outputs.pest_patch == 'true'
       shell: bash
       env:
         GATE: ${{ steps.resolve.outputs.gate }}
@@ -134,8 +145,9 @@ runs:
 
     # A shard of a plan reads no ledger: the plan it runs was made from them.
     - name: Restore this scope's ledger
+      id: own
       if: >-
-        inputs.shard == '' && steps.config.outputs.default_store == 'true'
+        inputs.deliver != 'true' && inputs.shard == '' && steps.config.outputs.default_store == 'true'
         && steps.resolve.outputs.own_dir != ''
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
@@ -145,7 +157,7 @@ runs:
 
     - name: Restore the default branch's ledger
       if: >-
-        inputs.shard == '' && steps.config.outputs.default_store == 'true'
+        inputs.deliver != 'true' && inputs.shard == '' && steps.config.outputs.default_store == 'true'
         && steps.resolve.outputs.default_dir != ''
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
@@ -156,7 +168,7 @@ runs:
     # One shard of a plan the reusable workflow made: its result is the verdict's to judge.
     - name: Run shard ${{ inputs.shard }}
       id: shard
-      if: inputs.shard != ''
+      if: inputs.deliver != 'true' && inputs.shard != ''
       shell: bash
       env:
         GATE: ${{ steps.resolve.outputs.gate }}
@@ -170,41 +182,42 @@ runs:
         echo "code=${code}" >> "${GITHUB_OUTPUT}"
 
     # The whole gate in this job: the plan, each of its shards in turn, then the
-    # verdict, the same path the reusable workflow takes across jobs.
+    # verdict, the same path the reusable workflow takes across jobs. These
+    # steps run the project's code, so none holds a token or a secret: what
+    # needs one is left in .mutation-gate/delivery, which a job of its own
+    # sends with `deliver: true` (ADR-0007, decision 5).
     - name: Plan
       id: plan
-      if: inputs.shard == ''
+      if: inputs.deliver != 'true' && inputs.shard == ''
       shell: bash
       env:
         GATE: ${{ steps.resolve.outputs.gate }}
         OPTIONS: ${{ steps.resolve.outputs.plan_options }}
-        GITHUB_TOKEN: ${{ github.token }}
       run: |
         set -uo pipefail
         code=0
         mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
-        "${GATE}" plan --ci=github "${arguments[@]}" || code=$?
+        "${GATE}" plan --ci=github --deliver-later "${arguments[@]}" || code=$?
         echo "code=${code}" >> "${GITHUB_OUTPUT}"
 
     # On a pull request, the last run's survivors run again first, for a
-    # signal before every shard has run (ADR-0020, decision 21). It writes the
+    # signal before every shard has run (ADR-0020, decision 21). It leaves the
     # comment over its planned state alone, and nothing it finds is judged.
     - name: Re-check the last run's survivors
-      if: inputs.shard == '' && steps.plan.outputs.code == '0'
+      if: inputs.deliver != 'true' && inputs.shard == '' && steps.plan.outputs.code == '0'
       shell: bash
       env:
         GATE: ${{ steps.resolve.outputs.gate }}
         OPTIONS: ${{ steps.resolve.outputs.options }}
-        GITHUB_TOKEN: ${{ github.token }}
       run: |
         set -uo pipefail
         mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
-        "${GATE}" survivors --plan=.mutation-gate/plan.json "${arguments[@]}" \
+        "${GATE}" survivors --plan=.mutation-gate/plan.json --deliver-later "${arguments[@]}" \
           || echo "::warning::The last run's survivors could not be re-checked first."
 
     - name: Run every shard
       id: run
-      if: inputs.shard == '' && steps.plan.outputs.code == '0'
+      if: inputs.deliver != 'true' && inputs.shard == '' && steps.plan.outputs.code == '0'
       shell: bash
       env:
         GATE: ${{ steps.resolve.outputs.gate }}
@@ -225,35 +238,66 @@ runs:
 
     - name: Verdict
       id: verdict
-      if: inputs.shard == '' && steps.plan.outputs.code == '0'
+      if: inputs.deliver != 'true' && inputs.shard == '' && steps.plan.outputs.code == '0'
       shell: bash
       env:
         GATE: ${{ steps.resolve.outputs.gate }}
         OPTIONS: ${{ steps.resolve.outputs.options }}
-        GITHUB_TOKEN: ${{ github.token }}
       run: |
         set -uo pipefail
         code=0
         mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
         "${GATE}" verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results \
-          --report=json:.mutation-gate/action/report.json "${arguments[@]}" || code=$?
+          --report=json:.mutation-gate/action/report.json --deliver-later "${arguments[@]}" || code=$?
         echo "code=${code}" >> "${GITHUB_OUTPUT}"
 
     # Only the verdict writes a ledger, and only for the run's own scope where
-    # it may write it (ADR-0007). An unchanged ledger has the key it had.
+    # it may write it (ADR-0007): it leaves the ledger and its kept coverage map
+    # in its delivery, and the directory store is this cache, which needs no
+    # key, so they are kept here for this scope's ref alone. An unchanged
+    # ledger has the key it had.
+    - name: Keep what the verdict left for this scope
+      if: >-
+        inputs.deliver != 'true' && inputs.shard == '' && steps.resolve.outputs.save == 'true'
+        && steps.config.outputs.default_store == 'true' && steps.verdict.outputs.code != ''
+      shell: bash
+      env:
+        OWN: ${{ steps.resolve.outputs.own_dir }}
+      run: |
+        set -euo pipefail
+        mkdir -p "${OWN}"
+        for file in ledger.json.gz coverage.json.gz; do
+          if [ -f ".mutation-gate/delivery/verdict/${file}" ]; then
+            cp ".mutation-gate/delivery/verdict/${file}" "${OWN}/${file}"
+          fi
+        done
+
     - name: Save this scope's ledger
       if: >-
-        inputs.shard == '' && steps.resolve.outputs.save == 'true'
+        inputs.deliver != 'true' && inputs.shard == '' && steps.resolve.outputs.save == 'true'
         && steps.config.outputs.default_store == 'true' && steps.verdict.outputs.code != ''
-        && hashFiles(format('{0}/ledger.json.gz', steps.resolve.outputs.own_dir)) != ''
+        && hashFiles(format('{0}/ledger.json.gz', steps.resolve.outputs.own_dir), format('{0}/coverage.json.gz', steps.resolve.outputs.own_dir)) != ''
+        && format('{0}{1}', steps.resolve.outputs.own_prefix, hashFiles(format('{0}/ledger.json.gz', steps.resolve.outputs.own_dir), format('{0}/coverage.json.gz', steps.resolve.outputs.own_dir))) != steps.own.outputs.cache-matched-key
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ steps.resolve.outputs.own_dir }}
-        key: ${{ steps.resolve.outputs.own_prefix }}${{ hashFiles(format('{0}/ledger.json.gz', steps.resolve.outputs.own_dir)) }}
+        key: ${{ steps.resolve.outputs.own_prefix }}${{ hashFiles(format('{0}/ledger.json.gz', steps.resolve.outputs.own_dir), format('{0}/coverage.json.gz', steps.resolve.outputs.own_dir)) }}
+
+    # What the plan, the re-check and the verdict left for a credential, for
+    # the job that runs this action with `deliver: true`.
+    - name: Hand on what needs a credential
+      if: ${{ !cancelled() && inputs.deliver != 'true' && inputs.shard == '' }}
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: mutation-gate-delivery
+        path: .mutation-gate/delivery
+        include-hidden-files: true
+        if-no-files-found: ignore
+        retention-days: 1
 
     - name: Say what the gate decided
       id: outputs
-      if: inputs.shard == ''
+      if: inputs.deliver != 'true' && inputs.shard == ''
       shell: bash
       env:
         EXIT_CODE: ${{ steps.verdict.outputs.code || steps.plan.outputs.code || '2' }}
@@ -263,7 +307,51 @@ runs:
       run: python3 "${GITHUB_ACTION_PATH}/resources/action/gate_action.py" outputs
 
     - name: Fail unless the gate passed
+      if: inputs.deliver != 'true'
       shell: bash
       env:
         CODE: ${{ inputs.shard != '' && steps.shard.outputs.code || steps.verdict.outputs.code || steps.plan.outputs.code || '2' }}
       run: exit "${CODE}"
+
+    # `deliver: true`: a job of its own, after the run's, that runs none of
+    # the project's code. It installs the gate's own copy at the action's path
+    # from the gate's own lock, never the project's vendor, which a pull
+    # request controls, and sends each stage's delivery with the token. A
+    # step after the project's code in one job could not hold it: that code
+    # can change what every later step of its job runs (ADR-0007, decision 5).
+    - name: Set up PHP to deliver
+      if: inputs.deliver == 'true'
+      uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+      with:
+        php-version: ${{ inputs.php-version }}
+        coverage: none
+
+    - name: Install the gate's own copy
+      if: inputs.deliver == 'true'
+      shell: bash
+      run: composer install --working-dir="${GITHUB_ACTION_PATH}" --no-dev --no-scripts --no-plugins --no-interaction --no-progress --prefer-dist
+
+    # A run that stopped before it left anything uploaded nothing, and then
+    # there is nothing to deliver.
+    - name: Take what the run left
+      if: inputs.deliver == 'true'
+      continue-on-error: true
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+      with:
+        name: mutation-gate-delivery
+        path: .mutation-gate/delivery
+
+    - name: Deliver
+      if: inputs.deliver == 'true'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        set -uo pipefail
+        code=0
+        for stage in planned survivors verdict; do
+          if [ -f ".mutation-gate/delivery/${stage}/delivery.json" ]; then
+            php "${GITHUB_ACTION_PATH}/bin/mutation-gate" deliver --from=".mutation-gate/delivery/${stage}" || code=$?
+          fi
+        done
+        exit "${code}"

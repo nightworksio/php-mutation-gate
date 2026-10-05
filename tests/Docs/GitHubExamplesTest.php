@@ -32,7 +32,7 @@ function exampleJob(Node $example): Node
     return $example->field('jobs')->field(exampleJobId($example));
 }
 
-it('names the one-step job as the check a merged pull request\'s verdict is read by', function (): void {
+it('names the action\'s first job as the check a merged pull request\'s verdict is read by', function (): void {
     $job = exampleJob(readmeExample('uses: nightworksio/php-mutation-gate@'));
 
     expect(Lenient::text($job->field('name')))->toBe(Ci::standard()->check());

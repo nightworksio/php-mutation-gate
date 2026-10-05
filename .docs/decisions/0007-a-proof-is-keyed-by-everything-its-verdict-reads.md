@@ -455,9 +455,9 @@ has to bring its result with it.
      default branch alone, and GitLab's protected variables. Where the plan
      and the shards run in jobs of their own, they hold no keys and read the
      default branch's ledger from `publicUrl`. A verdict that holds the keys
-     still installs the project and loads its config, and GitHub's one-step
-     job runs the tests beside them, so there the keys are within the
-     project's reach on the default branch.
+     still installs the project and loads its config, so there the keys are
+     within the project's reach on the default branch. GitHub's action holds
+     them only in its `deliver` job.
    - **`deliver` and `fetch` hold the keys in jobs that run no project code.**
      Both run from the gate's own installation, before any extension is
      found or config read, and refuse to start through Composer's proxy or
