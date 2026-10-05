@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\PhpUnit\Invocation;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\MemoryScan;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\MutantRun;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Outcome;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\PreparedRun;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Project;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\TestFiles;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Variable;
@@ -468,4 +469,32 @@ it('runs a mutant\'s PHPUnit under the memory cap the run wrote, with its errors
     $run->judged(moneyMutant($project), TestIds::of($adds), $request, Seconds::of(3.0));
 
     expect($seen)->toBe(["memory_limit=64M\ndisplay_errors=stdout\n"]);
+});
+
+it('prepares a mutant\'s run without starting it, and judges it once it ends as a whole run would', function () use ($adds, $request): void {
+    $project = phpUnitProject();
+    $ran = Ran::finished(succeeded: true, output: '')->took(Seconds::of(0.5));
+    $shell = recording(Outcome::Passed->line($adds->value()), $ran);
+    $run = new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project), PhpUnitScan::uncapped($project), NotGiven::value());
+    $prepared = $run->prepared(moneyMutant($project), TestIds::of($adds), $request, Seconds::of(3.0));
+    $commands = count($shell->commands());
+    $ended = $prepared instanceof PreparedRun ? $shell->run($prepared->command()) : $ran;
+
+    expect($commands)->toBe(0)
+        ->and($prepared instanceof PreparedRun ? $run->finished($prepared, $ended) : $prepared)
+        ->toEqual($run->judged(moneyMutant($project), TestIds::of($adds), $request, Seconds::of(3.0)))
+        ->and($shell->commands()[0])->toEqual($shell->commands()[1]);
+});
+
+it('prepares no run for a mutant whose tests are in no file found, and leaves it unjudged', function () use ($request): void {
+    $project = phpUnitProject();
+    $shell = recording('', Ran::finished(succeeded: true, output: ''));
+    $run = new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project), PhpUnitScan::uncapped($project), NotGiven::value());
+    $prepared = $run->prepared(moneyMutant($project), TestIds::of(TestId::of("Tests\\Gone::a\nb")), $request, Seconds::of(3.0));
+
+    expect(judgedAs($prepared instanceof Mutant ? $prepared : CannotJudge::because('prepared')))->toBe([
+        MutantStatus::Unjudged,
+        [],
+        'A test that covers it has a line break in its name, and no test file found holds every test that covers it.',
+    ])->and($shell->commands())->toBe([]);
 });

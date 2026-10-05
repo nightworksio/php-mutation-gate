@@ -94,29 +94,60 @@ final readonly class MutantRun
     ) {
     }
 
+    /** The mutant, its tests run against it in one process stopped at its limit. */
     public function judged(
         MadeMutant $made,
         TestIds $covering,
         MutationRequest $request,
         Seconds $limit,
     ): Mutant|CannotJudge {
+        $prepared = $this->prepared($made, $covering, $request, $limit);
+
+        return $prepared instanceof PreparedRun
+            ? $this->finished($prepared, $this->shell->run($prepared->command()))
+            : $prepared;
+    }
+
+    /**
+     * The run that judges the mutant, its files written and its command
+     * built, ready to start; or the mutant unjudged without a run, or why it
+     * cannot be written.
+     */
+    public function prepared(
+        MadeMutant $made,
+        TestIds $covering,
+        MutationRequest $request,
+        Seconds $limit,
+    ): PreparedRun|Mutant|CannotJudge {
         $files = $this->written($made, $covering);
 
-        if (! $files instanceof MutantFiles) {
-            return $files;
-        }
+        return $files instanceof MutantFiles
+            ? PreparedRun::of(
+                $made,
+                $covering,
+                $files,
+                $this->scan->onto($this->invocation->of($files, $request, $limit)),
+                $limit,
+                $request->memory(),
+            )
+            : $files;
+    }
 
-        $command = $this->invocation->of($files, $request, $limit);
-        $ran = $this->shell->run($this->scan->onto($command));
+    /** The mutant as a prepared run that ended so judges it, by the extension's records and the guard. */
+    public function finished(PreparedRun $prepared, Ran $ran): Mutant
+    {
+        $made = $prepared->made();
+        $covering = $prepared->covering();
+        $files = $prepared->files();
         $recorded = Recorded::in($files->results(), $covering);
         $verdict = $this->verdict($ran, $recorded, Guard::in($files->guard()), count($covering));
-        $cap = $request->memory();
+        $cap = $prepared->cap();
         $status = $verdict instanceof Reason ? MutantStatus::Unjudged : $this->weighed($verdict, $ran, $cap);
         $mutant = $this->mutant($made, $status, $ran->duration());
 
         return match (true) {
             $verdict instanceof Reason => $mutant->because($verdict),
-            $status === MutantStatus::TimedOut => $mutant->withLimit($limit),
+            $status === MutantStatus::TimedOut => $mutant->withLimit($prepared->limit()),
             $status === MutantStatus::OutOfMemory && Exhaustion::isOf(Exhaustion::in($ran->output()), $cap)
                 => $mutant->withLimit($cap),
             $status === MutantStatus::Killed && $ran->wasStopped() => $mutant->killedBy($recorded->creditedFailures()),
