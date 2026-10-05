@@ -146,33 +146,38 @@ The same repository has two more needs.
 
    Where git cannot say what changed, everything is reached.
 
-5. **On the default branch, a tree a pull request already proved is not mutated
-   again.** On a push, the reach runs from `last-passed`. With the GitHub
-   `ChangeSource`, which reads pull requests and check-runs through GitHub's
-   API with `GITHUB_TOKEN`, a commit whose tree is the tree of the head of a
-   pull request merged into the repository's default branch, and whose verdict
-   passed on that head, reaches nothing: the branch was up to date, so its run
-   judged exactly the tree that landed. A pull request merged into any other
-   branch, which no protection of the default branch guards, proves nothing.
-   The gate asks at most twenty commits back. A longer range, or one commit it
-   cannot prove, is mutated in full.
-   - A pull request's verdict passed where two things say so. The latest
-     check-run GitHub Actions completed on its head under the name `ci.check`
-     (`mutation / verdict` by default, the reusable workflow's verdict job)
-     concluded in success, so a failed re-run outweighs an earlier success. A
-     workflow's conclusion is not enough, since skipped jobs and path filters
-     conclude in success too. And the pull request's own ledger records that
-     head as `passed` under that check with `ownScopeProofs` of 0 (ADR-0007).
-     A verdict that used a proof of its own scope is not trusted, because the
-     pull request's own code could have written that proof.
+5. **On the default branch, a tree a pull request already proved may be spared
+   a re-check, where the config asks for it.** On a push, the reach runs from
+   `last-passed`. Where `ci.trustMergedPullRequests` is true (false by
+   default), the GitHub `ChangeSource`, which reads pull requests and
+   check-runs through GitHub's API with `GITHUB_TOKEN`, spares a commit whose
+   tree is the tree of the head of a pull request merged into the
+   repository's default branch, and whose verdict passed on that head: it
+   reaches nothing, since the branch was up to date and its run judged exactly
+   the tree that landed. A pull request merged into any other branch, which no
+   protection of the default branch guards, proves nothing. The gate asks at
+   most twenty commits back. A longer range, or one commit it cannot prove, is
+   mutated in full.
+   - A pull request's verdict passed where its own ledger records that head
+     as `passed` under the check `ci.check` names (`mutation / verdict` by
+     default, the reusable workflow's verdict job) with `ownScopeProofs` of 0
+     (ADR-0007). A verdict that used a proof of its own scope is not trusted,
+     because the pull request's own code could have written that proof.
+   - The latest check-run GitHub Actions completed on the head under that
+     name must also have concluded in success, so a failed re-run outweighs an
+     earlier success. The check-run is a hint, not a proof: any workflow run
+     at that commit, the pull request's own included, can make one under any
+     name.
    - Where the run cannot read the pull requests' ledgers, it proves nothing
      this way, and the range is mutated in full.
-   - The shortcut trusts the pull request's own run, so anyone who can push a
-     branch of the repository can make the default branch skip re-checking a
-     merged pull request's tree: that branch's workflow names the check-run,
-     and its tests run where its ledger is written. A repository that does not
-     want that sets `ci.trustMergedPullRequests` to false (true by default),
-     and every merged range is mutated in full.
+   - The shortcut works only where pull request runs write their own scope's
+     ledger. That write is untrusted: the pull request's own code runs where
+     the ledger is computed and written, and no setup this package ships gives
+     a pull request's run the keys to write a store. Turning the shortcut on
+     trusts the pull request's own computed result, so anyone who can open a
+     pull request whose run writes its scope can make the default branch skip
+     re-checking its tree once it is merged. Off, every merged range is
+     mutated in full.
 
 6. **A scheduled full run is part of the design, not an extra.** Reach cannot
    see everything:
