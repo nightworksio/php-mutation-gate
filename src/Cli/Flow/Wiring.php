@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function count;
+use function ini_get;
 
 use NightWorksIO\MutationGate\Adapter\Azure\ContainerLedger;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
@@ -137,7 +138,12 @@ final readonly class Wiring
                 $mutators->skipped(),
                 $mutators->security(),
                 Narrowing::none(),
-                Prover::of(PHP_BINARY, $project->root()->at(Workspace::equivalence()), Cores::counted()),
+                Prover::of(
+                    PHP_BINARY,
+                    $project->root()->at(Workspace::equivalence()),
+                    Cores::counted(),
+                    ini_get('disable_functions'),
+                ),
             ),
         };
     }

@@ -31,14 +31,22 @@ final readonly class Prover
     /** How long one child may take to compile its programs, in seconds; one that takes longer proves none. */
     private const float CHILD_LIMIT = 60.0;
 
+    /** The setting that disables in a child what the tests' PHP disables. */
+    private const string DISABLED = 'disable_functions=%s';
+
     public function __construct(private Compiler $compiler)
     {
     }
 
-    /** The prover that compiles with this PHP, in this directory, which the gate owns, this many children at once. */
-    public static function of(string $binary, DiskPath $directory, Processes $parallel): self
+    /**
+     * The prover that compiles with this PHP, in this directory, which the gate owns, this many children at once,
+     * with the functions the PHP the tests ran on disables, as its `disable_functions` says them, disabled too.
+     */
+    public static function of(string $binary, DiskPath $directory, Processes $parallel, string|false $disabled): self
     {
-        return new self(new Compiler($binary, $directory->value(), self::CHILD_LIMIT, $parallel->count()));
+        $besides = [sprintf(self::DISABLED, $disabled)];
+
+        return new self(new Compiler($binary, $directory->value(), self::CHILD_LIMIT, $parallel->count(), $besides));
     }
 
     /**
@@ -50,6 +58,7 @@ final readonly class Prover
      */
     public function proven(array $pairs): array|Uncompiled
     {
+        $pairs = $this->undecided($pairs);
         $programs = [];
 
         foreach ($pairs as [$key, $original, $mutant]) {
@@ -62,6 +71,28 @@ final readonly class Prover
         return in_array(Uncompiled::NoOpcache, $compiled, strict: true)
             ? Uncompiled::NoOpcache
             : $this->declaringTheSame($pairs, $compiled);
+    }
+
+    /**
+     * The pairs whose mutant changes nothing opcache decides by the PHP it
+     * compiles on, which can differ from the one the tests ran on.
+     *
+     * @param  list<array{string, Contents, Contents}> $pairs
+     * @return list<array{string, Contents, Contents}>
+     */
+    private function undecided(array $pairs): array
+    {
+        $checks = [];
+        $undecided = [];
+
+        foreach ($pairs as $pair) {
+            [, $original, $mutant] = $pair;
+            $named = $this->originalOf($original);
+            $reached = ($checks[$named] ??= RuntimeChecks::in($original))->reached($mutant);
+            $undecided = $reached ? $undecided : [...$undecided, $pair];
+        }
+
+        return $undecided;
     }
 
     /**

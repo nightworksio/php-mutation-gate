@@ -189,7 +189,7 @@ final readonly class Flows
             self::given(Warnings::class, Warnings::none(), $ports),
             self::given(NamedMutators::class, NamedMutators::of(), $ports),
             self::given(Narrowing::class, Narrowing::none(), $ports),
-            self::given(Prover::class, Prover::of(PHP_BINARY, Root::of($project)->at(Path::of('.mutation-gate/equivalence')), Processes::of(2)), $ports),
+            self::given(Prover::class, Prover::of(PHP_BINARY, Root::of($project)->at(Path::of('.mutation-gate/equivalence')), Processes::of(2), disabled: false), $ports),
         );
     }
 
