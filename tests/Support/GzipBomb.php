@@ -11,6 +11,9 @@ use function deflate_init;
 use function ini_get;
 use function ini_set;
 use function intdiv;
+
+use LogicException;
+
 use function memory_get_usage;
 use function min;
 
@@ -50,10 +53,13 @@ final class GzipBomb
         return sprintf('%s%s', self::of($bytes), str_repeat('x', self::STEP));
     }
 
-    /** A memory_limit a mebibyte-rounded headroom above what this process uses now, so it can always be set. */
+    /**
+     * A memory_limit a mebibyte-rounded headroom above what this process holds from the system now, so it can always
+     * be set: PHP refuses a limit below that real usage, which a long run leaves far above what it uses.
+     */
     public static function limitAboveUse(): string
     {
-        return sprintf('%dM', intdiv(memory_get_usage(), self::STEP) + self::HEADROOM);
+        return sprintf('%dM', intdiv(memory_get_usage(real_usage: true), self::STEP) + self::HEADROOM);
     }
 
     /**
@@ -64,7 +70,11 @@ final class GzipBomb
     public static function readUnder(string $memoryLimit, Closure $read): CoverageMap|CannotJudge
     {
         $was = ini_get('memory_limit');
-        ini_set('memory_limit', $memoryLimit);
+
+        if (ini_set('memory_limit', $memoryLimit) === false) {
+            throw new LogicException(sprintf('memory_limit %s could not be set, so the read would judge under %s.', $memoryLimit, $was));
+        }
+
         $result = $read();
         ini_set('memory_limit', $was);
 
