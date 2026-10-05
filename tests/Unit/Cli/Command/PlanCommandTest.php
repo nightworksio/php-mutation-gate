@@ -8,6 +8,8 @@ use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
 use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Delivery\Delivery;
+use NightWorksIO\MutationGate\Core\Delivery\DeliveryFile;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanFile;
@@ -225,4 +227,23 @@ it('writes no planned state where the run is not a pull request\'s', function ()
     $planned = $plan(FlowCommands::project(), '--shards=1', ScriptedRunner::fixture(), Flows::ci());
 
     expect($planned->errors)->not->toContain('comment');
+});
+
+it('begins the planned stage\'s delivery under --deliver-later, emptying what an earlier run left', function () use ($plan): void {
+    $project = FlowCommands::project();
+    Scratch::write($project, '.mutation-gate/delivery/planned/delivery.json', '{"format": 1, "comment": "an earlier run\'s"}');
+    $planned = $plan($project, '--shards=1 --deliver-later', ScriptedRunner::fixture(), Flows::ci());
+
+    expect($planned->code)->toBe(0)
+        ->and(DeliveryFile::decode((string) file_get_contents(sprintf('%s/.mutation-gate/delivery/planned/delivery.json', $project))))
+        ->toEqual(Delivery::none());
+});
+
+it('cannot plan where the planned stage\'s delivery cannot be begun', function () use ($plan): void {
+    $project = FlowCommands::project();
+    Scratch::write($project, '.mutation-gate/delivery/planned/delivery.json/kept', '');
+    $planned = $plan($project, '--shards=1 --deliver-later', ScriptedRunner::fixture(), Flows::ci());
+
+    expect($planned->code)->toBe(2)
+        ->and($planned->errors)->toBe(sprintf("%s/.mutation-gate/delivery/planned/delivery.json could not be written.\n", $project));
 });

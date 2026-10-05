@@ -10,6 +10,9 @@ use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
 use NightWorksIO\MutationGate\Adapter\Console\ProblemsReport;
 use NightWorksIO\MutationGate\Adapter\Filesystem\BadgeDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\CodeQualityReportFile;
+use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveredReport;
+use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveryDirectory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\HtmlReportDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\JsonReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\JUnitReportFile;
@@ -22,6 +25,7 @@ use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
 use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
 use NightWorksIO\MutationGate\Adapter\Otlp\OtlpReporter;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Delivery\Stage;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Report\BadgeColors;
 use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
@@ -104,6 +108,15 @@ $reporters = [
         new MockHttpClient(static fn(): MockResponse => new MockResponse('{}')),
         new StoppedClock('2026-09-30T12:00:00Z'),
         'https://otel.example',
+    ),
+    'OTLP, delivered later' => fn(): Reporter => DeliveredReport::of(
+        OtlpReporter::to(
+            Variables::of([]),
+            new MockHttpClient(static fn(): MockResponse => new MockResponse('{}')),
+            new StoppedClock('2026-09-30T12:00:00Z'),
+            'https://otel.example',
+        ),
+        DeliveryDirectory::of(Directory::at(Scratch::directory()), Stage::Verdict),
     ),
     'the badge' => fn(): Reporter => BadgeDirectory::at(
         sprintf('%s/publish', Scratch::directory()),

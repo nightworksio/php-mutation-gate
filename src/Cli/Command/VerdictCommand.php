@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Results;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Delivery\Stage;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -38,7 +39,7 @@ final readonly class VerdictCommand
 
     public static function command(Composition $composition): Command
     {
-        return new Command('verdict')
+        return DeliverLater::option(new Command('verdict'))
             ->setDescription('Merge every shard\'s results, judge the floors, write reports and the ledger')
             ->addOption(FlowOptions::PLAN, mode: InputOption::VALUE_REQUIRED, description: 'The plan the shards ran')
             ->addOption(
@@ -47,7 +48,7 @@ final readonly class VerdictCommand
                 description: 'The directory the shards left their results in',
             )
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
-                $composed = $composition->compose($input);
+                $composed = DeliverLater::composed($composition->compose($input), $input, Stage::Verdict);
 
                 if (! $composed instanceof Composed) {
                     return Failed::because($output, $composed);

@@ -15,12 +15,16 @@ use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Delivery\AlertPost;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
+use NightWorksIO\MutationGate\Core\Delivery\KeptPost;
 use NightWorksIO\MutationGate\Core\Delivery\LedgerPost;
 use NightWorksIO\MutationGate\Core\Delivery\OtlpPost;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\Format\TooLarge;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
@@ -288,4 +292,75 @@ it('sends no alert for a reporter that sends none', function (): void {
         ->sent(Delivery::none()->withAlert(AlertPost::of(BuiltinReporter::Json, '{}')), NotWritten::because('untrusted'), static fn(): Ledger => Ledger::empty());
 
     expect($sent->said())->toBe(['json sends no alert.']);
+});
+
+/** A delivery that holds a ledger for the default branch, and the coverage map to keep beside it for this scope. */
+function sendingKept(Scope $scope): Delivery
+{
+    return sendingLedger(Scope::branch('main'))->withKept(KeptPost::of(Companion::Coverage, $scope));
+}
+
+it('keeps the coverage map beside the ledger in the store, under its own run\'s scope, on a trusted run', function (): void {
+    $built = new ArrayObject();
+    $store = new ProofStoreFake();
+    $sent = sendingOf(SENDING_STORE, $built, $store)->sent(
+        sendingKept(Scope::branch('main')),
+        Scope::branch('main'),
+        static fn(): Ledger => Ledger::empty(),
+        static fn(Companion $companion): Contents => Contents::of(sprintf('the run\'s %s', $companion->named())),
+    );
+
+    expect($built)->toHaveCount(1)
+        ->and($store->companion(Scope::branch('main'), Companion::Coverage))->toEqual(Contents::of('the run\'s coverage map'))
+        ->and($sent->said())->toBe(['Wrote memory:refs/heads/main.', 'Wrote memory:refs/heads/main/coverage.json.gz.'])
+        ->and($sent->exit())->toBe(ExitCode::Passed);
+});
+
+it('keeps nothing, and reads nothing beside the delivery, on a run that is no trusted run of the default branch', function (): void {
+    $read = new ArrayObject();
+    $store = new ProofStoreFake();
+    $sent = sendingOf(SENDING_STORE, new ArrayObject(), $store)->sent(
+        sendingKept(Scope::branch('main')),
+        NotWritten::because('This run is no push, schedule or manual run of the default branch, so deliver writes no ledger.'),
+        static fn(): Ledger => Ledger::empty(),
+        static function (Companion $companion) use ($read): Contents {
+            $read->append($companion->value);
+
+            return Contents::of('');
+        },
+    );
+
+    expect([...$read])->toBe([])
+        ->and($store->companion(Scope::branch('main'), Companion::Coverage))->toBeInstanceOf(Missing::class)
+        ->and($sent->exit())->toBe(ExitCode::Passed);
+});
+
+it('fails, and keeps nothing, for another scope than its own run\'s, or an object it cannot read', function (Scope $scope, Contents|CannotJudge|TooLarge $read, string $why): void {
+    $store = new ProofStoreFake();
+    $sent = sendingOf(SENDING_STORE, new ArrayObject(), $store)->sent(
+        sendingKept($scope),
+        Scope::branch('main'),
+        static fn(): Ledger => Ledger::empty(),
+        static fn(): Contents|CannotJudge|TooLarge => $read,
+    );
+
+    expect($store->companion(Scope::branch('main'), Companion::Coverage))->toBeInstanceOf(Missing::class)
+        ->and($sent->said())->toBe(['Wrote memory:refs/heads/main.', $why])
+        ->and($sent->exit())->toBe(ExitCode::CannotJudge);
+})->with([
+    'another scope' => [Scope::pullRequest(7), Contents::of('map'), 'The coverage map is not kept: the delivery holds refs/pull/7\'s, and this run writes refs/heads/main\'s alone.'],
+    'unreadable' => [Scope::branch('main'), CannotJudge::because('coverage.json.gz is missing.'), 'The coverage map is not kept, since it cannot be read: coverage.json.gz is missing.'],
+    'too large' => [Scope::branch('main'), TooLarge::because('past the limit'), 'The coverage map is not kept, since it cannot be read: past the limit'],
+]);
+
+it('fails, and keeps nothing, where its own environment locates no store for the coverage map', function (): void {
+    $sent = sendingOf([], new ArrayObject(), new ProofStoreFake())->sent(
+        Delivery::none()->withKept(KeptPost::of(Companion::Coverage, Scope::branch('main'))),
+        Scope::branch('main'),
+        static fn(): Ledger => Ledger::empty(),
+        static fn(): Contents => Contents::of('map'),
+    );
+
+    expect($sent->said())->toBe(['The coverage map is not kept: MUTATION_GATE_STORE names no built-in store that needs credentials: s3, gcs or azure.'])
+        ->and($sent->exit())->toBe(ExitCode::CannotJudge);
 });

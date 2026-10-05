@@ -203,6 +203,7 @@ Options:
 |--------|-------------|--------------|------------|
 | `--config=<path>` | every command | Read this config file instead of looking for one | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
 | `--no-extensions` | every command | Load only the extensions of this package and its first-party plugins, and no third-party code | [0001](.docs/decisions/0001-a-framework-free-core-behind-nine-ports.md) |
+| `--deliver-later` | `plan`, `verdict` | Send nothing that needs a credential and write no store: leave the ledger and the comment, alert and OTLP payloads in `.mutation-gate/delivery/planned` or `.mutation-gate/delivery/verdict`, begun empty, for `deliver`; on a pull request the comment is left whether or not the job holds a token | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `--runner=<name>` | every command | Set `runner` | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
 | `--report=<name>:<path>` | every command, repeatable | Add a file report to `reports` | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
 | `--changed-since=<ref>` | `plan`, `run` without a plan, `affected` | Mutate, or list the tests of, only what the change since `<ref>` reaches; `last-passed` is the newest passing commit | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
@@ -743,12 +744,18 @@ extension loaded. Each refuses to start through Composer's proxy, or from the
 working directory's `vendor`
 ([ADR-0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md)).
 
-- **`deliver`** sends what a run left in `.mutation-gate/delivery`. That
-  directory holds `delivery.json`, payloads only: the ledger's scope, the
+- **`deliver`** sends what a run left in `.mutation-gate/delivery`.
+  `plan --deliver-later` leaves its comment's planned state in
+  `.mutation-gate/delivery/planned`, and `verdict --deliver-later` its
+  ledger, the coverage map it keeps, comment, alerts and export in
+  `.mutation-gate/delivery/verdict`;
+  each sends nothing that needs a credential and writes no store, and `deliver
+  --from=<that directory>` sends it. A delivery directory holds
+  `delivery.json`, payloads only: the ledger's scope, the
   comment's markdown, each alert's body (no more to one channel than a
-  verdict sends) and the OTLP export. Beside it is
-  the ledger, `ledger.json.gz`. Both are read as JSON within the ledger's
-  byte limits, and a key `deliver` does not take, such as a URL, a host or a
+  verdict sends), the OTLP export and the scope each kept object is for.
+  Beside it are the ledger, `ledger.json.gz`, and the coverage map,
+  `coverage.json.gz`. Each is read within its own byte limits, and a key `deliver` does not take, such as a URL, a host or a
   variable's name, refuses the whole delivery. Every destination and every
   credential comes from `deliver`'s own environment:
   - the comment goes to the pull request its own event names, with
@@ -765,7 +772,8 @@ working directory's `vendor`
     branch's. It decides that from its own event and ref before it reads the
     delivery. The default branch is the one the event payload names, else
     `MUTATION_GATE_DEFAULT_BRANCH`. On any other run it writes no ledger and
-    fails nothing.
+    fails nothing. The coverage map is kept beside the ledger on the same
+    runs, for the same scope.
 - **`fetch`** reads the default branch's ledger, and no other scope's, from
   the store the variables below locate, with a key that only needs to read.
   It writes the ledger into `.mutation-gate/ledger`, where the `directory`

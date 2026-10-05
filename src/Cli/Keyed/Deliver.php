@@ -14,9 +14,12 @@ use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Delivery\DeliveryFile;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Format\TooLarge;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\CompanionRead;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
@@ -94,6 +97,7 @@ final readonly class Deliver
             $delivery,
             $trusted,
             static fn(): Ledger|CannotJudge|TooLarge => self::ledgerIn($from),
+            static fn(Companion $companion): Contents|CannotJudge|TooLarge => self::keptIn($from, $companion),
         );
     }
 
@@ -109,6 +113,14 @@ final readonly class Deliver
         };
     }
 
+    /** An object to keep beside the ledger, read from beside the delivery within the limits a store reads it to. */
+    private static function keptIn(Directory $from, Companion $companion): Contents|CannotJudge|TooLarge
+    {
+        $read = $from->readAtMost(Path::of($companion->value), CompanionRead::limitsOf($companion)->packed());
+
+        return $read instanceof Missing ? CannotJudge::because(sprintf(Sending::MISSING, $companion->value)) : $read;
+    }
+
     private static function ledgerIn(Directory $from): Ledger|CannotJudge|TooLarge
     {
         $limits = LedgerLimits::standard();
@@ -117,7 +129,7 @@ final readonly class Deliver
         return match (true) {
             $read instanceof Contents => LedgerFile::read($read->text(), $limits),
             $read instanceof CannotJudge, $read instanceof TooLarge => $read,
-            default => CannotJudge::because(sprintf('%s is missing.', LedgerFile::NAME)),
+            default => CannotJudge::because(sprintf(Sending::MISSING, LedgerFile::NAME)),
         };
     }
 }

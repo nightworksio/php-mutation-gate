@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Keyed;
 
+use function array_any;
+use function array_filter;
 use function array_map;
 
 use Closure;
@@ -22,11 +24,14 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Delivery\AlertPost;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
+use NightWorksIO\MutationGate\Core\Delivery\KeptPost;
 use NightWorksIO\MutationGate\Core\Delivery\LedgerPost;
 use NightWorksIO\MutationGate\Core\Delivery\OtlpPost;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Format\TooLarge;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\GateSecret;
@@ -52,12 +57,24 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  */
 final readonly class Sending
 {
+    /** Why a file beside the delivery cannot be read: there is none. */
+    public const string MISSING = '%s is missing.';
     private const string NO_STORE = 'The ledger is not written: %s';
 
     private const string NO_LEDGER = 'The ledger is not written, since it cannot be read: %s';
 
     private const string OTHER_SCOPE
         = 'The ledger is not written: the delivery holds %s\'s, and this run writes %s\'s alone.';
+
+    private const string NOT_KEPT = 'The %s is not kept: %s';
+
+    /** Why no store is built: the delivery writes nothing to the default branch's scope on this run. */
+    private const string NOTHING_TO_WRITE = 'The delivery writes nothing to the store on this run.';
+
+    private const string UNREAD_KEPT = 'The %s is not kept, since it cannot be read: %s';
+
+    private const string OTHER_SCOPE_KEPT
+        = 'The %s is not kept: the delivery holds %s\'s, and this run writes %s\'s alone.';
 
     /** @param array<string, string> $environment */
     public function __construct(
@@ -84,43 +101,123 @@ final readonly class Sending
     }
 
     /**
-     * What each part of the delivery came to, and the exit code: a trusted run's ledger left unwritten fails the
-     * job. The ledger is written only on a trusted run of the default branch, and only for that branch's scope;
-     * elsewhere it is never read, and no store is built.
+     * What each part of the delivery came to, and the exit code: a trusted run's ledger, or an object to keep
+     * beside it, left unwritten fails the job. Each is written only on a trusted run of the default branch, and
+     * only for that branch's scope; elsewhere none is read, and no store is built.
      *
-     * @param Closure(): (Ledger|CannotJudge|TooLarge) $ledger the ledger beside the delivery, read when written
+     * @param Closure(): (Ledger|CannotJudge|TooLarge)                   $ledger the ledger beside the delivery, read
+     *                                                                            when written
+     * @param Closure(Companion): (Contents|CannotJudge|TooLarge)|NotGiven $kept   each object beside it, read when
+     *                                                                            kept
      */
-    public function sent(Delivery $delivery, Scope|NotWritten $trusted, Closure $ledger): Sent
-    {
+    public function sent(
+        Delivery $delivery,
+        Scope|NotWritten $trusted,
+        Closure $ledger,
+        Closure|NotGiven $kept = new NotGiven(),
+    ): Sent {
         $post = $delivery->ledger();
-        $stored = $post instanceof LedgerPost ? $this->stored($post, $trusted, $ledger) : NotGiven::value();
+        $store = $this->storeFor($delivery, $trusted);
+        $stored = $post instanceof LedgerPost ? $this->stored($post, $trusted, $store, $ledger) : NotGiven::value();
+        $keeping = $trusted instanceof Scope ? $this->keptAll($delivery->kept(), $trusted, $store, $kept) : [];
         $comment = $delivery->comment();
         $otlp = $delivery->otlp();
         $said = [
             ...$stored instanceof NotGiven ? [] : [$stored],
+            ...$keeping,
             ...$comment instanceof NotGiven ? [] : [$this->commented($comment)],
             ...array_map($this->alerted(...), $delivery->alerts()),
             ...$otlp instanceof OtlpPost ? [$this->exported($otlp)] : [],
         ];
+        $unwritten = array_filter([$stored, ...$keeping], static fn(object $one): bool => $one instanceof NotWritten);
 
         return Sent::of(
             array_map(
                 static fn(Written|NotWritten $one): string => $one instanceof Written ? $one->said() : $one->why(),
                 $said,
             ),
-            $trusted instanceof Scope && $stored instanceof NotWritten ? ExitCode::CannotJudge : ExitCode::Passed,
+            $trusted instanceof Scope && $unwritten !== [] ? ExitCode::CannotJudge : ExitCode::Passed,
         );
     }
 
-    /** @param Closure(): (Ledger|CannotJudge|TooLarge) $ledger */
-    private function stored(LedgerPost $post, Scope|NotWritten $trusted, Closure $ledger): Written|NotWritten
+    /**
+     * The store its own environment locates for the default branch, built once, and only where the delivery holds
+     * something to write there on a trusted run; else why none is built.
+     */
+    private function storeFor(Delivery $delivery, Scope|NotWritten $trusted): ProofStore|NotWritten|CannotJudge
     {
+        $post = $delivery->ledger();
+        $scopes = [
+            ...$post instanceof LedgerPost ? [$post->scope()] : [],
+            ...array_map(static fn(KeptPost $kept): Scope => $kept->scope(), $delivery->kept()),
+        ];
+        $writes = $trusted instanceof Scope
+            && array_any($scopes, static fn(Scope $scope): bool => $scope->equals($trusted));
+
+        return $writes ? $this->stores->forDefaultBranch($trusted) : NotWritten::because(self::NOTHING_TO_WRITE);
+    }
+
+    /**
+     * Each object the delivery keeps beside a ledger, kept in the store for the default branch's scope alone.
+     *
+     * @param  list<KeptPost>                                         $posts
+     * @param  Closure(Companion): (Contents|CannotJudge|TooLarge)|NotGiven $kept
+     * @return list<Written|NotWritten>
+     */
+    private function keptAll(
+        array $posts,
+        Scope $defaultBranch,
+        ProofStore|NotWritten|CannotJudge $store,
+        Closure|NotGiven $kept,
+    ): array {
+        $said = [];
+
+        foreach ($posts as $post) {
+            $named = $post->companion()->named();
+            $said[] = $post->scope()->equals($defaultBranch)
+                ? $this->keptOne($post->companion(), $defaultBranch, $store, $kept)
+                : NotWritten::because(
+                    sprintf(self::OTHER_SCOPE_KEPT, $named, $post->scope()->ref(), $defaultBranch->ref()),
+                );
+        }
+
+        return $said;
+    }
+
+    /** @param Closure(Companion): (Contents|CannotJudge|TooLarge)|NotGiven $kept */
+    private function keptOne(
+        Companion $companion,
+        Scope $defaultBranch,
+        ProofStore|NotWritten|CannotJudge $store,
+        Closure|NotGiven $kept,
+    ): Written|NotWritten {
+        $read = match (true) {
+            ! $store instanceof ProofStore => $store,
+            $kept instanceof NotGiven => CannotJudge::because(sprintf(self::MISSING, $companion->value)),
+            default => $kept($companion),
+        };
+
+        return match (true) {
+            ! $store instanceof ProofStore
+                => NotWritten::because(sprintf(self::NOT_KEPT, $companion->named(), $store->why())),
+            $read instanceof Contents => $store->keep($defaultBranch, $companion, $read),
+            default => NotWritten::because(sprintf(self::UNREAD_KEPT, $companion->named(), $read->why())),
+        };
+    }
+
+    /** @param Closure(): (Ledger|CannotJudge|TooLarge) $ledger */
+    private function stored(
+        LedgerPost $post,
+        Scope|NotWritten $trusted,
+        ProofStore|NotWritten|CannotJudge $store,
+        Closure $ledger,
+    ): Written|NotWritten {
         if ($trusted instanceof NotWritten) {
             return $trusted;
         }
 
         return $post->scope()->equals($trusted)
-            ? $this->written($trusted, $ledger)
+            ? $this->written($trusted, $store, $ledger)
             : NotWritten::because(sprintf(self::OTHER_SCOPE, $post->scope()->ref(), $trusted->ref()));
     }
 
@@ -130,9 +227,11 @@ final readonly class Sending
      *
      * @param Closure(): (Ledger|CannotJudge|TooLarge) $ledger
      */
-    private function written(Scope $defaultBranch, Closure $ledger): Written|NotWritten
-    {
-        $store = $this->stores->forDefaultBranch($defaultBranch);
+    private function written(
+        Scope $defaultBranch,
+        ProofStore|NotWritten|CannotJudge $store,
+        Closure $ledger,
+    ): Written|NotWritten {
         $read = $store instanceof ProofStore ? $ledger() : $store;
 
         return match (true) {

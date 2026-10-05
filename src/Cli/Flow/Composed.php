@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveredLedger;
+use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveryDirectory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
@@ -63,6 +65,21 @@ final readonly class Composed
         return $adapters instanceof Adapters
             ? new self($this->settings, $adapters, $this->setup, $this->reporting)
             : $adapters;
+    }
+
+    /**
+     * The same, leaving its ledger and what each reporter whose sending needs a credential would send in this
+     * delivery, for `deliver`, as `--deliver-later` asks (ADR-0007 decision 5); ledgers are still read from the store
+     * the config names.
+     */
+    public function deliveringLater(DeliveryDirectory $delivery): self
+    {
+        return new self(
+            $this->settings,
+            $this->adapters->withProofs(DeliveredLedger::over($this->adapters->proofs, $delivery)),
+            $this->setup,
+            $this->reporting->deliveringLater($delivery),
+        );
     }
 
     /**

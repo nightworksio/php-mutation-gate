@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function array_map;
 use function is_array;
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveredReport;
+use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveryDirectory;
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -17,11 +20,16 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Delivery\Deferring;
+use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanEstimates;
+use NightWorksIO\MutationGate\Core\Plan\PlannedWork;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\Reporter;
@@ -37,12 +45,77 @@ use function str_contains;
 final readonly class Reporting
 {
     /** What chose the reporters the run chooses on GitHub. */
-    public function __construct(private Chosen $chosen, private Variables $environment)
+    public function __construct(
+        private Chosen $chosen,
+        private Variables $environment,
+        private DeliveryDirectory|NotGiven $later = new NotGiven(),
+    ) {
+    }
+
+    /**
+     * The same, leaving what each reporter whose sending needs a credential would send in this delivery, for
+     * `deliver` to send, as `--deliver-later` asks (ADR-0007 decision 5): the comment is chosen on a pull request
+     * whether or not this run holds a token.
+     */
+    public function deliveringLater(DeliveryDirectory $delivery): self
     {
+        return new self($this->chosen, $this->environment, $delivery);
     }
 
     /** @return list<Reporter>|Invalid|CannotJudge */
     public function reporters(Settings $settings, RunOn $runOn): array|Invalid|CannotJudge
+    {
+        $chosen = $this->chosenReporters($settings, $runOn);
+        $later = $this->later;
+
+        return is_array($chosen) && $later instanceof DeliveryDirectory
+            ? array_map(
+                static fn(Reporter $reporter): Reporter => $reporter instanceof Deferring
+                    ? DeliveredReport::of($reporter, $later)
+                    : $reporter,
+                $chosen,
+            )
+            : $chosen;
+    }
+
+    /**
+     * The sticky comment in its planned state, written before any shard runs
+     * (ADR-0009, decision 3): what each comment the run chooses said of it,
+     * written or not; nothing where the run chooses no comment.
+     *
+     * @return list<string>|Invalid|CannotJudge
+     */
+    public function planned(Settings $settings, Plan $plan): array|Invalid|CannotJudge
+    {
+        $reporters = $this->chosenReporters($settings, $plan->runOn());
+
+        if (! is_array($reporters)) {
+            return $reporters;
+        }
+
+        $work = PlanEstimates::of($plan, $settings->shards()->setup())->work();
+        $said = [];
+
+        foreach ($reporters as $reporter) {
+            if ($reporter instanceof PullRequestComment) {
+                $written = $this->plannedBy($reporter, $work);
+                $said[] = $written instanceof Written ? $written->said() : $written->why();
+            }
+        }
+
+        return $said;
+    }
+
+    /** The comment in its planned state, written, or left in the delivery under `--deliver-later`. */
+    private function plannedBy(PullRequestComment $comment, PlannedWork $work): Written|NotWritten|CannotJudge
+    {
+        return $this->later instanceof DeliveryDirectory
+            ? $this->later->adding(static fn(Delivery $delivery): Delivery => $comment->plannedLater($work, $delivery))
+            : $comment->planned($work);
+    }
+
+    /** @return list<Reporter>|Invalid|CannotJudge */
+    private function chosenReporters(Settings $settings, RunOn $runOn): array|Invalid|CannotJudge
     {
         $reporters = [];
 
@@ -55,34 +128,6 @@ final readonly class Reporting
         }
 
         return $reporters;
-    }
-
-    /**
-     * The sticky comment in its planned state, written before any shard runs
-     * (ADR-0009, decision 3): what each comment the run chooses said of it,
-     * written or not; nothing where the run chooses no comment.
-     *
-     * @return list<string>|Invalid|CannotJudge
-     */
-    public function planned(Settings $settings, Plan $plan): array|Invalid|CannotJudge
-    {
-        $reporters = $this->reporters($settings, $plan->runOn());
-
-        if (! is_array($reporters)) {
-            return $reporters;
-        }
-
-        $work = PlanEstimates::of($plan, $settings->shards()->setup())->work();
-        $said = [];
-
-        foreach ($reporters as $reporter) {
-            if ($reporter instanceof PullRequestComment) {
-                $written = $reporter->planned($work);
-                $said[] = $written instanceof Written ? $written->said() : $written->why();
-            }
-        }
-
-        return $said;
     }
 
     /** @return list<Reporter|Invalid|CannotJudge> one for each entry of `reports`, with its path in its options */
@@ -139,11 +184,12 @@ final readonly class Reporting
         return $this->environment->onGitHubActions();
     }
 
+    /** On GitHub, on a pull request, with the token that comments, or with the comment left for `deliver`. */
     private function onAPullRequestThatCanBeCommentedOn(): bool
     {
         return $this->onGitHub()
             && str_contains($this->environment->valueOf('GITHUB_EVENT_NAME'), 'pull_request')
-            && $this->environment->valueOf('GITHUB_TOKEN') !== '';
+            && ($this->later instanceof DeliveryDirectory || $this->environment->valueOf('GITHUB_TOKEN') !== '');
     }
 
     private function onDefaultBranch(RunOn $runOn): bool

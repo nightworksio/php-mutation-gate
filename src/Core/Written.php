@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core;
 
+use NightWorksIO\MutationGate\Core\Format\Fit;
+
 use function sprintf;
 
 /** Something was written, where it went, and what else the writer says of it. */
@@ -52,6 +54,12 @@ final readonly class Written
     public static function noting(string $where, string $note): self
     {
         return new self($where, $note);
+    }
+
+    /** That write, with this said of it before what its writer noted. */
+    public static function sayingFirst(string $note, self $written): self
+    {
+        return new self($written->where, $written->note === '' ? $note : sprintf(Fit::JOINED, $note, $written->note));
     }
 
     public function where(): string
