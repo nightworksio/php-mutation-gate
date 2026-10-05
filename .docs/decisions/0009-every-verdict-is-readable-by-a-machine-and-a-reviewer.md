@@ -176,19 +176,17 @@ sees the same verdict.
        `GITHUB_TOKEN`, which cannot read `/user`. The option `identity` names
        another. It is updated in place on every run, passing runs included, so
        an old failure never lingers. The token needs `pull-requests: write`.
-     - **Planned, then judged.** The `plan` job posts it first, in a
-       *planned* state: the units to be mutated, the estimate (ADR-0017), and
-       the changed lines no test covers, read from the coverage map the plan
-       holds. In order: the marker; `## mutation-gate: planned`; *Mutating 12
-       units in 3 shards: about 6m wall, 14m runner time (94% measured)*, or
-       *Nothing to mutate* where the plan has no units; the units, folded
-       as `<details><summary>Units (12)</summary>`; *Changed lines no test
-       covers (3)* as a heading over one `path:line` a line; and the link to
-       the run. Each list is cut like the verdict's. The flows write it with
+     - **Planned, then judged.** `plan`, and `run` without a plan, post it
+       first, in a *planned* state: the units to be mutated and the estimate
+       (ADR-0017). In order: the marker; `## mutation-gate: planned`;
+       *Mutating 12 units in 3 shards: about 6m wall, 14m runner time (94%
+       measured)*, or *Nothing to mutate* where the plan has no units; the
+       units, folded as `<details><summary>Units (12)</summary>`, cut like
+       the verdict's lists; and the link to the run. The flows write it with
        `PullRequestComment::planned(PlannedWork)`, where `PlannedWork` holds
-       the plan, its estimate, the share of the estimate that was measured,
-       and the uncovered lines by file. The verdict replaces that state with
-       what follows (ADR-0019).
+       the plan, its estimate and the share of the estimate that was
+       measured. The verdict replaces that state with what follows
+       (ADR-0019).
      - **What it holds:**
        - the verdict, with the line saying what the run saved directly under
          it (ADR-0017);

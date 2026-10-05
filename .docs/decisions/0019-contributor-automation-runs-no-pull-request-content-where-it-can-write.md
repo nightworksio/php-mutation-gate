@@ -261,9 +261,7 @@ by probes on 2026-09-30:
     - The gate's own sticky comment (ADR-0009 decision 3) gains a
       **planned** state, posted by the `plan` job. It holds:
       - the units to be mutated;
-      - the estimate (ADR-0017);
-      - the changed lines no test covers, read from the coverage map the
-        plan already holds.
+      - the estimate (ADR-0017).
     - It is posted minutes before the verdict replaces it.
     - This is a feature of the gate for every user, and the bot links it.
 

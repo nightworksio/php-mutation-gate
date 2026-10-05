@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Filesystem\BadgeDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\JsonReportFile;
 use NightWorksIO\MutationGate\Adapter\GitHub\Annotations;
+use NightWorksIO\MutationGate\Adapter\GitHub\PlannedMarkdown;
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
 use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
@@ -18,9 +19,11 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Plan\PlanEstimates;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\ThisPackage;
@@ -29,9 +32,13 @@ use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Port\Reporter;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\ConfigurableReporter;
+use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\Planned;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
+use Symfony\Component\HttpClient\MockHttpClient;
+use Symfony\Component\HttpClient\Response\JsonMockResponse;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -161,3 +168,67 @@ it('draws no badge outside CI, off the default branch, or where the run has no r
         RunOn::at(Scope::branch('main'), CannotTell::because('unnamed')),
     ],
 ]);
+
+/** A registry whose sticky comment answers through these responses, as `gate-bot`, on pull request 12. */
+function reportingCommentingThrough(MockHttpClient $client): Chosen
+{
+    $environment = [
+        'GITHUB_EVENT_NAME' => 'pull_request',
+        'GITHUB_TOKEN' => 'secret',
+        'GITHUB_REPOSITORY' => 'octo/gate',
+        'GITHUB_API_URL' => 'https://api.github.example',
+        'GITHUB_SERVER_URL' => 'https://github.example',
+        'GITHUB_RUN_ID' => '7',
+    ];
+    $event = (string) json_encode(['pull_request' => [
+        'number' => 12,
+        'head' => ['repo' => ['full_name' => 'octo/gate']],
+        'base' => ['repo' => ['full_name' => 'octo/gate']],
+    ]]);
+
+    return new Chosen(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))->withReporter(
+        BuiltinReporter::GitHubComment->named(),
+        static fn(): Reporter => PullRequestComment::inRun($environment, $event, $client, 'gate-bot'),
+    ));
+}
+
+it('writes the sticky comment in its planned state on a pull request it can write to, saying where', function (): void {
+    $post = new JsonMockResponse(['html_url' => 'https://github.example/octo/gate/pull/12#issuecomment-9']);
+    $client = new MockHttpClient([new JsonMockResponse([]), $post]);
+    $plan = Planned::twoShards()->on(RunOn::at(Scope::pullRequest(12), Scope::branch('main')));
+    $settings = Flows::settings();
+    $onAPullRequest = Variables::of(['GITHUB_ACTIONS' => 'true', 'GITHUB_EVENT_NAME' => 'pull_request', 'GITHUB_TOKEN' => 'secret']);
+
+    $said = new Reporting(reportingCommentingThrough($client), $onAPullRequest)->planned($settings, $plan);
+
+    expect($said)->toBe([Written::to('https://github.example/octo/gate/pull/12#issuecomment-9')->said()])
+        ->and($post->getRequestMethod())->toBe('POST')
+        ->and(Decoded::at(is_string($post->getRequestOptions()['body']) ? $post->getRequestOptions()['body'] : '', 'body'))
+        ->toBe(PlannedMarkdown::comment(
+            PlanEstimates::of($plan, $settings->shards()->setup())->work(),
+            'https://github.example/octo/gate/actions/runs/7',
+        ));
+});
+
+it('writes no planned state where the run chooses no comment', function (Variables $environment): void {
+    $client = new MockHttpClient([]);
+    $plan = Planned::twoShards()->on(RunOn::at(Scope::pullRequest(12), Scope::branch('main')));
+
+    expect(new Reporting(reportingCommentingThrough($client), $environment)->planned(Flows::settings(), $plan))->toBe([])
+        ->and($client->getRequestsCount())->toBe(0);
+})->with([
+    'a push' => [Variables::of(['GITHUB_ACTIONS' => 'true', 'GITHUB_EVENT_NAME' => 'push', 'GITHUB_TOKEN' => 'secret'])],
+    'a pull request with no token' => [Variables::of(['GITHUB_ACTIONS' => 'true', 'GITHUB_EVENT_NAME' => 'pull_request'])],
+    'no GitHub Actions' => [Variables::of([])],
+]);
+
+it('says which entry of reports cannot be built before it writes any planned state', function (): void {
+    $settings = Flows::settings(Report::uses(sprintf('\\%s', ConfigurableReporter::class)));
+    $plan = Planned::twoShards()->on(reportingOnMain());
+
+    expect(new Reporting(reportingCommentingThrough(new MockHttpClient([])), Variables::of([]))->planned($settings, $plan))
+        ->toEqual(Invalid::because(
+            Problem::at('reports[0].with.channel', 'expected a channel name, got nothing'),
+            Problem::at('reports[0].with', 'needs a channel'),
+        ));
+});

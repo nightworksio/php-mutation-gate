@@ -34,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
@@ -486,4 +487,26 @@ it('names the holding tests that judged a held unit\'s survivor, in the run that
     expect($ran->output)->toContain($judged)
         ->and($proved->output)->toContain($judged)
         ->and($proved->output)->toContain('2: 0 run, 2 proved, 0 carried.');
+});
+
+it('writes the sticky comment in its planned state before it runs a pull request\'s plan, and not for one shard', function () use (
+    $floored,
+): void {
+    $project = FlowCommands::project('"ci": {"plan": "json"}');
+    $composition = FlowCommands::over(
+        $floored(0),
+        $project,
+        ScriptedRunner::fixture(),
+        new ProofStoreFake(),
+        Flows::ci(),
+        Variables::of(['GITHUB_ACTIONS' => 'true', 'GITHUB_EVENT_NAME' => 'pull_request', 'GITHUB_TOKEN' => 'secret']),
+    );
+    $notOne = 'This run is not for a pull request, so there is no comment to write.';
+    [$ran, $shard] = Environment::during(['GITHUB_EVENT_NAME' => 'push'], static fn(): ArrayObject => new ArrayObject([
+        FlowCommands::run(RunCommand::command($composition), '--shards=1'),
+        FlowCommands::run(RunCommand::command($composition), '--plan=.mutation-gate/plan.json --shard=1'),
+    ]));
+
+    expect($ran instanceof FlowCommands ? $ran->output : $ran)->toStartWith(sprintf("%s\n", $notOne))
+        ->and($shard instanceof FlowCommands ? sprintf("%s%s", $shard->output, $shard->errors) : $shard)->not->toContain($notOne);
 });

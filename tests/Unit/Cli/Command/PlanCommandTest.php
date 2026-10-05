@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Plan\PlanFile;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -198,4 +199,29 @@ it('asks the runner who it is withholding every CI\'s tokens', function () use (
     expect($identified)->not->toBeEmpty()
         ->and($identified)->each->toEqual($identified[0])
         ->and(preg_match($identified[0]->pattern(), 'CI_JOB_TOKEN'))->toBe(1);
+});
+
+it('writes the sticky comment in its planned state on a pull request\'s run, and says what it said', function (): void {
+    $project = FlowCommands::project('"ci": {"plan": "json"}');
+    $composition = FlowCommands::over(
+        Flows::trees(),
+        $project,
+        ScriptedRunner::fixture(),
+        new ProofStoreFake(),
+        Flows::ci(),
+        Variables::of(['GITHUB_ACTIONS' => 'true', 'GITHUB_EVENT_NAME' => 'pull_request', 'GITHUB_TOKEN' => 'secret']),
+    );
+    $planned = Environment::during(
+        ['GITHUB_EVENT_NAME' => 'push'],
+        static fn(): FlowCommands => FlowCommands::run(PlanCommand::command($composition), '--shards=1'),
+    );
+
+    expect($planned->code)->toBe(0)
+        ->and($planned->errors)->toEndWith("This run is not for a pull request, so there is no comment to write.\n");
+});
+
+it('writes no planned state where the run is not a pull request\'s', function () use ($plan): void {
+    $planned = $plan(FlowCommands::project(), '--shards=1', ScriptedRunner::fixture(), Flows::ci());
+
+    expect($planned->errors)->not->toContain('comment');
 });
