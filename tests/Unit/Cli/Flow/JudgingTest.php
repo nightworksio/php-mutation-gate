@@ -148,8 +148,6 @@ use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
-use const PHP_BINARY;
-
 afterEach(function (): void {
     Scratch::sweep();
 });
