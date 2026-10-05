@@ -20,8 +20,9 @@ use function sprintf;
 
 /**
  * GitHub's word on which commits of the default branch a pull request
- * already proved: a commit is proved where its tree is the head of a merged
- * pull request whose verdict passed on that head, which is where the latest
+ * already proved: a commit is proved where its tree is the head of a pull
+ * request merged into the repository's default branch whose verdict passed on
+ * that head, which is where the latest
  * check-run GitHub Actions completed there under the name `ci.check` concluded
  * in success, and the pull request's own ledger records the head as passed
  * under that check with no proof of its own scope used. Without the ledgers
@@ -92,7 +93,7 @@ final readonly class MergedHeads
         return $proved;
     }
 
-    /** Whether a commit's tree is the head of a merged pull request whose verdict passed on it. */
+    /** Whether a commit's tree is the head of a pull request merged into the default branch that passed on it. */
     private function proves(Answer $commit): bool
     {
         $pulls = $this->api->get(sprintf('/repos/%s/commits/%s/pulls', $this->repository, $commit->text('sha')));
@@ -101,9 +102,23 @@ final readonly class MergedHeads
         return $pulls instanceof Answer && $tree !== '' && array_any(
             $pulls->items(),
             fn(Answer $pull): bool => $pull->text('merged_at') !== ''
+                && $this->isIntoDefaultBranch($pull)
                 && $this->hasTree($pull->text('head', 'sha'), $tree)
                 && $this->passed($pull->number('number'), $pull->text('head', 'sha')),
         );
+    }
+
+    /**
+     * Whether a pull request was merged into this repository's default branch, as the repository's own API says:
+     * a merge into another branch, which no branch protection may guard, proves nothing of the default branch.
+     */
+    private function isIntoDefaultBranch(Answer $pull): bool
+    {
+        $branch = $pull->text('base', 'ref');
+
+        return $branch !== ''
+            && $branch === $pull->text('base', 'repo', 'default_branch')
+            && $pull->text('base', 'repo', 'full_name') === $this->repository;
     }
 
     /** Whether a commit is of this tree. */

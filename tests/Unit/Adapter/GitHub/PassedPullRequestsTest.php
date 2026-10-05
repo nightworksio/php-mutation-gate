@@ -115,6 +115,21 @@ function trusting(Checkout $source, MockHttpClient $github, ProofStoreFake $ledg
 }
 
 /**
+ * The second pull request, merged into this branch of this repository, whose default branch is this one.
+ *
+ * @return array<string, mixed>
+ */
+function mergedInto(string $branch, string $repository, string $defaultBranch): array
+{
+    return [
+        'number' => 2,
+        'merged_at' => '2026-09-30T10:00:00Z',
+        'head' => ['sha' => 'pr-two'],
+        'base' => ['ref' => $branch, 'repo' => ['full_name' => $repository, 'default_branch' => $defaultBranch]],
+    ];
+}
+
+/**
  * What GitHub says of commits each of which is the tree of a merged pull
  * request whose verdict passed on its head.
  *
@@ -129,7 +144,12 @@ function provedCommits(array $commits, int $total = -1): array
     ]];
 
     foreach ($commits as $at => $commit) {
-        $answers[sprintf('%s/commits/%s/pulls', PULL_REQUESTS_API, $commit)] = [['number' => $at + 1, 'merged_at' => '2026-09-30T10:00:00Z', 'head' => ['sha' => sprintf('pr-%s', $commit)]]];
+        $answers[sprintf('%s/commits/%s/pulls', PULL_REQUESTS_API, $commit)] = [[
+            'number' => $at + 1,
+            'merged_at' => '2026-09-30T10:00:00Z',
+            'head' => ['sha' => sprintf('pr-%s', $commit)],
+            'base' => ['ref' => 'main', 'repo' => ['full_name' => 'octo/gate', 'default_branch' => 'main']],
+        ]];
         $answers[sprintf('%s/git/commits/pr-%s', PULL_REQUESTS_API, $commit)] = ['tree' => ['sha' => sprintf('tree-%s', $commit)]];
         $answers[checkRuns(sprintf('pr-%s', $commit))] = [
             'check_runs' => [verdictRun(1, 'lint', 'failure'), verdictRun(2, PULL_REQUESTS_CHECK, 'success')],
@@ -210,6 +230,9 @@ function spoilt(string $how, array $answers): array
             'check_runs' => [verdictRun(2, PULL_REQUESTS_CHECK, 'success', app: 'checks-writer')],
         ]],
         'the pull request has no number' => [...$answers, sprintf('%s/commits/two/pulls', PULL_REQUESTS_API) => [['merged_at' => '2026-09-30T10:00:00Z', 'head' => ['sha' => 'pr-two']]]],
+        'it was merged into another branch' => [...$answers, sprintf('%s/commits/two/pulls', PULL_REQUESTS_API) => [mergedInto('feature', 'octo/gate', 'main')]],
+        'it was merged into another repository\'s default branch' => [...$answers, sprintf('%s/commits/two/pulls', PULL_REQUESTS_API) => [mergedInto('main', 'mallory/gate', 'main')]],
+        'it names no base' => [...$answers, sprintf('%s/commits/two/pulls', PULL_REQUESTS_API) => [mergedInto('', 'octo/gate', '')]],
         'the commit names no tree' => [
             ...$answers,
             sprintf('%s/compare/base...head', PULL_REQUESTS_API) => ['total_commits' => 1, 'commits' => [['sha' => 'one', 'commit' => []]]],
@@ -237,6 +260,9 @@ it('reads everything since the base when a commit cannot be proved', function (s
     'a later run of the check failed',
     'another app ran the check',
     'the pull request has no number',
+    'it was merged into another branch',
+    'it was merged into another repository\'s default branch',
+    'it names no base',
     'the commit names no tree',
 ]);
 
