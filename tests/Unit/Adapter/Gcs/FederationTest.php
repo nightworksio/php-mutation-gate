@@ -55,9 +55,27 @@ it('refuses a key the credentials file holds, though a ready token is set too', 
         )));
 });
 
-it('says there is no token where neither the file nor a ready token is set', function (): void {
+it('says there is no token where neither the file, the provider nor a ready token is set', function (): void {
     expect(Federation::from(Variables::of([]), new Cloud()->exchange()))->toEqual(Invalid::because(Problem::at(
         '',
-        'neither GOOGLE_APPLICATION_CREDENTIALS nor MUTATION_GATE_GCS_TOKEN is set, so the gcs store has no token to write with.',
+        'none of GOOGLE_APPLICATION_CREDENTIALS, MUTATION_GATE_GCS_PROVIDER and MUTATION_GATE_GCS_TOKEN is set, so the gcs store has no token to write with.',
     )));
+});
+
+it('federates GitHub\'s own token through the provider the environment names, over a file, and refuses one it does not take', function (): void {
+    $github = [
+        'ACTIONS_ID_TOKEN_REQUEST_URL' => 'https://pipelines.actions.githubusercontent.com/oidc?api-version=2.0',
+        'ACTIONS_ID_TOKEN_REQUEST_TOKEN' => 'request-token',
+        'MUTATION_GATE_GCS_PROVIDER' => 'projects/123/locations/global/workloadIdentityPools/github/providers/gate',
+        'MUTATION_GATE_GCS_SERVICE_ACCOUNT' => 'gate@acme.iam.gserviceaccount.com',
+    ];
+    $cloud = new Cloud()
+        ->answering('https://pipelines.actions.githubusercontent.com/oidc?api-version=2.0&audience=https%3A%2F%2Fiam.googleapis.com%2Fprojects%2F123%2Flocations%2Fglobal%2FworkloadIdentityPools%2Fgithub%2Fproviders%2Fgate', 200, '{"value": "github-jwt"}')
+        ->answering(ExternalAccounts::STS, 200, '{"access_token": "federated"}')
+        ->answering(ExternalAccounts::IMPERSONATE, 200, '{"accessToken": "service-account"}');
+    $federation = Federation::from(Variables::of([...$github, 'GOOGLE_APPLICATION_CREDENTIALS' => ExternalAccounts::written()]), $cloud->exchange());
+
+    expect($federation instanceof Federation ? $federation->token() : $federation)->toEqual(Token::bearer('service-account'))
+        ->and(Federation::from(Variables::of([...$github, 'MUTATION_GATE_GCS_SERVICE_ACCOUNT' => 'x@acme.com', 'MUTATION_GATE_GCS_TOKEN' => 'ya29']), $cloud->exchange()))
+        ->toEqual(Invalid::because(Problem::at('', 'MUTATION_GATE_GCS_SERVICE_ACCOUNT is not a service account, <name>@<project>.iam.gserviceaccount.com.')));
 });

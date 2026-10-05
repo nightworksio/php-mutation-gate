@@ -46,7 +46,13 @@ enum BuiltinStore: string
             self::S3 => Credentials::needing(StoreVariable::AwsAccessKey->value, StoreVariable::AwsSecretKey->value)
                 ->reading('AWS_SESSION_TOKEN', 'AWS_ROLE_ARN'),
             self::Gcs => Credentials::needing(StoreVariable::GoogleCredentials->value)
-                ->orNeeding(StoreVariable::GcsToken->value),
+                ->orNeeding(StoreVariable::GcsToken->value)
+                ->orNeeding(
+                    StoreVariable::OidcRequestUrl->value,
+                    StoreVariable::OidcRequestToken->value,
+                    StoreVariable::GcsProvider->value,
+                    StoreVariable::GcsServiceAccount->value,
+                ),
             self::Azure => Credentials::needing(
                 StoreVariable::OidcRequestUrl->value,
                 StoreVariable::OidcRequestToken->value,

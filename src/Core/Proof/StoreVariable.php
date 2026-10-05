@@ -23,6 +23,12 @@ enum StoreVariable: string
     /** A ready bearer token for Cloud Storage, from another CI's federation. */
     case GcsToken = 'MUTATION_GATE_GCS_TOKEN';
 
+    /** The workload identity provider that trusts a GitHub Actions job's own OIDC token for Cloud Storage. */
+    case GcsProvider = 'MUTATION_GATE_GCS_PROVIDER';
+
+    /** The service account that job's federated token impersonates to reach Cloud Storage. */
+    case GcsServiceAccount = 'MUTATION_GATE_GCS_SERVICE_ACCOUNT';
+
     /** Where a GitHub Actions job asks for its OIDC token. */
     case OidcRequestUrl = 'ACTIONS_ID_TOKEN_REQUEST_URL';
 

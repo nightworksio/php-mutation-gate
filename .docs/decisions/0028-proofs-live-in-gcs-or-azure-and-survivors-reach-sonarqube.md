@@ -94,7 +94,11 @@ What SonarQube documents:
      `GOOGLE_APPLICATION_CREDENTIALS` names, as `google-github-actions/auth`
      writes it, makes the STS exchange, and impersonates a service account
      where the file says to. Only the `file` and `url` credential sources are
-     read, which are what CI identity providers write.
+     read, which are what CI identity providers write. On GitHub Actions it
+     builds the same account itself from `MUTATION_GATE_GCS_PROVIDER` and
+     `MUTATION_GATE_GCS_SERVICE_ACCOUNT`, with GitHub's
+     `ACTIONS_ID_TOKEN_REQUEST_URL`, so the jobs that hold the store's
+     identity run no third-party action.
    - **Azure** requests GitHub's token from `ACTIONS_ID_TOKEN_REQUEST_URL`
      for the audience `api://AzureADTokenExchange`, and exchanges it with the
      tenant and client that `AZURE_TENANT_ID` and `AZURE_CLIENT_ID` name, the
@@ -118,6 +122,17 @@ What SonarQube documents:
        `https://iamcredentials.googleapis.com`, and a `url` source has to be
        `https://`, so the CI's token is sent nowhere else. The file is read
        and checked even where `MUTATION_GATE_GCS_TOKEN` is set.
+     - From the provider and service account, the `gcs` store asks GitHub
+       for its token for the provider's default audience,
+       `https://iam.googleapis.com/<provider>`, over `https://` alone,
+       exchanges it at `https://sts.googleapis.com/v1/token` for the
+       audience `//iam.googleapis.com/<provider>`, and impersonates the
+       service account at `https://iamcredentials.googleapis.com`. Neither
+       host is ever read from the environment. A provider that is not
+       `projects/<number>/locations/global/workloadIdentityPools/<pool>/providers/<id>`,
+       a service account that is not `<name>@<project>.iam.gserviceaccount.com`,
+       or a job GitHub hands no OIDC token, is refused, ready token or not.
+       The provider goes before a credentials file where both are set.
      - The `azure` store asks Entra ID for the scope
        `https://storage.azure.com/.default`, with GitHub's token as a
        `jwt-bearer` client assertion.

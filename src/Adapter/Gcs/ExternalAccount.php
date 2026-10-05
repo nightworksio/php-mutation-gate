@@ -40,6 +40,8 @@ use function str_starts_with;
  */
 final readonly class ExternalAccount
 {
+    /** The scheme a URL source must use, since its request carries the CI's credential. */
+    public const string HTTPS = 'https://';
     /** Google's security token service, the only place a CI's token is exchanged. */
     private const string STS = 'https://sts.googleapis.com';
 
@@ -54,14 +56,23 @@ final readonly class ExternalAccount
 
     private const string EXCHANGE = 'urn:ietf:params:oauth:grant-type:token-exchange';
 
+    /** The audience Google's security token service exchanges a provider's token for. */
+    private const string AUDIENCE = '//iam.googleapis.com/%s';
+
+    /** What a CI's OIDC token is, to Google's security token service. */
+    private const string JWT = 'urn:ietf:params:oauth:token-type:jwt';
+
+    /** Where Google's security token service exchanges a token. */
+    private const string TOKEN_URL = '%s/v1/token';
+
+    /** Where IAM gives a service account's access token for a federated one. */
+    private const string IMPERSONATE = '%s/v1/projects/-/serviceAccounts/%s:generateAccessToken';
+
     private const string ACCESS_TOKEN = 'urn:ietf:params:oauth:token-type:access_token';
 
     private const string KEY = 'service_account';
 
     private const string FEDERATED = 'external_account';
-
-    /** The scheme a URL source must use, since its request carries the CI's credential. */
-    private const string HTTPS = 'https://';
 
     private const string REFUSED_KEY
         = '%s names a service-account key, which the gcs store refuses: use Workload Identity Federation instead.';
@@ -85,6 +96,22 @@ final readonly class ExternalAccount
         private string|NotGiven $impersonation,
         private SubjectSource $source,
     ) {
+    }
+
+    /**
+     * The account a GitHub Actions job federates through this workload identity provider, impersonating this
+     * service account, its own OIDC token asked for as the source says, as `google-github-actions/auth` would
+     * write it: Google's own token service and IAM, never a place the environment names.
+     */
+    public static function federating(string $provider, string $serviceAccount, SubjectSource $source): self
+    {
+        return new self(
+            sprintf(self::AUDIENCE, $provider),
+            self::JWT,
+            sprintf(self::TOKEN_URL, self::STS),
+            sprintf(self::IMPERSONATE, self::IAM, $serviceAccount),
+            $source,
+        );
     }
 
     /** The file at this path, or why the store refuses it. */
