@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Tests\Support\GzipBomb;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -120,4 +121,44 @@ it('writes a test name that closes php-code-coverage\'s nowdoc as data, which re
     expect($read instanceof CoverageFile ? $read->map($at)->testsCovering(Path::of('src/Money.php'), Line::of(3)) : $read)
         ->toEqual(TestIds::of(TestId::of($hostile)))
         ->and(is_file($planted))->toBeFalse();
+});
+
+it('writes a map in place of a link at the target, dangling or not, and never through it', function (): void {
+    $at = sharedProject();
+    $target = sprintf('%s/shared.coverage.php', $at->root());
+    symlink(sprintf('%s/planted.php', $at->root()), $target);
+
+    SharedCoverage::write(sharedMap(), $at, $target);
+
+    expect(is_link($target))->toBeFalse()
+        ->and(file_exists(sprintf('%s/planted.php', $at->root())))->toBeFalse()
+        ->and(CoverageFile::at($target))->toBeInstanceOf(CoverageFile::class);
+});
+
+it('writes no map where what is at the target cannot be removed', function (): void {
+    $at = sharedProject();
+    mkdir(sprintf('%s/locked', $at->root()));
+    $target = sprintf('%s/locked/shared.coverage.php', $at->root());
+    symlink(sprintf('%s/planted.php', $at->root()), $target);
+    chmod(dirname($target), 0o555);
+    set_error_handler(static fn(): bool => true);
+    SharedCoverage::write(sharedMap(), $at, $target);
+    restore_error_handler();
+    chmod(dirname($target), 0o755);
+
+    expect(is_link($target))->toBeTrue()
+        ->and(file_exists(sprintf('%s/planted.php', $at->root())))->toBeFalse();
+});
+
+it('reads a handed-over map within this process\'s share of its memory', function (): void {
+    $at = sharedProject();
+    $bomb = GzipBomb::padded(256 * 1_048_576);
+    Scratch::write($at->root(), 'bomb/map.json.gz', $bomb);
+    $limit = GzipBomb::limitAboveUse();
+    $share = intdiv(ini_parse_quantity($limit), 23);
+    $read = GzipBomb::readUnder($limit, static fn(): CoverageMap|CannotJudge => SharedCoverage::in($at, Path::of('bomb')));
+
+    expect($share)->toBeLessThan(300 * strlen($bomb))
+        ->and(ini_get('memory_limit'))->not->toBe($limit)
+        ->and($read)->toEqual(CannotJudge::because(sprintf('The coverage map inflates to more than %d bytes.', $share)));
 });

@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Coverage;
 
-use NightWorksIO\MutationGate\Core\CannotJudge;
+use function is_string;
+
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Commit;
 use NightWorksIO\MutationGate\Core\Change\Revision;
-use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 
@@ -41,12 +41,15 @@ final readonly class MeasuredAt
             : Unplaced::map();
     }
 
-    /** Where a map's bytes say it was measured; unplaced where they say nothing that can be read. */
-    public static function recordedIn(string $bytes): self|Unplaced
+    /**
+     * Where a map's bytes say it was measured, read within these limits; unplaced where they say nothing that can
+     * be read.
+     */
+    public static function recordedIn(string $bytes, HandoffLimits $limits): self|Unplaced
     {
-        $json = Gzip::unpack($bytes, CoverageMapFile::NAMED);
+        $json = $limits->inflated($bytes);
 
-        return self::readIn(Node::decode($json instanceof CannotJudge ? '' : $json));
+        return self::readIn(Node::decode(is_string($json) ? $json : ''));
     }
 
     /** Where a decoded map says it was measured; unplaced where it says nothing that can be read. */

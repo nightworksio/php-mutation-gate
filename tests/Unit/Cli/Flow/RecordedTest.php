@@ -84,6 +84,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\CostModelFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
 use NightWorksIO\MutationGate\Tests\Support\LedgerRead;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\PeakMemoryFake;
@@ -133,7 +134,7 @@ function recordedRanWith(
     Setup $setup,
     object ...$ports,
 ): Results {
-    new Handoff(Directory::at($project))->write($plan, $map, KillHistory::none(), Unplaced::map());
+    new Handoff(Directory::at($project), HandedMaps::limits())->write($plan, $map, KillHistory::none(), Unplaced::map());
     new Running(Flows::adapters($project, [], $runner, ...$ports), $settings, $setup)->runAll($plan, Workspace::results());
     $results = Results::read($plan, Workspace::results(), Directory::at($project));
 
@@ -352,7 +353,7 @@ it('cannot judge a shard that was handed no map, and writes nothing', function (
     $written = new Recorded(Flows::adapters($project, [], $store))
         ->write($plan, $results, $ledgers($store, $plan), $run($plan), CannotTell::because('It failed.'));
 
-    expect($written)->toEqual(new Handoff(Directory::at($project))->read(ShardId::of(2)))
+    expect($written)->toEqual(new Handoff(Directory::at($project), HandedMaps::limits())->read(ShardId::of(2)))
         ->and($written)->toBeInstanceOf(CannotJudge::class)
         ->and(LedgerRead::ledger($store->read(Scope::branch('main'))))->toEqual(Ledger::empty());
 });

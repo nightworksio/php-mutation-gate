@@ -88,6 +88,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\NamesAsked;
@@ -276,13 +277,14 @@ it('hands each shard the map of its own files', function () use ($plan): void {
         ->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'))
         ->covered(Path::of('src/Held.php'), Line::of(4), TestId::of('HeldTest::doubles'));
     $plan($project, Mode::full(), Cut::exactly(2), new CoverageAsked(RunnerFake::ofTheFixture(), $map));
-    $handed = new Handoff(Flows::adapters($project)->project);
+    $handed = new Handoff(Flows::adapters($project)->project, HandedMaps::limits());
 
     expect($handed->read(ShardId::of(1)))
-        ->toEqual(CoverageMapFile::decode(CoverageMapFile::encode($map->onlyFor(Paths::of(Path::of('src/Held.php'))), Unplaced::map())))
+        ->toEqual(CoverageMapFile::decode(CoverageMapFile::encode($map->onlyFor(Paths::of(Path::of('src/Held.php'))), Unplaced::map()), HandedMaps::limits()))
         ->and($handed->read(ShardId::of(2)))
         ->toEqual(CoverageMapFile::decode(
             CoverageMapFile::encode($map->onlyFor(Paths::of(Path::of('src/Money.php'))), Unplaced::map()),
+            HandedMaps::limits(),
         ));
 });
 
@@ -299,7 +301,7 @@ it('hands each shard the kill history the ledgers learned, which enters no key a
     $project = Flows::project();
     $learned = $plan($project, Mode::full(), Cut::exactly(2), $store);
     $cold = $plan(Flows::project(), Mode::full(), Cut::exactly(2), new ProofStoreFake());
-    $handed = new Handoff(Flows::adapters($project)->project);
+    $handed = new Handoff(Flows::adapters($project)->project, HandedMaps::limits());
 
     expect($handed->history(ShardId::of(2)))->toEqual($history->onlyIn(Paths::of(Path::of('src/Money.php'))))
         ->and($handed->history(ShardId::of(1)))->toEqual($history->onlyIn(Paths::of(Path::of('src/Held.php'))))
@@ -448,9 +450,9 @@ it('leaves the whole map saying where it was measured: where another job measure
         Flows::setup(),
     )->plan(Mode::full(), CoverageRun::of(WholeSuite::tests(), Workspace::coverage()), Cut::exactly(1), MatrixKind::FirstKiller);
 
-    expect(MeasuredAt::recordedIn((string) file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $read))))
+    expect(MeasuredAt::recordedIn((string) file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $read)), HandedMaps::limits()))
         ->toEqual($elsewhere)
-        ->and(MeasuredAt::recordedIn((string) file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $dirty))))
+        ->and(MeasuredAt::recordedIn((string) file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $dirty)), HandedMaps::limits()))
         ->toEqual(MeasuredAt::of(Revision::ref(Flows::HEAD), dirty: true));
 });
 

@@ -77,3 +77,33 @@ it('cannot judge when an earlier run\'s file cannot be removed', function (): vo
         $root,
     )));
 });
+
+it('removes a link where a file of its own goes, dangling or not, and leaves where it leads as it was', function (): void {
+    $scratch = (string) realpath(Scratch::directory());
+    $root = sprintf('%s/project', $scratch);
+    $project = Project::at(Root::of($root), Paths::none(), Path::of('.gate'));
+    Scratch::write($scratch, 'kept.json', 'kept');
+    mkdir(sprintf('%s/logs', $root), recursive: true);
+    symlink(sprintf('%s/planted.json', $scratch), sprintf('%s/logs/dangling.json', $root));
+    symlink(sprintf('%s/kept.json', $scratch), sprintf('%s/logs/alias.json', $root));
+
+    expect($project->fresh(sprintf('%s/logs/dangling.json', $root)))->toBe(sprintf('%s/logs/dangling.json', $root))
+        ->and($project->fresh(sprintf('%s/logs/alias.json', $root)))->toBe(sprintf('%s/logs/alias.json', $root))
+        ->and(scandir(sprintf('%s/logs', $root)))->toBe(['.', '..'])
+        ->and((string) file_get_contents(sprintf('%s/kept.json', $scratch)))->toBe('kept');
+});
+
+it('cannot judge when a link where a file of its own goes cannot be removed', function (): void {
+    $root = (string) realpath(Scratch::directory());
+    $project = Project::at(Root::of($root), Paths::none(), Path::of('.gate'));
+    mkdir(sprintf('%s/locked', $root));
+    symlink(sprintf('%s/planted.json', $root), sprintf('%s/locked/infection.json', $root));
+    chmod(sprintf('%s/locked', $root), 0o555);
+    $fresh = $project->fresh(sprintf('%s/locked/infection.json', $root));
+    chmod(sprintf('%s/locked', $root), 0o755);
+
+    expect($fresh)->toEqual(CannotJudge::because(sprintf(
+        'The gate cannot remove %s/locked/infection.json, so it cannot tell what this run wrote from what an earlier one did.',
+        $root,
+    )));
+});

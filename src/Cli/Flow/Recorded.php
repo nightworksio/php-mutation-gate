@@ -191,7 +191,7 @@ final readonly class Recorded
      */
     private function learned(Ledger $ledger, Results $results): Ledger|CannotJudge
     {
-        $handoff = new Handoff($this->adapters->project);
+        $handoff = new Handoff($this->adapters->project, Handoff::limits());
 
         foreach ($results->shards() as [$shard, $result, $mutated]) {
             $map = $handoff->read($shard->id());

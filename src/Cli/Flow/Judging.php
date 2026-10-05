@@ -265,7 +265,7 @@ final readonly class Judging
             $ledgers->defaultBranch()->proofs(),
             $ledgers->own()->proofs(),
         );
-        $map = new Handoff($this->adapters->project)->forVerdict();
+        $map = new Handoff($this->adapters->project, Handoff::limits())->forVerdict();
         $newest = $ledgers->newest();
         $commits = ChangesSince::commitsOf($results->unjudged(), $newest, $plan->base());
         $since = new Since($this->adapters, $this->settings)->of(...$commits);

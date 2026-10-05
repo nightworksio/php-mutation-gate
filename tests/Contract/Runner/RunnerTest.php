@@ -50,6 +50,7 @@ use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
+use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
@@ -372,7 +373,7 @@ it('reads back the gate\'s own map of what it ran, and cannot judge a map that i
     unlink($file);
 
     expect($ran)->toBeInstanceOf(CoverageMap::class)
-        ->and($read)->toEqual(CoverageMapFile::decode($written))
+        ->and($read)->toEqual(CoverageMapFile::decode($written, HandedMaps::limits()))
         ->and($missing)->toBeInstanceOf(CannotJudge::class);
 })->with($onDisk === [] ? ['none installed' => fn(): Library => Library::fake()] : $onDisk)
     ->skip($onDisk === [], 'the runner contracts jobs install the libraries whose runner reads from disk');

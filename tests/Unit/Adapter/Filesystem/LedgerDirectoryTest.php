@@ -87,6 +87,29 @@ it('says a ledger file could not be read, and where it is', function (): void {
         ->and($why)->toStartWith(sprintf('The ledger is unreadable from %s/refs/heads/main/ledger.json.gz: ', $root));
 });
 
+it('refuses a ledger file past the compressed limit without holding it, and says where it is', function (): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'refs/heads/main/ledger.json.gz', '');
+    $handle = fopen(sprintf('%s/refs/heads/main/ledger.json.gz', $root), 'wb');
+    if ($handle !== false && ftruncate($handle, 512 * 1024 * 1024)) {
+        fclose($handle);
+    }
+    $before = memory_get_usage();
+    memory_reset_peak_usage();
+
+    $read = LedgerRead::unread(LedgerDirectory::at($root)->read(Scope::branch('main')));
+
+    expect($read)->toBe([
+        UnreadReason::TooLarge,
+        sprintf(
+            'The ledger is unreadable from %s/refs/heads/main/ledger.json.gz: it is larger than %d bytes. The run judges without it.',
+            $root,
+            LedgerLimits::standard()->packed(),
+        ),
+    ])
+        ->and(memory_get_peak_usage() - $before)->toBeLessThan(LedgerLimits::standard()->packed() * 2);
+});
+
 it('reads nothing for a scope that is not a ref, though its path leads to a ledger', function () use ($proved): void {
     $root = Scratch::directory();
     $store = LedgerDirectory::at($root);

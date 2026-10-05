@@ -5,15 +5,16 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Filesystem;
 
 use function basename;
+use function chmod;
 use function dirname;
 use function fclose;
 use function file_exists;
 use function file_get_contents;
-use function file_put_contents;
 use function fopen;
 use function fwrite;
 use function is_dir;
 use function is_file;
+use function is_link;
 use function is_string;
 use function is_writable;
 use function max;
@@ -29,20 +30,35 @@ use NightWorksIO\MutationGate\Core\Format\TooLarge;
 use NightWorksIO\MutationGate\Core\Written;
 
 use function realpath;
+use function rename;
 use function rtrim;
 use function sprintf;
 use function str_starts_with;
+use function tempnam;
+use function umask;
 use function unlink;
 
 /**
  * A directory on disk, read and written by paths relative to it: the plain
  * file I/O the command line needs that no port covers, such as a plan, a
- * shard's results, the baseline and the report files.
+ * shard's results, the baseline and the report files. It never writes
+ * through a link: a path whose last part is one, there or dangling, is
+ * refused, and every file is written whole beside its place and then moved
+ * into it, so a link put there meanwhile is replaced, never followed.
  */
 final readonly class Directory
 {
     /** Why a path is not read or written. */
     private const string OUTSIDE = '%s leads out of %s, so the gate does not read or write it.';
+
+    /** Why a path is not written. */
+    private const string LINKED = '%s is a link, so the gate does not write through it.';
+
+    /** How the name of a file being written, beside its place, begins. */
+    private const string WRITING = '.%s.';
+
+    /** Whom a new file is open to before the umask takes its part away. */
+    private const int OPEN = 0o666;
 
     private function __construct(private Root $root)
     {
@@ -101,7 +117,7 @@ final readonly class Directory
     /** Write a file, creating the directories it needs and replacing what was there; never outside the directory. */
     public function write(Path $path, Contents $contents): Written|CannotJudge
     {
-        return $this->leadsOut($path) ? $this->refused($path) : $this->writeInside($path, $contents);
+        return $this->stream($path, [$contents->text()]);
     }
 
     /**
@@ -113,17 +129,24 @@ final readonly class Directory
      */
     public function stream(Path $path, iterable $pieces): Written|CannotJudge
     {
-        return $this->leadsOut($path) ? $this->refused($path) : $this->streamInside($path, $pieces);
-    }
-
-    /** Remove a file under the directory, where it is there; never outside the directory. */
-    public function remove(Path $path): Missing|CannotJudge
-    {
         $file = $this->pathTo($path);
 
         return match (true) {
             $this->leadsOut($path) => $this->refused($path),
-            is_file($file) && (! is_writable(dirname($file)) || ! unlink($file)) => CannotJudge::because(
+            is_link($file) => CannotJudge::because(sprintf(self::LINKED, $file)),
+            default => $this->streamInside($path, $pieces),
+        };
+    }
+
+    /** Remove a file under the directory, or a link where one is, there or dangling; never outside the directory. */
+    public function remove(Path $path): Missing|CannotJudge
+    {
+        $file = $this->pathTo($path);
+        $there = is_file($file) || is_link($file);
+
+        return match (true) {
+            $this->leadsOut($path) => $this->refused($path),
+            $there && (! is_writable(dirname($file)) || ! unlink($file)) => CannotJudge::because(
                 sprintf('%s could not be removed.', $file),
             ),
             default => Missing::at($path),
@@ -143,35 +166,20 @@ final readonly class Directory
         return $text === false ? CannotJudge::because(sprintf('%s could not be read.', $file)) : Contents::of($text);
     }
 
-    private function writeInside(Path $path, Contents $contents): Written|CannotJudge
-    {
-        $file = $this->pathTo($path);
-
-        $parent = dirname($file);
-
-        if (is_dir($file) || is_file($parent) || (! is_dir($parent) && ! mkdir($parent, recursive: true))) {
-            return CannotJudge::because(sprintf('%s could not be written.', $file));
-        }
-
-        $written = file_put_contents($file, $contents->text());
-
-        return $written === false
-            ? CannotJudge::because(sprintf('%s could not be written.', $file))
-            : Written::to($file);
-    }
-
-    /** @param iterable<string> $pieces */
+    /**
+     * The pieces written to a file made beside the path's place, which is
+     * then moved over it whole; where any step fails, that file is removed.
+     *
+     * @param iterable<string> $pieces
+     */
     private function streamInside(Path $path, iterable $pieces): Written|CannotJudge
     {
         $file = $this->pathTo($path);
-        $unwritten = CannotJudge::because(sprintf('%s could not be written.', $file));
-
-        $handle = is_dir($file) || (! is_dir(dirname($file)) && ! mkdir(dirname($file), recursive: true))
-            ? false
-            : fopen($file, 'wb');
+        $writing = $this->beside($file);
+        $handle = $writing === false ? false : fopen($writing, 'wb');
 
         if ($handle === false) {
-            return $unwritten;
+            return Written::failedAt($file);
         }
 
         $written = true;
@@ -180,7 +188,39 @@ final readonly class Directory
             $written = $written && fwrite($handle, $piece) !== false;
         }
 
-        return fclose($handle) && $written ? Written::to($file) : $unwritten;
+        $moved = fclose($handle) && $written && rename($writing, $file);
+
+        return $moved ? Written::to($file) : $this->leftUnwritten($writing, $file);
+    }
+
+    /**
+     * A new, empty file in the directory a file goes in, made there under a
+     * name no other file has and open to whom a file written there is; false
+     * where none can be made there, and none is left elsewhere.
+     */
+    private function beside(string $file): string|false
+    {
+        $parent = dirname($file);
+        $made = ! is_dir($file) && (is_dir($parent) || (! is_file($parent) && mkdir($parent, recursive: true)));
+        $writing = $made ? tempnam($parent, sprintf(self::WRITING, basename($file))) : false;
+
+        $there = $writing !== false && dirname($writing) === realpath($parent);
+
+        if ($writing !== false && (! $there || ! chmod($writing, self::OPEN & ~umask()))) {
+            unlink($writing);
+
+            return false;
+        }
+
+        return $writing;
+    }
+
+    /** Why a file was not written, its unfinished copy beside it removed. */
+    private function leftUnwritten(string $writing, string $file): CannotJudge
+    {
+        unlink($writing);
+
+        return Written::failedAt($file);
     }
 
     private function pathTo(Path $path): string

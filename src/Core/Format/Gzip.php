@@ -23,8 +23,9 @@ use function str_starts_with;
 /**
  * Text as a file the gate writes compressed holds it: gzip, which every
  * store and every CI cache keeps as it is. Unpacking reads a whole gzip
- * stream and refuses anything else, a stream cut short among it, and leaves
- * whatever follows the stream's end unread.
+ * stream, inflating it no further than a limit, and refuses anything else, a
+ * stream cut short among it, and leaves whatever follows the stream's end
+ * unread.
  */
 final readonly class Gzip
 {
@@ -45,19 +46,6 @@ final readonly class Gzip
         $packed = gzencode($text);
 
         return is_string($packed) ? $packed : '';
-    }
-
-    /** The text some bytes hold, where they are a whole gzip stream; named as the message names them. */
-    public static function unpack(string $bytes, string $named): string|CannotJudge
-    {
-        $inflating = inflate_init(ZLIB_ENCODING_GZIP);
-        $text = $inflating instanceof InflateContext && str_starts_with($bytes, self::MAGIC)
-            ? self::added($inflating, $bytes)
-            : false;
-
-        $whole = $inflating instanceof InflateContext && inflate_get_status($inflating) === ZLIB_STREAM_END;
-
-        return is_string($text) && $whole ? $text : CannotJudge::because(sprintf(self::NOT_GZIP, $named));
     }
 
     /**

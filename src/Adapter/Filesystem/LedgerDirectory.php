@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Doctor\KeptLedgers;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\TooLarge;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
@@ -93,10 +94,12 @@ final readonly class LedgerDirectory implements Configurable, ProofStore
             return Ledger::empty();
         }
 
-        $contents = $this->path->directory()->read($file->inside());
+        $contents = $this->path->directory()->readAtMost($file->inside(), $this->limits->packed());
 
         return match (true) {
             $contents instanceof Missing => Ledger::empty(),
+            $contents instanceof TooLarge
+                => Unreadable::because(UnreadReason::TooLarge, $file->value(), $this->limits->pastPacked()),
             $contents instanceof CannotJudge
                 => Unreadable::because(UnreadReason::Refused, $file->value(), $contents->why()),
             default => $this->decoded($contents, $file),

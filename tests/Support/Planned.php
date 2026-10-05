@@ -69,7 +69,7 @@ final readonly class Planned
     /** A plan whose shards were handed the fixture runner's map in a project, as `plan` hands them. */
     public static function handedIn(string $project, Plan $plan): Plan
     {
-        new Handoff(Directory::at($project))->write($plan, Flows::map(), KillHistory::none(), Unplaced::map());
+        new Handoff(Directory::at($project), HandedMaps::limits())->write($plan, Flows::map(), KillHistory::none(), Unplaced::map());
 
         return $plan;
     }

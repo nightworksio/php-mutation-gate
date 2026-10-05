@@ -31,8 +31,9 @@ final readonly class Measuring
 
     private static function recorded(Adapters $adapters, CoverageRead $coverage): MeasuredAt|Unplaced
     {
-        $contents = $adapters->project->read(CoverageMapFile::in($coverage->directory()));
+        $limits = Handoff::limits();
+        $contents = $adapters->project->readAtMost(CoverageMapFile::in($coverage->directory()), $limits->packed());
 
-        return $contents instanceof Contents ? MeasuredAt::recordedIn($contents->text()) : Unplaced::map();
+        return $contents instanceof Contents ? MeasuredAt::recordedIn($contents->text(), $limits) : Unplaced::map();
     }
 }

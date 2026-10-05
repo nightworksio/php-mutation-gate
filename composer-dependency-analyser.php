@@ -83,4 +83,12 @@ return (new Configuration())
     // contract, and load only in Infection's own process, where
     // infection/infection has installed it (ADR-0021).
     ->ignoreErrorsOnPackages(['infection/mutator'], [ErrorType::DEV_DEPENDENCY_IN_PROD])
-    ->ignoreErrorsOnExtension('ext-dom', [ErrorType::DEV_DEPENDENCY_IN_PROD]);
+    ->ignoreErrorsOnExtension('ext-dom', [ErrorType::DEV_DEPENDENCY_IN_PROD])
+    // A directory's test of a write that fails part way takes the process's
+    // room to write files away, where the system lets it, and is skipped
+    // where these are not installed.
+    ->ignoreErrorsOnExtensionsAndPaths(
+        ['ext-pcntl', 'ext-posix'],
+        [__DIR__ . '/tests/Unit/Adapter/Filesystem/DirectoryTest.php'],
+        [ErrorType::SHADOW_DEPENDENCY],
+    );

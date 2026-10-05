@@ -120,3 +120,32 @@ it('names the order directory with no earlier run\'s plan or orders left in it, 
             $order,
         )));
 });
+
+it('removes a link where a results file, the map or a mutated copy goes, dangling or not, and leaves where it leads as it was', function () use ($project): void {
+    $at = $project();
+    $results = sprintf('%s/.mutation-gate/pest/results.jsonl', $at->root());
+    mkdir(sprintf('%s/mutants', dirname($results)), recursive: true);
+    Scratch::write($at->root(), 'kept.php', 'kept');
+    symlink(sprintf('%s/planted.jsonl', $at->root()), $results);
+    symlink(sprintf('%s/kept.php', $at->root()), Recorder::coverageBeside($results));
+    symlink(sprintf('%s/planted.php', $at->root()), Recorder::mutantBeside($results, 'n1'));
+
+    expect($at->freshResults())->toBe($results)
+        ->and(is_link($results) || is_link(Recorder::coverageBeside($results)))->toBeFalse()
+        ->and(is_link(Recorder::mutantBeside($results, 'n1')))->toBeFalse()
+        ->and((string) file_get_contents(sprintf('%s/kept.php', $at->root())))->toBe('kept');
+});
+
+it('cannot name a results file where an earlier run\'s link cannot be removed', function () use ($project): void {
+    $at = $project();
+    $results = sprintf('%s/.mutation-gate/pest/results.jsonl', $at->root());
+    mkdir(dirname($results), recursive: true);
+    symlink(sprintf('%s/planted.jsonl', $at->root()), $results);
+    chmod(dirname($results), 0o555);
+    set_error_handler(static fn(): bool => true);
+    $fresh = $at->freshResults();
+    restore_error_handler();
+    chmod(dirname($results), 0o755);
+
+    expect($fresh)->toBeInstanceOf(CannotJudge::class);
+});

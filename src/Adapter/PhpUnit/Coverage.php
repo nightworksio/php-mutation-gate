@@ -6,12 +6,14 @@ namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
 use function file_exists;
 use function file_get_contents;
+use function ini_get;
 use function is_file;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
+use NightWorksIO\MutationGate\Core\Coverage\HandoffLimits;
 use NightWorksIO\MutationGate\Core\Coverage\PhpReport;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\CoverageFailure;
@@ -43,9 +45,10 @@ final readonly class Coverage
     private function handedOver(CoverageRead $request): CoverageMap|CannotJudge
     {
         $file = $this->project->absolute(CoverageMapFile::in($request->directory()));
-        $bytes = is_file($file) ? file_get_contents($file) : false;
+        $limits = HandoffLimits::under(ini_get('memory_limit'));
+        $bytes = is_file($file) ? file_get_contents($file, length: $limits->readable()) : false;
 
-        return is_string($bytes) ? CoverageMapFile::decode($bytes) : CoverageMapFile::missingAt($file);
+        return is_string($bytes) ? CoverageMapFile::decode($bytes, $limits) : CoverageMapFile::missingAt($file);
     }
 
     /** A run under coverage into the request's directory, with no earlier run's map left there. */

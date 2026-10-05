@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\Selected;
 use NightWorksIO\MutationGate\Cli\Flow\Selecting;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -220,3 +221,14 @@ it('reads the map the default branch keeps where none is in the directory, and s
         ['tests/MoneyTest.php', 'The coverage map is not a whole gzip stream. So every test is listed.'],
     ],
 ]);
+
+it('lists every test, saying why, where the map is past the compressed limit', function () use ($project, $select, $every): void {
+    $at = $project(map: false);
+    Scratch::sized($at, '.mutation-gate/coverage/map.json.gz', Handoff::limits()->readable() + 1);
+
+    expect($every($select($at, selectingCheckout())))->toBe(['tests/MoneyTest.php', sprintf(
+        '%s/.mutation-gate/coverage/map.json.gz is past %d bytes, so it is not read. So every test is listed.',
+        $at,
+        Handoff::limits()->packed(),
+    )]);
+});

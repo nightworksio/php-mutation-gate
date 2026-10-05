@@ -291,7 +291,7 @@ final readonly class Planning
         MeasuredAt|Unplaced $at,
         KillHistory $history,
     ): Plan|CannotJudge {
-        $handed = new Handoff($this->adapters->project)->write($plan, $map, $history, $at, $keys);
+        $handed = new Handoff($this->adapters->project, Handoff::limits())->write($plan, $map, $history, $at, $keys);
 
         return $handed instanceof CannotJudge ? $handed : $plan;
     }

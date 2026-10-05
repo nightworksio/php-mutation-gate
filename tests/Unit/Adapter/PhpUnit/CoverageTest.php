@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Tests\Support\CoverageMaps;
+use NightWorksIO\MutationGate\Tests\Support\GzipBomb;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitShellFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -139,4 +140,18 @@ it('reads the map another job handed over, or says there is none', function (): 
         ->toEqual(CoverageMapFile::missingAt($project->absolute(CoverageMapFile::in(Path::of('none')))))
         ->and($file)->toBeFile()
         ->and($shell->commands())->toBe([]);
+});
+
+it('reads a handed-over map within this process\'s share of its memory', function (): void {
+    $project = coverageProject();
+    $bomb = GzipBomb::padded(256 * 1_048_576);
+    Scratch::write($project->root(), CoverageMapFile::in(Path::of('bomb'))->value(), $bomb);
+    $coverage = new Coverage($project, PhpUnitShellFake::answering(Ran::finished(succeeded: true, output: '')), new Invocation($project, '/gate/override.php'));
+    $limit = GzipBomb::limitAboveUse();
+    $share = intdiv(ini_parse_quantity($limit), 23);
+    $read = GzipBomb::readUnder($limit, static fn(): CoverageMap|CannotJudge => $coverage->of(CoverageRead::from(Path::of('bomb'))));
+
+    expect($share)->toBeLessThan(300 * strlen($bomb))
+        ->and(ini_get('memory_limit'))->not->toBe($limit)
+        ->and($read)->toEqual(CannotJudge::because(sprintf('The coverage map inflates to more than %d bytes.', $share)));
 });
