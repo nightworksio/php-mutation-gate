@@ -79,6 +79,7 @@ const CONTENT_KEY_VERSIONS = [['pestphp/pest-plugin-mutate', '5.0.1', 'r2'], ['p
  * @param list<array{int, string}>             $covered  each covered line of the unit with a test covering it
  * @param list<string>                         $analyser the analyser that checks the mutants, its version and its
  *                                                       config's digest; none where empty
+ * @param bool                                 $coverageBase whether to answer what every coverage entry's key reads
  */
 function contentKeyOf(
     string $gateVersion = '1.0.0',
@@ -101,6 +102,7 @@ function contentKeyOf(
     string $group = '',
     string $filter = '',
     array $analyser = [],
+    bool $coverageBase = false,
 ): Digest|Unkeyed {
     $files = [];
 
@@ -148,13 +150,29 @@ function contentKeyOf(
         ),
         Tests::of(TestFiles::of(...$files), contentKeyPaths($known), contentKeyPaths($canaries)),
     );
-    $held = match (true) {
+    return $coverageBase
+        ? $keys->coverageBase()
+        : $keys->keyOf(contentKeyUnit($unit, $group, $filter), contentKeyJudges($judges), $coverage);
+}
+
+/**
+ * The test files a runner says can judge a unit, or why it cannot say.
+ *
+ * @param list<string>|CannotJudge $judges
+ */
+function contentKeyJudges(array|CannotJudge $judges): Paths|CannotJudge
+{
+    return $judges instanceof CannotJudge ? $judges : contentKeyPaths($judges);
+}
+
+/** A unit at a path: held by a group or a filter where one is named, or else the file. */
+function contentKeyUnit(string $unit, string $group, string $filter): Unit
+{
+    return match (true) {
         $group !== '' => Unit::held(Path::of($unit), Group::named($group)),
         $filter !== '' => Unit::held(Path::of($unit), Filter::matching($filter)),
         default => Unit::file(Path::of($unit)),
     };
-
-    return $keys->keyOf($held, $judges instanceof CannotJudge ? $judges : contentKeyPaths($judges), $coverage);
 }
 
 /** @param list<string> $paths */
@@ -630,4 +648,23 @@ it('keeps what decides a mutant set when a source changes, and changes it with t
         ->and(contentDigestsOf($units, '{"runner":"infection"}')->mutation())->not->toEqual($digests->mutation())
         ->and(contentDigestsOf($units, source: [...CONTENT_KEY_SOURCE, 'phpunit.xml' => 'x8'])->mutation())
         ->not->toEqual($digests->mutation());
+});
+
+it('keys every coverage entry on what each reads, and leaves a PHP source and the tests to the entries that read them', function (): void {
+    $source = static fn(string $path, string $digest): array => [...CONTENT_KEY_SOURCE, $path => $digest];
+    $base = contentKeyOf(coverageBase: true);
+
+    expect(contentKeyOf(source: $source('src/A.php', 'a2'), coverageBase: true))->toEqual($base)
+        ->and(contentKeyOf(source: $source('src/New.php', 'n1'), coverageBase: true))->toEqual($base)
+        ->and(contentKeyOf(source: $source('docs/index.md', 'd2'), coverageBase: true))->toEqual($base)
+        ->and(contentKeyOf(source: $source('mutation-gate.json', 'g2'), coverageBase: true))->toEqual($base)
+        ->and(contentKeyOf(cases: [...CONTENT_KEY_CASES, 'tests/Unit/MoneyTest.php' => ['m2', '<?php']], coverageBase: true))->toEqual($base)
+        ->and(contentKeyOf(known: [], canaries: [], judges: [], covered: [], coverageBase: true))->toEqual($base)
+        ->and(contentKeyOf(source: $source('composer.json', 'c2'), coverageBase: true))->not->toEqual($base)
+        ->and(contentKeyOf(source: $source('templates/mail.twig', 't1'), coverageBase: true))->not->toEqual($base)
+        ->and(contentKeyOf(config: '{"runner":"infection"}', coverageBase: true))->not->toEqual($base)
+        ->and(contentKeyOf(ci: "name: other\n", coverageBase: true))->not->toEqual($base)
+        ->and(contentKeyOf(installed: 'other', coverageBase: true))->not->toEqual($base)
+        ->and(contentKeyOf(gateVersion: '1.0.1', coverageBase: true))->not->toEqual($base)
+        ->and(contentKeyOf())->not->toEqual($base);
 });

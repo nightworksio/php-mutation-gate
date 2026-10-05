@@ -76,6 +76,7 @@ final readonly class ContentKeys
         private Tests $tests,
         private Digest $mutation,
         private Fingerprints $code,
+        private Digest $coverage,
     ) {
     }
 
@@ -92,13 +93,21 @@ final readonly class ContentKeys
         $context = Digest::hashing();
         self::hashMutationReads($context, $gate, $config, $runner, $analyser, $installed);
         $mutation = hash_copy($context);
+        $coverage = hash_copy($context);
+        self::hashCoverageReadsIn($coverage, $source);
         hash_update($mutation, self::framed('definitions'));
         self::hashFingerprintsIn($mutation, $source->definitions());
         hash_update($mutation, self::testFiles('always', $tests->inEveryKey(), $tests));
-        self::hashCodeIn($context, $source);
+        self::hashCodeIn($context, $source->files(), $source->ci());
         hash_update($context, self::testFiles('always', $tests->inEveryKey(), $tests));
 
-        return new self($context, $tests, Digest::finished($mutation), $source->outside());
+        return new self(
+            $context,
+            $tests,
+            Digest::finished($mutation),
+            $source->outside(),
+            Digest::finished($coverage),
+        );
     }
 
     /**
@@ -123,6 +132,18 @@ final readonly class ContentKeys
         }
 
         return $digests;
+    }
+
+    /**
+     * What every coverage entry's key reads (ADR-0023, decision 1): the first
+     * five inputs, the files that define the runner, every file outside the
+     * test directories that is no PHP source, and every CI definition that
+     * runs the gate. A source file is read by the entries that execute it or
+     * name it, not by every entry.
+     */
+    public function coverageBase(): Digest
+    {
+        return $this->coverage;
     }
 
     /**
@@ -179,6 +200,19 @@ final readonly class ContentKeys
         return Keys::none()->and(...$keys);
     }
 
+    /** Fields as a key reads them, each written with its length in bytes before it. */
+    /** Fields written each with its length before it, so no two lists of fields write alike. */
+    public static function framed(string ...$fields): string
+    {
+        $framed = '';
+
+        foreach ($fields as $field) {
+            $framed .= sprintf("%d:%s\n", Bytes::length($field), $field);
+        }
+
+        return $framed;
+    }
+
     /** The first five inputs, which decide a unit's mutant set besides its source. */
     private static function hashMutationReads(
         HashContext $context,
@@ -200,14 +234,28 @@ final readonly class ContentKeys
         hash_update($context, self::framed('installed', $installed->value()));
     }
 
+    /** The files that define the runner, every file outside the test directories that is no PHP, and the CI. */
+    private static function hashCoverageReadsIn(HashContext $context, Source $source): void
+    {
+        hash_update($context, self::framed('coverage', 'definitions'));
+        self::hashFingerprintsIn($context, $source->definitions());
+        $other = Fingerprints::none();
+
+        foreach ($source->files() as $file) {
+            $other = $file->path()->isPhp() ? $other : $other->with($file);
+        }
+
+        self::hashCodeIn($context, $other, $source->ci());
+    }
+
     /** Every file outside the test directories, and every CI definition that runs the gate. */
-    private static function hashCodeIn(HashContext $context, Source $source): void
+    private static function hashCodeIn(HashContext $context, Fingerprints $files, CiDefinitions $ci): void
     {
         hash_update($context, self::framed('files'));
-        self::hashFingerprintsIn($context, $source->files());
-        hash_update($context, self::framed('ci', sprintf('%d', count($source->ci()))));
+        self::hashFingerprintsIn($context, $files);
+        hash_update($context, self::framed('ci', sprintf('%d', count($ci))));
 
-        foreach ($source->ci() as $definition) {
+        foreach ($ci as $definition) {
             hash_update($context, self::framed($definition->path()->value(), $definition->asItRuns()));
         }
     }
@@ -348,17 +396,5 @@ final readonly class ContentKeys
             $by instanceof Filter => sprintf('the filter %s', $by->pattern()),
             default => 'the whole suite',
         };
-    }
-
-    /** Fields as a key reads them, each written with its length in bytes before it. */
-    private static function framed(string ...$fields): string
-    {
-        $framed = '';
-
-        foreach ($fields as $field) {
-            $framed .= sprintf("%d:%s\n", Bytes::length($field), $field);
-        }
-
-        return $framed;
     }
 }

@@ -6,13 +6,17 @@ namespace NightWorksIO\MutationGate\Core\Coverage;
 
 use function array_map;
 use function count;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Format\TooLarge;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -56,6 +60,9 @@ final readonly class CoverageMapFile
 
     private const int FORMAT = 1;
 
+    /** Why a map is not kept: it is past a store's limits, packed or as text. */
+    private const string OVER = 'The coverage map is %d bytes packed and %d bytes as text, over what a store keeps.';
+
     /** Why a file cannot be read as a map. */
     private const string UNREADABLE = 'The coverage map is not one this gate writes, so no line of it can be read.';
 
@@ -75,8 +82,65 @@ final readonly class CoverageMapFile
         return CannotJudge::because(sprintf(self::MISSING, $file));
     }
 
-    /** A map as the gate writes it, with where it was measured, which a map of some files alone does not say. */
-    public static function encode(CoverageMap $map, MeasuredAt|Unplaced $at): string
+    /**
+     * A map as the gate writes it, with where it was measured, which a map
+     * of some files alone does not say, and each test file's entry key where
+     * the map is one a store keeps.
+     */
+    public static function encode(
+        CoverageMap $map,
+        MeasuredAt|Unplaced $at,
+        EntryKeys|NotGiven $keys = new NotGiven(),
+    ): string {
+        return Gzip::pack(self::written($map, $at, $keys));
+    }
+
+    /**
+     * A map a store keeps, packed within its limits; or why it is not kept:
+     * it is past either.
+     */
+    public static function keeping(KeptMap $kept, MapLimits $limits): string|CannotJudge
+    {
+        $text = self::written($kept->map(), $kept->measuredAt(), $kept->keys());
+        $bytes = Gzip::pack($text);
+
+        return $limits->admits($text, $bytes)
+            ? $bytes
+            : CannotJudge::because(sprintf(self::OVER, Bytes::length($bytes), Bytes::length($text)));
+    }
+
+    /**
+     * A map a store kept, read within its limits as data, never run: the map,
+     * where it was measured, and each test file's entry key, each malformed
+     * entry dropped; or why it cannot be read.
+     */
+    public static function kept(string $bytes, MapLimits $limits): KeptMap|CannotJudge
+    {
+        $json = Gzip::unpackAtMost($bytes, self::NAMED, $limits->unpacked());
+        $file = Node::decode(is_string($json) ? $json : '');
+
+        return match (true) {
+            $json instanceof TooLarge => CannotJudge::because($json->why()),
+            $json instanceof CannotJudge => $json,
+            ! self::isThisFormat($file) => CannotJudge::because(self::UNREADABLE),
+            default => KeptMap::of(MapFileRead::read($file), MeasuredAt::readIn($file), EntryKeys::readIn($file)),
+        };
+    }
+
+    public static function decode(string $bytes): CoverageMap|CannotJudge
+    {
+        $json = Gzip::unpack($bytes, self::NAMED);
+        $file = Node::decode($json instanceof CannotJudge ? '' : $json);
+
+        if (! self::isThisFormat($file)) {
+            return CannotJudge::because(self::UNREADABLE);
+        }
+
+        return MapFileRead::read($file);
+    }
+
+    /** The JSON text a map is written as. */
+    private static function written(CoverageMap $map, MeasuredAt|Unplaced $at, EntryKeys|NotGiven $keys): string
     {
         $places = [];
         $tests = [];
@@ -95,27 +159,29 @@ final readonly class CoverageMapFile
             );
         }
 
-        $methods = self::methodsOf($map);
-
-        return Gzip::pack(JsonText::compact([
+        return JsonText::compact([
             'format' => self::FORMAT,
             ...($at instanceof MeasuredAt ? $at->written() : []),
             'tests' => $tests,
             'files' => $files === [] ? new stdClass() : $files,
-            ...($methods === [] ? [] : [self::METHODS => $methods]),
-        ]));
+            ...self::optional($map, $keys),
+        ]);
     }
 
-    public static function decode(string $bytes): CoverageMap|CannotJudge
+    /**
+     * The fields a map writes only where it holds them: methods, and entry keys.
+     *
+     * @return array{methods?: array<string, list<MethodRecord>>, keys?: array<string, string>|stdClass}
+     */
+    private static function optional(CoverageMap $map, EntryKeys|NotGiven $keys): array
     {
-        $json = Gzip::unpack($bytes, self::NAMED);
-        $file = Node::decode($json instanceof CannotJudge ? '' : $json);
+        $methods = self::methodsOf($map);
+        $keyed = $keys instanceof EntryKeys ? $keys->written() : [];
 
-        if (! self::isThisFormat($file)) {
-            return CannotJudge::because(self::UNREADABLE);
-        }
-
-        return MapFileRead::read($file);
+        return [
+            ...($methods === [] ? [] : [self::METHODS => $methods]),
+            ...($keys instanceof EntryKeys ? [EntryKeys::FIELD => $keyed === [] ? new stdClass() : $keyed] : []),
+        ];
     }
 
     /** @return array<string, list<MethodRecord>> each file's executed methods, by path */

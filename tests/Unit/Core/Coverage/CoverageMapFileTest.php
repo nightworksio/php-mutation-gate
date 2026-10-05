@@ -3,14 +3,20 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
+use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethod;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethods;
+use NightWorksIO\MutationGate\Core\Coverage\KeptMap;
 use NightWorksIO\MutationGate\Core\Coverage\LineTests;
+use NightWorksIO\MutationGate\Core\Coverage\MapLimits;
+use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -213,4 +219,55 @@ it('writes each line no test ran with no tests, and reads it back as one', funct
         ->and($json instanceof CannotJudge ? $json->why() : $json)->toContain('"src/Gone.php":{"2":[]}')
         ->and($read instanceof CoverageMap ? [...$read->linesMissed(Path::of('src/Money.php'))] : $read)->toEqual([Line::of(4)])
         ->and($read instanceof CoverageMap ? [...$read->linesMissed(Path::of('src/Gone.php'))] : $read)->toEqual([Line::of(2)]);
+});
+
+it('keeps a map with where it was measured and each test file\'s entry key, and reads all three back as data', function () use ($map): void {
+    $at = MeasuredAt::of(Revision::ref(str_repeat('a', 40)), dirty: false);
+    $keys = EntryKeys::none()
+        ->with(Path::of('tests/MoneyTest.php'), Digest::sha256Of('money'))
+        ->with(Path::of('123'), Digest::sha256Of('numbered'));
+    $bytes = CoverageMapFile::keeping(KeptMap::of($map(), $at, $keys), MapLimits::standard());
+    $kept = is_string($bytes) ? CoverageMapFile::kept($bytes, MapLimits::standard()) : $bytes;
+
+    expect($kept)->toEqual(KeptMap::of($map(), $at, $keys))
+        ->and(Gzip::unpack(is_string($bytes) ? $bytes : '', 'the map'))->toContain(sprintf(
+            '"keys":%s',
+            JsonText::compact(['123' => Digest::sha256Of('numbered')->value(), 'tests/MoneyTest.php' => Digest::sha256Of('money')->value()]),
+        ))
+        ->and(CoverageMapFile::decode(CoverageMapFile::encode($map(), $at, EntryKeys::none())))->toEqual($map());
+});
+
+it('reads a kept map\'s keys that are no path and digest as none, and a map with no keys as keying no file', function () use ($file, $written): void {
+    $kept = CoverageMapFile::kept($written([...$file(), 'keys' => [
+        'tests/MoneyTest.php' => str_repeat('b', 64),
+        'tests/Short.php' => 'abc',
+        'tests/Listed.php' => [str_repeat('c', 64)],
+        '' => str_repeat('d', 64),
+    ]]), MapLimits::standard());
+    $unkeyed = CoverageMapFile::kept($written($file()), MapLimits::standard());
+    $listed = CoverageMapFile::kept($written([...$file(), 'keys' => [str_repeat('e', 64)]]), MapLimits::standard());
+
+    expect($kept instanceof KeptMap ? $kept->keys() : null)
+        ->toEqual(EntryKeys::none()->with(Path::of('tests/MoneyTest.php'), Digest::of(str_repeat('b', 64))))
+        ->and($unkeyed instanceof KeptMap ? $unkeyed->keys() : null)->toEqual(EntryKeys::none())
+        ->and($unkeyed instanceof KeptMap ? $unkeyed->measuredAt() : null)->toEqual(Unplaced::map())
+        ->and($listed instanceof KeptMap ? $listed->keys() : null)
+        ->toEqual(EntryKeys::none()->with(Path::of('0'), Digest::of(str_repeat('e', 64))));
+});
+
+it('keeps no map past either of a store\'s limits, and reads none that inflates past it, is no gzip, or is not this format', function () use ($map, $file, $written, $unreadable): void {
+    $kept = KeptMap::of($map(), Unplaced::map(), EntryKeys::none());
+    $bytes = CoverageMapFile::keeping($kept, MapLimits::standard());
+    $packed = is_string($bytes) ? strlen($bytes) : 0;
+    $unpacked = Gzip::unpack(is_string($bytes) ? $bytes : '', 'the map');
+    $text = is_string($unpacked) ? strlen($unpacked) : 0;
+
+    expect(CoverageMapFile::keeping($kept, MapLimits::of($packed - 1, $text)))
+        ->toEqual(CannotJudge::because(sprintf('The coverage map is %d bytes packed and %d bytes as text, over what a store keeps.', $packed, $text)))
+        ->and(CoverageMapFile::keeping($kept, MapLimits::of($packed, $text - 1)))->toBeInstanceOf(CannotJudge::class)
+        ->and(CoverageMapFile::keeping($kept, MapLimits::of($packed, $text)))->toBe($bytes)
+        ->and(CoverageMapFile::kept(is_string($bytes) ? $bytes : '', MapLimits::of($packed, $text - 1)))
+        ->toEqual(CannotJudge::because(sprintf('The coverage map inflates to more than %d bytes.', $text - 1)))
+        ->and(CoverageMapFile::kept('not gzip', MapLimits::standard()))->toBeInstanceOf(CannotJudge::class)
+        ->and(CoverageMapFile::kept($written([...$file(), 'format' => 2]), MapLimits::standard()))->toEqual($unreadable);
 });
