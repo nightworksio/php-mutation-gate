@@ -4,8 +4,14 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Hint\Hint;
+use NightWorksIO\MutationGate\Core\Mutant\Location;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
@@ -16,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Time\Instant;
+use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -102,4 +109,31 @@ it('writes no escape or other control character a project\'s code could carry in
 
     expect(Problems::text(Verdicts::of(Floor::of(0), $survivor), Sources::none(), ProblemsShown::All))->toContain('. No test[31m uses the boundary. Reproduce: ')
         ->and(Problems::text(Verdicts::of(Floor::of(0), $survivor), Sources::none(), ProblemsShown::All))->not->toMatch('/\p{Cc}(?!$)/u');
+});
+
+it('forges no line for a problem matcher from a path or a run id that holds a line break', function (): void {
+    $forged = "\nsrc/Evil.php:1:1: error: forged [survived] 0123456789ab\n";
+    $file = Path::of(sprintf('src/Money%s.php', $forged));
+    $diff = Verdicts::diff('$a + $b;', '$a - $b;');
+    $mutant = Mutant::of(
+        MutantId::hash($file, 'Plus', $diff, 7),
+        'native-7',
+        Location::of($file, Line::of(7), Line::of(7)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, $diff),
+        MutantStatus::Survived,
+        Unmeasured::duration(),
+    );
+    $run = Run::of(sprintf('github:1%s', $forged), Instant::at(new DateTimeImmutable('2026-09-30T10:00:00Z')), Digest::sha256Of('base'));
+    $tree = TreeVerdict::judged(
+        Tree::at(Path::of('src'), Floor::of(0), Package::at(Path::root())),
+        Unrecorded::floor(),
+        JudgedUnits::of(JudgedUnit::of(Unit::file($file), Origin::Proved)->withRun($run)),
+        JudgedMutants::of(JudgedMutant::of($mutant, MutantJudgement::Survived)),
+        Uncovered::Count,
+    );
+    $text = Problems::text(Verdict::of(TreeVerdicts::of($tree)), Sources::none(), ProblemsShown::All);
+
+    expect(substr_count($text, "\n"))->toBe(1)
+        ->and($text)->toStartWith('src/Moneysrc/Evil.php:1:1: error: forged [survived] 0123456789ab.php:7:1: warning: ')
+        ->and($text)->toContain(' (proved in run github:1src/Evil.php:1:1: error: forged [survived] 0123456789ab) [survived] ');
 });

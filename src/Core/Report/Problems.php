@@ -21,7 +21,9 @@ use function sprintf;
  * `<path>:<line>:<col>: <error|warning>: <message> [<rule>] <id>`. A result
  * is an error in a set that failed and a warning otherwise, under SARIF's
  * rules, and a proved or carried one names the run it came from. The format
- * is public API (ADR-0015, decisions 6 and 8, and ADR-0011).
+ * is public API (ADR-0015, decisions 6 and 8, and ADR-0011). A path, a run's
+ * id and a message hold no line break or other control character, so none
+ * starts a line of its own a matcher would read as a result.
  */
 final readonly class Problems
 {
@@ -90,7 +92,7 @@ final readonly class Problems
             "%s\n",
             sprintf(
                 self::LINE,
-                $mutant->location()->file()->value(),
+                Fit::verbatim($mutant->location()->file()->value()),
                 $start['line'],
                 $start['column'],
                 $failing ? 'error' : 'warning',
@@ -107,7 +109,7 @@ final readonly class Problems
     {
         $run = $unit->run();
         $named = static fn(string $preposition): string => $run instanceof Run
-            ? sprintf(' %s run %s', $preposition, $run->id())
+            ? sprintf(' %s run %s', $preposition, Fit::verbatim($run->id()))
             : '';
 
         return match ($unit->origin()) {
