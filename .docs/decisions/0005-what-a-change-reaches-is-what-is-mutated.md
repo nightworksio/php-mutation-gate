@@ -149,10 +149,12 @@ The same repository has two more needs.
 5. **On the default branch, a tree a pull request already proved is not mutated
    again.** On a push, the reach runs from `last-passed`. With the GitHub
    `ChangeSource`, which reads pull requests and check-runs through GitHub's
-   API with `GITHUB_TOKEN`, a commit whose tree is the tree of a merged pull
-   request's head, and whose verdict passed on that head, reaches nothing: the
-   branch was up to date, so its run judged exactly the tree that landed. The
-   gate asks at most twenty commits back. A longer range, or one commit it
+   API with `GITHUB_TOKEN`, a commit whose tree is the tree of the head of a
+   pull request merged into the repository's default branch, and whose verdict
+   passed on that head, reaches nothing: the branch was up to date, so its run
+   judged exactly the tree that landed. A pull request merged into any other
+   branch, which no protection of the default branch guards, proves nothing.
+   The gate asks at most twenty commits back. A longer range, or one commit it
    cannot prove, is mutated in full.
    - A pull request's verdict passed where two things say so. The latest
      check-run GitHub Actions completed on its head under the name `ci.check`
