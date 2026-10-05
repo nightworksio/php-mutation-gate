@@ -45,6 +45,7 @@ use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Port\Processes;
 use NightWorksIO\MutationGate\Port\Runner;
 
 use function realpath;
@@ -96,10 +97,14 @@ final readonly class Pest implements Runner
     /**
      * Pest in the project the gate runs in, installed in this vendor
      * directory, as the `pest` runner's options configure it, writing its
-     * memory cap with these files.
+     * memory cap with these files and running through these processes.
      */
-    public static function fromOptions(Options $options, Path $vendor, CapFiles $files): self|Invalid
-    {
+    public static function fromOptions(
+        Options $options,
+        Path $vendor,
+        CapFiles $files,
+        Processes $processes,
+    ): self|Invalid {
         $read = PestOptions::read($options);
 
         if ($read instanceof Invalid) {
@@ -110,7 +115,7 @@ final readonly class Pest implements Runner
 
         return new self(
             $project,
-            new ProcessShell($project->root()),
+            new ProcessShell($processes, $project->root()),
             $read->patching(),
             $files,
             $read->timeout(),

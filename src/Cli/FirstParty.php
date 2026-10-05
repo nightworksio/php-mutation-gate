@@ -49,6 +49,7 @@ use NightWorksIO\MutationGate\Adapter\Otlp\OtlpReporter;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnit;
+use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Psalm\Psalm;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
@@ -90,6 +91,7 @@ final readonly class FirstParty implements Extension
     public function extend(Extensions $extensions): Extensions
     {
         $environment = Variables::of(getenv());
+        $processes = new LocalProcesses(new SystemClock());
         $public = new PublicBucket(HttpClient::create());
         $s3 = $this->keyed(BuiltinStore::S3, BucketLedger::fromOptions(...), $public->s3(...), $environment);
         $gcs = $this->keyed(
@@ -173,6 +175,7 @@ final readonly class FirstParty implements Extension
                     $options,
                     ComposerVendor::of(self::HERE),
                     new CapDirectory(),
+                    $processes,
                 ),
             )
             ->withReporter(BuiltinReporter::Console->named(), ConsoleReport::fromOptions(...))
@@ -229,7 +232,11 @@ final readonly class FirstParty implements Extension
             )
             ->withRunner(
                 BuiltinRunner::Infection->named(),
-                static fn(Options $options): Infection|Invalid => Infection::fromOptions($options, new CapDirectory()),
+                static fn(Options $options): Infection|Invalid => Infection::fromOptions(
+                    $options,
+                    new CapDirectory(),
+                    $processes,
+                ),
             )
             ->withRunner(
                 BuiltinRunner::PhpUnit->named(),
@@ -237,6 +244,7 @@ final readonly class FirstParty implements Extension
                     $options,
                     ComposerVendor::of(self::HERE),
                     new CapDirectory(),
+                    $processes,
                 ),
             )
             ->withStaticChecker(

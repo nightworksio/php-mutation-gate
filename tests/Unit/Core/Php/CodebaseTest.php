@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Php\Codebase;
+use NightWorksIO\MutationGate\Core\Php\Source;
 use NightWorksIO\MutationGate\Core\Php\Symbol;
 use NightWorksIO\MutationGate\Core\Php\SymbolKind;
 use NightWorksIO\MutationGate\Core\Php\Unnamed;
@@ -38,6 +40,15 @@ $codebase = static fn(): Codebase => Codebase::of(
 it('holds the files it was read from', function () use ($codebase): void {
     expect($codebase()->has(Path::of('src/Money.php')))->toBeTrue()
         ->and($codebase()->has(Path::of('src/Other.php')))->toBeFalse();
+});
+
+it('answers the scanned source of a file it holds, and none of one it does not', function () use ($codebase): void {
+    $read = $codebase();
+    $money = $read->source(Path::of('src/Money.php'));
+
+    expect($money instanceof Source ? $money->path() : NotGiven::value())->toEqual(Path::of('src/Money.php'))
+        ->and($read->source(Path::of('src/Money.php')))->toBe($money)
+        ->and($read->source(Path::of('src/Other.php')))->toEqual(NotGiven::value());
 });
 
 it('follows a read inside another declaration to where that is read, three declarations deep', function () use (

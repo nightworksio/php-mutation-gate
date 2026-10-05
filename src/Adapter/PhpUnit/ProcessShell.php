@@ -7,32 +7,26 @@ namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 use function array_fill_keys;
 use function array_key_exists;
 use function array_map;
-use function hrtime;
-use function is_int;
 
 use NightWorksIO\MutationGate\Core\File\DiskPath;
-use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\EnvironmentRead;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
-use NightWorksIO\MutationGate\Core\Runner\Polling;
-use NightWorksIO\MutationGate\Core\Runner\ProcessTable;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
+use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\SearchPath;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Withholding;
+use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Runner\WorkerVariable;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
-
-use function sprintf;
-
-use Symfony\Component\Process\Exception\ExceptionInterface;
-use Symfony\Component\Process\Process;
-
-use function usleep;
+use NightWorksIO\MutationGate\Port\Processes;
 
 /**
- * Runs a command as a process in one directory, with the running PHP's
- * directory first on the `PATH`, and says how long it took.
+ * Runs a command as a process in one directory, through the processes the
+ * gate runs, with the running PHP's directory first on the `PATH`, and says
+ * how long it took.
  *
  * - No inherited variable that makes a process a worker or a mutant of
  *   another run reaches it, nor any the command withholds, such as a
@@ -48,42 +42,42 @@ use function usleep;
 final readonly class ProcessShell implements Shell
 {
     /** @param array<string, string> $inherited the environment the gate runs in */
-    public function __construct(private string $directory, private array $inherited)
+    public function __construct(private Processes $processes, private string $directory, private array $inherited)
     {
     }
 
     public function in(string $directory): self
     {
-        return new self($directory, $this->inherited);
+        return new self($this->processes, $directory, $this->inherited);
     }
 
     public function run(Command $command): Ran
     {
-        $process = new Process(
-            $command->arguments(),
-            $this->directory,
-            [
+        return $this->processes->run($this->processCommandOf($command));
+    }
+
+    public function sideBySide(WorkerSlots $slots, Seconds|Unlimited $startingWithin, Command ...$commands): ProcessEnds
+    {
+        $processes = [];
+
+        foreach ($commands as $command) {
+            $processes[] = $this->processCommandOf($command);
+        }
+
+        return $this->processes->sideBySide($slots, $startingWithin, ...$processes);
+    }
+
+    /** A command as a process runs it: in this shell's directory, told what the process must and must not see. */
+    public function processCommandOf(Command $command): ProcessCommand
+    {
+        return ProcessCommand::of($this->directory, ...$command->arguments())
+            ->with(EnvironmentRead::of([
                 ...$this->scrubbed($command->withheld()),
                 ...$this->unset(),
                 ...$command->environment(),
                 ...$this->capped($command),
-            ],
-            timeout: null,
-        );
-
-        $started = hrtime(as_number: true);
-
-        try {
-            $process->start();
-            $stopped = ! $this->endsBy($process, $command->deadline());
-        } catch (ExceptionInterface $failure) {
-            return Ran::finished(succeeded: false, output: $failure->getMessage())->took($this->since($started));
-        }
-
-        $said = sprintf('%s%s', $process->getOutput(), $process->getErrorOutput());
-        $ran = $stopped ? Ran::stopped($said) : Ran::exited($process->getExitCode() ?? NotGiven::value(), $said);
-
-        return $ran->took($this->since($started));
+            ]))
+            ->within($command->deadline());
     }
 
     /**
@@ -130,48 +124,5 @@ final readonly class ProcessShell implements Shell
         return $directory instanceof DiskPath
             ? [MemoryCap::SCAN_DIR => MemoryCap::scanning($inherited, $directory->value())]
             : [];
-    }
-
-    private function since(int|float $started): Seconds
-    {
-        return Seconds::of((hrtime(as_number: true) - $started) / Seconds::NANOSECONDS);
-    }
-
-    /** Whether the process ends by its deadline; one that does not is stopped with every process it started. */
-    private function endsBy(Process $process, Seconds|Unlimited $deadline): bool
-    {
-        if ($deadline instanceof Unlimited) {
-            $process->wait();
-
-            return true;
-        }
-
-        $by = hrtime(as_number: true) + $deadline->nanoseconds();
-
-        while ($process->isRunning() && hrtime(as_number: true) < $by) {
-            usleep(Polling::interval()->microseconds());
-        }
-
-        $running = $process->isRunning();
-
-        if ($running) {
-            $this->stopWithDescendants($process);
-        }
-
-        return ! $running;
-    }
-
-    private function stopWithDescendants(Process $process): void
-    {
-        $pid = $process->getPid();
-        $listing = new Process(ProcessTable::LISTING);
-        $listing->run();
-        $descendants = is_int($pid) ? ProcessTable::parse($listing->getOutput())->descendantsOf($pid) : [];
-
-        if ($descendants !== []) {
-            new Process(ProcessTable::killing(...$descendants))->run();
-        }
-
-        $process->stop(0);
     }
 }

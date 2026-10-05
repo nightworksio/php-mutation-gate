@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Pest\ProcessTree;
+use NightWorksIO\MutationGate\Adapter\Process\ProcessTree;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Symfony\Component\Process\Process;
 
@@ -44,4 +44,14 @@ it('stops a program that started nothing', function (): void {
     ProcessTree::of($program)->stop();
 
     expect($program->isRunning())->toBeFalse();
+});
+
+it('stops nothing of a program that has already ended', function (): void {
+    $program = new Process([PHP_BINARY, '-r', 'echo "done";']);
+    $program->run();
+
+    ProcessTree::of($program)->stop();
+
+    expect($program->isRunning())->toBeFalse()
+        ->and($program->getOutput())->toBe('done');
 });

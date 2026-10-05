@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Adapter\PhpUnit\Override;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Project;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\TestFiles;
+use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
+use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -85,7 +87,7 @@ function judgedByPhpUnit(
         return CannotJudge::because('The library cannot be mutated.');
     }
 
-    $shell = new ProcessShell($project->root(), [...getenv(), ...$inherited]);
+    $shell = new ProcessShell(new LocalProcesses(new SystemClock()), $project->root(), [...getenv(), ...$inherited]);
 
     return new MutantRun($project, $shell, new Invocation($project, $override), new TestFiles($project), PhpUnitScan::uncapped($project), NotGiven::value())->judged(
         [...$made][$nth],
@@ -240,7 +242,7 @@ it('selects a test by its file where its data set\'s name has a line break, and 
 
 it('measures which tests run each line and how long each took, and places and names each test by its file', function (): void {
     $project = Project::at(Tree::at(PHPUNIT_LIBRARY), Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'));
-    $shell = new ProcessShell($project->root(), getenv());
+    $shell = new ProcessShell(new LocalProcesses(new SystemClock()), $project->root(), getenv());
     $map = new Coverage($project, $shell, new Invocation($project, 'unused'))
         ->of(CoverageRun::of(Filter::matching('TallySpec'), Path::of('.mutation-gate/coverage')));
     $lines = file($project->absolute(Path::of('src/Tally.php')));

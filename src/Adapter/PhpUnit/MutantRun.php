@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
+use function array_values;
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -17,8 +18,10 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\PrematureEnd;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Mutator\Engine\MadeMutant;
 
@@ -94,29 +97,88 @@ final readonly class MutantRun
     ) {
     }
 
+    /** The mutant, its tests run against it in one process stopped at its limit. */
     public function judged(
         MadeMutant $made,
         TestIds $covering,
         MutationRequest $request,
         Seconds $limit,
     ): Mutant|CannotJudge {
-        $files = $this->written($made, $covering);
+        $prepared = $this->prepared($made, $covering, $request, $limit);
 
-        if (! $files instanceof MutantFiles) {
-            return $files;
+        return $prepared instanceof PreparedRun
+            ? $this->finished($prepared, $this->shell->run($prepared->command()))
+            : $prepared;
+    }
+
+    /**
+     * Prepared runs, side by side, one in each place at a time, none started
+     * once the time to start them in has run out: each mutant whose run
+     * started, judged as its run ended, in the order the runs were given.
+     *
+     * @return list<Mutant>
+     */
+    public function judgedSideBySide(
+        WorkerSlots $slots,
+        Seconds|Unlimited $startingWithin,
+        PreparedRun ...$prepared,
+    ): array {
+        $runs = array_values($prepared);
+        $commands = [];
+
+        foreach ($runs as $run) {
+            $commands[] = $run->command();
         }
 
-        $command = $this->invocation->of($files, $request, $limit);
-        $ran = $this->shell->run($this->scan->onto($command));
+        $judged = [];
+
+        foreach ($this->shell->sideBySide($slots, $startingWithin, ...$commands) as $at => $ran) {
+            $judged[] = $this->finished($runs[$at], $ran);
+        }
+
+        return $judged;
+    }
+
+    /**
+     * The run that judges the mutant, its files written and its command
+     * built, ready to start; or the mutant unjudged without a run, or why it
+     * cannot be written.
+     */
+    public function prepared(
+        MadeMutant $made,
+        TestIds $covering,
+        MutationRequest $request,
+        Seconds $limit,
+    ): PreparedRun|Mutant|CannotJudge {
+        $files = $this->written($made, $covering);
+
+        return $files instanceof MutantFiles
+            ? PreparedRun::of(
+                $made,
+                $covering,
+                $files,
+                $this->scan->onto($this->invocation->of($files, $request, $limit)),
+                $limit,
+                $request->memory(),
+            )
+            : $files;
+    }
+
+    /** The mutant as a prepared run that ended so judges it, by the extension's records and the guard. */
+    public function finished(PreparedRun $prepared, Ran $ran): Mutant
+    {
+        $made = $prepared->made();
+        $covering = $prepared->covering();
+        $files = $prepared->files();
         $recorded = Recorded::in($files->results(), $covering);
         $verdict = $this->verdict($ran, $recorded, Guard::in($files->guard()), count($covering));
-        $cap = $request->memory();
+        $cap = $prepared->cap();
         $status = $verdict instanceof Reason ? MutantStatus::Unjudged : $this->weighed($verdict, $ran, $cap);
         $mutant = $this->mutant($made, $status, $ran->duration());
 
         return match (true) {
             $verdict instanceof Reason => $mutant->because($verdict),
-            $status === MutantStatus::TimedOut => $mutant->withLimit($limit),
+            $status === MutantStatus::TimedOut => $mutant->withLimit($prepared->limit()),
             $status === MutantStatus::OutOfMemory && Exhaustion::isOf(Exhaustion::in($ran->output()), $cap)
                 => $mutant->withLimit($cap),
             $status === MutantStatus::Killed && $ran->wasStopped() => $mutant->killedBy($recorded->creditedFailures()),

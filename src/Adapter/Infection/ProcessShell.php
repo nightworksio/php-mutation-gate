@@ -7,28 +7,19 @@ namespace NightWorksIO\MutationGate\Adapter\Infection;
 use function array_fill_keys;
 use function array_filter;
 use function array_key_exists;
-use function is_int;
 
-use NightWorksIO\MutationGate\Core\NotGiven;
-use NightWorksIO\MutationGate\Core\Runner\Polling;
-use NightWorksIO\MutationGate\Core\Runner\ProcessTable;
+use NightWorksIO\MutationGate\Core\Runner\EnvironmentRead;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\SearchPath;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Withholding;
 use NightWorksIO\MutationGate\Core\Runner\WorkerVariable;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
-use NightWorksIO\MutationGate\Core\Time\Unlimited;
-
-use function sprintf;
-
-use Symfony\Component\Process\Exception\ExceptionInterface;
-use Symfony\Component\Process\Process;
-
-use function usleep;
+use NightWorksIO\MutationGate\Port\Processes;
 
 /**
- * Runs a command as a process in one directory.
+ * Runs a command as a process in one directory, through the processes the
+ * gate runs.
  *
  * - The process starts with the running PHP's directory first on the `PATH`,
  *   so the PHPUnit Infection starts for each mutant through its script's `#!`
@@ -39,49 +30,28 @@ use function usleep;
  *   credential of the CI or the proof store: the project's tests, and every
  *   mutant of its code, run in it.
  * - At its deadline it is stopped with every process it started.
- * - A process that cannot start, or fails while running, ends as a failure, with
- *   the reason as its output.
+ * - A process that cannot start ends as a failure, with the reason as its
+ *   output.
  */
 final readonly class ProcessShell implements Shell
 {
-    /**
-     * @param array<string, string> $inherited the environment the gate runs in
-     * @param Clock                 $clock     what a deadline is measured on
-     */
-    public function __construct(
-        private string $directory,
-        private array $inherited,
-        private Clock $clock = new WallClock(),
-    ) {
+    /** @param array<string, string> $inherited the environment the gate runs in */
+    public function __construct(private Processes $processes, private string $directory, private array $inherited)
+    {
     }
 
     public function in(string $directory): self
     {
-        return new self($directory, $this->inherited, $this->clock);
+        return new self($this->processes, $directory, $this->inherited);
     }
 
     public function run(Command $command): Ran
     {
-        $process = new Process(
-            $command->arguments(),
-            $this->directory,
-            [...$this->environment($command->withheld()), ...$command->environment()],
-            timeout: null,
+        return $this->processes->run(
+            ProcessCommand::of($this->directory, ...$command->arguments())
+                ->with(EnvironmentRead::of([...$this->environment($command->withheld()), ...$command->environment()]))
+                ->within($command->deadline()),
         );
-
-        $started = $this->clock->nanoseconds();
-
-        try {
-            $process->start();
-            $stopped = $this->stoppedAt($process, $command->deadline());
-        } catch (ExceptionInterface $failure) {
-            return Ran::finished(succeeded: false, output: $failure->getMessage());
-        }
-
-        $output = sprintf('%s%s', $process->getOutput(), $process->getErrorOutput());
-        $ran = $stopped ? Ran::stopped($output) : Ran::exited($process->getExitCode() ?? NotGiven::value(), $output);
-
-        return $ran->took(Seconds::of(($this->clock->nanoseconds() - $started) / Seconds::NANOSECONDS));
     }
 
     /**
@@ -104,40 +74,5 @@ final readonly class ProcessShell implements Shell
         $environment[SearchPath::VARIABLE] = SearchPath::phpFirst($path);
 
         return $environment;
-    }
-
-    /** Waits for the process to end, or stops it with every process it started at its deadline, and says which. */
-    private function stoppedAt(Process $process, Seconds|Unlimited $deadline): bool
-    {
-        if ($deadline instanceof Unlimited) {
-            $process->wait();
-
-            return false;
-        }
-
-        $end = $this->clock->nanoseconds() + $deadline->nanoseconds();
-
-        while ($process->isRunning() && $this->clock->nanoseconds() < $end) {
-            usleep(Polling::interval()->microseconds());
-        }
-
-        return $process->isRunning() && $this->stopped($process);
-    }
-
-    /** Stops a process, and every process it started first, so none is left running on its own. */
-    private function stopped(Process $process): bool
-    {
-        $pid = $process->getPid();
-        $listing = new Process(ProcessTable::LISTING);
-        $listing->run();
-        $started = is_int($pid) ? ProcessTable::parse($listing->getOutput())->descendantsOf($pid) : [];
-
-        if ($started !== []) {
-            new Process(ProcessTable::killing(...$started))->run();
-        }
-
-        $process->stop(0);
-
-        return true;
     }
 }

@@ -139,7 +139,7 @@ it('runs the tests that read the value, then the fallback\'s others where the mu
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, ['internal']);
     $shell = new ShellFake(static fn(Command $command): Ran => Unexecutables::answering($command, ['tests/OtherSpec.php']));
-    $log = sprintf('--log-junit=%s/.mutation-gate/pest/junit.xml', $at->root());
+    $log = sprintf('--log-junit=%s/.mutation-gate/pest/trials/0/junit.xml', $at->root());
     $alone = static fn(string $spec, float $limit): Command => Invocation::installedIn(Path::of('vendor'))
         ->judging(Paths::of(Path::of(sprintf('tests/%s.php', $spec))), WholeSuite::tests(), Withheld::standard(), $log)
         ->within(Seconds::of($limit));
@@ -147,7 +147,7 @@ it('runs the tests that read the value, then the fallback\'s others where the mu
     $override = static fn(string $spec, float $limit): Command => $alone($spec, $limit)->with([
         'PEST_MUTATION_TESTING' => sprintf('%s/src/Money.php', $at->root()),
         'PEST_MUTATION_FILE' => $copy,
-        'MUTATION_GATE_GUARD' => sprintf('%s/.mutation-gate/pest/guard.json', $at->root()),
+        'MUTATION_GATE_GUARD' => sprintf('%s/.mutation-gate/pest/trials/0/guard.json', $at->root()),
     ]);
 
     new Judging($at, $shell, new CapDirectory(), Triage::standard()->limit())->of(judgingResult('internal'), $money, $results, judgingCoverage($results));
@@ -230,6 +230,25 @@ it('gives a mutant that timed out the limit its run was allowed: five seconds an
 
     expect($limits(Triage::standard()->limit()))->toEqual([[MutantStatus::TimedOut, Seconds::of(5.5)]])
         ->and($limits(Seconds::of(5.2)))->toEqual([[MutantStatus::TimedOut, Seconds::of(5.2)]]);
+});
+
+it('judges only the uncovered mutants of a run, and keeps each mutant Pest judged as Pest judged it', function () use ($money): void {
+    $at = Unexecutables::project();
+    $results = Unexecutables::run($at, ['rate', 'internal']);
+    $shell = new ShellFake(static fn(Command $command): Ran => Unexecutables::answering($command, ['tests/OtherSpec.php', 'tests/MoneySpec.php']));
+    $internal = Unexecutables::mutant('internal');
+    $survived = Mutant::of(
+        $internal->id(),
+        $internal->nativeId(),
+        $internal->location(),
+        $internal->mutation(),
+        MutantStatus::Survived,
+        Unmeasured::duration(),
+    );
+    $run = MutationResult::of(Mutants::of($survived, Unexecutables::mutant('rate')), 0);
+
+    expect(judgingOutcomes(new Judging($at, $shell, new CapDirectory(), Triage::standard()->limit())->of($run, $money, $results, judgingCoverage($results))))
+        ->toBe(['internal' => 'survived', 'rate' => 'killed']);
 });
 
 it('judges nothing without the mutated copy, and leaves the rest of a run as it was', function () use ($money): void {

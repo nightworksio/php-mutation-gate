@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest as PestRunner;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnit;
+use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
 use NightWorksIO\MutationGate\Cli\ComposerVendor;
@@ -30,6 +31,7 @@ use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\Cores;
 use NightWorksIO\MutationGate\Cli\Flow\Wiring;
+use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Config\Ci;
 use NightWorksIO\MutationGate\Config\Mutators;
 use NightWorksIO\MutationGate\Config\Option;
@@ -576,9 +578,9 @@ it('tells Infection each mutant\'s cap, timeouts.seconds, and that the gate chec
     $pest = $wired(Runner::pest(), StaticCheck::uses('fake'));
 
     expect($checked instanceof Adapters ? $checked->runner : $checked)
-        ->toEqual(Infection::fromOptions(Configs::options('{"staticAnalysis": "gate", "timeout": 45.0}'), new CapDirectory()))
+        ->toEqual(Infection::fromOptions(Configs::options('{"staticAnalysis": "gate", "timeout": 45.0}'), new CapDirectory(), new LocalProcesses(new SystemClock())))
         ->and($unchecked instanceof Adapters ? $unchecked->runner : $unchecked)
-        ->toEqual(Infection::fromOptions(Configs::options('{"timeout": 45.0}'), new CapDirectory()))
+        ->toEqual(Infection::fromOptions(Configs::options('{"timeout": 45.0}'), new CapDirectory(), new LocalProcesses(new SystemClock())))
         ->and($pest instanceof Adapters ? $pest->runner : $pest)->not->toBeInstanceOf(Infection::class);
 });
 
@@ -614,6 +616,7 @@ it('tells the PHPUnit runner the cap on each mutant\'s limit, timeouts.seconds, 
             Configs::options((string) json_encode(['timeout' => 45.0, 'mutators' => $mutators])),
             ComposerVendor::of('.'),
             new CapDirectory(),
+            new LocalProcesses(new SystemClock()),
         ));
 });
 
@@ -642,15 +645,18 @@ it('tells each runner timeouts.seconds and the classes of the registered mutator
         Configs::options((string) json_encode(['timeout' => 45.0, 'mutators' => [PlusToMinus::class]])),
         ComposerVendor::of('.'),
         new CapDirectory(),
+        new LocalProcesses(new SystemClock()),
     ))
         ->and($infection instanceof Adapters ? $infection->runner : $infection)->toEqual(Infection::fromOptions(
             Configs::options((string) json_encode(['timeout' => 45.0, 'mutators' => [PlusToMinus::class]])),
             new CapDirectory(),
+            new LocalProcesses(new SystemClock()),
         ))
         ->and($phpunit instanceof Adapters ? $phpunit->runner : $phpunit)->toEqual(PhpUnit::fromOptions(
             Configs::options((string) json_encode(['timeout' => 45.0, 'mutators' => $native])),
             ComposerVendor::of('.'),
             new CapDirectory(),
+            new LocalProcesses(new SystemClock()),
         ))
         ->and($pest instanceof Adapters ? array_map(static fn(object $mutator): string => $mutator::class, [...$pest->mutators]) : $pest)
         ->toBe([PlusToMinus::class])
@@ -677,6 +683,7 @@ it('tells the PHPUnit runner the default set\'s mutators less one mutators.excep
         ])),
         ComposerVendor::of('.'),
         new CapDirectory(),
+        new LocalProcesses(new SystemClock()),
     ))
         ->and($pest)->toEqual(Invalid::because(Problem::at(
             'mutators.except',

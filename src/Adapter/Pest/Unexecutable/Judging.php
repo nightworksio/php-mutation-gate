@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Unexecutable;
 
+use function array_keys;
+use function array_values;
 use function count;
 use function dirname;
 use function file_get_contents;
+use function getmypid;
 use function is_file;
 use function is_string;
 
@@ -27,10 +30,12 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
+use function strval;
 
 /**
  * Judges each mutant Pest left uncovered on a line that is not executable,
@@ -44,8 +49,8 @@ final readonly class Judging
 {
     private const string MISSING = 'mutated file missing';
 
-    /** Where a judging run writes its guard, in the directory of the results file. */
-    private const string GUARD = '%s/guard.json';
+    /** Where the judging runs write their guards and logs, in the directory of the results file. */
+    private const string TRIALS = '%s/trials';
 
     /** @param Seconds $cap `timeouts.seconds`, the most a trial run is allowed */
     public function __construct(
@@ -82,24 +87,17 @@ final readonly class Judging
 
         $selector = Selector::over($this->project, $coverage, $request->files());
         $invocation = Invocation::installedIn($this->project->vendor());
-        $guard = sprintf(self::GUARD, dirname($results));
         $trial = new Trial(
             $this->project,
             $this->shell,
             $invocation,
             $judgedBy,
             $request->withheld(),
-            $guard,
+            sprintf(self::TRIALS, dirname($results)),
             $scan,
+            WorkerSlots::of($request->processes(), strval(getmypid())),
         );
-        $originals = new Originals($this->project);
-        $mutants = [];
-
-        foreach ($result->mutants() as $mutant) {
-            $uncovered = $mutant->status() === MutantStatus::Uncovered;
-            $mutants[] = $uncovered ? $this->one($mutant, $selector, $trial, $originals, $results) : $mutant;
-        }
-
+        $mutants = $this->judgedEach([...$result->mutants()], $selector, $trial, $results);
         $scan->remove();
 
         return MutationResult::of(Mutants::of(...$mutants), $result->skipped());
@@ -116,38 +114,110 @@ final readonly class Judging
         return false;
     }
 
-    private function one(
-        Mutant $mutant,
-        Selector $selector,
-        Trial $trial,
-        Originals $originals,
-        string $results,
-    ): Mutant {
-        $file = $mutant->location()->file();
+    /**
+     * Each mutant, each uncovered one judged where its line is not
+     * executable: first by the tests that read what it changes, their trials
+     * side by side, then, for each those leave alive, by the tests that cover
+     * the line, theirs side by side too.
+     *
+     * @param  list<Mutant> $mutants
+     * @return list<Mutant>
+     */
+    private function judgedEach(array $mutants, Selector $selector, Trial $trial, string $results): array
+    {
+        $choices = $this->choicesOf($mutants, $selector, $results);
+        $firsts = [];
+
+        foreach ($choices as $at => $choice) {
+            $firsts[$at] = $choice instanceof Choice ? $choice->first($mutants[$at]->location()->file()) : $choice;
+        }
+
+        $thens = [];
+
+        foreach ($this->tried($firsts, $mutants, $selector, $trial, $results) as $at => $outcome) {
+            $thens[$at] = $this->then($choices[$at], $outcome, $mutants[$at]);
+        }
+
+        foreach ($this->tried($thens, $mutants, $selector, $trial, $results) as $at => $outcome) {
+            $mutants[$at] = $this->judged($mutants[$at], $outcome);
+        }
+
+        return array_values($mutants);
+    }
+
+    /**
+     * The test files to run where the first leave a mutant alive; what the
+     * first found, where none are to run.
+     */
+    private function then(Choice|Outcome $choice, Outcome $first, Mutant $mutant): Paths|Outcome
+    {
+        $then = $first->leftAlive() && $choice instanceof Choice
+            ? $choice->then($mutant->location()->file())
+            : Paths::none();
+
+        return $then instanceof Paths && count($then) === 0 ? $first : $then;
+    }
+
+    /**
+     * Which test files judge each uncovered mutant, or why it stays
+     * unjudged, by its position; none for a mutant coverage speaks for.
+     *
+     * @param  list<Mutant>                $mutants
+     * @return array<int, Choice|Outcome>
+     */
+    private function choicesOf(array $mutants, Selector $selector, string $results): array
+    {
+        $choices = [];
+
+        foreach ($mutants as $at => $mutant) {
+            $chosen = $mutant->status() === MutantStatus::Uncovered
+                ? $this->chosen($mutant, $selector, $results)
+                : NotGiven::value();
+            $choices += $chosen instanceof NotGiven ? [] : [$at => $chosen];
+        }
+
+        return $choices;
+    }
+
+    /**
+     * What each mutant's tests find, by position: an outcome as it is, and
+     * each set of test files tried, the trials side by side.
+     *
+     * @param  array<int, Paths|Outcome> $tests    each mutant's tests, or what was found without a run, by
+     *                                             position
+     * @param  list<Mutant>              $mutants
+     * @return array<int, Outcome>
+     */
+    private function tried(array $tests, array $mutants, Selector $selector, Trial $trial, string $results): array
+    {
+        $found = [];
+        $trials = [];
+
+        foreach ($tests as $at => $those) {
+            $found += $those instanceof Outcome ? [$at => $those] : [];
+            $file = $mutants[$at]->location()->file();
+            $copy = Recorder::mutantBeside($results, $mutants[$at]->nativeId());
+            $trials += $those instanceof Paths
+                ? [$at => TrialRun::of($those, $file, $copy, $selector->limitOf($those, $this->cap))]
+                : [];
+        }
+
+        foreach ($trial->ofEach(...array_values($trials)) as $position => $outcome) {
+            $found[array_keys($trials)[$position]] = $outcome;
+        }
+
+        return $found;
+    }
+
+    /**
+     * Which test files judge an uncovered mutant: none where coverage speaks
+     * for its line; or why it stays unjudged.
+     */
+    private function chosen(Mutant $mutant, Selector $selector, string $results): Choice|NotGiven|Outcome
+    {
         $copy = Recorder::mutantBeside($results, $mutant->nativeId());
-        $choice = $this->choice($selector, $originals->of($file), $copy);
 
-        if ($choice instanceof Outcome) {
-            return $this->judged($mutant, $choice);
-        }
-
-        if (! $choice instanceof Choice) {
-            return $mutant;
-        }
-
-        $first = $choice->first($file);
-        $outcome = $first instanceof Outcome
-            ? $first
-            : $trial->of($first, $file, $copy, $selector->limitOf($first, $this->cap));
-        $then = $outcome->leftAlive() ? $choice->then($file) : Paths::none();
-
-        $judged = match (true) {
-            $then instanceof Outcome => $then,
-            count($then) > 0 => $trial->of($then, $file, $copy, $selector->limitOf($then, $this->cap)),
-            default => $outcome,
-        };
-
-        return $this->judged($mutant, $judged);
+        return $this->choice($selector, $selector->original($mutant->location()->file()), $copy);
     }
 
     /**

@@ -151,6 +151,20 @@ manual.
      the cores a finishing invocation leaves.
    - This amends ADR-0006 decision 3: a shard runs its invocations side by
      side.
+   - A runner starts its processes through the `Processes` port: one run to
+     its end, or several side by side, each started in a free place
+     and none started once the time given to start them has passed. `Cli`
+     builds its one adapter, local processes through `symfony/process`, and
+     hands it to the first-party runners. This amends ADR-0001 decision 2:
+     there are eleven ports.
+   - The PHPUnit runner judges its mutants side by side in batches, and the
+     Pest runner tries its unexecutable mutants side by side, each run
+     writing in a directory of its own.
+   - Where more than one place runs, each process is told its place as
+     paratest tells its workers: `TEST_TOKEN` is the place,
+     `UNIQUE_TEST_TOKEN` the place and the run, and `PARATEST` and
+     `LARAVEL_PARALLEL_TESTING` are `1`. A suite that shares a database,
+     such as Laravel's, creates one per token.
 
 6. **Invocations run side by side only where they cannot collide.**
    - **Infection:** each concurrent invocation has its own working directory

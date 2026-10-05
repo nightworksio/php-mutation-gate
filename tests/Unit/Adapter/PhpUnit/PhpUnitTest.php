@@ -7,7 +7,9 @@ use NightWorksIO\MutationGate\Adapter\PhpUnit\Outcome;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnit;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Project;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Variable;
+use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
+use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -118,8 +120,8 @@ function phpUnitRunner(Project $project, PhpUnitShellFake $shell): PhpUnit
 $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
 
 it('is built from the options the flows write, or refuses those not in their shape', function (): void {
-    $built = PhpUnit::fromOptions(Configs::options('{"timeout": 30}'), Path::of('vendor'), new CapDirectory());
-    $refused = PhpUnit::fromOptions(Configs::options('{"timeout": "long"}'), Path::of('vendor'), new CapDirectory());
+    $built = PhpUnit::fromOptions(Configs::options('{"timeout": 30}'), Path::of('vendor'), new CapDirectory(), new LocalProcesses(new SystemClock()));
+    $refused = PhpUnit::fromOptions(Configs::options('{"timeout": "long"}'), Path::of('vendor'), new CapDirectory(), new LocalProcesses(new SystemClock()));
 
     expect($built)->toBeInstanceOf(PhpUnit::class)
         ->and($built instanceof PhpUnit ? $built->mutate(MutationRequest::of(Paths::none(), WholeSuite::tests())) : $built)

@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Infection\Clock;
 use NightWorksIO\MutationGate\Adapter\Infection\Command;
 use NightWorksIO\MutationGate\Adapter\Infection\ProcessShell;
+use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
+use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Tests\Fakes\ProcessesFake;
 use NightWorksIO\MutationGate\Tests\Support\Measured;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -30,14 +32,14 @@ const SHELL_PRINTS = 'foreach (["INFECTION_PROBE", "MUTATION_GATE_PROBE", "AWS_S
 
 it('runs a script in its directory, and keeps both of its outputs', function (): void {
     $directory = (string) realpath(Scratch::directory());
-    $ran = new ProcessShell($directory, ['PATH' => '/usr/bin'])->run(Command::php('-r', 'echo getcwd(); fwrite(STDERR, "!");'));
+    $ran = new ProcessShell(new LocalProcesses(new SystemClock()), $directory, ['PATH' => '/usr/bin'])->run(Command::php('-r', 'echo getcwd(); fwrite(STDERR, "!");'));
 
     expect($ran)->toEqual(Ran::exited(0, sprintf('%s!', $directory))->took(Measured::of($ran)));
 });
 
 it('runs a script in another directory once moved there, on the PATH it had', function (): void {
     $directory = (string) realpath(Scratch::directory());
-    $ran = new ProcessShell('/', ['PATH' => '/usr/bin'])->in($directory)
+    $ran = new ProcessShell(new LocalProcesses(new SystemClock()), '/', ['PATH' => '/usr/bin'])->in($directory)
         ->run(Command::php('-r', 'echo getcwd(), " ", getenv("PATH");'));
 
     expect($ran)->toEqual(Ran::exited(
@@ -47,7 +49,7 @@ it('runs a script in another directory once moved there, on the PATH it had', fu
 });
 
 it('puts the running PHP first on the PATH, so every PHP it starts is the same', function (): void {
-    $ran = new ProcessShell(Scratch::directory(), ['PATH' => '/usr/bin:/bin'])->run(Command::php('-r', SHELL_PRINTS));
+    $ran = new ProcessShell(new LocalProcesses(new SystemClock()), Scratch::directory(), ['PATH' => '/usr/bin:/bin'])->run(Command::php('-r', SHELL_PRINTS));
 
     expect($ran->output())->toContain(sprintf("\nPATH=%s%s/usr/bin:/bin\n", dirname(PHP_BINARY), PATH_SEPARATOR));
 });
@@ -59,7 +61,7 @@ it('withholds another run\'s variables and every credential, unless the command 
     }
 
     $command = Command::php('-r', SHELL_PRINTS)->with(['MUTATION_GATE_PROBE' => 'set']);
-    $ran = new ProcessShell(Scratch::directory(), getenv())->run($command);
+    $ran = new ProcessShell(new LocalProcesses(new SystemClock()), Scratch::directory(), getenv())->run($command);
 
     expect($ran->output())->toStartWith(implode("\n", [
         'INFECTION_PROBE=false',
@@ -75,89 +77,41 @@ it('withholds every variable the command withholds', function (): void {
     putenv('KEPT_PROBE=inherited');
     $_SERVER['KEPT_PROBE'] = 'inherited';
 
-    $ran = new ProcessShell(Scratch::directory(), getenv())
+    $ran = new ProcessShell(new LocalProcesses(new SystemClock()), Scratch::directory(), getenv())
         ->run(Command::php('-r', SHELL_PRINTS)->withholding(Withheld::of('KEPT_*')));
 
     expect($ran->output())->toContain("\nKEPT_PROBE=false\n");
 });
 
 it('says a script that exits with a failure did not succeed, and its exit code', function (): void {
-    $ran = new ProcessShell(Scratch::directory(), [])->run(Command::php('-r', 'echo "no"; exit(3);'));
+    $ran = new ProcessShell(new LocalProcesses(new SystemClock()), Scratch::directory(), [])->run(Command::php('-r', 'echo "no"; exit(3);'));
 
     expect($ran)->toEqual(Ran::exited(3, 'no')->took(Measured::of($ran)));
 });
 
 it('answers a process that cannot start as a failure, with the reason', function (): void {
-    $ran = new ProcessShell('/nowhere/at/all', [])->run(Command::php('-r', 'echo "never";'));
+    $ran = new ProcessShell(new LocalProcesses(new SystemClock()), '/nowhere/at/all', [])->run(Command::php('-r', 'echo "never";'));
 
-    expect($ran)->toEqual(Ran::finished(succeeded: false, output: 'The provided cwd "/nowhere/at/all" does not exist.'));
+    expect($ran)->toEqual(Ran::finished(succeeded: false, output: 'The provided cwd "/nowhere/at/all" does not exist.')
+        ->took(Seconds::of(0.0)));
 });
 
-it('stops a script at its deadline with every process it started, keeping what it printed', function (): void {
-    $directory = (string) realpath(Scratch::directory());
-    // The child holds a lock for as long as it lives, and marks the tree unstopped if it outlives its sleep.
-    $child = '$lock = fopen("alive", "c"); flock($lock, LOCK_EX); touch("ready"); sleep(20); touch("outlived");';
-    $script = sprintf(
-        'echo "started"; flush(); proc_open([PHP_BINARY, "-r", %s], [], $pipes); sleep(20);',
-        var_export($child, return: true),
-    );
-    // The clock stands still until the child holds its lock, then passes every deadline, however slow starting was.
-    $clock = new readonly class ($directory) implements Clock {
-        public function __construct(private string $directory)
-        {
-        }
+it('runs a command through the processes, in its directory, with its deadline, and ends as it ends', function (): void {
+    $processes = new ProcessesFake(static fn(): Ran => Ran::exited(3, 'no'));
 
-        public function nanoseconds(): int
-        {
-            return is_file(sprintf('%s/ready', $this->directory)) ? PHP_INT_MAX : 0;
-        }
-    };
+    $ran = new ProcessShell($processes, '/project', [])->run(Command::php('-v')->within(Seconds::of(4.0)));
+    [$command] = $processes->ran();
 
-    $ran = new ProcessShell($directory, ['PATH' => '/usr/bin:/bin'], $clock)
-        ->run(Command::php('-r', $script)->within(Seconds::of(1.0)));
-    // The lock is released the moment the child ends, so taking it waits for exactly that.
-    $alive = fopen(sprintf('%s/alive', $directory), 'c');
-    $ended = $alive !== false && flock($alive, LOCK_EX);
-
-    expect($ran)->toEqual(Ran::stopped('started')->took(Measured::of($ran)))
-        ->and($ended)->toBeTrue()
-        ->and(is_file(sprintf('%s/outlived', $directory)))->toBeFalse();
-});
-
-it('measures a deadline on the system\'s clock', function (): void {
-    $ran = new ProcessShell(Scratch::directory(), [])->run(Command::php('-r', 'sleep(20);')->within(Seconds::of(0.0)));
-
-    expect($ran)->toEqual(Ran::stopped('')->took(Measured::of($ran)));
-});
-
-it('waits for a script that ends before its deadline', function (): void {
-    $ran = new ProcessShell(Scratch::directory(), [])->run(Command::php('-r', 'echo "done";')->within(Seconds::of(10.0)));
-
-    expect($ran)->toEqual(Ran::exited(0, 'done')->took(Measured::of($ran)));
-});
-
-it('measures how long a script ran on its clock, from its start to its end', function (): void {
-    // The clock reads 10 s when the script starts, and 12.5 s at every look after.
-    $clock = new class implements Clock {
-        private bool $started = false;
-
-        public function nanoseconds(): int
-        {
-            $nanoseconds = $this->started ? 12_500_000_000 : 10_000_000_000;
-            $this->started = true;
-
-            return $nanoseconds;
-        }
-    };
-    $ran = new ProcessShell(Scratch::directory(), [], $clock)->run(Command::php('-r', 'echo "ok";'));
-
-    expect(Measured::of($ran))->toEqual(Seconds::of(2.5))
-        ->and($ran->output())->toBe('ok');
+    expect($ran)->toEqual(Ran::exited(3, 'no'))
+        ->and($processes->ran())->toHaveCount(1)
+        ->and($command->directory())->toBe('/project')
+        ->and([...$command->arguments()])->toBe([PHP_BINARY, '-v'])
+        ->and($command->deadline())->toEqual(Seconds::of(4.0));
 });
 
 it('unsets the variables that make a process another run\'s worker, even where only $_ENV holds one', function (): void {
     $_ENV['PARATEST'] = '1';
-    $ran = new ProcessShell(Scratch::directory(), [])->run(Command::php('-r', 'var_export(getenv("PARATEST"));'));
+    $ran = new ProcessShell(new LocalProcesses(new SystemClock()), Scratch::directory(), [])->run(Command::php('-r', 'var_export(getenv("PARATEST"));'));
     unset($_ENV['PARATEST']);
 
     expect($ran->output())->toBe('false');

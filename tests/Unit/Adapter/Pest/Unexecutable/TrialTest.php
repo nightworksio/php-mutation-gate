@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\MemoryScan;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Outcome;
 use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Trial;
+use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\TrialRun;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -16,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -27,7 +29,7 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-/** A project in a new directory, where a guard would be written. */
+/** A project in a new directory, where each trial's guard would be written in the directory of its position in the batch. */
 function trialProject(): Project
 {
     return Project::at((string) realpath(Scratch::directory()), Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'));
@@ -64,8 +66,9 @@ function trialOf(Project $at, ShellFake $shell, WholeSuite|Group $judgedBy = new
         Invocation::installedIn(Path::of('vendor')),
         $judgedBy,
         Withheld::standard(),
-        sprintf('%s/guard.json', $at->root()),
+        $at->root(),
         uncappedScan($at),
+        WorkerSlots::alone(),
     );
 }
 
@@ -73,7 +76,7 @@ it('runs the tests with Pest\'s override serving the mutated copy, and a guard, 
     $at = trialProject();
     $shell = new ShellFake(trialAnswering('{"before":false,"loaded":true,"opcache":false}', Ran::finished(succeeded: false, output: '')));
     $tests = Paths::of(Path::of('tests/MoneySpec.php'));
-    $judging = trialJudging($at->root(), $tests);
+    $judging = trialJudging(sprintf('%s/0', $at->root()), $tests);
 
     $outcome = trialOf($at, $shell)->of($tests, Path::of('src/Money.php'), '/copies/n1.php', Seconds::of(6.0));
 
@@ -84,7 +87,7 @@ it('runs the tests with Pest\'s override serving the mutated copy, and a guard, 
             $judging->within(Seconds::of(6.0))->with([
                 'PEST_MUTATION_TESTING' => sprintf('%s/src/Money.php', $at->root()),
                 'PEST_MUTATION_FILE' => '/copies/n1.php',
-                'MUTATION_GATE_GUARD' => sprintf('%s/guard.json', $at->root()),
+                'MUTATION_GATE_GUARD' => sprintf('%s/0/guard.json', $at->root()),
             ]),
         ]);
 });
@@ -102,7 +105,8 @@ it('leaves a mutant the tests pass with alive, and one stopped at its limit time
 
 it('judges nothing where the guard says the original ran, or cannot say', function (string $guard, string $reason): void {
     $at = trialProject();
-    file_put_contents(sprintf('%s/guard.json', $at->root()), '{"before":false,"loaded":true,"opcache":false}');
+    mkdir(sprintf('%s/0', $at->root()));
+    file_put_contents(sprintf('%s/0/guard.json', $at->root()), '{"before":false,"loaded":true,"opcache":false}');
     $shell = new ShellFake(trialAnswering($guard, Ran::exited(0, '')));
 
     $outcome = trialOf($at, $shell)->of(Paths::of(Path::of('tests/A.php')), Path::of('src/Money.php'), '/c', Seconds::of(6.0));
@@ -137,7 +141,8 @@ it('kills a mutant whose run a signal ended, writing no guard, where its tests p
 
 it('says the first test that failed on its own, from the JUnit log the run wrote, and the files it ran', function (): void {
     $at = trialProject();
-    $log = sprintf('%s/junit.xml', $at->root());
+    mkdir(sprintf('%s/0', $at->root()));
+    $log = sprintf('%s/0/junit.xml', $at->root());
     file_put_contents($log, 'a log an earlier run left');
     $shell = new ShellFake(static function (Command $command) use ($log): Ran {
         file_put_contents($log, <<<'XML'
@@ -162,8 +167,9 @@ it('says the first test that failed on its own, from the JUnit log the run wrote
 
 it('says a run on its own was stopped at its limit, and reads no failure from an earlier run\'s log', function (): void {
     $at = trialProject();
+    mkdir(sprintf('%s/0', $at->root()));
     file_put_contents(
-        sprintf('%s/junit.xml', $at->root()),
+        sprintf('%s/0/junit.xml', $at->root()),
         '<testsuites><testcase name="x" file="tests/Old.php::x"><failure>x</failure></testcase></testsuites>',
     );
 
@@ -194,7 +200,7 @@ it('judges nothing where the tests fail on their own, running them alone once fo
     expect($first)->toEqual(Outcome::unjudged('the selected tests fail on their own (no exit code; ran tests/A.php, tests/B.php)')->within(Seconds::of(6.0)))
         ->and($second)->toEqual($first)
         ->and($shell->commands())->toEqual([
-            trialJudging($at->root(), $tests, Group::named('holds:src/Money.php'))->within(Seconds::of(6.0)),
+            trialJudging(sprintf('%s/0', $at->root()), $tests, Group::named('holds:src/Money.php'))->within(Seconds::of(6.0)),
         ]);
 });
 
@@ -220,3 +226,40 @@ function uncappedScan(Project $at): MemoryScan
 
     return $scan instanceof MemoryScan ? $scan : throw new LogicException('An uncapped scan writes nothing.');
 }
+
+it('runs each new set of tests on its own, then the trials whose tests pass there, each batch side by side, each run writing in a directory of its own', function (): void {
+    $at = trialProject();
+    $shell = new ShellFake(static function (Command $command): Ran {
+        $environment = $command->environment();
+        $guard = array_key_exists('MUTATION_GATE_GUARD', $environment) ? $environment['MUTATION_GATE_GUARD'] : false;
+        $alone = ! is_string($guard);
+        $failing = in_array('tests/B.php', $command->arguments(), strict: true);
+
+        if (is_string($guard)) {
+            file_put_contents($guard, '{"before":false,"loaded":true,"opcache":false}');
+        }
+
+        return Ran::finished(succeeded: $alone && ! $failing, output: '');
+    });
+    $a = Paths::of(Path::of('tests/A.php'));
+    $b = Paths::of(Path::of('tests/B.php'));
+    $trial = trialOf($at, $shell);
+    $runs = [
+        TrialRun::of($a, Path::of('src/Money.php'), '/c1', Seconds::of(6.0)),
+        TrialRun::of($b, Path::of('src/Money.php'), '/c2', Seconds::of(6.0)),
+        TrialRun::of($a, Path::of('src/Tax.php'), '/c3', Seconds::of(6.0)),
+    ];
+
+    $outcomes = $trial->ofEach(...$runs);
+    $guards = array_map(
+        static fn(Command $command): string|false => $command->environment()['MUTATION_GATE_GUARD'],
+        array_slice($shell->commands(), 2),
+    );
+
+    expect(array_map(static fn(Outcome $outcome): MutantStatus => $outcome->status(), $outcomes))
+        ->toBe([MutantStatus::Killed, MutantStatus::Unjudged, MutantStatus::Killed])
+        ->and($shell->batches())->toBe([2, 2])
+        ->and($guards)->toBe([sprintf('%s/0/guard.json', $at->root()), sprintf('%s/1/guard.json', $at->root())])
+        ->and($trial->ofEach(...$runs))->toHaveCount(3)
+        ->and($shell->batches())->toBe([2, 2, 2]);
+});
