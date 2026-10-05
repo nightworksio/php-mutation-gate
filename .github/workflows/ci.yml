@@ -213,14 +213,21 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           coverage: none
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
-      # PHPStan's cache tracks what each file depends on. Rector's does not: a
-      # file it cached stays clean when a class declared elsewhere changes
-      # what a rule does to it, so Rector runs uncached.
+      # PHPStan's cache tracks what each file depends on. Pint's needs nothing
+      # more: each fixer reads one file, and the cache keeps each passing
+      # file's hash under the config and Pint release it passed with. Rector's
+      # does not: a file it cached stays clean when a class declared elsewhere
+      # changes what a rule does to it, so Rector runs uncached.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .phpstan-cache
           key: analysis-${{ runner.os }}-${{ github.sha }}
           restore-keys: analysis-${{ runner.os }}-
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .pint-cache
+          key: lint-${{ runner.os }}-${{ github.sha }}
+          restore-keys: lint-${{ runner.os }}-
       # Cheapest first, so a misplaced brace fails in seconds rather than after
       # the analyser has walked the tree. Each tool reports in its structured
       # form, into evidence/raw, and the evidence step shows every finding as an

@@ -166,8 +166,8 @@
             "@test:report"
         ],
         "deps": "composer-dependency-analyser",
-        "lint": "pint --test",
-        "lint:fix": "pint",
+        "lint": "pint --test --parallel",
+        "lint:fix": "pint --parallel",
         "refactor": "rector process --dry-run",
         "refactor:fix": "rector process",
         "report:schema": "@php scripts/report-schema.php",
