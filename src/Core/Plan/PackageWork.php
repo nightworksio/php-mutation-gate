@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Plan;
 
-use function array_key_last;
-use function array_last;
 use function array_map;
-use function array_slice;
 use function ceil;
 use function count;
+use function max;
 
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -52,30 +50,55 @@ final readonly class PackageWork
     }
 
     /**
-     * The units cut, in path order, into consecutive runs of about equal
-     * cost. Each cut falls on the first unit that takes its run past an equal
-     * share of the total, so no run is empty, and there are at most as many
-     * runs as asked.
+     * The units cut, in path order, into at most this many consecutive runs,
+     * none empty, whose costliest run costs as little as any such cut's: the
+     * least bound, no lower than the costliest unit, under which filling each
+     * run in turn up to the bound takes no more runs than asked. It is found
+     * by halving the gap between the costliest unit's cost and the whole
+     * cost, which always holds, until no float lies between them.
      *
      * @return list<Run>
      */
     public function runs(int $count): array
     {
-        $share = $this->cost()->seconds() / $count;
-        $runs = [[]];
-        $weighed = 0.0;
+        $costs = array_map(static fn(Weighed $unit): float => $unit->cost()->seconds(), $this->units);
+        $tooSmall = max([0.0, ...$costs]);
+        $holds = $this->cost()->seconds();
+        $middle = ($tooSmall + $holds) / 2;
 
-        foreach ($this->units as $unit) {
-            $runs[array_key_last($runs)][] = $unit;
-            $weighed += $unit->cost()->seconds();
-
-            if (count($runs) < $count && $weighed >= $share * count($runs)) {
-                $runs[] = [];
-            }
+        while ($middle > $tooSmall && $middle < $holds) {
+            $fits = count($this->filledUpTo($costs, $middle)) <= $count;
+            [$tooSmall, $holds] = $fits ? [$tooSmall, $middle] : [$middle, $holds];
+            $middle = ($tooSmall + $holds) / 2;
         }
 
-        $cut = array_last($runs) === [] ? array_slice($runs, 0, -1) : $runs;
+        return array_map(static fn(array $units): Run => Run::of(...$units), $this->filledUpTo($costs, $holds));
+    }
 
-        return array_map(static fn(array $units): Run => Run::of(...$units), $cut);
+    /**
+     * The units in path order, each run filled until the next unit would take
+     * it past a bound no unit costs more than.
+     *
+     * @param  list<float>                   $costs each unit's cost, in their order
+     * @return list<list<Weighed>>
+     */
+    private function filledUpTo(array $costs, float $bound): array
+    {
+        $runs = [];
+        $run = [];
+        $weighed = 0.0;
+
+        foreach ($this->units as $at => $unit) {
+            if ($weighed + $costs[$at] > $bound) {
+                $runs[] = $run;
+                $run = [];
+                $weighed = 0.0;
+            }
+
+            $run[] = $unit;
+            $weighed += $costs[$at];
+        }
+
+        return $run === [] ? $runs : [...$runs, $run];
     }
 }

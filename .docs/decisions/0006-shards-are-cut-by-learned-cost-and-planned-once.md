@@ -109,8 +109,9 @@ Two parts of that do not carry over to a public package.
 3. **A shard is a run of units cut to about the same cost.**
    - Units are weighed by the cost model and cut in path order into shards of
      about `shards.seconds` each (an integer, 600 by default). The number of
-     shards is the total cost over that size, rounded up. Each cut falls on the
-     first unit that takes its shard past an equal share, and no shard is
+     shards is the total cost over that size, rounded up. The cut makes the
+     costliest shard as cheap as any cut in path order into at most that many
+     shards can, using fewer where more would cost no less, and no shard is
      empty unless `--shards` fixes the count (decision 5).
    - **Or a target wall time sets the count.** With `shards.target` (a
      duration) set, the number of shards is the smallest that fits a shard's
@@ -262,7 +263,7 @@ Two parts of that do not carry over to a public package.
 |--------|-------------|
 | **Each shard recomputes the cut** (the in-house gate's way) | Safe only while costs are constants in the code. With learned timings, a ledger saved between the planning job and a shard would make the two cut differently. |
 | **Mutant-level sharding** | Neither runner can be given a list of mutants: Pest's and Infection's `--id` each take one. A file is the smallest thing both accept. |
-| **Longest-first bin packing instead of path-order cuts** | Balances a few percent better. It scatters a tree over every shard, so a label says nothing and a shard's contents shift with every timing. Path order with equal shares is near-balanced when units are small against a 600-second shard. |
+| **Longest-first bin packing instead of path-order cuts** | Balances a few percent better. It scatters a tree over every shard, so a label says nothing and a shard's contents shift with every timing. The best cut in path order comes within a few percent of it. |
 | **Timings committed to the repository** | Rewritten by every run, conflicting across pull requests, and true only of the CI's machines. |
 | **A moving average of timings** | Smoother, and it lags a real change: a file whose tests got twice as slow is misplaced for several runs. The seed takes the newest measurement, and placement errors cost only time. |
 | **A fixed `parallel: N` as the only model** | Cannot shrink to zero shards when nothing is reached, and holds N runners for a one-file change. It stays available as `--shards=<N>` for CIs that need it. |
