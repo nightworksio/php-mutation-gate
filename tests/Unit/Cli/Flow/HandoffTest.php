@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
+use NightWorksIO\MutationGate\Core\Coverage\HandoffLimits;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -32,6 +33,8 @@ use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Written;
+use NightWorksIO\MutationGate\Tests\Support\GzipBomb;
+use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -69,10 +72,11 @@ it('hands each shard the lines of its own files alone, with every test and its t
     $plan,
     $map,
 ): void {
-    $handoff = new Handoff(Directory::at(Scratch::directory()));
+    $handoff = new Handoff(Directory::at(Scratch::directory()), HandedMaps::limits());
 
     $handed = static fn(Paths $files): CoverageMap|CannotJudge => CoverageMapFile::decode(
         CoverageMapFile::encode($map->onlyFor($files), Unplaced::map()),
+        HandedMaps::limits(),
     );
     $written = $handoff->write($plan, $map, KillHistory::none(), Unplaced::map());
     $held = $handoff->read(ShardId::of(2));
@@ -88,7 +92,7 @@ it('hands each shard the lines of its own files alone, with every test and its t
 
 it('writes each map where run reads it, as the gate\'s own format', function () use ($plan, $map): void {
     $project = Scratch::directory();
-    new Handoff(Directory::at($project))->write($plan, $map, KillHistory::none(), Unplaced::map());
+    new Handoff(Directory::at($project), HandedMaps::limits())->write($plan, $map, KillHistory::none(), Unplaced::map());
 
     expect(file_exists(sprintf('%s/.mutation-gate/coverage/shard-1/map.json.gz', $project)))->toBeTrue()
         ->and(file_exists(sprintf('%s/.mutation-gate/coverage/shard-2/map.json.gz', $project)))->toBeTrue();
@@ -98,7 +102,7 @@ it('cannot hand a shard a map it cannot write', function () use ($plan, $map): v
     $project = Scratch::directory();
     Scratch::write($project, '.mutation-gate/coverage/shard-2/map.json.gz/blocked', '');
 
-    expect(new Handoff(Directory::at($project))->write($plan, $map, KillHistory::none(), Unplaced::map()))
+    expect(new Handoff(Directory::at($project), HandedMaps::limits())->write($plan, $map, KillHistory::none(), Unplaced::map()))
         ->toEqual(CannotJudge::because(
             sprintf('%s/.mutation-gate/coverage/shard-2/map.json.gz could not be written.', $project),
         ));
@@ -109,7 +113,7 @@ it('hands every shard the plan\'s whole map, beside the maps of each shard\'s ow
     $map,
 ): void {
     $project = Scratch::directory();
-    new Handoff(Directory::at($project))->write($plan, $map, KillHistory::none(), Unplaced::map());
+    new Handoff(Directory::at($project), HandedMaps::limits())->write($plan, $map, KillHistory::none(), Unplaced::map());
 
     expect(file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $project)))
         ->toBe(CoverageMapFile::encode($map, Unplaced::map()));
@@ -119,7 +123,7 @@ it('cannot hand the shards a whole map it cannot write', function () use ($plan,
     $project = Scratch::directory();
     Scratch::write($project, '.mutation-gate/coverage/map.json.gz/blocked', '');
 
-    expect(new Handoff(Directory::at($project))->write($plan, $map, KillHistory::none(), Unplaced::map()))
+    expect(new Handoff(Directory::at($project), HandedMaps::limits())->write($plan, $map, KillHistory::none(), Unplaced::map()))
         ->toEqual(CannotJudge::because(
             sprintf('%s/.mutation-gate/coverage/map.json.gz could not be written.', $project),
         ))
@@ -127,7 +131,7 @@ it('cannot hand the shards a whole map it cannot write', function () use ($plan,
 });
 
 it('says a shard was handed no map where there is none', function (): void {
-    expect(new Handoff(Directory::at(Scratch::directory()))->read(ShardId::of(4)))->toEqual(CannotJudge::because(
+    expect(new Handoff(Directory::at(Scratch::directory()), HandedMaps::limits())->read(ShardId::of(4)))->toEqual(CannotJudge::because(
         'Shard 4 was handed no coverage map at .mutation-gate/coverage/shard-4/map.json.gz. '
         . 'Hand every job the plan\'s .mutation-gate/coverage.',
     ));
@@ -137,7 +141,7 @@ it('cannot read a map that is not a file, or not a map', function (): void {
     $project = Scratch::directory();
     Scratch::write($project, '.mutation-gate/coverage/shard-1/map.json.gz/blocked', '');
     Scratch::write($project, '.mutation-gate/coverage/shard-2/map.json.gz', 'not a map');
-    $handoff = new Handoff(Directory::at($project));
+    $handoff = new Handoff(Directory::at($project), HandedMaps::limits());
 
     expect($handoff->read(ShardId::of(1)))->toEqual(CannotJudge::because(
         sprintf('%s/.mutation-gate/coverage/shard-1/map.json.gz could not be read.', $project),
@@ -157,7 +161,7 @@ it('hands each shard the kill history of its own files\' functions, beside its m
         ->withFunction(Enclosing::named(Path::of('src/Money.php'), 'add'), $ranked)
         ->withFunction(Enclosing::named(Path::of('src/Held/A.php'), 'a'), $ranked)
         ->withFunction(Enclosing::named(Path::of('src/Other.php'), 'd'), $ranked);
-    $handoff = new Handoff(Directory::at($project));
+    $handoff = new Handoff(Directory::at($project), HandedMaps::limits());
     $handoff->write($plan, $map, $history, Unplaced::map());
 
     expect($handoff->history(ShardId::of(1)))
@@ -169,14 +173,14 @@ it('hands each shard the kill history of its own files\' functions, beside its m
 });
 
 it('reads a shard handed no kill history as one no test has killed anything in', function (): void {
-    expect(new Handoff(Directory::at(Scratch::directory()))->history(ShardId::of(1)))->toEqual(KillHistory::none());
+    expect(new Handoff(Directory::at(Scratch::directory()), HandedMaps::limits())->history(ShardId::of(1)))->toEqual(KillHistory::none());
 });
 
 it('cannot read a kill history that is not one, or not a file', function (): void {
     $project = Scratch::directory();
     Scratch::write($project, '.mutation-gate/coverage/shard-1/killers.json', 'not a history');
     Scratch::write($project, '.mutation-gate/coverage/shard-2/killers.json/blocked', '');
-    $handoff = new Handoff(Directory::at($project));
+    $handoff = new Handoff(Directory::at($project), HandedMaps::limits());
 
     expect($handoff->history(ShardId::of(1)))->toBeInstanceOf(CannotJudge::class)
         ->and($handoff->history(ShardId::of(2)))->toEqual(CannotJudge::because(
@@ -188,7 +192,7 @@ it('cannot hand a shard a kill history it cannot write', function () use ($plan,
     $project = Scratch::directory();
     Scratch::write($project, '.mutation-gate/coverage/shard-1/killers.json/blocked', '');
 
-    expect(new Handoff(Directory::at($project))->write($plan, $map, KillHistory::none(), Unplaced::map()))
+    expect(new Handoff(Directory::at($project), HandedMaps::limits())->write($plan, $map, KillHistory::none(), Unplaced::map()))
         ->toEqual(CannotJudge::because(
             sprintf('%s/.mutation-gate/coverage/shard-1/killers.json could not be written.', $project),
         ));
@@ -203,7 +207,7 @@ it('hands the verdict the lines of every unit the plan considered, run, proved o
             ->proving(Units::of(Unit::file(Path::of('src/HeldToo.php'))))
             ->carrying(Units::of(Unit::file(Path::of('src/Gone.php')))),
     );
-    $handoff = new Handoff(Directory::at(Scratch::directory()));
+    $handoff = new Handoff(Directory::at(Scratch::directory()), HandedMaps::limits());
     $handoff->write($considered, $map, KillHistory::none(), Unplaced::map());
     $handed = $handoff->forVerdict();
 
@@ -219,7 +223,7 @@ it('hands the verdict the lines of every unit the plan considered, run, proved o
 
 it('says the verdict was handed no map where there is none, and cannot read one that is not a map', function (): void {
     $project = Scratch::directory();
-    $handoff = new Handoff(Directory::at($project));
+    $handoff = new Handoff(Directory::at($project), HandedMaps::limits());
     $missing = $handoff->forVerdict();
     Scratch::write($project, '.mutation-gate/coverage/verdict/map.json.gz', 'not a map');
 
@@ -234,8 +238,38 @@ it('cannot hand the verdict a map it cannot write', function () use ($plan, $map
     $project = Scratch::directory();
     Scratch::write($project, '.mutation-gate/coverage/verdict/map.json.gz/blocked', '');
 
-    expect(new Handoff(Directory::at($project))->write($plan, $map, KillHistory::none(), Unplaced::map()))
+    expect(new Handoff(Directory::at($project), HandedMaps::limits())->write($plan, $map, KillHistory::none(), Unplaced::map()))
         ->toEqual(CannotJudge::because(
             sprintf('%s/.mutation-gate/coverage/verdict/map.json.gz could not be written.', $project),
         ));
+});
+
+it('reads a shard\'s or the verdict\'s map past the compressed limit as none, taking no more of it than a byte past', function (): void {
+    $project = Scratch::directory();
+    Scratch::sized($project, '.mutation-gate/coverage/shard-1/map.json.gz', 512 * 1_048_576);
+    Scratch::sized($project, '.mutation-gate/coverage/verdict/map.json.gz', 512 * 1_048_576);
+    $handoff = new Handoff(Directory::at($project), HandoffLimits::of(1_000, 100_000, 300));
+    $past = static fn(string $file): CannotJudge => CannotJudge::because(sprintf(
+        '%s/.mutation-gate/coverage/%s/map.json.gz is past 1000 bytes, so it is not read.',
+        $project,
+        $file,
+    ));
+    $before = memory_get_usage();
+    memory_reset_peak_usage();
+
+    expect($handoff->read(ShardId::of(1)))->toEqual($past('shard-1'))
+        ->and($handoff->forVerdict())->toEqual($past('verdict'))
+        ->and(memory_get_peak_usage() - $before)->toBeLessThan(1_048_576);
+});
+
+it('reads a handed map within the limits it is given', function (): void {
+    $project = Scratch::directory();
+    Scratch::write($project, '.mutation-gate/coverage/shard-1/map.json.gz', GzipBomb::of(64 * 1_048_576));
+
+    expect(new Handoff(Directory::at($project), HandoffLimits::of(1_000_000, 2_000_000, 1_000))->read(ShardId::of(1)))
+        ->toEqual(CannotJudge::because('The coverage map inflates to more than 2000000 bytes.'));
+});
+
+it('reads a handed map within this process\'s limits', function (): void {
+    expect(Handoff::limits())->toEqual(HandoffLimits::under(ini_get('memory_limit')));
 });

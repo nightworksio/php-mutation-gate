@@ -53,6 +53,27 @@ final readonly class LedgerLimits
         return $bytes <= $this->packed;
     }
 
+    /**
+     * The compressed bytes of a ledger as its pieces arrive, taking none past the piece that passes the limit;
+     * or, once they pass it, why they are not read.
+     *
+     * @param iterable<string> $pieces
+     */
+    public function gathered(iterable $pieces): string|TooLarge
+    {
+        $bytes = '';
+
+        foreach ($pieces as $piece) {
+            $bytes .= $piece;
+
+            if (! $this->admitsPacked(Bytes::length($bytes))) {
+                return TooLarge::because($this->pastPacked());
+            }
+        }
+
+        return $bytes;
+    }
+
     /** The most compressed bytes a ledger is read at. */
     public function packed(): int
     {
@@ -103,5 +124,11 @@ final readonly class LedgerLimits
     public function pastPacked(): string
     {
         return sprintf('it is larger than %d bytes', $this->packed);
+    }
+
+    /** Why a ledger whose store says it has this many compressed bytes, past the limit, is not read at all. */
+    public function saidPastPacked(int $bytes): string
+    {
+        return sprintf('it says it has %d bytes, more than the %d a ledger is read at', $bytes, $this->packed);
     }
 }

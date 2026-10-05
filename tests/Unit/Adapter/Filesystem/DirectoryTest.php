@@ -16,6 +16,31 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
+/** Whether this process may take away its room to write files, and give it back. */
+function roomToWriteCanBeTaken(): bool
+{
+    return function_exists('posix_setrlimit') && function_exists('pcntl_signal')
+        && posix_getrlimit(POSIX_RLIMIT_FSIZE) === ['unlimited', 'unlimited'];
+}
+
+/**
+ * What a write gives while the process may write no byte to a file, its room given back after.
+ *
+ * @param Closure(): (Written|CannotJudge) $write
+ */
+function withoutRoomToWrite(Closure $write): Written|CannotJudge
+{
+    pcntl_signal(SIGXFSZ, SIG_IGN);
+    set_error_handler(static fn(): bool => true);
+    posix_setrlimit(POSIX_RLIMIT_FSIZE, 0, POSIX_RLIMIT_INFINITY);
+    $written = $write();
+    posix_setrlimit(POSIX_RLIMIT_FSIZE, POSIX_RLIMIT_INFINITY, POSIX_RLIMIT_INFINITY);
+    restore_error_handler();
+    pcntl_signal(SIGXFSZ, SIG_DFL);
+
+    return $written;
+}
+
 it('reads a file it holds', function (): void {
     $root = Scratch::directory();
     file_put_contents(sprintf('%s/plan.json', $root), '{"format": 1}');
@@ -122,13 +147,15 @@ it('cannot judge streaming over a directory, into one it cannot write, or under 
         ->and($underFile)->toEqual(CannotJudge::because(sprintf('%s/file/matrix.csv could not be written.', $root)));
 });
 
-it('cannot judge a stream whose pieces could not all be written', function (): void {
-    set_error_handler(static fn(): bool => true);
-    $written = Directory::at('/dev')->stream(Path::of('full'), ['mutant,test', "\r\n"]);
-    restore_error_handler();
+it('cannot judge a stream whose pieces could not all be written, and leaves the file it would replace as it was', function (): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'kill-matrix.csv', 'old');
+    $written = withoutRoomToWrite(static fn(): Written|CannotJudge => Directory::at($root)->stream(Path::of('kill-matrix.csv'), ['mutant,test', "\r\n"]));
 
-    expect($written)->toEqual(CannotJudge::because('/dev/full could not be written.'));
-})->skip(! file_exists('/dev/full'), 'Only a system with /dev/full refuses every write.');
+    expect($written)->toEqual(CannotJudge::because(sprintf('%s/kill-matrix.csv could not be written.', $root)))
+        ->and(file_get_contents(sprintf('%s/kill-matrix.csv', $root)))->toBe('old')
+        ->and(scandir($root))->toBe(['.', '..', 'kill-matrix.csv']);
+})->skip(! roomToWriteCanBeTaken(), 'Only a system that lets a process limit the size of the files it writes can refuse every write.');
 
 it('refuses a path that leads out of it, reading and writing alike', function (string $path): void {
     $root = sprintf('%s/store', Scratch::directory());
@@ -232,4 +259,55 @@ it('holds no more than a byte past the limit of a file far larger, while it refu
 
     expect(Directory::at($root)->readAtMost(Path::of('huge'), 1024))->toBeInstanceOf(TooLarge::class)
         ->and(memory_get_peak_usage() - $before)->toBeLessThan(1024 * 1024);
+});
+
+it('refuses to write where the path is a link, dangling or not, and leaves where it leads as it was', function (): void {
+    $scratch = Scratch::directory();
+    $root = sprintf('%s/store', $scratch);
+    Scratch::write($root, 'kept.json', 'kept');
+    symlink(sprintf('%s/planted.json', $scratch), sprintf('%s/dangling.json', $root));
+    symlink(sprintf('%s/kept.json', $root), sprintf('%s/alias.json', $root));
+    $directory = Directory::at($root);
+    $refusal = static fn(string $file): CannotJudge => CannotJudge::because(sprintf('%s/%s is a link, so the gate does not write through it.', $root, $file));
+
+    expect($directory->write(Path::of('dangling.json'), Contents::of('forged')))->toEqual($refusal('dangling.json'))
+        ->and($directory->stream(Path::of('dangling.json'), ['forged']))->toEqual($refusal('dangling.json'))
+        ->and($directory->write(Path::of('alias.json'), Contents::of('forged')))->toEqual($refusal('alias.json'))
+        ->and(file_exists(sprintf('%s/planted.json', $scratch)))->toBeFalse()
+        ->and(file_get_contents(sprintf('%s/kept.json', $root)))->toBe('kept');
+});
+
+it('writes a file whole beside its place and moves it there, open as far as the umask allows, leaving nothing else', function (): void {
+    $root = Scratch::directory();
+    Directory::at($root)->write(Path::of('plan.json'), Contents::of('{}'));
+
+    expect(scandir($root))->toBe(['.', '..', 'plan.json'])
+        ->and(fileperms(sprintf('%s/plan.json', $root)) & 0o777)->toBe(0o666 & ~umask());
+});
+
+it('leaves no file anywhere for a write into a directory it cannot write', function (): void {
+    $root = Scratch::directory();
+    mkdir(sprintf('%s/locked', $root), 0o500);
+    $beside = static fn(): array|false => glob(sprintf('%s/.unwritable-plan.json.*', sys_get_temp_dir()));
+    $before = $beside();
+    set_error_handler(static fn(): bool => true);
+    $written = Directory::at($root)->write(Path::of('locked/unwritable-plan.json'), Contents::of('{}'));
+    restore_error_handler();
+    chmod(sprintf('%s/locked', $root), 0o700);
+
+    expect($written)->toEqual(CannotJudge::because(sprintf('%s/locked/unwritable-plan.json could not be written.', $root)))
+        ->and($beside())->toBe($before)
+        ->and(scandir(sprintf('%s/locked', $root)))->toBe(['.', '..']);
+});
+
+it('removes a link where the path is one, dangling or not, and leaves where it leads as it was', function (): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'kept.php', '<?php');
+    symlink(sprintf('%s/gone.php', $root), sprintf('%s/dangling.php', $root));
+    symlink(sprintf('%s/kept.php', $root), sprintf('%s/alias.php', $root));
+    $directory = Directory::at($root);
+
+    expect($directory->remove(Path::of('dangling.php')))->toEqual(Missing::at(Path::of('dangling.php')))
+        ->and($directory->remove(Path::of('alias.php')))->toEqual(Missing::at(Path::of('alias.php')))
+        ->and(scandir($root))->toBe(['.', '..', 'kept.php']);
 });

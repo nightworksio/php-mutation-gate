@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethod;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethods;
+use NightWorksIO\MutationGate\Core\Coverage\HandoffLimits;
 use NightWorksIO\MutationGate\Core\Coverage\KeptMap;
 use NightWorksIO\MutationGate\Core\Coverage\LineTests;
 use NightWorksIO\MutationGate\Core\Coverage\MapLimits;
@@ -26,6 +27,9 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
+use NightWorksIO\MutationGate\Tests\Support\Gunzipped;
+use NightWorksIO\MutationGate\Tests\Support\GzipBomb;
+use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
 
 $map = static fn(): CoverageMap => CoverageMap::empty()
     ->covered(Path::of('src/Money.php'), Line::of(12), TestId::of('MoneyTest::adds'))
@@ -47,7 +51,7 @@ $file = static fn(): array => [
 ];
 
 it('writes compact JSON, gzipped: each test once with its seconds, and each line\'s tests by their place, in the order covered', function () use ($map): void {
-    expect(Gzip::unpack(CoverageMapFile::encode($map(), Unplaced::map()), 'the map'))->toBe(JsonText::compact([
+    expect(Gunzipped::of(CoverageMapFile::encode($map(), Unplaced::map())))->toBe(JsonText::compact([
         'format' => 1,
         'tests' => [
             ['id' => 'MoneyTest::adds', 'seconds' => 0.25],
@@ -65,7 +69,7 @@ it('reads a test listed twice as one, wherever a line names either place', funct
         'format' => 1,
         'tests' => [['id' => 'MoneyTest::adds', 'seconds' => 0.25], ['id' => 'MoneyTest::subtracts'], ['id' => 'MoneyTest::adds']],
         'files' => ['src/Money.php' => ['3' => [2], '12' => [0, 1, 2]]],
-    ]));
+    ]), HandedMaps::limits());
     $ids = static fn(TestIds $tests): array => array_map(static fn(TestId $test): string => $test->value(), [...$tests]);
 
     expect($map instanceof CoverageMap ? $ids($map->tests()) : [])->toBe(['MoneyTest::adds', 'MoneyTest::subtracts'])
@@ -79,16 +83,16 @@ it('is map.json.gz in the directory a job hands on', function (): void {
 });
 
 it('writes an empty map as no tests and no files', function (): void {
-    expect(Gzip::unpack(CoverageMapFile::encode(CoverageMap::empty(), Unplaced::map()), 'the map'))->toBe('{"format":1,"tests":[],"files":{}}');
+    expect(Gunzipped::of(CoverageMapFile::encode(CoverageMap::empty(), Unplaced::map())))->toBe('{"format":1,"tests":[],"files":{}}');
 });
 
 it('reads back the map it wrote', function () use ($map): void {
-    expect(CoverageMapFile::decode(CoverageMapFile::encode($map(), Unplaced::map())))->toEqual($map())
-        ->and(CoverageMapFile::decode(CoverageMapFile::encode(CoverageMap::empty(), Unplaced::map())))->toEqual(CoverageMap::empty());
+    expect(CoverageMapFile::decode(CoverageMapFile::encode($map(), Unplaced::map()), HandedMaps::limits()))->toEqual($map())
+        ->and(CoverageMapFile::decode(CoverageMapFile::encode(CoverageMap::empty(), Unplaced::map()), HandedMaps::limits()))->toEqual(CoverageMap::empty());
 });
 
 it('writes a shard\'s map: only its files, and every test with its seconds', function () use ($map): void {
-    $shard = CoverageMapFile::decode(CoverageMapFile::encode($map()->onlyFor(Paths::of(Path::of('123'), Path::of('src/Gone.php'))), Unplaced::map()));
+    $shard = CoverageMapFile::decode(CoverageMapFile::encode($map()->onlyFor(Paths::of(Path::of('123'), Path::of('src/Gone.php'))), Unplaced::map()), HandedMaps::limits());
 
     expect($shard instanceof CoverageMap ? $shard->files() : Paths::none())->toEqual(Paths::of(Path::of('123')))
         ->and($shard instanceof CoverageMap ? $shard->durationOf(TestId::of('MoneyTest::adds')) : null)->toEqual(Seconds::of(0.25))
@@ -96,7 +100,7 @@ it('writes a shard\'s map: only its files, and every test with its seconds', fun
 });
 
 it('cannot judge by a file that is not a map it writes', function (string $bytes) use ($unreadable): void {
-    expect(CoverageMapFile::decode($bytes))->toEqual($unreadable);
+    expect(CoverageMapFile::decode($bytes, HandedMaps::limits()))->toEqual($unreadable);
 })->with([
     'a map of another format' => [Gzip::pack('{"format": 2, "tests": [], "files": {}}')],
     'a format written as text' => [Gzip::pack('{"format": "1", "tests": [], "files": {}}')],
@@ -110,7 +114,7 @@ it('drops a line that is not well formed and keeps the rest', function (Closure 
     $spoilt = $file();
     $spoilt['files']['src/Money.php'] = $spoil($spoilt['files']['src/Money.php']);
 
-    expect(CoverageMapFile::decode($written($spoilt)))->toEqual(CoverageMap::of(CoveredLine::of(Path::of('src/Money.php'), 12, 'MoneyTest::adds', 'MoneyTest::subtracts'))->timedEach(
+    expect(CoverageMapFile::decode($written($spoilt), HandedMaps::limits()))->toEqual(CoverageMap::of(CoveredLine::of(Path::of('src/Money.php'), 12, 'MoneyTest::adds', 'MoneyTest::subtracts'))->timedEach(
         TimedTest::of('MoneyTest::adds', 0.25),
         TimedTest::of('IdleTest::waits', 1.5),
     ));
@@ -127,7 +131,7 @@ it('drops a test that is not well formed, and every line that names it', functio
     $spoilt = $file();
     $spoilt['tests'][1] = $test;
 
-    expect(CoverageMapFile::decode($written($spoilt)))->toEqual(CoverageMap::of(CoveredLine::of(Path::of('src/Money.php'), 3, 'MoneyTest::adds'))->timedEach(
+    expect(CoverageMapFile::decode($written($spoilt), HandedMaps::limits()))->toEqual(CoverageMap::of(CoveredLine::of(Path::of('src/Money.php'), 3, 'MoneyTest::adds'))->timedEach(
         TimedTest::of('MoneyTest::adds', 0.25),
         TimedTest::of('IdleTest::waits', 1.5),
     ));
@@ -141,8 +145,8 @@ it('drops a test that is not well formed, and every line that names it', functio
 it('reads tests and files that are not a list and a map as none, and knows each listed test though it covers no line', function () use ($file, $written): void {
     $listed = LineTests::placed(TestIds::of(TestId::of('MoneyTest::adds'), TestId::of('MoneyTest::subtracts'), TestId::of('IdleTest::waits')));
 
-    expect(CoverageMapFile::decode($written([...$file(), 'tests' => 'none', 'files' => 7])))->toEqual(CoverageMap::empty())
-        ->and(CoverageMapFile::decode($written([...$file(), 'files' => ['src/Money.php' => 'none']])))->toEqual(CoverageMap::placed(
+    expect(CoverageMapFile::decode($written([...$file(), 'tests' => 'none', 'files' => 7]), HandedMaps::limits()))->toEqual(CoverageMap::empty())
+        ->and(CoverageMapFile::decode($written([...$file(), 'files' => ['src/Money.php' => 'none']]), HandedMaps::limits()))->toEqual(CoverageMap::placed(
             $listed,
             TimedTest::of('MoneyTest::adds', 0.25),
             TimedTest::of('IdleTest::waits', 1.5),
@@ -161,7 +165,7 @@ it('writes and reads a map in time linear in its entries', function (): void {
 
         $map = CoverageMap::of(...$covered)->timedEach(...array_map(static fn(int $test): TimedTest => TimedTest::of(sprintf('T%d::t', $test), 0.5), range(0, $size - 1)));
 
-        return static fn(): CoverageMap|CannotJudge => CoverageMapFile::decode(CoverageMapFile::encode($map, Unplaced::map()));
+        return static fn(): CoverageMap|CannotJudge => CoverageMapFile::decode(CoverageMapFile::encode($map, Unplaced::map()), HandedMaps::limits());
     };
     $few = $read(10)();
 
@@ -177,8 +181,8 @@ it('is found in the directory a job hands on, and says so where the gate wrote n
 });
 
 it('keeps a shard\'s files\' executed methods, and reads a map without methods as one with none', function () use ($map, $file, $written): void {
-    $shard = CoverageMapFile::decode(CoverageMapFile::encode($map()->onlyFor(Paths::of(Path::of('123'))), Unplaced::map()));
-    $whole = CoverageMapFile::decode($written($file()));
+    $shard = CoverageMapFile::decode(CoverageMapFile::encode($map()->onlyFor(Paths::of(Path::of('123'))), Unplaced::map()), HandedMaps::limits());
+    $whole = CoverageMapFile::decode($written($file()), HandedMaps::limits());
 
     expect($shard instanceof CoverageMap ? $shard->methods()->paths() : $shard)->toEqual(Paths::none())
         ->and($whole instanceof CoverageMap ? $whole->methods()->at(Path::of('src/Money.php'), ExecutedMethods::none()) : $whole)->toEqual(ExecutedMethods::none());
@@ -186,7 +190,7 @@ it('keeps a shard\'s files\' executed methods, and reads a map without methods a
 
 it('drops a method that is not well formed and keeps the rest', function (mixed $method) use ($file, $written): void {
     $kept = ['name' => 'add', 'start' => 10, 'end' => 13];
-    $map = CoverageMapFile::decode($written([...$file(), 'methods' => ['src/Money.php' => [$method, $kept], 'src/Other.php' => 'none']]));
+    $map = CoverageMapFile::decode($written([...$file(), 'methods' => ['src/Money.php' => [$method, $kept], 'src/Other.php' => 'none']]), HandedMaps::limits());
 
     expect($map instanceof CoverageMap ? $map->methods()->at(Path::of('src/Money.php'), ExecutedMethods::none()) : $map)
         ->toEqual(ExecutedMethods::of(ExecutedMethod::of('add', 10, 13)))
@@ -202,7 +206,7 @@ it('drops a method that is not well formed and keeps the rest', function (mixed 
 ]);
 
 it('reads a method of one line', function () use ($file, $written): void {
-    $map = CoverageMapFile::decode($written([...$file(), 'methods' => ['src/Money.php' => [['name' => 'one', 'start' => 1, 'end' => 1]]]]));
+    $map = CoverageMapFile::decode($written([...$file(), 'methods' => ['src/Money.php' => [['name' => 'one', 'start' => 1, 'end' => 1]]]]), HandedMaps::limits());
 
     expect($map instanceof CoverageMap ? $map->methods()->at(Path::of('src/Money.php'), ExecutedMethods::none()) : $map)
         ->toEqual(ExecutedMethods::of(ExecutedMethod::of('one', 1, 1)));
@@ -212,11 +216,11 @@ it('writes each line no test ran with no tests, and reads it back as one', funct
     $missing = CoverageMap::of(...[...$map()->lines(), CoveredLine::of(Path::of('src/Money.php'), 4), CoveredLine::of(Path::of('src/Gone.php'), 2)])
         ->timedEach(TimedTest::of('MoneyTest::adds', 0.25));
     $written = CoverageMapFile::encode($missing, Unplaced::map());
-    $read = CoverageMapFile::decode($written);
-    $json = Gzip::unpack($written, 'the map');
+    $read = CoverageMapFile::decode($written, HandedMaps::limits());
+    $json = Gunzipped::of($written);
 
-    expect($json instanceof CannotJudge ? $json->why() : $json)->toContain('"src/Money.php":{"12":[0,1],"3":[0],"4":[]}')
-        ->and($json instanceof CannotJudge ? $json->why() : $json)->toContain('"src/Gone.php":{"2":[]}')
+    expect($json)->toContain('"src/Money.php":{"12":[0,1],"3":[0],"4":[]}')
+        ->and($json)->toContain('"src/Gone.php":{"2":[]}')
         ->and($read instanceof CoverageMap ? [...$read->linesMissed(Path::of('src/Money.php'))] : $read)->toEqual([Line::of(4)])
         ->and($read instanceof CoverageMap ? [...$read->linesMissed(Path::of('src/Gone.php'))] : $read)->toEqual([Line::of(2)]);
 });
@@ -230,11 +234,11 @@ it('keeps a map with where it was measured and each test file\'s entry key, and 
     $kept = is_string($bytes) ? CoverageMapFile::kept($bytes, MapLimits::standard()) : $bytes;
 
     expect($kept)->toEqual(KeptMap::of($map(), $at, $keys))
-        ->and(Gzip::unpack(is_string($bytes) ? $bytes : '', 'the map'))->toContain(sprintf(
+        ->and(Gunzipped::of(is_string($bytes) ? $bytes : ''))->toContain(sprintf(
             '"keys":%s',
             JsonText::compact(['123' => Digest::sha256Of('numbered')->value(), 'tests/MoneyTest.php' => Digest::sha256Of('money')->value()]),
         ))
-        ->and(CoverageMapFile::decode(CoverageMapFile::encode($map(), $at, EntryKeys::none())))->toEqual($map());
+        ->and(CoverageMapFile::decode(CoverageMapFile::encode($map(), $at, EntryKeys::none()), HandedMaps::limits()))->toEqual($map());
 });
 
 it('reads a kept map\'s keys that are no path and digest as none, and a map with no keys as keying no file', function () use ($file, $written): void {
@@ -259,8 +263,8 @@ it('keeps no map past either of a store\'s limits, and reads none that inflates 
     $kept = KeptMap::of($map(), Unplaced::map(), EntryKeys::none());
     $bytes = CoverageMapFile::keeping($kept, MapLimits::standard());
     $packed = is_string($bytes) ? strlen($bytes) : 0;
-    $unpacked = Gzip::unpack(is_string($bytes) ? $bytes : '', 'the map');
-    $text = is_string($unpacked) ? strlen($unpacked) : 0;
+    $unpacked = Gunzipped::of(is_string($bytes) ? $bytes : '');
+    $text = strlen($unpacked);
 
     expect(CoverageMapFile::keeping($kept, MapLimits::of($packed - 1, $text)))
         ->toEqual(CannotJudge::because(sprintf('The coverage map is %d bytes packed and %d bytes as text, over what a store keeps.', $packed, $text)))
@@ -270,4 +274,20 @@ it('keeps no map past either of a store\'s limits, and reads none that inflates 
         ->toEqual(CannotJudge::because(sprintf('The coverage map inflates to more than %d bytes.', $text - 1)))
         ->and(CoverageMapFile::kept('not gzip', MapLimits::standard()))->toBeInstanceOf(CannotJudge::class)
         ->and(CoverageMapFile::kept($written([...$file(), 'format' => 2]), MapLimits::standard()))->toEqual($unreadable);
+});
+
+it('cannot judge by a small stream that inflates past the limit, and stops soon past it', function (): void {
+    $bomb = GzipBomb::of(256 * 1_048_576);
+    $before = memory_get_usage();
+    memory_reset_peak_usage();
+
+    expect(strlen($bomb))->toBeLessThan(1_048_576)
+        ->and(CoverageMapFile::decode($bomb, HandoffLimits::of(1_048_576, 4_000_000, 1_000)))
+        ->toEqual(CannotJudge::because('The coverage map inflates to more than 4000000 bytes.'))
+        ->and(memory_get_peak_usage() - $before)->toBeLessThan(32 * 1_048_576);
+});
+
+it('reads a map past the compressed limit as none, without inflating it', function (): void {
+    expect(CoverageMapFile::decode(sprintf("\x1f\x8b%s", str_repeat('x', 99)), HandoffLimits::of(100, 1_000, 300)))
+        ->toEqual(CannotJudge::because('The coverage map is larger than 100 bytes, so no line of it is read.'));
 });

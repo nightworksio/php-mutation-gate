@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Infection;
 use function dirname;
 use function is_dir;
 use function is_file;
+use function is_link;
 use function is_string;
 use function is_writable;
 use function mkdir;
@@ -92,19 +93,20 @@ final readonly class Project
     }
 
     /**
-     * A file on disk with its directory made and no earlier run's copy of it
-     * left, or why an earlier copy is still there: a run that fails to write
-     * it must not be read from what the one before it wrote.
+     * A file on disk with its directory made and no earlier run's copy of it,
+     * nor a link, left, or why one is still there: a run that fails to write
+     * it must not be read from what the one before it wrote, and none writes
+     * through a link to elsewhere.
      */
     public function fresh(string $file): string|CannotJudge
     {
         $this->directory(Path::of(dirname($file)));
 
-        if (is_file($file) && is_writable(dirname($file))) {
+        if ((is_file($file) || is_link($file)) && is_writable(dirname($file))) {
             unlink($file);
         }
 
-        return is_file($file) ? CannotJudge::because(sprintf(self::STALE, $file)) : $file;
+        return is_file($file) || is_link($file) ? CannotJudge::because(sprintf(self::STALE, $file)) : $file;
     }
 
     /** A path of the adapter's own, inside the gate's directory. */

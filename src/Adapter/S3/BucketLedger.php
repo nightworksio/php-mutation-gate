@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Format\Fit;
+use NightWorksIO\MutationGate\Core\Format\TooLarge;
 use NightWorksIO\MutationGate\Core\Http\Reply;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
@@ -37,6 +38,9 @@ use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Port\ProofStore;
 
 use function sprintf;
+
+use Symfony\Component\HttpClient\HttpClient;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
  * The proof store `s3`: one object per scope, `<prefix>/<scope>/ledger.json.gz`,
@@ -80,8 +84,21 @@ final readonly class BucketLedger implements Configurable, ProofStore
     {
         $bucket = BucketOptions::read($options);
 
-        return $bucket instanceof Invalid ? $bucket : self::of(
-            new S3Client($bucket->configuration(), new ConfigurationProvider()),
+        return $bucket instanceof Invalid ? $bucket : self::over(HttpClient::create(), $bucket);
+    }
+
+    /**
+     * The store these options locate, over this HTTP client, each request
+     * allowed the seconds a ledger read over a network may take (ADR-0013).
+     */
+    public static function over(HttpClientInterface $http, BucketOptions $bucket): self
+    {
+        return self::of(
+            new S3Client(
+                $bucket->configuration(),
+                new ConfigurationProvider(),
+                $http->withOptions(['max_duration' => LedgerLimits::standard()->seconds()]),
+            ),
             $bucket->bucket(),
             $bucket->prefix(),
         );
@@ -167,13 +184,21 @@ final readonly class BucketLedger implements Configurable, ProofStore
         return Written::to($at);
     }
 
-    /** The object's bytes; an empty ledger where there is no such key; or why it could not be read. */
+    /**
+     * The object's bytes, read as they stream in and dropped once they pass
+     * the limits, or refused before any is read where the object says it is
+     * larger; an empty ledger where there is no such key; or why it could not
+     * be read.
+     */
     private function fetched(string $key, string $at): string|Ledger|Unreadable
     {
         try {
             $object = $this->client->getObject(['Bucket' => $this->bucket, 'Key' => $key]);
+            $length = $object->getContentLength();
 
-            return $object->getBody()->getContentAsString();
+            return $length !== null && ! $this->limits->admitsPacked($length)
+                ? Unreadable::because(UnreadReason::TooLarge, $at, $this->limits->saidPastPacked($length))
+                : $this->streamed($object->getBody()->getChunks(), $at);
         } catch (AwsFailure $failure) {
             return match (true) {
                 $failure instanceof NoSuchKeyException => Ledger::empty(),
@@ -189,5 +214,17 @@ final readonly class BucketLedger implements Configurable, ProofStore
                 ),
             };
         }
+    }
+
+    /**
+     * The chunks of a body, joined; or, once they pass the limits, why they are not read.
+     *
+     * @param iterable<string> $chunks
+     */
+    private function streamed(iterable $chunks, string $at): string|Unreadable
+    {
+        $bytes = $this->limits->gathered($chunks);
+
+        return $bytes instanceof TooLarge ? Unreadable::because(UnreadReason::TooLarge, $at, $bytes->why()) : $bytes;
     }
 }

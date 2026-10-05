@@ -127,9 +127,15 @@ final readonly class CoverageMapFile
         };
     }
 
-    public static function decode(string $bytes): CoverageMap|CannotJudge
+    /** The map some bytes hold, read within these limits; or why none is read. */
+    public static function decode(string $bytes, HandoffLimits $limits): CoverageMap|CannotJudge
     {
-        $json = Gzip::unpack($bytes, self::NAMED);
+        $json = $limits->inflated($bytes);
+
+        if ($json instanceof TooLarge) {
+            return CannotJudge::because($json->why());
+        }
+
         $file = Node::decode($json instanceof CannotJudge ? '' : $json);
 
         if (! self::isThisFormat($file)) {

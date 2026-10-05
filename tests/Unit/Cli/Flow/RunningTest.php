@@ -81,6 +81,7 @@ use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\PeakMemoryFake;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
@@ -496,7 +497,7 @@ it('keeps with each timed-out mutant the time its covering tests take, from the 
     $resultIn,
 ): void {
     $project = Flows::project();
-    new Handoff(Directory::at($project))->write(Planned::oneShard(), Flows::map(), KillHistory::none(), Unplaced::map());
+    new Handoff(Directory::at($project), HandedMaps::limits())->write(Planned::oneShard(), Flows::map(), KillHistory::none(), Unplaced::map());
 
     new Running(Flows::adapters($project, [], ScriptedRunner::fixture()), Flows::settings(), Flows::setup())
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
@@ -568,7 +569,7 @@ it('runs no timeout again whose limit its runner\'s own formula decided', functi
 
 it('mutates no held unit whose holding tests miss lines of it, and leaves why', function () use ($resultIn): void {
     $project = Flows::project();
-    new Handoff(Directory::at($project))->write(Planned::oneShard(), Flows::map(), KillHistory::none(), Unplaced::map());
+    new Handoff(Directory::at($project), HandedMaps::limits())->write(Planned::oneShard(), Flows::map(), KillHistory::none(), Unplaced::map());
     $scripted = ScriptedRunner::fixture();
     $runner = new CoverageAsked($scripted, CoverageMap::empty());
     $adapters = Flows::adapters($project, [], $runner);
@@ -597,7 +598,7 @@ it('mutates no held unit whose holding tests miss lines of it, and leaves why', 
 
 it('runs a held unit\'s holding tests under coverage of the one suite a narrowed run names alone', function (): void {
     $project = Flows::project();
-    new Handoff(Directory::at($project))->write(Planned::oneShard(), Flows::map(), KillHistory::none(), Unplaced::map());
+    new Handoff(Directory::at($project), HandedMaps::limits())->write(Planned::oneShard(), Flows::map(), KillHistory::none(), Unplaced::map());
     $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
     $adapters = Flows::adapters($project, [], $runner, Narrowing::none()->toSuite(SuiteName::of('unit')));
 
@@ -615,7 +616,7 @@ it('mutates a unit the whole suite judges, though the map reaches none of it, an
     $resultIn,
 ): void {
     $project = Flows::project();
-    new Handoff(Directory::at($project))->write(Planned::oneShard(), CoverageMap::empty(), KillHistory::none(), Unplaced::map());
+    new Handoff(Directory::at($project), HandedMaps::limits())->write(Planned::oneShard(), CoverageMap::empty(), KillHistory::none(), Unplaced::map());
     $scripted = ScriptedRunner::fixture();
     $runner = new CoverageAsked($scripted, Flows::map());
     $adapters = Flows::adapters($project, [], $runner);
@@ -638,7 +639,7 @@ it('mutates each held unit its holding tests cover, and cannot judge a shard who
     string $outcome,
 ) use ($resultIn): void {
     $project = Flows::project();
-    new Handoff(Directory::at($project))->write(Planned::oneShard(), Flows::map(), KillHistory::none(), Unplaced::map());
+    new Handoff(Directory::at($project), HandedMaps::limits())->write(Planned::oneShard(), Flows::map(), KillHistory::none(), Unplaced::map());
 
     new Running(
         Flows::adapters($project, [], new CoverageAsked(ScriptedRunner::fixture(), $answer)),
@@ -678,7 +679,7 @@ it('cannot judge a shard handed no map, and mutates nothing of it, held units an
     expect($runner->asked())->toBe([])
         ->and($plain->requests())->toBe([])
         ->and($result instanceof ShardResult ? $result->outcome() : $result)
-        ->toEqual(new Handoff(Directory::at($project))->read(ShardId::of(1)))
+        ->toEqual(new Handoff(Directory::at($project), HandedMaps::limits())->read(ShardId::of(1)))
         ->and($result instanceof ShardResult ? $result->outcome() : $result)->toBeInstanceOf(CannotJudge::class);
 });
 
@@ -742,7 +743,7 @@ it('runs each mutant\'s likely killers first, by the kill history the plan hande
     $project = Flows::project();
     $ranked = Ranking::of(Kills::of(TestId::of('MoneyTest::adds'), 2));
     $history = KillHistory::none()->withFunction(Enclosing::named(Path::of('src/Money.php'), 'add'), $ranked);
-    new Handoff(Directory::at($project))->write(Planned::oneShard(), Flows::map(), $history, Unplaced::map());
+    new Handoff(Directory::at($project), HandedMaps::limits())->write(Planned::oneShard(), Flows::map(), $history, Unplaced::map());
     $runner = ScriptedRunner::fixture();
 
     new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())

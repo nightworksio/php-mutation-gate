@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -47,7 +48,7 @@ it('finds the tests that read a value in the plan\'s whole map, where the run op
 
     expect($covering)->toBeInstanceOf(HandedOver::class)
         ->and($covering instanceof HandedOver ? $covering->map($project($root)) : $covering)
-        ->toEqual(CoverageMapFile::decode(CoverageMapFile::encode($whole, Unplaced::map())));
+        ->toEqual(CoverageMapFile::decode(CoverageMapFile::encode($whole, Unplaced::map()), HandedMaps::limits()));
 });
 
 it('reads the whole map once for each directory', function () use ($own, $whole, $handed, $project): void {

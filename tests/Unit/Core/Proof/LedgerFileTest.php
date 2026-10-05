@@ -49,6 +49,7 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
+use NightWorksIO\MutationGate\Tests\Support\Gunzipped;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 
 $keyA = str_repeat('a', 64);
@@ -130,15 +131,15 @@ $readBack = $ledgerOf(Proof::held(
 
 // The ledger's file as data, to change one entry of and write back.
 $data = static function () use ($ledger): array {
-    $json = Gzip::unpack(LedgerFile::encode($ledger), 'the ledger');
-    $data = is_string($json) ? json_decode($json, associative: true) : [];
+    $json = Gunzipped::of(LedgerFile::encode($ledger));
+    $data = json_decode($json, associative: true);
 
     return is_array($data) ? $data : [];
 };
 $written = static fn(array $file): string => Gzip::pack(JsonText::compact($file));
 
 it('writes compact JSON, gzipped: the newest proofs first, killed mutants as tuples with their killers, survivors in full, and the kill history', function () use ($ledger, $keyA, $keyB, $base, $killedId, $minusId, $survivedId): void {
-    expect(Gzip::unpack(LedgerFile::encode($ledger), 'the ledger'))->toBe(JsonText::compact([
+    expect(Gunzipped::of(LedgerFile::encode($ledger)))->toBe(JsonText::compact([
         'format' => 3,
         'bases' => [$base],
         'mutators' => ['Plus', 'Minus'],
@@ -185,7 +186,7 @@ it('writes compact JSON, gzipped: the newest proofs first, killed mutants as tup
 });
 
 it('writes an empty ledger as empty lists and maps and no passing commit', function (): void {
-    expect(Gzip::unpack(LedgerFile::encode(Ledger::empty()), 'the ledger'))
+    expect(Gunzipped::of(LedgerFile::encode(Ledger::empty())))
         ->toBe('{"format":3,"bases":[],"mutators":[],"tests":[],"inputs":{"mutation":[],"tests":[],"commits":[]},"proofs":{},"timings":{},"killers":{"mutants":{},"functions":{}}}');
 });
 
@@ -198,9 +199,9 @@ it('keeps two proofs as new as each other in the order it held them', function (
     $proof = static fn(string $key): Proof => Proof::of(Digest::of($key), Path::of('src/A.php'), Mutants::none(), $run('local', '2026-09-29T20:00:00Z'));
     $ledger = Ledger::empty()->withProof($proof(str_repeat('c', 64)))->withProof($proof(str_repeat('1', 64)))->atBase(Digest::of($base));
 
-    $json = Gzip::unpack(LedgerFile::encode($ledger), 'the ledger');
+    $json = Gunzipped::of(LedgerFile::encode($ledger));
 
-    expect(array_keys(Node::decode(is_string($json) ? $json : '')->field('proofs')->entries()))
+    expect(array_keys(Node::decode($json)->field('proofs')->entries()))
         ->toBe([str_repeat('c', 64), str_repeat('1', 64)]);
 });
 
@@ -245,8 +246,8 @@ it('reads a ledger of the second format as it is, its proofs recording no digest
         ProvedKills::none(),
         Run::of('github:1/1', Moment::at('2026-09-29T20:48:17Z'), Digest::of(str_repeat('e', 64))),
     ));
-    $json = Gzip::unpack(LedgerFile::encode($undigested), 'the ledger');
-    $file = is_string($json) ? json_decode($json, associative: true) : [];
+    $json = Gunzipped::of(LedgerFile::encode($undigested));
+    $file = json_decode($json, associative: true);
     $read = LedgerFile::decode($written(array_replace(is_array($file) ? $file : [], ['format' => 2])));
 
     expect($read->proofs()->proofFor(Digest::of(str_repeat('a', 64))))->toEqual($undigested->proofs()->proofFor(Digest::of(str_repeat('a', 64))))
@@ -283,10 +284,10 @@ it('reads a ledger of either format it reads within the limits, and says one tha
     $written,
 ): void {
     $bytes = LedgerFile::encode($ledger);
-    $json = Gzip::unpack($bytes, 'the ledger');
-    $file = is_string($json) ? json_decode($json, associative: true) : [];
+    $json = Gunzipped::of($bytes);
+    $file = json_decode($json, associative: true);
     $second = $written(array_replace(is_array($file) ? $file : [], ['format' => 2]));
-    $inflated = is_string($json) ? strlen($json) : 0;
+    $inflated = strlen($json);
 
     expect(LedgerFile::read($bytes, LedgerLimits::of(strlen($bytes), $inflated, 60.0)))->toEqual(LedgerFile::decode($bytes))
         ->and(LedgerFile::read($second, LedgerLimits::standard()))->toEqual(LedgerFile::decode($second))
@@ -305,7 +306,7 @@ it('writes no commit for inputs that stand for none, and reads them back so', fu
 
     expect($read instanceof Proof ? $read->inputs() : $read)->toEqual($uncommitted)
         ->and($uncommitted->commit())->toEqual(Uncommitted::tree())
-        ->and(Gzip::unpack($written, 'the ledger'))->not->toContain('"commit"');
+        ->and(Gunzipped::of($written))->not->toContain('"commit"');
 });
 
 it('drops every proof that points into a list of the ledger\'s inputs whose entries are not all well formed', /** @param array<int, mixed> $entries */ function (string $list, array $entries) use ($data, $written, $ledger, $keyA): void {
@@ -550,12 +551,12 @@ it('shares among its proofs each unit, run, set of killers and line it reads', f
 
 it('reads a ledger at a peak of no more than twelve bytes of memory for each byte of its text', function (): void {
     $bytes = LedgerFile::encode(ledgerFileOfKills(2_000));
-    $text = Gzip::unpack($bytes, 'the ledger');
+    $text = Gunzipped::of($bytes);
     $before = memory_get_usage();
     memory_reset_peak_usage();
     $read = LedgerFile::decode($bytes);
 
-    expect(memory_get_peak_usage() - $before)->toBeLessThan(12 * strlen(is_string($text) ? $text : ''))
+    expect(memory_get_peak_usage() - $before)->toBeLessThan(12 * strlen($text))
         ->and($read->proofs())->toHaveCount(2_000);
 });
 
@@ -575,8 +576,8 @@ it('writes what it learned of each analyser in its own section, and reads it bac
     $analysers = AnalyserHistories::none()->with(AnalyserHistory::of('mago')
         ->withRate(RejectionRate::of('PlusToMinus', 50, 7))
         ->withTime(CheckTime::of(50, Seconds::of(4.5))));
-    $file = Gzip::unpack(LedgerFile::encode($ledger->withAnalysers($analysers)), 'the ledger');
-    $data = is_string($file) ? json_decode($file, associative: true) : [];
+    $file = Gunzipped::of(LedgerFile::encode($ledger->withAnalysers($analysers)));
+    $data = json_decode($file, associative: true);
 
     expect(is_array($data) ? $data['analysers'] : [])->toBe([
         'mago' => ['checks' => 50, 'seconds' => 4.5, 'mutators' => ['PlusToMinus' => [50, 7]]],
@@ -596,8 +597,8 @@ it('writes the holding tests that run a held unit as indices into its tests, and
     $held = Proof::of(Digest::of(str_repeat('c', 64)), Path::of('src/Held.php'), Mutants::none(), $run('github:3/1', '2026-09-29T22:00:00Z'))
         ->judgedBy($judging);
     $ledger = Ledger::empty()->withProof($held)->atBase(Digest::of($base));
-    $json = Gzip::unpack(LedgerFile::encode($ledger), 'the ledger');
-    $text = is_string($json) ? $json : '';
+    $json = Gunzipped::of(LedgerFile::encode($ledger));
+    $text = $json;
     $read = LedgerFile::decode(LedgerFile::encode($ledger))->proofs()->proofFor(Digest::of(str_repeat('c', 64)));
 
     expect(Decoded::at($text, 'tests'))->toBe(['HeldTest::doubles', 'HeldTest::halves'])
@@ -608,8 +609,8 @@ it('writes the holding tests that run a held unit as indices into its tests, and
 it('drops a held unit\'s proof whose judging tests point past the ledger\'s tests', function () use ($run, $base, $written): void {
     $held = Proof::of(Digest::of(str_repeat('c', 64)), Path::of('src/Held.php'), Mutants::none(), $run('github:3/1', '2026-09-29T22:00:00Z'))
         ->judgedBy(TestIds::of(TestId::of('HeldTest::doubles')));
-    $json = Gzip::unpack(LedgerFile::encode(Ledger::empty()->withProof($held)->atBase(Digest::of($base))), 'the ledger');
-    $file = is_string($json) ? json_decode($json, associative: true) : [];
+    $json = Gunzipped::of(LedgerFile::encode(Ledger::empty()->withProof($held)->atBase(Digest::of($base))));
+    $file = json_decode($json, associative: true);
     $spoilt = is_array($file) ? array_replace($file, ['tests' => []]) : [];
 
     expect(count(LedgerFile::decode($written($spoilt))->proofs()))->toBe(0);
@@ -619,11 +620,7 @@ it('writes the matrix of a proof whose run recorded every killer, and reads one 
     $key = str_repeat('c', 64);
     $full = Proof::of(Digest::of($key), Path::of('src/Money.php'), Mutants::none(), $run('github:3/1', '2026-09-29T22:00:00Z')->recording(MatrixKind::Full));
     $first = Proof::of(Digest::of($key), Path::of('src/Money.php'), Mutants::none(), $run('github:3/1', '2026-09-29T22:00:00Z'));
-    $text = static function (Proof $proof) use ($base): string {
-        $json = Gzip::unpack(LedgerFile::encode(Ledger::empty()->withProof($proof)->atBase(Digest::of($base))), 'the ledger');
-
-        return is_string($json) ? $json : '';
-    };
+    $text = (static fn(Proof $proof): string => Gunzipped::of(LedgerFile::encode(Ledger::empty()->withProof($proof)->atBase(Digest::of($base)))));
     $read = static fn(Proof $proof): Proof|Unproved => LedgerFile::decode(LedgerFile::encode(Ledger::empty()->withProof($proof)->atBase(Digest::of($base))))->proofs()->proofFor(Digest::of($key));
     $fullRead = $read($full);
     $firstRead = $read($first);

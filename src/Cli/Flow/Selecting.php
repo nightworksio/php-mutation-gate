@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Coverage\KeptMap;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\TooLarge;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Access;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
@@ -109,12 +110,14 @@ final readonly class Selecting
     private function mapIn(Path $directory, Inventory $inventory): Read|Reason
     {
         $file = CoverageMapFile::in($directory);
-        $contents = $this->adapters->project->read($file);
-        $map = $contents instanceof Contents ? CoverageMapFile::decode($contents->text()) : $contents;
+        $limits = Handoff::limits();
+        $contents = $this->adapters->project->readAtMost($file, $limits->packed());
+        $map = $contents instanceof Contents ? CoverageMapFile::decode($contents->text(), $limits) : $contents;
 
         return match (true) {
-            $map instanceof CoverageMap => Read::of($map, MeasuredAt::recordedIn($contents->text())),
-            $map instanceof CannotJudge => Reason::that(sprintf(self::UNREADABLE, $map->why())),
+            $map instanceof CoverageMap => Read::of($map, MeasuredAt::recordedIn($contents->text(), $limits)),
+            $map instanceof CannotJudge, $map instanceof TooLarge
+                => Reason::that(sprintf(self::UNREADABLE, $map->why())),
             default => $this->keptMap($inventory, $file),
         };
     }

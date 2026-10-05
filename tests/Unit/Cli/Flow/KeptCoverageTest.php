@@ -47,6 +47,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 
@@ -160,7 +161,7 @@ function keptMeasured(
 /** The map a project's run reads, as written, without where it was measured. */
 function keptWritten(string $project): CoverageMap|CannotJudge
 {
-    return CoverageMapFile::decode((string) file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $project)));
+    return CoverageMapFile::decode((string) file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $project)), HandedMaps::limits());
 }
 
 /**
@@ -224,8 +225,8 @@ it('measures no test where no entry moved, and writes the kept map as measured n
         "Coverage: measured 0 of 2 test files again; kept the rest from the default branch's map.",
     ))
         ->and($runner->asked())->toBe([])
-        ->and(keptWritten($project))->toEqual(CoverageMapFile::decode(CoverageMapFile::encode(Flows::map(), keptAt())))
-        ->and(MeasuredAt::recordedIn($written))->toEqual(keptAt());
+        ->and(keptWritten($project))->toEqual(CoverageMapFile::decode(CoverageMapFile::encode(Flows::map(), keptAt()), HandedMaps::limits()))
+        ->and(MeasuredAt::recordedIn($written, HandedMaps::limits()))->toEqual(keptAt());
 });
 
 it('drops the entries of a gone test file, measuring nothing for it', function (): void {

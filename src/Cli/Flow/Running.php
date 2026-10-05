@@ -140,8 +140,8 @@ final readonly class Running
         }
 
         $started = $this->setup->clock->now();
-        $map = new Handoff($this->adapters->project)->read($id);
-        $history = new Handoff($this->adapters->project)->history($id);
+        $map = new Handoff($this->adapters->project, Handoff::limits())->read($id);
+        $history = new Handoff($this->adapters->project, Handoff::limits())->history($id);
         $ordering = Ordering::of(
             $this->settings->triage()->order(),
             $history instanceof KillHistory ? $history : KillHistory::none(),

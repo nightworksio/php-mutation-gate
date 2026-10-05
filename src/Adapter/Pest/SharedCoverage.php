@@ -9,6 +9,7 @@ use function base64_encode;
 use function count;
 use function file_get_contents;
 use function file_put_contents;
+use function ini_get;
 use function is_file;
 use function is_string;
 use function max;
@@ -16,6 +17,7 @@ use function max;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
+use NightWorksIO\MutationGate\Core\Coverage\HandoffLimits;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\ThisPackage;
@@ -62,9 +64,10 @@ final readonly class SharedCoverage
     public static function in(Project $project, Path $directory): CoverageMap|CannotJudge
     {
         $file = $project->absolute(CoverageMapFile::in($directory));
-        $bytes = is_file($file) ? file_get_contents($file) : false;
+        $limits = HandoffLimits::under(ini_get('memory_limit'));
+        $bytes = is_file($file) ? file_get_contents($file, length: $limits->readable()) : false;
 
-        return is_string($bytes) ? CoverageMapFile::decode($bytes) : CoverageMapFile::missingAt($file);
+        return is_string($bytes) ? CoverageMapFile::decode($bytes, $limits) : CoverageMapFile::missingAt($file);
     }
 
     /** How long the map's tests took, one after another. */
@@ -82,7 +85,8 @@ final readonly class SharedCoverage
     /**
      * Writes a map as `--coverage-php` writes one, with the project's root as
      * its base; a test the map did not time has no result, so nothing reads
-     * it as timed.
+     * it as timed. What is at the target, a link too, is removed first, and
+     * where it cannot be, nothing is written.
      */
     public static function write(CoverageMap $map, Project $project, string $target): void
     {
@@ -115,10 +119,12 @@ final readonly class SharedCoverage
             'testResults' => $results,
         ];
 
-        file_put_contents(
-            $target,
-            sprintf(self::MAP, Serializer::SERIALIZATION_FORMAT, base64_encode(serialize($coverage))),
-        );
+        if ($project->without($target)) {
+            file_put_contents(
+                $target,
+                sprintf(self::MAP, Serializer::SERIALIZATION_FORMAT, base64_encode(serialize($coverage))),
+            );
+        }
     }
 
     /**

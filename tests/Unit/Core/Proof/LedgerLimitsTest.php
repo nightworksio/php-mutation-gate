@@ -47,3 +47,21 @@ it('fits as many proofs as the tighter limit allows in proportion, always fewer,
         ->and($limits->fitting(1, str_repeat('t', 9_000), str_repeat('b', 900)))->toBe(0)
         ->and($limits->fitting(0, '', ''))->toBe(0);
 });
+
+it('gathers a ledger\'s pieces up to the limit, to the byte, and takes none past the piece that passes it', function (): void {
+    $taken = 0;
+    $endless = static function () use (&$taken): Generator {
+        while (true) {
+            $taken++;
+
+            yield 'abcd';
+        }
+    };
+    $limits = LedgerLimits::of(10, 100, 1.0);
+
+    expect($limits->gathered(['abcd', 'efgh', 'ij']))->toBe('abcdefghij')
+        ->and($limits->gathered(['abcd', 'efgh', 'ijk']))->toEqual(TooLarge::because('it is larger than 10 bytes'))
+        ->and($limits->gathered([]))->toBe('')
+        ->and($limits->gathered($endless()))->toEqual(TooLarge::because('it is larger than 10 bytes'))
+        ->and($taken)->toBe(3);
+});

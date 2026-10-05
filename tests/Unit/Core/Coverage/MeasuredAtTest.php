@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Tests\Support\Gunzipped;
+use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
 
 $commit = '0123456789abcdef0123456789abcdef01234567';
 
@@ -23,20 +25,20 @@ it('records where a whole map was measured beside its format, and reads it back,
     $at = MeasuredAt::of(Revision::ref($commit), dirty: true);
     $bytes = CoverageMapFile::encode($map, $at);
 
-    expect(Gzip::unpack($bytes, 'the map'))->toStartWith(sprintf('{"format":1,"commit":"%s","dirty":true,"tests":', $commit))
-        ->and(MeasuredAt::recordedIn($bytes))->toEqual($at)
-        ->and(CoverageMapFile::decode($bytes))->toEqual($map);
+    expect(Gunzipped::of($bytes))->toStartWith(sprintf('{"format":1,"commit":"%s","dirty":true,"tests":', $commit))
+        ->and(MeasuredAt::recordedIn($bytes, HandedMaps::limits()))->toEqual($at)
+        ->and(CoverageMapFile::decode($bytes, HandedMaps::limits()))->toEqual($map);
 });
 
 it('records nothing for a map that does not say where it was measured', function (): void {
     $bytes = CoverageMapFile::encode(CoverageMap::empty(), Unplaced::map());
 
-    expect(Gzip::unpack($bytes, 'the map'))->toBe('{"format":1,"tests":[],"files":{}}')
-        ->and(MeasuredAt::recordedIn($bytes))->toEqual(Unplaced::map());
+    expect(Gunzipped::of($bytes))->toBe('{"format":1,"tests":[],"files":{}}')
+        ->and(MeasuredAt::recordedIn($bytes, HandedMaps::limits()))->toEqual(Unplaced::map());
 });
 
 it('reads a map as unplaced where its commit or its dirtiness is missing or not one', function (array $fields): void {
-    expect(MeasuredAt::recordedIn(Gzip::pack(JsonText::compact(['format' => 1, ...$fields]))))->toEqual(Unplaced::map());
+    expect(MeasuredAt::recordedIn(Gzip::pack(JsonText::compact(['format' => 1, ...$fields])), HandedMaps::limits()))->toEqual(Unplaced::map());
 })->with([
     'no commit' => [['dirty' => false]],
     'no dirtiness' => [['commit' => '0123456789abcdef0123456789abcdef01234567']],
@@ -45,7 +47,7 @@ it('reads a map as unplaced where its commit or its dirtiness is missing or not 
 ]);
 
 it('reads bytes that are no map as unplaced', function (): void {
-    expect(MeasuredAt::recordedIn('not gzip'))->toEqual(Unplaced::map());
+    expect(MeasuredAt::recordedIn('not gzip', HandedMaps::limits()))->toEqual(Unplaced::map());
 });
 
 it('is measured now at the checkout\'s commit, dirty where the tree is not clean, and unplaced where git cannot tell', function () use (

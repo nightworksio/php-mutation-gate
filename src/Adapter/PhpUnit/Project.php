@@ -9,6 +9,7 @@ use function file_get_contents;
 use function file_put_contents;
 use function is_dir;
 use function is_file;
+use function is_link;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -25,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Runner\PhpUnitIni;
 
 use function realpath;
 use function sprintf;
+use function unlink;
 
 /**
  * The project PHPUnit runs in: its root, its test directories, the vendor
@@ -139,13 +141,17 @@ final readonly class Project
         return $this->workspace->child(Path::of(BuiltinRunner::PhpUnit->value))->child(Path::of($name));
     }
 
-    /** A file of the adapter's own, written with its directory made, or why it cannot be. */
+    /**
+     * A file of the adapter's own, written with its directory made and in
+     * place of a link where one is, never through it; or why it cannot be.
+     */
     public function written(string $name, string $contents): string|CannotJudge
     {
         $file = $this->own($name);
         $made = is_dir(dirname($file)) || (! is_file(dirname($file)) && mkdir(dirname($file), recursive: true));
+        $unlinked = ! is_link($file) || unlink($file);
 
-        return $made && ! is_dir($file) && file_put_contents($file, $contents) !== false
+        return $made && $unlinked && ! is_dir($file) && file_put_contents($file, $contents) !== false
             ? $file
             : CannotJudge::because(sprintf(self::UNWRITTEN, $file));
     }

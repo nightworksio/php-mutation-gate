@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
+use NightWorksIO\MutationGate\Adapter\S3\BucketOptions;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -110,6 +111,39 @@ it('says an object the bucket keeps is no ledger this gate reads', function () u
         'The ledger is unreadable from s3://ledgers/mutation-gate/refs/heads/main/ledger.json.gz: '
         . 'The ledger is not a whole gzip stream. The run judges without it.',
     ]);
+});
+
+it('reads a ledger only within its limits: refuses an object that says it is too large before reading it, and stops one that streams past them unannounced', function () use ($proved, $store): void {
+    $ledger = LedgerFile::encode($proved());
+    $limits = LedgerLimits::of(strlen($ledger), 38_000_000, 60.0);
+    $past = static fn(Bucket $bucket): array => LedgerRead::unread($store($bucket)->within($limits)->read(Scope::branch('main')));
+    $why = sprintf(
+        'The ledger is unreadable from s3://ledgers/mutation-gate/refs/heads/main/ledger.json.gz: it is larger than %d bytes. '
+        . 'The run judges without it.',
+        strlen($ledger),
+    );
+
+    $said = sprintf(
+        'The ledger is unreadable from s3://ledgers/mutation-gate/refs/heads/main/ledger.json.gz: '
+        . 'it says it has %d bytes, more than the %d a ledger is read at. The run judges without it.',
+        strlen($ledger) + 1,
+        strlen($ledger),
+    );
+
+    expect($past(new Bucket()->saying(IN_THE_BUCKET, sprintf('%sx', $ledger), strlen($ledger) + 1)))->toBe([UnreadReason::TooLarge, $said])
+        ->and($past(new Bucket()->holding(IN_THE_BUCKET, str_split(sprintf('%sx', $ledger), 16))))->toBe([UnreadReason::TooLarge, $why])
+        ->and(LedgerFile::encode(LedgerRead::ledger($store(new Bucket()->saying(IN_THE_BUCKET, $ledger, strlen($ledger)))->within($limits)->read(Scope::branch('main')))))
+        ->toBe($ledger);
+});
+
+it('allows each request to the bucket the seconds a ledger read over a network may take', function () use ($proved): void {
+    $bucket = new Bucket()->holding(IN_THE_BUCKET, LedgerFile::encode($proved()));
+    $options = BucketOptions::read(Configs::builtin(Builtins::stores(ProjectRoot::origin()), 's3', '{"bucket": "ledgers", "region": "eu-west-1"}'));
+    $store = $options instanceof BucketOptions ? BucketLedger::over($bucket->http(), $options) : $options;
+
+    expect($store instanceof BucketLedger ? $store->write(Scope::branch('main'), $proved()) : $store)->toBeInstanceOf(Written::class)
+        ->and($store instanceof BucketLedger ? $store->read(Scope::branch('main')) : $store)->toBeInstanceOf(Ledger::class)
+        ->and($bucket->durations)->toBe([60.0, 60.0]);
 });
 
 it('says why a ledger the bucket refused was not written', function () use ($proved, $store): void {

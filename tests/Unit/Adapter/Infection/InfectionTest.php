@@ -83,6 +83,8 @@ use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Described;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\GzipBomb;
+use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
 use NightWorksIO\MutationGate\Tests\Support\InfectionRun;
 use NightWorksIO\MutationGate\Tests\Support\InfectionShellFake;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveEcho;
@@ -831,7 +833,7 @@ it('runs a shard of the flows on the map the plan handed it, in its own layout',
     $plan = Planned::of(
         Shard::of(ShardId::of(1), Package::at(Path::root()), Units::of(Planned::money()), Seconds::of(1.0), 'money'),
     );
-    new Handoff(Directory::at($at->root()))->write($plan, CoverageMap::empty()
+    new Handoff(Directory::at($at->root()), HandedMaps::limits())->write($plan, CoverageMap::empty()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'))
         ->timed(TestId::of('Tests\MoneyTest::adds'), Seconds::of(0.5)), KillHistory::none(), Unplaced::map());
     $shell = infectionShell($at, infectionKilled($at));
@@ -1026,4 +1028,18 @@ it('writes the report of the lines no test ran only for the map, never for a mut
     );
 
     expect($reports)->toBe([false, true]);
+});
+
+it('reads a handed-on map within this process\'s share of its memory', function (): void {
+    $at = infectionProject();
+    $bomb = GzipBomb::padded(256 * 1_048_576);
+    Scratch::write($at->root(), '.gate/bomb/map.json.gz', $bomb);
+    $adapter = new Infection($at, infectionShell($at, []), Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory());
+    $limit = GzipBomb::limitAboveUse();
+    $share = intdiv(ini_parse_quantity($limit), 23);
+    $read = GzipBomb::readUnder($limit, static fn(): CoverageMap|CannotJudge => $adapter->coverage(CoverageRead::from(Path::of('.gate/bomb'))));
+
+    expect($share)->toBeLessThan(300 * strlen($bomb))
+        ->and(ini_get('memory_limit'))->not->toBe($limit)
+        ->and($read)->toEqual(CannotJudge::because(sprintf('The coverage map inflates to more than %d bytes.', $share)));
 });

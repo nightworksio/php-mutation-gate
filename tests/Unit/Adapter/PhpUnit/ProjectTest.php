@@ -75,3 +75,19 @@ it('writes a file of its own, with its directory made, or says it cannot', funct
         ->and((string) file_get_contents($project->own('a/b.txt')))->toBe('text')
         ->and($blocked)->toBeInstanceOf(CannotJudge::class);
 });
+
+it('writes a file of its own in place of a link there, dangling or not, and never through it', function () use ($at): void {
+    $scratch = Scratch::directory();
+    $project = $at(sprintf('%s/project', $scratch));
+    mkdir(dirname($project->own('a.txt')), recursive: true);
+    Scratch::write($scratch, 'kept.txt', 'kept');
+    symlink(sprintf('%s/planted.txt', $scratch), $project->own('a.txt'));
+    symlink(sprintf('%s/kept.txt', $scratch), $project->own('b.txt'));
+
+    expect($project->written('a.txt', 'text'))->toBe($project->own('a.txt'))
+        ->and($project->written('b.txt', 'text'))->toBe($project->own('b.txt'))
+        ->and(is_link($project->own('a.txt')) || is_link($project->own('b.txt')))->toBeFalse()
+        ->and((string) file_get_contents($project->own('a.txt')))->toBe('text')
+        ->and(file_exists(sprintf('%s/planted.txt', $scratch)))->toBeFalse()
+        ->and((string) file_get_contents(sprintf('%s/kept.txt', $scratch)))->toBe('kept');
+});

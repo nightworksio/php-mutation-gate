@@ -10,6 +10,7 @@ use function glob;
 use function is_array;
 use function is_dir;
 use function is_file;
+use function is_link;
 use function is_string;
 use function mkdir;
 
@@ -161,17 +162,17 @@ final readonly class Project
             : CannotJudge::because(sprintf(self::STALE_ORDER, $order));
     }
 
-    /** Whether none of these files is there once each that is has been removed. */
+    /** Whether none of these files, nor a link in the place of one, is there once each that is has been removed. */
     public function without(string ...$files): bool
     {
         $gone = true;
 
         foreach ($files as $file) {
-            if (is_file($file)) {
+            if (is_file($file) || is_link($file)) {
                 unlink($file);
             }
 
-            $gone = $gone && ! file_exists($file);
+            $gone = $gone && ! file_exists($file) && ! is_link($file);
         }
 
         return $gone;

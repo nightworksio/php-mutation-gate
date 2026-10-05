@@ -7,7 +7,10 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 use function dirname;
 use function escapeshellarg;
 use function exec;
+use function fclose;
 use function file_put_contents;
+use function fopen;
+use function ftruncate;
 use function is_dir;
 use function mkdir;
 use function random_bytes;
@@ -62,6 +65,21 @@ final class Scratch
         }
 
         file_put_contents($file, $contents);
+    }
+
+    /**
+     * Make a file under a scratch directory of this many zero bytes, never holding them, with the directories it needs.
+     *
+     * @param int<0, max> $bytes
+     */
+    public static function sized(string $root, string $path, int $bytes): void
+    {
+        self::write($root, $path, '');
+        $handle = fopen(sprintf('%s/%s', $root, $path), 'r+b');
+
+        if ($handle !== false && ftruncate($handle, $bytes)) {
+            fclose($handle);
+        }
     }
 
     /** A new directory holding a copy of one under the repository's tests. */

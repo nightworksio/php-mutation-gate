@@ -6,18 +6,21 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_any;
 use function array_key_exists;
+use function ini_get;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
+use NightWorksIO\MutationGate\Core\Coverage\HandoffLimits;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Format\TooLarge;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -44,8 +47,14 @@ final readonly class Handoff
 
     private const string NO_MATRIX = 'The verdict was handed no coverage map at %s. Hand it the plan\'s %s.';
 
-    public function __construct(private Directory $project)
+    public function __construct(private Directory $project, private HandoffLimits $limits)
     {
+    }
+
+    /** The limits this process reads a map handed over within, by the memory it has. */
+    public static function limits(): HandoffLimits
+    {
+        return HandoffLimits::under(ini_get('memory_limit'));
     }
 
     /**
@@ -104,10 +113,11 @@ final readonly class Handoff
     public function forVerdict(): CoverageMap|CannotJudge
     {
         $file = CoverageMapFile::in(Workspace::verdictCoverage());
-        $contents = $this->project->read($file);
+        $contents = $this->project->readAtMost($file, $this->limits->packed());
 
         return match (true) {
-            $contents instanceof Contents => CoverageMapFile::decode($contents->text()),
+            $contents instanceof Contents => CoverageMapFile::decode($contents->text(), $this->limits),
+            $contents instanceof TooLarge => CannotJudge::because($contents->why()),
             $contents instanceof CannotJudge => $contents,
             default => CannotJudge::because(
                 sprintf(self::NO_MATRIX, $file->value(), Workspace::coverage()->value()),
@@ -134,10 +144,11 @@ final readonly class Handoff
     public function read(ShardId $shard): CoverageMap|CannotJudge
     {
         $file = $this->fileOf($shard);
-        $contents = $this->project->read($file);
+        $contents = $this->project->readAtMost($file, $this->limits->packed());
 
         return match (true) {
-            $contents instanceof Contents => CoverageMapFile::decode($contents->text()),
+            $contents instanceof Contents => CoverageMapFile::decode($contents->text(), $this->limits),
+            $contents instanceof TooLarge => CannotJudge::because($contents->why()),
             $contents instanceof CannotJudge => $contents,
             default => CannotJudge::because(
                 sprintf(self::UNHANDED, $shard->number(), $file->value(), Workspace::coverage()->value()),
