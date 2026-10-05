@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use Fidry\CpuCoreCounter\CpuCoreCounter;
-use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 
 /**
  * The cores of the machine the gate runs on, counted as pest-plugin-mutate
@@ -13,8 +13,8 @@ use NightWorksIO\MutationGate\Core\Runner\Processes;
  */
 final readonly class Cores
 {
-    public static function counted(): Processes
+    public static function counted(): ProcessCount
     {
-        return Processes::of(new CpuCoreCounter()->getCountWithFallback(Processes::single()->count()));
+        return ProcessCount::of(new CpuCoreCounter()->getCountWithFallback(ProcessCount::single()->count()));
     }
 }

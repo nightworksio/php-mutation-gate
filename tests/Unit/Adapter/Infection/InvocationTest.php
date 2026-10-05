@@ -11,7 +11,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\NotGiven;
-use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
@@ -93,7 +93,7 @@ it('runs Infection on the generated config over the coverage the gate chose, rep
         invoked('{}'),
         WholeSuite::tests(),
         DiskPath::of('/project/.gate/coverage'),
-        Processes::of(4),
+        ProcessCount::of(4),
         ['/project/src/Money.php', '/project/src/Held.php'],
         NotGiven::value(),
     );
@@ -116,8 +116,8 @@ it('runs Infection on the generated config over the coverage the gate chose, rep
 
 it('narrows each mutant\'s run to a group, and to the covering test methods of a #[Holds] filter, quoting every value', function (): void {
     $config = invoked('{"testFrameworkExtraArgs": "--testsuite=unit tests/Unit"}');
-    $group = Invocation::mutation(invokedIn(), $config, Group::named('holds:src/Kernel.php'), DiskPath::of('/c'), Processes::of(1), ['/p'], NotGiven::value());
-    $filter = Invocation::mutation(invokedIn(), invoked('{}'), Filter::matching('Tests\\Kernel "Test"'), DiskPath::of('/c'), Processes::of(1), ['/p'], NotGiven::value());
+    $group = Invocation::mutation(invokedIn(), $config, Group::named('holds:src/Kernel.php'), DiskPath::of('/c'), ProcessCount::of(1), ['/p'], NotGiven::value());
+    $filter = Invocation::mutation(invokedIn(), invoked('{}'), Filter::matching('Tests\\Kernel "Test"'), DiskPath::of('/c'), ProcessCount::of(1), ['/p'], NotGiven::value());
 
     expect(array_slice($group->arguments(), -2))->toBe([
         '--test-framework-extra-args=--testsuite="unit" "tests/Unit" --group="holds:src/Kernel.php"',
@@ -131,7 +131,7 @@ it('narrows each mutant\'s run to a group, and to the covering test methods of a
 
 it('keeps the coverage run and each mutant\'s run to one suite where the run names one, quoting it among the extra arguments', function (): void {
     $coverage = Invocation::coverage(invokedIn(), invoked('{}'), Group::named('slow'), DiskPath::of('/c'), SuiteName::of('Unit Tests'), CoverageFor::Mutation);
-    $mutation = Invocation::mutation(invokedIn(), invoked('{}'), Group::named('slow'), DiskPath::of('/c'), Processes::of(1), ['/p'], SuiteName::of('Unit Tests'));
+    $mutation = Invocation::mutation(invokedIn(), invoked('{}'), Group::named('slow'), DiskPath::of('/c'), ProcessCount::of(1), ['/p'], SuiteName::of('Unit Tests'));
 
     expect(array_slice($coverage->arguments(), -2))->toBe(['--group=slow', '--testsuite=Unit Tests'])
         ->and(array_slice($mutation->arguments(), -2))->toBe([

@@ -6,7 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\Runner\Environment;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
-use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -110,7 +110,7 @@ it('starts each command, in turn, in a free place, never two in one place at onc
     )->within(Seconds::of(30.0));
     $quick = ProcessCommand::of($directory, PHP_BINARY, '-r', 'file_put_contents("ran", "x", FILE_APPEND); echo getenv("TEST_TOKEN");');
 
-    $ends = new LocalProcesses(new SystemClock())->sideBySide(WorkerSlots::of(Processes::of(2), 'run'), Unlimited::time(), $slow, $quick, $quick, $quick);
+    $ends = new LocalProcesses(new SystemClock())->sideBySide(WorkerSlots::of(ProcessCount::of(2), 'run'), Unlimited::time(), $slow, $quick, $quick, $quick);
 
     expect(array_map(static fn(Ran $ran): string => $ran->output(), [...$ends]))->toBe(['1', '2', '2', '2']);
 });

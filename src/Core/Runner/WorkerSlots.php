@@ -27,7 +27,7 @@ final readonly class WorkerSlots implements IteratorAggregate
     }
 
     /** The places for this many processes, in a run that names itself by a token of its own. */
-    public static function of(Processes $processes, string $run): self
+    public static function of(ProcessCount $processes, string $run): self
     {
         $count = $processes->count();
 

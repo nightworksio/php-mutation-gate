@@ -61,7 +61,7 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
-use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -249,9 +249,9 @@ it('asks a runner that runs a mutant per core for every core the machine has', f
     new Running($adapters, Flows::settings(), Flows::setup())
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
 
-    expect(array_map(static fn(MutationRequest $request): Processes => $request->processes(), $runner->requests()))
+    expect(array_map(static fn(MutationRequest $request): ProcessCount => $request->processes(), $runner->requests()))
         ->toEqual([$adapters->cores, $adapters->cores])
-        ->and($adapters->cores)->not->toEqual(Processes::single());
+        ->and($adapters->cores)->not->toEqual(ProcessCount::single());
 });
 
 it('runs the held path by its group, the rest by the suite, on the shard\'s map, secrets withheld', function (): void {
@@ -270,7 +270,7 @@ it('runs the held path by its group, the rest by the suite, on the shard\'s map,
         ->and($rest->judgedBy())->toEqual(WholeSuite::tests())
         ->and($held->coverage())->toEqual(Handed::maps(Workspace::shardCoverage(ShardId::of(1)), Workspace::coverage()))
         ->and($rest->coverage())->toEqual(Handed::maps(Workspace::shardCoverage(ShardId::of(1)), Workspace::coverage()))
-        ->and($held->processes())->toEqual(Processes::single())
+        ->and($held->processes())->toEqual(ProcessCount::single())
         ->and($held->withheld())->toEqual(Withheld::standard()->and($adapters->withheld))
         ->and($rest->withheld())->toEqual(Withheld::standard()->and($adapters->withheld))
         ->and($runner->identified())->not->toBeEmpty()

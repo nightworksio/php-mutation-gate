@@ -31,7 +31,7 @@ final readonly class MutationRequest
         private Paths $leftOut,
         private Narrowing $narrowing,
         private Seconds|Unlimited $deadline,
-        private Processes $processes,
+        private ProcessCount $processes,
         private Handed|Fresh $coverage,
         private Withheld $withheld,
         private KillSearch $search,
@@ -47,7 +47,7 @@ final readonly class MutationRequest
             Paths::none(),
             Narrowing::none(),
             Unlimited::time(),
-            Processes::single(),
+            ProcessCount::single(),
             Fresh::coverage(),
             Withheld::standard(),
             KillSearch::standard(),
@@ -79,7 +79,7 @@ final readonly class MutationRequest
         return clone($this, ['deadline' => $deadline]);
     }
 
-    public function across(Processes $processes): self
+    public function across(ProcessCount $processes): self
     {
         return clone($this, ['processes' => $processes]);
     }
@@ -154,7 +154,7 @@ final readonly class MutationRequest
         return $this->deadline;
     }
 
-    public function processes(): Processes
+    public function processes(): ProcessCount
     {
         return $this->processes;
     }

@@ -27,7 +27,7 @@ final readonly class CoverageRun
     private function __construct(
         private WholeSuite|Group|Filter|TestPaths $tests,
         private Path $directory,
-        private Processes $processes,
+        private ProcessCount $processes,
         private Withheld $withheld,
         private SuiteName|NotGiven $suite,
     ) {
@@ -36,10 +36,10 @@ final readonly class CoverageRun
     /** These tests run under coverage in one process, leaving the map in a directory. */
     public static function of(WholeSuite|Group|Filter|TestPaths $tests, Path $into): self
     {
-        return new self($tests, $into, Processes::single(), Withheld::standard(), NotGiven::value());
+        return new self($tests, $into, ProcessCount::single(), Withheld::standard(), NotGiven::value());
     }
 
-    public function across(Processes $processes): self
+    public function across(ProcessCount $processes): self
     {
         return clone($this, ['processes' => $processes]);
     }
@@ -79,7 +79,7 @@ final readonly class CoverageRun
         return $this->directory;
     }
 
-    public function processes(): Processes
+    public function processes(): ProcessCount
     {
         return $this->processes;
     }

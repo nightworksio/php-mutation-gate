@@ -30,7 +30,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
-use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Instant;
@@ -76,7 +76,7 @@ function measuredMoneyRun(): FirstRun
         CoverageMap::empty()->covered($money, Line::of(3), $test)->timed($test, Seconds::of(0.5)),
         MutantSites::inFile($money, Line::of(3), Line::of(3)),
         Seconds::of(1.5),
-        Processes::of(2),
+        ProcessCount::of(2),
     );
 }
 

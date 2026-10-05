@@ -11,7 +11,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
-use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -44,7 +44,7 @@ it('runs Pest\'s own script in the vendor directory the project installs into', 
 
 it('runs the whole suite under coverage into a directory, as --coverage expects to find it', function (): void {
     $request = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'))
-        ->across(Processes::of(4));
+        ->across(ProcessCount::of(4));
 
     expect(invocation()->coverage($request, '/p/.mutation-gate/coverage'))->toEqual(Command::pest(
         'vendor/pestphp/pest/bin/pest',
@@ -148,7 +148,7 @@ it('mutates a tree less its held paths, by a group and some mutators, by a deadl
             TrueToFalse::class,
         )))
         ->leavingOut(Paths::of(Path::of('src/Kernel.php'), Path::of('src/Boot')))
-        ->across(Processes::of(8))
+        ->across(ProcessCount::of(8))
         ->within(Seconds::of(600.0));
     $command = invocation()->mutation($request, Group::named('holds:src'), '/p/results.jsonl');
 

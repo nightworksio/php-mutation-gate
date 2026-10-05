@@ -22,7 +22,7 @@ use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
-use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
@@ -111,8 +111,8 @@ it('says each shard\'s runner is taken to run as many mutants at once as this ma
         ShardEstimate::none()->with(Estimated::of(Seconds::of(5.0), CostBasis::Measured)),
     );
 
-    expect(PlanEstimates::of(estimatedPlan($measured), Seconds::of(0.0))->assumed(Processes::of(4)))
+    expect(PlanEstimates::of(estimatedPlan($measured), Seconds::of(0.0))->assumed(ProcessCount::of(4)))
         ->toBe(['It takes each shard\'s runner to run 4 mutants at once, as this machine does.'])
-        ->and(PlanEstimates::of(estimatedPlan(estimatedShard(1, 10.0, 10.0, 0.0)), Seconds::of(0.0))->assumed(Processes::of(4)))
+        ->and(PlanEstimates::of(estimatedPlan(estimatedShard(1, 10.0, 10.0, 0.0)), Seconds::of(0.0))->assumed(ProcessCount::of(4)))
         ->toBe([]);
 });

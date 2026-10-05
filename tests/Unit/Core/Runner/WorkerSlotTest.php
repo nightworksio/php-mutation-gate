@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlot;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 
@@ -27,9 +27,9 @@ it('gives each of several processes a place numbered from one, and one process a
         return $told;
     };
 
-    expect($variables([...WorkerSlots::of(Processes::of(3), 'run')]))->toBe([
+    expect($variables([...WorkerSlots::of(ProcessCount::of(3), 'run')]))->toBe([
         ['PARATEST' => '1', 'TEST_TOKEN' => '1', 'UNIQUE_TEST_TOKEN' => '1_run', 'LARAVEL_PARALLEL_TESTING' => '1'],
         ['PARATEST' => '1', 'TEST_TOKEN' => '2', 'UNIQUE_TEST_TOKEN' => '2_run', 'LARAVEL_PARALLEL_TESTING' => '1'],
         ['PARATEST' => '1', 'TEST_TOKEN' => '3', 'UNIQUE_TEST_TOKEN' => '3_run', 'LARAVEL_PARALLEL_TESTING' => '1'],
-    ])->and($variables([...WorkerSlots::of(Processes::single(), 'run')]))->toBe([[]]);
+    ])->and($variables([...WorkerSlots::of(ProcessCount::single(), 'run')]))->toBe([[]]);
 });

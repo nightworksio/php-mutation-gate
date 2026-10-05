@@ -9,7 +9,7 @@ use NightWorksIO\MutationGate\Adapter\Opcache\Uncompiled;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Root;
-use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -41,7 +41,7 @@ function provedPair(string $key, string $from, string $to): array
 }
 
 it('proves a mutant that compiles to its original and declares what it declares, and no other', function (): void {
-    $prover = Prover::of(PHP_BINARY, Root::of(Scratch::directory())->at(Path::of('equivalence')), Processes::of(2), disabled: false);
+    $prover = Prover::of(PHP_BINARY, Root::of(Scratch::directory())->at(Path::of('equivalence')), ProcessCount::of(2), disabled: false);
 
     expect($prover->proven([
         provedPair('same', '$a * 2', '$a + $a'),
@@ -54,7 +54,7 @@ it('proves a mutant that compiles to its original and declares what it declares,
 });
 
 it('proves none where there is nothing to check', function (): void {
-    expect(Prover::of(PHP_BINARY, Root::of(Scratch::directory())->at(Path::of('equivalence')), Processes::of(1), disabled: false)->proven([]))
+    expect(Prover::of(PHP_BINARY, Root::of(Scratch::directory())->at(Path::of('equivalence')), ProcessCount::of(1), disabled: false)->proven([]))
         ->toBe([]);
 });
 
@@ -68,7 +68,7 @@ it('proves no mutant whose literal reads as the name it gives the program\'s own
     string $original,
     string $mutant,
 ): void {
-    $prover = Prover::of(PHP_BINARY, Root::of(Scratch::directory())->at(Path::of('equivalence')), Processes::of(1), disabled: false);
+    $prover = Prover::of(PHP_BINARY, Root::of(Scratch::directory())->at(Path::of('equivalence')), ProcessCount::of(1), disabled: false);
 
     expect($prover->proven([['forged', Contents::of($original), Contents::of($mutant)]]))->toBe([]);
 })->with([
@@ -94,7 +94,7 @@ it('proves no mutant whose code stands on other lines than its original\'s, sinc
     string $original,
     string $mutant,
 ): void {
-    $prover = Prover::of(PHP_BINARY, Root::of(Scratch::directory())->at(Path::of('equivalence')), Processes::of(1), disabled: false);
+    $prover = Prover::of(PHP_BINARY, Root::of(Scratch::directory())->at(Path::of('equivalence')), ProcessCount::of(1), disabled: false);
 
     expect($prover->proven([['moved', Contents::of($original), Contents::of($mutant)]]))->toBe([]);
 })->with([
@@ -156,7 +156,7 @@ function doubled(int $a): int
 PHP_WRAP;
 
 it('proves no mutant that changes what opcache decides by the PHP it compiles on, and still proves one beside it', function (): void {
-    $prover = Prover::of(PHP_BINARY, Root::of(Scratch::directory())->at(Path::of('equivalence')), Processes::of(1), disabled: false);
+    $prover = Prover::of(PHP_BINARY, Root::of(Scratch::directory())->at(Path::of('equivalence')), ProcessCount::of(1), disabled: false);
     $pair = static fn(string $key, string $from, string $to): array => [$key, Contents::of(DECIDED), Contents::of(str_replace($from, $to, DECIDED))];
     $pairs = [
         $pair('a dead branch', "return 1;\n    }\n\n    return 2;", "return 5;\n    }\n\n    return 2;"),
@@ -176,7 +176,7 @@ it('proves no mutant of a function the tests\' PHP disables, which opcache would
     $prover = static fn(string|false $disabled): Prover => Prover::of(
         PHP_BINARY,
         Root::of(Scratch::directory())->at(Path::of('equivalence')),
-        Processes::of(1),
+        ProcessCount::of(1),
         $disabled,
     );
     $pair = [

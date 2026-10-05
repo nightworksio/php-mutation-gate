@@ -6,7 +6,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
-use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -19,7 +19,7 @@ it('runs a group under coverage and leaves its map in a directory, in one proces
 
     expect($run->tests())->toEqual(Group::named('holds:src/Kernel.php'))
         ->and($run->directory()->value())->toBe('.mutation-gate/coverage')
-        ->and($run->processes())->toEqual(Processes::of(1));
+        ->and($run->processes())->toEqual(ProcessCount::of(1));
 });
 
 it('runs the tests a filter names under coverage', function (): void {
@@ -36,12 +36,12 @@ it('runs some test files under coverage', function (): void {
 
 it('runs across as many processes as it is given, leaving the rest as it was', function (): void {
     $run = CoverageRun::of(WholeSuite::tests(), Path::of('cov'));
-    $across = $run->across(Processes::of(4));
+    $across = $run->across(ProcessCount::of(4));
 
-    expect($across->processes())->toEqual(Processes::of(4))
+    expect($across->processes())->toEqual(ProcessCount::of(4))
         ->and($across->tests())->toEqual(WholeSuite::tests())
         ->and($across->directory()->value())->toBe('cov')
-        ->and($run->processes())->toEqual(Processes::of(1));
+        ->and($run->processes())->toEqual(ProcessCount::of(1));
 });
 
 it('withholds the CI\'s credentials by default, and more where it is told, never fewer', function (): void {
@@ -54,11 +54,11 @@ it('withholds the CI\'s credentials by default, and more where it is told, never
 });
 
 it('runs every suite\'s tests by default, and one suite\'s alone where it is told, leaving the rest as it was', function (): void {
-    $run = CoverageRun::of(WholeSuite::tests(), Path::of('cov'))->across(Processes::of(2));
+    $run = CoverageRun::of(WholeSuite::tests(), Path::of('cov'))->across(ProcessCount::of(2));
     $suite = $run->inSuite(SuiteName::of('unit'));
 
     expect($run->suite())->toEqual(NotGiven::value())
         ->and($suite->suite())->toEqual(SuiteName::of('unit'))
-        ->and($suite->processes())->toEqual(Processes::of(2))
+        ->and($suite->processes())->toEqual(ProcessCount::of(2))
         ->and($suite->tests())->toEqual(WholeSuite::tests());
 });

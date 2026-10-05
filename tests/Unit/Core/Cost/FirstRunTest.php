@@ -7,7 +7,7 @@ use NightWorksIO\MutationGate\Core\Cost\MutantSites;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -30,7 +30,7 @@ function measuredMoney(): FirstRun
     $sites = MutantSites::inFile($money, Line::of(3), Line::of(3), Line::of(7), Line::of(9))
         ->and(MutantSites::inFile(Path::of('src/Empty.php')));
 
-    return FirstRun::of($map, $sites, Seconds::of(2.0), Processes::of(2));
+    return FirstRun::of($map, $sites, Seconds::of(2.0), ProcessCount::of(2));
 }
 
 it('costs each covered mutant a start-up and its covering tests, spread over the processes', function (): void {
@@ -53,7 +53,7 @@ it('leaves unmeasured a unit none of whose files the engine counted', function (
 it('counts a covering test the map did not time as taking nothing', function (): void {
     $money = Path::of('src/Money.php');
     $untimed = CoverageMap::empty()->covered($money, Line::of(3), TestId::of('MoneyTest::untimed'));
-    $run = FirstRun::of($untimed, MutantSites::inFile($money, Line::of(3)), Seconds::of(2.0), Processes::single());
+    $run = FirstRun::of($untimed, MutantSites::inFile($money, Line::of(3)), Seconds::of(2.0), ProcessCount::single());
 
     expect($run->seconds(Unit::file($money)))->toEqual(Seconds::of(2.0));
 });
@@ -62,11 +62,11 @@ it('keeps what it measured for a cost model of an extension\'s to read', functio
     $run = measuredMoney();
 
     expect($run->startUp())->toEqual(Seconds::of(2.0))
-        ->and($run->processes())->toEqual(Processes::of(2))
+        ->and($run->processes())->toEqual(ProcessCount::of(2))
         ->and($run->sites()->count())->toBe(4)
         ->and(count($run->map()->tests()))->toBe(2)
         ->and(FirstRun::unmeasured()->startUp())->toEqual(Seconds::of(0.0))
-        ->and(FirstRun::unmeasured()->processes())->toEqual(Processes::single());
+        ->and(FirstRun::unmeasured()->processes())->toEqual(ProcessCount::single());
 });
 
 it('costs every file unit of a plan in time that grows with the plan, not with its square', function (): void {
@@ -80,7 +80,7 @@ it('costs every file unit of a plan in time that grows with the plan, not with i
             $units[] = Unit::file($file);
         }
 
-        $run = FirstRun::of(CoverageMap::empty(), $sites, Seconds::of(1.0), Processes::single());
+        $run = FirstRun::of(CoverageMap::empty(), $sites, Seconds::of(1.0), ProcessCount::single());
 
         return static function () use ($run, $units): int {
             $measured = 0;
