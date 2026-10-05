@@ -1,5 +1,6 @@
 {
     "preset": "per",
+    "cache-file": ".pint-cache",
     "exclude": [
         "tests/Contract/Runner/fixture",
         "tests/Contract/Runner/infection-fixture",

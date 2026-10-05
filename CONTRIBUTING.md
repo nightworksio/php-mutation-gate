@@ -58,8 +58,8 @@ The whole suite runs locally too, more slowly:
 Leave these to CI:
 
 - `lowest dependencies`, because it rewrites `composer.lock` and `vendor`;
-- `runner contracts`, because it installs a fixture library for each end of
-  every supported range first;
+- `runner contracts`, because each of its legs installs a fixture library at
+  one end of a supported range first;
 - `sonarcloud` and `gate`, which ask SonarCloud;
 - `analyze`, CodeQL's analysis of the workflows.
 

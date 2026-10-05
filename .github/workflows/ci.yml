@@ -213,14 +213,21 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           coverage: none
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
-      # PHPStan's cache tracks what each file depends on. Rector's does not: a
-      # file it cached stays clean when a class declared elsewhere changes
-      # what a rule does to it, so Rector runs uncached.
+      # PHPStan's cache tracks what each file depends on. Pint's needs nothing
+      # more: each fixer reads one file, and the cache keeps each passing
+      # file's hash under the config and Pint release it passed with. Rector's
+      # does not: a file it cached stays clean when a class declared elsewhere
+      # changes what a rule does to it, so Rector runs uncached.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .phpstan-cache
           key: analysis-${{ runner.os }}-${{ github.sha }}
           restore-keys: analysis-${{ runner.os }}-
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .pint-cache
+          key: lint-${{ runner.os }}-${{ github.sha }}
+          restore-keys: lint-${{ runner.os }}-
       # Cheapest first, so a misplaced brace fails in seconds rather than after
       # the analyser has walked the tree. Each tool reports in its structured
       # form, into evidence/raw, and the evidence step shows every finding as an
@@ -361,19 +368,30 @@ jobs:
         if: failure()
         run: python3 .github/scripts/gate_summary.py lowest
 
-  # ADR-0004's Runner contract suite against the real runners, at both ends of
-  # the range the package supports. The fixture library is a project of its
-  # own, so each end is one `composer update` of it, and the suite runs once
-  # after each. It runs serially: a Pest started under paratest would take
-  # itself for one of its workers. The library gets the php-code-coverage this
-  # package is locked at: the adapter reads the maps the library's Pest writes,
-  # which in a user's project is one vendor directory and here is two.
-  runner-contracts:
-    name: runner contracts
+  # ADR-0004's Runner contract suite against the real runners, and ADR-0020's
+  # StaticChecker contract suite against the real analysers, at both ends of
+  # the range the package supports: one leg per runner and resolution, each
+  # with its own install and suite, so the legs run side by side. Each fixture
+  # is a project of its own, installed at the highest releases its committed
+  # lock holds, which Dependabot moves, and at the lowest its manifest allows,
+  # which no new release changes. So a leg reds only for a change in this
+  # repository; the runner canary runs the newest releases (ADR-0017,
+  # decision 8). The suite runs serially: a Pest started under paratest would
+  # take itself for one of its workers. `runner contracts`, the check main
+  # requires, reads every leg's log.
+  runner-contract:
+    name: runner contract
     needs: scope
     if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [pest, infection-13, infection-12, phpunit, analysers]
+        resolution: [highest, lowest]
+    env:
+      LEG: ${{ matrix.runner }}-${{ matrix.resolution }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -383,161 +401,199 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           coverage: pcov
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
-      # Each fixture library is installed twice: at the highest releases its
-      # committed lock holds, which Dependabot moves, and at the lowest its
-      # manifest allows, which no new release changes. So the job reds only
-      # for a change in this repository; the runner canary runs the newest
-      # releases (ADR-0017, decision 8). Each lowest resolution rewrites its
-      # lock in the job's checkout, so every fixture's locked install runs
-      # first. What both download is cached by the fixtures' manifests and
-      # locks, and the root lock, whose php-code-coverage each lowest Pest and
-      # PHPUnit resolution pins.
+      # Each runner's fixture, the packages its install shows, the contracts it
+      # runs, and how it reaches its lowest releases.
+      # - pest: the library holds the Pest plugin of this package, and runs the
+      #   whole Contract suite, so every contract that needs it runs against
+      #   each resolution. Its lock holds the php-code-coverage this package is
+      #   locked at, or one that writes the same serialization format, which
+      #   the Contract suite checks, and its lowest resolution is pinned to it:
+      #   the adapter reads the maps the library's Pest writes, which in a
+      #   user's project is one vendor directory and here is two.
+      # - infection-13 and infection-12: Infection's library, installed with
+      #   Infection 0.35 and PHPUnit 13 by its own manifest, and with PHPUnit 12
+      #   by the manifest in phpunit-12/, which installs into the same vendor
+      #   directory. Each carries the package's PHPUnit conflict, so the lowest
+      #   PHPUnit 12 is the lowest the package allows. Its runs read only the
+      #   PHPUnit XML coverage and JUnit log its own PHPUnit writes, so it keeps
+      #   its own php-code-coverage.
+      # - phpunit: the PHPUnit runner's fixture, at the highest PHPUnit its lock
+      #   holds and the lowest the runner supports, the one `Installed::FLOOR`
+      #   names (ADR-0023). It holds the quirks of a project's tests and, in
+      #   library/, the code every runner's contract mutates. Its lowest is
+      #   pinned to the package's php-code-coverage, as the Pest library's is:
+      #   in a user's project the gate and PHPUnit share one vendor directory,
+      #   so one php-code-coverage writes and reads each map; here there are
+      #   two, and a map one release writes can be one another refuses.
+      # - analysers: Mago, PHPStan and Psalm, each at its lowest with every
+      #   other package raised again to the highest that allows them, as a
+      #   project requiring that analyser installs it: Psalm 6.14.0's lowest
+      #   dependencies predate PHP 8.5.
+      - id: fixture
+        name: the runner's fixture
+        env:
+          RUNNER: ${{ matrix.runner }}
+        run: |
+          coverage='phpunit/phpunit|phpunit/php-code-coverage'
+          case "${RUNNER}" in
+          pest)
+            dir=tests/Contract/Runner/fixture filter='' contracts=pest analysers='' lowest=coverage
+            packages="pestphp/pest|pestphp/pest-plugin-mutate|${coverage}" ;;
+          infection-13)
+            dir=tests/Contract/Runner/infection-fixture filter='infection|Infection' contracts=infection analysers='' lowest=own
+            packages="infection/infection|${coverage}" ;;
+          infection-12)
+            dir=tests/Contract/Runner/infection-fixture/phpunit-12 filter='infection|Infection' contracts=infection analysers='' lowest=own
+            packages="infection/infection|${coverage}" ;;
+          phpunit)
+            dir=tests/Contract/Runner/phpunit-fixture filter=PhpUnit contracts=phpunit analysers='' lowest=coverage
+            packages="${coverage}" ;;
+          analysers)
+            dir=tests/Contract/StaticChecker/fixture filter=StaticChecker contracts='' analysers=1 lowest=analysers
+            packages='carthage-software/mago|phpstan/phpstan|vimeo/psalm' ;;
+          *)
+            echo "No fixture is named for the runner ${RUNNER}."
+            exit 1 ;;
+          esac
+          {
+            echo "dir=${dir}"
+            echo "filter=${filter}"
+            echo "contracts=${contracts}"
+            echo "analysers=${analysers}"
+            echo "lowest=${lowest}"
+            echo "packages=${packages}"
+          } >> "$GITHUB_OUTPUT"
+      # What a leg downloads is cached by the fixtures' manifests and locks,
+      # and the root lock, whose php-code-coverage the lowest Pest and PHPUnit
+      # resolutions pin.
       - name: find Composer's download cache
         id: composer-files
         run: echo "dir=$(composer config --global cache-files-dir)" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.composer-files.outputs.dir }}
-          key: runner-fixture-${{ runner.os }}-${{ hashFiles('tests/Contract/**/composer.json', 'tests/Contract/**/composer.lock', 'composer.lock') }}
-          restore-keys: runner-fixture-${{ runner.os }}-
-      # The fixture library holds the Pest plugin of this package. Its lock
-      # holds the php-code-coverage this package is locked at, or one that
-      # writes the same serialization format, which the Contract suite checks.
-      - name: install the locked highest Pest into the fixture library
-        working-directory: tests/Contract/Runner/fixture
+          key: runner-fixture-${{ runner.os }}-${{ matrix.runner }}-${{ matrix.resolution }}-${{ hashFiles('tests/Contract/**/composer.json', 'tests/Contract/**/composer.lock', 'composer.lock') }}
+          restore-keys: runner-fixture-${{ runner.os }}-${{ matrix.runner }}-${{ matrix.resolution }}-
+      - name: install the locked highest releases into the fixture
+        if: matrix.resolution == 'highest'
+        working-directory: ${{ steps.fixture.outputs.dir }}
+        env:
+          PACKAGES: ${{ steps.fixture.outputs.packages }}
         run: |
           composer install --no-interaction --no-progress
-          composer show | grep -E '^(pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit|phpunit/php-code-coverage) '
-      # The whole Contract suite, so every contract that needs the fixture
-      # library runs against each resolution of it.
-      - id: pest-highest
-        run: |
-          mkdir -p evidence/raw
-          vendor/bin/pest --testsuite=Contract --log-junit=evidence/raw/pest-highest.xml
+          composer show | grep -E "^(${PACKAGES}) "
+      - name: install the lowest supported releases, at the package's php-code-coverage, into the fixture
+        if: matrix.resolution == 'lowest' && steps.fixture.outputs.lowest == 'coverage'
+        working-directory: ${{ steps.fixture.outputs.dir }}
         env:
-          RUNNER_CONTRACTS: pest
-      - name: install the lowest supported Pest into the fixture library
-        working-directory: tests/Contract/Runner/fixture
+          PACKAGES: ${{ steps.fixture.outputs.packages }}
         run: |
-          coverage=$(composer --working-dir=../../../.. show --locked --format=json phpunit/php-code-coverage | jq -r '.versions[0]')
-          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress --with "phpunit/php-code-coverage:$coverage"
-          composer show | grep -E '^(pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit|phpunit/php-code-coverage) '
-      - id: pest-lowest
-        run: vendor/bin/pest --testsuite=Contract --log-junit=evidence/raw/pest-lowest.xml
+          coverage=$(composer --working-dir="${GITHUB_WORKSPACE}" show --locked --format=json phpunit/php-code-coverage | jq -r '.versions[0]')
+          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress --with "phpunit/php-code-coverage:${coverage}"
+          composer show | grep -E "^(${PACKAGES}) "
+      - name: install the lowest supported releases into the fixture
+        if: matrix.resolution == 'lowest' && steps.fixture.outputs.lowest == 'own'
+        working-directory: ${{ steps.fixture.outputs.dir }}
         env:
-          RUNNER_CONTRACTS: pest
-      # Infection's library is a project of its own too, installed with
-      # Infection 0.35 and PHPUnit 13 by its own manifest, and with PHPUnit 12
-      # by the manifest in phpunit-12/, which installs into the same vendor
-      # directory. Each carries the package's PHPUnit conflict, so the lowest
-      # PHPUnit 12 is the lowest the package allows.
-      # Its runs read only the PHPUnit XML coverage and JUnit log its own PHPUnit
-      # writes, so it keeps its own php-code-coverage. The filter runs the tests
-      # of the Infection library alone; the Pest library's ran above.
-      - name: install the locked highest Infection with PHPUnit 13 into its library
-        working-directory: tests/Contract/Runner/infection-fixture
-        run: |
-          composer install --no-interaction --no-progress
-          composer show | grep -E '^(infection/infection|phpunit/phpunit|phpunit/php-code-coverage) '
-      - id: infection-highest-13
-        run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection' --log-junit=evidence/raw/infection-highest-13.xml
-        env:
-          RUNNER_CONTRACTS: infection
-      - name: install the locked highest Infection with PHPUnit 12 into its library
-        working-directory: tests/Contract/Runner/infection-fixture/phpunit-12
-        run: |
-          composer install --no-interaction --no-progress
-          composer show | grep -E '^(infection/infection|phpunit/phpunit|phpunit/php-code-coverage) '
-      - id: infection-highest-12
-        run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection' --log-junit=evidence/raw/infection-highest-12.xml
-        env:
-          RUNNER_CONTRACTS: infection
-      - name: install the lowest Infection with PHPUnit 12 into its library
-        working-directory: tests/Contract/Runner/infection-fixture/phpunit-12
+          PACKAGES: ${{ steps.fixture.outputs.packages }}
         run: |
           composer update --prefer-lowest --prefer-stable --no-interaction --no-progress
-          composer show | grep -E '^(infection/infection|phpunit/phpunit|phpunit/php-code-coverage) '
-      - id: infection-lowest-12
-        run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection' --log-junit=evidence/raw/infection-lowest-12.xml
+          composer show | grep -E "^(${PACKAGES}) "
+      - name: install the lowest analysers, and every other package as high as they allow, into the fixture
+        if: matrix.resolution == 'lowest' && steps.fixture.outputs.lowest == 'analysers'
+        working-directory: ${{ steps.fixture.outputs.dir }}
         env:
-          RUNNER_CONTRACTS: infection
-      - name: install the lowest Infection with PHPUnit 13 into its library
-        working-directory: tests/Contract/Runner/infection-fixture
+          PACKAGES: ${{ steps.fixture.outputs.packages }}
         run: |
-          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress
-          composer show | grep -E '^(infection/infection|phpunit/phpunit|phpunit/php-code-coverage) '
-      - id: infection-lowest-13
-        run: vendor/bin/pest --testsuite=Contract --filter='infection|Infection' --log-junit=evidence/raw/infection-lowest-13.xml
-        env:
-          RUNNER_CONTRACTS: infection
-      # The PHPUnit runner's fixture is a project of its own, installed at the
-      # highest PHPUnit its lock holds and at the lowest the runner supports,
-      # the one `Installed::FLOOR` names (ADR-0023). It holds the quirks of a
-      # project's tests and, in library/, the code every runner's contract
-      # mutates, which shares its vendor directory. The filter runs its
-      # contracts alone. Its php-code-coverage is the one this package is
-      # locked at, as the Pest library's is: the adapter reads the maps the
-      # library's PHPUnit writes. In a user's project the gate and PHPUnit
-      # share one vendor directory, as PHPUnit loads the gate's extension, so
-      # one php-code-coverage writes and reads each map; here there are two,
-      # and a map one release writes can be one another refuses.
-      - name: install the locked highest PHPUnit into the PHPUnit runner's library
-        working-directory: tests/Contract/Runner/phpunit-fixture
-        run: |
-          composer install --no-interaction --no-progress
-          composer show | grep -E '^(phpunit/phpunit|phpunit/php-code-coverage) '
-      - id: phpunit-highest
-        run: vendor/bin/pest --testsuite=Contract --filter='PhpUnit' --log-junit=evidence/raw/phpunit-highest.xml
-        env:
-          RUNNER_CONTRACTS: phpunit
-      - name: install the lowest supported PHPUnit into the PHPUnit runner's library
-        working-directory: tests/Contract/Runner/phpunit-fixture
-        run: |
-          coverage=$(composer --working-dir=../../../.. show --locked --format=json phpunit/php-code-coverage | jq -r '.versions[0]')
-          composer update --prefer-lowest --prefer-stable --no-interaction --no-progress --with "phpunit/php-code-coverage:$coverage"
-          composer show | grep -E '^(phpunit/phpunit|phpunit/php-code-coverage) '
-      - id: phpunit-lowest
-        run: vendor/bin/pest --testsuite=Contract --filter='PhpUnit' --log-junit=evidence/raw/phpunit-lowest.xml
-        env:
-          RUNNER_CONTRACTS: phpunit
-      # The analysers the static checkers drive are a project of their own
-      # too, installed at the highest Mago, PHPStan and Psalm its lock holds
-      # and at the lowest the adapters support. Mago's package downloads its
-      # binary the first time it runs, which the gate itself never does
-      # (ADR-0020, decision 18).
-      - name: install the locked highest Mago, PHPStan and Psalm into the analysers' fixture
-        working-directory: tests/Contract/StaticChecker/fixture
-        run: |
-          composer install --no-interaction --no-progress
-          vendor/bin/mago --version
-          composer show | grep -E '^(carthage-software/mago|phpstan/phpstan|vimeo/psalm) '
-      - id: analysers-highest
-        run: vendor/bin/pest --testsuite=Contract --filter='StaticChecker' --log-junit=evidence/raw/analysers-highest.xml
-        env:
-          ANALYSER_CONTRACTS: '1'
-      # Each analyser at its lowest, and every other package raised again to
-      # the highest that allows them, as a project requiring that analyser
-      # installs it: Psalm 6.14.0's lowest dependencies predate PHP 8.5.
-      - name: install the lowest Mago, PHPStan and Psalm into the analysers' fixture
-        working-directory: tests/Contract/StaticChecker/fixture
-        run: |
-          analysers='carthage-software/mago|phpstan/phpstan|vimeo/psalm'
           composer update --prefer-lowest --prefer-stable --no-interaction --no-progress
           locked=$(composer show --locked --name-only)
-          mapfile -t others < <(grep -v -x -E "$analysers" <<< "$locked")
+          mapfile -t others < <(grep -v -x -E "${PACKAGES}" <<< "${locked}")
           test "${#others[@]}" -gt 0
           composer update --no-interaction --no-progress "${others[@]}"
-          vendor/bin/mago --version
-          composer show | grep -E "^($analysers) "
-      - id: analysers-lowest
-        run: vendor/bin/pest --testsuite=Contract --filter='StaticChecker' --log-junit=evidence/raw/analysers-lowest.xml
+          composer show | grep -E "^(${PACKAGES}) "
+      # Mago's package downloads its binary the first time it runs, which the
+      # gate itself never does (ADR-0020, decision 18).
+      - name: download Mago's binary
+        if: matrix.runner == 'analysers'
+        working-directory: ${{ steps.fixture.outputs.dir }}
+        run: vendor/bin/mago --version
+      - id: contract
         env:
-          ANALYSER_CONTRACTS: '1'
+          FILTER: ${{ steps.fixture.outputs.filter }}
+          RUNNER_CONTRACTS: ${{ steps.fixture.outputs.contracts }}
+          ANALYSER_CONTRACTS: ${{ steps.fixture.outputs.analysers }}
+        run: |
+          mkdir -p evidence/raw
+          suite=(--testsuite=Contract "--log-junit=evidence/raw/${LEG}.xml")
+          if [ -n "${FILTER}" ]; then
+            suite+=("--filter=${FILTER}")
+          fi
+          vendor/bin/pest "${suite[@]}"
+      # The leg's log, and its suite's outcome by the leg's name, which
+      # `runner contracts` reads as its evidence.
+      - name: the leg's outcome
+        if: ${{ !cancelled() }}
+        env:
+          OUTCOME: ${{ steps.contract.outcome }}
+        run: |
+          mkdir -p evidence/raw
+          jq -n --arg leg "${LEG}" --arg outcome "${OUTCOME}" '{($leg): {outcome: $outcome}}' > "evidence/raw/${LEG}.outcome.json"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: runner-contract-${{ matrix.runner }}-${{ matrix.resolution }}
+          path: evidence/raw/${{ matrix.runner }}-${{ matrix.resolution }}.*
+          if-no-files-found: error
+          retention-days: 1
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py runner-contract
+
+  # The check main requires of the runner contracts: it passes only where
+  # every leg of `runner contract` passed, and its evidence is what each leg's
+  # suite reported. A leg that left no log, for an install that failed, is
+  # read as one whose suite never ran.
+  runner-contracts:
+    name: runner contracts
+    needs: [scope, runner-contract]
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: runner-contract-*
+          path: evidence/raw
+          merge-multiple: true
+      # Each leg's outcome by its name, as the evidence step reads the
+      # outcome of a job's steps by their ids.
+      - id: legs
+        name: what each leg's suite did
+        run: |
+          shopt -s nullglob
+          outcomes=(evidence/raw/*.outcome.json)
+          if [ "${#outcomes[@]}" -eq 0 ]; then
+            echo 'steps={}' >> "$GITHUB_OUTPUT"
+          else
+            echo "steps=$(jq -cs add "${outcomes[@]}")" >> "$GITHUB_OUTPUT"
+          fi
+      - name: every leg passed
+        env:
+          LEGS: ${{ needs.runner-contract.result }}
+        run: |
+          if [ "${LEGS}" != success ]; then
+            echo "::error title=runner contracts::A leg of runner contract ended ${LEGS}. Its own log says why."
+            exit 1
+          fi
       # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
       - name: evidence
         if: ${{ !cancelled() }}
         env:
-          STEPS: ${{ toJSON(steps) }}
+          STEPS: ${{ steps.legs.outputs.steps }}
         run: python3 .github/scripts/evidence.py runner-contracts
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ !cancelled() }}
@@ -635,7 +691,7 @@ jobs:
   # left none.
   evidence:
     name: evidence
-    needs: [scope, scripts, hygiene, security, rules, guards, checks, tests, lowest, runner-contracts, sonar, gate]
+    needs: [scope, scripts, hygiene, security, rules, guards, checks, tests, lowest, runner-contract, runner-contracts, sonar, gate]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

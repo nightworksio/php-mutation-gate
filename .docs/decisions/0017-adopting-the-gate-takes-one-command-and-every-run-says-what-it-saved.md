@@ -182,9 +182,10 @@ would have cost without them.
      `composer.json` refuses: pest-plugin-mutate by its `conflict`, Infection
      by its `require-dev`. So each release is added by a pull request within
      a day of passing.
-   - The required `runner contracts` job runs the releases the fixture
-     libraries' committed locks hold, which Dependabot moves, and the lowest
-     each supports, so a new release reds the canary alone.
+   - The required `runner contracts` check passes where each of its legs
+     passed, which run the releases the fixture libraries' committed locks
+     hold, which Dependabot moves, and the lowest each supports, so a new
+     release reds the canary alone.
    - The README's install line is `composer require --dev
      nightworksio/mutation-gate -W`, with the reason: `-W` lets Composer move
      the runner to the release the gate has tested.

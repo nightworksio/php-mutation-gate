@@ -1,6 +1,7 @@
 /vendor/
 /coverage/
 /.phpstan-cache/
+/.pint-cache
 /.rector-cache/
 /.phpunit.cache/
 /.phpunit.result.cache

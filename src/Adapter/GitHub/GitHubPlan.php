@@ -39,7 +39,8 @@ use function sprintf;
  * The CI plan `github`: `shards=<JSON array of {id, label}>` appended to the
  * file `$GITHUB_OUTPUT` names, which a matrix reads with
  * `fromJson(needs.plan.outputs.shards)`, and `plan=<the plan listing>`, on
- * one line, which a workflow or action exposes as its output. An empty array
+ * one line and without the units the plan file carries, which a workflow or
+ * action exposes as its output. An empty array
  * skips the matrix job, and the verdict still runs. A matrix holds at most
  * {@see MOST_JOBS} jobs.
  */
