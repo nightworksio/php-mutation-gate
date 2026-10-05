@@ -23,13 +23,14 @@ use PHPUnit\Event\UnknownSubscriberTypeException;
  * had loaded the original file before the mutant was in its place, each
  * test that fails or errors there, with where it stood in the order the
  * process started its tests in (see RunOrder), and how many tests it ran,
- * with the mutated copy Pest serves, one JSON line at a time in the results
- * file the process inherits. Pest stops the process at the first failure,
- * so the first killer line a mutant has names the test that killed it. It
- * logs PHP's errors in that process to a file of the mutant's own, which
- * the recorder reads for a fatal error Pest's own handling would lose, such
- * as running out of memory (ADR-0004, decision 9). A test or config that
- * sets `error_log` itself logs elsewhere.
+ * one line at a time in the mutant's own killer file beside the results file
+ * the process inherits, which Pest's own process takes once the mutant has
+ * ended (see KillerFile). Pest stops the process at the first failure, so
+ * the first test a mutant has names the one that killed it. It logs PHP's
+ * errors in that process to a file of the mutant's own, which the recorder
+ * reads for a fatal error Pest's own handling would lose, such as running
+ * out of memory (ADR-0004, decision 9). A test or config that sets
+ * `error_log` itself logs elsewhere.
  */
 final readonly class Killers
 {
@@ -81,7 +82,7 @@ final readonly class Killers
         $killers = new self($results, $mutated, new RunOrder((int) getmypid()));
 
         if (is_string($original) && $loaded->has($original)) {
-            file_put_contents($results, RecordLine::preloaded($mutated), FILE_APPEND | LOCK_EX);
+            $killers->append(KillerFile::preloaded());
         }
 
         try {
@@ -106,15 +107,24 @@ final readonly class Killers
     /** Writes a test that failed an assertion, by its id, as the coverage map names it, and where it stood. */
     public function killedBy(string $test): void
     {
-        $line = RecordLine::killed($this->mutated, $test, $this->order->placed($test));
-        file_put_contents($this->results, $line, FILE_APPEND | LOCK_EX);
+        $this->write(RecordEvent::Killed, $test);
     }
 
     /** Writes a test that errored, by its id, as the coverage map names it, and where it stood. */
     public function erroredBy(string $test): void
     {
-        $line = RecordLine::errored($this->mutated, $test, $this->order->placed($test));
-        file_put_contents($this->results, $line, FILE_APPEND | LOCK_EX);
+        $this->write(RecordEvent::Errored, $test);
+    }
+
+    /** Writes a test, and where it stood, to the mutant's killer file, as Pest's own process records it. */
+    private function write(RecordEvent $event, string $test): void
+    {
+        $this->append(KillerFile::line($event, $test, $this->order->placed($test)));
+    }
+
+    private function append(string $line): void
+    {
+        file_put_contents(KillerFile::beside($this->results, $this->mutated), $line, FILE_APPEND | LOCK_EX);
     }
 
     /**

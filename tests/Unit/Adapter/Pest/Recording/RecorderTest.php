@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\Bridged;
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\KillerFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\OnFinishMutationSuite;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\OnStartMutationGeneration;
@@ -13,8 +14,11 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\OnTested;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\OnTimeout;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\OnUncovered;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\OnUntested;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Placed;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
+use NightWorksIO\MutationGate\Adapter\Pest\Records;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -183,6 +187,44 @@ it('records each outcome as it arrives, one line of JSON with its slashes as the
         "{\"event\":\"outcome\",\"id\":\"a/b\",\"status\":\"tested\"}\n"
         . "{\"event\":\"outcome\",\"id\":\"c\\ufffd\",\"status\":\"untested\"}\n",
     );
+});
+
+it('records the tests a mutant\'s own process wrote as failing or erroring there after its outcome, and takes their file', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    $killers = KillerFile::beside($results, '/m/id-1.php');
+    file_put_contents($killers, sprintf(
+        '%s%s',
+        KillerFile::line(RecordEvent::Errored, 'P\Tests\MoneySpec::first', Placed::at(1, hash('sha256', 'first'), 5)),
+        KillerFile::line(RecordEvent::Killed, 'P\Tests\MoneySpec::second', Placed::unplaced(5)),
+    ));
+    $recorder = Mutations::recorder($results, '/c');
+
+    $recorder->outcome(Mutations::test('/p/src/Money.php', 'id-1', MutationTestResult::Tested, '/m/id-1.php'));
+    $recorder->outcome(Mutations::test('/p/src/Money.php', 'id-2', MutationTestResult::Untested, '/m/id-2.php'));
+
+    expect(Mutations::recorded($results))->toBe([
+        RecordLine::outcome('id-1', PestStatus::Tested),
+        RecordLine::errored('/m/id-1.php', 'P\Tests\MoneySpec::first', Placed::at(1, hash('sha256', 'first'), 5)),
+        RecordLine::killed('/m/id-1.php', 'P\Tests\MoneySpec::second', Placed::unplaced(5)),
+        RecordLine::outcome('id-2', PestStatus::Untested),
+    ])->and(is_file($killers))->toBeFalse();
+});
+
+it('writes only records the adapter reads, whatever a mutant\'s own process left in its killer file', function (): void {
+    // The gate's run on this package mutates the plugin itself, and a
+    // mutant's own process runs the mutant, which can write anything there.
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    $written = "{\"mutated\":\"/m/id-1.php\"}\n\nkilled\nkilled  7 - -\nerrored %E2%80%A8 7 - -\n";
+    file_put_contents(KillerFile::beside($results, '/m/id-1.php'), $written);
+
+    Mutations::recorder($results, '/c')
+        ->outcome(Mutations::test('/p/src/Money.php', 'id-1', MutationTestResult::Tested, '/m/id-1.php'));
+
+    expect(Mutations::recorded($results))->toBe([
+        RecordLine::outcome('id-1', PestStatus::Tested),
+        RecordLine::killed('/m/id-1.php', '', Placed::unplaced(7)),
+        RecordLine::errored('/m/id-1.php', "\u{2028}", Placed::unplaced(7)),
+    ])->and(Records::in($results))->toBeInstanceOf(Records::class);
 });
 
 it('records every mutant\'s final status and how long it ran, then the end', function (): void {

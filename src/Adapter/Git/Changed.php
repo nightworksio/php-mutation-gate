@@ -14,7 +14,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 /**
  * What changed from a commit or tree to what is on disk, as git diffs it,
  * with renames found, and every file git neither tracks nor ignores as added
- * whole.
+ * whole, but those in the gate's own workspace (see Untracked).
  */
 final readonly class Changed
 {
@@ -24,7 +24,7 @@ final readonly class Changed
         $printed = self::printed($git, [
             ['diff', '--find-renames', '--relative', '--name-status', '-z', $id],
             ['diff', '--no-ext-diff', '--find-renames', '--relative', '--unified=0', $id],
-            ['ls-files', '--others', '--exclude-standard', '-z'],
+            Untracked::command(),
         ]);
 
         if ($printed instanceof CannotTell) {

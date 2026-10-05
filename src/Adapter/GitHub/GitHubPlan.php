@@ -52,6 +52,9 @@ final readonly class GitHubPlan implements CiPlan, Configurable
     /** How `GITHUB_WORKFLOW_REF` spells the workflow: owner, repository, then its path before the ref. */
     public const string WORKFLOW = '~^[^/]+/[^/]+/(?<path>[^@]+)@~';
 
+    /** The events whose ref is a branch the run may write for: none runs code from a pull request. */
+    public const array TRUSTED = ['push', 'schedule', 'workflow_dispatch'];
+
     private const string OUTPUT = 'GITHUB_OUTPUT';
 
 

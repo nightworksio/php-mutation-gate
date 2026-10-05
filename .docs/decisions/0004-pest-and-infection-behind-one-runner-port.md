@@ -13,7 +13,7 @@ The gate needs four things from whatever mutates the code:
 - every mutant's result: where it is, what changed, and whether a test caught
   it.
 
-v1 supports two runners: Pest's own mutation testing
+This decision covers two runners: Pest's own mutation testing
 (`pestphp/pest-plugin-mutate`) and Infection. What follows comes from their
 source and from scratch projects: pest-plugin-mutate 5.0.2 with Pest 5.2.1, and
 Infection 0.35.5, with every option named here checked against 0.35.0 as well.
@@ -309,10 +309,16 @@ its parser attributes. Both change when the checkout moves.
        carries the data provider.
    - **It reports results.** This part is inert unless the environment variable
      `MUTATION_GATE_RESULTS` names a file, which only the adapter sets. A
-     mutant's child process inherits it, and there the plugin appends the
-     mutated file Pest serves and the id of the first test that fails
-     (ADR-0013, decision 1), or of every test that fails under a full kill
-     matrix (ADR-0014, decision 7), and how many tests the process ran.
+     mutant's child process inherits it, and there the plugin appends whether
+     the child had loaded the mutant's file before the mutant was in place,
+     the id of the first test that fails (ADR-0013, decision 1), or of every
+     test that fails under a full kill matrix (ADR-0014, decision 7), and how
+     many tests the process ran, to a file of that mutant's own beside the
+     results file. Once the child ends, the plugin in Pest's own process
+     writes each as a line of the results file with the mutated file Pest
+     serves, and removes that file. So the results file has one writer,
+     which runs no mutated code: in a child, the plugin's own classes can be
+     the mutant, as they are in the package's own gate (ADR-0011).
      - At `FinishMutationSuite` it walks the suite's mutants and writes one JSON
        line per mutant: native id, file, lines, mutator class (a bridged
        mutator's own name, ADR-0021), diff, status and
@@ -371,8 +377,10 @@ its parser attributes. Both change when the checkout moves.
    - **The in-house gate's patches are an opt-in.** Enabling them is
      `pest.patch: true` (a boolean, `false` by default), plus
      `@php vendor/bin/mutation-gate pest:patch` in `post-install-cmd` and
-     `post-update-cmd`. The command applies every patch to
-     pest-plugin-mutate:
+     `post-update-cmd`. The GitHub action runs `pest:patch` itself after it
+     installs the project, wherever the effective config runs Pest with
+     `pest.patch` on, so the Composer hook serves every other run. The
+     command applies every patch to pest-plugin-mutate:
      - Shards open on a canary group (`pest.canary`, a group name,
        `mutation-canary` by default) and read the map the planning job wrote,
        instead of each running the whole suite again.

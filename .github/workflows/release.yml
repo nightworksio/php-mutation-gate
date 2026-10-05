@@ -1,0 +1,244 @@
+name: release
+
+# A release is drafted by the bot and signed by the maintainer (ADR-0019,
+# decision 15).
+#
+# - Drafting, on workflow_dispatch: the next version from the commits since the
+#   last tag, its CHANGELOG.md section from git-cliff, and the pull request
+#   `release/vX.Y.Z`, opened as the App. A dispatch for a version whose
+#   branch exists is refused, so it never discards edits made there.
+# - Signing: the maintainer edits and merges that pull request, runs
+#   `git tag -s vX.Y.Z` on the squash commit and pushes the tag.
+# - Publishing, on that tag: the tag's signature is checked against
+#   `.github/allowed_signers` on main, and fails closed without it; the gate
+#   runs in full; the GitHub release takes the version's section as its notes;
+#   and the tag of its release line moves to it: vMAJOR.MINOR while the major
+#   is 0 (v0.1), vMAJOR from 1.0.0.
+#
+# This workflow never creates a version tag.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The version to release, such as 0.1.0; computed from the commits since the last tag where empty.
+        type: string
+        default: ''
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    name: draft
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # The App's private key lives in this environment, whose deployment-branch
+    # policy allows main only (ADR-0019, decision 2).
+    environment: bot
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Compute the version
+        id: version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: python3 .github/scripts/release.py next
+      - name: Install git-cliff
+        env:
+          CLIFF_VERSION: 2.14.2
+          CLIFF_SHA256: 24f397c733add5390fdceee3a2088588ab0d5f944ce00d34cb7029b888cf2db4
+        run: |
+          set -euo pipefail
+          archive="git-cliff-${CLIFF_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+          curl -fsSL -o "${RUNNER_TEMP}/${archive}" \
+            "https://github.com/orhun/git-cliff/releases/download/v${CLIFF_VERSION}/${archive}"
+          echo "${CLIFF_SHA256}  ${RUNNER_TEMP}/${archive}" | sha256sum --check --strict
+          tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}"
+          echo "${RUNNER_TEMP}/git-cliff-${CLIFF_VERSION}" >> "${GITHUB_PATH}"
+      - name: Write the version's changelog section
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [ -f CHANGELOG.md ]; then
+            git-cliff --config cliff.toml --unreleased --tag "v${VERSION}" --strip all \
+              | python3 .github/scripts/release.py prepend
+          else
+            git-cliff --config cliff.toml --unreleased --tag "v${VERSION}" --output CHANGELOG.md
+          fi
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app
+        with:
+          client-id: ${{ vars.MUTATION_GATE_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.MUTATION_GATE_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+      # The branch starts from main's head, and the commit goes through
+      # createCommitOnBranch with no custom author, so GitHub signs it and CI
+      # starts on it. A branch that exists may hold the maintainer's edits of
+      # the section, so it is never reset.
+      - name: Open the release pull request
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          LINE: ${{ steps.version.outputs.line }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          repository="repos/${GITHUB_REPOSITORY}"
+          branch="release/v${VERSION}"
+          head="$(git rev-parse HEAD)"
+          if gh api "${repository}/git/ref/heads/${branch}" --silent 2>/dev/null; then
+            echo "::error::${branch} exists, and may hold edits of its changelog section. Edit its pull request, or delete the branch to draft v${VERSION} again."
+            exit 1
+          fi
+          gh api "${repository}/git/refs" -f ref="refs/heads/${branch}" -f sha="${head}" --silent
+          git ls-files -z --modified --others --exclude-standard | while IFS= read -r -d '' path; do
+            jq -n --arg path "${path}" --rawfile contents "${path}" '{path: $path, contents: ($contents | @base64)}'
+          done | jq -s \
+            --arg repository "${GITHUB_REPOSITORY}" --arg branch "${branch}" --arg head "${head}" \
+            --arg headline "chore(release): v${VERSION}" \
+            '{
+              query: "mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { oid } } }",
+              variables: {input: {
+                branch: {repositoryNameWithOwner: $repository, branchName: $branch},
+                message: {headline: $headline},
+                expectedHeadOid: $head,
+                fileChanges: {additions: .}
+              }}
+            }' > "${RUNNER_TEMP}/commit.json"
+          gh api graphql --input "${RUNNER_TEMP}/commit.json" --silent
+          open="$(gh api "${repository}/pulls?head=${GITHUB_REPOSITORY_OWNER}:${branch}&state=open" --jq length)"
+          if [ "${open}" = "0" ]; then
+            cat > "${RUNNER_TEMP}/body.md" <<EOF
+          The CHANGELOG.md section of v${VERSION}, from the commits since the last tag.
+
+          - Edit the section: it becomes the release's notes.
+          - Merge, then tag the squash commit on ${DEFAULT_BRANCH} and push the tag:
+            \`git tag -s v${VERSION} -m v${VERSION} <commit> && git push origin v${VERSION}\`.
+          - The tag's push runs the gate in full, publishes the release and moves \`v${LINE}\`.
+
+          Spec: 0019
+          EOF
+            gh api "${repository}/pulls" -f head="${branch}" -f base="${DEFAULT_BRANCH}" \
+              -f title="chore(release): v${VERSION}" -F body=@"${RUNNER_TEMP}/body.md" --silent
+          fi
+
+  verify:
+    name: verify
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      line: ${{ steps.line.outputs.line }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check the tag's release line
+        id: line
+        env:
+          TAG: ${{ github.ref_name }}
+        run: python3 .github/scripts/release.py check-tag
+      # The checkout fetched every tag and branch. The signers are read from
+      # main, never from the tag, and a repository without the file releases
+      # nothing.
+      - name: Check the tag's signature and that it is on main
+        env:
+          TAG: ${{ github.ref_name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          signers="${RUNNER_TEMP}/allowed_signers"
+          if ! git show "origin/${DEFAULT_BRANCH}:.github/allowed_signers" > "${signers}" 2>/dev/null || [ ! -s "${signers}" ]; then
+            echo "::error::${DEFAULT_BRANCH} has no .github/allowed_signers, so no tag can be verified and nothing is released."
+            exit 1
+          fi
+          if [ "$(git cat-file -t "refs/tags/${TAG}")" != "tag" ]; then
+            echo "::error::${TAG} is a lightweight tag; a release tag is signed: git tag -s ${TAG}."
+            exit 1
+          fi
+          git -c gpg.ssh.allowedSignersFile="${signers}" verify-tag "${TAG}"
+          if ! git merge-base --is-ancestor "${TAG}^{commit}" "origin/${DEFAULT_BRANCH}"; then
+            echo "::error::${TAG} points at a commit that is not on ${DEFAULT_BRANCH}."
+            exit 1
+          fi
+
+  # The gate over the package in full (ADR-0011): only when it passes is the
+  # release published. The called workflow's publish job asks for
+  # contents: write, so this job allows it; that job runs on the default
+  # branch only, never on a tag.
+  gate:
+    name: mutation
+    needs: verify
+    permissions:
+      contents: write
+      actions: read
+      pull-requests: write
+    uses: ./.github/workflows/mutation-gate.yml # zizmor: ignore[self-repository]
+    with:
+      mode: full
+
+  publish:
+    name: publish
+    needs: [verify, gate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      # Everything here is the commit `verify` and the gate judged, never
+      # the tag read again by name: a tag moved since then is refused.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          tagged="$(gh api "repos/${GITHUB_REPOSITORY}/commits/refs/tags/${TAG}" --jq .sha)"
+          if [ "${tagged}" != "${COMMIT}" ]; then
+            echo "::error::${TAG} is at ${tagged} now, not at ${COMMIT}, which this run verified and judged."
+            exit 1
+          fi
+          python3 .github/scripts/release.py notes > "${RUNNER_TEMP}/notes.md"
+          gh release create "${TAG}" --repo "${GITHUB_REPOSITORY}" --verify-tag \
+            --title "${TAG}" --notes-file "${RUNNER_TEMP}/notes.md"
+      - name: Move the release line's tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LINE: ${{ needs.verify.outputs.line }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          repository="repos/${GITHUB_REPOSITORY}"
+          if [ -z "${LINE}" ]; then
+            echo "::error::verify named no release line, so no tag is moved."
+            exit 1
+          fi
+          moving="v${LINE}"
+          commit="${COMMIT}"
+          if gh api "${repository}/git/ref/tags/${moving}" --silent 2>/dev/null; then
+            gh api --method PATCH "${repository}/git/refs/tags/${moving}" -f sha="${commit}" -F force=true --silent
+          else
+            gh api "${repository}/git/refs" -f ref="refs/tags/${moving}" -f sha="${commit}" --silent
+          fi

@@ -13,8 +13,8 @@ a changelog key by key.
 
 What exists to build on:
 
-- **The config has no version marker.** JSON's `$schema` names the major
-  version in its URL (`…/php-mutation-gate/v1/resources/mutation-gate.schema.json`,
+- **The config has no version marker.** JSON's `$schema` names the release
+  line in its URL (`…/php-mutation-gate/v0.1/resources/mutation-gate.schema.json`,
   ADR-0002 decision 3). The baseline has `"format": 1` (ADR-0003
   decision 3).
 - **Every format reads into one form.** Each config file, in any of the four
