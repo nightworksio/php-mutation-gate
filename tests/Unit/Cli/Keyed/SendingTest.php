@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Alert\Delivery as AlertDelivery;
 use NightWorksIO\MutationGate\Adapter\Alert\Pause;
+use NightWorksIO\MutationGate\Adapter\GitHub\Markdown;
+use NightWorksIO\MutationGate\Adapter\GitHub\PlannedMarkdown;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Keyed\LocatedStore;
 use NightWorksIO\MutationGate\Cli\Keyed\Sending;
@@ -33,7 +35,9 @@ use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
 use NightWorksIO\MutationGate\Tests\Support\StoppedClock;
+use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
@@ -286,6 +290,45 @@ it('comments on the pull request its own event names, in its own repository', fu
         ->and($posted->getRequestUrl())->toBe('https://api.github.com/repos/octo/gate/issues/7/comments')
         ->and($sent->said())->toBe(['Wrote https://github.com/octo/gate/pull/7#issuecomment-1.']);
 });
+
+it('writes a comment left over the planned state only over it, so a verdict already written stays', function (
+    string $body,
+    Delivery $delivery,
+    string $said,
+): void {
+    $event = Scratch::directory();
+    Scratch::write($event, 'event.json', '{"pull_request": {"number": 7}}');
+    $listed = new MockResponse((string) json_encode([['id' => 5, 'user' => ['login' => 'github-actions[bot]'], 'body' => $body]]));
+    $patched = new MockResponse('{"html_url": "https://github.com/octo/gate/pull/7#issuecomment-5"}');
+    $environment = [
+        'GITHUB_EVENT_NAME' => 'pull_request',
+        'GITHUB_EVENT_PATH' => sprintf('%s/event.json', $event),
+        'GITHUB_REPOSITORY' => 'octo/gate',
+        'GITHUB_TOKEN' => 'token',
+        'GITHUB_API_URL' => 'https://api.github.com',
+    ];
+    $answers = [new MockResponse('{"login": "github-actions[bot]"}'), $listed, $patched];
+    $sent = sendingOf($environment, new ArrayObject(), new ProofStoreFake(), $answers)
+        ->sent($delivery, NotWritten::because('untrusted'), static fn(): Ledger => Ledger::empty());
+
+    expect($sent->said())->toBe([$said]);
+})->with([
+    'over the planned state' => [
+        PlannedMarkdown::comment(ShardedPlan::planned(2), ''),
+        Delivery::none()->withCommentOverPlanned('## Re-checked'),
+        'Wrote https://github.com/octo/gate/pull/7#issuecomment-5.',
+    ],
+    'over a verdict' => [
+        Markdown::comment(Verdicts::failing(), ''),
+        Delivery::none()->withCommentOverPlanned('## Re-checked'),
+        'The pull request comment is no longer in its planned state, so the re-checked survivors leave it as it is.',
+    ],
+    'a verdict over a verdict' => [
+        Markdown::comment(Verdicts::failing(), ''),
+        Delivery::none()->withComment('## Passed'),
+        'Wrote https://github.com/octo/gate/pull/7#issuecomment-5.',
+    ],
+]);
 
 it('sends no alert for a reporter that sends none', function (): void {
     $sent = sendingOf([], new ArrayObject(), new ProofStoreFake())

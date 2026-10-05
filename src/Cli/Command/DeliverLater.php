@@ -14,9 +14,10 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 
 /**
- * `--deliver-later`, which `plan` and `verdict` take (ADR-0007 decision 5): the run sends nothing that needs a
- * credential and writes no store. It leaves its ledger and those payloads in its stage's delivery directory,
- * `.mutation-gate/delivery/planned` or `.mutation-gate/delivery/verdict`, begun empty, for `deliver` to send.
+ * `--deliver-later`, which `plan`, `survivors` and `verdict` take (ADR-0007 decision 5): the run sends nothing that
+ * needs a credential and writes no store. It leaves its ledger and those payloads in its stage's delivery directory,
+ * `.mutation-gate/delivery/planned`, `.mutation-gate/delivery/survivors` or `.mutation-gate/delivery/verdict`,
+ * begun empty, for `deliver` to send.
  */
 final readonly class DeliverLater
 {

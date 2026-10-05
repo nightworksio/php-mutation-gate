@@ -230,6 +230,8 @@ it('leaves its comment, and its planned state, for deliver on a pull request, to
         ->toEqual(Delivery::none()->withComment(Markdown::comment(Verdicts::failing(), $run)))
         ->and($comment->plannedLater(ShardedPlan::planned(2), Delivery::none()))
         ->toEqual(Delivery::none()->withComment(PlannedMarkdown::comment(ShardedPlan::planned(2), $run)))
+        ->and($comment->recheckedLater(Rechecks::mixed(), Delivery::none()))
+        ->toEqual(Delivery::none()->withCommentOverPlanned(RecheckedMarkdown::comment(Rechecks::mixed(), $run)))
         ->and($client->getRequestsCount())->toBe(0);
 })->with([
     'with a token' => ['secret', 'octo/gate'],
@@ -241,7 +243,8 @@ it('leaves no comment for deliver on a run that is no pull request\'s', function
     $comment = PullRequestComment::inRun(['GITHUB_EVENT_NAME' => $name], $event, new MockHttpClient([]), '');
 
     expect($comment->deferred(Verdicts::failing(), Delivery::none()->withComment('kept')))->toEqual(Delivery::none()->withComment('kept'))
-        ->and($comment->plannedLater(ShardedPlan::planned(1), Delivery::none()))->toEqual(Delivery::none());
+        ->and($comment->plannedLater(ShardedPlan::planned(1), Delivery::none()))->toEqual(Delivery::none())
+        ->and($comment->recheckedLater(Rechecks::mixed(), Delivery::none()))->toEqual(Delivery::none());
 })->with([
     'a push' => ['push', $event()],
     'no pull request in the event' => ['pull_request', '{}'],

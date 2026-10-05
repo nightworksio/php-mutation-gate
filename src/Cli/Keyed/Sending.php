@@ -125,7 +125,7 @@ final readonly class Sending
         $said = [
             ...$stored instanceof NotGiven ? [] : [$stored],
             ...$keeping,
-            ...$comment instanceof NotGiven ? [] : [$this->commented($comment)],
+            ...$comment instanceof NotGiven ? [] : [$this->commented($comment, $delivery->commentsOverPlanned())],
             ...array_map($this->alerted(...), $delivery->alerts()),
             ...$otlp instanceof OtlpPost ? [$this->exported($otlp)] : [],
         ];
@@ -241,9 +241,12 @@ final readonly class Sending
         };
     }
 
-    private function commented(string $markdown): Written|NotWritten
+    /** The comment written, or only over its planned state where the delivery says so. */
+    private function commented(string $markdown, bool $overPlanned): Written|NotWritten
     {
-        return PullRequestComment::fromEnvironment($this->environment, $this->client, '')->write($markdown);
+        $comment = PullRequestComment::fromEnvironment($this->environment, $this->client, '');
+
+        return $overPlanned ? $comment->writeOverPlanned($markdown) : $comment->write($markdown);
     }
 
     private function alerted(AlertPost $alert): Written|NotWritten

@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_map;
+
+use Closure;
+
 use function is_array;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveredReport;
@@ -30,7 +33,6 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanEstimates;
-use NightWorksIO\MutationGate\Core\Plan\PlannedWork;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Recheck\Rechecked;
 use NightWorksIO\MutationGate\Core\Written;
@@ -101,7 +103,10 @@ final readonly class Reporting
 
         foreach ($reporters as $reporter) {
             if ($reporter instanceof PullRequestComment) {
-                $written = $this->plannedBy($reporter, $work);
+                $written = $this->commented(
+                    static fn(): Written|NotWritten => $reporter->planned($work),
+                    static fn(Delivery $delivery): Delivery => $reporter->plannedLater($work, $delivery),
+                );
                 $said[] = $written instanceof Written ? $written->said() : $written->why();
             }
         }
@@ -112,7 +117,8 @@ final readonly class Reporting
     /**
      * The last run's survivors re-checked (ADR-0020, decision 21): what the
      * sticky comment, over its planned state alone, and the step summary
-     * said of them, written or not; nothing where the run chooses neither;
+     * said of them, written, left in the delivery under `--deliver-later`, or
+     * not; nothing where the run chooses neither;
      * and where the reporters cannot be built, why, since the re-check is a
      * signal that ends no run.
      *
@@ -130,8 +136,11 @@ final readonly class Reporting
 
         foreach ($reporters as $reporter) {
             $written = match (true) {
-                $reporter instanceof PullRequestComment, $reporter instanceof StepSummary
-                    => $reporter->rechecked($rechecked),
+                $reporter instanceof PullRequestComment => $this->commented(
+                    static fn(): Written|NotWritten => $reporter->rechecked($rechecked),
+                    static fn(Delivery $delivery): Delivery => $reporter->recheckedLater($rechecked, $delivery),
+                ),
+                $reporter instanceof StepSummary => $reporter->rechecked($rechecked),
                 default => NotGiven::value(),
             };
             $said = match (true) {
@@ -144,12 +153,15 @@ final readonly class Reporting
         return $said;
     }
 
-    /** The comment in its planned state, written, or left in the delivery under `--deliver-later`. */
-    private function plannedBy(PullRequestComment $comment, PlannedWork $work): Written|NotWritten|CannotJudge
+    /**
+     * The comment written now, or, under `--deliver-later`, left in the delivery for `deliver` to write.
+     *
+     * @param Closure(): (Written|NotWritten) $now
+     * @param Closure(Delivery): Delivery $later
+     */
+    private function commented(Closure $now, Closure $later): Written|NotWritten|CannotJudge
     {
-        return $this->later instanceof DeliveryDirectory
-            ? $this->later->adding(static fn(Delivery $delivery): Delivery => $comment->plannedLater($work, $delivery))
-            : $comment->planned($work);
+        return $this->later instanceof DeliveryDirectory ? $this->later->adding($later) : $now();
     }
 
     /** @return list<Reporter>|Invalid|CannotJudge */

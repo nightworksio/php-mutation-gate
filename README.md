@@ -204,7 +204,7 @@ Options:
 |--------|-------------|--------------|------------|
 | `--config=<path>` | every command | Read this config file instead of looking for one | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
 | `--no-extensions` | every command | Load only the extensions of this package and its first-party plugins, and no third-party code | [0001](.docs/decisions/0001-a-framework-free-core-behind-nine-ports.md) |
-| `--deliver-later` | `plan`, `verdict` | Send nothing that needs a credential and write no store: leave the ledger and the comment, alert and OTLP payloads in `.mutation-gate/delivery/planned` or `.mutation-gate/delivery/verdict`, begun empty, for `deliver`; on a pull request the comment is left whether or not the job holds a token | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
+| `--deliver-later` | `plan`, `survivors`, `verdict` | Send nothing that needs a credential and write no store: leave the ledger and the comment, alert and OTLP payloads in `.mutation-gate/delivery/planned`, `.mutation-gate/delivery/survivors` or `.mutation-gate/delivery/verdict`, begun empty, for `deliver`; on a pull request the comment is left whether or not the job holds a token | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `--runner=<name>` | every command | Set `runner` | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
 | `--report=<name>:<path>` | every command, repeatable | Add a file report to `reports` | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
 | `--changed-since=<ref>` | `plan`, `run` without a plan, `affected` | Mutate, or list the tests of, only what the change since `<ref>` reaches; `last-passed` is the newest passing commit | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
@@ -750,7 +750,9 @@ working directory's `vendor`
 
 - **`deliver`** sends what a run left in `.mutation-gate/delivery`.
   `plan --deliver-later` leaves its comment's planned state in
-  `.mutation-gate/delivery/planned`, and `verdict --deliver-later` its
+  `.mutation-gate/delivery/planned`, `survivors --deliver-later` the
+  re-checked survivors, which `deliver` writes only over that planned
+  state, in `.mutation-gate/delivery/survivors`, and `verdict --deliver-later` its
   ledger, the coverage map it keeps, comment, alerts and export in
   `.mutation-gate/delivery/verdict`;
   each sends nothing that needs a credential and writes no store, and `deliver
