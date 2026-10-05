@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
-use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\JUnitLog;
@@ -131,7 +131,7 @@ final readonly class Invocation
         OwnConfig $config,
         WholeSuite|Group|Filter $judgedBy,
         DiskPath $coverage,
-        Processes $processes,
+        ProcessCount $processes,
         array $paths,
         SuiteName|NotGiven $suite,
     ): Command {

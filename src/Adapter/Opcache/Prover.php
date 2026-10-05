@@ -10,7 +10,7 @@ use function in_array;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
-use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 
 use function sprintf;
 
@@ -42,7 +42,7 @@ final readonly class Prover
      * The prover that compiles with this PHP, in this directory, which the gate owns, this many children at once,
      * with the functions the PHP the tests ran on disables, as its `disable_functions` says them, disabled too.
      */
-    public static function of(string $binary, DiskPath $directory, Processes $parallel, string|false $disabled): self
+    public static function of(string $binary, DiskPath $directory, ProcessCount $parallel, string|false $disabled): self
     {
         $besides = [sprintf(self::DISABLED, $disabled)];
 

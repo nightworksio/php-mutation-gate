@@ -6,7 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell;
 use NightWorksIO\MutationGate\Core\Runner\EnvironmentRead;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
-use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -37,7 +37,7 @@ it('runs commands side by side through the processes, each told its place, with 
     $command = Command::of(PHP_BINARY, '-v');
 
     $ends = new ProcessShell($processes, '/project')
-        ->sideBySide(WorkerSlots::of(Processes::of(2), 'run'), Unlimited::time(), $command, $command, $command);
+        ->sideBySide(WorkerSlots::of(ProcessCount::of(2), 'run'), Unlimited::time(), $command, $command, $command);
 
     expect(array_map(static fn(Ran $ran): string => $ran->output(), [...$ends]))->toBe(['1', '2', '1'])
         ->and(array_map(static fn(ProcessCommand $ran): string => $ran->directory(), $processes->ran()))

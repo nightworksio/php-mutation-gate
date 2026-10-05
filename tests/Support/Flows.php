@@ -35,7 +35,7 @@ use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
-use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Score\Floor;
@@ -183,13 +183,13 @@ final readonly class Flows
             Directory::at($project),
             Variables::of($environment),
             $withheld,
-            Processes::of(2),
+            ProcessCount::of(2),
             self::given(Engine::class, NotGiven::value(), $ports),
             self::given(Enabled::class, Enabled::of(MutatorSet::of()), $ports),
             self::given(Warnings::class, Warnings::none(), $ports),
             self::given(NamedMutators::class, NamedMutators::of(), $ports),
             self::given(Narrowing::class, Narrowing::none(), $ports),
-            self::given(Prover::class, Prover::of(PHP_BINARY, Root::of($project)->at(Path::of('.mutation-gate/equivalence')), Processes::of(2), disabled: false), $ports),
+            self::given(Prover::class, Prover::of(PHP_BINARY, Root::of($project)->at(Path::of('.mutation-gate/equivalence')), ProcessCount::of(2), disabled: false), $ports),
         );
     }
 

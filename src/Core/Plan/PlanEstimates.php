@@ -11,7 +11,7 @@ use function max;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Cost\CostBasis;
 use NightWorksIO\MutationGate\Core\Cost\RunTime;
-use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
@@ -144,7 +144,7 @@ final readonly class PlanEstimates
      *
      * @return list<string>
      */
-    public function assumed(Processes $processes): array
+    public function assumed(ProcessCount $processes): array
     {
         $measured = 0;
 

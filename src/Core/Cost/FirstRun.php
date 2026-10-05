@@ -10,7 +10,7 @@ use function count;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -29,7 +29,7 @@ final readonly class FirstRun
         private CoverageMap $map,
         private MutantSites $sites,
         private Seconds $startUp,
-        private Processes $processes,
+        private ProcessCount $processes,
         private array $perFile,
     ) {
     }
@@ -37,10 +37,10 @@ final readonly class FirstRun
     /** What a plan that measured nothing knows: no unit is measured. */
     public static function unmeasured(): self
     {
-        return new self(CoverageMap::empty(), MutantSites::none(), Seconds::of(0.0), Processes::single(), []);
+        return new self(CoverageMap::empty(), MutantSites::none(), Seconds::of(0.0), ProcessCount::single(), []);
     }
 
-    public static function of(CoverageMap $map, MutantSites $sites, Seconds $startUp, Processes $processes): self
+    public static function of(CoverageMap $map, MutantSites $sites, Seconds $startUp, ProcessCount $processes): self
     {
         $perFile = [];
 
@@ -82,7 +82,7 @@ final readonly class FirstRun
         return $this->startUp;
     }
 
-    public function processes(): Processes
+    public function processes(): ProcessCount
     {
         return $this->processes;
     }

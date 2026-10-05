@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Ending;
-use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Uncapped;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -136,7 +136,7 @@ it('runs commands side by side, each told its place over any inherited worker va
     $told = Command::php('-r', 'echo getenv("TEST_TOKEN"), " ", getenv("LARAVEL_PARALLEL_TESTING");');
 
     $ends = new ProcessShell(new LocalProcesses(new SystemClock()), Scratch::directory(), getenv())
-        ->sideBySide(WorkerSlots::of(Processes::of(2), 'run'), Unlimited::time(), $told, $told);
+        ->sideBySide(WorkerSlots::of(ProcessCount::of(2), 'run'), Unlimited::time(), $told, $told);
     putenv('TEST_TOKEN');
     unset($_SERVER['TEST_TOKEN']);
 

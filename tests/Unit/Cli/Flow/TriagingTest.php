@@ -19,7 +19,7 @@ use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
-use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
@@ -98,7 +98,7 @@ it('runs a unit as many times as asked, handing each run on as it ends, and give
         ], $runner->requests()))->toEqual(array_fill(0, 3, [
             Paths::of(Path::of('src/Money.php')),
             WholeSuite::tests(),
-            Processes::of(2),
+            ProcessCount::of(2),
             MatrixKind::FirstKiller,
         ]));
 });

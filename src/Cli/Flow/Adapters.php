@@ -20,7 +20,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
-use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
@@ -76,7 +76,7 @@ final readonly class Adapters
         public Directory $project,
         public Variables $environment,
         public Withheld $withheld,
-        public Processes $cores,
+        public ProcessCount $cores,
         public Engine|NotGiven $engine,
         public Enabled $mutators,
         public Warnings $skippedSets,
@@ -168,7 +168,7 @@ final readonly class Adapters
     }
 
     /** How many mutants the runner runs at once on this machine, as its parallelism makes of the cores. */
-    public function processes(): Processes
+    public function processes(): ProcessCount
     {
         return $this->runner->behaviour()->parallelism()->processes($this->cores);
     }

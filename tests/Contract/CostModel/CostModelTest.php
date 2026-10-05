@@ -20,7 +20,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
-use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -57,7 +57,7 @@ it('costs any unit nothing or more, measured or not', function (CostModel $model
         CoverageMap::empty()->covered($money, Line::of(3), TestId::of('MoneyTest::adds')),
         MutantSites::inFile($money, Line::of(3)),
         Seconds::of(1.5),
-        Processes::single(),
+        ProcessCount::single(),
     );
 
     expect($model->cost(Unit::file($money), $learned, FirstRun::unmeasured())->seconds()->seconds())->toBeGreaterThanOrEqual(0.0)

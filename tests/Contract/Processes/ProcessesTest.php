@@ -6,7 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\Runner\Environment;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
-use NightWorksIO\MutationGate\Core\Runner\Processes as Width;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -108,7 +108,7 @@ it('says a program that cannot be started did not succeed', function (Processes 
 
 it('runs commands side by side, the first ones each in a place of its own and told which, their ends in the order given', function (Processes $processes): void {
     $told = processesCommand(Scratch::directory(), 'tell', 'TEST_TOKEN');
-    $said = processesSaid($processes->sideBySide(WorkerSlots::of(Width::of(2), 'run'), Unlimited::time(), $told, $told, $told));
+    $said = processesSaid($processes->sideBySide(WorkerSlots::of(ProcessCount::of(2), 'run'), Unlimited::time(), $told, $told, $told));
 
     expect(array_slice($said, 0, 2))->toBe(['1', '2'])
         ->and($said[2])->toBeIn(['1', '2']);
@@ -124,7 +124,7 @@ it('runs as many commands at once as there are places', function (Processes $pro
     // One after the other, they would take four seconds; side by side, two and the time to start them.
     $sleeping = ProcessCommand::of(Scratch::directory(), 'sleep', '2');
     $started = hrtime(as_number: true);
-    $ends = $processes->sideBySide(WorkerSlots::of(Width::of(2), 'run'), Unlimited::time(), $sleeping, $sleeping);
+    $ends = $processes->sideBySide(WorkerSlots::of(ProcessCount::of(2), 'run'), Unlimited::time(), $sleeping, $sleeping);
 
     expect(count($ends))->toBe(2)
         ->and((hrtime(as_number: true) - $started) / 1e9)->toBeLessThan(3.6);
@@ -133,6 +133,6 @@ it('runs as many commands at once as there are places', function (Processes $pro
 it('starts no command once the time to start them in has run out', function (Processes $processes): void {
     $said = processesCommand(Scratch::directory(), 'say', 'started', '0');
 
-    expect(count($processes->sideBySide(WorkerSlots::of(Width::of(2), 'run'), Seconds::of(0.0), $said, $said)))->toBe(0)
+    expect(count($processes->sideBySide(WorkerSlots::of(ProcessCount::of(2), 'run'), Seconds::of(0.0), $said, $said)))->toBe(0)
         ->and(processesSaid($processes->sideBySide(WorkerSlots::alone(), Seconds::of(60.0), $said)))->toBe(['started']);
 })->with($implementations);

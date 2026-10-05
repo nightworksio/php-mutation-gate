@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Runner;
 
 /** How many processes a runner may run side by side. */
-final readonly class Processes
+final readonly class ProcessCount
 {
     /** @param positive-int $count */
     private function __construct(private int $count)

@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\Cost\StartUpSamples;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -62,7 +62,7 @@ it('measures where the engine makes each unit\'s mutants, the fastest run of no 
         MutantSites::inFile(Path::of('src/Money.php'), Line::of(3))
             ->and(MutantSites::inFile(Path::of('src/Kernel/Rates.php'), Line::of(3), Line::of(3))),
         Seconds::of(1.25),
-        Processes::of(2),
+        ProcessCount::of(2),
     ))->and($runner->startedUp())->toEqual(array_fill(0, 3, [Path::of('src/Money.php'), $adapters->withheld]));
 });
 

@@ -14,8 +14,8 @@ enum Parallelism
     case PerCore;
 
     /** How many mutants run at once on a machine with this many cores. */
-    public function processes(Processes $cores): Processes
+    public function processes(ProcessCount $cores): ProcessCount
     {
-        return $this === self::PerCore ? $cores : Processes::single();
+        return $this === self::PerCore ? $cores : ProcessCount::single();
     }
 }

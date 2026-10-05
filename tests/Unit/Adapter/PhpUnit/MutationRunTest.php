@@ -22,7 +22,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
-use NightWorksIO\MutationGate\Core\Runner\Processes;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlot;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -199,7 +199,7 @@ function sums(int $count): array
 
 it('runs the mutants side by side across the request\'s processes, each told its place', function () use ($covered): void {
     [$run, $shell] = killingRun(library());
-    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->across(Processes::of(2));
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->across(ProcessCount::of(2));
     $result = $run->of($request, $covered, Seconds::of(5.0));
     $told = array_map(
         static fn(WorkerSlot $slot): array => iterator_to_array($slot->variables(), preserve_keys: true),
@@ -231,7 +231,7 @@ it('runs sixteen runs a process in each batch, and the rest in the last', functi
 it('runs as many runs in a batch as sixteen for each process, and no batch once the last is full', function (): void {
     [$root, $map] = sums(33);
     [$run, $shell] = killingRun($root);
-    $request = MutationRequest::of(Paths::of(Path::of('src/Sums.php')), WholeSuite::tests())->across(Processes::of(2));
+    $request = MutationRequest::of(Paths::of(Path::of('src/Sums.php')), WholeSuite::tests())->across(ProcessCount::of(2));
     $run->of($request, $map, Seconds::of(5.0));
     [$exact, $full] = sums(16);
     [$once, $one] = killingRun($exact);
