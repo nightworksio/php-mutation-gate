@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function array_map;
 use function count;
+use function implode;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
@@ -42,6 +44,14 @@ final readonly class Results
         A shard that crashed, was cancelled or never started leaves none. Run it again.
         SAID;
 
+    private const string LEFT_NONE_MANY = <<<'SAID'
+        Shards %s left no result in %s, so their mutants cannot be judged.
+        A shard that crashed, was cancelled or never started leaves none. Run them again.
+        SAID;
+
+    /** A shard as a list of them names it: its number, and its label. */
+    private const string NAMED = '%d (%s)';
+
     private const string ANOTHER_PLAN = <<<'SAID'
         The result of shard %d followed another plan than this one, so it cannot be merged into it.
         Run every shard of one plan, and the verdict with that plan.
@@ -59,21 +69,31 @@ final readonly class Results
     {
     }
 
+    /**
+     * Every shard's result; or, where any cannot be judged, why each of them cannot, every shard that left none
+     * named together, so one run again is enough.
+     */
     public static function read(Plan $plan, Path $directory, Directory $project): self|CannotJudge
     {
         $read = [];
+        $missing = [];
+        $unjudged = [];
 
         foreach ($plan as $shard) {
-            $result = self::resultOf($plan, $shard, Workspace::result($directory, $shard->id()), $project);
+            $file = Workspace::result($directory, $shard->id());
+            $contents = $project->read($file);
+            $result = $contents instanceof Contents ? self::resultOf($plan, $shard, $contents) : $file;
 
-            if ($result instanceof CannotJudge) {
-                return $result;
-            }
-
-            $read[] = [$shard, ...$result];
+            match (true) {
+                $result instanceof Path => $missing[] = [$shard, $result],
+                $result instanceof CannotJudge => $unjudged[] = $result->why(),
+                default => $read[] = [$shard, ...$result],
+            };
         }
 
-        return new self($read);
+        $why = [...$unjudged, ...self::leftNone($missing, $directory)];
+
+        return $why === [] ? new self($read) : CannotJudge::because(implode("\n", $why));
     }
 
     /**
@@ -175,13 +195,32 @@ final readonly class Results
         return $this->read;
     }
 
-    /** @return array{ShardResult, MutationResult}|CannotJudge */
-    private static function resultOf(Plan $plan, Shard $shard, Path $file, Directory $project): array|CannotJudge
+    /**
+     * Why the shards that left no result cannot be judged: one by its file, several together by their directory.
+     *
+     * @param  list<array{Shard, Path}> $missing
+     * @return list<string>
+     */
+    private static function leftNone(array $missing, Path $directory): array
     {
-        $contents = $project->read($file);
-        $result = $contents instanceof Contents
-            ? ShardResultFile::decode($contents->text())
-            : CannotJudge::because(sprintf(self::LEFT_NONE, $shard->id()->number(), $shard->label(), $file->value()));
+        if (count($missing) === 1) {
+            [$shard, $file] = $missing[0];
+
+            return [sprintf(self::LEFT_NONE, $shard->id()->number(), $shard->label(), $file->value())];
+        }
+
+        $named = array_map(
+            static fn(array $left): string => sprintf(self::NAMED, $left[0]->id()->number(), $left[0]->label()),
+            $missing,
+        );
+
+        return $missing === [] ? [] : [sprintf(self::LEFT_NONE_MANY, implode(', ', $named), $directory->value())];
+    }
+
+    /** @return array{ShardResult, MutationResult}|CannotJudge */
+    private static function resultOf(Plan $plan, Shard $shard, Contents $contents): array|CannotJudge
+    {
+        $result = ShardResultFile::decode($contents->text());
 
         $outcome = $result instanceof ShardResult ? $result->outcome() : $result;
 
