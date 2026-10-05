@@ -80,7 +80,7 @@ it('judges the push since what the remote holds, prints the score change first, 
     expect($ran->code)->toBe($code)
         ->and($ran->errors)->toBe('')
         ->and($ran->output)->toStartWith(sprintf(
-            "src scores 40.00%%%s. That is ±0.00 against the base.\nWrote memory:refs/heads/main.\nmutation-gate: %s\n",
+            "src scores 40.00%%%s. That is ±0.00 against the base.\nWrote memory:refs/heads/main.\nWrote memory:refs/heads/main/coverage.json.gz.\nmutation-gate: %s\n",
             $standing,
             $judgement,
         ))

@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Command;
 
+use function is_string;
+
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
+use NightWorksIO\MutationGate\Cli\Flow\Inventory;
+use NightWorksIO\MutationGate\Cli\Flow\KeptCoverage;
 use NightWorksIO\MutationGate\Cli\Flow\Measuring;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -14,8 +18,8 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
-use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -49,19 +53,38 @@ final readonly class CoverageCommand
             });
     }
 
+    /**
+     * The suite's map, measured against the default branch's kept map where
+     * it may be, written into a directory with each test file's entry key;
+     * or why it cannot be.
+     */
     private static function written(Composed $composed, Path $into, OutputInterface $output): int
     {
-        $request = CoverageRun::of(WholeSuite::tests(), Workspace::coverage())
-            ->withholding($composed->adapters->withheld);
-        $map = $composed->adapters->runner->coverage($request);
+        $adapters = $composed->adapters;
+        $inventory = Inventory::of($adapters, $composed->settings);
+        $kept = new KeptCoverage($adapters, $composed->settings, $composed->setup);
+        $measured = $kept->forRun($inventory, KeptCoverage::built(), ownMap: false);
+        $request = $measured->request();
+        $map = $adapters->runner->coverage(
+            $request instanceof CoverageRun ? $request->withholding($adapters->withheld) : $request,
+        );
+        $keys = $map instanceof CoverageMap && $inventory instanceof Inventory
+            ? $kept->keysOf($inventory, $map)
+            : NotGiven::value();
         $file = CoverageMapFile::in($into);
-        $at = Measuring::now($composed->adapters);
+        $at = Measuring::now($adapters);
         $written = $map instanceof CoverageMap
-            ? $composed->adapters->project->write($file, Contents::of(CoverageMapFile::encode($map, $at)))
+            ? $adapters->project->write($file, Contents::of(CoverageMapFile::encode($map, $at, $keys)))
             : $map;
 
         if ($written instanceof CannotJudge) {
             return Failed::because($output, $written);
+        }
+
+        $said = $measured->said();
+
+        if (is_string($said)) {
+            Aside::of($output)->writeln($said, OutputInterface::OUTPUT_RAW);
         }
 
         $output->writeln($written->said(), OutputInterface::OUTPUT_RAW);

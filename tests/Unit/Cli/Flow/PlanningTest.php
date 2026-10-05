@@ -18,6 +18,8 @@ use NightWorksIO\MutationGate\Core\Cost\CostBasis;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
+use NightWorksIO\MutationGate\Core\Coverage\KeptMap;
+use NightWorksIO\MutationGate\Core\Coverage\MapLimits;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -87,6 +89,7 @@ use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\NamesAsked;
 use NightWorksIO\MutationGate\Tests\Support\PeakMemoryFake;
+use NightWorksIO\MutationGate\Tests\Support\Planned;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 
@@ -111,18 +114,18 @@ $shards = static function (Plan|CannotJudge $plan): array {
 };
 
 /** A plan over the project, with these ports in place of the fakes. */
-$plan = (static fn(string $project, Mode $mode, Cut $cut, object ...$ports): Plan|CannotJudge => new Planning(
+$plan = (static fn(string $project, Mode $mode, Cut $cut, object ...$ports): Plan|CannotJudge => Planned::from(new Planning(
     Flows::adapters($project, [], ...$ports),
     Flows::settings(),
     Flows::setup(),
-)->plan($mode, $coverage(), $cut, MatrixKind::FirstKiller));
+)->plan($mode, $coverage(), $cut, MatrixKind::FirstKiller)));
 
 /** A plan over the project of a run that records this much of the kill matrix, with these ports in place of the fakes. */
-$recordingPlan = (static fn(string $project, Mode $mode, MatrixKind $matrix, object ...$ports): Plan|CannotJudge => new Planning(
+$recordingPlan = (static fn(string $project, Mode $mode, MatrixKind $matrix, object ...$ports): Plan|CannotJudge => Planned::from(new Planning(
     Flows::adapters($project, [], ...$ports),
     Flows::settings(),
     Flows::setup(),
-)->plan($mode, $coverage(), Cut::exactly(1), $matrix));
+)->plan($mode, $coverage(), Cut::exactly(1), $matrix)));
 
 it('plans every unit of a full run into shards, on the commit HEAD is at', function () use (
     $plan,
@@ -162,7 +165,7 @@ $cappedPlan = static function (
         Scratch::write($project, $config, $phpUnit);
     }
 
-    return new Planning(
+    return Planned::from(new Planning(
         Flows::adapters($project, [], RunnerFake::ofTheFixture()->definedBy(Paths::of(Path::of($reads)))),
         Flows::settings(ConfiguredRunner::uses('fake')->cappedAt(MemoryCap::of(512, MemoryUnit::Megabytes))),
         new Setup($setup->configFile, $setup->gate, $setup->installed, $setup->clock, new PeakMemoryFake($peak)),
@@ -171,7 +174,7 @@ $cappedPlan = static function (
         $handedOver ? CoverageRead::from(Path::of('.mutation-gate/planned')) : $coverage(),
         Cut::exactly(2),
         MatrixKind::FirstKiller,
-    );
+    ));
 };
 
 it('refuses to plan where the suite held more memory in its coverage run than the cap', function () use (
@@ -417,8 +420,15 @@ it('leaves the whole map, in CI and out, where every shard and a later local com
 
     $at = MeasuredAt::of(Revision::ref(Flows::HEAD), dirty: false);
 
-    expect(file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $local)))->toBe(CoverageMapFile::encode($map, $at))
-        ->and(file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $ci)))->toBe(CoverageMapFile::encode($map, $at));
+    $left = static fn(string $project): KeptMap|CannotJudge => CoverageMapFile::kept(
+        (string) file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $project)),
+        MapLimits::standard(),
+    );
+    $locally = $left($local);
+
+    expect($locally)->toEqual($left($ci))
+        ->and($locally instanceof KeptMap ? [$locally->map(), $locally->measuredAt()] : $locally)->toEqual([$map, $at])
+        ->and($locally instanceof KeptMap ? array_keys($locally->keys()->written()) : $locally)->toBe(['tests/MoneyTest.php']);
 });
 
 it('leaves the whole map saying where it was measured: where another job measured a map it read, and dirty where the tree is', function (): void {
@@ -713,11 +723,11 @@ it('cannot plan where the runner has its own ignore markers in what it would mut
 it('plans with the runner\'s own markers where ignores.native allows them, or with none to find', function (
     ScriptedRunner $runner,
 ): void {
-    $planned = new Planning(
+    $planned = Planned::from(new Planning(
         Flows::adapters(Flows::project(), [], $runner),
         Flows::settings(Ignores::allowingNativeMarkers()),
         Flows::setup(),
-    )->plan(Mode::full(), CoverageRun::of(WholeSuite::tests(), Workspace::coverage()), Cut::exactly(1), MatrixKind::FirstKiller);
+    )->plan(Mode::full(), CoverageRun::of(WholeSuite::tests(), Workspace::coverage()), Cut::exactly(1), MatrixKind::FirstKiller));
 
     expect($planned)->toBeInstanceOf(Plan::class);
 })->with([

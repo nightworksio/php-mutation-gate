@@ -79,6 +79,12 @@ final readonly class Keying
             : CannotJudge::because('The content key could not be built.');
     }
 
+    /** What every coverage entry's key reads (ADR-0023, decision 1). */
+    public function coverageBase(): Digest
+    {
+        return $this->keys->coverageBase();
+    }
+
     /** The base every key of the run is built on. */
     public function base(): Digest
     {

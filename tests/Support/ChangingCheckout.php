@@ -40,22 +40,32 @@ final class ChangingCheckout implements ChangeSource
         return new self(Flows::checkout(), $after, PHP_INT_MAX);
     }
 
+    /**
+     * A checkout of these files at every revision, which becomes this one
+     * once the test changes it.
+     *
+     * @param array<string, string> $files
+     */
+    public static function holding(array $files, ChangeSourceFake|CannotTell $after): self
+    {
+        return new self(self::of($files, $files), $after, PHP_INT_MAX);
+    }
+
     /** The flows' checkout, which becomes this one from this look at its files on, counting from one. */
     public static function becomingAt(int $look, ChangeSourceFake|CannotTell $after): self
     {
         return new self(Flows::checkout(), $after, $look);
     }
 
-    /** The flows' checkout with this file holding this instead. */
-    public static function with(string $path, string $contents): ChangeSourceFake
+    /**
+     * The flows' checkout, or one of these files, with this file holding
+     * this instead in its working tree.
+     *
+     * @param array<string, string> $files
+     */
+    public static function with(string $path, string $contents, array $files = Flows::FILES): ChangeSourceFake
     {
-        $files = [...Flows::FILES, $path => $contents];
-
-        return new ChangeSourceFake(
-            Revision::ref('base'),
-            Changes::none(),
-            [Revision::workingTree()->name() => $files, 'base' => Flows::FILES, Flows::MAIN => Flows::FILES],
-        );
+        return self::of([...$files, $path => $contents], $files);
     }
 
     public function change(): void
@@ -99,6 +109,21 @@ final class ChangingCheckout implements ChangeSource
     public function filesAt(Paths $paths, Revision $revision): ByPath|CannotTell
     {
         return $this->now()->filesAt($paths, $revision);
+    }
+
+    /**
+     * A checkout whose working tree holds these files, and every commit those.
+     *
+     * @param array<string, string> $working
+     * @param array<string, string> $committed
+     */
+    private static function of(array $working, array $committed): ChangeSourceFake
+    {
+        return new ChangeSourceFake(
+            Revision::ref('base'),
+            Changes::none(),
+            [Revision::workingTree()->name() => $working, 'base' => $committed, Flows::MAIN => $committed],
+        );
     }
 
     private function now(): ChangeSourceFake

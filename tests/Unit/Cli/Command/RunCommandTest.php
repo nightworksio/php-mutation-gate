@@ -318,7 +318,7 @@ it('plans, runs and judges in one process without a plan, and exits as the verdi
     $ran = FlowCommands::run(RunCommand::command($composed($project, $floor, inCi: true)));
 
     expect($ran->code)->toBe($code)
-        ->and($ran->errors)->toBe('')
+        ->and($ran->errors)->toBe("Coverage: there is no kept map, so every test was measured.\n")
         ->and($ran->output)->toStartWith(sprintf("Wrote memory:refs/heads/feature.\nmutation-gate: %s\n", $judgement))
         ->and(is_file(sprintf('%s/.mutation-gate/results/1.json', $project)))->toBeTrue()
         ->and(is_file(sprintf('%s/.mutation-gate/plan.json', $project)))->toBeTrue()
@@ -354,6 +354,7 @@ it('writes the floors a local full run raised into the baseline, and says which 
     expect($ran->code)->toBe(0)
         ->and($ran->output)->toStartWith(<<<'SAID'
             Wrote memory:refs/heads/main.
+            Wrote memory:refs/heads/main/coverage.json.gz.
             Raised the floors in mutation-gate.baseline.json. Commit it:
               src: 40, was none
             mutation-gate: passed
@@ -370,7 +371,7 @@ it('says no floor rose on a local full run that raised none', function () use ($
 
     expect($ran->code)->toBe(1)
         ->and($ran->output)->toStartWith(
-            "Wrote memory:refs/heads/main.\nNo floor in mutation-gate.baseline.json rose.\nmutation-gate: failed\n",
+            "Wrote memory:refs/heads/main.\nWrote memory:refs/heads/main/coverage.json.gz.\nNo floor in mutation-gate.baseline.json rose.\nmutation-gate: failed\n",
         );
 });
 
@@ -387,7 +388,11 @@ it('raises no floor on a run in CI or one scoped to a change', function (
         ->and(is_file(sprintf('%s/mutation-gate.baseline.json', $project)))->toBeFalse();
 })->with([
     'in CI' => ['', true, 'Wrote memory:refs/heads/feature.'],
-    'changed since a ref' => ['--changed-since=base', false, 'Wrote memory:refs/heads/main.'],
+    'changed since a ref' => [
+        '--changed-since=base',
+        false,
+        "Wrote memory:refs/heads/main.\nWrote memory:refs/heads/main/coverage.json.gz.",
+    ],
 ]);
 
 it('cannot judge a run it could not plan, or whose shards could not leave their results', function (
@@ -406,7 +411,7 @@ it('cannot judge a run it could not plan, or whose shards could not leave their 
         ->and($ran->output)->toBe('')
         ->and($ran->errors)->toBe($how === 'plan'
             ? "--shards=0 is not a number of shards.\n"
-            : sprintf("%s/.mutation-gate/results/1.json could not be written.\n", $project));
+            : sprintf("Coverage: there is no kept map, so every test was measured.\n%s/.mutation-gate/results/1.json could not be written.\n", $project));
 })->with(['plan', 'results']);
 
 it('cannot judge a run whose plan it could not leave for explain, and runs no shard of it', function () use ($composed): void {
@@ -416,7 +421,7 @@ it('cannot judge a run whose plan it could not leave for explain, and runs no sh
     $ran = FlowCommands::run(RunCommand::command($composed($project, 30)));
 
     expect([$ran->code, $ran->output, $ran->errors])
-        ->toBe([2, '', sprintf("%s/.mutation-gate/plan.json could not be written.\n", $project)])
+        ->toBe([2, '', sprintf("Coverage: there is no kept map, so every test was measured.\n%s/.mutation-gate/plan.json could not be written.\n", $project)])
         ->and(is_file(sprintf('%s/.mutation-gate/results/1.json', $project)))->toBeFalse();
 });
 

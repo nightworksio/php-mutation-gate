@@ -143,9 +143,31 @@ final readonly class Judging
             return $recorded;
         }
 
-        $judged = new Judged($verdict, [$recorded, ...$this->reported($verdict, $reporters)], $assessed->baseline);
+        $judged = new Judged(
+            $verdict,
+            [$recorded, ...$this->kept($assessed->ledgers), ...$this->reported($verdict, $reporters)],
+            $assessed->baseline,
+        );
 
         return $assessed->refused ? $judged->refusing() : $judged;
+    }
+
+    /**
+     * The coverage map the plan handed on, kept beside the default branch's
+     * ledger for a run on that branch (ADR-0023, decision 2): where, or why it
+     * could not be; nothing for a run that keeps none.
+     *
+     * @return list<string>
+     */
+    private function kept(Ledgers $ledgers): array
+    {
+        $kept = new KeptCoverage($this->adapters, $this->settings, $this->setup)->keep($ledgers->access());
+
+        return match (true) {
+            $kept instanceof Written => [$kept->said()],
+            $kept instanceof NotWritten => [$kept->why()],
+            default => [],
+        };
     }
 
     /** A plan's results judged over the trees and the committed baseline, or why either cannot be read. */

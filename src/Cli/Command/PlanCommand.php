@@ -6,12 +6,14 @@ namespace NightWorksIO\MutationGate\Cli\Command;
 
 use function count;
 use function is_array;
+use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\PublicationFile;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Cli\Flow\LastRun;
+use NightWorksIO\MutationGate\Cli\Flow\PlanMade;
 use NightWorksIO\MutationGate\Cli\Flow\Planning;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -51,16 +53,16 @@ final readonly class PlanCommand
                     return Failed::because($output, $composed);
                 }
 
-                $plan = self::planOf($composed, $input);
+                $made = self::planOf($composed, $input);
 
-                return $plan instanceof Plan
-                    ? self::published($composed, $plan, $output)
-                    : Failed::because($output, $plan);
+                return $made instanceof PlanMade
+                    ? self::published($composed, $made, $output)
+                    : Failed::because($output, $made);
             });
     }
 
-    /** The plan the options ask for, or why there is none. */
-    public static function planOf(Composed $composed, InputInterface $input): Plan|CannotJudge
+    /** The plan the options ask for, with how its coverage map was measured; or why there is none. */
+    public static function planOf(Composed $composed, InputInterface $input): PlanMade|CannotJudge
     {
         $mode = FlowOptions::mode($input);
         $cut = FlowOptions::cut($input, $composed->settings);
@@ -75,12 +77,23 @@ final readonly class PlanCommand
         };
     }
 
+    /** How the plan's coverage map was measured, where a line says so. */
+    public static function saidHowMeasured(PlanMade $made, OutputInterface $aside): void
+    {
+        $said = $made->coverage();
+
+        if (is_string($said)) {
+            $aside->writeln($said, OutputInterface::OUTPUT_RAW);
+        }
+    }
+
     /**
      * Write the plan, hand it to the CI and write the pull request comment
      * in its planned state; or say why it cannot be.
      */
-    private static function published(Composed $composed, Plan $plan, OutputInterface $output): int
+    private static function published(Composed $composed, PlanMade $made, OutputInterface $output): int
     {
+        $plan = $made->plan();
         $written = LastRun::keep($composed->adapters->project, $plan);
         $publication = $written instanceof Written ? $composed->adapters->ci->publish($plan) : $written;
         $published = $publication instanceof Publication ? PublicationFile::written($publication) : $publication;
@@ -93,6 +106,7 @@ final readonly class PlanCommand
         }
 
         $aside = Aside::of($output);
+        self::saidHowMeasured($made, $aside);
         $aside->writeln(sprintf('Wrote %s, with %d shards.', Workspace::plan()->value(), count($plan)));
         self::estimated($composed, $plan, $aside);
         self::saidIfUnpatched($composed, count($plan), $aside);

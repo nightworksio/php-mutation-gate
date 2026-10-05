@@ -93,7 +93,7 @@ it('runs a round from what is on disk, and stops when the wait says so', functio
     $ran = FlowCommands::run(WatchCommand::command($composition, static fn(): bool => false));
 
     expect([$ran->code, $ran->errors])->toBe([0, ''])
-        ->and($ran->output)->toStartWith(sprintf("%sWrote memory:refs/heads/main.\nmutation-gate: passed\n", WATCHING))
+        ->and($ran->output)->toStartWith(sprintf("%sWrote memory:refs/heads/main.\nWrote memory:refs/heads/main/coverage.json.gz.\nmutation-gate: passed\n", WATCHING))
         ->and($ran->output)->toContain("Trees\n  src scores 40.00%, below its floor of 50.00%.\n")
         ->and(substr_count($ran->output, 'mutation-gate: '))->toBe(1)
         ->and($kinds($runner))->toBe([CoverageRun::class]);
@@ -115,25 +115,36 @@ it('judges a round on the new code changed since HEAD, and holds no tree to its 
         ->and($ran->output)->toContain("src scores 40.00%, below its floor of 50.00%.\n");
 });
 
-it('runs a round after each change, reading the map it keeps, with the tests a change touched measured again', function (
+it('runs a round after each change, measuring again only the test files whose entries the change moved', function (
     string $path,
     array $coverage,
-) use ($changing, $kinds): void {
+) use ($kinds): void {
+    $files = [...Flows::FILES, 'tests/HeldTest.php' => "<?php\n\nit('doubles', fn () => expect(2)->toBe(2));\n"];
+    $project = FlowCommands::project();
+    Scratch::write($project, 'tests/HeldTest.php', $files['tests/HeldTest.php']);
     $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
-    $checkout = $changing($path);
-    $composition = FlowCommands::watching(FlowCommands::project(), $runner, new ProofStoreFake(), $checkout);
+    $checkout = ChangingCheckout::holding($files, ChangingCheckout::with($path, "<?php\n\n// changed\n", $files));
+    $composition = FlowCommands::watching($project, $runner, new ProofStoreFake(), $checkout);
 
-    $ran = FlowCommands::run(WatchCommand::command($composition, waitsChanging($checkout, 1)));
+    $waits = waitsChanging($checkout, 1);
+    $ran = FlowCommands::run(WatchCommand::command($composition, static function () use ($waits, $project, $path): bool {
+        Scratch::write($project, $path, "<?php\n\n// changed\n");
+
+        return $waits();
+    }));
 
     expect($ran->code)->toBe(0)
         ->and(substr_count($ran->output, 'mutation-gate: '))->toBe(2)
         ->and($ran->output)->not->toContain(ARRIVED)
         ->and($kinds($runner))->toBe([CoverageRun::class, ...$coverage]);
 })->with([
-    'a source' => ['src/Money.php', [CoverageRead::class]],
+    'a source a test executed' => [
+        'src/Money.php',
+        [sprintf('%s tests/MoneyTest.php', TestPaths::class), CoverageRead::class],
+    ],
     'a test' => [
         'tests/MoneyTest.php',
-        [CoverageRead::class, sprintf('%s tests/MoneyTest.php', TestPaths::class), CoverageRead::class],
+        [sprintf('%s tests/MoneyTest.php', TestPaths::class), CoverageRead::class],
     ],
     'support no test uses' => ['tests/Support/Clock.php', [CoverageRead::class]],
     'a file that defines the runner' => ['tests/Pest.php', [CoverageRun::class]],
@@ -173,7 +184,7 @@ it('stops a round a change arrives in, prints none of it, and judges again at on
     $ran = FlowCommands::run(WatchCommand::command($composition, static fn(): bool => false));
 
     expect($ran->code)->toBe(0)
-        ->and($ran->output)->toStartWith(sprintf("%s%sWrote memory:refs/heads/main.\nmutation-gate: passed\n", WATCHING, ARRIVED))
+        ->and($ran->output)->toStartWith(sprintf("%s%sWrote memory:refs/heads/main.\nWrote memory:refs/heads/main/coverage.json.gz.\nmutation-gate: passed\n", WATCHING, ARRIVED))
         ->and(substr_count($ran->output, 'mutation-gate: '))->toBe(1)
         ->and($ran->output)->toContain('2 run, 0 proved');
 });

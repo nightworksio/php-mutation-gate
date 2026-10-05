@@ -79,13 +79,19 @@ final readonly class Planning
     {
     }
 
-    /** The plan of a run that records this much of the kill matrix, or why there is none. */
+    /**
+     * The plan of a run that records this much of the kill matrix, and how
+     * its coverage map was measured, against the default branch's kept map
+     * or, for `watch`, against the one its last round left; or why there is
+     * no plan.
+     */
     public function plan(
         Mode $mode,
         CoverageRun|CoverageRead $coverage,
         Cut $cut,
         MatrixKind $matrix,
-    ): Plan|CannotJudge {
+        bool $ownMap = false,
+    ): PlanMade|CannotJudge {
         $inventory = $this->adapters->runner->behaviour()->records($matrix)
             ? Inventory::of($this->adapters, $this->settings)
             : CannotJudge::because(self::NOT_FULL);
@@ -94,8 +100,11 @@ final readonly class Planning
             return $inventory;
         }
 
+        $kept = new KeptCoverage($this->adapters, $this->settings, $this->setup);
+        $measured = $kept->forRun($inventory, $coverage, $ownMap);
+        $request = $measured->request();
         $map = $this->adapters->runner->coverage(
-            $coverage instanceof CoverageRun ? $this->adapters->covering($coverage) : $coverage,
+            $request instanceof CoverageRun ? $this->adapters->covering($request) : $request,
         );
 
         $peak = $coverage instanceof CoverageRun ? $this->setup->memory->peak() : NotGiven::value();
@@ -107,11 +116,14 @@ final readonly class Planning
 
         $keying = Keying::of($this->adapters, $this->settings, $this->setup, $inventory->suite, $map);
         $planned = $keying instanceof Keying
-            ? $this->planned($inventory, $map, Measuring::of($this->adapters, $coverage), $keying, $mode, $cut, $matrix)
+            ? $this->planned($inventory, $map, Measuring::of($this->adapters, $request), $keying, $mode, $cut, $matrix)
             : $keying;
 
         return $planned instanceof Plan
-            ? $planned->briefed($this->adapters->briefing(Briefing::standard()->weighing($peak)->recording($matrix)))
+            ? PlanMade::of(
+                $planned->briefed($this->adapters->briefing(Briefing::standard()->weighing($peak)->recording($matrix))),
+                $measured->said(),
+            )
             : $planned;
     }
 
@@ -174,6 +186,7 @@ final readonly class Planning
             $shards instanceof CannotJudge => $shards,
             $changed instanceof CannotJudge => $changed,
             default => $this->handed(
+                $inventory,
                 Plan::of($inventory->standing->head(), $keying->base(), $keys, $shards)
                     ->on($inventory->standing->runOn())
                     ->digesting($digests)
@@ -268,12 +281,14 @@ final readonly class Planning
      * suite.
      */
     private function handed(
+        Inventory $inventory,
         Plan $plan,
         CoverageMap $map,
         MeasuredAt|Unplaced $at,
         KillHistory $history,
     ): Plan|CannotJudge {
-        $handed = new Handoff($this->adapters->project)->write($plan, $map, $history, $at);
+        $keys = new KeptCoverage($this->adapters, $this->settings, $this->setup)->keysOf($inventory, $map);
+        $handed = new Handoff($this->adapters->project)->write($plan, $map, $history, $at, $keys);
 
         return $handed instanceof CannotJudge ? $handed : $plan;
     }

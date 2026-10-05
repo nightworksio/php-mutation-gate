@@ -112,8 +112,7 @@ needs remain, and the runners' own behaviour shapes each answer.
 3. **The map is the gate's own, and it records when it was measured.**
    - `affected` reads the map `--coverage=<dir>` names, or else the one this
      checkout last wrote under `.mutation-gate/coverage/`, or the one the
-     proof store keeps for the run's scope or the default branch
-     (ADR-0023).
+     proof store keeps for the default branch (ADR-0023).
    - The map records the commit it was measured at and whether the tree was
      dirty, as `commit` and `dirty`. Every change since that commit joins the
      change being asked about.

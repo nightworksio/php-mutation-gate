@@ -72,7 +72,7 @@ it('judges the shards\' results, says what it wrote, prints the verdict and exit
     expect($verdict->code)->toBe($code)
         ->and($verdict->errors)->toBe('')
         ->and($verdict->output)->toStartWith(sprintf(
-            "Wrote memory:refs/heads/main.\nmutation-gate: %s\nThe project scores 40.00%%.\n\nTrees\n  %s\n",
+            "Wrote memory:refs/heads/main.\nWrote memory:refs/heads/main/coverage.json.gz.\nmutation-gate: %s\nThe project scores 40.00%%.\n\nTrees\n  %s\n",
             $code === 0 ? 'passed' : 'failed',
             $tree,
         ))
@@ -111,7 +111,7 @@ it('reads the plan and the results where it is told to', function () use ($compo
     $verdict = FlowCommands::run(VerdictCommand::command($composition), '--plan=the-plan.json --results=shards');
 
     expect($verdict->code)->toBe(0)
-        ->and($verdict->output)->toStartWith("Wrote memory:refs/heads/main.\nmutation-gate: passed\n");
+        ->and($verdict->output)->toStartWith("Wrote memory:refs/heads/main.\nWrote memory:refs/heads/main/coverage.json.gz.\nmutation-gate: passed\n");
 });
 
 it('cannot judge without a plan, or with one it cannot read', function (
@@ -192,4 +192,17 @@ it('offers the plan the shards ran and where they left their results', function 
 
     expect($definition->getOption('plan')->isValueRequired())->toBeTrue()
         ->and($definition->getOption('results')->isValueRequired())->toBeTrue();
+});
+
+it('says why it keeps no coverage map where the plan handed on none', function () use ($composed, $ran): void {
+    $project = FlowCommands::project();
+    $composition = $composed($project, 40);
+    $ran($composition, '.mutation-gate/results');
+    unlink(sprintf('%s/.mutation-gate/coverage/map.json.gz', $project));
+
+    $verdict = FlowCommands::run(VerdictCommand::command($composition));
+
+    expect($verdict->output)->toStartWith(
+        "Wrote memory:refs/heads/main.\nThe plan handed on no coverage map at .mutation-gate/coverage, so none is kept.\nmutation-gate: passed\n",
+    );
 });

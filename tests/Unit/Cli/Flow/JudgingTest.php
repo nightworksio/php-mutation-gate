@@ -1545,13 +1545,13 @@ it('keeps the last commit that passed where a budget left a kill unjudged, so th
         judgingSettings(Budget::of('1s')),
         $reporting(new ReporterFake()),
     ));
-    $next = new Planning($adapters, Flows::settings(), Flows::setup())
+    $next = Planned::from(new Planning($adapters, Flows::settings(), Flows::setup())
         ->plan(
             Mode::since(Mode::LAST_PASSED),
             CoverageRun::of(WholeSuite::tests(), Workspace::coverage()),
             Cut::exactly(1),
             MatrixKind::FirstKiller,
-        );
+        ));
     $planned = [];
 
     foreach ($next instanceof Plan ? $next : [] as $shard) {

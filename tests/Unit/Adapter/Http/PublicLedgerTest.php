@@ -235,3 +235,13 @@ it('reads the coverage map beside the default branch\'s ledger at the public URL
         ->toEqual(Missing::at(Path::of('coverage.json.gz')))
         ->and(array_column($sent->getArrayCopy(), 1))->toBe([$url, $url, $url]);
 });
+
+it('keeps no object beside a ledger, sends no request, and says it is read-only', function (): void {
+    [$client, $sent] = publicLedgerServer();
+
+    expect(PublicLedger::at($client, PUBLIC_LEDGERS, 'mutation-gate')->keep(Scope::branch('main'), Companion::Coverage, Contents::of('map')))
+        ->toEqual(NotWritten::because(
+            'read-only: no credentials; this run\'s proofs are not kept. The default branch\'s ledger is read from https://ledgers.example.com.',
+        ))
+        ->and($sent->count())->toBe(0);
+});

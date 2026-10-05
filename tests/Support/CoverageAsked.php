@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -43,9 +44,21 @@ final class CoverageAsked implements Runner
 
     private CoverageMap|CannotJudge $files;
 
+    private CannotJudge|NotGiven $placing;
+
     public function __construct(private readonly Runner $runner, private readonly CoverageMap|CannotJudge $answer)
     {
         $this->files = $answer;
+        $this->placing = NotGiven::value();
+    }
+
+    /** This runner, which cannot tell which tests a file holds, for this reason. */
+    public function unplacing(string $why): self
+    {
+        $runner = clone $this;
+        $runner->placing = CannotJudge::because($why);
+
+        return $runner;
     }
 
     /** This runner, answering each run of some test files so. */
@@ -96,7 +109,7 @@ final class CoverageAsked implements Runner
 
     public function testsIn(Paths $files, CoverageMap $map): TestIds|CannotJudge
     {
-        return $this->runner->testsIn($files, $map);
+        return $this->placing instanceof CannotJudge ? $this->placing : $this->runner->testsIn($files, $map);
     }
 
     public function judges(Path $file, CoverageMap $map): Paths|CannotJudge
