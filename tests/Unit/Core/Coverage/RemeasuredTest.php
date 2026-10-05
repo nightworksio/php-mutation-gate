@@ -23,7 +23,7 @@ function linesOfMap(CoverageMap $map): array
     );
 }
 
-it('replaces the entries of the tests measured again, and keeps every other test\'s lines and time', function (): void {
+it('replaces the entries of the tests measured again, keeps every other test\'s lines and time, and misses a line none of them runs', function (): void {
     $kept = CoverageMap::empty()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'))
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('HeldTest::doubles'))
@@ -49,6 +49,8 @@ it('replaces the entries of the tests measured again, and keeps every other test
         ['src/Money.php', 11, ['HeldTest::doubles']],
         ['src/Money.php', 13, ['MoneyTest::adds']],
         ['src/Price.php', 5, ['MoneyTest::prices']],
+        ['src/Money.php', 12, []],
+        ['src/Gone.php', 3, []],
     ])
         ->and($merged->durationOf(TestId::of('HeldTest::doubles')))->toEqual(Seconds::of(0.25))
         ->and($merged->durationOf(TestId::of('MoneyTest::adds')))->toEqual(Seconds::of(0.75))
@@ -64,4 +66,21 @@ it('keeps the map as it was where no test is measured again and the new measure 
         ->timed(TestId::of('MoneyTest::adds'), Seconds::of(0.5));
 
     expect(Remeasured::over($kept, TestIds::none(), CoverageMap::empty()))->toEqual($kept);
+});
+
+it('takes none of the lines the new measure missed, which ran some tests alone', function (): void {
+    $kept = CoverageMap::of(
+        CoveredLine::of(Path::of('src/Money.php'), 11, 'MoneyTest::adds', 'HeldTest::doubles'),
+        CoveredLine::of(Path::of('src/Money.php'), 12),
+    );
+    $measured = CoverageMap::of(
+        CoveredLine::of(Path::of('src/Money.php'), 11),
+        CoveredLine::of(Path::of('src/Money.php'), 12, 'MoneyTest::adds'),
+        CoveredLine::of(Path::of('src/Constants.php'), 10),
+    );
+
+    expect(linesOfMap(Remeasured::over($kept, TestIds::of(TestId::of('MoneyTest::adds')), $measured)))->toBe([
+        ['src/Money.php', 11, ['HeldTest::doubles']],
+        ['src/Money.php', 12, ['MoneyTest::adds']],
+    ]);
 });

@@ -30,8 +30,9 @@ use function strval;
 /**
  * A coverage map as the gate carries it between jobs: `"format": 1`, compact
  * JSON, gzipped. Every test is listed once, with its seconds where it was
- * timed, and each covered line of each file names its tests by their place
- * in that list. Where the report of the run that measured it states them,
+ * timed, and each executable line of each file names its tests by their
+ * place in that list: none for a line the run missed. Where the report of
+ * the run that measured it states them,
  * `methods` lists each file's executed methods with the lines they span,
  * `{"name", "start", "end"}`; a map without them is whole. A whole map says
  * where it was measured, as `commit` and `dirty` ({@see MeasuredAt}).

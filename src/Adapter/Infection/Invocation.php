@@ -89,13 +89,18 @@ final readonly class Invocation
         );
     }
 
-    /** The suite, or the tests that judge a held path, under coverage, writing the layout `--coverage` reads. */
+    /**
+     * The suite, or the tests that judge a held path, under coverage, writing
+     * the layout `--coverage` reads and, for the gate's map, the lines no
+     * test ran beside it.
+     */
     public static function coverage(
         Project $project,
         OwnConfig $config,
         WholeSuite|Group|Filter|TestPaths $tests,
         DiskPath $directory,
         SuiteName|NotGiven $suite,
+        CoverageFor $use,
     ): Command {
         return Command::php(
             ...[
@@ -103,6 +108,7 @@ final readonly class Invocation
                 $config->phpunit($project),
                 sprintf('--configuration=%s', $config->configDirectory($project)),
                 sprintf('--coverage-xml=%s', $directory->child(self::XML)->value()),
+                ...$use === CoverageFor::Map ? [self::clover($directory)] : [],
                 sprintf('%s=%s', PhpUnitOption::LogJunit->value, $directory->child(self::JUNIT)->value()),
                 PhpUnitOption::NoColors->value,
                 ...$config->extraArguments(),
@@ -145,6 +151,12 @@ final readonly class Invocation
             ...($judgedBy instanceof Filter ? ['--only-covering-test-cases'] : []),
             ...$paths,
         );
+    }
+
+    /** The option that writes the Clover report of the lines no test ran into a coverage directory. */
+    private static function clover(DiskPath $directory): string
+    {
+        return sprintf('%s=%s', PhpUnitOption::CoverageClover->value, $directory->child(MissedLines::FILE)->value());
     }
 
     /**

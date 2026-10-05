@@ -63,6 +63,9 @@ enum PhpUnitOption: string
     /** Writes the coverage map as PHP, to the file named after `=`. */
     case CoveragePhp = '--coverage-php';
 
+    /** Writes a Clover report, every executable line with how many runs it had, to the file after `=`. */
+    case CoverageClover = '--coverage-clover';
+
     /** Lists the suite's groups and runs no test. */
     case ListGroups = '--list-groups';
 

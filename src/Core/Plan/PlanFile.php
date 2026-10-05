@@ -41,8 +41,9 @@ use stdClass;
 /**
  * A plan as `.mutation-gate/plan.json` holds it, `"format": 1`: the full id of
  * the commit it was made on, the base its keys are built on, every considered
- * unit's key, and the shards, with the units it proved or carried, and the
- * lines a change added or modified with why it reached what it did, the
+ * unit's key, and the shards, with the units it proved or carried, the
+ * lines a change added or modified, `untested`, those of them no test runs,
+ * where there are any, and why it reached what it did, the
  * digests of the run's inputs each proof records its share of, `peak`, the
  * most bytes the unmutated suite's largest process held in the coverage run
  * the plan was made from, where it was measured, `matrix`, `full` where the
@@ -68,7 +69,11 @@ use stdClass;
  * @phpstan-type RunOnWritten array{ref?: string, defaultBranch?: string}
  * @phpstan-type ShardWritten array<string, int|string|float|list<UnitWritten>>
  * @phpstan-type ConsideredWritten array{proved?: list<UnitWritten>, carried?: list<UnitWritten>}
- * @phpstan-type ChangeWritten array{changed?: array<string, list<int>>, reach?: list<string>}
+ * @phpstan-type ChangeWritten array{
+ *     changed?: array<string, list<int>>,
+ *     untested?: array<string, list<int>>,
+ *     reach?: list<string>,
+ * }
  * @phpstan-type Body array{
  *     format: int,
  *     commit: string,
@@ -80,6 +85,7 @@ use stdClass;
  *     proved?: list<UnitWritten>,
  *     carried?: list<UnitWritten>,
  *     changed?: array<string, list<int>>,
+ *     untested?: array<string, list<int>>,
  *     reach?: list<string>,
  *     digests?: RunDigests,
  * } & BriefingWritten
@@ -101,6 +107,8 @@ final readonly class PlanFile
     private const string CARRIED = 'carried';
 
     private const string CHANGED = 'changed';
+
+    private const string UNTESTED = 'untested';
 
     private const string REACH = 'reach';
 
@@ -185,22 +193,35 @@ final readonly class PlanFile
         ];
     }
 
-    /** @return ChangeWritten the lines a change added or modified, by file, and why it reached what it did */
+    /**
+     * @return ChangeWritten the lines a change added or modified, by file, those no test runs, and why it reached
+     *                       what it did
+     */
     private static function change(Considered $considered): array
     {
-        $changed = [];
+        $changed = self::linesOf($considered->changed());
+        $untested = self::linesOf($considered->untested());
 
-        foreach ($considered->changed() as $change) {
-            $changed[$change->path()->value()] = array_map(
+        return $changed === [] && count($considered->reach()) === 0 ? [] : [
+            self::CHANGED => $changed,
+            ...$untested === [] ? [] : [self::UNTESTED => $untested],
+            self::REACH => array_map(static fn(Reason $reason): string => $reason->text(), [...$considered->reach()]),
+        ];
+    }
+
+    /** @return array<string, list<int>> the lines of each file these changes name, by path */
+    private static function linesOf(Changes $changes): array
+    {
+        $lines = [];
+
+        foreach ($changes as $change) {
+            $lines[$change->path()->value()] = array_map(
                 static fn(Line $line): int => $line->number(),
                 [...$change->lines()],
             );
         }
 
-        return $changed === [] && count($considered->reach()) === 0 ? [] : [
-            self::CHANGED => $changed,
-            self::REACH => array_map(static fn(Reason $reason): string => $reason->text(), [...$considered->reach()]),
-        ];
+        return $lines;
     }
 
     /** @return ShardWritten */
@@ -241,7 +262,8 @@ final readonly class PlanFile
             ->on(self::runOnIn($file))
             ->considering(
                 Considered::everything()
-                    ->reaching(self::changedIn($file), self::reachIn($file))
+                    ->reaching(self::changesIn($file->field(self::CHANGED)), self::reachIn($file))
+                    ->untesting(self::changesIn($file->field(self::UNTESTED)))
                     ->proving(self::unitsIn($file->field(self::PROVED)))
                     ->carrying(self::unitsIn($file->field(self::CARRIED))),
             );
@@ -282,10 +304,9 @@ final readonly class PlanFile
     }
 
     /** @throws NotInShape */
-    private static function changedIn(Node $file): Changes
+    private static function changesIn(Node $changed): Changes
     {
         $changes = Changes::none();
-        $changed = $file->field(self::CHANGED);
 
         foreach ($changed->isPresent() ? $changed->entries() : [] as $path => $numbers) {
             $lines = Lines::none();

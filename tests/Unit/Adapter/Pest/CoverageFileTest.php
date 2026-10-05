@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -27,7 +28,7 @@ $written = static function (): string {
         $file,
         '/nowhere/src/',
         [
-            'Money.php' => [10 => [0], 11 => [0, 1], 12 => [1, 2], 13 => [], 14 => [2]],
+            'Money.php' => [10 => [0], 11 => [0, 1], 12 => [1, 2], 13 => [], 14 => [2], 15 => null],
             'Held.php' => [5 => [2]],
         ],
         [
@@ -41,7 +42,7 @@ $written = static function (): string {
     return $file;
 };
 
-it('reads which tests ran each line, and how long each test took', function () use ($written): void {
+it('reads which tests ran each executable line, the lines none ran, and how long each test took', function () use ($written): void {
     $coverage = CoverageFile::at($written());
     $adds = TestId::of('P\Tests\MoneySpec::__pest_evaluable_it_adds');
     $large = TestId::of('Tests\MoneyTest::testLarge');
@@ -51,7 +52,7 @@ it('reads which tests ran each line, and how long each test took', function () u
     $project = Project::at('/nowhere', Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'));
 
     expect($coverage instanceof CoverageFile ? $coverage->map($project) : $coverage)
-        ->toEqual(CoverageMap::empty()
+        ->toEqual(CoverageMap::of(CoveredLine::of($money, 13))
             ->covered($money, Line::of(10), $adds)
             ->covered($money, Line::of(11), $adds)
             ->covered($money, Line::of(11), $large)

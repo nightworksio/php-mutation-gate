@@ -31,13 +31,15 @@ use function sprintf;
 
 /**
  * A coverage map as `--coverage-php` writes it, read with
- * phpunit/php-code-coverage: which tests ran each line of each file, by the
- * file's path on disk, and how long each test took.
+ * phpunit/php-code-coverage: which tests ran each executable line of each
+ * file, none for a line no test ran, by the file's path on disk, and how
+ * long each test took.
  */
 final readonly class CoverageFile implements Covering
 {
     /**
-     * @param array<string, array<int, array<int, string>>> $lines     the tests on each line, by file and line
+     * @param array<string, array<int, array<int, string>>> $lines     the tests on each executable line, by file
+     *                                                              and line
      * @param array<string, float>                    $durations each test's seconds, by id
      */
     private function __construct(private array $lines, private array $durations)
@@ -136,7 +138,9 @@ final readonly class CoverageFile implements Covering
             $path = sprintf('%s/%s', rtrim($basePath, '/'), $file);
 
             foreach ($covered as $line => $hits) {
-                $lines[$path][$line] = array_intersect_key($ids, $hits ?? []);
+                if ($hits !== null) {
+                    $lines[$path][$line] = array_intersect_key($ids, $hits);
+                }
             }
         }
 

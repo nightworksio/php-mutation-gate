@@ -80,17 +80,26 @@ final readonly class PlanEstimates
         return $share instanceof Percentage ? $share : Percentage::none();
     }
 
-    /** What the plan sets the run to do, with the share of its estimate that rests on more than a guess. */
+    /**
+     * What the plan sets the run to do, with the share of its estimate that
+     * rests on more than a guess and the changed lines no test runs.
+     */
     public function work(): PlannedWork
     {
         $guessed = $this->share(CostBasis::Guessed);
         $measured = Percentage::inHundredths(Percentage::whole()->hundredths() - $guessed->hundredths());
 
-        return PlannedWork::of(
+        $work = PlannedWork::of(
             $this->plan,
             $this->runTime(),
             $measured instanceof Percentage ? $measured : Percentage::none(),
         );
+
+        foreach ($this->plan->considered()->untested() as $change) {
+            $work = $work->withUncovered($change->path(), $change->lines());
+        }
+
+        return $work;
     }
 
     /**

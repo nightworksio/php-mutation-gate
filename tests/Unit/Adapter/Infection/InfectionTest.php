@@ -964,3 +964,66 @@ it('keeps the coverage run and every mutant\'s tests to the suite the request na
         ->and($ran[1])->toContain('--test-framework-extra-args=--group="holds:src/Money.php" --testsuite="unit"')
         ->and($ran[2])->toContain('--testsuite=unit');
 });
+
+/** A shell whose coverage run writes Money's line 11, which MoneyTest ran, and its line 12, which no test ran, and then does this to the directory. */
+function infectionMissing(Project $at, Closure $then): InfectionShellFake
+{
+    return new InfectionShellFake(static function (Command $command) use ($at, $then): Ran {
+        foreach ($command->arguments() as $argument) {
+            if (str_starts_with($argument, '--log-junit=')) {
+                $directory = dirname(mb_substr($argument, mb_strlen('--log-junit=')));
+                InfectionRun::coverage(
+                    $directory,
+                    $at->root(),
+                    ['src/Money.php' => [11 => ['Tests\MoneyTest::adds'], 12 => []]],
+                    ['Tests\MoneyTest' => 0.5],
+                    ['Tests\MoneyTest::adds' => 0.5],
+                );
+                $then($directory);
+            }
+        }
+
+        return Ran::finished(succeeded: true, output: 'said');
+    });
+}
+
+it('reads the lines no test ran from the report beside the XML coverage, which leaves them out', function (): void {
+    $at = infectionProject();
+    $map = new Infection($at, infectionMissing($at, static function (): void {
+    }), Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())
+        ->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.gate/planned')));
+
+    expect($map instanceof CoverageMap ? [...$map->linesMissed(Path::of('src/Money.php'))] : $map)->toEqual([Line::of(12)])
+        ->and($map instanceof CoverageMap ? [...$map->linesCovered(Path::of('src/Money.php'))] : $map)->toEqual([Line::of(11)]);
+});
+
+it('cannot judge a coverage run whose report of the lines no test ran is missing or not XML', function (Closure $spoil): void {
+    $at = infectionProject();
+    $map = new Infection($at, infectionMissing($at, $spoil), Seconds::of(10.0), nativeMarkersAllowed: false, files: new CapDirectory())
+        ->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.gate/planned')));
+
+    expect($map)->toEqual(CannotJudge::because(sprintf(
+        '%s/.gate/planned/clover.xml is not there or is not a Clover report, so the gate cannot say which lines no test ran.',
+        $at->root(),
+    )));
+})->with([
+    'missing' => [static fn(string $directory): bool => unlink(sprintf('%s/clover.xml', $directory))],
+    'not XML' => [static fn(string $directory): int|false => file_put_contents(sprintf('%s/clover.xml', $directory), 'not XML')],
+]);
+
+it('writes the report of the lines no test ran only for the map, never for a mutation run\'s coverage', function (): void {
+    $at = infectionProject();
+    $shell = infectionShell($at, infectionKilled($at));
+    $adapter = new Infection($at, $shell, Seconds::of(6.0), nativeMarkersAllowed: false, files: new CapDirectory());
+    $adapter->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Money.php')));
+    $adapter->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.gate/planned')));
+    $reports = array_map(
+        static fn(array $arguments): bool => array_any($arguments, static fn(string $argument): bool => str_starts_with($argument, '--coverage-clover=')),
+        array_values(array_filter(infectionRan($shell), static fn(array $arguments): bool => array_any(
+            $arguments,
+            static fn(string $argument): bool => str_starts_with($argument, '--log-junit='),
+        ))),
+    );
+
+    expect($reports)->toBe([false, true]);
+});

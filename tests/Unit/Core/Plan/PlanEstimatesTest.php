@@ -2,14 +2,20 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Change\Change;
+use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Cost\CostBasis;
 use NightWorksIO\MutationGate\Core\Cost\Estimated;
 use NightWorksIO\MutationGate\Core\Cost\RunTime;
 use NightWorksIO\MutationGate\Core\Cost\ShardEstimate;
+use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Plan\Considered;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanEstimates;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
@@ -63,6 +69,17 @@ it('says what share of the units\' time each basis gives, and none of a plan of 
         ->and(PlanEstimates::of(estimatedPlan(), Seconds::of(0.0))->share(CostBasis::Guessed))->toEqual(Percentage::none())
         ->and($estimates->work()->measured())->toEqual(Percentage::parse(25))
         ->and($estimates->work()->estimate())->toEqual($estimates->runTime());
+});
+
+it('sets the planned work the changed lines the plan says no test runs, by file', function (): void {
+    $lines = Lines::of(Line::of(4), Line::of(9));
+    $plan = estimatedPlan(estimatedShard(1, 100.0, 300.0, 0.0))->considering(
+        Considered::everything()->untesting(Changes::of(Change::modified(Path::of('src/Money.php'), $lines))),
+    );
+
+    expect(PlanEstimates::of($plan, Seconds::of(0.0))->work()->uncovered())
+        ->toEqual(ByPath::none()->with(Path::of('src/Money.php'), $lines))
+        ->and(PlanEstimates::of(estimatedPlan(), Seconds::of(0.0))->work()->uncovered())->toEqual(ByPath::none());
 });
 
 it('writes a line for each shard with units and one for the run', function (): void {

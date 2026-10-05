@@ -17,9 +17,9 @@ use function sprintf;
 
 /**
  * The PR comment's planned state, which the plan posts and the verdict
- * replaces: the units the run mutates, listed as long as the verdict's
- * lists, in how many shards, and what it is expected to take (ADR-0009,
- * decision 3, and ADR-0019, decision 11).
+ * replaces: the units the run mutates and in how many shards, what it is
+ * expected to take, and the changed lines no test covers, each list as long
+ * as the verdict's (ADR-0009, decision 3, and ADR-0019, decision 11).
  */
 final readonly class PlannedMarkdown
 {
@@ -29,6 +29,8 @@ final readonly class PlannedMarkdown
         = 'Nothing to mutate: the change reaches no unit, or a proof covers every unit it reaches.';
 
     private const string UNITS = '<details><summary>Units (%d)</summary>';
+
+    private const string UNCOVERED = '### Changed lines no test covers (%d)';
 
     private const string RUN = '[The run](%s) replaces this with its verdict.';
 
@@ -40,6 +42,7 @@ final readonly class PlannedMarkdown
             '## mutation-gate: planned',
             self::mutating($work),
             self::units($work),
+            self::uncovered($work),
             $run === '' ? '' : sprintf(self::RUN, $run),
         ];
 
@@ -75,6 +78,20 @@ final readonly class PlannedMarkdown
             ...self::listed($units),
             '</details>',
         ]);
+    }
+
+    /** The uncovered changed lines under their heading; nothing where there are none. */
+    private static function uncovered(PlannedWork $work): string
+    {
+        $lines = [];
+
+        foreach ($work->uncovered() as $path => $numbers) {
+            foreach ($numbers as $line) {
+                $lines[] = sprintf('- %s', Escape::code(sprintf('%s:%d', $path->value(), $line->number())));
+            }
+        }
+
+        return $lines === [] ? '' : implode("\n\n", [sprintf(self::UNCOVERED, count($lines)), ...self::listed($lines)]);
     }
 
     /**

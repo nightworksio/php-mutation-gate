@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\PhpUnit\CoverageFile;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Project;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -23,13 +24,13 @@ function coverageFileProject(): Project
     return Project::at(Scratch::directory(), Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'));
 }
 
-it('reads which tests ran each line of each file of the project, and how long each test took', function (): void {
+it('reads which tests ran each executable line of each file of the project, the lines none ran, and how long each test took', function (): void {
     $project = coverageFileProject();
     $file = sprintf('%s/coverage.php', $project->root());
     CoverageMaps::write(
         $file,
         sprintf('%s/src/', $project->root()),
-        ['Money.php' => [10 => [0], 11 => [0, 1], 13 => []], 'Held.php' => [5 => [1]]],
+        ['Money.php' => [10 => [0], 11 => [0, 1], 13 => [], 14 => null], 'Held.php' => [5 => [1]]],
         ['Tests\MoneyTest::testAdds', 'Tests\MoneyTest::testLarge#0'],
         ['Tests\MoneyTest::testAdds' => 0.25, 'Tests\MoneyTest::testLarge#0' => 1.5],
     );
@@ -37,7 +38,7 @@ it('reads which tests ran each line of each file of the project, and how long ea
     $large = TestId::of('Tests\MoneyTest::testLarge#0');
     $money = Path::of('src/Money.php');
 
-    expect(CoverageFile::read($project, $file))->toEqual(CoverageMap::empty()
+    expect(CoverageFile::read($project, $file))->toEqual(CoverageMap::of(CoveredLine::of($money, 13))
         ->covered($money, Line::of(10), $adds)
         ->covered($money, Line::of(11), $adds)
         ->covered($money, Line::of(11), $large)
