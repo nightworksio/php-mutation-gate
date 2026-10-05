@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\TestRow;
+use NightWorksIO\MutationGate\Core\Test\TestsByClass;
 
 /** A test class's code, in a namespace or none. */
 function testClassCode(string $namespace, string $class): Contents
@@ -106,15 +107,20 @@ it('holds the tests of each class a test file declares, or that is named after o
         Path::of('tests/Unit/HeldTest.php'),
     );
 
+    $read = [];
+
     expect(TestClassFiles::held(
-        $tests,
+        TestsByClass::of($tests),
         $files,
-        static fn(Path $file): Contents|Missing => $file->value() === 'tests/Unit/HeldTest.php'
-            ? testClassCode('Tests\Unit', 'HeldTest')
-            : Missing::at($file),
+        static function (Path $file) use (&$read): Contents|Missing {
+            $read[] = $file->value();
+
+            return $file->value() === 'tests/Unit/HeldTest.php' ? testClassCode('Tests\Unit', 'HeldTest') : Missing::at($file);
+        },
     ))->toEqual(TestIds::of(
         TestId::of('Tests\Unit\MoneyTest::adds'),
         TestId::of('Tests\Unit\MoneyTest::adds#1'),
         TestId::of('Tests\Unit\HeldTest::doubles'),
-    ));
+    ))
+        ->and($read)->toBe(['tests/Unit/MoneyTest.php', 'tests/Unit/HeldTest.php']);
 });

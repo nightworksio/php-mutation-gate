@@ -23,6 +23,7 @@ use function is_file;
 use function is_link;
 use function mb_strtoupper;
 
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -30,6 +31,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Test\TestClassFiles;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestMethod;
+use NightWorksIO\MutationGate\Core\Test\TestsByClass;
 
 use function preg_replace;
 use function preg_replace_callback;
@@ -76,6 +78,9 @@ final class TestFiles
     /** @var array<string, Paths> the files that hold a test of each set of classes, by the set */
     private array $held = [];
 
+    /** @var list<array{CoverageMap, TestsByClass}> the tests of the map last asked about, by class, once read */
+    private array $byClass = [];
+
     public function __construct(private readonly Project $project)
     {
     }
@@ -113,28 +118,21 @@ final class TestFiles
     }
 
     /**
-     * Those of these tests that these test files hold: the tests of the class
-     * Pest declares for each file, named after its path, and of each class a
-     * file declares itself, or is named after where the file is gone.
+     * Those of a map's tests that these test files hold: the tests of the
+     * class Pest declares for each file, named after its path, and of each
+     * class a file declares itself, or is named after where the file is gone.
      */
-    public function holding(Paths $files, TestIds $tests): TestIds
+    public function holding(Paths $files, CoverageMap $map): TestIds
     {
+        $tests = $this->testsOf($map);
         $placed = TestClassFiles::held($tests, $files, $this->contentsOf(...));
         $pest = [];
 
         foreach ($files as $file) {
-            $pest[$this->pestClassOf($file)] = true;
+            $pest[] = $this->pestClassOf($file);
         }
 
-        $declared = [];
-
-        foreach ($tests as $test) {
-            if (array_key_exists(TestMethod::classOf($test), $pest)) {
-                $declared[] = $test;
-            }
-        }
-
-        return $placed->and(TestIds::of(...$declared));
+        return $placed->and($tests->in($pest));
     }
 
     /**
@@ -176,6 +174,16 @@ final class TestFiles
         }
 
         return Paths::of(...$pest, ...$declaring->files());
+    }
+
+    /** The map's tests by class, read once while it is the map asked about. */
+    private function testsOf(CoverageMap $map): TestsByClass
+    {
+        if ($this->byClass === [] || $this->byClass[0][0] !== $map) {
+            $this->byClass = [[$map, TestsByClass::of($map->tests())]];
+        }
+
+        return $this->byClass[0][1];
     }
 
     /** What a test file holds, or that it is gone. */

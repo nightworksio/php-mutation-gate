@@ -109,7 +109,7 @@ final readonly class Selector
      */
     public function limitOf(Paths $files, Seconds $cap): Seconds
     {
-        $tests = $this->tests->holding($files, $this->map->tests());
+        $tests = $this->tests->holding($files, $this->map);
 
         return MutantLimit::standard()->of(OwnTime::of($this->map, $tests), $cap);
     }

@@ -45,3 +45,18 @@ it('reads an id of another shape as no test method, in a class of its whole id',
 it('reads a test method\'s class', function (): void {
     expect(TestMethod::classOf(TestId::of('Tests\MoneyTest::testAdds#one')))->toBe('Tests\MoneyTest');
 });
+
+it('reads the class an id\'s test is in as the test method it runs names it', function (string $id, string $class): void {
+    $method = TestMethod::of(TestId::of($id));
+
+    expect(TestMethod::classOf(TestId::of($id)))->toBe($class)
+        ->and($method instanceof TestMethod ? $method->className() : $method->value())->toBe($class);
+})->with([
+    'a method after the first separator' => ['A::b', 'A'],
+    'a class in no name' => ['::b', ''],
+    'a method that starts with a colon' => ['A:::b', 'A'],
+    'a row where a method should be, then a method' => ['A::#b::c', 'A::#b'],
+    'an empty method, then a method' => ['A::::c', 'A'],
+    'a row where a method should be, and no other separator' => ['A::#b', 'A::#b'],
+    'separators alone' => ['::::', ''],
+]);

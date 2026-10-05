@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
+use NightWorksIO\MutationGate\Tests\Support\MapOfTests;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -89,7 +90,7 @@ it('holds the tests of the class Pest declares for each file, and of each class 
         Path::of('lower/case/Spec.php'),
     );
 
-    expect($files->holding($held, $tests))->toEqual(TestIds::of(
+    expect($files->holding($held, MapOfTests::of($tests)))->toEqual(TestIds::of(
         TestId::of('Tests\Legacy\OldTest::testOld'),
         TestId::of('Tests\Legacy\GoneTest::testGone'),
         TestId::of('P\Tests\Unit\MoneySpec::__pest_evaluable_it_adds'),
@@ -97,7 +98,7 @@ it('holds the tests of the class Pest declares for each file, and of each class 
         TestId::of('P\Tests\Unit\GoneSpec::__pest_evaluable_it_goes'),
         TestId::of('P\Tests\Unit\Dotted::__pest_evaluable_it_dots'),
     ))
-        ->and($files->holding(Paths::of(Path::of('lower/case/Spec.php')), TestIds::of(TestId::of('P\Lower\case\Spec::x'))))
+        ->and($files->holding(Paths::of(Path::of('lower/case/Spec.php')), MapOfTests::of(TestIds::of(TestId::of('P\Lower\case\Spec::x')))))
         ->toEqual(TestIds::of(TestId::of('P\Lower\case\Spec::x')));
 });
 
@@ -140,10 +141,28 @@ it('holds the tests of some files in time linear in how many tests there are', f
             range(1, $size),
         ));
         $held = Paths::of(Path::of('tests/Unit/MoneySpec.php'));
+        $map = MapOfTests::of($tests);
 
-        return static fn(): int => count($files->holding($held, $tests));
+        return static fn(): int => count($files->holding($held, $map));
     };
 
     expect($holding(10)())->toBe(10)
         ->and(Growth::of(500, $holding))->toBeLessThan(Growth::LINEAR);
+});
+
+it('places each test file\'s tests, one file at a time, in time linear in how many files and tests there are', function (): void {
+    $placing = static function (int $size): Closure {
+        $root = Scratch::directory();
+        $files = new TestFiles(Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('vendor')));
+        $map = MapOfTests::of(TestIds::of(...array_map(
+            static fn(int $at): TestId => TestId::of(sprintf('P\\Tests\\Money%dSpec::__pest_evaluable_it_adds', $at)),
+            range(1, $size),
+        )));
+        $each = array_map(static fn(int $at): Paths => Paths::of(Path::of(sprintf('tests/Money%dSpec.php', $at))), range(1, $size));
+
+        return static fn(): int => array_sum(array_map(static fn(Paths $file): int => count($files->holding($file, $map)), $each));
+    };
+
+    expect($placing(10)())->toBe(10)
+        ->and(Growth::of(200, $placing))->toBeLessThan(Growth::LINEAR);
 });

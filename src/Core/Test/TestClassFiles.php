@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Php\Names;
 use NightWorksIO\MutationGate\Core\Php\PhpFile;
 
@@ -87,16 +88,20 @@ final readonly class TestClassFiles
      *
      * @param Closure(Path): (Contents|Missing) $read what a test file holds, or that it is gone
      */
-    public static function held(TestIds $tests, Paths $files, Closure $read): TestIds
+    public static function held(TestsByClass $tests, Paths $files, Closure $read): TestIds
     {
-        $classes = self::of($tests);
+        $classes = $tests->wanting();
 
         foreach ($files as $file) {
-            $code = $read($file);
-            $classes = $code instanceof Contents ? $classes->readIn($file, $code) : $classes->gone($file);
+            $code = $classes->mayDeclare($file) ? $read($file) : NotGiven::value();
+            $classes = match (true) {
+                $code instanceof Contents => $classes->readIn($file, $code),
+                $code instanceof Missing => $classes->gone($file),
+                default => $classes,
+            };
         }
 
-        return $classes->placed($tests);
+        return $tests->in(array_keys($classes->found));
     }
 
     /** @return array<string, Path> the file that declares each class found, by the class */
@@ -155,19 +160,5 @@ final readonly class TestClassFiles
         }
 
         return new self($this->wanted, $found);
-    }
-
-    /** Those of these tests whose class is found. */
-    private function placed(TestIds $tests): TestIds
-    {
-        $placed = [];
-
-        foreach ($tests as $test) {
-            if (array_key_exists(TestMethod::classOf($test), $this->found)) {
-                $placed[] = $test;
-            }
-        }
-
-        return TestIds::of(...$placed);
     }
 }

@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Test\TestClassFiles;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestsByClass;
 
 use function sprintf;
 
@@ -44,7 +45,7 @@ final readonly class TestFiles
     public static function holding(Project $project, Paths $files, TestIds $tests): TestIds
     {
         return TestClassFiles::held(
-            $tests,
+            TestsByClass::of($tests),
             $files,
             static function (Path $file) use ($project): Contents|Missing {
                 $disk = $project->absolute($file);

@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Tests\Support\MapOfTests;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -53,6 +54,6 @@ it('holds the tests whose classes these test files declare, or whose files are g
         Path::of('tests/Unit/PriceTest.php'),
     );
 
-    expect($tests->holding($files, $asked))
+    expect($tests->holding($files, MapOfTests::of($asked)))
         ->toEqual(TestIds::of(TestId::of('Tests\Unit\MoneyTest::testAdds'), TestId::of('Tests\Unit\GoneTest::testGoes')));
 });

@@ -146,7 +146,7 @@ final readonly class PhpUnit implements Runner
     /** The map's tests whose classes these test files declare, or whose files are gone. */
     public function testsIn(Paths $files, CoverageMap $map): TestIds
     {
-        return $this->tests->holding($files, $map->tests());
+        return $this->tests->holding($files, $map);
     }
 
     /**
