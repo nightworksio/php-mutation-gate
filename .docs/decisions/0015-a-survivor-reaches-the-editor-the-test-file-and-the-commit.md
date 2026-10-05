@@ -161,8 +161,11 @@ one of those values the gate can know or check.
        `Problems::GROUPS` naming its file, line, column, severity, message
        and code groups. The code is the rule, and the mutant id stays in the
        message. A test runs the pattern over every line the output writes.
-     - Each message is one plain line (`Fit::plain`): no line break, escape
-       or other control character.
+     - Each message is one plain line (`Fit::plain`), and each path and the
+       id of the run a proved or carried result names keeps its text but
+       drops every control character (`Fit::verbatim`): no line break, escape
+       or other control character, so neither a file's name nor a ledger's
+       run starts a line a matcher reads as a result.
      - The Qodana plugin is not part of the build, so the README's PhpStorm
        recipe is the External Tool, with the output filter
        `$FILE_PATH$:$LINE$:$COLUMN$`.
