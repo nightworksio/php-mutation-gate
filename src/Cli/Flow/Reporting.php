@@ -109,30 +109,6 @@ final readonly class Reporting
         return $said;
     }
 
-    /** The comment in its planned state, written, or left in the delivery under `--deliver-later`. */
-    private function plannedBy(PullRequestComment $comment, PlannedWork $work): Written|NotWritten|CannotJudge
-    {
-        return $this->later instanceof DeliveryDirectory
-            ? $this->later->adding(static fn(Delivery $delivery): Delivery => $comment->plannedLater($work, $delivery))
-            : $comment->planned($work);
-    }
-
-    /** @return list<Reporter>|Invalid|CannotJudge */
-    private function chosenReporters(Settings $settings, RunOn $runOn): array|Invalid|CannotJudge
-    {
-        $reporters = [];
-
-        foreach ([...$this->listed($settings), ...$this->byTheRun($settings, $runOn)] as $reporter) {
-            if (! $reporter instanceof Reporter) {
-                return $reporter;
-            }
-
-            $reporters[] = $reporter;
-        }
-
-        return $reporters;
-    }
-
     /**
      * The last run's survivors re-checked (ADR-0020, decision 21): what the
      * sticky comment, over its planned state alone, and the step summary
@@ -166,6 +142,30 @@ final readonly class Reporting
         }
 
         return $said;
+    }
+
+    /** The comment in its planned state, written, or left in the delivery under `--deliver-later`. */
+    private function plannedBy(PullRequestComment $comment, PlannedWork $work): Written|NotWritten|CannotJudge
+    {
+        return $this->later instanceof DeliveryDirectory
+            ? $this->later->adding(static fn(Delivery $delivery): Delivery => $comment->plannedLater($work, $delivery))
+            : $comment->planned($work);
+    }
+
+    /** @return list<Reporter>|Invalid|CannotJudge */
+    private function chosenReporters(Settings $settings, RunOn $runOn): array|Invalid|CannotJudge
+    {
+        $reporters = [];
+
+        foreach ([...$this->listed($settings), ...$this->byTheRun($settings, $runOn)] as $reporter) {
+            if (! $reporter instanceof Reporter) {
+                return $reporter;
+            }
+
+            $reporters[] = $reporter;
+        }
+
+        return $reporters;
     }
 
     /** @return list<string> why the reporters cannot be built: each problem at its path, or the one reason */

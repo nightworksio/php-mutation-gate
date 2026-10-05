@@ -585,7 +585,7 @@ services:
                     - PARENT # PHP's keyword, not php-parser's attribute
                 'NightWorksIO\MutationGate\Core\Assertion\AssertionScan':
                     - CALL_OPENS # tokens from what a link is chained to, to its call's bracket
-                'NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment':
+                'NightWorksIO\MutationGate\Adapter\GitHub\StickyComment':
                     - PAGE # comments a page
                     - PAGES # pages read
                 'NightWorksIO\MutationGate\Adapter\Alert\Delivery':

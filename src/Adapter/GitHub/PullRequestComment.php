@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
 use function array_key_exists;
-use function count;
 use function file_get_contents;
 use function getenv;
 use function is_file;
@@ -44,15 +43,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  */
 final readonly class PullRequestComment implements Configurable, Deferring, Reporter
 {
-    /** The identity `GITHUB_TOKEN` comments as, which cannot read `/user`. */
-    public const string ACTIONS = 'github-actions[bot]';
-
     private const string COMMENTS = '/repos/%s/issues/%d/comments';
-
-    private const int PAGE = 100;
-
-    /** The most pages of comments read to find the sticky one. */
-    private const int PAGES = 30;
 
     private const string NOT_A_PULL_REQUEST = 'This run is not for a pull request, so there is no comment to write.';
 
@@ -202,7 +193,7 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
         }
 
         $body = ['body' => $markdown];
-        $existing = $this->existing($number, $this->identity === '' ? $this->identityOfToken() : $this->identity);
+        $existing = StickyComment::in($this->api, $this->repository)->on($number, $this->identity);
         $id = $existing instanceof Answer ? $existing->number('id') : 0;
         $planned = $existing instanceof Answer && str_contains($existing->text('body'), $this->plannedHeading());
 
@@ -217,55 +208,6 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
         return $answer instanceof CannotTell
             ? NotWritten::because(sprintf(self::UNWRITTEN, $answer->why()))
             : Written::to($answer->text('html_url'));
-    }
-
-    /** Who the token comments as: its user, or GitHub Actions' own bot where it cannot read one. */
-    private function identityOfToken(): string
-    {
-        $user = $this->api->get('/user');
-        $login = $user instanceof Answer ? $user->text('login') : '';
-
-        return $login === '' ? self::ACTIONS : $login;
-    }
-
-    /** The sticky comment this identity wrote on the pull request; none where there is none. */
-    private function existing(PullRequestNumber $number, string $identity): Answer|NotGiven
-    {
-        $found = NotGiven::value();
-        $full = true;
-
-        for ($page = 1; $found instanceof NotGiven && $full && $page <= self::PAGES; ++$page) {
-            $comments = $this->api->get(sprintf(
-                '/repos/%s/issues/%d/comments?per_page=%d&page=%d',
-                $this->repository,
-                $number->value(),
-                self::PAGE,
-                $page,
-            ));
-            $items = $comments instanceof Answer ? $comments->items() : [];
-            $found = $this->stickyAmong($items, $identity);
-            $full = count($items) === self::PAGE;
-        }
-
-        return $found;
-    }
-
-    /**
-     * The comment among these that this identity wrote with the marker; none where none is.
-     *
-     * @param list<Answer> $comments
-     */
-    private function stickyAmong(array $comments, string $identity): Answer|NotGiven
-    {
-        foreach ($comments as $comment) {
-            $sticky = str_contains($comment->text('body'), Markdown::MARKER);
-
-            if ($sticky && $comment->text('user', 'login') === $identity) {
-                return $comment;
-            }
-        }
-
-        return NotGiven::value();
     }
 
     /** The heading of the planned state, on a line of its own, as the comment holds it. */
