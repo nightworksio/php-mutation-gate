@@ -14,6 +14,9 @@ afterEach(function (): void {
 
 const COMPILED_PROGRAM = "<?php\nfunction six(): int { return 2 * 3; }\n";
 
+/** How long the sleeping child runs: far past any time a test gives it. */
+const SLEEPING_CHILD_SECONDS = 30;
+
 /**
  * @param  array<string, Contents>           $programs
  * @param  list<string>                      $besides
@@ -83,7 +86,7 @@ it('reads no php.ini, so no setting of the project\'s reaches the child', functi
     expect($compiled['one'])->toBeInstanceOf(Opcodes::class);
 });
 
-it('says each program failed where its child cannot start, is given no time or runs out of it', function (string $binary, float $seconds): void {
+it('says each program failed where its child cannot start or is given no time', function (string $binary, float $seconds): void {
     $compiler = new Compiler($binary, sprintf('%s/equivalence', Scratch::directory()), $seconds, 1);
 
     expect($compiler->compiled(['one' => Contents::of(COMPILED_PROGRAM), 'two' => Contents::of(COMPILED_PROGRAM)]))
@@ -91,8 +94,26 @@ it('says each program failed where its child cannot start, is given no time or r
 })->with([
     'no PHP there' => [sprintf('%s/no-such-php', __DIR__), 30.0],
     'no time at all' => [PHP_BINARY, -1.0],
-    'no time to compile' => [PHP_BINARY, 0.001],
 ]);
+
+it('stops a child that runs past its time, and says each of its programs failed', function (): void {
+    $compiler = new Compiler(sleepingChild(), sprintf('%s/equivalence', Scratch::directory()), 0.2, 1);
+    $started = hrtime(as_number: true);
+
+    expect($compiler->compiled(['one' => Contents::of(COMPILED_PROGRAM), 'two' => Contents::of(COMPILED_PROGRAM)]))
+        ->toBe(['one' => Uncompiled::Failed, 'two' => Uncompiled::Failed])
+        ->and((hrtime(as_number: true) - $started) / 1e9)->toBeLessThan(SLEEPING_CHILD_SECONDS / 2);
+});
+
+/** A child that is still running long after any time a test gives it. */
+function sleepingChild(): string
+{
+    $child = sprintf('%s/sleeping-php', Scratch::directory());
+    file_put_contents($child, sprintf("#!%s\n<?php\nsleep(%d);\n", PHP_BINARY, SLEEPING_CHILD_SECONDS));
+    chmod($child, 0o755);
+
+    return $child;
+}
 
 /** What a child writes to the dump's stream: each of these sections after the marker. */
 function dumpSections(string ...$sections): string
