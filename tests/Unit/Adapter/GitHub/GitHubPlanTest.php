@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
@@ -58,6 +59,18 @@ it('writes a label as it is, slashes and all', function (): void {
         "shards=[{\"id\":1,\"label\":\"src/Http, part 1 of 2 — naïve\"}]\nplan=%s\n",
         PlanListing::inline($plan),
     ));
+});
+
+it('names no unit in its outputs, which the plan file carries, so a plan of any size fits the 1 MB GitHub takes', function (): void {
+    $units = array_map(static fn(int $n): Unit => Unit::file(Path::of(sprintf('src/Domain/Billing/Invoices/Unit%05d.php', $n))), range(1, 30_000));
+    $plan = Plan::of(Revision::ref('5eeca8f'), Digest::sha256Of('base'), Keys::none(), Shards::of(
+        Shard::of(ShardId::of(1), Package::at(Path::root()), Units::of(...$units), Seconds::of(1.0), 'src, part 1 of 1'),
+    ));
+    $published = GitHubPlan::in(Variables::of(['GITHUB_OUTPUT' => GITHUB_OUTPUT]))->publish($plan);
+    $text = $published instanceof Publication ? $published->text() : '';
+
+    expect($text)->not->toContain('Unit00001.php')
+        ->and(strlen($text))->toBeLessThan(1_000);
 });
 
 it('hands a matrix nothing to run for a plan with no shards', function (): void {

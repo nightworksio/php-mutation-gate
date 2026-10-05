@@ -77,7 +77,7 @@ it('lists a plan with no shards', function (): void {
     ));
 });
 
-it('lists the plan on one line, slashes and all, for an output that takes one line', function (): void {
+it('lists the plan on one line, slashes and all, without its units, for an output that takes one line', function (): void {
     $plan = Plan::of(Revision::ref('5eeca8f'), Digest::sha256Of('base'), Keys::none(), Shards::of(Shard::of(
         ShardId::of(1),
         Package::at(Path::root()),
@@ -89,6 +89,6 @@ it('lists the plan on one line, slashes and all, for an output that takes one li
     expect(PlanListing::inline($plan))->toBe(sprintf(
         '{"plan":"%s","commit":"5eeca8f","shards":[%s]}',
         $plan->digest()->value(),
-        '{"id":1,"label":"src/Http, part 1 of 1 — naïve","seconds":62,"units":["src/Http/A.php"]}',
+        '{"id":1,"label":"src/Http, part 1 of 1 — naïve","seconds":62}',
     ));
 });
