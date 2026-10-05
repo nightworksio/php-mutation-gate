@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell as PestShell;
 use NightWorksIO\MutationGate\Adapter\Pest\Project as PestProject;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
@@ -56,7 +57,7 @@ function bridgedPest(): Runner
     $root = Tree::at(Library::DIRECTORY);
     $project = PestProject::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('vendor'));
 
-    return new Pest($project, new PestShell($root), Patching::off(), new CapDirectory(), bridges: PestBridges::to(contractMutators()));
+    return new Pest($project, new PestShell($root), Patching::off(), new CapDirectory(), Triage::standard()->limit(), bridges: PestBridges::to(contractMutators()));
 }
 
 /** The Infection adapter over its installed library, with the bridge to PlusToTimes. */

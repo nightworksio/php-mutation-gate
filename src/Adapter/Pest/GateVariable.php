@@ -19,8 +19,11 @@ enum GateVariable: string
     /** The coverage map another job handed over, which a patched shard's opening run reads. */
     case SharedCoverage = 'MUTATION_GATE_SHARED_COVERAGE';
 
-    /** The seconds the whole suite took, one test after another, which a patched shard times mutants by. */
+    /** The whole suite's seconds, one test after another, which Pest's own limit is worked out from. */
     case SuiteSeconds = 'MUTATION_GATE_SUITE_SECONDS';
+
+    /** The most a patched run allows one mutant: `timeouts.seconds`, or a retry's raised limit (see MutantTime). */
+    case MutantCap = 'MUTATION_GATE_MUTANT_CAP';
 
     /** The canary group a patched shard's opening run is. */
     case Canary = 'MUTATION_GATE_CANARY';

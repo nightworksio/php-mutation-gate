@@ -9,7 +9,6 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
-use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -38,8 +37,6 @@ it('says a run was stopped at its limit, or that its exit code is not known', fu
 
     expect(Evidence::of(Ran::stopped(''), Seconds::of(90.0), NotGiven::value(), $tests)->text())
         ->toBe('stopped at its limit of 1m30s; ran tests/A.php')
-        ->and(Evidence::of(Ran::stopped(''), Unmeasured::duration(), NotGiven::value(), $tests)->text())
-        ->toBe('no exit code; ran tests/A.php')
         ->and(Evidence::of(Ran::finished(succeeded: false, output: ''), Seconds::of(6.0), NotGiven::value(), $tests)->text())
         ->toBe('no exit code; ran tests/A.php');
 });

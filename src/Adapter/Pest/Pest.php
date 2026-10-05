@@ -85,6 +85,7 @@ final readonly class Pest implements Runner
         private Shell $shell,
         private Patching $patching,
         private CapFiles $files,
+        private Seconds $cap,
         private Clock $clock = new WallClock(),
         private Bridges $bridges = new Bridges(),
     ) {
@@ -112,6 +113,7 @@ final readonly class Pest implements Runner
             new ProcessShell($project->root()),
             $read->patching(),
             $files,
+            $read->timeout(),
             bridges: $read->bridges(),
         );
     }
@@ -134,22 +136,22 @@ final readonly class Pest implements Runner
     }
 
     /**
-     * Pest's plugin reads each `#[Holds]` as its test files load, and Pest's
-     * limit cannot be raised. Patched, every shard opens on the canary group,
-     * whose test files every key then reads; unpatched, each shard pays a full
-     * opening run under coverage. It runs a mutant per core, and its tests are
-     * Pest's closures.
+     * Pest's plugin reads each `#[Holds]` as its test files load. Patched, a
+     * timeout's limit can be raised, and every shard opens on the canary
+     * group, whose test files every key then reads; unpatched, Pest's limit
+     * cannot be raised, and each shard pays a full opening run under
+     * coverage. It runs a mutant per core, and its tests are Pest's closures.
      */
     public function behaviour(): RunnerBehaviour
     {
         $canary = $this->patching->canary();
         $pest = RunnerBehaviour::standard()
             ->holdingAsLoaded()
-            ->raisingNoLimit()
             ->runningPerCore()
             ->writingTestsIn(AssertionStyle::Pest);
+        $limited = $this->patching->isOn() ? $pest : $pest->raisingNoLimit();
 
-        return $canary instanceof Group ? $pest->readingInEveryKey($canary) : $pest->openingEachShard();
+        return $canary instanceof Group ? $limited->readingInEveryKey($canary) : $limited->openingEachShard();
     }
 
     /** The groups the suite lists, listed once for each set of variables withheld. */
@@ -234,9 +236,8 @@ final readonly class Pest implements Runner
      * so a patched shard opens on the canary group, not the whole suite
      * under coverage. Patched, the run makes only these mutants; unpatched,
      * every mutant of their files and mutators, and each asked for is
-     * matched back by Pest's id and handed back under the gate's. Pest
-     * allows each mutant its own time,
-     * so no limit is laid on the run.
+     * matched back by Pest's id and handed back under the gate's. Patched,
+     * each mutant is allowed its limit under this cap; unpatched, Pest's own.
      */
     public function retry(MutationRequest $request, Mutants $mutants, Seconds $limit): Mutants|CannotJudge
     {
@@ -255,6 +256,7 @@ final readonly class Pest implements Runner
         }
 
         $result = $this->run($this->shell)
+            ->cappedAt($limit)
             ->only(...$natives)
             ->of($request->narrowedTo(
                 Paths::of(...array_values($files)),
@@ -278,8 +280,8 @@ final readonly class Pest implements Runner
 
     /**
      * One mutant run again on its own: the request narrowed to its file with
-     * only its mutator, with what Pest printed. Pest allows each mutant its
-     * own time, so no limit is laid on the run.
+     * only its mutator, with what Pest printed. Patched, it is allowed its
+     * limit under this cap; unpatched, Pest's own.
      */
     public function reproduce(
         Reproducible $mutant,
@@ -288,6 +290,7 @@ final readonly class Pest implements Runner
     ): Reproduction|CannotJudge {
         $shell = Transcribing::over($this->shell);
         $result = $this->run($shell)
+            ->cappedAt($limit)
             ->of($request->narrowedTo(
                 Paths::of($mutant->file()),
                 $request->narrowing()->toMutators(Mutators::named($mutant->mutator())),
@@ -334,6 +337,7 @@ final readonly class Pest implements Runner
                 $this->shell->in($project->root()),
                 $this->patching,
                 $this->files,
+                $this->cap,
                 $this->clock,
                 $this->bridges,
             )
@@ -380,6 +384,7 @@ final readonly class Pest implements Runner
             $this->patching,
             $this->remembered,
             $this->groups(...),
+            $this->cap,
             clock: $this->clock,
             bridges: $this->bridges,
         );

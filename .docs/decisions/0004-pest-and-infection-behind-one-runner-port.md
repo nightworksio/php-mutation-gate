@@ -115,7 +115,7 @@ its parser attributes. Both change when the checkout moves.
    | Method | Returns |
    |--------|---------|
    | `identity()` | The runner's name, the exact installed version of every package it drives, and a digest of the PHP it runs on, as that PHP describes itself when started the way the runner starts it, without the variables withheld: version, extensions and their versions, every ini setting except the inert ones (ADR-0007), operating system family and architecture. All of these go into the content key (ADR-0007). |
-   | `behaviour()` | How the runner behaves where the flows must know it, as a `RunnerBehaviour`: whether it reads `#[Holds]` as its test files load, whether a timeout's limit can be raised, the groups every proof key reads, whether each shard pays its own opening run, why a kill matrix of its run holds first killers only, and whether it runs a mutant per core or one at a time. `RunnerBehaviour::standard()` where it does none of these differently; Pest reads holds as they load and raises no limit, and patched, every key reads its canary, while unpatched, each shard opens on its own run; Infection stops each mutant at its first failing test, so it cannot record every killer; both run a mutant per core |
+   | `behaviour()` | How the runner behaves where the flows must know it, as a `RunnerBehaviour`: whether it reads `#[Holds]` as its test files load, whether a timeout's limit can be raised, the groups every proof key reads, whether each shard pays its own opening run, why a kill matrix of its run holds first killers only, and whether it runs a mutant per core or one at a time. `RunnerBehaviour::standard()` where it does none of these differently; Pest reads holds as they load; patched, it raises a limit and every key reads its canary, while unpatched, it raises none and each shard opens on its own run; Infection stops each mutant at its first failing test, so it cannot record every killer; both run a mutant per core |
    | `groups()` | The suite's groups, as the runner itself lists them |
    | `coverage(CoverageRun\|CoverageRead)` | A per-test line map of the whole suite, one group, the tests a filter names or the tests of some test files, plus each test's duration: by running them for a `CoverageRun`, or by reading the gate's own map another job wrote for a `CoverageRead` |
    | `testsIn(files, map)` | The tests of a map that these test files hold, by the runner's own rules for naming a test after its file: the entries a run of those files measures again (ADR-0023, decision 3). A test the runner cannot place in a file is not among them |
@@ -360,6 +360,11 @@ its parser attributes. Both change when the checkout moves.
        test its run loads. That can only kill more mutants, never fewer.
      - A run again makes only the mutants whose native ids a file beside the
        results lists.
+     - Each mutant is allowed the standard mutant limit (ADR-0008, decision
+       2): 5 s plus five times its covering tests' own time, as the map Pest
+       loaded timed them, and never more than `timeouts.seconds`, which the
+       gate names. The patched plugin records each mutant's limit in the
+       results file.
      - A mutant's own run loads only the test files its covering tests need:
        the file that declares each covering test's class, and every test file
        Pest's parent process loaded that declares a name those use, in turn.
@@ -414,9 +419,10 @@ its parser attributes. Both change when the checkout moves.
      judge*. Without patching, every shard runs its own opening suite, and a
      line past the filter limit is *cannot judge* with a message pointing at
      the patch.
-   - **Timeouts** are Pest's own and cannot be changed, so timeout triage for
-     Pest does not rerun anything. It compares the judging tests' own time
-     with the limit (ADR-0008).
+   - **Timeouts**, unpatched, are Pest's own and cannot be changed, so timeout
+     triage reruns nothing. Patched, each mutant's limit is the standard one,
+     and a timeout at the cap runs again with the cap raised. Either way,
+     triage compares the judging tests' own time with the limit (ADR-0008).
 
 4. **The Infection adapter** (`infection/infection` ~0.35.0, with PHPUnit 12
    or 13).
@@ -730,9 +736,10 @@ its parser attributes. Both change when the checkout moves.
      3. For each mutant, one at a time, the gate runs
         `<vendor>/pestphp/pest/bin/pest --no-tia --bail --colors=never` over
         the selected test files, with `--group=holds:<path>` for a held unit,
-        from the project root, within Pest's own limit, withholding what the
-        request withholds, with the two variables and `MUTATION_GATE_GUARD`
-        set.
+        from the project root, within 5 s plus five times the own time of the
+        selected files' tests, as the map timed them, and never more than
+        `timeouts.seconds`, withholding what the request withholds, with the
+        two variables and `MUTATION_GATE_GUARD` set.
      4. A failing run kills the mutant, and a passing run leaves it alive for
         the fallback above. A run stopped at the limit times the mutant out.
         A missing mutated file makes it unjudged, *mutated file missing*,

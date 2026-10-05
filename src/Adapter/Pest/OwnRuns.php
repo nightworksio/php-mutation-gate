@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\WrittenBytes;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
  * What the mutants' own processes of one Pest run recorded, each line kept
@@ -37,6 +38,9 @@ final class OwnRuns
     /** @var array<string, list<string>> the test files each narrowed own run loaded, by the mutated copy it ran on */
     private array $narrowed = [];
 
+    /** @var array<string, float> the seconds a patched run allowed each own run, by the mutated copy it ran on */
+    private array $limited = [];
+
     /** @var array<string, int> how many tests the own runs on each mutated copy ran, together, by the copy */
     private array $ran = [];
 
@@ -51,6 +55,12 @@ final class OwnRuns
             array_key_exists($mutated, $this->preloaded),
             array_key_exists($mutated, $this->ran) ? $this->ran[$mutated] : NotGiven::value(),
         );
+    }
+
+    /** The seconds a patched run allowed the own runs on this mutated copy, where it recorded them. */
+    public function limitOf(string $mutated): Seconds|NotGiven
+    {
+        return array_key_exists($mutated, $this->limited) ? Seconds::of($this->limited[$mutated]) : NotGiven::value();
     }
 
     /**
@@ -86,6 +96,18 @@ final class OwnRuns
     public function preloaded(Node $record): void
     {
         $this->preloaded[$this->mutatedIn($record)] = true;
+    }
+
+    /** @throws NotInShape */
+    public function limited(Node $record): void
+    {
+        $seconds = $record->field(RecordField::Seconds->value);
+
+        if ($seconds->number() <= 0.0) {
+            throw NotInShape::at($seconds->at(), 'a number of seconds above 0');
+        }
+
+        $this->limited[$this->mutatedIn($record)] = $seconds->number();
     }
 
     /** @throws NotInShape */

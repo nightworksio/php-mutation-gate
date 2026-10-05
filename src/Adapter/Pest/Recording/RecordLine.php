@@ -101,6 +101,16 @@ final readonly class RecordLine
         ]);
     }
 
+    /** The seconds a patched run allowed the own process of the mutant Pest serves this mutated copy for. */
+    public static function limited(string $mutated, float $seconds): string
+    {
+        return self::line([
+            RecordField::Event->value => RecordEvent::Limited->value,
+            RecordField::Mutated->value => $mutated,
+            RecordField::Seconds->value => $seconds,
+        ]);
+    }
+
     /**
      * That the own process of the mutant Pest serves this mutated copy for had
      * loaded the original file before the mutant was in its place.

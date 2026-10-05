@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\MutantTime;
 use NightWorksIO\MutationGate\Adapter\Pest\OnlyList;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -42,7 +43,14 @@ it('patches the three files, leaving each one PHP', function () use ($vendor, $s
             OnlyList::class,
         ))
         ->and($source($at, 'Tester/MutationTestRunner.php'))
-        ->toContain("if (\$only !== [] && ! isset(\$only[\$mutation->id])) {\n");
+        ->toContain("if (\$only !== [] && ! isset(\$only[\$mutation->id])) {\n")
+        ->and($source($at, 'Tester/MutationTestRunner.php'))
+        ->toContain(sprintf("\\%s::remember(\$loadedCoverage);\n", MutantTime::class))
+        ->and($source($at, 'MutationTest.php'))
+        ->toContain(sprintf(
+            "? \\%s::of(\$covering, \$this->mutation->modifiedSourcePath, \$this->calculateTimeout())\n",
+            MutantTime::class,
+        ));
 
     foreach (MutatePlugin::FILES as $file) {
         $lint = new Process([PHP_BINARY, '-l', sprintf('%s/pestphp/pest-plugin-mutate/src/%s', $at, $file)]);
@@ -175,5 +183,5 @@ it('marks every hunk it writes, one mark to a hunk, so another version\'s are fo
         MutatePlugin::FILES,
     ));
 
-    expect($marks)->toBe(7);
+    expect($marks)->toBe(9);
 });

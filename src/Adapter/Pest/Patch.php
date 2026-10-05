@@ -38,8 +38,10 @@ use function str_replace;
  * - A mutant's `--filter` too long to start a process with is dropped, so the
  *   mutant runs every test its run loads, which can only kill more mutants.
  * - Given a coverage map another job wrote, the opening run is the canary
- *   group alone, the map is copied in place of the one that run wrote, and
- *   Pest times its mutants by the seconds the whole suite took.
+ *   group alone, and the map is copied in place of the one that run wrote.
+ * - Each mutant is allowed the standard mutant limit of its covering tests'
+ *   own time, under the cap the gate names (see MutantTime), not the time
+ *   of the whole suite.
  * - Given a list of native ids (see OnlyList), a run makes only those mutants.
  * - Where the gate narrows a run, a mutant's own run loads only the test files
  *   its covering tests need (see CoveringFiles), not every test file, and the
@@ -115,6 +117,30 @@ final readonly class Patch
                     $telemetry = Container::getInstance()->get(TelemetryRepository::class);
                     $telemetry->initialTestSuiteDuration($seconds);
                 }
+        PHP;
+
+    private const string TIMES_SHIPS = <<<'PHP'
+                $loadedCoverage = require $reportPath;
+        PHP;
+
+    private const string TIMES_BECOMES = <<<'PHP'
+                $loadedCoverage = require $reportPath;
+
+                {MARK} each test's seconds, as the map Pest loaded timed them, for each mutant's limit.
+                if (class_exists(\%1$s::class) && is_array($loadedCoverage)) {
+                    \%1$s::remember($loadedCoverage);
+                }
+        PHP;
+
+    private const string LIMIT_SHIPS = <<<'PHP'
+                    timeout: $this->calculateTimeout(),
+        PHP;
+
+    private const string LIMIT_BECOMES = <<<'PHP'
+                    {MARK} the standard limit of the covering tests' own time, under the gate's cap.
+                    timeout: class_exists(\%1$s::class)
+                        ? \%1$s::of($covering, $this->mutation->modifiedSourcePath, $this->calculateTimeout())
+                        : $this->calculateTimeout(),
         PHP;
 
     private const string ONLY_SHIPS = <<<'PHP'
@@ -363,6 +389,7 @@ final readonly class Patch
             self::hunk('MutationTest.php', self::FILTER_SHIPS, sprintf(self::FILTER_BECOMES, Ceiling::BYTES)),
             self::hunk('MutationTest.php', self::COVERING_SHIPS, self::COVERING_BECOMES),
             self::hunk('MutationTest.php', self::PATHS_SHIPS, sprintf(self::PATHS_BECOMES, CoveringFiles::class)),
+            self::hunk('MutationTest.php', self::LIMIT_SHIPS, sprintf(self::LIMIT_BECOMES, MutantTime::class)),
             self::hunk(
                 'Plugins/Mutate.php',
                 self::CANARY_SHIPS,
@@ -372,6 +399,11 @@ final readonly class Patch
                 'Tester/MutationTestRunner.php',
                 self::MAP_SHIPS,
                 sprintf(self::MAP_BECOMES, GateVariable::SharedCoverage->value, GateVariable::SuiteSeconds->value),
+            ),
+            self::hunk(
+                'Tester/MutationTestRunner.php',
+                self::TIMES_SHIPS,
+                sprintf(self::TIMES_BECOMES, MutantTime::class),
             ),
             self::hunk(
                 'Tester/MutationTestRunner.php',

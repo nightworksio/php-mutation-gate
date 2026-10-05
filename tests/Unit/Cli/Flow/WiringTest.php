@@ -605,7 +605,7 @@ it('tells the PHPUnit runner no mutator where no extension registers the default
         ->toEqual(CannotJudge::because('The phpunit runner makes its mutants with the default mutator set, and no extension registers one.'));
 });
 
-it('tells each runner the classes of the registered mutators the config turns on: Pest and Infection beside their own, the PHPUnit runner beside the default set\'s', function (): void {
+it('tells each runner timeouts.seconds and the classes of the registered mutators the config turns on: Pest and Infection beside their own, the PHPUnit runner beside the default set\'s', function (): void {
     $registry = new DefaultExtension()->extend(wiringRegistry())
         ->withMutators(Name::of('acme'), MutatorSet::of(PlusToMinus::class, RemoveEcho::class));
     $default = $registry->registered(ExtensionPoint::MutatorSet, MutatorSet::defaultName());
@@ -619,7 +619,7 @@ it('tells each runner the classes of the registered mutators the config turns on
     $native = [...$default instanceof MutatorSet ? $default : [], PlusToMinus::class];
 
     expect($pest instanceof Adapters ? $pest->runner : $pest)->toEqual(PestRunner::fromOptions(
-        Configs::options((string) json_encode(['mutators' => [PlusToMinus::class]])),
+        Configs::options((string) json_encode(['timeout' => 45.0, 'mutators' => [PlusToMinus::class]])),
         ComposerVendor::of('.'),
         new CapDirectory(),
     ))

@@ -12,10 +12,12 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Pest as ConfigPest;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestsDirectory;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 
 /**
@@ -31,14 +33,21 @@ final readonly class PestOptions
     /** The option that holds the registered mutators' classes, which the flows write. */
     public const string MUTATORS = 'mutators';
 
+    /** The option that holds `timeouts.seconds`, which the flows write. */
+    public const string TIMEOUT = 'timeout';
+
     private const string PATCH = 'patch';
 
     private const string CANARY = 'canary';
 
     private const string TESTS = 'tests';
 
-    private function __construct(private Patching $patching, private Paths $tests, private Bridges $bridges)
-    {
+    private function __construct(
+        private Patching $patching,
+        private Paths $tests,
+        private Bridges $bridges,
+        private Seconds $timeout,
+    ) {
     }
 
     public static function read(Options $options): self|Invalid
@@ -47,12 +56,14 @@ final readonly class PestOptions
         $canary = $options->text(Key::of(self::CANARY));
         $tests = $options->paths(Key::of(self::TESTS));
         $mutators = $options->texts(Key::of(self::MUTATORS));
+        $timeout = $options->number(Key::of(self::TIMEOUT));
 
         return match (true) {
             $patch instanceof Problem => Invalid::because($patch),
             $canary instanceof Problem => Invalid::because($canary),
             $tests instanceof Problem => Invalid::because($tests),
             $mutators instanceof Problem => Invalid::because($mutators),
+            $timeout instanceof Problem => Invalid::because($timeout),
             default => new self(
                 $patch === true
                     ? Patching::on(
@@ -61,6 +72,7 @@ final readonly class PestOptions
                     : Patching::off(),
                 $tests instanceof NotGiven ? Paths::of(TestsDirectory::conventional()) : $tests,
                 self::bridgesTo($mutators instanceof Listed ? [...$mutators] : []),
+                $timeout instanceof NotGiven ? Triage::standard()->limit() : Seconds::of($timeout),
             ),
         };
     }
@@ -73,6 +85,12 @@ final readonly class PestOptions
     public function tests(): Paths
     {
         return $this->tests;
+    }
+
+    /** `timeouts.seconds`: the most a mutant's run is allowed, which a patched run and every trial run keep to. */
+    public function timeout(): Seconds
+    {
+        return $this->timeout;
     }
 
     /** The bridges to the registered mutators the options name, or why Pest cannot make mutants with one. */

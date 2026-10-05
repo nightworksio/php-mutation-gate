@@ -82,6 +82,7 @@ final readonly class MutationRun
         private Patching $patching,
         private Remembered $remembered,
         private Closure $groups,
+        private Seconds $cap,
         private array $only = [],
         private Clock $clock = new WallClock(),
         private bool $whole = false,
@@ -97,6 +98,15 @@ final readonly class MutationRun
     public function only(string ...$nativeIds): self
     {
         return clone($this, ['only' => array_values($nativeIds)]);
+    }
+
+    /**
+     * This run, in which a patched run allows no mutant more than this long:
+     * `timeouts.seconds`, or the raised limit of a retry.
+     */
+    public function cappedAt(Seconds $cap): self
+    {
+        return clone($this, ['cap' => $cap]);
     }
 
     /**
@@ -163,7 +173,7 @@ final readonly class MutationRun
             GateVariable::Only->value => OnlyList::write(OnlyList::beside($results), ...$this->only),
         ];
         $narrow = $this->narrows() ? [GateVariable::Narrow->value => '1'] : [];
-        $ran = $this->shell->run($command->with([...$only, ...$narrow]));
+        $ran = $this->shell->run($command->with([...$only, ...$narrow, ...$this->patching->capping($this->cap)]));
         $scan->remove();
         $coverage = $shared instanceof CoverageMap
             ? new HandedOver($shared, $this->project)
@@ -179,7 +189,8 @@ final readonly class MutationRun
 
         return $reads instanceof CannotJudge
             ? $reads
-            : new Judging($this->project, $this->shell, $this->files)->of($result, $request, $results, $reads);
+            : new Judging($this->project, $this->shell, $this->files, $this->cap)
+                ->of($result, $request, $results, $reads);
     }
 
     /** Whether each mutant's own run loads only the test files its covering tests need. */

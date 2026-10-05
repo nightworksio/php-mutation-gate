@@ -14,7 +14,6 @@ use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
-use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 use function sprintf;
 use function trim;
@@ -47,7 +46,7 @@ final readonly class Evidence
 
     private function __construct(
         private Ran $ran,
-        private Seconds|Unmeasured $limit,
+        private Seconds $limit,
         private FailedFirst|NotGiven $failed,
         private Paths $tests,
     ) {
@@ -57,7 +56,7 @@ final readonly class Evidence
      * @param FailedFirst|NotGiven $failed the first test that failed, or none
      * @param Paths               $tests  the test files the run ran
      */
-    public static function of(Ran $ran, Seconds|Unmeasured $limit, FailedFirst|NotGiven $failed, Paths $tests): self
+    public static function of(Ran $ran, Seconds $limit, FailedFirst|NotGiven $failed, Paths $tests): self
     {
         return new self($ran, $limit, $failed, $tests);
     }
@@ -70,10 +69,9 @@ final readonly class Evidence
     private function ending(): string
     {
         $code = $this->ran->exitCode();
-        $stopped = $this->ran->wasStopped() && $this->limit instanceof Seconds;
 
         return match (true) {
-            $stopped => sprintf(self::STOPPED, $this->limit->written()),
+            $this->ran->wasStopped() => sprintf(self::STOPPED, $this->limit->written()),
             $code instanceof NotGiven => self::UNREAD,
             default => sprintf(self::EXITED, $code),
         };

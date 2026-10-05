@@ -57,7 +57,7 @@ it('adds up the seconds of the tests it timed', function (): void {
         ->and(SharedCoverage::seconds(CoverageMap::of(CoveredLine::of(Path::of('a.php'), 3, 'T::t'))))->toBe(0.0);
 });
 
-it('writes a map as --coverage-php writes one, which reads back as the same map, a line only a nameless test ran as one none ran', function (): void {
+it('writes a map as --coverage-php writes one, which reads back as the same map, a line only a nameless test ran as one none ran, and a test it did not time untimed', function (): void {
     $at = sharedProject();
     $target = sprintf('%s/shared.coverage.php', $at->root());
     $untimed = sharedMap()->covered(Path::of('src/Money.php'), Line::of(14), TestId::of(''))
@@ -74,7 +74,6 @@ it('writes a map as --coverage-php writes one, which reads back as the same map,
     )->timedEach(
         TimedTest::of('MoneyTest::adds', 0.25),
         TimedTest::of('MoneyTest::subtracts', 0.5),
-        TimedTest::of('TaxTest::rates', 0.0),
     ))->and($read instanceof CoverageFile ? $read->seconds() : 0.0)->toBe(0.75);
 });
 
