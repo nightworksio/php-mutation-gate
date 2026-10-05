@@ -76,7 +76,6 @@ final readonly class ContentKeys
         private Tests $tests,
         private Digest $mutation,
         private Fingerprints $code,
-        private Digest $coverage,
     ) {
     }
 
@@ -93,8 +92,6 @@ final readonly class ContentKeys
         $context = Digest::hashing();
         self::hashMutationReads($context, $gate, $config, $runner, $analyser, $installed);
         $mutation = hash_copy($context);
-        $coverage = hash_copy($context);
-        self::hashCoverageReadsIn($coverage, $source);
         hash_update($mutation, self::framed('definitions'));
         self::hashFingerprintsIn($mutation, $source->definitions());
         hash_update($mutation, self::testFiles('always', $tests->inEveryKey(), $tests));
@@ -106,8 +103,31 @@ final readonly class ContentKeys
             $tests,
             Digest::finished($mutation),
             $source->outside(),
-            Digest::finished($coverage),
         );
+    }
+
+    /**
+     * What every coverage entry's key reads (ADR-0023, decision 1): the first
+     * five inputs, the files that define the runner, every file outside the
+     * test directories that is no PHP source, and every CI definition that
+     * runs the gate. A source file is read by the entries that execute it or
+     * name it, not by every entry.
+     *
+     * @param string $config the settings that affect results, as their canonical form writes them (ADR-0007)
+     */
+    public static function coverageBaseOf(
+        Version $gate,
+        string $config,
+        Identity $runner,
+        AnalyserIdentity|NoAnalyser $analyser,
+        Digest $installed,
+        Source $source,
+    ): Digest {
+        $context = Digest::hashing();
+        self::hashMutationReads($context, $gate, $config, $runner, $analyser, $installed);
+        self::hashCoverageReadsIn($context, $source);
+
+        return Digest::finished($context);
     }
 
     /**
@@ -132,18 +152,6 @@ final readonly class ContentKeys
         }
 
         return $digests;
-    }
-
-    /**
-     * What every coverage entry's key reads (ADR-0023, decision 1): the first
-     * five inputs, the files that define the runner, every file outside the
-     * test directories that is no PHP source, and every CI definition that
-     * runs the gate. A source file is read by the entries that execute it or
-     * name it, not by every entry.
-     */
-    public function coverageBase(): Digest
-    {
-        return $this->coverage;
     }
 
     /**

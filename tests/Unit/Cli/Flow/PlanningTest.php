@@ -18,10 +18,12 @@ use NightWorksIO\MutationGate\Core\Cost\CostBasis;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
+use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
 use NightWorksIO\MutationGate\Core\Coverage\KeptMap;
 use NightWorksIO\MutationGate\Core\Coverage\MapLimits;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
@@ -44,6 +46,7 @@ use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
@@ -882,4 +885,18 @@ it('takes the digests at no commit where HEAD moved while the plan was made', fu
 
     expect($planned instanceof Plan ? $planned->commit() : $planned)->toEqual(Revision::ref(Flows::HEAD))
         ->and($digests instanceof Digests ? $digests->commit() : $digests)->toEqual(Uncommitted::tree());
+});
+
+it('keys the project\'s coverage entries once a plan, for measuring against the kept map and for the map it hands on', function () use (
+    $plan,
+): void {
+    $store = new ProofStoreFake();
+    $kept = CoverageMapFile::encode(Flows::map(), MeasuredAt::of(Revision::ref(Flows::HEAD), dirty: false), EntryKeys::none());
+    $store->keep(Scope::branch('main'), Companion::Coverage, Contents::of($kept));
+    $runner = ScriptedRunner::fixture();
+
+    $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $runner, $store);
+
+    expect($planned)->toBeInstanceOf(Plan::class)
+        ->and($runner->identified())->toHaveCount(2);
 });

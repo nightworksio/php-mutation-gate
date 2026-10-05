@@ -132,27 +132,31 @@ function contentKeyOf(
         $drives = $drives->with(Version::of($version[0], $version[1], $version[2]));
     }
 
-    $keys = ContentKeys::of(
-        Version::of('nightworksio/mutation-gate', $gateVersion, $gateReference),
-        $config,
-        Identity::of($runner, $drives, Digest::of($platform)),
-        $analyser === [] ? NoAnalyser::configured() : AnalyserIdentity::of($analyser[0], $analyser[1], Digest::of($analyser[2])),
-        Digest::of($installed),
-        Source::of(
-            $outside,
-            $template === ''
-                ? CiDefinitions::of(CiDefinition::at(Path::of('.github/workflows/mutation.yml'), Contents::of($ci)))
-                : CiDefinitions::of(
-                    CiDefinition::at(Path::of('.github/workflows/mutation.yml'), Contents::of($ci)),
-                    CiDefinition::at(Path::of('.gitlab/template.yml'), Contents::of($template)),
-                ),
-            Exceptions::of(Path::of('mutation-gate.json'), Path::of('mutation-gate-baseline.json'), Ignored::globs('docs/**'), Paths::none()),
-        ),
-        Tests::of(TestFiles::of(...$files), contentKeyPaths($known), contentKeyPaths($canaries)),
+    $gate = Version::of('nightworksio/mutation-gate', $gateVersion, $gateReference);
+    $identity = Identity::of($runner, $drives, Digest::of($platform));
+    $analysed = $analyser === [] ? NoAnalyser::configured() : AnalyserIdentity::of($analyser[0], $analyser[1], Digest::of($analyser[2]));
+    $read = Source::of(
+        $outside,
+        $template === ''
+            ? CiDefinitions::of(CiDefinition::at(Path::of('.github/workflows/mutation.yml'), Contents::of($ci)))
+            : CiDefinitions::of(
+                CiDefinition::at(Path::of('.github/workflows/mutation.yml'), Contents::of($ci)),
+                CiDefinition::at(Path::of('.gitlab/template.yml'), Contents::of($template)),
+            ),
+        Exceptions::of(Path::of('mutation-gate.json'), Path::of('mutation-gate-baseline.json'), Ignored::globs('docs/**'), Paths::none()),
     );
+
     return $coverageBase
-        ? $keys->coverageBase()
-        : $keys->keyOf(contentKeyUnit($unit, $group, $filter), contentKeyJudges($judges), $coverage);
+        ? ContentKeys::coverageBaseOf($gate, $config, $identity, $analysed, Digest::of($installed), $read)
+        : ContentKeys::of(
+            $gate,
+            $config,
+            $identity,
+            $analysed,
+            Digest::of($installed),
+            $read,
+            Tests::of(TestFiles::of(...$files), contentKeyPaths($known), contentKeyPaths($canaries)),
+        )->keyOf(contentKeyUnit($unit, $group, $filter), contentKeyJudges($judges), $coverage);
 }
 
 /**

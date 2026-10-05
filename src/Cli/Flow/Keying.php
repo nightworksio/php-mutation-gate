@@ -79,10 +79,31 @@ final readonly class Keying
             : CannotJudge::because('The content key could not be built.');
     }
 
-    /** What every coverage entry's key reads (ADR-0023, decision 1). */
-    public function coverageBase(): Digest
-    {
-        return $this->keys->coverageBase();
+    /**
+     * What every coverage entry's key reads (ADR-0023, decision 1), as the
+     * project stands; or why it cannot be read.
+     */
+    public static function coverageBaseOf(
+        Adapters $adapters,
+        Settings $settings,
+        Setup $setup,
+        Suite $suite,
+    ): Digest|CannotJudge {
+        $identity = $adapters->runner->identity($adapters->withheld);
+        $definitions = self::definitions($adapters);
+
+        return match (true) {
+            $identity instanceof CannotJudge => $identity,
+            $definitions instanceof CannotJudge => $definitions,
+            default => ContentKeys::coverageBaseOf(
+                $setup->gate,
+                self::config($settings, $adapters->narrowing),
+                $identity,
+                self::analyser($adapters),
+                $setup->installed,
+                Source::of($suite->outside(), $definitions, self::exceptions($adapters, $settings, $setup)),
+            ),
+        };
     }
 
     /** The base every key of the run is built on. */

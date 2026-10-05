@@ -104,13 +104,33 @@ final readonly class KeptCoverage
      * brought up to date and written where the run reads it, or the whole
      * suite, with the line that says which.
      */
-    public function measuring(Inventory $inventory, KeptMap|Missing|CannotJudge $kept, bool $ownMap): CoverageMeasured
-    {
+    public function measuring(
+        CoverageEntries|CannotJudge|NotGiven $entries,
+        KeptMap|Missing|CannotJudge $kept,
+        bool $ownMap,
+    ): CoverageMeasured {
         $usable = $this->usable($kept, $ownMap);
 
-        return $usable instanceof KeptMap
-            ? $this->updated($inventory, $usable, $ownMap ? self::LAST_ROUND : self::DEFAULT_BRANCH)
-            : $this->every($usable);
+        return match (true) {
+            ! $usable instanceof KeptMap => $this->every($usable),
+            $entries instanceof CannotJudge => $this->every(sprintf(self::UNREAD, $entries->why())),
+            $entries instanceof NotGiven => $this->every(sprintf(self::EVERY, self::OFF)),
+            default => $this->updated($entries, $usable, $ownMap ? self::LAST_ROUND : self::DEFAULT_BRANCH),
+        };
+    }
+
+    /**
+     * The entries of the project's test files, keyed as it stands, which a
+     * run measures against the kept map and keys its own map by; none where
+     * `coverage.incremental` is false; or why they cannot be told.
+     */
+    public function entries(Inventory|CannotJudge $inventory): CoverageEntries|CannotJudge|NotGiven
+    {
+        return match (true) {
+            ! $this->settings->proofs()->incrementalCoverage() => NotGiven::value(),
+            $inventory instanceof CannotJudge => $inventory,
+            default => CoverageEntries::of($this->adapters, $this->settings, $this->setup, $inventory),
+        };
     }
 
     /**
@@ -121,6 +141,7 @@ final readonly class KeptCoverage
      */
     public function forRun(
         Inventory|CannotJudge $inventory,
+        CoverageEntries|CannotJudge|NotGiven $entries,
         CoverageRun|CoverageRead $asked,
         bool $ownMap,
     ): CoverageMeasured {
@@ -139,20 +160,17 @@ final readonly class KeptCoverage
         );
         $kept = $ownMap ? $this->fromWorkspace() : self::fromStore($this->adapters->proofs, $access);
 
-        return $this->measuring($inventory, $kept, $ownMap);
+        return $this->measuring($entries, $kept, $ownMap);
     }
 
     /**
      * Each test file's entry key over a map, which the map carries for the
-     * verdict to keep; none where `coverage.incremental` is false or the keys
-     * cannot be told, and the next run measures every test.
+     * verdict to keep; none where there are no entries or the keys cannot be
+     * told, and the next run measures every test.
      */
-    public function keysOf(Inventory $inventory, CoverageMap $map): EntryKeys|NotGiven
+    public static function keysOf(CoverageEntries|CannotJudge|NotGiven $entries, CoverageMap $map): EntryKeys|NotGiven
     {
-        $entries = $this->settings->proofs()->incrementalCoverage()
-            ? CoverageEntries::of($this->adapters, $this->settings, $this->setup, $inventory, $map)
-            : NotGiven::value();
-        $keys = $entries instanceof CoverageEntries ? $entries->keysOf($map) : $entries;
+        $keys = $entries instanceof CoverageEntries ? $entries->keysOf($map) : NotGiven::value();
 
         return $keys instanceof CannotJudge ? NotGiven::value() : $keys;
     }
@@ -212,15 +230,14 @@ final readonly class KeptCoverage
     }
 
     /** The kept map with every moved entry measured again; or the whole suite, where that cannot be told. */
-    private function updated(Inventory $inventory, KeptMap $kept, string $from): CoverageMeasured
+    private function updated(CoverageEntries $entries, KeptMap $kept, string $from): CoverageMeasured
     {
-        $entries = CoverageEntries::of($this->adapters, $this->settings, $this->setup, $inventory, $kept->map());
-        $moving = $entries instanceof CoverageEntries ? Moving::of($entries, $kept) : $entries;
+        $moving = Moving::of($entries, $kept);
 
         return match (true) {
             $moving instanceof CannotJudge => $this->every(sprintf(self::UNREAD, $moving->why())),
             ! $moving->placesEvery() => $this->every(sprintf(self::EVERY, self::UNPLACED)),
-            $moving->movesEvery() => $this->every($this->everyMoved($inventory, $kept, $moving, $from)),
+            $moving->movesEvery() => $this->every($this->everyMoved($entries, $kept, $moving, $from)),
             default => $this->merged($kept, $moving, $from),
         };
     }
@@ -263,17 +280,11 @@ final readonly class KeptCoverage
      * change since the kept map's commit names one; or how many test files
      * that is.
      */
-    private function everyMoved(Inventory $inventory, KeptMap $kept, Moving $moving, string $from): string
+    private function everyMoved(CoverageEntries $entries, KeptMap $kept, Moving $moving, string $from): string
     {
         $at = $kept->measuredAt();
         $changes = $at instanceof MeasuredAt ? $this->adapters->changes->changesFrom($at->commit()) : Changes::none();
-        $read = $changes instanceof Changes
-            ? EveryEntryReads::of(
-                $inventory,
-                Keying::exceptions($this->adapters, $this->settings, $this->setup),
-                $this->setup->configFile,
-            )->firstIn($changes)
-            : NotGiven::value();
+        $read = $changes instanceof Changes ? $entries->firstReadByEvery($changes) : NotGiven::value();
 
         return $read instanceof NotGiven
             ? sprintf(self::MEASURED, $moving->total(), $moving->total(), $from)

@@ -63,14 +63,13 @@ final readonly class CoverageCommand
         $adapters = $composed->adapters;
         $inventory = Inventory::of($adapters, $composed->settings);
         $kept = new KeptCoverage($adapters, $composed->settings, $composed->setup);
-        $measured = $kept->forRun($inventory, KeptCoverage::built(), ownMap: false);
+        $entries = $kept->entries($inventory);
+        $measured = $kept->forRun($inventory, $entries, KeptCoverage::built(), ownMap: false);
         $request = $measured->request();
         $map = $adapters->runner->coverage(
             $request instanceof CoverageRun ? $request->withholding($adapters->withheld) : $request,
         );
-        $keys = $map instanceof CoverageMap && $inventory instanceof Inventory
-            ? $kept->keysOf($inventory, $map)
-            : NotGiven::value();
+        $keys = $map instanceof CoverageMap ? KeptCoverage::keysOf($entries, $map) : NotGiven::value();
         $file = CoverageMapFile::in($into);
         $at = Measuring::now($adapters);
         $written = $map instanceof CoverageMap

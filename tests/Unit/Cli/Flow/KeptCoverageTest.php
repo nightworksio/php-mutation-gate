@@ -131,7 +131,7 @@ function keptFlow(array $files, CoverageAsked $runner, Changes $since, Setting .
 function keptMap(CoverageMap $map, MeasuredAt|Unplaced $at): KeptMap
 {
     [$kept, $inventory] = keptFlow(keptFiles(), new CoverageAsked(ScriptedRunner::fixture(), $map), Changes::none());
-    $keys = $inventory instanceof Inventory ? $kept->keysOf($inventory, $map) : $inventory;
+    $keys = $inventory instanceof Inventory ? KeptCoverage::keysOf($kept->entries($inventory), $map) : $inventory;
 
     return KeptMap::of($map, $at, $keys instanceof EntryKeys ? $keys : EntryKeys::none());
 }
@@ -152,7 +152,7 @@ function keptMeasured(
     Changes|NotGiven $since = new NotGiven(),
 ): array|CannotJudge {
     [$kept, $inventory] = keptFlow($files, $runner, $since instanceof Changes ? $since : Changes::none());
-    $measured = $inventory instanceof Inventory ? $kept->measuring($inventory, $map, $ownMap) : $inventory;
+    $measured = $inventory instanceof Inventory ? $kept->measuring($kept->entries($inventory), $map, $ownMap) : $inventory;
 
     return $measured instanceof CoverageMeasured ? [$measured->request(), $measured->said()] : $measured;
 }
@@ -194,7 +194,7 @@ it('measures again only the test files whose entries moved, and writes the kept 
     $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map())->runningFiles(remeasuredMoney());
     [$kept, $inventory, $project] = keptFlow($files, $runner, Changes::none());
     $measured = $inventory instanceof Inventory
-        ? $kept->measuring($inventory, keptMap(Flows::map(), keptAt()), ownMap: false)
+        ? $kept->measuring($kept->entries($inventory), keptMap(Flows::map(), keptAt()), ownMap: false)
         : $inventory;
 
     expect($measured)->toEqual(CoverageMeasured::of(
@@ -215,7 +215,7 @@ it('measures no test where no entry moved, and writes the kept map as measured n
     $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
     [$kept, $inventory, $project] = keptFlow(keptFiles(), $runner, Changes::none());
     $measured = $inventory instanceof Inventory
-        ? $kept->measuring($inventory, keptMap(Flows::map(), keptAt()), ownMap: false)
+        ? $kept->measuring($kept->entries($inventory), keptMap(Flows::map(), keptAt()), ownMap: false)
         : $inventory;
     $written = (string) file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $project));
 
@@ -232,7 +232,7 @@ it('drops the entries of a gone test file, measuring nothing for it', function (
     $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
     [$kept, $inventory, $project] = keptFlow(Flows::FILES, $runner, Changes::none());
     $measured = $inventory instanceof Inventory
-        ? $kept->measuring($inventory, keptMap(Flows::map(), keptAt()), ownMap: false)
+        ? $kept->measuring($kept->entries($inventory), keptMap(Flows::map(), keptAt()), ownMap: false)
         : $inventory;
 
     expect($measured)->toEqual(CoverageMeasured::of(
@@ -297,7 +297,7 @@ it('measures every test where coverage.incremental is false, whatever is kept', 
         Coverage::full(),
     );
     $measured = $inventory instanceof Inventory
-        ? $kept->measuring($inventory, keptMap(Flows::map(), keptAt()), ownMap: false)
+        ? $kept->measuring($kept->entries($inventory), keptMap(Flows::map(), keptAt()), ownMap: false)
         : $inventory;
 
     expect($measured)->toEqual(CoverageMeasured::of(
@@ -365,7 +365,7 @@ it('measures every test where the moved test files cannot be measured, or the ma
     }
 
     $measured = $inventory instanceof Inventory
-        ? $kept->measuring($inventory, keptMap(Flows::map(), keptAt()), ownMap: false)
+        ? $kept->measuring($kept->entries($inventory), keptMap(Flows::map(), keptAt()), ownMap: false)
         : $inventory;
 
     expect($measured)->toEqual(CoverageMeasured::of(KeptCoverage::built(), sprintf($said, $project)));
@@ -395,7 +395,9 @@ it('measures every test where the entries cannot be keyed', function (CoverageAs
 it('measures every test where the project cannot be listed', function (): void {
     [$kept] = keptFlow(keptFiles(), new CoverageAsked(ScriptedRunner::fixture(), Flows::map()), Changes::none());
 
-    expect($kept->forRun(CannotJudge::because('No tree is declared.'), KeptCoverage::built(), ownMap: false))
+    $unlisted = CannotJudge::because('No tree is declared.');
+
+    expect($kept->forRun($unlisted, $kept->entries($unlisted), KeptCoverage::built(), ownMap: false))
         ->toEqual(CoverageMeasured::of(KeptCoverage::built(), 'Coverage: No tree is declared. So every test was measured.'));
 });
 
@@ -434,7 +436,7 @@ it('reads the default branch\'s map where a run asks for the whole suite, and th
     $flow = new KeptCoverage($adapters, Flows::settings(), Flows::setup());
     $inventory = Inventory::of($adapters, Flows::settings());
     $said = static fn(bool $ownMap): string|NotGiven|CannotJudge => $inventory instanceof Inventory
-        ? $flow->forRun($inventory, KeptCoverage::built(), $ownMap)->said()
+        ? $flow->forRun($inventory, $flow->entries($inventory), KeptCoverage::built(), $ownMap)->said()
         : $inventory;
     Scratch::write($project, '.mutation-gate/coverage/map.json.gz', is_string($bytes) ? $bytes : '');
     $lastRound = $said(ownMap: true);
@@ -448,7 +450,7 @@ it('reads the map a run asks to read as it is, saying nothing', function (): voi
     [$kept, $inventory] = keptFlow(keptFiles(), new CoverageAsked(ScriptedRunner::fixture(), Flows::map()), Changes::none());
     $read = CoverageRead::from(Path::of('handed'));
 
-    expect($inventory instanceof Inventory ? $kept->forRun($inventory, $read, ownMap: false) : $inventory)
+    expect($inventory instanceof Inventory ? $kept->forRun($inventory, $kept->entries($inventory), $read, ownMap: false) : $inventory)
         ->toEqual(CoverageMeasured::asked($read));
 });
 
@@ -467,7 +469,7 @@ it('keys each test file\'s entries over a map, and none where coverage.increment
     array|string $keyed,
 ): void {
     [$kept, $inventory] = keptFlow(keptFiles(), $runner, Changes::none(), $coverage);
-    $keys = $inventory instanceof Inventory ? $kept->keysOf($inventory, Flows::map()) : $inventory;
+    $keys = $inventory instanceof Inventory ? KeptCoverage::keysOf($kept->entries($inventory), Flows::map()) : $inventory;
 
     expect($keys instanceof EntryKeys ? array_keys($keys->written()) : $keys::class)->toBe($keyed);
 })->with([
@@ -568,3 +570,35 @@ it('keeps no map where it is not to be kept, saying why', function (
         fn(): ReadsOnly => ReadsOnly::because('The coverage map was measured in a dirty working tree, so it is not kept.'),
     ],
 ]);
+
+it('measures every test where it is given no entries or entries that cannot be told', function (
+    CannotJudge|NotGiven $entries,
+    string $said,
+): void {
+    [$kept] = keptFlow(keptFiles(), new CoverageAsked(ScriptedRunner::fixture(), Flows::map()), Changes::none());
+
+    expect($kept->measuring($entries, keptMap(Flows::map(), keptAt()), ownMap: false))
+        ->toEqual(CoverageMeasured::of(KeptCoverage::built(), $said));
+})->with([
+    'none, as coverage.incremental false gives' => [
+        NotGiven::value(),
+        'Coverage: coverage.incremental is false, so every test was measured.',
+    ],
+    'entries that cannot be told' => [
+        CannotJudge::because('No name.'),
+        'Coverage: No name. So every test was measured.',
+    ],
+]);
+
+it('gives no entries where coverage.incremental is false, and says why where the project cannot be listed', function (): void {
+    [$off, $inventory] = keptFlow(
+        keptFiles(),
+        new CoverageAsked(ScriptedRunner::fixture(), Flows::map()),
+        Changes::none(),
+        Coverage::full(),
+    );
+    [$on] = keptFlow(keptFiles(), new CoverageAsked(ScriptedRunner::fixture(), Flows::map()), Changes::none());
+
+    expect($off->entries($inventory))->toEqual(NotGiven::value())
+        ->and($on->entries(CannotJudge::because('No tree.')))->toEqual(CannotJudge::because('No tree.'));
+});
