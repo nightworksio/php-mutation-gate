@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Verdict\MemoryTriage;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\MutantTriage;
+use NightWorksIO\MutationGate\Tests\Support\Growth;
 
 /** A mutant of `src/Grow.php` with this status, stopped by a cap of this many megabytes, under a suite that held this many. */
 function weighedMutant(MutantStatus $status, int $cap, int $peak): Mutant
@@ -77,4 +78,15 @@ it('triages a mutant out of memory by memory, and a timeout by time', function (
         ->toBe(MutantJudgement::KilledByMemoryCap)
         ->and(MutantTriage::under(TimeoutMode::Confirm)->judged($timedOut))->toBe(MutantJudgement::KilledByTimeout)
         ->and(MutantTriage::under(TimeoutMode::Unjudged)->judged($timedOut))->toBe(MutantJudgement::TooSlowToJudge);
+});
+
+it('weighs mutants in time linear in their number', function (): void {
+    $weighing = static function (int $size): Closure {
+        $mutants = Mutants::of(...array_fill(0, $size, weighedMutant(MutantStatus::OutOfMemory, 512, 0)));
+
+        return static fn(): int => count(MemoryTriage::weighed($mutants, MemoryCap::of(100, MemoryUnit::Megabytes)));
+    };
+
+    expect($weighing(10)())->toBe(10)
+        ->and(Growth::of(1000, $weighing))->toBeLessThan(Growth::LINEAR);
 });

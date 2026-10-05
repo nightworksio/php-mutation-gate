@@ -259,7 +259,7 @@ final readonly class Results
             static fn(array $one, array $other): int
                 => [$one['file'], $one['line']] <=> [$other['file'], $other['line']],
         );
-        $mutants = Mutants::none();
+        $mutants = [];
         $seen = [];
 
         foreach ($found as $mutant) {
@@ -282,14 +282,14 @@ final readonly class Results
                 $mutant['status'],
                 Unmeasured::duration(),
             )->killedBy($mutant['killers']);
-            $mutants = $mutants->with(match (true) {
+            $mutants[] = match (true) {
                 in_array($mutant['status'], self::TIMED, strict: true)
                     => $recorded->withLimit($limits->at($file, $line)),
                 $mutant['limit'] instanceof MemoryCap => $recorded->withLimit($mutant['limit']),
                 default => $recorded,
-            });
+            };
         }
 
-        return $mutants;
+        return Mutants::of(...$mutants);
     }
 }

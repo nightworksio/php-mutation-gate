@@ -200,7 +200,8 @@ final readonly class Carrying
 
         return match (true) {
             ! $this->map instanceof CoverageMap => Carry::CoverageUnknown,
-            count($this->map->testsCovering($location->file(), $location->start())) > 0 => Carry::NowCovered,
+            count($this->map->testsCoveringSpan($location->file(), $location->start(), $location->last())) > 0
+                => Carry::NowCovered,
             default => Carry::Stands,
         };
     }

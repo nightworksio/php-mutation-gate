@@ -218,14 +218,7 @@ final readonly class Judge
             return $covering;
         }
 
-        $holding = $result->judging();
-        $judging = TestIds::none();
-
-        foreach ($covering as $test) {
-            $judging = $holding->has($test) ? $judging->with($test) : $judging;
-        }
-
-        return $judging;
+        return $covering->among($result->judging());
     }
 
     /** @param list<NewCodeVerdict> $sets */

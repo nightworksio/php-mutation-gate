@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
+use function array_key_exists;
 use function count;
 
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
@@ -34,21 +35,21 @@ final readonly class TestTable
     /** Every test that covers or killed these mutants, by the matrix, each once in the order they first name them. */
     public static function over(KillMatrix $matrix, JudgedMutant|JudgedKill ...$mutants): self
     {
-        $tests = TestIds::none();
+        $tests = [];
         $places = [];
 
         foreach ($mutants as $judged) {
             foreach ($matrix->coveredBy($judged) as $test) {
-                if ($tests->has($test)) {
+                if (array_key_exists($test->value(), $places)) {
                     continue;
                 }
 
                 $places[$test->value()] = count($places);
-                $tests = $tests->with($test);
+                $tests[] = $test;
             }
         }
 
-        return new self($tests, $places);
+        return new self(TestIds::of(...$tests), $places);
     }
 
     /** The tests, in their places. */

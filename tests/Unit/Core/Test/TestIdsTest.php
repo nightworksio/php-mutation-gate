@@ -33,6 +33,28 @@ it('says whether it holds a test', function (): void {
         ->and($tests->has(TestId::of('A::b')))->toBeFalse();
 });
 
+it('joins two sets in order, keeps those another holds, and leaves out those it holds, each in this order', function () use ($ids): void {
+    $tests = TestIds::of(TestId::of('A::a'), TestId::of('B::b'), TestId::of('C::c'));
+    $others = TestIds::of(TestId::of('C::c'), TestId::of('D::d'), TestId::of('A::a'));
+
+    expect($ids($tests->and($others)))->toBe(['A::a', 'B::b', 'C::c', 'D::d'])
+        ->and($ids($tests->among($others)))->toBe(['A::a', 'C::c'])
+        ->and($ids($tests->without($others)))->toBe(['B::b'])
+        ->and($ids($tests))->toBe(['A::a', 'B::b', 'C::c']);
+});
+
+it('joins, keeps and leaves out tests in time linear in their number', function (): void {
+    $sets = static function (int $size): Closure {
+        $tests = TestIds::of(...array_map(static fn(int $at): TestId => TestId::of(sprintf('T%d::t', $at)), range(1, $size)));
+        $half = TestIds::of(...array_map(static fn(int $at): TestId => TestId::of(sprintf('T%d::t', $at * 2)), range(1, $size)));
+
+        return static fn(): int => count($tests->and($half)) + count($tests->among($half)) + count($tests->without($half));
+    };
+
+    expect($sets(10)())->toBe(15 + 5 + 5)
+        ->and(Growth::of(4000, $sets))->toBeLessThan(Growth::LINEAR);
+});
+
 it('collects tests in time linear in their number', function (): void {
     $tests = static function (int $size): Closure {
         $each = array_map(static fn(int $at): TestId => TestId::of(sprintf('T%d::t', $at)), range(1, $size));

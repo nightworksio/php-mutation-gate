@@ -82,13 +82,15 @@ final readonly class Weakness
     /** The tests that cover a survivor and judge it: every one, or its held unit's group. */
     public static function judgedBy(JudgedMutant $survivor, KillMatrix $matrix): TestIds
     {
-        $judging = TestIds::none();
+        $judging = [];
 
         foreach ($matrix->coveredBy($survivor) as $test) {
-            $judging = $matrix->judges($survivor, $test) ? $judging->with($test) : $judging;
+            if ($matrix->judges($survivor, $test)) {
+                $judging[] = $test;
+            }
         }
 
-        return $judging;
+        return TestIds::of(...$judging);
     }
 
     /** @return list<JudgedMutant> the survivors a value assertion would kill */

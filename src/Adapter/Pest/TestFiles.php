@@ -126,11 +126,15 @@ final class TestFiles
             $pest[$this->pestClassOf($file)] = true;
         }
 
+        $declared = [];
+
         foreach ($tests as $test) {
-            $placed = array_key_exists(TestMethod::classOf($test), $pest) ? $placed->with($test) : $placed;
+            if (array_key_exists(TestMethod::classOf($test), $pest)) {
+                $declared[] = $test;
+            }
         }
 
-        return $placed;
+        return $placed->and(TestIds::of(...$declared));
     }
 
     /**

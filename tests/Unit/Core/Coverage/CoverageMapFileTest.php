@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethod;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethods;
+use NightWorksIO\MutationGate\Core\Coverage\LineTests;
 use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -16,6 +17,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
 
@@ -50,6 +52,19 @@ it('writes compact JSON, gzipped: each test once with its seconds, and each line
         'files' => ['src/Money.php' => ['12' => [0, 1], '3' => [0]], '123' => ['1' => [2]]],
         'methods' => ['src/Money.php' => [['name' => 'add', 'start' => 10, 'end' => 13], ['name' => 'list', 'start' => 15, 'end' => 15]]],
     ]));
+});
+
+it('reads a test listed twice as one, wherever a line names either place', function () use ($written): void {
+    $map = CoverageMapFile::decode($written([
+        'format' => 1,
+        'tests' => [['id' => 'MoneyTest::adds', 'seconds' => 0.25], ['id' => 'MoneyTest::subtracts'], ['id' => 'MoneyTest::adds']],
+        'files' => ['src/Money.php' => ['3' => [2], '12' => [0, 1, 2]]],
+    ]));
+    $ids = static fn(TestIds $tests): array => array_map(static fn(TestId $test): string => $test->value(), [...$tests]);
+
+    expect($map instanceof CoverageMap ? $ids($map->tests()) : [])->toBe(['MoneyTest::adds', 'MoneyTest::subtracts'])
+        ->and($map instanceof CoverageMap ? $ids($map->testsCovering(Path::of('src/Money.php'), Line::of(3))) : [])->toBe(['MoneyTest::adds'])
+        ->and($map instanceof CoverageMap ? $ids($map->testsCovering(Path::of('src/Money.php'), Line::of(12))) : [])->toBe(['MoneyTest::adds', 'MoneyTest::subtracts']);
 });
 
 it('is map.json.gz in the directory a job hands on', function (): void {
@@ -117,9 +132,12 @@ it('drops a test that is not well formed, and every line that names it', functio
     'seconds below none' => [['id' => 'MoneyTest::subtracts', 'seconds' => -1.0]],
 ]);
 
-it('reads tests and files that are not a list and a map as none', function () use ($file, $written): void {
+it('reads tests and files that are not a list and a map as none, and knows each listed test though it covers no line', function () use ($file, $written): void {
+    $listed = LineTests::placed(TestIds::of(TestId::of('MoneyTest::adds'), TestId::of('MoneyTest::subtracts'), TestId::of('IdleTest::waits')));
+
     expect(CoverageMapFile::decode($written([...$file(), 'tests' => 'none', 'files' => 7])))->toEqual(CoverageMap::empty())
-        ->and(CoverageMapFile::decode($written([...$file(), 'files' => ['src/Money.php' => 'none']])))->toEqual(CoverageMap::empty()->timedEach(
+        ->and(CoverageMapFile::decode($written([...$file(), 'files' => ['src/Money.php' => 'none']])))->toEqual(CoverageMap::placed(
+            $listed,
             TimedTest::of('MoneyTest::adds', 0.25),
             TimedTest::of('IdleTest::waits', 1.5),
         ));

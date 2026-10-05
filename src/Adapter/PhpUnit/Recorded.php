@@ -68,13 +68,7 @@ final readonly class Recorded
     /** Every test that failed or errored, and every test that started and never ended. */
     public function killers(): TestIds
     {
-        $killers = $this->failed;
-
-        foreach ($this->started as $test) {
-            $killers = $this->finished->has($test) ? $killers : $killers->with($test);
-        }
-
-        return $killers;
+        return $this->failed->and($this->started->without($this->finished));
     }
 
     /**
@@ -84,13 +78,7 @@ final readonly class Recorded
      */
     public function credited(): TestIds
     {
-        $credited = TestIds::none();
-
-        foreach ($this->killers() as $test) {
-            $credited = $this->selected->has($test) ? $credited->with($test) : $credited;
-        }
-
-        return $credited;
+        return $this->killers()->among($this->selected);
     }
 
     /**
@@ -100,13 +88,7 @@ final readonly class Recorded
      */
     public function creditedFailures(): TestIds
     {
-        $credited = TestIds::none();
-
-        foreach ($this->failed as $test) {
-            $credited = $this->selected->has($test) ? $credited->with($test) : $credited;
-        }
-
-        return $credited;
+        return $this->failed->among($this->selected);
     }
 
     /** Whether any test started or finished. */

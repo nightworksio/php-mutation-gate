@@ -160,12 +160,14 @@ final readonly class TestClassFiles
     /** Those of these tests whose class is found. */
     private function placed(TestIds $tests): TestIds
     {
-        $placed = TestIds::none();
+        $placed = [];
 
         foreach ($tests as $test) {
-            $placed = array_key_exists(TestMethod::classOf($test), $this->found) ? $placed->with($test) : $placed;
+            if (array_key_exists(TestMethod::classOf($test), $this->found)) {
+                $placed[] = $test;
+            }
         }
 
-        return $placed;
+        return TestIds::of(...$placed);
     }
 }

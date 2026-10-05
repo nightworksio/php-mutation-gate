@@ -56,13 +56,13 @@ function carryDigest(string $word): Digest
     return Digest::sha256Of($word);
 }
 
-/** A mutant of src/Money.php, on this line, so reported. */
-function carryMutant(int $line, MutantStatus $status): Mutant
+/** A mutant of src/Money.php, from this line to the last, so reported. */
+function carryMutant(int $line, MutantStatus $status, int $last = 0): Mutant
 {
     return Mutant::of(
         MutantId::hash(Path::of('src/Money.php'), 'Plus', sprintf('%d', $line), 0),
         sprintf('%d', $line),
-        Location::of(Path::of('src/Money.php'), Line::of($line), Line::of($line)),
+        Location::of(Path::of('src/Money.php'), Line::of($line), Line::of(max($line, $last))),
         Mutation::of('Plus', MutatorFamily::Arithmetic, ''),
         $status,
         Unmeasured::duration(),
@@ -211,6 +211,8 @@ it('carries each mutant of a counted result as it stands, or unjudged, and says 
     'a survivor, at another base' => ['other base', carryMutant(3, MutantStatus::Survived), Carry::Stands],
     'an uncovered mutant no test covers now' => ['base', carryMutant(3, MutantStatus::Uncovered), Carry::Stands],
     'an uncovered mutant a test covers now' => ['base', carryMutant(7, MutantStatus::Uncovered), Carry::NowCovered],
+    'an uncovered mutant a test covers a later line of now' => ['base', carryMutant(5, MutantStatus::Uncovered, last: 7), Carry::NowCovered],
+    'an uncovered mutant that ends before the line a test covers now' => ['base', carryMutant(5, MutantStatus::Uncovered, last: 6), Carry::Stands],
     'a mutant marked ignored' => ['base', carryMutant(3, MutantStatus::IgnoredByMarker), Carry::Stands],
     'a mutant skipped' => ['base', carryMutant(3, MutantStatus::Skipped), Carry::Stands],
     'a mutant unjudged' => ['base', carryMutant(3, MutantStatus::Unjudged), Carry::Stands],

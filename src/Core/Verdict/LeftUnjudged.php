@@ -71,14 +71,14 @@ final readonly class LeftUnjudged
     /** The mutants a result holds in full, each standing or unjudged. */
     private function reported(Proof $proof): Mutants
     {
-        $mutants = Mutants::none();
+        $mutants = [];
 
         foreach ($proof->reported() as $mutant) {
             $stands = $this->carrying->carry($proof, $mutant) === Carry::Stands;
-            $mutants = $mutants->with($stands ? $mutant : $mutant->unjudged(OutOfTime::BeforeMutating));
+            $mutants[] = $stands ? $mutant : $mutant->unjudged(OutOfTime::BeforeMutating);
         }
 
-        return $mutants;
+        return Mutants::of(...$mutants);
     }
 
     /** The kills a result holds, each standing or unjudged. */

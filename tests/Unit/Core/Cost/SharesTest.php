@@ -93,6 +93,40 @@ it('stands in for a mutant with no duration with the time the tests covering its
         ->toEqual(Timings::of($timing('src/A.php', 45.0), $timing('src/B.php', 15.0)));
 });
 
+it('stands in for a mutant that spans lines with the time of the tests of every line it spans, each once', function () use (
+    $measured,
+    $timing,
+): void {
+    $coverage = CoverageMap::empty()
+        ->covered(Path::of('src/A.php'), Line::of(3), TestId::of('ATest::first'))
+        ->covered(Path::of('src/A.php'), Line::of(4), TestId::of('ATest::first'))
+        ->covered(Path::of('src/A.php'), Line::of(4), TestId::of('ATest::second'))
+        ->covered(Path::of('src/B.php'), Line::of(5), TestId::of('BTest::timed'))
+        ->timed(TestId::of('ATest::first'), Seconds::of(2.0))
+        ->timed(TestId::of('ATest::second'), Seconds::of(1.0))
+        ->timed(TestId::of('BTest::timed'), Seconds::of(1.0));
+    $spanning = Mutant::of(
+        MutantId::hash(Path::of('src/A.php'), 'Plus', '-3', 0),
+        '3',
+        Location::of(Path::of('src/A.php'), Line::of(3), Line::of(4)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, '-3'),
+        MutantStatus::Killed,
+        Unmeasured::duration(),
+    );
+    $units = Units::of(Unit::file(Path::of('src/A.php')), Unit::file(Path::of('src/B.php')));
+    $single = Mutant::of(
+        MutantId::hash(Path::of('src/B.php'), 'Plus', '-5', 0),
+        '5',
+        Location::of(Path::of('src/B.php'), Line::of(5), Line::of(5)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, '-5'),
+        MutantStatus::Killed,
+        Unmeasured::duration(),
+    );
+
+    expect(Shares::of($units, Mutants::of($spanning, $single), $coverage, $measured))
+        ->toEqual(Timings::of($timing('src/A.php', 45.0), $timing('src/B.php', 15.0)));
+});
+
 it('shares the time equally where nothing was timed', function () use ($measured, $mutant, $timing): void {
     $units = Units::of(Unit::file(Path::of('src/A.php')), Unit::file(Path::of('src/B.php')));
     $mutants = Mutants::of($mutant('src/A.php', 1, Unmeasured::duration()));

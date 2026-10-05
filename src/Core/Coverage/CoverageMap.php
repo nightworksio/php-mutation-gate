@@ -4,13 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Coverage;
 
-use function array_diff_key;
-use function array_filter;
-use function array_intersect_key;
 use function array_key_exists;
-use function array_keys;
 use function array_map;
-use function array_values;
 
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -21,9 +16,6 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
-
-use function strval;
-
 use Traversable;
 
 /**
@@ -32,34 +24,23 @@ use Traversable;
  * methods of each file some test ran and the lines they span. A test the map
  * knows need not cover anything.
  *
- * Each test is held once, and a line holds the ids of the tests that ran it,
- * so a test that ran many lines is one value however many lines hold it.
+ * Each test is held once, and a line holds the places of the tests that ran
+ * it in the map's list of tests (see LineTests), so a test that ran many
+ * lines is one value however many lines hold it.
  */
 final readonly class CoverageMap
 {
     /**
-     * @param array<string, array<int, array<string, string>>> $lines     each covered line of each file, by path and
-     *                                                                    line number: the id of each test that ran it,
-     *                                                                    by itself, in the order they ran it
-     * @param array<string, TestId>                            $tests     every test the map knows, by id
-     * @param array<string, Seconds>                           $durations each timed test's duration, by id
-     * @param ByPath<ExecutedMethods>                          $methods   each file's executed methods
-     * @param array<string, array<int, true>>                  $missed    each executable line of each file no test
-     *                                                                    ran, by path and line number: never one some
-     *                                                                    test covers
+     * @param array<string, Seconds>  $durations each timed test's duration, by id
+     * @param ByPath<ExecutedMethods> $methods   each file's executed methods
      */
-    private function __construct(
-        private array $lines,
-        private array $tests,
-        private array $durations,
-        private ByPath $methods,
-        private array $missed,
-    ) {
+    private function __construct(private LineTests $lines, private array $durations, private ByPath $methods)
+    {
     }
 
     public static function empty(): self
     {
-        return new self([], [], [], ByPath::none(), []);
+        return new self(LineTests::none(), [], ByPath::none());
     }
 
     /**
@@ -69,44 +50,19 @@ final readonly class CoverageMap
      */
     public static function of(CoveredLine ...$covered): self
     {
-        $lines = [];
-        $tests = [];
-        $missed = [];
+        return new self(LineTests::of(...$covered), [], ByPath::none());
+    }
 
-        foreach ($covered as $line) {
-            $file = $line->file()->value();
-            $ran = [...$line];
-
-            if ($ran === []) {
-                $missed[$file][$line->line()] = true;
-            }
-
-            foreach ($ran as $test) {
-                if (! array_key_exists($test, $tests)) {
-                    $tests[$test] = TestId::of($test);
-                }
-
-                $lines[$file][$line->line()][$test] = $test;
-            }
-        }
-
-        return new self($lines, $tests, [], ByPath::none(), self::uncovered($missed, $lines));
+    /** A map of lines held as its file writes them, with each timed test's duration, by id. */
+    public static function placed(LineTests $lines, TimedTest ...$timed): self
+    {
+        return new self($lines, [], ByPath::none())->timedEach(...$timed);
     }
 
     /** This map, with a test covering a line. */
     public function covered(Path $file, Line $line, TestId $test): self
     {
-        $lines = $this->lines;
-        $lines[$file->value()][$line->number()][$test->value()] = $test->value();
-        $tests = $this->tests + [$test->value() => $test];
-        $missed = $this->missed;
-
-        if (array_key_exists($file->value(), $missed) && array_key_exists($line->number(), $missed[$file->value()])) {
-            unset($missed[$file->value()][$line->number()]);
-            $missed = array_filter($missed);
-        }
-
-        return new self($lines, $tests, $this->durations, $this->methods, $missed);
+        return new self($this->lines->covered($file, $line, $test), $this->durations, $this->methods);
     }
 
     /** This map, with how long a test took. */
@@ -118,39 +74,27 @@ final readonly class CoverageMap
     /** This map, with how long each of these tests took; a test timed twice took the later. */
     public function timedEach(TimedTest ...$timed): self
     {
-        $tests = $this->tests;
         $durations = $this->durations;
 
         foreach ($timed as $each) {
-            $test = $each->test();
-            $tests += [$test->value() => $test];
-            $durations[$test->value()] = $each->seconds();
+            $durations[$each->test()->value()] = $each->seconds();
         }
 
-        return new self($this->lines, $tests, $durations, $this->methods, $this->missed);
+        $tests = array_map(static fn(TimedTest $each): TestId => $each->test(), $timed);
+
+        return new self($this->lines->knowing(...$tests), $durations, $this->methods);
     }
 
     /** This map, covering only these files: every test it knows and how long each took, and the lines of these. */
     public function onlyFor(Paths $files): self
     {
-        $kept = [];
         $methods = ByPath::none();
 
-        foreach ($files as $file) {
-            $kept[$file->value()] = true;
-        }
-
         foreach ($this->methods as $file => $executed) {
-            $methods = array_key_exists($file->value(), $kept) ? $methods->with($file, $executed) : $methods;
+            $methods = $files->has($file) ? $methods->with($file, $executed) : $methods;
         }
 
-        return new self(
-            array_intersect_key($this->lines, $kept),
-            $this->tests,
-            $this->durations,
-            $methods,
-            array_intersect_key($this->missed, $kept),
-        );
+        return new self($this->lines->onlyFor($files), $this->durations, $methods);
     }
 
     /** This map, with these methods of a file executed, after any it already holds for it. */
@@ -164,10 +108,8 @@ final readonly class CoverageMap
 
         return new self(
             $this->lines,
-            $this->tests,
             $this->durations,
             $this->methods->with($file, ExecutedMethods::of(...$held, ...$methods)),
-            $this->missed,
         );
     }
 
@@ -191,63 +133,45 @@ final readonly class CoverageMap
      */
     public function lines(): Traversable
     {
-        foreach ($this->lines as $file => $lines) {
-            $path = Path::of(strval($file));
-
-            foreach ($lines as $line => $tests) {
-                yield CoveredLine::of($path, $line, ...array_values($tests));
-            }
-        }
-
-        foreach ($this->missed as $file => $lines) {
-            foreach (array_keys($lines) as $line) {
-                yield CoveredLine::of(Path::of(strval($file)), $line);
-            }
-        }
+        return $this->lines->lines();
     }
 
     public function tests(): TestIds
     {
-        return TestIds::of(...array_values($this->tests));
+        return $this->lines->tests();
     }
 
     public function files(): Paths
     {
-        return Paths::of(...array_map(Path::of(...), array_keys($this->lines)));
+        return $this->lines->files();
     }
 
     public function linesCovered(Path $file): Lines
     {
-        return Lines::of(...array_map(Line::of(...), array_keys($this->linesOf($file))));
+        return $this->lines->coveredIn($file);
     }
 
     /** The executable lines of a file the run that measured the map missed: no test ran them. */
     public function linesMissed(Path $file): Lines
     {
-        $missed = array_key_exists($file->value(), $this->missed) ? $this->missed[$file->value()] : [];
-
-        return Lines::of(...array_map(Line::of(...), array_keys($missed)));
+        return $this->lines->missedIn($file);
     }
 
     public function testsCovering(Path $file, Line $line): TestIds
     {
-        $lines = $this->linesOf($file);
+        return $this->lines->running($file, $line, $line);
+    }
 
-        $ids = array_key_exists($line->number(), $lines) ? $lines[$line->number()] : [];
-
-        return TestIds::of(...array_map(fn(string $id): TestId => $this->tests[$id], array_values($ids)));
+    /** Every test that covers any line of a file from the first to the last, each once. */
+    public function testsCoveringSpan(Path $file, Line $first, Line $last): TestIds
+    {
+        return $this->lines->running($file, $first, $last);
     }
 
     /** Every test that covers any line of a file. */
     public function testsCoveringFile(Path $file): TestIds
     {
-        $tests = [];
-
-        foreach ($this->linesOf($file) as $covering) {
-            $tests += $covering;
-        }
-
-        return TestIds::of(...array_map(fn(string $id): TestId => $this->tests[$id], array_values($tests)));
+        return $this->lines->runningFile($file);
     }
 
     public function durationOf(TestId $test): Seconds|Unmeasured
@@ -271,32 +195,5 @@ final readonly class CoverageMap
         }
 
         return Seconds::of($seconds);
-    }
-
-
-
-    /**
-     * The lines no test ran, but those some test covers.
-     *
-     * @param  array<string, array<int, true>>                  $missed
-     * @param  array<string, array<int, array<string, string>>> $lines
-     * @return array<string, array<int, true>>
-     */
-    private static function uncovered(array $missed, array $lines): array
-    {
-        $uncovered = [];
-
-        foreach ($missed as $file => $numbers) {
-            $uncovered[$file] = array_diff_key($numbers, array_key_exists($file, $lines) ? $lines[$file] : []);
-        }
-
-        return array_filter($uncovered);
-    }
-
-
-    /** @return array<int, array<string, string>> */
-    private function linesOf(Path $file): array
-    {
-        return array_key_exists($file->value(), $this->lines) ? $this->lines[$file->value()] : [];
     }
 }

@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Tests\Support\Growth;
 use NightWorksIO\MutationGate\Tests\Support\InfectionRun;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -119,4 +120,29 @@ it('cannot judge coverage without its JUnit log', function (): void {
         '%s/coverage/junit.xml is not there or is not a JUnit log, so the gate cannot say how long the tests took.',
         $root,
     )));
+});
+
+it('reads a coverage directory in time linear in its covered lines and tests', function (): void {
+    $read = static function (int $size): Closure {
+        $root = (string) realpath(Scratch::directory());
+        $lines = [];
+
+        for ($line = 1; $line <= $size; $line++) {
+            $lines[$line] = array_map(static fn(int $test): string => sprintf('Tests\\MoneyTest::t%d', ($line + $test) % ($size + 1)), range(1, 8));
+        }
+
+        $times = array_fill_keys(array_map(static fn(int $test): string => sprintf('Tests\\MoneyTest::t%d', $test), range(0, $size)), 0.25);
+        $directory = sprintf('%s/coverage-%d', $root, $size);
+        InfectionRun::coverage($directory, $root, ['src/Money.php' => $lines], ['Tests\\MoneyTest' => 0.5], $times);
+        $project = Project::at(Root::of($root), Paths::none(), Path::of('.gate'));
+
+        return static function () use ($project, $directory): int {
+            $map = CoverageXml::read($project, DiskPath::of($directory));
+
+            return $map instanceof CoverageMap ? count($map->tests()) : 0;
+        };
+    };
+
+    expect($read(10)())->toBe(11)
+        ->and(Growth::of(1000, $read))->toBeLessThan(Growth::LINEAR);
 });

@@ -215,12 +215,14 @@ final readonly class Results
     /** The mutants of a unit: those of its file, or of the files inside its held path. */
     private function mutantsOf(Unit $unit, Mutants $mutants): Mutants
     {
-        $of = Mutants::none();
+        $of = [];
 
         foreach ($mutants as $mutant) {
-            $of = $mutant->location()->file()->within($unit->path()) ? $of->with($mutant) : $of;
+            if ($mutant->location()->file()->within($unit->path())) {
+                $of[] = $mutant;
+            }
         }
 
-        return $of;
+        return Mutants::of(...$of);
     }
 }
