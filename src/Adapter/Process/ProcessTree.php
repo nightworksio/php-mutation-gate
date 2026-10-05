@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Adapter\Pest;
+namespace NightWorksIO\MutationGate\Adapter\Process;
+
+use function is_int;
 
 use NightWorksIO\MutationGate\Core\Runner\ProcessTable;
 use Symfony\Component\Process\Process;
@@ -22,9 +24,10 @@ final readonly class ProcessTree
     /** Stops every process under this one, deepest first, and then the process itself. */
     public function stop(): void
     {
+        $pid = $this->process->getPid();
         $listing = new Process(ProcessTable::LISTING);
         $listing->run();
-        $under = ProcessTable::parse($listing->getOutput())->descendantsOf((int) $this->process->getPid());
+        $under = is_int($pid) ? ProcessTable::parse($listing->getOutput())->descendantsOf($pid) : [];
 
         if ($under !== []) {
             new Process(ProcessTable::killing(...$under))->run();

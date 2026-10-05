@@ -43,6 +43,7 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
+use NightWorksIO\MutationGate\Port\Processes;
 use NightWorksIO\MutationGate\Port\Runner;
 
 use function sprintf;
@@ -89,10 +90,15 @@ final readonly class PhpUnit implements Runner
     /**
      * PHPUnit in the project the gate runs in, installed in this vendor
      * directory, as the options the flows write configure it (see
-     * PhpUnitOptions), writing its memory cap with these files.
+     * PhpUnitOptions), writing its memory cap with these files and running
+     * through these processes.
      */
-    public static function fromOptions(Options $options, Path $vendor, CapFiles $files): self|Invalid
-    {
+    public static function fromOptions(
+        Options $options,
+        Path $vendor,
+        CapFiles $files,
+        Processes $processes,
+    ): self|Invalid {
         $read = PhpUnitOptions::read($options);
 
         if ($read instanceof Invalid) {
@@ -100,7 +106,7 @@ final readonly class PhpUnit implements Runner
         }
 
         $project = Project::at(self::ROOT, $read->tests(), $vendor, Workspace::root());
-        $shell = new ProcessShell($project->root(), getenv());
+        $shell = new ProcessShell($processes, $project->root(), getenv());
 
         return new self($project, $shell, $read->engine(), $read->timeout(), $files);
     }

@@ -20,7 +20,9 @@ use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
+use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -1349,15 +1351,15 @@ it('cannot root itself in a directory that installs no Pest', function (): void 
 it('is Pest in the project the gate runs in, as its options say, or the options\' problem', function (): void {
     $pest = static fn(Seconds $cap): Pest => new Pest(
         Project::at('.', Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('lib/vendor')),
-        new ProcessShell(Project::at('.', Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'))->root()),
+        new ProcessShell(new LocalProcesses(new SystemClock()), Project::at('.', Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'))->root()),
         Patching::off(),
         new CapDirectory(),
         $cap,
     );
 
-    expect(Pest::fromOptions(Options::none(), Path::of('lib/vendor'), new CapDirectory()))->toEqual($pest(Seconds::of(10.0)))
-        ->and(Pest::fromOptions(Configs::options('{"timeout": 30}'), Path::of('lib/vendor'), new CapDirectory()))->toEqual($pest(Seconds::of(30.0)))
-        ->and(Pest::fromOptions(Configs::options('{"patch": 1}'), Path::of('vendor'), new CapDirectory()))->toEqual(Invalid::because(
+    expect(Pest::fromOptions(Options::none(), Path::of('lib/vendor'), new CapDirectory(), new LocalProcesses(new SystemClock())))->toEqual($pest(Seconds::of(10.0)))
+        ->and(Pest::fromOptions(Configs::options('{"timeout": 30}'), Path::of('lib/vendor'), new CapDirectory(), new LocalProcesses(new SystemClock())))->toEqual($pest(Seconds::of(30.0)))
+        ->and(Pest::fromOptions(Configs::options('{"patch": 1}'), Path::of('vendor'), new CapDirectory(), new LocalProcesses(new SystemClock())))->toEqual(Invalid::because(
             Problem::at('patch', 'expected true or false, got 1'),
         ));
 });

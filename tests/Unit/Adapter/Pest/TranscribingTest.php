@@ -6,6 +6,8 @@ use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\Transcribing;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
+use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Tests\Support\ShellFake;
 
 it('keeps what every command printed, in another directory too, and answers as the shell it runs over', function (): void {
@@ -22,4 +24,20 @@ it('keeps what every command printed, in another directory too, and answers as t
 
 it('has printed nothing before it runs anything', function (): void {
     expect(Transcribing::over(ShellFake::answering(Ran::finished(succeeded: true, output: 'unread')))->printed())->toBe('');
+});
+
+it('keeps what each of several commands run side by side printed, in the order they were given', function (): void {
+    $shell = new ShellFake(static fn(Command $command): Ran => Ran::finished(succeeded: true, output: implode(' ', array_slice($command->arguments(), 1))));
+    $transcribing = Transcribing::over($shell);
+
+    $ends = $transcribing->sideBySide(
+        WorkerSlots::alone(),
+        Unlimited::time(),
+        Command::php(Withheld::standard(), 'first'),
+        Command::php(Withheld::standard(), 'second'),
+    );
+
+    expect(count($ends))->toBe(2)
+        ->and($transcribing->printed())->toBe("first\nsecond")
+        ->and($shell->batches())->toBe([2]);
 });

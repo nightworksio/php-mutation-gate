@@ -1,4 +1,4 @@
-# ADR-0001: A framework-free core behind ten ports, with adapters found through Composer
+# ADR-0001: A framework-free core behind eleven ports, with adapters found through Composer
 
 **Status:** Accepted
 **Date:** 2026-09-29
@@ -70,7 +70,7 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
      constructed and wired, and it uses `symfony/console` for the command line.
      Its flows ask the ports in order and hand their answers to the core.
 
-2. **The ten ports, and what each one answers.** Every method returns a value
+2. **The eleven ports, and what each one answers.** Every method returns a value
    or an outcome. None throws across the port (see decision 6).
 
    | Port | Answers | First adapters |
@@ -85,6 +85,7 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
    | `Repository` | Where the checkout stands: the commit it is at, whether the working tree holds anything that commit does not, the branch it is on or that its `HEAD` is detached, and the branch the remote calls its default | git (ADR-0006) |
    | `ConfigLoader` | One config file read into its typed layer of config, through the definition ADR-0002 validates every layer with | PHP, JSON, YAML, NEON (ADR-0002) |
    | `StaticChecker` | A static analyser's identity, the configuration it runs with, the findings of the original files, whether it reads the dependents a check lists, and the findings of one mutant analysed in place of its original (ADR-0020) | Mago, PHPStan, Psalm (ADR-0020) |
+   | `Processes` | How a program ran as a process: one run to its end, or several run side by side, each in a free place, with the ends in the order given and the commands not started in time left out (ADR-0023) | Local processes, through `symfony/process` (ADR-0023) |
 
    Time is read through PSR-20's `Psr\Clock\ClockInterface`, a standard
    interface rather than a port of its own. `Psr\Clock` is the only package
@@ -93,6 +94,9 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
 
    `StaticChecker` is decided in ADR-0020, which supersedes this decision's
    list of ports.
+
+   `Processes` is decided in ADR-0023. `Cli` builds its one adapter and hands
+   it to the first-party runners; an extension registers none.
 
 3. **The seed's seams map onto the ports, and do not survive as names.**
 
@@ -219,7 +223,7 @@ adapter is proved against the same contract its fake is.
 registered, configured and reported exactly like Pest.
 
 **Extension classes are public API** (ADR-0011): the `Extension` interface,
-the `Extensions` registry, the ten ports, the mutator SDK and the `Core` value
+the `Extensions` registry, the eleven ports, the mutator SDK and the `Core` value
 types they use.
 Moving any of them is a major release. What `Cli` looks up is not: an
 extension registers, and never reads the registry back.
@@ -232,7 +236,7 @@ extension registers, and never reads the registry back.
 - [ADR-0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): the toolchain that enforces these rules
 - [ADR-0020](0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md): the tenth port, `StaticChecker`
 - [ADR-0021](0021-mutators-are-written-once-and-first-party-sets-can-leave.md): the `Mutator` layer, A1 for it, and the plugins outside the layers
-- [ADR-0023](0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md): the gate's own mutants for native runners, and the companions a proof store keeps
+- [ADR-0023](0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md): the gate's own mutants for native runners, the companions a proof store keeps, and the eleventh port, `Processes`
 - [ADR-0024](0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md): the Bitbucket, Azure DevOps and Jenkins plans
 - [ADR-0027](0027-codeception-phpspec-and-testo-get-native-runners.md): the Codeception, PhpSpec and Testo runners
 - [ADR-0028](0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md): the Google Cloud Storage and Azure Blob stores

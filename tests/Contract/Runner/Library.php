@@ -24,7 +24,9 @@ use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnit;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\ProcessShell as PhpUnitShell;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Project as PhpUnitProject;
+use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
+use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -261,7 +263,7 @@ final class Library
         $infection = static function (string $root) use ($cap): Infection {
             $project = InfectionProject::at(Root::of($root), Paths::of(Path::of('tests')), Path::of('.mutation-gate'));
 
-            return new Infection($project, new InfectionShell($root, getenv()), $cap, nativeMarkersAllowed: false, files: new CapDirectory());
+            return new Infection($project, new InfectionShell(new LocalProcesses(new SystemClock()), $root, getenv()), $cap, nativeMarkersAllowed: false, files: new CapDirectory());
         };
 
         return new self(
@@ -292,7 +294,7 @@ final class Library
         $root = Tree::at(self::PHPUNIT_DIRECTORY);
         $phpunit = static fn(string $root): PhpUnit => new PhpUnit(
             PhpUnitProject::at($root, Paths::of(Path::of('tests')), Path::of('../vendor'), Path::of('.mutation-gate')),
-            new PhpUnitShell($root, getenv()),
+            new PhpUnitShell(new LocalProcesses(new SystemClock()), $root, getenv()),
             self::defaultSet(),
             Seconds::of(10.0),
             new CapDirectory(),
@@ -331,7 +333,7 @@ final class Library
             $tests = Paths::of(Path::of('tests'));
             $project = Project::at($root, $tests, Path::of('.mutation-gate'), Path::of('vendor'));
 
-            return new Pest($project, new ProcessShell($root), $patching, new CapDirectory(), Triage::standard()->limit());
+            return new Pest($project, new ProcessShell(new LocalProcesses(new SystemClock()), $root), $patching, new CapDirectory(), Triage::standard()->limit());
         };
 
         return new self(

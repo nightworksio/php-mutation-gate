@@ -45,6 +45,7 @@ use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Port\Processes;
 use NightWorksIO\MutationGate\Port\Runner;
 
 use function sprintf;
@@ -79,9 +80,10 @@ final readonly class Infection implements Runner
 
     /**
      * The adapter in the project the gate runs in, from the options the flows
-     * write (see Setup), writing its memory cap with these files.
+     * write (see Setup), writing its memory cap with these files and running
+     * through these processes.
      */
-    public static function fromOptions(Options $options, CapFiles $files): self|Invalid
+    public static function fromOptions(Options $options, CapFiles $files, Processes $processes): self|Invalid
     {
         $setup = Setup::of($options);
 
@@ -93,7 +95,7 @@ final readonly class Infection implements Runner
 
         return new self(
             $project,
-            new ProcessShell($project->root(), getenv()),
+            new ProcessShell($processes, $project->root(), getenv()),
             $setup->cap(),
             nativeMarkersAllowed: $setup->allowsNativeMarkers(),
             files: $files,

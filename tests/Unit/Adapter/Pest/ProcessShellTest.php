@@ -2,109 +2,44 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Pest\Clock;
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell;
+use NightWorksIO\MutationGate\Core\Runner\EnvironmentRead;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
+use NightWorksIO\MutationGate\Core\Runner\Processes;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
-use NightWorksIO\MutationGate\Tests\Support\Measured;
-use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Tests\Fakes\ProcessesFake;
 
-afterEach(function (): void {
-    Scratch::sweep();
+it('runs a command through the processes, in its directory, with its environment and deadline, and ends as it ends', function (): void {
+    $processes = new ProcessesFake(static fn(): Ran => Ran::exited(3, 'no'));
+    $command = Command::of(PHP_BINARY, '-v')->with(['GATE' => 'on'])->within(Seconds::of(4.0));
+
+    $ran = new ProcessShell($processes, '/project')->run($command);
+
+    expect($ran)->toEqual(Ran::exited(3, 'no'))
+        ->and($processes->ran())->toEqual([
+            ProcessCommand::of('/project', PHP_BINARY, '-v')->with(EnvironmentRead::of($command->environment()))->within(Seconds::of(4.0)),
+        ]);
 });
 
-it('runs a program in its directory, with its environment, and keeps both of its outputs', function (): void {
-    $directory = (string) realpath(Scratch::directory());
-    $command = Command::of(PHP_BINARY, '-r', 'echo getcwd(), " ", getenv("GATE"); fwrite(STDERR, "!");')
-        ->with(['GATE' => 'on']);
-    $ran = new ProcessShell($directory)->run($command);
+it('runs a command in another directory once moved there', function (): void {
+    $processes = new ProcessesFake(static fn(ProcessCommand $command): Ran => Ran::exited(0, $command->directory()));
 
-    expect($ran)->toEqual(Ran::exited(0, sprintf('%s on!', $directory))->took(Measured::of($ran)));
+    expect(new ProcessShell($processes, '/')->in('/elsewhere')->run(Command::of(PHP_BINARY, '-v'))->output())
+        ->toBe('/elsewhere');
 });
 
-it('runs a program in another directory once moved there', function (): void {
-    $directory = (string) realpath(Scratch::directory());
-    $ran = new ProcessShell('/')->in($directory)->run(Command::of(PHP_BINARY, '-r', 'echo getcwd();'));
+it('runs commands side by side through the processes, each told its place, with its ends in the order given', function (): void {
+    $processes = new ProcessesFake(static fn(ProcessCommand $command): Ran => Ran::exited(0, (string) iterator_to_array($command->environment(), preserve_keys: true)['TEST_TOKEN']));
+    $command = Command::of(PHP_BINARY, '-v');
 
-    expect($ran)->toEqual(Ran::exited(0, $directory)->took(Measured::of($ran)));
-});
+    $ends = new ProcessShell($processes, '/project')
+        ->sideBySide(WorkerSlots::of(Processes::of(2), 'run'), Unlimited::time(), $command, $command, $command);
 
-it('says a program that exits with a failure did not succeed, and its exit code', function (): void {
-    $ran = new ProcessShell(Scratch::directory())->run(Command::of(PHP_BINARY, '-r', 'echo "no"; exit(3);'));
-
-    expect($ran)->toEqual(Ran::exited(3, 'no')->took(Measured::of($ran)));
-});
-
-it('stops a program at its deadline, keeping what it printed', function (): void {
-    $directory = (string) realpath(Scratch::directory());
-    $command = Command::of(PHP_BINARY, '-r', 'echo "started"; flush(); touch("printed"); sleep(20);')
-        ->within(Seconds::of(1.0));
-    // The clock stands still until the program has printed, then passes every deadline, however slow starting was.
-    $clock = new readonly class ($directory) implements Clock {
-        public function __construct(private string $directory)
-        {
-        }
-
-        public function seconds(): float
-        {
-            return is_file(sprintf('%s/printed', $this->directory)) ? INF : 0.0;
-        }
-    };
-
-    $ran = new ProcessShell($directory, $clock)->run($command);
-
-    expect($ran)->toEqual(Ran::stopped('started')->took(Measured::of($ran)));
-});
-
-it('measures a deadline on the system\'s clock', function (): void {
-    $command = Command::of(PHP_BINARY, '-r', 'sleep(20);')->within(Seconds::of(0.0));
-
-    $ran = new ProcessShell(Scratch::directory())->run($command);
-
-    expect($ran)->toEqual(Ran::stopped('')->took(Measured::of($ran)));
-});
-
-it('measures how long a program ran on its clock, from its start to its end', function (): void {
-    // The clock reads 10 when the program starts, and 12.5 at every look after.
-    $clock = new class implements Clock {
-        private bool $started = false;
-
-        public function seconds(): float
-        {
-            $seconds = $this->started ? 12.5 : 10.0;
-            $this->started = true;
-
-            return $seconds;
-        }
-    };
-    $ran = new ProcessShell(Scratch::directory(), $clock)->run(Command::of(PHP_BINARY, '-r', 'echo "ok";'));
-
-    expect(Measured::of($ran))->toEqual(Seconds::of(2.5))
-        ->and($ran->output())->toBe('ok');
-});
-
-it('measures how long a program ran until it was stopped', function (): void {
-    $clock = new class implements Clock {
-        private float $seconds = 0.0;
-
-        public function seconds(): float
-        {
-            $this->seconds += 1.0;
-
-            return $this->seconds;
-        }
-    };
-    $ran = new ProcessShell(Scratch::directory(), $clock)->run(Command::of(PHP_BINARY, '-r', 'sleep(20);')->within(Seconds::of(2.0)));
-
-    // Started at 1; the deadline, at 3, has passed at the look that reads 3; the time taken is read at 4.
-    expect($ran->wasStopped())->toBeTrue()
-        ->and(Measured::of($ran))->toEqual(Seconds::of(3.0));
-});
-
-it('says a program that cannot be started did not succeed, and why', function (): void {
-    $ran = new ProcessShell('/nowhere/at/all')->run(Command::of(PHP_BINARY, '-v'));
-
-    expect($ran->succeeded())->toBeFalse()
-        ->and($ran->output())->toContain('/nowhere/at/all');
+    expect(array_map(static fn(Ran $ran): string => $ran->output(), [...$ends]))->toBe(['1', '2', '1'])
+        ->and(array_map(static fn(ProcessCommand $ran): string => $ran->directory(), $processes->ran()))
+        ->toBe(['/project', '/project', '/project']);
 });

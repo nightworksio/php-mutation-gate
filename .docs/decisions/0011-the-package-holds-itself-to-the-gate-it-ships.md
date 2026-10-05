@@ -187,9 +187,9 @@ about Laravel, NativePHP or the project's modules, and does not.
      (ADR-0018);
    - the action's and the reusable workflow's inputs, outputs, secrets and job
      names;
-   - the ten ports (ADR-0020), the `Mutator` layer and its testing kit
-     (ADR-0021), `Extension`, `Extensions`, `Configurable`, the `Core`
-     value types the ports use, and the `#[Holds]` attribute.
+   - the eleven ports (ADR-0020, ADR-0023), the `Mutator` layer and its
+     testing kit (ADR-0021), `Extension`, `Extensions`, `Configurable`, the
+     `Core` value types the ports use, and the `#[Holds]` attribute.
 
    Everything else is marked `@internal`, and that includes
    `.mutation-gate/plan.json` and the shard result files, which only pass
