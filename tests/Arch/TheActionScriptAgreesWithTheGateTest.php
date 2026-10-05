@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
+use NightWorksIO\MutationGate\Adapter\GitHub\TrustedEvent;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
@@ -91,7 +91,7 @@ it('publishes the config schema under its release line\'s tag, which the default
 });
 
 it('trusts the events the GitHub plan trusts to write a branch\'s ledger', function (): void {
-    expect(scriptSet('TRUSTED'))->toBe(sortedCopy(GitHubPlan::TRUSTED));
+    expect(scriptSet('TRUSTED'))->toBe(sortedCopy(array_map(static fn(TrustedEvent $event): string => $event->value, TrustedEvent::cases())));
 });
 
 it('refuses the events that run main\'s workflow with a token that can write', function (): void {
