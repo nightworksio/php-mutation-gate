@@ -27,7 +27,7 @@ use Symfony\Component\Yaml\Yaml;
  * .github/gates.json, read into shapes the arch tests compare (V1–V3).
  *
  * @phpstan-type Step array{id: string, if: string, run: string, uses: string, with: array<string, string>}
- * @phpstan-type Job array{check: string, steps: list<Step>}
+ * @phpstan-type Job array{check: string, steps: list<Step>, legs: list<string>}
  * @phpstan-type Producer array{step: string, tool: string, raw: string}
  * @phpstan-type Entry array{check: string, checks: string, reproduce: string, troubleshooting: string, none: bool, why: string, evidence: list<Producer>, rules: array<string, string>}
  */
@@ -119,16 +119,20 @@ final readonly class Gates
     private static function jobsIn(string $workflow): array
     {
         $jobs = [];
+        $all = self::jobsOf($workflow);
 
-        foreach (self::jobsOf($workflow) as $id => $job) {
+        foreach ($all as $id => $job) {
             if (preg_match(self::CALLED, Lenient::text($job->field('uses')), $calls) !== 1) {
-                $jobs[$id] = self::job(self::named($job, $id), $job);
+                $jobs[$id] = self::job(self::named($job, $id), $job, Legs::neededBy($job, $all));
 
                 continue;
             }
 
-            foreach (self::jobsOf($calls[1]) as $inner => $called) {
-                $jobs[sprintf('%s/%s', $id, $inner)] = self::job(sprintf('%s / %s', $id, self::named($called, $inner)), $called);
+            $inners = self::jobsOf($calls[1]);
+
+            foreach ($inners as $inner => $called) {
+                $check = sprintf('%s / %s', $id, self::named($called, $inner));
+                $jobs[sprintf('%s/%s', $id, $inner)] = self::job($check, $called, Legs::neededBy($called, $inners));
             }
         }
 
@@ -141,8 +145,11 @@ final readonly class Gates
         return array_any(Lenient::items($job->field('steps')), fn(Node $step): bool => str_starts_with(Lenient::text($step->field('uses')), self::GATHERS));
     }
 
-    /** @return Job */
-    private static function job(string $check, Node $job): array
+    /**
+     * @param  list<string> $legs
+     * @return Job
+     */
+    private static function job(string $check, Node $job, array $legs): array
     {
         $steps = [];
 
@@ -162,7 +169,7 @@ final readonly class Gates
             ];
         }
 
-        return ['check' => $check, 'steps' => $steps];
+        return ['check' => $check, 'steps' => $steps, 'legs' => $legs];
     }
 
     /** @return Entry */

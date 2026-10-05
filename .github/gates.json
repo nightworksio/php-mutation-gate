@@ -159,21 +159,28 @@
         "error": "A test threw against the lowest dependencies: a lower bound in composer.json no longer works."
       }
     },
+    "runner-contract": {
+      "check": "runner contract",
+      "checks": "One leg of runner contracts: one runner's contracts, Pest's, Infection's with PHPUnit 13 or 12, PHPUnit's or the analysers', at one resolution of its fixture, the highest its committed lock holds or the lowest the package supports.",
+      "reproduce": "vendor/bin/pest --testsuite=Contract with the leg's --filter, after installing the leg's fixture as the job does (composer install for the locked highest, composer update --prefer-lowest for the lowest); ANALYSER_CONTRACTS=1 for the analysers",
+      "evidence": "none",
+      "why": "Each leg leaves its log and its suite's outcome to runner contracts, which reads them as its evidence and is the check main requires."
+    },
     "runner-contracts": {
       "check": "runner contracts",
-      "checks": "ADR-0004's Runner contract suite against the real Pest and Infection, the PHPUnit runner's pieces against a real PHPUnit, and ADR-0020's StaticChecker contract suite against the real Mago and PHPStan, at the highest releases the fixtures' committed locks hold and the lowest the package supports.",
-      "reproduce": "vendor/bin/pest --testsuite=Contract, after installing the fixture libraries as the job does (composer install for the locked highest, composer update --prefer-lowest for the lowest); ANALYSER_CONTRACTS=1 for the analysers",
+      "checks": "Every leg of runner contract passed: ADR-0004's Runner contract suite against the real Pest and Infection, the PHPUnit runner's pieces against a real PHPUnit, and ADR-0020's StaticChecker contract suite against the real Mago and PHPStan, at the highest releases the fixtures' committed locks hold and the lowest the package supports.",
+      "reproduce": "vendor/bin/pest --testsuite=Contract, after installing the fixture libraries as each leg of runner contract does (composer install for the locked highest, composer update --prefer-lowest for the lowest); ANALYSER_CONTRACTS=1 for the analysers",
       "evidence": [
-        {"step": "pest-lowest", "tool": "pest", "raw": "evidence/raw/pest-lowest.xml"},
         {"step": "pest-highest", "tool": "pest", "raw": "evidence/raw/pest-highest.xml"},
-        {"step": "infection-lowest-12", "tool": "pest", "raw": "evidence/raw/infection-lowest-12.xml"},
-        {"step": "infection-lowest-13", "tool": "pest", "raw": "evidence/raw/infection-lowest-13.xml"},
-        {"step": "infection-highest-12", "tool": "pest", "raw": "evidence/raw/infection-highest-12.xml"},
-        {"step": "infection-highest-13", "tool": "pest", "raw": "evidence/raw/infection-highest-13.xml"},
-        {"step": "phpunit-lowest", "tool": "pest", "raw": "evidence/raw/phpunit-lowest.xml"},
+        {"step": "pest-lowest", "tool": "pest", "raw": "evidence/raw/pest-lowest.xml"},
+        {"step": "infection-13-highest", "tool": "pest", "raw": "evidence/raw/infection-13-highest.xml"},
+        {"step": "infection-13-lowest", "tool": "pest", "raw": "evidence/raw/infection-13-lowest.xml"},
+        {"step": "infection-12-highest", "tool": "pest", "raw": "evidence/raw/infection-12-highest.xml"},
+        {"step": "infection-12-lowest", "tool": "pest", "raw": "evidence/raw/infection-12-lowest.xml"},
         {"step": "phpunit-highest", "tool": "pest", "raw": "evidence/raw/phpunit-highest.xml"},
-        {"step": "analysers-lowest", "tool": "pest", "raw": "evidence/raw/analysers-lowest.xml"},
-        {"step": "analysers-highest", "tool": "pest", "raw": "evidence/raw/analysers-highest.xml"}
+        {"step": "phpunit-lowest", "tool": "pest", "raw": "evidence/raw/phpunit-lowest.xml"},
+        {"step": "analysers-highest", "tool": "pest", "raw": "evidence/raw/analysers-highest.xml"},
+        {"step": "analysers-lowest", "tool": "pest", "raw": "evidence/raw/analysers-lowest.xml"}
       ],
       "rules": {
         "pest": "The suite did not run to the end, so it wrote no log of its tests.",

@@ -131,12 +131,12 @@ it('leaves evidence from every CI job, and explains every failure', function ():
 
     foreach (Gates::entries() as $gate => $entry) {
         $steps = array_key_exists($gate, $jobs) ? $jobs[$gate]['steps'] : [];
-        $ids = array_column($steps, 'id');
+        $ids = [...array_column($steps, 'id'), ...array_key_exists($gate, $jobs) ? $jobs[$gate]['legs'] : []];
         $runs = array_column($steps, 'run');
         $uploads = array_column(array_column($steps, 'with'), 'name');
 
         foreach ($entry['evidence'] as $producer) {
-            $wrong[] = in_array($producer['step'], $ids, strict: true) ? '' : sprintf('%s reads a step %s it does not have', $gate, $producer['step']);
+            $wrong[] = in_array($producer['step'], $ids, strict: true) ? '' : sprintf('%s reads a step or leg %s it does not have', $gate, $producer['step']);
         }
 
         $wrong[] = match (true) {
