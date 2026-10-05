@@ -1,12 +1,14 @@
 # Written by `mutation-gate init --ci=github`, for the gate dev-main.
 # Require the check `mutation / verdict` in the default branch's protection rule.
-# For an S3 proof store, add AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as
-# secrets of the environment mutation-gate-store, whose deployment branches
-# are trunk alone: the job enters it on a push, a schedule or a manual
-# run of trunk, and a pull request's run reads the store through
-# proofs.store.with.publicUrl. The tests run in the gate's step, so every
-# secret the job holds reaches the project's code. A branch can edit this
-# file, so the keys' protection is the environment's restriction to
+# The first job runs the project's tests, so it holds no token and no
+# secret: what needs one, the pull request comment and the ledger a store
+# keeps, it leaves for `deliver`, a job of its own that runs none of the
+# project's code. For an S3 proof store, add AWS_ACCESS_KEY_ID and
+# AWS_SECRET_ACCESS_KEY as secrets of the environment mutation-gate-store,
+# whose deployment branches are trunk alone, and name the store in the
+# repository's variables MUTATION_GATE_STORE and its location; Azure and GCS
+# sign in through GitHub's OIDC from the variables below. A branch can edit
+# this file, so the keys' protection is the environment's restriction to
 # trunk, not the condition below.
 name: mutation
 
@@ -24,21 +26,48 @@ jobs:
   mutation:
     name: 'mutation / verdict'
     runs-on: ubuntu-latest
-    environment:
-      name: ${{ contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event_name) && github.ref == 'refs/heads/trunk' && 'mutation-gate-store' || '' }}
     permissions:
       contents: read
       actions: read
-      pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
       - uses: nightworksio/php-mutation-gate@eea11e875234b32127cf23dde00d149b04c6ac4c
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         with:
           php-version: '8.5'
           runner: 'pest'
+
+  deliver:
+    name: mutation / deliver
+    needs: mutation
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event_name) && github.ref == 'refs/heads/trunk' && 'mutation-gate-store' || '' }}
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: nightworksio/php-mutation-gate@eea11e875234b32127cf23dde00d149b04c6ac4c
+        env:
+          MUTATION_GATE_DEFAULT_BRANCH: 'trunk'
+          MUTATION_GATE_STORE: ${{ vars.MUTATION_GATE_STORE }}
+          MUTATION_GATE_STORE_BUCKET: ${{ vars.MUTATION_GATE_STORE_BUCKET }}
+          MUTATION_GATE_STORE_PREFIX: ${{ vars.MUTATION_GATE_STORE_PREFIX }}
+          MUTATION_GATE_STORE_REGION: ${{ vars.MUTATION_GATE_STORE_REGION }}
+          MUTATION_GATE_STORE_ENDPOINT: ${{ vars.MUTATION_GATE_STORE_ENDPOINT }}
+          MUTATION_GATE_STORE_ACCOUNT: ${{ vars.MUTATION_GATE_STORE_ACCOUNT }}
+          MUTATION_GATE_STORE_CONTAINER: ${{ vars.MUTATION_GATE_STORE_CONTAINER }}
+          MUTATION_GATE_STORE_PUBLIC_CONTAINER: ${{ vars.MUTATION_GATE_STORE_PUBLIC_CONTAINER }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          MUTATION_GATE_GCS_PROVIDER: ${{ vars.MUTATION_GATE_GCS_PROVIDER }}
+          MUTATION_GATE_GCS_SERVICE_ACCOUNT: ${{ vars.MUTATION_GATE_GCS_SERVICE_ACCOUNT }}
+        with:
+          deliver: 'true'
+          php-version: '8.5'

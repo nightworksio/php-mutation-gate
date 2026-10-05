@@ -849,10 +849,12 @@ tag in a comment. Each release has its own tag, such as `v0.1.0`, and a
 release workflow moves the tag of its line, `v0.1`, to each new release of
 0.1.
 
-**One step, for most projects.** The action sets up PHP, installs your
-dependencies, keeps the proof ledger in the Actions cache and runs the whole
-gate in one job. It writes line annotations and the step summary, and posts
-the sticky PR comment.
+**One action in two jobs, for most projects.** In the first job the action
+sets up PHP, installs your dependencies, keeps the proof ledger in the
+Actions cache and runs the whole gate. It writes line annotations and the
+step summary, and holds no token once your code runs. In the second job,
+with `deliver: 'true'`, it runs none of your code. It posts the sticky PR
+comment and, on a trusted run, writes the ledger to a store.
 
 ```yaml
 name: mutation
@@ -874,7 +876,6 @@ jobs:
     permissions:
       contents: read
       actions: read
-      pull-requests: write
     steps:
       - uses: actions/checkout@<sha> # <tag>
         with:
@@ -882,6 +883,23 @@ jobs:
           persist-credentials: false
       - uses: nightworksio/php-mutation-gate@<sha> # v0.1.0
         with:
+          php-version: '8.5'
+
+  # Sends what the run left: the pull request comment, and on a trusted run
+  # the ledger a store keeps. It checks nothing out and runs none of the
+  # project's code.
+  deliver:
+    needs: mutation
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write # only for a store that signs in through OIDC
+    steps:
+      - uses: nightworksio/php-mutation-gate@<sha> # v0.1.0
+        with:
+          deliver: 'true'
           php-version: '8.5'
 ```
 
@@ -896,6 +914,7 @@ jobs:
 | `budget` | none |
 | `reports` | none; `<name>:<path>` lines, such as `sarif:build/mutation.sarif` |
 | `cache` | `true`: keep the ledger in the Actions cache |
+| `deliver` | `false`; `true` in a job of its own, after the run's, to send what the run left |
 
 Its outputs are `verdict` (`passed`, `failed` or `cannot-judge`), `scores`
 (JSON), `report-paths` (JSON) and `plan` (JSON). The one-step action writes
@@ -903,16 +922,28 @@ the badge and trend to `.mutation-gate/publish` but does not publish them,
 because that needs `contents: write` in a job that also runs on pull requests.
 The reusable workflow publishes them.
 
-For an S3 store in the one-step job, add `AWS_ACCESS_KEY_ID` and
-`AWS_SECRET_ACCESS_KEY` as secrets of the environment `mutation-gate-store`,
-whose deployment branches are the default branch alone, and hand them to the
-gate's step from `secrets`. The job `init --ci=github --single` writes enters
-that environment on a push, a schedule or a manual run of the default branch,
-and none on any other run, so a pull request's run reads the store through
-`proofs.store.with.publicUrl`. The tests run in the gate's step, so every
-secret the job holds reaches the project's code. A branch can edit the
-workflow, so the environment's restriction, not the job's condition, keeps the
-keys from other branches.
+The run's job runs the project's tests, so it holds no token and no secret:
+any step after the tests can be changed by them. What needs a credential, the
+pull request comment and the ledger a store keeps, it leaves as the artifact
+`mutation-gate-delivery`. The `deliver` job sends it with the job's token,
+running the gate from its own copy at the action's path, installed from the
+gate's own lock with no scripts or plugins, never from the project's `vendor`.
+The directory store is the Actions cache, which the run's job keeps itself, so
+a project that keeps its ledger there needs only that token.
+
+For an S3 store, add `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` as secrets
+of the environment `mutation-gate-store`, whose deployment branches are the
+default branch alone, name the store in the repository variables
+`MUTATION_GATE_STORE` and its location, as for the reusable workflow below, and
+hand them to the `deliver` job's step. Azure and GCS sign in through GitHub's
+OIDC instead, from the repository variables `AZURE_TENANT_ID` and
+`AZURE_CLIENT_ID`, or `MUTATION_GATE_GCS_PROVIDER` and
+`MUTATION_GATE_GCS_SERVICE_ACCOUNT`. The job `init --ci=github --single`
+writes enters that environment on a push, a schedule or a manual run of the
+default branch, and none on any other run, so a pull request's run reads the
+store through `proofs.store.with.publicUrl`. A branch can edit the workflow,
+so the environment's restriction, not the job's condition, keeps the keys from
+other branches.
 
 **Sharded, for large projects.** The reusable workflow runs a `plan` job, one
 `shard` job per shard and a `verdict` job. A last job, `publish`, runs on the
@@ -938,6 +969,7 @@ jobs:
       contents: write        # used only by the default-branch publish job
       actions: read
       pull-requests: write
+      id-token: write        # used only by fetch and deliver, for a store that signs in through OIDC
     with:
       php-version: '8.5'
 ```
@@ -1010,15 +1042,15 @@ it there. Without either, a scheduled run holds no secrets and says so in the
 deliver job's summary.
 
 The reusable workflow reaches S3 with those key secrets only. To assume an AWS
-role through OIDC instead, call the one-step action in a job of your own: give
-that job `id-token: write`, add `aws-actions/configure-aws-credentials` before
-the action, and trust the role as described above: an environment only the
+role through OIDC instead, use the action's two jobs: the `deliver` job already
+has `id-token: write`, so add `aws-actions/configure-aws-credentials` before
+the action there, and trust the role as described above: an environment only the
 default branch may deploy to, or the job's `job_workflow_ref`.
 
 Here is what the examples rely on:
 
 - **Branch protection** should require the verdict's check, `mutation /
-  verdict` in both examples: the one-step job is named so, and the reusable
+  verdict` in both examples: the action's first job is named so, and the reusable
   workflow's `verdict` job shows as `<calling job> / verdict`. It is also
   `ci.check`'s default, the check through which a merged pull request's
   verdict proves its commit; a job named otherwise needs `ci.check` set to its

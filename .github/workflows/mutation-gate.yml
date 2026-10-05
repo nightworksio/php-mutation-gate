@@ -102,8 +102,12 @@ jobs:
       deployment: false
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # id-token: write lets a store that signs in through GitHub's OIDC, Azure's
+    # or GCS's, ask for this job's token, which GitHub hands only to a job
+    # granted it; no job that runs the project's code is.
     permissions:
       contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -142,6 +146,10 @@ jobs:
           MUTATION_GATE_STORE_PUBLIC_CONTAINER: ${{ vars.MUTATION_GATE_STORE_PUBLIC_CONTAINER }}
           AWS_ACCESS_KEY_ID: ${{ secrets.MUTATION_GATE_READ_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          MUTATION_GATE_GCS_PROVIDER: ${{ vars.MUTATION_GATE_GCS_PROVIDER }}
+          MUTATION_GATE_GCS_SERVICE_ACCOUNT: ${{ vars.MUTATION_GATE_GCS_SERVICE_ACCOUNT }}
         run: php "${GATE_ACTION}/bin/mutation-gate" fetch --to="${LEDGERS}"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -156,7 +164,7 @@ jobs:
   plan:
     name: plan
     needs: fetch
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && needs.fetch.result != 'cancelled' }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     # The comment's planned state goes to deliver-plan.
@@ -295,7 +303,7 @@ jobs:
   deliver-plan:
     name: deliver plan
     needs: plan
-    if: ${{ !cancelled() && needs.plan.outputs.delivery == 'true' }}
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.delivery == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -327,7 +335,7 @@ jobs:
   shard:
     name: shard ${{ matrix.shard.id }} (${{ matrix.shard.label }})
     needs: plan
-    if: needs.plan.outputs.shards != '[]'
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.shards != '[]' }}
     runs-on: ubuntu-latest
     timeout-minutes: 360
     permissions:
@@ -390,7 +398,7 @@ jobs:
   survivors:
     name: survivors
     needs: plan
-    if: needs.plan.result == 'success' && github.event_name == 'pull_request'
+    if: ${{ !cancelled() && needs.plan.result == 'success' && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -487,7 +495,7 @@ jobs:
   deliver-survivors:
     name: deliver survivors
     needs: survivors
-    if: ${{ !cancelled() && needs.survivors.outputs.delivery == 'true' }}
+    if: ${{ !cancelled() && needs.survivors.result == 'success' && needs.survivors.outputs.delivery == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -523,7 +531,7 @@ jobs:
   verdict:
     name: verdict
     needs: [plan, shard, survivors]
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && needs.plan.result != 'skipped' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -609,6 +617,7 @@ jobs:
           "${GATE}" config:show --format=json "${arguments[@]}" \
             | python3 "${GATE_ACTION}/resources/action/gate_action.py" config
       - name: Restore this scope's ledger
+        id: own
         if: steps.config.outputs.default_store == 'true' && steps.resolve.outputs.own_dir != ''
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -660,15 +669,34 @@ jobs:
           "${GATE}" verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results \
             --report=json:.mutation-gate/action/report.json --deliver-later "${arguments[@]}" || code=$?
           echo "code=${code}" >> "${GITHUB_OUTPUT}"
+      # The verdict leaves this scope's ledger and kept coverage map in its
+      # delivery; the directory store is this cache, which needs no key, so
+      # they are kept here for this scope's ref alone (ADR-0007). This job is
+      # their one saver, and saves no key the restore already matched.
+      - name: Keep what the verdict left for this scope
+        if: >-
+          steps.resolve.outputs.save == 'true' && steps.config.outputs.default_store == 'true'
+          && steps.verdict.outputs.code != ''
+        env:
+          OWN: ${{ steps.resolve.outputs.own_dir }}
+        run: |
+          set -euo pipefail
+          mkdir -p "${OWN}"
+          for file in ledger.json.gz coverage.json.gz; do
+            if [ -f "${DELIVERY}/verdict/${file}" ]; then
+              cp "${DELIVERY}/verdict/${file}" "${OWN}/${file}"
+            fi
+          done
       - name: Save this scope's ledger
         if: >-
           steps.resolve.outputs.save == 'true' && steps.config.outputs.default_store == 'true'
           && steps.verdict.outputs.code != ''
-          && hashFiles(format('{0}/ledger.json.gz', steps.resolve.outputs.own_dir)) != ''
+          && hashFiles(format('{0}/ledger.json.gz', steps.resolve.outputs.own_dir), format('{0}/coverage.json.gz', steps.resolve.outputs.own_dir)) != ''
+          && format('{0}{1}', steps.resolve.outputs.own_prefix, hashFiles(format('{0}/ledger.json.gz', steps.resolve.outputs.own_dir), format('{0}/coverage.json.gz', steps.resolve.outputs.own_dir))) != steps.own.outputs.cache-matched-key
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.resolve.outputs.own_dir }}
-          key: ${{ steps.resolve.outputs.own_prefix }}${{ hashFiles(format('{0}/ledger.json.gz', steps.resolve.outputs.own_dir)) }}
+          key: ${{ steps.resolve.outputs.own_prefix }}${{ hashFiles(format('{0}/ledger.json.gz', steps.resolve.outputs.own_dir), format('{0}/coverage.json.gz', steps.resolve.outputs.own_dir)) }}
       - name: Say what the gate decided
         id: outputs
         env:
@@ -728,12 +756,15 @@ jobs:
       name: ${{ (contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event_name) && (github.event.repository.default_branch || vars.MUTATION_GATE_DEFAULT_BRANCH) != '' && github.ref == format('refs/heads/{0}', (github.event.repository.default_branch || vars.MUTATION_GATE_DEFAULT_BRANCH))) && 'mutation-gate-store' || '' }}
       deployment: false
     needs: verdict
-    if: ${{ !cancelled() && needs.verdict.outputs.delivery == 'true' }}
+    if: ${{ !cancelled() && contains(fromJSON('["success","failure"]'), needs.verdict.result) && needs.verdict.outputs.delivery == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # id-token: write, as fetch has it, for a store that signs in through
+    # GitHub's OIDC.
     permissions:
       contents: read
       pull-requests: write
+      id-token: write
     steps:
       - name: Say why this run holds no secrets
         if: ${{ contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event_name) && (github.event.repository.default_branch || vars.MUTATION_GATE_DEFAULT_BRANCH) == '' }}
@@ -781,6 +812,10 @@ jobs:
           MUTATION_GATE_WEBHOOK_SECRET: ${{ (contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event_name) && (github.event.repository.default_branch || vars.MUTATION_GATE_DEFAULT_BRANCH) != '' && github.ref == format('refs/heads/{0}', (github.event.repository.default_branch || vars.MUTATION_GATE_DEFAULT_BRANCH))) && secrets.MUTATION_GATE_WEBHOOK_SECRET || '' }}
           OTEL_EXPORTER_OTLP_ENDPOINT: ${{ (contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event_name) && (github.event.repository.default_branch || vars.MUTATION_GATE_DEFAULT_BRANCH) != '' && github.ref == format('refs/heads/{0}', (github.event.repository.default_branch || vars.MUTATION_GATE_DEFAULT_BRANCH))) && secrets.OTEL_EXPORTER_OTLP_ENDPOINT || '' }}
           OTEL_EXPORTER_OTLP_HEADERS: ${{ (contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event_name) && (github.event.repository.default_branch || vars.MUTATION_GATE_DEFAULT_BRANCH) != '' && github.ref == format('refs/heads/{0}', (github.event.repository.default_branch || vars.MUTATION_GATE_DEFAULT_BRANCH))) && secrets.OTEL_EXPORTER_OTLP_HEADERS || '' }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          MUTATION_GATE_GCS_PROVIDER: ${{ vars.MUTATION_GATE_GCS_PROVIDER }}
+          MUTATION_GATE_GCS_SERVICE_ACCOUNT: ${{ vars.MUTATION_GATE_GCS_SERVICE_ACCOUNT }}
         run: php "${GATE_ACTION}/bin/mutation-gate" deliver --from="${DELIVERY}/verdict"
 
   # The badge and the trend, pushed through the contents API to the branch
@@ -791,7 +826,7 @@ jobs:
     name: publish
     needs: [plan, verdict]
     if: >-
-      ${{ !cancelled() && needs.plan.result == 'success' && needs.verdict.outputs.verdict != ''
+      ${{ !cancelled() && needs.plan.result == 'success' && contains(fromJSON('["success","failure"]'), needs.verdict.result) && needs.verdict.outputs.verdict != ''
       && (contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event_name) && (github.event.repository.default_branch || vars.MUTATION_GATE_DEFAULT_BRANCH) != '' && github.ref == format('refs/heads/{0}', (github.event.repository.default_branch || vars.MUTATION_GATE_DEFAULT_BRANCH))) }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

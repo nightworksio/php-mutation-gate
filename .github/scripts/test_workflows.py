@@ -381,12 +381,13 @@ class Shards(unittest.TestCase):
         self.assertTrue(checkouts)
         self.assertFalse(any("fetch-depth: 0" in line for found in checkouts for line in found))
 
-    def test_the_action_holds_the_token_after_the_install_only_where_its_one_job_comments(self):
+    def test_the_action_holds_the_token_after_the_install_only_in_deliver_which_runs_no_project_code(self):
         found = steps(lines_of(ACTION))
         installed = next(at for at, one in enumerate(found) if "ramsey/composer-install@" in "\n".join(one))
-        late = [one[0].strip() for one in found[installed:] if any("github.token" in line for line in one)]
+        late = [one for one in found[installed:] if any("github.token" in line for line in one)]
 
-        self.assertEqual(["- name: Plan", "- name: Re-check the last run's survivors", "- name: Verdict"], late)
+        self.assertEqual(["- name: Deliver"], [one[0].strip() for one in late])
+        self.assertIn("      if: inputs.deliver == 'true'", late[0])
 
     def test_a_step_that_runs_a_shard_holds_no_token(self):
         running = [found for found in steps(lines_of(ACTION)) if any("run --plan=" in line for line in found)]

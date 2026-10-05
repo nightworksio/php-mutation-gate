@@ -33,7 +33,7 @@ it('patches Pest after installing and before running a mutant, where the config 
         ->and($config)->toHaveCount(1)
         ->and($patch)->toHaveCount(1)
         ->and($mutating)->toHaveCount(2)
-        ->and(Lenient::text(Lenient::items($steps)[$patch[0]]->field('if')))->toBe("steps.config.outputs.pest_patch == 'true'")
+        ->and(Lenient::text(Lenient::items($steps)[$patch[0]]->field('if')))->toBe("inputs.deliver != 'true' && steps.config.outputs.pest_patch == 'true'")
         ->and($install[0])->toBeLessThan($config[0])
         ->and($config[0])->toBeLessThan($patch[0])
         ->and($mutating[0])->toBeGreaterThan($patch[0])
