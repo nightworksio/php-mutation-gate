@@ -60,10 +60,6 @@ final readonly class Outcomes
 
     private function killed(TestIds $killers, Mutant|NotMade $outcome): TestIds
     {
-        foreach ($outcome instanceof Mutant ? $outcome->killers() : TestIds::none() as $test) {
-            $killers = $killers->with($test);
-        }
-
-        return $killers;
+        return $outcome instanceof Mutant ? $killers->and($outcome->killers()) : $killers;
     }
 }

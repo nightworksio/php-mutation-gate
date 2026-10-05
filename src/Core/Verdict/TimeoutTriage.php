@@ -40,14 +40,14 @@ final readonly class TimeoutTriage
      */
     public static function timed(Mutants $mutants, CoverageMap $map): Mutants
     {
-        $timed = Mutants::none();
+        $timed = [];
 
         foreach ($mutants as $mutant) {
             $time = $mutant->status()->ranOutOfTime() ? self::judgingTimeOf($mutant, $map) : Unmeasured::duration();
-            $timed = $timed->with($time instanceof Seconds ? $mutant->withUnmutatedNeed($time) : $mutant);
+            $timed[] = $time instanceof Seconds ? $mutant->withUnmutatedNeed($time) : $mutant;
         }
 
-        return $timed;
+        return Mutants::of(...$timed);
     }
 
     /** What a mutant comes to: as its status reports it, and a timeout as triage judges it. */
@@ -69,6 +69,6 @@ final readonly class TimeoutTriage
     {
         $location = $mutant->location();
 
-        return OwnTime::of($map, $map->testsCovering($location->file(), $location->start()));
+        return OwnTime::of($map, $map->testsCoveringSpan($location->file(), $location->start(), $location->last()));
     }
 }

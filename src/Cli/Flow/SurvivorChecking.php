@@ -65,12 +65,15 @@ final readonly class SurvivorChecking
     /** These mutants, each survivor the analyser rejects killed by static analysis, with what the checks came to. */
     public function checked(Mutants $mutants, MutantIds $flaky): Checked
     {
-        $survivors = Mutants::none();
+        $listed = [];
 
         foreach ($mutants as $mutant) {
-            $survives = $mutant->status() === MutantStatus::Survived && ! $flaky->has($mutant->id());
-            $survivors = $survives ? $survivors->with($mutant) : $survivors;
+            if ($mutant->status() === MutantStatus::Survived && ! $flaky->has($mutant->id())) {
+                $listed[] = $mutant;
+            }
         }
+
+        $survivors = Mutants::of(...$listed);
 
         $checker = $this->adapters->checker;
 

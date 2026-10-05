@@ -40,15 +40,13 @@ final readonly class MemoryTriage
             return $mutants;
         }
 
-        $weighed = Mutants::none();
+        $weighed = [];
 
         foreach ($mutants as $mutant) {
-            $weighed = $weighed->with(
-                $mutant->status() === MutantStatus::OutOfMemory ? $mutant->withUnmutatedNeed($peak) : $mutant,
-            );
+            $weighed[] = $mutant->status() === MutantStatus::OutOfMemory ? $mutant->withUnmutatedNeed($peak) : $mutant;
         }
 
-        return $weighed;
+        return Mutants::of(...$weighed);
     }
 
     /** What a mutant comes to: as its status reports it, and one out of memory as triage judges it. */

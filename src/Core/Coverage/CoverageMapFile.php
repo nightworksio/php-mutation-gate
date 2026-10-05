@@ -4,12 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Coverage;
 
-use function array_filter;
-use function array_key_exists;
 use function array_map;
-use function array_merge;
 use function count;
-use function intval;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -19,13 +15,10 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
-use NightWorksIO\MutationGate\Core\WholeNumber;
 
 use function sprintf;
 
 use stdClass;
-
-use function strval;
 
 /**
  * A coverage map as the gate carries it between jobs: `"format": 1`, compact
@@ -52,6 +45,12 @@ final readonly class CoverageMapFile
 {
     /** What a message calls the file. */
     public const string NAMED = 'The coverage map';
+
+    /** A listed test's field that holds its seconds. */
+    public const string SECONDS = 'seconds';
+
+    /** The field that lists each file's executed methods. */
+    public const string METHODS = 'methods';
     /** The map's name in the directory a job hands it over in. */
     private const string NAME = 'map.json.gz';
 
@@ -59,10 +58,6 @@ final readonly class CoverageMapFile
 
     /** Why a file cannot be read as a map. */
     private const string UNREADABLE = 'The coverage map is not one this gate writes, so no line of it can be read.';
-
-    private const string SECONDS = 'seconds';
-
-    private const string METHODS = 'methods';
 
     /** Why a job finds no map to read: it reads only the gate's own, never a map a runner wrote. */
     private const string MISSING
@@ -120,24 +115,7 @@ final readonly class CoverageMapFile
             return CannotJudge::because(self::UNREADABLE);
         }
 
-        $tests = array_map(self::testIn(...), self::itemsOf($file->field('tests')));
-        $covered = [];
-
-        foreach (self::entriesOf($file->field('files')) as $path => $lines) {
-            $covered[] = self::coveredIn(Path::of(strval($path)), $lines, $tests);
-        }
-
-        $map = CoverageMap::of(...array_merge(...$covered))->timedEach(...array_filter(
-            array_merge(...$tests),
-            static fn(TimedTest|TestId $test): bool => $test instanceof TimedTest,
-        ));
-
-        foreach (self::entriesOf($file->field(self::METHODS)) as $path => $methods) {
-            $listed = array_merge(...array_map(self::methodIn(...), self::itemsOf($methods)));
-            $map = $map->executing(Path::of(strval($path)), ...$listed);
-        }
-
-        return $map;
+        return MapFileRead::read($file);
     }
 
     /** @return array<string, list<MethodRecord>> each file's executed methods, by path */
@@ -156,25 +134,6 @@ final readonly class CoverageMapFile
         }
 
         return $methods;
-    }
-
-    /**
-     * A listed method, where it names itself and spans lines that begin
-     * after the file does and end no sooner than they begin; none otherwise.
-     *
-     * @return list<ExecutedMethod>
-     */
-    private static function methodIn(Node $method): array
-    {
-        try {
-            $name = $method->field('name')->text();
-            $start = $method->field('start')->integer();
-            $end = $method->field('end')->integer();
-        } catch (NotInShape) {
-            return [];
-        }
-
-        return $name !== '' && $start >= 1 && $end >= $start ? [ExecutedMethod::of($name, $start, $end)] : [];
     }
 
     /** @return TestRecord */
@@ -196,102 +155,4 @@ final readonly class CoverageMapFile
         }
     }
 
-    /**
-     * A listed test, with how long it took where it was timed; none where the
-     * entry is not a test, which leaves its place empty.
-     *
-     * @return list<TimedTest|TestId>
-     */
-    private static function testIn(Node $test): array
-    {
-        try {
-            $id = $test->field('id')->text();
-            $seconds = $test->field(self::SECONDS);
-
-            return [$seconds->isPresent() ? TimedTest::of($id, self::secondsIn($seconds)) : TestId::of($id)];
-        } catch (NotInShape) {
-            return [];
-        }
-    }
-
-    /** @throws NotInShape */
-    private static function secondsIn(Node $seconds): float
-    {
-        $value = $seconds->number();
-
-        return $value >= 0.0 ? $value : throw NotInShape::at($seconds->at(), 'a duration');
-    }
-
-    /**
-     * Every well-formed covered line of a file, with the ids of the tests
-     * that ran it.
-     *
-     * @param  list<list<TimedTest|TestId>> $tests each listed test at its place, or none where it was not a test
-     * @return list<CoveredLine>
-     */
-    private static function coveredIn(Path $file, Node $lines, array $tests): array
-    {
-        $covered = [];
-
-        foreach (self::entriesOf($lines) as $line => $places) {
-            $covered[] = self::lineIn($file, $line, $places, $tests);
-        }
-
-        return array_merge(...$covered);
-    }
-
-    /**
-     * @param  list<list<TimedTest|TestId>> $tests
-     * @return list<CoveredLine>            the line, or none where it is not well formed
-     */
-    private static function lineIn(Path $file, int|string $line, Node $places, array $tests): array
-    {
-        $number = strval($line);
-
-        try {
-            $ids = array_map(static fn(int $place): string => self::idAt($place, $tests, $places), $places->integers());
-        } catch (NotInShape) {
-            return [];
-        }
-
-        return WholeNumber::isPositive($number) ? [CoveredLine::of($file, intval($number), ...$ids)] : [];
-    }
-
-    /**
-     * The id of the test at a place in the list.
-     *
-     * @param list<list<TimedTest|TestId>> $tests
-     *
-     * @throws NotInShape
-     */
-    private static function idAt(int $place, array $tests, Node $at): string
-    {
-        $test = array_key_exists($place, $tests) ? $tests[$place] : [];
-
-        return match (true) {
-            $test === [] => throw NotInShape::at($at->at(), sprintf('the place of a listed test, not %d', $place)),
-            $test[0] instanceof TimedTest => $test[0]->test()->value(),
-            default => $test[0]->value(),
-        };
-    }
-
-    /** @return list<Node> */
-    private static function itemsOf(Node $list): array
-    {
-        try {
-            return $list->items();
-        } catch (NotInShape) {
-            return [];
-        }
-    }
-
-    /** @return array<array-key, Node> each entry, by its key, which PHP keys as a number where it reads as one */
-    private static function entriesOf(Node $map): array
-    {
-        try {
-            return $map->entries();
-        } catch (NotInShape) {
-            return [];
-        }
-    }
 }

@@ -33,4 +33,10 @@ final readonly class Location
     {
         return $this->end;
     }
+
+    /** The last line it spans: the one it ends on, or the one it starts on where the runner says no end. */
+    public function last(): Line
+    {
+        return $this->end instanceof Line ? $this->end : $this->start;
+    }
 }

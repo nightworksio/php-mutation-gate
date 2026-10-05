@@ -39,10 +39,10 @@ it('reads which tests ran each executable line of each file of the project, the 
     $money = Path::of('src/Money.php');
 
     expect(CoverageFile::read($project, $file))->toEqual(CoverageMap::of(CoveredLine::of($money, 13))
+        ->covered(Path::of('src/Held.php'), Line::of(5), $large)
         ->covered($money, Line::of(10), $adds)
         ->covered($money, Line::of(11), $adds)
         ->covered($money, Line::of(11), $large)
-        ->covered(Path::of('src/Held.php'), Line::of(5), $large)
         ->timed($adds, Seconds::of(0.25))
         ->timed($large, Seconds::of(1.5)));
 });

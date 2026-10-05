@@ -69,11 +69,12 @@ it('cuts on the unit that reaches an equal share exactly', function () use ($wei
     ]);
 });
 
-it('leaves no shard empty when cutting by size', function () use ($weighed, $src, $shards): void {
+it('cuts by size into the shards a size takes, the costliest as cheap as a cut in path order allows', function () use ($weighed, $src, $shards): void {
     $work = Workload::of($weighed('src/A.php', 299.0), $weighed('src/B.php', 301.0));
 
     expect($shards(Cut::bySize(300, 20)->cut($work, $src)))->toBe([
-        [1, 'src', 600.0, '.', ['src/A.php', 'src/B.php']],
+        [1, 'src, part 1 of 2', 299.0, '.', ['src/A.php']],
+        [2, 'src, part 2 of 2', 301.0, '.', ['src/B.php']],
     ]);
 });
 

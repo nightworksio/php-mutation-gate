@@ -12,14 +12,19 @@ use function array_last;
 use function array_map;
 use function array_pop;
 use function array_slice;
+use function array_unique;
 use function array_values;
 use function count;
 
 use Countable;
+
+use function is_string;
+
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
 use PhpToken;
 
+use function sort;
 use function sprintf;
 use function str_replace;
 use function trim;
@@ -56,9 +61,16 @@ final readonly class Tokens implements Countable
      * @param array<int, int> $enclosing where the bracket each token stands inside opens, by the token's index
      * @param array<int, int> $closing   where each bracket closes, by where it opens, or past the last token
      *                                   where it never does
+     * @param array<int, list<int>>        $byId   where each token stands, in order, by its id
+     * @param array<array-key, list<int>>  $byText where each token stands, in order, by its text
      */
-    private function __construct(private array $tokens, private array $enclosing, private array $closing)
-    {
+    private function __construct(
+        private array $tokens,
+        private array $enclosing,
+        private array $closing,
+        private array $byId,
+        private array $byText,
+    ) {
     }
 
     /**
@@ -79,9 +91,13 @@ final readonly class Tokens implements Countable
         $open = [];
         $enclosing = [];
         $closing = [];
+        $byId = [];
+        $byText = [];
 
         foreach ($tokens as $at => $token) {
             $enclosing[$at] = array_last($open) ?? self::NONE;
+            $byId[$token->id][] = $at;
+            $byText[$token->text][] = $at;
 
             if ($token->is(self::CLOSES)) {
                 $closing[array_pop($open) ?? self::NONE] = $at;
@@ -92,7 +108,7 @@ final readonly class Tokens implements Countable
             }
         }
 
-        return new self($tokens, $enclosing, $closing + array_fill_keys($open, count($tokens)));
+        return new self($tokens, $enclosing, $closing + array_fill_keys($open, count($tokens)), $byId, $byText);
     }
 
     /**
@@ -102,7 +118,15 @@ final readonly class Tokens implements Countable
      */
     public function indicesOf(int|string ...$kinds): array
     {
-        return array_keys(array_filter($this->tokens, static fn(PhpToken $token): bool => $token->is($kinds)));
+        $found = [];
+
+        foreach ($kinds as $kind) {
+            $found = [...$found, ...$this->indexed($kind)];
+        }
+
+        sort($found);
+
+        return array_values(array_unique($found));
     }
 
     /**
@@ -211,5 +235,17 @@ final readonly class Tokens implements Countable
         }
 
         return $spelt;
+    }
+
+    /**
+     * Where each token of a kind stands, by its id or by its text.
+     *
+     * @return list<int>
+     */
+    private function indexed(int|string $kind): array
+    {
+        $index = is_string($kind) ? $this->byText : $this->byId;
+
+        return array_key_exists($kind, $index) ? $index[$kind] : [];
     }
 }

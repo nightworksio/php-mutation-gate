@@ -8,7 +8,6 @@ use function array_key_exists;
 use function count;
 
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
-use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Test\DeclaredSuites;
@@ -133,11 +132,7 @@ final readonly class KillMatrix
         $id = $mutant->id()->key();
         $covering = array_key_exists($id, $this->carried) ? $this->carried[$id] : $this->onLines($judged);
 
-        foreach ($mutant->killers() as $killer) {
-            $covering = $covering->with($killer);
-        }
-
-        return $covering;
+        return $covering->and($mutant->killers());
     }
 
     /** The coverage the run read, for what each test covers line by line. */
@@ -197,16 +192,7 @@ final readonly class KillMatrix
     private function onLines(JudgedMutant|JudgedKill $judged): TestIds
     {
         $location = $judged->mutant()->location();
-        $end = $location->end();
-        $last = $end instanceof Line ? $end->number() : $location->start()->number();
-        $covering = TestIds::none();
 
-        for ($line = $location->start()->number(); $line <= $last; ++$line) {
-            foreach ($this->coverage->testsCovering($location->file(), Line::of($line)) as $test) {
-                $covering = $covering->with($test);
-            }
-        }
-
-        return $covering;
+        return $this->coverage->testsCoveringSpan($location->file(), $location->start(), $location->last());
     }
 }

@@ -14,7 +14,6 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\OwnTime;
 use NightWorksIO\MutationGate\Core\File\Contents;
-use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -147,19 +146,9 @@ final readonly class MutationRun
     /** Every test that covers a line the mutant changes. */
     private function covering(CoverageMap $map, MadeMutant $mutant): TestIds
     {
-        $file = $mutant->location()->file();
-        $tests = TestIds::none();
-        $first = $mutant->location()->start()->number();
-        $end = $mutant->location()->end();
-        $last = $end instanceof Line ? $end->number() : $first;
+        $location = $mutant->location();
 
-        for ($line = $first; $line <= $last; $line++) {
-            foreach ($map->testsCovering($file, Line::of($line)) as $test) {
-                $tests = $tests->with($test);
-            }
-        }
-
-        return $tests;
+        return $map->testsCoveringSpan($location->file(), $location->start(), $location->last());
     }
 
     /** When the run stops making mutants, on `hrtime`'s clock: never, where it has no deadline. */

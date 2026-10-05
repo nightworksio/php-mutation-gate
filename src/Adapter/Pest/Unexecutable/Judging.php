@@ -13,20 +13,17 @@ use function is_string;
 use NightWorksIO\MutationGate\Adapter\Pest\Covering;
 use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
 use NightWorksIO\MutationGate\Adapter\Pest\MemoryScan;
-use NightWorksIO\MutationGate\Adapter\Pest\Printed;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Shell;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
-use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
-use NightWorksIO\MutationGate\Core\Php\Source;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -95,16 +92,17 @@ final readonly class Judging
             $guard,
             $scan,
         );
-        $mutants = Mutants::none();
+        $originals = new Originals($this->project);
+        $mutants = [];
 
         foreach ($result->mutants() as $mutant) {
             $uncovered = $mutant->status() === MutantStatus::Uncovered;
-            $mutants = $mutants->with($uncovered ? $this->one($mutant, $selector, $trial, $results) : $mutant);
+            $mutants[] = $uncovered ? $this->one($mutant, $selector, $trial, $originals, $results) : $mutant;
         }
 
         $scan->remove();
 
-        return MutationResult::of($mutants, $result->skipped());
+        return MutationResult::of(Mutants::of(...$mutants), $result->skipped());
     }
 
     private function leftUncovered(Mutants $mutants): bool
@@ -118,11 +116,16 @@ final readonly class Judging
         return false;
     }
 
-    private function one(Mutant $mutant, Selector $selector, Trial $trial, string $results): Mutant
-    {
+    private function one(
+        Mutant $mutant,
+        Selector $selector,
+        Trial $trial,
+        Originals $originals,
+        string $results,
+    ): Mutant {
         $file = $mutant->location()->file();
         $copy = Recorder::mutantBeside($results, $mutant->nativeId());
-        $choice = $this->choice($selector, $file, $copy);
+        $choice = $this->choice($selector, $originals->of($file), $copy);
 
         if ($choice instanceof Outcome) {
             return $this->judged($mutant, $choice);
@@ -152,24 +155,24 @@ final readonly class Judging
      * prints it, is kept at a path; none where coverage speaks for its line;
      * or why it stays unjudged.
      */
-    private function choice(Selector $selector, Path $file, string $copy): Choice|NotGiven|Outcome
-    {
-        $original = $this->contentsOf($this->project->absolute($file));
-        $mutated = $this->contentsOf($copy);
+    private function choice(
+        Selector $selector,
+        Original|CannotJudge|NotGiven $original,
+        string $copy,
+    ): Choice|NotGiven|Outcome {
+        $text = is_file($copy) ? file_get_contents($copy) : false;
 
-        if (! $original instanceof Contents || ! $mutated instanceof Contents) {
+        if ($original instanceof NotGiven || ! is_string($text)) {
             return Outcome::unjudged(self::MISSING);
         }
 
-        $printed = Printed::of($original, $file);
-
-        if ($printed instanceof CannotJudge) {
-            return Outcome::unjudged($printed->why());
+        if ($original instanceof CannotJudge) {
+            return Outcome::unjudged($original->why());
         }
 
-        $source = Source::read($file, $original, test: false);
+        $source = $original->source();
 
-        return $selector->judging($source, $source->changedAt($printed, $mutated));
+        return $selector->judging($source, $source->changedAt($original->printed(), Contents::of($text)));
     }
 
     /** The mutant as an outcome judges it, with the limit its run was allowed where it timed out. */
@@ -191,12 +194,5 @@ final readonly class Judging
             $outcome->status() === MutantStatus::TimedOut && $limit instanceof Seconds => $judged->withLimit($limit),
             default => $judged,
         };
-    }
-
-    private function contentsOf(string $path): Contents|false
-    {
-        $text = is_file($path) ? file_get_contents($path) : false;
-
-        return is_string($text) ? Contents::of($text) : false;
     }
 }

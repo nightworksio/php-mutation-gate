@@ -111,6 +111,22 @@ it('allows each mutant 5 s plus five times its covering tests\' own time under t
         ->toEqual([Seconds::of(30.0), Seconds::of(10.0)]);
 });
 
+it('judges a mutant that spans lines by the tests of every line it spans, and times it by them all', function (): void {
+    $root = library();
+    Scratch::write($root, 'src/Span.php', "<?php\n\nfunction add(\$a, \$b)\n{\n    return \$a\n        + \$b;\n}\n");
+    [$run, $shell] = killingRun($root);
+    $spanned = CoverageMap::empty()
+        ->covered(Path::of('src/Span.php'), Line::of(5), TestId::of('Tests\MoneySpec::adds'))
+        ->covered(Path::of('src/Span.php'), Line::of(6), TestId::of('Tests\MoneySpec::sums'))
+        ->timed(TestId::of('Tests\MoneySpec::adds'), Seconds::of(1.0))
+        ->timed(TestId::of('Tests\MoneySpec::sums'), Seconds::of(2.0));
+    $result = $run->of(MutationRequest::of(Paths::of(Path::of('src/Span.php')), WholeSuite::tests()), $spanned, Seconds::of(30.0));
+
+    expect(judgedMutants($result))->toBe([['src/Span.php', 'acme/PlusToMinus', 'killed']])
+        ->and(array_map(static fn(Command $command): mixed => $command->deadline(), $shell->commands()))
+        ->toEqual([Seconds::of(20.0)]);
+});
+
 it('makes only the mutators asked for, of the files not left out', function () use ($covered): void {
     [$run] = killingRun(library());
     $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())

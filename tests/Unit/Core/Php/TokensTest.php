@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Php\Tokens;
+use NightWorksIO\MutationGate\Tests\Support\Growth;
 
 $tokens = static fn(string $code): Tokens => Tokens::of(array_values(array_filter(
     PhpToken::tokenize($code),
@@ -16,6 +17,35 @@ it('finds each token of some kinds, in order', function () use ($tokens): void {
     expect($read->indicesOf(T_STRING))->toBe([0, 2, 5])
         ->and($read->indicesOf('(', '['))->toBe([1, 4])
         ->and($read->indicesOf(T_ATTRIBUTE))->toBe([]);
+});
+
+it('finds a token by its text where its id is another\'s: a `{` opening a string\'s variable, a name of one letter, and a longer text', function () use ($tokens): void {
+    $read = $tokens('<?php $s = "a{$b}"; x::$y; f(...$z);');
+
+    expect($read->indicesOf('{'))->toBe([4])
+        ->and($read->indicesOf('x'))->toBe([9])
+        ->and($read->indicesOf('...'))->toBe([15])
+        ->and($read->indicesOf(T_DOUBLE_COLON, '{', T_DOUBLE_COLON))->toBe([4, 10])
+        ->and($read->indicesOf('q'))->toBe([]);
+});
+
+it('finds the tokens of a kind as often as asked in time linear in how many there are, however long the file', function () use ($tokens): void {
+    $find = static function (int $size) use ($tokens): Closure {
+        $read = $tokens(sprintf('<?php %s A::B;', str_repeat('$a = 1; ', 100 * $size)));
+
+        return static function () use ($read, $size): int {
+            $found = 0;
+
+            foreach (range(1, 100 * $size) as $ignored) {
+                $found += count($read->indicesOf(T_DOUBLE_COLON));
+            }
+
+            return $found;
+        };
+    };
+
+    expect($find(1)())->toBe(100)
+        ->and(Growth::of(4, $find))->toBeLessThan(Growth::LINEAR);
 });
 
 it('reads a token by its index, and nothing past either end', function () use ($tokens): void {

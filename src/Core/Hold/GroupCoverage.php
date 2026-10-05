@@ -58,9 +58,7 @@ final readonly class GroupCoverage
         $running = TestIds::none();
 
         foreach ($group->files() as $file) {
-            foreach ($file->within($path) ? $group->testsCoveringFile($file) : [] as $test) {
-                $running = $running->with($test);
-            }
+            $running = $file->within($path) ? $running->and($group->testsCoveringFile($file)) : $running;
         }
 
         return $running;

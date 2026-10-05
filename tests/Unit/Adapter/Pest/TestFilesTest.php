@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Tests\Support\Growth;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -127,4 +128,22 @@ it('holds the tests of the class Pest declares for a file past a quote, a direct
 
     expect($files->holdingAny(TestIds::of($quotes, $adds)))
         ->toEqual(Paths::of(Path::of("tests/'Odd/QuoteSpec.php"), Path::of("tests/Ev'en/MoneySpec.php")));
+});
+
+it('holds the tests of some files in time linear in how many tests there are', function (): void {
+    $holding = static function (int $size): Closure {
+        $root = Scratch::directory();
+        Scratch::write($root, 'tests/Unit/MoneySpec.php', "<?php\nit('adds', fn () => true);");
+        $files = new TestFiles(Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of('vendor')));
+        $tests = TestIds::of(...array_map(
+            static fn(int $at): TestId => TestId::of(sprintf('P\\Tests\\Unit\\MoneySpec::__pest_evaluable_it_adds#%d', $at)),
+            range(1, $size),
+        ));
+        $held = Paths::of(Path::of('tests/Unit/MoneySpec.php'));
+
+        return static fn(): int => count($files->holding($held, $tests));
+    };
+
+    expect($holding(10)())->toBe(10)
+        ->and(Growth::of(500, $holding))->toBeLessThan(Growth::LINEAR);
 });

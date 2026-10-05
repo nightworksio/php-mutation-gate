@@ -75,7 +75,7 @@ final readonly class SourceTests
         $covering = $this->map->testsCoveringFile($file);
 
         foreach ($this->judges->of($file) as $test) {
-            $tests = $this->only($this->places->in($test), $covering);
+            $tests = $this->places->in($test)->among($covering);
             $affected = count($tests) === 0
                 ? $affected->wholly($test, Reason::that(sprintf(self::SELECTED, $changed->value())))
                 : $affected->reaching(
@@ -113,21 +113,9 @@ final readonly class SourceTests
         $lines = 0;
 
         foreach ($this->map->linesCovered($file) as $line) {
-            $lines += count($this->only($this->map->testsCovering($file, $line), $tests)) > 0 ? 1 : 0;
+            $lines += count($this->map->testsCovering($file, $line)->among($tests)) > 0 ? 1 : 0;
         }
 
         return $lines;
-    }
-
-    /** The tests of the first set that the second holds too. */
-    private function only(TestIds $tests, TestIds $of): TestIds
-    {
-        $both = TestIds::none();
-
-        foreach ($tests as $test) {
-            $both = $of->has($test) ? $both->with($test) : $both;
-        }
-
-        return $both;
     }
 }

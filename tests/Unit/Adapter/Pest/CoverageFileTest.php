@@ -53,13 +53,13 @@ it('reads which tests ran each executable line, the lines none ran, and how long
 
     expect($coverage instanceof CoverageFile ? $coverage->map($project) : $coverage)
         ->toEqual(CoverageMap::of(CoveredLine::of($money, 13))
+            ->covered(Path::of('src/Held.php'), Line::of(5), $doubles)
             ->covered($money, Line::of(10), $adds)
             ->covered($money, Line::of(11), $adds)
             ->covered($money, Line::of(11), $large)
             ->covered($money, Line::of(12), $large)
             ->covered($money, Line::of(12), $doubles)
             ->covered($money, Line::of(14), $doubles)
-            ->covered(Path::of('src/Held.php'), Line::of(5), $doubles)
             ->timed($adds, Seconds::of(0.25))
             ->timed($large, Seconds::of(1.5)));
 });

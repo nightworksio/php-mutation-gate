@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
+use function array_merge;
+
 use DOMDocument;
 use DOMElement;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethod;
+use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
-use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Test\TestId;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
 
@@ -33,7 +34,7 @@ final readonly class CoverageXml
     /** The map a coverage directory holds, with each file as the project spells it. */
     public static function read(Project $project, DiskPath $directory): CoverageMap|CannotJudge
     {
-        return self::over(CoverageMap::empty(), $project, $directory);
+        return self::over([], $project, $directory);
     }
 
     /**
@@ -44,7 +45,7 @@ final readonly class CoverageXml
     {
         $missed = MissedLines::in($project, $directory);
 
-        return $missed instanceof CannotJudge ? $missed : self::over(CoverageMap::of(...$missed), $project, $directory);
+        return $missed instanceof CannotJudge ? $missed : self::over($missed, $project, $directory);
     }
 
     /** Where a coverage directory's index of every file's report is. */
@@ -53,8 +54,13 @@ final readonly class CoverageXml
         return $directory->child(Invocation::XML)->child(self::INDEX);
     }
 
-    /** The lines and times a coverage directory holds, onto a map that holds the lines no test ran. */
-    private static function over(CoverageMap $missed, Project $project, DiskPath $directory): CoverageMap|CannotJudge
+    /**
+     * The lines and times a coverage directory holds, with the lines no test
+     * ran, built into a map at once.
+     *
+     * @param list<CoveredLine> $missed
+     */
+    private static function over(array $missed, Project $project, DiskPath $directory): CoverageMap|CannotJudge
     {
         $xml = $directory->child(Invocation::XML);
         $index = self::loaded(self::indexIn($directory));
@@ -68,13 +74,16 @@ final readonly class CoverageXml
         };
     }
 
+    /** @param list<CoveredLine> $missed */
     private static function covered(
         Project $project,
         DOMDocument $index,
         DiskPath $xml,
-        CoverageMap $map,
+        array $missed,
     ): CoverageMap|CannotJudge {
         $source = '';
+        $lines = [$missed];
+        $methods = [];
 
         foreach ($index->getElementsByTagName('project') as $root) {
             $source = $root->getAttribute('source');
@@ -87,7 +96,17 @@ final readonly class CoverageXml
                 return $report;
             }
 
-            $map = self::linesOf($project, $report, $source, $map);
+            foreach ($report->getElementsByTagName('file') as $covered) {
+                $path = $project->relative(self::onDisk($source, $covered));
+                $lines[] = self::linesOf($path, $covered);
+                $methods[] = [$path, self::executedIn($covered)];
+            }
+        }
+
+        $map = CoverageMap::of(...array_merge(...$lines));
+
+        foreach ($methods as [$path, $executed]) {
+            $map = $map->executing($path, ...$executed);
         }
 
         return $map;
@@ -99,23 +118,28 @@ final readonly class CoverageXml
         return XmlFile::read($file->value(), CannotJudge::because(sprintf(self::UNREADABLE, $file->value())));
     }
 
-    private static function linesOf(
-        Project $project,
-        DOMDocument $report,
-        string $source,
-        CoverageMap $map,
-    ): CoverageMap {
-        foreach ($report->getElementsByTagName('file') as $file) {
-            $path = $project->relative(self::onDisk($source, $file));
+    /**
+     * Each line of a file's report some test ran, with the tests that ran it.
+     *
+     * @return list<CoveredLine>
+     */
+    private static function linesOf(Path $path, DOMElement $file): array
+    {
+        $lines = [];
 
-            foreach ($file->getElementsByTagName('line') as $line) {
-                $map = self::coveredLine($map, $path, $line);
+        foreach ($file->getElementsByTagName('line') as $line) {
+            $tests = [];
+
+            foreach ($line->getElementsByTagName('covered') as $covered) {
+                $tests[] = $covered->getAttribute('by');
             }
 
-            $map = $map->executing($path, ...self::executedIn($file));
+            if ($tests !== []) {
+                $lines[] = CoveredLine::of($path, (int) $line->getAttribute('nr'), ...$tests);
+            }
         }
 
-        return $map;
+        return $lines;
     }
 
     /**
@@ -157,16 +181,6 @@ final readonly class CoverageXml
         return $methods;
     }
 
-    private static function coveredLine(CoverageMap $map, Path $path, DOMElement $line): CoverageMap
-    {
-        foreach ($line->getElementsByTagName('covered') as $covered) {
-            $number = Line::of((int) $line->getAttribute('nr'));
-            $map = $map->covered($path, $number, TestId::of($covered->getAttribute('by')));
-        }
-
-        return $map;
-    }
-
     /** A covered file's path on disk: the report's source directory, the file's directory under it, and its name. */
     private static function onDisk(string $source, DOMElement $file): string
     {
@@ -177,10 +191,12 @@ final readonly class CoverageXml
 
     private static function timed(CoverageMap $map, JUnit $junit): CoverageMap
     {
+        $timed = [];
+
         foreach ($junit->tests() as $test => $seconds) {
-            $map = $map->timed(TestId::of($test), Seconds::of($seconds));
+            $timed[] = TimedTest::of($test, $seconds);
         }
 
-        return $map;
+        return $map->timedEach(...$timed);
     }
 }

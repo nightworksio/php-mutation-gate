@@ -169,7 +169,8 @@ decides are accepted for that release too.
    - **The rule.** When `shards.target`, a duration, is set, the count is
      the smallest n for which a shard's overhead plus the mutation cost over
      n fits in the target, and at most `shards.max`. The cut within that
-     count is ADR-0006's: path order, equal shares.
+     count is ADR-0006's: path order, the costliest shard as cheap as it
+     can be.
    - **One rule at a time.** Unset, `shards.seconds` decides as before. A
      layer of config that sets both stops with exit code 2, naming both keys.
      One a later layer sets replaces the other an earlier layer set

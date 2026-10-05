@@ -18,3 +18,8 @@ it('is a file and the lines a mutant starts and ends on', function (): void {
 it('may not know the line a mutant ends on', function (): void {
     expect(Location::of(Path::of('src/Money.php'), Line::of(42), Unreported::line())->end())->toEqual(Unreported::line());
 });
+
+it('spans to the line it ends on, or the one it starts on where the end is not known', function (): void {
+    expect(Location::of(Path::of('src/Money.php'), Line::of(42), Line::of(44))->last())->toEqual(Line::of(44))
+        ->and(Location::of(Path::of('src/Money.php'), Line::of(42), Unreported::line())->last())->toEqual(Line::of(42));
+});

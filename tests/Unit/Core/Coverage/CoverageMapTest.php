@@ -59,6 +59,30 @@ it('answers every test that covered any line of a file, each once', function () 
         ->and($ids($map()->testsCoveringFile(Path::of('src/Other.php'))))->toBe([]);
 });
 
+it('answers every test that covered any line of a span, each once, in the order the lines name them', function () use ($map, $ids): void {
+    $money = Path::of('src/Money.php');
+
+    expect($ids($map()->testsCoveringSpan($money, Line::of(3), Line::of(12))))->toBe(['MoneyTest::adds', 'MoneyTest::subtracts'])
+        ->and($ids($map()->testsCoveringSpan($money, Line::of(12), Line::of(20))))->toBe(['MoneyTest::adds', 'MoneyTest::subtracts', 'LedgerTest::books'])
+        ->and($ids($map()->testsCoveringSpan($money, Line::of(13), Line::of(19))))->toBe([])
+        ->and($ids($map()->testsCoveringSpan($money, Line::of(20), Line::of(20))))->toBe(['LedgerTest::books'])
+        ->and($ids($map()->testsCoveringSpan(Path::of('src/Other.php'), Line::of(1), Line::of(99))))->toBe([]);
+});
+
+it('answers the tests of a span in time linear in how many cover it', function (): void {
+    $span = static function (int $size): Closure {
+        $map = CoverageMap::of(...array_map(
+            static fn(int $line): CoveredLine => CoveredLine::of(Path::of('src/A.php'), $line, ...array_map(static fn(int $test): string => sprintf('T%d::t', $test), range(1, $size))),
+            range(1, 4),
+        ));
+
+        return static fn(): int => count($map->testsCoveringSpan(Path::of('src/A.php'), Line::of(1), Line::of(4)));
+    };
+
+    expect($span(10)())->toBe(10)
+        ->and(Growth::of(2000, $span))->toBeLessThan(Growth::LINEAR);
+});
+
 it('answers how long a test took, and says so where it was not timed', function () use ($map): void {
     expect($map()->durationOf(TestId::of('MoneyTest::adds')))->toEqual(Seconds::of(0.25))
         ->and($map()->durationOf(TestId::of('LedgerTest::books')))->toEqual(Unmeasured::duration());

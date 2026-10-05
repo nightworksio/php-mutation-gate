@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Test;
 
+use function array_diff_key;
+use function array_intersect_key;
 use function array_key_exists;
 use function array_values;
 
@@ -49,6 +51,24 @@ final readonly class TestIds implements Countable, IteratorAggregate
         $tests[$test->value()] = $test;
 
         return new self($tests);
+    }
+
+    /** These tests, then those of some more these do not hold, in their order. */
+    public function and(self $more): self
+    {
+        return new self($this->tests + $more->tests);
+    }
+
+    /** Those of these tests that some others hold too, in this order. */
+    public function among(self $others): self
+    {
+        return new self(array_intersect_key($this->tests, $others->tests));
+    }
+
+    /** Those of these tests that some others do not hold, in this order. */
+    public function without(self $left): self
+    {
+        return new self(array_diff_key($this->tests, $left->tests));
     }
 
     public function has(TestId $test): bool
