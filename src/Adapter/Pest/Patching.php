@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
@@ -50,5 +52,15 @@ final readonly class Patching
     public function canary(): Group|Unpatched
     {
         return $this->canary;
+    }
+
+    /**
+     * The tests a mutation run opens on: the canary group, where the run
+     * opens with a map another job handed over and the project applies the
+     * patch, or else the tests that judge it.
+     */
+    public function opensOn(WholeSuite|Group|Filter $judgedBy, bool $handedAMap): WholeSuite|Group|Filter
+    {
+        return $handedAMap && $this->canary instanceof Group ? $this->canary : $judgedBy;
     }
 }

@@ -75,6 +75,9 @@ enum PhpUnitOption: string
     /** Logs each test's outcome as JUnit, to the file named after `=`. */
     case LogJunit = '--log-junit';
 
+    /** Logs every event of the run as text, each issue raised among them, to the file named after `=`. */
+    case LogEventsText = '--log-events-text';
+
     /** How a line of a file PHPUnit reads a list from ends. */
     public const string LINE_END = "\n";
 
