@@ -207,7 +207,10 @@ final readonly class Wiring
             $use === BuiltinRunner::PhpUnit->value => Choice::of($use, $runner->options()->over($native)),
             $use === BuiltinRunner::Pest->value => Choice::of(
                 $use,
-                $runner->options()->over(Json::object(Member::of(PestOptions::MUTATORS, $beside))),
+                $runner->options()->over(Json::object(
+                    Member::of(PestOptions::TIMEOUT, $seconds),
+                    Member::of(PestOptions::MUTATORS, $beside),
+                )),
             ),
             default => $runner,
         };

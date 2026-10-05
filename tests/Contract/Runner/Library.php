@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Adapter\PhpUnit\ProcessShell as PhpUnitShell;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Project as PhpUnitProject;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -330,7 +331,7 @@ final class Library
             $tests = Paths::of(Path::of('tests'));
             $project = Project::at($root, $tests, Path::of('.mutation-gate'), Path::of('vendor'));
 
-            return new Pest($project, new ProcessShell($root), $patching, new CapDirectory());
+            return new Pest($project, new ProcessShell($root), $patching, new CapDirectory(), Triage::standard()->limit());
         };
 
         return new self(

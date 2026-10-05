@@ -16,7 +16,6 @@ use NightWorksIO\MutationGate\Adapter\Pest\MemoryScan;
 use NightWorksIO\MutationGate\Adapter\Pest\Printed;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
-use NightWorksIO\MutationGate\Adapter\Pest\Records;
 use NightWorksIO\MutationGate\Adapter\Pest\Shell;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -33,7 +32,6 @@ use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
-use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 use function sprintf;
 
@@ -52,8 +50,13 @@ final readonly class Judging
     /** Where a judging run writes its guard, in the directory of the results file. */
     private const string GUARD = '%s/guard.json';
 
-    public function __construct(private Project $project, private Shell $shell, private CapFiles $files)
-    {
+    /** @param Seconds $cap `timeouts.seconds`, the most a trial run is allowed */
+    public function __construct(
+        private Project $project,
+        private Shell $shell,
+        private CapFiles $files,
+        private Seconds $cap,
+    ) {
     }
 
     /**
@@ -74,11 +77,10 @@ final readonly class Judging
             return $result;
         }
 
-        $records = Records::in($results);
         $scan = MemoryScan::beside($this->project, $results, $request->memory(), $this->files);
 
-        if ($records instanceof CannotJudge || $scan instanceof CannotJudge) {
-            return $records instanceof CannotJudge ? $records : $scan;
+        if ($scan instanceof CannotJudge) {
+            return $scan;
         }
 
         $selector = Selector::over($this->project, $coverage, $request->files());
@@ -90,7 +92,6 @@ final readonly class Judging
             $invocation,
             $judgedBy,
             $request->withheld(),
-            $records->limit(),
             $guard,
             $scan,
         );
@@ -124,7 +125,7 @@ final readonly class Judging
         $choice = $this->choice($selector, $file, $copy);
 
         if ($choice instanceof Outcome) {
-            return $this->judged($mutant, $choice, $trial->limit());
+            return $this->judged($mutant, $choice);
         }
 
         if (! $choice instanceof Choice) {
@@ -132,16 +133,18 @@ final readonly class Judging
         }
 
         $first = $choice->first($file);
-        $outcome = $first instanceof Outcome ? $first : $trial->of($first, $file, $copy);
+        $outcome = $first instanceof Outcome
+            ? $first
+            : $trial->of($first, $file, $copy, $selector->limitOf($first, $this->cap));
         $then = $outcome->leftAlive() ? $choice->then($file) : Paths::none();
 
         $judged = match (true) {
             $then instanceof Outcome => $then,
-            count($then) > 0 => $trial->of($then, $file, $copy),
+            count($then) > 0 => $trial->of($then, $file, $copy, $selector->limitOf($then, $this->cap)),
             default => $outcome,
         };
 
-        return $this->judged($mutant, $judged, $trial->limit());
+        return $this->judged($mutant, $judged);
     }
 
     /**
@@ -169,9 +172,10 @@ final readonly class Judging
         return $selector->judging($source, $source->changedAt($printed, $mutated));
     }
 
-    /** The mutant as an outcome judges it, with the limit Pest allowed each mutant where it timed out. */
-    private function judged(Mutant $mutant, Outcome $outcome, Seconds|Unmeasured $limit): Mutant
+    /** The mutant as an outcome judges it, with the limit its run was allowed where it timed out. */
+    private function judged(Mutant $mutant, Outcome $outcome): Mutant
     {
+        $limit = $outcome->limit();
         $judged = Mutant::of(
             $mutant->id(),
             $mutant->nativeId(),

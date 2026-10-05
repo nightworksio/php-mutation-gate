@@ -12,6 +12,8 @@ use function is_string;
 use NightWorksIO\MutationGate\Adapter\Pest\Covering;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\TestFiles;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\OwnTime;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -25,6 +27,8 @@ use NightWorksIO\MutationGate\Core\Php\Source;
 use NightWorksIO\MutationGate\Core\Php\StatementTail;
 use NightWorksIO\MutationGate\Core\Php\Symbol;
 use NightWorksIO\MutationGate\Core\Php\Unnamed;
+use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
  * The test files that judge a mutant Pest left uncovered. On a line that is
@@ -49,6 +53,7 @@ final readonly class Selector
         private TestFiles $tests,
         private Paths $suite,
         private Codebase $codebase,
+        private CoverageMap $map,
     ) {
     }
 
@@ -70,7 +75,7 @@ final readonly class Selector
 
         $suite = $tests->holdingAny($map->tests());
 
-        return new self($project, $coverage, $tests, $suite, Codebase::of(...$sources));
+        return new self($project, $coverage, $tests, $suite, Codebase::of(...$sources), $map);
     }
 
     /**
@@ -93,6 +98,18 @@ final readonly class Selector
             $arms instanceof MatchArms => $this->running($arms->first(), $arms->last(), $source->path()),
             default => NotGiven::value(),
         };
+    }
+
+    /**
+     * How long a run of the tests in some files is allowed: the standard
+     * mutant limit of their own time, as the map timed them, under a cap
+     * (ADR-0008, decision 2).
+     */
+    public function limitOf(Paths $files, Seconds $cap): Seconds
+    {
+        $tests = $this->tests->holding($files, $this->map->tests());
+
+        return MutantLimit::standard()->of(OwnTime::of($this->map, $tests), $cap);
     }
 
     /** Which test files judge a mutant of a file whose changed value a symbol names. */

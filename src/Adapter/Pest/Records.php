@@ -134,10 +134,20 @@ final class Records
         return $this->runs->of($mutant->mutated()->value());
     }
 
-    /** The seconds Pest allowed each mutant, from the opening run's. */
-    public function limit(): Seconds|Unmeasured
+    /**
+     * The seconds Pest allowed a mutant: those a patched run recorded for it
+     * (see MutantTime), or else what Pest allows every mutant, from the
+     * opening run's.
+     */
+    public function limitOf(PlannedMutant $mutant): Seconds|Unmeasured
     {
-        return $this->opening instanceof Seconds ? PestTimeLimit::of($this->opening) : $this->opening;
+        $recorded = $this->runs->limitOf($mutant->mutated()->value());
+
+        return match (true) {
+            $recorded instanceof Seconds => $recorded,
+            $this->opening instanceof Seconds => PestTimeLimit::of($this->opening),
+            default => $this->opening,
+        };
     }
 
     /** Whether Pest wrote every mutant it made, which a run stopped while it wrote them did not. */
@@ -198,6 +208,7 @@ final class Records
             RecordEvent::Exhausted => $this->runs->exhausted($record),
             RecordEvent::Preloaded => $this->runs->preloaded($record),
             RecordEvent::Narrowed => $this->runs->narrowed($record),
+            RecordEvent::Limited => $this->runs->limited($record),
             RecordEvent::Ran => $this->runs->ran($record),
             RecordEvent::End => $this->ended = true,
             null => throw NotInShape::at($event->at(), 'an event the plugin writes'),

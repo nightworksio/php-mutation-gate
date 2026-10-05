@@ -31,8 +31,6 @@ use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\JUnitLog;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
-use NightWorksIO\MutationGate\Core\Time\Unlimited;
-use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 use function sprintf;
 
@@ -69,59 +67,57 @@ final class Trial
         private readonly Invocation $invocation,
         private readonly WholeSuite|Group $judgedBy,
         private readonly Withheld $withheld,
-        private readonly Seconds|Unmeasured $limit,
         private readonly string $guard,
         private readonly MemoryScan $scan,
     ) {
     }
 
-    /** The time Pest allows each mutant, from its opening run. */
-    public function limit(): Seconds|Unmeasured
+    /**
+     * What the tests in some files find of a mutant whose mutated copy of a
+     * file is kept at a path, each of their runs allowed this long.
+     */
+    public function of(Paths $tests, Path $original, string $copy, Seconds $limit): Outcome
     {
-        return $this->limit;
-    }
-
-    /** What the tests in some files find of a mutant whose mutated copy of a file is kept at a path. */
-    public function of(Paths $tests, Path $original, string $copy): Outcome
-    {
-        $alone = $this->alone($tests);
+        $alone = $this->alone($tests, $limit);
 
         if ($alone instanceof Outcome) {
-            return $alone;
+            return $alone->within($limit);
         }
 
         $this->project->without($this->guard, $this->log());
         $started = microtime(as_float: true);
-        $ran = $this->shell->run($this->judging($tests)->with([
+        $ran = $this->shell->run($this->judging($tests, $limit)->with([
             Recorder::MUTANT => $this->project->absolute($original),
             Recorder::MUTATED => $copy,
             GateVariable::Guard->value => $this->guard,
         ]));
         $took = Seconds::of(microtime(as_float: true) - $started);
 
-        return ($ran->wasStopped() ? Outcome::timedOut() : $this->guarded($ran, $tests))->took($took);
+        return ($ran->wasStopped() ? Outcome::timedOut() : $this->guarded($ran, $tests, $limit))
+            ->took($took)
+            ->within($limit);
     }
 
     /** What a set of test files finds on its own where it fails there, run once for each set. */
-    private function alone(Paths $tests): Outcome|true
+    private function alone(Paths $tests, Seconds $limit): Outcome|true
     {
         $key = implode("\n", $this->valuesOf($tests));
 
         if (! array_key_exists($key, $this->alone)) {
             $this->project->without($this->log());
-            $ran = $this->shell->run($this->judging($tests));
-            $this->alone[$key] = $ran->succeeded() ? true : $this->unjudged(self::ALONE, $ran, $tests);
+            $ran = $this->shell->run($this->judging($tests, $limit));
+            $this->alone[$key] = $ran->succeeded() ? true : $this->unjudged(self::ALONE, $ran, $tests, $limit);
         }
 
         return $this->alone[$key];
     }
 
-    private function judging(Paths $tests): Command
+    private function judging(Paths $tests, Seconds $limit): Command
     {
         $log = sprintf('%s=%s', PhpUnitOption::LogJunit->value, $this->log());
 
         return $this->scan->onto($this->invocation->judging($tests, $this->judgedBy, $this->withheld, $log)
-            ->within($this->limit instanceof Seconds ? $this->limit : Unlimited::time()));
+            ->within($limit));
     }
 
     /** The JUnit log each run writes, beside the guard. */
@@ -135,40 +131,41 @@ final class Trial
      * what ran. A run a signal ended writes no guard, and kills the mutant:
      * its tests passed on their own, so only the mutated copy ended it.
      */
-    private function guarded(Ran $ran, Paths $tests): Outcome
+    private function guarded(Ran $ran, Paths $tests, Seconds $limit): Outcome
     {
         $text = is_file($this->guard) ? file_get_contents($this->guard) : false;
 
         return match (true) {
-            is_string($text) => $this->read(Node::decode($text), $ran, $tests),
+            is_string($text) => $this->read(Node::decode($text), $ran, $tests, $limit),
             $ran->endedBySignal() => Outcome::killed(),
-            default => $this->unjudged(self::UNGUARDED, $ran, $tests),
+            default => $this->unjudged(self::UNGUARDED, $ran, $tests, $limit),
         };
     }
 
-    private function read(Node $seen, Ran $ran, Paths $tests): Outcome
+    private function read(Node $seen, Ran $ran, Paths $tests, Seconds $limit): Outcome
     {
         try {
             return match (true) {
-                $seen->field('before')->boolean() => $this->unjudged(self::BEFORE, $ran, $tests),
+                $seen->field('before')->boolean() => $this->unjudged(self::BEFORE, $ran, $tests, $limit),
                 $seen->field('opcache')->boolean() => $this->unjudged(
                     sprintf(self::OPCACHE, Opcache::CLI, Opcache::FILE_CACHE),
                     $ran,
                     $tests,
+                    $limit,
                 ),
-                ! $seen->field('loaded')->boolean() => $this->unjudged(self::NEVER, $ran, $tests),
+                ! $seen->field('loaded')->boolean() => $this->unjudged(self::NEVER, $ran, $tests, $limit),
                 $ran->succeeded() => Outcome::survived(),
                 default => Outcome::killed(),
             };
         } catch (NotInShape) {
-            return $this->unjudged(self::UNGUARDED, $ran, $tests);
+            return $this->unjudged(self::UNGUARDED, $ran, $tests, $limit);
         }
     }
 
     /** A mutant left unjudged for a reason, which says what the run did. */
-    private function unjudged(string $reason, Ran $ran, Paths $tests): Outcome
+    private function unjudged(string $reason, Ran $ran, Paths $tests, Seconds $limit): Outcome
     {
-        $evidence = Evidence::of($ran, $this->limit, FailedFirst::in($this->log()), $tests);
+        $evidence = Evidence::of($ran, $limit, FailedFirst::in($this->log()), $tests);
 
         return Outcome::unjudged(sprintf(self::SAID, $reason, $evidence->text()));
     }

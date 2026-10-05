@@ -620,6 +620,25 @@ it('allows a mutant Infection times out five seconds and five times its tests\' 
         ->and($again)->toEqual($timedOut);
 })->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 
+it('allows a mutant patched Pest times out five seconds and five times its tests\' time, and runs it again under the raised limit', function (): void {
+    Patch::applyIn(Library::vendor());
+    $library = Library::pest(Patching::on(Library::canary()));
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('drains')));
+    $limits = static fn(Mutants $mutants): array => array_map(
+        static fn(Mutant $mutant): float => $mutant->limit() instanceof Seconds ? $mutant->limit()->seconds() : 0.0,
+        iterator_to_array($mutants, preserve_keys: false),
+    );
+    $result = $library->mutate('drains patched', $request);
+    $timedOut = $result instanceof MutationResult ? $result->mutants() : Mutants::none();
+    $again = $library->runner()->retry($request, $timedOut, Seconds::of(20.0));
+
+    expect(Library::records($timedOut))->toBe($library->expected('drains'))
+        ->and($limits($timedOut)[0] ?? 0.0)->toBeGreaterThan(5.0)->toBeLessThan(6.0)
+        ->and($again instanceof Mutants ? Library::records($again) : [])->toBe($library->expected('drains'))
+        ->and($again instanceof Mutants ? $limits($again)[0] ?? 0.0 : 0.0)->toBeGreaterThan(5.0)->toBeLessThan(6.0);
+})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+
 it('leaves a mutant unjudged, naming the test, when Pest\'s filter cannot select a covering test', function (): void {
     $library = Library::pest(Patching::off());
     $request = MutationRequest::of(Paths::of(Path::of('src/Legacy.php')), WholeSuite::tests())

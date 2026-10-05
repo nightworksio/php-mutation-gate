@@ -20,7 +20,6 @@ use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
-use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShellFake;
 
@@ -56,7 +55,7 @@ function trialJudging(string $directory, Paths $tests, WholeSuite|Group $judgedB
         ->judging($tests, $judgedBy, Withheld::standard(), sprintf('--log-junit=%s/junit.xml', $directory));
 }
 
-/** A trial of the whole suite with Pest's opening limit of six seconds. */
+/** A trial of the whole suite. */
 function trialOf(Project $at, ShellFake $shell, WholeSuite|Group $judgedBy = new WholeSuite()): Trial
 {
     return new Trial(
@@ -65,19 +64,18 @@ function trialOf(Project $at, ShellFake $shell, WholeSuite|Group $judgedBy = new
         Invocation::installedIn(Path::of('vendor')),
         $judgedBy,
         Withheld::standard(),
-        Seconds::of(6.0),
         sprintf('%s/guard.json', $at->root()),
         uncappedScan($at),
     );
 }
 
-it('runs the tests with Pest\'s override serving the mutated copy, and a guard, within Pest\'s limit', function (): void {
+it('runs the tests with Pest\'s override serving the mutated copy, and a guard, within the limit it is given', function (): void {
     $at = trialProject();
     $shell = new ShellFake(trialAnswering('{"before":false,"loaded":true,"opcache":false}', Ran::finished(succeeded: false, output: '')));
     $tests = Paths::of(Path::of('tests/MoneySpec.php'));
     $judging = trialJudging($at->root(), $tests);
 
-    $outcome = trialOf($at, $shell)->of($tests, Path::of('src/Money.php'), '/copies/n1.php');
+    $outcome = trialOf($at, $shell)->of($tests, Path::of('src/Money.php'), '/copies/n1.php', Seconds::of(6.0));
 
     expect($outcome->status())->toBe(MutantStatus::Killed)
         ->and($outcome->duration())->toBeInstanceOf(Seconds::class)
@@ -97,9 +95,9 @@ it('leaves a mutant the tests pass with alive, and one stopped at its limit time
     $tests = Paths::of(Path::of('tests/MoneySpec.php'));
 
     expect(trialOf($at, new ShellFake(trialAnswering($guard, Ran::finished(succeeded: true, output: ''))))
-        ->of($tests, Path::of('src/Money.php'), '/c')->status())->toBe(MutantStatus::Survived)
+        ->of($tests, Path::of('src/Money.php'), '/c', Seconds::of(6.0))->status())->toBe(MutantStatus::Survived)
         ->and(trialOf($at, new ShellFake(trialAnswering('', Ran::stopped(''))))
-            ->of($tests, Path::of('src/Money.php'), '/c')->status())->toBe(MutantStatus::TimedOut);
+            ->of($tests, Path::of('src/Money.php'), '/c', Seconds::of(6.0))->status())->toBe(MutantStatus::TimedOut);
 });
 
 it('judges nothing where the guard says the original ran, or cannot say', function (string $guard, string $reason): void {
@@ -107,7 +105,7 @@ it('judges nothing where the guard says the original ran, or cannot say', functi
     file_put_contents(sprintf('%s/guard.json', $at->root()), '{"before":false,"loaded":true,"opcache":false}');
     $shell = new ShellFake(trialAnswering($guard, Ran::exited(0, '')));
 
-    $outcome = trialOf($at, $shell)->of(Paths::of(Path::of('tests/A.php')), Path::of('src/Money.php'), '/c');
+    $outcome = trialOf($at, $shell)->of(Paths::of(Path::of('tests/A.php')), Path::of('src/Money.php'), '/c', Seconds::of(6.0));
 
     expect($outcome->status())->toBe(MutantStatus::Unjudged)
         ->and($outcome->reason())->toEqual(Reason::that(sprintf('%s (exit code 0; ran tests/A.php)', $reason)))
@@ -125,7 +123,7 @@ it('kills a mutant whose run a signal ended, writing no guard, where its tests p
     MutantStatus $status,
 ): void {
     $outcome = trialOf(trialProject(), new ShellFake(trialAnswering('', Ran::exited($code, ''))))
-        ->of(Paths::of(Path::of('tests/A.php')), Path::of('src/Money.php'), '/c');
+        ->of(Paths::of(Path::of('tests/A.php')), Path::of('src/Money.php'), '/c', Seconds::of(6.0));
 
     expect($outcome->status())->toBe($status);
 })->with([
@@ -154,7 +152,7 @@ it('says the first test that failed on its own, from the JUnit log the run wrote
     });
     $tests = Paths::of(Path::of('tests/A.php'), Path::of('tests/B.php'), Path::of('tests/C.php'), Path::of('tests/D.php'));
 
-    $outcome = trialOf($at, $shell)->of($tests, Path::of('src/Money.php'), '/c');
+    $outcome = trialOf($at, $shell)->of($tests, Path::of('src/Money.php'), '/c', Seconds::of(6.0));
 
     expect($outcome->reason())->toEqual(Reason::that(
         'the selected tests fail on their own (exit code 2; first failing test tests/A.php::it subtracts: '
@@ -170,14 +168,14 @@ it('says a run on its own was stopped at its limit, and reads no failure from an
     );
 
     $outcome = trialOf($at, ShellFake::answering(Ran::stopped('Fatal: half')))
-        ->of(Paths::of(Path::of('tests/A.php')), Path::of('src/Money.php'), '/c');
+        ->of(Paths::of(Path::of('tests/A.php')), Path::of('src/Money.php'), '/c', Seconds::of(6.0));
 
     expect($outcome->reason())->toEqual(Reason::that('the selected tests fail on their own (stopped at its limit of 6s; last printed Fatal: half; ran tests/A.php)'));
 });
 
 it('says the last line a run printed where it failed and no test did', function (): void {
     $outcome = trialOf(trialProject(), ShellFake::answering(Ran::exited(255, "PHP Fatal error:  Allowed memory size exhausted\n\n")))
-        ->of(Paths::of(Path::of('tests/A.php')), Path::of('src/Money.php'), '/c');
+        ->of(Paths::of(Path::of('tests/A.php')), Path::of('src/Money.php'), '/c', Seconds::of(6.0));
 
     expect($outcome->reason())->toEqual(Reason::that(
         'the selected tests fail on their own (exit code 255; last printed PHP Fatal error: Allowed memory size exhausted; ran tests/A.php)',
@@ -190,37 +188,30 @@ it('judges nothing where the tests fail on their own, running them alone once fo
     $trial = trialOf($at, $shell, Group::named('holds:src/Money.php'));
     $tests = Paths::of(Path::of('tests/A.php'), Path::of('tests/B.php'));
 
-    $first = $trial->of($tests, Path::of('src/Money.php'), '/c');
-    $second = $trial->of($tests, Path::of('src/Money.php'), '/c');
+    $first = $trial->of($tests, Path::of('src/Money.php'), '/c', Seconds::of(6.0));
+    $second = $trial->of($tests, Path::of('src/Money.php'), '/c', Seconds::of(6.0));
 
-    expect($first)->toEqual(Outcome::unjudged('the selected tests fail on their own (no exit code; ran tests/A.php, tests/B.php)'))
+    expect($first)->toEqual(Outcome::unjudged('the selected tests fail on their own (no exit code; ran tests/A.php, tests/B.php)')->within(Seconds::of(6.0)))
         ->and($second)->toEqual($first)
         ->and($shell->commands())->toEqual([
             trialJudging($at->root(), $tests, Group::named('holds:src/Money.php'))->within(Seconds::of(6.0)),
         ]);
 });
 
-it('lays no limit on a run where Pest measured none', function (): void {
-    $shell = ShellFake::answering(Ran::finished(succeeded: false, output: ''));
+it('keeps each run to the limit it is given, and says that limit of what it found', function (): void {
     $at = trialProject();
-    $trial = new Trial(
-        $at,
-        $shell,
-        Invocation::installedIn(Path::of('vendor')),
-        WholeSuite::tests(),
-        Withheld::standard(),
-        Unmeasured::duration(),
-        sprintf('%s/guard.json', $at->root()),
-        uncappedScan($at),
-    );
-    $tests = Paths::of(Path::of('tests/A.php'));
+    $shell = new ShellFake(trialAnswering('', Ran::stopped('')));
+    $trial = trialOf($at, $shell);
+    $a = Paths::of(Path::of('tests/A.php'));
+    $b = Paths::of(Path::of('tests/B.php'));
 
-    $trial->of($tests, Path::of('src/Money.php'), '/c');
+    $first = $trial->of($a, Path::of('src/Money.php'), '/c', Seconds::of(6.0));
+    $second = $trial->of($b, Path::of('src/Money.php'), '/c', Seconds::of(11.5));
 
-    expect($trial->limit())->toEqual(Unmeasured::duration())
-        ->and($shell->commands())->toEqual([
-            trialJudging($at->root(), $tests)->within(Unlimited::time()),
-        ]);
+    expect([$first->status(), $second->status()])->toBe([MutantStatus::TimedOut, MutantStatus::TimedOut])
+        ->and([$first->limit(), $second->limit()])->toEqual([Seconds::of(6.0), Seconds::of(11.5)])
+        ->and(array_map(static fn(Command $command): Seconds|Unlimited => $command->deadline(), $shell->commands()))
+        ->toEqual([Seconds::of(6.0), Seconds::of(6.0), Seconds::of(11.5), Seconds::of(11.5)]);
 });
 
 function uncappedScan(Project $at): MemoryScan

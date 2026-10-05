@@ -201,16 +201,39 @@ it('cannot judge a run that wrote no results', function (): void {
     ));
 });
 
-it('allows a mutant the opening run\'s seconds plus the larger of 5 and a fifth', function () use ($results): void {
-    $limit = static function (Seconds|Unmeasured $opening) use ($results): Seconds|Unmeasured|CannotJudge {
+it('allows a mutant the opening run\'s seconds plus the larger of 5 and a fifth, where no limit is recorded for it', function () use ($results, $mutant): void {
+    $limit = static function (Seconds|Unmeasured $opening) use ($results, $mutant): Seconds|Unmeasured|CannotJudge {
         $records = Records::in($results([RecordLine::made(0, $opening)]));
 
-        return $records instanceof Records ? $records->limit() : $records;
+        return $records instanceof Records ? $records->limitOf($mutant('a', '/p/src/Money.php', 10)) : $records;
     };
 
     expect($limit(Seconds::of(1.5)))->toEqual(Seconds::of(6.0))
         ->and($limit(Seconds::of(30.7)))->toEqual(Seconds::of(36.0))
         ->and($limit(Unmeasured::duration()))->toEqual(Unmeasured::duration());
+});
+
+it('allows a mutant the limit a patched run recorded by its mutated copy, over the opening run\'s', function () use ($results, $planned, $mutant): void {
+    $records = Records::in($results([
+        $planned('a', '/p/src/Money.php', 10),
+        $planned('b', '/p/src/Money.php', 20),
+        RecordLine::limited('/tmp/a', 7.25),
+        RecordLine::made(2, Seconds::of(83.16)),
+    ]));
+
+    expect($records instanceof Records ? $records->limitOf($mutant('a', '/p/src/Money.php', 10)) : $records)->toEqual(Seconds::of(7.25))
+        ->and($records instanceof Records ? $records->limitOf($mutant('b', '/p/src/Money.php', 20)) : $records)->toEqual(Seconds::of(99.0));
+});
+
+it('refuses a recorded limit of no seconds', function () use ($results, $planned): void {
+    $read = Records::in($results([
+        $planned('a', '/p/src/Money.php', 10),
+        RecordLine::limited('/tmp/a', 0.0),
+    ]));
+
+    expect($read instanceof CannotJudge ? $read->why() : '')->toMatch(
+        '/^Line 2 of .*results\.jsonl is not a record the gate reads: the record\.seconds is not a number of seconds above 0\.$/',
+    );
 });
 
 it('knows it wrote every mutant Pest made once it says how many', function () use ($results, $planned): void {

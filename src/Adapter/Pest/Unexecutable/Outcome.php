@@ -17,33 +17,46 @@ final readonly class Outcome
         private MutantStatus $status,
         private Reason|Unreported $reason,
         private Seconds|Unmeasured $duration,
+        private Seconds|Unmeasured $limit,
     ) {
     }
 
     public static function killed(): self
     {
-        return new self(MutantStatus::Killed, Unreported::reason(), Unmeasured::duration());
+        return new self(MutantStatus::Killed, Unreported::reason(), Unmeasured::duration(), Unmeasured::duration());
     }
 
     public static function survived(): self
     {
-        return new self(MutantStatus::Survived, Unreported::reason(), Unmeasured::duration());
+        return new self(MutantStatus::Survived, Unreported::reason(), Unmeasured::duration(), Unmeasured::duration());
     }
 
     public static function timedOut(): self
     {
-        return new self(MutantStatus::TimedOut, Unreported::reason(), Unmeasured::duration());
+        return new self(MutantStatus::TimedOut, Unreported::reason(), Unmeasured::duration(), Unmeasured::duration());
     }
 
     public static function unjudged(string $reason): self
     {
-        return new self(MutantStatus::Unjudged, Reason::that($reason), Unmeasured::duration());
+        return new self(MutantStatus::Unjudged, Reason::that($reason), Unmeasured::duration(), Unmeasured::duration());
     }
 
     /** This outcome, of a run that took this long. */
     public function took(Seconds $duration): self
     {
-        return new self($this->status, $this->reason, $duration);
+        return new self($this->status, $this->reason, $duration, $this->limit);
+    }
+
+    /** This outcome, of a run allowed this long. */
+    public function within(Seconds $limit): self
+    {
+        return new self($this->status, $this->reason, $this->duration, $limit);
+    }
+
+    /** How long the run was allowed, where it was timed by its tests. */
+    public function limit(): Seconds|Unmeasured
+    {
+        return $this->limit;
     }
 
     public function duration(): Seconds|Unmeasured

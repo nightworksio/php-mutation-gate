@@ -74,7 +74,11 @@ final readonly class SharedCoverage
         return $seconds;
     }
 
-    /** Writes a map as `--coverage-php` writes one, with the project's root as its base. */
+    /**
+     * Writes a map as `--coverage-php` writes one, with the project's root as
+     * its base; a test the map did not time has no result, so nothing reads
+     * it as timed.
+     */
     public static function write(CoverageMap $map, Project $project, string $target): void
     {
         $places = [];
@@ -84,11 +88,16 @@ final readonly class SharedCoverage
         foreach ($map->tests() as $test) {
             $id = $test->value();
 
-            if ($id !== '') {
-                $places[$id] = count($ids);
-                $ids[] = $id;
-                $results[$id] = ['size' => 'unknown', 'status' => 'success', 'time' => self::secondsOf($map, $id)];
+            if ($id === '') {
+                continue;
             }
+
+            $duration = $map->durationOf($test);
+            $places[$id] = count($ids);
+            $ids[] = $id;
+            $results += $duration instanceof Seconds
+                ? [$id => ['size' => 'unknown', 'status' => 'success', 'time' => $duration->seconds()]]
+                : [];
         }
 
         $data = new ProcessedCodeCoverageData();

@@ -109,7 +109,7 @@ final class Unexecutables
             sprintf('%s/', $project->root()),
             ['src/Money.php' => [10 => [0], 14 => [1]]],
             [self::INTERNAL, self::OTHER, self::READS],
-            [self::INTERNAL => 0.1, self::OTHER => 0.1, self::READS => 0.1],
+            [self::INTERNAL => 0.1, self::OTHER => 0.3, self::READS => 0.1],
         );
         $records = [];
         $finished = [];

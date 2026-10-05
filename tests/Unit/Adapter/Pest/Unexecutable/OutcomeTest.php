@@ -21,6 +21,13 @@ it('is killed, survived, timed out, or unjudged with its reason, and unmeasured 
         ->and(Outcome::killed()->took(Seconds::of(0.5))->status())->toBe(MutantStatus::Killed);
 });
 
+it('says the limit its run was allowed, none until it is given one, whatever it took', function (): void {
+    expect(Outcome::timedOut()->limit())->toEqual(Unmeasured::duration())
+        ->and(Outcome::timedOut()->within(Seconds::of(6.0))->limit())->toEqual(Seconds::of(6.0))
+        ->and(Outcome::timedOut()->within(Seconds::of(6.0))->took(Seconds::of(6.1))->limit())->toEqual(Seconds::of(6.0))
+        ->and(Outcome::timedOut()->within(Seconds::of(6.0))->took(Seconds::of(6.1))->duration())->toEqual(Seconds::of(6.1));
+});
+
 it('leaves the mutant alive only where it survived', function (): void {
     expect(Outcome::survived()->leftAlive())->toBeTrue()
         ->and(Outcome::killed()->leftAlive())->toBeFalse()

@@ -12,16 +12,23 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 
-it('is unpatched, with the tests under tests, where the config says nothing', function (): void {
+it('is unpatched, with the tests under tests and the standard timeouts.seconds, where the config says nothing', function (): void {
     $read = PestOptions::read(Options::none());
 
-    expect($read instanceof PestOptions ? [$read->patching(), $read->tests()] : $read)
-        ->toEqual([Patching::off(), Paths::of(Path::of('tests'))]);
+    expect($read instanceof PestOptions ? [$read->patching(), $read->tests(), $read->timeout()] : $read)
+        ->toEqual([Patching::off(), Paths::of(Path::of('tests')), Seconds::of(10.0)]);
+});
+
+it('allows a mutant no more than the timeout the flows write', function (): void {
+    $read = PestOptions::read(Configs::options('{"timeout": 45}'));
+
+    expect($read instanceof PestOptions ? $read->timeout() : $read)->toEqual(Seconds::of(45.0));
 });
 
 it('is patched with the canary group and the test directories the config names', function (): void {
@@ -53,6 +60,8 @@ it('refuses each option written as something else', function (): void {
         Problem::at('tests', 'expected a list of paths, got "tests"'),
     ))->and(PestOptions::read(Configs::options('{"tests": [3]}')))->toEqual(Invalid::because(
         Problem::at('tests[0]', 'expected a path, got 3'),
+    ))->and(PestOptions::read(Configs::options('{"timeout": "ten"}')))->toEqual(Invalid::because(
+        Problem::at('timeout', 'expected a number, got "ten"'),
     ));
 });
 

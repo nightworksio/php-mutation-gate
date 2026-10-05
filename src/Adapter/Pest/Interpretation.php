@@ -192,7 +192,7 @@ final readonly class Interpretation
             $records->durationOf($planned),
         );
 
-        $limit = $records->limit();
+        $limit = $records->limitOf($planned);
         $status = $mutant->status();
         $limited = match (true) {
             $status === MutantStatus::OutOfMemory => $mutant->withLimit($this->cap),

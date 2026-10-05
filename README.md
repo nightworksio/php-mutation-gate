@@ -546,7 +546,7 @@ Environment variables that change what the gate does:
 | `MUTATION_GATE_RESULTS` | Set by the Pest adapter for its own plugin, and by the PHPUnit runner for its extension; not for users | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md), [0023](.docs/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
 | `MUTATION_GATE_MUTATORS` | Set by the Pest adapter for its own plugin: the file of bridges to the registered mutators the config turns on; not for users | [0021](.docs/decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md) |
 | `MUTATION_GATE_MUTANT`, `MUTATION_GATE_MUTATED`, `MUTATION_GATE_GUARD` | Set by the PHPUnit runner for each mutant's run: the file its override serves the mutated file in place of, the mutated file, and where the override and the extension say what they served; not for users | [0023](.docs/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
-| `MUTATION_GATE_SHARED_COVERAGE`, `MUTATION_GATE_SUITE_SECONDS`, `MUTATION_GATE_CANARY`, `MUTATION_GATE_ONLY` | Set by the Pest adapter for the lines `pest:patch` writes into pest-plugin-mutate: the planning job's coverage map, its suite's seconds, the canary group, and the file listing the only mutants a run again makes; not for users | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
+| `MUTATION_GATE_SHARED_COVERAGE`, `MUTATION_GATE_SUITE_SECONDS`, `MUTATION_GATE_MUTANT_CAP`, `MUTATION_GATE_CANARY`, `MUTATION_GATE_ONLY` | Set by the Pest adapter for the lines `pest:patch` writes into pest-plugin-mutate: the planning job's coverage map, its suite's seconds, the most seconds one mutant may run, the canary group, and the file listing the only mutants a run again makes; not for users | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 
 Files the gate reads and writes:
 
@@ -631,7 +631,8 @@ Two things the setup relies on:
 - **The optional Pest patches.** For sharded Pest runs, enabling them
   (`pest.patch: true`, plus `@php vendor/bin/mutation-gate pest:patch` in
   `post-install-cmd` and `post-update-cmd`) lets every shard reuse the planning
-  job's coverage instead of running the whole suite again.
+  job's coverage instead of running the whole suite again, and allows each
+  mutant the time its own covering tests take, not the whole suite's.
 
 The proof ledger's trust boundary is the store's access control. On GitHub,
 cache scoping keeps a pull request from writing what the default branch reads.

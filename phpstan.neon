@@ -715,6 +715,8 @@ services:
                     - FILE # a field of a shard result
                 'NightWorksIO\MutationGate\Adapter\Infection\Results':
                     - MUTATOR # a field of Infection's log
+                'NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile':
+                    - SECONDS # a field of the coverage map file, not of Pest's results file
                 'NightWorksIO\MutationGate\Adapter\Pest\Recording\Naming':
                     - PREFIX # PHPUnit's prefix of a test method
                 'NightWorksIO\MutationGate\Core\Php\Codebase':
@@ -731,6 +733,7 @@ services:
                     - MUTATORS # a key of the runner's options
                 'NightWorksIO\MutationGate\Adapter\Pest\PestOptions':
                     - TESTS # a key of the runner's options
+                    - TIMEOUT # a key of the runner's options
                     - MUTATORS # a key of the runner's options
                 'NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnitOptions':
                     - TESTS # a key of the runner's options

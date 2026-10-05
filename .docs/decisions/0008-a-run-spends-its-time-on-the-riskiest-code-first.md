@@ -169,8 +169,14 @@ presets for Laravel, Symfony and plain libraries.
 
 2. **Timeout triage tells a detection from the clock running out.** Each
    runner sets a limit per mutant (ADR-0004):
-   - **Pest's** is its opening run's duration plus the larger of 5 s and 20%,
-     and it cannot be changed.
+   - **Pest's**, under `pest.patch`, is the PHPUnit runner's rule below: the
+     smaller of 5 s plus five times the covering tests' own time, as the
+     coverage map Pest loaded timed them, and `timeouts.seconds`. Where the
+     map did not time a covering test, it is `timeouts.seconds`. The patched
+     plugin records each mutant's limit in the results file, and the gate
+     triages by what it recorded. It skips no mutant. Unpatched, it is Pest's
+     own: the opening run's duration plus the larger of 5 s and 20%, which
+     cannot be changed.
    - **Infection's** is the smaller of 5 s plus five times the covering tests'
      own time, and `timeouts.seconds`: an integer, 10 by default as Infection's
      own, and 30 in the Laravel and Symfony presets. A mutant whose covering
@@ -194,14 +200,15 @@ presets for Laravel, Symfony and plain libraries.
      is **too slow to judge**, and counts as not killed. A skipped mutant that
      its retry does not resolve is always here. The hint points at holding the
      path with a group (ADR-0005) or raising `timeouts.seconds`.
-   - **Retry (Infection only).** Before the rule is applied, each timed-out or
-     skipped mutant that the configured cap decided is run once more with
+   - **Retry.** Before the rule is applied, each timed-out or skipped mutant
+     that the configured cap decided is run once more with
      `timeouts.seconds` doubled, narrowed to its file and mutator (ADR-0004).
      If it finishes, its real status replaces the timeout. If not, the rule is
      applied with the doubled limit. A mutant whose limit came from the formula
      is not retried, because a higher cap would not change it. At most
      `timeouts.retries` mutants are retried per shard, an integer, 20 by
-     default. Pest's limit cannot be raised, so Pest has no retry.
+     default. Unpatched, Pest's limit cannot be raised, so unpatched Pest has
+     no retry.
    - **The mode.** `timeouts.mode` is `confirm` by default, as described above,
      or `unjudged`, which makes every timeout too slow to judge, for projects
      that want no kill they cannot see.

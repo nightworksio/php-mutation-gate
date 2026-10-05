@@ -49,6 +49,9 @@ enum RecordField: string
     /** The test files a mutant's own run loads, by their paths on disk. */
     case Files = 'files';
 
+    /** The seconds a mutant's own run was allowed. */
+    case Seconds = 'seconds';
+
     /** How many bytes the memory limit a mutant's own process ran out of holds. */
     case Bytes = 'bytes';
 }

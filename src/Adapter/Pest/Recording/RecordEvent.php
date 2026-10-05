@@ -28,6 +28,9 @@ enum RecordEvent: string
     /** The test files a mutant's own run was narrowed to load, by its mutated copy. */
     case Narrowed = 'narrowed';
 
+    /** The seconds a patched run allowed a mutant's own run, by its mutated copy (see MutantTime). */
+    case Limited = 'limited';
+
     /** A mutant's own process had loaded the original file before Pest put the mutant in its place. */
     case Preloaded = 'preloaded';
 
