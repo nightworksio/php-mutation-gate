@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\WholeMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
+use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -40,18 +41,18 @@ it('finds the tests that read a value in the plan\'s whole map, where the run op
     $project,
 ): void {
     $root = Scratch::directory();
-    Scratch::write($root, 'whole/map.json.gz', CoverageMapFile::encode($whole));
+    Scratch::write($root, 'whole/map.json.gz', CoverageMapFile::encode($whole, Unplaced::map()));
     $covering = new WholeMap($project($root), new Remembered())
         ->covering($handed, new HandedOver($own, $project($root)), $own);
 
     expect($covering)->toBeInstanceOf(HandedOver::class)
         ->and($covering instanceof HandedOver ? $covering->map($project($root)) : $covering)
-        ->toEqual(CoverageMapFile::decode(CoverageMapFile::encode($whole)));
+        ->toEqual(CoverageMapFile::decode(CoverageMapFile::encode($whole, Unplaced::map())));
 });
 
 it('reads the whole map once for each directory', function () use ($own, $whole, $handed, $project): void {
     $root = Scratch::directory();
-    Scratch::write($root, 'whole/map.json.gz', CoverageMapFile::encode($whole));
+    Scratch::write($root, 'whole/map.json.gz', CoverageMapFile::encode($whole, Unplaced::map()));
     $wholeMap = new WholeMap($project($root), new Remembered());
     $first = $wholeMap->covering($handed, new HandedOver($own, $project($root)), $own);
     unlink(sprintf('%s/whole/map.json.gz', $root));

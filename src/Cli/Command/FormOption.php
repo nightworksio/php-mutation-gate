@@ -18,7 +18,8 @@ use Symfony\Component\Console\Input\InputOption;
 /** `--format=text|json`, on a command that writes for a person by default, or as its public JSON. */
 final readonly class FormOption
 {
-    private const string FORMAT = 'format';
+    /** The option's name, which every command with formats spells so. */
+    public const string FORMAT = 'format';
 
     private const string UNKNOWN = '--format is %s; %s writes text or json.';
 

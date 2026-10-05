@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Adapter\PhpUnit\Project;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
+use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -129,7 +130,7 @@ it('reads the map another job handed over, or says there is none', function (): 
     $adds = TestId::of('Tests\MoneyTest::testAdds');
     $handed = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(4), $adds)->timed($adds, Seconds::of(0.5));
     $file = $project->absolute(CoverageMapFile::in(Path::of('handed')));
-    Scratch::write($project->root(), CoverageMapFile::in(Path::of('handed'))->value(), CoverageMapFile::encode($handed));
+    Scratch::write($project->root(), CoverageMapFile::in(Path::of('handed'))->value(), CoverageMapFile::encode($handed, Unplaced::map()));
     $shell = PhpUnitShellFake::answering(Ran::finished(succeeded: true, output: ''));
     $coverage = new Coverage($project, $shell, new Invocation($project, '/gate/override.php'));
 

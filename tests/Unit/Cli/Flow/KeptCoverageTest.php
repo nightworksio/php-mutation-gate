@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\Coverage\Remeasured;
 use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
+use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -63,7 +64,7 @@ function keptIn(string $project): CoverageMap|CannotJudge
 /** A map as a written one reads back. */
 function asWritten(CoverageMap $map): CoverageMap|CannotJudge
 {
-    return CoverageMapFile::decode(CoverageMapFile::encode($map));
+    return CoverageMapFile::decode(CoverageMapFile::encode($map, Unplaced::map()));
 }
 
 /**

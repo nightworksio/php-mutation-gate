@@ -33,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
+use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -203,7 +204,7 @@ function adapterPatched(string $vendor = 'vendor'): Project
 /** The gate's own map, as another job hands it over in a directory of the project. */
 function adapterHandedOver(Project $at, string $directory, CoverageMap $map): void
 {
-    Scratch::write($at->root(), CoverageMapFile::in(Path::of($directory))->value(), CoverageMapFile::encode($map));
+    Scratch::write($at->root(), CoverageMapFile::in(Path::of($directory))->value(), CoverageMapFile::encode($map, Unplaced::map()));
 }
 
 it('names Pest, the exact versions it mutates with, and the PHP it runs on', function (): void {

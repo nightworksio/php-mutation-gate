@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\Coverage\Remeasured;
+use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -359,7 +360,7 @@ it('reads back the gate\'s own map of what it ran, and cannot judge a map that i
     Library $library,
 ): void {
     $ran = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));
-    $written = CoverageMapFile::encode($ran instanceof CoverageMap ? $ran : CoverageMap::empty());
+    $written = CoverageMapFile::encode($ran instanceof CoverageMap ? $ran : CoverageMap::empty(), Unplaced::map());
     $handed = Path::of('.mutation-gate/handed');
     $file = sprintf('%s/%s', $library->root(), CoverageMapFile::in($handed)->value());
     if (!is_dir(dirname($file))) {
@@ -547,7 +548,7 @@ it('judges a mutant on a method\'s signature by the map the planning job handed 
     $planned = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), $handedOver));
     file_put_contents(
         Tree::at(sprintf('%s/%s', Library::INFECTION_DIRECTORY, CoverageMapFile::in($handedOver)->value())),
-        CoverageMapFile::encode($planned instanceof CoverageMap ? $planned : CoverageMap::empty()),
+        CoverageMapFile::encode($planned instanceof CoverageMap ? $planned : CoverageMap::empty(), Unplaced::map()),
     );
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
         ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators(Mutators::named('PublicVisibility')));
@@ -643,7 +644,7 @@ it('opens a patched shard on the canary group and reads the map the planning job
     $handedOver = CoverageMapFile::in(Path::of('.mutation-gate/planned'))->value();
     file_put_contents(
         Tree::at(sprintf('%s/%s', Library::DIRECTORY, $handedOver)),
-        CoverageMapFile::encode($map instanceof CoverageMap ? $map : CoverageMap::empty()),
+        CoverageMapFile::encode($map instanceof CoverageMap ? $map : CoverageMap::empty(), Unplaced::map()),
     );
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
         ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('adds', 'large')))
@@ -688,7 +689,7 @@ it('narrows a mutant\'s own run over a test that needs another test file, loaded
         $map = $runner->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/reach')));
         file_put_contents(
             Tree::at(sprintf('%s/%s', Library::DIRECTORY, CoverageMapFile::in(Path::of('.mutation-gate/reach'))->value())),
-            CoverageMapFile::encode($map instanceof CoverageMap ? $map : CoverageMap::empty()),
+            CoverageMapFile::encode($map instanceof CoverageMap ? $map : CoverageMap::empty(), Unplaced::map()),
         );
         $result = $runner->mutate(MutationRequest::of(Paths::of(Path::of('src/Reach.php')), WholeSuite::tests())
             ->narrowedTo(Paths::of(Path::of('src/Reach.php')), Narrowing::none()->toMutators(Mutators::named(PlusToMinus::class)))
@@ -735,7 +736,7 @@ it('hands each mutant\'s own run the test files its covering tests need as paths
     $map = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/planned')));
     file_put_contents(
         Tree::at(sprintf('%s/%s', Library::DIRECTORY, CoverageMapFile::in(Path::of('.mutation-gate/planned'))->value())),
-        CoverageMapFile::encode($map instanceof CoverageMap ? $map : CoverageMap::empty()),
+        CoverageMapFile::encode($map instanceof CoverageMap ? $map : CoverageMap::empty(), Unplaced::map()),
     );
     $argv = sprintf('%s/argv', Scratch::directory());
     $_ENV['CONTRACT_ARGV'] = $argv;
@@ -770,7 +771,7 @@ it('runs again, patched, only the mutants the file it hands over names, on the m
     $map = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/planned')));
     file_put_contents(
         Tree::at(sprintf('%s/%s', Library::DIRECTORY, CoverageMapFile::in(Path::of('.mutation-gate/planned'))->value())),
-        CoverageMapFile::encode($map instanceof CoverageMap ? $map : CoverageMap::empty()),
+        CoverageMapFile::encode($map instanceof CoverageMap ? $map : CoverageMap::empty(), Unplaced::map()),
     );
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
         ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('adds', 'large')))

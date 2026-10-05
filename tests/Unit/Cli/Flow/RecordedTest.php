@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Cost\CostBasis;
 use NightWorksIO\MutationGate\Core\Cost\Estimated;
 use NightWorksIO\MutationGate\Core\Cost\FirstRun;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -129,7 +130,7 @@ function recordedRanWith(
     Setup $setup,
     object ...$ports,
 ): Results {
-    new Handoff(Directory::at($project))->write($plan, $map, KillHistory::none());
+    new Handoff(Directory::at($project))->write($plan, $map, KillHistory::none(), Unplaced::map());
     new Running(Flows::adapters($project, [], $runner, ...$ports), $settings, $setup)->runAll($plan, Workspace::results());
     $results = Results::read($plan, Workspace::results(), Directory::at($project));
 

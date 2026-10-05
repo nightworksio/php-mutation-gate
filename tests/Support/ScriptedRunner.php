@@ -76,6 +76,8 @@ final class ScriptedRunner implements Runner
      *                                       after; with none, each is answered as `mutating` says
      */
     private array $turns = [];
+    /** Which test files it says judge a file: as the fake does, or that it cannot say. */
+    private CannotJudge|RunnerFake $judging;
 
     /** How it gives a mutant as an analyser checks it: as the fake does, or always so. */
     private Checkable|CannotJudge|RunnerFake $checking;
@@ -91,6 +93,7 @@ final class ScriptedRunner implements Runner
     ) {
         $this->startingUp = [$fake->startUp(Path::of('src/Money.php'), Withheld::nothing())];
         $this->checking = $fake;
+        $this->judging = $fake;
     }
 
     /** The fake runner over the fixture library, whose survivors survive again. */
@@ -168,6 +171,29 @@ final class ScriptedRunner implements Runner
         return new self(
             $this->fake,
             $identity,
+            $this->mutating,
+            $this->retrying,
+            $this->groups,
+            $this->covering,
+            $this->marking,
+        );
+    }
+
+    /** This runner, which cannot say which test files judge a file. */
+    public function refusingJudges(string $why): self
+    {
+        $scripted = clone $this;
+        $scripted->judging = CannotJudge::because($why);
+
+        return $scripted;
+    }
+
+    /** This runner, driving these packages at these versions. */
+    public function driving(Version ...$versions): self
+    {
+        return new self(
+            $this->fake,
+            Identity::of('fake', Versions::of(...$versions), Digest::of('php')),
             $this->mutating,
             $this->retrying,
             $this->groups,
@@ -352,9 +378,9 @@ final class ScriptedRunner implements Runner
         return $this->fake->testsIn($files, $map);
     }
 
-    public function judges(Path $file, CoverageMap $map): Paths
+    public function judges(Path $file, CoverageMap $map): Paths|CannotJudge
     {
-        return $this->fake->judges($file, $map);
+        return $this->judging instanceof CannotJudge ? $this->judging : $this->fake->judges($file, $map);
     }
 
     public function startUp(Path $file, Withheld $withheld): Seconds|CannotJudge

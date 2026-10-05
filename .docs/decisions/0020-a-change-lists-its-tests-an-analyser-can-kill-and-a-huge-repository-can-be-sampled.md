@@ -63,13 +63,16 @@ needs remain, and the runners' own behaviour shapes each answer.
 ### The tests a change reaches
 
 1. **`mutation-gate affected` lists the tests a change can make fail.**
-   - It takes `--changed-since=<ref>` and `--coverage=<dir>`, as `plan` does
-     (ADR-0005, ADR-0006).
+   - It reads the change since the commit the coverage map was measured at,
+     and with `--changed-since=<ref>`, `last-passed` included, the change
+     since that ref besides (ADR-0005). `--coverage=<dir>` names the map's
+     directory, as for `plan` (ADR-0006).
    - Formats, by `--format`:
      - `files`, the default: one repository-relative test file per line, for
-       PHPUnit's `--test-files-file`;
+       PHPUnit's `--test-files-file`, which PHPUnit 13 has and 12 does not;
      - `files0`: the same, each ended by a NUL byte, for
-       `xargs -0 vendor/bin/pest`, so no path is split;
+       `xargs -0 vendor/bin/pest`, or `vendor/bin/phpunit` on PHPUnit 12, so
+       no path is split;
      - `ids`: one test id per line, for PHPUnit's `--test-id-filter-file`
        (decision 4);
      - `json`: `{"format": 1, "base", "map": {"commit", "dirty"}, "all",
@@ -81,6 +84,11 @@ needs remain, and the runners' own behaviour shapes each answer.
      whole suite* (ADR-0001 decision 6).
    - It prints and runs nothing. The README gives the PHPUnit and Pest lines
      that run the list.
+   - A test file is listed once, with every reason that put it there. Its
+     ids are the map's ids of it that the reasons reach; a reason that
+     reaches the file whole, such as a changed test, gives every id the map
+     holds of it. Which test files run a changed file, and which ids each
+     holds, is the runner's own `judges` and `testsIn`.
 
 2. **ADR-0005's rules decide the list, read backwards, and a file the rules do
    not place reaches every test.**
@@ -89,7 +97,10 @@ needs remain, and the runners' own behaviour shapes each answer.
    - A changed or deleted source file reaches every test that covers any of
      its lines. Where it declares a class or interface constant, an enum case,
      a property default or a parameter default, the tests that reference those
-     symbols are added, found by ADR-0004 decision 8's token scan.
+     symbols are added, found by ADR-0004 decision 8's token scan: a test
+     that reads one, the tests that run a line of source that reads one, and
+     the tests that use test support that reads one. Where the scan finds a
+     symbol may be read where no name shows it, every test is listed.
    - A new source file reaches the tests that name what it declares.
    - A changed test reaches itself. Changed support reaches the tests that use
      it (ADR-0005 decision 4, rule 4).
@@ -106,16 +117,23 @@ needs remain, and the runners' own behaviour shapes each answer.
    - The map records the commit it was measured at and whether the tree was
      dirty, as `commit` and `dirty`. Every change since that commit joins the
      change being asked about.
-   - A dirty map, or none, reaches every test, and the reason says so.
+   - Only a whole map records them: the one `coverage` writes and the one
+     `plan` keeps. A shard's or the verdict's map holds the lines of some
+     files alone, and records neither.
+   - A dirty map, a map that records neither, a map whose commit the clone
+     does not hold, or none, reaches every test, and the reason says so.
    - This amends ADR-0006 decision 1: the map gains `commit` and `dirty`.
      The map is internal, so no public format moves.
 
 4. **Test ids are offered where PHPUnit takes them.** `--format=ids` prints
-   the coverage map's ids for PHPUnit's `--test-id-filter-file`. Under Pest,
-   whose ids PHPUnit's filter does not take, it exits 2 and names `files`.
-   The first step of the build proves that `--test-id-filter-file` accepts
-   the map's ids verbatim, data-set rows included, on the lowest supported
-   PHPUnit. If it does not, `ids` is not added.
+   the coverage map's ids for PHPUnit's `--test-id-filter-file`, which takes
+   them verbatim, data-set rows included, from PHPUnit 13.2. It exits 2 and
+   names `files`:
+   - under Pest, whose ids PHPUnit's filter does not take;
+   - under a PHPUnit before 13.2, which has no `--test-id-filter-file`;
+   - where a test file listed holds no id the map names;
+   - where a listed id holds a line break or ends in a carriage return,
+     which PHPUnit, reading the file a line at a time, cannot read back.
 
 5. **`Core` computes the list.** An `AffectedTests` value is a pure step over
    `Changes`, the `CoverageMap`, the layout's test directories and the token

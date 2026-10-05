@@ -49,7 +49,9 @@ Two parts of that do not carry over to a public package.
      `.mutation-gate/coverage/`, and prints the plan in the CI's format.
      Coverage leaves the job that read it only as the gate's own map,
      `map.json.gz` in the directory `--coverage=<dir>` names: `"format": 1`,
-     compact JSON, gzipped, data that reading never runs. Each shard's map,
+     compact JSON, gzipped, data that reading never runs. A whole map also
+     records the commit it was measured at and whether the tree was dirty,
+     as `commit` and `dirty` (ADR-0020, decision 3). Each shard's map,
      `.mutation-gate/coverage/shard-<id>/map.json.gz`, holds only the lines of
      the files that shard mutates, with every test and its duration. Where the
      runner's report states them, as Infection's does, it also holds each of

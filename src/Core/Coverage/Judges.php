@@ -57,6 +57,12 @@ final readonly class Judges
         return new self($judges, $runBy);
     }
 
+    /** The test files that judge a covered file; none for a file no test covers. */
+    public function of(Path $file): Paths
+    {
+        return array_key_exists($file->value(), $this->judges) ? $this->judges[$file->value()][1] : Paths::none();
+    }
+
     /** Every covered file a test file runs, in the order the files were first judged. */
     public function filesRunBy(Path $test): Paths
     {

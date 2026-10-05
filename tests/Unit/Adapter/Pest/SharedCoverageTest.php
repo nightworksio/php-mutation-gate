@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
+use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -38,7 +39,7 @@ function sharedMap(): CoverageMap
 
 it('reads the gate\'s own map another job handed over, and nothing else there', function (): void {
     $at = sharedProject();
-    Scratch::write($at->root(), 'planned/map.json.gz', CoverageMapFile::encode(sharedMap()));
+    Scratch::write($at->root(), 'planned/map.json.gz', CoverageMapFile::encode(sharedMap(), Unplaced::map()));
     Scratch::write($at->root(), 'foreign/coverage.php', '<?php return [];');
     Scratch::write($at->root(), 'spoilt/map.json.gz', 'not gzip');
 

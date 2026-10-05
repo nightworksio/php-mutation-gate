@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Waiting;
 use NightWorksIO\MutationGate\Adapter\Runtime\ChildMemory;
 use NightWorksIO\MutationGate\Adapter\Runtime\PhpProbe;
+use NightWorksIO\MutationGate\Cli\Command\AffectedCommand;
 use NightWorksIO\MutationGate\Cli\Command\BaselineCommand;
 use NightWorksIO\MutationGate\Cli\Command\ConfigSchema;
 use NightWorksIO\MutationGate\Cli\Command\ConfigShow;
@@ -127,6 +128,7 @@ final readonly class Console
         $application->addCommand(TestsCommand::command($composition));
         $application->addCommand(StubCommand::command($composition));
         $application->addCommand(TriageCommand::command($composition));
+        $application->addCommand(AffectedCommand::command($composition));
         $formats = new Formats(class_exists(...));
         $installed = $detected->installed();
         $gate = $installed instanceof Installed ? GatePin::in($installed) : GatePin::unknown();
