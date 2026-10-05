@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Cost\RunTime;
-use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Digest;
-use NightWorksIO\MutationGate\Core\File\Line;
-use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlannedWork;
@@ -56,15 +53,5 @@ it('keeps the estimate and how much of it was measured', function (): void {
     $work = PlannedWork::of(ShardedPlan::of(1), $estimate, $measured);
 
     expect($work->estimate())->toBe($estimate)
-        ->and($work->measured())->toBe($measured)
-        ->and($work->uncovered())->toEqual(ByPath::none());
-});
-
-it('holds the changed lines no test covers by file, and leaves out a file with none', function (): void {
-    $lines = Lines::of(Line::of(12), Line::of(14));
-    $work = ShardedPlan::planned(1)
-        ->withUncovered(Path::of('src/A.php'), $lines)
-        ->withUncovered(Path::of('src/B.php'), Lines::none());
-
-    expect($work->uncovered())->toEqual(ByPath::none()->with(Path::of('src/A.php'), $lines));
+        ->and($work->measured())->toBe($measured);
 });

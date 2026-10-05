@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Command;
 
+use function is_array;
+
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Flow\Baselines;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
@@ -115,7 +117,7 @@ final readonly class RunCommand
         $printing->begin($output, $composed->adapters->project);
         $plan = PlanCommand::planOf($composed, $input);
         $results = FlowOptions::path($input, FlowOptions::RESULTS, Workspace::results());
-        $judged = $plan instanceof Plan ? self::judgedAll($composed, $plan, $results) : $plan;
+        $judged = $plan instanceof Plan ? self::judgedAll($composed, $plan, $results, $printing, $output) : $plan;
         $local = FlowOptions::isFull($input) && ! $composed->adapters->environment->inCi();
 
         return VerdictCommand::printed(
@@ -126,13 +128,30 @@ final readonly class RunCommand
         );
     }
 
-    /** A plan left in the workspace for `explain`, every shard of it run, and their results judged. */
-    private static function judgedAll(Composed $composed, Plan $plan, Path $results): Judged|Invalid|CannotJudge
-    {
+    /**
+     * A plan left in the workspace for `explain`, the pull request comment
+     * written in its planned state, with what each comment said of it,
+     * every shard of the plan run, and their results judged.
+     */
+    private static function judgedAll(
+        Composed $composed,
+        Plan $plan,
+        Path $results,
+        Printing $printing,
+        OutputInterface $output,
+    ): Judged|Invalid|CannotJudge {
         $kept = LastRun::keep($composed->adapters->project, $plan);
-        $ran = $kept instanceof Written
-            ? new Running($composed->adapters, $composed->settings, $composed->setup)->runAll($plan, $results)
-            : $kept;
+        $commented = $kept instanceof Written ? $composed->reporting->planned($composed->settings, $plan) : $kept;
+
+        if (! is_array($commented)) {
+            return $commented;
+        }
+
+        foreach ($commented as $said) {
+            $printing->note($said, $output);
+        }
+
+        $ran = new Running($composed->adapters, $composed->settings, $composed->setup)->runAll($plan, $results);
 
         return $ran instanceof CannotJudge ? $ran : VerdictCommand::judgedOf($composed, $plan, $results);
     }

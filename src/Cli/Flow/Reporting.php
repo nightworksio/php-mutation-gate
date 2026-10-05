@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function is_array;
+
+use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
@@ -17,7 +20,10 @@ use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\PlanEstimates;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\Reporter;
 
 use function str_contains;
@@ -49,6 +55,34 @@ final readonly class Reporting
         }
 
         return $reporters;
+    }
+
+    /**
+     * The sticky comment in its planned state, written before any shard runs
+     * (ADR-0009, decision 3): what each comment the run chooses said of it,
+     * written or not; nothing where the run chooses no comment.
+     *
+     * @return list<string>|Invalid|CannotJudge
+     */
+    public function planned(Settings $settings, Plan $plan): array|Invalid|CannotJudge
+    {
+        $reporters = $this->reporters($settings, $plan->runOn());
+
+        if (! is_array($reporters)) {
+            return $reporters;
+        }
+
+        $work = PlanEstimates::of($plan, $settings->shards()->setup())->work();
+        $said = [];
+
+        foreach ($reporters as $reporter) {
+            if ($reporter instanceof PullRequestComment) {
+                $written = $reporter->planned($work);
+                $said[] = $written instanceof Written ? $written->said() : $written->why();
+            }
+        }
+
+        return $said;
     }
 
     /** @return list<Reporter|Invalid|CannotJudge> one for each entry of `reports`, with its path in its options */

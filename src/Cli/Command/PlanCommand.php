@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Command;
 
 use function count;
+use function is_array;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\PublicationFile;
 use NightWorksIO\MutationGate\Cli\ExitCode;
@@ -27,7 +28,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * `mutation-gate plan`: works out the reach, drops proved units, cuts the
- * shards, writes `.mutation-gate/plan.json` and hands the plan to the CI.
+ * shards, writes `.mutation-gate/plan.json`, hands the plan to the CI and
+ * writes the pull request comment in its planned state (ADR-0009, decision 3).
  * What it wrote it says on standard error, since a CI may read the plan's
  * own document from standard output.
  */
@@ -73,21 +75,31 @@ final readonly class PlanCommand
         };
     }
 
-    /** Write the plan and hand it to the CI; or say why it cannot be. */
+    /**
+     * Write the plan, hand it to the CI and write the pull request comment
+     * in its planned state; or say why it cannot be.
+     */
     private static function published(Composed $composed, Plan $plan, OutputInterface $output): int
     {
         $written = LastRun::keep($composed->adapters->project, $plan);
         $publication = $written instanceof Written ? $composed->adapters->ci->publish($plan) : $written;
         $published = $publication instanceof Publication ? PublicationFile::written($publication) : $publication;
+        $commented = $published instanceof Written
+            ? $composed->reporting->planned($composed->settings, $plan)
+            : $published;
 
-        if ($published instanceof CannotJudge) {
-            return Failed::because($output, $published);
+        if (! is_array($commented)) {
+            return Failed::because($output, $commented);
         }
 
         $aside = Aside::of($output);
         $aside->writeln(sprintf('Wrote %s, with %d shards.', Workspace::plan()->value(), count($plan)));
         self::estimated($composed, $plan, $aside);
         self::saidIfUnpatched($composed, count($plan), $aside);
+
+        foreach ($commented as $said) {
+            $aside->writeln($said, OutputInterface::OUTPUT_RAW);
+        }
 
         return ExitCode::Passed->value;
     }

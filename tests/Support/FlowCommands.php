@@ -180,7 +180,9 @@ final readonly class FlowCommands
             ->withCostModel(Name::of('learned'), static fn(): CostModel => new CostModelFake(Seconds::of(1.0)))
             ->withCiPlan(Name::of('json'), static fn(): CiPlan => $ci, Withheld::nothing(), CiMarker::none())
             ->withChangeSource(Name::of('git'), static fn(): ChangeSource => $changes)
-            ->withRepository(Name::of('git'), static fn(): Repository => $repository);
+            ->withRepository(Name::of('git'), static fn(): Repository => $repository)
+            ->withChangeSource(Name::of('github'), static fn(): ChangeSource => $changes)
+            ->withRepository(Name::of('github'), static fn(): Repository => $repository);
         $vendor = sprintf('%s/vendor', $project);
         $detected = new Detected(Directory::at($project), Directory::at($vendor));
         $effective = new Effective($project, $registry, $detected, new StoppedClock(Configs::NOW)->now());
