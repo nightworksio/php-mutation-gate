@@ -212,16 +212,28 @@ sees the same verdict.
        with its diff, hint and reproduce command; a table of the unjudged and
        flaky mutants; the failures; the warnings; the floors that can rise
        with `vendor/bin/mutation-gate baseline --write`; the link; and the
-       cost. A list longer than 20 says how many more there are.
+       cost. A list longer than 20 says how many more there are. GitHub takes
+       at most 65,536 characters in a comment, so where the comment would hold
+       more, each list shows half as many entries, and again, down to none,
+       each saying how many it left out. Each diff and hint shows at most
+       1,500 characters, so one long line of code cannot fill it alone.
      - **The step summary** has the same layout without the marker, and lists
        every mutant counted as not killed in one table. A step's summary holds
        at most 1 MiB, so a table that does not fit is cut and says how many
        rows the JSON report holds beyond it.
      - **What the project wrote stays text.** Paths, diffs, test names and
        reasons come from the project under test, so every one is escaped
-       where it lands: no markup, link, mention or table cell in Markdown, and
-       a diff's fence is longer than any run of its fence character inside
-       it.
+       where it lands: no markup, link, bare address, mention or table cell
+       in Markdown, no control or format character, a bidirectional override
+       included, and a diff's fence is longer than any run of its fence
+       character inside it. The config's currency is escaped the same way. In
+       a log, no line starts a command of GitHub, Azure Pipelines or TeamCity:
+       not in any case, not after the console's colour or a character a
+       runner trims or skips, and not across the writes that make one line. Text from outside reaches a
+       terminal or a CI's log with no control or format character but a tab
+       and the ends of lines, dropped before the console adds its own colour
+       and before a workflow command is escaped, so the only escape sequences
+       the gate writes are the colours of its console.
      - **Fork pull requests.** The token GitHub gives a `pull_request` run from
        a fork is read-only, so no comment is written. The step summary carries
        the same content, and the reporter says why without failing. The README's

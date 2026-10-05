@@ -63,14 +63,15 @@ final readonly class CostText
         return sprintf('| %s | %s | %s |', $name, $time->wall()->text(), $time->runner()->text());
     }
 
+    /** The figures at the team's rate, each in the currency the config names, escaped as text the config holds. */
     private static function money(Cost $cost, Rate $price): string
     {
         return sprintf(
             self::MONEY,
-            $price->perRunnerMinute()->text(),
-            $price->of($cost->planned()->runner())->text(),
-            $price->of($cost->measured()->runner())->text(),
-            $price->of($cost->spared())->text(),
+            Escape::text($price->perRunnerMinute()->text()),
+            Escape::text($price->of($cost->planned()->runner())->text()),
+            Escape::text($price->of($cost->measured()->runner())->text()),
+            Escape::text($price->of($cost->spared())->text()),
         );
     }
 }

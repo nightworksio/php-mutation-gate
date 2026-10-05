@@ -3,19 +3,27 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
+use NightWorksIO\MutationGate\Adapter\Console\InertOutput;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
+use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Report\ClusterText;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
 use NightWorksIO\MutationGate\Core\Report\SavingsText;
+use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
+use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Clustered;
 use NightWorksIO\MutationGate\Tests\Support\Killings;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 use Symfony\Component\Console\Output\BufferedOutput;
+use Symfony\Component\Console\Output\StreamOutput;
 
 $printed = static function (Verdict $verdict): string {
     $output = new BufferedOutput();
@@ -195,4 +203,23 @@ it('prints a hostile suite\'s name as one plain line, with no control character'
 
     expect($said)->toContain("\n  <script>alert(1)</script>|x [31mred alone kills 66.66% of the 3 mutants its tests cover.\n")
         ->and($said)->not->toContain("\e");
+});
+
+it('reaches a coloured console with a hostile test name and diff, but none of their control characters', function (): void {
+    $hostile = "\e[2K\e]1338;url='https://attacker.example/p.png'\x07";
+    $diff = Verdicts::diff('return $total;', sprintf('return 0; // %s', $hostile));
+    $survivor = JudgedMutant::of(Verdicts::mutant('src/Money.php:7', Verdicts::LESS, MutatorFamily::Boundary, $diff), MutantJudgement::Survived)
+        ->judgedBy(TestIds::of(TestId::of(sprintf('MoneyTest::fits%s', $hostile))));
+    $console = new InertOutput();
+    $memory = fopen('php://memory', 'w+');
+    new ReflectionProperty(StreamOutput::class, 'stream')->setValue($console, $memory);
+    $console->setDecorated(decorated: true);
+    ConsoleReport::to($console)->report(Verdicts::of(Floor::of(80), $survivor));
+    $said = is_resource($memory) ? (string) stream_get_contents($memory, offset: 0) : '';
+    $shown = "[2K]1338;url='https://attacker.example/p.png'";
+
+    expect($said)->toContain(sprintf('MoneyTest::fits%s', $shown))
+        ->and($said)->toContain(sprintf('return 0; // %s', $shown))
+        ->and($said)->not->toContain("\e")
+        ->and($said)->not->toContain("\x07");
 });

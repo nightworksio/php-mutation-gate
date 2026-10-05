@@ -7,11 +7,15 @@ namespace NightWorksIO\MutationGate\Adapter\GitHub;
 use function array_filter;
 use function array_map;
 use function array_slice;
+
+use Closure;
+
 use function count;
 use function implode;
 use function intdiv;
 use function iterator_to_array;
 use function max;
+use function mb_strlen;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
@@ -63,6 +67,9 @@ final readonly class Markdown
     /** The most bytes one step's summary may hold. */
     public const int SUMMARY_BYTES = 1_048_576;
 
+    /** The most characters GitHub takes in a comment's body. */
+    public const int COMMENT_CHARACTERS = 65_536;
+
     /** The most entries a list of the comment holds, before it says how many more there are. */
     public const int COMMENTED = 20;
 
@@ -71,6 +78,10 @@ final readonly class Markdown
 
     private const string RUN = '[The run](%s) keeps the HTML report among its artifacts.';
 
+    /**
+     * The sticky comment: within what GitHub takes, showing half as many of each list's entries each time until it
+     * fits, none at the last.
+     */
     public static function comment(Verdict $verdict, string $run): string
     {
         $overview = Overview::of($verdict);
@@ -92,30 +103,35 @@ final readonly class Markdown
             $changed = $mutant->isOnChangedLine() ? [...$changed, $mutant] : $changed;
         }
 
-        $shown = Folded::of($changed, $clusters);
+        $folded = Folded::of($changed, $clusters);
         $security = $overview->securitySurvivors();
         $secured = Folded::of($security, $clusters);
-
-        return self::document([
+        $document = static fn(int $shown): string => self::document([
             self::MARKER,
             ...self::head($verdict, $overview, NoHistory::yet()),
             ...self::section(
                 sprintf('Security survivors (%d)', count($security)),
-                MarkdownItems::details(array_slice($secured, 0, self::COMMENTED), count($secured)),
+                MarkdownItems::details(array_slice($secured, 0, $shown), count($secured)),
             ),
             ...self::sets($verdict),
             ...self::section(
                 sprintf('Survivors on changed lines (%d)', count($changed)),
-                MarkdownItems::details(array_slice($shown, 0, self::COMMENTED), count($shown)),
+                MarkdownItems::details(array_slice($folded, 0, $shown), count($folded)),
             ),
             ...self::section(
                 sprintf('Unjudged and flaky (%d)', count($other)),
-                MarkdownItems::table(array_slice($other, 0, self::COMMENTED), count($other)),
+                MarkdownItems::table(array_slice($other, 0, $shown), count($other)),
             ),
-            ...self::ignored($overview, self::COMMENTED),
+            ...self::ignored($overview, $shown),
             ...self::tail($verdict, $run),
             CostText::of($verdict),
         ]);
+
+        return self::fitted(
+            $document,
+            self::COMMENTED,
+            static fn(string $comment): bool => mb_strlen($comment) <= self::COMMENT_CHARACTERS,
+        );
     }
 
     /**
@@ -128,25 +144,40 @@ final readonly class Markdown
         $items = Folded::of($overview->survivors(), $verdict->trees()->clusters());
         $head = self::head($verdict, $overview, $verdict->account()->savedSince($since));
         $tail = self::tail($verdict, $run);
-        $shown = max(count($items), count($overview->ignored()));
+        $document = static fn(int $shown): string => self::document([
+            ...$head,
+            ...self::sets($verdict),
+            ...self::section('Suites', self::suites($verdict)),
+            ...self::section(
+                sprintf('Not killed (%d)', count($overview->survivors())),
+                MarkdownItems::table(array_slice($items, 0, $shown), count($items)),
+            ),
+            ...self::ignored($overview, $shown),
+            ...$tail,
+        ]);
 
+        return self::fitted(
+            $document,
+            max(count($items), count($overview->ignored())),
+            static fn(string $summary): bool => Bytes::length($summary) <= self::SUMMARY_BYTES,
+        );
+    }
+
+    /**
+     * A document showing this many entries of each list, or half as many each time until it fits, none at the last.
+     *
+     * @param Closure(int): string  $document the document showing this many entries of each list
+     * @param Closure(string): bool $fits     whether a document fits
+     */
+    private static function fitted(Closure $document, int $shown, Closure $fits): string
+    {
         do {
-            $summary = self::document([
-                ...$head,
-                ...self::sets($verdict),
-                ...self::section('Suites', self::suites($verdict)),
-                ...self::section(
-                    sprintf('Not killed (%d)', count($overview->survivors())),
-                    MarkdownItems::table(array_slice($items, 0, $shown), count($items)),
-                ),
-                ...self::ignored($overview, $shown),
-                ...$tail,
-            ]);
+            $fitted = $document($shown);
             $tried = $shown;
             $shown = intdiv($shown, 2);
-        } while (Bytes::length($summary) > self::SUMMARY_BYTES && $tried > 0);
+        } while (! $fits($fitted) && $tried > 0);
 
-        return $summary;
+        return $fitted;
     }
 
     /**

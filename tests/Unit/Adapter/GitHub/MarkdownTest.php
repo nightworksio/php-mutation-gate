@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\GitHub\Markdown;
+use NightWorksIO\MutationGate\Adapter\GitHub\MarkdownItems;
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -176,11 +177,10 @@ it('writes a hostile suite\'s name in the step summary as inert text in one tabl
 });
 
 it('fits the step summary into the size one step may write, saying how many it left out', function (): void {
-    $tests = TestIds::of(...array_map(static fn(int $at): TestId => TestId::of(sprintf('%s%d', str_repeat('LongTestName', 400), $at)), range(1, 3)));
     $mutants = [];
 
     foreach (range(1, 300) as $line) {
-        $mutants[] = JudgedMutant::of(Verdicts::mutant(sprintf('src/Money.php:%d', $line), 'Plus', MutatorFamily::None, ''), MutantJudgement::Survived)->judgedBy($tests);
+        $mutants[] = JudgedMutant::of(Verdicts::mutant(sprintf('src/%s.php:%d', str_repeat('LongName', 600), $line), 'Plus', MutatorFamily::None, ''), MutantJudgement::Survived);
     }
 
     $summary = Markdown::summary(Verdicts::of(Floor::of(80), ...$mutants), '', Verdicts::monthAgo());
@@ -192,9 +192,9 @@ it('fits the step summary into the size one step may write, saying how many it l
 
 it('keeps a step summary of exactly the mebibyte one step may write whole, and cuts one a byte past it', function (): void {
     $judged = static fn(int $line, int $length): JudgedMutant => JudgedMutant::of(
-        Verdicts::mutant(sprintf('src/Money.php:%d', $line), 'Plus', MutatorFamily::None, ''),
+        Verdicts::mutant(sprintf('src/%s.php:%d', str_repeat('a', $length), $line), 'Plus', MutatorFamily::None, ''),
         MutantJudgement::Survived,
-    )->judgedBy(TestIds::of(TestId::of(str_repeat('a', $length))));
+    );
     $summary = static fn(int $length): string => Markdown::summary(
         Verdicts::of(Floor::of(80), $judged(3, 1), $judged(4, $length)),
         '',
@@ -209,8 +209,7 @@ it('keeps a step summary of exactly the mebibyte one step may write whole, and c
 });
 
 it('fits a step summary whose one survivor alone is past the size one step may write, by showing none', function (): void {
-    $huge = JudgedMutant::of(Verdicts::mutant('src/Money.php:3', 'Plus', MutatorFamily::None, ''), MutantJudgement::Survived)
-        ->judgedBy(TestIds::of(TestId::of(str_repeat('a', 1_100_000))));
+    $huge = JudgedMutant::of(Verdicts::mutant(sprintf('src/%s.php:3', str_repeat('a', 1_100_000)), 'Plus', MutatorFamily::None, ''), MutantJudgement::Survived);
     $summary = Markdown::summary(Verdicts::of(Floor::of(80), $huge), '', Verdicts::monthAgo());
 
     expect(strlen($summary))->toBeLessThanOrEqual(1_048_576)
@@ -273,7 +272,7 @@ it('lets nothing the project wrote become markup, a link, a mention or a new cel
         ->and($comment)->toContain('src/&lt;img src=x&gt;&#124;&#64;octocat.php:3')
         ->and(array_values(array_filter(explode("\n", $comment), static fn(string $line): bool => str_contains($line, 'octocat.php'))))
         ->toBe([sprintf(
-            '| <code>src/&lt;img src=x&gt;&#124;&#64;octocat.php:3</code> | &#91;x&#93;(https://evil) | flaky | %s | <code>%s</code> |',
+            '| <code>src/&lt;img src=x&gt;&#124;&#64;octocat.php:3</code> | &#91;x&#93;(https:&#47;&#47;evil) | flaky | %s | <code>%s</code> |',
             'Its tests killed it on one run and let it survive on another, so they are the suspects. It is judged by <code>it &#64;octocat &lt;/code&gt;&lt;script&gt;</code>.',
             $hostile->reproduce(),
         )]);
@@ -397,4 +396,79 @@ it('comments on the security survivors in a section before the trees, and lists 
         ->and(substr_count($comment, '<code>src/Auth.php:3</code>'))->toBe(1)
         ->and($comment)->toContain("### Floors that can rise\n\n- <code>security set of packages/billing</code> to 100.00%")
         ->and(Markdown::summary(Verdicts::secured(), $run, Verdicts::monthAgo()))->toContain('- Security scores 0.00%, below its floor of 100.00%.');
+});
+
+it('cuts each diff it shows, so one mutated line of any length cannot swell the comment past what GitHub takes', function (): void {
+    $reach = Reach::nothing(Packages::of(Trees::none()))->withLines(Path::of('src/Money.php'), Lines::of(Line::of(3)));
+    $long = sprintf("-%s\n+%s", str_repeat('a', 70_000), str_repeat('b', 70_000));
+    $huge = JudgedMutant::of(Verdicts::mutant('src/Money.php:3', 'Plus', MutatorFamily::None, $long), MutantJudgement::Survived)->within($reach);
+    $comment = Markdown::comment(Verdicts::of(Floor::of(80), $huge), '');
+
+    expect(mb_strlen($comment))->toBeLessThanOrEqual(Markdown::COMMENT_CHARACTERS)
+        ->and($comment)->toContain(sprintf("~~~diff\n-%s…\n~~~", str_repeat('a', MarkdownItems::SHOWN_CHARACTERS - 2)))
+        ->and($comment)->toContain('### Survivors on changed lines (1)');
+});
+
+it('fits the comment into what GitHub takes, showing half as many mutants each time, and says how many it left out', function (): void {
+    $lines = Lines::of(...array_map(Line::of(...), range(1, 20)));
+    $reach = Reach::nothing(Packages::of(Trees::none()))->withLines(Path::of('src/Money.php'), $lines);
+    $mutants = [];
+
+    foreach (range(1, 20) as $line) {
+        $diff = sprintf('-%s', str_repeat(sprintf('%d', $line % 10), MarkdownItems::SHOWN_CHARACTERS * 2));
+        $mutants[] = JudgedMutant::of(Verdicts::mutant(sprintf('src/Money.php:%d', $line), 'Plus', MutatorFamily::None, $diff), MutantJudgement::Survived)->within($reach);
+        $mutants[] = JudgedMutant::of(Verdicts::mutant(sprintf('src/%s.php:%d', str_repeat('Order', 600), $line), 'Plus', MutatorFamily::None, ''), MutantJudgement::Flaky);
+    }
+
+    $comment = Markdown::comment(Verdicts::of(Floor::of(80), ...$mutants), '');
+    $shown = substr_count($comment, '<details>');
+
+    expect(mb_strlen($comment))->toBeLessThanOrEqual(Markdown::COMMENT_CHARACTERS)
+        ->and($shown)->toBeIn([10, 5, 2, 1])
+        ->and($comment)->toContain(sprintf('And %d more; the JSON report lists every one.', 20 - $shown))
+        ->and($comment)->toContain('### Survivors on changed lines (20)');
+});
+
+it('stops cutting the comment once it shows no mutant, even where what is left is past what GitHub takes', function (): void {
+    $path = sprintf('src/%s', str_repeat('a', 70_000));
+    $tree = TreeVerdict::judged(
+        Tree::at(Path::of($path), Floor::of(80), Package::at(Path::root())),
+        Unrecorded::floor(),
+        JudgedUnits::none(),
+        JudgedMutants::of(JudgedMutant::of(Verdicts::mutant(sprintf('%s/Money.php:3', $path), 'Plus', MutatorFamily::None, ''), MutantJudgement::Flaky)),
+        Uncovered::Count,
+    );
+    $comment = Markdown::comment(Verdict::of(TreeVerdicts::of($tree)), '');
+
+    expect($comment)->toContain('And 1 more; the JSON report lists every one.')
+        ->and($comment)->not->toContain('| Mutant | Mutator |');
+});
+
+it('cuts the hint of each mutant it shows, in a block or a row, so one cannot swell the comment past what GitHub takes', function (string $judgement): void {
+    $reach = Reach::nothing(Packages::of(Trees::none()))->withLines(Path::of('src/Money.php'), Lines::of(Line::of(3)));
+    $tests = TestIds::of(TestId::of(str_repeat('a', 70_000)));
+    $judged = JudgedMutant::of(Verdicts::mutant('src/Money.php:3', 'Plus', MutatorFamily::None, ''), MutantJudgement::from($judgement))
+        ->within($reach)
+        ->judgedBy($tests);
+    $comment = Markdown::comment(Verdicts::of(Floor::of(80), $judged), '');
+
+    expect(mb_strlen($comment))->toBeLessThanOrEqual(Markdown::COMMENT_CHARACTERS)
+        ->and($comment)->toContain('src/Money.php:3')
+        ->and($comment)->toContain('…')
+        ->and($comment)->not->toContain('And 1 more; the JSON report lists every one.');
+})->with(['survived', 'flaky']);
+
+it('keeps a comment of exactly what GitHub takes whole, and cuts one a character past it', function (): void {
+    $comment = static fn(int $length): string => Markdown::comment(Verdicts::of(
+        Floor::of(80),
+        JudgedMutant::of(Verdicts::mutant('src/Money.php:3', 'Plus', MutatorFamily::None, ''), MutantJudgement::Flaky),
+        JudgedMutant::of(Verdicts::mutant(sprintf('src/%s.php:4', str_repeat('é', $length)), 'Plus', MutatorFamily::None, ''), MutantJudgement::Flaky),
+    ), '');
+    $fits = Markdown::COMMENT_CHARACTERS - (mb_strlen($comment(2)) - 2);
+    $whole = $comment($fits);
+
+    expect(mb_strlen($whole))->toBe(Markdown::COMMENT_CHARACTERS)
+        ->and($whole)->toContain(str_repeat('é', $fits))
+        ->and($comment($fits + 1))->not->toContain(str_repeat('é', $fits + 1))
+        ->and($comment($fits + 1))->toContain('And 1 more; the JSON report lists every one.');
 });

@@ -8,6 +8,7 @@ use function count;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
+use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Report\ClusterText;
 use NightWorksIO\MutationGate\Core\Report\Escape;
@@ -26,6 +27,12 @@ use function sprintf;
  */
 final readonly class MarkdownItems
 {
+    /**
+     * The most characters of one diff or one hint an entry shows, the rest cut, so one long line of the project's
+     * code cannot fill a comment on its own.
+     */
+    public const int SHOWN_CHARACTERS = 1_500;
+
     private const string MORE = 'And %d more; the JSON report lists every one.';
 
     /**
@@ -49,7 +56,7 @@ final readonly class MarkdownItems
                     Label::of($item->judgement()),
                 ),
                 self::diff($item),
-                Escape::text($item->hint()->text()),
+                Escape::text(self::cut($item->hint()->text())),
                 Escape::code($item->reproduce()),
                 '</details>',
             ]);
@@ -132,9 +139,16 @@ final readonly class MarkdownItems
         ]);
     }
 
+    /** A mutant's diff as a block of code, cut to the characters one entry shows. */
     private static function diff(JudgedMutant $judged): string
     {
-        return Escape::block(rtrim($judged->mutant()->mutation()->diff(), "\n"), 'diff');
+        return Escape::block(self::cut(rtrim($judged->mutant()->mutation()->diff(), "\n")), 'diff');
+    }
+
+    /** Text cut to the characters one entry shows of it. */
+    private static function cut(string $text): string
+    {
+        return Fit::line($text, self::SHOWN_CHARACTERS);
     }
 
     private static function row(JudgedMutant $judged): string
@@ -147,9 +161,9 @@ final readonly class MarkdownItems
             self::place($judged),
             Escape::text(Mutator::short($mutant->mutator())),
             Label::of($judged->judgement()),
-            Escape::text($reason instanceof Reason
+            Escape::text(self::cut($reason instanceof Reason
                 ? sprintf('%s %s', $reason->text(), $judged->hint()->text())
-                : $judged->hint()->text()),
+                : $judged->hint()->text())),
             Escape::code($judged->reproduce()),
         );
     }

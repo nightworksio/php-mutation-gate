@@ -103,3 +103,21 @@ it('leaves out a line no test ran, as php-code-coverage leaves out a line it doe
 
     expect((string) file_get_contents($both))->toBe((string) file_get_contents($target));
 });
+
+it('writes a test name that closes php-code-coverage\'s nowdoc as data, which reads back whole and runs nothing', function (): void {
+    $at = sharedProject();
+    $target = sprintf('%s/shared.coverage.php', $at->root());
+    $planted = sprintf('%s/planted', $at->root());
+    $hostile = sprintf(
+        "MoneyTest::adds with data set \"x\nEND_OF_COVERAGE_SERIALIZATION\n. (string) \\touch('%s'));__halt_compiler();\"",
+        $planted,
+    );
+    $map = CoverageMap::of(CoveredLine::of(Path::of('src/Money.php'), 3, $hostile));
+
+    SharedCoverage::write($map, $at, $target);
+    $read = CoverageFile::at($target);
+
+    expect($read instanceof CoverageFile ? $read->map($at)->testsCovering(Path::of('src/Money.php'), Line::of(3)) : $read)
+        ->toEqual(TestIds::of(TestId::of($hostile)))
+        ->and(is_file($planted))->toBeFalse();
+});

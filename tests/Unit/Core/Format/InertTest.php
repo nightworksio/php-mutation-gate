@@ -17,6 +17,9 @@ it('starts no workflow command on any line, however it is indented', function (s
     'in the older form, anywhere' => ['text ##[error]injected', 'text ## [error]injected'],
     'in Azure\'s form, anywhere' => ['x ##vso[task.setvariable variable=a]b', 'x ##vso [task.setvariable variable=a]b'],
     'encoded' => ['%0A::error::x', '%0A::error::x'],
+    'TeamCity\'s, anywhere' => ["x ##teamcity[buildStatus text='passed']", "x ##teamcity [buildStatus text='passed']"],
+    'after the colour a console writes' => ["\e[32m ::error::x\e[39m", "\e[32m \\::error::x\e[39m"],
+    'after two colours and white space' => ["  \e[1m\e[37;41m::error::x", "  \e[1m\e[37;41m\\::error::x"],
 ]);
 
 it('keeps a line that starts no command as it is', function (): void {
@@ -27,4 +30,22 @@ it('keeps a line that starts no command as it is', function (): void {
 it('replaces invalid UTF-8 before it looks', function (): void {
     expect(Inert::text("\xC3::error::x"))->toBe('?::error::x')
         ->and(Inert::text("\xC3\n::error::x"))->toBe("?\n\\::error::x");
+});
+
+it('makes a command inert as each runner reads it, whatever white space, case or invisible character comes first', function (string $text, string $inert): void {
+    expect(Inert::text($text))->toBe($inert);
+})->with([
+    'after a next-line character, which .NET trims, a control character dropped' => ["\u{85}::error::x", '\\::error::x'],
+    'after a line separator and an ideographic space' => ["\u{2028}\u{3000}::error::x", "\u{2028}\u{3000}\\::error::x"],
+    'after a vertical tab and a form feed, which .NET trims' => ["\x0B\x0C::error::x", '\\::error::x'],
+    'after a zero-width space, which ICU ignores' => ["\u{200B}::error::x", '\\::error::x'],
+    'with a zero-width space inside' => ["#\u{200B}#[error]x", '## [error]x'],
+    'Azure\'s, in capitals' => ['x ##VSO[task.setvariable variable=a]b', 'x ##VSO [task.setvariable variable=a]b'],
+    'Azure\'s, in mixed case' => ['x ##Vso[task.complete result=Succeeded]', 'x ##Vso [task.complete result=Succeeded]'],
+    'one that stops every command' => ['::stop-commands::resume-token', '\\::stop-commands::resume-token'],
+    'one that masks a value' => ['  ::add-mask::secret', '  \\::add-mask::secret'],
+]);
+
+it('keeps the escape a colour starts with, and drops every other control and format character', function (): void {
+    expect(Inert::text("\e[32mpassed\e[39m\x07\u{9B}2K\u{202E}"))->toBe("\e[32mpassed\e[39m2K");
 });
