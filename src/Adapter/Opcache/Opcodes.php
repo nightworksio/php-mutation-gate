@@ -6,22 +6,19 @@ namespace NightWorksIO\MutationGate\Adapter\Opcache;
 
 use function addcslashes;
 use function dirname;
-use function explode;
-use function implode;
 use function ltrim;
-use function preg_match;
-use function preg_replace;
-use function sprintf;
 use function str_replace;
 use function str_starts_with;
 
 /**
  * A program's optimized opcodes, as opcache dumps them, with what tells two
  * copies of one program apart and nothing else taken out (ADR-0013,
- * decision 10): the line each function spans, the line in each closure's
- * name, and the path the program was compiled at, wherever the program
- * names its own file or directory. A literal the program writes is kept as
- * it is, so a mutant that changes one never compares equal.
+ * decision 10): the path the program was compiled at, wherever the dump
+ * names its file or directory. The lines each function spans and the line
+ * in each closure's name are kept, since a program can read them, as an
+ * exception's line or a closure's name, and a literal the program writes is
+ * kept as it is, so a mutant that moves code or changes a literal never
+ * compares equal.
  */
 final readonly class Opcodes
 {
@@ -34,13 +31,9 @@ final readonly class Opcodes
 
     /** What the program's own directory is named in its place, as its path is. */
     public const string DIRECTORY = "\x1Edirectory\x1E";
+
     /** The header opcache dumps a program's own code under, on a line of its own before any function's. */
     private const string MAIN = "\$_main:\n";
-
-    /** A function's header names a closure with the line it starts on, each closure inside the one around it. */
-    private const string CLOSURE_HEADER = '/^\{closure:.*\}:$/';
-
-    private const string CLOSURE_LINE = '/:\d+\}/';
 
     private function __construct(private string $text)
     {
@@ -57,21 +50,7 @@ final readonly class Opcodes
             return Uncompiled::Failed;
         }
 
-        $spans = sprintf('; %s:', $path);
-        $kept = [];
-
-        foreach (explode("\n", $dump) as $line) {
-            if (str_starts_with(ltrim($line), $spans)) {
-                continue;
-            }
-
-            $line = preg_match(self::CLOSURE_HEADER, $line) === 1
-                ? (string) preg_replace(self::CLOSURE_LINE, '}', $line)
-                : $line;
-            $kept[] = self::named($line, $path);
-        }
-
-        return new self(implode("\n", $kept));
+        return new self(self::named($dump, $path));
     }
 
     /** Whether another program compiles to these opcodes. */
@@ -85,15 +64,15 @@ final readonly class Opcodes
         return $this->text;
     }
 
-    /** A line, with the program's own path and directory, as written and as the dump escapes them, named alike. */
-    private static function named(string $line, string $path): string
+    /** A dump, with the program's own path and directory, as written and as the dump escapes them, named alike. */
+    private static function named(string $dump, string $path): string
     {
         $directory = dirname($path);
 
         return str_replace(
             [$path, addcslashes($path, '\\"'), $directory, addcslashes($directory, '\\"')],
             [self::FILE, self::FILE, self::DIRECTORY, self::DIRECTORY],
-            $line,
+            $dump,
         );
     }
 }
