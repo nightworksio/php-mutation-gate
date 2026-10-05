@@ -65,8 +65,8 @@ final readonly class StaticEquivalence
             $pair = $this->paired($mutant);
 
             if (is_array($pair)) {
-                $pairs[] = [$mutant->id()->value(), ...$pair];
-                $ids[$mutant->id()->value()] = $mutant->id();
+                $pairs[] = [$mutant->id()->key(), ...$pair];
+                $ids[$mutant->id()->key()] = $mutant->id();
             }
         }
 

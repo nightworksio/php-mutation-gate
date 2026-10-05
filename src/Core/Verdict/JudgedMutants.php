@@ -128,7 +128,7 @@ final readonly class JudgedMutants implements Countable, IteratorAggregate
         $marked = [];
 
         foreach ($this->mutants as $mutant) {
-            $id = $mutant->mutant()->id()->value();
+            $id = $mutant->mutant()->id()->key();
             $marked[] = array_key_exists($id, $memberships) ? $mutant->inCluster($memberships[$id]) : $mutant;
         }
 

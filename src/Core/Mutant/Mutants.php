@@ -49,12 +49,12 @@ final readonly class Mutants implements Countable, IteratorAggregate
         $by = [];
 
         foreach ($those->mutants as $mutant) {
-            $by[$mutant->id()->value()] = $mutant;
+            $by[$mutant->id()->key()] = $mutant;
         }
 
         return new self(array_map(
-            static fn(Mutant $mutant): Mutant => array_key_exists($mutant->id()->value(), $by)
-                ? $by[$mutant->id()->value()]
+            static fn(Mutant $mutant): Mutant => array_key_exists($mutant->id()->key(), $by)
+                ? $by[$mutant->id()->key()]
                 : $mutant,
             $this->mutants,
         ));

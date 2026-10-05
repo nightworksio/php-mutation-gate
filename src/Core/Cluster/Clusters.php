@@ -30,7 +30,7 @@ final readonly class Clusters implements Countable, IteratorAggregate
 {
     /**
      * @param list<Cluster>          $clusters
-     * @param array<string, Cluster> $of       each member's cluster, by the member's id
+     * @param array<string, Cluster> $of       each member's cluster, by the member's id's key
      */
     private function __construct(private array $clusters, private array $of)
     {
@@ -58,7 +58,7 @@ final readonly class Clusters implements Countable, IteratorAggregate
             $clusters[] = $cluster;
 
             foreach ($listed as $member) {
-                $of[$member->mutant()->id()->value()] = $cluster;
+                $of[$member->mutant()->id()->key()] = $cluster;
             }
         }
 
@@ -70,7 +70,7 @@ final readonly class Clusters implements Countable, IteratorAggregate
     /** The cluster a mutant is in, among these. */
     public function clusterOf(JudgedMutant $judged): Cluster|Unclustered
     {
-        $id = $judged->mutant()->id()->value();
+        $id = $judged->mutant()->id()->key();
 
         return array_key_exists($id, $this->of) ? $this->of[$id] : Unclustered::mutant();
     }

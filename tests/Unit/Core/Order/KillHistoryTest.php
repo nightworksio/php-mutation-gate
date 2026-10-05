@@ -175,3 +175,12 @@ it('learns from a run in time linear in its mutants and in what the history alre
     expect(iterator_count($learned(10)()->mutants()))->toBe(20)
         ->and(Growth::of(2500, $learned))->toBeLessThan(Growth::LINEAR);
 });
+
+it('learns and keeps the killer of a mutant whose id is digits alone', function () use ($add): void {
+    $digits = historyId('123456789012');
+    $history = KillHistory::none()->withMutant($digits, Ranking::of(Kills::of(TestId::of('MoneyTest::adds'), 1)));
+
+    expect(historyNames($history->likelyKillers($digits, $add)))->toBe(['MoneyTest::adds'])
+        ->and(historyMutants($history->keeping(MutantIds::of($digits), Bound::atMost(1), Bound::atMost(1))))->toBe(['123456789012'])
+        ->and(historyMutants($history->and(KillHistory::none())))->toBe(['123456789012']);
+});

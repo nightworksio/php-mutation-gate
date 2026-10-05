@@ -26,8 +26,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 final readonly class Overview
 {
     /**
-     * @param array<string, true> $failing  the ids of the mutants in a set that failed
-     * @param array<string, true> $security the ids of the security mutants
+     * @param array<string, true> $failing  the keys of the mutants in a set that failed
+     * @param array<string, true> $security the keys of the security mutants
      */
     private function __construct(
         private Verdict $verdict,
@@ -103,13 +103,13 @@ final readonly class Overview
     /** Whether a mutant is in a set that failed: a tree below its floor, or new code or security below its own. */
     public function isFailing(JudgedMutant $mutant): bool
     {
-        return array_key_exists($mutant->mutant()->id()->value(), $this->failing);
+        return array_key_exists($mutant->mutant()->id()->key(), $this->failing);
     }
 
     /** Whether a mutant is a security mutant, which its package's security set holds (ADR-0021, decision 16). */
     public function isSecurity(JudgedMutant $mutant): bool
     {
-        return array_key_exists($mutant->mutant()->id()->value(), $this->security);
+        return array_key_exists($mutant->mutant()->id()->key(), $this->security);
     }
 
     /**
@@ -147,7 +147,7 @@ final readonly class Overview
         return $judged;
     }
 
-    /** @return array<string, true> the ids of these mutants, where their set failed */
+    /** @return array<string, true> the keys of these mutants, where their set failed */
     private static function idsIf(Judgement $judgement, JudgedMutants $mutants): array
     {
         return $judgement === Judgement::Failed ? self::ids($mutants) : [];
@@ -159,7 +159,7 @@ final readonly class Overview
         $ids = [];
 
         foreach ($mutants as $mutant) {
-            $ids[$mutant->mutant()->id()->value()] = true;
+            $ids[$mutant->mutant()->id()->key()] = true;
         }
 
         return $ids;

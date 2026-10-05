@@ -18,7 +18,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
  */
 final readonly class Repeated
 {
-    /** @param list<array<string, Mutant>> $runs each run's mutants, by id */
+    /** @param list<array<string, Mutant>> $runs each run's mutants, by their ids' keys */
     private function __construct(private array $runs)
     {
     }
@@ -31,7 +31,7 @@ final readonly class Repeated
             $run = [];
 
             foreach ($mutants as $mutant) {
-                $run[$mutant->id()->value()] = $mutant;
+                $run[$mutant->id()->key()] = $mutant;
             }
 
             $byId[] = $run;

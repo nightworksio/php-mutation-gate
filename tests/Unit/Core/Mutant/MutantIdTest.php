@@ -57,3 +57,14 @@ it('reads an id as every report prints it', function (): void {
 it('refuses what is not an id, and says what an id is', function (string $written): void {
     expect(MutantId::parse($written))->toEqual(CannotJudge::because(sprintf('"%s" is not a mutant id. An id is twelve lowercase hex characters, as every report prints it.', $written)));
 })->with(['3F9A1C2B7D04', '3f9a1c2b7d0', '3f9a1c2b7d04a', '3f9a1c2b7d0g', "3f9a1c2b7d04\n", '']);
+
+it('keys an id as text no merge or spread numbers afresh, an id of digits alone too', function (): void {
+    $digits = MutantId::parse('123456789012');
+    $hex = MutantId::parse('3f9a1c2b7d04');
+    $keyed = $digits instanceof MutantId && $hex instanceof MutantId
+        ? [$digits->key() => 'digits', $hex->key() => 'hex']
+        : [];
+
+    expect(array_keys([...$keyed, 'other' => 'other']))->toBe(['m123456789012', 'm3f9a1c2b7d04', 'other'])
+        ->and(array_keys(array_merge($keyed, ['other' => 'other'])))->toBe(['m123456789012', 'm3f9a1c2b7d04', 'other']);
+});

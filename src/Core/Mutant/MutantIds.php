@@ -23,7 +23,7 @@ use Traversable;
  */
 final readonly class MutantIds implements Countable, IteratorAggregate
 {
-    /** @param array<string, MutantId> $ids by value */
+    /** @param array<string, MutantId> $ids by key */
     private function __construct(private array $ids)
     {
     }
@@ -38,7 +38,7 @@ final readonly class MutantIds implements Countable, IteratorAggregate
         $collected = [];
 
         foreach ($ids as $id) {
-            $collected[$id->value()] = $id;
+            $collected[$id->key()] = $id;
         }
 
         return new self($collected);
@@ -58,7 +58,7 @@ final readonly class MutantIds implements Countable, IteratorAggregate
 
     public function has(MutantId $id): bool
     {
-        return array_key_exists($id->value(), $this->ids);
+        return array_key_exists($id->key(), $this->ids);
     }
 
     public function count(): int

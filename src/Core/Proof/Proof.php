@@ -143,25 +143,25 @@ final readonly class Proof
         return MutantIds::of(...$differ);
     }
 
-    /** @return array<string, array{MutantId, MutantStatus}> each mutant's id and status, by its id */
+    /** @return array<string, array{MutantId, MutantStatus}> each mutant's id and status, by its id's key */
     private function answers(): array
     {
         $answers = $this->answersOf($this->reported);
 
         foreach ($this->kills as $kill) {
-            $answers[$kill->id()->value()] = [$kill->id(), MutantStatus::Killed];
+            $answers[$kill->id()->key()] = [$kill->id(), MutantStatus::Killed];
         }
 
         return $answers;
     }
 
-    /** @return array<string, array{MutantId, MutantStatus}> each mutant's id and status, by its id */
+    /** @return array<string, array{MutantId, MutantStatus}> each mutant's id and status, by its id's key */
     private function answersOf(Mutants $mutants): array
     {
         $answers = [];
 
         foreach ($mutants as $mutant) {
-            $answers[$mutant->id()->value()] = [$mutant->id(), $mutant->status()->answer()];
+            $answers[$mutant->id()->key()] = [$mutant->id(), $mutant->status()->answer()];
         }
 
         return $answers;

@@ -214,11 +214,11 @@ final readonly class Mutating
         $matched = [];
 
         foreach ($again as $mutant) {
-            $found[$mutant->id()->value()] = $mutant;
+            $found[$mutant->id()->key()] = $mutant;
         }
 
         foreach ($mutants as $mutant) {
-            $id = $mutant->id()->value();
+            $id = $mutant->id()->key();
             $matched[] = array_key_exists($id, $found) ? $found[$id] : Mutant::of(
                 $mutant->id(),
                 $mutant->nativeId(),
