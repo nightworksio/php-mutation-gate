@@ -38,7 +38,9 @@ In scope is what this repository ships:
   branch's proofs must not be able to plant one that the default branch's run
   trusts
   ([ADR-0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md),
-  decision 5).
+  decision 5);
+- the gate's own secrets: where a job's documented setup hands a credential to
+  the project's code, as when it runs the tests with it in the environment.
 
 A vulnerability in Pest, Infection or another dependency belongs to that
 project. Where the gate's use of a dependency is what makes it exploitable,

@@ -111,7 +111,11 @@ it('writes a config that reads back into the same effective config', function (a
         'trees' => [['path' => 'src', 'exclude' => ['src/Legacy/**', 'src/Generated/*.php']]],
         'shards' => ['target' => '20m', 'setup' => '3m'],
         'costs' => ['perRunnerMinute' => ['amount' => 0.008, 'currency' => 'USD']],
-        'ci' => ['check' => 'gate / verdict', 'buildkite' => ['definition' => '.buildkite/mutation.yml']],
+        'ci' => [
+            'check' => 'gate / verdict',
+            'trustMergedPullRequests' => false,
+            'buildkite' => ['definition' => '.buildkite/mutation.yml'],
+        ],
         'proofs' => ['store' => ['use' => 's3', 'with' => [
             'bucket' => 'proofs',
             'prefix' => 'gate',

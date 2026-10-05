@@ -24,6 +24,29 @@ use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
 const GITLAB_VERDICT = 'vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json'
     . ' --results=.mutation-gate/results';
 
+const GITLAB_TRUSTED = '($MUTATION_GATE_SOURCE == "push" || $MUTATION_GATE_SOURCE == "schedule"'
+    . ' || $MUTATION_GATE_SOURCE == "web") && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH';
+
+/**
+ * The two verdict jobs, needing these jobs: the one that keeps the store's keys, on a pipeline they are for, and
+ * its twin, on every other.
+ *
+ * @param  list<array<string, string>> $needs
+ * @return array<string, array<string, mixed>>
+ */
+function gitlabVerdicts(array $needs): array
+{
+    $verdict = ['extends' => '.mutation-gate', 'needs' => $needs, 'script' => [GITLAB_VERDICT]];
+
+    return [
+        'mutation-gate-verdict-store' => [...$verdict, 'rules' => [['if' => GITLAB_TRUSTED, 'when' => 'always']]],
+        'mutation-gate-verdict' => [
+            ...$verdict,
+            'rules' => [['if' => GITLAB_TRUSTED, 'when' => 'never'], ['when' => 'always']],
+        ],
+    ];
+}
+
 $fromThePlan = ['pipeline' => '$PARENT_PIPELINE_ID', 'job' => 'mutation-plan'];
 
 $pipelineIn = static fn(Publication|CannotJudge $published): mixed => json_decode(
@@ -54,12 +77,7 @@ it('writes a child pipeline with a matrix of the shards and a verdict that alway
                 'script' => ['vendor/bin/mutation-gate run --plan=.mutation-gate/plan.json'],
                 'artifacts' => ['when' => 'always', 'paths' => ['.mutation-gate/results/']],
             ],
-            'mutation-gate-verdict' => [
-                'extends' => '.mutation-gate',
-                'needs' => [$fromThePlan, ['job' => 'mutation-gate-shard']],
-                'when' => 'always',
-                'script' => [GITLAB_VERDICT],
-            ],
+            ...gitlabVerdicts([$fromThePlan, ['job' => 'mutation-gate-shard']]),
         ]);
 });
 
@@ -67,12 +85,7 @@ it('writes the pipeline as JSON, which GitLab reads as YAML', function () use ($
     expect(GitLabPlan::writing('pipeline.yml', '.gitlab/mutation-gate.yml', $planJob('plan'))->publish(ShardedPlan::of(0)))
         ->toEqual(Publication::written('pipeline.yml', JsonText::encode([
             'include' => [['local' => '.gitlab/mutation-gate.yml']],
-            'mutation-gate-verdict' => [
-                'extends' => '.mutation-gate',
-                'needs' => [['pipeline' => '$PARENT_PIPELINE_ID', 'job' => 'plan']],
-                'when' => 'always',
-                'script' => [GITLAB_VERDICT],
-            ],
+            ...gitlabVerdicts([['pipeline' => '$PARENT_PIPELINE_ID', 'job' => 'plan']]),
         ])));
 });
 
@@ -85,12 +98,7 @@ it('leaves the matrix job out of a plan with no shards, and the verdict still ru
 
     expect($pipelineIn($published))->toBe([
         'include' => [['local' => 'ci/gate.yml']],
-        'mutation-gate-verdict' => [
-            'extends' => '.mutation-gate',
-            'needs' => [$fromThePlan],
-            'when' => 'always',
-            'script' => [GITLAB_VERDICT],
-        ],
+        ...gitlabVerdicts([$fromThePlan]),
     ]);
 });
 
@@ -163,10 +171,10 @@ it('is run by the pipeline CI_CONFIG_PATH names, .gitlab-ci.yml by default, and 
         ->toEqual(Paths::of(Path::of('.gitlab-ci.yml'), Path::of('ci/gate.yml')));
 });
 
-it('withholds the job\'s token, its signed identity and the registry\'s and deploy passwords', function (): void {
+it('withholds the job\'s token, the clone URL that carries it, its signed identity and the registry\'s and deploy passwords', function (): void {
     $withheld = GitLabPlan::withheld();
 
-    foreach (['CI_JOB_TOKEN', 'CI_JOB_JWT_V2', 'CI_REGISTRY_PASSWORD', 'CI_DEPLOY_PASSWORD', 'CI_DEPENDENCY_PROXY_PASSWORD'] as $name) {
+    foreach (['CI_JOB_TOKEN', 'CI_REPOSITORY_URL', 'CI_JOB_JWT_V2', 'CI_REGISTRY_PASSWORD', 'CI_DEPLOY_PASSWORD', 'CI_DEPENDENCY_PROXY_PASSWORD'] as $name) {
         expect(preg_match($withheld->pattern(), $name))->toBe(1);
     }
 

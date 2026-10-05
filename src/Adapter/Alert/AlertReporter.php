@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Alert\Alerts;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\CiRun;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Config\AlertOption;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
@@ -18,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\NoTrend;
+use NightWorksIO\MutationGate\Core\Runner\GateSecret;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\Reporter;
@@ -34,9 +36,6 @@ use function sprintf;
  */
 final readonly class AlertReporter implements Reporter
 {
-    /** The variable that holds the webhook's secret unless `with.secretEnv` names another. */
-    public const string SECRET_ENV = 'MUTATION_GATE_WEBHOOK_SECRET';
-
     private const string NO_URL = '%s is not set, so no alert goes to %s.';
 
     private const string NOT_CI = 'Alerts are sent from CI only.';
@@ -65,8 +64,8 @@ final readonly class AlertReporter implements Reporter
         Delivery $delivery,
         ClockInterface $clock,
     ): self|Invalid {
-        $urlEnv = self::named($options, 'urlEnv', $channel->urlEnv());
-        $secretEnv = self::named($options, 'secretEnv', self::SECRET_ENV);
+        $urlEnv = self::named($options, AlertOption::UrlEnv, $channel->urlEnv());
+        $secretEnv = self::named($options, AlertOption::SecretEnv, GateSecret::WebhookSecret->value);
 
         return match (true) {
             $urlEnv instanceof Problem => Invalid::because($urlEnv),
@@ -137,9 +136,9 @@ final readonly class AlertReporter implements Reporter
     }
 
     /** The variable an option names, this one where it names none, or why what it holds names none. */
-    private static function named(Options $options, string $option, string $otherwise): string|Problem
+    private static function named(Options $options, AlertOption $option, string $otherwise): string|Problem
     {
-        $variable = $options->text(Key::of($option));
+        $variable = $options->text(Key::of($option->value));
 
         return $variable instanceof NotGiven ? $otherwise : $variable;
     }

@@ -163,14 +163,14 @@ documentation, are these.
      none, so neither is a boundary. This is ADR-0007 decision 5's reasoning
      for Buildkite and CircleCI.
    - **Bitbucket's credentials** are variables of the deployment environment
-     `mutation-gate`, which only the deploying verdicts of decision 1 name.
-     Restricted to the default branch, which takes Premium, it is the
+     `mutation-gate-store`, which only the deploying verdicts of decision 1
+     name. Restricted to the default branch, which takes Premium, it is the
      boundary; without that restriction any branch whose pipeline names it
      gets the keys, and the template and README say so. Every other step,
      the default branch's plan included, holds no keys and reads the default
      branch's ledger through `proofs.store.with.publicUrl` (ADR-0013).
    - **Jenkins' credentials** are the username-and-password credentials
-     `mutation-gate`, which only the default branch's verdict binds. A
+     `mutation-gate-store`, which only the default branch's verdict binds. A
      credential reaches every build of the folder that holds it, and a
      branch's author writes its Jenkinsfile, so held in a folder whose
      multibranch pipeline builds the default branch alone it is the

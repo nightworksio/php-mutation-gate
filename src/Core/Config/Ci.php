@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use function array_map;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
@@ -29,6 +28,7 @@ final readonly class Ci implements Part
         private Choice|Absent $plan,
         private string|Absent $defaultBranch,
         private string|Absent $check,
+        private bool|Absent $trustMergedPullRequests,
         private Path|Absent $gitlabTemplate,
         private BuildkiteStep|Absent $buildkiteStep,
         private Path|Absent $buildkiteDefinition,
@@ -42,6 +42,7 @@ final readonly class Ci implements Part
         Choice|Absent $plan = new Absent(),
         string|Absent $defaultBranch = new Absent(),
         string|Absent $check = new Absent(),
+        bool|Absent $trustMergedPullRequests = new Absent(),
         Path|Absent $gitlabTemplate = new Absent(),
         BuildkiteStep|Absent $buildkiteStep = new Absent(),
         Path|Absent $buildkiteDefinition = new Absent(),
@@ -53,6 +54,7 @@ final readonly class Ci implements Part
             $plan,
             $defaultBranch,
             $check,
+            $trustMergedPullRequests,
             $gitlabTemplate,
             $buildkiteStep,
             $buildkiteDefinition,
@@ -73,6 +75,7 @@ final readonly class Ci implements Part
 
         return self::of(
             check: $none->check(),
+            trustMergedPullRequests: $none->trustsMergedPullRequests(),
             gitlabTemplate: $none->gitlabTemplate(),
             buildkiteStep: $none->buildkiteStep(),
             buildkiteDefinition: $none->buildkiteDefinition(),
@@ -89,6 +92,7 @@ final readonly class Ci implements Part
                 Absent::laid($this->plan, $later->plan),
                 Absent::laid($this->defaultBranch, $later->defaultBranch),
                 Absent::laid($this->check, $later->check),
+                Absent::laid($this->trustMergedPullRequests, $later->trustMergedPullRequests),
                 Absent::laid($this->gitlabTemplate, $later->gitlabTemplate),
                 match (true) {
                     $later->buildkiteStep instanceof Absent => $this->buildkiteStep,
@@ -130,6 +134,15 @@ final readonly class Ci implements Part
     public function check(): string
     {
         return $this->check instanceof Absent ? self::CHECK : $this->check;
+    }
+
+    /**
+     * `ci.trustMergedPullRequests`: whether the default branch takes a merged pull request's passing run as proof
+     * of its tree, so that anyone who can push a branch of the repository can spare that tree a re-check (ADR-0005).
+     */
+    public function trustsMergedPullRequests(): bool
+    {
+        return $this->trustMergedPullRequests instanceof Absent || $this->trustMergedPullRequests;
     }
 
     /** The file whose hidden `.mutation-gate` job GitLab's generated jobs extend. */
@@ -192,6 +205,7 @@ final readonly class Ci implements Part
                 Member::of('plan', $this->plan instanceof Choice ? $this->plan->written() : $this->plan),
                 Member::of('defaultBranch', $this->defaultBranch),
                 Member::of('check', $this->check),
+                Member::of('trustMergedPullRequests', $this->trustMergedPullRequests),
                 Member::unlessEmpty(
                     'gitlab',
                     Json::object(Member::of('template', $this->path($origin, $this->gitlabTemplate))),
@@ -228,17 +242,22 @@ final readonly class Ci implements Part
     {
         return PhpCalls::inWith(...[
             ...$this->plan instanceof Choice
-                ? [PhpCalls::chosen($this->plan, AdapterBuilder::Ci, ...$this->builtins())]
+                ? [PhpCalls::chosen($this->plan, AdapterBuilder::Ci, ...BuiltinCiPlan::names())]
                 : [],
             ...$this->defaultBranch instanceof Absent
                 ? []
                 : [sprintf('Ci::defaultBranch(%s)', PhpCalls::literal($this->defaultBranch))],
             ...$this->check instanceof Absent ? [] : [sprintf('Ci::check(%s)', PhpCalls::literal($this->check))],
+            ...$this->trustMergedPullRequests instanceof Absent ? [] : [
+                $this->trustMergedPullRequests
+                    ? 'Ci::trustingMergedPullRequests()'
+                    : 'Ci::notTrustingMergedPullRequests()',
+            ],
             ...$this->gitlabTemplate instanceof Path
-                ? [sprintf('Ci::gitlabTemplate(%s)', PhpCalls::literal($origin->written($this->gitlabTemplate)))]
+                ? [sprintf('Pipeline::gitlabTemplate(%s)', PhpCalls::literal($origin->written($this->gitlabTemplate)))]
                 : [],
             ...$this->buildkiteStep instanceof BuildkiteStep
-                ? [sprintf('Ci::buildkiteStep(%s)', implode(', ', PhpOptions::of($this->buildkiteStep->json())))]
+                ? [sprintf('Pipeline::buildkiteStep(%s)', implode(', ', PhpOptions::of($this->buildkiteStep->json())))]
                 : [],
             ...$this->definitionCalls($origin),
         ]);
@@ -271,7 +290,7 @@ final readonly class Ci implements Part
     }
 
     /**
-     * A builder call for each CI's pipeline file this section names, by the builder method that names it.
+     * A `Pipeline` call for each CI's pipeline file this section names, by the method that names it.
      *
      * @return list<string>
      */
@@ -287,7 +306,7 @@ final readonly class Ci implements Part
 
         foreach ($named as $method => $path) {
             $calls = $path instanceof Path
-                ? [...$calls, sprintf('Ci::%s(%s)', $method, PhpCalls::literal($origin->written($path)))]
+                ? [...$calls, sprintf('Pipeline::%s(%s)', $method, PhpCalls::literal($origin->written($path)))]
                 : $calls;
         }
 
@@ -299,9 +318,4 @@ final readonly class Ci implements Part
         return $path instanceof Path ? $origin->written($path) : $path;
     }
 
-    /** @return list<string> the names of the CI plans built in, each with a builder method of its own */
-    private function builtins(): array
-    {
-        return array_map(static fn(BuiltinCiPlan $plan): string => $plan->value, BuiltinCiPlan::cases());
-    }
 }

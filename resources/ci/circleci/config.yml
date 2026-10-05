@@ -1,7 +1,16 @@
-# For an S3 proof store, set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in a
-# context that only mutation-plan and mutation-verdict use: a shard needs
-# neither. Set each image to one with PHP %%php%% and pcov: no official image
-# is known to include pcov, and without it the first run cannot judge.
+# Set each image to one with PHP %%php%% and pcov: no official image is known
+# to include pcov, and without it the first run cannot judge.
+# Any branch can save a cache under any key here, so a branch can plant proofs
+# the default branch then trusts. Keep the ledger in S3 with credentials only
+# %%branch%%'s runs hold, and drop the cache steps.
+# For an S3 proof store, set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in
+# the context %%keys%%, and restrict it with the expression
+# pipeline.git.branch == "%%branch%%". Only mutation-verdict uses it, in the
+# workflow mutation-store, which runs on a push, a schedule or an API trigger
+# of %%branch%%. The plan runs the whole suite, so it never holds the keys,
+# and reads the store through proofs.store.with.publicUrl, as every other
+# run's verdict does. A branch can edit this file, so the keys' protection is
+# the context's restriction to %%branch%%, not the condition below.
 version: 2.1
 
 parameters:
@@ -72,7 +81,26 @@ jobs:
             - .mutation-gate/ledger
 
 workflows:
+  mutation-store:
+    when: &trusted
+      and:
+        - or:
+            - equal: [webhook, << pipeline.trigger_source >>]
+            - equal: [scheduled_pipeline, << pipeline.trigger_source >>]
+            - equal: [api, << pipeline.trigger_source >>]
+        - equal: ['%%branch%%', << pipeline.git.branch >>]
+    jobs:
+      - mutation-plan
+      - mutation:
+          requires:
+            - mutation-plan
+      - mutation-verdict:
+          context:
+            - %%keys%%
+          requires:
+            - mutation: terminal
   mutation:
+    unless: *trusted
     jobs:
       - mutation-plan
       - mutation:

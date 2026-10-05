@@ -66,6 +66,16 @@ function answering(array $answers): MockHttpClient
         : new MockResponse('{"message": "Not Found"}', ['http_code' => 404]));
 }
 
+/**
+ * A completed check-run, as GitHub lists it, which GitHub Actions ran unless another app is named.
+ *
+ * @return array<string, mixed>
+ */
+function verdictRun(int $id, string $name, string $conclusion, string $app = 'github-actions'): array
+{
+    return ['id' => $id, 'name' => $name, 'conclusion' => $conclusion, 'app' => ['slug' => $app]];
+}
+
 /** Where GitHub lists the verdict's check-runs on a commit. */
 function checkRuns(string $commit): string
 {
@@ -122,10 +132,7 @@ function provedCommits(array $commits, int $total = -1): array
         $answers[sprintf('%s/commits/%s/pulls', PULL_REQUESTS_API, $commit)] = [['number' => $at + 1, 'merged_at' => '2026-09-30T10:00:00Z', 'head' => ['sha' => sprintf('pr-%s', $commit)]]];
         $answers[sprintf('%s/git/commits/pr-%s', PULL_REQUESTS_API, $commit)] = ['tree' => ['sha' => sprintf('tree-%s', $commit)]];
         $answers[checkRuns(sprintf('pr-%s', $commit))] = [
-            'check_runs' => [
-                ['name' => 'lint', 'conclusion' => 'failure'],
-                ['name' => PULL_REQUESTS_CHECK, 'conclusion' => 'success'],
-            ],
+            'check_runs' => [verdictRun(1, 'lint', 'failure'), verdictRun(2, PULL_REQUESTS_CHECK, 'success')],
         ];
     }
 
@@ -136,6 +143,20 @@ it('reads only what is uncommitted when every commit since the base is the tree 
     $proved = trusting($source(), answering(provedCommits(['one', 'two'])), passedLedgers(['one', 'two']));
 
     expect($proved->changesSince(Revision::ref('base')))->toEqual($uncommitted());
+});
+
+it('takes the latest run of the check, wherever GitHub lists it, over an earlier one that failed and any other check', function () use ($source, $uncommitted): void {
+    $rerun = [
+        ...provedCommits(['one']),
+        checkRuns('pr-one') => ['check_runs' => [
+            verdictRun(5, PULL_REQUESTS_CHECK, 'success'),
+            verdictRun(3, PULL_REQUESTS_CHECK, 'failure'),
+            verdictRun(9, 'lint', 'failure'),
+        ]],
+    ];
+
+    expect(trusting($source(), answering($rerun), passedLedgers(['one']))->changesSince(Revision::ref('base')))
+        ->toEqual($uncommitted());
 });
 
 it('proves nothing without the pull requests\' ledgers to read', function () use ($source): void {
@@ -180,7 +201,13 @@ function spoilt(string $how, array $answers): array
         'its head cannot be read' => array_diff_key($answers, [sprintf('%s/git/commits/pr-two', PULL_REQUESTS_API) => true]),
         'no check-run is known' => array_diff_key($answers, [checkRuns('pr-two') => true]),
         'the check failed' => [...$answers, checkRuns('pr-two') => [
-            'check_runs' => [['name' => 'lint', 'conclusion' => 'success'], ['name' => PULL_REQUESTS_CHECK, 'conclusion' => 'failure']],
+            'check_runs' => [verdictRun(1, 'lint', 'success'), verdictRun(2, PULL_REQUESTS_CHECK, 'failure')],
+        ]],
+        'a later run of the check failed' => [...$answers, checkRuns('pr-two') => [
+            'check_runs' => [verdictRun(3, PULL_REQUESTS_CHECK, 'failure'), verdictRun(2, PULL_REQUESTS_CHECK, 'success')],
+        ]],
+        'another app ran the check' => [...$answers, checkRuns('pr-two') => [
+            'check_runs' => [verdictRun(2, PULL_REQUESTS_CHECK, 'success', app: 'checks-writer')],
         ]],
         'the pull request has no number' => [...$answers, sprintf('%s/commits/two/pulls', PULL_REQUESTS_API) => [['merged_at' => '2026-09-30T10:00:00Z', 'head' => ['sha' => 'pr-two']]]],
         'the commit names no tree' => [
@@ -207,6 +234,8 @@ it('reads everything since the base when a commit cannot be proved', function (s
     'its head cannot be read',
     'no check-run is known',
     'the check failed',
+    'a later run of the check failed',
+    'another app ran the check',
     'the pull request has no number',
     'the commit names no tree',
 ]);

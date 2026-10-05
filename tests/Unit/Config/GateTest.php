@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Config\Local;
 use NightWorksIO\MutationGate\Config\Mutators;
 use NightWorksIO\MutationGate\Config\Option;
 use NightWorksIO\MutationGate\Config\Pest;
+use NightWorksIO\MutationGate\Config\Pipeline;
 use NightWorksIO\MutationGate\Config\Preset;
 use NightWorksIO\MutationGate\Config\Proofs;
 use NightWorksIO\MutationGate\Config\Reach;
@@ -113,8 +114,8 @@ it('writes every setting of the configuration reference', function (): void {
                 Shards::secondsPerLine('src', 1),
                 Ci::gitlab(),
                 Ci::defaultBranch('trunk'),
-                Ci::gitlabTemplate('ci.yml'),
-                Ci::buildkiteStep(Option::of('label', 'm')),
+                Pipeline::gitlabTemplate('ci.yml'),
+                Pipeline::buildkiteStep(Option::of('label', 'm')),
                 Proofs::s3('bucket', region: 'auto', endpoint: 'https://r2'),
                 Proofs::ignore('docs/**'),
                 Proofs::readOnly(),
@@ -257,17 +258,17 @@ it('names each built-in adapter by a method of its own', function (Closure $gate
     'circleci' => [fn(): Gate => Gate::configure()->with(Ci::circleci()), ['ci' => ['plan' => 'circleci']]],
     'azure' => [fn(): Gate => Gate::configure()->with(Ci::azure()), ['ci' => ['plan' => 'azure']]],
     'the Azure DevOps definition' => [
-        fn(): Gate => Gate::configure()->with(Ci::azureDefinition('.azure/gate.yml')),
+        fn(): Gate => Gate::configure()->with(Pipeline::azureDefinition('.azure/gate.yml')),
         ['ci' => ['azure' => ['definition' => '.azure/gate.yml']]],
     ],
     'bitbucket' => [fn(): Gate => Gate::configure()->with(Ci::bitbucket()), ['ci' => ['plan' => 'bitbucket']]],
     'the Bitbucket Pipelines definition' => [
-        fn(): Gate => Gate::configure()->with(Ci::bitbucketDefinition('ci/bitbucket.yml')),
+        fn(): Gate => Gate::configure()->with(Pipeline::bitbucketDefinition('ci/bitbucket.yml')),
         ['ci' => ['bitbucket' => ['definition' => 'ci/bitbucket.yml']]],
     ],
     'jenkins' => [fn(): Gate => Gate::configure()->with(Ci::jenkins()), ['ci' => ['plan' => 'jenkins']]],
     'the Jenkinsfile' => [
-        fn(): Gate => Gate::configure()->with(Ci::jenkinsDefinition('ci/Jenkinsfile')),
+        fn(): Gate => Gate::configure()->with(Pipeline::jenkinsDefinition('ci/Jenkinsfile')),
         ['ci' => ['jenkins' => ['definition' => 'ci/Jenkinsfile']]],
     ],
     'the JSON plan' => [fn(): Gate => Gate::configure()->with(Ci::json()), ['ci' => ['plan' => 'json']]],
@@ -295,7 +296,7 @@ it('names each built-in adapter by a method of its own', function (Closure $gate
         ['proofs' => ['store' => 'acme']],
     ],
     'no Buildkite step' => [
-        fn(): Gate => Gate::configure()->with(Ci::buildkiteStep()),
+        fn(): Gate => Gate::configure()->with(Pipeline::buildkiteStep()),
         ['ci' => ['buildkite' => ['step' => []]]],
     ],
     'the analyser zero-config finds' => [

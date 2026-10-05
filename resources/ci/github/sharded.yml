@@ -1,8 +1,9 @@
 # Written by `mutation-gate init --ci=github`, for the gate %%version%%.
 # Require the check `%%check%%` in the default branch's protection rule.
-# For an S3 proof store, pass AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as
-# secrets to the job below: the workflow hands them to the plan and the
-# verdict, and never to a shard.
+# For an S3 proof store, add AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as
+# secrets of the environment mutation-gate-store, whose deployment branches
+# are the default branch alone: the workflow hands them to the plan and the
+# verdict of a run on that branch, and never to a shard.
 name: mutation
 
 on:

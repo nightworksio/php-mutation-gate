@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\GateSecret;
 
 use function parse_url;
 
@@ -113,7 +114,7 @@ final readonly class Online
         return Api::at(
             $this->client,
             $this->environment->valueOf('GITHUB_API_URL'),
-            $token === '' ? $this->environment->valueOf('GH_TOKEN') : $token,
+            $token === '' ? $this->environment->valueOf(GateSecret::GitHubCliToken->value) : $token,
         );
     }
 

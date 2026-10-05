@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Composer\Package;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Doctor\InstalledRunners;
@@ -110,8 +111,8 @@ final readonly class Observed
     {
         $chosen = new Chosen($this->extensions);
         $withheld = $settings instanceof Settings
-            ? $chosen->withheld($settings->ci(), $settings->runner()->withhold())
-            : $chosen->withheld(Ci::none(), Withheld::nothing());
+            ? $chosen->withheld($settings->ci(), $settings->runner()->withhold(), $settings->reports())
+            : $chosen->withheld(Ci::none(), Withheld::nothing(), Listed::of());
         $runner = $settings instanceof Settings ? $settings->runner()->choice()->use()->value() : '';
         $own = $runner === BuiltinRunner::Infection->value ? OwnConfig::in($this->infectionProject()) : [];
         $php = $this->php->describe($withheld, ...($own instanceof OwnConfig ? $own->phpOptions() : []));

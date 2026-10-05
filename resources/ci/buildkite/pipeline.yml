@@ -1,16 +1,27 @@
 # Written by `mutation-gate init --ci=buildkite`, for the gate %%version%%.
 # Upload it from your pipeline, and schedule that pipeline twice a week for
-# the full run. Keep .mutation-gate/ledger between builds with a cache plugin,
-# keyed by branch, and set the agents' image to one with PHP %%php%% and pcov:
-# no official image is known to include pcov, and without it the first run
-# cannot judge. For an S3 proof store, give AWS_ACCESS_KEY_ID and
-# AWS_SECRET_ACCESS_KEY from your secrets to the plan and verdict steps alone,
-# never to the agents, whose environment every step and script sees: a shard
-# needs neither.
+# the full run. Set the agents' image to one with PHP %%php%% and pcov: no
+# official image is known to include pcov, and without it the first run cannot
+# judge.
+# Any branch can save a cache under any key here, so a branch can plant proofs
+# the default branch then trusts. Keep the ledger in S3 with credentials only
+# %%branch%%'s runs hold, and drop the cache steps.
+# For an S3 proof store, hold AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as
+# the cluster secrets MUTATION_GATE_STORE_AWS_ACCESS_KEY_ID and
+# MUTATION_GATE_STORE_AWS_SECRET_ACCESS_KEY, with an access policy that allows
+# builds of %%branch%% alone, and never set them on the agents, whose
+# environment every step and script sees. A tag build's branch is the tag's
+# name, so have the policy refuse tag builds. The verdict fetches the keys
+# only on a push, a schedule, an API or a manual build of %%branch%% that is
+# neither a pull request nor a tag. The plan runs the whole suite, so it never
+# holds the keys, and reads the store through proofs.store.with.publicUrl. A
+# branch can edit this file, so the keys' protection is the secrets' access
+# policy, not the verdict's condition.
 steps:
   - label: 'mutation: plan'
     artifact_paths: '.mutation-gate/**/*'
     command:
+      - unset %%s3%%
       - composer install --no-interaction --no-progress
       - |
         if [ "$BUILDKITE_PULL_REQUEST" != "false" ]; then base="--changed-since=origin/$BUILDKITE_PULL_REQUEST_BASE_BRANCH"

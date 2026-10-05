@@ -43,7 +43,7 @@ enum BuiltinStore: string
     {
         return match ($this) {
             self::Directory => Credentials::none(),
-            self::S3 => Credentials::needing('AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY')
+            self::S3 => Credentials::needing(StoreVariable::AwsAccessKey->value, StoreVariable::AwsSecretKey->value)
                 ->reading('AWS_SESSION_TOKEN', 'AWS_ROLE_ARN'),
             self::Gcs => Credentials::needing(StoreVariable::GoogleCredentials->value)
                 ->orNeeding(StoreVariable::GcsToken->value),

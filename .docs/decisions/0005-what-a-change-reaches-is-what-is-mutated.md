@@ -154,16 +154,23 @@ The same repository has two more needs.
    branch was up to date, so its run judged exactly the tree that landed. The
    gate asks at most twenty commits back. A longer range, or one commit it
    cannot prove, is mutated in full.
-   - A pull request's verdict passed where two things say so. The check-run
-     named by `ci.check` (`mutation / verdict` by default, the reusable
-     workflow's verdict job) concluded in success on its head. A workflow's
-     conclusion is not enough, since skipped jobs and path filters conclude in
-     success too. And the pull request's own ledger records that head as
-     `passed` under that check with `ownScopeProofs` of 0 (ADR-0007). A verdict
-     that used a proof of its own scope is not trusted, because the pull
-     request's own code could have written that proof.
+   - A pull request's verdict passed where two things say so. The latest
+     check-run GitHub Actions completed on its head under the name `ci.check`
+     (`mutation / verdict` by default, the reusable workflow's verdict job)
+     concluded in success, so a failed re-run outweighs an earlier success. A
+     workflow's conclusion is not enough, since skipped jobs and path filters
+     conclude in success too. And the pull request's own ledger records that
+     head as `passed` under that check with `ownScopeProofs` of 0 (ADR-0007).
+     A verdict that used a proof of its own scope is not trusted, because the
+     pull request's own code could have written that proof.
    - Where the run cannot read the pull requests' ledgers, it proves nothing
      this way, and the range is mutated in full.
+   - The shortcut trusts the pull request's own run, so anyone who can push a
+     branch of the repository can make the default branch skip re-checking a
+     merged pull request's tree: that branch's workflow names the check-run,
+     and its tests run where its ledger is written. A repository that does not
+     want that sets `ci.trustMergedPullRequests` to false (true by default),
+     and every merged range is mutated in full.
 
 6. **A scheduled full run is part of the design, not an extra.** Reach cannot
    see everything:

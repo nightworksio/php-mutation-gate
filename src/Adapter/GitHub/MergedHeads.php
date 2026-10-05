@@ -21,13 +21,17 @@ use function sprintf;
 /**
  * GitHub's word on which commits of the default branch a pull request
  * already proved: a commit is proved where its tree is the head of a merged
- * pull request whose verdict passed on that head, which is where the check-run
- * `ci.check` names concluded in success there, and the pull request's own
- * ledger records the head as passed under that check with no proof of its
- * own scope used. Without the ledgers to read, nothing is proved.
+ * pull request whose verdict passed on that head, which is where the latest
+ * check-run GitHub Actions completed there under the name `ci.check` concluded
+ * in success, and the pull request's own ledger records the head as passed
+ * under that check with no proof of its own scope used. Without the ledgers
+ * to read, nothing is proved.
  */
 final readonly class MergedHeads
 {
+    /** The GitHub App the check-runs of a workflow's jobs belong to. */
+    private const string ACTIONS = 'github-actions';
+
     private function __construct(
         private Api $api,
         private string $repository,
@@ -120,7 +124,11 @@ final readonly class MergedHeads
         return $pullRequest > 0 && $this->checkedAt($head) && $this->recordedAt($pullRequest, $head);
     }
 
-    /** Whether the check-run `ci.check` names concluded in success on this head. */
+    /**
+     * Whether the latest check-run GitHub Actions completed on this head under
+     * the name `ci.check` concluded in success, so that a failed re-run
+     * outweighs an earlier success.
+     */
     private function checkedAt(string $head): bool
     {
         $runs = $this->api->get(sprintf(
@@ -130,10 +138,22 @@ final readonly class MergedHeads
             rawurlencode($this->check),
         ));
 
-        return $runs instanceof Answer && array_any(
-            $runs->items('check_runs'),
-            fn(Answer $run): bool => $run->text('name') === $this->check && $run->text('conclusion') === 'success',
-        );
+        $latest = 0;
+        $conclusion = '';
+
+        foreach ($runs instanceof Answer ? $runs->items('check_runs') : [] as $run) {
+            $later = $this->isVerdict($run) && $run->number('id') > $latest;
+            $latest = $later ? $run->number('id') : $latest;
+            $conclusion = $later ? $run->text('conclusion') : $conclusion;
+        }
+
+        return $conclusion === 'success';
+    }
+
+    /** Whether a check-run is the verdict's: named `ci.check`, and run by GitHub Actions. */
+    private function isVerdict(Answer $run): bool
+    {
+        return $run->text('name') === $this->check && $run->text('app', 'slug') === self::ACTIONS;
     }
 
     /**

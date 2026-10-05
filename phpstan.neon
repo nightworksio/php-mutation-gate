@@ -543,6 +543,8 @@ services:
         arguments:
             # Constants whose value only coincides with another's, meaning something else.
             coincidences:
+                'NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan':
+                    - TRUSTED_SOURCES # Buildkite's build.source values, not another CI's event names
                 'NightWorksIO\MutationGate\Core\Cost\StartUpSamples':
                     - STANDARD # runs of no test the plan times
                 'NightWorksIO\MutationGate\Core\Runner\MemoryUnit':
@@ -632,6 +634,7 @@ services:
                     - SMALLEST_SUITE # tests
                 'NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan':
                     - HIDDEN_JOB # a job name
+                    - TRUSTED_SOURCES # GitLab's CI_PIPELINE_SOURCE values, not another CI's event names
                 'NightWorksIO\MutationGate\Adapter\Filesystem\Resources':
                     - PACKAGE_ROOT # directories up to the package
                 'NightWorksIO\MutationGate\Core\Hint\Hint':

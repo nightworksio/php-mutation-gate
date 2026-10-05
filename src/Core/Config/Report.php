@@ -9,6 +9,7 @@ use function implode;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Runner\Withheld;
 
 use function sprintf;
 
@@ -41,6 +42,20 @@ final readonly class Report
     public function path(): Path|Absent
     {
         return $this->path;
+    }
+
+    /**
+     * The variables this entry's alert channel reads its URL and secret from, as its options name them; none for
+     * any other reporter.
+     */
+    public function secrets(): Withheld
+    {
+        $use = $this->reporter->use();
+        $builtin = $use instanceof Name ? BuiltinReporter::tryFrom($use->value()) : null;
+
+        return $builtin instanceof BuiltinReporter && $builtin->alerts()
+            ? Withheld::of(...AlertOption::named($this->reporter->options()))
+            : Withheld::nothing();
     }
 
     /** This entry as a config at this origin writes it. */

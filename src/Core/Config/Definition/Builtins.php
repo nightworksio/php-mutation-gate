@@ -9,6 +9,7 @@ use function array_key_exists;
 use function array_keys;
 
 use BackedEnum;
+use NightWorksIO\MutationGate\Core\Config\AlertOption;
 use NightWorksIO\MutationGate\Core\Config\BuiltinAnalyser;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
 use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
@@ -22,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\StaticCheck;
+use NightWorksIO\MutationGate\Core\Config\StoreOption;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Format\Json;
@@ -29,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
+use NightWorksIO\MutationGate\Core\Runner\GateSecret;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 
 use function sprintf;
@@ -105,11 +108,14 @@ final readonly class Builtins
                 Field::optional('path', Location::path($origin), $judges),
             ),
             BuiltinStore::S3->value => Section::options(
-                Json::object(Member::of('prefix', ThisPackage::NAME))->with(Member::of('region', 'us-east-1')),
+                Json::object(Member::of('prefix', ThisPackage::NAME))
+                    ->with(Member::of('region', 'us-east-1'))
+                    ->with(Member::of(StoreOption::InsecureEndpoint->value, value: false)),
                 Field::required('bucket', Text::of('a bucket name'), $judges),
                 Field::optional('prefix', Text::of('a key prefix'), $judges),
                 Field::optional('region', Text::of('a region'), $judges),
                 Field::optional('endpoint', Url::web(), $judges),
+                Field::optional(StoreOption::InsecureEndpoint->value, Flag::boolean(), $judges),
                 Field::optional('publicUrl', Url::base(), $judges),
             ),
             BuiltinStore::Gcs->value => Section::options(
@@ -139,8 +145,8 @@ final readonly class Builtins
         $judges = Effect::JudgesOrReportsOnly;
         $variable = Text::of('an environment variable name');
         $chat = static fn(string $url, Json $defaults, Field ...$more): Section => Section::options(
-            Json::object(Member::of('urlEnv', $url))->merged($defaults),
-            Field::optional('urlEnv', $variable, $judges),
+            Json::object(Member::of(AlertOption::UrlEnv->value, $url))->merged($defaults),
+            Field::optional(AlertOption::UrlEnv->value, $variable, $judges),
             Field::optional('url', Refused::because(sprintf(self::CREDENTIAL, $url)), $judges),
             ...$more,
         );
@@ -159,12 +165,12 @@ final readonly class Builtins
                 BuiltinReporter::GitLab,
                 BuiltinReporter::Sonar,
             ),
-            BuiltinReporter::Slack->value => $chat('MUTATION_GATE_SLACK_URL', Json::object()),
-            BuiltinReporter::Discord->value => $chat('MUTATION_GATE_DISCORD_URL', Json::object()),
+            BuiltinReporter::Slack->value => $chat(GateSecret::SlackUrl->value, Json::object()),
+            BuiltinReporter::Discord->value => $chat(GateSecret::DiscordUrl->value, Json::object()),
             BuiltinReporter::Webhook->value => $chat(
-                'MUTATION_GATE_WEBHOOK_URL',
-                Json::object(Member::of('secretEnv', 'MUTATION_GATE_WEBHOOK_SECRET')),
-                Field::optional('secretEnv', $variable, $judges),
+                GateSecret::WebhookUrl->value,
+                Json::object(Member::of(AlertOption::SecretEnv->value, GateSecret::WebhookSecret->value)),
+                Field::optional(AlertOption::SecretEnv->value, $variable, $judges),
             ),
             BuiltinReporter::Otlp->value => Section::options(
                 Json::object(),

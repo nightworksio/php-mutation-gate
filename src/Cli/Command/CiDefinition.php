@@ -74,6 +74,12 @@ final readonly class CiDefinition
     private const string UNBRANCHED
         = 'Set ci.defaultBranch to %s in the config, the branch the definition is written for: this CI names none.';
 
+    /** Why a CI's cache keeps no ledger safe, where any branch can write any key (ADR-0007 decision 5). */
+    private const string NO_BOUNDARY = <<<'SAID'
+        Any branch can save a cache under any key on %1$s, so a branch can plant proofs that %2$s's runs then trust.
+        Keep the ledger in S3 with credentials only %2$s's runs hold, and drop the cache steps.
+        SAID;
+
     /** The CIs whose plan names no default branch, so `init` names the one it writes for (ADR-0024 decision 2). */
     private const array BRANCHED_BY_CONFIG = [BuiltinCiPlan::Azure, BuiltinCiPlan::Bitbucket, BuiltinCiPlan::Jenkins];
 
@@ -230,7 +236,8 @@ final readonly class CiDefinition
      * was written and why, the check to require, and that the commit is not known; with the config kept, on
      * Buildkite and Azure DevOps, that it must name the file of the gate's jobs written as the one that runs the
      * gate, and for each CI whose plan names no default branch, that it must name the one the definition is
-     * written for, where it names none.
+     * written for, where it names none; and on CircleCI and Buildkite, whose caches any branch can write, that the
+     * ledger belongs in S3.
      *
      * @return list<string>
      */
@@ -269,10 +276,21 @@ final readonly class CiDefinition
             ? [sprintf(self::UNBRANCHED, $this->defaultBranch($settings))]
             : [];
 
+        $cache = match ($plan) {
+            BuiltinCiPlan::CircleCi => [sprintf(self::NO_BOUNDARY, 'CircleCI', $this->defaultBranch($settings))],
+            BuiltinCiPlan::Buildkite => [sprintf(self::NO_BOUNDARY, 'Buildkite', $this->defaultBranch($settings))],
+            BuiltinCiPlan::GitHub,
+            BuiltinCiPlan::GitLab,
+            BuiltinCiPlan::Azure,
+            BuiltinCiPlan::Bitbucket,
+            BuiltinCiPlan::Jenkins,
+            BuiltinCiPlan::Json => [],
+        };
+
         return match (true) {
             $plan === BuiltinCiPlan::GitHub => $github,
-            $kept => [...$unnamed, ...$unbranched],
-            default => [],
+            $kept => [...$cache, ...$unnamed, ...$unbranched],
+            default => $cache,
         };
     }
 

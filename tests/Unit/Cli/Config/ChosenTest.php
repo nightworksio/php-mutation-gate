@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Ci\CiMarker;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
@@ -217,9 +218,9 @@ it('withholds what every registered CI plan declares, whether or not a config le
     ));
     $unbuilt = Configs::settings(['runner' => 'pest', 'ci' => ['plan' => '\Acme\NoPlan']])->ci();
 
-    expect([...$chosen->withheld(Ci::none(), Withheld::of('DEPLOY_*'))])
+    expect([...$chosen->withheld(Ci::none(), Withheld::of('DEPLOY_*'), Listed::of())])
         ->toBe([...Withheld::standard(), 'FAKE_CI_TOKEN', 'BROKEN_CI_TOKEN', 'DEPLOY_*'])
-        ->and([...$chosen->withheld($unbuilt, Withheld::nothing())])
+        ->and([...$chosen->withheld($unbuilt, Withheld::nothing(), Listed::of())])
         ->toBe([...Withheld::standard(), 'FAKE_CI_TOKEN', 'BROKEN_CI_TOKEN']);
 });
 
@@ -228,5 +229,24 @@ it('withholds what a CI plan class the config names declares, though no registry
 ): void {
     $named = Configs::settings(['runner' => 'pest', 'ci' => ['plan' => sprintf('\\%s', CiPlanFake::class)]])->ci();
 
-    expect([...$classes()->withheld($named, Withheld::nothing())])->toBe([...Withheld::standard(), 'FAKE_CI_TOKEN']);
+    expect([...$classes()->withheld($named, Withheld::nothing(), Listed::of())])->toBe([...Withheld::standard(), 'FAKE_CI_TOKEN']);
+});
+
+it('withholds the variables a reports entry\'s alert channel reads, where its options name others', function () use (
+    $registry,
+): void {
+    $reports = Configs::settings(['runner' => 'pest', 'reports' => [
+        ['use' => 'slack', 'with' => ['urlEnv' => 'TEAM_SLACK_HOOK']],
+        ['use' => 'webhook', 'with' => ['urlEnv' => 'HOOK_URL', 'secretEnv' => 'HOOK_KEY']],
+        ['use' => 'discord'],
+    ]])->reports();
+    $withheld = [...new Chosen($registry())->withheld(Ci::none(), Withheld::nothing(), $reports)];
+
+    expect($withheld)->toBe([
+        ...Withheld::standard(),
+        'FAKE_CI_TOKEN',
+        'TEAM_SLACK_HOOK',
+        'HOOK_URL',
+        'HOOK_KEY',
+    ]);
 });

@@ -9,6 +9,7 @@ use function array_key_exists;
 use function explode;
 
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Runner\GateSecret;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 
 use function rawurldecode;
@@ -51,7 +52,7 @@ final readonly class OtelEnvironment
      */
     public function headers(): array
     {
-        return $this->pairs($this->variables->valueOf('OTEL_EXPORTER_OTLP_HEADERS'));
+        return $this->pairs($this->variables->valueOf(GateSecret::OtlpHeaders->value));
     }
 
     /**

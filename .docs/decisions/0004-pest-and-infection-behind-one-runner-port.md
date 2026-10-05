@@ -120,7 +120,7 @@ its parser attributes. Both change when the checkout moves.
    | `coverage(CoverageRun\|CoverageRead)` | A per-test line map of the whole suite, one group, the tests a filter names or the tests of some test files, plus each test's duration: by running them for a `CoverageRun`, or by reading the gate's own map another job wrote for a `CoverageRead` |
    | `testsIn(files, map)` | The tests of a map that these test files hold, by the runner's own rules for naming a test after its file: the entries a run of those files measures again (ADR-0023, decision 3). A test the runner cannot place in a file is not among them |
    | `judges(file, map)` | The test files that can judge a mutant of this file, by the runner's own selection rules (decision 5) |
-   | `startUp(file, withheld)` | How long one run of no test takes, started as the runner starts a mutant's own run of the file, whose mutant is an unchanged copy of it, and narrowed by a filter that matches no test (`(?!)`): what every mutant's run pays before its first test (ADR-0006, decision 4). The runner serves the file through the wrapper it serves a mutant through, so the run pays for that too. Pest runs itself with `--no-tia --bail --filter=(?!) --do-not-fail-on-empty-test-suite` in the environment pest-plugin-mutate gives a mutant's run under `--parallel`: `PEST_MUTATION_TESTING` naming the file, `PEST_MUTATION_FILE` naming the copy, `PARATEST`, `TEST_TOKEN`, `UNIQUE_TEST_TOKEN` and `LARAVEL_PARALLEL_TESTING`. It loads every test file, as a mutant's run does. Infection's is the project's PHPUnit with no PHP options, as Infection starts a mutant's, with its extra arguments and the same filter, on a config shaped by the steps of Infection's `MutationConfigBuilder` that change what a run loads. Those steps are: every path absolute from the config's directory, no loggers, coverage reports, colours, printer or default suite, the suites replaced by one holding the covering test files, here none, and the bootstrap replaced by Infection's, which lowers the process's priority, serves the copy through Infection's include interceptor and then loads the config's own bootstrap. So it loads no test file. The steps that only order, stop or report a run (the result cache, the fail-on attributes, stop-on-defect, stderr) are left out. The gate takes those steps itself, since Infection's builder is in the project's vendor, which the gate's process never loads. The run withholds what every child process withholds |
+   | `startUp(file, withheld)` | How long one run of no test takes, started as the runner starts a mutant's own run of the file, whose mutant is an unchanged copy of it, and narrowed by a filter that matches no test (`(?!)`): what every mutant's run pays before its first test (ADR-0006, decision 4). The runner serves the file through the wrapper it serves a mutant through, so the run pays for that too. Pest runs itself with `--no-tia --bail --filter=(?!) --do-not-fail-on-empty-test-suite` in the environment pest-plugin-mutate gives a mutant's run under `--parallel`: `PEST_MUTATION_TESTING` naming the file, `PEST_MUTATION_FILE` naming the copy, `PARATEST`, `TEST_TOKEN`, `UNIQUE_TEST_TOKEN` and `LARAVEL_PARALLEL_TESTING`. It loads every test file, as a mutant's run does. Infection's is the project's PHPUnit with no PHP options, as Infection starts a mutant's, with its extra arguments and the same filter, on a config shaped by the steps of Infection's `MutationConfigBuilder` that change what a run loads. Those steps are: every path absolute from the config's directory, no loggers, coverage reports, colours, printer or default suite, the suites replaced by one holding the covering test files, here none, and the bootstrap replaced by Infection's, which lowers the process's priority, serves the copy through Infection's include interceptor and then loads the config's own bootstrap. So it loads no test file. The steps that only order, stop or report a run (the result cache, the fail-on attributes, stop-on-defect, stderr) are left out. The gate takes those steps itself rather than call Infection's builder, which is the project's install, not the gate's. The run withholds what every child process withholds |
    | `mutate(request)` | Every mutant's normalised result for some files, judged by the whole suite or by a group, under a deadline |
    | `retry(request, mutants, limit)` | The same, for a few mutants run again, the invocation's request narrowed to them (ADR-0008) |
    | `reproduce(mutant, request, limit)` | One mutant run again on its own, the request narrowed to its file and its mutator, with what the runner printed (decision 6) |
@@ -225,10 +225,22 @@ its parser attributes. Both change when the checkout moves.
        `GITHUB_TOKEN`, `SONAR_TOKEN`, and the cloud stores' of ADR-0028:
        `GOOGLE_APPLICATION_CREDENTIALS`, `GOOGLE_GHA_CREDS_PATH`,
        `CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE`, `AZURE_*`,
-       `MUTATION_GATE_GCS_TOKEN` and `MUTATION_GATE_AZURE_TOKEN`), each CI plan adds its own CI's tokens
-       (such as GitLab's `CI_JOB_TOKEN` and Buildkite's
-       `BUILDKITE_AGENT_ACCESS_TOKEN`), and `runner.withhold`, a list of names
-       or globs, adds a project's own. The list only ever grows.
+       `MUTATION_GATE_GCS_TOKEN` and `MUTATION_GATE_AZURE_TOKEN`), Composer's
+       `COMPOSER_AUTH`, and the secrets the gate itself reads
+       (`OTEL_EXPORTER_OTLP_HEADERS`, `GH_TOKEN`, and the alert channels'
+       `MUTATION_GATE_SLACK_URL`, `MUTATION_GATE_DISCORD_URL`,
+       `MUTATION_GATE_WEBHOOK_URL` and `MUTATION_GATE_WEBHOOK_SECRET`, or the
+       variables an alert's `urlEnv` and `secretEnv` name instead), each CI
+       plan adds its own CI's tokens (such as GitLab's `CI_JOB_TOKEN` and
+       Buildkite's `BUILDKITE_AGENT_ACCESS_TOKEN`), and `runner.withhold`, a
+       list of names or globs, adds a project's own. The list only ever grows.
+       Withholding keeps a credential out of the tests' environment, not out
+       of their reach. It stops a mutant using one by accident, never code
+       written to find it: a test can read its parent process's environment,
+       a credentials file a withheld variable named stays on disk, and the
+       project's autoload files and PHP config run in the gate's own process.
+       A credential the project's code must not use goes only to a job that
+       runs none of it (ADR-0007, decision 5).
      - Pest runs with the project root as its working directory, and one
        `--mutate` invocation at a time runs in a checkout, because each writes
        its opening map to the same path.

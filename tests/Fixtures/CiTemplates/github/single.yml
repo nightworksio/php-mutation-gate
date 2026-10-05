@@ -1,7 +1,13 @@
 # Written by `mutation-gate init --ci=github`, for the gate dev-main.
 # Require the check `mutation / verdict` in the default branch's protection rule.
-# For an S3 proof store, set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY from
-# secrets in the env of the gate's step.
+# For an S3 proof store, add AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as
+# secrets of the environment mutation-gate-store, whose deployment branches
+# are trunk alone: the job enters it on a push, a schedule or a manual
+# run of trunk, and a pull request's run reads the store through
+# proofs.store.with.publicUrl. The tests run in the gate's step, so every
+# secret the job holds reaches the project's code. A branch can edit this
+# file, so the keys' protection is the environment's restriction to
+# trunk, not the condition below.
 name: mutation
 
 on:
@@ -18,6 +24,8 @@ jobs:
   mutation:
     name: 'mutation / verdict'
     runs-on: ubuntu-latest
+    environment:
+      name: ${{ contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event_name) && github.ref == 'refs/heads/trunk' && 'mutation-gate-store' || '' }}
     permissions:
       contents: read
       actions: read
@@ -28,6 +36,9 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - uses: nightworksio/php-mutation-gate@eea11e875234b32127cf23dde00d149b04c6ac4c
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         with:
           php-version: '8.5'
           runner: 'pest'

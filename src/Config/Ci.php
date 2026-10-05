@@ -8,7 +8,10 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 
-/** The CI the plan is written for (ADR-0006): `ci`. */
+/**
+ * The CI the plan is written for, its default branch, its verdict's check and the trust in a merged pull request
+ * (ADR-0005, ADR-0006, ADR-0007): `ci`. `Pipeline` lays out the pipeline that runs the gate.
+ */
 final readonly class Ci implements Setting
 {
     private function __construct(private Json $json)
@@ -70,61 +73,22 @@ final readonly class Ci implements Setting
         return new self(Json::at('ci.defaultBranch', $branch));
     }
 
-    /** `ci.gitlab.template`: the file whose hidden `.mutation-gate` job the generated jobs extend. */
-    public static function gitlabTemplate(string $path): self
-    {
-        return new self(Json::at('ci.gitlab.template', $path));
-    }
-
-    /** `ci.buildkite.step`: the step every generated Buildkite step is built from. */
-    public static function buildkiteStep(Option ...$keys): self
-    {
-        return new self(Json::object(
-            Member::of(
-                'ci',
-                Json::object(
-                    Member::of(
-                        'buildkite',
-                        Json::object(Member::of('step', Option::object(...$keys))),
-                    ),
-                ),
-            ),
-        ));
-    }
-
     /** `ci.check`: the check-run name the verdict reports under. */
     public static function check(string $name): self
     {
         return new self(Json::object(Member::of('ci', Json::object(Member::of('check', $name)))));
     }
 
-    /** `ci.buildkite.definition`: the pipeline file that runs the gate under Buildkite. */
-    public static function buildkiteDefinition(string $path): self
+    /** `ci.trustMergedPullRequests`: the default branch takes a merged pull request's passing run as proof. */
+    public static function trustingMergedPullRequests(): self
     {
-        return new self(Json::object(
-            Member::of(
-                'ci',
-                Json::object(Member::of('buildkite', Json::object(Member::of('definition', $path)))),
-            ),
-        ));
+        return new self(Json::at('ci.trustMergedPullRequests', value: true));
     }
 
-    /** `ci.azure.definition`: the pipeline file that runs the gate under Azure DevOps. */
-    public static function azureDefinition(string $path): self
+    /** `ci.trustMergedPullRequests`: the default branch re-checks a merged pull request's tree. */
+    public static function notTrustingMergedPullRequests(): self
     {
-        return new self(Json::at('ci.azure.definition', $path));
-    }
-
-    /** `ci.bitbucket.definition`: the pipeline file that runs the gate under Bitbucket Pipelines. */
-    public static function bitbucketDefinition(string $path): self
-    {
-        return new self(Json::at('ci.bitbucket.definition', $path));
-    }
-
-    /** `ci.jenkins.definition`: the Jenkinsfile that runs the gate under Jenkins. */
-    public static function jenkinsDefinition(string $path): self
-    {
-        return new self(Json::at('ci.jenkins.definition', $path));
+        return new self(Json::at('ci.trustMergedPullRequests', value: false));
     }
 
     public function written(): Json

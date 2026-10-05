@@ -5,11 +5,18 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Proof;
 
 /**
- * The environment variables the `gcs` and `azure` stores read their tokens
- * from (ADR-0028 decision 2), and nothing else.
+ * The environment variables the `s3` store reads its keys from (ADR-0007
+ * decision 5), and the `gcs` and `azure` stores their tokens (ADR-0028
+ * decision 2).
  */
 enum StoreVariable: string
 {
+    /** The id of the access key the `s3` store signs its requests with. */
+    case AwsAccessKey = 'AWS_ACCESS_KEY_ID';
+
+    /** The secret of the access key the `s3` store signs its requests with. */
+    case AwsSecretKey = 'AWS_SECRET_ACCESS_KEY';
+
     /** The external-account credentials file `google-github-actions/auth` writes. */
     case GoogleCredentials = 'GOOGLE_APPLICATION_CREDENTIALS';
 

@@ -60,6 +60,7 @@ use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
@@ -242,7 +243,7 @@ it('withholds both Buildkite agent tokens though the step it is given cannot bui
     $chosen = new Chosen($registry());
 
     expect($chosen->ciPlan(Choice::of($buildkite->value(), $ci->planOptions($buildkite))))->toBeInstanceOf(Invalid::class)
-        ->and([...$chosen->withheld($ci, Withheld::nothing())])
+        ->and([...$chosen->withheld($ci, Withheld::nothing(), Listed::of())])
         ->toContain('BUILDKITE_AGENT_ACCESS_TOKEN', 'BUILDKITE_AGENT_TOKEN');
 });
 
