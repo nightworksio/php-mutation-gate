@@ -138,8 +138,9 @@ final readonly class RunCommand
 
     /**
      * A plan left in the workspace for `explain`, the pull request comment
-     * written in its planned state, with what each comment said of it,
-     * every shard of the plan run, and their results judged.
+     * written in its planned state, with what each comment said of it, the
+     * last run's survivors re-checked first, every shard of the plan run,
+     * and their results judged.
      */
     private static function judgedAll(
         Composed $composed,
@@ -155,7 +156,7 @@ final readonly class RunCommand
             return $commented;
         }
 
-        foreach ($commented as $said) {
+        foreach ([...$commented, ...SurvivorsCommand::noted($composed, $plan)] as $said) {
             $printing->note($said, $output);
         }
 

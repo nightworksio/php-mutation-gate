@@ -126,6 +126,9 @@ const DEFAULTS = <<<'JSON'
         "tests": {
             "order": "killers-first"
         },
+        "survivorsFirst": {
+            "max": 20
+        },
         "ignores": {
             "entries": [],
             "native": "refuse"
@@ -200,6 +203,7 @@ const EVERYTHING = [
     'budget' => '1h30m',
     'timeouts' => ['mode' => 'unjudged', 'seconds' => 30, 'retries' => 0],
     'flaky' => ['confirmSurvivors' => false],
+    'survivorsFirst' => ['max' => 5],
     'ignores' => [
         'entries' => [
             ['mutant' => '3f9a1c2b7d04', 'reason' => 'Both branches build the same list', 'expires' => '2026-12-29'],
@@ -1090,7 +1094,8 @@ it('names each CI\'s pipeline file in a config written as PHP', function (): voi
         ->toContain("Pipeline::azureDefinition('ci/azure.yml')")
         ->toContain("Pipeline::bitbucketDefinition('ci/bitbucket.yml')")
         ->toContain("Pipeline::jenkinsDefinition('ci/Jenkinsfile')")
-        ->toContain('StaticCheck::seconds(45)');
+        ->toContain('StaticCheck::seconds(45)')
+        ->toContain('Survivors::firstAtMost(5)');
 });
 
 it('hands on a name in a map that reads as a number as text, to the cost model and to a config written as PHP', function (): void {
@@ -1155,4 +1160,12 @@ it('measures again only what moved unless the config says to measure every test,
         ->and(Configs::settings(['runner' => 'pest', 'coverage' => ['incremental' => true]])->proofs()->incrementalCoverage())->toBeTrue()
         ->and(Configs::problems(Configs::validated(['runner' => 'pest', 'coverage' => ['incremental' => 'yes']])))
         ->toBe(['coverage.incremental: expected true or false, got "yes"']);
+});
+
+it('re-checks the comment\'s count of survivors first by default, as many as set, and refuses fewer than none', function (): void {
+    expect(Configs::settings(['runner' => 'pest'])->triage()->survivorsFirst()->most())->toBe(20)
+        ->and(Configs::settings(['runner' => 'pest', 'survivorsFirst' => ['max' => 0]])->triage()->survivorsFirst()->isOff())
+        ->toBeTrue()
+        ->and(Configs::problems(Configs::validated(['runner' => 'pest', 'survivorsFirst' => ['max' => -1]])))
+        ->toBe(['survivorsFirst.max: expected an integer of at least 0, got -1']);
 });

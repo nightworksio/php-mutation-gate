@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\GitHub;
 
 use function array_key_exists;
-use function count;
 use function file_get_contents;
 use function getenv;
 use function is_file;
@@ -22,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\PlannedWork;
+use NightWorksIO\MutationGate\Core\Recheck\Rechecked;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Extension\Configurable;
@@ -43,15 +43,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  */
 final readonly class PullRequestComment implements Configurable, Deferring, Reporter
 {
-    /** The identity `GITHUB_TOKEN` comments as, which cannot read `/user`. */
-    public const string ACTIONS = 'github-actions[bot]';
-
     private const string COMMENTS = '/repos/%s/issues/%d/comments';
-
-    private const int PAGE = 100;
-
-    /** The most pages of comments read to find the sticky one. */
-    private const int PAGES = 30;
 
     private const string NOT_A_PULL_REQUEST = 'This run is not for a pull request, so there is no comment to write.';
 
@@ -61,6 +53,9 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
         = 'A fork\'s pull request gets a read-only token, so no comment is written; the step summary carries it.';
 
     private const string UNWRITTEN = 'The pull request comment could not be written (%s); the step summary carries it.';
+
+    private const string NOT_PLANNED
+        = 'The pull request comment is no longer in its planned state, so the re-checked survivors leave it as it is.';
 
     private function __construct(
         private Api $api,
@@ -170,10 +165,26 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
     }
 
     /**
+     * The comment while the last run's survivors are re-checked, written only
+     * over its planned state, so a verdict already written is never replaced
+     * (ADR-0020, decision 21).
+     */
+    public function rechecked(Rechecked $rechecked): Written|NotWritten
+    {
+        return $this->written(RecheckedMarkdown::comment($rechecked, $this->run), overPlanned: true);
+    }
+
+    /**
      * The sticky comment, holding this, written or updated in place: what `deliver` writes of a comment a run left
      * for it (ADR-0007 decision 5).
      */
     public function write(string $markdown): Written|NotWritten
+    {
+        return $this->written($markdown, overPlanned: false);
+    }
+
+    /** The sticky comment, holding this, written or updated in place; over its planned state alone, where asked. */
+    private function written(string $markdown, bool $overPlanned): Written|NotWritten
     {
         $number = $this->pullRequest;
 
@@ -182,63 +193,27 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
         }
 
         $body = ['body' => $markdown];
-        $existing = $this->existing($number, $this->identity === '' ? $this->identityOfToken() : $this->identity);
-        $answer = $existing === 0
+        $existing = StickyComment::in($this->api, $this->repository)->on($number, $this->identity);
+        $id = $existing instanceof Answer ? $existing->number('id') : 0;
+        $planned = $existing instanceof Answer && str_contains($existing->text('body'), $this->plannedHeading());
+
+        if ($overPlanned && ! $planned) {
+            return NotWritten::because(self::NOT_PLANNED);
+        }
+
+        $answer = $id === 0
             ? $this->api->send('POST', sprintf(self::COMMENTS, $this->repository, $number->value()), $body)
-            : $this->api->send('PATCH', sprintf('/repos/%s/issues/comments/%d', $this->repository, $existing), $body);
+            : $this->api->send('PATCH', sprintf('/repos/%s/issues/comments/%d', $this->repository, $id), $body);
 
         return $answer instanceof CannotTell
             ? NotWritten::because(sprintf(self::UNWRITTEN, $answer->why()))
             : Written::to($answer->text('html_url'));
     }
 
-    /** Who the token comments as: its user, or GitHub Actions' own bot where it cannot read one. */
-    private function identityOfToken(): string
+    /** The heading of the planned state, on a line of its own, as the comment holds it. */
+    private function plannedHeading(): string
     {
-        $user = $this->api->get('/user');
-        $login = $user instanceof Answer ? $user->text('login') : '';
-
-        return $login === '' ? self::ACTIONS : $login;
-    }
-
-    /** The id of the sticky comment this identity wrote on the pull request; 0 where there is none. */
-    private function existing(PullRequestNumber $number, string $identity): int
-    {
-        $found = 0;
-        $full = true;
-
-        for ($page = 1; $found === 0 && $full && $page <= self::PAGES; ++$page) {
-            $comments = $this->api->get(sprintf(
-                '/repos/%s/issues/%d/comments?per_page=%d&page=%d',
-                $this->repository,
-                $number->value(),
-                self::PAGE,
-                $page,
-            ));
-            $items = $comments instanceof Answer ? $comments->items() : [];
-            $found = $this->stickyAmong($items, $identity);
-            $full = count($items) === self::PAGE;
-        }
-
-        return $found;
-    }
-
-    /**
-     * The id of the comment among these that this identity wrote with the marker; 0 where none is.
-     *
-     * @param list<Answer> $comments
-     */
-    private function stickyAmong(array $comments, string $identity): int
-    {
-        foreach ($comments as $comment) {
-            $sticky = str_contains($comment->text('body'), Markdown::MARKER);
-
-            if ($sticky && $comment->text('user', 'login') === $identity) {
-                return $comment->number('id');
-            }
-        }
-
-        return 0;
+        return sprintf("\n%s\n", PlannedMarkdown::HEADING);
     }
 
     private static function numberIn(Node $payload): PullRequestNumber|CannotTell

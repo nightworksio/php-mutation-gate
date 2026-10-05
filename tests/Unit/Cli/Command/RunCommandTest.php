@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Cli\Flow\LastRun;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
 use NightWorksIO\MutationGate\Core\Baseline\Entry;
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
@@ -25,8 +26,12 @@ use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
+use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\Proof;
+use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Report\Problems;
+use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Tree\Package;
@@ -37,6 +42,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
@@ -319,7 +325,10 @@ it('plans, runs and judges in one process without a plan, and exits as the verdi
 
     expect($ran->code)->toBe($code)
         ->and($ran->errors)->toBe("Coverage: there is no kept map, so every test was measured.\n")
-        ->and($ran->output)->toStartWith(sprintf("Wrote memory:refs/heads/feature.\nmutation-gate: %s\n", $judgement))
+        ->and($ran->output)->toStartWith(sprintf(
+            "No earlier run of this branch to re-check.\nWrote memory:refs/heads/feature.\nmutation-gate: %s\n",
+            $judgement,
+        ))
         ->and(is_file(sprintf('%s/.mutation-gate/results/1.json', $project)))->toBeTrue()
         ->and(is_file(sprintf('%s/.mutation-gate/plan.json', $project)))->toBeTrue()
         ->and(is_file(sprintf('%s/mutation-gate.baseline.json', $project)))->toBeFalse();
@@ -338,7 +347,10 @@ it('judges a tree at the floor the config declares for it, over the one its sour
     $ran = FlowCommands::run(RunCommand::command($composed($project, 50.0, inCi: true)));
 
     expect($ran->code)->toBe($code)
-        ->and($ran->output)->toStartWith(sprintf("Wrote memory:refs/heads/feature.\nmutation-gate: %s\n", $judgement));
+        ->and($ran->output)->toStartWith(sprintf(
+            "No earlier run of this branch to re-check.\nWrote memory:refs/heads/feature.\nmutation-gate: %s\n",
+            $judgement,
+        ));
 })->with([
     'a declared floor the tree reaches, over a source floor it does not' => ['40', 0, 'passed'],
     'a declared floor above what it reaches' => ['60', 1, 'failed'],
@@ -387,7 +399,7 @@ it('raises no floor on a run in CI or one scoped to a change', function (
     expect($ran->output)->toStartWith(sprintf("%s\nmutation-gate: passed\n", $wrote))
         ->and(is_file(sprintf('%s/mutation-gate.baseline.json', $project)))->toBeFalse();
 })->with([
-    'in CI' => ['', true, 'Wrote memory:refs/heads/feature.'],
+    'in CI' => ['', true, "No earlier run of this branch to re-check.\nWrote memory:refs/heads/feature."],
     'changed since a ref' => [
         '--changed-since=base',
         false,
@@ -515,3 +527,36 @@ it('writes the sticky comment in its planned state before it runs a pull request
     expect($ran instanceof FlowCommands ? $ran->output : $ran)->toStartWith(sprintf("%s\n", $notOne))
         ->and($shard instanceof FlowCommands ? sprintf("%s%s", $shard->output, $shard->errors) : $shard)->not->toContain($notOne);
 });
+
+it('re-checks the branch\'s last survivors before it runs the shards, and goes on where they cannot be', function (
+    bool $runs,
+    string $said,
+) use ($floored): void {
+    $project = FlowCommands::project();
+    $store = new ProofStoreFake();
+    $store->write(Scope::branch('feature'), Ledger::empty()->withProof(Proof::of(
+        Digest::sha256Of('src/Held.php earlier'),
+        Path::of('src/Held.php'),
+        Flows::mutantsOf('src/Held.php'),
+        Run::of('github:earlier', Moment::at('2026-09-29T10:00:00Z'), Digest::sha256Of('base')),
+    )));
+    $runner = $runs
+        ? ScriptedRunner::fixture()
+        : ScriptedRunner::fixture()->answeringInTurn(CannotJudge::because('The runner is busy.'), MutationResult::of(Mutants::none(), 0));
+    $composition = FlowCommands::over(
+        $floored(0),
+        $project,
+        $runner,
+        $store,
+        new CiPlanFake(RunOn::at(Scope::branch('feature'), Scope::branch('main'))),
+        Variables::of(['CI' => 'true']),
+    );
+
+    $ran = FlowCommands::run(RunCommand::command($composition));
+
+    expect(substr($ran->output, 0, strlen($said)))->toBe($said)
+        ->and($ran->code)->not->toBe(2);
+})->with([
+    'found again' => [true, "Survivors re-checked: 1 of 1 still survives.\n  still survives: src/Held.php:11, Plus, 8705b7dc7d27\n"],
+    'not run' => [false, "The last run's survivors could not be re-checked first: The runner is busy.\n"],
+]);

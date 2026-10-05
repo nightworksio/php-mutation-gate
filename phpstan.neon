@@ -563,6 +563,8 @@ services:
                     - TRUSTED_SOURCES # Buildkite's build.source values, not another CI's event names
                 'NightWorksIO\MutationGate\Core\Cost\StartUpSamples':
                     - STANDARD # runs of no test the plan times
+                'NightWorksIO\MutationGate\Core\Report\Commented':
+                    - MOST # entries a list of the pull request comment shows, not commits a range proves
                 'NightWorksIO\MutationGate\Core\Runner\MemoryUnit':
                     - KILO # bytes in a kilobyte, as PHP counts one
                 'NightWorksIO\MutationGate\Core\Runner\DisplayWord':
@@ -583,7 +585,7 @@ services:
                     - PARENT # PHP's keyword, not php-parser's attribute
                 'NightWorksIO\MutationGate\Core\Assertion\AssertionScan':
                     - CALL_OPENS # tokens from what a link is chained to, to its call's bracket
-                'NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment':
+                'NightWorksIO\MutationGate\Adapter\GitHub\StickyComment':
                     - PAGE # comments a page
                     - PAGES # pages read
                 'NightWorksIO\MutationGate\Adapter\Alert\Delivery':
@@ -593,8 +595,6 @@ services:
                     - SERVER # an HTTP status
                     - REDIRECT # an HTTP status
                     - ANSWER # characters of an answer repeated
-                'NightWorksIO\MutationGate\Adapter\GitHub\Markdown':
-                    - COMMENTED # entries a comment's list holds
                 'NightWorksIO\MutationGate\Core\Alert\AlertLines':
                     - SURVIVORS # survivors an alert names
                 'NightWorksIO\MutationGate\Core\Alert\DiscordMessage':

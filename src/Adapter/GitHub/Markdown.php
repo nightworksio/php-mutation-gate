@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Matrix\SuiteScores;
+use NightWorksIO\MutationGate\Core\Report\Commented;
 use NightWorksIO\MutationGate\Core\Report\CostText;
 use NightWorksIO\MutationGate\Core\Report\Escape;
 use NightWorksIO\MutationGate\Core\Report\Folded;
@@ -69,9 +70,6 @@ final readonly class Markdown
 
     /** The most characters GitHub takes in a comment's body. */
     public const int COMMENT_CHARACTERS = 65_536;
-
-    /** The most entries a list of the comment holds, before it says how many more there are. */
-    public const int COMMENTED = 20;
 
     private const string RAISE
         = 'Raise them with `vendor/bin/mutation-gate baseline --write`, and commit the baseline.';
@@ -129,7 +127,7 @@ final readonly class Markdown
 
         return self::fitted(
             $document,
-            self::COMMENTED,
+            Commented::MOST,
             static fn(string $comment): bool => mb_strlen($comment) <= self::COMMENT_CHARACTERS,
         );
     }
