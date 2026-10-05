@@ -87,14 +87,14 @@ it('requires a bucket, a prefix and a region, which the definition gives all but
 });
 
 it('refuses each option that is not written as text, and nothing more', function (): void {
-    expect(BucketOptions::read(Configs::options('{"bucket": 5, "prefix": "p", "region": "r"}')))
+    expect(BucketOptions::read(Configs::options('{"bucket": 5, "prefix": "p", "region": "auto"}')))
         ->toEqual(Invalid::because(Problem::at('bucket', 'expected text, got 5')))
         ->and(BucketOptions::read(Configs::options('{"bucket": "b", "prefix": "p", "region": 1, "endpoint": ["minio"]}')))
         ->toEqual(Invalid::because(
             Problem::at('region', 'expected text, got 1'),
             Problem::at('endpoint', 'expected text, got a list'),
         ))
-        ->and(BucketOptions::read(Configs::options('{"bucket": "b", "prefix": "p", "region": "r", "endpoint": 3}')))
+        ->and(BucketOptions::read(Configs::options('{"bucket": "b", "prefix": "p", "region": "auto", "endpoint": 3}')))
         ->toEqual(Invalid::because(Problem::at('endpoint', 'expected text, got 3')));
 });
 
@@ -109,11 +109,37 @@ it('names the public URL a job without credentials reads from, and none where th
 });
 
 it('refuses a public URL not written as text, besides a missing bucket', function (): void {
-    expect(BucketOptions::read(Configs::options('{"bucket": "b", "prefix": "p", "region": "r", "publicUrl": 3}')))
+    expect(BucketOptions::read(Configs::options('{"bucket": "b", "prefix": "p", "region": "auto", "publicUrl": 3}')))
         ->toEqual(Invalid::because(Problem::at('publicUrl', 'expected text, got 3')))
-        ->and(BucketOptions::read(Configs::options('{"prefix": "p", "region": "r", "publicUrl": 3}')))
+        ->and(BucketOptions::read(Configs::options('{"prefix": "p", "region": "auto", "publicUrl": 3}')))
         ->toEqual(Invalid::because(
             Problem::at('bucket', 'expected the bucket, got nothing'),
             Problem::at('publicUrl', 'expected text, got 3'),
         ));
 });
+
+it('refuses a region the host cannot hold, so the keys and session token reach only the store', function (string $region): void {
+    expect(BucketOptions::read(Configs::options((string) json_encode(['bucket' => 'ledgers', 'prefix' => 'p', 'region' => $region]))))
+        ->toEqual(Invalid::because(Problem::at('region', sprintf('expected a region, got %s', json_encode($region, JSON_UNESCAPED_SLASHES)))));
+})->with([
+    'another host and a query' => ['evil.example/x?'],
+    'user information' => ['us-east-1@evil.example'],
+    'a subdomain' => ['us-east-1.evil'],
+    'a fragment' => ['eu-west-1#'],
+    'a port' => ['eu-west-1:443'],
+    'white space' => ['eu west 1'],
+    'a doubled hyphen' => ['eu--west-1'],
+    'a slash after another host' => ['evil.com/'],
+    'a signature in a query' => ['x?sig='],
+    'a bare fragment' => ['a#'],
+    'two dots' => ['..'],
+    'uppercase' => ['US-EAST-1'],
+    'a slash' => ['eu-west-1/x'],
+    'a dot' => ['eu-west-1.evil'],
+]);
+
+it('reads AWS\'s regions, Cloudflare\'s auto and a MinIO region alike', function (string $region): void {
+    $options = BucketOptions::read(Configs::options((string) json_encode(['bucket' => 'ledgers', 'prefix' => 'p', 'region' => $region])));
+
+    expect($options instanceof BucketOptions ? $options->configuration()['region'] : $options)->toBe($region);
+})->with(['us-east-1', 'eusc-de-east-1', 'us-gov-west-1', 'auto', 'minio']);

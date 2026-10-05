@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Required;
+use NightWorksIO\MutationGate\Core\Config\StoreName;
 use NightWorksIO\MutationGate\Core\Config\StoreOption;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
@@ -26,7 +27,7 @@ final readonly class GcsOptions
 
     public static function read(Options $options): self|Invalid
     {
-        $bucket = Required::text($options, StoreOption::Bucket->value);
+        $bucket = Required::named($options, StoreOption::Bucket, StoreName::GcsBucket);
         $prefix = Required::text($options, StoreOption::Prefix->value);
         $publicUrl = $options->text(Key::of(StoreOption::PublicUrl->value));
 

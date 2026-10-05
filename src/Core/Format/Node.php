@@ -92,7 +92,7 @@ final readonly class Node
     /** That this place holds something other than what it should, said as a config's problem is: at its path. */
     public function mismatch(string $expected): Problem
     {
-        return Problem::at($this->at, sprintf('expected %s, got %s', $expected, $this->got()));
+        return Problem::mismatch($this->at, $expected, $this->got());
     }
 
     public function isPresent(): bool

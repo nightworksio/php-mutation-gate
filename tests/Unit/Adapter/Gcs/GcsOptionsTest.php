@@ -22,5 +22,21 @@ it('says why options that miss a bucket or a prefix, or give a public URL that i
 })->with([
     'no bucket' => ['{"prefix": "gate"}', Problem::at('bucket', 'expected the bucket, got nothing')],
     'no prefix' => ['{"bucket": "acme-ledgers"}', Problem::at('prefix', 'expected the prefix, got nothing')],
-    'a public URL that is no text' => ['{"bucket": "b", "prefix": "p", "publicUrl": 3}', Problem::at('publicUrl', 'expected text, got 3')],
+    'a public URL that is no text' => ['{"bucket": "acme-ledgers", "prefix": "p", "publicUrl": 3}', Problem::at('publicUrl', 'expected text, got 3')],
+]);
+
+it('refuses a bucket its path cannot hold, so the token reaches only Cloud Storage', function (string $bucket): void {
+    expect(GcsOptions::read(Configs::options((string) json_encode(['bucket' => $bucket, 'prefix' => 'p']))))
+        ->toEqual(Invalid::because(Problem::at('bucket', sprintf('expected a Cloud Storage bucket name, got %s', json_encode($bucket, JSON_UNESCAPED_SLASHES)))));
+})->with([
+    'a parent directory and a query' => ['../other?x'],
+    'another host' => ['evil.example/x'],
+    'user information' => ['b@evil.example'],
+    'a fragment' => ['acme#x'],
+    'white space' => ['acme ledgers'],
+    'a slash after another host' => ['evil.com/'],
+    'a signature in a query' => ['x?sig='],
+    'a bare fragment' => ['a#'],
+    'two dots' => ['..'],
+    'uppercase' => ['Acme-Ledgers'],
 ]);

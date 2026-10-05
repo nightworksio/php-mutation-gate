@@ -8,7 +8,10 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function sprintf;
 
-/** An option an adapter cannot do without, read as text: its value, or the problem of options that give none. */
+/**
+ * An option an adapter cannot do without, read as text or as a name its
+ * service allows: its value, or the problem of options that give none.
+ */
 final readonly class Required
 {
     private const string NOTHING = 'expected the %s, got nothing';
@@ -18,5 +21,15 @@ final readonly class Required
         $value = $options->text(Key::of($option));
 
         return $value instanceof NotGiven ? Problem::at($option, sprintf(self::NOTHING, $option)) : $value;
+    }
+
+    /** A name the option must hold, as its service allows it (see StoreName). */
+    public static function named(Options $options, StoreOption $option, StoreName $name): string|Problem
+    {
+        $value = $name->in($options, $option);
+
+        return $value instanceof NotGiven
+            ? Problem::at($option->value, sprintf(self::NOTHING, $option->value))
+            : $value;
     }
 }
