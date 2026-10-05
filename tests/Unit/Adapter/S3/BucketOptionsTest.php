@@ -42,6 +42,42 @@ it('addresses a bucket at another endpoint by path, in the region the options na
         ]]);
 });
 
+it('refuses an http:// endpoint, which sends the signed requests and the ledgers in the clear', function () use (
+    $s3,
+): void {
+    expect(BucketOptions::read($s3('{"bucket": "ledgers", "endpoint": "http://minio:9000"}')))
+        ->toEqual(Invalid::because(Problem::at(
+            'endpoint',
+            "is http://, which sends the store's signed requests and the ledgers in the clear; use https://,\n"
+            . 'or set insecureEndpoint: true for a store on a network you trust',
+        )));
+});
+
+it('refuses an http:// endpoint in options that leave insecureEndpoint out, as no definition reads them', function (): void {
+    $bucket = BucketOptions::read(Configs::options('{"bucket": "b", "prefix": "p", "region": "r", "endpoint": "http://minio"}'));
+
+    expect($bucket instanceof Invalid ? array_map(static fn(Problem $problem): string => $problem->path(), [...$bucket]) : $bucket)
+        ->toBe(['endpoint']);
+});
+
+it('addresses an http:// endpoint where insecureEndpoint says the network is trusted', function () use (
+    $said,
+    $s3,
+): void {
+    $bucket = BucketOptions::read($s3('{"bucket": "ledgers", "endpoint": "http://minio:9000", "insecureEndpoint": true}'));
+
+    expect($said($bucket))->toBe(['ledgers', 'mutation-gate', [
+        'region' => 'us-east-1',
+        'endpoint' => 'http://minio:9000',
+        'pathStyleEndpoint' => 'true',
+    ]]);
+});
+
+it('refuses an insecureEndpoint that is not true or false', function (): void {
+    expect(BucketOptions::read(Configs::options('{"bucket": "b", "prefix": "p", "region": "r", "insecureEndpoint": "yes"}')))
+        ->toEqual(Invalid::because(Problem::at('insecureEndpoint', 'expected true or false, got "yes"')));
+});
+
 it('requires a bucket, a prefix and a region, which the definition gives all but the first of', function (): void {
     expect(BucketOptions::read(Options::none()))->toEqual(Invalid::because(
         Problem::at('bucket', 'expected the bucket, got nothing'),

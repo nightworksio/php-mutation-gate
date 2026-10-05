@@ -118,6 +118,36 @@ it('takes the endpoint its options name over OpenTelemetry\'s', function () use 
     expect($metrics->getRequestUrl())->toBe('https://mine.example/v1/metrics');
 });
 
+it('keeps OpenTelemetry\'s headers from an endpoint its options name elsewhere, and says so', function () use ($github): void {
+    $traces = new MockResponse('{}');
+    $metrics = new MockResponse('{}');
+    $sent = otlpReport(otlpReporter($github, [$traces, $metrics], '{"endpoint": "https://mine.example"}'), Verdicts::named('accounted'));
+
+    expect($sent)->toEqual(Written::noting(
+        'https://mine.example',
+        "OTEL_EXPORTER_OTLP_HEADERS go only to the endpoint OTEL_EXPORTER_OTLP_ENDPOINT names,\nand with.endpoint names another.",
+    ))
+        ->and(otlpHeaders($traces))->not->toContain('api-key')
+        ->and(otlpHeaders($metrics))->not->toContain('api-key');
+});
+
+it('sends OpenTelemetry\'s headers to an endpoint its options name at the same scheme, host and port', function () use ($github): void {
+    $metrics = new MockResponse('{}');
+    $sent = otlpReport(otlpReporter($github, [$metrics], '{"endpoint": "https://otel.example/collector"}'), Verdicts::passing());
+
+    expect($sent)->toEqual(Written::to('https://otel.example'))
+        ->and(otlpHeaders($metrics))->toContain('api-key: secret');
+});
+
+it('says nothing of headers where OpenTelemetry\'s variables set none', function (): void {
+    $sent = otlpReport(
+        otlpReporter(Variables::of(['OTEL_EXPORTER_OTLP_ENDPOINT' => 'https://otel.example']), [new MockResponse('{}')], '{"endpoint": "https://mine.example"}'),
+        Verdicts::passing(),
+    );
+
+    expect($sent)->toEqual(Written::to('https://mine.example'));
+});
+
 it('says not written, tries nothing again, where the collector refuses or cannot be reached', function () use ($github): void {
     $refused = otlpReport(otlpReporter($github, [new MockResponse('bad', ['http_code' => 400]), new MockResponse('{}')]), Verdicts::named('accounted'));
     $unreached = otlpReport(otlpReporter($github, [new MockResponse('', ['error' => 'Could not resolve host'])]), Verdicts::passing());

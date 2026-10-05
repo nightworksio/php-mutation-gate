@@ -445,7 +445,7 @@ and `?` match within one directory, and `**` across any number of them.
 | `extensions` | list of class names | `[]` | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
 | `preset` | a preset name, or a list of them: `library`, `laravel`, `symfony` | chosen from `composer.json` | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `runner` | adapter: `pest`, `infection`, `phpunit` | the one installed: `phpunit` only where neither of the others is, and Pest is not | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md), [0023](.docs/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
-| `runner.withhold` | list of environment-variable names or globs the runner never hands the project's tests, added to those every run withholds | `[]` | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
+| `runner.withhold` | list of environment-variable names or globs the runner never hands the project's tests, added to those every run withholds; a guard against accidents, not a sandbox | `[]` | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | `runner.memory` | the `memory_limit` of every PHP process a mutation run starts, as PHP writes it (`512M`, `1G`), or `-1` for none; a `memory_limit` the project sets in `phpunit.xml` or a bootstrap file wins over it. Under Infection and the PHPUnit runner it also sets `display_errors=stdout`, so a warning raised outside a test, such as in a bootstrap file, also prints on standard output | `1G` | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | `treeSource` | adapter: `phpunit`, `composer` | `phpunit` | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `treeSource.with.fallback` | list of paths, the trees when `phpunit.xml` has no `<source>` | `[]`, or the preset's; `[]` takes the `autoload` paths of `composer.json` | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
@@ -470,6 +470,7 @@ and `?` match within one directory, and `**` across any number of them.
 | `ci.plan` | adapter: `github`, `gitlab`, `buildkite`, `circleci`, `azure`, `bitbucket`, `jenkins`, `json` | detected from the environment | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md), [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 | `ci.defaultBranch` | branch name | the CI's answer, else git's `origin/HEAD`, else `main` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `ci.check` | the check-run name the verdict reports under | `mutation / verdict` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
+| `ci.trustMergedPullRequests` | boolean: whether the default branch takes a merged pull request's passing run as proof of its tree, which trusts anyone who can push a branch of the repository | `true` | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `ci.gitlab.template` | path | `.gitlab/mutation-gate.yml` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `ci.buildkite.step` | map of step keys | `{}` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `ci.buildkite.definition` | path of the pipeline file that runs the gate under Buildkite | `.buildkite/pipeline.yml` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
@@ -481,7 +482,8 @@ and `?` match within one directory, and `**` across any number of them.
 | `proofs.store.with.bucket` (`s3`) | string | none; required | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.store.with.prefix` (`s3`) | string | `mutation-gate` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.store.with.region` (`s3`) | string | `us-east-1` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
-| `proofs.store.with.endpoint` (`s3`) | `http://` or `https://` URL | AWS's own | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
+| `proofs.store.with.endpoint` (`s3`) | `https://` URL, or `http://` where `insecureEndpoint` is true | AWS's own | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
+| `proofs.store.with.insecureEndpoint` (`s3`) | boolean: whether an `http://` endpoint is allowed, for a store on a network you trust; it sends the signed requests and the ledgers in the clear | `false` | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `proofs.store.with.publicUrl` (`s3`) | `https://` URL a run without credentials reads the default branch's ledger from, at `<publicUrl>/<prefix>/refs/heads/<default branch>/ledger.json.gz`; one with a user, a query or a fragment is refused | none | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | `proofs.store.with.bucket` (`gcs`) | a Cloud Storage bucket's name | none; required | [0028](.docs/decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
 | `proofs.store.with.prefix` (`gcs`, `azure`) | string | `mutation-gate` | [0028](.docs/decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
@@ -634,8 +636,14 @@ Two things the setup relies on:
   job's coverage instead of running the whole suite again, and allows each
   mutant the time its own covering tests take, not the whole suite's.
 
-The proof ledger's trust boundary is the store's access control. On GitHub,
-cache scoping keeps a pull request from writing what the default branch reads.
+The proof ledger's trust boundary is the store's access control. Withholding a
+variable keeps it out of the tests' environment, not out of the project's
+reach: a job that runs the project's tests or loads its config hands its code
+every secret the job holds. Give write credentials only to the default
+branch's runs
+([ADR-0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md)).
+On GitHub, cache scoping keeps a pull request from writing what the default
+branch reads.
 On GitLab, separate caches for protected branches do the same, and they also
 keep merge requests from reading the default branch's ledger. On Azure DevOps a
 pull request build reads the target branch's caches and cannot write them. On
@@ -782,6 +790,17 @@ the badge and trend to `.mutation-gate/publish` but does not publish them,
 because that needs `contents: write` in a job that also runs on pull requests.
 The reusable workflow publishes them.
 
+For an S3 store in the one-step job, add `AWS_ACCESS_KEY_ID` and
+`AWS_SECRET_ACCESS_KEY` as secrets of the environment `mutation-gate-store`,
+whose deployment branches are the default branch alone, and hand them to the
+gate's step from `secrets`. The job `init --ci=github --single` writes enters
+that environment on a push, a schedule or a manual run of the default branch,
+and none on any other run, so a pull request's run reads the store through
+`proofs.store.with.publicUrl`. The tests run in the gate's step, so every
+secret the job holds reaches the project's code. A branch can edit the
+workflow, so the environment's restriction, not the job's condition, keeps the
+keys from other branches.
+
 **Sharded, for large projects.** The reusable workflow runs a `plan` job, one
 `shard` job per shard and a `verdict` job. A last job, `publish`, runs on the
 default branch only and publishes the badge and trend.
@@ -868,6 +887,7 @@ mutation:
   needs: [mutation-plan]
   variables:
     PARENT_PIPELINE_ID: $CI_PIPELINE_ID
+    MUTATION_GATE_SOURCE: $CI_PIPELINE_SOURCE
   trigger:
     include:
       - artifact: .mutation-gate/pipeline.yml
@@ -876,9 +896,23 @@ mutation:
 ```
 
 The child pipeline holds one job with `parallel: matrix` over the shards and
-a verdict job that runs even after a failed shard, and the `mutation` trigger
-job takes its result. Keep `.mutation-gate/ledger` in a `cache:` keyed by
-branch, such as `key: mutation-gate-ledger-$CI_COMMIT_REF_SLUG`.
+a verdict that runs even after a failed shard, and the `mutation` trigger job
+takes its result. Keep `.mutation-gate/ledger` in a `cache:` keyed by branch,
+such as `key: mutation-gate-ledger-$CI_COMMIT_REF_SLUG`.
+
+For an S3 store, set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` as
+protected, masked CI/CD variables, which only protected branches' pipelines
+see, never a merge request's; keep the default branch the only protected one,
+or trust everyone who may push to one. The verdict is two jobs, of which one
+runs: `mutation-gate-verdict-store` on a push, a schedule or a manual run of
+the default branch, which `MUTATION_GATE_SOURCE` tells the child pipeline,
+since a child's own `CI_PIPELINE_SOURCE` is `parent_pipeline`; and
+`mutation-gate-verdict` on every other. The hidden job's `before_script` drops
+every variable the S3 store reads before `composer install` in every job but
+`mutation-gate-verdict-store`, so the plan and the shards, which run the
+project's tests, read the store through `proofs.store.with.publicUrl`. A
+branch can edit the pipeline, so the variables' protection, not the jobs'
+conditions, keeps the keys from other branches.
 
 ### Buildkite
 
@@ -887,6 +921,7 @@ steps:
   - label: "mutation: plan"
     artifact_paths: ".mutation-gate/**/*"
     command:
+      - unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_ROLE_ARN
       - composer install
       - |
         if [ "$BUILDKITE_PULL_REQUEST" != "false" ]; then base="--changed-since=origin/$BUILDKITE_PULL_REQUEST_BASE_BRANCH"
@@ -896,10 +931,27 @@ steps:
 ```
 
 The uploaded steps are one step per shard, a `wait` that continues on failure,
-then the verdict. Each is built from your step template (`ci.buildkite.step`),
-and they pass the plan and results with `buildkite-agent artifact`. Schedule
-the pipeline weekly for the full run, and keep `.mutation-gate/ledger` with a
-cache plugin keyed by branch.
+then the verdict, as two steps of which one runs. Each is built from your step
+template (`ci.buildkite.step`), and they pass the plan and results with
+`buildkite-agent artifact`. Schedule the pipeline weekly for the full run.
+
+A cache plugin keyed by branch can keep `.mutation-gate/ledger` between builds,
+but any branch can save a cache under any key on Buildkite, so a branch can
+plant proofs the default branch then trusts. Keep the ledger in S3 with
+credentials only the default branch's runs hold, and drop the cache steps. For
+an S3 store, hold `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` as the
+cluster secrets `MUTATION_GATE_STORE_AWS_ACCESS_KEY_ID` and
+`MUTATION_GATE_STORE_AWS_SECRET_ACCESS_KEY`, whose access policy allows only
+builds of the default branch, and never set them on the agents. A tag build's
+branch is the tag's name, so have the policy refuse tag builds, or keep anyone
+from pushing a tag named as the default branch. The verdict step
+`mutation-gate-verdict-store` fetches the keys with `buildkite-agent secret
+get` only on a push, a schedule, an API or a manual build of the default branch
+that is neither a pull request nor a tag; its keyless twin,
+`mutation-gate-verdict`, runs on every other build. A branch can edit the pipeline, so the secrets' access
+policy, not the step's condition, keeps the keys from other branches. The plan
+runs the whole suite, so it drops the keys before `composer install`, and
+reads the store through `proofs.store.with.publicUrl`.
 
 ### CircleCI
 
@@ -953,7 +1005,20 @@ jobs:
           paths: [.mutation-gate/ledger]
 
 workflows:
+  mutation-store:
+    when: &trusted
+      and:
+        - or:
+            - equal: [webhook, << pipeline.trigger_source >>]
+            - equal: [scheduled_pipeline, << pipeline.trigger_source >>]
+            - equal: [api, << pipeline.trigger_source >>]
+        - equal: [main, << pipeline.git.branch >>]
+    jobs:
+      - mutation-plan
+      - mutation: { requires: [mutation-plan] }
+      - mutation-verdict: { context: [mutation-gate-store], requires: [{ mutation: terminal }] }
   mutation:
+    unless: *trusted
     jobs:
       - mutation-plan
       - mutation: { requires: [mutation-plan] }
@@ -963,6 +1028,19 @@ workflows:
 `main` stands for your default branch. Add a weekly scheduled pipeline for the
 full run. The verdict requires `mutation` with the status `terminal`, so it
 runs, and says *cannot judge*, even when a shard failed.
+
+Any branch can save a cache under any key on CircleCI, so a branch can plant
+proofs the default branch then trusts. Keep the ledger in S3 with credentials
+only the default branch's runs hold, and drop the cache steps. For an S3
+store, set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in the context
+`mutation-gate-store`, restricted by the expression
+`pipeline.git.branch == "main"`. Only `mutation-verdict` uses it, in the
+workflow `mutation-store`, which runs on a push, a schedule or an API trigger
+of the default branch; every other run takes the workflow `mutation`, with no
+context. A branch can edit the config, so the context's restriction, not the
+workflow's condition, keeps the keys from other branches. The plan runs the
+whole suite, so it never holds the keys, and reads the store through
+`proofs.store.with.publicUrl`, as every other run's verdict does.
 
 ### Azure DevOps
 
@@ -989,11 +1067,22 @@ target's, and any other run reads only `main`'s and `master`'s besides its
 own. A cache is saved only by a job that succeeds, so a last job, which runs
 whatever the verdict decided, saves the ledger the verdict wrote. A pull
 request is named by `System.PullRequest.PullRequestNumber` where Azure sets it,
-as for a GitHub repository, and by its id otherwise. A fork's build gets no
-secrets, so where `System.PullRequest.IsFork` is `True` the plan and verdict steps
+as for a GitHub repository, and by its id otherwise.
+
+For an S3 store, the keys, `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, are
+secret variables of the variable group `mutation-gate-store`, whose Branch
+control check allows the default branch alone. The verdict job takes the group
+in, and maps the keys into its step, only on a push, a schedule or a manual run
+of the default branch. A branch can edit the template, so the check, not the
+template's condition, keeps the keys from other branches. The plan runs the
+whole suite, so it never holds them. It, and the verdict step where
+`System.PullRequest.IsFork` is `True`,
 drop every variable the S3 store reads, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_ROLE_ARN`,
-which Azure hands a fork as the literal text `$(NAME)`. The gate withholds `SYSTEM_ACCESSTOKEN`
-and `AZURE_DEVOPS_EXT_PAT` from the tests. Schedule the pipeline on the
+before the gate runs: a fork's build gets no secrets, and Azure hands it a
+mapped one as the literal text `$(NAME)`. Every run without the keys
+reads the default branch's ledger through `proofs.store.with.publicUrl`, so set
+it as described above. The gate withholds `SYSTEM_ACCESSTOKEN` and
+`AZURE_DEVOPS_EXT_PAT` from the tests. Schedule the pipeline on the
 default branch twice a week, with `always: true`, for the full run.
 
 ### Bitbucket Pipelines
@@ -1010,22 +1099,22 @@ default branch twice a week for the full run.
 
 Bitbucket's caches are shared by every branch, so the ledger lives in S3. Its
 keys, `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, are variables of the
-deployment environment `mutation-gate`, and only a step that deploys to it
-sees them. The verdicts of the default branch's pipeline and of
+deployment environment `mutation-gate-store`, and only a step that deploys to
+it sees them. The verdicts of the default branch's pipeline and of
 `mutation-full` deploy to it and write the ledger. Restrict the environment's
-deployments to the default branch, which takes Bitbucket Premium: without
-that, any branch whose pipeline names the environment gets the keys. Repository
-and workspace variables, secured or not, reach every branch's pipeline, so
-they cannot hold the keys.
+deployments to the default branch, which takes Bitbucket Premium: without that,
+any branch whose pipeline names the environment gets the keys. Repository and
+workspace variables, secured or not, reach every branch's pipeline, so they
+cannot hold the keys.
 
-Bitbucket runs a deployment only as an ordinary step, never as the `final`
-step that runs after a failed one. On the default branch, a failed shard
-therefore skips the verdict: the pipeline is red, with no *cannot judge*
-report. While one pipeline deploys to `mutation-gate`, Bitbucket pauses any
-other at its verdict; once the first ends, resume the paused pipeline or rerun
-it. A pull request's verdict is a `final` step with no keys, which runs
-whatever the shards did. Every step but the deploying verdict, the plan on the
-default branch included, reads the default branch's ledger through
+Bitbucket runs a deployment only as an ordinary step, never as the `final` step
+that runs after a failed one. On the default branch, a failed shard therefore
+skips the verdict: the pipeline is red, with no *cannot judge* report. While
+one pipeline deploys to `mutation-gate-store`, Bitbucket pauses any other at
+its verdict; once the first ends, resume the paused pipeline or rerun it. A
+pull request's verdict is a `final` step with no keys, which runs whatever the
+shards did. Every step but the deploying verdict, the plan on the default
+branch included, reads the default branch's ledger through
 `proofs.store.with.publicUrl`, so set it as described above. A pull request
 from a fork starts no pipeline. The gate withholds `BITBUCKET_STEP_OIDC_TOKEN`
 from the tests.
@@ -1070,16 +1159,16 @@ default branch twice a week. The plan fetches the branch it compares against
 with `git fetch`, so leave the clone whole and let the agents fetch from
 `origin`.
 
-Jenkins has no cache, so the ledger lives in S3. Its keys,
-`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, are the username and password
-of the credentials `mutation-gate`, which only the default branch's verdict
-binds. A credential reaches every build of the folder that holds it, and a
-branch's author writes its Jenkinsfile, so any branch whose Jenkinsfile Jenkins
-runs can bind it. To keep the keys from other branches, hold them in a folder
-whose multibranch pipeline builds the default branch alone, apart from the one
-that builds every other branch and pull request; otherwise trust only authors
-who may push to the default branch, in the branch source's trust setting.
-Every other step reads the default branch's ledger through
+Jenkins has no cache, so the ledger lives in S3. Its keys, `AWS_ACCESS_KEY_ID`
+and `AWS_SECRET_ACCESS_KEY`, are the username and password of
+the credentials `mutation-gate-store`, which only the default branch's verdict binds. A
+credential reaches every build of the folder that holds it, and a branch's
+author writes its Jenkinsfile, so any branch whose Jenkinsfile Jenkins runs can
+bind it. To keep the keys from other branches, hold them in a folder whose
+multibranch pipeline builds the default branch alone, apart from the one that
+builds every other branch and pull request; otherwise trust only authors who
+may push to the default branch, in the branch source's trust setting. Every
+other step reads the default branch's ledger through
 `proofs.store.with.publicUrl`, so set it as described above. Jenkins hands a
 build no credential of its own, so the gate withholds nothing more from the
 tests than every run does; add any other credential the pipeline binds to

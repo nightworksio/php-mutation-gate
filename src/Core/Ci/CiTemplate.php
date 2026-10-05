@@ -11,7 +11,6 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Series;
 use NightWorksIO\MutationGate\Core\NotGiven;
-use NightWorksIO\MutationGate\Core\ThisPackage;
 
 use function sprintf;
 
@@ -55,10 +54,11 @@ enum CiTemplate: string
     private const string GITLAB_TEMPLATES = '.gitlab/';
 
     /**
-     * What holds the store's keys where a CI holds them by a name, Bitbucket's deployment environment and Jenkins'
-     * credentials: named for the gate.
+     * What holds the store's keys where a CI holds them by a name, restricted to the default branch: GitHub's
+     * environment, Azure DevOps' variable group, CircleCI's context, Buildkite's secrets, Bitbucket's deployment
+     * environment and Jenkins' credentials.
      */
-    private const string KEY_HOLDER = ThisPackage::NAME;
+    private const string KEY_HOLDER = 'mutation-gate-store';
 
     /** The directory `init --ci=azure` writes the gate's template to: the gate's choice, not Azure's convention. */
     private const string AZURE_TEMPLATES = '.azure/';

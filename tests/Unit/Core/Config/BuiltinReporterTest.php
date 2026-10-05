@@ -32,3 +32,8 @@ it('says whether an entry of each reporter names a path', function (BuiltinRepor
     [BuiltinReporter::GitHubSummary, EntryPath::Refused],
     [BuiltinReporter::GitHubComment, EntryPath::Refused],
 ]);
+
+it('says which reporters send an alert', function (BuiltinReporter $reporter): void {
+    expect($reporter->alerts())
+        ->toBe(in_array($reporter, [BuiltinReporter::Slack, BuiltinReporter::Discord, BuiltinReporter::Webhook], strict: true));
+})->with(BuiltinReporter::cases());

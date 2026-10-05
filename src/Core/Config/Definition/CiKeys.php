@@ -27,6 +27,7 @@ final readonly class CiKeys
         $plan = Field::optional('plan', Adapter::choosing(Builtins::ciPlans($origin)), $judges);
         $branch = Field::optional('defaultBranch', Text::of('a branch name'), $judges);
         $check = Field::optional('check', Text::of('a check-run name'), $judges);
+        $trust = Field::optional('trustMergedPullRequests', Flag::boolean(), $judges);
         $results = Effect::AffectsResults;
         $template = Field::optional('template', Location::path($origin), $results);
         $step = Field::optional('step', StepTemplate::buildkite(), $judges);
@@ -77,13 +78,14 @@ final readonly class CiKeys
                     $plan,
                     $branch,
                     $check,
+                    $trust,
                     $gitlab,
                     $buildkite,
                     $azure,
                     $bitbucket,
                     $jenkins,
                 ): Layer|Invalid {
-                    $readings = [$plan->read($ci), $branch->read($ci), $check->read($ci)];
+                    $readings = [$plan->read($ci), $branch->read($ci), $check->read($ci), $trust->read($ci)];
                     $inner = [
                         $gitlab->read($ci),
                         $buildkite->read($ci),
@@ -98,6 +100,7 @@ final readonly class CiKeys
                                 plan: $readings[0]->value(),
                                 defaultBranch: $readings[1]->value(),
                                 check: $readings[2]->value(),
+                                trustMergedPullRequests: $readings[3]->value(),
                             ),
                             ...$inner,
                         )),
@@ -108,6 +111,7 @@ final readonly class CiKeys
                 $plan,
                 $branch,
                 $check,
+                $trust,
                 $gitlab,
                 $buildkite,
                 $azure,

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use function array_map;
+
 /** The CI plans this package builds in, by the name a config chooses each by. */
 enum BuiltinCiPlan: string
 {
@@ -22,6 +24,12 @@ enum BuiltinCiPlan: string
     case Jenkins = 'jenkins';
 
     case Json = 'json';
+
+    /** @return list<string> the names of the CI plans built in, each with a builder method of its own */
+    public static function names(): array
+    {
+        return array_map(static fn(self $plan): string => $plan->value, self::cases());
+    }
 
     public function named(): Name
     {

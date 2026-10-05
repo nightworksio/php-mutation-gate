@@ -6,13 +6,13 @@
 # Keep the ledger in S3 (proofs.store: s3): Bitbucket's caches are shared by
 # every branch, so none of them keeps a branch from planting proofs. Hold
 # AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as variables of the deployment
-# environment mutation-gate, and restrict its deployments to trunk, which
+# environment mutation-gate-store, and restrict its deployments to trunk, which
 # takes Bitbucket Premium. Without that restriction, any branch whose pipeline
 # names the environment gets the keys.
 # The verdicts of trunk's pipeline and of mutation-full deploy to
-# mutation-gate and write the ledger. A deployment cannot be a final step, so
+# mutation-gate-store and write the ledger. A deployment cannot be a final step, so
 # Bitbucket skips such a verdict after a failed shard: the pipeline is red,
-# with no "cannot judge" report. While one pipeline deploys to mutation-gate,
+# with no "cannot judge" report. While one pipeline deploys to mutation-gate-store,
 # Bitbucket pauses any other at its verdict, to be resumed or rerun once the
 # first ends. Every other step runs with no keys and reads trunk's ledger
 # through proofs.store.with.publicUrl, so set it, and give the bucket a public
@@ -59,7 +59,7 @@ pipelines:
           - step: *mutation-shard
       - step:
           <<: *mutation-verdict
-          deployment: 'mutation-gate'
+          deployment: 'mutation-gate-store'
   pull-requests:
     '**':
       - step:
@@ -96,4 +96,4 @@ pipelines:
           - step: *mutation-shard
       - step:
           <<: *mutation-verdict
-          deployment: 'mutation-gate'
+          deployment: 'mutation-gate-store'

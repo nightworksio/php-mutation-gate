@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\GitLab;
 use function array_map;
 use function count;
 use function getenv;
+use function implode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
@@ -49,6 +50,15 @@ final readonly class GitLabPlan implements CiPlan, Configurable
     /** Where the child pipeline is written. */
     public const string PIPELINE = '.mutation-gate/pipeline.yml';
 
+    /**
+     * The variable the parent pipeline hands the child its own source in, since a child pipeline's
+     * `CI_PIPELINE_SOURCE` is always `parent_pipeline`.
+     */
+    public const string SOURCE = 'MUTATION_GATE_SOURCE';
+
+    /** The verdict job that holds the store's keys, the one job the template's `before_script` leaves them to. */
+    public const string STORE_VERDICT = 'mutation-gate-verdict-store';
+
     private const string SHARD_JOB = 'mutation-gate-shard';
 
     private const string HIDDEN_JOB = '.mutation-gate';
@@ -58,6 +68,12 @@ final readonly class GitLabPlan implements CiPlan, Configurable
     private const string NEEDS = 'needs';
 
     private const string SCRIPT = 'script';
+
+    /** What starts a pipeline the store's keys are for: a push, a schedule or a person. */
+    private const array TRUSTED_SOURCES = ['push', 'schedule', 'web'];
+
+    /** A pipeline of the default branch started by one of the sources. */
+    private const string TRUSTED = '(%s) && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH';
 
     private function __construct(private CiJob $job, private string $template, private string $pipeline)
     {
@@ -129,11 +145,15 @@ final readonly class GitLabPlan implements CiPlan, Configurable
         return CiMarker::saying(Variables::GITLAB_CI);
     }
 
-    /** The job's token and its signed identity, and the registry's and deploy tokens' passwords. */
+    /**
+     * The job's token, the clone URL that embeds it, the job's signed
+     * identity, and the registry's and deploy tokens' passwords.
+     */
     public static function withheld(): Withheld
     {
         return Withheld::of(
             'CI_JOB_TOKEN',
+            'CI_REPOSITORY_URL',
             'CI_JOB_JWT*',
             'CI_REGISTRY_PASSWORD',
             'CI_DEPLOY_PASSWORD',
@@ -157,16 +177,26 @@ final readonly class GitLabPlan implements CiPlan, Configurable
             'artifacts' => ['when' => 'always', 'paths' => ['.mutation-gate/results/']],
         ];
 
+        $sources = array_map(
+            static fn(string $source): string => sprintf('$%s == "%s"', self::SOURCE, $source),
+            self::TRUSTED_SOURCES,
+        );
+        $trusted = sprintf(self::TRUSTED, implode(' || ', $sources));
+        $verdict = [
+            self::EXTENDS => self::HIDDEN_JOB,
+            self::NEEDS => count($shards) === 0 ? [$fromThePlan] : [$fromThePlan, ['job' => self::SHARD_JOB]],
+            self::SCRIPT => [
+                'vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results',
+            ],
+        ];
+
         return [
             'include' => [['local' => $this->template]],
             ...count($shards) === 0 ? [] : [self::SHARD_JOB => $shardJob],
+            self::STORE_VERDICT => [...$verdict, 'rules' => [['if' => $trusted, 'when' => 'always']]],
             'mutation-gate-verdict' => [
-                self::EXTENDS => self::HIDDEN_JOB,
-                self::NEEDS => count($shards) === 0 ? [$fromThePlan] : [$fromThePlan, ['job' => self::SHARD_JOB]],
-                'when' => 'always',
-                self::SCRIPT => [
-                    'vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results',
-                ],
+                ...$verdict,
+                'rules' => [['if' => $trusted, 'when' => 'never'], ['when' => 'always']],
             ],
         ];
     }

@@ -10,7 +10,7 @@
 // Keep the ledger in S3 (proofs.store: s3): Jenkins has no cache, so only the
 // keys can keep a branch from planting proofs. Hold AWS_ACCESS_KEY_ID and
 // AWS_SECRET_ACCESS_KEY as the username and password of the credentials
-// mutation-gate, which only trunk's verdict binds to write the ledger. A
+// mutation-gate-store, which only trunk's verdict binds to write the ledger. A
 // credential reaches every build of the folder that holds it, and a branch's
 // author writes its Jenkinsfile, so any branch whose Jenkinsfile Jenkins runs
 // can bind it: hold it in a folder whose multibranch pipeline builds
@@ -97,7 +97,7 @@ pipeline {
         sh 'mkdir -p .mutation-gate/results'
         def verdict = 'vendor/bin/mutation-gate verdict --ci=jenkins --plan=.mutation-gate/plan.json --results=.mutation-gate/results'
         if (env.BRANCH_NAME == env.MUTATION_GATE_DEFAULT_BRANCH && env.CHANGE_ID == null) {
-          withCredentials([usernamePassword(credentialsId: 'mutation-gate', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+          withCredentials([usernamePassword(credentialsId: 'mutation-gate-store', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
             sh verdict
           }
         } else {

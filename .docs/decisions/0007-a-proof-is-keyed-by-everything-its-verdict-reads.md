@@ -353,7 +353,7 @@ has to bring its result with it.
    |---------|------------|
    | **Directory** (`directory`) | One file per scope, `<path>/<scope>/ledger.json.gz`, where `path` is `.mutation-gate/ledger` by default (`proofs.store: {use: directory, with: {path: …}}`). The default locally, and the base of every CI cache: GitLab's `cache:`, Buildkite's cache plugins and CircleCI's `save_cache` keep the directory. |
    | **GitHub Actions cache** | The directory store, kept by the action and the reusable workflow (ADR-0011) when their `cache` input is `true`, as it is by default. The cache service is reachable only from inside an action, so PHP never calls it. Before the run, `actions/cache/restore` restores two entries, each into its scope's directory: the newest under the prefix `mutation-gate-ledger-<SHA-256 of the ref>-`, and the newest under `mutation-gate-ledger-<SHA-256 of the default branch's ref>-`. After the verdict, `actions/cache/save` saves the run's own scope as `mutation-gate-ledger-<SHA-256 of the ref>-<SHA-256 of its ledger>`, so an unchanged ledger is not saved twice. Digests of the refs keep one scope's prefix from being a prefix of another's. |
-   | **S3-compatible** (`s3`: AWS S3, Cloudflare R2, MinIO) | One object per scope, `<prefix>/<scope>/ledger.json.gz`, through `async-aws/s3`, which is in `suggest`. Its options are `bucket` (required), `prefix` (`mutation-gate` by default), `region` (`us-east-1` by default; R2 takes `auto`), `endpoint` (AWS's own by default; R2's is `https://<account>.r2.cloudflarestorage.com`) and `publicUrl` (none by default: an `https://` base a run without credentials reads from, ADR-0013). Credentials come from `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and, when set, `AWS_SESSION_TOKEN`, and from nowhere else: no `~/.aws` file, instance, container or web identity role is read, so a self-hosted runner never lends the store its host's role. With `AWS_ROLE_ARN` set, those keys assume that role. |
+   | **S3-compatible** (`s3`: AWS S3, Cloudflare R2, MinIO) | One object per scope, `<prefix>/<scope>/ledger.json.gz`, through `async-aws/s3`, which is in `suggest`. Its options are `bucket` (required), `prefix` (`mutation-gate` by default), `region` (`us-east-1` by default; R2 takes `auto`), `endpoint` (an `https://` URL, or `http://` where `insecureEndpoint` is true; AWS's own by default; R2's is `https://<account>.r2.cloudflarestorage.com`) and `publicUrl` (none by default: an `https://` base a run without credentials reads from, ADR-0013). Credentials come from `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and, when set, `AWS_SESSION_TOKEN`, and from nowhere else: no `~/.aws` file, instance, container or web identity role is read, so a self-hosted runner never lends the store its host's role. With `AWS_ROLE_ARN` set, those keys assume that role. |
    | **Google Cloud Storage** (`gcs`) | One object per scope, `<prefix>/<scope>/ledger.json.gz`, read and written over the XML API through `symfony/http-client`. Its options are `bucket` (required), `prefix` (`mutation-gate` by default) and `publicUrl` (none by default). Its token comes from the `external_account` file `GOOGLE_APPLICATION_CREDENTIALS` names, exchanged at Google's STS and, where the file says, for a service account's token, or from `MUTATION_GATE_GCS_TOKEN`. A service-account key is refused (ADR-0028). |
    | **Azure Blob Storage** (`azure`) | One block blob per scope, `<prefix>/<scope>/ledger.json.gz`, through `symfony/http-client`. Its options are `account` and `container` (both required), `prefix` (`mutation-gate` by default), `publicContainer`, which keeps the default branch's scope where it is set, and `publicUrl` (none by default). Its token is GitHub's OIDC token exchanged at Microsoft Entra ID for the tenant and client `AZURE_TENANT_ID` and `AZURE_CLIENT_ID` name, or `MUTATION_GATE_AZURE_TOKEN`. No account key or shared access signature is read (ADR-0028). |
 
@@ -388,6 +388,23 @@ has to bring its result with it.
      there is no trust boundary. Keying it by branch, as the README's examples
      do, keeps branches apart by accident only. The boundary there is S3, with
      credentials that only default-branch runs hold.
+   - **In the definitions `init --ci` writes**, the store's keys reach only a
+     trusted run: a push, a schedule or a manual run of the default branch,
+     whose name `init` writes into the definition, so an empty name trusts
+     nothing. A branch can edit a definition, so its condition only keeps an
+     honest run from asking for the keys. The boundary is a holder the CI
+     itself restricts to the default branch, outside any file a branch can
+     edit: the GitHub environment, Azure DevOps variable group, CircleCI
+     context, Buildkite cluster secrets, Bitbucket deployment environment and
+     Jenkins credentials `mutation-gate-store`, restricted by a deployment
+     branch policy, a Branch control check, an expression restriction, an
+     access policy, a deployment restriction and a folder that builds the
+     default branch alone, and GitLab's protected variables. Where the plan
+     and the shards run in jobs of their own, they hold no keys and read the
+     default branch's ledger from `publicUrl`. A verdict that holds the keys
+     still installs the project and loads its config, and GitHub's one-step
+     job runs the tests beside them, so there the keys are within the
+     project's reach on the default branch.
 
 ## Alternatives considered
 

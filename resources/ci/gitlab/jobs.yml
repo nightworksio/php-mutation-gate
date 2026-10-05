@@ -24,6 +24,7 @@ mutation:
     - mutation-plan
   variables:
     PARENT_PIPELINE_ID: $CI_PIPELINE_ID
+    MUTATION_GATE_SOURCE: $CI_PIPELINE_SOURCE
   trigger:
     include:
       - artifact: .mutation-gate/pipeline.yml

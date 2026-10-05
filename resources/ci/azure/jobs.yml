@@ -5,12 +5,17 @@
 # on ubuntu-latest: give each a container with PHP %%php%% and pcov, or install
 # them in a step before composer install. No hosted image is known to include
 # pcov, and without it the first run cannot judge.
-# For an S3 proof store, map AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY from
-# secret variables into the env of the plan and verdict steps alone: a shard
-# needs neither. A fork's build gets no secrets, and Azure hands it a mapped
-# one as the text $(NAME), so where System.PullRequest.IsFork is True those
-# two steps drop every variable the S3 store reads before the gate runs:
-# %%s3%%.
+# For an S3 proof store, hold AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as
+# secret variables of the variable group %%keys%%, and give the
+# group a Branch control check that allows refs/heads/%%branch%% alone. The
+# verdict takes the group in, and maps the keys into its step, only on a push,
+# a schedule or a manual run of %%branch%%. The plan runs the whole suite, so
+# it never holds the keys: it drops every variable the S3 store reads, %%s3%%,
+# and reads the store through proofs.store.with.publicUrl, as every other
+# run's verdict does. A branch can edit this file, so the keys' protection is
+# the group's Branch control check, not the condition below. A fork's build
+# gets no secrets, and Azure hands it a mapped one as the text $(NAME), so
+# where System.PullRequest.IsFork is True the verdict drops them too.
 jobs:
   - job: mutation_plan
     displayName: 'mutation: plan'
@@ -41,7 +46,7 @@ jobs:
         displayName: 'mutation: composer install'
       - bash: |
           set -eu
-          if [ "${SYSTEM_PULLREQUEST_ISFORK:-}" = "True" ]; then unset %%s3%%; fi
+          unset %%s3%%
           target="${SYSTEM_PULLREQUEST_TARGETBRANCH:-}"
           target="${target#refs/heads/}"
           if [ "$BUILD_REASON" = "Schedule" ]; then base=""
@@ -89,6 +94,9 @@ jobs:
     condition: succeededOrFailed()
     pool:
       vmImage: ubuntu-latest
+    variables:
+      - ${{ if and(in(variables['Build.Reason'], 'IndividualCI', 'BatchedCI', 'Schedule', 'Manual'), eq(variables['Build.SourceBranch'], 'refs/heads/%%branch%%')) }}:
+          - group: %%keys%%
     steps:
       - checkout: self
       - download: current
@@ -110,6 +118,10 @@ jobs:
           if [ "${SYSTEM_PULLREQUEST_ISFORK:-}" = "True" ]; then unset %%s3%%; fi
           vendor/bin/mutation-gate verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results
         displayName: 'mutation: verdict'
+        ${{ if and(in(variables['Build.Reason'], 'IndividualCI', 'BatchedCI', 'Schedule', 'Manual'), eq(variables['Build.SourceBranch'], 'refs/heads/%%branch%%')) }}:
+          env:
+            AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+            AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
       - publish: .mutation-gate/ledger
         artifact: mutation-ledger
         condition: succeededOrFailed()

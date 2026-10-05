@@ -11,6 +11,7 @@ enum StoreOption: string
     case Prefix = 'prefix';
     case Region = 'region';
     case Endpoint = 'endpoint';
+    case InsecureEndpoint = 'insecureEndpoint';
     case PublicUrl = 'publicUrl';
     case Account = 'account';
     case Container = 'container';

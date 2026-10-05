@@ -610,6 +610,10 @@
                     "minLength": 1,
                     "default": "mutation / verdict"
                 },
+                "trustMergedPullRequests": {
+                    "type": "boolean",
+                    "default": true
+                },
                 "gitlab": {
                     "type": "object",
                     "properties": {
@@ -747,6 +751,10 @@
                                         "endpoint": {
                                             "type": "string",
                                             "pattern": "^https?://."
+                                        },
+                                        "insecureEndpoint": {
+                                            "type": "boolean",
+                                            "default": false
                                         },
                                         "publicUrl": {
                                             "type": "string",

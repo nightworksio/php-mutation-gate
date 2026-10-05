@@ -1,9 +1,15 @@
-# Written by `mutation-gate init --ci=gitlab`, for the gate %%version%%.
-# The jobs `mutation-gate plan --ci=gitlab` generates extend this hidden job,
-# and so does the plan job in .gitlab-ci.yml. For an S3 proof store, set
-# AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as protected, masked CI/CD
-# variables, which only protected branches' pipelines see, never a merge
-# request's; a shard needs neither.
+# Written by `mutation-gate init --ci=gitlab`, for the gate %%version%%. The
+# jobs `mutation-gate plan --ci=gitlab` generates extend this hidden job, and
+# so does the plan job in .gitlab-ci.yml.
+# For an S3 proof store, set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as
+# protected, masked CI/CD variables, which only protected branches' pipelines
+# see, never a merge request's: keep %%branch%% the only protected branch, or
+# trust everyone who may push to one. The generated verdict job mutation-gate-
+# verdict-store keeps them, and runs only on a push, a schedule or a manual
+# run of %%branch%%; every other job drops them before composer install, and
+# reads the store through proofs.store.with.publicUrl. A branch can edit this
+# file, so the keys' protection is the variables' protection, not the line
+# below.
 .mutation-gate:
   # image: <an image with PHP %%php%% and pcov>
   # No official image is known to include pcov, and without it the first run
@@ -13,4 +19,5 @@
     paths:
       - .mutation-gate/ledger/
   before_script:
+    - '[ "$CI_JOB_NAME" = "mutation-gate-verdict-store" ] || unset %%s3%%'
     - composer install --no-interaction --no-progress

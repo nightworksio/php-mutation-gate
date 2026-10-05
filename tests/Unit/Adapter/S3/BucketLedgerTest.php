@@ -66,7 +66,7 @@ it('keeps the prefix without its slashes, and no prefix at all where it is empty
 
 it('addresses a bucket at another endpoint by path', function () use ($proved): void {
     $bucket = new Bucket();
-    $client = $bucket->client('{"bucket": "ledgers", "endpoint": "http://minio.test:9000"}');
+    $client = $bucket->client('{"bucket": "ledgers", "endpoint": "http://minio.test:9000", "insecureEndpoint": true}');
     BucketLedger::of($client, 'ledgers', 'mutation-gate')->write(Scope::branch('main'), $proved());
 
     expect(array_column($bucket->requests, 'url'))

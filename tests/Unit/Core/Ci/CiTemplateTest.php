@@ -3,12 +3,16 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Azure\AzurePlan;
+use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
+use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Ci\BuildkiteStep;
 use NightWorksIO\MutationGate\Core\Ci\CiTemplate;
 use NightWorksIO\MutationGate\Core\Ci\GatePin;
 use NightWorksIO\MutationGate\Core\Ci\GitHubWorkflow;
 use NightWorksIO\MutationGate\Core\Ci\Printed;
 use NightWorksIO\MutationGate\Core\Ci\TemplateValues;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
@@ -20,6 +24,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Schema;
+use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
 use Symfony\Component\Yaml\Yaml;
 
 /**
@@ -96,6 +101,69 @@ function bitbucketLastStep(string $json, string ...$pipeline): array
 function ciTemplateJson(string $yaml): string
 {
     return (string) json_encode(Yaml::parse($yaml));
+}
+
+/**
+ * A YAML node with each of Azure's `${{ if }}` insertions expanded as Azure expands a template: its keys or items
+ * taken in where the condition holds, and left out where it does not.
+ */
+function azureExpanded(mixed $node, bool $holds): mixed
+{
+    $expanded = [];
+
+    foreach (is_array($node) ? $node : [] as $key => $value) {
+        $expanded = azureTaken($expanded, $key, $value, $holds);
+    }
+
+    return is_array($node) ? $expanded : $node;
+}
+
+/** A rendered Azure template as the JSON a schema validates, with each insertion expanded one way. */
+function azureExpansion(string $yaml, bool $holds): string
+{
+    return (string) json_encode(azureExpanded(Yaml::parse($yaml), $holds));
+}
+
+/**
+ * A node's entries; none for a scalar.
+ *
+ * @return array<array-key, mixed>
+ */
+function azureList(mixed $node): array
+{
+    return is_array($node) ? $node : [];
+}
+
+/** The condition an insertion's key holds, a mapping's own or a list item's only one; empty for any other entry. */
+function azureInsertion(int|string $key, mixed $value): string
+{
+    $named = match (true) {
+        is_string($key) => $key,
+        is_array($value) && count($value) === 1 => array_key_first($value),
+        default => '',
+    };
+
+    return is_string($named) && str_starts_with($named, '${{ if ') ? $named : '';
+}
+
+/**
+ * What an expansion holds once this entry is taken in: the entry itself, or what its insertion holds.
+ *
+ * @param  array<array-key, mixed> $expanded
+ * @return array<array-key, mixed>
+ */
+function azureTaken(array $expanded, int|string $key, mixed $value, bool $holds): array
+{
+    $insertion = azureInsertion($key, $value);
+    $inserted = is_array($value) && array_key_exists($insertion, $value) ? $value[$insertion] : $value;
+
+    return match (true) {
+        $insertion === '' && is_int($key) => [...$expanded, azureExpanded($value, $holds)],
+        $insertion === '' => [...$expanded, $key => azureExpanded($value, $holds)],
+        ! $holds => $expanded,
+        is_string($key) => [...$expanded, ...azureList(azureExpanded($value, $holds))],
+        default => [...$expanded, ...array_values(azureList(azureExpanded($inserted, $holds)))],
+    };
 }
 
 /**
@@ -188,8 +256,16 @@ it('fills in every placeholder', function (CiTemplate $template): void {
 
 it('renders YAML the provider\'s published schema accepts', function (CiTemplate $template): void {
     [$provider] = explode('/', $template->value);
+    $rendered = ciTemplateRendered($template);
+    $expansions = [ciTemplateJson($rendered)];
 
-    expect(Schema::errors(ciTemplateJson(ciTemplateRendered($template)), ciSchema($provider)))->toBe([]);
+    if ($provider === 'azure') {
+        $expansions = [azureExpansion($rendered, holds: true), azureExpansion($rendered, holds: false)];
+    }
+
+    foreach ($expansions as $json) {
+        expect(Schema::errors($json, ciSchema($provider)))->toBe([]);
+    }
 })->with(ciSchemaTemplates());
 
 it('renders each template as its snapshot', function (CiTemplate $template): void {
@@ -257,12 +333,12 @@ it('leaves the file of the gate\'s jobs unchecked and unfilled where the CI\'s d
         ->and($values instanceof TemplateValues ? $values->rendered('%%included%% %%runner%%') : '')->toBe('%%included%% pest');
 });
 
-it('quotes every value a project gives wherever a template holds it, and runs none in a shell line', function (
+it('quotes every value a project gives wherever a template holds it, a ref\'s branch within its quoted ref, and runs none in a shell line', function (
     CiTemplate $template,
 ): void {
     $lines = explode("\n", (string) file_get_contents(Schema::at(sprintf('resources/ci/%s', $template->value))));
     $unquoted = array_filter($lines, static fn(string $line): bool => ! str_starts_with(trim($line), ciCommentMark($template))
-        && preg_match("/(?<!')%%(branch|runner|included|check)%%|%%(branch|runner|included|check)%%(?!')/", $line) === 1);
+        && preg_match("/(?<!')(?<!'refs\/heads\/)%%(branch|runner|included|check)%%|%%(branch|runner|included|check)%%(?!')/", $line) === 1);
 
     expect(array_values($unquoted))->toBe([]);
 })->with(CiTemplate::cases());
@@ -290,18 +366,31 @@ it('reads the plan\'s matrix from the output the Azure plan sets, and each leg\'
         ->and($jobs)->toContain(sprintf('mutation-results-$(%s)', WhichShard::VARIABLE));
 });
 
-it('drops every variable the bucket store reads in the Azure plan and verdict steps of a fork\'s build, before the gate runs', function (): void {
-    $guard = sprintf(
-        'if [ "${SYSTEM_PULLREQUEST_ISFORK:-}" = "True" ]; then unset %s; fi',
-        implode(' ', [...BuiltinStore::S3->variables()]),
-    );
+it('drops every variable the bucket store reads in the Azure plan step, and in the verdict step of a fork\'s build, before the gate runs', function (): void {
+    $variables = implode(' ', [...BuiltinStore::S3->variables()]);
     $jobs = ciTemplateRendered(CiTemplate::AzureJobs);
+    $step = static function (string $gate) use ($jobs): string {
+        $before = substr($jobs, 0, (int) strpos($jobs, $gate));
 
-    foreach (['vendor/bin/mutation-gate plan', 'vendor/bin/mutation-gate verdict'] as $gate) {
-        $step = substr($jobs, 0, (int) strpos($jobs, $gate));
+        return substr($before, (int) strrpos($before, '- bash: |'));
+    };
 
-        expect(substr($step, (int) strrpos($step, '- bash: |')))->toContain($guard);
-    }
+    expect($step('vendor/bin/mutation-gate plan'))->toContain(sprintf("          unset %s\n", $variables))
+        ->and($step('vendor/bin/mutation-gate verdict'))
+        ->toContain(sprintf('if [ "${SYSTEM_PULLREQUEST_ISFORK:-}" = "True" ]; then unset %s; fi', $variables));
+});
+
+it('hands Azure\'s keys to the verdict alone, from the variable group, on a push, a schedule or a manual run of the default branch', function (): void {
+    $jobs = ciTemplateRendered(CiTemplate::AzureJobs);
+    $trusted = "\${{ if and(in(variables['Build.Reason'], 'IndividualCI', 'BatchedCI', 'Schedule', 'Manual'), eq(variables['Build.SourceBranch'], 'refs/heads/trunk')) }}:";
+    $verdict = substr($jobs, (int) strpos($jobs, '- job: mutation_verdict'), (int) strpos($jobs, '- job: mutation_ledger') - (int) strpos($jobs, '- job: mutation_verdict'));
+
+    $group = sprintf('group: %s', CiTemplate::keyHolder());
+
+    expect(substr_count($jobs, $group))->toBe(1)
+        ->and(substr_count($jobs, 'AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)'))->toBe(1)
+        ->and($verdict)->toContain(sprintf("      - %s\n          - %s\n", $trusted, $group))
+        ->and($verdict)->toContain(sprintf("        %s\n          env:\n            AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)\n", $trusted));
 });
 
 it('names every variable the bucket store reads in the README, where a fork\'s build drops them on Azure', function (): void {
@@ -353,6 +442,50 @@ it('cuts as many shards as each Bitbucket pipeline runs parallel steps', functio
     'a pull request' => ['pull-requests', '**'],
     'the full run' => ['custom', 'mutation-full'],
 ]);
+
+it('hands CircleCI\'s context to the verdict alone, in the workflow that runs on a push, a schedule or an API trigger of the default branch', function (): void {
+    $rendered = ciTemplateRendered(CiTemplate::CircleCi);
+    $json = ciTemplateJson($rendered);
+    $trusted = ['and' => [
+        ['or' => [
+            ['equal' => ['webhook', '<< pipeline.trigger_source >>']],
+            ['equal' => ['scheduled_pipeline', '<< pipeline.trigger_source >>']],
+            ['equal' => ['api', '<< pipeline.trigger_source >>']],
+        ]],
+        ['equal' => ['trunk', '<< pipeline.git.branch >>']],
+    ]];
+
+    expect(Decoded::at($json, 'workflows'))->toHaveCount(2)
+        ->and(Decoded::at($json, 'workflows', 'mutation-store', 'when'))->toBe($trusted)
+        ->and(Decoded::at($json, 'workflows', 'mutation', 'unless'))->toBe($trusted)
+        ->and(Decoded::at($json, 'workflows', 'mutation-store', 'jobs', 2, 'mutation-verdict', 'context'))
+        ->toBe([CiTemplate::keyHolder()])
+        ->and(substr_count($rendered, "          context:\n"))->toBe(1);
+});
+
+it('leaves the store\'s keys in GitLab\'s jobs to the verdict that keeps them alone, and hands the child the parent\'s source', function (): void {
+    expect(ciTemplateRendered(CiTemplate::GitLabTemplate))->toContain(sprintf(
+        "  before_script:\n    - '[ \"\$CI_JOB_NAME\" = \"%s\" ] || unset %s'\n    - composer install",
+        GitLabPlan::STORE_VERDICT,
+        implode(' ', [...BuiltinStore::S3->variables()]),
+    ))
+        ->and(ciTemplateRendered(CiTemplate::GitLabJobs))->toContain(sprintf("    %s: \$CI_PIPELINE_SOURCE\n", GitLabPlan::SOURCE));
+});
+
+it('names in Buildkite\'s pipeline and the README the cluster secrets the verdict fetches, and drops the keys before the plan installs', function (): void {
+    $steps = Decoded::at(BuildkitePlan::of(BuildkiteStep::none(), Variables::of([]))->publish(ShardedPlan::of(0))->text(), 'steps', 1, 'command');
+    preg_match_all('/secret get (\S+)\)/', implode("\n", array_filter(is_array($steps) ? $steps : [], is_string(...))), $secrets);
+    $pipeline = ciTemplateRendered(CiTemplate::BuildkitePipeline);
+    $readme = (string) file_get_contents(Schema::at('README.md'));
+
+    expect($secrets[1])->toHaveCount(2)
+        ->and($pipeline)->toContain(sprintf("      - unset %s\n      - composer install", implode(' ', [...BuiltinStore::S3->variables()])));
+
+    foreach ($secrets[1] as $secret) {
+        expect(str_replace("\n# ", ' ', $pipeline))->toContain($secret)
+            ->and($readme)->toContain(sprintf('`%s`', $secret));
+    }
+});
 
 it('names the deployment environment that holds the keys in the README', function (): void {
     expect((string) file_get_contents(Schema::at('README.md')))

@@ -59,4 +59,15 @@ enum BuiltinReporter: string
             self::GitHubAnnotations, self::GitHubSummary, self::GitHubComment => EntryPath::Refused,
         };
     }
+
+    /** Whether this reporter sends an alert, reading its URL and secret from the variables `AlertOption` names. */
+    public function alerts(): bool
+    {
+        return match ($this) {
+            self::Slack, self::Discord, self::Webhook => true,
+            self::Json, self::JUnit, self::Sarif, self::Html, self::Tests, self::KillMatrix, self::GitLab,
+            self::Sonar, self::Badge, self::Console, self::Problems, self::Otlp, self::GitHubAnnotations,
+            self::GitHubSummary, self::GitHubComment => false,
+        };
+    }
 }

@@ -50,11 +50,43 @@ $run = static fn(int $shard): string => sprintf(
 
 $wait = ['type' => 'wait', 'continue_on_failure' => true];
 
-$verdict = [
-    'label' => 'mutation: verdict',
-    'key' => 'mutation-gate-verdict',
-    'command' => [BUILDKITE_DOWNLOAD, BUILDKITE_VERDICT],
+const BUILDKITE_TRUSTED = '(build.source == "webhook" || build.source == "schedule" || build.source == "api"'
+    . ' || build.source == "ui") && build.branch == pipeline.default_branch && build.pull_request.id == null'
+    . ' && build.tag == null';
+
+const BUILDKITE_FETCHED = [
+    'export AWS_ACCESS_KEY_ID="$$(buildkite-agent secret get MUTATION_GATE_STORE_AWS_ACCESS_KEY_ID)"',
+    'export AWS_SECRET_ACCESS_KEY="$$(buildkite-agent secret get MUTATION_GATE_STORE_AWS_SECRET_ACCESS_KEY)"',
 ];
+
+/**
+ * The two verdict steps: the one that fetches the store's keys, on a build the keys are for, and its twin without
+ * them on every other, each running these commands first.
+ *
+ * @param  array<string, mixed>       $template
+ * @return list<array<string, mixed>>
+ */
+function buildkiteVerdicts(array $template = [], string ...$first): array
+{
+    return [
+        [
+            ...$template,
+            'label' => 'mutation: verdict',
+            'key' => 'mutation-gate-verdict-store',
+            'command' => [...$first, BUILDKITE_DOWNLOAD, ...BUILDKITE_FETCHED, BUILDKITE_VERDICT],
+            'if' => BUILDKITE_TRUSTED,
+        ],
+        [
+            ...$template,
+            'label' => 'mutation: verdict',
+            'key' => 'mutation-gate-verdict',
+            'command' => [...$first, BUILDKITE_DOWNLOAD, BUILDKITE_VERDICT],
+            'if' => sprintf('!(%s)', BUILDKITE_TRUSTED),
+        ],
+    ];
+}
+
+$verdict = buildkiteVerdicts();
 
 $on = static fn(Variables $variables): BuildkitePlan => BuildkitePlan::of(BuildkiteStep::none(), $variables);
 
@@ -81,7 +113,7 @@ it('prints a step per shard, a wait that continues on failure, and the verdict',
                 'artifact_paths' => '.mutation-gate/results/2.json',
             ],
             $wait,
-            $verdict,
+            ...$verdict,
         ]);
 });
 
@@ -93,7 +125,7 @@ it('builds every command step from the template, whose commands run first', func
     $template = ['agents' => ['queue' => 'mutation'], 'command' => 'composer install', 'env' => ['CI' => 'true']];
     $printed = BuildkitePlan::of(BuildkiteStep::of(Configs::options((string) json_encode($template))->written()), Variables::of([]))->publish(ShardedPlan::of(1))->text();
 
-    expect($stepsIn($printed))->toBe([
+    expect($stepsIn($printed))->toEqual([
         [
             'agents' => ['queue' => 'mutation'],
             'command' => ['composer install', BUILDKITE_DOWNLOAD, $run(1)],
@@ -103,13 +135,7 @@ it('builds every command step from the template, whose commands run first', func
             'artifact_paths' => '.mutation-gate/results/1.json',
         ],
         $wait,
-        [
-            'agents' => ['queue' => 'mutation'],
-            'command' => ['composer install', BUILDKITE_DOWNLOAD, BUILDKITE_VERDICT],
-            'env' => ['CI' => 'true'],
-            'label' => 'mutation: verdict',
-            'key' => 'mutation-gate-verdict',
-        ],
+        ...buildkiteVerdicts(['agents' => ['queue' => 'mutation'], 'env' => ['CI' => 'true']], 'composer install'),
     ]);
 });
 
@@ -117,11 +143,7 @@ it('runs a template\'s list of commands first', function () use ($stepsIn): void
     $template = ['command' => ['composer install', 'make warm']];
     $printed = BuildkitePlan::of(BuildkiteStep::of(Configs::options((string) json_encode($template))->written()), Variables::of([]))->publish(ShardedPlan::of(0))->text();
 
-    expect($stepsIn($printed)[1])->toBe([
-        'command' => ['composer install', 'make warm', BUILDKITE_DOWNLOAD, BUILDKITE_VERDICT],
-        'label' => 'mutation: verdict',
-        'key' => 'mutation-gate-verdict',
-    ]);
+    expect(array_slice($stepsIn($printed), 1))->toEqual(buildkiteVerdicts([], 'composer install', 'make warm'));
 });
 
 it('refuses a template whose command is neither a command nor a list of them', function (string $command): void {
@@ -132,7 +154,7 @@ it('refuses a template whose command is neither a command nor a list of them', f
 it('prints only the wait and the verdict for a plan with no shards', function () use ($stepsIn, $wait, $verdict): void {
     $printed = BuildkitePlan::of(BuildkiteStep::none(), Variables::of([]))->publish(ShardedPlan::of(0))->text();
 
-    expect($stepsIn($printed))->toBe([$wait, $verdict]);
+    expect($stepsIn($printed))->toBe([$wait, ...$verdict]);
 });
 
 it('reads a pull request, a branch and the default branch from Buildkite', function () use ($on): void {
@@ -165,12 +187,7 @@ it('prints to the output with the step template its options give', function () u
     $plan = BuildkitePlan::fromOptions(Configs::options('{"step": {"agents": {"queue": "mutation"}}, "definition": "ci.yml"}'));
     $printed = $plan instanceof BuildkitePlan ? $plan->publish(ShardedPlan::of(0))->text() : '';
 
-    expect($stepsIn($printed)[1])->toBe([
-        'agents' => ['queue' => 'mutation'],
-        'label' => 'mutation: verdict',
-        'key' => 'mutation-gate-verdict',
-        'command' => [BUILDKITE_DOWNLOAD, BUILDKITE_VERDICT],
-    ]);
+    expect(array_slice($stepsIn($printed), 1))->toBe(buildkiteVerdicts(['agents' => ['queue' => 'mutation']]));
 });
 
 it('takes no step template where its options name none', function () use ($stepsIn, $verdict): void {
@@ -178,7 +195,7 @@ it('takes no step template where its options name none', function () use ($steps
         $plan = BuildkitePlan::fromOptions(Configs::options($options));
         $printed = $plan instanceof BuildkitePlan ? $plan->publish(ShardedPlan::of(0))->text() : '';
 
-        expect($stepsIn($printed)[1])->toBe($verdict);
+        expect(array_slice($stepsIn($printed), 1))->toBe($verdict);
     }
 });
 
@@ -199,8 +216,13 @@ it('is run by the pipeline it uploads from the repository', function () use ($on
     expect($on(Variables::of([]))->definitions())->toEqual(Paths::of(Path::of('.buildkite/pipeline.yml')));
 });
 
-it('withholds the agent\'s token', function (): void {
-    expect(BuildkitePlan::withheld())->toEqual(Withheld::of('BUILDKITE_AGENT_ACCESS_TOKEN', 'BUILDKITE_AGENT_TOKEN'));
+it('withholds the agent\'s token, and the job API\'s token and socket', function (): void {
+    expect(BuildkitePlan::withheld())->toEqual(Withheld::of(
+        'BUILDKITE_AGENT_ACCESS_TOKEN',
+        'BUILDKITE_AGENT_TOKEN',
+        'BUILDKITE_AGENT_JOB_API_TOKEN',
+        'BUILDKITE_AGENT_JOB_API_SOCKET',
+    ));
 });
 
 it('is run by the pipeline its options name, and refuses one that is not a path', function (): void {

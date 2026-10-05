@@ -41,10 +41,18 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * OTLP/HTTP JSON, posted to `/v1/traces` and `/v1/metrics` under the
  * endpoint `with.endpoint` or OpenTelemetry's own variables name. Each post
  * takes at most 5 seconds and is not tried again; a failed one is *not
- * written* (ADR-0016, decisions 14 to 17).
+ * written* (ADR-0016, decisions 14 to 17). `OTEL_EXPORTER_OTLP_HEADERS`,
+ * which may hold a collector's key, go only to the endpoint
+ * `OTEL_EXPORTER_OTLP_ENDPOINT` names.
  */
 final readonly class OtlpReporter implements Reporter
 {
+    /** What a report says where the environment's headers stayed home. */
+    private const string NO_HEADERS = <<<'SAID'
+        OTEL_EXPORTER_OTLP_HEADERS go only to the endpoint OTEL_EXPORTER_OTLP_ENDPOINT names,
+        and with.endpoint names another.
+        SAID;
+
     /** The longest one post may take, in seconds. */
     private const float TIMEOUT = 5.0;
 
@@ -106,7 +114,24 @@ final readonly class OtlpReporter implements Reporter
             OtlpJson::metrics(Metrics::of($verdict), $resource, Instant::at($this->clock->now())),
         );
 
-        return $traces instanceof NotWritten ? $traces : $metrics;
+        return match (true) {
+            $traces instanceof NotWritten => $traces,
+            $metrics instanceof Written && $this->withholdsHeaders()
+                => Written::noting($metrics->where(), self::NO_HEADERS),
+            default => $metrics,
+        };
+    }
+
+    /**
+     * Whether the environment's headers stay home: they go only to the endpoint
+     * `OTEL_EXPORTER_OTLP_ENDPOINT` names, by its scheme, host and port, and a
+     * config's own `with.endpoint` may name another.
+     */
+    private function withholdsHeaders(): bool
+    {
+        $otel = OtelEnvironment::of($this->environment);
+
+        return $otel->headers() !== [] && Origin::of($this->endpoint) !== Origin::of($otel->endpoint());
     }
 
     /** @param array<string, string> $resource */
@@ -153,7 +178,7 @@ final readonly class OtlpReporter implements Reporter
                 'body' => $body,
                 'headers' => [
                     'Content-Type' => 'application/json',
-                    ...OtelEnvironment::of($this->environment)->headers(),
+                    ...$this->withholdsHeaders() ? [] : OtelEnvironment::of($this->environment)->headers(),
                 ],
                 'max_duration' => self::TIMEOUT,
                 'max_redirects' => 0,

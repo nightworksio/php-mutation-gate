@@ -104,7 +104,7 @@ final readonly class Wiring
         $trees = $found instanceof TreeSource ? new DeclaredTrees($found, $settings->floors()->trees()) : $found;
         $costs = $lookup->costModel(BuiltinCostModel::Learned->named(), $settings->shards()->costOptions());
         $ci = $chosen->ciPlan($this->ciOf($settings));
-        $withheld = $chosen->withheld($settings->ci(), $settings->runner()->withhold());
+        $withheld = $chosen->withheld($settings->ci(), $settings->runner()->withhold(), $settings->reports());
         $changes = $lookup->changeSource($source, $this->sourceOptions($settings, $withheld));
         $repository = $lookup->repository($source, $this->sourceOptions($settings, $withheld));
         $proofs = $this->kept($settings, $this->configured($settings, $chosen, $ci, $repository));
@@ -126,8 +126,8 @@ final readonly class Wiring
                 $proofs,
                 $costs,
                 $ci,
-                $this->trustedChanges($changes, $proofs),
-                $this->trustedRepository($repository, $proofs),
+                $this->trustedChanges($changes, $proofs, $settings),
+                $this->trustedRepository($repository, $proofs, $settings),
                 $project,
                 $this->environment,
                 $withheld,
@@ -291,16 +291,26 @@ final readonly class Wiring
             : Choice::of($detected->value(), $settings->ci()->planOptions($detected));
     }
 
-    /** GitHub's change source, reading each pull request's own ledger from the proof store; any other as it is. */
-    private function trustedChanges(ChangeSource $source, ProofStore $proofs): ChangeSource
+    /**
+     * GitHub's change source, reading each pull request's own ledger from the proof store where
+     * `ci.trustMergedPullRequests` allows it; any other as it is.
+     */
+    private function trustedChanges(ChangeSource $source, ProofStore $proofs, Settings $settings): ChangeSource
     {
-        return $source instanceof PassedPullRequests ? $source->trusting($proofs) : $source;
+        return $source instanceof PassedPullRequests && $settings->ci()->trustsMergedPullRequests()
+            ? $source->trusting($proofs)
+            : $source;
     }
 
-    /** GitHub's repository, reading each pull request's own ledger from the proof store; any other as it is. */
-    private function trustedRepository(Repository $source, ProofStore $proofs): Repository
+    /**
+     * GitHub's repository, reading each pull request's own ledger from the proof store where
+     * `ci.trustMergedPullRequests` allows it; any other as it is.
+     */
+    private function trustedRepository(Repository $source, ProofStore $proofs, Settings $settings): Repository
     {
-        return $source instanceof PassedPullRequests ? $source->trusting($proofs) : $source;
+        return $source instanceof PassedPullRequests && $settings->ci()->trustsMergedPullRequests()
+            ? $source->trusting($proofs)
+            : $source;
     }
 
     /**

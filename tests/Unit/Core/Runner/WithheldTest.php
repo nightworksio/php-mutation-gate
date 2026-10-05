@@ -43,10 +43,26 @@ it('withholds nothing where nothing is withheld', function () use ($withholds): 
         ->and($withholds(Withheld::nothing(), 'AWS_SECRET_ACCESS_KEY'))->toBeFalse();
 });
 
+it('withholds Composer\'s credentials and every secret the gate itself reads from every run', function (string $name) use ($withholds): void {
+    expect($withholds(Withheld::standard(), $name))->toBeTrue();
+})->with([
+    'COMPOSER_AUTH',
+    'OTEL_EXPORTER_OTLP_HEADERS',
+    'MUTATION_GATE_WEBHOOK_SECRET',
+    'MUTATION_GATE_SLACK_URL',
+    'MUTATION_GATE_DISCORD_URL',
+    'MUTATION_GATE_WEBHOOK_URL',
+    'GH_TOKEN',
+]);
+
+it('leaves a variable that holds no credential to the tests, though it shares a secret\'s prefix', function (string $name) use ($withholds): void {
+    expect($withholds(Withheld::standard(), $name))->toBeFalse();
+})->with(['MUTATION_GATE_RESULTS', 'MUTATION_GATE_TEAMS_URL', 'OTEL_EXPORTER_OTLP_ENDPOINT', 'COMPOSER_HOME']);
+
 it('withholds what both withhold, each once, and only grows', function () use ($withholds): void {
     $both = Withheld::standard()->and(Withheld::of('CI_JOB_TOKEN', 'GITHUB_TOKEN'));
 
-    expect($both->pattern())->toBe('~^(?:AWS_.*|ACTIONS_.*|GITHUB_TOKEN|SONAR_TOKEN|GOOGLE_APPLICATION_CREDENTIALS|GOOGLE_GHA_CREDS_PATH|CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE|AZURE_.*|MUTATION_GATE_GCS_TOKEN|MUTATION_GATE_AZURE_TOKEN|CI_JOB_TOKEN)$~')
+    expect($both->pattern())->toBe('~^(?:AWS_.*|ACTIONS_.*|GITHUB_TOKEN|SONAR_TOKEN|COMPOSER_AUTH|GOOGLE_APPLICATION_CREDENTIALS|GOOGLE_GHA_CREDS_PATH|CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE|AZURE_.*|MUTATION_GATE_GCS_TOKEN|MUTATION_GATE_AZURE_TOKEN|OTEL_EXPORTER_OTLP_HEADERS|MUTATION_GATE_SLACK_URL|MUTATION_GATE_DISCORD_URL|MUTATION_GATE_WEBHOOK_URL|MUTATION_GATE_WEBHOOK_SECRET|GH_TOKEN|CI_JOB_TOKEN)$~')
         ->and($withholds($both, 'CI_JOB_TOKEN'))->toBeTrue()
         ->and($withholds(Withheld::standard(), 'CI_JOB_TOKEN'))->toBeFalse();
 });

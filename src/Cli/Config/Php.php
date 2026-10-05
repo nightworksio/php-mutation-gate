@@ -36,6 +36,7 @@ final readonly class Php
         'Mutators' => self::BUILDER,
         'Option' => self::BUILDER,
         'Pest' => self::BUILDER,
+        'Pipeline' => self::BUILDER,
         'Preset' => self::BUILDER,
         'Proofs' => self::BUILDER,
         'Reach' => self::BUILDER,

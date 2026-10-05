@@ -471,6 +471,7 @@ it('writes Buildkite\'s pipeline, names it as the definition in the config, and 
         ->and($ran->output)->toContain("buildkite-agent pipeline upload '.buildkite/mutation-gate.yml'")
         ->and(initCiFile($project, '.buildkite/mutation-gate.yml'))->toContain("label: 'mutation: plan'")
         ->and($ran->output)->not->toContain('Set ci.buildkite.definition')
+        ->and(substr_count($ran->output, "Any branch can save a cache under any key on Buildkite, so a branch can plant proofs that main's runs then trust.\nKeep the ledger in S3 with credentials only main's runs hold, and drop the cache steps."))->toBe(1)
         ->and(initCiFile($project, 'mutation-gate.json'))->toContain('"definition": ".buildkite/mutation-gate.yml"');
 });
 
@@ -493,7 +494,7 @@ it('writes a PHP config for Azure DevOps that names its template and default bra
 
     expect($ran->code)->toBe(0)
         ->and($config)->toContain("Ci::defaultBranch('main')")
-        ->and($config)->toContain("Ci::azureDefinition('.azure/mutation-gate.yml')")
+        ->and($config)->toContain("Pipeline::azureDefinition('.azure/mutation-gate.yml')")
         ->and(Commands::run($project, 'config:show', [])->code)->toBe(0);
 });
 
@@ -501,10 +502,18 @@ it('prints CircleCI\'s config to add to .circleci/config.yml, and writes none', 
     [$project, $ran] = initCi(['--ci' => 'circleci']);
 
     expect($ran->code)->toBe(0)
-        ->and($ran->output)->toStartWith(sprintf("%sAdd this to .circleci/config.yml:\n\n# For an S3 proof store", INIT_CI_WROTE))
+        ->and($ran->output)->toStartWith(sprintf("%sAdd this to .circleci/config.yml:\n\n# Set each image", INIT_CI_WROTE))
         ->and($ran->output)->toContain("\nversion: 2.1\n")
+        ->and(substr_count($ran->output, "Any branch can save a cache under any key on CircleCI, so a branch can plant proofs that main's runs then trust.\nKeep the ledger in S3 with credentials only main's runs hold, and drop the cache steps."))->toBe(1)
         ->and(initCiFile($project, '.circleci/config.yml'))->toBe('');
 });
+
+it('says on CircleCI and Buildkite, with a config kept, that their caches keep no ledger safe', function (string $ci, string $named): void {
+    [, $ran] = initCi(['--ci' => $ci], ['mutation-gate.json' => '{"runner": "pest", "trees": [{"path": "app"}]}']);
+
+    expect($ran->code)->toBe(0)
+        ->and($ran->output)->toContain(sprintf("Any branch can save a cache under any key on %s, so a branch can plant proofs that main's runs then trust.", $named));
+})->with([['circleci', 'CircleCI'], ['buildkite', 'Buildkite']]);
 
 it('prints Bitbucket\'s pipelines to add to bitbucket-pipelines.yml, writes none, and names the default branch in the config', function (): void {
     [$project, $ran] = initCi(['--ci' => 'bitbucket', '--format' => 'json']);

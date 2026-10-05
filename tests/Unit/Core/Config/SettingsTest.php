@@ -84,6 +84,7 @@ const DEFAULTS = <<<'JSON'
         },
         "ci": {
             "check": "mutation / verdict",
+            "trustMergedPullRequests": true,
             "gitlab": {
                 "template": ".gitlab/mutation-gate.yml"
             },
@@ -180,6 +181,7 @@ const EVERYTHING = [
         'plan' => 'gitlab',
         'defaultBranch' => 'trunk',
         'check' => 'gate / verdict',
+        'trustMergedPullRequests' => false,
         'gitlab' => ['template' => '.gitlab/gate.yml'],
         'buildkite' => ['step' => ['agents' => ['queue' => 'mutation']], 'definition' => '.buildkite/mutation.yml'],
         'azure' => ['definition' => 'ci/azure.yml'],
@@ -266,6 +268,7 @@ it('reads the defaults into their types', function (): void {
         ->and($settings->ci()->plan())->toEqual(Absent::setting())
         ->and($settings->ci()->defaultBranch())->toEqual(Absent::setting())
         ->and($settings->ci()->check())->toBe('mutation / verdict')
+        ->and($settings->ci()->trustsMergedPullRequests())->toBeTrue()
         ->and($settings->ci()->gitlabTemplate())->toEqual(Path::of('.gitlab/mutation-gate.yml'))
         ->and($settings->ci()->buildkiteStep()->json()->line())->toBe('{}')
         ->and($settings->ci()->buildkiteDefinition())->toEqual(Path::of('.buildkite/pipeline.yml'))
@@ -336,6 +339,7 @@ it('reads every setting a config writes into its type', function (): void {
         ->toBe('{"template":".gitlab/gate.yml"}')
         ->and($ci->defaultBranch())->toBe('trunk')
         ->and($ci->check())->toBe('gate / verdict')
+        ->and($ci->trustsMergedPullRequests())->toBeFalse()
         ->and($ci->gitlabTemplate())->toEqual(Path::of('.gitlab/gate.yml'))
         ->and($ci->buildkiteStep()->json()->line())->toBe('{"agents":{"queue":"mutation"}}')
         ->and($ci->buildkiteDefinition())->toEqual(Path::of('.buildkite/mutation.yml'))
@@ -343,7 +347,7 @@ it('reads every setting a config writes into its type', function (): void {
         ->and($ci->jenkinsDefinition())->toEqual(Path::of('ci/Jenkinsfile'))
         ->and($proofs->store())->toEqual(Choice::of(
             's3',
-            Configs::options('{"bucket":"proofs","prefix":"mutation-gate","region":"us-east-1","endpoint":"https://r2.example.com"}'),
+            Configs::options('{"bucket":"proofs","prefix":"mutation-gate","region":"us-east-1","endpoint":"https://r2.example.com","insecureEndpoint":false}'),
         ))
         ->and([...$proofs->ignore()])->toEqual([Glob::of('docs/**')])
         ->and($proofs->write())->toBe(Writing::Never)
@@ -1078,9 +1082,9 @@ it('reads a key that reads as a number as any other: unknown where nothing decla
 
 it('names each CI\'s pipeline file in a config written as PHP', function (): void {
     expect(Configs::valid(EVERYTHING)->php(ProjectRoot::origin())->code())
-        ->toContain("Ci::azureDefinition('ci/azure.yml')")
-        ->toContain("Ci::bitbucketDefinition('ci/bitbucket.yml')")
-        ->toContain("Ci::jenkinsDefinition('ci/Jenkinsfile')")
+        ->toContain("Pipeline::azureDefinition('ci/azure.yml')")
+        ->toContain("Pipeline::bitbucketDefinition('ci/bitbucket.yml')")
+        ->toContain("Pipeline::jenkinsDefinition('ci/Jenkinsfile')")
         ->toContain('StaticCheck::seconds(45)');
 });
 

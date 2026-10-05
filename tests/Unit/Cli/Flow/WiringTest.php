@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
 use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Adapter\GitHub\GitHubPlan;
 use NightWorksIO\MutationGate\Adapter\GitHub\MergedHeads;
+use NightWorksIO\MutationGate\Adapter\GitHub\NoLedgers;
 use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\GitLab\GitLabPlan;
 use NightWorksIO\MutationGate\Adapter\Http\HttpExchange;
@@ -33,6 +34,7 @@ use NightWorksIO\MutationGate\Config\Ci;
 use NightWorksIO\MutationGate\Config\Mutators;
 use NightWorksIO\MutationGate\Config\Option;
 use NightWorksIO\MutationGate\Config\Pest;
+use NightWorksIO\MutationGate\Config\Pipeline;
 use NightWorksIO\MutationGate\Config\Proofs;
 use NightWorksIO\MutationGate\Config\Runner;
 use NightWorksIO\MutationGate\Config\Shards;
@@ -130,12 +132,15 @@ function wiringEveryCi(): Withheld
 {
     return Withheld::of(
         'CI_JOB_TOKEN',
+        'CI_REPOSITORY_URL',
         'CI_JOB_JWT*',
         'CI_REGISTRY_PASSWORD',
         'CI_DEPLOY_PASSWORD',
         'CI_DEPENDENCY_PROXY_PASSWORD',
         'BUILDKITE_AGENT_ACCESS_TOKEN',
         'BUILDKITE_AGENT_TOKEN',
+        'BUILDKITE_AGENT_JOB_API_TOKEN',
+        'BUILDKITE_AGENT_JOB_API_SOCKET',
         'CIRCLE_OIDC_TOKEN*',
         'SYSTEM_ACCESSTOKEN',
         'AZURE_DEVOPS_EXT_PAT',
@@ -301,9 +306,9 @@ it('plans for the CI the config names, whatever the environment shows', function
 
 it('hands GitLab\'s plan its template, and Buildkite\'s its step and its definition', function (): void {
     $settings = Flows::settings(
-        Ci::gitlabTemplate('ci/gate.yml'),
-        Ci::buildkiteStep(Option::nested('agents', Option::of('queue', 'gate'))),
-        Ci::buildkiteDefinition('.buildkite/gate.yml'),
+        Pipeline::gitlabTemplate('ci/gate.yml'),
+        Pipeline::buildkiteStep(Option::nested('agents', Option::of('queue', 'gate'))),
+        Pipeline::buildkiteDefinition('.buildkite/gate.yml'),
     );
     $gitlab = wiredOf($settings, Variables::of(['GITLAB_CI' => 'true']))->ci;
     $buildkite = wiredOf($settings, Variables::of(['BUILDKITE' => 'true']))->ci;
@@ -347,9 +352,9 @@ it('withholds the tokens of the CI the job runs on, whichever plan the config na
 
 it('hands a plan the config names its template, its step and its definition', function (): void {
     $settings = static fn(Ci ...$named): Settings => Flows::settings(
-        Ci::gitlabTemplate('ci/gate.yml'),
-        Ci::buildkiteStep(Option::nested('agents', Option::of('queue', 'gate'))),
-        Ci::buildkiteDefinition('.buildkite/gate.yml'),
+        Pipeline::gitlabTemplate('ci/gate.yml'),
+        Pipeline::buildkiteStep(Option::nested('agents', Option::of('queue', 'gate'))),
+        Pipeline::buildkiteDefinition('.buildkite/gate.yml'),
         ...$named,
     );
     $gitlab = wiredOf($settings(Ci::gitlab()), Variables::of([]))->ci;
@@ -383,6 +388,21 @@ it('reads changes through GitHub under GitHub Actions, by ci.check, trusting the
         ->and($changed instanceof MergedHeads ? $ledgers->getValue($changed) : $changed)->toBe($adapters->proofs)
         ->and($standing instanceof MergedHeads ? $ledgers->getValue($standing) : $standing)->toBe($adapters->proofs)
         ->and($source->getValue($adapters->changes))->toEqual($git);
+});
+
+it('reads no pull request\'s ledger where ci.trustMergedPullRequests is false', function (): void {
+    $variables = ['GITHUB_REPOSITORY' => 'octo/gate', 'GITHUB_SHA' => 'head'];
+    $adapters = Environment::during($variables, static fn(): Adapters => wiredOf(
+        Flows::settings(Ci::notTrustingMergedPullRequests()),
+        Variables::of(['GITHUB_ACTIONS' => 'true']),
+    ));
+    $heads = new ReflectionProperty(PassedPullRequests::class, 'heads');
+    $ledgers = new ReflectionProperty(MergedHeads::class, 'ledgers');
+    $changed = $heads->getValue($adapters->changes);
+    $standing = $heads->getValue($adapters->repository);
+
+    expect($changed instanceof MergedHeads ? $ledgers->getValue($changed) : $changed)->toEqual(NoLedgers::none())
+        ->and($standing instanceof MergedHeads ? $ledgers->getValue($standing) : $standing)->toEqual(NoLedgers::none());
 });
 
 it('cannot wire a runner the registry does not have, or one that refuses its options', function (): void {
