@@ -226,7 +226,10 @@ its parser attributes. Both change when the checkout moves.
        `GOOGLE_APPLICATION_CREDENTIALS`, `GOOGLE_GHA_CREDS_PATH`,
        `CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE`, `AZURE_*`,
        `MUTATION_GATE_GCS_TOKEN` and `MUTATION_GATE_AZURE_TOKEN`), Composer's
-       `COMPOSER_AUTH`, and the secrets the gate itself reads
+       `COMPOSER_AUTH`, OpenTelemetry's per-signal headers
+       (`OTEL_EXPORTER_OTLP_TRACES_HEADERS`,
+       `OTEL_EXPORTER_OTLP_METRICS_HEADERS` and
+       `OTEL_EXPORTER_OTLP_LOGS_HEADERS`), and the secrets the gate itself reads
        (`OTEL_EXPORTER_OTLP_HEADERS`, `GH_TOKEN`, and the alert channels'
        `MUTATION_GATE_SLACK_URL`, `MUTATION_GATE_DISCORD_URL`,
        `MUTATION_GATE_WEBHOOK_URL` and `MUTATION_GATE_WEBHOOK_SECRET`, or the

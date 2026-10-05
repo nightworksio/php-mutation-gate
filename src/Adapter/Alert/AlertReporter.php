@@ -110,6 +110,19 @@ final readonly class AlertReporter implements Reporter
         return $withheld instanceof CiRun ? $this->send($alerts, $url, $withheld) : $withheld;
     }
 
+    /**
+     * One body, ready to send, posted to the URL in this reporter's variable, signed where it signs: what
+     * `deliver` sends of an alert a run left for it (ADR-0007 decision 5).
+     */
+    public function posted(string $body): Written|NotWritten
+    {
+        $url = $this->environment->valueOf($this->urlEnv);
+
+        return $url === ''
+            ? NotWritten::because(sprintf(self::NO_URL, $this->urlEnv, $this->channel->said()))
+            : $this->delivery->post($url, $body, $this->headers($body), $this->channel->said());
+    }
+
     /** Each alert, in turn; the first that is not written says why. */
     private function send(Alerts $alerts, string $url, CiRun $run): Written|NotWritten
     {

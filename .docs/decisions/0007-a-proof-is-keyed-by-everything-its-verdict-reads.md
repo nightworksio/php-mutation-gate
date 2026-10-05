@@ -405,6 +405,45 @@ has to bring its result with it.
      still installs the project and loads its config, and GitHub's one-step
      job runs the tests beside them, so there the keys are within the
      project's reach on the default branch.
+   - **`deliver` and `fetch` hold the keys in jobs that run no project code.**
+     Both run from the gate's own installation, before any extension is
+     found or config read, and refuse to start through Composer's proxy or
+     from the working directory's `vendor`.
+     - `deliver` sends what a run that ran the project's code left in its
+       delivery directory, `.mutation-gate/delivery` by default. The
+       directory holds prepared payloads alone, as JSON within the ledger's
+       byte limits: the ledger's scope, the comment's markdown, each alert's
+       body, no more to one channel than a verdict sends, the OTLP export,
+       and the ledger beside them. A key it does not take refuses the whole
+       delivery.
+     - Every destination and every credential comes from `deliver`'s own
+       environment, never from the directory. No host, endpoint or URL is
+       ever read from it. The comment goes to the pull request `deliver`'s
+       own event names. Each alert goes to its channel's default
+       `MUTATION_GATE_*_URL`, signed with `MUTATION_GATE_WEBHOOK_SECRET`. The
+       export goes to `OTEL_EXPORTER_OTLP_ENDPOINT` with its headers.
+     - The store's whole location comes from `deliver`'s own environment
+       alone: `MUTATION_GATE_STORE` names `s3`, `gcs` or `azure`, and
+       `MUTATION_GATE_STORE_BUCKET`, `_PREFIX`, `_REGION`, `_ACCOUNT`,
+       `_CONTAINER` and `_PUBLIC_CONTAINER` set its options, read as the
+       config's definition reads them. `MUTATION_GATE_STORE_ENDPOINT` is
+       taken for `s3` alone, and only as an `https://` URL. A run that ran
+       the project's code therefore cannot name the bucket, or the Azure
+       account whose request would carry the token.
+     - `deliver` decides the one scope it may write from its own run before
+       it reads the directory: the default branch's, on a push, a schedule
+       or a manual run of that branch under GitHub Actions, the branch named
+       by the event payload, else by `MUTATION_GATE_DEFAULT_BRANCH`. It
+       writes the ledger only where the delivery's scope is exactly that
+       one. Any other run writes no ledger.
+     - `fetch` reads, with a key that only needs to read, the default
+       branch's ledger alone from the store the same `MUTATION_GATE_STORE`
+       variables locate, and writes it where the `directory` store reads it,
+       `.mutation-gate/ledger` by default. The plan, the shards and the
+       verdict then hold no credential. `fetch` writes nothing to the
+       store. A ledger it cannot read costs a run, never a verdict. A public
+       repository may read the default branch's ledger from `publicUrl`
+       instead.
 
 ## Alternatives considered
 

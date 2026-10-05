@@ -33,9 +33,11 @@ final readonly class Withheld implements IteratorAggregate
 {
     /**
      * AWS's credentials, the Actions runtime's, GitHub's token and
-     * SonarCloud's, Composer's, and the Cloud Storage and Azure stores': the
-     * credentials file `google-github-actions/auth` writes, under each name
-     * it exports it by, Azure's variables, and each store's ready token.
+     * SonarCloud's, Composer's, OpenTelemetry's per-signal headers, which
+     * hold a collector's key as its shared ones do, and the Cloud Storage and
+     * Azure stores': the credentials file `google-github-actions/auth`
+     * writes, under each name it exports it by, Azure's variables, and each
+     * store's ready token.
      */
     private const array STANDARD = [
         'AWS_*',
@@ -43,6 +45,9 @@ final readonly class Withheld implements IteratorAggregate
         'GITHUB_TOKEN',
         'SONAR_TOKEN',
         'COMPOSER_AUTH',
+        'OTEL_EXPORTER_OTLP_TRACES_HEADERS',
+        'OTEL_EXPORTER_OTLP_METRICS_HEADERS',
+        'OTEL_EXPORTER_OTLP_LOGS_HEADERS',
         StoreVariable::GoogleCredentials->value,
         'GOOGLE_GHA_CREDS_PATH',
         'CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE',

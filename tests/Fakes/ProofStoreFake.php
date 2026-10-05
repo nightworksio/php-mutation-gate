@@ -23,6 +23,9 @@ final class ProofStoreFake implements ProofStore
 
     private Unreadable|NotGiven $unread;
 
+    /** @var list<string> each scope asked for, as `read <ref>` or `write <ref>` */
+    private array $asked = [];
+
     public function __construct()
     {
         $this->unread = NotGiven::value();
@@ -37,8 +40,18 @@ final class ProofStoreFake implements ProofStore
         return $store;
     }
 
+    /** This store, already keeping this ledger as the scope's, which it was never asked to write. */
+    public function keeping(Scope $scope, Ledger $ledger): self
+    {
+        $this->ledgers[$scope->ref()] = $ledger;
+
+        return $this;
+    }
+
     public function read(Scope $scope): Ledger|Unreadable
     {
+        $this->asked[] = sprintf('read %s', $scope->ref());
+
         return match (true) {
             $this->unread instanceof Unreadable => $this->unread,
             array_key_exists($scope->ref(), $this->ledgers) => $this->ledgers[$scope->ref()],
@@ -48,8 +61,19 @@ final class ProofStoreFake implements ProofStore
 
     public function write(Scope $scope, Ledger $ledger): Written
     {
+        $this->asked[] = sprintf('write %s', $scope->ref());
         $this->ledgers[$scope->ref()] = $ledger;
 
         return Written::to(sprintf('memory:%s', $scope->ref()));
+    }
+
+    /**
+     * Each scope this store was asked to read or write, in turn.
+     *
+     * @return list<string>
+     */
+    public function asked(): array
+    {
+        return $this->asked;
     }
 }

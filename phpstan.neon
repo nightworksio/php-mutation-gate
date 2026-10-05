@@ -529,8 +529,7 @@ services:
                 - src/Core/File/Glob.php # the glob grammar
                 - src/Core/Assertion/AssertionTable.php # PHPUnit's assertions and Pest's expectations
             # Closed sets still to become enums, by the builder whose area holds them.
-            awaiting:
-                - src/Adapter/GitHub/GitHubPlan.php # owner: flows (a GitHubEvent enum)
+            awaiting: []
         tags:
             - phpstan.rules.rule
     # D9, with the constants whose value only coincides with another's.
@@ -543,6 +542,9 @@ services:
         arguments:
             # Constants whose value only coincides with another's, meaning something else.
             coincidences:
+                'NightWorksIO\MutationGate\Core\Delivery\DeliveryFile':
+                    - LEDGER_KEY # a key of the delivery, not the workspace's directory
+                    - OTLP # a key of the delivery, not the reporter's name
                 'NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan':
                     - TRUSTED_SOURCES # Buildkite's build.source values, not another CI's event names
                 'NightWorksIO\MutationGate\Core\Cost\StartUpSamples':

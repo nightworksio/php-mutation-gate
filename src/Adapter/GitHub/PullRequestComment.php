@@ -110,14 +110,23 @@ final readonly class PullRequestComment implements Configurable, Reporter
     /** From the run's own environment and event payload, with `identity` where the token is not GitHub's own. */
     public static function fromOptions(Options $options): self
     {
-        $environment = getenv();
+        $identity = $options->text(Key::of('identity'));
+
+        return self::fromEnvironment(getenv(), HttpClient::create(), is_string($identity) ? $identity : '');
+    }
+
+    /**
+     * From these environment variables and the event payload `GITHUB_EVENT_PATH` names, posting with this client;
+     * an identity left empty is asked of GitHub.
+     *
+     * @param array<string, string> $environment
+     */
+    public static function fromEnvironment(array $environment, HttpClientInterface $client, string $identity): self
+    {
         $eventPath = array_key_exists('GITHUB_EVENT_PATH', $environment) ? $environment['GITHUB_EVENT_PATH'] : '';
         $event = $eventPath !== '' && is_file($eventPath) ? file_get_contents($eventPath) : '';
 
-        $identity = $options->text(Key::of('identity'));
-        $named = is_string($identity) ? $identity : '';
-
-        return self::inRun($environment, $event === false ? '' : $event, HttpClient::create(), $named);
+        return self::inRun($environment, $event === false ? '' : $event, $client, $identity);
     }
 
     public function report(Verdict $verdict): Written|NotWritten
@@ -134,8 +143,11 @@ final readonly class PullRequestComment implements Configurable, Reporter
         return $this->write(PlannedMarkdown::comment($work, $this->run));
     }
 
-    /** The sticky comment, holding this, written or updated in place. */
-    private function write(string $markdown): Written|NotWritten
+    /**
+     * The sticky comment, holding this, written or updated in place: what `deliver` writes of a comment a run left
+     * for it (ADR-0007 decision 5).
+     */
+    public function write(string $markdown): Written|NotWritten
     {
         $number = $this->pullRequest;
 

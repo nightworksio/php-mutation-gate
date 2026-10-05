@@ -4,6 +4,9 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Gate;
+use NightWorksIO\MutationGate\Cli\Keyed\Deliver;
+use NightWorksIO\MutationGate\Cli\Keyed\Fetch;
+use NightWorksIO\MutationGate\Cli\Keyed\Installation;
 use NightWorksIO\MutationGate\Core\Proof\LedgerMemory;
 use Symfony\Component\Console\Input\ArgvInput;
 use NightWorksIO\MutationGate\Adapter\Console\InertOutput;
@@ -23,4 +26,22 @@ if (! $memory->admits(ini_parse_quantity(ini_get('memory_limit'))) && function_e
 
 $output = new InertOutput();
 
-exit(Gate::in((string) getcwd(), dirname($autoload))->run(new ArgvInput(), $output, $output->getErrorOutput()));
+$input = new ArgvInput();
+
+// deliver and fetch hold the gate's keys, so they start before any extension is found or config read (ADR-0007
+// decision 5).
+$installation = Installation::of(
+    (string) getcwd(),
+    dirname($autoload),
+    array_key_exists('_composer_autoload_path', $GLOBALS),
+);
+
+if (Deliver::isAsked($input)) {
+    exit(Deliver::online($installation)->run($input, $output, $output->getErrorOutput()));
+}
+
+if (Fetch::isAsked($input)) {
+    exit(Fetch::online($installation)->run($input, $output, $output->getErrorOutput()));
+}
+
+exit(Gate::in((string) getcwd(), dirname($autoload))->run($input, $output, $output->getErrorOutput()));
