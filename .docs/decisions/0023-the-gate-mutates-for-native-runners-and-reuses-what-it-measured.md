@@ -60,17 +60,28 @@ manual.
 
 ### Incremental coverage
 
-1. **A test's coverage entry is keyed like a proof, and only entries whose
-   key moved are measured again.**
-   - An entry's key reads the test file and the support it names (ADR-0007
-     decision 2, item 7's matching), every file the entry says the test
-     executed, and what every key's base reads: the gate, the runner's
-     identity, `installed.json`, the files that define the runner, and every
-     file outside the test directories that is not a source file (item 6,
-     less the sources). `proofs.ignore` narrows that last part exactly as it
-     does for proofs.
-   - An entry whose key moved is re-measured, a new test is measured, and a
-     deleted test's entry is dropped.
+1. **A test file's coverage entries are keyed like a proof, and only
+   entries whose key moved are measured again.**
+   - The key of a test file's entries reads the file, every file its tests
+     executed by the map, what runs before every test and the files that
+     define the runner under the test directories, every file all of those
+     name, followed name by name (ADR-0007 decision 2, item 7's matching,
+     over sources as well as support), and what every key's base reads: the
+     gate, the runner's identity, the config, `installed.json`, the files
+     that define the runner, every CI definition, and every file outside the
+     test directories that is not a source file (item 6, less the sources).
+     `proofs.ignore` narrows that last part exactly as it does for proofs.
+     The map carries each test file's key beside its entries.
+   - A test file whose key moved is re-measured, a new one is measured, and
+     a deleted one's entries are dropped.
+   - Every test is measured where nothing is kept, the kept map cannot be
+     read, was measured in a dirty working tree or does not say where, holds
+     a test that no test file holds now, or every key moved. A run says once
+     which: how many test files it measured again, or why it measured every
+     test, naming a changed file that every key reads where the change names
+     one. `plan`, `run` and `coverage` measure against the map the default
+     branch keeps; `watch` against the one its last round left, though that
+     was measured in the working tree it watches.
    - A test whose code, support and executed files are unchanged takes the
      same path, so it covers the same lines. A test that could reach new
      code must execute a changed file to get there, so its key moved. A
@@ -88,10 +99,16 @@ manual.
      gate's format-1 map with a key per test entry and the `commit` and
      `dirty` fields of ADR-0020. The static analyser's cache is another
      (ADR-0020).
-   - A run reads its own scope's map and the default branch's, and writes
-     only its own, so a pull request cannot plant coverage that the default
-     branch's reach or keys use. A map is data, never PHP (ADR-0006
+   - A run reuses the default branch's map alone, and only a run on the
+     default branch that writes proofs keeps one, from its verdict. A pull
+     request's runs execute its code while the suite is measured, so a map
+     they kept could choose which tests judge its next run. A map measured in
+     a dirty working tree is not kept. A map is data, never PHP (ADR-0006
      decision 1).
+   - A kept map is read as untrusted input: one over 1,500,000 bytes packed
+     or 31,000,000 unpacked, twice the gate's own map, is neither read nor
+     kept, and the run that would keep it says so; the next run measures
+     every test.
    - This amends ADR-0001 decision 2's `ProofStore` row and ADR-0007
      decision 4.
 
@@ -105,9 +122,10 @@ manual.
      for Infection, or `--filter` on a PHPUnit release without it, and
      `--filter` for Pest where a file's entries are mixed.
    - The gate merges the partial map into the kept one: re-measured entries
-     are replaced, and each untouched test keeps its recorded duration. For a
-     subset of test files, the re-measured entries are those of the tests the
-     port's `testsIn` names for those files.
+     are replaced, a deleted test file's entries are dropped, and each
+     untouched test keeps its recorded duration. For a subset of test files,
+     the re-measured entries are those of the tests the port's `testsIn`
+     names for those files. The merged map records where it was measured.
    - The Runner contract suite asserts that the merged map equals a full
      run's on its fixture library (ADR-0004 decision 7).
 

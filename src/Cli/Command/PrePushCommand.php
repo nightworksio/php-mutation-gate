@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Cli\Flow\Judged;
 use NightWorksIO\MutationGate\Cli\Flow\Mode;
+use NightWorksIO\MutationGate\Cli\Flow\PlanMade;
 use NightWorksIO\MutationGate\Cli\Flow\Planning;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\ScoreChanging;
@@ -170,12 +171,13 @@ final readonly class PrePushCommand
     private function run(Revision $base, Deadline|Unlimited $deadline): Judged|Invalid|CannotJudge
     {
         $composed = $this->composed;
-        $plan = new Planning($composed->adapters, $composed->settings, $composed->setup)->plan(
+        $made = new Planning($composed->adapters, $composed->settings, $composed->setup)->plan(
             Mode::since($base->name()),
             FlowOptions::coverage($this->input),
             FlowOptions::configuredCut($composed->settings),
             MatrixKind::FirstKiller,
         );
+        $plan = $made instanceof PlanMade ? $made->plan() : $made;
         $results = Workspace::results();
         $ran = $plan instanceof Plan ? $this->running()->runAllBy($plan, $results, $deadline) : $plan;
 

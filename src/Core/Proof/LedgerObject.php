@@ -14,7 +14,8 @@ use function preg_split;
 
 /**
  * Where every store keeps a scope's ledger: `<prefix>/<scope>/ledger.json.gz`
- * (ADR-0007 decision 5), under a directory, as a bucket's key, or as a path
+ * (ADR-0007 decision 5), and each object beside it (ADR-0023, decision 2),
+ * under a directory, as a bucket's key, or as a path
  * of a public URL over the bucket, for a scope that is a branch's or a pull
  * request's ref and nothing else. In a URL each segment is percent-encoded
  * as S3 encodes a key, so the path names the object the key names and no
@@ -38,9 +39,13 @@ final readonly class LedgerObject
     /** The key of a scope's ledger, as a bucket or a directory names it; why there is none for a ref that is none. */
     public function of(Scope $scope): string|CannotJudge
     {
-        $segments = $this->segments($scope);
+        return $this->named($scope, LedgerFile::NAME);
+    }
 
-        return $segments instanceof CannotJudge ? $segments : implode('/', $segments);
+    /** The key of an object a store keeps beside a scope's ledger; why there is none for a ref that is none. */
+    public function companionOf(Scope $scope, Companion $companion): string|CannotJudge
+    {
+        return $this->named($scope, $companion->value);
     }
 
     /** The key of a scope's ledger as a URL's path, each segment percent-encoded; why there is none. */
@@ -57,13 +62,13 @@ final readonly class LedgerObject
         return implode('/', array_map(rawurlencode(...), explode('/', $key)));
     }
 
-    /** @return list<string>|CannotJudge */
-    private function segments(Scope $scope): array|CannotJudge
+    /** The key of an object of a scope's directory, by its name; why there is none for a ref that is none. */
+    private function named(Scope $scope, string $object): string|CannotJudge
     {
         $parsed = Scope::parse($scope->ref());
 
         return $parsed instanceof Scope
-            ? [...$this->prefix, ...explode('/', $parsed->ref()), LedgerFile::NAME]
+            ? implode('/', [...$this->prefix, ...explode('/', $parsed->ref()), $object])
             : $parsed;
     }
 }

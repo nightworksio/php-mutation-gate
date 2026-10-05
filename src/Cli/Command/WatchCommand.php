@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Interruption;
 use NightWorksIO\MutationGate\Cli\Flow\Inventory;
 use NightWorksIO\MutationGate\Cli\Flow\KeptCoverage;
 use NightWorksIO\MutationGate\Cli\Flow\Mode;
+use NightWorksIO\MutationGate\Cli\Flow\PlanMade;
 use NightWorksIO\MutationGate\Cli\Flow\Planning;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
@@ -26,8 +27,6 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
-use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
-use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Verdict\HeldTo;
 use NightWorksIO\MutationGate\Core\Watch\Watched;
 use Symfony\Component\Console\Command\Command;
@@ -110,24 +109,24 @@ final readonly class WatchCommand
 
     /**
      * A round from what is on disk, then one after each change, until the
-     * wait says to stop. Each round after the first reads the map the last
-     * one left, brought up to date with the tests the change touched, and
-     * builds it afresh where the last round planned nothing and so left none.
+     * wait says to stop. Each round after the first measures again only the
+     * test files whose entries moved against the map the last one left, and
+     * measures every test where the last round planned nothing and so left
+     * none.
      */
     private function rounds(Watched $seen): int
     {
-        $kept = new KeptCoverage($this->composed->adapters, $this->composed->settings);
-        $coverage = KeptCoverage::built();
+        $ownMap = false;
 
         while (true) {
-            $planned = $this->round($seen, $coverage);
+            $planned = $this->round($seen, $ownMap);
             $now = $this->after($seen);
 
             if (! $now instanceof Watched) {
                 return $now instanceof CannotJudge ? Failed::because($this->output, $now) : ExitCode::Passed->value;
             }
 
-            $coverage = $planned ? $kept->after($now->changesSince($seen)) : KeptCoverage::built();
+            $ownMap = $planned;
             $seen = $now;
         }
     }
@@ -145,19 +144,21 @@ final readonly class WatchCommand
      * batch by a change; its verdict is printed unless a change arrived.
      * Whether it planned, and so left a coverage map for the next round.
      */
-    private function round(Watched $seen, CoverageRun|CoverageRead $coverage): bool
+    private function round(Watched $seen, bool $ownMap): bool
     {
         $composed = $this->composed;
         $arrived = Interruption::when(fn(): bool => $this->hasChanged($seen));
         $running = new Running($composed->adapters, $composed->settings, $composed->setup)->interrupted($arrived);
         $this->printing->begin($this->output, $composed->adapters->project);
-        $plan = new Planning($composed->adapters, $composed->settings, $composed->setup)
+        $made = new Planning($composed->adapters, $composed->settings, $composed->setup)
             ->plan(
                 Mode::since(Revision::head()->name()),
-                $coverage,
+                KeptCoverage::built(),
                 FlowOptions::configuredCut($composed->settings),
                 MatrixKind::FirstKiller,
+                ownMap: $ownMap,
             );
+        $plan = $made instanceof PlanMade ? $made->plan() : $made;
         $results = Workspace::results();
         $ran = $plan instanceof Plan ? $running->runAllBy($plan, $results, $running->deadline()) : $plan;
         $judged = match (true) {

@@ -51,7 +51,10 @@ Two parts of that do not carry over to a public package.
      `map.json.gz` in the directory `--coverage=<dir>` names: `"format": 1`,
      compact JSON, gzipped, data that reading never runs. A whole map also
      records the commit it was measured at and whether the tree was dirty,
-     as `commit` and `dirty` (ADR-0020, decision 3). Each shard's map,
+     as `commit` and `dirty` (ADR-0020, decision 3), and, where
+     `coverage.incremental` is on, each test file's entry key as `keys`
+     (ADR-0023, decision 1); a map without `keys` reads as one whose every
+     entry moved. Each shard's map,
      `.mutation-gate/coverage/shard-<id>/map.json.gz`, holds only the lines of
      the files that shard mutates, with every test and its duration. Where the
      runner's report states them, as Infection's does, it also holds each of

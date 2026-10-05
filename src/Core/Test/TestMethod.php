@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Test;
 
+use function in_array;
+use function mb_strpos;
+use function mb_substr;
+
 use NightWorksIO\MutationGate\Core\File\Path;
 
 use function preg_match;
@@ -18,6 +22,8 @@ use function sprintf;
  */
 final readonly class TestMethod
 {
+    /** What separates a test method from its class. */
+    public const string SEPARATOR = '::';
     /** The class, the method and, where there is one, the data set's number or name. */
     private const string ID = '/^(?<class>.*?)::(?<method>[^#]+)(?:#(?:(?<number>\d+)|(?<name>.*)))?$/sD';
 
@@ -45,12 +51,21 @@ final readonly class TestMethod
         return new self($parts['class'], $parts['method'], $row);
     }
 
-    /** The class an id's test is in: a test method's class, or the whole id where it names no method. */
+    /**
+     * The class an id's test is in: a test method's class, or the whole id
+     * where it names no method. It reads the id as `of` does, without the
+     * pattern: the class ends at the first `::` that a method follows.
+     */
     public static function classOf(TestId $test): string
     {
-        $method = self::of($test);
+        $id = $test->value();
+        $at = mb_strpos($id, self::SEPARATOR);
 
-        return $method instanceof self ? $method->class : $test->value();
+        while ($at !== false && in_array(mb_substr($id, $at + 2, 1), ['', '#'], strict: true)) {
+            $at = mb_strpos($id, self::SEPARATOR, $at + 1);
+        }
+
+        return $at === false ? $id : mb_substr($id, 0, $at);
     }
 
     public function className(): string

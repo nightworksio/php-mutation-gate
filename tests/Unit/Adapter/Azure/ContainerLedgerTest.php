@@ -6,9 +6,11 @@ use NightWorksIO\MutationGate\Adapter\Azure\ContainerLedger;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
@@ -112,4 +114,15 @@ it('builds from its options and the environment\'s token, keeping the default br
         ->toEqual(Invalid::because(Problem::at('account', 'expected the account, got nothing')))
         ->and(ContainerLedger::configured(Configs::options('{"account": "acme", "container": "ledgers", "prefix": "gate"}'), Variables::of([]), $cloud->exchange()))
         ->toBeInstanceOf(Invalid::class);
+});
+
+it('keeps the coverage map beside a scope\'s ledger as a block blob, and gets it back', function (): void {
+    $cloud = new Cloud();
+    $store = ContainerLedger::of($cloud->exchange(), 'acme', 'ledgers', 'gate', FixedTokens::of('eyJ'));
+    $blob = 'https://acme.blob.core.windows.net/ledgers/gate/refs/heads/main/coverage.json.gz';
+
+    expect($store->keep(Scope::branch('main'), Companion::Coverage, Contents::of('map')))->toEqual(Written::to($blob))
+        ->and($store->companion(Scope::branch('main'), Companion::Coverage))->toEqual(Contents::of('map'))
+        ->and(array_map(static fn(array $request): array => [$request['method'], $request['url']], $cloud->requests))
+        ->toBe([['PUT', $blob], ['GET', $blob]]);
 });

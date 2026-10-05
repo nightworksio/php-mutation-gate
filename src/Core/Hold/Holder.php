@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Hold;
 
+use NightWorksIO\MutationGate\Core\Test\TestMethod;
+
 use function preg_quote;
 use function sprintf;
 use function str_contains;
@@ -11,9 +13,6 @@ use function str_contains;
 /** What a `#[Holds]` stands on: a test class, or one of its methods, written `Class::method`. */
 final readonly class Holder
 {
-    /** What separates a method from its class. */
-    private const string METHOD = '::';
-
     private function __construct(private string $written)
     {
     }
@@ -27,7 +26,7 @@ final readonly class Holder
     /** Whether it is a method, rather than a whole class. */
     public function isMethod(): bool
     {
-        return str_contains($this->written, self::METHOD);
+        return str_contains($this->written, TestMethod::SEPARATOR);
     }
 
     /**
@@ -38,7 +37,7 @@ final readonly class Holder
     {
         return $this->isMethod()
             ? sprintf('%s\b', preg_quote($this->written, '/'))
-            : sprintf('%s%s', preg_quote($this->written, '/'), self::METHOD);
+            : sprintf('%s%s', preg_quote($this->written, '/'), TestMethod::SEPARATOR);
     }
 
     public function written(): string

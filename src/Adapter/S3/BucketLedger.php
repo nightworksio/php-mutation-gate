@@ -15,9 +15,15 @@ use function is_string;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Missing;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Http\Reply;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\CompanionRead;
 use NightWorksIO\MutationGate\Core\Proof\EncodedLedger;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
@@ -45,6 +51,12 @@ use function sprintf;
  */
 final readonly class BucketLedger implements Configurable, ProofStore
 {
+    /** Where an object of the bucket is, as a run names it. */
+    private const string AT = 's3://%s/%s';
+
+    private const string UNWRITTEN = '%s could not be written: %s';
+
+
     private function __construct(
         private S3Client $client,
         private string $bucket,
@@ -84,7 +96,7 @@ final readonly class BucketLedger implements Configurable, ProofStore
             return Ledger::empty();
         }
 
-        $at = sprintf('s3://%s/%s', $this->bucket, $key);
+        $at = sprintf(self::AT, $this->bucket, $key);
         $fetched = $this->fetched($key, $at);
         $read = is_string($fetched) ? LedgerFile::read($fetched, $this->limits) : $fetched;
 
@@ -100,24 +112,59 @@ final readonly class BucketLedger implements Configurable, ProofStore
         }
 
         $encoded = EncodedLedger::within($ledger, $this->limits);
+        $written = $this->put($key, $encoded->bytes());
+
+        return $written instanceof Written ? $encoded->written($written) : $written;
+    }
+
+    /**
+     * The bytes of an object kept beside the scope's ledger, within its
+     * limits; none where there is no such key; or why it could not be read.
+     */
+    public function companion(Scope $scope, Companion $companion): Contents|Missing|CannotJudge
+    {
+        $key = $this->objects->companionOf($scope, $companion);
+
+        if ($key instanceof CannotJudge) {
+            return Missing::at(Path::of($companion->value));
+        }
+
+        $at = sprintf(self::AT, $this->bucket, $key);
+        $fetched = $this->fetched($key, $at);
+        $limits = CompanionRead::limitsOf($companion);
+
+        return match (true) {
+            is_string($fetched) && $limits->admitsPacked(Bytes::length($fetched)) => Contents::of($fetched),
+            is_string($fetched) => CompanionRead::unread($companion, $at, $limits->pastPacked()),
+            $fetched instanceof Unreadable => CompanionRead::unread($companion, $at, $fetched->detail()),
+            default => Missing::at(Path::of($key)),
+        };
+    }
+
+    public function keep(Scope $scope, Companion $companion, Contents $bytes): Written|NotWritten
+    {
+        $key = $this->objects->companionOf($scope, $companion);
+
+        return $key instanceof CannotJudge ? NotWritten::because($key->why()) : $this->put($key, $bytes->text());
+    }
+
+    /** Put these bytes at a key, saying where, or why not. */
+    private function put(string $key, string $bytes): Written|NotWritten
+    {
+        $at = sprintf(self::AT, $this->bucket, $key);
 
         try {
             $this->client->putObject([
                 'Bucket' => $this->bucket,
                 'Key' => $key,
-                'Body' => $encoded->bytes(),
+                'Body' => $bytes,
                 'ContentType' => 'application/gzip',
             ])->resolve();
         } catch (AwsFailure $failure) {
-            return NotWritten::because(sprintf(
-                's3://%s/%s could not be written: %s',
-                $this->bucket,
-                $key,
-                $failure->getMessage(),
-            ));
+            return NotWritten::because(sprintf(self::UNWRITTEN, $at, $failure->getMessage()));
         }
 
-        return $encoded->written(Written::to(sprintf('s3://%s/%s', $this->bucket, $key)));
+        return Written::to($at);
     }
 
     /** The object's bytes; an empty ledger where there is no such key; or why it could not be read. */

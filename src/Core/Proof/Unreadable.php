@@ -61,6 +61,12 @@ final readonly class Unreadable
         return new self($this->reason, $this->from, $this->detail, $this->besides, $this->others->and($other->said()));
     }
 
+    /** Why, as the store says it. */
+    public function detail(): string
+    {
+        return $this->detail;
+    }
+
     public function reason(): UnreadReason
     {
         return $this->reason;

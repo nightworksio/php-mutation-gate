@@ -39,10 +39,12 @@ The pieces already exist in the design:
      it waits for the next change.
    - **A change that arrives mid-run** stops the run. Its judged results are
      kept and the new reach is planned.
-   - **The coverage map** is built once at start. When a test or test support
-     changes, the changed tests are run again under coverage and their entries
-     in the map are replaced, so what a changed test reaches stays true. A
-     change that reaches everything (ADR-0005, rule 1) rebuilds the map.
+   - **The coverage map** is measured at start against the one the default
+     branch keeps. Each round after measures again the test files whose
+     entries' keys moved against the map the last round left, so a changed
+     test, its support or a source its tests executed is measured again, and
+     a change that every key reads measures every test (ADR-0023,
+     decision 1).
    - **Proofs.** Results go into the local ledger, the directory store of
      decision 4, so reverting an edit costs nothing: its key is proved already.
    - **Verdict.** Watch mode judges the new-code floor over everything changed

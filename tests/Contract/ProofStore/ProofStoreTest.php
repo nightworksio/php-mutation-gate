@@ -8,10 +8,14 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\LocalLedgers;
 use NightWorksIO\MutationGate\Adapter\Gcs\BucketLedger as GcsBucket;
 use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
@@ -134,3 +138,24 @@ it('says why it cannot read a ledger it holds, and judges with none of it', func
     expect(LedgerRead::unread($read)[0] ?? null)->toBe(UnreadReason::Malformed)
         ->and($read instanceof Unreadable ? $read->ledger() : null)->toEqual(Ledger::empty());
 })->with($unreadable);
+
+it('reads no coverage map beside a ledger for a scope nothing kept one in', function (ProofStore $store): void {
+    expect($store->companion(Scope::branch('main'), Companion::Coverage))->toBeInstanceOf(Missing::class);
+})->with([...$stores, ...$readOnly]);
+
+it('reads back the coverage map kept beside a scope\'s ledger, byte for byte, and only that scope\'s', function (ProofStore $store): void {
+    $bytes = Contents::of(Gzip::pack('{"format":1}'));
+
+    expect($store->keep(Scope::pullRequest(12), Companion::Coverage, $bytes))->toBeInstanceOf(Written::class)
+        ->and($store->companion(Scope::pullRequest(12), Companion::Coverage))->toEqual($bytes)
+        ->and($store->companion(Scope::branch('main'), Companion::Coverage))->toBeInstanceOf(Missing::class)
+        ->and(LedgerRead::ledger($store->read(Scope::pullRequest(12)))->proofs())->toHaveCount(0);
+})->with($stores);
+
+it('says why a store opened read-only keeps no coverage map, and reads none back', function (ProofStore $store): void {
+    $kept = $store->keep(Scope::pullRequest(12), Companion::Coverage, Contents::of(Gzip::pack('{"format":1}')));
+
+    expect($kept)->toBeInstanceOf(NotWritten::class)
+        ->and($kept instanceof NotWritten ? $kept->why() : '')->not->toBe('')
+        ->and($store->companion(Scope::pullRequest(12), Companion::Coverage))->toBeInstanceOf(Missing::class);
+})->with($readOnly);

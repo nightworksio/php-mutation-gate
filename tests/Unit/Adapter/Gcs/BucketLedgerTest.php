@@ -6,9 +6,11 @@ use NightWorksIO\MutationGate\Adapter\Gcs\BucketLedger;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
@@ -79,4 +81,17 @@ it('builds from its options and the environment\'s token, or says why it cannot'
         ->toEqual(Invalid::because(Problem::at('bucket', 'expected the bucket, got nothing')))
         ->and(BucketLedger::configured(Configs::options('{"bucket": "acme-ledgers", "prefix": "gate"}'), Variables::of([]), $cloud->exchange()))
         ->toBeInstanceOf(Invalid::class);
+});
+
+it('keeps the coverage map beside a scope\'s ledger in the bucket, and gets it back', function (): void {
+    $cloud = new Cloud();
+    $store = BucketLedger::of($cloud->exchange(), 'acme-ledgers', 'gate', FixedTokens::of('ya29'));
+
+    expect($store->keep(Scope::branch('main'), Companion::Coverage, Contents::of('map')))
+        ->toEqual(Written::to('gs://acme-ledgers/gate/refs/heads/main/coverage.json.gz'))
+        ->and($store->companion(Scope::branch('main'), Companion::Coverage))->toEqual(Contents::of('map'))
+        ->and(array_map(static fn(array $request): array => [$request['method'], $request['url']], $cloud->requests))->toBe([
+            ['PUT', 'https://storage.googleapis.com/acme-ledgers/gate/refs/heads/main/coverage.json.gz'],
+            ['GET', 'https://storage.googleapis.com/acme-ledgers/gate/refs/heads/main/coverage.json.gz'],
+        ]);
 });

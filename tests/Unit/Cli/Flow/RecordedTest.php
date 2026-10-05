@@ -28,8 +28,10 @@ use NightWorksIO\MutationGate\Core\Cost\Estimated;
 use NightWorksIO\MutationGate\Core\Cost\FirstRun;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
@@ -50,6 +52,7 @@ use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Bases;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
@@ -384,6 +387,16 @@ it('says why the store did not write', function () use ($map, $run, $ledgers): v
         }
 
         public function write(Scope $scope, Ledger $ledger): NotWritten
+        {
+            return NotWritten::because('The bucket is gone.');
+        }
+
+        public function companion(Scope $scope, Companion $companion): Missing
+        {
+            return Missing::at(Path::of($companion->value));
+        }
+
+        public function keep(Scope $scope, Companion $companion, Contents $bytes): NotWritten
         {
             return NotWritten::because('The bucket is gone.');
         }

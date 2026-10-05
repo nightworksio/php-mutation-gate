@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Cli\Flow\Judged;
 use NightWorksIO\MutationGate\Cli\Flow\LastRun;
+use NightWorksIO\MutationGate\Cli\Flow\PlanMade;
 use NightWorksIO\MutationGate\Cli\Flow\Raising;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
@@ -115,9 +116,16 @@ final readonly class RunCommand
         }
 
         $printing->begin($output, $composed->adapters->project);
-        $plan = PlanCommand::planOf($composed, $input);
+        $made = PlanCommand::planOf($composed, $input);
+
+        if ($made instanceof PlanMade) {
+            PlanCommand::saidHowMeasured($made, Aside::of($output));
+        }
+
         $results = FlowOptions::path($input, FlowOptions::RESULTS, Workspace::results());
-        $judged = $plan instanceof Plan ? self::judgedAll($composed, $plan, $results, $printing, $output) : $plan;
+        $judged = $made instanceof PlanMade
+            ? self::judgedAll($composed, $made->plan(), $results, $printing, $output)
+            : $made;
         $local = FlowOptions::isFull($input) && ! $composed->adapters->environment->inCi();
 
         return VerdictCommand::printed(

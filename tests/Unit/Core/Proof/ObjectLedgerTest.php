@@ -3,12 +3,17 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Coverage\MapLimits;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Gzip;
 use NightWorksIO\MutationGate\Core\Http\Request;
 use NightWorksIO\MutationGate\Core\Http\Token;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
@@ -130,4 +135,46 @@ it('says why a write was refused, and keeps the ledger within the limits it writ
             'objects://gate/refs/heads/main/ledger.json.gz',
             'It keeps the newest 0 of 1 proofs, so a run can still read the ledger.',
         ));
+});
+
+it('keeps the coverage map as an object beside the scope\'s ledger, and reads it back byte for byte', function (): void {
+    $cloud = new Cloud();
+    $ledgers = ObjectLedger::under($cloud->exchange(), 'gate');
+    $store = objectStoreAt(FixedTokens::of('t'));
+    $bytes = Contents::of(Gzip::pack('{"format":1}'));
+
+    expect($ledgers->keep($store, Scope::branch('main'), Companion::Coverage, $bytes))
+        ->toEqual(Written::to('objects://gate/refs/heads/main/coverage.json.gz'))
+        ->and($cloud->requests[0]['url'])->toBe('https://objects.example/gate/refs/heads/main/coverage.json.gz')
+        ->and($ledgers->companion($store, Scope::branch('main'), Companion::Coverage))->toEqual($bytes)
+        ->and($ledgers->companion($store, Scope::branch('other'), Companion::Coverage))
+        ->toEqual(Missing::at(Path::of('gate/refs/heads/other/coverage.json.gz')));
+});
+
+it('reads no coverage map, and keeps none, for a scope that is no ref, and asks nothing', function (): void {
+    $cloud = new Cloud();
+    $tokens = FixedTokens::of('t');
+    $ledgers = ObjectLedger::under($cloud->exchange(), 'gate');
+
+    expect($ledgers->companion(objectStoreAt($tokens), Scope::of('HEAD'), Companion::Coverage))
+        ->toEqual(Missing::at(Path::of('coverage.json.gz')))
+        ->and($ledgers->keep(objectStoreAt($tokens), Scope::of('HEAD'), Companion::Coverage, Contents::of('x')))
+        ->toBeInstanceOf(NotWritten::class)
+        ->and($cloud->requests)->toBe([])
+        ->and($tokens->asked)->toBe(0);
+});
+
+it('says why it reads and keeps no coverage map where there is no token, or the map is past its limit', function (): void {
+    $url = 'https://objects.example/gate/refs/heads/main/coverage.json.gz';
+    $named = 'objects://gate/refs/heads/main/coverage.json.gz';
+    $none = objectStoreAt(FixedTokens::missing('invalid_grant'));
+    $ledgers = ObjectLedger::under(new Cloud()->exchange(), 'gate');
+    $large = ObjectLedger::under(new Cloud()->holding($url, str_repeat('x', MapLimits::standard()->packed() + 1))->exchange(), 'gate');
+
+    expect($ledgers->companion($none, Scope::branch('main'), Companion::Coverage))
+        ->toEqual(CannotJudge::because(sprintf('The kept coverage map at %s could not be read: no token: invalid_grant.', $named)))
+        ->and($ledgers->keep($none, Scope::branch('main'), Companion::Coverage, Contents::of('x')))
+        ->toEqual(NotWritten::because(sprintf('%s could not be written: no token: invalid_grant', $named)))
+        ->and($large->companion(objectStoreAt(FixedTokens::of('t')), Scope::branch('main'), Companion::Coverage))
+        ->toEqual(CannotJudge::because(sprintf('The kept coverage map at %s could not be read: it is larger than 1500000 bytes.', $named)));
 });

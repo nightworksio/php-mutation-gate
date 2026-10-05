@@ -425,6 +425,24 @@ it('measures a test file again, names the tests it holds, and the merged map is 
         ->toBe($full instanceof CoverageMap ? contractLines($full) : $full);
 })->with($libraries);
 
+it('places every test of a full run\'s map in the test files that hold them, so a kept map can be measured by file', function (Library $library): void {
+    $runner = $library->runner();
+    $full = $runner->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));
+    $tests = $full instanceof CoverageMap ? $full->tests() : TestIds::none();
+    $names = $runner->names($tests, Withheld::standard());
+    $files = Paths::none();
+
+    foreach ($tests as $test) {
+        $name = $names instanceof TestNames ? $names->testOf($test) : $test;
+        $files = $name instanceof TestName ? $files->with($name->file()) : $files;
+    }
+
+    $placed = $full instanceof CoverageMap ? $runner->testsIn($files, $full) : $full;
+
+    expect(count($tests))->toBeGreaterThan(0)
+        ->and($placed instanceof TestIds ? count($tests->without($placed)) : $placed)->toBe(0);
+})->with($libraries);
+
 it('finds its runner\'s own ignore marker, and none in code without one', function (Library $library): void {
     $found = $library->runner()->markers(Paths::of(Path::of('marked')));
     $none = $library->runner()->markers(Paths::of(Path::of('src/Money.php')));

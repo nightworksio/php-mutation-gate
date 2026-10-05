@@ -11,10 +11,12 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
+use NightWorksIO\MutationGate\Core\Coverage\KeptMap;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Proof\Access;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Reach\AffectedTests;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
@@ -24,7 +26,8 @@ use function sprintf;
 
 /**
  * `affected`: the tests a change can make fail (ADR-0020, decisions 1 to 3),
- * from the gate's own coverage map and git, running nothing. The change is
+ * from the gate's own coverage map, in a directory or else the one the
+ * default branch's runs keep, and git, running nothing. The change is
  * every change since the commit the map was measured at, and with
  * `--changed-since` every change since that ref besides. A map that is not
  * there, cannot be read, does not say where it was measured or was measured
@@ -33,7 +36,8 @@ use function sprintf;
  */
 final readonly class Selecting
 {
-    private const string NO_MAP = 'No coverage map is at %s, so every test is listed.';
+    private const string NO_MAP
+        = 'No coverage map is at %s, and the default branch keeps none, so every test is listed.';
 
     private const string UNREADABLE = '%s So every test is listed.';
 
@@ -72,7 +76,7 @@ final readonly class Selecting
             return CannotJudge::because(sprintf(self::CANNOT_TELL, $since, $asked->why()));
         }
 
-        $read = $this->mapIn($coverage);
+        $read = $this->mapIn($coverage, $inventory);
         $map = $read instanceof Read ? $read->map : CoverageMap::empty();
         $places = TestsOfTheSuite::placed($this->adapters, $inventory->suite, $map);
         $measured = $read instanceof Read ? $read->at : NotGiven::value();
@@ -97,8 +101,12 @@ final readonly class Selecting
         return $base instanceof Revision ? $base : Reason::that(self::NONE_PASSED);
     }
 
-    /** The map in a directory, with where it was measured; or why every test is listed. */
-    private function mapIn(Path $directory): Read|Reason
+    /**
+     * The map in a directory, or, where none is there, the one the default
+     * branch's runs keep beside its ledger, with where it was measured; or why
+     * every test is listed.
+     */
+    private function mapIn(Path $directory, Inventory $inventory): Read|Reason
     {
         $file = CoverageMapFile::in($directory);
         $contents = $this->adapters->project->read($file);
@@ -107,6 +115,20 @@ final readonly class Selecting
         return match (true) {
             $map instanceof CoverageMap => Read::of($map, MeasuredAt::recordedIn($contents->text())),
             $map instanceof CannotJudge => Reason::that(sprintf(self::UNREADABLE, $map->why())),
+            default => $this->keptMap($inventory, $file),
+        };
+    }
+
+    /** The map the default branch's runs keep beside its ledger; or why every test is listed. */
+    private function keptMap(Inventory $inventory, Path $file): Read|Reason
+    {
+        $standing = $inventory->standing;
+        $access = Access::of($standing->runOn()->scope(), $standing->defaultBranch(), Writing::Never);
+        $kept = KeptCoverage::fromStore($this->adapters->proofs, $access);
+
+        return match (true) {
+            $kept instanceof KeptMap => Read::of($kept->map(), $kept->measuredAt()),
+            $kept instanceof CannotJudge => Reason::that(sprintf(self::UNREADABLE, $kept->why())),
             default => Reason::that(sprintf(self::NO_MAP, $file->value())),
         };
     }

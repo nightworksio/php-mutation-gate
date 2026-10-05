@@ -6,7 +6,11 @@ namespace NightWorksIO\MutationGate\Tests\Fakes;
 
 use function array_key_exists;
 
+use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Missing;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
@@ -20,6 +24,9 @@ final class ProofStoreFake implements ProofStore
 {
     /** @var array<string, Ledger> by scope */
     private array $ledgers = [];
+
+    /** @var array<string, Contents> by scope and object */
+    private array $companions = [];
 
     private Unreadable|NotGiven $unread;
 
@@ -75,5 +82,20 @@ final class ProofStoreFake implements ProofStore
     public function asked(): array
     {
         return $this->asked;
+    }
+
+    public function companion(Scope $scope, Companion $companion): Contents|Missing
+    {
+        $key = sprintf('%s/%s', $scope->ref(), $companion->value);
+
+        return array_key_exists($key, $this->companions) ? $this->companions[$key] : Missing::at(Path::of($key));
+    }
+
+    public function keep(Scope $scope, Companion $companion, Contents $bytes): Written
+    {
+        $key = sprintf('%s/%s', $scope->ref(), $companion->value);
+        $this->companions[$key] = $bytes;
+
+        return Written::to(sprintf('memory:%s', $key));
     }
 }

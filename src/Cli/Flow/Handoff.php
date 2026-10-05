@@ -11,12 +11,14 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
+use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -47,20 +49,22 @@ final readonly class Handoff
     }
 
     /**
-     * The whole map, each shard's map and the history of its files'
-     * functions, in the directory `run` reads them from; and the verdict's map.
+     * The whole map, with each test file's entry key where the run keeps
+     * one, each shard's map and the history of its files' functions, in the
+     * directory `run` reads them from; and the verdict's map.
      */
     public function write(
         Plan $plan,
         CoverageMap $map,
         KillHistory $history,
         MeasuredAt|Unplaced $at,
+        EntryKeys|NotGiven $keys = new NotGiven(),
     ): Written|CannotJudge {
         $written = Written::to(Workspace::coverage()->value());
         $considered = Units::none();
         $whole = $this->project->write(
             CoverageMapFile::in(Workspace::coverage()),
-            Contents::of(CoverageMapFile::encode($map, $at)),
+            Contents::of(CoverageMapFile::encode($map, $at, $keys)),
         );
 
         if ($whole instanceof CannotJudge) {

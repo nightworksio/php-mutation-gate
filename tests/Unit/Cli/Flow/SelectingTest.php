@@ -12,12 +12,16 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
+use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Support\Affected;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -130,7 +134,7 @@ it('lists every test, saying why, where the map cannot say what the change reach
 
     expect($listed)->toBe(['tests/MoneyTest.php', $why]);
 })->with([
-    'no map' => [false, selectingCheckout(), '', 'No coverage map is at .mutation-gate/coverage/map.json.gz, so every test is listed.'],
+    'no map' => [false, selectingCheckout(), '', 'No coverage map is at .mutation-gate/coverage/map.json.gz, and the default branch keeps none, so every test is listed.'],
     'a map that is not one' => [
         'not a map',
         selectingCheckout(),
@@ -191,3 +195,28 @@ it('cannot select where the units cannot be found', function () use ($project, $
 
     expect($select($project(map: false), selectingCheckout(), '', $runner))->toBeInstanceOf(CannotJudge::class);
 });
+
+it('reads the map the default branch keeps where none is in the directory, and says why one it cannot read is no map', function (
+    string $kept,
+    array $listed,
+) use ($project, $checkout, $map, $money): void {
+    $store = new ProofStoreFake();
+    $store->keep(Scope::branch('main'), Companion::Coverage, Contents::of(sprintf($kept, CoverageMapFile::encode(
+        $map(),
+        MeasuredAt::of(Revision::ref(SELECTED_AT), dirty: false),
+    ))));
+    $selected = new Selecting(
+        Flows::adapters($project(map: false), [], $checkout($money), ScriptedRunner::fixture(), $store),
+        Flows::settings(),
+    )->selected('', Path::of('.mutation-gate/coverage'));
+
+    expect($selected instanceof Selected
+        ? [...array_column(Affected::listed($selected->tests), 0), ...Affected::texts($selected->tests->everyBecause())]
+        : $selected)->toBe($listed);
+})->with([
+    'a kept map' => ['%s', ['tests/DrainSpec.php', 'tests/MoneySpec.php']],
+    'a kept map that is no map' => [
+        'not a map',
+        ['tests/MoneyTest.php', 'The coverage map is not a whole gzip stream. So every test is listed.'],
+    ],
+]);

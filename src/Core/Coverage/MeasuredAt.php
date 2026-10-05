@@ -45,8 +45,13 @@ final readonly class MeasuredAt
     public static function recordedIn(string $bytes): self|Unplaced
     {
         $json = Gzip::unpack($bytes, CoverageMapFile::NAMED);
-        $map = Node::decode($json instanceof CannotJudge ? '' : $json);
 
+        return self::readIn(Node::decode($json instanceof CannotJudge ? '' : $json));
+    }
+
+    /** Where a decoded map says it was measured; unplaced where it says nothing that can be read. */
+    public static function readIn(Node $map): self|Unplaced
+    {
         try {
             $commit = Commit::parse($map->field(self::COMMIT)->text());
             $dirty = $map->field(self::DIRTY)->boolean();

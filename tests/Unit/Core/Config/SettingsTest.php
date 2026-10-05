@@ -112,6 +112,9 @@ const DEFAULTS = <<<'JSON'
             "ignore": [],
             "write": "auto"
         },
+        "coverage": {
+            "incremental": true
+        },
         "timeouts": {
             "mode": "confirm",
             "seconds": 10,
@@ -193,6 +196,7 @@ const EVERYTHING = [
         'ignore' => ['docs/**'],
         'write' => 'never',
     ],
+    'coverage' => ['incremental' => false],
     'budget' => '1h30m',
     'timeouts' => ['mode' => 'unjudged', 'seconds' => 30, 'retries' => 0],
     'flaky' => ['confirmSurvivors' => false],
@@ -489,6 +493,7 @@ it('keeps the settings that only judge or report out of the canonical form', fun
         'ignores' => ['entries' => []],
         'budget' => '5m',
         'proofs' => ['write' => 'auto'],
+        'coverage' => ['incremental' => true],
         'runner' => ['use' => 'infection', 'with' => [], 'memory' => '512M'],
     ];
 
@@ -1142,4 +1147,12 @@ it('defaults the gcs and azure stores\' prefix to the gate\'s name', function ()
         ->toBe('mutation-gate')
         ->and(Configs::shown(Configs::settings(['runner' => 'pest', 'proofs' => ['store' => ['use' => 'azure', 'with' => ['account' => 'acme', 'container' => 'c1c']]]]), 'proofs', 'store', 'with', 'prefix'))
         ->toBe('mutation-gate');
+});
+
+it('measures again only what moved unless the config says to measure every test, a later layer winning', function (): void {
+    expect(Configs::settings(['runner' => 'pest'])->proofs()->incrementalCoverage())->toBeTrue()
+        ->and(Configs::settings(['runner' => 'pest', 'coverage' => ['incremental' => false]])->proofs()->incrementalCoverage())->toBeFalse()
+        ->and(Configs::settings(['runner' => 'pest', 'coverage' => ['incremental' => true]])->proofs()->incrementalCoverage())->toBeTrue()
+        ->and(Configs::problems(Configs::validated(['runner' => 'pest', 'coverage' => ['incremental' => 'yes']])))
+        ->toBe(['coverage.incremental: expected true or false, got "yes"']);
 });

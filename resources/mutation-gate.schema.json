@@ -1688,6 +1688,16 @@
                 }
             },
             "additionalProperties": false
+        },
+        "coverage": {
+            "type": "object",
+            "properties": {
+                "incremental": {
+                    "type": "boolean",
+                    "default": true
+                }
+            },
+            "additionalProperties": false
         }
     },
     "additionalProperties": false

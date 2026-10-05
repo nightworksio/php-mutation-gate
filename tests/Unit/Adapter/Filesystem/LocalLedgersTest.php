@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\LedgerDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\LocalLedgers;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
@@ -95,4 +98,26 @@ it('keeps its own ledgers in .mutation-gate/ledger', function (): void {
     $shared = new ProofStoreFake();
 
     expect(LocalLedgers::over($shared))->toEqual(LocalLedgers::of(LedgerDirectory::at('.mutation-gate/ledger'), $shared));
+});
+
+it('reads an object beside the local ledger, or the shared store\'s where there is none locally', function (): void {
+    $shared = new ProofStoreFake();
+    $shared->keep(Scope::branch('main'), Companion::Coverage, Contents::of('shared map'));
+    $shared->keep(Scope::branch('feature'), Companion::Coverage, Contents::of('shared feature map'));
+    $local = LedgerDirectory::at(Scratch::directory());
+    $local->keep(Scope::branch('main'), Companion::Coverage, Contents::of('local map'));
+    $store = LocalLedgers::of($local, $shared);
+
+    expect($store->companion(Scope::branch('main'), Companion::Coverage))->toEqual(Contents::of('local map'))
+        ->and($store->companion(Scope::branch('feature'), Companion::Coverage))->toEqual(Contents::of('shared feature map'));
+});
+
+it('keeps an object beside the local ledger alone, never the shared store\'s', function (): void {
+    $shared = new ProofStoreFake();
+    $local = LedgerDirectory::at(Scratch::directory());
+
+    LocalLedgers::of($local, $shared)->keep(Scope::branch('main'), Companion::Coverage, Contents::of('map'));
+
+    expect($local->companion(Scope::branch('main'), Companion::Coverage))->toEqual(Contents::of('map'))
+        ->and($shared->companion(Scope::branch('main'), Companion::Coverage))->toBeInstanceOf(Missing::class);
 });

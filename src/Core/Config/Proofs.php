@@ -18,7 +18,12 @@ use NightWorksIO\MutationGate\Core\Proof\Writing;
 
 use function sprintf;
 
-/** Where proofs are kept, what they leave out, and whether the verdict writes them (ADR-0007): `proofs`. */
+/**
+ * Where proofs are kept, what they leave out, and whether the verdict writes
+ * them (ADR-0007): `proofs`; and whether a run keeps the coverage map it
+ * measures beside them to measure again only what moved (ADR-0023):
+ * `coverage`.
+ */
 final readonly class Proofs implements Part
 {
     /** Where the directory store keeps its ledgers. */
@@ -29,6 +34,7 @@ final readonly class Proofs implements Part
         private Choice|Absent $store,
         private Listed|Absent $ignore,
         private Writing|Absent $write,
+        private bool|Absent $incremental,
     ) {
     }
 
@@ -37,8 +43,9 @@ final readonly class Proofs implements Part
         Choice|Absent $store = new Absent(),
         Listed|Absent $ignore = new Absent(),
         Writing|Absent $write = new Absent(),
+        bool|Absent $incremental = new Absent(),
     ): self {
-        return new self($store, $ignore, $write);
+        return new self($store, $ignore, $write, $incremental);
     }
 
     public static function none(): self
@@ -50,7 +57,7 @@ final readonly class Proofs implements Part
     {
         $none = self::none();
 
-        return self::of($none->store(), $none->ignore(), $none->write());
+        return self::of($none->store(), $none->ignore(), $none->write(), $none->incrementalCoverage());
     }
 
     /** A store is chosen whole; the globs a later layer ignores add to an earlier one's. */
@@ -65,6 +72,7 @@ final readonly class Proofs implements Part
                     default => $this->ignore->and($later->ignore, static fn(Glob $glob): string => $glob->value()),
                 },
                 Absent::laid($this->write, $later->write),
+                Absent::laid($this->incremental, $later->incremental),
             )
             : $this;
     }
@@ -93,24 +101,37 @@ final readonly class Proofs implements Part
         return $this->write instanceof Writing ? $this->write : Writing::Auto;
     }
 
+    /**
+     * Whether a run measures again only the test files whose coverage could
+     * have moved, keeping the rest from the map kept beside the ledger
+     * (ADR-0023, decision 1): `coverage.incremental`, yes where nothing says.
+     */
+    public function incrementalCoverage(): bool
+    {
+        return $this->incremental instanceof Absent || $this->incremental;
+    }
+
     public function written(PathOrigin $origin): Json
     {
-        return Json::object(Member::unlessEmpty(
-            'proofs',
-            Json::object(
-                Member::of(
-                    'store',
-                    $this->store instanceof Choice ? $this->storeFrom($origin)->written() : $this->store,
+        return Json::object(
+            Member::unlessEmpty(
+                'proofs',
+                Json::object(
+                    Member::of(
+                        'store',
+                        $this->store instanceof Choice ? $this->storeFrom($origin)->written() : $this->store,
+                    ),
+                    Member::of(
+                        'ignore',
+                        $this->ignore instanceof Listed
+                            ? Json::items(...WrittenPaths::globs($origin, $this->ignore))
+                            : $this->ignore,
+                    ),
+                    Member::of('write', $this->write instanceof Writing ? $this->write->value : $this->write),
                 ),
-                Member::of(
-                    'ignore',
-                    $this->ignore instanceof Listed
-                        ? Json::items(...WrittenPaths::globs($origin, $this->ignore))
-                        : $this->ignore,
-                ),
-                Member::of('write', $this->write instanceof Writing ? $this->write->value : $this->write),
             ),
-        ));
+            Member::unlessEmpty('coverage', Json::object(Member::of('incremental', $this->incremental))),
+        );
     }
 
     public function php(PathOrigin $origin): PhpCalls
@@ -124,6 +145,9 @@ final readonly class Proofs implements Part
                 Writing::Auto => 'Proofs::writing()',
                 Writing::Never => 'Proofs::readOnly()',
             }] : [],
+            ...$this->incremental instanceof Absent
+                ? []
+                : [$this->incremental ? 'Coverage::incremental()' : 'Coverage::full()'],
         ]);
     }
 

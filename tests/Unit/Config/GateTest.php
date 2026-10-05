@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Config\Badge;
 use NightWorksIO\MutationGate\Config\Baseline;
 use NightWorksIO\MutationGate\Config\Budget;
 use NightWorksIO\MutationGate\Config\Ci;
+use NightWorksIO\MutationGate\Config\Coverage;
 use NightWorksIO\MutationGate\Config\Flaky;
 use NightWorksIO\MutationGate\Config\Floor;
 use NightWorksIO\MutationGate\Config\Gate;
@@ -119,6 +120,7 @@ it('writes every setting of the configuration reference', function (): void {
                 Proofs::s3('bucket', region: 'auto', endpoint: 'https://r2'),
                 Proofs::ignore('docs/**'),
                 Proofs::readOnly(),
+                Coverage::full(),
                 Budget::of('15m'),
                 Timeouts::unjudged(),
                 Timeouts::seconds(30),
@@ -190,6 +192,7 @@ it('writes every setting of the configuration reference', function (): void {
             'ignore' => ['docs/**'],
             'write' => 'never',
         ],
+        'coverage' => ['incremental' => false],
         'budget' => '15m',
         'timeouts' => ['mode' => 'unjudged', 'seconds' => 30, 'retries' => 5],
         'flaky' => ['confirmSurvivors' => false],

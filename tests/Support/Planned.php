@@ -6,6 +6,8 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
+use NightWorksIO\MutationGate\Cli\Flow\PlanMade;
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
@@ -77,6 +79,12 @@ final readonly class Planned
         return Plan::of(Revision::ref(Flows::HEAD), Digest::sha256Of(self::BASE), self::keys(), Shards::of(...$shards))
             ->on(RunOn::at(Scope::branch('main'), Scope::branch('main')))
             ->naming(TestNames::none());
+    }
+
+    /** The plan a planning made, or why it made none. */
+    public static function from(PlanMade|CannotJudge $made): Plan|CannotJudge
+    {
+        return $made instanceof PlanMade ? $made->plan() : $made;
     }
 
     /** The key each unit has. */

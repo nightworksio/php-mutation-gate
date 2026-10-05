@@ -8,12 +8,15 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\Http\Exchange;
 use NightWorksIO\MutationGate\Core\Http\MediaType;
 use NightWorksIO\MutationGate\Core\Http\Request;
 use NightWorksIO\MutationGate\Core\Http\Token;
 use NightWorksIO\MutationGate\Core\Http\Tokens;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
 use NightWorksIO\MutationGate\Core\Proof\ObjectLedger;
@@ -73,6 +76,16 @@ final readonly class BucketLedger implements ObjectStore, ProofStore
     public function write(Scope $scope, Ledger $ledger): Written|NotWritten
     {
         return $this->ledgers->write($this, $scope, $ledger);
+    }
+
+    public function companion(Scope $scope, Companion $companion): Contents|Missing|CannotJudge
+    {
+        return $this->ledgers->companion($this, $scope, $companion);
+    }
+
+    public function keep(Scope $scope, Companion $companion, Contents $bytes): Written|NotWritten
+    {
+        return $this->ledgers->keep($this, $scope, $companion, $bytes);
     }
 
     public function token(): Token|CannotJudge

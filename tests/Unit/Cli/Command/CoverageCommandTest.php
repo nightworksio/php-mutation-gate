@@ -4,10 +4,18 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Command\CoverageCommand;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
+use NightWorksIO\MutationGate\Core\Coverage\KeptMap;
+use NightWorksIO\MutationGate\Core\Coverage\MapLimits;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
+use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
@@ -28,14 +36,26 @@ $coverage = static fn(string $project, string $input, ScriptedRunner $runner): F
     $input,
 );
 
-/** The map the fake runner measures, at the commit the checkout is at, in a clean tree. */
-$measured = static fn(): string => CoverageMapFile::encode(RunnerFake::ofTheFixture()->coverage(
-    CoverageRead::from(Path::of('anywhere')),
-), MeasuredAt::of(Revision::ref(Flows::HEAD), dirty: false));
+/** The map the fake runner measures, at the commit the checkout is at, in a clean tree, with its test file's key. */
+$measured = static fn(): array => [
+    RunnerFake::ofTheFixture()->coverage(CoverageRead::from(Path::of('anywhere'))),
+    MeasuredAt::of(Revision::ref(Flows::HEAD), dirty: false),
+    ['tests/MoneyTest.php'],
+];
+
+/** What the map a project holds at a path measures, where, and which test files it keys. */
+$kept = static function (string $file): array {
+    $kept = CoverageMapFile::kept((string) file_get_contents($file), MapLimits::standard());
+
+    return $kept instanceof KeptMap
+        ? [$kept->map(), $kept->measuredAt(), array_keys($kept->keys()->written())]
+        : [$kept];
+};
 
 it('writes the map the suite\'s coverage run measured into the directory it is told', function () use (
     $coverage,
     $measured,
+    $kept,
 ): void {
     $project = FlowCommands::project();
 
@@ -43,8 +63,8 @@ it('writes the map the suite\'s coverage run measured into the directory it is t
 
     expect($written->code)->toBe(0)
         ->and($written->output)->toBe(sprintf("Wrote %s/build/coverage/map.json.gz.\n", $project))
-        ->and($written->errors)->toBe('')
-        ->and(file_get_contents(sprintf('%s/build/coverage/map.json.gz', $project)))->toBe($measured());
+        ->and($written->errors)->toBe("Coverage: there is no kept map, so every test was measured.\n")
+        ->and($kept(sprintf('%s/build/coverage/map.json.gz', $project)))->toEqual($measured());
 });
 
 it('measures the suite withholding every CI\'s tokens from its tests', function (): void {
@@ -105,4 +125,38 @@ it('offers the directory to write the map into', function (): void {
     );
 
     expect($command->getDefinition()->getOption('into')->isValueRequired())->toBeTrue();
+});
+
+it('measures again only the test files whose entries moved against the map the default branch keeps', function (): void {
+    $project = FlowCommands::project();
+    $store = new ProofStoreFake();
+    $money = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'));
+    $first = new CoverageAsked(ScriptedRunner::fixture(), $money);
+    FlowCommands::run(CoverageCommand::command(FlowCommands::composition($project, $first, $store, Flows::ci())));
+    $store->keep(
+        Scope::branch('main'),
+        Companion::Coverage,
+        Contents::of((string) file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $project))),
+    );
+    $again = new CoverageAsked(ScriptedRunner::fixture(), $money);
+
+    $written = FlowCommands::run(CoverageCommand::command(FlowCommands::composition($project, $again, $store, Flows::ci())));
+
+    expect($written->errors)->toBe("Coverage: measured 0 of 1 test files again; kept the rest from the default branch's map.\n")
+        ->and($again->ran())->toBe([])
+        ->and($again->asked())->toEqual([CoverageRead::from(Path::of('.mutation-gate/coverage'))]);
+});
+
+it('measures every test, keying none, where the project cannot be listed', function () use ($coverage): void {
+    $project = FlowCommands::project();
+
+    $written = $coverage($project, '', ScriptedRunner::fixture()->unlisted('No group can be listed.'));
+    $map = CoverageMapFile::kept(
+        (string) file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $project)),
+        MapLimits::standard(),
+    );
+
+    expect($written->code)->toBe(0)
+        ->and($written->errors)->toBe("Coverage: No group can be listed. So every test was measured.\n")
+        ->and($map instanceof KeptMap ? $map->keys()->written() : $map)->toBe([]);
 });
