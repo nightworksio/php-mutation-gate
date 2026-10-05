@@ -92,12 +92,11 @@ final readonly class Judging
             $guard,
             $scan,
         );
-        $originals = new Originals($this->project);
         $mutants = [];
 
         foreach ($result->mutants() as $mutant) {
             $uncovered = $mutant->status() === MutantStatus::Uncovered;
-            $mutants[] = $uncovered ? $this->one($mutant, $selector, $trial, $originals, $results) : $mutant;
+            $mutants[] = $uncovered ? $this->one($mutant, $selector, $trial, $results) : $mutant;
         }
 
         $scan->remove();
@@ -116,16 +115,11 @@ final readonly class Judging
         return false;
     }
 
-    private function one(
-        Mutant $mutant,
-        Selector $selector,
-        Trial $trial,
-        Originals $originals,
-        string $results,
-    ): Mutant {
+    private function one(Mutant $mutant, Selector $selector, Trial $trial, string $results): Mutant
+    {
         $file = $mutant->location()->file();
         $copy = Recorder::mutantBeside($results, $mutant->nativeId());
-        $choice = $this->choice($selector, $originals->of($file), $copy);
+        $choice = $this->choice($selector, $selector->original($file), $copy);
 
         if ($choice instanceof Outcome) {
             return $this->judged($mutant, $choice);

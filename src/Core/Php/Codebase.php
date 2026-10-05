@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Php;
 
-use function array_any;
 use function array_key_exists;
 use function array_values;
 
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
  * The project's test and source files, read for where each reads a value a
@@ -22,20 +22,35 @@ final readonly class Codebase
     /** How many declarations deep a read is followed. */
     private const int STEPS = 3;
 
-    /** @param list<Source> $sources */
-    private function __construct(private array $sources, private Hierarchy $hierarchy)
+    /**
+     * @param list<Source>                $sources
+     * @param array<array-key, Source> $byPath  each source, by its path; the last read of a path where two share it
+     */
+    private function __construct(private array $sources, private Hierarchy $hierarchy, private array $byPath)
     {
     }
 
     public static function of(Source ...$sources): self
     {
-        return new self(array_values($sources), Hierarchy::of(...$sources));
+        $byPath = [];
+
+        foreach ($sources as $source) {
+            $byPath[$source->path()->value()] = $source;
+        }
+
+        return new self(array_values($sources), Hierarchy::of(...$sources), $byPath);
     }
 
     /** The file at a path, if the codebase holds it. */
     public function has(Path $file): bool
     {
-        return array_any($this->sources, fn(Source $source): bool => $source->path()->equals($file));
+        return array_key_exists($file->value(), $this->byPath);
+    }
+
+    /** The scanned source of the file at a path, or none where the codebase holds no such file. */
+    public function source(Path $file): Source|NotGiven
+    {
+        return array_key_exists($file->value(), $this->byPath) ? $this->byPath[$file->value()] : NotGiven::value();
     }
 
     /** Where the project reads a value, followed through the declarations that read it. */

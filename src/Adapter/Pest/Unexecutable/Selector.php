@@ -13,6 +13,7 @@ use function is_string;
 use NightWorksIO\MutationGate\Adapter\Pest\Covering;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\TestFiles;
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\OwnTime;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -55,6 +56,7 @@ final readonly class Selector
         private Paths $suite,
         private Followed $followed,
         private CoverageMap $map,
+        private Originals $originals,
     ) {
     }
 
@@ -77,7 +79,15 @@ final readonly class Selector
         $suite = $tests->holdingAny($map->tests());
         $codebase = Codebase::of(...array_merge(...$sources));
 
-        return new self($project, $coverage, $tests, $suite, new Followed($codebase), $map);
+        $originals = new Originals($project, $codebase);
+
+        return new self($project, $coverage, $tests, $suite, new Followed($codebase), $map, $originals);
+    }
+
+    /** A mutated file's original, scanned as the codebase read it; why it cannot be printed; or none. */
+    public function original(Path $file): Original|CannotJudge|NotGiven
+    {
+        return $this->originals->of($file);
     }
 
     /**
