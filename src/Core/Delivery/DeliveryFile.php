@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 
 use function sprintf;
@@ -55,6 +56,8 @@ final readonly class DeliveryFile
 
     private const string OTLP = 'otlp';
 
+    private const string KEPT = 'kept';
+
     private const string TRACES = 'traces';
 
     private const string METRICS = 'metrics';
@@ -64,6 +67,10 @@ final readonly class DeliveryFile
         $ledger = $delivery->ledger();
         $comment = $delivery->comment();
         $otlp = $delivery->otlp();
+        $kept = array_map(
+            static fn(KeptPost $post): Member => Member::of($post->companion()->value, $post->scope()->ref()),
+            $delivery->kept(),
+        );
         $alerts = array_map(
             static fn(AlertPost $alert): Json => Json::object(
                 Member::of('channel', $alert->channel()->value),
@@ -78,6 +85,7 @@ final readonly class DeliveryFile
             Member::of('comment', $comment instanceof NotGiven ? Absent::setting() : $comment),
             Member::unlessEmpty(self::ALERTS, Json::items(...$alerts)),
             Member::of(self::OTLP, $otlp instanceof OtlpPost ? self::otlpJson($otlp) : Absent::setting()),
+            Member::unlessEmpty(self::KEPT, Json::object(...$kept)),
         )->pretty();
     }
 
@@ -108,7 +116,7 @@ final readonly class DeliveryFile
     /** @throws NotInShape */
     private static function deliveryIn(Node $top): Delivery
     {
-        self::onlyKeys($top, 'format', self::LEDGER_KEY, 'comment', self::ALERTS, self::OTLP);
+        self::onlyKeys($top, 'format', self::LEDGER_KEY, 'comment', self::ALERTS, self::OTLP, self::KEPT);
 
         if ($top->field('format')->integer() !== self::FORMAT) {
             throw NotInShape::at($top->field('format')->at(), sprintf('format %d', self::FORMAT));
@@ -127,8 +135,30 @@ final readonly class DeliveryFile
         }
 
         $otlp = $top->field(self::OTLP);
+        $delivery = $otlp->isPresent() ? $delivery->withOtlp(self::otlpIn($otlp)) : $delivery;
 
-        return $otlp->isPresent() ? $delivery->withOtlp(self::otlpIn($otlp)) : $delivery;
+        return $top->field(self::KEPT)->isPresent() ? self::keptIn($top->field(self::KEPT), $delivery) : $delivery;
+    }
+
+    /**
+     * The objects to keep beside a ledger, each by the name the store keeps it under and the scope it is kept for:
+     * no name but those, so a delivery leads `deliver` to no other file.
+     *
+     * @throws NotInShape
+     */
+    private static function keptIn(Node $kept, Delivery $delivery): Delivery
+    {
+        $names = array_map(static fn(Companion $companion): string => $companion->value, Companion::cases());
+        self::onlyKeys($kept, ...$names);
+
+        foreach (Companion::cases() as $companion) {
+            $scope = $kept->field($companion->value);
+            $delivery = $scope->isPresent()
+                ? $delivery->withKept(KeptPost::of($companion, self::scopeIn($scope)))
+                : $delivery;
+        }
+
+        return $delivery;
     }
 
     /** @throws NotInShape */

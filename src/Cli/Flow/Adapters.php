@@ -86,6 +86,12 @@ final readonly class Adapters
     ) {
     }
 
+    /** The same, reading and writing ledgers in this store. */
+    public function withProofs(ProofStore $proofs): self
+    {
+        return clone($this, ['proofs' => $proofs]);
+    }
+
     /**
      * The same, its runs making mutants with the security mutators alone, as
      * `--security` asks (ADR-0021, decision 20); or why there are none to make

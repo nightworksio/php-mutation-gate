@@ -14,8 +14,11 @@ use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Delivery\AlertPost;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Delivery\DeliveryFile;
+use NightWorksIO\MutationGate\Core\Delivery\KeptPost;
 use NightWorksIO\MutationGate\Core\Delivery\LedgerPost;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
@@ -108,13 +111,16 @@ it('refuses a command line that holds anything but its directory, saying what Sy
     'another argument' => ['x', '"x"'],
 ]);
 
-it('writes the ledger beside the delivery only on a trusted run, to the store its own environment locates', function (): void {
+it('writes the ledger and keeps the coverage map beside the delivery only on a trusted run, in the store its own environment locates', function (): void {
     $project = Scratch::directory();
     $event = Scratch::directory();
     Scratch::write($event, 'event.json', '{"repository": {"default_branch": "main"}}');
     $ledger = Ledger::empty()->atBase(Digest::sha256Of('base'));
-    Scratch::write($project, 'd/delivery.json', DeliveryFile::encode(Delivery::none()->withLedger(LedgerPost::to(Scope::branch('main')))));
+    Scratch::write($project, 'd/delivery.json', DeliveryFile::encode(Delivery::none()
+        ->withLedger(LedgerPost::to(Scope::branch('main')))
+        ->withKept(KeptPost::of(Companion::Coverage, Scope::branch('main')))));
     Scratch::write($project, 'd/ledger.json.gz', LedgerFile::encode($ledger));
+    Scratch::write($project, 'd/coverage.json.gz', 'the run\'s map');
     $store = new ProofStoreFake();
     $client = new MockHttpClient();
     $clock = new StoppedClock('2026-10-05T12:00:00Z');
@@ -136,10 +142,11 @@ it('writes the ledger beside the delivery only on a trusted run, to the store it
 
     expect($code)->toBe(0)
         ->and($store->read(Scope::branch('main')))->toEqual($ledger)
-        ->and($output->fetch())->toBe("Wrote memory:refs/heads/main.\n");
+        ->and($store->companion(Scope::branch('main'), Companion::Coverage))->toEqual(Contents::of('the run\'s map'))
+        ->and($output->fetch())->toBe("Wrote memory:refs/heads/main.\nWrote memory:refs/heads/main/coverage.json.gz.\n");
 });
 
-it('fails a trusted run whose delivery holds a ledger it left no file for', function (): void {
+it('fails a trusted run whose delivery holds a ledger or a coverage map it left no file for', function (): void {
     $project = Scratch::directory();
     $event = Scratch::directory();
     Scratch::write($event, 'event.json', '{"repository": {"default_branch": "main"}}');
@@ -157,6 +164,11 @@ it('fails a trusted run whose delivery holds a ledger it left no file for', func
 
     expect(deliverRun($project, Scratch::directory(), throughComposer: false, argv: ['mutation-gate', 'deliver', sprintf('--from=%s/d', $project)], environment: $environment))
         ->toBe(["The ledger is not written, since it cannot be read: ledger.json.gz is missing.\n", '', 2]);
+
+    Scratch::write($project, 'd/delivery.json', DeliveryFile::encode(Delivery::none()->withKept(KeptPost::of(Companion::Coverage, Scope::branch('main')))));
+
+    expect(deliverRun($project, Scratch::directory(), throughComposer: false, argv: ['mutation-gate', 'deliver', sprintf('--from=%s/d', $project)], environment: $environment))
+        ->toBe(["The coverage map is not kept, since it cannot be read: coverage.json.gz is missing.\n", '', 2]);
 });
 
 it('starts in this process with the gate\'s own adapters, and refuses before anything else', function (): void {

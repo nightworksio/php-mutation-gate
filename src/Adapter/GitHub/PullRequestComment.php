@@ -15,8 +15,11 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\PullRequestNumber;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Delivery\Deferring;
+use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\PlannedWork;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
@@ -38,7 +41,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * nothing; the step summary carries the same content. The plan job writes
  * it first in its planned state (ADR-0009, decision 3).
  */
-final readonly class PullRequestComment implements Configurable, Reporter
+final readonly class PullRequestComment implements Configurable, Deferring, Reporter
 {
     /** The identity `GITHUB_TOKEN` comments as, which cannot read `/user`. */
     public const string ACTIONS = 'github-actions[bot]';
@@ -63,6 +66,7 @@ final readonly class PullRequestComment implements Configurable, Reporter
         private Api $api,
         private string $repository,
         private PullRequestNumber|NotWritten $pullRequest,
+        private PullRequestNumber|NotGiven $commentedOn,
         private string $run,
         private string $identity,
     ) {
@@ -85,18 +89,21 @@ final readonly class PullRequestComment implements Configurable, Reporter
         $read = static fn(string $name): string => array_key_exists($name, $environment) ? $environment[$name] : '';
         $payload = Node::decode($event)->field('pull_request');
         $number = self::numberIn($payload);
+        $commentedOn = str_contains($read('GITHUB_EVENT_NAME'), 'pull_request') && $number instanceof PullRequestNumber
+            ? $number
+            : NotGiven::value();
         $target = match (true) {
-            ! str_contains($read('GITHUB_EVENT_NAME'), 'pull_request') || ! $number instanceof PullRequestNumber
-                => NotWritten::because(self::NOT_A_PULL_REQUEST),
+            $commentedOn instanceof NotGiven => NotWritten::because(self::NOT_A_PULL_REQUEST),
             $read('GITHUB_TOKEN') === '' => NotWritten::because(self::NO_TOKEN),
             self::isFork($payload) => NotWritten::because(self::FORK),
-            default => $number,
+            default => $commentedOn,
         };
 
         return new self(
             Api::at($client, $read('GITHUB_API_URL'), $read('GITHUB_TOKEN')),
             $read('GITHUB_REPOSITORY'),
             $target,
+            $commentedOn,
             sprintf(
                 '%s/%s/actions/runs/%s',
                 $read('GITHUB_SERVER_URL') === '' ? 'https://github.com' : $read('GITHUB_SERVER_URL'),
@@ -141,6 +148,25 @@ final readonly class PullRequestComment implements Configurable, Reporter
     public function planned(PlannedWork $work): Written|NotWritten
     {
         return $this->write(PlannedMarkdown::comment($work, $this->run));
+    }
+
+    /**
+     * A delivery, with the comment's markdown, where the run is a pull request's, for `deliver` to write with the
+     * token its own environment holds (ADR-0007 decision 5); unchanged on any other run.
+     */
+    public function deferred(Verdict $verdict, Delivery $delivery): Delivery
+    {
+        return $this->commentedOn instanceof NotGiven
+            ? $delivery
+            : $delivery->withComment(Markdown::comment($verdict, $this->run));
+    }
+
+    /** A delivery, with the comment in its planned state, where the run is a pull request's, for `deliver` to write. */
+    public function plannedLater(PlannedWork $work, Delivery $delivery): Delivery
+    {
+        return $this->commentedOn instanceof NotGiven
+            ? $delivery
+            : $delivery->withComment(PlannedMarkdown::comment($work, $this->run));
     }
 
     /**

@@ -15,8 +15,15 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Delivery\Delivery;
+use NightWorksIO\MutationGate\Core\Delivery\DeliveryFile;
+use NightWorksIO\MutationGate\Core\Delivery\KeptPost;
+use NightWorksIO\MutationGate\Core\Delivery\LedgerPost;
+use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
@@ -205,4 +212,42 @@ it('says why it keeps no coverage map where the plan handed on none', function (
     expect($verdict->output)->toStartWith(
         "Wrote memory:refs/heads/main.\nThe plan handed on no coverage map at .mutation-gate/coverage, so none is kept.\nmutation-gate: passed\n",
     );
+});
+
+it('leaves the ledger and the coverage map beside the verdict\'s delivery under --deliver-later, writing no store', function () use ($ran): void {
+    $project = FlowCommands::project();
+    $store = new ProofStoreFake();
+    $composition = FlowCommands::over(
+        Trees::of(Tree::at(Path::of('src'), Floor::of(40.0), Package::at(Path::root()))),
+        $project,
+        ScriptedRunner::fixture(),
+        $store,
+        Flows::ci(),
+        Variables::of([]),
+    );
+    $ran($composition, '.mutation-gate/results');
+    Scratch::write($project, '.mutation-gate/delivery/verdict/delivery.json', '{"format": 1, "comment": "an earlier run\'s"}');
+
+    $verdict = FlowCommands::run(VerdictCommand::command($composition), '--deliver-later');
+    $delivery = DeliveryFile::decode((string) file_get_contents(sprintf('%s/.mutation-gate/delivery/verdict/delivery.json', $project)));
+
+    expect($verdict->code)->toBe(0)
+        ->and($verdict->output)->toStartWith(sprintf(
+            "Wrote %1\$s/.mutation-gate/delivery/verdict/ledger.json.gz. It is not in the store until deliver writes it there for refs/heads/main.\n"
+            . "Wrote %1\$s/.mutation-gate/delivery/verdict/coverage.json.gz. It is not in the store until deliver keeps it there for refs/heads/main.\n",
+            $project,
+        ))
+        ->and(array_filter($store->asked(), static fn(string $asked): bool => str_starts_with($asked, 'write')))->toBe([])
+        ->and($store->companion(Scope::branch('main'), Companion::Coverage))->toBeInstanceOf(Missing::class)
+        ->and($delivery)->toEqual(Delivery::none()
+            ->withLedger(LedgerPost::to(Scope::branch('main')))
+            ->withKept(KeptPost::of(Companion::Coverage, Scope::branch('main'))))
+        ->and(is_file(sprintf('%s/.mutation-gate/delivery/verdict/ledger.json.gz', $project)))->toBeTrue()
+        ->and(is_file(sprintf('%s/.mutation-gate/delivery/verdict/coverage.json.gz', $project)))->toBeTrue();
+});
+
+it('offers to leave what needs a credential for deliver', function () use ($composed): void {
+    $definition = VerdictCommand::command($composed(FlowCommands::project(), 40))->getDefinition();
+
+    expect($definition->getOption('deliver-later')->acceptValue())->toBeFalse();
 });

@@ -7,8 +7,10 @@ use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
+use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Delivery\OtlpPost;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\Version;
@@ -214,4 +216,21 @@ it('exports the trace and the metrics a run left as they were left, and says whe
         ->and([$metrics->getRequestUrl(), $metrics->getRequestOptions()['body']])->toBe(['https://otel.example/v1/metrics', '{"resourceMetrics": []}'])
         ->and($refused instanceof OtlpReporter ? $refused->exported(OtlpPost::of('{}', '{}')) : 'invalid')
         ->toEqual(NotWritten::because('https://otel.example answered 400: bad'));
+});
+
+it('leaves the trace and the metrics it would export for deliver, sending nothing', function () use ($github): void {
+    $client = new MockHttpClient([]);
+    $reporter = OtlpReporter::inEnvironment(Configs::options('{}'), $github, $client, new StoppedClock('2026-09-30T12:00:00Z'));
+    $timed = $reporter instanceof OtlpReporter ? $reporter->deferred(Verdicts::named('accounted'), Delivery::none()) : 'invalid';
+    $untimed = $reporter instanceof OtlpReporter ? $reporter->deferred(Verdicts::passing(), Delivery::none()) : 'invalid';
+    $timedOtlp = $timed instanceof Delivery ? $timed->otlp() : $timed;
+    $untimedOtlp = $untimed instanceof Delivery ? $untimed->otlp() : $untimed;
+
+    expect($client->getRequestsCount())->toBe(0)
+        ->and($timedOtlp instanceof OtlpPost && is_string($timedOtlp->traces())
+            ? Decoded::at($timedOtlp->traces(), 'resourceSpans', 0, 'scopeSpans', 0, 'spans', 0, 'attributes', 0, 'key')
+            : $timedOtlp)->toBe('vcs.ref.head.name')
+        ->and($untimedOtlp instanceof OtlpPost ? $untimedOtlp->traces() : $untimedOtlp)->toEqual(NotGiven::value())
+        ->and($untimedOtlp instanceof OtlpPost ? Decoded::at($untimedOtlp->metrics(), 'resourceMetrics', 0, 'scopeMetrics', 0, 'scope', 'name') : $untimedOtlp)
+        ->toBe('mutation-gate');
 });

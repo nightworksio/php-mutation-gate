@@ -409,13 +409,23 @@ has to bring its result with it.
      Both run from the gate's own installation, before any extension is
      found or config read, and refuse to start through Composer's proxy or
      from the working directory's `vendor`.
+     - `plan --deliver-later` and `verdict --deliver-later` send nothing that
+       needs a credential and write no store. Each leaves what it would have
+       sent, and the verdict its ledger and the coverage map it keeps beside
+       it (ADR-0023), in its stage's directory,
+       `.mutation-gate/delivery/planned` or `.mutation-gate/delivery/verdict`,
+       begun empty so nothing an earlier run left is sent again. Ledgers are
+       still read from the store the config names.
      - `deliver` sends what a run that ran the project's code left in its
        delivery directory, `.mutation-gate/delivery` by default. The
        directory holds prepared payloads alone, as JSON within the ledger's
        byte limits: the ledger's scope, the comment's markdown, each alert's
        body, no more to one channel than a verdict sends, the OTLP export,
-       and the ledger beside them. A key it does not take refuses the whole
-       delivery.
+       and the scope of each object to keep beside the ledger, by the name a
+       store keeps it under; the ledger and each such object, such as
+       `coverage.json.gz`, lie beside them. A key it does not take refuses the
+       whole delivery. `deliver` keeps each object in the store on the same
+       trusted runs, and for the same scope, as it writes the ledger.
      - Every destination and every credential comes from `deliver`'s own
        environment, never from the directory. No host, endpoint or URL is
        ever read from it. The comment goes to the pull request `deliver`'s

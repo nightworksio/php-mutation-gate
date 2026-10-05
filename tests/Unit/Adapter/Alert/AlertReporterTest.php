@@ -7,12 +7,17 @@ use NightWorksIO\MutationGate\Adapter\Alert\Channel;
 use NightWorksIO\MutationGate\Adapter\Alert\Delivery;
 use NightWorksIO\MutationGate\Adapter\Alert\Pause;
 use NightWorksIO\MutationGate\Core\Alert\Alerts;
+use NightWorksIO\MutationGate\Core\Alert\DiscordMessage;
 use NightWorksIO\MutationGate\Core\Alert\SlackMessage;
 use NightWorksIO\MutationGate\Core\Alert\WebhookPayload;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Delivery\AlertPost;
+use NightWorksIO\MutationGate\Core\Delivery\Delivery as Deferred;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
@@ -165,4 +170,29 @@ it('reads its own environment and posts over the network', function (): void {
 
     expect($reporter instanceof AlertReporter ? $reporter->report(Verdicts::failing()) : null)
         ->toEqual(NotWritten::because('MUTATION_GATE_SLACK_URL is not set, so no alert goes to Slack.'));
+});
+
+it('leaves each alert it would send for deliver, with no URL set, and none where it would send none', function () use ($github): void {
+    $verdict = Verdicts::passing()->withAccount(Previous::run('failed', floor: 90.0));
+    $alerts = [...Alerts::of($verdict)];
+    $reporter = alertReporter(Channel::Discord, Variables::of($github), []);
+    $outsideCi = alertReporter(Channel::Discord, Variables::of(array_diff_key($github, ['CI' => true])), []);
+    $deferred = static fn(Verdict $judged): Deferred|string => $reporter instanceof AlertReporter ? $reporter->deferred($judged, Deferred::none()) : 'invalid';
+
+    expect($deferred($verdict))->toEqual(Deferred::none()
+        ->withAlert(AlertPost::of(BuiltinReporter::Discord, DiscordMessage::json($alerts[0], Previous::ci())))
+        ->withAlert(AlertPost::of(BuiltinReporter::Discord, DiscordMessage::json($alerts[1], Previous::ci()))))
+        ->and($deferred(Verdicts::passing()->withAccount(Previous::run('passed'))))->toEqual(Deferred::none())
+        ->and($outsideCi instanceof AlertReporter ? $outsideCi->deferred($verdict, Deferred::none()) : 'invalid')->toEqual(Deferred::none())
+        ->and($reporter instanceof AlertReporter ? $reporter->deferred($verdict, Deferred::none()->withComment('kept')) : 'invalid')
+        ->toEqual(Deferred::none()->withComment('kept')
+            ->withAlert(AlertPost::of(BuiltinReporter::Discord, DiscordMessage::json($alerts[0], Previous::ci())))
+            ->withAlert(AlertPost::of(BuiltinReporter::Discord, DiscordMessage::json($alerts[1], Previous::ci()))));
+});
+
+it('names the reporter that sends each channel\'s alerts', function (): void {
+    expect(array_map(static fn(Channel $channel): BuiltinReporter => $channel->reporter(), Channel::cases()))
+        ->toBe([BuiltinReporter::Slack, BuiltinReporter::Discord, BuiltinReporter::Webhook])
+        ->and(array_map(static fn(Channel $channel): Channel|NotGiven => Channel::of($channel->reporter()), Channel::cases()))
+        ->toBe(Channel::cases());
 });

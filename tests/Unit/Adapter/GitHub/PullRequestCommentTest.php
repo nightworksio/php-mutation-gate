@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\GitHub\Markdown;
 use NightWorksIO\MutationGate\Adapter\GitHub\PlannedMarkdown;
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
+use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
@@ -180,3 +181,29 @@ it('comments where the event does not say which repositories the pull request jo
     expect($answer)->toEqual(Written::to('u'))
         ->and($post->getRequestUrl())->toBe('https://api.github.example/repos/octo/gate/issues/12/comments');
 });
+
+it('leaves its comment, and its planned state, for deliver on a pull request, token or not, fork or not', function (string $token, string $head) use ($environment, $event): void {
+    $client = new MockHttpClient([]);
+    $comment = PullRequestComment::inRun([...$environment, 'GITHUB_TOKEN' => $token], $event($head), $client, '');
+    $run = 'https://github.example/octo/gate/actions/runs/7';
+
+    expect($comment->deferred(Verdicts::failing(), Delivery::none()))
+        ->toEqual(Delivery::none()->withComment(Markdown::comment(Verdicts::failing(), $run)))
+        ->and($comment->plannedLater(ShardedPlan::planned(2), Delivery::none()))
+        ->toEqual(Delivery::none()->withComment(PlannedMarkdown::comment(ShardedPlan::planned(2), $run)))
+        ->and($client->getRequestsCount())->toBe(0);
+})->with([
+    'with a token' => ['secret', 'octo/gate'],
+    'with none' => ['', 'octo/gate'],
+    'from a fork' => ['', 'someone/gate'],
+]);
+
+it('leaves no comment for deliver on a run that is no pull request\'s', function (string $name, string $event): void {
+    $comment = PullRequestComment::inRun(['GITHUB_EVENT_NAME' => $name], $event, new MockHttpClient([]), '');
+
+    expect($comment->deferred(Verdicts::failing(), Delivery::none()->withComment('kept')))->toEqual(Delivery::none()->withComment('kept'))
+        ->and($comment->plannedLater(ShardedPlan::planned(1), Delivery::none()))->toEqual(Delivery::none());
+})->with([
+    'a push' => ['push', $event()],
+    'no pull request in the event' => ['pull_request', '{}'],
+]);

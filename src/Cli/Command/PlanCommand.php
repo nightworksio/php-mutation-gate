@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Planning;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Publication;
+use NightWorksIO\MutationGate\Core\Delivery\Stage;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanEstimates;
 use NightWorksIO\MutationGate\Core\Written;
@@ -44,10 +45,14 @@ final readonly class PlanCommand
 
     public static function command(Composition $composition): Command
     {
-        return FlowOptions::planning(new Command('plan'))
+        return DeliverLater::option(FlowOptions::planning(new Command('plan')))
             ->setDescription('Work out the reach, drop proved units, cut shards and print the plan for a CI')
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
-                $composed = FlowOptions::narrowed($composition->compose($input), $input);
+                $composed = DeliverLater::composed(
+                    FlowOptions::narrowed($composition->compose($input), $input),
+                    $input,
+                    Stage::Planned,
+                );
 
                 if (! $composed instanceof Composed) {
                     return Failed::because($output, $composed);

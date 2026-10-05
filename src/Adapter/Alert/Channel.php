@@ -35,6 +35,16 @@ enum Channel
         };
     }
 
+    /** The built-in reporter that sends this channel's alerts. */
+    public function reporter(): BuiltinReporter
+    {
+        return match ($this) {
+            self::Slack => BuiltinReporter::Slack,
+            self::Discord => BuiltinReporter::Discord,
+            self::Webhook => BuiltinReporter::Webhook,
+        };
+    }
+
     /** The environment variable that holds the URL unless `with.urlEnv` names another. */
     public function urlEnv(): string
     {

@@ -52,7 +52,7 @@ $given = static fn(array $options): InputInterface => new ArrayInput(
 /** What `baseline` is handed, a command with none of the flows' options. */
 $bare = static fn(): InputInterface => new ArrayInput([], BaselineCommand::command($composed())->getDefinition());
 
-it('offers plan\'s options: a ref to change since, a full run, a coverage map, a count of shards, a kill matrix', function () use (
+it('offers plan\'s options: a ref to change since, a full run, a coverage map, a count of shards, a kill matrix, a delivery left for later', function () use (
     $composed,
 ): void {
     $definition = PlanCommand::command($composed())->getDefinition();
@@ -62,7 +62,7 @@ it('offers plan\'s options: a ref to change since, a full run, a coverage map, a
         ->and($definition->getOption('coverage')->isValueRequired())->toBeTrue()
         ->and($definition->getOption('shards')->isValueRequired())->toBeTrue()
         ->and($definition->getOption('kill-matrix')->isValueRequired())->toBeTrue()
-        ->and(array_keys($definition->getOptions()))->toBe(['changed-since', 'full', 'coverage', 'shards', 'kill-matrix', 'security', 'suite']);
+        ->and(array_keys($definition->getOptions()))->toBe(['changed-since', 'full', 'coverage', 'shards', 'kill-matrix', 'security', 'suite', 'deliver-later']);
 });
 
 it('runs in full unless asked to consider a change', function (array $options, Mode $mode, bool $full) use (

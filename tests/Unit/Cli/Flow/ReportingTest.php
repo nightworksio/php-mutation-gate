@@ -3,11 +3,15 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\BadgeDirectory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveredReport;
+use NightWorksIO\MutationGate\Adapter\Filesystem\DeliveryDirectory;
+use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\JsonReportFile;
 use NightWorksIO\MutationGate\Adapter\GitHub\Annotations;
 use NightWorksIO\MutationGate\Adapter\GitHub\PlannedMarkdown;
 use NightWorksIO\MutationGate\Adapter\GitHub\PullRequestComment;
 use NightWorksIO\MutationGate\Adapter\GitHub\StepSummary;
+use NightWorksIO\MutationGate\Adapter\Otlp\OtlpReporter;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Cli\Flow\Reporting;
@@ -23,6 +27,9 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Delivery\Delivery;
+use NightWorksIO\MutationGate\Core\Delivery\DeliveryFile;
+use NightWorksIO\MutationGate\Core\Delivery\Stage;
 use NightWorksIO\MutationGate\Core\Plan\PlanEstimates;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
@@ -169,12 +176,12 @@ it('draws no badge outside CI, off the default branch, or where the run has no r
     ],
 ]);
 
-/** A registry whose sticky comment answers through these responses, as `gate-bot`, on pull request 12. */
-function reportingCommentingThrough(MockHttpClient $client): Chosen
+/** A registry whose sticky comment answers through these responses, as `gate-bot`, on pull request 12, with a token or not. */
+function reportingCommentingThrough(MockHttpClient $client, bool $withToken = true): Chosen
 {
     $environment = [
         'GITHUB_EVENT_NAME' => 'pull_request',
-        'GITHUB_TOKEN' => 'secret',
+        'GITHUB_TOKEN' => $withToken ? 'secret' : '',
         'GITHUB_REPOSITORY' => 'octo/gate',
         'GITHUB_API_URL' => 'https://api.github.example',
         'GITHUB_SERVER_URL' => 'https://github.example',
@@ -231,4 +238,43 @@ it('says which entry of reports cannot be built before it writes any planned sta
             Problem::at('reports[0].with.channel', 'expected a channel name, got nothing'),
             Problem::at('reports[0].with', 'needs a channel'),
         ));
+});
+
+it('leaves the planned state in the delivery under --deliver-later, on a pull request, with no token', function (): void {
+    $project = Scratch::directory();
+    $delivery = DeliveryDirectory::of(Directory::at($project), Stage::Planned);
+    $client = new MockHttpClient([]);
+    $plan = Planned::twoShards()->on(RunOn::at(Scope::pullRequest(12), Scope::branch('main')));
+    $settings = Flows::settings();
+    $onAPullRequest = Variables::of(['GITHUB_ACTIONS' => 'true', 'GITHUB_EVENT_NAME' => 'pull_request']);
+
+    $said = new Reporting(reportingCommentingThrough($client, withToken: false), $onAPullRequest)
+        ->deliveringLater($delivery)
+        ->planned($settings, $plan);
+    $left = DeliveryFile::decode((string) file_get_contents(sprintf('%s/.mutation-gate/delivery/planned/delivery.json', $project)));
+
+    expect($said)->toBe([sprintf('Wrote %s/.mutation-gate/delivery/planned/delivery.json.', $project)])
+        ->and($client->getRequestsCount())->toBe(0)
+        ->and($left)->toEqual(Delivery::none()->withComment(PlannedMarkdown::comment(
+            PlanEstimates::of($plan, $settings->shards()->setup())->work(),
+            'https://github.example/octo/gate/actions/runs/7',
+        )));
+});
+
+it('chooses the comment on a pull request with no token under --deliver-later, and leaves each credentialed reporter\'s payload in the delivery', function (): void {
+    $delivery = DeliveryDirectory::of(Directory::at(Scratch::directory()), Stage::Verdict);
+    $onAPullRequest = Variables::of(['GITHUB_ACTIONS' => 'true', 'GITHUB_EVENT_NAME' => 'pull_request']);
+    $chosen = new Chosen(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER))));
+    $settings = Flows::settings(Report::uses('otlp'), Report::json('build/mutation.json'));
+    $reporters = new Reporting($chosen, $onAPullRequest)->deliveringLater($delivery)->reporters($settings, reportingOnMain());
+
+    expect(reporterClasses($reporters))->toBe([
+        DeliveredReport::class,
+        JsonReportFile::class,
+        Annotations::class,
+        StepSummary::class,
+        DeliveredReport::class,
+    ])
+        ->and(reporterClasses(new Reporting($chosen, $onAPullRequest)->reporters($settings, reportingOnMain())))
+        ->toBe([OtlpReporter::class, JsonReportFile::class, Annotations::class, StepSummary::class]);
 });

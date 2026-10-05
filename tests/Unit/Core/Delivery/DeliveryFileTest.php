@@ -8,9 +8,11 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Delivery\AlertPost;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Delivery\DeliveryFile;
+use NightWorksIO\MutationGate\Core\Delivery\KeptPost;
 use NightWorksIO\MutationGate\Core\Delivery\LedgerPost;
 use NightWorksIO\MutationGate\Core\Delivery\OtlpPost;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 
 /** A delivery that holds one of everything. */
@@ -18,6 +20,7 @@ function deliveryWhole(): Delivery
 {
     return Delivery::none()
         ->withLedger(LedgerPost::to(Scope::branch('main')))
+        ->withKept(KeptPost::of(Companion::Coverage, Scope::branch('main')))
         ->withComment("## mutation-gate\n\nPassed.")
         ->withAlert(AlertPost::of(BuiltinReporter::Slack, '{"text": "main fell below its floor"}'))
         ->withAlert(AlertPost::of(BuiltinReporter::Webhook, '{"event": "floor.broken"}'))
@@ -87,4 +90,22 @@ it('refuses a scope that is none, and a channel that sends no alert', function (
     'a reporter that sends no alert' => ['{"format": 1, "alerts": [{"channel": "otlp", "body": "{}"}]}', 'delivery.alerts[0].channel is not an alert channel.'],
     'another format' => ['{"format": 2}', 'delivery.format is not format 1.'],
     'no format' => ['{}', 'delivery.format is missing.'],
+]);
+
+it('keeps one object of each kind beside the ledger, the last a run kept', function (): void {
+    $twice = Delivery::none()
+        ->withKept(KeptPost::of(Companion::Coverage, Scope::pullRequest(7)))
+        ->withKept(KeptPost::of(Companion::Coverage, Scope::branch('main')));
+
+    expect($twice->kept())->toEqual([KeptPost::of(Companion::Coverage, Scope::branch('main'))])
+        ->and(DeliveryFile::encode($twice))->toContain("\"kept\": {\n        \"coverage.json.gz\": \"refs/heads/main\"\n    }")
+        ->and(DeliveryFile::decode('{"format": 1, "kept": {}}'))->toEqual(Delivery::none());
+});
+
+it('refuses an object the store keeps no such object as, or a scope that is none, for one', function (string $json, string $why): void {
+    expect(DeliveryFile::decode($json))
+        ->toEqual(CannotJudge::because(sprintf('The delivery cannot be read, so deliver sends nothing: %s', $why)));
+})->with([
+    'another file' => ['{"format": 1, "kept": {"../ledger.json.gz": "refs/heads/main"}}', 'delivery.kept.../ledger.json.gz is not a key deliver takes from a delivery.'],
+    'a scope that is none' => ['{"format": 1, "kept": {"coverage.json.gz": "../main"}}', 'delivery.kept.coverage.json.gz is not a scope.'],
 ]);

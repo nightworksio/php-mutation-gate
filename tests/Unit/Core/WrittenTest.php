@@ -30,3 +30,8 @@ it('is written where a write answered with the bytes it wrote, and says why not 
         ->and(Written::attempted('plan.json', wrote: false))->toEqual(CannotJudge::because('plan.json could not be written.'))
         ->and(Written::failedAt('.git/hooks/pre-push'))->toEqual(CannotJudge::because('.git/hooks/pre-push could not be written.'));
 });
+
+it('says what is noted of it first, before what the writer noted', function (): void {
+    expect(Written::sayingFirst('Left for later.', Written::to('a.json'))->said())->toBe('Wrote a.json. Left for later.')
+        ->and(Written::sayingFirst('Left for later.', Written::noting('a.json', 'It kept 3 of 4.'))->said())->toBe('Wrote a.json. Left for later. It kept 3 of 4.');
+});

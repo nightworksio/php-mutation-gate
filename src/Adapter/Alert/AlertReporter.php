@@ -16,6 +16,9 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Delivery\AlertPost;
+use NightWorksIO\MutationGate\Core\Delivery\Deferring;
+use NightWorksIO\MutationGate\Core\Delivery\Delivery as Deferred;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\NoTrend;
@@ -34,7 +37,7 @@ use function sprintf;
  * in the config. The webhook's request is signed where a secret is set. A
  * post that fails says so and fails nothing (ADR-0016, decisions 9 to 13).
  */
-final readonly class AlertReporter implements Reporter
+final readonly class AlertReporter implements Deferring, Reporter
 {
     private const string NO_URL = '%s is not set, so no alert goes to %s.';
 
@@ -95,19 +98,33 @@ final readonly class AlertReporter implements Reporter
     public function report(Verdict $verdict): Written|NotWritten
     {
         $url = $this->environment->valueOf($this->urlEnv);
-        $run = CiRun::read($this->environment);
-        $alerts = Alerts::of($verdict);
-        $withheld = match (true) {
-            $url === '' => NotWritten::because(sprintf(self::NO_URL, $this->urlEnv, $this->channel->said())),
-            ! $this->environment->has('CI') => NotWritten::because(self::NOT_CI),
-            $run instanceof CannotTell => NotWritten::because($run->why()),
-            $verdict->account()->previous() instanceof NoTrend => NotWritten::because(self::OFF_DEFAULT),
-            $verdict->wasCutShort() => NotWritten::because(self::CUT_SHORT),
-            count($alerts) === 0 => NotWritten::because(self::STEADY),
-            default => $run,
-        };
+        $run = $url === ''
+            ? NotWritten::because(sprintf(self::NO_URL, $this->urlEnv, $this->channel->said()))
+            : $this->alerting($verdict);
 
-        return $withheld instanceof CiRun ? $this->send($alerts, $url, $withheld) : $withheld;
+        return $run instanceof CiRun ? $this->send(Alerts::of($verdict), $url, $run) : $run;
+    }
+
+    /**
+     * A delivery, with each alert this reporter would send of the verdict now, for `deliver` to post to the URL its
+     * own environment holds (ADR-0007 decision 5); unchanged where it would send none.
+     */
+    public function deferred(Verdict $verdict, Deferred $delivery): Deferred
+    {
+        $run = $this->alerting($verdict);
+
+        if (! $run instanceof CiRun) {
+            return $delivery;
+        }
+
+        $deferred = $delivery;
+
+        foreach (Alerts::of($verdict) as $alert) {
+            $body = $this->channel->message($alert, $run);
+            $deferred = $deferred->withAlert(AlertPost::of($this->channel->reporter(), $body));
+        }
+
+        return $deferred;
     }
 
     /**
@@ -121,6 +138,24 @@ final readonly class AlertReporter implements Reporter
         return $url === ''
             ? NotWritten::because(sprintf(self::NO_URL, $this->urlEnv, $this->channel->said()))
             : $this->delivery->post($url, $body, $this->headers($body), $this->channel->said());
+    }
+
+    /**
+     * The CI run the verdict alerts of: in CI, on the default branch, not cut short, and where the branch changed
+     * state; or why it alerts nothing.
+     */
+    private function alerting(Verdict $verdict): CiRun|NotWritten
+    {
+        $run = CiRun::read($this->environment);
+
+        return match (true) {
+            ! $this->environment->has('CI') => NotWritten::because(self::NOT_CI),
+            $run instanceof CannotTell => NotWritten::because($run->why()),
+            $verdict->account()->previous() instanceof NoTrend => NotWritten::because(self::OFF_DEFAULT),
+            $verdict->wasCutShort() => NotWritten::because(self::CUT_SHORT),
+            count(Alerts::of($verdict)) === 0 => NotWritten::because(self::STEADY),
+            default => $run,
+        };
     }
 
     /** Each alert, in turn; the first that is not written says why. */

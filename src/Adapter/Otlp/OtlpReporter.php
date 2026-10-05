@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
+use NightWorksIO\MutationGate\Core\Delivery\Deferring;
+use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Delivery\OtlpPost;
 use NightWorksIO\MutationGate\Core\Http\Origin;
 use NightWorksIO\MutationGate\Core\Http\Reply;
@@ -46,7 +48,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * which may hold a collector's key, go only to the endpoint
  * `OTEL_EXPORTER_OTLP_ENDPOINT` names.
  */
-final readonly class OtlpReporter implements Reporter
+final readonly class OtlpReporter implements Deferring, Reporter
 {
     /** What a report says where the environment's headers stayed home. */
     private const string NO_HEADERS = <<<'SAID'
@@ -105,15 +107,12 @@ final readonly class OtlpReporter implements Reporter
 
     public function report(Verdict $verdict): Written|NotWritten
     {
-        $resource = OtelEnvironment::of($this->environment)->resource();
-        $timings = $verdict->account()->timings();
-        $traces = $timings instanceof RunTimings
-            ? $this->post('/v1/traces', $this->traces($verdict, $timings, $resource))
-            : Written::to(Origin::of($this->endpoint));
-        $metrics = $this->post(
-            '/v1/metrics',
-            OtlpJson::metrics(Metrics::of($verdict), $resource, Instant::at($this->clock->now())),
-        );
+        $export = $this->export($verdict);
+        $json = $export->traces();
+        $traces = $json instanceof NotGiven
+            ? Written::to(Origin::of($this->endpoint))
+            : $this->post('/v1/traces', $json);
+        $metrics = $this->post('/v1/metrics', $export->metrics());
 
         return match (true) {
             $traces instanceof NotWritten => $traces,
@@ -121,6 +120,15 @@ final readonly class OtlpReporter implements Reporter
                 => Written::noting($metrics->where(), self::NO_HEADERS),
             default => $metrics,
         };
+    }
+
+    /**
+     * A delivery, with the trace and the metrics this reporter would export of the verdict now, for `deliver` to
+     * export with the headers its own environment holds (ADR-0007 decision 5).
+     */
+    public function deferred(Verdict $verdict, Delivery $delivery): Delivery
+    {
+        return $delivery->withOtlp($this->export($verdict));
     }
 
     /**
@@ -148,6 +156,18 @@ final readonly class OtlpReporter implements Reporter
         $otel = OtelEnvironment::of($this->environment);
 
         return $otel->headers() !== [] && Origin::of($this->endpoint) !== Origin::of($otel->endpoint());
+    }
+
+    /** The verdict's trace, for a timed run, and its metrics, as OTLP/HTTP JSON. */
+    private function export(Verdict $verdict): OtlpPost
+    {
+        $resource = OtelEnvironment::of($this->environment)->resource();
+        $timings = $verdict->account()->timings();
+
+        return OtlpPost::of(
+            $timings instanceof RunTimings ? $this->traces($verdict, $timings, $resource) : NotGiven::value(),
+            OtlpJson::metrics(Metrics::of($verdict), $resource, Instant::at($this->clock->now())),
+        );
     }
 
     /** @param array<string, string> $resource */
