@@ -229,11 +229,24 @@ decides are accepted for that release too.
       declares, and the two prints must be identical.
     - **The child.** It runs as `php -n`, so no php.ini setting of the
       project's, such as `auto_prepend_file`, `opcache.preload` or a lowered
-      optimization level, reaches it. It sets
+      optimization level, reaches it. It is the PHP binary the gate and the
+      runners run, and it takes the `disable_functions` of the PHP the
+      gate runs on, so a call opcache would answer for a disabled function
+      is compiled as the tests' PHP compiles it. It sets
       `opcache.file_update_protection=0`, since each file is written just
       before it is compiled. Many files go to one child, children run side
       by side, and a file that fails in a shared child is compiled again
       alone, since PHP declares a file's functions as it compiles it.
+    - **What the compiling PHP decides.** Opcache answers
+      `function_exists`, `extension_loaded` and `defined`, and
+      `PHP_VERSION_ID`, `PHP_OS`, `PHP_OS_FAMILY` and `PHP_INT_SIZE`, by
+      what the compiling PHP has, and drops the branches its answer rules
+      out, wherever in the function the answer flows. Under `php -n`, or on
+      another PHP, that answer need not be the tests'. So a mutant is never
+      proven where it changes a function, method or closure that holds such
+      a check, the class constant, property or case that holds one, or,
+      where one stands in code outside any function or class, any of the
+      file.
     - **The mutated file.** It is the survivor as its runner gives it to a
       static analyser (ADR-0020, decision 9): the file as written with its
       change made, or under Pest, compared with the original printed as
