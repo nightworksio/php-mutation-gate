@@ -618,9 +618,8 @@ jobs:
   # repeated `#[Uses]` attributes of its tests and refuses the
   # `beStrictAboutTodoAnnotatedTests` attribute of its config, so its config
   # drops that attribute and passes on PHPUnit's own warnings and
-  # deprecations. Each run is the gate's
-  # local run: GITHUB_ACTIONS unset, it writes a baseline rather than failing
-  # for want of one.
+  # deprecations. Each run is the gate's local run, with GITHUB_ACTIONS and CI
+  # unset, on a baseline whose floors are 0, so a score never fails it.
   warm-workers:
     name: warm workers
     needs: scope
@@ -680,7 +679,8 @@ jobs:
             "${RUNNER_TEMP}/installed.json"
           sed -e 's/failOnRisky="true"/failOnRisky="true" failOnPhpunitWarning="false" failOnPhpunitDeprecation="false"/' \
             -e 's/ *beStrictAboutTodoAnnotatedTests="true"//' phpunit.xml.dist > phpunit.xml
-          printf 'vendor/\n.mutation-gate/\nwarm-*.json\nmutation-gate.baseline.json\n' > .gitignore
+          printf 'vendor/\n.mutation-gate/\nwarm-*.json\n' > .gitignore
+          printf '{"format": 1, "trees": {"src": {"floor": 0}}, "security": {".": {"floor": 0}}}\n' > mutation-gate.baseline.json
           for mode in fresh fork; do
             printf '{"runner": {"use": "phpunit", "workers": "%s"}, "trees": [{"path": "src"}]}\n' "${mode}" > "warm-${mode}.json"
           done
@@ -692,11 +692,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "${GITHUB_WORKSPACE}/evidence/raw"
-          env -u GITHUB_ACTIONS vendor/bin/mutation-gate coverage --no-interaction --config=warm-fresh.json
+          env -u GITHUB_ACTIONS -u CI vendor/bin/mutation-gate coverage --no-interaction --config=warm-fresh.json
           for mode in fresh fork; do
-            rm -rf .mutation-gate/ledger .mutation-gate/results .mutation-gate/equivalence mutation-gate.baseline.json
+            rm -rf .mutation-gate/ledger .mutation-gate/results .mutation-gate/equivalence
             started=$(date +%s.%N)
-            env -u GITHUB_ACTIONS vendor/bin/mutation-gate run --no-interaction --config="warm-${mode}.json" \
+            env -u GITHUB_ACTIONS -u CI vendor/bin/mutation-gate run --no-interaction --config="warm-${mode}.json" \
               --report="json:${RUNNER_TEMP}/${mode}.json"
             python3 -c "print($(date +%s.%N) - ${started})" > "${RUNNER_TEMP}/${mode}.seconds"
           done
