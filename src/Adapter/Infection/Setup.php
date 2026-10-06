@@ -27,7 +27,7 @@ use function sprintf;
 /**
  * The options the flows build the Infection adapter with: `timeout`, the
  * seconds each mutant is allowed at most, which the flows write from
- * `timeouts.seconds`, and its default where none is written; `nativeMarkers`, `refuse` or `allow`, `ignores.native`,
+ * `timeouts.most`, and its default where none is written; `nativeMarkers`, `refuse` or `allow`, `ignores.native`,
  * `refuse` by default; `tests`, the directories the tests live in, `tests`
  * by default; `staticAnalysis`, `infection` or `gate`, who runs static
  * analysis over the mutants, `infection` by default; and `mutators`, the
@@ -39,7 +39,7 @@ final readonly class Setup
     /** The option that says who runs static analysis over the mutants, which the flows write. */
     public const string STATIC_ANALYSIS = 'staticAnalysis';
 
-    /** The option that holds the seconds each mutant is allowed at most, which the flows write. */
+    /** The option that holds Infection's own `timeout`, `timeouts.most`, which the flows write. */
     public const string TIMEOUT = 'timeout';
 
     /** The option that holds the registered mutators' classes, which the flows write. */
@@ -74,7 +74,7 @@ final readonly class Setup
             $mutators instanceof Problem => Invalid::because($mutators),
             default => new self(
                 $tests instanceof Paths && count($tests) > 0 ? $tests : Paths::of(TestsDirectory::conventional()),
-                $timeout instanceof NotGiven ? Triage::standard()->limit() : Seconds::of($timeout),
+                $timeout instanceof NotGiven ? Triage::standard()->most() : Seconds::of($timeout),
                 $allowed,
                 $analysis,
                 self::bridgesTo($mutators instanceof Listed ? [...$mutators] : []),
@@ -87,6 +87,7 @@ final readonly class Setup
         return $this->tests;
     }
 
+    /** `timeouts.most`: Infection's own `timeout`, its cap on a limit and its skip for tests that take as long. */
     public function cap(): Seconds
     {
         return $this->cap;

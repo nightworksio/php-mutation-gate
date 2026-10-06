@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Test\TestsDirectory;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
@@ -23,16 +24,19 @@ use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 
 /**
  * What the `phpunit` runner's options say, as the flows write them: `tests`,
- * the directories the tests live in, `tests` by default; `timeout`, the
- * cap on each mutant's limit, `timeouts.seconds`, its own default where none
- * is written; and `mutators`, the classes of the mutators the gate
+ * the directories the tests live in, `tests` by default; `timeout` and
+ * `most`, the floor and the most of each mutant's limit, `timeouts.seconds`
+ * and `timeouts.most`, their own defaults where none is written; and `mutators`, the classes of the mutators the gate
  * makes its mutants with (ADR-0023, decision 8). Without a mutator, the
  * runner can make no mutant, and says why.
  */
 final readonly class PhpUnitOptions
 {
-    /** The option that holds the seconds each mutant's run is allowed, which the flows write. */
+    /** The option that holds the least each mutant's run is allowed, `timeouts.seconds`, which the flows write. */
     public const string TIMEOUT = 'timeout';
+
+    /** The option that holds the most each mutant's run is allowed, `timeouts.most`, which the flows write. */
+    public const string MOST = 'most';
 
     /** The option that holds the mutators' classes, which the flows write. */
     public const string MUTATORS = 'mutators';
@@ -42,7 +46,7 @@ final readonly class PhpUnitOptions
     private const string NO_MUTATORS
         = 'The phpunit runner makes its mutants with the default mutator set, and no extension registers one.';
 
-    private function __construct(private Paths $tests, private Seconds $timeout, private Engine|CannotJudge $engine)
+    private function __construct(private Paths $tests, private LimitBounds $bounds, private Engine|CannotJudge $engine)
     {
     }
 
@@ -50,15 +54,20 @@ final readonly class PhpUnitOptions
     {
         $tests = $options->paths(Key::of(self::TESTS));
         $timeout = $options->number(Key::of(self::TIMEOUT));
+        $most = $options->number(Key::of(self::MOST));
         $mutators = $options->texts(Key::of(self::MUTATORS));
 
         return match (true) {
             $tests instanceof Problem => Invalid::because($tests),
             $timeout instanceof Problem => Invalid::because($timeout),
+            $most instanceof Problem => Invalid::because($most),
             $mutators instanceof Problem => Invalid::because($mutators),
             default => new self(
                 $tests instanceof Paths && count($tests) > 0 ? $tests : Paths::of(TestsDirectory::conventional()),
-                $timeout instanceof NotGiven ? Triage::standard()->limit() : Seconds::of($timeout),
+                LimitBounds::between(
+                    $timeout instanceof NotGiven ? Triage::standard()->limit() : Seconds::of($timeout),
+                    $most instanceof NotGiven ? Triage::standard()->most() : Seconds::of($most),
+                ),
                 self::engineOf($mutators instanceof Listed ? [...$mutators] : []),
             ),
         };
@@ -69,9 +78,10 @@ final readonly class PhpUnitOptions
         return $this->tests;
     }
 
-    public function timeout(): Seconds
+    /** What each mutant's limit is kept between. */
+    public function bounds(): LimitBounds
     {
-        return $this->timeout;
+        return $this->bounds;
     }
 
     /** The engine of the mutators the options name, or why there is none to mutate with. */

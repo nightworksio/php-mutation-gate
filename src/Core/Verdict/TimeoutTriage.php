@@ -10,20 +10,18 @@ use NightWorksIO\MutationGate\Core\Coverage\OwnTime;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 /**
- * Timeout triage (ADR-0008): a timed-out mutant whose judging tests take
- * under half its limit on their own broke something, and is killed by
- * timeout; any other, and one where either time is unknown, is too slow to
- * judge. Under `timeouts.mode: unjudged` every timeout is too slow to judge.
+ * Timeout triage (ADR-0008): a timed-out mutant whose limit allowed its
+ * judging tests the standard limit's multiple of their own time broke
+ * something, and is killed by timeout; any other, and one where either time
+ * is unknown, is too slow to judge. Under `timeouts.mode: unjudged` every timeout is too slow to judge.
  */
 final readonly class TimeoutTriage
 {
-    /** A limit is halved to tell a detection from the clock running out. */
-    private const int HALVES = 2;
-
     private function __construct(private TimeoutMode $mode)
     {
     }
@@ -60,7 +58,7 @@ final readonly class TimeoutTriage
             && $this->mode === TimeoutMode::Confirm
             && $limit instanceof Seconds
             && $time instanceof Seconds
-            && $time->seconds() * self::HALVES < $limit->seconds()
+            && MutantLimit::standard()->allowed($time, $limit)
             ? MutantJudgement::KilledByTimeout
             : MutantJudgement::reported($mutant->status());
     }

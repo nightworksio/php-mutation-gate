@@ -624,6 +624,7 @@ services:
                 'NightWorksIO\MutationGate\Core\Config\Triage':
                     - RETRIES # retries
                     - TIMEOUT # seconds a mutant may run
+                    - MOST # seconds a mutant may run
                 'NightWorksIO\MutationGate\Core\Config\Canonical':
                     - EACH # how a list's entries are named in a setting's path
                 'NightWorksIO\MutationGate\Core\Config\Proofs':
@@ -688,6 +689,7 @@ services:
                 'NightWorksIO\MutationGate\Core\Runner\MutantLimit':
                     - START_UP # the time a mutant's run allows PHPUnit to start
                     - FACTOR # a mutant limit's multiple of its tests' time
+                    - INFECTION_FACTOR # Infection's mutant limit's multiple of its tests' time
                 'NightWorksIO\MutationGate\Core\Proof\LedgerRetention':
                     - BASES # bases kept
                     - PROOFS # proofs kept
@@ -773,10 +775,12 @@ services:
                 'NightWorksIO\MutationGate\Adapter\Pest\PestOptions':
                     - TESTS # a key of the runner's options
                     - TIMEOUT # a key of the runner's options
+                    - MOST # a key of the runner's options
                     - MUTATORS # a key of the runner's options
                 'NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnitOptions':
                     - TESTS # a key of the runner's options
                     - TIMEOUT # a key of the runner's options
+                    - MOST # a key of the runner's options
                     - MUTATORS # a key of the runner's options
                 'NightWorksIO\MutationGate\Adapter\Filesystem\ReportPath':
                     - KEY # a key of a report's entry
@@ -821,8 +825,6 @@ services:
                     - FLAKY # a field of a shard result
                     - UNJUDGED # a field of a shard result
                     - MEASURED # a field of a shard result
-                'NightWorksIO\MutationGate\Core\Verdict\TimeoutTriage':
-                    - HALVES # the halves of a limit
                 'NightWorksIO\MutationGate\Core\Time\Budgets':
                     - PRE_PUSH_MINUTES # a budget, in minutes
                 'NightWorksIO\MutationGate\Cli\Flow\Invoking':

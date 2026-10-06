@@ -17,11 +17,11 @@ use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 
-it('allows each mutant 10 s, refuses native markers and finds the tests in tests, by default', function (): void {
+it('allows each mutant up to timeouts.most, refuses native markers and finds the tests in tests, by default', function (): void {
     $setup = Setup::of(Options::none());
 
     expect($setup instanceof Setup ? [$setup->cap(), $setup->allowsNativeMarkers(), $setup->tests(), $setup->analysis()] : [])
-        ->toEqual([Seconds::of(10.0), false, Paths::of(Path::of('tests')), StaticAnalysis::Infection]);
+        ->toEqual([Seconds::of(300.0), false, Paths::of(Path::of('tests')), StaticAnalysis::Infection]);
 });
 
 it('leaves static analysis to the gate where the flows say it checks the survivors', function (): void {

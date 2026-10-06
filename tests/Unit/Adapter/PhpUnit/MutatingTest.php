@@ -29,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
@@ -126,7 +127,7 @@ it('runs the tests that judge the request under coverage, then each covered muta
     $shell = mutatingPhpUnit($project, $caps);
     $withheld = Withheld::of('SECRET');
     $request = $whole->withholding($withheld)->cappedAt(MemoryCap::of(64, MemoryUnit::Megabytes));
-    $result = mutating($project, $shell)->result($request, Seconds::of(5.0), NotGiven::value());
+    $result = mutating($project, $shell)->result($request, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)), NotGiven::value());
     $coverage = $shell->commands()[0];
 
     expect(statusesOf($result))->toBe([['src/Money.php', 'killed'], ['src/Tax.php', 'uncovered']])
@@ -142,7 +143,7 @@ it('runs the coverage run and each mutant\'s tests of the suite the request name
     $project = mutatingProject();
     $shell = mutatingPhpUnit($project, new ArrayObject());
     $request = $whole->narrowedTo($whole->files(), Narrowing::none()->toSuite(SuiteName::of('unit')));
-    mutating($project, $shell)->result($request, Seconds::of(5.0), NotGiven::value());
+    mutating($project, $shell)->result($request, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)), NotGiven::value());
 
     expect($shell->commands())->toHaveCount(2)
         ->and($shell->commands()[0]->arguments())->toContain('--testsuite=unit')
@@ -154,7 +155,7 @@ it('runs a held unit\'s coverage by its group, where the request reuses a map of
     $shell = mutatingPhpUnit($project);
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Money.php'))
         ->reusingCoverage(Handed::maps(Path::of('.mutation-gate/handed'), Path::of('.mutation-gate/handed')));
-    mutating($project, $shell)->result($request, Seconds::of(5.0), NotGiven::value());
+    mutating($project, $shell)->result($request, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)), NotGiven::value());
 
     expect(array_slice($shell->commands()[0]->arguments(), -2))->toBe(['--group', 'holds:src/Money.php']);
 });
@@ -165,7 +166,7 @@ it('reads the map another job handed on, for a request judged by the whole suite
     $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(5), $adds)->timed($adds, Seconds::of(0.5));
     Scratch::write($project->root(), CoverageMapFile::in(Path::of('.mutation-gate/handed'))->value(), CoverageMapFile::encode($map, Unplaced::map()));
     $shell = mutatingPhpUnit($project);
-    $result = mutating($project, $shell)->result($whole->reusingCoverage(Handed::maps(Path::of('.mutation-gate/handed'), Path::of('.mutation-gate/handed'))), Seconds::of(5.0), NotGiven::value());
+    $result = mutating($project, $shell)->result($whole->reusingCoverage(Handed::maps(Path::of('.mutation-gate/handed'), Path::of('.mutation-gate/handed'))), LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)), NotGiven::value());
 
     expect(statusesOf($result))->toBe([['src/Money.php', 'killed'], ['src/Tax.php', 'uncovered']])
         ->and($shell->commands())->toHaveCount(1);
@@ -175,8 +176,8 @@ it('reads one map for every run of the same, and runs the suite under coverage o
     $project = mutatingProject();
     $shell = mutatingPhpUnit($project);
     $held = new HeldCoverage();
-    mutating($project, $shell, $held)->result($whole, Seconds::of(5.0), NotGiven::value());
-    mutating($project, $shell, $held)->result($whole, Seconds::of(5.0), NotGiven::value());
+    mutating($project, $shell, $held)->result($whole, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)), NotGiven::value());
+    mutating($project, $shell, $held)->result($whole, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)), NotGiven::value());
 
     $coverageRuns = array_filter(
         $shell->commands(),
@@ -203,7 +204,7 @@ it('cannot judge a request without a mutator, an override, a map or a cap to run
 
     $mutating = new Mutating($project, $shell, new TestFiles($project), new CapDirectory(), new HeldCoverage(), $engine);
     set_error_handler(static fn(): bool => true);
-    $result = $mutating->result($request, Seconds::of(5.0), NotGiven::value());
+    $result = $mutating->result($request, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)), NotGiven::value());
     restore_error_handler();
 
     expect($result)->toBeInstanceOf(CannotJudge::class)
@@ -214,7 +215,7 @@ it('runs mutants again over their files and mutators, making only them, and leav
     $project = mutatingProject();
     $shell = mutatingPhpUnit($project);
     $held = new HeldCoverage();
-    $first = mutating($project, $shell, $held)->result($whole, Seconds::of(5.0), NotGiven::value());
+    $first = mutating($project, $shell, $held)->result($whole, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)), NotGiven::value());
     $money = FirstMutant::of($first);
     $gone = Mutant::of(
         MutantId::hash(Path::of('src/Money.php'), 'acme/PlusToMinus', '-gone', 0),
@@ -224,7 +225,7 @@ it('runs mutants again over their files and mutators, making only them, and leav
         MutantStatus::Survived,
         Unmeasured::duration(),
     );
-    $again = mutating($project, $shell, $held)->again($whole, Mutants::of($money, $gone), Seconds::of(6.0));
+    $again = mutating($project, $shell, $held)->again($whole, Mutants::of($money, $gone), LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)));
     $last = $shell->commands()[count($shell->commands()) - 1];
     $unjudged = $again instanceof Mutants ? [...$again][1] : null;
 
@@ -247,22 +248,22 @@ it('runs nothing again where it is asked for no mutant, and cannot judge a run a
         Unmeasured::duration(),
     );
 
-    expect(mutating($project, $shell)->again($whole, Mutants::none(), Seconds::of(5.0)))->toEqual(Mutants::none())
+    expect(mutating($project, $shell)->again($whole, Mutants::none(), LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0))))->toEqual(Mutants::none())
         ->and($shell->commands())->toBe([])
-        ->and(mutating($project, $shell)->again($whole, Mutants::of($mutant), Seconds::of(5.0)))->toBeInstanceOf(CannotJudge::class);
+        ->and(mutating($project, $shell)->again($whole, Mutants::of($mutant), LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0))))->toBeInstanceOf(CannotJudge::class);
 });
 
 it('reproduces one mutant on its own, with what was printed, and says the run made none where it no longer makes it', function () use ($whole): void {
     $project = mutatingProject();
     $shell = mutatingPhpUnit($project);
-    $first = mutating($project, $shell)->result($whole, Seconds::of(5.0), NotGiven::value());
+    $first = mutating($project, $shell)->result($whole, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)), NotGiven::value());
     $money = FirstMutant::of($first);
     $printing = Transcribing::over($shell);
-    $reproduced = mutating($project, $printing)->reproduced(Reproducible::of($money), $whole, Seconds::of(5.0), $printing);
+    $reproduced = mutating($project, $printing)->reproduced(Reproducible::of($money), $whole, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)), $printing);
     $gone = Mutant::of(MutantId::hash(Path::of('src/Money.php'), 'gone', '-a', 0), '', $money->location(), $money->mutation(), MutantStatus::Survived, Unmeasured::duration());
-    $unmade = mutating($project, $printing)->reproduced(Reproducible::of($gone), $whole, Seconds::of(5.0), $printing);
+    $unmade = mutating($project, $printing)->reproduced(Reproducible::of($gone), $whole, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)), $printing);
     $failing = mutating($project, mutatingPhpUnit($project, coverageFails: true))
-        ->reproduced(Reproducible::of($money), $whole, Seconds::of(5.0), $printing);
+        ->reproduced(Reproducible::of($money), $whole, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)), $printing);
 
     expect($reproduced instanceof Reproduction ? $reproduced->mutant() : $reproduced)->toBeInstanceOf(Mutant::class)
         ->and($reproduced instanceof Reproduction ? $reproduced->printed() : '')->toBe("PHPUnit ran the suite under coverage\nPHPUnit failed a test")

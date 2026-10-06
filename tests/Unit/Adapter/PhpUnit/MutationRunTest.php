@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
@@ -95,7 +96,7 @@ $covered = CoverageMap::empty()
 
 it('makes every mutant of every PHP file a directory holds, judging each by its covering tests, and none uncovered by a run', function () use ($covered): void {
     [$run, $shell] = killingRun(library());
-    $result = $run->of(MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests()), $covered, Seconds::of(5.0));
+    $result = $run->of(MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests()), $covered, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
     expect(judgedMutants($result))->toBe([
         ['src/Money.php', 'acme/RemoveEcho', 'killed'],
@@ -106,17 +107,17 @@ it('makes every mutant of every PHP file a directory holds, judging each by its 
         ->and($shell->commands())->toHaveCount(2);
 });
 
-it('allows each mutant 5 s plus five times its covering tests\' own time under the cap, and the cap where one is untimed', function () use ($covered): void {
+it('allows each mutant 5 s plus three times its covering tests\' own time within the bounds, and the floor where one is untimed', function () use ($covered): void {
     [$run, $shell] = killingRun(library());
     $timed = $covered->timed(TestId::of('Tests\MoneySpec::adds'), Seconds::of(1.0));
-    $result = $run->of(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $timed, Seconds::of(30.0));
+    $result = $run->of(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $timed, LimitBounds::between(Seconds::of(6.0), Seconds::of(30.0)));
 
     expect(judgedMutants($result))->toBe([
         ['src/Money.php', 'acme/RemoveEcho', 'killed'],
         ['src/Money.php', 'acme/PlusToMinus', 'killed'],
     ])
         ->and(array_map(static fn(Command $command): mixed => $command->deadline(), $shell->commands()))
-        ->toEqual([Seconds::of(30.0), Seconds::of(10.0)]);
+        ->toEqual([Seconds::of(6.0), Seconds::of(8.0)]);
 });
 
 it('judges a mutant that spans lines by the tests of every line it spans, and times it by them all', function (): void {
@@ -128,11 +129,11 @@ it('judges a mutant that spans lines by the tests of every line it spans, and ti
         ->covered(Path::of('src/Span.php'), Line::of(6), TestId::of('Tests\MoneySpec::sums'))
         ->timed(TestId::of('Tests\MoneySpec::adds'), Seconds::of(1.0))
         ->timed(TestId::of('Tests\MoneySpec::sums'), Seconds::of(2.0));
-    $result = $run->of(MutationRequest::of(Paths::of(Path::of('src/Span.php')), WholeSuite::tests()), $spanned, Seconds::of(30.0));
+    $result = $run->of(MutationRequest::of(Paths::of(Path::of('src/Span.php')), WholeSuite::tests()), $spanned, LimitBounds::between(Seconds::of(6.0), Seconds::of(30.0)));
 
     expect(judgedMutants($result))->toBe([['src/Span.php', 'acme/PlusToMinus', 'killed']])
         ->and(array_map(static fn(Command $command): mixed => $command->deadline(), $shell->commands()))
-        ->toEqual([Seconds::of(20.0)]);
+        ->toEqual([Seconds::of(14.0)]);
 });
 
 it('makes only the mutators asked for, of the files not left out', function () use ($covered): void {
@@ -141,13 +142,13 @@ it('makes only the mutators asked for, of the files not left out', function () u
         ->narrowedTo(Paths::of(Path::of('src')), Narrowing::none()->toMutators(Mutators::named('acme/PlusToMinus')))
         ->leavingOut(Paths::of(Path::of('src/Tax.php')));
 
-    expect(judgedMutants($run->of($request, $covered, Seconds::of(5.0))))->toBe([['src/Money.php', 'acme/PlusToMinus', 'killed']]);
+    expect(judgedMutants($run->of($request, $covered, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)))))->toBe([['src/Money.php', 'acme/PlusToMinus', 'killed']]);
 });
 
 it('skips with no record every mutant past the request\'s deadline', function () use ($covered): void {
     [$run, $shell] = killingRun(library());
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->within(Seconds::of(0.0));
-    $result = $run->of($request, $covered, Seconds::of(5.0));
+    $result = $run->of($request, $covered, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
     expect(judgedMutants($result))->toBe([])
         ->and($result instanceof MutationResult ? $result->skipped() : -1)->toBe(2)
@@ -158,13 +159,13 @@ it('cannot judge a request with a file that does not parse, or a mutant whose fi
     $root = library();
     Scratch::write($root, 'src/Broken.php', "<?php\n\nfunction (\n");
     [$run] = killingRun($root);
-    $broken = $run->of(MutationRequest::of(Paths::of(Path::of('src/Broken.php')), WholeSuite::tests()), $covered, Seconds::of(5.0));
+    $broken = $run->of(MutationRequest::of(Paths::of(Path::of('src/Broken.php')), WholeSuite::tests()), $covered, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
     $locked = library();
     Scratch::write($locked, '.mutation-gate/phpunit', 'a file where the directory goes');
     [$lockedRun] = killingRun($locked);
     set_error_handler(static fn(): bool => true);
-    $unwritten = $lockedRun->of(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $covered, Seconds::of(5.0));
+    $unwritten = $lockedRun->of(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $covered, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
     restore_error_handler();
 
     expect($broken)->toBeInstanceOf(CannotJudge::class)
@@ -175,9 +176,9 @@ it('cannot judge a request with a file that does not parse, or a mutant whose fi
 it('makes only the mutants a run again names, by their ids', function () use ($covered): void {
     [$run, $shell] = killingRun(library());
     $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests());
-    $all = $run->of($request, $covered, Seconds::of(5.0));
+    $all = $run->of($request, $covered, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
     $ids = $all instanceof MutationResult ? array_map(static fn(Mutant $mutant): MutantId => $mutant->id(), [...$all->mutants()]) : [];
-    $again = $run->makingOnly(MutantIds::of(...array_slice($ids, 2)))->of($request, $covered, Seconds::of(5.0));
+    $again = $run->makingOnly(MutantIds::of(...array_slice($ids, 2)))->of($request, $covered, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
     expect(judgedMutants($again))->toBe([['src/Tax.php', 'acme/PlusToMinus', 'uncovered']])
         ->and($again instanceof MutationResult ? $again->skipped() : -1)->toBe(0)
@@ -206,7 +207,7 @@ function sums(int $count): array
 it('runs the mutants side by side across the request\'s processes, each told its place', function () use ($covered): void {
     [$run, $shell] = killingRun(library());
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->across(Pool::of(ProcessCount::of(2), Workers::Fresh));
-    $result = $run->of($request, $covered, Seconds::of(5.0));
+    $result = $run->of($request, $covered, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
     $told = array_map(
         static fn(WorkerSlot $slot): array => iterator_to_array($slot->variables(), preserve_keys: true),
         $shell->places(),
@@ -219,7 +220,7 @@ it('runs the mutants side by side across the request\'s processes, each told its
 
 it('tells a mutant\'s run nothing of places where the request runs one process', function () use ($covered): void {
     [$run, $shell] = killingRun(library());
-    $run->of(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $covered, Seconds::of(5.0));
+    $run->of(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $covered, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
     expect(array_map(static fn(WorkerSlot $slot): array => iterator_to_array($slot->variables(), preserve_keys: true), $shell->places()))
         ->toBe([[], []]);
@@ -228,7 +229,7 @@ it('tells a mutant\'s run nothing of places where the request runs one process',
 it('runs sixteen runs a process in each batch, and the rest in the last', function (): void {
     [$root, $map] = sums(17);
     [$run, $shell] = killingRun($root);
-    $result = $run->of(MutationRequest::of(Paths::of(Path::of('src/Sums.php')), WholeSuite::tests()), $map, Seconds::of(5.0));
+    $result = $run->of(MutationRequest::of(Paths::of(Path::of('src/Sums.php')), WholeSuite::tests()), $map, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
     expect($shell->batches())->toBe([16, 1])
         ->and($result instanceof MutationResult ? count($result->mutants()) : -1)->toBe(17);
@@ -238,10 +239,10 @@ it('runs as many runs in a batch as sixteen for each process, and no batch once 
     [$root, $map] = sums(33);
     [$run, $shell] = killingRun($root);
     $request = MutationRequest::of(Paths::of(Path::of('src/Sums.php')), WholeSuite::tests())->across(Pool::of(ProcessCount::of(2), Workers::Fresh));
-    $run->of($request, $map, Seconds::of(5.0));
+    $run->of($request, $map, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
     [$exact, $full] = sums(16);
     [$once, $one] = killingRun($exact);
-    $once->of(MutationRequest::of(Paths::of(Path::of('src/Sums.php')), WholeSuite::tests()), $full, Seconds::of(5.0));
+    $once->of(MutationRequest::of(Paths::of(Path::of('src/Sums.php')), WholeSuite::tests()), $full, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
     expect($shell->batches())->toBe([32, 1])
         ->and($one->batches())->toBe([16]);
@@ -251,7 +252,7 @@ it('judges every mutant whose batch starts in the time left before the deadline'
     [$root, $map] = sums(17);
     [$run, $shell] = killingRun($root);
     $request = MutationRequest::of(Paths::of(Path::of('src/Sums.php')), WholeSuite::tests())->within(Seconds::of(3600.0));
-    $result = $run->of($request, $map, Seconds::of(5.0));
+    $result = $run->of($request, $map, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
     expect($shell->batches())->toBe([16, 1])
         ->and($result instanceof MutationResult ? [count($result->mutants()), $result->skipped()] : [])->toBe([17, 0]);
@@ -261,7 +262,7 @@ it('judges no mutant after a batch whose runs could not all start by the deadlin
     [$root, $map] = sums(17);
     [$run, $shell] = killingRun($root);
     $shell->startingAtMost(3);
-    $result = $run->of(MutationRequest::of(Paths::of(Path::of('src/Sums.php')), WholeSuite::tests()), $map, Seconds::of(5.0));
+    $result = $run->of(MutationRequest::of(Paths::of(Path::of('src/Sums.php')), WholeSuite::tests()), $map, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
     expect($shell->batches())->toBe([16])
         ->and($result instanceof MutationResult ? [count($result->mutants()), $result->skipped()] : [])->toBe([3, 14]);

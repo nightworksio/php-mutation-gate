@@ -12,8 +12,8 @@ use function sprintf;
 /**
  * The effective config (ADR-0002): every layer laid in order, presets, the
  * config file and the command line, over the value each setting takes when
- * every layer leaves it out, and typed. It holds a runner, and no ignore that
- * outlasts `ignores.maxDays`.
+ * every layer leaves it out, and typed. It holds a runner, no ignore that
+ * outlasts `ignores.maxDays`, and no `timeouts.most` under `timeouts.seconds`.
  */
 final readonly class Settings
 {
@@ -27,14 +27,15 @@ final readonly class Settings
     {
         $runner = $layer->setup()->runner();
         $late = $layer->ignores()->late($now);
+        $settled = Layer::standard()->over($layer);
+        $unbounded = $settled->triage()->refusal();
         $problems = [
             ...$runner instanceof Choice
                 ? []
                 : [Problem::at('runner', sprintf('expected %s, got nothing', Adapter::EXPECTED))],
             ...$late instanceof Invalid ? [...$late] : [],
+            ...$unbounded instanceof Invalid ? [...$unbounded] : [],
         ];
-
-        $settled = Layer::standard()->over($layer);
 
         return $runner instanceof Choice && $problems === []
             ? new self(

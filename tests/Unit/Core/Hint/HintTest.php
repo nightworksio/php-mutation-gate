@@ -101,7 +101,7 @@ it('names up to three judging tests of a mutant counted as not killed, then how 
         ->and(Hint::for($mutant, MutantJudgement::Unjudged, TestIds::of(...$ids), $source(), NoFinding::survivor())->text())
         ->toBe(sprintf('Nothing judged it, so it counts as not killed. It is judged by %s.', $named))
         ->and(Hint::for($mutant, MutantJudgement::TooSlowToJudge, TestIds::of(...$ids), $source(), NoFinding::survivor())->text())
-        ->toEndWith(sprintf('or raise `timeouts.seconds`. It is judged by %s.', $named))
+        ->toEndWith(sprintf('or raise `timeouts.most`. It is judged by %s.', $named))
         ->and(Hint::for($mutant, MutantJudgement::TooHeavyToJudge, TestIds::of(...$ids), $source(), NoFinding::survivor())->text())
         ->toEndWith(sprintf('says what the suite needs. It is judged by %s.', $named));
 })->with([
@@ -124,7 +124,7 @@ it('says what each other judgement means', function (MutantJudgement $judgement,
     'killed by timeout' => [MutantJudgement::KilledByTimeout, 'Its tests ran far past their usual time with it in place, so the timeout counts as a kill.'],
     'killed by the memory cap' => [MutantJudgement::KilledByMemoryCap, 'It ran out of the memory cap, at least twice what the unmutated suite holds, so the cap counts as a kill.'],
     'unjudged' => [MutantJudgement::Unjudged, 'Nothing judged it, so it counts as not killed.'],
-    'too slow to judge' => [MutantJudgement::TooSlowToJudge, 'Its tests take half its time limit or more, so a timeout says nothing about it. Hold `src/Order.php` with a group of the tests that assert on it, or raise `timeouts.seconds`.'],
+    'too slow to judge' => [MutantJudgement::TooSlowToJudge, 'Its time limit was too short beside its tests\' own time, so a timeout says nothing about it. Hold `src/Order.php` with a group of the tests that assert on it, or raise `timeouts.most`.'],
     'too heavy to judge' => [MutantJudgement::TooHeavyToJudge, 'The unmutated suite holds more than half the memory cap, or was not measured, so the cap says nothing. Raise runner.memory; doctor --measure says what the suite needs.'],
     'ignored' => [MutantJudgement::Ignored, 'An ignore in the config leaves it out of the score.'],
     'ignored by a marker' => [MutantJudgement::IgnoredByMarker, 'A native ignore marker leaves it out of the score.'],

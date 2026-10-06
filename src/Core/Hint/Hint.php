@@ -102,9 +102,9 @@ final readonly class Hint
         = 'Its tests killed it on one run and let it survive on another, so they are the suspects.';
 
     private const string TOO_SLOW
-        = 'Its tests take half its time limit or more, so a timeout says nothing about it. %s';
+        = 'Its time limit was too short beside its tests\' own time, so a timeout says nothing about it. %s';
 
-    private const string HOLD = 'Hold `%s` with a group of the tests that assert on it, or raise `timeouts.seconds`.';
+    private const string HOLD = 'Hold `%s` with a group of the tests that assert on it, or raise `timeouts.most`.';
 
     private const string MEMORY_CAP
         = 'It ran out of the memory cap, at least twice what the unmutated suite holds, so the cap counts as a kill.';

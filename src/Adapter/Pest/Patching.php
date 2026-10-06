@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
 
@@ -37,15 +37,20 @@ final readonly class Patching
     }
 
     /**
-     * What a run is started with to allow no mutant more than a cap, where
-     * the project applies the patch (see MutantTime); nothing where it does
-     * not, as Pest allows each mutant its own limit then.
+     * What a run is started with to keep each mutant's limit within these
+     * bounds, where the project applies the patch (see MutantTime); nothing
+     * where it does not, as Pest allows each mutant its own limit then.
      *
      * @return array<string, string>
      */
-    public function capping(Seconds $cap): array
+    public function bounding(LimitBounds $bounds): array
     {
-        return $this->isOn() ? [GateVariable::MutantCap->value => sprintf('%F', $cap->seconds())] : [];
+        return $this->isOn()
+            ? [
+                GateVariable::MutantFloor->value => sprintf('%F', $bounds->floor()->seconds()),
+                GateVariable::MutantCap->value => sprintf('%F', $bounds->most()->seconds()),
+            ]
+            : [];
     }
 
     /** The canary group, where the project applies the patch. */

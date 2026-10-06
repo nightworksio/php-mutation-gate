@@ -8,6 +8,7 @@ use function intval;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Time\Budgets;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -21,15 +22,20 @@ use function sprintf;
  */
 final readonly class Triage implements Part
 {
-    /** The seconds a mutant may run, and how many timed-out mutants are run again. */
+    /** The least and the most seconds a mutant may run, and how many timed-out mutants are run again. */
     private const int TIMEOUT = 10;
 
+    private const int MOST = 300;
+
     private const int RETRIES = 20;
+
+    private const string UNDER_THE_FLOOR = 'expected at least timeouts.seconds, %d, got %d';
 
     private function __construct(
         private Seconds|Absent $budget,
         private TimeoutMode|Absent $mode,
         private Seconds|Absent $limit,
+        private Seconds|Absent $most,
         private int|Absent $retries,
         private bool|Absent $confirmSurvivors,
         private TestOrder|Absent $order,
@@ -41,12 +47,13 @@ final readonly class Triage implements Part
         Seconds|Absent $budget = new Absent(),
         TimeoutMode|Absent $mode = new Absent(),
         Seconds|Absent $limit = new Absent(),
+        Seconds|Absent $most = new Absent(),
         int|Absent $retries = new Absent(),
         bool|Absent $confirmSurvivors = new Absent(),
         TestOrder|Absent $order = new Absent(),
         SurvivorsFirst|Absent $survivorsFirst = new Absent(),
     ): self {
-        return new self($budget, $mode, $limit, $retries, $confirmSurvivors, $order, $survivorsFirst);
+        return new self($budget, $mode, $limit, $most, $retries, $confirmSurvivors, $order, $survivorsFirst);
     }
 
     public static function none(): self
@@ -61,6 +68,7 @@ final readonly class Triage implements Part
         return self::of(
             mode: $none->timeouts(),
             limit: $none->limit(),
+            most: $none->most(),
             retries: $none->retries(),
             confirmSurvivors: $none->confirmSurvivors(),
             order: $none->order(),
@@ -75,6 +83,7 @@ final readonly class Triage implements Part
                 Absent::laid($this->budget, $later->budget),
                 Absent::laid($this->mode, $later->mode),
                 Absent::laid($this->limit, $later->limit),
+                Absent::laid($this->most, $later->most),
                 Absent::laid($this->retries, $later->retries),
                 Absent::laid($this->confirmSurvivors, $later->confirmSurvivors),
                 Absent::laid($this->order, $later->order),
@@ -95,10 +104,33 @@ final readonly class Triage implements Part
         return $this->mode instanceof TimeoutMode ? $this->mode : TimeoutMode::Confirm;
     }
 
-    /** `timeouts.seconds`: the cap on one mutant's run, and the covering tests' time past which it is skipped. */
+    /** `timeouts.seconds`: the least one mutant's run is allowed, and what one whose tests are not timed is. */
     public function limit(): Seconds
     {
         return $this->limit instanceof Seconds ? $this->limit : Seconds::of(self::TIMEOUT);
+    }
+
+    /** `timeouts.most`: the most one mutant's run is allowed, and Infection's skip for tests that take as long. */
+    public function most(): Seconds
+    {
+        return $this->most instanceof Seconds ? $this->most : Seconds::of(self::MOST);
+    }
+
+    /** What each mutant's limit is kept between: `timeouts.seconds` and `timeouts.most`. */
+    public function bounds(): LimitBounds
+    {
+        return LimitBounds::between($this->limit(), $this->most());
+    }
+
+    /** Why the timeouts cannot be laid, a most under the floor; or nothing. */
+    public function refusal(): Invalid|Absent
+    {
+        $floor = intval($this->limit()->seconds());
+        $most = intval($this->most()->seconds());
+
+        return $most < $floor
+            ? Invalid::because(Problem::at('timeouts.most', sprintf(self::UNDER_THE_FLOOR, $floor, $most)))
+            : Absent::setting();
     }
 
     /** `timeouts.retries`: the most timed-out mutants retried per shard. */
@@ -137,6 +169,7 @@ final readonly class Triage implements Part
                         'seconds',
                         $this->limit instanceof Seconds ? intval($this->limit->seconds()) : $this->limit,
                     ),
+                    Member::of('most', $this->most instanceof Seconds ? intval($this->most->seconds()) : $this->most),
                     Member::of('retries', $this->retries),
                 ),
             ),
@@ -172,6 +205,7 @@ final readonly class Triage implements Part
             ...$this->limit instanceof Seconds
                 ? [sprintf('Timeouts::seconds(%d)', intval($this->limit->seconds()))]
                 : [],
+            ...$this->most instanceof Seconds ? [sprintf('Timeouts::most(%d)', intval($this->most->seconds()))] : [],
             ...$this->retries instanceof Absent ? [] : [sprintf('Timeouts::retries(%d)', $this->retries)],
             ...$this->confirmSurvivors instanceof Absent ? [] : [
                 $this->confirmSurvivors ? 'Flaky::confirmingSurvivors()' : 'Flaky::notConfirmingSurvivors()',

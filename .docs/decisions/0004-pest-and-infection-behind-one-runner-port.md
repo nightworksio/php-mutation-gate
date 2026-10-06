@@ -382,10 +382,10 @@ its parser attributes. Both change when the checkout moves.
      - A run again makes only the mutants whose native ids a file beside the
        results lists.
      - Each mutant is allowed the standard mutant limit (ADR-0008, decision
-       2): 5 s plus five times its covering tests' own time, as the map Pest
-       loaded timed them, and never more than `timeouts.seconds`, which the
-       gate names. The patched plugin records each mutant's limit in the
-       results file.
+       2): 5 s plus three times its covering tests' own time, as the map
+       Pest loaded timed them, never less than `timeouts.seconds` and never
+       more than `timeouts.most`, which the gate names. The patched plugin
+       records each mutant's limit in the results file.
      - A mutant's own run loads only the test files its covering tests need:
        the file that declares each covering test's class, and every test file
        Pest's parent process loaded that declares a name those use, in turn.
@@ -510,7 +510,7 @@ its parser attributes. Both change when the checkout moves.
      - `source.directories` are the directories of the files the run mutates.
      - `logs.json` and `logs.text` point into `.mutation-gate/infection/logs/`,
        and every other log is off.
-     - `timeout` is `timeouts.seconds` (ADR-0008), or the doubled cap of a
+     - `timeout` is `timeouts.most` (ADR-0008), or the doubled most of a
        retry.
      - `tmpDir` is under `.mutation-gate/`.
      - A run is judged by its logs and their counts, never by Infection's exit
@@ -760,9 +760,9 @@ its parser attributes. Both change when the checkout moves.
      3. For each mutant, one at a time, the gate runs
         `<vendor>/pestphp/pest/bin/pest --no-tia --bail --colors=never` over
         the selected test files, with `--group=holds:<path>` for a held unit,
-        from the project root, within 5 s plus five times the own time of the
-        selected files' tests, as the map timed them, and never more than
-        `timeouts.seconds`, withholding what the request withholds, with the
+        from the project root, within the standard mutant limit of the own
+        time of the selected files' tests, as the map timed them, between
+        `timeouts.seconds` and `timeouts.most`, withholding what the request withholds, with the
         two variables and `MUTATION_GATE_GUARD` set.
      4. A failing run kills the mutant, and a passing run leaves it alive for
         the fallback above. A run stopped at the limit times the mutant out.

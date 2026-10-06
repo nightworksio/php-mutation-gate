@@ -94,6 +94,7 @@ it('declares every setting as affecting results or as judging or reporting only'
         'budget' => $judges,
         'timeouts.mode' => $judges,
         'timeouts.seconds' => $results,
+        'timeouts.most' => $results,
         'timeouts.retries' => $results,
         'flaky.confirmSurvivors' => $results,
         'tests.order' => $results,

@@ -41,6 +41,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Registry\ExtensionPoint;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -286,22 +287,29 @@ final class Library
 
     /**
      * The PHPUnit runner over its installed library, making its mutants with
-     * the default set, allowing each mutant 10 s. It has no ignore marker of
-     * its own, and prints what PHPUnit printed, its banner first.
+     * the default set, keeping each mutant's limit within the standard
+     * bounds. It has no ignore marker of its own, and prints what PHPUnit
+     * printed, its banner first.
      */
     public static function phpunit(): self
+    {
+        return self::phpunitWithin(Triage::standard()->bounds(), 'phpunit');
+    }
+
+    /** The PHPUnit runner over its installed library, keeping each mutant's limit within these bounds, by this name. */
+    public static function phpunitWithin(LimitBounds $kept, string $name): self
     {
         $root = Tree::at(self::PHPUNIT_DIRECTORY);
         $phpunit = static fn(string $root): PhpUnit => new PhpUnit(
             PhpUnitProject::at($root, Paths::of(Path::of('tests')), Path::of('../vendor'), Path::of('.mutation-gate')),
             new PhpUnitShell(new LocalProcesses(new SystemClock()), $root, getenv()),
             self::defaultSet(),
-            Seconds::of(10.0),
+            $kept,
             new CapDirectory(),
         );
 
         return new self(
-            'phpunit',
+            $name,
             $phpunit($root),
             self::PHPUNIT,
             endsReported: true,
@@ -326,26 +334,20 @@ final class Library
         return self::pestAt(Tree::at(self::DIRECTORY), $patching);
     }
 
+    /** The Pest adapter over the installed library, keeping each mutant's limit within these bounds, by this name. */
+    public static function pestWithin(Patching $patching, LimitBounds $kept, string $name): self
+    {
+        return self::pestRooted(Tree::at(self::DIRECTORY), $patching, $kept, $name);
+    }
+
     /** The Pest adapter over the installed library at a root, such as a link to it. */
     public static function pestAt(string $root, Patching $patching): self
     {
-        $pest = static function (string $root) use ($patching): Pest {
-            $tests = Paths::of(Path::of('tests'));
-            $project = Project::at($root, $tests, Path::of('.mutation-gate'), Path::of('vendor'));
-
-            return new Pest($project, new ProcessShell(new LocalProcesses(new SystemClock()), $root), $patching, new CapDirectory(), Triage::standard()->limit());
-        };
-
-        return new self(
+        return self::pestRooted(
+            $root,
+            $patching,
+            Triage::standard()->bounds(),
             sprintf('pest %s', $patching->isOn() ? 'patched' : 'unpatched'),
-            $pest($root),
-            self::PEST,
-            endsReported: true,
-            defining: Paths::of(Path::of('tests/Pest.php'), Path::of('phpunit.xml')),
-            naming: self::PEST_NAMES,
-            outside: $pest(dirname($root)),
-            package: Path::of(basename($root)),
-            root: $root,
         );
     }
 
@@ -496,6 +498,29 @@ final class Library
     public static function canary(): Group
     {
         return Group::named(self::CANARY);
+    }
+
+    /** The Pest adapter over the library at a root, keeping each mutant's limit within these bounds, by this name. */
+    private static function pestRooted(string $root, Patching $patching, LimitBounds $kept, string $name): self
+    {
+        $pest = static function (string $root) use ($patching, $kept): Pest {
+            $tests = Paths::of(Path::of('tests'));
+            $project = Project::at($root, $tests, Path::of('.mutation-gate'), Path::of('vendor'));
+
+            return new Pest($project, new ProcessShell(new LocalProcesses(new SystemClock()), $root), $patching, new CapDirectory(), $kept);
+        };
+
+        return new self(
+            $name,
+            $pest($root),
+            self::PEST,
+            endsReported: true,
+            defining: Paths::of(Path::of('tests/Pest.php'), Path::of('phpunit.xml')),
+            naming: self::PEST_NAMES,
+            outside: $pest(dirname($root)),
+            package: Path::of(basename($root)),
+            root: $root,
+        );
     }
 
     /** The engine of the default set, as the flows hand it to the PHPUnit runner. */

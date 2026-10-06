@@ -30,6 +30,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageFailure;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\PcovReach;
@@ -87,7 +88,7 @@ final readonly class Pest implements Runner
         private Shell $shell,
         private Patching $patching,
         private CapFiles $files,
-        private Seconds $cap,
+        private LimitBounds $bounds,
         private Clock $clock = new WallClock(),
         private Bridges $bridges = new Bridges(),
     ) {
@@ -119,7 +120,7 @@ final readonly class Pest implements Runner
             new ProcessShell($processes, $project->root()),
             $read->patching(),
             $files,
-            $read->timeout(),
+            $read->bounds(),
             bridges: $read->bridges(),
         );
     }
@@ -243,9 +244,9 @@ final readonly class Pest implements Runner
      * under coverage. Patched, the run makes only these mutants; unpatched,
      * every mutant of their files and mutators, and each asked for is
      * matched back by Pest's id and handed back under the gate's. Patched,
-     * each mutant is allowed its limit under this cap; unpatched, Pest's own.
+     * each mutant is allowed its limit up to this most; unpatched, Pest's own.
      */
-    public function retry(MutationRequest $request, Mutants $mutants, Seconds $limit): Mutants|CannotJudge
+    public function retry(MutationRequest $request, Mutants $mutants, Seconds $most): Mutants|CannotJudge
     {
         $files = [];
         $mutators = [];
@@ -262,7 +263,7 @@ final readonly class Pest implements Runner
         }
 
         $result = $this->run($this->shell)
-            ->cappedAt($limit)
+            ->upTo($most)
             ->only(...$natives)
             ->of($request->narrowedTo(
                 Paths::of(...array_values($files)),
@@ -287,16 +288,16 @@ final readonly class Pest implements Runner
     /**
      * One mutant run again on its own: the request narrowed to its file with
      * only its mutator, with what Pest printed. Patched, it is allowed its
-     * limit under this cap; unpatched, Pest's own.
+     * limit up to this most; unpatched, Pest's own.
      */
     public function reproduce(
         Reproducible $mutant,
         MutationRequest $request,
-        Seconds $limit,
+        Seconds $most,
     ): Reproduction|CannotJudge {
         $shell = Transcribing::over($this->shell);
         $result = $this->run($shell)
-            ->cappedAt($limit)
+            ->upTo($most)
             ->of($request->narrowedTo(
                 Paths::of($mutant->file()),
                 $request->narrowing()->toMutators(Mutators::named($mutant->mutator())),
@@ -343,7 +344,7 @@ final readonly class Pest implements Runner
                 $this->shell->in($project->root()),
                 $this->patching,
                 $this->files,
-                $this->cap,
+                $this->bounds,
                 $this->clock,
                 $this->bridges,
             )
@@ -391,7 +392,7 @@ final readonly class Pest implements Runner
             $this->patching,
             $this->remembered,
             $this->groups(...),
-            $this->cap,
+            $this->bounds,
             clock: $this->clock,
             bridges: $this->bridges,
         );

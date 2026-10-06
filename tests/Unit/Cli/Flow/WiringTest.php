@@ -569,10 +569,10 @@ it('keys the analyser by its config file where it cannot say the configuration i
     expect(wiredAnalyserIn($project))->toEqual(AnalyserIdentity::of('phpstan', '2.2.16', Digest::sha256Of("parameters:\n    level: 9\n")));
 });
 
-it('tells Infection each mutant\'s cap, timeouts.seconds, and that the gate checks its survivors only where an analyser is wired', function (): void {
+it('tells Infection each mutant\'s cap, timeouts.most, and that the gate checks its survivors only where an analyser is wired', function (): void {
     $registry = wiringRegistry()->withStaticChecker(Name::of('fake'), static fn(): StaticCheckerFake => StaticCheckerFake::findingNothing());
     $wired = static fn(Runner $runner, StaticCheck $static): Adapters|Invalid|CannotJudge => new Wiring($registry, Variables::of([]), wiringDetected())
-        ->adapters(Flows::settings($runner, $static, Timeouts::seconds(45)), Directory::at(Flows::project()));
+        ->adapters(Flows::settings($runner, $static, Timeouts::most(45)), Directory::at(Flows::project()));
     $checked = $wired(Runner::infection(), StaticCheck::uses('fake'));
     $unchecked = $wired(Runner::infection(), StaticCheck::none());
     $pest = $wired(Runner::pest(), StaticCheck::uses('fake'));
@@ -604,16 +604,16 @@ it('tells an Azure store which scope is the default branch\'s, which its public 
     expect($wired->proofs)->toEqual($expected instanceof ContainerLedger ? $expected->forDefaultBranch(Scope::branch('trunk')) : $expected);
 });
 
-it('tells the PHPUnit runner the cap on each mutant\'s limit, timeouts.seconds, and the mutators of the default set', function (): void {
+it('tells the PHPUnit runner the bounds of each mutant\'s limit, timeouts.seconds and timeouts.most, and the mutators of the default set', function (): void {
     $registry = new DefaultExtension()->extend(wiringRegistry());
     $set = $registry->registered(ExtensionPoint::MutatorSet, MutatorSet::defaultName());
     $mutators = $set instanceof MutatorSet ? [...$set] : [];
     $adapters = new Wiring($registry, Variables::of([]), wiringDetected())
-        ->adapters(Flows::settings(Runner::phpunit(), Timeouts::seconds(45)), Directory::at(Flows::project()));
+        ->adapters(Flows::settings(Runner::phpunit(), Timeouts::seconds(45), Timeouts::most(90)), Directory::at(Flows::project()));
 
     expect($mutators)->not->toBe([])
         ->and($adapters instanceof Adapters ? $adapters->runner : $adapters)->toEqual(PhpUnit::fromOptions(
-            Configs::options((string) json_encode(['timeout' => 45.0, 'mutators' => $mutators])),
+            Configs::options((string) json_encode(['timeout' => 45.0, 'most' => 90.0, 'mutators' => $mutators])),
             ComposerVendor::of('.'),
             new CapDirectory(),
             new LocalProcesses(new SystemClock()),
@@ -628,12 +628,12 @@ it('tells the PHPUnit runner no mutator where no extension registers the default
         ->toEqual(CannotJudge::because('The phpunit runner makes its mutants with the default mutator set, and no extension registers one.'));
 });
 
-it('tells each runner timeouts.seconds and the classes of the registered mutators the config turns on: Pest and Infection beside their own, the PHPUnit runner beside the default set\'s', function (): void {
+it('tells each runner its timeouts and the classes of the registered mutators the config turns on: Pest and Infection beside their own, the PHPUnit runner beside the default set\'s', function (): void {
     $registry = new DefaultExtension()->extend(wiringRegistry())
         ->withMutators(Name::of('acme'), MutatorSet::of(PlusToMinus::class, RemoveEcho::class));
     $default = $registry->registered(ExtensionPoint::MutatorSet, MutatorSet::defaultName());
     $wired = static fn(Runner $runner): Adapters|Invalid|CannotJudge => new Wiring($registry, Variables::of([]), wiringDetected())->adapters(
-        Flows::settings($runner, Timeouts::seconds(45), Mutators::sets('acme'), Mutators::except('acme/RemoveEcho')),
+        Flows::settings($runner, Timeouts::seconds(45), Timeouts::most(90), Mutators::sets('acme'), Mutators::except('acme/RemoveEcho')),
         Directory::at(Flows::project()),
     );
     $pest = $wired(Runner::pest());
@@ -642,18 +642,18 @@ it('tells each runner timeouts.seconds and the classes of the registered mutator
     $native = [...$default instanceof MutatorSet ? $default : [], PlusToMinus::class];
 
     expect($pest instanceof Adapters ? $pest->runner : $pest)->toEqual(PestRunner::fromOptions(
-        Configs::options((string) json_encode(['timeout' => 45.0, 'mutators' => [PlusToMinus::class]])),
+        Configs::options((string) json_encode(['timeout' => 45.0, 'most' => 90.0, 'mutators' => [PlusToMinus::class]])),
         ComposerVendor::of('.'),
         new CapDirectory(),
         new LocalProcesses(new SystemClock()),
     ))
         ->and($infection instanceof Adapters ? $infection->runner : $infection)->toEqual(Infection::fromOptions(
-            Configs::options((string) json_encode(['timeout' => 45.0, 'mutators' => [PlusToMinus::class]])),
+            Configs::options((string) json_encode(['timeout' => 90.0, 'mutators' => [PlusToMinus::class]])),
             new CapDirectory(),
             new LocalProcesses(new SystemClock()),
         ))
         ->and($phpunit instanceof Adapters ? $phpunit->runner : $phpunit)->toEqual(PhpUnit::fromOptions(
-            Configs::options((string) json_encode(['timeout' => 45.0, 'mutators' => $native])),
+            Configs::options((string) json_encode(['timeout' => 45.0, 'most' => 90.0, 'mutators' => $native])),
             ComposerVendor::of('.'),
             new CapDirectory(),
             new LocalProcesses(new SystemClock()),

@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
@@ -119,6 +120,7 @@ const DEFAULTS = <<<'JSON'
         "timeouts": {
             "mode": "confirm",
             "seconds": 10,
+            "most": 300,
             "retries": 20
         },
         "flaky": {
@@ -202,7 +204,7 @@ const EVERYTHING = [
     ],
     'coverage' => ['incremental' => false],
     'budget' => '1h30m',
-    'timeouts' => ['mode' => 'unjudged', 'seconds' => 30, 'retries' => 0],
+    'timeouts' => ['mode' => 'unjudged', 'seconds' => 30, 'most' => 120, 'retries' => 0],
     'flaky' => ['confirmSurvivors' => false],
     'survivorsFirst' => ['max' => 5],
     'ignores' => [
@@ -459,7 +461,7 @@ it('serialises the settings that affect results canonically, and only those', fu
         . '"flaky":{"confirmSurvivors":true},"mutators":{"except":[],"sets":[]},"packages":[],'
         . '"pest":{"canary":"mutation-canary","patch":false},'
         . '"runner":{"memory":"1G","use":"pest"},"staticCheck":{"seconds":60,"tool":"auto"},"tests":{"order":"killers-first"},'
-        . '"timeouts":{"retries":20,"seconds":10},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
+        . '"timeouts":{"most":300,"retries":20,"seconds":10},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
     )->and(Configs::settings(EVERYTHING)->canonical())->toBe(
         '{"ci":{"azure":{"definition":"ci/azure.yml"},"bitbucket":{"definition":"ci/bitbucket.yml"},'
         . '"buildkite":{"definition":".buildkite/mutation.yml"},'
@@ -469,7 +471,7 @@ it('serialises the settings that affect results canonically, and only those', fu
         . '"pest":{"canary":"canary","patch":true},'
         . '"runner":{"memory":"512M","use":"infection","workers":"fresh"},'
         . '"staticCheck":{"config":"phpstan.dist.neon","seconds":45,"tool":"phpstan"},'
-        . '"tests":{"order":"killers-first"},"timeouts":{"retries":0,"seconds":30},'
+        . '"tests":{"order":"killers-first"},"timeouts":{"most":120,"retries":0,"seconds":30},'
         . '"treeSource":{"use":"phpunit","with":{"fallback":["app","lib"]}},'
         . '"trees":[{"path":"app/Domain"},{"path":"app/Http"},'
         . '{"path":"app/Generated"},{"path":"app/Legacy"}]}',
@@ -518,6 +520,7 @@ it('changes the canonical form with every setting that affects results', functio
     'a tree\'s path' => [['trees' => [['path' => 'app']]]],
     'the packages' => [['packages' => []]],
     'the timeout' => [['timeouts' => ['seconds' => 31]]],
+    'the most' => [['timeouts' => ['most' => 121]]],
     'the retries' => [['timeouts' => ['retries' => 1]]],
     'survivor confirmation' => [['flaky' => ['confirmSurvivors' => true]]],
     'the Pest patches' => [['pest' => ['patch' => false]]],
@@ -600,6 +603,26 @@ it('refuses a config without a runner', function (): void {
         ->toBe(['runner: expected a name, a class, or an object with use and with, got nothing']);
 });
 
+it('refuses a timeouts.most under timeouts.seconds, however the layers lay them', function (array $config, string $problem): void {
+    expect(Configs::problems(Configs::validated(['runner' => 'pest', ...$config])))->toBe([$problem]);
+})->with([
+    'both in the config' => [
+        ['timeouts' => ['seconds' => 30, 'most' => 29]],
+        'timeouts.most: expected at least timeouts.seconds, 30, got 29',
+    ],
+    'a most under the standard floor' => [['timeouts' => ['most' => 9]], 'timeouts.most: expected at least timeouts.seconds, 10, got 9'],
+    'a floor over the standard most' => [
+        ['timeouts' => ['seconds' => 301]],
+        'timeouts.most: expected at least timeouts.seconds, 301, got 300',
+    ],
+]);
+
+it('takes a timeouts.most equal to timeouts.seconds', function (): void {
+    $settings = Configs::settings(['runner' => 'pest', 'timeouts' => ['seconds' => 30, 'most' => 30]]);
+
+    expect($settings->triage()->bounds())->toEqual(LimitBounds::between(Seconds::of(30.0), Seconds::of(30.0)));
+});
+
 it('refuses a config that is not an object', function (string $json, string $problem): void {
     expect(Configs::problems(Configs::validated($json)))->toBe([$problem]);
 })->with([
@@ -628,7 +651,7 @@ it('takes the ends of every range', function (): void {
         'holds' => ['hotPath' => 0],
         'costs' => ['secondsPerLine' => ['' => 0]],
         'badge' => ['colors' => ['green' => 100, 'red' => 0]],
-        'timeouts' => ['seconds' => 1, 'retries' => 0],
+        'timeouts' => ['seconds' => 1, 'most' => 1, 'retries' => 0],
         'shards' => ['seconds' => 1, 'max' => 1],
         'ignores' => ['maxDays' => 1],
     ]);

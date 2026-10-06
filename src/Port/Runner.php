@@ -98,24 +98,24 @@ interface Runner
     /**
      * These mutants run again, as the invocation that made them asked: over
      * their files alone with only their mutators, judged, covered, withheld,
-     * timed and ordered as the request says, each allowed this long where the
-     * runner lays a limit, and each handed back under its gate id. One the
-     * run made no mutant for again is unjudged.
+     * timed and ordered as the request says, each allowed no more than this
+     * where the runner lays a limit, and each handed back under its gate id.
+     * One the run made no mutant for again is unjudged.
      */
-    public function retry(MutationRequest $request, Mutants $mutants, Seconds $limit): Mutants|CannotJudge;
+    public function retry(MutationRequest $request, Mutants $mutants, Seconds $most): Mutants|CannotJudge;
 
     /**
      * One mutant run again on its own, under the same conditions as the run
      * it came from: the request narrowed to the mutant's file and its
-     * mutator, judged, withheld and capped as the request says, allowed this
-     * long where the runner lays a limit, and matched back by the gate's id,
+     * mutator, judged, withheld and capped as the request says, allowed no
+     * more than this where the runner lays a limit, and matched back by the gate's id,
      * with what the runner printed. The tests never see the variables
      * withheld (ADR-0004 decision 6).
      */
     public function reproduce(
         Reproducible $mutant,
         MutationRequest $request,
-        Seconds $limit,
+        Seconds $most,
     ): Reproduction|CannotJudge;
 
     /**

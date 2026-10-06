@@ -168,44 +168,69 @@ presets for Laravel, Symfony and plain libraries.
      not judge.
 
 2. **Timeout triage tells a detection from the clock running out.** Each
-   runner sets a limit per mutant (ADR-0004):
-   - **Pest's**, under `pest.patch`, is the PHPUnit runner's rule below: the
-     smaller of 5 s plus five times the covering tests' own time, as the
-     coverage map Pest loaded timed them, and `timeouts.seconds`. Where the
-     map did not time a covering test, it is `timeouts.seconds`. The patched
+   runner sets a limit per mutant (ADR-0004). The gate's rule,
+   `Core\Runner\MutantLimit`'s standard one, is 5 s for the run to start,
+   plus k times the covering tests' own time, with k = 3, kept between two
+   bounds:
+   - **The floor**, `timeouts.seconds`: an integer, 10 by default, and 30 in
+     the Laravel and Symfony presets. No mutant is allowed less, and one whose
+     covering tests were not all timed is allowed exactly this. It covers the
+     few seconds a mutant's run spends before its first test, which a busy
+     runner stretches.
+   - **The most**, `timeouts.most`: an integer, 300 by default, and never
+     less than `timeouts.seconds`, which the config refuses. No mutant is
+     allowed more, so one mutant cannot hold a process for long.
+
+   k is fitted from runs, not guessed. A mutant that breaks nothing runs its
+   covering tests to the end, so its limit must stay above them on the
+   busiest runner the gate meets. Between two self-gate runs of the same code
+   the same mutants took 1.34 times as long at the median and 2.09 times at
+   the 99th percentile, so k = 3 clears that with margin, and the 5 s
+   start-up keeps a mutant whose tests take a few seconds clear too.
+   k is fitted again from a measurement run whose limits are
+   `max(timeouts.seconds, 10 × T)`, which leaves every run room to finish:
+   the 99.5th percentile, over mutants whose covering tests take 3 s or more
+   and that ended in a verdict, of the seconds past the start-up each took
+   over its tests' own time, with a fifth more for load, rounded up.
+
+   Per runner:
+   - **Pest's**, under `pest.patch`, is the gate's rule, of the covering
+     tests' own time as the coverage map Pest loaded timed them. The patched
      plugin records each mutant's limit in the results file, and the gate
      triages by what it recorded. It skips no mutant. Unpatched, it is Pest's
      own: the opening run's duration plus the larger of 5 s and 20%, which
      cannot be changed.
-   - **Infection's** is the smaller of 5 s plus five times the covering tests'
-     own time, and `timeouts.seconds`: an integer, 10 by default as Infection's
-     own, and 30 in the Laravel and Symfony presets. A mutant whose covering
-     tests take at least `timeouts.seconds` is skipped, never run.
-   - **The PHPUnit runner's** is the same rule, `Core\Runner\MutantLimit`'s
-     standard one: the smaller of 5 s plus five times the covering tests' own
-     time, as the coverage map timed them, and `timeouts.seconds`. Where the
-     map did not time a covering test, it is `timeouts.seconds`. It skips no
-     mutant.
+   - **Infection's** is Infection's own: the smaller of 5 s plus five times
+     the covering test classes' time and its `timeout`, which the gate sets
+     to `timeouts.most`. Infection skips, never runs, a mutant whose covering
+     classes take at least `timeouts.most`. It has no floor.
+   - **The PHPUnit runner's** is the gate's rule, of the covering tests' own
+     time as the coverage map timed them. It skips no mutant.
 
    For every timed-out or skipped mutant the gate works out the limit that
    applied to it, and compares its judging tests' own time with it (ADR-0004,
    decision 5). That time comes from the coverage run: Pest's map, or the JUnit
    times of the judging test classes, which Infection sums the same way.
-   - **Under half the limit.** Tests that normally finish quickly ran past the
-     limit with the mutant in place. The mutant broke something (a loop that
-     never ends, say), so it is **killed by timeout**. It counts as killed and
-     is reported under that name. Under Infection's own formula this holds for
-     every timeout the configured cap did not decide.
-   - **Half the limit or more.** The limit says nothing about this mutant, so it
-     is **too slow to judge**, and counts as not killed. A skipped mutant that
-     its retry does not resolve is always here. The hint points at holding the
-     path with a group (ADR-0005) or raising `timeouts.seconds`.
+   The triage reads the limit's own k, so the two never drift apart:
+   - **Under the limit at k times.** The limit allowed the covering tests k
+     times their own time, the margin the limit itself grants for load. Tests
+     that finish well inside that ran past it with the mutant in place, so the
+     mutant broke something (a loop that never ends, say), and it is **killed
+     by timeout**. It counts as killed and is reported under that name. This
+     holds for every limit the gate's rule or the floor decided, which is at
+     least 5 s more than k times the tests, and for every limit Infection's
+     own formula decided.
+   - **k times the tests reach the limit.** Only `timeouts.most` decides such
+     a limit. It says nothing about this mutant, so it is **too slow to
+     judge**, and counts as not killed. A skipped mutant that its retry does
+     not resolve is always here. The hint points at holding the path with a
+     group (ADR-0005) or raising `timeouts.most`.
    - **Retry.** Before the rule is applied, each timed-out or skipped mutant
-     that the configured cap decided is run once more with
-     `timeouts.seconds` doubled, narrowed to its file and mutator (ADR-0004).
-     If it finishes, its real status replaces the timeout. If not, the rule is
-     applied with the doubled limit. A mutant whose limit came from the formula
-     is not retried, because a higher cap would not change it. At most
+     whose limit `timeouts.most` decided is run once more with it doubled,
+     narrowed to its file and mutator (ADR-0004). If it finishes, its real
+     status replaces the timeout. If not, the rule is applied with the
+     doubled limit. A mutant whose limit came from the formula or the floor
+     is not retried, because a higher most would not change it. At most
      `timeouts.retries` mutants are retried per shard, an integer, 20 by
      default. Unpatched, Pest's limit cannot be raised, so unpatched Pest has
      no retry.

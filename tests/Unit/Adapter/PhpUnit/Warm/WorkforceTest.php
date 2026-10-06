@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
@@ -135,7 +136,7 @@ $both = $addsOnly->covered(Path::of('src/Money.php'), Line::of(5), TestId::of('T
 
 it('judges each run a worker\'s child ran at its own place in the queue, past the mutants with no run, and starts none fresh', function () use ($addsOnly): void {
     $shell = killingWorkers();
-    $result = warmMutation(warmLibrary(), $shell)->of(forking(1), $addsOnly, Seconds::of(5.0));
+    $result = warmMutation(warmLibrary(), $shell)->of(forking(1), $addsOnly, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
     expect(warmVerdicts($result))->toBe([
         ['acme/RemoveEcho', 'uncovered'],
@@ -150,7 +151,7 @@ it('judges each run a worker\'s child ran at its own place in the queue, past th
 it('starts one worker in each of the request\'s places, the runs between them, and tells each child PHPUnit\'s command line from its script on', function () use ($both): void {
     $project = warmLibrary();
     $shell = killingWorkers();
-    $result = warmMutation($project, $shell)->of(forking(2), $both, Seconds::of(5.0));
+    $result = warmMutation($project, $shell)->of(forking(2), $both, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
     expect(warmVerdicts($result))->toBe([
         ['acme/RemoveEcho', 'killed'],
@@ -167,7 +168,7 @@ it('starts one worker in each of the request\'s places, the runs between them, a
 
 it('runs fresh each run no worker claimed, in its place in the queue', function () use ($both): void {
     $shell = killingWorkers()->claimingAtMost(1);
-    $result = warmMutation(warmLibrary(), $shell)->of(forking(1), $both, Seconds::of(5.0));
+    $result = warmMutation(warmLibrary(), $shell)->of(forking(1), $both, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
     expect(warmVerdicts($result))->toBe([
         ['acme/RemoveEcho', 'killed'],
@@ -182,7 +183,7 @@ it('runs fresh each run no worker claimed, in its place in the queue', function 
 it('warns once of a refused boot however many workers it refused, runs each mutant fresh, and keeps the reason for doctor', function () use ($both): void {
     $project = warmLibrary();
     $shell = killingWorkers()->booting(Refusal::guarded('The boot left a socket open.'));
-    $result = warmMutation($project, $shell)->of(forking(2), $both, Seconds::of(5.0));
+    $result = warmMutation($project, $shell)->of(forking(2), $both, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
     expect(warmWarnings($result))->toBe(['The boot left a socket open.'])
         ->and($shell->children())->toBe([])
@@ -193,8 +194,8 @@ it('warns once of a refused boot however many workers it refused, runs each muta
 it('forgets the kept reason once the workers fork', function () use ($both): void {
     $project = warmLibrary();
     $shell = killingWorkers();
-    warmMutation($project, $shell->booting(Refusal::guarded('The boot left a socket open.')))->of(forking(1), $both, Seconds::of(5.0));
-    warmMutation($project, $shell)->of(forking(1), $both, Seconds::of(5.0));
+    warmMutation($project, $shell->booting(Refusal::guarded('The boot left a socket open.')))->of(forking(1), $both, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
+    warmMutation($project, $shell)->of(forking(1), $both, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
     expect(is_file($project->own(WarmRefusal::NAME)))->toBeFalse();
 });
@@ -202,7 +203,7 @@ it('forgets the kept reason once the workers fork', function () use ($both): voi
 it('runs each mutant fresh, and warns of nothing, where the PHP the runner starts cannot fork', function () use ($both): void {
     $project = warmLibrary();
     $shell = killingWorkers()->booting(Refusal::unforkable('pcntl is not loaded.'));
-    $result = warmMutation($project, $shell)->of(forking(1), $both, Seconds::of(5.0));
+    $result = warmMutation($project, $shell)->of(forking(1), $both, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
     expect(warmWarnings($result))->toBe([])
         ->and($shell->fresh())->toHaveCount(2)
@@ -211,7 +212,7 @@ it('runs each mutant fresh, and warns of nothing, where the PHP the runner start
 
 it('warns of a worker that failed with all it said, and runs the mutants it left fresh', function () use ($both): void {
     $shell = killingWorkers()->booting(Ran::exited(255, "\nPHP Fatal error: bootstrap.php broke\n"));
-    $result = warmMutation(warmLibrary(), $shell)->of(forking(1), $both, Seconds::of(5.0));
+    $result = warmMutation(warmLibrary(), $shell)->of(forking(1), $both, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
     expect(warmWarnings($result))
         ->toBe(['A warm worker failed, so the mutants it left ran fresh. It said: PHP Fatal error: bootstrap.php broke'])
@@ -226,8 +227,8 @@ it('warns of a worker that failed with all it said, and runs the mutants it left
 it('gives its workers no deadline where the request has none, and the time left, the longest limit and a minute where it has', function () use ($both): void {
     $unlimited = killingWorkers();
     $limited = killingWorkers();
-    warmMutation(warmLibrary(), $unlimited)->of(forking(1), $both, Seconds::of(5.0));
-    warmMutation(warmLibrary(), $limited)->of(forking(1)->within(Seconds::of(100.0)), $both, Seconds::of(5.0));
+    warmMutation(warmLibrary(), $unlimited)->of(forking(1), $both, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
+    warmMutation(warmLibrary(), $limited)->of(forking(1)->within(Seconds::of(100.0)), $both, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
     $deadline = $limited->workers()[0]->deadline();
 
     expect($unlimited->workers()[0]->deadline())->toEqual(Unlimited::time())
@@ -236,7 +237,7 @@ it('gives its workers no deadline where the request has none, and the time left,
 
 it('starts no worker where no mutant has a run', function (): void {
     $shell = killingWorkers();
-    $result = warmMutation(warmLibrary(), $shell)->of(forking(1), CoverageMap::empty(), Seconds::of(5.0));
+    $result = warmMutation(warmLibrary(), $shell)->of(forking(1), CoverageMap::empty(), LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
     expect($shell->commands())->toBe([])
         ->and(warmVerdicts($result))->toHaveCount(3);
@@ -244,7 +245,7 @@ it('starts no worker where no mutant has a run', function (): void {
 
 it('removes the workplace it made once its workers are done', function () use ($both): void {
     $project = warmLibrary();
-    warmMutation($project, killingWorkers())->of(forking(1), $both, Seconds::of(5.0));
+    warmMutation($project, killingWorkers())->of(forking(1), $both, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
     expect(glob($project->own('warm/*')))->toBe([]);
 });
@@ -253,7 +254,7 @@ it('runs each mutant fresh, and warns of nothing, where it cannot make its workp
     $project = warmLibrary();
     $project->written('warm', 'a file where the workplaces go');
     $shell = killingWorkers();
-    $result = warmMutation($project, $shell)->of(forking(1), $both, Seconds::of(5.0));
+    $result = warmMutation($project, $shell)->of(forking(1), $both, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
     expect($shell->workers())->toBe([])
         ->and($shell->fresh())->toHaveCount(2)
@@ -269,7 +270,7 @@ it('claims no run once the request\'s deadline has passed, and leaves it unstart
         },
         static fn(): Ran => Ran::finished(succeeded: true, output: ''),
     );
-    $result = warmMutation(warmLibrary(), $slow)->of(forking(1)->within(Seconds::of(0.4)), $both, Seconds::of(5.0));
+    $result = warmMutation(warmLibrary(), $slow)->of(forking(1)->within(Seconds::of(0.4)), $both, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
     expect($slow->children())->toHaveCount(1)
         ->and($slow->fresh())->toBe([])

@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -76,11 +77,11 @@ final readonly class MutationRun
         return new self($this->project, $this->engine, $this->run, $this->workforce, $ids);
     }
 
-    /** Each mutant, each of its runs stopped at its limit under this cap. */
-    public function of(MutationRequest $request, CoverageMap $map, Seconds $cap): MutationResult|CannotJudge
+    /** Each mutant, each of its runs stopped at its limit within these bounds. */
+    public function of(MutationRequest $request, CoverageMap $map, LimitBounds $bounds): MutationResult|CannotJudge
     {
         $made = $this->made($request);
-        $judged = $made instanceof CannotJudge ? $made : $this->judgedAll($made, $request, $map, $cap);
+        $judged = $made instanceof CannotJudge ? $made : $this->judgedAll($made, $request, $map, $bounds);
 
         return match (true) {
             $judged instanceof CannotJudge => $judged,
@@ -101,7 +102,7 @@ final readonly class MutationRun
         array $made,
         MutationRequest $request,
         CoverageMap $map,
-        Seconds $cap,
+        LimitBounds $bounds,
     ): Judged|CannotJudge {
         $end = $this->endOf($request->deadline());
         $queue = [];
@@ -111,7 +112,7 @@ final readonly class MutationRun
                 break;
             }
 
-            $prepared = $this->prepared($mutant, $map, $request, $cap);
+            $prepared = $this->prepared($mutant, $map, $request, $bounds);
 
             if ($prepared instanceof CannotJudge) {
                 return $prepared;
@@ -165,7 +166,7 @@ final readonly class MutationRun
         MadeMutant $mutant,
         CoverageMap $map,
         MutationRequest $request,
-        Seconds $cap,
+        LimitBounds $bounds,
     ): PreparedRun|Mutant|CannotJudge {
         $covering = $this->covering($map, $mutant);
 
@@ -182,7 +183,7 @@ final readonly class MutationRun
                 $mutant,
                 $covering,
                 $request,
-                MutantLimit::standard()->of(OwnTime::of($map, $covering), $cap),
+                MutantLimit::standard()->of(OwnTime::of($map, $covering), $bounds),
             );
     }
 

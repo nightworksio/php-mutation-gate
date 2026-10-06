@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
@@ -18,17 +19,18 @@ use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 
-it('is unpatched, with the tests under tests and the standard timeouts.seconds, where the config says nothing', function (): void {
+it('is unpatched, with the tests under tests and the standard timeouts, where the config says nothing', function (): void {
     $read = PestOptions::read(Options::none());
 
-    expect($read instanceof PestOptions ? [$read->patching(), $read->tests(), $read->timeout()] : $read)
-        ->toEqual([Patching::off(), Paths::of(Path::of('tests')), Seconds::of(10.0)]);
+    expect($read instanceof PestOptions ? [$read->patching(), $read->tests(), $read->bounds()] : $read)
+        ->toEqual([Patching::off(), Paths::of(Path::of('tests')), LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0))]);
 });
 
-it('allows a mutant no more than the timeout the flows write', function (): void {
-    $read = PestOptions::read(Configs::options('{"timeout": 45}'));
+it('keeps each mutant\'s limit between the timeout and the most the flows write', function (): void {
+    $read = PestOptions::read(Configs::options('{"timeout": 45, "most": 90}'));
 
-    expect($read instanceof PestOptions ? $read->timeout() : $read)->toEqual(Seconds::of(45.0));
+    expect($read instanceof PestOptions ? $read->bounds() : $read)->toEqual(LimitBounds::between(Seconds::of(45.0), Seconds::of(90.0)))
+        ->and(PestOptions::read(Configs::options('{"most": "long"}')))->toBeInstanceOf(Invalid::class);
 });
 
 it('is patched with the canary group and the test directories the config names', function (): void {
