@@ -85,3 +85,20 @@ it('patches nothing where a line it rewrites has moved', function (): void {
     )))
         ->and(Patch::stateIn($at))->toBe(PatchState::Missing);
 });
+
+it('patches nothing where Composer lists nothing it installed, or a file it changes is not there', function (): void {
+    $unlisted = InfectionSource::pristine()->vendor();
+    unlink(sprintf('%s/composer/installed.json', $unlisted));
+    $gone = InfectionSource::pristine()->vendor();
+    unlink(sprintf('%s/infection/infection/src/Process/Runner/MutationTestingRunner.php', $gone));
+
+    expect(Patch::applyIn($unlisted))->toEqual(CannotJudge::because(sprintf(
+        'infection:patch patched nothing: %s/composer/installed.json lists no Infection. Is Infection installed?',
+        $unlisted,
+    )))
+        ->and(Patch::applyIn($gone))->toEqual(CannotJudge::because(sprintf(
+            'infection:patch cannot read %s/infection/infection/src/Process/Runner/MutationTestingRunner.php. Is infection installed?',
+            $gone,
+        )))
+        ->and(Patch::stateIn($gone))->toBe(PatchState::Missing);
+});

@@ -7,7 +7,6 @@ namespace NightWorksIO\MutationGate\Adapter\Infection;
 use function count;
 use function file_get_contents;
 use function file_put_contents;
-use function is_dir;
 use function is_file;
 use function is_string;
 use function is_writable;
@@ -76,16 +75,16 @@ final readonly class PackageSource
         return $sources;
     }
 
-    /** @return array<string, string> every file of the package's source, by its path under the source directory */
+    /**
+     * Every file of the package's source, by its path under the source
+     * directory, once the files a hunk changes were read from it.
+     *
+     * @return array<string, string>
+     */
     private static function every(VendorPatch $patch, string $vendor): array
     {
         $root = $patch->path($vendor);
         $every = [];
-
-        if (! is_dir($root)) {
-            return $every;
-        }
-
         $entries = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator($root, RecursiveDirectoryIterator::SKIP_DOTS),
         );
