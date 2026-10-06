@@ -405,7 +405,7 @@ it('cuts each diff it shows, so one mutated line of any length cannot swell the 
     $comment = Markdown::comment(Verdicts::of(Floor::of(80), $huge), '');
 
     expect(mb_strlen($comment))->toBeLessThanOrEqual(Markdown::COMMENT_CHARACTERS)
-        ->and($comment)->toContain(sprintf("~~~diff\n-%s…\n~~~", str_repeat('a', MarkdownItems::SHOWN_CHARACTERS - 2)))
+        ->and($comment)->toContain(sprintf("~~~diff\n-%s…\n~~~", str_repeat('a', 1_498)))
         ->and($comment)->toContain('### Survivors on changed lines (1)');
 });
 
@@ -459,15 +459,16 @@ it('cuts the hint of each mutant it shows, in a block or a row, so one cannot sw
 })->with(['survived', 'flaky']);
 
 it('keeps a comment of exactly what GitHub takes whole, and cuts one a character past it', function (): void {
+    $gitHubTakes = 65_536;
     $comment = static fn(int $length): string => Markdown::comment(Verdicts::of(
         Floor::of(80),
         JudgedMutant::of(Verdicts::mutant('src/Money.php:3', 'Plus', MutatorFamily::None, ''), MutantJudgement::Flaky),
         JudgedMutant::of(Verdicts::mutant(sprintf('src/%s.php:4', str_repeat('é', $length)), 'Plus', MutatorFamily::None, ''), MutantJudgement::Flaky),
     ), '');
-    $fits = Markdown::COMMENT_CHARACTERS - (mb_strlen($comment(2)) - 2);
+    $fits = $gitHubTakes - (mb_strlen($comment(2)) - 2);
     $whole = $comment($fits);
 
-    expect(mb_strlen($whole))->toBe(Markdown::COMMENT_CHARACTERS)
+    expect(mb_strlen($whole))->toBe($gitHubTakes)
         ->and($whole)->toContain(str_repeat('é', $fits))
         ->and($comment($fits + 1))->not->toContain(str_repeat('é', $fits + 1))
         ->and($comment($fits + 1))->toContain('And 1 more; the JSON report lists every one.');
