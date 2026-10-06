@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\Coverage\Remeasured;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Access;
@@ -63,10 +64,6 @@ final readonly class KeptCoverage
 
     private const string READ_BY_EVERY = '`%s` changed, and every coverage entry reads it';
 
-    private const string DEFAULT_BRANCH = "the default branch's map";
-
-    private const string LAST_ROUND = "the last round's map";
-
     private const string NOT_KEPT = 'coverage.incremental is false, so no coverage map is kept.';
 
     private const string NOTHING_TO_KEEP = 'The plan handed on no coverage map at %s, so none is kept.';
@@ -83,12 +80,27 @@ final readonly class KeptCoverage
         return CoverageRun::of(WholeSuite::tests(), Workspace::coverage());
     }
 
-    /** The map the default branch's runs kept beside its ledger in a store; none; or why it cannot be read. */
-    public static function fromStore(ProofStore $store, Access $access): KeptMap|Missing|CannotJudge
+    /**
+     * The map kept beside a ledger the run reads, its own scope's first and
+     * then the default branch's, where its own scope's cannot be read; none;
+     * or why the default branch's cannot be read.
+     */
+    public static function fromStore(ProofStore $store, Access $access): StoredCoverage
     {
-        $bytes = $store->companion($access->coverageRead(), Companion::Coverage);
+        $scopes = [...$access->reads()];
+        $read = Missing::at(Path::of(Companion::Coverage->value));
 
-        return $bytes instanceof Contents ? CoverageMapFile::kept($bytes->text(), MapLimits::standard()) : $bytes;
+        foreach ($scopes as $at => $scope) {
+            $bytes = $store->companion($scope, Companion::Coverage);
+            $read = $bytes instanceof Contents ? CoverageMapFile::kept($bytes->text(), MapLimits::standard()) : $bytes;
+            $from = $at === count($scopes) - 1 ? KeptFrom::DefaultBranch : KeptFrom::OwnScope;
+
+            if ($read instanceof KeptMap) {
+                return StoredCoverage::of($read, $from);
+            }
+        }
+
+        return StoredCoverage::of($read, KeptFrom::DefaultBranch);
     }
 
     /** The map the last round of `watch` left; none; or why it cannot be read. */
@@ -107,15 +119,15 @@ final readonly class KeptCoverage
     public function measuring(
         CoverageEntries|CannotJudge|NotGiven $entries,
         KeptMap|Missing|CannotJudge $kept,
-        bool $ownMap,
+        KeptFrom $from,
     ): CoverageMeasured {
-        $usable = $this->usable($kept, $ownMap);
+        $usable = $this->usable($kept, $from);
 
         return match (true) {
             ! $usable instanceof KeptMap => $this->every($usable),
             $entries instanceof CannotJudge => $this->every(sprintf(self::UNREAD, $entries->why())),
             $entries instanceof NotGiven => $this->every(sprintf(self::EVERY, self::OFF)),
-            default => $this->updated($entries, $usable, $ownMap ? self::LAST_ROUND : self::DEFAULT_BRANCH),
+            default => $this->updated($entries, $usable, $from),
         };
     }
 
@@ -158,9 +170,11 @@ final readonly class KeptCoverage
             $inventory->standing->defaultBranch(),
             Writing::from($this->settings->proofs()->write()->value),
         );
-        $kept = $ownMap ? $this->fromWorkspace() : self::fromStore($this->adapters->proofs, $access);
+        $kept = $ownMap
+            ? StoredCoverage::of($this->fromWorkspace(), KeptFrom::LastRound)
+            : self::fromStore($this->adapters->proofs, $access);
 
-        return $this->measuring($entries, $kept, $ownMap);
+        return $this->measuring($entries, $kept->map(), $kept->from());
     }
 
     /**
@@ -181,7 +195,7 @@ final readonly class KeptCoverage
      */
     public function keep(Access $access): Written|NotWritten|ReadsOnly
     {
-        $scope = $access->coverageKept();
+        $scope = $access->writes();
 
         return match (true) {
             ! $this->settings->proofs()->incrementalCoverage() => ReadsOnly::because(self::NOT_KEPT),
@@ -195,13 +209,13 @@ final readonly class KeptCoverage
      * why every test is measured. The last round's map was measured in the
      * working tree `watch` watches, so only a stored map must be clean.
      */
-    private function usable(KeptMap|Missing|CannotJudge $kept, bool $ownMap): KeptMap|string
+    private function usable(KeptMap|Missing|CannotJudge $kept, KeptFrom $from): KeptMap|string
     {
         return match (true) {
             ! $this->settings->proofs()->incrementalCoverage() => sprintf(self::EVERY, self::OFF),
             $kept instanceof Missing => self::NONE_KEPT,
             $kept instanceof CannotJudge => sprintf(self::UNREAD, $kept->why()),
-            ! $ownMap && ! $this->isClean($kept) => sprintf(self::EVERY, self::DIRTY),
+            $from->isStored() && ! $this->isClean($kept) => sprintf(self::EVERY, self::DIRTY),
             default => $kept,
         };
     }
@@ -230,7 +244,7 @@ final readonly class KeptCoverage
     }
 
     /** The kept map with every moved entry measured again; or the whole suite, where that cannot be told. */
-    private function updated(CoverageEntries $entries, KeptMap $kept, string $from): CoverageMeasured
+    private function updated(CoverageEntries $entries, KeptMap $kept, KeptFrom $from): CoverageMeasured
     {
         $moving = Moving::of($entries, $kept);
 
@@ -243,7 +257,7 @@ final readonly class KeptCoverage
     }
 
     /** The kept map with the moved entries measured again, written where a run reads it. */
-    private function merged(KeptMap $kept, Moving $moving, string $from): CoverageMeasured
+    private function merged(KeptMap $kept, Moving $moving, KeptFrom $from): CoverageMeasured
     {
         $moved = $moving->moved();
         $measured = count($moved) === 0
@@ -261,12 +275,16 @@ final readonly class KeptCoverage
             )
             : $measured;
 
-        return $written instanceof Written
-            ? CoverageMeasured::of(
-                CoverageRead::from(Workspace::coverage()),
-                sprintf(self::MEASURED, count($moved), $moving->total(), $from),
-            )
-            : $this->every(sprintf(self::UNREAD, $written->why()));
+        $merged = CoverageMeasured::of(
+            CoverageRead::from(Workspace::coverage()),
+            sprintf(self::MEASURED, count($moved), $moving->total(), $from->value),
+        );
+
+        return match (true) {
+            ! $written instanceof Written => $this->every(sprintf(self::UNREAD, $written->why())),
+            $from === KeptFrom::OwnScope => $merged->fromOwnScope(),
+            default => $merged,
+        };
     }
 
     /** The whole suite measured, with the line that says why. */
@@ -280,14 +298,14 @@ final readonly class KeptCoverage
      * change since the kept map's commit names one; or how many test files
      * that is.
      */
-    private function everyMoved(CoverageEntries $entries, KeptMap $kept, Moving $moving, string $from): string
+    private function everyMoved(CoverageEntries $entries, KeptMap $kept, Moving $moving, KeptFrom $from): string
     {
         $at = $kept->measuredAt();
         $changes = $at instanceof MeasuredAt ? $this->adapters->changes->changesFrom($at->commit()) : Changes::none();
         $read = $changes instanceof Changes ? $entries->firstReadByEvery($changes) : NotGiven::value();
 
         return $read instanceof NotGiven
-            ? sprintf(self::MEASURED, $moving->total(), $moving->total(), $from)
+            ? sprintf(self::MEASURED, $moving->total(), $moving->total(), $from->value)
             : sprintf(self::EVERY, sprintf(self::READ_BY_EVERY, $read->value()));
     }
 }

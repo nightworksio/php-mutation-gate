@@ -37,37 +37,3 @@ it('reads only the default branch\'s ledger, and writes none, for a run with no 
             'The run has no ref of its own, so it reads the ledger of refs/heads/main and writes none.',
         ));
 })->with([Writing::Auto, Writing::Never]);
-
-it('reuses the default branch\'s coverage map alone, whatever scope the run is on', function (Scope|Detached $own): void {
-    expect(Access::of($own, Scope::branch('main'), Writing::Auto)->coverageRead())->toEqual(Scope::branch('main'));
-})->with([
-    'the default branch' => [Scope::branch('main')],
-    'a pull request' => [Scope::pullRequest(12)],
-    'a branch' => [Scope::branch('feature')],
-    'no ref' => [Detached::head()],
-]);
-
-it('keeps a coverage map only for a writing run on the default branch, and says why others keep none', function (
-    Scope|Detached $own,
-    Writing $writing,
-    Scope|ReadsOnly $kept,
-): void {
-    expect(Access::of($own, Scope::branch('main'), $writing)->coverageKept())->toEqual($kept);
-})->with([
-    'the default branch' => [Scope::branch('main'), Writing::Auto, Scope::branch('main')],
-    'a pull request' => [
-        Scope::pullRequest(12),
-        Writing::Auto,
-        ReadsOnly::because('A run on refs/pull/12 keeps no coverage map: only runs on refs/heads/main do, which later runs reuse.'),
-    ],
-    'the default branch, never writing' => [
-        Scope::branch('main'),
-        Writing::Never,
-        ReadsOnly::because('proofs.write is never, so the ledger of refs/heads/main is read and not written.'),
-    ],
-    'no ref' => [
-        Detached::head(),
-        Writing::Auto,
-        ReadsOnly::because('The run has no ref of its own, so it reads the ledger of refs/heads/main and writes none.'),
-    ],
-]);

@@ -67,6 +67,9 @@ final readonly class LedgerFile
 
     public const string PASSED = 'passed';
 
+    /** The field of `passed` that says its coverage map was measured against the map its own scope keeps. */
+    public const string OWN_SCOPE_COVERAGE = 'ownScopeCoverage';
+
     public const string PROOFS = 'proofs';
 
     /** The format before proofs recorded the digests of their inputs, which reads without them. */
@@ -171,11 +174,18 @@ final readonly class LedgerFile
             $commit = Commit::parse($passed->field('commit')->text());
             $at = $passed->field('commit')->at();
 
-            return Ledger::empty()->withPassed(Passed::of(
+            $read = Passed::of(
                 $commit instanceof Commit ? $commit->revision() : throw NotInShape::at($at, 'a commit'),
                 $passed->field('check')->text(),
                 $own >= 0 ? $own : throw NotInShape::at($passed->field('ownScopeProofs')->at(), 'a count'),
-            ));
+            );
+            $coverage = $passed->field(self::OWN_SCOPE_COVERAGE);
+
+            return Ledger::empty()->withPassed(match (true) {
+                ! $coverage->isPresent() => $read,
+                $coverage->boolean() => $read->onOwnScopeCoverage(),
+                default => throw NotInShape::at($coverage->at(), 'true'),
+            });
         } catch (NotInShape) {
             return Ledger::empty();
         }

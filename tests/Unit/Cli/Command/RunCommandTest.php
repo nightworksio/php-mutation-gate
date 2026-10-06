@@ -326,7 +326,7 @@ it('plans, runs and judges in one process without a plan, and exits as the verdi
     expect($ran->code)->toBe($code)
         ->and($ran->errors)->toBe("Coverage: there is no kept map, so every test was measured.\n")
         ->and($ran->output)->toStartWith(sprintf(
-            "No earlier run of this branch to re-check.\nWrote memory:refs/heads/feature.\nmutation-gate: %s\n",
+            "No earlier run of this branch to re-check.\nWrote memory:refs/heads/feature.\nWrote memory:refs/heads/feature/coverage.json.gz.\nmutation-gate: %s\n",
             $judgement,
         ))
         ->and(is_file(sprintf('%s/.mutation-gate/results/1.json', $project)))->toBeTrue()
@@ -348,7 +348,7 @@ it('judges a tree at the floor the config declares for it, over the one its sour
 
     expect($ran->code)->toBe($code)
         ->and($ran->output)->toStartWith(sprintf(
-            "No earlier run of this branch to re-check.\nWrote memory:refs/heads/feature.\nmutation-gate: %s\n",
+            "No earlier run of this branch to re-check.\nWrote memory:refs/heads/feature.\nWrote memory:refs/heads/feature/coverage.json.gz.\nmutation-gate: %s\n",
             $judgement,
         ));
 })->with([
@@ -399,7 +399,7 @@ it('raises no floor on a run in CI or one scoped to a change', function (
     expect($ran->output)->toStartWith(sprintf("%s\nmutation-gate: passed\n", $wrote))
         ->and(is_file(sprintf('%s/mutation-gate.baseline.json', $project)))->toBeFalse();
 })->with([
-    'in CI' => ['', true, "No earlier run of this branch to re-check.\nWrote memory:refs/heads/feature."],
+    'in CI' => ['', true, "No earlier run of this branch to re-check.\nWrote memory:refs/heads/feature.\nWrote memory:refs/heads/feature/coverage.json.gz."],
     'changed since a ref' => [
         '--changed-since=base',
         false,

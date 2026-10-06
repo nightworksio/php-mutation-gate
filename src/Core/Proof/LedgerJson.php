@@ -85,6 +85,7 @@ final readonly class LedgerJson
                 'commit' => $passed->commit()->name(),
                 'check' => $passed->check(),
                 'ownScopeProofs' => $passed->ownScopeProofs(),
+                ...$passed->measuredOnOwnScope() ? [LedgerFile::OWN_SCOPE_COVERAGE => true] : [],
             ]);
         }
     }

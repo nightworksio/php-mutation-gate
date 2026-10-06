@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
+use NightWorksIO\MutationGate\Cli\Flow\Inventory;
+use NightWorksIO\MutationGate\Cli\Flow\KeptCoverage;
 use NightWorksIO\MutationGate\Cli\Flow\Mode;
 use NightWorksIO\MutationGate\Cli\Flow\Planning;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
@@ -902,3 +904,30 @@ it('keys the project\'s coverage entries once a plan, for measuring against the 
     expect($planned)->toBeInstanceOf(Plan::class)
         ->and($runner->identified())->toHaveCount(2);
 });
+
+it('briefs a plan measured against the map its own scope keeps as such, and one measured against the default branch\'s as not', function (
+    bool $own,
+) use ($plan): void {
+    $project = Flows::project();
+    $files = [...Flows::FILES, 'tests/HeldTest.php' => "<?php\n\nit('doubles', fn () => expect(2)->toBe(2));\n"];
+    Scratch::write($project, 'tests/HeldTest.php', $files['tests/HeldTest.php']);
+    $checkout = new ChangeSourceFake(Revision::ref(Flows::HEAD), Changes::none(), [
+        Revision::workingTree()->name() => $files,
+        Flows::HEAD => $files,
+    ]);
+    $store = new ProofStoreFake();
+    $adapters = Flows::adapters($project, [], $store, $checkout);
+    $kept = new KeptCoverage($adapters, Flows::settings(), Flows::setup());
+    $keys = KeptCoverage::keysOf($kept->entries(Inventory::of($adapters, Flows::settings())), Flows::map());
+    $bytes = CoverageMapFile::encode(
+        Flows::map(),
+        MeasuredAt::of(Revision::ref(Flows::HEAD), dirty: false),
+        $keys instanceof EntryKeys ? $keys : EntryKeys::none(),
+    );
+    $store->keep($own ? Scope::branch('feature') : Scope::branch('main'), Companion::Coverage, Contents::of($bytes));
+
+    $on = new CiPlanFake(RunOn::at(Scope::branch('feature'), Scope::branch('main')));
+    $planned = $plan($project, Mode::full(), Cut::exactly(1), $store, $checkout, $on);
+
+    expect($planned instanceof Plan ? $planned->briefing()->isOnOwnScopeCoverage() : $planned)->toBe($own);
+})->with(['its own scope\'s map' => [true], 'the default branch\'s map' => [false]]);

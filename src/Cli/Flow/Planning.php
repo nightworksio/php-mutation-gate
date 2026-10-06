@@ -82,9 +82,9 @@ final readonly class Planning
 
     /**
      * The plan of a run that records this much of the kill matrix, and how
-     * its coverage map was measured, against the default branch's kept map
-     * or, for `watch`, against the one its last round left; or why there is
-     * no plan.
+     * its coverage map was measured, against the map its own scope or the
+     * default branch keeps or, for `watch`, against the one its last round
+     * left; or why there is no plan.
      */
     public function plan(
         Mode $mode,
@@ -122,11 +122,10 @@ final readonly class Planning
             ? $this->planned($inventory, KeptCoverage::keysOf($entries, $map), $map, $at, $keying, $mode, $cut, $matrix)
             : $keying;
 
+        $briefing = $measured->briefing(Briefing::standard()->weighing($peak)->recording($matrix));
+
         return $planned instanceof Plan
-            ? PlanMade::of(
-                $planned->briefed($this->adapters->briefing(Briefing::standard()->weighing($peak)->recording($matrix))),
-                $measured->said(),
-            )
+            ? PlanMade::of($planned->briefed($this->adapters->briefing($briefing)), $measured->said())
             : $planned;
     }
 

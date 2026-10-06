@@ -15,3 +15,12 @@ it('is a passing commit, the check it reported under, and how many of its own sc
         ->and(Passed::of(Revision::ref('206b4e0'), 'mutation / verdict', 0)->usedOwnScope())->toBeFalse()
         ->and(Passed::of(Revision::ref('206b4e0'), 'mutation / verdict', 1)->usedOwnScope())->toBeTrue();
 });
+
+it('used its own scope where it was measured against its own scope\'s coverage map, though it used none of its proofs', function (): void {
+    $passed = Passed::of(Revision::ref('206b4e0'), 'mutation / verdict', 0)->onOwnScopeCoverage();
+
+    expect($passed->usedOwnScope())->toBeTrue()
+        ->and($passed->measuredOnOwnScope())->toBeTrue()
+        ->and($passed->ownScopeProofs())->toBe(0)
+        ->and(Passed::of(Revision::ref('206b4e0'), 'mutation / verdict', 0)->measuredOnOwnScope())->toBeFalse();
+});

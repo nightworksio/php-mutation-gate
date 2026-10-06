@@ -279,6 +279,9 @@ it('reads everything since the base when a pull request\'s ledger does not vouch
     'another head passed' => [Ledger::empty()->withPassed(Passed::of(Revision::ref('pr-other'), PULL_REQUESTS_CHECK, 0))],
     'another check passed' => [Ledger::empty()->withPassed(Passed::of(Revision::ref('pr-two'), 'lint', 0))],
     'its own proofs were used' => [Ledger::empty()->withPassed(Passed::of(Revision::ref('pr-two'), PULL_REQUESTS_CHECK, 1))],
+    'its own coverage map was measured against' => [
+        Ledger::empty()->withPassed(Passed::of(Revision::ref('pr-two'), PULL_REQUESTS_CHECK, 0)->onOwnScopeCoverage()),
+    ],
 ]);
 
 it('reads everything since the base when the pull requests\' ledgers cannot be read', function () use ($source): void {

@@ -99,12 +99,33 @@ manual.
      gate's format-1 map with a key per test entry and the `commit` and
      `dirty` fields of ADR-0020. The static analyser's cache is another
      (ADR-0020).
-   - A run reuses the default branch's map alone, and only a run on the
-     default branch that writes proofs keeps one, from its verdict. A pull
-     request's runs execute its code while the suite is measured, so a map
-     they kept could choose which tests judge its next run. A map measured in
-     a dirty working tree is not kept. A map is data, never PHP (ADR-0006
-     decision 1).
+   - A run reads the map its own scope keeps first, and the default
+     branch's where its own scope keeps none it can read. Every run that
+     writes proofs keeps its map in its own scope, from its verdict, as it
+     writes its ledger, so the default branch's scope is kept only by runs
+     on that branch. A map measured in a dirty working tree is not kept. A
+     map is data, never PHP (ADR-0006 decision 1).
+   - A pull request's runs execute its code while the suite is measured, so
+     its own scope's map is the pull request's own data, as its own
+     scope's proofs are (ADR-0007, decision 3). Its code can write any map
+     it likes there. The map names the tests that cover each line, which
+     choose the tests that judge a mutant, and each test's duration, which
+     sets a mutant's limit (ADR-0004) and timeout triage (ADR-0008). A
+     forged duration far below a test's real time gives every mutant that
+     test covers a limit it cannot meet: each times out, and triage counts
+     each as killed by timeout. Forged entries can sit under test files the
+     pull request never touches, whose entry keys never move, so they
+     outlive a revert of the code that wrote them, and the pull request's
+     final diff passes on kills no test made.
+   - The `passed` rule contains it (ADR-0007, decision 3). A verdict whose
+     plan measured against its own scope's map records that in `passed`,
+     and such a pass, like one that used a proof of its own scope, is never
+     trusted on the default branch. So the forgery can only pass the pull
+     request's own verdict, which its own code already controls, since its
+     tests run with every mutant. It can never stand on the default branch,
+     whose runs read only the default branch's map. The plan records it as
+     `ownScopeCoverage` in its briefing, and the ledger as `ownScopeCoverage`
+     in `passed`.
    - A kept map is read as untrusted input: one over 1,500,000 bytes packed
      or 31,000,000 unpacked, twice the gate's own map, is neither read nor
      kept, and the run that would keep it says so; the next run measures
