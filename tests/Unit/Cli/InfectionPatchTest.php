@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Infection\Release;
 use NightWorksIO\MutationGate\Cli\InfectionPatch;
 use NightWorksIO\MutationGate\Tests\Support\InfectionSource;
 use NightWorksIO\MutationGate\Tests\Support\Printed;
@@ -39,8 +40,9 @@ it('fails the install, with the reason on its error output, when it cannot patch
     expect($status)->toBe(2)
         ->and(Printed::by($output))->toBe('')
         ->and(Printed::by($errors))->toBe(sprintf(
-            "infection:patch patched nothing: it patches Infection 0.35.6, and %s holds Infection 0.34.0. "
+            "infection:patch patched nothing: it patches Infection %s, and %s holds Infection 0.34.0. "
             . "Install a supported release.\n",
+            Release::listed(),
             $vendor,
         ));
 });

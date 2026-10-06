@@ -526,7 +526,7 @@ its parser attributes. Both change when the checkout moves.
 
      Both read the gate's floor, so Infection run outside the gate keeps its
      own limit and skip. The command patches only the Infection releases the
-     runner contracts run, listed in `Adapter\Infection\Patch::SUPPORTED`,
+     runner contracts run, listed in `Adapter\Infection\Release`,
      reading the release from Composer's list of what it installed. It
      refuses any other release, a file whose lines have moved, and a file
      another version of the gate patched, and says which, as `pest:patch`

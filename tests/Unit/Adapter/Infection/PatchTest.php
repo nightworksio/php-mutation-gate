@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Infection\MutantTime;
 use NightWorksIO\MutationGate\Adapter\Infection\Patch;
 use NightWorksIO\MutationGate\Adapter\Infection\PatchState;
+use NightWorksIO\MutationGate\Adapter\Infection\Release;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Tests\Support\InfectionSource;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -19,8 +20,8 @@ $source = static fn(string $vendor, string $file): string => (string) file_get_c
     sprintf('%s/infection/infection/src/%s', $vendor, $file),
 );
 
-it('patches the limit and the skip of a supported release, leaving each file PHP', function () use ($source): void {
-    $at = InfectionSource::pristine()->vendor();
+it('patches the limit and the skip of every supported release, leaving each file PHP', function (Release $release) use ($source): void {
+    $at = InfectionSource::pristine($release->value)->vendor();
 
     expect(Patch::stateIn($at))->toBe(PatchState::Missing)
         ->and(Patch::applyIn($at))->toBe('infection:patch patched 2 of the 2 files it changes in infection.')
@@ -41,7 +42,7 @@ it('patches the limit and the skip of a supported release, leaving each file PHP
 
         expect($lint->isSuccessful())->toBeTrue();
     }
-});
+})->with(Release::cases());
 
 it('finds the patch in place and changes nothing when patching again', function () use ($source): void {
     $at = InfectionSource::pristine()->vendor();
@@ -53,10 +54,11 @@ it('finds the patch in place and changes nothing when patching again', function 
 });
 
 it('patches no release it does not support, and says which it supports', function (): void {
-    $at = InfectionSource::pristine()->vendor('0.35.5');
+    $at = InfectionSource::pristine()->vendor('0.34.0');
 
     expect(Patch::applyIn($at))->toEqual(CannotJudge::because(sprintf(
-        'infection:patch patched nothing: it patches Infection 0.35.6, and %s holds Infection 0.35.5. Install a supported release.',
+        'infection:patch patched nothing: it patches Infection %s, and %s holds Infection 0.34.0. Install a supported release.',
+        Release::listed(),
         $at,
     )))
         ->and(Patch::stateIn($at))->toBe(PatchState::Missing);

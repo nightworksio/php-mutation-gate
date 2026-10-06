@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use function file_get_contents;
-use function implode;
-use function in_array;
 use function is_file;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -23,7 +21,7 @@ use function sprintf;
 /**
  * `infection:patch`: the changes to Infection that bring its mutant limit
  * onto the gate's (ADR-0008, decision 2), applied only to the Infection
- * releases the runner contracts run.
+ * releases whose two places it was checked against (see Release).
  * - Each mutant is allowed the standard mutant limit of its covering tests'
  *   own time, within the bounds the gate names (see MutantTime), not
  *   Infection's own five times their time under its `timeout`.
@@ -36,9 +34,6 @@ final readonly class Patch
 {
     /** The command that applies the patch. */
     public const string COMMAND = 'infection:patch';
-
-    /** The Infection releases whose lines the patch rewrites, as the runner contracts run them. */
-    public const array SUPPORTED = ['0.35.6'];
 
     /** Why the command patches no release it does not know. */
     private const string UNSUPPORTED
@@ -122,11 +117,11 @@ final readonly class Patch
 
         return match (true) {
             $installed instanceof CannotJudge => $installed,
-            $release instanceof CannotJudge, in_array($release->release(), self::SUPPORTED, strict: true) => $release,
+            $release instanceof CannotJudge, Release::tryFrom($release->release()) instanceof Release => $release,
             default => CannotJudge::because(sprintf(
                 self::UNSUPPORTED,
                 self::COMMAND,
-                implode(', ', self::SUPPORTED),
+                Release::listed(),
                 $vendor,
                 $release->spelt(),
             )),

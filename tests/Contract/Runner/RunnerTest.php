@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Infection\Patch as InfectionPatch;
+use NightWorksIO\MutationGate\Adapter\Infection\Release;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
@@ -785,21 +786,19 @@ it('runs, patched, a mutant Infection skips unpatched at timeouts.most, and time
     ) : [$result])->toEqual([[MutantStatus::TimedOut->value, Seconds::of(1.0)]]);
 })->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 
-it('patches the Infection library\'s release, which the patch supports, into the files the pristine fixture patches into', function (): void {
-    $installed = InfectionSource::installed()->vendor(InfectionPatch::SUPPORTED[0]);
-    $pristine = InfectionSource::pristine()->vendor();
+it('patches the Infection library\'s release, whichever its leg installed, into the files the pristine fixture of that release patches into', function (): void {
+    $release = InfectionSource::installedRelease();
+    $installed = InfectionSource::installed()->vendor();
+    $pristine = InfectionSource::pristine($release)->vendor();
     $read = static fn(string $vendor): array => array_map(
         static fn(string $file): string => (string) file_get_contents(sprintf('%s/infection/infection/src/%s', $vendor, $file)),
         InfectionSource::FILES,
     );
-    $lock = json_decode((string) file_get_contents(Tree::at(sprintf('%s/composer.lock', Library::INFECTION_DIRECTORY))), associative: true);
-    $packages = is_array($lock) && is_array($lock['packages'] ?? null) ? $lock['packages'] : [];
-    $release = array_values(array_filter($packages, static fn(mixed $package): bool => is_array($package) && ($package['name'] ?? '') === 'infection/infection'));
 
-    expect(InfectionPatch::applyIn($installed))->toBe('infection:patch patched 2 of the 2 files it changes in infection.')
+    expect(Release::tryFrom($release))->toBeInstanceOf(Release::class)
+        ->and(InfectionPatch::applyIn($installed))->toBe('infection:patch patched 2 of the 2 files it changes in infection.')
         ->and(InfectionPatch::applyIn($pristine))->toBe('infection:patch patched 2 of the 2 files it changes in infection.')
-        ->and($read($installed))->toBe($read($pristine))
-        ->and(is_array($release[0] ?? null) ? $release[0]['version'] : '')->toBeIn(InfectionPatch::SUPPORTED);
+        ->and($read($installed))->toBe($read($pristine));
 })->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 
 it('leaves a mutant unjudged, naming the test, when Pest\'s filter cannot select a covering test', function (): void {
