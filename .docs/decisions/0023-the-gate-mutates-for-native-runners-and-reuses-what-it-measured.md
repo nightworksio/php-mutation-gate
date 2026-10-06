@@ -410,8 +410,9 @@ manual.
     - Survivor confirmation (ADR-0008 decision 3) always runs in a fresh
       process, so a survivor a warm boot made shows up as flaky.
     - CI's `warm workers` job runs the gate with each setting on a pinned
-      PHPUnit library, `lcobucci/jwt`, says what each run took, and fails
-      where a mutant's verdict differs between them. The benchmark's Symfony
+      PHPUnit library, `lcobucci/jwt`, and says what each run took. Where
+      they disagree it runs fresh twice more, and fails where a mutant's
+      forked verdict differs from one every fresh run agrees on. The benchmark's Symfony
       project (ADR-0017 decision 14) measures the boot's share of a mutant's
       time once the benchmark lands.
 

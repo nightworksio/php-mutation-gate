@@ -607,17 +607,19 @@ jobs:
         run: python3 .github/scripts/gate_summary.py runner-contracts
 
   # Warm workers against fresh processes (ADR-0023, decisions 12 to 14): the
-  # gate run twice on a pinned PHPUnit library, lcobucci/jwt, on one coverage
-  # map, once with `runner.workers: fresh` and once with `fork`, at the PHPUnit
-  # the PHPUnit runner's fixture locks. The step summary holds what each run
-  # took, and the job fails where a mutant's verdict differs between them. The
-  # library is pinned by its tag, its commit and the SHA-256 of its whole tree
-  # as `git archive` writes it, with nothing left out: its .gitattributes leave
-  # its tests out of every archive GitHub serves, so its tag is cloned and
-  # archived here. jwt's own PHPUnit is 11, and PHPUnit 13 warns of the
-  # repeated `#[Uses]` attributes of its tests and refuses the
-  # `beStrictAboutTodoAnnotatedTests` attribute of its config, so its config
-  # drops that attribute and passes on PHPUnit's own warnings and
+  # gate run on a pinned PHPUnit library, lcobucci/jwt, on one coverage map,
+  # once with `runner.workers: fresh` and once with `fork`, at the PHPUnit the
+  # PHPUnit runner's fixture locks. The step summary holds what each run took.
+  # Where the forked run judges a mutant otherwise, the gate runs fresh twice
+  # more, and the job fails only where the forked verdict differs from one all
+  # three fresh runs agree on; a mutant they disagree on is named in the
+  # summary as unsettled. The library is pinned by its tag, its commit and the
+  # SHA-256 of its whole tree as `git archive` writes it, with nothing left
+  # out: its .gitattributes leave its tests out of every archive GitHub
+  # serves, so its tag is cloned and archived here. jwt's own PHPUnit is 11,
+  # and PHPUnit 13 warns of the repeated `#[Uses]` attributes of its tests and
+  # refuses the `beStrictAboutTodoAnnotatedTests` attribute of its config, so
+  # its config drops that attribute and passes on PHPUnit's own warnings and
   # deprecations. Each run is the gate's local run, with GITHUB_ACTIONS and CI
   # unset, on a baseline whose floors are 0, so a score never fails it.
   warm-workers:
@@ -625,13 +627,14 @@ jobs:
     needs: scope
     if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       JWT_VERSION: "5.6.0"
       JWT_COMMIT: "bb3e9f21e4196e8afc41def81ef649c164bca25e"
       JWT_SHA256: "6d867830ac3b1c80d34e831f25afc8237887a63c1d89940eccbb7d547fa7b0a6"
       # The library's archive holds no version for Composer to read.
       COMPOSER_ROOT_VERSION: "5.6.0"
+      WARM_SETTLE: always
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -693,19 +696,32 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "${GITHUB_WORKSPACE}/evidence/raw"
+          measure="${GITHUB_WORKSPACE}/.github/scripts/warm_measure.py"
           env -u GITHUB_ACTIONS -u CI vendor/bin/mutation-gate coverage --no-interaction --config=warm-fresh.json
-          for mode in fresh fork; do
+          # One run of the gate, in a mode, its report and wall time kept under a name.
+          gate() {
             rm -rf .mutation-gate/ledger .mutation-gate/results .mutation-gate/equivalence
             # A local run raises the floors it beat; each run starts from 0.
             cp warm-baseline.json mutation-gate.baseline.json
             started=$(date +%s.%N)
-            env -u GITHUB_ACTIONS -u CI vendor/bin/mutation-gate run --no-interaction --config="warm-${mode}.json" \
-              --report="json:${RUNNER_TEMP}/${mode}.json"
-            python3 -c "print($(date +%s.%N) - ${started})" > "${RUNNER_TEMP}/${mode}.seconds"
-          done
-          python3 "${GITHUB_WORKSPACE}/.github/scripts/warm_measure.py" \
-            "${RUNNER_TEMP}/fresh.json" "$(cat "${RUNNER_TEMP}/fresh.seconds")" \
-            "${RUNNER_TEMP}/fork.json" "$(cat "${RUNNER_TEMP}/fork.seconds")" \
+            env -u GITHUB_ACTIONS -u CI vendor/bin/mutation-gate run --no-interaction --config="warm-$1.json" \
+              --report="json:${RUNNER_TEMP}/$2.json"
+            python3 -c "print($(date +%s.%N) - ${started})" > "${RUNNER_TEMP}/$2.seconds"
+          }
+          gate fresh fresh
+          gate fork fork
+          runs=(--fresh "${RUNNER_TEMP}/fresh.json" "$(cat "${RUNNER_TEMP}/fresh.seconds")")
+          # A verdict the forked run alone gives may be one a fresh run gives
+          # only now and then: two more fresh runs settle it.
+          suspects=$(python3 "${measure}" suspects "${RUNNER_TEMP}/fresh.json" "${RUNNER_TEMP}/fork.json")
+          if [ "${suspects}" -gt 0 ] || [ "${WARM_SETTLE:-}" = always ]; then
+            for again in fresh-2 fresh-3; do
+              gate fresh "${again}"
+              runs+=(--fresh "${RUNNER_TEMP}/${again}.json" "$(cat "${RUNNER_TEMP}/${again}.seconds")")
+            done
+          fi
+          python3 "${measure}" judge "${runs[@]}" \
+            --fork "${RUNNER_TEMP}/fork.json" "$(cat "${RUNNER_TEMP}/fork.seconds")" \
             --findings "${GITHUB_WORKSPACE}/evidence/raw/warm-workers.json"
       # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
       - name: evidence
