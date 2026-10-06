@@ -67,17 +67,18 @@ class Mode(unittest.TestCase):
 
     def test_a_branch_other_than_the_default_runs_from_the_default_branch(self):
         self.assertEqual(
-            action.mode_arguments("auto", "", "push", "refs/heads/feature", "main"), ["--changed-since=origin/main"]
+            action.mode_arguments("auto", "", "push", "refs/heads/feature", "main"),
+            ["--changed-since=refs/remotes/origin/main"],
         )
         self.assertEqual(
             action.mode_arguments("changed", "", "workflow_dispatch", "refs/heads/feature", "main"),
-            ["--changed-since=origin/main"],
+            ["--changed-since=refs/remotes/origin/main"],
         )
 
     def test_changed_since_given_wins_over_the_event(self):
         self.assertEqual(
-            action.mode_arguments("changed", "v1.2.0", "pull_request", "refs/pull/12/merge", "main"),
-            ["--changed-since=v1.2.0"],
+            action.mode_arguments("changed", "refs/tags/v1.2.0", "pull_request", "refs/pull/12/merge", "main"),
+            ["--changed-since=refs/tags/v1.2.0"],
         )
 
     def test_full_is_full_whatever_the_event(self):
@@ -89,6 +90,104 @@ class Mode(unittest.TestCase):
         with self.assertRaises(action.Refused):
             action.mode_arguments("fast", "", "push", "refs/heads/main", "main")
 
+
+
+SHA = "c" * 40
+
+FORK_NAMED_MAIN = {
+    "pull_request": {
+        "number": 14,
+        "base": {"sha": "b" * 40, "ref": "main"},
+        "head": {"sha": "d" * 40, "ref": "main", "repo": {"full_name": "someone/gate"}},
+    },
+    "repository": {"full_name": "octo/gate", "default_branch": "main"},
+}
+
+
+class RefShapes(unittest.TestCase):
+    """Each ref a run can be under reads its base from a fully qualified ref, a full SHA or a keyword, or refuses."""
+
+    def test_a_fork_pull_request_from_a_branch_named_like_the_default_runs_from_its_last_run_and_keeps_no_ledger(self):
+        ref = "refs/pull/14/merge"
+        kept = action.ledgers("pull_request", ref, FORK_NAMED_MAIN, "main", cache=True)
+        self.assertEqual(
+            action.mode_arguments("auto", "", "pull_request", ref, "main"), ["--changed-since=last-run"]
+        )
+        self.assertEqual(action.scope("pull_request", ref, FORK_NAMED_MAIN), "refs/pull/14")
+        self.assertEqual((kept["own_dir"], kept["save"]), ("", "false"))
+        self.assertEqual(kept["default_dir"], ".mutation-gate/ledger/refs/heads/main")
+
+    def test_a_push_to_the_default_branch_runs_from_the_last_commit_that_passed_under_its_own_scope(self):
+        self.assertEqual(
+            action.mode_arguments("auto", "", "push", "refs/heads/main", "main"), ["--changed-since=last-passed"]
+        )
+        self.assertEqual(action.scope("push", "refs/heads/main", {}), "refs/heads/main")
+
+    def test_a_push_to_another_branch_runs_from_the_fetched_default_branch_by_its_full_name(self):
+        self.assertEqual(
+            action.mode_arguments("auto", "", "push", "refs/heads/origin/main", "main"),
+            ["--changed-since=refs/remotes/origin/main"],
+        )
+
+    def test_a_tag_named_like_a_branch_runs_in_full_and_is_no_branch_s_scope(self):
+        self.assertEqual(action.mode_arguments("auto", "", "push", "refs/tags/main", "main"), ["--full"])
+        self.assertIsNone(action.scope("push", "refs/tags/main", {}))
+        self.assertEqual(action.ledgers("push", "refs/tags/main", {}, "main", cache=True)["save"], "false")
+
+    def test_a_merge_group_runs_from_the_fetched_default_branch_by_its_full_name_and_keeps_no_ledger(self):
+        ref = "refs/heads/gh-readonly-queue/main/pr-12-" + SHA
+        self.assertEqual(
+            action.mode_arguments("auto", "", "merge_group", ref, "main"),
+            ["--changed-since=refs/remotes/origin/main"],
+        )
+        self.assertIsNone(action.scope("merge_group", ref, {}))
+        self.assertEqual(action.ledgers("merge_group", ref, {}, "main", cache=True)["save"], "false")
+
+    def test_a_branch_named_like_a_sha_is_a_branch_and_runs_from_the_fetched_default_branch(self):
+        ref = "refs/heads/" + SHA
+        self.assertEqual(
+            action.mode_arguments("auto", "", "push", ref, "main"), ["--changed-since=refs/remotes/origin/main"]
+        )
+        self.assertEqual(action.scope("push", ref, {}), ref)
+
+    def test_a_ref_that_is_no_valid_ref_is_refused(self):
+        for ref in (
+            "refs/heads/-main",
+            "refs/heads/a..b",
+            "refs/heads/a@{1}",
+            "refs/heads/a~1",
+            "refs/heads/a:b",
+            "refs/heads/a\tb",
+            "refs/heads/a//b",
+            "refs/heads/main.",
+        ):
+            with self.subTest(ref=ref), self.assertRaises(action.Refused):
+                action.mode_arguments("auto", "", "push", ref, "main")
+
+    def test_a_default_branch_that_is_no_branch_name_is_refused(self):
+        for name in ("-main", "a..b", "main^", "main~1", "a:b", "@", "main.lock", "a b"):
+            with self.subTest(name=name), self.assertRaises(action.Refused):
+                action.mode_arguments("auto", "", "push", "refs/heads/feature", name)
+
+    def test_an_unknown_default_branch_makes_a_branch_run_full(self):
+        self.assertEqual(action.mode_arguments("auto", "", "push", "refs/heads/feature", ""), ["--full"])
+
+    def test_a_given_base_is_a_full_sha_a_fully_qualified_ref_or_a_keyword(self):
+        for given in (SHA, "e" * 64, "refs/tags/v1.2.0", "refs/heads/release/1.x", "last-passed", "last-run"):
+            with self.subTest(given=given):
+                self.assertEqual(
+                    action.mode_arguments("changed", given, "push", "refs/heads/main", "main"),
+                    [f"--changed-since={given}"],
+                )
+        for given in ("v1.2.0", "origin/main", "main", "-x", "--full", "refs/heads/a..b", "c" * 39, "C" * 40, "HEAD~1"):
+            with self.subTest(given=given), self.assertRaises(action.Refused):
+                action.mode_arguments("changed", given, "push", "refs/heads/main", "main")
+
+    def test_an_option_that_spans_lines_is_refused(self):
+        self.assertEqual(action.one_line(["--config=a.json", "--budget=10m"]), ["--config=a.json", "--budget=10m"])
+        for options in (["--config=a.json\n--full"], ["--budget=1\r"], ["--runner=pest\0"]):
+            with self.subTest(options=options), self.assertRaises(action.Refused):
+                action.one_line(options)
 
 class Ledgers(unittest.TestCase):
     def test_a_pull_request_restores_its_own_and_the_default_branch_and_saves_its_own(self):

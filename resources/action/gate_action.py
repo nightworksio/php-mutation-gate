@@ -41,6 +41,31 @@ TRUSTED = frozenset({"push", "schedule", "workflow_dispatch"})
 # Where a ref names a branch.
 HEADS = "refs/heads/"
 
+# Where a ref names a tag.
+TAGS = "refs/tags/"
+
+# Where every fully qualified ref begins.
+REFS = "refs/"
+
+# Where the checkout keeps what it fetched of a branch: the full name, which a
+# tag or a branch spelt `origin/<name>` cannot stand in for, as git would
+# take them first for the short `origin/<name>`.
+FETCHED = "refs/remotes/origin/"
+
+# What `--changed-since` takes beside a commit (ADR-0005, decision 2).
+KEYWORDS = frozenset({"last-passed", "last-run"})
+
+# The lengths of a full commit SHA: SHA-1's and SHA-256's, in lower-case hex.
+SHA_LENGTHS = frozenset({40, 64})
+
+HEX = frozenset("0123456789abcdef")
+
+# What git's check-ref-format refuses anywhere in a ref name, beside control
+# characters: each could make git read the name as a revision or a range.
+NOT_IN_A_REF = frozenset(" ~^:?*[\\\x7f")
+
+NOT_IN_A_REF_SEQUENCES = ("..", "@{")
+
 # The events `mode: auto` runs in full on (ADR-0005, decision 2).
 FULL = frozenset({"schedule", "workflow_dispatch", "release"})
 
@@ -108,27 +133,75 @@ def from_fork(payload: dict) -> bool:
     return bool(pull) and head != base
 
 
+def is_ref_name(name: str) -> bool:
+    """Whether git's check-ref-format takes a name, and no part of it begins as an option would."""
+    return (
+        name != "@"
+        and not name.endswith(".")
+        and not any(character in NOT_IN_A_REF or ord(character) < 32 for character in name)
+        and not any(sequence in name for sequence in NOT_IN_A_REF_SEQUENCES)
+        and all(
+            part and not part.startswith((".", "-")) and not part.endswith(".lock") for part in name.split("/")
+        )
+    )
+
+
+def is_sha(value: str) -> bool:
+    """Whether a value is a full commit SHA, which git reads as that commit before any ref of its spelling."""
+    return len(value) in SHA_LENGTHS and set(value) <= HEX
+
+
+def given_base(value: str) -> str:
+    """The base the workflow names, where git can read it as one commit alone; refused otherwise."""
+    if value in KEYWORDS or is_sha(value) or (value.startswith(REFS) and is_ref_name(value)):
+        return value
+    raise Refused(
+        f"changed-since is {value!r}; it is last-passed, last-run, a full commit SHA or a fully qualified "
+        "ref such as refs/tags/v1.2.0, so that no tag or branch of the same spelling stands in for it."
+    )
+
+
+def checked_ref(ref: str, default_branch: str) -> None:
+    """Refuses a run whose ref, or whose default branch's name, git would not take as a ref."""
+    if ref and not is_ref_name(ref):
+        raise Refused(f"The run's ref is {ref!r}, which git does not take as a ref.")
+    if default_branch and (default_branch == "@" or not is_ref_name(f"{HEADS}{default_branch}")):
+        raise Refused(f"The default branch is named {default_branch!r}, which git does not take as a branch.")
+
+
 def mode_arguments(mode: str, changed_since: str, event: str, ref: str, default_branch: str) -> list[str]:
     """The options that choose what the gate considers: every unit, or what changed since a ref.
 
     With no base given, a pull request runs from the commit its last run
     judged, which the gate falls back to the default branch for, another
-    branch from the default branch, and the default branch from the last
-    commit whose verdict passed (ADR-0005, decision 2).
+    branch from the default branch, by the full name of what the checkout
+    fetched of it, and the default branch from the last commit whose verdict
+    passed (ADR-0005, decision 2). A branch whose default branch is unknown
+    runs in full, since no base it could be narrowed to is known.
     """
     if mode not in MODES:
         raise Refused(f"mode is {mode!r}; it is auto, full or changed.")
-    tag = ref.startswith("refs/tags/")
-    if mode == "full" or (mode == "auto" and (event in FULL or tag)):
+    checked_ref(ref, default_branch)
+    if mode == "full" or (mode == "auto" and (event in FULL or ref.startswith(TAGS))):
         return ["--full"]
     if changed_since:
-        return [f"--changed-since={changed_since}"]
+        return [f"--changed-since={given_base(changed_since)}"]
     if event == "pull_request":
         return ["--changed-since=last-run"]
     branch = ref.removeprefix(HEADS) if ref.startswith(HEADS) else ""
-    if branch and default_branch and branch != default_branch:
-        return [f"--changed-since=origin/{default_branch}"]
+    if branch and not default_branch:
+        return ["--full"]
+    if branch and branch != default_branch:
+        return [f"--changed-since={FETCHED}{default_branch}"]
     return ["--changed-since=last-passed"]
+
+
+def one_line(options: list[str]) -> list[str]:
+    """The options, where each stays one argument: the workflow splits them at line breaks."""
+    for option in options:
+        if any(character in option for character in "\n\r\0"):
+            raise Refused(f"The option {option!r} spans lines, so the workflow would pass it as several.")
+    return options
 
 
 def cache_prefix(ledger_scope: str) -> str:
@@ -312,7 +385,7 @@ def _resolve() -> dict[str, str]:
     arguments = mode_arguments(
         os.environ.get("MODE", "auto"), os.environ.get("CHANGED_SINCE", ""), event, ref, default_branch
     )
-    options = _options()
+    options = one_line(_options())
     kept = ledgers(event, ref, payload, default_branch, os.environ.get("CACHE") == "true")
     return {"gate": gate, "options": json.dumps(options), "plan_options": json.dumps(options + arguments), **kept}
 

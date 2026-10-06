@@ -218,7 +218,7 @@ about Laravel, NativePHP or the project's modules, and does not.
      | `runner` | `pest`, `infection` or a registered name | none: the config's, or zero-config's |
      | `shard` | shard id | none: the whole gate runs |
      | `mode` | `auto`, `full` or `changed` | `auto`: change-scoped on pull requests and pushes, full on schedules, manual dispatches, releases and tags (ADR-0005 decision 2) |
-     | `changed-since` | a git ref, `last-passed` or `last-run` | `last-run` on `pull_request` (the commit the pull request's last run judged, falling back to the default branch), the default branch on any other branch, `last-passed` on a push to the default branch; used only when the mode is change-scoped |
+     | `changed-since` | a full commit SHA, a fully qualified ref (`refs/heads/…`, `refs/tags/…`), `last-passed` or `last-run`; any other name is refused, so that no tag or branch of the same spelling stands in for it | `last-run` on `pull_request` (the commit the pull request's last run judged, falling back to the default branch), the default branch on any other branch, `last-passed` on a push to the default branch; used only when the mode is change-scoped |
      | `budget` | duration | none |
      | `reports` | `<name>:<path>` lines, each added as `--report` | none |
      | `cache` | boolean | `true`: the ledger is kept in the Actions cache (ADR-0007) |
