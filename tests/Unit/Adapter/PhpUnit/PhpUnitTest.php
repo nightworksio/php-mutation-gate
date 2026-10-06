@@ -237,7 +237,7 @@ it('mutates afresh each time, allowing each mutant its limit under the cap, and 
     $runner->mutate($request);
     $money = FirstMutant::of($first);
     $retried = $runner->retry($request, Mutants::of($money), Seconds::of(14.0));
-    $coverageRuns = array_filter($shell->commands(), static fn(Command $command): bool => str_starts_with($command->arguments()[2] ?? '', '--coverage-php='));
+    $coverageRuns = array_filter($shell->commands(), static fn(Command $command): bool => preg_grep('/^--coverage-php=/', $command->arguments()) !== []);
     $last = $shell->commands()[count($shell->commands()) - 1];
 
     expect($money->status())->toBe(MutantStatus::Killed)

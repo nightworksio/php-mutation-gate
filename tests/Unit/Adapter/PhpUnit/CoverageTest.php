@@ -73,6 +73,10 @@ it('runs PHPUnit under coverage and reads the map it wrote', function (): void {
     expect($map)->toEqual(CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(4), $adds)->timed($adds, Seconds::of(0.5)))
         ->and($command->arguments())->toBe([
             PHP_BINARY,
+            '-d',
+            sprintf('pcov.directory=%s', $project->root()),
+            '-d',
+            sprintf('pcov.exclude=~^%s/vendor/~', preg_quote($project->root(), '~')),
             sprintf('%s/vendor/bin/phpunit', $project->root()),
             sprintf('--coverage-php=%s/.mutation-gate/coverage/coverage.php', $project->root()),
             '--no-logging',

@@ -293,7 +293,9 @@ manual.
 10. **The PHPUnit runner has everything Pest's has.**
     - **Coverage:** `--coverage-php`, read as the Pest adapter reads it, with
       each test's duration from the map's own test results, and partial runs
-      through `--group` or `--filter`. The project's PHPUnit loads the gate's
+      through `--group` or `--filter`, with pcov collecting from the
+      project's root, less its vendor directory, as for Pest (ADR-0004,
+      decision 3). The project's PHPUnit loads the gate's
       extension, so the gate is installed in the project's vendor directory,
       and the map is written and read by one php-code-coverage. That matters:
       a map one php-code-coverage release writes can be one another refuses.

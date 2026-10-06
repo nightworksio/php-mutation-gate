@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
+use NightWorksIO\MutationGate\Core\Runner\PcovReach;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -114,17 +115,23 @@ final readonly class Invocation
         return Command::php('-d', sprintf(self::OFF, Opcache::CLI), ...Platform::describing())->withholding($withheld);
     }
 
-    /** The tests a coverage run asks for, under coverage, with their map written to a file. */
+    /**
+     * The tests a coverage run asks for, under coverage, with their map
+     * written to a file and pcov collecting from every tree of the project.
+     */
     public function coverage(CoverageRun $request, string $map): Command
     {
         return Command::php(
-            $this->project->phpunit(),
-            sprintf('%s=%s', PhpUnitOption::CoveragePhp->value, $map),
-            PhpUnitOption::NoLogging->value,
-            $this->history->value,
-            PhpUnitOption::NoProgress->value,
-            ...$this->covering($request->tests()),
-            ...PhpUnitOption::inSuite($request->suite()),
+            ...PcovReach::under($this->project->root(), $this->project->vendor())->options(),
+            ...[
+                $this->project->phpunit(),
+                sprintf('%s=%s', PhpUnitOption::CoveragePhp->value, $map),
+                PhpUnitOption::NoLogging->value,
+                $this->history->value,
+                PhpUnitOption::NoProgress->value,
+                ...$this->covering($request->tests()),
+                ...PhpUnitOption::inSuite($request->suite()),
+            ],
         )
             ->withholding($request->withheld());
     }

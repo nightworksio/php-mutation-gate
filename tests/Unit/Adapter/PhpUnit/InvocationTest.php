@@ -106,6 +106,21 @@ it('leaves the test run history as it was with the option the installed PHPUnit 
     'PHPUnit before 13.3, which has no --do-not-record-test-run-history' => ['13.2.0', '--do-not-cache-result', '--do-not-record-test-run-history'],
 ]);
 
+it('runs the coverage run with pcov collecting from the whole project but its vendor directory', function () use ($project): void {
+    $at = $project();
+    $coverage = new Invocation($at, '/gate/override.php')
+        ->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')), '/map.php');
+
+    expect(array_slice($coverage->arguments(), 0, 6))->toBe([
+        PHP_BINARY,
+        '-d',
+        sprintf('pcov.directory=%s', $at->root()),
+        '-d',
+        sprintf('pcov.exclude=~^%s/vendor/~', preg_quote($at->root(), '~')),
+        $at->phpunit(),
+    ]);
+});
+
 it('keeps the coverage run and each mutant\'s run to one suite where the run names one', function () use ($project): void {
     $at = $project();
     $files = MutantFiles::startingUp($at, Path::of('src/Money.php'));

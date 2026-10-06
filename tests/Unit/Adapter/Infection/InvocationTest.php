@@ -40,7 +40,7 @@ it('lists the groups with the project\'s PHPUnit and its config', function (): v
     ]);
 });
 
-it('runs the suite under coverage into the layout Infection reads and the lines no test ran, with the project\'s own PHP options and arguments', function (): void {
+it('runs the suite under coverage into the layout Infection reads and the lines no test ran, with the project\'s own PHP options and arguments, and pcov collecting from the whole project after them', function (): void {
     $config = invoked('{"initialTestsPhpOptions": "-d pcov.directory=app", "testFrameworkExtraArgs": "--testsuite=unit"}');
     $command = Invocation::coverage(invokedIn(), $config, WholeSuite::tests(), DiskPath::of('/project/.gate/coverage'), NotGiven::value(), CoverageFor::Map);
 
@@ -48,6 +48,10 @@ it('runs the suite under coverage into the layout Infection reads and the lines 
         PHP_BINARY,
         '-d',
         'pcov.directory=app',
+        '-d',
+        'pcov.directory=/project',
+        '-d',
+        'pcov.exclude=~^/project/vendor/~',
         '/project/vendor/bin/phpunit',
         '--configuration=/project',
         '--coverage-xml=/project/.gate/coverage/coverage-xml',

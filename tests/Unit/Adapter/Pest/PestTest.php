@@ -65,6 +65,7 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
+use NightWorksIO\MutationGate\Core\Runner\PcovReach;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
@@ -268,7 +269,7 @@ it('lists the suite\'s groups as Pest lists them', function (): void {
         ->and($shell->commands())->toEqual([adapterInvocation()->listingGroups(Withheld::of('CI_JOB_TOKEN'))]);
 });
 
-it('runs the suite under coverage into a directory it makes, and reads the map', function (): void {
+it('runs the suite under coverage into a directory it makes, with pcov collecting from the whole project, and reads the map', function (): void {
     $at = adapterProject();
     $shell = new ShellFake(static function () use ($at): Ran {
         $lines = ['src/Money.php' => [11 => [0]]];
@@ -282,7 +283,8 @@ it('runs the suite under coverage into a directory it makes, and reads the map',
     expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), Triage::standard()->limit())->coverage($request))->toEqual(CoverageMap::empty()
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of(RUN_ADDS))
         ->timed(TestId::of(RUN_ADDS), Seconds::of(0.5)))
-        ->and($shell->commands())->toEqual([adapterInvocation()->coverage($request, $directory)]);
+        ->and($shell->commands())
+        ->toEqual([adapterInvocation()->coverage($request, $directory, PcovReach::under($at->root(), Path::of('vendor')))]);
 });
 
 it('cannot judge a coverage run that failed, with what Pest said', function (): void {
