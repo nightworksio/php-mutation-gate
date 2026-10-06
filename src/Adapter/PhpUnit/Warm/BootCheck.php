@@ -19,8 +19,8 @@ use function mb_strlen;
 use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\WholeNumber;
 
-use function preg_match;
 use function realpath;
 use function scandir;
 use function sprintf;
@@ -49,7 +49,6 @@ final readonly class BootCheck
     private const int SOCKET = 0o140000;
 
     /** How the system names an open file: by its number. */
-    private const string NUMBER = '/\A\d+\z/';
 
     /** The first open file a process opens itself: after its standard input, output and error. */
     private const int FIRST_OWN = 3;
@@ -123,7 +122,7 @@ final readonly class BootCheck
         $directory = $this->openFiles;
         $sockets = array_filter($listed, static function (string $name) use ($directory): bool {
             $path = sprintf('%s/%s', $directory, $name);
-            $own = preg_match(self::NUMBER, $name) === 1 && (int) $name >= self::FIRST_OWN;
+            $own = WholeNumber::isDigits($name) && (int) $name >= self::FIRST_OWN;
             $stat = $own && file_exists($path) ? stat($path) : false;
 
             return is_array($stat) && ($stat['mode'] & self::TYPE) === self::SOCKET;
