@@ -319,13 +319,15 @@ Operating the gate raises four needs its reports do not yet meet.
       trace, with nothing passed between them.
     - **Span ids** are derived the same way from the trace id and the span's
       path. The gate draws no random number (ADR-0001).
-    - **Spans:** `plan`, `shard <n>` with the children `opening run` and
-      `mutate`, and `verdict`.
+    - **Spans:** `plan`, `shard <n>` with a child for each step its time
+      went to (decision 19), named by the step and begun when it began, and
+      `verdict`.
     - **Metrics, emitted by the verdict:**
       - `mutation_gate.score`, a gauge per tree and for new code;
       - `mutation_gate.mutants`, a sum by status;
       - `mutation_gate.units`, a sum by run, proved or carried;
-      - `mutation_gate.duration`, per phase;
+      - `mutation_gate.duration`, per phase, and per shard with each step's
+        seconds over the shard beside it;
       - `mutation_gate.runner_minutes`.
 
 16. **Attributes follow OpenTelemetry's semantic conventions, and stay few.**
@@ -374,8 +376,8 @@ Operating the gate raises four needs its reports do not yet meet.
         `new code in <package>`.
       - They use `mutation_gate.status` for a mutant's judgement and for a
         unit's `run`, `proved` or `carried`.
-      - They use `mutation_gate.phase` for a duration: `plan`, `opening
-        run`, `mutate` or `verdict`.
+      - They use `mutation_gate.phase` for a duration: `plan`, `shard`, a
+        step's name, or `verdict`.
       - A sum is this run's alone, as OTLP's delta temporality.
       - Spans carry `mutation_gate.runner`, the runner's name, where the
         flows give the timings the runner that judged the run, with
@@ -392,7 +394,8 @@ Operating the gate raises four needs its reports do not yet meet.
 
     Its shape: `{"id", "traceId", "phases": {"plan"?: {"start",
     "seconds"}, "verdict"?: {…}}, "shards": [{"shard", "start",
-    "openingRunSeconds", "mutateSeconds"}], "units": {"run", "proved",
+    "seconds", "steps": [{"step", "since", "seconds", "count"?}]}],
+    "units": {"run", "proved",
     "carried"}, "wallSeconds", "runnerSeconds", "measured"}`. `start` is an
     instant in UTC, as `2026-09-30T11:50:00Z`, and `measured` is false where
     the runner time is estimated from `shards.setup` (ADR-0017 decision 12).
@@ -404,7 +407,11 @@ Operating the gate raises four needs its reports do not yet meet.
       `RunTimings` value.
     - Shards write their timings into their result files, which already hold
       what the shard measured (ADR-0006 decision 1), and the verdict merges
-      them.
+      them: each shard from its start, the instant its result was written
+      less what it spent, with its steps, and the verdict from when it began.
+      What the run took is estimated, each job's setup from `shards.setup`:
+      the wall time from the first job's setup to the verdict's end, and the
+      runner time of every shard and the verdict, each with its setup.
     - A shard's result names the steps its time went to under
       `measured.steps`, in the order they started: each its `step`, the
       seconds after the shard began that it started (`since`), the seconds

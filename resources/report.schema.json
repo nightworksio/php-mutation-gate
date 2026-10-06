@@ -908,20 +908,59 @@
                                 "type": "string",
                                 "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
                             },
-                            "openingRunSeconds": {
+                            "seconds": {
                                 "type": "number",
                                 "minimum": 0
                             },
-                            "mutateSeconds": {
-                                "type": "number",
-                                "minimum": 0
+                            "steps": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "step": {
+                                            "enum": [
+                                                "held coverage",
+                                                "coverage",
+                                                "preparing",
+                                                "mutation",
+                                                "reading",
+                                                "trial coverage",
+                                                "trials",
+                                                "baselines",
+                                                "confirmation",
+                                                "retry",
+                                                "equivalence",
+                                                "survivors",
+                                                "static check"
+                                            ]
+                                        },
+                                        "since": {
+                                            "type": "number",
+                                            "minimum": 0
+                                        },
+                                        "seconds": {
+                                            "type": "number",
+                                            "minimum": 0
+                                        },
+                                        "count": {
+                                            "type": "integer",
+                                            "minimum": 0
+                                        }
+                                    },
+                                    "required": [
+                                        "step",
+                                        "since",
+                                        "seconds"
+                                    ],
+                                    "additionalProperties": false
+                                }
                             }
                         },
                         "required": [
                             "shard",
                             "start",
-                            "openingRunSeconds",
-                            "mutateSeconds"
+                            "seconds",
+                            "steps"
                         ],
                         "additionalProperties": false
                     }

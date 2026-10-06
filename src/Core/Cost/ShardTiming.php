@@ -5,19 +5,20 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Cost;
 
 /**
- * One shard's time, as its result file records it: its runner's opening run,
- * then the mutation of its units (ADR-0016, decision 19).
+ * One shard's time, as its result file records it: when it began, how long
+ * it took, and the steps its time went to, each from when it began
+ * (ADR-0016, decision 19).
  */
 final readonly class ShardTiming
 {
-    private function __construct(private int $shard, private Phase $openingRun, private Phase $mutate)
+    private function __construct(private int $shard, private Phase $whole, private StepTimes $steps)
     {
     }
 
-    /** Shard number `$shard`, counted from 1, with its opening run and its mutation. */
-    public static function of(int $shard, Phase $openingRun, Phase $mutate): self
+    /** Shard number `$shard`, counted from 1, timed whole, with the steps its time went to. */
+    public static function of(int $shard, Phase $whole, StepTimes $steps): self
     {
-        return new self($shard, $openingRun, $mutate);
+        return new self($shard, $whole, $steps);
     }
 
     public function shard(): int
@@ -25,13 +26,19 @@ final readonly class ShardTiming
         return $this->shard;
     }
 
-    public function openingRun(): Phase
+    public function whole(): Phase
     {
-        return $this->openingRun;
+        return $this->whole;
     }
 
-    public function mutate(): Phase
+    public function steps(): StepTimes
     {
-        return $this->mutate;
+        return $this->steps;
+    }
+
+    /** When one of its steps began, after the shard's start, and how long it took. */
+    public function phaseOf(StepTime $step): Phase
+    {
+        return Phase::of($this->whole->start(), $step->took())->later($this->whole->after())->later($step->since());
     }
 }

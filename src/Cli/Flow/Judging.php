@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function count;
+
+use DateTimeImmutable;
+
 use function implode;
 use function is_array;
 
@@ -116,9 +119,12 @@ final readonly class Judging
             return $reporters;
         }
 
+        $began = $this->setup->clock->now();
         $assessed = $this->grounded($plan, $results, Writing::from($this->settings->proofs()->write()->value));
 
-        return $assessed instanceof Assessed ? $this->judged($plan, $results, $assessed, $reporters) : $assessed;
+        return $assessed instanceof Assessed
+            ? $this->judged($plan, $results, $assessed, $reporters, $began)
+            : $assessed;
     }
 
     /**
@@ -134,9 +140,17 @@ final readonly class Judging
     }
 
     /** @param list<Reporter> $reporters */
-    private function judged(Plan $plan, Results $results, Assessed $assessed, array $reporters): Judged|CannotJudge
-    {
-        $verdict = $assessed->verdict;
+    private function judged(
+        Plan $plan,
+        Results $results,
+        Assessed $assessed,
+        array $reporters,
+        DateTimeImmutable $began,
+    ): Judged|CannotJudge {
+        $now = $this->setup->clock->now();
+        $run = RunName::of($this->adapters->environment, Instant::at($now), $plan->base())->id();
+        $timings = VerdictTimings::of($run, $results, $began, $now, $this->settings->shards()->setup());
+        $verdict = $assessed->verdict->withAccount($assessed->verdict->account()->withTimings($timings));
         $recorded = $this->recorded($plan, $results, $assessed->ledgers, $verdict, $assessed->ownScopeProofs);
 
         if ($recorded instanceof CannotJudge) {

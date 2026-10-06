@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Cost\RunTime;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
 use NightWorksIO\MutationGate\Core\Cost\Savings;
 use NightWorksIO\MutationGate\Core\Cost\Unpriced;
+use NightWorksIO\MutationGate\Core\Plan\StepsRecord;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
@@ -24,7 +25,12 @@ use stdClass;
  * timings (ADR-0016, decisions 8 and 18, and ADR-0017, decision 13).
  *
  * @phpstan-type Timed array{start: string, seconds: float}
- * @phpstan-type Shard array{shard: int, start: string, openingRunSeconds: float, mutateSeconds: float}
+ * @phpstan-type Shard array{
+ *     shard: int,
+ *     start: string,
+ *     seconds: float,
+ *     steps: list<array{step: string, since: float, seconds: float, count?: int}>,
+ * }
  * @phpstan-type Run array{
  *     id: string,
  *     traceId: string,
@@ -88,9 +94,9 @@ final readonly class AccountJson
         foreach ($timings->shards() as $shard) {
             $shards[] = [
                 'shard' => $shard->shard(),
-                'start' => $shard->openingRun()->start()->value(),
-                'openingRunSeconds' => $shard->openingRun()->duration()->seconds(),
-                'mutateSeconds' => $shard->mutate()->duration()->seconds(),
+                'start' => $shard->whole()->start()->value(),
+                'seconds' => $shard->whole()->duration()->seconds(),
+                StepsRecord::SECTION => StepsRecord::of($shard->steps()),
             ];
         }
 

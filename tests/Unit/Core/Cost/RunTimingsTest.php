@@ -6,6 +6,9 @@ use NightWorksIO\MutationGate\Core\Cost\Phase;
 use NightWorksIO\MutationGate\Core\Cost\RunTime;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
 use NightWorksIO\MutationGate\Core\Cost\ShardTiming;
+use NightWorksIO\MutationGate\Core\Cost\Step;
+use NightWorksIO\MutationGate\Core\Cost\StepTime;
+use NightWorksIO\MutationGate\Core\Cost\StepTimes;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\Unidentified;
@@ -35,20 +38,27 @@ it('names the runner that judged the run, as the plan\'s proof keys name it', fu
     $timings = RunTimings::of('run', RunTime::measured(Seconds::of(1.0), Seconds::of(1.0)))->ranBy($runner);
 
     expect($timings->runner())->toBe($runner)
-        ->and($timings->withVerdict(Verdicts::shard()->mutate())->runner())->toBe($runner);
+        ->and($timings->withVerdict(Verdicts::shard()->whole())->runner())->toBe($runner);
 });
 
 it('keeps the plan, each shard and the verdict, and is sharded from a second shard on', function (): void {
     $plan = Phase::of(Moment::at('2026-09-30T11:50:00Z'), Seconds::of(40.0));
-    $shard = ShardTiming::of(1, Phase::of(Moment::at('2026-09-30T11:51:00Z'), Seconds::of(20.0)), Phase::of(Moment::at('2026-09-30T11:51:20Z'), Seconds::of(200.0)));
+    $mutation = StepTime::of(Step::Mutation, Seconds::of(20.5), Seconds::of(200.0), 40);
+    $steps = StepTimes::of(StepTime::of(Step::Coverage, Seconds::of(0.0), Seconds::of(20.5)), $mutation);
+    $shard = ShardTiming::of(1, Phase::of(Moment::at('2026-09-30T11:51:00Z'), Seconds::of(220.5)), $steps);
     $timings = RunTimings::of('github:12345/1', RunTime::estimated(Seconds::of(1.0), Seconds::of(2.0)))->withPlan($plan)->withShard($shard);
 
     expect($timings->plan())->toBe($plan)
         ->and($plan->start())->toEqual(Moment::at('2026-09-30T11:50:00Z'))
         ->and($plan->duration())->toEqual(Seconds::of(40.0))
         ->and($shard->shard())->toBe(1)
-        ->and($shard->openingRun()->duration())->toEqual(Seconds::of(20.0))
-        ->and($shard->mutate()->duration())->toEqual(Seconds::of(200.0))
+        ->and($shard->whole()->duration())->toEqual(Seconds::of(220.5))
+        ->and($shard->steps())->toBe($steps)
+        ->and($shard->phaseOf($mutation)->start())->toEqual(Moment::at('2026-09-30T11:51:00Z'))
+        ->and($shard->phaseOf($mutation)->after())->toEqual(Seconds::of(20.5))
+        ->and($shard->phaseOf($mutation)->duration())->toEqual(Seconds::of(200.0))
+        ->and($plan->after())->toEqual(Seconds::of(0.0))
+        ->and($plan->later(Seconds::of(2.0))->later(Seconds::of(1.5))->after())->toEqual(Seconds::of(3.5))
         ->and(iterator_to_array($timings->shards(), preserve_keys: false))->toBe([$shard])
         ->and($timings->isSharded())->toBeFalse()
         ->and($timings->withShard($shard)->isSharded())->toBeTrue()

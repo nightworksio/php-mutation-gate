@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Alert\AlertEvent;
 use NightWorksIO\MutationGate\Core\Alert\WebhookPayload;
 use NightWorksIO\MutationGate\Core\Cluster\ClusterId;
 use NightWorksIO\MutationGate\Core\Cluster\ClusterKind;
+use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Matrix\Outcome;
@@ -112,8 +113,13 @@ final readonly class ReportSchema
             'shards' => ['type' => 'array', 'items' => self::object([
                 'shard' => self::LINE,
                 'start' => self::INSTANT,
-                'openingRunSeconds' => self::SECONDS,
-                'mutateSeconds' => self::SECONDS,
+                'seconds' => self::SECONDS,
+                'steps' => self::listOf(self::object([
+                    'step' => self::oneOf(...Step::cases()),
+                    'since' => self::SECONDS,
+                    'seconds' => self::SECONDS,
+                    'count' => self::WHOLE,
+                ], ['count'])),
             ], [])],
             'units' => self::object($units, []),
             'wallSeconds' => self::SECONDS,

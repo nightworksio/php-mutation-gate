@@ -584,6 +584,8 @@ services:
                 'NightWorksIO\MutationGate\Core\Plan\StepsRecord':
                     - SECONDS # a key of a shard result's step, not of Pest's records
                     - COUNT # a key of a shard result's step, not of Pest's records or an uncovered count
+                'NightWorksIO\MutationGate\Core\Telemetry\Metrics':
+                    - SHARD # the phase a shard's whole duration is named by, not the run command's option
                 'NightWorksIO\MutationGate\Core\Report\JsonReport':
                     - FORMAT # the json report's version, not an exit code or an argument's place
                 'NightWorksIO\MutationGate\Core\Report\Commented':

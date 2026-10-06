@@ -10,13 +10,12 @@ use function mb_substr;
 use NightWorksIO\MutationGate\Core\Cost\Phase;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
 use NightWorksIO\MutationGate\Core\Cost\ShardTiming;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
 
 /**
- * A run's spans: `plan`, `shard <n>` with the children `opening run` and
- * `mutate`, and `verdict`, each measured, in one trace whose id the run
+ * A run's spans: `plan`, `shard <n>` with a child for each step its time
+ * went to, named by the step, and `verdict`, each measured, in one trace whose id the run
  * names. A span's id is the first 8 bytes of `sha256(<trace id>/<path>)`,
  * so the gate draws no random number (ADR-0016, decision 15).
  */
@@ -24,6 +23,8 @@ final readonly class Trace
 {
     /** The attribute that names a shard. */
     public const string SHARD = 'mutation_gate.shard';
+    /** A step's path under its shard: the shard, the step's place among the shard's steps, and the step. */
+    private const string STEP = '%s/%d/%s';
     /** Hex digits in a span id: 8 bytes. */
     private const int SPAN_ID = 16;
 
@@ -60,7 +61,8 @@ final readonly class Trace
     }
 
     /**
-     * A shard's span, from its opening run's start to its mutation's end, with those two under it.
+     * A shard's span, from its start to its end, with a span under it for
+     * each step its time went to, in the order they began.
      *
      * @param  array<string, string|int> $attributes
      * @return list<Span>
@@ -69,18 +71,14 @@ final readonly class Trace
     {
         $name = sprintf('shard %d', $shard->shard());
         $id = self::spanId($trace, $name);
-        $opening = $shard->openingRun();
-        $mutate = $shard->mutate();
-        $whole = Phase::of(
-            $opening->start(),
-            Seconds::of($opening->duration()->seconds() + $mutate->duration()->seconds()),
-        );
         $own = [...$attributes, self::SHARD => $shard->shard()];
+        $spans = [Span::of($name, $id, '', $shard->whole(), $own)];
 
-        return [
-            Span::of($name, $id, '', $whole, $own),
-            Span::of('opening run', self::spanId($trace, sprintf('%s/opening run', $name)), $id, $opening, $own),
-            Span::of('mutate', self::spanId($trace, sprintf('%s/mutate', $name)), $id, $mutate, $own),
-        ];
+        foreach ($shard->steps() as $at => $step) {
+            $path = sprintf(self::STEP, $name, $at, $step->step()->value);
+            $spans[] = Span::of($step->step()->value, self::spanId($trace, $path), $id, $shard->phaseOf($step), $own);
+        }
+
+        return $spans;
     }
 }
