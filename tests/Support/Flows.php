@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Opcache\Prover;
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
+use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Floor as NewCodeFloor;
@@ -98,6 +99,7 @@ final readonly class Flows
             Digest::sha256Of('installed'),
             new StoppedClock(Configs::NOW),
             new PeakMemoryFake(NotGiven::value()),
+            DecidingConfig::unread(),
         );
     }
 

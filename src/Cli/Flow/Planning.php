@@ -165,7 +165,15 @@ final readonly class Planning
         $ledgers = Ledgers::read($this->adapters->proofs, $inventory->standing, $writing);
         $base = $mode->base($ledgers);
         $reached = $base instanceof Revision
-            ? Reached::since($base, $inventory->trees, $this->adapters, $this->settings, $inventory->suite, $map)
+            ? Reached::since(
+                $base,
+                $inventory->trees,
+                $this->adapters,
+                $this->settings,
+                $inventory->suite,
+                $map,
+                $this->setup->config,
+            )
             : Reached::everything($inventory->trees, $base);
         $considering = $ledgers->considering($inventory->units, $reached->reach(), $matrix);
         $keys = $keying->keysOf($considering->considered());

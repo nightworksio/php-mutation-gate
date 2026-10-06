@@ -49,16 +49,20 @@ final readonly class Composition
     ) {
     }
 
-    private function setup(Path|NoConfigFile $configFile): Setup
+    private function setup(Path|NoConfigFile $configFile, CommandLine $given): Setup
     {
         $installed = Directory::at($this->vendor)->read(Installed::fileIn(Path::root()));
+        $file = $configFile instanceof Path ? $configFile->relativeTo(Path::of($this->project)) : Absent::setting();
 
         return new Setup(
-            $configFile instanceof Path ? $configFile->relativeTo(Path::of($this->project)) : Absent::setting(),
+            $file,
             InstalledGate::version(),
             Digest::sha256Of($installed instanceof Contents ? $installed->text() : ''),
             $this->clock,
             $this->memory,
+            $file instanceof Path
+                ? DecidingConfig::read($this->effective, $given, $this->project, $file)
+                : DecidingConfig::unread(),
         );
     }
 
@@ -79,7 +83,7 @@ final readonly class Composition
         return match (true) {
             $registry instanceof CannotJudge => $registry,
             $configFile instanceof CannotJudge => $configFile,
-            default => $this->composed($settings, $registry, $configFile),
+            default => $this->composed($settings, $registry, $configFile, $given),
         };
     }
 
@@ -87,6 +91,7 @@ final readonly class Composition
         Settings $settings,
         Extensions $registry,
         Path|NoConfigFile $configFile,
+        CommandLine $given,
     ): Composed|Invalid|CannotJudge {
         $project = Directory::at($this->project);
         $detected = new Detected($project, Directory::at($this->vendor));
@@ -97,7 +102,7 @@ final readonly class Composition
         return match (true) {
             $adapters instanceof Invalid, $adapters instanceof CannotJudge => $adapters,
             $reporters instanceof Invalid, $reporters instanceof CannotJudge => $reporters,
-            default => new Composed($settings, $adapters, $this->setup($configFile), $reporting),
+            default => new Composed($settings, $adapters, $this->setup($configFile, $given), $reporting),
         };
     }
 }

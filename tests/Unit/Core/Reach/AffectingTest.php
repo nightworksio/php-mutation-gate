@@ -72,20 +72,33 @@ it('lists every test, each with all its tests, for a file that decides how the g
         ->toBe(['`composer.json` decides how the gate runs, so every test is listed.']);
 });
 
-it('lists every test for a CI definition that runs the gate, and none where it moved only its pins', function (): void {
+it('lists no test for the gate\'s config where its change moved no setting that affects results', function () use ($modified): void {
+    $affected = Affected::to(Changes::of($modified('mutation-gate.json')), Affected::FILES, Affected::FILES, [], 'mutation-gate.json');
+
+    expect([$affected->listsNone(), Affected::texts($affected->nothingBecause())])->toBe([
+        true,
+        ['`mutation-gate.json` changed nothing that decides how the gate runs, so it lists no test.'],
+    ]);
+});
+
+it('lists every test for a CI definition that runs the gate, and none where it changed only its pins or comments', function (): void {
     $before = "steps:\n  - uses: nightworksio/php-mutation-gate@0123456789abcdef0123456789abcdef01234567 # v1\n";
     $pinned = "steps:\n  - uses: nightworksio/php-mutation-gate@89abcdef0123456789abcdef0123456789abcdef # v1\n";
     $moved = "steps:\n  - uses: nightworksio/php-mutation-gate@0123456789abcdef0123456789abcdef01234567 # v1\n    with:\n      shards: 2\n";
     $definition = '.github/workflows/gate.yml';
     $change = Changes::of(Change::modified(Path::of($definition), Lines::none()));
 
+    $commented = sprintf("# The gate.\n\n%s", $before);
+
     $repinned = Affected::to($change, [...Affected::FILES, $definition => $pinned], [$definition => $before]);
+    $explained = Affected::to($change, [...Affected::FILES, $definition => $commented], [$definition => $before]);
     $edited = Affected::to($change, [...Affected::FILES, $definition => $moved], [$definition => $before]);
 
     expect([$repinned->listsNone(), Affected::texts($repinned->nothingBecause())])->toBe([
         true,
-        ['`.github/workflows/gate.yml` moved only the commits its actions are pinned at, so it lists no test.'],
-    ])->and($edited->isEvery())->toBeTrue();
+        ['`.github/workflows/gate.yml` changed only its comments, blank lines or action pins, so it lists no test.'],
+    ])->and($explained->listsNone())->toBeTrue()
+        ->and($edited->isEvery())->toBeTrue();
 });
 
 it('lists every test for a file no rule places, and none for one proofs.ignore matches', function () use ($modified): void {

@@ -72,6 +72,7 @@ final readonly class ScoreChanging
             $this->settings,
             $inventory->suite,
             $map,
+            $this->setup->config,
         )->reach();
         $considering = Considering::of($inventory->units, $reach, $defaultBranch, $ledgers->own()->proofs());
         $reached = $considering->considered();

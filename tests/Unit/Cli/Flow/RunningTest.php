@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\Interruption;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
@@ -103,6 +104,7 @@ $ticking = static fn(): Setup => new Setup(
     Digest::sha256Of('installed'),
     new TickingClock('2026-09-30T12:00:00+00:00', 3),
     new PeakMemoryFake(NotGiven::value()),
+    DecidingConfig::unread(),
 );
 
 /** A setup whose clock moves on this many seconds each time the run reads it. */
@@ -112,6 +114,7 @@ $tickingBy = static fn(int $step): Setup => new Setup(
     Digest::sha256Of('installed'),
     new TickingClock('2026-09-30T12:00:00+00:00', $step),
     new PeakMemoryFake(NotGiven::value()),
+    DecidingConfig::unread(),
 );
 
 /** @return list<string> the paths of the units a result says its budget ran out before */
@@ -885,6 +888,7 @@ it('runs every batch that fits a budget with the time left, leaving nothing unju
         Digest::sha256Of('installed'),
         new StoppedClock('2026-09-30T12:00:00Z'),
         new PeakMemoryFake(NotGiven::value()),
+        DecidingConfig::unread(),
     );
 
     new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('2s')), $setup)
@@ -909,6 +913,7 @@ it('starts nothing a budget has no room for, and leaves every unit unjudged', fu
         Digest::sha256Of('installed'),
         new StoppedClock('2026-09-30T12:00:00Z'),
         new PeakMemoryFake(NotGiven::value()),
+        DecidingConfig::unread(),
     );
 
     new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('1s')), $setup)
@@ -932,6 +937,7 @@ it('stops before the batch after the one an interruption arrived in, leaving the
         Digest::sha256Of('installed'),
         new StoppedClock('2026-09-30T12:00:00Z'),
         new PeakMemoryFake(NotGiven::value()),
+        DecidingConfig::unread(),
     );
     $looks = 0;
     $arrived = Interruption::when(static function () use (&$looks): bool {

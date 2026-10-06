@@ -119,26 +119,56 @@ it('matches reach.everything against the path from the repository, not from the 
         ]);
 });
 
-it('reaches nothing where a CI definition moved only its action pins', function () use ($reaching, $judges, $said): void {
-    $workflow = static fn(string $pin): Contents => Contents::of(sprintf("steps:\n  - uses: actions/checkout@%s # v4\n", str_repeat($pin, 40)));
+it('reaches nothing where a CI definition changed only what does not decide how it runs the gate', function (string $before, string $now) use ($reaching, $judges, $said): void {
     $sources = Sources::none()
-        ->withBefore(Path::of('.github/workflows/gate.yml'), $workflow('a'))
-        ->withNow(Path::of('.github/workflows/gate.yml'), $workflow('b'));
+        ->withBefore(Path::of('.github/workflows/gate.yml'), Contents::of($before))
+        ->withNow(Path::of('.github/workflows/gate.yml'), Contents::of($now));
 
     $reach = $reaching()->of(Changes::of(Change::modified(Path::of('.github/workflows/gate.yml'), Lines::of(Line::of(2)))), $judges(), $sources);
 
     expect($reach->isEverywhere())->toBeFalse()
         ->and($reach->reaches(Unit::file(Path::of('src/Money.php'))))->toBeFalse()
-        ->and($said($reach))->toBe(['`.github/workflows/gate.yml` moved only the commits its actions are pinned at, so it reaches nothing.']);
+        ->and($said($reach))->toBe(['`.github/workflows/gate.yml` changed only its comments, blank lines or action pins, so it reaches nothing.']);
+})->with([
+    'its action pins' => [
+        sprintf("steps:\n  - uses: actions/checkout@%s # v4\n", str_repeat('a', 40)),
+        sprintf("steps:\n  - uses: actions/checkout@%s # v5\n", str_repeat('b', 40)),
+    ],
+    'its comments and blank lines' => [
+        "# Runs the gate.\nsteps:\n  - run: composer test\n",
+        "# Runs the gate on every push.\n\nsteps:\n\n  # The suite first.\n  - run: composer test\n",
+    ],
+]);
+
+it('reaches nothing where the gate\'s config changed nothing that decides how the gate runs, under either name', function (Change $change) use ($reaching, $judges, $said): void {
+    $sources = Sources::none()->decidingAlike(Path::of('mutation-gate.json'));
+
+    $reach = $reaching()->of(Changes::of($change), $judges(), $sources);
+
+    expect($reach->isEverywhere())->toBeFalse()
+        ->and($reach->reaches(Unit::file(Path::of('src/Money.php'))))->toBeFalse()
+        ->and($said($reach))->toBe(['`mutation-gate.json` changed nothing that decides how the gate runs, so it reaches nothing.']);
+})->with([
+    'changed' => [fn(): Change => Change::modified(Path::of('mutation-gate.json'), Lines::of(Line::of(4)))],
+    'renamed to' => [fn(): Change => Change::renamed(Path::of('mutation-gate.yaml'), Path::of('mutation-gate.json'), Lines::none())],
+]);
+
+it('reaches everything where the gate\'s config changed what decides how the gate runs', function () use ($reaching, $judges, $said): void {
+    $sources = Sources::none()->decidingAlike(Path::of('phpunit.xml'));
+
+    $reach = $reaching()->of(Changes::of(Change::modified(Path::of('mutation-gate.json'), Lines::of(Line::of(4)))), $judges(), $sources);
+
+    expect($reach->isEverywhere())->toBeTrue()
+        ->and($said($reach))->toBe(['`mutation-gate.json` decides how the gate runs, so every unit is reached.']);
 });
 
-it('reaches everything where a CI definition changed more than its pins, or cannot be compared', function (Sources $sources) use ($reaching, $judges, $said): void {
+it('reaches everything where a CI definition changed how it runs the gate, or cannot be compared', function (Sources $sources) use ($reaching, $judges, $said): void {
     $reach = $reaching()->of(Changes::of(Change::modified(Path::of('.github/workflows/gate.yml'), Lines::of(Line::of(2)))), $judges(), $sources);
 
     expect($reach->isEverywhere())->toBeTrue()
         ->and($said($reach))->toBe(['`.github/workflows/gate.yml` decides how the gate runs, so every unit is reached.']);
 })->with([
-    'more than pins' => fn(): Sources => Sources::none()
+    'how it runs the gate' => fn(): Sources => Sources::none()
         ->withBefore(Path::of('.github/workflows/gate.yml'), Contents::of("steps:\n  - run: composer test\n"))
         ->withNow(Path::of('.github/workflows/gate.yml'), Contents::of("steps:\n  - run: composer test:all\n")),
     'no base' => fn(): Sources => Sources::none()

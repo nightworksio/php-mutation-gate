@@ -37,6 +37,18 @@ final readonly class ConfigFile implements PathOrigin
         );
     }
 
+    /**
+     * A copy of a config file, read in its place: the loader reads the copy,
+     * and every path it holds is named from the directory of the file it is
+     * a copy of, as when a run reads the config as it stood at a base.
+     */
+    public static function copyOf(Path $copy, Path $file, Path $project): self
+    {
+        $original = self::at($file, $project);
+
+        return new self($copy, $original->directory, $project);
+    }
+
     public function file(): Path
     {
         return $this->file;

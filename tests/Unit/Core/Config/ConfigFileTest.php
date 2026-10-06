@@ -50,6 +50,16 @@ it('names every path and glob a file writes from the file\'s directory', functio
     ]);
 });
 
+it('reads a copy kept elsewhere in the file\'s place, naming its paths from the file\'s directory', function () use ($read): void {
+    $copy = ConfigFile::copyOf(Path::of('/project/.mutation-gate/base/gate.json'), Path::of('/project/ci/gate.json'), Path::of('/project'));
+    $layer = Configs::layer(FROM_CI, $copy);
+
+    expect($copy->file())->toEqual(Path::of('/project/.mutation-gate/base/gate.json'))
+        ->and($copy->extension())->toBe('json')
+        ->and($layer instanceof Layer ? Configs::decoded($layer, ProjectRoot::origin()) : Configs::problems($layer))
+        ->toBe($read(ProjectRoot::origin()));
+});
+
 it('writes each of them back as the file wrote it', function () use ($read, $file): void {
     expect($read($file))->toEqualCanonicalizing(FROM_CI);
 });

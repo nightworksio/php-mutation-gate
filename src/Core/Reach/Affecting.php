@@ -21,9 +21,10 @@ use function sprintf;
  * (ADR-0020, decision 2); the first that matches a changed path decides for
  * it:
  *
- * 1. a file that decides how the gate runs reaches every test, and so does a
- *    CI definition that runs the gate, unless all its change moved is its
- *    action pins;
+ * 1. a file that decides how the gate runs reaches every test, unless it
+ *    decides as it did at the base, and so does a CI definition that runs
+ *    the gate, unless its change moved only comments, blank lines and action
+ *    pins;
  * 2. a source file in a tree reaches what {@see SourceTests} says;
  * 3. a changed test reaches itself;
  * 4. changed test support reaches the tests that use it;
@@ -36,7 +37,10 @@ final readonly class Affecting
     public const string UNTOLD = 'The tests that use `%s` cannot be told, so every test is listed.';
     private const string DECIDES = '`%s` decides how the gate runs, so every test is listed.';
 
-    private const string PINS = '`%s` moved only the commits its actions are pinned at, so it lists no test.';
+    private const string RUNS_ALIKE
+        = '`%s` changed only its comments, blank lines or action pins, so it lists no test.';
+
+    private const string DECIDES_ALIKE = '`%s` changed nothing that decides how the gate runs, so it lists no test.';
 
     private const string TEST = '`%s` changed.';
 
@@ -78,6 +82,9 @@ final readonly class Affecting
         $deciding = $this->decidingIn($change, $packages);
 
         return match (true) {
+            $deciding instanceof Path && $files->decidesAlike($deciding) => $none->because(
+                $this->why(self::DECIDES_ALIKE, $deciding),
+            ),
             $deciding instanceof Path => $none->all($this->why(self::DECIDES, $deciding)),
             $this->layout->runsTheGate($path) => $this->definitionChanged($none, $change, $files),
             $this->isSource($path) => $this->sources->of($change, $this->named($package)),
@@ -118,8 +125,8 @@ final readonly class Affecting
         $before = $files->before($change->previousPath());
         $after = $files->now($change->path());
 
-        return $before instanceof Contents && $after instanceof Contents && Pins::onlyMoved($before, $after)
-            ? $none->because($this->why(self::PINS, $change->path()))
+        return $before instanceof Contents && $after instanceof Contents && AsItRuns::alike($before, $after)
+            ? $none->because($this->why(self::RUNS_ALIKE, $change->path()))
             : $none->all($this->why(self::DECIDES, $change->path()));
     }
 

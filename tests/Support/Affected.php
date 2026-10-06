@@ -69,14 +69,21 @@ final class Affected
      * @param array<string, string> $now
      * @param array<string, string> $before
      * @param array<string, string> $unread
+     * @param string                ...$alike the changed files that decide how the gate runs as they did at the base
      */
     public static function to(
         Changes $changes,
         array $now = self::FILES,
         array $before = self::FILES,
         array $unread = [],
+        string ...$alike,
     ): AffectedTests {
         $sources = self::sources($now, $before);
+
+        foreach ($alike as $path) {
+            $sources = $sources->decidingAlike(Path::of($path));
+        }
+
         $layout = Layout::standard(Paths::none())->runBy(Glob::of('.github/workflows/gate.yml'));
         $trees = self::trees();
         $users = SupportUsers::in($layout, Packages::of($trees), $sources);
