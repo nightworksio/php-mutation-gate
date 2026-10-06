@@ -33,8 +33,6 @@ final class PreparedBatch
     /** @var array<int, PreparedRun> each run waiting for its batch, by the order it came in */
     private array $waiting = [];
 
-    private int $next = 0;
-
     private bool $stopped = false;
 
     /** @param positive-int $size */
@@ -63,11 +61,13 @@ final class PreparedBatch
         return $this->stopped || hrtime(as_number: true) >= $this->end;
     }
 
-    /** The next mutant: judged without a run, or a run for its batch, which runs once full. */
+    /**
+     * The next mutant: judged without a run, or a run for its batch, which runs once full. Its place is how many
+     * came before it, every one judged or waiting until a batch has run out, after which none is added.
+     */
     public function add(PreparedRun|Mutant $prepared): void
     {
-        $at = $this->next;
-        ++$this->next;
+        $at = count($this->judged) + count($this->waiting);
 
         if ($prepared instanceof Mutant) {
             $this->judged[$at] = $prepared;
