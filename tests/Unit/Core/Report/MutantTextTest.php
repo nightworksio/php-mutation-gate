@@ -69,6 +69,14 @@ it('says why a mutant stands as it does, where its record says, and leaves out a
         ->and(explode("\n", MutantText::block($bare, TestNames::none())))->toHaveCount(4);
 });
 
+it('puts the reason its record gives before its hint, and nothing before the hint of a mutant without one', function (): void {
+    $listed = Judged::listed(Verdicts::everyJudgement());
+
+    expect(MutantText::hinted($listed[4]))->toBe("The run's budget ran out before it. Nothing judged it, so it counts as not killed.")
+        ->and(MutantText::hinted($listed[0]))->toBe($listed[0]->hint()->text())
+        ->and(MutantText::hinted($listed[11]))->toBe($listed[11]->hint()->text());
+});
+
 it('says why an ignored mutant is left out: its ignore\'s reason, or how it was ignored where it gives none', function (): void {
     [$ignored, $marked] = Overview::of(Verdicts::failing())->ignored();
 

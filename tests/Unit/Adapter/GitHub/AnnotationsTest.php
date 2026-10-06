@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Report\ClusterText;
@@ -50,6 +51,21 @@ it('annotates a survivor in a set that failed as an error, where it is, with its
         $survivor->hint()->text(),
         $survivor->mutant()->id()->value(),
     )]);
+});
+
+it('annotates a mutant with the reason its record gives before its hint, as the summary does', function () use ($printed): void {
+    $unjudged = JudgedMutant::of(
+        Verdicts::mutant('src/Order.php:5', 'DecrementInteger', MutatorFamily::Literal, Verdicts::diff('return 3;', 'return 4;'))
+            ->because(Reason::that('The run\'s budget ran out before it.')),
+        MutantJudgement::Unjudged,
+    );
+    $lines = $printed(Verdicts::of(Floor::of(80), $unjudged));
+
+    expect($lines)->toHaveCount(1)
+        ->and($lines[0])->toEndWith(sprintf(
+            "::The run's budget ran out before it. Nothing judged it, so it counts as not killed. Reproduce: vendor/bin/mutation-gate reproduce %s",
+            $unjudged->mutant()->id()->value(),
+        ));
 });
 
 it('warns of one in a set that passed, and gives every warning of the verdict as a notice', function () use ($printed): void {

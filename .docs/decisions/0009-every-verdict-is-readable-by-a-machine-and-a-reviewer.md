@@ -162,7 +162,9 @@ sees the same verdict.
 
      Errors mark mutants in a failing set, and warnings mark the rest; the
      title names the gate's judgement and the mutator, as *Mutant survived:
-     LessThan*. Each warning of the verdict (decision 1) is a notice. GitHub
+     LessThan*. Where the mutant's record gives a reason, such as why it
+     was left unjudged, the message starts with it, before the hint, as the
+     step summary's row does. Each warning of the verdict (decision 1) is a notice. GitHub
      keeps at most 10 error, 10 warning and 10 notice annotations per step, and
      50 per job, and drops the rest silently. So the gate writes all its
      annotations from one step, at most 10 of each, ranked: changed lines
@@ -387,7 +389,7 @@ sees the same verdict.
    | Flaky | Its tests killed it on one run and let it survive on another, so they are the suspects. |
    | Too slow to judge | Its tests take half its time limit or more, so a timeout says nothing about it. Hold `<file>` with a group of the tests that assert on it, or raise `timeouts.seconds`. |
    | Too heavy to judge | The unmutated suite holds more than half the memory cap, or was not measured, so the cap says nothing. Raise runner.memory; doctor --measure says what the suite needs. |
-   | Unjudged | Nothing judged it before the run stopped, so it counts as not killed. |
+   | Unjudged | Nothing judged it, so it counts as not killed. |
    | Ignored | An ignore in the config leaves it out of the score. |
    | Ignored by a native marker | A native ignore marker leaves it out of the score. |
    | Killed | A test fails with it in place. |

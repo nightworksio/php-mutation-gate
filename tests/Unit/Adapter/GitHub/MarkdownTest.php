@@ -69,7 +69,7 @@ it('writes the sticky comment: the verdict, trees, new code, survivors on change
             '| Mutant | Mutator | Judgement | What the tests miss | Command |',
             '|---|---|---|---|---|',
             sprintf('| <code>src/Order.php:3</code> | MethodCallRemoval | flaky | Its tests killed it on one run and let it survive on another, so they are the suspects. It is judged by <code>OrderTest::saves</code>. | <code>vendor/bin/mutation-gate reproduce %s</code> |', $id(3)),
-            sprintf('| <code>src/Order.php:5</code> | DecrementInteger | unjudged | The run&apos;s budget ran out before it. Nothing judged it before the run stopped, so it counts as not killed. | <code>vendor/bin/mutation-gate reproduce %s</code> |', $id(4)),
+            sprintf('| <code>src/Order.php:5</code> | DecrementInteger | unjudged | The run&apos;s budget ran out before it. Nothing judged it, so it counts as not killed. | <code>vendor/bin/mutation-gate reproduce %s</code> |', $id(4)),
         ]),
         '### Ignored (2)',
         implode("\n", [

@@ -40,7 +40,7 @@ it('is on a changed line where the reach holds its line for its file, and nowher
         ->and($judged->within($reach('src/Money.php', 9))->mutant())->toBe($judged->mutant());
 });
 
-it('is unjudged, with nothing judging it before the run stopped, where its kill no longer stands', function (): void {
+it('is unjudged, with nothing judging it, where its kill no longer stands', function (): void {
     $judged = JudgedKill::of(Verdicts::provedKill()->mutant()->unjudged(OutOfTime::BeforeMutating));
 
     expect($judged->judgement())->toBe(MutantJudgement::Unjudged)

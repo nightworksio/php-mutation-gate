@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Report\ClusterText;
 use NightWorksIO\MutationGate\Core\Report\Folded;
 use NightWorksIO\MutationGate\Core\Report\Label;
+use NightWorksIO\MutationGate\Core\Report\MutantText;
 use NightWorksIO\MutationGate\Core\Report\Mutator;
 use NightWorksIO\MutationGate\Core\Report\Overview;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
@@ -173,6 +174,6 @@ final readonly class Annotations implements Configurable, Reporter
                 Label::of($judged->judgement()),
                 Mutator::short($mutant->mutator()),
             ),
-        ], sprintf(self::MESSAGE, $judged->hint()->text(), $judged->reproduce()));
+        ], sprintf(self::MESSAGE, MutantText::hinted($judged), $judged->reproduce()));
     }
 }

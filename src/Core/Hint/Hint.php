@@ -96,7 +96,7 @@ final readonly class Hint
     private const string TIMED_OUT
         = 'Its tests ran far past their usual time with it in place, so the timeout counts as a kill.';
 
-    private const string UNJUDGED = 'Nothing judged it before the run stopped, so it counts as not killed.';
+    private const string UNJUDGED = 'Nothing judged it, so it counts as not killed.';
 
     private const string FLAKY
         = 'Its tests killed it on one run and let it survive on another, so they are the suspects.';
@@ -151,7 +151,7 @@ final readonly class Hint
         return new self(self::KILLED);
     }
 
-    /** The hint for a mutant nothing judged before the run stopped. */
+    /** The hint for a mutant nothing judged. */
     public static function unjudged(): self
     {
         return new self(self::UNJUDGED);
