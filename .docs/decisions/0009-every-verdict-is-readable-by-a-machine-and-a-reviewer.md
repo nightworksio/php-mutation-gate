@@ -86,7 +86,7 @@ sees the same verdict.
    exit code.
 
 2. **The formats a machine reads.**
-   - **JSON** (`json`), the gate's own format with a `"format": 1` field. Its
+   - **JSON** (`json`), the gate's own format with a `"format": 2` field. Its
      schema is generated like the config's and committed at
      `resources/report.schema.json`. It carries everything in the verdict, and
      it is public API (ADR-0011). A mutant proven equivalent has the judgement
@@ -94,7 +94,9 @@ sees the same verdict.
      killed mutant names the test that killed it first, where one is known
      (ADR-0013). It lists the tests once, in a `tests`
      table, and gives each mutant `coveredBy` and `killedBy` as indices into
-     it (ADR-0014). Beside those:
+     it (ADR-0014), so each test's id is written once, however many mutants
+     it covers, and the report grows with the mutants and the tests, not
+     their product. Beside those:
      - At the top: `format`, `judgement`, `cutShort`, `uncovered`, the
        project's `score` and `counts` by judgement, then `trees`, `newCode`,
        `mutants`, `reach`, `warnings` and `failures`.
@@ -111,7 +113,9 @@ sees the same verdict.
        `judgement`, the `reason` its record gives, the `rejection` that killed
        it where a static analyser did, with the analyser, the file its
        finding sits in and the finding's code and message (ADR-0020),
-       `changedLine`, its judging `tests`, its `hint`, its `reproduce`
+       `changedLine`, `judgedBy`, the indices of the tests that judged it,
+       where they are not every test that covers it, as a held unit's
+       holding tests are not, its `hint`, its `reproduce`
        command, and the `seconds` it ran and the `limit` it was allowed where
        the runner says.
      - A value that is not known is left out, never written as null.

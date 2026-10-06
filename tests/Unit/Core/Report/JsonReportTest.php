@@ -8,8 +8,10 @@ use NightWorksIO\MutationGate\Core\Cost\RunAccount;
 use NightWorksIO\MutationGate\Core\Cost\RunTime;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
 use NightWorksIO\MutationGate\Core\Cost\Savings;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -24,6 +26,8 @@ use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Test\Filter;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
@@ -90,7 +94,9 @@ it('lists the tests once, and points each mutant at those that cover and killed 
         ])
         ->and(Decoded::at($report, 'mutants', 0))->toMatchArray(['coveredBy' => [0, 1, 2], 'killedBy' => []])
         ->and(Decoded::at($report, 'mutants', 1))->toMatchArray(['coveredBy' => [0, 2], 'killedBy' => [0]])
-        ->and(Decoded::at($report, 'mutants', 2))->toMatchArray(['coveredBy' => [], 'killedBy' => []]);
+        ->and(Decoded::at($report, 'mutants', 2))->toMatchArray(['coveredBy' => [], 'killedBy' => []])
+        ->and(Decoded::at($report, 'mutants', 1))->not->toHaveKey('judgedBy')
+        ->and(Decoded::at($report, 'mutants', 2))->not->toHaveKey('judgedBy');
 });
 
 it('knows the killers each record names where the run gave no matrix', function (): void {
@@ -105,7 +111,7 @@ it('writes the verdict, the project and each tree', function (): void {
     $report = JsonReport::encode(Verdicts::failing());
 
     expect(Decoded::at($report))->toMatchArray([
-        'format' => 1,
+        'format' => 2,
         'judgement' => 'failed',
         'cutShort' => false,
         'uncovered' => 'count',
@@ -172,7 +178,7 @@ it('writes the rejection of a mutant a static analyser killed, with the file its
         ->and(Decoded::at($report, 'mutants', 1))->not->toHaveKey('rejection');
 });
 
-it('writes every mutant once, with its judgement, tests, hint, and reproduce and explain commands', function (): void {
+it('writes every mutant once, with its judgement, hint, and reproduce and explain commands', function (): void {
     $report = JsonReport::encode(Verdicts::failing());
     $survivor = Verdicts::survivor();
     $id = $survivor->mutant()->id()->value();
@@ -189,8 +195,8 @@ it('writes every mutant once, with its judgement, tests, hint, and reproduce and
             'status' => 'survived',
             'judgement' => 'survived',
             'changedLine' => true,
-            'tests' => ['MoneyTest::fits', 'MoneyTest::refuses', 'PriceTest::adds', 'CartTest::totals'],
             'coveredBy' => [],
+            'judgedBy' => [0],
             'killedBy' => [],
             'hint' => $survivor->hint()->text(),
             'reproduce' => sprintf('vendor/bin/mutation-gate reproduce %s', $id),
@@ -363,4 +369,44 @@ it('writes each package\'s security set, with its floors, score, judgement, coun
         ->and(Decoded::at($report, 'security', 1, 'raised'))->toBe(100.0)
         ->and(Decoded::at($report, 'security', 1, 'judgement'))->toBe('passed')
         ->and(Decoded::at(JsonReport::encode(Verdicts::failing()), 'security'))->toBe([]);
+});
+
+/**
+ * The report of this many survivors, each in a file of its own, covered and
+ * judged by the same twenty of fifty tests, whose ids are this long.
+ */
+function jsonReportOfSize(int $mutants, int $idLength): string
+{
+    $tests = array_map(
+        static fn(int $at): TestId => TestId::of(str_pad(sprintf('Tests\Case%dTest::', $at), $idLength, 'x')),
+        range(1, 50),
+    );
+    $coverage = CoverageMap::empty();
+    $judged = [];
+
+    for ($at = 1; $at <= $mutants; $at++) {
+        $chosen = array_slice($tests, $at % 30, 20);
+        $file = sprintf('src/F%d.php', $at);
+
+        foreach ($chosen as $test) {
+            $coverage = $coverage->covered(Path::of($file), Line::of(3), $test);
+        }
+
+        $judged[] = JudgedMutant::of(
+            Verdicts::mutant(sprintf('%s:3', $file), Verdicts::LESS, MutatorFamily::Boundary, Verdicts::BOUNDARY),
+            MutantJudgement::Survived,
+        )->judgedBy(TestIds::of(...$chosen));
+    }
+
+    return JsonReport::encode(Verdicts::of(Floor::of(0), ...$judged)->withMatrix(KillMatrix::of(MatrixKind::Full, $coverage)));
+}
+
+it('writes each test\'s id once, so a mutant costs no more for its tests\' names than its hint names, and the report grows linearly in mutants', function (): void {
+    $short = strlen(jsonReportOfSize(200, 20));
+    $long = strlen(jsonReportOfSize(200, 220));
+
+    // Each of fifty ids grows by 200 bytes in the table's id and name, and in each mutant's hint, which names three
+    // tests at most; with ids in every mutant, each of its twenty would grow as well.
+    expect($long - $short)->toBeLessThan((50 * 2 + 200 * 3) * 200 * 1.1)
+        ->and(strlen(jsonReportOfSize(1600, 20)) / strlen(jsonReportOfSize(200, 20)))->toBeLessThan(8 * 1.05);
 });

@@ -375,8 +375,8 @@ final readonly class ReportSchema
                 MutantRecord::MESSAGE => self::TEXT,
             ], []),
             'changedLine' => self::FLAG,
-            'tests' => self::listOf(self::TEXT),
             'coveredBy' => self::listOf(self::WHOLE),
+            'judgedBy' => self::listOf(self::WHOLE),
             'killedBy' => self::listOf(self::WHOLE),
             'hint' => self::TEXT,
             'reproduce' => self::TEXT,
@@ -385,7 +385,18 @@ final readonly class ReportSchema
             'limit' => self::SECONDS,
             'cluster' => self::CLUSTER_ID,
             'removable' => self::PRESENT,
-        ], ['end', 'family', 'diff', 'reason', MutantRecord::REJECTION, 'seconds', 'limit', 'cluster', 'removable']);
+        ], [
+            'end',
+            'family',
+            'diff',
+            'reason',
+            MutantRecord::REJECTION,
+            'judgedBy',
+            'seconds',
+            'limit',
+            'cluster',
+            'removable',
+        ]);
     }
 
     /**
