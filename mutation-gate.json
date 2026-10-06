@@ -26,6 +26,9 @@
             "floor": 100
         }
     ],
+    "security": {
+        "floor": 100
+    },
     "pest": {
         "patch": true
     },

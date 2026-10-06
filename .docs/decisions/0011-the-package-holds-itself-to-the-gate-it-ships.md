@@ -40,7 +40,8 @@ about Laravel, NativePHP or the project's modules, and does not.
 1. **The package gates itself with itself, at 100.**
    - The config declares one tree, `src`, at floor 100 with new code at 100,
      and one tree for each first-party plugin's `plugins/<name>/src`, at the
-     same floor (ADR-0021).
+     same floor (ADR-0021). Its security set, `security.floor`, is held at
+     100 too, since a security set with no floor is refused.
      Uncovered mutants count (`uncovered: count`), so every line must be both
      covered and mutation-tested.
    - The declared floor is 100, so the baseline cannot hold it lower.
