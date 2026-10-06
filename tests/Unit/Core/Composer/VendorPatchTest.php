@@ -14,6 +14,7 @@ function vendorPatch(): VendorPatch
 
 it('says what it wrote, and why it could not write the files it changes', function (): void {
     expect(vendorPatch()->done(1))->toBe('tool:patch patched 1 of the 1 files it changes in tool.')
+        ->and(vendorPatch()->done(0))->toBe('tool:patch found its patch already in place in the 1 files it changes in tool.')
         ->and(vendorPatch()->unwritten('/v'))
         ->toEqual(CannotJudge::because('tool:patch cannot write /v/acme/tool/src. Make the vendor directory writable.'));
 });

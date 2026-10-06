@@ -48,6 +48,9 @@ final readonly class VendorPatch
 
     private const string PATCHED = '%s patched %d of the %d files it changes in %s.';
 
+    /** What the command says where every file it changes already carries its patch. */
+    private const string IN_PLACE = '%s found its patch already in place in the %d files it changes in %s.';
+
     /** Why the command cannot change a file another version of the gate patched. */
     private const string OTHER_VERSION
         = "%s patched nothing: %s holds another gate's patch. Run composer reinstall %s.";
@@ -108,7 +111,12 @@ final readonly class VendorPatch
     /** What the command says once it has written this many files. */
     public function done(int $written): string
     {
-        return sprintf(self::PATCHED, $this->command, $written, count($this->files()), basename($this->package));
+        $files = count($this->files());
+        $package = basename($this->package);
+
+        return $written === 0
+            ? sprintf(self::IN_PLACE, $this->command, $files, $package)
+            : sprintf(self::PATCHED, $this->command, $written, $files, $package);
     }
 
     /**
