@@ -295,6 +295,15 @@ manual.
      `timeouts.seconds` alone where a covering test is untimed. A run again
      takes the most the flows give it in place of `timeouts.most` (ADR-0008
      decision 2).
+   - A run that selects its tests by their ids is also stopped at its
+     silence limit (ADR-0008, decision 2): the same rule, of its slowest
+     covering test's own time, where every covering test is timed. The
+     silence is counted from the last line the extension added to the
+     results file, as a test started or ended, so a run's start before its
+     first test is held only to its limit. A run that selects its tests by
+     their files runs other tests too, whose times are not known, so it has
+     no silence limit. A mutant stopped there timed out, at its own limit,
+     with a reason naming the silence limit.
    - Each mutant's PHPUnit, and every process it starts, runs under the
      memory cap (ADR-0004 decision 9): the cap's ini, in the runner's own
      directory, also sets `display_errors=stdout`, and the run's
@@ -390,9 +399,10 @@ manual.
       PHPUnit; the runner contract runs warm workers at the lowest and the
       highest PHPUnit it installs, and goes red where a PHPUnit release
       changes them.
-    - A child is stopped at its mutant's limit with every process under
-      it, and is judged as a fresh run is: what it printed is the growth of
-      the worker's output files between its fork and its end.
+    - A child is stopped at its mutant's limit, or at its silence limit,
+      with every process under it, and is judged as a fresh run is: what it
+      printed is the growth of the worker's output files between its fork
+      and its end.
     - Mutant schemata are not used: a schematised program is not the mutant
       program, and a mutant of a declaration cannot be switched at run time.
     - Pest and Infection start their own processes, so warm workers exist

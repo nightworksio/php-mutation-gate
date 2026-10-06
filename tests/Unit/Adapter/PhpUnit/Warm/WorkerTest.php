@@ -11,6 +11,8 @@ use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Worker;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Workplace;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Measured;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
@@ -86,9 +88,9 @@ function workerIsGone(int $process): bool
 }
 
 /** @param array<string, string> $told */
-function workerRun(array $told, float $limit = 30.0): WarmRun
+function workerRun(array $told, float $limit = 30.0, SilenceLimit|NotGiven $silence = new NotGiven()): WarmRun
 {
-    return WarmRun::of([], $told, $limit, '', '', '');
+    return WarmRun::of([], $told, $limit, '', '', '', $silence);
 }
 
 it('forks a child for each run it claims, and writes how each ended with what it printed', function (): void {
@@ -114,6 +116,34 @@ it('stops a child at its limit with every process under it, and says a child a s
     expect($stopped instanceof Ran ? [$stopped->wasStopped(), Measured::of($stopped)->seconds() < 20.0] : [])->toBe([true, true])
         ->and($killed instanceof Ran ? [$killed->endedBySignal(), $killed->exitCode()] : [])->toBe([true, 137])
         ->and(workerIsGone((int) file_get_contents(sprintf('%s.under', $workplace->out(0)))))->toBeTrue();
+});
+
+// The child writes to its progress file as a test of it starts or ends.
+it('stops a child that has made no progress for its silence limit since it last did, and holds one that never has only to its limit', function (): void {
+    $directory = Scratch::directory();
+    $progress = static fn(string $name): string => sprintf('%s/%s.jsonl', $directory, $name);
+    $silence = static fn(string $name): SilenceLimit => SilenceLimit::of(Seconds::of(0.5), $progress($name));
+    $workplace = workerPlace([
+        workerRun(['PROGRESS' => $progress('stalls'), 'ACT' => 'stall'], silence: $silence('stalls')),
+        workerRun(['PROGRESS' => $progress('silent'), 'ACT' => 'wait'], 1.0, $silence('silent')),
+        workerRun(['PROGRESS' => $progress('beats'), 'ACT' => 'beat'], silence: $silence('beats')),
+    ]);
+    $script = <<<'SH'
+        case "$ACT" in
+            stall) echo started >> "$PROGRESS"; sleep 30 ;;
+            wait) sleep 30 ;;
+            beat) for at in 1 2 3 4 5 6; do echo ended >> "$PROGRESS"; sleep 0.2; done ;;
+        esac
+        SH;
+
+    Worker::at($workplace->directory(), 0)->run(workerForking($script, $workplace->out(0)));
+    $ends = array_map(static fn(int $at): Ran|NotGiven => End::ranIn($workplace, $at), [0, 1, 2]);
+
+    expect(array_map(
+        static fn(Ran|NotGiven $ran): array => $ran instanceof Ran ? [$ran->wasSilenced(), $ran->wasStopped(), $ran->succeeded()] : [],
+        $ends,
+    ))->toBe([[true, true, false], [false, true, false], [false, false, true]])
+        ->and($ends[0] instanceof Ran ? Measured::of($ends[0])->seconds() : 30.0)->toBeLessThan(20.0);
 });
 
 it('starts no run once the job\'s end has come', function (): void {

@@ -22,3 +22,9 @@ it('leaves tests unmeasured where the map did not time one of them, or where the
     expect(OwnTime::of($map, TestIds::of(TestId::of('T::adds'), TestId::of('T::untimed'))))->toEqual(Unmeasured::duration())
         ->and(OwnTime::of($map, TestIds::none()))->toEqual(Unmeasured::duration());
 });
+
+it('times the slowest of tests as the map timed it, and leaves it unmeasured where one is untimed or there are none', function () use ($map): void {
+    expect(OwnTime::slowest($map, TestIds::of(TestId::of('T::subtracts'), TestId::of('T::adds'))))->toEqual(Seconds::of(0.5))
+        ->and(OwnTime::slowest($map, TestIds::of(TestId::of('T::adds'), TestId::of('T::untimed'))))->toEqual(Unmeasured::duration())
+        ->and(OwnTime::slowest($map, TestIds::none()))->toEqual(Unmeasured::duration());
+});

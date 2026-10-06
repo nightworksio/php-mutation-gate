@@ -14,13 +14,15 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
 /**
  * Runs programs as processes for the runners: one to its end, or several side
  * by side. A process still running at its command's deadline is stopped with
- * every process it started, so none is left running after the gate moves on.
+ * every process it started, so none is left running after the gate moves on,
+ * and so is one whose command has a silence limit, where the file the limit
+ * names has not grown for that long since it last grew, which its end says.
  * A program that cannot be started did not succeed, and says why. Each end
  * says how long the process ran.
  */
 interface Processes
 {
-    /** A command run to its end, or stopped at its deadline. */
+    /** A command run to its end, or stopped at its deadline or its silence limit. */
     public function run(ProcessCommand $command): Ran;
 
     /**

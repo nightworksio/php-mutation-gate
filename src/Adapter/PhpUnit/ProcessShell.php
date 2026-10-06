@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\SearchPath;
+use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Withholding;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
@@ -35,7 +36,8 @@ use NightWorksIO\MutationGate\Port\Processes;
  * - Where the command scans a memory cap's directory, its PHP processes scan
  *   it after the directories the inherited `PHP_INI_SCAN_DIR` names, or
  *   PHP's own where it names none (ADR-0004, decision 9).
- * - At its deadline it is stopped, and so is every process it started.
+ * - At its deadline it is stopped, and so is every process it started, as
+ *   it is where it has made no progress for its silence limit.
  * - A process that cannot start, or fails while running, ends as a failure,
  *   with the reason as its output.
  */
@@ -70,7 +72,7 @@ final readonly class ProcessShell implements Shell
     /** A command as a process runs it: in this shell's directory, told what the process must and must not see. */
     public function processCommandOf(Command $command): ProcessCommand
     {
-        return ProcessCommand::of($this->directory, ...$command->arguments())
+        $process = ProcessCommand::of($this->directory, ...$command->arguments())
             ->with(EnvironmentRead::of([
                 ...$this->scrubbed($command->withheld()),
                 ...$this->unset(),
@@ -78,6 +80,9 @@ final readonly class ProcessShell implements Shell
                 ...$this->capped($command),
             ]))
             ->within($command->deadline());
+        $silence = $command->silence();
+
+        return $silence instanceof SilenceLimit ? $process->silencedAfter($silence) : $process;
     }
 
     /**

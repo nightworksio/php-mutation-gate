@@ -857,6 +857,43 @@ it('stops a mutant\'s run where no test of it finishes for its silence limit, sh
         ->each->toStartWith('No test finished for ');
 })->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
+// The same, with PHPUnit, in a fresh process and forked from a warm worker:
+// its run is stopped where no test of it starts or ends for its silence
+// limit, as the results file the extension writes shows.
+it('stops a mutant\'s run where no test of it starts or ends for its silence limit, short of its own limit, with PHPUnit', function (Workers $workers): void {
+    $source = Tree::at(sprintf('%s/src/Stall.php', Library::PHPUNIT_DIRECTORY));
+    $spec = Tree::at(sprintf('%s/tests/StallSpec.php', Library::PHPUNIT_DIRECTORY));
+    copy(Tree::at('tests/Contract/Runner/stall/src/Stall.php'), $source);
+    copy(Tree::at('tests/Contract/Runner/stall/phpunit/StallSpec.php'), $spec);
+    $library = Library::phpunitWithin(LimitBounds::between(Seconds::of(1.0), Seconds::of(300.0)), 'phpunit under a floor of a second');
+
+    try {
+        $result = $library->runner()->mutate(MutationRequest::of(Paths::of(Path::of('src/Stall.php')), WholeSuite::tests())
+            ->narrowedTo(Paths::of(Path::of('src/Stall.php')), Narrowing::none()->toMutators($library->mutators('drains')))
+            ->across(Pool::of(ProcessCount::of(1), $workers)));
+    } finally {
+        unlink($source);
+        unlink($spec);
+    }
+
+    $mutants = $result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false) : [];
+    $seconds = static fn(Seconds|MemoryCap|Unmeasured $time): float => $time instanceof Seconds ? $time->seconds() : 0.0;
+
+    expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::TimedOut])
+        ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->limit()), $mutants))
+        ->each->toBeGreaterThan(11.0)
+        ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->duration()), $mutants))
+        ->each->toBeGreaterThan(7.0)->toBeLessThan(11.0)
+        ->and(array_map(
+            static fn(Mutant $mutant): string => $mutant->reason() instanceof Reason ? $mutant->reason()->text() : '',
+            $mutants,
+        ))
+        ->each->toStartWith('No test finished for ');
+})->with([
+    'in a fresh process' => [Workers::Fresh],
+    'forked from a warm worker' => [Workers::Fork],
+])->skip(! Library::isPhpUnitInstalled() || ! function_exists('pcntl_fork'), 'the runner contracts job installs the PHPUnit library, on a PHP that forks');
+
 // A floor of a millisecond is less than any covering test takes, so a
 // limit the floor capped would stop each mutant's run before its tests end.
 it('judges a mutant whose covering tests take longer than the floor, rather than stopping it at the floor, with PHPUnit', function (): void {

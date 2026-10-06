@@ -5,11 +5,21 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Job;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\WarmRun;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 it('reads back every run and setting it wrote, in order', function (): void {
     $runs = [
-        WarmRun::of(['/p/vendor/bin/phpunit', '--no-progress'], ['MUTATION_GATE_RESULTS' => '/r/1'], 12.5, '/p/src/A.php', '/m/1.php', '/g/1'),
-        WarmRun::of(['/p/vendor/bin/phpunit'], [], 5.0, '/p/src/B.php', '/m/2.php', '/g/2'),
+        WarmRun::of(
+            ['/p/vendor/bin/phpunit', '--no-progress'],
+            ['MUTATION_GATE_RESULTS' => '/r/1'],
+            12.5,
+            '/p/src/A.php',
+            '/m/1.php',
+            '/g/1',
+            SilenceLimit::of(Seconds::of(8.0), '/r/1'),
+        ),
+        WarmRun::of(['/p/vendor/bin/phpunit'], [], 5.0, '/p/src/B.php', '/m/2.php', '/g/2', NotGiven::value()),
     ];
     $job = Job::of('/p/vendor/autoload.php', '/p/phpunit.xml', ['/p/src/A.php', '/p/src/B.php'], 1700000000.25, $runs);
     $read = Job::read($job->written()->line());
@@ -21,6 +31,8 @@ it('reads back every run and setting it wrote, in order', function (): void {
         ->and($read->run(0)->environment())->toBe(['MUTATION_GATE_RESULTS' => '/r/1'])
         ->and($read->run(0)->limit())->toBe(12.5)
         ->and([$read->run(0)->mutated(), $read->run(0)->guard()])->toBe(['/m/1.php', '/g/1'])
+        ->and($read->run(0)->silence())->toEqual(SilenceLimit::of(Seconds::of(8.0), '/r/1'))
+        ->and($read->run(1)->silence())->toEqual(NotGiven::value())
         ->and([$read->autoloader(), $read->config(), $read->mutated(), $read->end()])
         ->toBe(['/p/vendor/autoload.php', '/p/phpunit.xml', ['/p/src/A.php', '/p/src/B.php'], 1700000000.25]);
 });

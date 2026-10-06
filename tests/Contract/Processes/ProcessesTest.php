@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Runner\Environment;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -36,6 +37,7 @@ function processesProgram(ProcessCommand $command): Ran
         $arguments[0] !== PHP_BINARY => Ran::finished(succeeded: false, output: 'The program cannot be started.'),
         $verb === 'say' => Ran::exited((int) (count($arguments) > 4 ? $arguments[4] : '0'), $first),
         $verb === 'tell' => Ran::exited(0, array_key_exists($first, $told) ? (string) $told[$first] : ''),
+        $verb === 'stall' => $command->silence() instanceof SilenceLimit ? Ran::silenced('') : processesSlept(30.0, $deadline),
         default => Ran::exited(0, (string) realpath($command->directory())),
     };
 
@@ -98,6 +100,17 @@ it('stops a program still running at its deadline', function (Processes $process
 
     expect($stopped->wasStopped())->toBeTrue()
         ->and($stopped->succeeded())->toBeFalse();
+})->with($implementations);
+
+it('stops a program at its silence limit where the file it names has not grown for that long since it last grew, before its deadline', function (Processes $processes): void {
+    $directory = Scratch::directory();
+    $progress = sprintf('%s/progress', $directory);
+    $silenced = $processes->run(processesCommand($directory, 'stall', $progress)
+        ->within(Seconds::of(20.0))
+        ->silencedAfter(SilenceLimit::of(Seconds::of(0.3), $progress)));
+
+    expect([$silenced->wasSilenced(), $silenced->wasStopped(), $silenced->succeeded()])->toBe([true, true, false])
+        ->and($silenced->duration() instanceof Seconds ? $silenced->duration()->seconds() : 20.0)->toBeLessThan(10.0);
 })->with($implementations);
 
 it('says a program that cannot be started did not succeed', function (Processes $processes): void {

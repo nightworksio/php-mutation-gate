@@ -17,7 +17,7 @@ afterEach(function (): void {
 /** A job of this many runs, which no run starts in after the end. */
 function claimsJob(int $runs, float|NotGiven $end): Job
 {
-    return Job::of('/p/vendor/autoload.php', NotGiven::value(), [], $end, array_fill(0, $runs, WarmRun::of([], [], 1.0, '', '', '')));
+    return Job::of('/p/vendor/autoload.php', NotGiven::value(), [], $end, array_fill(0, $runs, WarmRun::of([], [], 1.0, '', '', '', NotGiven::value())));
 }
 
 it('claims each run once, in order, across every worker, and none once all are claimed', function (): void {

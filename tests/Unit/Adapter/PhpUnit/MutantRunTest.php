@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Order\Ordering;
@@ -30,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -290,6 +292,33 @@ it('says how long the run took, and the limit of one that timed out', function (
 
     expect($done instanceof Mutant ? $done->duration() : null)->toEqual(Seconds::of(0.5))
         ->and($stopped instanceof Mutant ? [$stopped->duration(), $stopped->limit()] : [])->toEqual([Seconds::of(3.0), Seconds::of(3.0)]);
+});
+
+it('stops a run that selects its tests by their ids at its silence limit too, on its results file, and says so of a mutant it stopped there', function () use ($adds, $request): void {
+    $project = phpUnitProject();
+    $silenced = recording('', Ran::silenced('')->took(Seconds::of(2.0)));
+    $stopped = recording('', Ran::stopped('')->took(Seconds::of(3.0)));
+    $judged = static fn(PhpUnitShellFake $shell): Mutant|CannotJudge => new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project), PhpUnitScan::uncapped($project), NotGiven::value())
+        ->judged(moneyMutant($project), TestIds::of($adds), $request, Seconds::of(3.0), Seconds::of(1.0));
+    $quiet = $judged($silenced);
+    $late = $judged($stopped);
+    $command = $silenced->commands()[0];
+
+    expect($command->silence())->toEqual(SilenceLimit::of(Seconds::of(1.0), $command->environment()[Variable::Results->value]))
+        ->and(judgedAs($quiet))->toBe([MutantStatus::TimedOut, [], Reason::silent(Seconds::of(1.0))->text()])
+        ->and($quiet instanceof Mutant ? $quiet->limit() : null)->toEqual(Seconds::of(3.0))
+        ->and($late instanceof Mutant ? [$late->status(), $late->reason()] : [])->toEqual([MutantStatus::TimedOut, Unreported::reason()]);
+});
+
+it('gives a run that selects its tests by their files no silence limit, as it runs other tests too', function () use ($adds, $request): void {
+    $project = phpUnitProject();
+    Scratch::write($project->root(), 'tests/MoneySpec.php', "<?php\nnamespace Tests;\nfinal class MoneySpec {}\n");
+    $shell = recording('', Ran::finished(succeeded: true, output: ''));
+    new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project), PhpUnitScan::uncapped($project), NotGiven::value())
+        ->judged(moneyMutant($project), TestIds::of($adds, TestId::of("Tests\\MoneySpec::adds#with\nbreak")), $request, Seconds::of(3.0), Seconds::of(1.0));
+
+    expect($shell->commands()[0]->arguments()[8])->toStartWith('--test-files-file=')
+        ->and($shell->commands()[0]->silence())->toEqual(NotGiven::value());
 });
 
 it('selects the covering tests by their files where an id has a line break or ends in a carriage return', function (string $id) use ($adds): void {

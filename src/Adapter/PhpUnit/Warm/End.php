@@ -23,11 +23,14 @@ use function sprintf;
 /**
  * How a warm worker's child ended, as the worker writes it beside the run's
  * output once the child is gone: the code it exited with, the signal that
- * ended it, or that it was stopped at its limit; and how long it ran.
+ * ended it, or that it was stopped at its limit or its silence limit; and
+ * how long it ran.
  */
 final readonly class End
 {
     private const string WRITING = '%s.writing';
+
+    private const string SILENCED = 'silenced';
 
     private function __construct(private Json $record)
     {
@@ -52,6 +55,16 @@ final readonly class End
         return new self(
             Json::object(Member::of('stopped', value: true), Member::of('seconds', $seconds), ...$printed->members()),
         );
+    }
+
+    /** A child stopped where no test of it started or ended for its silence limit. */
+    public static function silenced(float $seconds, Printed $printed): self
+    {
+        return new self(Json::object(
+            Member::of(self::SILENCED, value: true),
+            Member::of('seconds', $seconds),
+            ...$printed->members(),
+        ));
     }
 
     /** Written whole, under its name only once it is all there. */
@@ -86,6 +99,7 @@ final readonly class End
         $ended = match (true) {
             $code->isPresent() => Ran::exited($code->integer(), $output),
             $signal->isPresent() => Ran::signalled($signal->integer(), $output),
+            $record->field(self::SILENCED)->isPresent() => Ran::silenced($output),
             default => Ran::stopped($output),
         };
 

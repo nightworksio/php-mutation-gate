@@ -7,6 +7,8 @@ namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 use function array_values;
 
 use NightWorksIO\MutationGate\Core\File\DiskPath;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\Uncapped;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -14,8 +16,9 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
 /**
  * A program the adapter runs on the PHP that runs the gate: its arguments,
- * the variables it is told, those it never sees, its deadline, and the
- * directory of the memory cap its PHP processes scan, where it has one.
+ * the variables it is told, those it never sees, its deadline, its silence
+ * limit and the directory of the memory cap its PHP processes scan, where it
+ * has them.
  */
 final readonly class Command
 {
@@ -38,6 +41,7 @@ final readonly class Command
         private Seconds|Unlimited $deadline,
         private DiskPath|Uncapped $scanned,
         private array $writing = [],
+        private SilenceLimit|NotGiven $silence = new NotGiven(),
     ) {
     }
 
@@ -59,6 +63,12 @@ final readonly class Command
     public function within(Seconds|Unlimited $deadline): self
     {
         return clone($this, ['deadline' => $deadline]);
+    }
+
+    /** This command, also stopped once it has made no progress for its silence limit. */
+    public function silencedAfter(SilenceLimit $silence): self
+    {
+        return clone($this, ['silence' => $silence]);
     }
 
     /**
@@ -99,6 +109,12 @@ final readonly class Command
     public function deadline(): Seconds|Unlimited
     {
         return $this->deadline;
+    }
+
+    /** How long it may go without progress; none where only its deadline stops it. */
+    public function silence(): SilenceLimit|NotGiven
+    {
+        return $this->silence;
     }
 
     /** The memory cap's directory its PHP processes scan too; none where it is uncapped. */
