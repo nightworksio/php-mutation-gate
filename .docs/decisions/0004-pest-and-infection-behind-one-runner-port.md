@@ -148,7 +148,8 @@ its parser attributes. Both change when the checkout moves.
      the mutator's full name, its family (ADR-0009), and the diff.
    - **status**, as the runner reported it:
      - killed, survived, uncovered or errored;
-     - timed out, or skipped (Infection's: too slow to run at all). Retries
+     - timed out, or skipped: too slow to run at all, because the tests
+       alone take its limit (Infection's own skip, and decision 8's). Retries
        run in the shard, and the timeout rule is applied at verdict time
        (ADR-0008);
      - unjudged: no result, because the budget ran out, the runner stopped
@@ -746,8 +747,10 @@ its parser attributes. Both change when the checkout moves.
         `Uncovered` event to `.mutation-gate/pest/mutants/<native id>.php`.
         Every run of the adapter starts with none left from an earlier one.
      2. The selected tests run once as they are, narrowed as in step 3, once
-        for each set of test files. If they fail, the mutant is unjudged:
-        *the selected tests fail on their own*.
+        for each set of test files, within the mutant's limit. If they fail,
+        the mutant is unjudged: *the selected tests fail on their own*. If
+        they are stopped at the limit, the mutant is skipped, with that
+        limit, since no run of it within the limit can judge it.
      3. For each mutant, one at a time, the gate runs
         `<vendor>/pestphp/pest/bin/pest --no-tia --bail --colors=never` over
         the selected test files, with `--group=holds:<path>` for a held unit,
@@ -778,7 +781,7 @@ its parser attributes. Both change when the checkout moves.
    - **What a run that judges nothing says.** Each run writes PHPUnit's
      JUnit log beside the guard (`--log-junit`). A mutant left unjudged by a
      run, on its own or with the override, carries after its reason, in
-     brackets: the exit code, or the limit the run was stopped at; the first
+     brackets: the exit code; the first
      test the log names as failed or errored, by its file and description,
      with the first line PHPUnit said of it, or, where none did and the run
      failed, the last line the run printed; and the test files it ran, the

@@ -7,8 +7,9 @@ namespace NightWorksIO\MutationGate\Core\Mutant;
 /**
  * What a runner reports of one mutant, the same for every runner. A mutant
  * the runner's own config ignored, where the config allows that, is ignored by
- * a native marker. A skipped mutant is one Infection never ran, because its
- * covering tests alone take as long as its timeout.
+ * a native marker. A skipped mutant is one the runner never ran, because its
+ * tests alone take as long as its timeout: Infection skips one so, and the
+ * Pest adapter skips a mutant on a line that is not executable so.
  */
 enum MutantStatus: string
 {

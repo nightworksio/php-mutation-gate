@@ -245,7 +245,7 @@ final readonly class Judging
         return $selector->judging($source, $source->changedAt($original->printed(), Contents::of($text)));
     }
 
-    /** The mutant as an outcome judges it, with the limit its run was allowed where it timed out. */
+    /** The mutant as an outcome judges it, with the limit its run was allowed where it ran out of time. */
     private function judged(Mutant $mutant, Outcome $outcome): Mutant
     {
         $limit = $outcome->limit();
@@ -261,7 +261,7 @@ final readonly class Judging
 
         return match (true) {
             $reason instanceof Reason => $judged->because($reason),
-            $outcome->status() === MutantStatus::TimedOut && $limit instanceof Seconds => $judged->withLimit($limit),
+            $outcome->status()->ranOutOfTime() && $limit instanceof Seconds => $judged->withLimit($limit),
             default => $judged,
         };
     }
