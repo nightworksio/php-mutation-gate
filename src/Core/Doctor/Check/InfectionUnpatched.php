@@ -9,8 +9,8 @@ use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Doctor\ComposerSetup;
 use NightWorksIO\MutationGate\Core\Doctor\Finding;
 use NightWorksIO\MutationGate\Core\Doctor\Findings;
-use NightWorksIO\MutationGate\Core\Doctor\InfectionPatch;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
+use NightWorksIO\MutationGate\Core\Doctor\Patched;
 use NightWorksIO\MutationGate\Core\Doctor\Severity;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
@@ -32,7 +32,7 @@ final readonly class InfectionUnpatched
         $infection = $settings instanceof Settings
             && $settings->runner()->choice()->use()->value() === BuiltinRunner::Infection->value;
 
-        return $infection && $composer instanceof ComposerSetup && $composer->infection() === InfectionPatch::Missing
+        return $infection && $composer instanceof ComposerSetup && $composer->infection() === Patched::Missing
             ? Findings::of(Finding::of(Slug::InfectionUnpatched, Severity::Advice, self::FOUND, self::WHY, self::FIX))
             : Findings::none();
     }

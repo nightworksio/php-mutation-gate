@@ -2,7 +2,8 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Infection\Patch;
+use NightWorksIO\MutationGate\Adapter\Infection\Patch as InfectionPatch;
+use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
@@ -12,10 +13,10 @@ use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Doctor\ComposerSetup;
 use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Doctor\InfectionConfig;
-use NightWorksIO\MutationGate\Core\Doctor\InfectionPatch;
 use NightWorksIO\MutationGate\Core\Doctor\InstalledRunners;
 use NightWorksIO\MutationGate\Core\Doctor\KeptLedger;
 use NightWorksIO\MutationGate\Core\Doctor\KeptLedgers;
+use NightWorksIO\MutationGate\Core\Doctor\Patched;
 use NightWorksIO\MutationGate\Core\Doctor\PhpUnitMemory;
 use NightWorksIO\MutationGate\Core\Doctor\RunnerPhp;
 use NightWorksIO\MutationGate\Core\Doctor\SonarSources;
@@ -39,6 +40,7 @@ use NightWorksIO\MutationGate\Tests\Support\Described;
 use NightWorksIO\MutationGate\Tests\Support\Doctored;
 use NightWorksIO\MutationGate\Tests\Support\FakePhp;
 use NightWorksIO\MutationGate\Tests\Support\InfectionSource;
+use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
 use NightWorksIO\MutationGate\Tests\Support\Repository;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -94,14 +96,27 @@ it('observes whether the installed Infection carries infection:patch', function 
     $project = Scratch::copy('tests/Fixtures/Projects/Library');
     $php = FakePhp::printing(Described::output(['pcov' => '1.0.12'], []));
     $observed = static fn(): mixed => Doctored::observed($project, sprintf('%s/php', $php))->of(CommandLine::nothing())->files()->composer();
-    $state = static fn(mixed $composer): InfectionPatch|string => $composer instanceof ComposerSetup ? $composer->infection() : 'unread';
+    $state = static fn(mixed $composer): Patched|string => $composer instanceof ComposerSetup ? $composer->infection() : 'unread';
     $none = $state($observed());
     $vendor = InfectionSource::pristine()->into(sprintf('%s/vendor', $project));
     $missing = $state($observed());
-    Patch::applyIn($vendor);
+    InfectionPatch::applyIn($vendor);
 
     expect([$none, $missing, $state($observed())])
-        ->toBe([InfectionPatch::NotInstalled, InfectionPatch::Missing, InfectionPatch::Applied]);
+        ->toBe([Patched::NotInstalled, Patched::Missing, Patched::Applied]);
+});
+
+it('observes whether the installed pest-plugin-mutate carries pest:patch', function (): void {
+    $project = Scratch::copy('tests/Fixtures/Projects/Library');
+    $php = FakePhp::printing(Described::output(['pcov' => '1.0.12'], []));
+    $observed = static fn(): mixed => Doctored::observed($project, sprintf('%s/php', $php))->of(CommandLine::nothing())->files()->composer();
+    $state = static fn(mixed $composer): Patched|string => $composer instanceof ComposerSetup ? $composer->pest() : 'unread';
+    $none = $state($observed());
+    $vendor = MutatePlugin::pristine()->into(sprintf('%s/vendor', $project));
+    $missing = $state($observed());
+    Patch::applyIn($vendor);
+
+    expect([$none, $missing, $state($observed())])->toBe([Patched::NotInstalled, Patched::Missing, Patched::Applied]);
 });
 
 it('observes the CI definitions that run the gate, the baseline, and the ledgers the directory store keeps', function (): void {

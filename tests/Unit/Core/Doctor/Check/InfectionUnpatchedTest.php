@@ -6,8 +6,8 @@ use NightWorksIO\MutationGate\Core\Doctor\Check\InfectionUnpatched;
 use NightWorksIO\MutationGate\Core\Doctor\ComposerSetup;
 use NightWorksIO\MutationGate\Core\Doctor\Finding;
 use NightWorksIO\MutationGate\Core\Doctor\Findings;
-use NightWorksIO\MutationGate\Core\Doctor\InfectionPatch;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
+use NightWorksIO\MutationGate\Core\Doctor\Patched;
 use NightWorksIO\MutationGate\Core\Doctor\ProjectFiles;
 use NightWorksIO\MutationGate\Core\Doctor\Severity;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -15,7 +15,7 @@ use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
 /** What the check finds for a project on this runner whose Infection is in this state. */
-function infectionUnpatchedIn(string $runner, InfectionPatch $patch): Findings
+function infectionUnpatchedIn(string $runner, Patched $patch): Findings
 {
     return InfectionUnpatched::in(Observations::none()
         ->withSettings(Configs::settings(['runner' => $runner]))
@@ -23,7 +23,7 @@ function infectionUnpatchedIn(string $runner, InfectionPatch $patch): Findings
 }
 
 it('advises infection:patch where the runner is Infection and its Infection does not carry it', function (): void {
-    expect(infectionUnpatchedIn('infection', InfectionPatch::Missing))->toEqual(Findings::of(Finding::of(
+    expect(infectionUnpatchedIn('infection', Patched::Missing))->toEqual(Findings::of(Finding::of(
         Slug::InfectionUnpatched,
         Severity::Advice,
         'The runner is Infection, and the installed Infection does not carry infection:patch.',
@@ -32,13 +32,13 @@ it('advises infection:patch where the runner is Infection and its Infection does
     )));
 });
 
-it('finds nothing where Infection carries the patch, is not installed, or is not the runner', function (string $runner, InfectionPatch $patch): void {
+it('finds nothing where Infection carries the patch, is not installed, or is not the runner', function (string $runner, Patched $patch): void {
     expect(infectionUnpatchedIn($runner, $patch))->toEqual(Findings::none());
 })->with([
-    'patched' => ['infection', InfectionPatch::Applied],
-    'not installed' => ['infection', InfectionPatch::NotInstalled],
-    'another runner' => ['pest', InfectionPatch::Missing],
-    'the PHPUnit runner' => ['phpunit', InfectionPatch::Missing],
+    'patched' => ['infection', Patched::Applied],
+    'not installed' => ['infection', Patched::NotInstalled],
+    'another runner' => ['pest', Patched::Missing],
+    'the PHPUnit runner' => ['phpunit', Patched::Missing],
 ]);
 
 it('finds nothing where nothing was read', function (): void {

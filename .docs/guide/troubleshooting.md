@@ -110,6 +110,17 @@ Add `@php vendor/bin/mutation-gate infection:patch` to `post-install-cmd` and
 applies only to the Infection releases the gate supports, and says which
 where the installed one is another.
 
+## pest-unpatched
+
+`pest.patch` is `true`, and the installed pest-plugin-mutate does not carry
+`pest:patch`. A patched shard opens on the canary group and reads the map the
+planning job handed it, which only the patched plugin can do, so the run
+refuses (ADR-0004).
+
+Add `@php vendor/bin/mutation-gate pest:patch` to `post-install-cmd` and
+`post-update-cmd` in `composer.json`, and run `composer install`. Or set
+`pest.patch: false`.
+
 ## mirrored-path-repository
 
 A `path` repository in `composer.json` sets `"symlink": false`, and a tree

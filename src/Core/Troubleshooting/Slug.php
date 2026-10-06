@@ -22,6 +22,7 @@ enum Slug: string
     case InfectionConfigToImport = 'infection-config-to-import';
     case NativeMarkersRefused = 'native-markers-refused';
     case InfectionUnpatched = 'infection-unpatched';
+    case PestUnpatched = 'pest-unpatched';
     case MirroredPathRepository = 'mirrored-path-repository';
     case IgnoresExpiring = 'ignores-expiring';
     case TreeWithoutFloor = 'tree-without-floor';
