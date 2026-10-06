@@ -24,11 +24,12 @@ use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 
 /**
  * What the `phpunit` runner's options say, as the flows write them: `tests`,
- * the directories the tests live in, `tests` by default; `timeout` and
- * `most`, the floor and the most of each mutant's limit, `timeouts.seconds`
- * and `timeouts.most`, their own defaults where none is written; and `mutators`, the classes of the mutators the gate
- * makes its mutants with (ADR-0023, decision 8). Without a mutator, the
- * runner can make no mutant, and says why.
+ * the directories the tests live in, read from the PHPUnit config, `tests`
+ * by default; `timeout` and `most`, the floor and the most of each mutant's
+ * limit, `timeouts.seconds` and `timeouts.most`, their own defaults where
+ * none is written; and `mutators`, the classes of the mutators the gate makes
+ * its mutants with (ADR-0023, decision 8). Without a mutator, the runner can
+ * make no mutant, and says why.
  */
 final readonly class PhpUnitOptions
 {
@@ -41,7 +42,8 @@ final readonly class PhpUnitOptions
     /** The option that holds the mutators' classes, which the flows write. */
     public const string MUTATORS = 'mutators';
 
-    private const string TESTS = 'tests';
+    /** The option that holds the directories the tests are in, which the flows write from the PHPUnit config. */
+    public const string TESTS = 'tests';
 
     private const string NO_MUTATORS
         = 'The phpunit runner makes its mutants with the default mutator set, and no extension registers one.';

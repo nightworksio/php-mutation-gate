@@ -9,6 +9,7 @@
     <testsuites>
         <testsuite name="Library">
             <directory suffix="Spec.php">tests</directory>
+            <directory suffix="Spec.php">plugins/*/tests</directory>
         </testsuite>
     </testsuites>
 

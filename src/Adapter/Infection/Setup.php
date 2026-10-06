@@ -30,11 +30,12 @@ use function sprintf;
  * `most`, the floor and the most of each mutant's limit, which the flows
  * write from `timeouts.seconds` and `timeouts.most`, their defaults where
  * none is written; `nativeMarkers`, `refuse` or `allow`, `ignores.native`,
- * `refuse` by default; `tests`, the directories the tests live in, `tests`
- * by default; `staticAnalysis`, `infection` or `gate`, who runs static
- * analysis over the mutants, `infection` by default; and `mutators`, the
- * classes of the registered mutators Infection makes mutants with beside its
- * own, which the flows write (ADR-0021), none by default.
+ * `refuse` by default; `tests`, the directories the tests live in, which the
+ * flows write from the PHPUnit config, `tests` by default; `staticAnalysis`,
+ * `infection` or `gate`, who runs static analysis over the mutants,
+ * `infection` by default; and `mutators`, the classes of the registered
+ * mutators Infection makes mutants with beside its own, which the flows write
+ * (ADR-0021), none by default.
  */
 final readonly class Setup
 {
@@ -50,7 +51,8 @@ final readonly class Setup
     /** The option that holds the registered mutators' classes, which the flows write. */
     public const string MUTATORS = 'mutators';
 
-    private const string TESTS = 'tests';
+    /** The option that holds the directories the tests are in, which the flows write from the PHPUnit config. */
+    public const string TESTS = 'tests';
 
     private const string MARKERS = 'nativeMarkers';
 

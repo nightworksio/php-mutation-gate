@@ -699,3 +699,53 @@ it('cannot wire a mutator set nobody registered, naming the one most likely mean
         Directory::at(Flows::project()),
     ))->toEqual(CannotJudge::because('No mutator set is registered as "acmee". Did you mean "acme"?'));
 });
+
+it('tells each runner the test directories the PHPUnit config declares, each glob expanded', function (): void {
+    $project = Flows::project();
+    Scratch::write($project, 'plugins/a/tests/ATest.php', '<?php');
+    Scratch::write($project, 'plugins/b/tests/BTest.php', '<?php');
+    Scratch::write($project, 'phpunit.xml', <<<'XML'
+        <?xml version="1.0"?>
+        <phpunit>
+            <testsuites>
+                <testsuite name="Unit"><directory>tests</directory></testsuite>
+                <testsuite name="Plugins"><directory>plugins/*/tests</directory></testsuite>
+            </testsuites>
+        </phpunit>
+        XML);
+    $wired = static fn(Runner $runner): Adapters|Invalid|CannotJudge => new Wiring(wiringRegistry(), Variables::of([]), wiringDetected())
+        ->adapters(Flows::settings($runner, Timeouts::seconds(45)), Directory::at($project));
+    $options = static fn(string ...$tests): string => (string) json_encode(['timeout' => 45.0, 'tests' => $tests]);
+    $declared = ['tests', 'plugins/a/tests', 'plugins/b/tests'];
+    $pest = $wired(Runner::pest());
+    $phpunit = $wired(Runner::phpunit());
+    $infection = $wired(Runner::infection());
+
+    expect($pest instanceof Adapters ? $pest->runner : $pest)->toEqual(PestRunner::fromOptions(
+        Configs::options($options(...$declared)),
+        ComposerVendor::of('.'),
+        new CapDirectory(),
+        new LocalProcesses(new SystemClock()),
+    ))
+        ->and($phpunit instanceof Adapters ? $phpunit->runner : $phpunit)->toEqual(PhpUnit::fromOptions(
+            Configs::options($options(...$declared)),
+            ComposerVendor::of('.'),
+            new CapDirectory(),
+            new LocalProcesses(new SystemClock()),
+        ))
+        ->and($infection instanceof Adapters ? $infection->runner : $infection)->toEqual(Infection::fromOptions(
+            Configs::options($options(...$declared)),
+            new CapDirectory(),
+            new LocalProcesses(new SystemClock()),
+        ));
+});
+
+it('cannot wire a runner where the PHPUnit config it would read the test directories from is not XML', function (): void {
+    $project = Flows::project();
+    Scratch::write($project, 'phpunit.xml', '<phpunit><testsuites>');
+
+    expect(new Wiring(wiringRegistry(), Variables::of([]), wiringDetected())->adapters(
+        Flows::settings(Runner::pest()),
+        Directory::at($project),
+    ))->toEqual(CannotJudge::because('phpunit.xml is not XML, so the test suite it declares cannot be read.'));
+});

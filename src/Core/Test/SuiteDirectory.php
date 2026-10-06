@@ -35,6 +35,12 @@ final readonly class SuiteDirectory
         return new self(TestsDirectory::conventional(), self::SUFFIX);
     }
 
+    /** The directory itself. */
+    public function path(): Path
+    {
+        return $this->path;
+    }
+
     /** Whether a file is inside this directory. */
     public function holds(Path $file): bool
     {

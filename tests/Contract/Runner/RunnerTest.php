@@ -93,8 +93,11 @@ const INFECTION_UNPATCHED = 'Unpatched, Infection gave each mutant its own limit
 // holds the same code tested by PHPUnit. The Pest and Infection libraries also
 // hold their runner's own ignore marker in marked/Marked.php; the PHPUnit
 // runner has none. Every library holds beside/Ledger.php too, outside src/,
-// which its phpunit.xml names as source and tests/LedgerSpec.php tests. The
-// runs are real, so each request runs once per library.
+// which its phpunit.xml names as source and tests/LedgerSpec.php tests, and
+// beside/Stock.php, which plugins/stock/tests/StockSpec.php tests, in a
+// testsuite directory its phpunit.xml gives as plugins/*/tests. Each adapter
+// is told the directories of its library's tests as the flows read them from
+// that phpunit.xml. The runs are real, so each request runs once per library.
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -438,6 +441,18 @@ it('measures a tree outside src/ that the project names as source, naming the te
     $judges = $map instanceof CoverageMap ? $library->runner()->judges(Path::of('beside/Ledger.php'), $map) : $map;
 
     expect($judges)->toEqual(Paths::of(Path::of('tests/LedgerSpec.php')));
+})->with($onDisk === [] ? ['none installed' => fn(): Library => Library::fake()] : $onDisk)
+    ->skip($onDisk === [], 'the runner contracts jobs install the libraries whose runner reads from disk');
+
+// A testsuite directory with a wildcard is each directory it matches, as
+// PHPUnit runs it, and the runner is told those directories, as the flows
+// tell it; read as written, plugins/*/tests is no directory, and its tests
+// would judge nothing.
+it('names a test file in a testsuite directory the config gives as a glob as one that judges what it covers', function (Library $library): void {
+    $map = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));
+    $judges = $map instanceof CoverageMap ? $library->runner()->judges(Path::of('beside/Stock.php'), $map) : $map;
+
+    expect($judges)->toEqual(Paths::of(Path::of('plugins/stock/tests/StockSpec.php')));
 })->with($onDisk === [] ? ['none installed' => fn(): Library => Library::fake()] : $onDisk)
     ->skip($onDisk === [], 'the runner contracts jobs install the libraries whose runner reads from disk');
 
