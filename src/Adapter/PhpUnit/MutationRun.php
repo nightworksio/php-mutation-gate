@@ -10,11 +10,15 @@ use function file_get_contents;
 use function getmypid;
 use function hrtime;
 use function in_array;
+use function is_array;
 use function iterator_to_array;
 
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Forked;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Workforce;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Cost\Laps;
+use NightWorksIO\MutationGate\Core\Cost\Step;
+use NightWorksIO\MutationGate\Core\Cost\StepTimes;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\OwnTime;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -67,6 +71,7 @@ final readonly class MutationRun
         private Engine $engine,
         private MutantRun $run,
         private Workforce $workforce,
+        private Laps $laps,
         private MutantIds|NotGiven $only = new NotGiven(),
     ) {
     }
@@ -74,37 +79,43 @@ final readonly class MutationRun
     /** This run, making only the mutants with these ids, as a run again does. */
     public function makingOnly(MutantIds $ids): self
     {
-        return new self($this->project, $this->engine, $this->run, $this->workforce, $ids);
+        return new self($this->project, $this->engine, $this->run, $this->workforce, $this->laps, $ids);
     }
 
     /** Each mutant, each of its runs stopped at its limit within these bounds. */
     public function of(MutationRequest $request, CoverageMap $map, LimitBounds $bounds): MutationResult|CannotJudge
     {
+        $end = $this->endOf($request->deadline());
+        $from = $this->laps->now();
         $made = $this->made($request);
-        $judged = $made instanceof CannotJudge ? $made : $this->judgedAll($made, $request, $map, $bounds);
+        $queue = $made instanceof CannotJudge ? $made : $this->queued($made, $request, $map, $bounds, $end);
+        $preparing = $this->laps->lap(Step::Preparing, $from, is_array($made) ? count($made) : 0);
+        $from = $this->laps->now();
+        $judged = $queue instanceof CannotJudge ? $queue : $this->judgedAll($queue, $request, $end);
 
         return match (true) {
             $judged instanceof CannotJudge => $judged,
             default => MutationResult::of(Mutants::of(...$judged->mutants()), count($made) - count($judged->mutants()))
-                ->withWarnings($judged->warnings()),
+                ->withWarnings($judged->warnings())
+                ->withSteps(StepTimes::of($preparing, $this->laps->lap(Step::Mutation, $from, count($queue)))),
         };
     }
 
     /**
-     * Each mutant judged, until the request's deadline: one no test covers
-     * without a run, and the rest by their runs, forked from warm workers
-     * where the request asks for them and fresh otherwise, in the order they
-     * were made; or why one cannot be.
+     * Each mutant ready to judge, until the request's deadline: one no test
+     * covers as it is, and the rest with their runs prepared, in the order
+     * they were made; or why one cannot be.
      *
-     * @param list<MadeMutant> $made
+     * @param  list<MadeMutant>             $made
+     * @return list<PreparedRun|Mutant>|CannotJudge
      */
-    private function judgedAll(
+    private function queued(
         array $made,
         MutationRequest $request,
         CoverageMap $map,
         LimitBounds $bounds,
-    ): Judged|CannotJudge {
-        $end = $this->endOf($request->deadline());
+        int|float $end,
+    ): array|CannotJudge {
         $queue = [];
 
         foreach ($made as $mutant) {
@@ -121,6 +132,18 @@ final readonly class MutationRun
             $queue[] = $prepared;
         }
 
+        return $queue;
+    }
+
+    /**
+     * Each mutant judged: one no test covers as it is, and the rest by their
+     * runs, forked from warm workers where the request asks for them and
+     * fresh otherwise, in their order.
+     *
+     * @param list<PreparedRun|Mutant> $queue
+     */
+    private function judgedAll(array $queue, MutationRequest $request, int|float $end): Judged
+    {
         $runs = array_filter($queue, static fn(PreparedRun|Mutant $prepared): bool => $prepared instanceof PreparedRun);
         $forked = $request->pool()->workers() === Workers::Fork
             ? $this->workforce->judged($request, $end, $runs)

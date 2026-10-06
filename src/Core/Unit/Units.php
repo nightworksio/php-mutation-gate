@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Unit;
 
 use function array_any;
+use function array_filter;
 use function array_values;
 
 use ArrayIterator;
@@ -64,6 +65,12 @@ final readonly class Units implements Countable, IteratorAggregate
     public function count(): int
     {
         return count($this->units);
+    }
+
+    /** How many of these units are held: judged by the tests that hold them, not the whole suite. */
+    public function held(): int
+    {
+        return count(array_filter($this->units, static fn(Unit $unit): bool => $unit->isHeld()));
     }
 
     /** @return Traversable<int, Unit> */

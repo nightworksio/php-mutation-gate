@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Fakes;
 
+use function count;
 use function explode;
 use function file_get_contents;
 use function in_array;
@@ -13,6 +14,9 @@ use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Cost\Step;
+use NightWorksIO\MutationGate\Core\Cost\StepTime;
+use NightWorksIO\MutationGate\Core\Cost\StepTimes;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -183,7 +187,8 @@ final readonly class RunnerFake implements Runner
             }
         }
 
-        return MutationResult::of($found, 0);
+        return MutationResult::of($found, 0)
+            ->withSteps(StepTimes::of(StepTime::of(Step::Mutation, Seconds::of(0.0), Seconds::of(0.0), count($found))));
     }
 
     public function retry(MutationRequest $request, Mutants $mutants, Seconds $limit): Mutants

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Mutant;
 
+use function array_filter;
 use function array_key_exists;
 use function array_map;
 use function array_values;
@@ -63,6 +64,12 @@ final readonly class Mutants implements Countable, IteratorAggregate
     public function count(): int
     {
         return count($this->mutants);
+    }
+
+    /** How many of these mutants have this status. */
+    public function counting(MutantStatus $status): int
+    {
+        return count(array_filter($this->mutants, static fn(Mutant $mutant): bool => $mutant->status() === $status));
     }
 
     /** @return Traversable<int, Mutant> */

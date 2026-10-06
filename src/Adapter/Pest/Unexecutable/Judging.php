@@ -101,7 +101,7 @@ final readonly class Judging
         $mutants = $this->judgedEach([...$result->mutants()], $selector, $trial, $results);
         $scan->remove();
 
-        return MutationResult::of(Mutants::of(...$mutants), $result->skipped());
+        return $result->withMutants(Mutants::of(...$mutants));
     }
 
     private function leftUncovered(Mutants $mutants): bool

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
@@ -36,4 +37,14 @@ it('leaves out the units at the paths of others', function () use ($paths): void
 
     expect($paths($units->except(Units::of(Unit::file(Path::of('src/B.php'))))))->toBe(['src/A.php', 'src/C.php'])
         ->and($paths($units->except(Units::none())))->toBe(['src/A.php', 'src/B.php', 'src/C.php']);
+});
+
+it('counts the units their holding tests judge', function (): void {
+    $units = Units::of(
+        Unit::file(Path::of('src/A.php')),
+        Unit::held(Path::of('src/Http'), Group::named('holds:src/Http')),
+    );
+
+    expect($units->held())->toBe(1)
+        ->and(Units::none()->held())->toBe(0);
 });

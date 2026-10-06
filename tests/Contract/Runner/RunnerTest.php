@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Triage;
+use NightWorksIO\MutationGate\Core\Cost\Step;
+use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
@@ -207,6 +209,20 @@ it('reports a killed, a survived, an uncovered and a timed-out mutant', function
         ->toEqualCanonicalizing($library->expected('adds', 'large', 'unused', 'drains'))
         ->and($result instanceof MutationResult ? array_map(static fn(Warning $warning): string => $warning->text(), [...$result->warnings()]) : ['cannot judge'])
         ->toBe($library->runner() instanceof Infection ? [INFECTION_UNPATCHED] : []);
+})->with($libraries);
+
+it('names the steps its time went to, in the order they started, the mutants\' run among them with every mutant it judged', function (Library $library) use ($money): void {
+    $result = $money($library);
+    $steps = $result instanceof MutationResult ? [...$result->steps()] : [];
+    $since = array_map(static fn(StepTime $step): float => $step->since()->seconds(), $steps);
+    $ordered = $since;
+    sort($ordered);
+    $mutation = array_values(array_filter($steps, static fn(StepTime $step): bool => $step->step() === Step::Mutation));
+
+    expect($mutation)->toHaveCount(1)
+        ->and($mutation[0]->count())->toBe($result instanceof MutationResult ? count($result->mutants()) : -1)
+        ->and($since)->toBe($ordered)
+        ->and(array_filter($steps, static fn(StepTime $step): bool => $step->took()->seconds() < 0.0))->toBe([]);
 })->with($libraries);
 
 it('reports the same four mutants from warm workers, and warns of nothing, with PHPUnit', function (): void {

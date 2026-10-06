@@ -13,8 +13,11 @@ use function dirname;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
-use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Judging;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Cost\Laps;
+use NightWorksIO\MutationGate\Core\Cost\Step;
+use NightWorksIO\MutationGate\Core\Cost\StepTime;
+use NightWorksIO\MutationGate\Core\Cost\StepTimes;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -130,18 +133,42 @@ final readonly class MutationRun
             return $results;
         }
 
+        $laps = Laps::since(fn(): Seconds => Seconds::of($this->clock->seconds()), Seconds::of($started));
+        $from = $laps->now();
         $shared = $this->shared($request);
-        $result = $shared instanceof CannotJudge ? $shared : $this->ran($request, $results, $shared, $started);
+        $read = $shared instanceof CoverageMap ? StepTimes::of($laps->lap(Step::Coverage, $from)) : StepTimes::none();
+        $result = $shared instanceof CannotJudge ? $shared : $this->ran($request, $results, $shared, $started, $laps);
+        $result = $result instanceof CannotJudge ? $result : $result->withStepsBefore($read);
 
         return $result instanceof CannotJudge || ! $this->narrows()
             ? $result
-            : $this->confirmed($result, $request, $started, $this->doubted($result, $request, $results, $started));
+            : $this->vouched($result, $request, $results, $started, $laps);
     }
 
-    /** A narrowed run's kills that must run again with every test file before they count (see NarrowedKills). */
-    private function doubted(MutationResult $result, MutationRequest $request, string $results, float $started): Mutants
+    /**
+     * The result, each narrowed kill its files alone cannot vouch for run
+     * again with every test file (see NarrowedKills), with the time each
+     * took.
+     */
+    private function vouched(
+        MutationResult $result,
+        MutationRequest $request,
+        string $results,
+        float $started,
+        Laps $laps,
+    ): MutationResult|CannotJudge {
+        $kills = NarrowedKills::in($result, $results);
+        $from = $laps->now();
+        $doubtful = $this->doubted($kills, $request, $started);
+        $baselines = StepTimes::of($laps->lap(Step::Baselines, $from, $kills->sets()));
+
+        return $this->confirmed($result->withSteps($baselines), $request, $started, $doubtful, $laps);
+    }
+
+    /** A narrowed run's kills that must run again with every test file before they count. */
+    private function doubted(NarrowedKills $kills, MutationRequest $request, float $started): Mutants
     {
-        return NarrowedKills::in($result, $results)->doubted(
+        return $kills->doubted(
             /**
              * @param  non-empty-list<list<string>> $sets
              * @return list<bool>
@@ -156,6 +183,7 @@ final readonly class MutationRun
         string $results,
         CoverageMap|Unshared $shared,
         float $started,
+        Laps $laps,
     ): MutationResult|CannotJudge {
         $command = Plan::handedOver($this->project, $request, $this->commandFor($request, $results, $shared));
         $scan = MemoryScan::beside($this->project, $results, $request->memory(), $this->files);
@@ -169,7 +197,9 @@ final readonly class MutationRun
             GateVariable::Only->value => OnlyList::write(OnlyList::beside($results), ...$this->only),
         ];
         $narrow = $this->narrows() ? [GateVariable::Narrow->value => '1'] : [];
+        $from = $laps->now();
         $ran = $this->shell->run($command->with([...$only, ...$narrow, ...$this->patching->bounding($this->bounds)]));
+        $mutation = $laps->lap(Step::Mutation, $from);
         $scan->remove();
         $coverage = $shared instanceof CoverageMap
             ? new HandedOver($shared, $this->project)
@@ -179,18 +209,20 @@ final readonly class MutationRun
         $opening = OpeningIssues::of($this->shell, $this->project, $request, $opensOn, $left, $results);
         $memory = $request->memory();
         $interpretation = new Interpretation($this->project, $this->patching, $memory, $this->bridges, $opening);
+        $from = $laps->now();
         $result = $interpretation->of($ran, $results, $coverage);
+        $reading = $laps->lap(Step::Reading, $from);
 
-        if ($result instanceof CannotJudge || $coverage instanceof CannotJudge) {
-            return $result;
-        }
-
-        $reads = new WholeMap($this->project, $this->remembered)->covering($request, $coverage, $shared);
-
-        return $reads instanceof CannotJudge
-            ? $reads
-            : new Judging($this->project, $this->shell, $this->files, $this->bounds)
-                ->of($result, $request, $results, $reads);
+        return $result instanceof CannotJudge || $coverage instanceof CannotJudge
+            ? $result
+            : new Trials($this->project, $this->shell, $this->files, $this->bounds, $this->remembered)->of(
+                $result->withSteps(StepTimes::of(StepTime::counted($mutation, count($result->mutants())), $reading)),
+                $request,
+                $results,
+                $coverage,
+                $shared,
+                $laps,
+            );
     }
 
     /** Whether each mutant's own run loads only the test files its covering tests need. */
@@ -208,20 +240,21 @@ final readonly class MutationRun
         MutationRequest $request,
         float $started,
         Mutants $doubtful,
+        Laps $laps,
     ): MutationResult|CannotJudge {
         if (count($doubtful) === 0) {
             return $result;
         }
 
+        $from = $laps->now();
         $left = $this->left($request, $started);
         $again = $left instanceof Seconds && $left->seconds() <= 0.0
             ? FoundAgain::among($doubtful, Mutants::none(), Reason::that(self::NO_TIME_TO_CONFIRM))
             : $this->whole()->again($doubtful, $left instanceof Seconds ? $request->within($left) : $request);
 
-        return $again instanceof CannotJudge ? $again : MutationResult::of(
-            FoundAgain::replacing($result->mutants(), $again),
-            $result->skipped(),
-        );
+        return $again instanceof CannotJudge ? $again : $result
+            ->withMutants(FoundAgain::replacing($result->mutants(), $again))
+            ->withSteps(StepTimes::of($laps->lap(Step::Confirmation, $from)));
     }
 
     /** The time left of the request's deadline since the run began. */

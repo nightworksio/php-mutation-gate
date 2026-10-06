@@ -83,6 +83,7 @@ final readonly class PhpUnit implements Runner
         private Engine|CannotJudge $engine,
         private LimitBounds $bounds,
         private CapFiles $files,
+        private Clock $clock = new WallClock(),
     ) {
         $this->tests = new TestFiles($project);
         $this->held = new HeldCoverage();
@@ -265,7 +266,14 @@ final readonly class PhpUnit implements Runner
         $project = $this->project->in($package);
 
         return $project->hasPhpUnit()
-            ? new self($project, $this->shell->in($project->root()), $this->engine, $this->bounds, $this->files)
+            ? new self(
+                $project,
+                $this->shell->in($project->root()),
+                $this->engine,
+                $this->bounds,
+                $this->files,
+                $this->clock,
+            )
             : CannotJudge::because(sprintf(self::NO_PROJECT, $package->value(), $project->vendor()->value()));
     }
 
@@ -278,6 +286,14 @@ final readonly class PhpUnit implements Runner
     /** A run of the gate's own mutants through this shell. */
     private function mutating(Shell $shell): Mutating
     {
-        return new Mutating($this->project, $shell, $this->tests, $this->files, $this->held, $this->engine);
+        return new Mutating(
+            $this->project,
+            $shell,
+            $this->tests,
+            $this->files,
+            $this->held,
+            $this->engine,
+            $this->clock,
+        );
     }
 }

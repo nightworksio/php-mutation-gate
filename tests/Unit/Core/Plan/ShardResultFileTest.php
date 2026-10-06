@@ -7,6 +7,9 @@ use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
 use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
 use NightWorksIO\MutationGate\Core\Analysis\UncheckedSurvivor;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Cost\Step;
+use NightWorksIO\MutationGate\Core\Cost\StepTime;
+use NightWorksIO\MutationGate\Core\Cost\StepTimes;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -217,6 +220,24 @@ it('lists what static analysis\'s checks of its survivors came to, and reads it 
         ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"staticChecks"');
 });
 
+it('lists the steps the shard\'s time went to under what it measured, a count only past one, and reads them back', function () use ($finished, $survivor, $measured): void {
+    $steps = StepTimes::of(
+        StepTime::of(Step::Mutation, Seconds::of(2.0), Seconds::of(30.5), 12),
+        StepTime::of(Step::Baselines, Seconds::of(33.0), Seconds::of(4.25)),
+    );
+    $result = $finished($survivor, $measured->withSteps($steps));
+    $written = ShardResultFile::encode($result);
+
+    expect($written)->toContain(
+        "\"steps\": [\n            {\n                \"step\": \"mutation\",\n                \"since\": 2.0,\n"
+            . "                \"seconds\": 30.5,\n                \"count\": 12\n            },\n"
+            . "            {\n                \"step\": \"baselines\",\n                \"since\": 33.0,\n"
+            . "                \"seconds\": 4.25\n            }\n        ]",
+    )
+        ->and(ShardResultFile::decode($written))->toEqual($result)
+        ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"steps"');
+});
+
 it('reads back a shard that could not judge', function () use ($measured): void {
     $stopped = CannotJudge::because('Pest stopped.');
     $result = ShardResult::of(Digest::of('9c1e'), ShardId::of(1), Keys::none(), $stopped, $measured);
@@ -255,6 +276,12 @@ it('refuses what is not a shard result, saying where it went wrong', function (s
             . '"measured": {"seconds": 1, "runner": "pest", "at": "2026-09-29T20:48:17Z"}, '
             . '"staticChecks": {"analysers": {}, "unchecked": [{"why": "bored", "file": "src/A.php"}]}}',
         'the file.staticChecks.unchecked[0].why is not why a survivor was left unchecked.',
+    ],
+    'a step the gate does not know' => [
+        '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "cannotJudge": "x", '
+            . '"measured": {"seconds": 1, "runner": "pest", "at": "2026-09-29T20:48:17Z", '
+            . '"steps": [{"step": "dozing", "since": 0, "seconds": 1}]}}',
+        'the file.measured.steps[0].step is not a step.',
     ],
     'an instant that is not one' => [
         '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "cannotJudge": "x", '

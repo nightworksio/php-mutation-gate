@@ -9,6 +9,7 @@ use Closure;
 use function max;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Cost\Laps;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -152,7 +153,9 @@ final readonly class Rerunning
         );
         $narrowing = $request->narrowing()->toMutators(Mutators::named($mutator));
         $narrowed = $request->narrowedTo(Paths::of($file), $narrowing);
-        $result = $run->of($narrowed, $prepared->coverage, $bounds);
+        // The flow times a run again whole, so its steps go untold, on a clock its deadline does not read.
+        $laps = Laps::fromNanoseconds(new WallClock()->nanoseconds(...));
+        $result = $run->of($narrowed, $prepared->coverage, $bounds, $laps);
 
         return $result instanceof CannotJudge ? $result : $result->mutants();
     }

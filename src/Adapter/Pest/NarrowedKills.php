@@ -80,6 +80,12 @@ final readonly class NarrowedKills
         return new self($doubtful, $narrowed);
     }
 
+    /** How many sets of files the narrowed kills were loaded with, each asked about once. */
+    public function sets(): int
+    {
+        return count($this->narrowed);
+    }
+
     /**
      * The doubtful kills, and each narrowed kill whose files' tests do not
      * pass on the unmutated code, as asked once for every set of files at

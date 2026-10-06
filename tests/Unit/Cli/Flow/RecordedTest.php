@@ -331,7 +331,7 @@ it('learns nothing of a unit a shard\'s budget ran out before', function () use 
         new PeakMemoryFake(NotGiven::value()),
         DecidingConfig::unread(),
     );
-    $results = recordedRanWith($plan, $project, ScriptedRunner::fixture(), $map(), Flows::settings(Budget::of('25s')), $setup);
+    $results = recordedRanWith($plan, $project, ScriptedRunner::fixture(), $map(), Flows::settings(Budget::of('45s')), $setup);
 
     new Recorded(Flows::adapters($project, [], $store))->write(
         $plan,

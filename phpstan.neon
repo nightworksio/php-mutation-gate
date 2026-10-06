@@ -579,6 +579,11 @@ services:
                     - TRUSTED_SOURCES # Buildkite's build.source values, not another CI's event names
                 'NightWorksIO\MutationGate\Core\Cost\StartUpSamples':
                     - STANDARD # runs of no test the plan times
+                'NightWorksIO\MutationGate\Core\Cost\Step':
+                    - Coverage # the step that readies coverage, not the directory a coverage run writes in
+                'NightWorksIO\MutationGate\Core\Plan\StepsRecord':
+                    - SECONDS # a key of a shard result's step, not of Pest's records
+                    - COUNT # a key of a shard result's step, not of Pest's records or an uncovered count
                 'NightWorksIO\MutationGate\Core\Report\JsonReport':
                     - FORMAT # the json report's version, not an exit code or an argument's place
                 'NightWorksIO\MutationGate\Core\Report\Commented':

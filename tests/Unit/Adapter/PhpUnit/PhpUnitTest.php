@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\PhpUnit\Clock;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Command;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Outcome;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnit;
@@ -13,6 +14,8 @@ use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Cost\Step;
+use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -31,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
@@ -247,6 +251,31 @@ it('mutates afresh each time, allowing each mutant its limit within the bounds, 
         ->toBe([$money->id()->value()])
         ->and($last->deadline())->toEqual(Seconds::of(6.5))
         ->and($coverageRuns)->toHaveCount(2);
+});
+
+it('names the steps its time went to: readying the coverage, preparing the mutants\' runs, and running them', function () use ($request): void {
+    $project = phpUnitRunnerProject();
+    $clock = new class implements Clock {
+        private float $read = 0.0;
+
+        public function seconds(): Seconds
+        {
+            $this->read += 1.0;
+
+            return Seconds::of($this->read - 1.0);
+        }
+    };
+    $result = new PhpUnit($project, phpUnitAnswering($project), Engine::with(new PlusToMinus()), LimitBounds::between(Seconds::of(5.0), Seconds::of(6.0)), new CapDirectory(), $clock)
+        ->mutate($request);
+
+    expect($result instanceof MutationResult ? array_map(
+        static fn(StepTime $step): array => [$step->step(), $step->since()->seconds(), $step->took()->seconds(), $step->count()],
+        [...$result->steps()],
+    ) : $result)->toBe([
+        [Step::Coverage, 1.0, 1.0, 1],
+        [Step::Preparing, 3.0, 1.0, 1],
+        [Step::Mutation, 5.0, 1.0, 1],
+    ]);
 });
 
 it('reproduces a mutant on its own, on the map its run read, with what PHPUnit printed', function () use ($request): void {

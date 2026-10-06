@@ -45,8 +45,10 @@ use function sprintf;
  * shard warns of, where it warns of anything, and `unjudged` the units its
  * budget ran out before, where there are any, and `staticChecks` what
  * static analysis's checks of its survivors came to, where they came to
- * anything (see SurvivorChecksRecord). A result that cannot be read is
- * refused, and the verdict reads that shard as having left no result.
+ * anything (see SurvivorChecksRecord). `measured.steps` holds the steps the
+ * shard's time went to, where it timed any (see StepsRecord). A result that
+ * cannot be read is refused, and the verdict reads that shard as having left
+ * no result.
  *
  * @internal the shape of the shard result file
  */
@@ -86,6 +88,9 @@ final readonly class ShardResultFile
                 'seconds' => $result->measured()->spent()->seconds(),
                 'runner' => $result->measured()->runner(),
                 'at' => $result->measured()->at()->value(),
+                ...count($result->measured()->steps()) > 0
+                    ? [StepsRecord::SECTION => StepsRecord::of($result->measured()->steps())]
+                    : [],
             ],
             ...$outcome instanceof CannotJudge ? [self::CANNOT_JUDGE => $outcome->why()] : [
                 'mutants' => array_map(
@@ -246,6 +251,6 @@ final readonly class ShardResultFile
             Seconds::of($measured->field('seconds')->number()),
             $measured->field('runner')->text(),
             $at instanceof CannotJudge ? throw NotInShape::at($measured->field('at')->at(), 'an instant') : $at,
-        );
+        )->withSteps(StepsRecord::read($measured->field(StepsRecord::SECTION)));
     }
 }

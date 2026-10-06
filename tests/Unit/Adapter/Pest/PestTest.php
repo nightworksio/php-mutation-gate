@@ -31,6 +31,8 @@ use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Config\Triage;
+use NightWorksIO\MutationGate\Core\Cost\Step;
+use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
@@ -399,7 +401,7 @@ it('mutates with a fresh results file, and reads what the plugin recorded', func
 
     $result = new Pest($at, $shell, Patching::off(), new CapDirectory(), Triage::standard()->bounds())->mutate(adapterMoney());
 
-    expect($result)->toEqual(MutationResult::of(Mutants::of(adapterMutant()), 0))
+    expect(adapterUntimed($result))->toEqual(MutationResult::of(Mutants::of(adapterMutant()), 0))
         ->and($shell->commands())
         ->toEqual([adapterInvocation()->mutation(adapterMoney(), WholeSuite::tests(), adapterResults($at))]);
 });
@@ -417,7 +419,7 @@ it('keeps every PHP process of a capped run to the cap, through an ini file besi
 
     $result = new Pest($at, $shell, Patching::off(), new CapDirectory(), Triage::standard()->bounds())->mutate($capped);
 
-    expect($result)->toEqual(MutationResult::of(Mutants::of(adapterMutant()), 0))
+    expect(adapterUntimed($result))->toEqual(MutationResult::of(Mutants::of(adapterMutant()), 0))
         ->and($shell->commands())->toEqual([
             adapterInvocation()->mutation($capped, WholeSuite::tests(), adapterResults($at))->with([
                 MemoryCap::SCAN_DIR => MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), $directory),
@@ -497,6 +499,10 @@ it('opens a patched shard on the canary group, with the planning job\'s map writ
     $result = new Pest($at, $shell, adapterCanary(), new CapDirectory(), Triage::standard()->bounds())->mutate($request);
 
     expect($result)->toBeInstanceOf(MutationResult::class)
+        ->and($result instanceof MutationResult ? array_slice(array_map(
+            static fn(StepTime $step): Step => $step->step(),
+            [...$result->steps()],
+        ), 0, 2) : [])->toBe([Step::Coverage, Step::Mutation])
         ->and($loaded instanceof CoverageFile ? $loaded->map($at) : $loaded)->toEqual(
             CoverageMap::of(CoveredLine::of(Path::of('src/Money.php'), 11, RUN_ADDS))
                 ->timedEach(TimedTest::of(RUN_ADDS, 1.25), TimedTest::of('Tests\B::c', 2.0)),
@@ -933,6 +939,14 @@ function adapterNarrowedKill(Project $at, bool $passAlone): ShellFake
     });
 }
 
+/** A result as it would be with no step timed: what a run found, whatever the wall clock read. */
+function adapterUntimed(MutationResult|CannotJudge $result): MutationResult|CannotJudge
+{
+    return $result instanceof MutationResult
+        ? MutationResult::of($result->mutants(), $result->skipped())->withWarnings($result->warnings())
+        : $result;
+}
+
 /** The test file a narrowed run of the project loads. */
 function adapterSpec(Project $at): string
 {
@@ -1057,10 +1071,38 @@ it('bounds the run of a narrowed kill\'s files alone, and its run again, by the 
         }
     };
 
-    new Pest($at, $shell, adapterCanary(), new CapDirectory(), Triage::standard()->bounds(), $clock)->mutate(adapterMoney()->within(Seconds::of(60.0)));
+    new Pest($at, $shell, adapterCanary(), new CapDirectory(), Triage::standard()->bounds(), $clock)->mutate(adapterMoney()->within(Seconds::of(200.0)));
 
     expect(array_map(static fn(Command $command): Seconds|Unlimited => $command->deadline(), $shell->commands()))
-        ->toEqual([Seconds::of(60.0), Seconds::of(50.0), Seconds::of(40.0)]);
+        ->toEqual([Seconds::of(200.0), Seconds::of(90.0), Seconds::of(60.0)]);
+});
+
+it('names the steps a patched run\'s time went to, each timed from when the run began', function (): void {
+    $at = adapterProject();
+    $shell = adapterNarrowedKill($at, passAlone: false);
+    $clock = new class implements Clock {
+        private float $read = 0.0;
+
+        public function seconds(): float
+        {
+            return $this->read += 10.0;
+        }
+    };
+
+    $result = new Pest($at, $shell, adapterCanary(), new CapDirectory(), Triage::standard()->bounds(), $clock)->mutate(adapterMoney());
+    $steps = $result instanceof MutationResult ? array_map(
+        static fn(StepTime $step): array => [$step->step(), $step->since()->seconds(), $step->took()->seconds(), $step->count()],
+        [...$result->steps()],
+    ) : $result;
+
+    expect($steps)->toBe([
+        [Step::Mutation, 20.0, 10.0, 1],
+        [Step::Reading, 40.0, 10.0, 1],
+        [Step::TrialCoverage, 60.0, 10.0, 1],
+        [Step::Trials, 80.0, 10.0, 1],
+        [Step::Baselines, 100.0, 10.0, 1],
+        [Step::Confirmation, 120.0, 110.0, 1],
+    ]);
 });
 
 it('leaves a narrowed kill unjudged where no time is left to run its files\' tests alone', function (): void {
@@ -1434,7 +1476,7 @@ it('makes the registered mutators\' mutants through the bridges it writes for it
 
     $result = new Pest($at, $shell, Patching::off(), new CapDirectory(), Triage::standard()->bounds(), bridges: $bridges)->mutate(adapterMoney());
 
-    expect($result)->toEqual(MutationResult::of(Mutants::of(adapterMutant()), 0))
+    expect(adapterUntimed($result))->toEqual(MutationResult::of(Mutants::of(adapterMutant()), 0))
         ->and($shell->commands())->toEqual([
             adapterInvocation()->mutation(adapterMoney(), WholeSuite::tests(), adapterResults($at), $bridges)
                 ->with(['MUTATION_GATE_MUTATORS' => $file]),

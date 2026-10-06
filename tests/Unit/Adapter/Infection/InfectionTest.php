@@ -23,6 +23,8 @@ use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Cost\Step;
+use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethod;
@@ -434,6 +436,34 @@ it('writes the map another job handed on in its own layout for a run judged by t
         ->and(count($shell->commands()))->toBe(1)
         ->and(infectionRan($shell)[0])->toContain(sprintf('--coverage=%s', $own))
         ->and(CoverageXml::read($at, DiskPath::of($own)))->toEqual($handed);
+});
+
+it('names the steps its time went to: the coverage it readies and reads, preparing, the mutants\' run, reading the logs', function (): void {
+    $at = infectionProject();
+    infectionHandedOn($at, 'planned');
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+        ->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
+    $clock = new class implements Clock {
+        private int $read = 0;
+
+        public function nanoseconds(): int
+        {
+            return Seconds::NANOSECONDS * $this->read++;
+        }
+    };
+    $result = new Infection($at, infectionShell($at, infectionKilled($at)), LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory(), clock: $clock)
+        ->mutate($request);
+
+    expect($result instanceof MutationResult ? array_map(
+        static fn(StepTime $step): array => [$step->step(), $step->since()->seconds(), $step->took()->seconds(), $step->count()],
+        [...$result->steps()],
+    ) : $result)->toBe([
+        [Step::Coverage, 1.0, 1.0, 1],
+        [Step::Coverage, 3.0, 1.0, 1],
+        [Step::Preparing, 5.0, 1.0, 1],
+        [Step::Mutation, 7.0, 1.0, 1],
+        [Step::Reading, 9.0, 1.0, 1],
+    ]);
 });
 
 it('cannot judge a handed-on map whose test class no test file declares', function (): void {
