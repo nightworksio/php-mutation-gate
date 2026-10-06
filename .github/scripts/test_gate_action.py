@@ -51,43 +51,43 @@ class Scope(unittest.TestCase):
 class Mode(unittest.TestCase):
     def test_auto_is_full_on_schedules_dispatches_releases_and_tags(self):
         for event in ("schedule", "workflow_dispatch", "release"):
-            self.assertEqual(action.mode_arguments("auto", "", event, "refs/heads/main", {}, "main"), ["--full"])
-        self.assertEqual(action.mode_arguments("auto", "", "push", "refs/tags/v1.0.0", {}, "main"), ["--full"])
+            self.assertEqual(action.mode_arguments("auto", "", event, "refs/heads/main", "main"), ["--full"])
+        self.assertEqual(action.mode_arguments("auto", "", "push", "refs/tags/v1.0.0", "main"), ["--full"])
 
-    def test_auto_on_a_pull_request_is_what_changed_since_its_base(self):
+    def test_auto_on_a_pull_request_is_what_changed_since_its_last_run(self):
         self.assertEqual(
-            action.mode_arguments("auto", "", "pull_request", "refs/pull/12/merge", PULL, "main"),
-            [f"--changed-since={'b' * 40}"],
+            action.mode_arguments("auto", "", "pull_request", "refs/pull/12/merge", "main"),
+            ["--changed-since=last-run"],
         )
 
     def test_auto_on_a_push_to_the_default_branch_is_what_changed_since_the_last_commit_that_passed(self):
         self.assertEqual(
-            action.mode_arguments("auto", "", "push", "refs/heads/main", {}, "main"), ["--changed-since=last-passed"]
+            action.mode_arguments("auto", "", "push", "refs/heads/main", "main"), ["--changed-since=last-passed"]
         )
 
     def test_a_branch_other_than_the_default_runs_from_the_default_branch(self):
         self.assertEqual(
-            action.mode_arguments("auto", "", "push", "refs/heads/feature", {}, "main"), ["--changed-since=origin/main"]
+            action.mode_arguments("auto", "", "push", "refs/heads/feature", "main"), ["--changed-since=origin/main"]
         )
         self.assertEqual(
-            action.mode_arguments("changed", "", "workflow_dispatch", "refs/heads/feature", {}, "main"),
+            action.mode_arguments("changed", "", "workflow_dispatch", "refs/heads/feature", "main"),
             ["--changed-since=origin/main"],
         )
 
     def test_changed_since_given_wins_over_the_event(self):
         self.assertEqual(
-            action.mode_arguments("changed", "v1.2.0", "pull_request", "refs/pull/12/merge", PULL, "main"),
+            action.mode_arguments("changed", "v1.2.0", "pull_request", "refs/pull/12/merge", "main"),
             ["--changed-since=v1.2.0"],
         )
 
     def test_full_is_full_whatever_the_event(self):
         self.assertEqual(
-            action.mode_arguments("full", "main", "pull_request", "refs/pull/12/merge", PULL, "main"), ["--full"]
+            action.mode_arguments("full", "main", "pull_request", "refs/pull/12/merge", "main"), ["--full"]
         )
 
     def test_refuses_a_mode_it_does_not_know(self):
         with self.assertRaises(action.Refused):
-            action.mode_arguments("fast", "", "push", "refs/heads/main", {}, "main")
+            action.mode_arguments("fast", "", "push", "refs/heads/main", "main")
 
 
 class Ledgers(unittest.TestCase):

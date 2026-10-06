@@ -44,7 +44,7 @@ on:
         type: string
         default: auto
       changed-since:
-        description: A git ref, or last-passed; where empty, the pull request's base on pull_request, the default branch on another branch, and last-passed on the default branch.
+        description: A git ref, last-passed or last-run; where empty, last-run on pull_request (the commit the pull request's last run judged, falling back to the default branch), the default branch on another branch, and last-passed on a push to the default branch.
         type: string
         default: ''
       budget:

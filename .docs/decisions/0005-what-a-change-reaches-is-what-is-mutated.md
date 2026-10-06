@@ -50,9 +50,10 @@ The same repository has two more needs.
      - `last-passed` means the newest commit of this scope whose verdict
        passed, which the ledger records (ADR-0007). With none recorded, the run
        is full.
-     - The package's GitHub action and reusable workflow pass the pull
-       request's base on `pull_request`, the default branch on any other
-       branch, and `last-passed` on the default branch (ADR-0011).
+     - The package's GitHub action and reusable workflow pass `last-run` on
+       `pull_request` (the commit the pull request's last run judged,
+       falling back to the default branch), the default branch on any other
+       branch, and `last-passed` on a push to the default branch (ADR-0011).
    - **`--full`** asks for a full run by name. It is accepted wherever
      `--changed-since` is, and the two together are an error (exit code 2).
 

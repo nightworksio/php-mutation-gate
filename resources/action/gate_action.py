@@ -108,14 +108,13 @@ def from_fork(payload: dict) -> bool:
     return bool(pull) and head != base
 
 
-def mode_arguments(
-    mode: str, changed_since: str, event: str, ref: str, payload: dict, default_branch: str
-) -> list[str]:
+def mode_arguments(mode: str, changed_since: str, event: str, ref: str, default_branch: str) -> list[str]:
     """The options that choose what the gate considers: every unit, or what changed since a ref.
 
-    With no base given, a pull request runs from its base, another branch
-    from the default branch, and the default branch from the last commit
-    whose verdict passed (ADR-0005, decision 2).
+    With no base given, a pull request runs from the commit its last run
+    judged, which the gate falls back to the default branch for, another
+    branch from the default branch, and the default branch from the last
+    commit whose verdict passed (ADR-0005, decision 2).
     """
     if mode not in MODES:
         raise Refused(f"mode is {mode!r}; it is auto, full or changed.")
@@ -124,9 +123,8 @@ def mode_arguments(
         return ["--full"]
     if changed_since:
         return [f"--changed-since={changed_since}"]
-    base = ((payload.get("pull_request") or {}).get("base") or {}).get("sha")
-    if event == "pull_request" and isinstance(base, str) and base:
-        return [f"--changed-since={base}"]
+    if event == "pull_request":
+        return ["--changed-since=last-run"]
     branch = ref.removeprefix(HEADS) if ref.startswith(HEADS) else ""
     if branch and default_branch and branch != default_branch:
         return [f"--changed-since=origin/{default_branch}"]
@@ -312,7 +310,7 @@ def _resolve() -> dict[str, str]:
         raise Refused(why)
     default_branch = os.environ.get("DEFAULT_BRANCH", "")
     arguments = mode_arguments(
-        os.environ.get("MODE", "auto"), os.environ.get("CHANGED_SINCE", ""), event, ref, payload, default_branch
+        os.environ.get("MODE", "auto"), os.environ.get("CHANGED_SINCE", ""), event, ref, default_branch
     )
     options = _options()
     kept = ledgers(event, ref, payload, default_branch, os.environ.get("CACHE") == "true")
