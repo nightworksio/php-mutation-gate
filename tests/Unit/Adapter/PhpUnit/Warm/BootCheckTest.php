@@ -51,7 +51,7 @@ it('lets a boot be forked from that holds no socket open and loaded no file the 
 });
 
 it('refuses a boot that holds a socket open, beyond the standard streams, naming the file of the boot that ran last', function (): void {
-    [$listing, $sockets] = bootCheckListing('2', 'name', '7');
+    [$listing, $sockets] = bootCheckListing('2', 'name', '3');
     $refusal = BootCheck::of([], bootCheckBoot(), $listing)->refusal();
 
     foreach ($sockets as $socket) {

@@ -228,11 +228,15 @@ it('gives its workers no deadline where the request has none, and the time left,
     $unlimited = killingWorkers();
     $limited = killingWorkers();
     warmMutation(warmLibrary(), $unlimited)->of(forking(1), $both, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
+    $started = hrtime(as_number: true);
     warmMutation(warmLibrary(), $limited)->of(forking(1)->within(Seconds::of(100.0)), $both, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
+    $spent = (hrtime(as_number: true) - $started) / Seconds::NANOSECONDS;
     $deadline = $limited->workers()[0]->deadline();
 
     expect($unlimited->workers()[0]->deadline())->toEqual(Unlimited::time())
-        ->and($deadline instanceof Seconds ? $deadline->seconds() : 0.0)->toBeGreaterThan(160.0)->toBeLessThanOrEqual(165.0);
+        ->and($deadline instanceof Seconds ? $deadline->seconds() : 0.0)
+        ->toBeGreaterThanOrEqual(165.0 - $spent)
+        ->toBeLessThanOrEqual(165.0);
 });
 
 it('starts no worker where no mutant has a run', function (): void {
