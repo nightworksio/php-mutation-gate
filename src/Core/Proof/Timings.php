@@ -31,14 +31,6 @@ use Traversable;
  */
 final readonly class Timings implements Countable, IteratorAggregate
 {
-    /**
-     * The weight a unit's newest measurement takes in its smoothed timing;
-     * the timing held takes the rest. It is the value that predicted the
-     * gate's own third full CI run best from the two before it (ADR-0006,
-     * decision 4).
-     */
-    public const float NEWEST = 0.9;
-
     /** @param array<string, Timing> $timings by unit */
     private function __construct(private array $timings)
     {
@@ -67,8 +59,8 @@ final readonly class Timings implements Countable, IteratorAggregate
 
     /**
      * These timings, as a run measured them, each smoothed over the unit's
-     * timing held from an earlier measurement by the same runner: the newest
-     * weighs `NEWEST`, and the held timing the rest. A unit with none held,
+     * timing held from an earlier measurement by the same runner, as
+     * `Timing::smoothedOver()` weighs them. A unit with none held,
      * or one an other runner measured or measured later, takes its newest
      * measurement as it is.
      */
@@ -79,7 +71,7 @@ final readonly class Timings implements Countable, IteratorAggregate
         foreach ($this->timings as $unit => $timing) {
             $before = array_key_exists($unit, $held->timings) ? $held->timings[$unit] : $timing;
             $blends = $before->runner() === $timing->runner() && $timing->at()->isAfter($before->at());
-            $smoothed[] = $blends ? $timing->over($before, self::NEWEST) : $timing;
+            $smoothed[] = $blends ? $timing->smoothedOver($before) : $timing;
         }
 
         return self::of(...$smoothed);

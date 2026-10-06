@@ -591,7 +591,7 @@ it('smooths what a shard teaches of a unit over the timing a ledger held of it f
     ));
     $seconds = static fn(Timing|NotGiven $timing): float => $timing instanceof Timing ? $timing->seconds()->seconds() : -1.0;
 
-    expect($seconds($learnt($held($by))))->toEqualWithDelta(Timings::NEWEST * $first + (1 - Timings::NEWEST) * 100.0, 1e-9)
+    expect($seconds($learnt($held($by))))->toEqualWithDelta(Timing::NEWEST * $first + (1 - Timing::NEWEST) * 100.0, 1e-9)
         ->and($seconds($learnt($held('another runner'))))->toEqualWithDelta($first, 1e-9)
         ->and($first)->toBeLessThan(100.0);
 });
