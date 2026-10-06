@@ -12,16 +12,17 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 
 /**
  * The `coverage` section (ADR-0023, decision 1), which the proofs part holds,
- * since the map it measures is kept beside the ledger. `incremental` judges
- * only: an entry is reused only under its own key, so it never changes what a
- * proof's key reads.
+ * since the map it measures is kept beside the ledger. `incremental` is not
+ * in a proof's key: an entry is reused only under its own key, so it never
+ * changes what a key reads. It decides how the gate runs, since the map it
+ * keeps tells what a changed test reaches (ADR-0005, decision 4).
  */
 final readonly class CoverageKeys
 {
     /** @return list<Field<Layer>> */
     public static function fields(): array
     {
-        $incremental = Field::optional('incremental', Flag::boolean(), Effect::JudgesOrReportsOnly);
+        $incremental = Field::optional('incremental', Flag::boolean(), Effect::DecidesHowTheGateRuns);
 
         return [Field::section(
             'coverage',

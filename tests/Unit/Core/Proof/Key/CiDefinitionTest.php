@@ -8,7 +8,7 @@ use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinition;
 
 $pin = str_repeat('3d', 20);
 
-it('reads the definition as it runs: no comments, no blank lines, and no commit an action is pinned at, quoted or not', function () use ($pin): void {
+it('reads the definition as it runs: without its comment lines, and with every pin and blank line', function () use ($pin): void {
     $definition = CiDefinition::at(Path::of('.github/workflows/mutation.yml'), Contents::of(sprintf(<<<'YAML'
         # The gate.
         name: mutation
@@ -19,30 +19,22 @@ it('reads the definition as it runs: no comments, no blank lines, and no commit 
               - uses: actions/checkout@%1$s # v7.0.1
                 with:
                   fetch-depth: 0
+              # The runtime.
               - uses: shivammathur/setup-php@%1$s
-                  # indented comment
-              - uses: "actions/upload-artifact@%1$s" # v4
-              - uses: actions/cache@v4
               - run: echo "#1"
         YAML, $pin)));
 
     expect($definition->path())->toEqual(Path::of('.github/workflows/mutation.yml'))
-        ->and($definition->asItRuns())->toBe(<<<'YAML'
+        ->and($definition->asItRuns())->toBe(sprintf(<<<'YAML'
             name: mutation
+
             jobs:
               mutation:
                 steps:
-                  - uses: actions/checkout@
+                  - uses: actions/checkout@%1$s # v7.0.1
                     with:
                       fetch-depth: 0
-                  - uses: shivammathur/setup-php@
-                  - uses: "actions/upload-artifact@"
-                  - uses: actions/cache@v4
+                  - uses: shivammathur/setup-php@%1$s
                   - run: echo "#1"
-            YAML);
-});
-
-it('keeps a pin that is not a commit', function (): void {
-    expect(CiDefinition::at(Path::of('ci.yml'), Contents::of('uses: actions/cache@abc # short'))->asItRuns())
-        ->toBe('uses: actions/cache@abc # short');
+            YAML, $pin));
 });

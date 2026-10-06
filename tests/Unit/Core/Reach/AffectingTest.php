@@ -81,25 +81,45 @@ it('lists no test for the gate\'s config where its change moved no setting that 
     ]);
 });
 
-it('lists every test for a CI definition that runs the gate, and none where it changed only its pins or comments', function (): void {
+it('lists every test for a CI definition that runs the gate, its pins among it, and none where it changed only its comment lines', function (): void {
     $before = "steps:\n  - uses: nightworksio/php-mutation-gate@0123456789abcdef0123456789abcdef01234567 # v1\n";
     $pinned = "steps:\n  - uses: nightworksio/php-mutation-gate@89abcdef0123456789abcdef0123456789abcdef # v1\n";
     $moved = "steps:\n  - uses: nightworksio/php-mutation-gate@0123456789abcdef0123456789abcdef01234567 # v1\n    with:\n      shards: 2\n";
     $definition = '.github/workflows/gate.yml';
     $change = Changes::of(Change::modified(Path::of($definition), Lines::none()));
 
-    $commented = sprintf("# The gate.\n\n%s", $before);
+    $commented = sprintf("# The gate.\n%s", $before);
 
     $repinned = Affected::to($change, [...Affected::FILES, $definition => $pinned], [$definition => $before]);
     $explained = Affected::to($change, [...Affected::FILES, $definition => $commented], [$definition => $before]);
     $edited = Affected::to($change, [...Affected::FILES, $definition => $moved], [$definition => $before]);
 
-    expect([$repinned->listsNone(), Affected::texts($repinned->nothingBecause())])->toBe([
+    expect([$explained->listsNone(), Affected::texts($explained->nothingBecause())])->toBe([
         true,
-        ['`.github/workflows/gate.yml` changed only its comments, blank lines or action pins, so it lists no test.'],
-    ])->and($explained->listsNone())->toBeTrue()
+        ['`.github/workflows/gate.yml` changed only its comment lines, so it lists no test.'],
+    ])->and($repinned->isEvery())->toBeTrue()
         ->and($edited->isEvery())->toBeTrue();
 });
+
+it('lists every test where a file that decides how the gate runs was renamed, added or deleted, however alike it reads', function (Change $change): void {
+    $definition = "steps:\n  - run: composer test\n";
+    $affected = Affected::to(
+        Changes::of($change),
+        [...Affected::FILES, $change->path()->value() => $definition],
+        [...Affected::FILES, $change->previousPath()->value() => $definition],
+        [],
+        $change->path()->value(),
+        $change->previousPath()->value(),
+    );
+
+    expect($affected->isEvery())->toBeTrue();
+})->with([
+    'the config renamed' => [fn(): Change => Change::renamed(Path::of('mutation-gate.yaml'), Path::of('mutation-gate.json'), Lines::none())],
+    'a config added' => [fn(): Change => Change::added(Path::of('mutation-gate.json'), Lines::none())],
+    'the config deleted' => [fn(): Change => Change::deleted(Path::of('mutation-gate.json'))],
+    'a CI definition renamed onto it' => [fn(): Change => Change::renamed(Path::of('.github/workflows/old.yml'), Path::of('.github/workflows/gate.yml'), Lines::none())],
+    'a CI definition moved away' => [fn(): Change => Change::renamed(Path::of('.github/workflows/gate.yml'), Path::of('.github/gate.yml'), Lines::none())],
+]);
 
 it('lists every test for a file no rule places, and none for one proofs.ignore matches', function () use ($modified): void {
     $template = Affected::to(Changes::of($modified('resources/invoice.twig')));

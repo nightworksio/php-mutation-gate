@@ -92,37 +92,37 @@ final readonly class Builtins
     /** The proof stores, whose paths are named from the layer's origin. */
     public static function stores(PathOrigin $origin): self
     {
-        $judges = Effect::JudgesOrReportsOnly;
+        $decides = Effect::DecidesHowTheGateRuns;
 
         return self::of([
             BuiltinStore::Directory->value => Section::options(
                 Json::object(Member::of('path', Workspace::ledger()->value())),
-                Field::optional('path', Location::path($origin), $judges),
+                Field::optional('path', Location::path($origin), $decides),
             ),
             BuiltinStore::S3->value => Section::options(
                 Json::object(Member::of('prefix', ThisPackage::NAME))
                     ->with(Member::of('region', 'us-east-1'))
                     ->with(Member::of(StoreOption::InsecureEndpoint->value, value: false)),
-                Field::required('bucket', Text::of('a bucket name'), $judges),
-                Field::optional('prefix', Text::of('a key prefix'), $judges),
-                Field::optional('region', StoreName::S3Region->text(), $judges),
-                Field::optional('endpoint', Url::web(), $judges),
-                Field::optional(StoreOption::InsecureEndpoint->value, Flag::boolean(), $judges),
-                Field::optional('publicUrl', Url::base(), $judges),
+                Field::required('bucket', Text::of('a bucket name'), $decides),
+                Field::optional('prefix', Text::of('a key prefix'), $decides),
+                Field::optional('region', StoreName::S3Region->text(), $decides),
+                Field::optional('endpoint', Url::web(), $decides),
+                Field::optional(StoreOption::InsecureEndpoint->value, Flag::boolean(), $decides),
+                Field::optional('publicUrl', Url::base(), $decides),
             ),
             BuiltinStore::Gcs->value => Section::options(
                 Json::object(Member::of('prefix', ThisPackage::NAME)),
-                Field::required('bucket', StoreName::GcsBucket->text(), $judges),
-                Field::optional('prefix', Text::of('a key prefix'), $judges),
-                Field::optional('publicUrl', Url::base(), $judges),
+                Field::required('bucket', StoreName::GcsBucket->text(), $decides),
+                Field::optional('prefix', Text::of('a key prefix'), $decides),
+                Field::optional('publicUrl', Url::base(), $decides),
             ),
             BuiltinStore::Azure->value => Section::options(
                 Json::object(Member::of('prefix', ThisPackage::NAME)),
-                Field::required('account', StoreName::AzureAccount->text(), $judges),
-                Field::required('container', StoreName::AzureContainer->text(), $judges),
-                Field::optional('prefix', Text::of('a key prefix'), $judges),
-                Field::optional('publicContainer', StoreName::AzureContainer->text(), $judges),
-                Field::optional('publicUrl', Url::base(), $judges),
+                Field::required('account', StoreName::AzureAccount->text(), $decides),
+                Field::required('container', StoreName::AzureContainer->text(), $decides),
+                Field::optional('prefix', Text::of('a key prefix'), $decides),
+                Field::optional('publicContainer', StoreName::AzureContainer->text(), $decides),
+                Field::optional('publicUrl', Url::base(), $decides),
             ),
         ], $origin);
     }

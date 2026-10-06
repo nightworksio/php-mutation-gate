@@ -38,7 +38,7 @@ final readonly class SetupKeys
                     Items::of(Text::of('a class name')),
                     static fn(Listed $classes): Layer => Layer::of(Setup::of(extensions: $classes)),
                 ),
-                $judges,
+                $results,
             ),
             Field::optional(
                 'preset',
@@ -46,7 +46,7 @@ final readonly class SetupKeys
                     Presets::named(),
                     static fn(Listed $names): Layer => Layer::of(Setup::of(presets: $names)),
                 ),
-                $judges,
+                Effect::DecidesHowTheGateRuns,
             ),
             Field::optional(
                 'runner',

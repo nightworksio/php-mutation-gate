@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Registered;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\Canonical;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\ChosenRunner;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
@@ -404,7 +405,7 @@ it('says whether the config file or the command line chooses the runner, rather 
         ->and($effective($unreadable)->choosesRunner($nothing()))->toBeFalse();
 });
 
-it('reads the result-affecting config a copy of the config file sets in its place, the command line over it', function () use ($effective): void {
+it('reads what decides how the gate runs in the config a copy of the config file sets, the command line over it', function () use ($effective): void {
     $project = Scratch::directory();
     Scratch::write($project, 'mutation-gate.json', '{"runner": "pest", "trees": [{"path": "src", "floor": 90}]}');
     Scratch::write($project, '.mutation-gate/base/mutation-gate.json', '{"runner": "pest", "trees": [{"path": "src", "floor": 80}]}');
@@ -417,10 +418,10 @@ it('reads the result-affecting config a copy of the config file sets in its plac
         Path::of($project),
     );
 
-    expect($effective($project)->canonicalOf($line, $copy('.mutation-gate/base')))
-        ->toBe($now instanceof Settings ? $now->canonical() : $now)
-        ->and($effective($project)->canonicalOf($line, $copy('.mutation-gate/moved')))
-        ->not->toBe($now instanceof Settings ? $now->canonical() : $now);
+    expect($effective($project)->decidingOf($line, $copy('.mutation-gate/base')))
+        ->toBe($now instanceof Settings ? Canonical::decidingIn($now) : $now)
+        ->and($effective($project)->decidingOf($line, $copy('.mutation-gate/moved')))
+        ->not->toBe($now instanceof Settings ? Canonical::decidingIn($now) : $now);
 });
 
 it('cannot read the config a copy sets where the copy is not a config', function () use ($effective): void {
@@ -428,7 +429,7 @@ it('cannot read the config a copy sets where the copy is not a config', function
     Scratch::write($project, 'mutation-gate.json', '{"runner": "pest"}');
     Scratch::write($project, '.mutation-gate/base/mutation-gate.json', '{"runner": 3}');
 
-    expect($effective($project)->canonicalOf(CommandLine::nothing(), ConfigFile::copyOf(
+    expect($effective($project)->decidingOf(CommandLine::nothing(), ConfigFile::copyOf(
         Path::of(sprintf('%s/.mutation-gate/base/mutation-gate.json', $project)),
         Path::of(sprintf('%s/mutation-gate.json', $project)),
         Path::of($project),

@@ -43,7 +43,11 @@ final readonly class RunnerChoice implements Shape
         $judges = Effect::JudgesOrReportsOnly;
         $use = Field::optional('use', Text::of('a name or a class'), $judges);
         $with = Field::optional('with', OpenObject::any(), $judges);
-        $withhold = Field::optional('withhold', Items::of(Text::of('a variable name or a glob')), $judges);
+        $withhold = Field::optional(
+            'withhold',
+            Items::of(Text::of('a variable name or a glob')),
+            Effect::AffectsResults,
+        );
         $memory = Field::optional('memory', MemoryAmount::written(), Effect::AffectsResults);
         $workers = Field::optional('workers', Enumerated::of(Workers::cases()), Effect::AffectsResults);
 
@@ -127,7 +131,7 @@ final readonly class RunnerChoice implements Shape
     {
         return [
             ...$this->adapter->effects(),
-            '.withhold' => Effect::JudgesOrReportsOnly,
+            '.withhold' => Effect::AffectsResults,
             '.memory' => Effect::AffectsResults,
             '.workers' => Effect::AffectsResults,
         ];

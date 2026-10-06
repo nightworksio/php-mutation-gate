@@ -23,14 +23,14 @@ final readonly class CiKeys
     /** @return list<Field<Layer>> */
     public static function fields(PathOrigin $origin): array
     {
-        $judges = Effect::JudgesOrReportsOnly;
-        $plan = Field::optional('plan', Adapter::choosing(Builtins::ciPlans($origin)), $judges);
-        $branch = Field::optional('defaultBranch', Text::of('a branch name'), $judges);
-        $check = Field::optional('check', Text::of('a check-run name'), $judges);
-        $trust = Field::optional('trustMergedPullRequests', Flag::boolean(), $judges);
+        $decides = Effect::DecidesHowTheGateRuns;
+        $plan = Field::optional('plan', Adapter::choosing(Builtins::ciPlans($origin)), $decides);
+        $branch = Field::optional('defaultBranch', Text::of('a branch name'), $decides);
+        $check = Field::optional('check', Text::of('a check-run name'), $decides);
+        $trust = Field::optional('trustMergedPullRequests', Flag::boolean(), $decides);
         $results = Effect::AffectsResults;
         $template = Field::optional('template', Location::path($origin), $results);
-        $step = Field::optional('step', StepTemplate::buildkite(), $judges);
+        $step = Field::optional('step', StepTemplate::buildkite(), $results);
         $definition = Field::optional(CiJob::DEFINITION, Location::path($origin), $results);
         $azure = self::defined('azure', $origin, static fn(Path|Absent $path): Ci => Ci::of(azureDefinition: $path));
         $bitbucket = self::defined(

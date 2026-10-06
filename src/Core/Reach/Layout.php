@@ -8,6 +8,7 @@ use function array_any;
 use function array_map;
 use function array_values;
 
+use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\File\Glob;
@@ -125,6 +126,18 @@ final readonly class Layout
     public function runsTheGate(Path $file): bool
     {
         return $this->definitions->matches($file);
+    }
+
+    /** The path of a change, as it is or as it was, that is a CI definition that runs the gate, where one is. */
+    public function definitionIn(Change $change): Path|NotDeciding
+    {
+        foreach (Paths::of($change->path(), $change->previousPath()) as $path) {
+            if ($this->runsTheGate($path)) {
+                return $path;
+            }
+        }
+
+        return NotDeciding::change();
     }
 
     /**

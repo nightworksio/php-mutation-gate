@@ -117,22 +117,36 @@ The same repository has two more needs.
       `.circleci/config.yml`; and none under the JSON plan or locally.
 
       Two of these files reach everything only where what they decide
-      changed, so that reach moves exactly when every proof's key moves
-      (ADR-0007, decision 2):
-      - **The gate's config file the run reads.** It reaches everything only
-        where the settings that affect results, serialised canonically as
-        key item 3 holds them, differ between the base and now, each read
-        with the presets and the command line the run lays over it. A change
+      changed, and only where the change leaves the file in its place. A
+      change that renames, moves, adds or deletes either of them, or any
+      other file on this list, decides anew where the gate looks, so it
+      reaches everything however alike the file reads. Carried results are
+      never checked against the key (ADR-0007), so each comparison keeps
+      everything it cannot prove decides nothing:
+      - **The gate's config file the run reads.** It reaches everything
+        where any setting but those that only judge or report differs
+        between the base and now, each version read by the loader the run
+        reads it with, with the presets and the command line the run lays
+        over it. That compares the settings that affect results (key item
+        3), the settings that decide how the gate runs without changing a
+        result, such as `reach.everything`, `ci.check` or `proofs.store`
+        (ADR-0007, decision 2), and any key no setting declares. A change
         to a floor, an ignore, a report or another setting that only judges
         or reports reaches nothing: every proof still stands, and the verdict
         judges the carried results by the settings as they are now. Where
         either version cannot be read, the file reaches everything.
-      - **A CI definition that runs the gate.** It reaches everything only
-        where it runs the gate otherwise, read as key item 7 reads it:
-        without its comment lines, its blank lines, and the commit each
-        action is pinned at (`uses: owner/repo@<40-hex sha>`, with or
-        without a trailing comment). A comment or a pin move changes which
-        revision of an action runs, not how the gate cuts, runs or judges.
+      - **A CI definition that runs the gate.** It reaches everything unless
+        the change moved only its comment lines between nodes, read as key
+        item 6 reads it. A blank line, a comment after a value or inside
+        one, a line of a block scalar and the commit an action is pinned at
+        all count: a pin can move the gate's own action or the runtime it
+        runs on. Where the definition holds YAML whose values cannot be
+        bounded line by line (an anchor, an alias, a tag, a merge key, a
+        complex key, a second document, a directive, a quote or a flow
+        collection left open, or a value carried onto the next line), or a
+        carriage return, a tab, another control character, a byte order
+        mark, NEL or a Unicode line or paragraph separator, every line
+        counts.
 
       Every other file on this list reaches everything whenever it changes.
    2. **A changed source file in a tree reaches that unit.**
