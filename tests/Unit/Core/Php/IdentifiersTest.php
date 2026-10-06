@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Php\Identifiers;
 
+pest()->group('holds:src/Core/Php/Identifiers.php');
+
 /** @return list<string> the text of each token the code holds as a name, once each semi-reserved name is read as one */
 function identifiersNamed(string $code): array
 {

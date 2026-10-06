@@ -40,6 +40,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
+pest()->group('holds:src/Core/Config/Floors.php', 'holds:src/Core/Config/Shards.php');
+
 /** The effective config of `{"runner": "pest"}`: every other setting at its default. */
 const DEFAULTS = <<<'JSON'
     {
@@ -1101,6 +1103,20 @@ it('names each CI\'s pipeline file in a config written as PHP', function (): voi
         ->toContain('StaticCheck::seconds(45)')
         ->toContain('Survivors::firstAtMost(5)');
 });
+
+it('writes how uncovered mutants count and the baseline\'s path and improvement into a config written as PHP', function (array $config, string $with): void {
+    expect(Configs::valid(['runner' => 'pest', ...$config])->php(ProjectRoot::origin())->code())
+        ->toContain(sprintf("    ->with(\n%s\n    )", $with));
+})->with([
+    'excluded, at a path, reported' => [
+        ['uncovered' => 'exclude', 'baseline' => ['path' => 'build/baseline.json', 'improvement' => 'report']],
+        "        Uncovered::excluded(),\n        Baseline::at('build/baseline.json'),\n        Baseline::reportingImprovement(),",
+    ],
+    'counted, required' => [
+        ['uncovered' => 'count', 'baseline' => ['improvement' => 'require']],
+        "        Uncovered::counted(),\n        Baseline::requiringImprovement(),",
+    ],
+]);
 
 it('hands on a name in a map that reads as a number as text, to the cost model and to a config written as PHP', function (): void {
     $json = '{"runner": "pest", "costs": {"secondsPerLine": {"12": 2}}, "badge": {"colors": {"12": 50}}, '

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Php;
 
 use function array_key_exists;
-use function array_keys;
 use function array_map;
 use function array_push;
 use function count;
@@ -21,7 +20,6 @@ use PhpToken;
 
 use function preg_match_all;
 use function str_replace;
-use function strval;
 use function trim;
 
 /**
@@ -224,7 +222,7 @@ final readonly class PhpFile
     /** A name without its namespace. */
     private static function lastSegment(string $name): string
     {
-        $segments = explode('\\', str_replace('\\\\', '\\', $name));
+        $segments = explode('\\', $name);
 
         return $segments[count($segments) - 1];
     }
@@ -240,14 +238,14 @@ final readonly class PhpFile
 
         foreach ($tokens as $token) {
             if ($token->is(Names::TOKENS)) {
-                $spelt[$token->text] = true;
+                $spelt[$token->text] = $token->text;
             }
         }
 
         $names = [];
 
-        foreach (array_keys($spelt) as $name) {
-            $names[] = $scope->resolveAny(strval($name));
+        foreach ($spelt as $name) {
+            $names[] = $scope->resolveAny($name);
         }
 
         return Names::of()->merge(...$names);

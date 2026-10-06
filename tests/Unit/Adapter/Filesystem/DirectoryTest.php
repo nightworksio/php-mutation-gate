@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\Format\TooLarge;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
+pest()->group('holds:src/Adapter/Filesystem/Directory.php');
+
 afterEach(function (): void {
     Scratch::sweep();
 });
@@ -298,6 +300,24 @@ it('leaves no file anywhere for a write into a directory it cannot write', funct
     expect($written)->toEqual(CannotJudge::because(sprintf('%s/locked/unwritable-plan.json could not be written.', $root)))
         ->and($beside())->toBe($before)
         ->and(scandir(sprintf('%s/locked', $root)))->toBe(['.', '..']);
+});
+
+it('takes no piece of a stream it has made no file for in the directory it writes to', function (): void {
+    $root = Scratch::directory();
+    mkdir(sprintf('%s/locked', $root), 0o500);
+    $taken = new ArrayObject();
+    $pieces = (static function () use ($taken): Generator {
+        $taken->append('first');
+
+        yield 'x';
+    })();
+    set_error_handler(static fn(): bool => true);
+    $written = Directory::at($root)->stream(Path::of('locked/matrix.csv'), $pieces);
+    restore_error_handler();
+    chmod(sprintf('%s/locked', $root), 0o700);
+
+    expect($written)->toEqual(CannotJudge::because(sprintf('%s/locked/matrix.csv could not be written.', $root)))
+        ->and($taken->getArrayCopy())->toBe([]);
 });
 
 it('removes a link where the path is one, dangling or not, and leaves where it leads as it was', function (): void {

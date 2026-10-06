@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
 
+pest()->group('holds:src/Core/Coverage/LineTests.php');
+
 $ids = static fn(TestIds $tests): array => array_map(static fn(TestId $test): string => $test->value(), iterator_to_array($tests, preserve_keys: true));
 
 $map = static fn(): CoverageMap => CoverageMap::empty()

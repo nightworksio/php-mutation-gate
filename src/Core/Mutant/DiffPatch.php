@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Mutant;
 
 use function abs;
+use function array_keys;
 use function array_slice;
 use function count;
 use function explode;
@@ -14,6 +15,7 @@ use function mb_substr;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function sprintf;
 use function str_starts_with;
@@ -32,8 +34,6 @@ use function usort;
  */
 final readonly class DiffPatch
 {
-    private const string CONTEXT = ' ';
-
     private const string REMOVED = '-';
 
     private const string ADDED = '+';
@@ -68,7 +68,7 @@ final readonly class DiffPatch
     /** The mutant's text: the diff put onto this original, the mutant's, nearest where the mutant starts. */
     public function onto(Contents $original, Location $at): Contents|CannotJudge
     {
-        return $this->applied($original, $at->file(), $at->start()->number() - 1, onlyPlace: false);
+        return $this->applied($original, $at->file(), $at->start()->number() - 1);
     }
 
     /**
@@ -80,32 +80,50 @@ final readonly class DiffPatch
      */
     public function ontoTheOnlyPlace(Contents $original, Path $file): Contents|CannotJudge
     {
-        return $this->applied($original, $file, 0, onlyPlace: true);
+        return $this->applied($original, $file, NotGiven::value());
     }
 
-    private function applied(Contents $original, Path $file, int $want, bool $onlyPlace): Contents|CannotJudge
+    /** The diff put onto this original: each hunk nearest the place wanted, or, wanting none, where it stands once. */
+    private function applied(Contents $original, Path $file, int|NotGiven $want): Contents|CannotJudge
     {
         $lines = explode("\n", $original->text());
         $patched = [];
         $cursor = 0;
 
         foreach ($this->hunks as [$before, $after, $lead]) {
-            $places = $this->places($lines, $before, $cursor, $want - $lead);
+            $place = $this->placed($lines, $before, $cursor, $want instanceof NotGiven ? $want : $want - $lead, $file);
 
-            if ($places === [] || ($onlyPlace && count($places) > 1)) {
-                $why = $places === [] ? self::DOES_NOT_APPLY : self::AMBIGUOUS;
-
-                return CannotJudge::because(sprintf($why, $file->value()));
+            if ($place instanceof CannotJudge) {
+                return $place;
             }
 
-            $patched = [...$patched, ...array_slice($lines, $cursor, $places[0] - $cursor), ...$after];
-            $cursor = $places[0] + count($before);
-            $want = $cursor;
+            $patched = [...$patched, ...array_slice($lines, $cursor, $place - $cursor), ...$after];
+            $cursor = $place + count($before);
+            $want = $want instanceof NotGiven ? $want : $cursor;
         }
 
         return $this->hunks === []
             ? CannotJudge::because(sprintf(self::DOES_NOT_APPLY, $file->value()))
             : Contents::of(implode("\n", [...$patched, ...array_slice($lines, $cursor)]));
+    }
+
+    /**
+     * Where a hunk's lines go: the place nearest the one wanted, or, wanting none, the only place they stand; why
+     * nowhere, where they stand nowhere, or in more than one place and none is wanted.
+     *
+     * @param list<string> $lines
+     * @param list<string> $before
+     */
+    private function placed(array $lines, array $before, int $cursor, int|NotGiven $want, Path $file): int|CannotJudge
+    {
+        $places = $this->places($lines, $before, $cursor, $want);
+
+        return match (true) {
+            $places === [] => CannotJudge::because(sprintf(self::DOES_NOT_APPLY, $file->value())),
+            $want instanceof NotGiven && count($places) > 1
+                => CannotJudge::because(sprintf(self::AMBIGUOUS, $file->value())),
+            default => $places[0],
+        };
     }
 
     /**
@@ -148,7 +166,7 @@ final readonly class DiffPatch
         }
 
         [$before, $after, $lead, $changed] = $current;
-        $mark = $line === '' ? self::CONTEXT : mb_substr($line, 0, 1);
+        $mark = mb_substr($line, 0, 1);
         $text = mb_substr($line, 1);
 
         return match ($mark) {
@@ -166,25 +184,25 @@ final readonly class DiffPatch
 
     /**
      * Every place these lines stand in the file at or after the cursor, the
-     * one nearest the place wanted first.
+     * one nearest the place wanted first, where one is wanted.
      *
      * @param  list<string> $lines
      * @param  list<string> $before
      * @return list<int>
      */
-    private function places(array $lines, array $before, int $cursor, int $want): array
+    private function places(array $lines, array $before, int $cursor, int|NotGiven $want): array
     {
         $places = [];
-        $length = count($before);
-        $last = count($lines) - $length;
 
-        for ($at = $cursor; $at <= $last; $at++) {
-            if (array_slice($lines, $at, $length) === $before) {
+        foreach (array_keys(array_slice($lines, $cursor, preserve_keys: true)) as $at) {
+            if (array_slice($lines, $at, count($before)) === $before) {
                 $places[] = $at;
             }
         }
 
-        usort($places, static fn(int $a, int $b): int => abs($a - $want) <=> abs($b - $want));
+        if (! $want instanceof NotGiven) {
+            usort($places, static fn(int $a, int $b): int => abs($a - $want) <=> abs($b - $want));
+        }
 
         return $places;
     }
