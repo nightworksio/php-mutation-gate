@@ -17,6 +17,9 @@ use NightWorksIO\MutationGate\Core\Cost\RunTime;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
 use NightWorksIO\MutationGate\Core\Cost\Savings;
 use NightWorksIO\MutationGate\Core\Cost\ShardTiming;
+use NightWorksIO\MutationGate\Core\Cost\Step;
+use NightWorksIO\MutationGate\Core\Cost\StepTime;
+use NightWorksIO\MutationGate\Core\Cost\StepTimes;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
@@ -311,8 +314,14 @@ final class Verdicts
         $at = static fn(string $time): Instant => Moment::at(sprintf('2026-09-30T%sZ', $time));
         $timings = RunTimings::of('github:12345/1', RunTime::measured(Seconds::of(360.0), Seconds::of(840.0)))
             ->withPlan(Phase::of($at('11:50:00'), Seconds::of(40.0)))
-            ->withShard(ShardTiming::of(1, Phase::of($at('11:51:00'), Seconds::of(20.0)), Phase::of($at('11:51:20'), Seconds::of(200.0))))
-            ->withShard(ShardTiming::of(2, Phase::of($at('11:51:05'), Seconds::of(25.0)), Phase::of($at('11:51:30'), Seconds::of(180.0))))
+            ->withShard(ShardTiming::of(1, Phase::of($at('11:51:00'), Seconds::of(220.0)), StepTimes::of(
+                StepTime::of(Step::Coverage, Seconds::of(0.0), Seconds::of(20.0)),
+                StepTime::of(Step::Mutation, Seconds::of(20.0), Seconds::of(200.0), 40),
+            )))
+            ->withShard(ShardTiming::of(2, Phase::of($at('11:51:05'), Seconds::of(205.0)), StepTimes::of(
+                StepTime::of(Step::Coverage, Seconds::of(0.0), Seconds::of(25.0)),
+                StepTime::of(Step::Mutation, Seconds::of(25.0), Seconds::of(180.0), 36),
+            )))
             ->withVerdict(Phase::of($at('11:55:10'), Seconds::of(30.0)));
         $percent = Percentage::inHundredths(9_450);
         $measured = $percent instanceof Percentage ? $percent : Percentage::of(Floor::of(0));
@@ -338,8 +347,8 @@ final class Verdicts
     {
         return ShardTiming::of(
             3,
-            Phase::of(Moment::at('2026-09-30T11:51:10Z'), Seconds::of(10.0)),
-            Phase::of(Moment::at('2026-09-30T11:51:20Z'), Seconds::of(10.0)),
+            Phase::of(Moment::at('2026-09-30T11:51:10Z'), Seconds::of(20.0)),
+            StepTimes::of(StepTime::of(Step::Mutation, Seconds::of(10.0), Seconds::of(10.0))),
         );
     }
 

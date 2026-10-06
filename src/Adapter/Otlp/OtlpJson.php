@@ -44,7 +44,7 @@ final readonly class OtlpJson
         $written = [];
 
         foreach ($spans as $span) {
-            $start = self::nanos($span->phase()->start());
+            $start = self::nanos($span->phase()->start()) + $span->phase()->after()->nanoseconds();
             $written[] = [
                 'traceId' => $traceId,
                 'spanId' => $span->id(),

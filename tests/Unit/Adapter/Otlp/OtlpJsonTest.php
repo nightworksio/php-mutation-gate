@@ -12,9 +12,9 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 
-it('writes spans by OTLP\'s JSON mapping: times as decimal strings of nanoseconds, ids as lowercase hex', function (): void {
+it('writes spans by OTLP\'s JSON mapping: times as decimal strings of nanoseconds, a span begun after its instant from then, ids as lowercase hex', function (): void {
     $plan = Span::of('plan', 'a1b2c3d4e5f60718', '', Phase::of(Moment::at('2026-09-30T11:50:00Z'), Seconds::of(40.25)), ['cicd.pipeline.run.id' => 'github:1/1']);
-    $mutate = Span::of('mutate', '0011223344556677', 'a1b2c3d4e5f60718', Phase::of(Moment::at('2026-09-30T11:51:00Z'), Seconds::of(1.0)), ['mutation_gate.shard' => 2]);
+    $mutate = Span::of('mutate', '0011223344556677', 'a1b2c3d4e5f60718', Phase::of(Moment::at('2026-09-30T11:51:00Z'), Seconds::of(1.0))->later(Seconds::of(2.5)), ['mutation_gate.shard' => 2]);
     $json = OtlpJson::traces('0123456789abcdef0123456789abcdef', [$plan, $mutate], ['service.name' => 'mutation-gate']);
 
     expect(Decoded::at($json, 'resourceSpans', 0, 'resource'))->toBe(['attributes' => [['key' => 'service.name', 'value' => ['stringValue' => 'mutation-gate']]]])
@@ -35,8 +35,8 @@ it('writes spans by OTLP\'s JSON mapping: times as decimal strings of nanosecond
                 'parentSpanId' => 'a1b2c3d4e5f60718',
                 'name' => 'mutate',
                 'kind' => 1,
-                'startTimeUnixNano' => '1790769060000000000',
-                'endTimeUnixNano' => '1790769061000000000',
+                'startTimeUnixNano' => '1790769062500000000',
+                'endTimeUnixNano' => '1790769063500000000',
                 'attributes' => [['key' => 'mutation_gate.shard', 'value' => ['intValue' => '2']]],
             ],
         ]);

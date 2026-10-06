@@ -17,9 +17,10 @@ final readonly class Instant
     /** How an instant is written, as `DateTimeImmutable::format` takes it. */
     public const string FORMAT = 'Y-m-d\TH:i:s\Z';
 
-    private const string WRITTEN = '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/D';
+    /** The zone every instant is written in. */
+    public const string UTC = 'UTC';
 
-    private const string UTC = 'UTC';
+    private const string WRITTEN = '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/D';
 
     private function __construct(private string $value)
     {

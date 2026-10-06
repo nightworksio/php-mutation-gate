@@ -51,6 +51,7 @@ use NightWorksIO\MutationGate\Core\Cluster\ClusterKind;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Cost\RunTimings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
@@ -300,7 +301,7 @@ it('keeps an ignore that leaves out only mutants proven equivalent, and says it 
     ],
 ]);
 
-it('judges every tree whole, records the run, and reports it', function () use ($tree, $reporting, $judged): void {
+it('judges every tree whole, records the run, and reports it, timed by each shard\'s result', function () use ($tree, $reporting, $judged): void {
     $project = Flows::project();
     $store = new ProofStoreFake();
     $recorded = new ReporterFake();
@@ -322,7 +323,9 @@ it('judges every tree whole, records the run, and reports it', function () use (
         ->and(count($verdict->sets()->newCode()))->toBe(0)
         ->and(count($verdict->failures()))->toBe(0)
         ->and($judgement instanceof Judged ? $judgement->exitCode() : $judgement)->toBe(ExitCode::Failed)
-        ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->lastPassed())->toBeInstanceOf(CannotTell::class);
+        ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->lastPassed())->toBeInstanceOf(CannotTell::class)
+        ->and($verdict->account()->timings() instanceof RunTimings ? count([...$verdict->account()->timings()->shards()]) : 0)
+        ->toBe(2);
 });
 
 it('judges a plan\'s results again as the verdict did, reporting nothing and writing no ledger', function () use ($tree, $reporting, $judged): void {

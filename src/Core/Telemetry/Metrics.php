@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Telemetry;
 
+use function array_key_exists;
+
 use NightWorksIO\MutationGate\Core\Cost\Phase;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
+use NightWorksIO\MutationGate\Core\Cost\ShardTiming;
 use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
@@ -16,7 +19,7 @@ use function sprintf;
 /**
  * What a verdict emits as metrics: each tree's and each new-code set's
  * score, the mutants by status, the units by how their result came, each
- * phase's duration and the runner minutes, the last two for a timed run
+ * phase's duration, each shard's and its steps', and the runner minutes, the last two for a timed run
  * only. No attribute names a mutant or a file, so there are at most as many
  * points as trees times statuses (ADR-0016, decisions 15 and 16).
  */
@@ -27,6 +30,9 @@ final readonly class Metrics
     public const string STATUS = 'mutation_gate.status';
 
     public const string PHASE = 'mutation_gate.phase';
+
+    /** The phase a shard's whole duration is named by, beside its steps'. */
+    private const string SHARD = 'shard';
 
     /** @return list<Metric> */
     public static function of(Verdict $verdict): array
@@ -112,11 +118,36 @@ final readonly class Metrics
         $points = $plan instanceof Phase ? [self::duration($plan, 'plan', [])] : [];
 
         foreach ($timings->shards() as $shard) {
-            $points[] = self::duration($shard->openingRun(), 'opening run', [Trace::SHARD => $shard->shard()]);
-            $points[] = self::duration($shard->mutate(), 'mutate', [Trace::SHARD => $shard->shard()]);
+            $points = [...$points, ...self::shard($shard)];
         }
 
         return $verdict instanceof Phase ? [...$points, self::duration($verdict, 'verdict', [])] : $points;
+    }
+
+    /**
+     * A shard's duration, as the phase `shard`, and each step's beside it,
+     * named by the step: the step's seconds over the shard, however many
+     * times it ran, so no two points of the shard share their attributes.
+     *
+     * @return list<DataPoint>
+     */
+    private static function shard(ShardTiming $shard): array
+    {
+        $number = [Trace::SHARD => $shard->shard()];
+        $steps = [];
+
+        foreach ($shard->steps() as $step) {
+            $name = $step->step()->value;
+            $steps[$name] = (array_key_exists($name, $steps) ? $steps[$name] : 0.0) + $step->took()->seconds();
+        }
+
+        $points = [self::duration($shard->whole(), self::SHARD, $number)];
+
+        foreach ($steps as $name => $seconds) {
+            $points[] = DataPoint::of($seconds, [self::PHASE => $name, ...$number]);
+        }
+
+        return $points;
     }
 
     /** @param array<string, int> $shard */

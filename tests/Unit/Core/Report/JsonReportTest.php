@@ -248,8 +248,14 @@ it('writes the run\'s timings, what it cost and what it saved, each in the shape
                 'verdict' => ['start' => '2026-09-30T11:55:10Z', 'seconds' => 30.0],
             ],
             'shards' => [
-                ['shard' => 1, 'start' => '2026-09-30T11:51:00Z', 'openingRunSeconds' => 20.0, 'mutateSeconds' => 200.0],
-                ['shard' => 2, 'start' => '2026-09-30T11:51:05Z', 'openingRunSeconds' => 25.0, 'mutateSeconds' => 180.0],
+                ['shard' => 1, 'start' => '2026-09-30T11:51:00Z', 'seconds' => 220.0, 'steps' => [
+                    ['step' => 'coverage', 'since' => 0.0, 'seconds' => 20.0],
+                    ['step' => 'mutation', 'since' => 20.0, 'seconds' => 200.0, 'count' => 40],
+                ]],
+                ['shard' => 2, 'start' => '2026-09-30T11:51:05Z', 'seconds' => 205.0, 'steps' => [
+                    ['step' => 'coverage', 'since' => 0.0, 'seconds' => 25.0],
+                    ['step' => 'mutation', 'since' => 25.0, 'seconds' => 180.0, 'count' => 36],
+                ]],
             ],
             'units' => ['run' => 1, 'proved' => 1, 'carried' => 1],
             'wallSeconds' => 360.0,
