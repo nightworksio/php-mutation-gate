@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 it('holds the sentence a report prints beside the mutant', function (): void {
     expect(Reason::that('Pest cannot name LegacySpec::decrements in a filter.')->text())
@@ -32,4 +33,10 @@ it('says a file was loaded before its mutant was in place, and tells that reason
         ->and($preloaded->isPreloaded())->toBeTrue()
         ->and(Reason::that($preloaded->text())->isPreloaded())->toBeTrue()
         ->and(Reason::that(Reason::UNREACHED)->isPreloaded())->toBeFalse();
+});
+
+it('says no test of a mutant\'s run finished for its silence limit, so its run was stopped', function (): void {
+    expect(Reason::silent(Seconds::of(8.0))->text())
+        ->toBe('No test finished for 8s, its silence limit, so its run was stopped.')
+        ->and(Reason::silent(Seconds::of(8.0))->outOfTime())->toEqual(Unreported::reason());
 });

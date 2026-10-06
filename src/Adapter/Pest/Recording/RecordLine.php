@@ -111,6 +111,16 @@ final readonly class RecordLine
         ]);
     }
 
+    /** That the own run of the mutant with this mutated copy was stopped where no test finished for this long. */
+    public static function silent(string $mutated, float $seconds): string
+    {
+        return self::line([
+            RecordField::Event->value => RecordEvent::Silent->value,
+            RecordField::Mutated->value => $mutated,
+            RecordField::Seconds->value => $seconds,
+        ]);
+    }
+
     /**
      * That the own process of the mutant Pest serves this mutated copy for had
      * loaded the original file before the mutant was in its place.

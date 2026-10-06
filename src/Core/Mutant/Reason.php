@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Mutant;
 
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
 use function str_ends_with;
@@ -33,6 +34,13 @@ final readonly class Reason
      */
     private const string PRELOADED = ' was loaded before the mutant was in place, so its tests ran the original code';
 
+    /**
+     * Why a mutant timed out before its limit: no test of its run finished
+     * for its silence limit, the standard limit of its slowest test's own
+     * time (ADR-0008, decision 2).
+     */
+    private const string SILENT = 'No test finished for %s, its silence limit, so its run was stopped.';
+
     private function __construct(private string $text, private OutOfTime|Unreported $outOfTime)
     {
     }
@@ -52,6 +60,12 @@ final readonly class Reason
     public static function preloaded(Path $file): self
     {
         return self::that(sprintf('%s%s', $file->value(), self::PRELOADED));
+    }
+
+    /** Why a mutant's run was stopped where no test of it finished for this long, its silence limit. */
+    public static function silent(Seconds $for): self
+    {
+        return self::that(sprintf(self::SILENT, $for->text()));
     }
 
     /** Whether it says the mutated file was loaded before the mutant was in place, as the ledger keeps it. */

@@ -88,6 +88,12 @@ final readonly class PestRun
         return self::line(RecordLine::preloaded(self::mutated($id)));
     }
 
+    /** That the own run of the mutant with this native id was stopped where no test finished for this long. */
+    public static function silent(string $id, float $seconds): string
+    {
+        return self::line(RecordLine::silent(self::mutated($id), $seconds));
+    }
+
     /** How many tests the own process of the mutant with this native id ran. */
     public static function ran(string $id, int $tests): string
     {

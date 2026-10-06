@@ -5,6 +5,7 @@
         "tests/Contract/Runner/fixture",
         "tests/Contract/Runner/infection-fixture",
         "tests/Contract/Runner/reach",
+        "tests/Contract/Runner/stall",
         "tests/Contract/StaticChecker/fixture"
     ],
     "rules": {

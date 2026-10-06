@@ -183,5 +183,5 @@ it('marks every hunk it writes, one mark to a hunk, so another version\'s are fo
         MutatePlugin::FILES,
     ));
 
-    expect($marks)->toBe(9);
+    expect($marks)->toBe(11);
 });

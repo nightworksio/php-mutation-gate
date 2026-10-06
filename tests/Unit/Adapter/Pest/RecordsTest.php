@@ -236,6 +236,22 @@ it('refuses a recorded limit of no seconds', function () use ($results, $planned
     );
 });
 
+it('knows the silence limit a patched run stopped a mutant\'s own run at, by its mutated copy, and refuses one of no seconds', function () use ($results, $planned, $mutant): void {
+    $records = Records::in($results([
+        $planned('a', '/p/src/Money.php', 10),
+        $planned('b', '/p/src/Money.php', 20),
+        RecordLine::silent('/tmp/a', 8.0),
+    ]));
+    $refused = Records::in($results([
+        $planned('a', '/p/src/Money.php', 10),
+        RecordLine::silent('/tmp/a', 0.0),
+    ]));
+
+    expect($records instanceof Records ? $records->silenceOf($mutant('a', '/p/src/Money.php', 10)) : $records)->toEqual(Seconds::of(8.0))
+        ->and($records instanceof Records ? $records->silenceOf($mutant('b', '/p/src/Money.php', 20)) : $records)->toEqual(NotGiven::value())
+        ->and($refused instanceof CannotJudge ? $refused->why() : '')->toMatch('/the record\.seconds is not a number of seconds above 0\.$/');
+});
+
 it('knows it wrote every mutant Pest made once it says how many', function () use ($results, $planned): void {
     /** @param list<string> $lines */
     $made = static function (array $lines) use ($results): bool {

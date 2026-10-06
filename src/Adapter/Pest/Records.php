@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -134,6 +135,12 @@ final class Records
         return $this->runs->of($mutant->mutated()->value());
     }
 
+    /** The silence limit a patched run stopped the mutant's own run at; none where it did not. */
+    public function silenceOf(PlannedMutant $mutant): Seconds|NotGiven
+    {
+        return $this->runs->silenceOf($mutant->mutated()->value());
+    }
+
     /**
      * The seconds Pest allowed a mutant: those a patched run recorded for it
      * (see MutantTime), or else what Pest allows every mutant, from the
@@ -209,6 +216,7 @@ final class Records
             RecordEvent::Preloaded => $this->runs->preloaded($record),
             RecordEvent::Narrowed => $this->runs->narrowed($record),
             RecordEvent::Limited => $this->runs->limited($record),
+            RecordEvent::Silent => $this->runs->silent($record),
             RecordEvent::Ran => $this->runs->ran($record),
             RecordEvent::End => $this->ended = true,
             null => throw NotInShape::at($event->at(), 'an event the plugin writes'),

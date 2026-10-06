@@ -168,6 +168,24 @@ it('reads a finished run by file and line, with a killer and a timeout\'s limit'
         ), 0));
 });
 
+it('says a timed-out mutant\'s run was stopped at its silence limit where the run recorded it', function () use ($mutant, $six, $read): void {
+    [$project, $results, $root] = interpretedRun([11 => [0], 21 => [], 40 => [0]], [11 => [1]]);
+    $lines = $six($root);
+    array_splice($lines, -1, 0, [PestRun::silent('n4', 6.0)]);
+    PestRun::write($results, $lines);
+    $result = $read($project, Ran::finished(succeeded: true, output: INTERPRETED_SUMMARY), $results);
+    $timedOut = array_values(array_filter(
+        $result instanceof MutationResult ? [...$result->mutants()] : [],
+        static fn(Mutant $each): bool => $each->status() === MutantStatus::TimedOut,
+    ));
+
+    expect($timedOut)->toEqual([
+        $mutant('n4', 'src/Money.php:50', 'cd', MutantStatus::TimedOut, 5.0)
+            ->withLimit(Seconds::of(6.0))
+            ->because(Reason::silent(Seconds::of(6.0))),
+    ]);
+});
+
 it('keeps what a stopped run judged, with limits, and leaves the rest', function () use ($mutant, $plan, $read): void {
     [$project, $results, $root] = interpretedRun([11 => [0]], []);
     PestRun::write($results, [
