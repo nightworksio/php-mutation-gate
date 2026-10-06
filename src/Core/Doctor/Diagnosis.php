@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Doctor\Check\ForkApprovalPolicy;
 use NightWorksIO\MutationGate\Core\Doctor\Check\HotPath;
 use NightWorksIO\MutationGate\Core\Doctor\Check\IgnoresExpiring;
 use NightWorksIO\MutationGate\Core\Doctor\Check\InfectionImport;
+use NightWorksIO\MutationGate\Core\Doctor\Check\InfectionUnpatched;
 use NightWorksIO\MutationGate\Core\Doctor\Check\LedgerSize;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Memory;
 use NightWorksIO\MutationGate\Core\Doctor\Check\MemoryLimit;
@@ -18,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Doctor\Check\MirroredRepository;
 use NightWorksIO\MutationGate\Core\Doctor\Check\NativeMarkers;
 use NightWorksIO\MutationGate\Core\Doctor\Check\OnlineRead;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Opcache;
+use NightWorksIO\MutationGate\Core\Doctor\Check\PestUnpatched;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Php;
 use NightWorksIO\MutationGate\Core\Doctor\Check\PublicContainer;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Runners;
@@ -57,6 +59,8 @@ final readonly class Diagnosis
             SonarDrops::in($observed),
             IgnoresExpiring::in($observed),
             InfectionImport::in($observed),
+            InfectionUnpatched::in($observed),
+            PestUnpatched::in($observed),
             CoverageRun::in($observed),
             HotPath::in($observed),
             OnlineRead::in($observed),

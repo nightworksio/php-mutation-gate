@@ -15,20 +15,24 @@ use NightWorksIO\MutationGate\Core\Test\TestMethod;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
- * The seconds Infection allows each mutant: Infection's own mutant limit of
- * the time of the test classes that cover it, each counted once, under its
- * `timeout`, the cap, `timeouts.most`. A mutant whose classes alone take the
- * cap is skipped.
+ * The seconds Infection allows each mutant, from the time of the test classes
+ * that cover it, each counted once: patched, the standard mutant limit within
+ * the bounds; unpatched, Infection's own under its `timeout`, `timeouts.most`,
+ * where a mutant whose classes alone take it is skipped.
  */
 final readonly class Limits
 {
-    private function __construct(private CoverageMap $map, private JUnit $junit, private Seconds $cap)
-    {
+    private function __construct(
+        private CoverageMap $map,
+        private JUnit $junit,
+        private LimitBounds $bounds,
+        private PatchState $state,
+    ) {
     }
 
-    public static function of(CoverageMap $map, JUnit $junit, Seconds $cap): self
+    public static function of(CoverageMap $map, JUnit $junit, LimitBounds $bounds, PatchState $state): self
     {
-        return new self($map, $junit, $cap);
+        return new self($map, $junit, $bounds, $state);
     }
 
     /** The limit of a mutant that starts on this line, by the test classes that cover the line. */
@@ -46,6 +50,8 @@ final readonly class Limits
             $time += $this->junit->classSeconds($class);
         }
 
-        return MutantLimit::infections()->of(Seconds::of($time), LimitBounds::upTo($this->cap));
+        return $this->state === PatchState::Applied
+            ? MutantLimit::standard()->of(Seconds::of($time), $this->bounds)
+            : MutantLimit::infections()->of(Seconds::of($time), LimitBounds::upTo($this->bounds->most()));
     }
 }

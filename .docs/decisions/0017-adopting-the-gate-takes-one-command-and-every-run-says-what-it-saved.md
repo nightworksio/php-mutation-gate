@@ -262,7 +262,7 @@ would have cost without them.
     | A tree with no floor and no baseline, where a CI definition runs the gate; advice where none does | will fail (decision 6) |
     | Native markers under `refuse` | will fail (decision 7) |
     | A mirrored path repository (`symlink: false`) holding a tree | will fail |
-    | `pest.patch: true` without `pest:patch` in `post-install-cmd` and `post-update-cmd` | will fail |
+    | `pest.patch: true` with an installed pest-plugin-mutate that does not carry `pest:patch`, which `post-install-cmd` and `post-update-cmd` apply | will fail |
     | Pest with more than one shard in the recorded timings, and no `pest.patch` | slow: the opening run × (shards − 1) |
     | A hot path nothing holds (ADR-0005 decision 11), under `--measure` | slow: its units' timings, or else its covering tests' time |
     | A ledger past the compressed limit a run reads (ADR-0013 decision 13), or at its proof cap with under 50% hits over its last 10 runs | slow |
@@ -274,6 +274,7 @@ would have cost without them.
     | `.mutation-gate/` not in `.gitignore` | advice |
     | A tree outside `sonar.sources` in `sonar-project.properties`, while a `sonar` report is listed (ADR-0028 decision 10) | advice |
     | An `infection.json5` with `minMsi` or native ignores | advice: `init --from` (ADR-0016) |
+    | Infection as the runner, its installed Infection without `infection:patch` (ADR-0004) | advice |
     | `runner.memory` at `-1`, a PHPUnit config whose `memory_limit` lifts the cap, or, under `--measure`, a suite that held over half the cap (ADR-0004 decision 9) | advice |
 
     The size threshold is the limit ADR-0013 decision 13 sets, twice what a

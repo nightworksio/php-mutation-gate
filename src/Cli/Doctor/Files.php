@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Doctor;
 
+use function is_dir;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Composer\Disk;
@@ -11,16 +12,21 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Adapter\Infection\Importable;
 use NightWorksIO\MutationGate\Adapter\Infection\OwnConfig;
+use NightWorksIO\MutationGate\Adapter\Infection\Patch as InfectionPatch;
+use NightWorksIO\MutationGate\Adapter\Pest\Patch as PestPatch;
+use NightWorksIO\MutationGate\Cli\ComposerVendor;
 use NightWorksIO\MutationGate\Cli\Flow\ProjectMemoryLimit;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Definitions;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
+use NightWorksIO\MutationGate\Core\Composer\Package;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Doctor\ComposerSetup;
 use NightWorksIO\MutationGate\Core\Doctor\InfectionConfig;
+use NightWorksIO\MutationGate\Core\Doctor\Patched;
 use NightWorksIO\MutationGate\Core\Doctor\PhpUnitMemory;
 use NightWorksIO\MutationGate\Core\Doctor\ProjectFiles;
 use NightWorksIO\MutationGate\Core\Doctor\SonarSources;
@@ -44,17 +50,22 @@ use function trim;
  * What `doctor` reads of the project's own files: its `.gitignore`, its
  * Infection config, how its `composer.json` installs its packages, the CI
  * definitions that run the gate, the baseline the config names, whether git
- * cloned it shallow, and why the last run's warm workers forked nothing.
+ * cloned it shallow, why the last run's warm workers forked nothing, and
+ * whether its Infection and pest-plugin-mutate carry the gate's patches.
  */
 final readonly class Files
 {
-    private function __construct(private Disk $disk, private Directory $project, private Git $git)
-    {
+    private function __construct(
+        private Disk $disk,
+        private Directory $project,
+        private Git $git,
+        private string $root,
+    ) {
     }
 
     public static function in(string $project): self
     {
-        return new self(Disk::at(Root::of($project)), Directory::at($project), Git::at($project));
+        return new self(Disk::at(Root::of($project)), Directory::at($project), Git::at($project), $project);
     }
 
     public function of(Settings|Invalid|CannotJudge $settings): ProjectFiles
@@ -128,7 +139,31 @@ final readonly class Files
             }
         }
 
-        return ComposerSetup::of($mirrored);
+        return ComposerSetup::of($mirrored, $this->infectionPatch(), $this->pestPatch());
+    }
+
+    /** Whether the Infection installed in the project's vendor directory carries `infection:patch`. */
+    private function infectionPatch(): Patched
+    {
+        $vendor = ComposerVendor::on($this->root);
+
+        return match (true) {
+            ! is_dir(sprintf('%s/%s', $vendor, Package::Infection->value)) => Patched::NotInstalled,
+            InfectionPatch::isAppliedIn($vendor) => Patched::Applied,
+            default => Patched::Missing,
+        };
+    }
+
+    /** Whether the pest-plugin-mutate installed in the project's vendor directory carries `pest:patch`. */
+    private function pestPatch(): Patched
+    {
+        $vendor = ComposerVendor::on($this->root);
+
+        return match (true) {
+            ! is_dir(sprintf('%s/%s', $vendor, Package::PestMutate->value)) => Patched::NotInstalled,
+            PestPatch::isAppliedIn($vendor) => Patched::Applied,
+            default => Patched::Missing,
+        };
     }
 
     /** The first Infection config in the project's root, as Infection looks for it, where it has one. */

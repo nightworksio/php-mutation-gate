@@ -771,6 +771,7 @@ services:
                 'NightWorksIO\MutationGate\Adapter\Infection\Setup':
                     - TESTS # a key of the runner's options
                     - TIMEOUT # a key of the runner's options
+                    - MOST # a key of the runner's options
                     - MUTATORS # a key of the runner's options
                 'NightWorksIO\MutationGate\Adapter\Pest\PestOptions':
                     - TESTS # a key of the runner's options

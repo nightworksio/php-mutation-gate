@@ -32,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
@@ -68,7 +69,7 @@ final readonly class Infection implements Runner
     public function __construct(
         private Project $project,
         private Shell $shell,
-        private Seconds $cap,
+        private LimitBounds $bounds,
         private bool $nativeMarkersAllowed,
         private CapFiles $files,
         private Clock $clock = new WallClock(),
@@ -96,7 +97,7 @@ final readonly class Infection implements Runner
         return new self(
             $project,
             new ProcessShell($processes, $project->root(), getenv()),
-            $setup->cap(),
+            $setup->bounds(),
             nativeMarkersAllowed: $setup->allowsNativeMarkers(),
             files: $files,
             analysis: $setup->analysis(),
@@ -223,7 +224,7 @@ final readonly class Infection implements Runner
 
         return $coverage instanceof CannotJudge
             ? $coverage
-            : $this->run($config)->of($request, $coverage, $this->cap);
+            : $this->run($config)->of($request, $coverage, $this->bounds);
     }
 
     /**
@@ -234,7 +235,12 @@ final readonly class Infection implements Runner
      */
     public function retry(MutationRequest $request, Mutants $mutants, Seconds $most): Mutants|CannotJudge
     {
-        return $this->rerunning()->retry(Retrial::under($this->cap), $request, $mutants, $most);
+        return $this->rerunning()->retry(
+            Retrial::under($this->bounds->most()),
+            $request,
+            $mutants,
+            $this->bounds->upToInstead($most),
+        );
     }
 
     /** One mutant run again on its own, with what Infection printed (see Rerunning). */
@@ -243,7 +249,7 @@ final readonly class Infection implements Runner
         MutationRequest $request,
         Seconds $most,
     ): Reproduction|CannotJudge {
-        return $this->rerunning()->reproduce($mutant, $request, $most);
+        return $this->rerunning()->reproduce($mutant, $request, $this->bounds->upToInstead($most));
     }
 
     /**
@@ -305,7 +311,7 @@ final readonly class Infection implements Runner
             ? new self(
                 $project,
                 $this->shell->in($project->root()),
-                $this->cap,
+                $this->bounds,
                 $this->nativeMarkersAllowed,
                 $this->files,
                 $this->clock,
@@ -328,6 +334,7 @@ final readonly class Infection implements Runner
             $this->nativeMarkersAllowed,
             $this->analysis,
             $covered,
+            Patch::stateIn($this->project->absolute(Path::of(Manifest::VENDOR))),
             $this->clock,
             $this->bridges,
         );
@@ -348,6 +355,7 @@ final readonly class Infection implements Runner
             $config,
             $this->nativeMarkersAllowed,
             $this->analysis,
+            Patch::stateIn($this->project->absolute(Path::of(Manifest::VENDOR))),
             $this->bridges,
         );
     }

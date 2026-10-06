@@ -16,4 +16,7 @@ enum ChildVariable: string
 
     /** The file in which the plugin, or the wrapper, says whether the mutated file ran. */
     case Guard = 'MUTATION_GATE_GUARD';
+
+    /** The least a patched runner allows one mutant: `timeouts.seconds` (ADR-0008, decision 2). */
+    case MutantFloor = 'MUTATION_GATE_MUTANT_FLOOR';
 }

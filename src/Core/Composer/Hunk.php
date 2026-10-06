@@ -2,22 +2,28 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Adapter\Pest;
+namespace NightWorksIO\MutationGate\Core\Composer;
 
 use function mb_substr_count;
 use function str_replace;
 
-/** One place in a file of pest-plugin-mutate the patch rewrites: the lines it ships, and what they become. */
+/** One place in a file of an installed package a patch rewrites: the lines it ships, and what they become. */
 final readonly class Hunk
 {
     private function __construct(private string $file, private string $ships, private string $becomes)
     {
     }
 
-    /** @param string $file relative to pest-plugin-mutate's source directory */
+    /** @param string $file relative to the package's source directory */
     public static function in(string $file, string $ships, string $becomes): self
     {
         return new self($file, $ships, $becomes);
+    }
+
+    /** This hunk, with what its text holds where it says marked put in place of it. */
+    public function marked(string $marked, string $mark): self
+    {
+        return new self($this->file, $this->ships, str_replace($marked, $mark, $this->becomes));
     }
 
     public function file(): string

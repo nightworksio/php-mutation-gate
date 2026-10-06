@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
@@ -23,7 +24,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
  * Mutants run again, each file with only one mutator and the project's
- * settings for it, allowed a limit as the cap: a retry's, as the invocation
+ * settings for it, each mutant's limit within the bounds: a retry's, as the invocation
  * that made them asked, reading the coverage it read, its runs together
  * ending by the request's deadline, and one mutant
  * reproduced by the tests given, with what Infection printed. The run under
@@ -42,6 +43,7 @@ final readonly class Rerunning
         private bool $nativeMarkersAllowed,
         private StaticAnalysis $analysis,
         private Closure $covered,
+        private PatchState $state,
         private Clock $clock = new WallClock(),
         private Bridges $bridges = new Bridges(),
     ) {
@@ -55,7 +57,7 @@ final readonly class Rerunning
         Retrial $retrial,
         MutationRequest $request,
         Mutants $mutants,
-        Seconds $limit,
+        LimitBounds $bounds,
     ): Mutants|CannotJudge {
         $runs = $retrial->runs($mutants);
         $prepared = $runs === [] ? $mutants : $this->prepared($request);
@@ -68,7 +70,7 @@ final readonly class Rerunning
         $started = $this->clock->nanoseconds();
 
         foreach ($runs as [$file, $mutator]) {
-            $result = $this->ran($prepared, $this->timed($request, $started), $file, $mutator, $limit, $this->shell);
+            $result = $this->ran($prepared, $this->timed($request, $started), $file, $mutator, $bounds, $this->shell);
 
             if ($result instanceof CannotJudge) {
                 return $result;
@@ -83,7 +85,7 @@ final readonly class Rerunning
     public function reproduce(
         Reproducible $mutant,
         MutationRequest $request,
-        Seconds $limit,
+        LimitBounds $bounds,
     ): Reproduction|CannotJudge {
         $request = $request->narrowedTo(
             Paths::of($mutant->file()),
@@ -92,7 +94,7 @@ final readonly class Rerunning
         $prepared = $this->prepared($request);
         $shell = Transcribing::over($this->shell);
         $result = $prepared instanceof Prepared
-            ? $this->ran($prepared, $request, $mutant->file(), $mutant->mutator(), $limit, $shell)
+            ? $this->ran($prepared, $request, $mutant->file(), $mutant->mutator(), $bounds, $shell)
             : $prepared;
 
         return $result instanceof CannotJudge
@@ -129,13 +131,13 @@ final readonly class Rerunning
         return $coverage instanceof CannotJudge ? $coverage : new Prepared($config, $coverage);
     }
 
-    /** One file with one mutator, narrowed from the request, allowed the limit as the cap. */
+    /** One file with one mutator, narrowed from the request, each mutant's limit within the bounds. */
     private function ran(
         Prepared $prepared,
         MutationRequest $request,
         Path $file,
         string $mutator,
-        Seconds $limit,
+        LimitBounds $bounds,
         Shell $shell,
     ): Mutants|CannotJudge {
         $run = new MutationRun(
@@ -145,11 +147,12 @@ final readonly class Rerunning
             $prepared->config,
             $this->nativeMarkersAllowed,
             $this->analysis,
+            $this->state,
             $this->bridges,
         );
         $narrowing = $request->narrowing()->toMutators(Mutators::named($mutator));
         $narrowed = $request->narrowedTo(Paths::of($file), $narrowing);
-        $result = $run->of($narrowed, $prepared->coverage, $limit);
+        $result = $run->of($narrowed, $prepared->coverage, $bounds);
 
         return $result instanceof CannotJudge ? $result : $result->mutants();
     }

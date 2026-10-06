@@ -23,7 +23,7 @@ enum GateVariable: string
     case SuiteSeconds = 'MUTATION_GATE_SUITE_SECONDS';
 
     /** The least a patched run allows one mutant: `timeouts.seconds` (see MutantTime). */
-    case MutantFloor = 'MUTATION_GATE_MUTANT_FLOOR';
+    case MutantFloor = ChildVariable::MutantFloor->value;
 
     /** The most a patched run allows one mutant: `timeouts.most`, or a retry's raised most (see MutantTime). */
     case MutantCap = 'MUTATION_GATE_MUTANT_CAP';

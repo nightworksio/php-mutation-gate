@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Test\TestsDirectory;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
@@ -25,9 +26,10 @@ use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use function sprintf;
 
 /**
- * The options the flows build the Infection adapter with: `timeout`, the
- * seconds each mutant is allowed at most, which the flows write from
- * `timeouts.most`, and its default where none is written; `nativeMarkers`, `refuse` or `allow`, `ignores.native`,
+ * The options the flows build the Infection adapter with: `timeout` and
+ * `most`, the floor and the most of each mutant's limit, which the flows
+ * write from `timeouts.seconds` and `timeouts.most`, their defaults where
+ * none is written; `nativeMarkers`, `refuse` or `allow`, `ignores.native`,
  * `refuse` by default; `tests`, the directories the tests live in, `tests`
  * by default; `staticAnalysis`, `infection` or `gate`, who runs static
  * analysis over the mutants, `infection` by default; and `mutators`, the
@@ -39,8 +41,11 @@ final readonly class Setup
     /** The option that says who runs static analysis over the mutants, which the flows write. */
     public const string STATIC_ANALYSIS = 'staticAnalysis';
 
-    /** The option that holds Infection's own `timeout`, `timeouts.most`, which the flows write. */
+    /** The option that holds `timeouts.seconds`, which the flows write. */
     public const string TIMEOUT = 'timeout';
+
+    /** The option that holds `timeouts.most`, Infection's own `timeout`, which the flows write. */
+    public const string MOST = 'most';
 
     /** The option that holds the registered mutators' classes, which the flows write. */
     public const string MUTATORS = 'mutators';
@@ -51,7 +56,7 @@ final readonly class Setup
 
     private function __construct(
         private Paths $tests,
-        private Seconds $cap,
+        private LimitBounds $bounds,
         private bool $nativeMarkersAllowed,
         private StaticAnalysis $analysis,
         private Bridges $bridges,
@@ -62,6 +67,7 @@ final readonly class Setup
     {
         $tests = $options->paths(Key::of(self::TESTS));
         $timeout = $options->number(Key::of(self::TIMEOUT));
+        $most = $options->number(Key::of(self::MOST));
         $allowed = self::allowedIn($options->text(Key::of(self::MARKERS)));
         $analysis = self::analysisIn($options->text(Key::of(self::STATIC_ANALYSIS)));
         $mutators = $options->texts(Key::of(self::MUTATORS));
@@ -69,12 +75,16 @@ final readonly class Setup
         return match (true) {
             $tests instanceof Problem => Invalid::because($tests),
             $timeout instanceof Problem => Invalid::because($timeout),
+            $most instanceof Problem => Invalid::because($most),
             $allowed instanceof Problem => Invalid::because($allowed),
             $analysis instanceof Problem => Invalid::because($analysis),
             $mutators instanceof Problem => Invalid::because($mutators),
             default => new self(
                 $tests instanceof Paths && count($tests) > 0 ? $tests : Paths::of(TestsDirectory::conventional()),
-                $timeout instanceof NotGiven ? Triage::standard()->most() : Seconds::of($timeout),
+                LimitBounds::between(
+                    $timeout instanceof NotGiven ? Triage::standard()->limit() : Seconds::of($timeout),
+                    $most instanceof NotGiven ? Triage::standard()->most() : Seconds::of($most),
+                ),
                 $allowed,
                 $analysis,
                 self::bridgesTo($mutators instanceof Listed ? [...$mutators] : []),
@@ -87,10 +97,10 @@ final readonly class Setup
         return $this->tests;
     }
 
-    /** `timeouts.most`: Infection's own `timeout`, its cap on a limit and its skip for tests that take as long. */
-    public function cap(): Seconds
+    /** `timeouts.seconds` and `timeouts.most`, Infection's `timeout`: what each mutant's limit is kept between. */
+    public function bounds(): LimitBounds
     {
-        return $this->cap;
+        return $this->bounds;
     }
 
     public function allowsNativeMarkers(): bool

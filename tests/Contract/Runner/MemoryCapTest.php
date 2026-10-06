@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
+use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -170,7 +171,7 @@ it('reads an Infection mutant as out of memory with no limit, and so too heavy t
     $hiding = '<php><ini name="display_errors" value="0"/></php></phpunit>';
     file_put_contents($config, str_replace('</phpunit>', $hiding, (string) file_get_contents($config)));
 
-    expect(array_unique($hogged(Library::infectionAt($copy, Seconds::of(10.0)), 'cap')))
+    expect(array_unique($hogged(Library::infectionAt($copy, Triage::standard()->bounds()), 'cap')))
         ->toBe(['out-of-memory unlimited']);
 })->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs its library');
 

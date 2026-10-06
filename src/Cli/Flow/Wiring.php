@@ -178,11 +178,10 @@ final readonly class Wiring
     }
 
     /**
-     * The runner the config chooses: Infection told each mutant's cap,
-     * `timeouts.most` (ADR-0008, decision 2), and that the gate checks its
-     * survivors, where an analyser does, so it runs no static analysis of its
-     * own (ADR-0020, decision 13); Pest and the PHPUnit runner told the
-     * bounds of each mutant's limit, `timeouts.seconds` and `timeouts.most`;
+     * The runner the config chooses: each told the bounds of each mutant's
+     * limit, `timeouts.seconds` and `timeouts.most` (ADR-0008, decision 2);
+     * Infection told that the gate checks its survivors, where an analyser
+     * does, so it runs no static analysis of its own (ADR-0020, decision 13);
      * and each told the classes of the
      * registered mutators it makes mutants with (ADR-0021): Pest and
      * Infection those the config turns on, beside their own, and the PHPUnit
@@ -199,7 +198,8 @@ final readonly class Wiring
         $most = $settings->triage()->most()->seconds();
         $beside = Json::items(...$mutators->besideTheRunners()->classes());
         $infection = Json::object(
-            Member::of(Setup::TIMEOUT, $most),
+            Member::of(Setup::TIMEOUT, $seconds),
+            Member::of(Setup::MOST, $most),
             Member::of(Setup::MUTATORS, $beside),
             ...$checker instanceof StaticChecker
                 ? [Member::of(Setup::STATIC_ANALYSIS, StaticAnalysis::Gate->value)]

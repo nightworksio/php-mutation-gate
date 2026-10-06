@@ -569,7 +569,7 @@ it('keys the analyser by its config file where it cannot say the configuration i
     expect(wiredAnalyserIn($project))->toEqual(AnalyserIdentity::of('phpstan', '2.2.16', Digest::sha256Of("parameters:\n    level: 9\n")));
 });
 
-it('tells Infection each mutant\'s cap, timeouts.most, and that the gate checks its survivors only where an analyser is wired', function (): void {
+it('tells Infection the bounds of each mutant\'s limit, and that the gate checks its survivors only where an analyser is wired', function (): void {
     $registry = wiringRegistry()->withStaticChecker(Name::of('fake'), static fn(): StaticCheckerFake => StaticCheckerFake::findingNothing());
     $wired = static fn(Runner $runner, StaticCheck $static): Adapters|Invalid|CannotJudge => new Wiring($registry, Variables::of([]), wiringDetected())
         ->adapters(Flows::settings($runner, $static, Timeouts::most(45)), Directory::at(Flows::project()));
@@ -578,9 +578,9 @@ it('tells Infection each mutant\'s cap, timeouts.most, and that the gate checks 
     $pest = $wired(Runner::pest(), StaticCheck::uses('fake'));
 
     expect($checked instanceof Adapters ? $checked->runner : $checked)
-        ->toEqual(Infection::fromOptions(Configs::options('{"staticAnalysis": "gate", "timeout": 45.0}'), new CapDirectory(), new LocalProcesses(new SystemClock())))
+        ->toEqual(Infection::fromOptions(Configs::options('{"staticAnalysis": "gate", "timeout": 10.0, "most": 45.0}'), new CapDirectory(), new LocalProcesses(new SystemClock())))
         ->and($unchecked instanceof Adapters ? $unchecked->runner : $unchecked)
-        ->toEqual(Infection::fromOptions(Configs::options('{"timeout": 45.0}'), new CapDirectory(), new LocalProcesses(new SystemClock())))
+        ->toEqual(Infection::fromOptions(Configs::options('{"timeout": 10.0, "most": 45.0}'), new CapDirectory(), new LocalProcesses(new SystemClock())))
         ->and($pest instanceof Adapters ? $pest->runner : $pest)->not->toBeInstanceOf(Infection::class);
 });
 
@@ -648,7 +648,7 @@ it('tells each runner its timeouts and the classes of the registered mutators th
         new LocalProcesses(new SystemClock()),
     ))
         ->and($infection instanceof Adapters ? $infection->runner : $infection)->toEqual(Infection::fromOptions(
-            Configs::options((string) json_encode(['timeout' => 90.0, 'mutators' => [PlusToMinus::class]])),
+            Configs::options((string) json_encode(['timeout' => 45.0, 'most' => 90.0, 'mutators' => [PlusToMinus::class]])),
             new CapDirectory(),
             new LocalProcesses(new SystemClock()),
         ))

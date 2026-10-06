@@ -16,13 +16,11 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 final readonly class PestPatch
 {
-    private const string NAME = 'pest:patch';
-
     private const string DESCRIPTION = 'Apply the optional Pest patches';
 
     public static function command(string $vendor): Command
     {
-        return new Command(self::NAME)
+        return new Command(Patch::COMMAND)
             ->setDescription(self::DESCRIPTION)
             ->setCode(static function (OutputInterface $output) use ($vendor): int {
                 $patched = Patch::applyIn($vendor);

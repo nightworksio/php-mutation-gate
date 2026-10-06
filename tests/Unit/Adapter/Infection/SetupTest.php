@@ -11,17 +11,18 @@ use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 
-it('allows each mutant up to timeouts.most, refuses native markers and finds the tests in tests, by default', function (): void {
+it('keeps each mutant\'s limit within the standard timeouts, refuses native markers and finds the tests in tests, by default', function (): void {
     $setup = Setup::of(Options::none());
 
-    expect($setup instanceof Setup ? [$setup->cap(), $setup->allowsNativeMarkers(), $setup->tests(), $setup->analysis()] : [])
-        ->toEqual([Seconds::of(300.0), false, Paths::of(Path::of('tests')), StaticAnalysis::Infection]);
+    expect($setup instanceof Setup ? [$setup->bounds(), $setup->allowsNativeMarkers(), $setup->tests(), $setup->analysis()] : [])
+        ->toEqual([LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0)), false, Paths::of(Path::of('tests')), StaticAnalysis::Infection]);
 });
 
 it('leaves static analysis to the gate where the flows say it checks the survivors', function (): void {
@@ -30,12 +31,12 @@ it('leaves static analysis to the gate where the flows say it checks the survivo
     expect($setup instanceof Setup ? $setup->analysis() : $setup)->toBe(StaticAnalysis::Gate);
 });
 
-it('takes the timeout, the native markers and the test directories the flows write', function (): void {
-    $setup = Setup::of(Configs::options('{"timeout": 30, "nativeMarkers": "allow", "tests": ["tests/Unit", "tests/Feature"]}'));
+it('takes the timeout, the most, the native markers and the test directories the flows write', function (): void {
+    $setup = Setup::of(Configs::options('{"timeout": 30, "most": 90, "nativeMarkers": "allow", "tests": ["tests/Unit", "tests/Feature"]}'));
     $refusing = Setup::of(Configs::options('{"nativeMarkers": "refuse"}'));
 
-    expect($setup instanceof Setup ? [$setup->cap(), $setup->allowsNativeMarkers(), $setup->tests()] : [])
-        ->toEqual([Seconds::of(30.0), true, Paths::of(Path::of('tests/Unit'), Path::of('tests/Feature'))])
+    expect($setup instanceof Setup ? [$setup->bounds(), $setup->allowsNativeMarkers(), $setup->tests()] : [])
+        ->toEqual([LimitBounds::between(Seconds::of(30.0), Seconds::of(90.0)), true, Paths::of(Path::of('tests/Unit'), Path::of('tests/Feature'))])
         ->and($refusing instanceof Setup && ! $refusing->allowsNativeMarkers())->toBeTrue();
 });
 
