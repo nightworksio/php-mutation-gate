@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Infection\Invocation;
 use NightWorksIO\MutationGate\Adapter\Infection\JUnit;
 use NightWorksIO\MutationGate\Adapter\Infection\Limits;
+use NightWorksIO\MutationGate\Adapter\Infection\PatchState;
 use NightWorksIO\MutationGate\Adapter\Infection\Project;
 use NightWorksIO\MutationGate\Adapter\Infection\Results;
 use NightWorksIO\MutationGate\Adapter\Infection\TextLog;
@@ -25,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ErrorDisplay;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -52,7 +54,7 @@ function resultsLimits(Project $project): Limits
     $junit = JUnit::at(DiskPath::of(sprintf('%s/coverage/junit.xml', $project->root())));
     $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'));
 
-    return Limits::of($map, $junit instanceof JUnit ? $junit : throw new RuntimeException('no JUnit'), Seconds::of(10.0));
+    return Limits::of($map, $junit instanceof JUnit ? $junit : throw new RuntimeException('no JUnit'), LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), PatchState::Missing);
 }
 
 /**

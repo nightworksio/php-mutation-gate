@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Infection\Patch;
 use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
@@ -11,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Doctor\ComposerSetup;
 use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
 use NightWorksIO\MutationGate\Core\Doctor\InfectionConfig;
+use NightWorksIO\MutationGate\Core\Doctor\InfectionPatch;
 use NightWorksIO\MutationGate\Core\Doctor\InstalledRunners;
 use NightWorksIO\MutationGate\Core\Doctor\KeptLedger;
 use NightWorksIO\MutationGate\Core\Doctor\KeptLedgers;
@@ -36,6 +38,7 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Described;
 use NightWorksIO\MutationGate\Tests\Support\Doctored;
 use NightWorksIO\MutationGate\Tests\Support\FakePhp;
+use NightWorksIO\MutationGate\Tests\Support\InfectionSource;
 use NightWorksIO\MutationGate\Tests\Support\Repository;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -85,6 +88,20 @@ it('observes the markers the chosen runner finds in the trees, and the path repo
         ->toBe(['src/Held.php:2'])
         ->and($observed->files()->composer())->toEqual(ComposerSetup::of(Paths::of(Path::of('packages/money'))))
         ->and($observed->run())->toEqual(DoctorRun::of(new DateTimeImmutable(Configs::NOW), -1));
+});
+
+it('observes whether the installed Infection carries infection:patch', function (): void {
+    $project = Scratch::copy('tests/Fixtures/Projects/Library');
+    $php = FakePhp::printing(Described::output(['pcov' => '1.0.12'], []));
+    $observed = static fn(): mixed => Doctored::observed($project, sprintf('%s/php', $php))->of(CommandLine::nothing())->files()->composer();
+    $state = static fn(mixed $composer): InfectionPatch|string => $composer instanceof ComposerSetup ? $composer->infection() : 'unread';
+    $none = $state($observed());
+    $vendor = InfectionSource::pristine()->into(sprintf('%s/vendor', $project));
+    $missing = $state($observed());
+    Patch::applyIn($vendor);
+
+    expect([$none, $missing, $state($observed())])
+        ->toBe([InfectionPatch::NotInstalled, InfectionPatch::Missing, InfectionPatch::Applied]);
 });
 
 it('observes the CI definitions that run the gate, the baseline, and the ledgers the directory store keeps', function (): void {

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Infection\Infection;
+use NightWorksIO\MutationGate\Adapter\Infection\Patch as InfectionPatch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
@@ -10,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Analysis\AsWritten;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
@@ -53,13 +56,18 @@ use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
 use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
+use NightWorksIO\MutationGate\Tests\Support\InfectionSource;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
 use SebastianBergmann\CodeCoverage\Serialization\Serializer;
+
+/** What a run of the Infection library warns of while its Infection is not patched. */
+const INFECTION_UNPATCHED = 'Unpatched, Infection gave each mutant its own limit, with no floor. Run mutation-gate infection:patch.';
 
 // What every runner reports over the fixture library in fixture/: in
 // src/Money.php a killed, a survived, an uncovered and a timed-out mutant, and
@@ -181,7 +189,8 @@ it('reports a killed, a survived, an uncovered and a timed-out mutant', function
         ->and($result instanceof MutationResult ? $result->skipped() : -1)->toBe(0)
         ->and($result instanceof MutationResult ? Library::records($result->mutants()) : [])
         ->toEqualCanonicalizing($library->expected('adds', 'large', 'unused', 'drains'))
-        ->and($result instanceof MutationResult ? [...$result->warnings()] : ['cannot judge'])->toBe([]);
+        ->and($result instanceof MutationResult ? array_map(static fn(Warning $warning): string => $warning->text(), [...$result->warnings()]) : ['cannot judge'])
+        ->toBe($library->runner() instanceof Infection ? [INFECTION_UNPATCHED] : []);
 })->with($libraries);
 
 it('reports the same four mutants from warm workers, and warns of nothing, with PHPUnit', function (): void {
@@ -724,6 +733,73 @@ it('judges a mutant whose covering class takes longer than timeouts.seconds, ski
         static fn(Mutant $mutant): string => $mutant->status()->value,
         iterator_to_array($result->mutants(), preserve_keys: false),
     ) : [])->toBe([MutantStatus::Killed->value]);
+})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
+
+/**
+ * What this does, with the Infection library's Infection patched by
+ * infection:patch, and its two files as they were again once it is done.
+ */
+function withPatchedInfection(Closure $then): mixed
+{
+    $vendor = Tree::at(sprintf('%s/vendor', Library::INFECTION_DIRECTORY));
+    $kept = array_map(
+        static fn(string $file): string => (string) file_get_contents(sprintf('%s/infection/infection/src/%s', $vendor, $file)),
+        InfectionSource::FILES,
+    );
+
+    try {
+        $patched = InfectionPatch::applyIn($vendor);
+
+        return $patched instanceof CannotJudge ? $patched : $then();
+    } finally {
+        foreach (InfectionSource::FILES as $at => $file) {
+            file_put_contents(sprintf('%s/infection/infection/src/%s', $vendor, $file), $kept[$at]);
+        }
+    }
+}
+
+it('allows a mutant patched Infection times out the floor its quick tests fall under, and warns of nothing', function (): void {
+    $library = Library::infectionWithin(Triage::standard()->bounds());
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('drains')));
+    $result = withPatchedInfection(static fn(): MutationResult|CannotJudge => $library->runner()->mutate($request));
+    $timedOut = $result instanceof MutationResult ? $result->mutants() : Mutants::none();
+
+    expect(Library::records($timedOut))->toBe($library->expected('drains'))
+        ->and(array_map(
+            static fn(Mutant $mutant): float => $mutant->limit() instanceof Seconds ? $mutant->limit()->seconds() : 0.0,
+            iterator_to_array($timedOut, preserve_keys: false),
+        ))->toBe([10.0])
+        ->and($result instanceof MutationResult ? [...$result->warnings()] : ['cannot judge'])->toBe([]);
+})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
+
+it('runs, patched, a mutant Infection skips unpatched at timeouts.most, and times it out at the most', function (): void {
+    $library = Library::infectionWithin(LimitBounds::between(Seconds::of(1.0), Seconds::of(1.0)));
+    $request = MutationRequest::of(Paths::of(Path::of('src/Slow.php')), WholeSuite::tests())
+        ->narrowedTo(Paths::of(Path::of('src/Slow.php')), Narrowing::none()->toMutators(Mutators::named('Minus')));
+    $result = withPatchedInfection(static fn(): MutationResult|CannotJudge => $library->runner()->mutate($request));
+
+    expect($result instanceof MutationResult ? array_map(
+        static fn(Mutant $mutant): array => [$mutant->status()->value, $mutant->limit()],
+        iterator_to_array($result->mutants(), preserve_keys: false),
+    ) : [$result])->toEqual([[MutantStatus::TimedOut->value, Seconds::of(1.0)]]);
+})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
+
+it('patches the Infection library\'s release, which the patch supports, into the files the pristine fixture patches into', function (): void {
+    $installed = InfectionSource::installed()->vendor(InfectionPatch::SUPPORTED[0]);
+    $pristine = InfectionSource::pristine()->vendor();
+    $read = static fn(string $vendor): array => array_map(
+        static fn(string $file): string => (string) file_get_contents(sprintf('%s/infection/infection/src/%s', $vendor, $file)),
+        InfectionSource::FILES,
+    );
+    $lock = json_decode((string) file_get_contents(Tree::at(sprintf('%s/composer.lock', Library::INFECTION_DIRECTORY))), associative: true);
+    $packages = is_array($lock) && is_array($lock['packages'] ?? null) ? $lock['packages'] : [];
+    $release = array_values(array_filter($packages, static fn(mixed $package): bool => is_array($package) && ($package['name'] ?? '') === 'infection/infection'));
+
+    expect(InfectionPatch::applyIn($installed))->toBe('infection:patch patched 2 of the 2 files it changes in infection.')
+        ->and(InfectionPatch::applyIn($pristine))->toBe('infection:patch patched 2 of the 2 files it changes in infection.')
+        ->and($read($installed))->toBe($read($pristine))
+        ->and(is_array($release[0] ?? null) ? $release[0]['version'] : '')->toBeIn(InfectionPatch::SUPPORTED);
 })->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 
 it('leaves a mutant unjudged, naming the test, when Pest\'s filter cannot select a covering test', function (): void {

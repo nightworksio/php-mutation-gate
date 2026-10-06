@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Doctor\Check\ForkApprovalPolicy;
 use NightWorksIO\MutationGate\Core\Doctor\Check\HotPath;
 use NightWorksIO\MutationGate\Core\Doctor\Check\IgnoresExpiring;
 use NightWorksIO\MutationGate\Core\Doctor\Check\InfectionImport;
+use NightWorksIO\MutationGate\Core\Doctor\Check\InfectionUnpatched;
 use NightWorksIO\MutationGate\Core\Doctor\Check\LedgerSize;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Memory;
 use NightWorksIO\MutationGate\Core\Doctor\Check\MemoryLimit;
@@ -57,6 +58,7 @@ final readonly class Diagnosis
             SonarDrops::in($observed),
             IgnoresExpiring::in($observed),
             InfectionImport::in($observed),
+            InfectionUnpatched::in($observed),
             CoverageRun::in($observed),
             HotPath::in($observed),
             OnlineRead::in($observed),

@@ -71,7 +71,7 @@ function bridgedInfection(): Runner
     return new Infection(
         $project,
         new InfectionShell(new LocalProcesses(new SystemClock()), $root, getenv()),
-        Seconds::of(10.0),
+        Triage::standard()->bounds(),
         nativeMarkersAllowed: false,
         files: new CapDirectory(),
         bridges: InfectionBridges::to(contractMutators()),

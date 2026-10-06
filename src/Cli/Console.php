@@ -102,6 +102,7 @@ final readonly class Console
         ));
 
         $application->addCommand(PestPatch::command(ComposerVendor::on($project)));
+        $application->addCommand(InfectionPatch::command(ComposerVendor::on($project)));
         $application->addCommand(HookCommand::command($project));
 
         $detected = new Detected(Directory::at($project), Directory::at($vendor));

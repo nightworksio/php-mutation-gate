@@ -21,6 +21,7 @@ enum Slug: string
     case WorkspaceNotIgnored = 'workspace-not-ignored';
     case InfectionConfigToImport = 'infection-config-to-import';
     case NativeMarkersRefused = 'native-markers-refused';
+    case InfectionUnpatched = 'infection-unpatched';
     case MirroredPathRepository = 'mirrored-path-repository';
     case IgnoresExpiring = 'ignores-expiring';
     case TreeWithoutFloor = 'tree-without-floor';

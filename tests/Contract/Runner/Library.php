@@ -251,24 +251,30 @@ final class Library
 
     /**
      * The Infection adapter over its installed library, allowing each mutant at
-     * most the cap, and refusing native markers.
+     * most this long, over the standard floor, and refusing native markers.
      */
-    public static function infection(Seconds $cap): self
+    public static function infection(Seconds $most): self
     {
-        return self::infectionAt(Tree::at(self::INFECTION_DIRECTORY), $cap);
+        return self::infectionWithin(LimitBounds::between(Triage::standard()->limit(), $most));
+    }
+
+    /** The Infection adapter over its installed library, keeping each mutant's limit within these bounds. */
+    public static function infectionWithin(LimitBounds $bounds): self
+    {
+        return self::infectionAt(Tree::at(self::INFECTION_DIRECTORY), $bounds);
     }
 
     /** The Infection adapter over the installed library at a root, such as a copy of it. */
-    public static function infectionAt(string $root, Seconds $cap): self
+    public static function infectionAt(string $root, LimitBounds $bounds): self
     {
-        $infection = static function (string $root) use ($cap): Infection {
+        $infection = static function (string $root) use ($bounds): Infection {
             $project = InfectionProject::at(Root::of($root), Paths::of(Path::of('tests')), Path::of('.mutation-gate'));
 
-            return new Infection($project, new InfectionShell(new LocalProcesses(new SystemClock()), $root, getenv()), $cap, nativeMarkersAllowed: false, files: new CapDirectory());
+            return new Infection($project, new InfectionShell(new LocalProcesses(new SystemClock()), $root, getenv()), $bounds, nativeMarkersAllowed: false, files: new CapDirectory());
         };
 
         return new self(
-            sprintf('infection %.1F', $cap->seconds()),
+            sprintf('infection %.3F %.1F', $bounds->floor()->seconds(), $bounds->most()->seconds()),
             $infection($root),
             self::INFECTION,
             endsReported: false,

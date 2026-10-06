@@ -4,19 +4,20 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli;
 
-use NightWorksIO\MutationGate\Adapter\Pest\Patch;
+use NightWorksIO\MutationGate\Adapter\Infection\Patch;
 use NightWorksIO\MutationGate\Cli\Command\Aside;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * `pest:patch`, run from a project's `post-install-cmd` and `post-update-cmd`
- * when `pest.patch` is on. A patch that cannot be applied fails the install.
+ * `infection:patch`, run from a project's `post-install-cmd` and
+ * `post-update-cmd` where the runner is Infection. A patch that cannot be
+ * applied fails the install.
  */
-final readonly class PestPatch
+final readonly class InfectionPatch
 {
-    private const string DESCRIPTION = 'Apply the optional Pest patches';
+    private const string DESCRIPTION = 'Give Infection the gate\'s mutant limit';
 
     public static function command(string $vendor): Command
     {

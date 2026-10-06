@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Pest\Hunk;
+use NightWorksIO\MutationGate\Core\Composer\Hunk;
 
 it('rewrites the lines a file ships into what they become', function (): void {
     $hunk = Hunk::in('MutationTest.php', "a();\n", "b();\n");

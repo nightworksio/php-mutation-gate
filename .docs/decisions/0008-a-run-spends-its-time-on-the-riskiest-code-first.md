@@ -200,10 +200,14 @@ presets for Laravel, Symfony and plain libraries.
      triages by what it recorded. It skips no mutant. Unpatched, it is Pest's
      own: the opening run's duration plus the larger of 5 s and 20%, which
      cannot be changed.
-   - **Infection's** is Infection's own: the smaller of 5 s plus five times
-     the covering test classes' time and its `timeout`, which the gate sets
-     to `timeouts.most`. Infection skips, never runs, a mutant whose covering
-     classes take at least `timeouts.most`. It has no floor.
+   - **Infection's**, under `infection:patch` (ADR-0004), is the gate's
+     rule, of the covering test classes' time as Infection timed them from
+     the JUnit log, each class counted once. It skips no mutant. Unpatched,
+     it is Infection's own: the smaller of 5 s plus five times that time and
+     its `timeout`, which the gate sets to `timeouts.most`, with no floor;
+     Infection skips, never runs, a mutant whose covering classes take at
+     least `timeouts.most`; and every run's report warns of it, naming
+     `infection:patch`.
    - **The PHPUnit runner's** is the gate's rule, of the covering tests' own
      time as the coverage map timed them. It skips no mutant.
 

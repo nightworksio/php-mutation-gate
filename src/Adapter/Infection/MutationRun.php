@@ -10,9 +10,15 @@ use function file_put_contents;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
+use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Verdict\Warning;
+use NightWorksIO\MutationGate\Core\Verdict\Warnings;
+
+use function sprintf;
 
 /**
  * One run of Infection over a coverage directory: the config the gate writes
@@ -24,6 +30,10 @@ final readonly class MutationRun
     private const string STOPPED
         = 'Infection was stopped at its deadline, before it wrote its log, so no mutant of this run has a result.';
 
+    /** What a run of an Infection that does not carry `infection:patch` warns of. */
+    private const string UNPATCHED
+        = 'Unpatched, Infection gave each mutant its own limit, with no floor. Run mutation-gate infection:patch.';
+
     public function __construct(
         private Project $project,
         private Shell $shell,
@@ -31,22 +41,33 @@ final readonly class MutationRun
         private OwnConfig $config,
         private bool $nativeMarkersAllowed,
         private StaticAnalysis $analysis,
+        private PatchState $state,
         private Bridges $bridges = new Bridges(),
     ) {
     }
 
-    /** The request's mutants, judged with the coverage in a directory, each allowed at most the cap. */
-    public function of(MutationRequest $request, DiskPath $coverage, Seconds $cap): MutationResult|CannotJudge
+    /**
+     * The request's mutants, judged with the coverage in a directory, each
+     * mutant's limit within the bounds where Infection is patched, and
+     * Infection's own under the most where it is not, which the result
+     * warns of.
+     */
+    public function of(MutationRequest $request, DiskPath $coverage, LimitBounds $bounds): MutationResult|CannotJudge
     {
-        $limits = $this->limits($coverage, $cap);
+        $limits = $this->limits($coverage, $bounds);
 
         if ($limits instanceof CannotJudge) {
             return $limits;
         }
 
-        $targets = $this->prepared($request, $cap);
+        $targets = $this->prepared($request, $bounds->most());
+        $result = $targets instanceof CannotJudge
+            ? $targets
+            : $this->ran($request, $coverage, $targets, $limits, $bounds->floor());
 
-        return $targets instanceof CannotJudge ? $targets : $this->ran($request, $coverage, $targets, $limits);
+        return $result instanceof CannotJudge || $this->state === PatchState::Applied
+            ? $result
+            : $result->withWarnings(Warnings::of(Warning::that(self::UNPATCHED)));
     }
 
     private function ran(
@@ -54,6 +75,7 @@ final readonly class MutationRun
         DiskPath $coverage,
         Targets $targets,
         Limits $limits,
+        Seconds $floor,
     ): MutationResult|CannotJudge {
         $invoked = Invocation::mutation(
             $this->project,
@@ -63,7 +85,9 @@ final readonly class MutationRun
             $request->pool()->processes(),
             $targets->paths(),
             $request->narrowing()->suite(),
-        )->withholding($request->withheld())->within($request->deadline());
+        )->withholding($request->withheld())->within($request->deadline())->with([
+            ChildVariable::MutantFloor->value => sprintf('%F', $floor->seconds()),
+        ]);
         $scan = MemoryScan::in($this->project, $request->memory(), $this->files);
 
         if ($scan instanceof CannotJudge) {
@@ -88,7 +112,7 @@ final readonly class MutationRun
     }
 
     /** What Infection allows each mutant, from the coverage the run reads. */
-    private function limits(DiskPath $coverage, Seconds $cap): Limits|CannotJudge
+    private function limits(DiskPath $coverage, LimitBounds $bounds): Limits|CannotJudge
     {
         $map = CoverageXml::read($this->project, $coverage);
         $junit = JUnit::at($coverage->child(Invocation::JUNIT));
@@ -96,7 +120,7 @@ final readonly class MutationRun
         return match (true) {
             $map instanceof CannotJudge => $map,
             $junit instanceof CannotJudge => $junit,
-            default => Limits::of($map, $junit, $cap),
+            default => Limits::of($map, $junit, $bounds, $this->state),
         };
     }
 

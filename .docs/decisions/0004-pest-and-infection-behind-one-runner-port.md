@@ -149,7 +149,8 @@ its parser attributes. Both change when the checkout moves.
    - **status**, as the runner reported it:
      - killed, survived, uncovered or errored;
      - timed out, or skipped: too slow to run at all, because the tests
-       alone take its limit (Infection's own skip, and decision 8's). Retries
+       alone take its limit (unpatched Infection's own skip, and decision
+       8's). Retries
        run in the shard, and the timeout rule is applied at verdict time
        (ADR-0008);
      - unjudged: no result, because the budget ran out, the runner stopped
@@ -511,7 +512,28 @@ its parser attributes. Both change when the checkout moves.
      - `logs.json` and `logs.text` point into `.mutation-gate/infection/logs/`,
        and every other log is off.
      - `timeout` is `timeouts.most` (ADR-0008), or the doubled most of a
-       retry.
+       retry. Every run is started with `MUTATION_GATE_MUTANT_FLOOR` set to
+       `timeouts.seconds`, which the lines `infection:patch` writes read.
+   - **`infection:patch` gives Infection the gate's mutant limit.** It is
+     `@php vendor/bin/mutation-gate infection:patch` in `post-install-cmd`
+     and `post-update-cmd`. It rewrites two places in Infection, each marked
+     with a `// mutation-gate infection:patch:` comment:
+     - `MutantProcessContainerFactory` allows each mutant the gate's standard
+       limit (ADR-0008, decision 2) of Infection's own time for its covering
+       tests, between `MUTATION_GATE_MUTANT_FLOOR` and Infection's `timeout`,
+       in place of Infection's 5 s plus five times that time under `timeout`.
+     - `MutationTestingRunner` skips no mutant for the time its tests take.
+
+     Both read the gate's floor, so Infection run outside the gate keeps its
+     own limit and skip. The command patches only the Infection releases the
+     runner contracts run, listed in `Adapter\Infection\Patch::SUPPORTED`,
+     reading the release from Composer's list of what it installed. It
+     refuses any other release, a file whose lines have moved, and a file
+     another version of the gate patched, and says which, as `pest:patch`
+     does. Each run checks whether the installed Infection carries the
+     patch. Where it does not, each mutant keeps Infection's own limit, the
+     gate triages by that limit, and the run's report warns of it, naming
+     `infection:patch`; `doctor` advises it too (`infection-unpatched`).
      - `tmpDir` is under `.mutation-gate/`.
      - A run is judged by its logs and their counts, never by Infection's exit
        code. The logs, the generated config and the coverage reports an

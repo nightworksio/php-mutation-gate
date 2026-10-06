@@ -274,6 +274,7 @@ would have cost without them.
     | `.mutation-gate/` not in `.gitignore` | advice |
     | A tree outside `sonar.sources` in `sonar-project.properties`, while a `sonar` report is listed (ADR-0028 decision 10) | advice |
     | An `infection.json5` with `minMsi` or native ignores | advice: `init --from` (ADR-0016) |
+    | Infection as the runner, its installed Infection without `infection:patch` (ADR-0004) | advice |
     | `runner.memory` at `-1`, a PHPUnit config whose `memory_limit` lifts the cap, or, under `--measure`, a suite that held over half the cap (ADR-0004 decision 9) | advice |
 
     The size threshold is the limit ADR-0013 decision 13 sets, twice what a

@@ -28,6 +28,7 @@
                             "workspace-not-ignored",
                             "infection-config-to-import",
                             "native-markers-refused",
+                            "infection-unpatched",
                             "mirrored-path-repository",
                             "ignores-expiring",
                             "tree-without-floor",
