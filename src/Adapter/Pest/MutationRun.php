@@ -4,14 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
-use function array_map;
 use function array_values;
 
 use Closure;
 
 use function count;
 use function dirname;
-use function implode;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
@@ -19,7 +17,6 @@ use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Judging;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
-use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
@@ -28,7 +25,6 @@ use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
-use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -64,9 +60,6 @@ final readonly class MutationRun
 
     /** Why such a mutant is unjudged where the run again made no mutant with its id. */
     private const string NOT_MADE_TO_CONFIRM = 'Run again with every test file, Pest made no mutant with this id.';
-
-    /** Where the parts of a baseline's key are joined. */
-    private const string BETWEEN = "\n";
 
     /** Where the map another job handed over is written again for this job's Pest, beside the results. */
     private const string SHARED_MAP = '%s/shared.coverage.php';
@@ -149,8 +142,12 @@ final readonly class MutationRun
     private function doubted(MutationResult $result, MutationRequest $request, string $results, float $started): Mutants
     {
         return NarrowedKills::in($result, $results)->doubted(
-            /** @param list<string> $files */
-            fn(array $files): bool => $this->passesAlone($files, $request, $started),
+            /**
+             * @param  non-empty-list<list<string>> $sets
+             * @return list<bool>
+             */
+            fn(array $sets): array => new AloneRuns($this->project, $this->shell, $this->remembered)
+                ->pass($sets, $request, $this->left($request, $started)),
         );
     }
 
@@ -235,30 +232,6 @@ final readonly class MutationRun
         return $deadline instanceof Seconds
             ? Seconds::of($deadline->seconds() - ($this->clock->seconds() - $started))
             : $deadline;
-    }
-
-    /**
-     * Whether the tests of the files a mutant's own run was narrowed to, by
-     * their paths on disk, pass on the unmutated code, loaded alone as that
-     * run loaded them, within the time left: once for each set of files.
-     *
-     * @param list<string> $files
-     */
-    private function passesAlone(array $files, MutationRequest $request, float $started): bool
-    {
-        $left = $this->left($request, $started);
-
-        if ($left instanceof Seconds && $left->seconds() <= 0.0) {
-            return false;
-        }
-
-        $withheld = $request->withheld();
-        $judging = Invocation::installedIn($this->project->vendor())
-            ->judging(Paths::of(...array_map(Path::of(...), $files)), $request->judgedBy(), $withheld)
-            ->within($left);
-        $key = implode(self::BETWEEN, [$withheld->pattern(), ...$judging->arguments()]);
-
-        return $this->remembered->baseline($key, fn(): Ran => $this->shell->run($judging));
     }
 
     /** These mutants made again over their files with their mutators, each matched to the one asked for. */

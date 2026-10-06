@@ -1029,6 +1029,22 @@ it('runs again only the narrowed kill whose own files\' tests fail alone, each s
         ->and(file_get_contents(sprintf('%s.only', adapterResults($at))))->toBe('n2');
 });
 
+it('runs the tests of every narrowed kill\'s files alone side by side, one place each, judging as one at a time would', function (): void {
+    $at = adapterProject();
+    $shell = adapterNarrowedKills($at, adapterSpec($at));
+
+    $result = new Pest($at, $shell, adapterCanary(), new CapDirectory(), Triage::standard()->bounds())->mutate(adapterMoney());
+    $baselines = array_values(array_filter(
+        $shell->commands(),
+        static fn(Command $command): bool => ($command->environment()[GateVariable::Results->value] ?? false) === false,
+    ));
+
+    expect(adapterStatuses($result))->toBe([MutantStatus::Killed, MutantStatus::Survived])
+        ->and($shell->batches())->toBe([2])
+        ->and(array_map(static fn(Command $command): array => array_slice($command->arguments(), -1), $baselines))
+        ->toBe([[adapterSpec($at)], [sprintf('%s/tests/OtherSpec.php', $at->root())]]);
+});
+
 it('bounds the run of a narrowed kill\'s files alone, and its run again, by the time left of the deadline', function (): void {
     $at = adapterProject();
     $shell = adapterNarrowedKill($at, passAlone: false);
