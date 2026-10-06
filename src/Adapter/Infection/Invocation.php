@@ -9,9 +9,11 @@ use function array_map;
 use function implode;
 use function is_file;
 
+use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\PcovReach;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Test\Filter;
@@ -92,7 +94,8 @@ final readonly class Invocation
     /**
      * The suite, or the tests that judge a held path, under coverage, writing
      * the layout `--coverage` reads and, for the gate's map, the lines no
-     * test ran beside it.
+     * test ran beside it, with pcov collecting from every tree of the
+     * project, whatever the project's own PHP options set it to.
      */
     public static function coverage(
         Project $project,
@@ -105,6 +108,7 @@ final readonly class Invocation
         return Command::php(
             ...[
                 ...$config->phpOptions(),
+                ...PcovReach::under($project->root(), Path::of(Manifest::VENDOR))->options(),
                 $config->phpunit($project),
                 sprintf('--configuration=%s', $config->configDirectory($project)),
                 sprintf('--coverage-xml=%s', $directory->child(self::XML)->value()),

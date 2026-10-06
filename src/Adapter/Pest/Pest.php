@@ -32,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\PcovReach;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Program;
@@ -374,7 +375,8 @@ final readonly class Pest implements Runner
             return CannotJudge::because(sprintf(self::STALE_MAP, $map));
         }
 
-        $ran = $this->shell->run(Invocation::installedIn($this->project->vendor())->coverage($request, $directory));
+        $ran = $this->shell->run(Invocation::installedIn($this->project->vendor())
+            ->coverage($request, $directory, PcovReach::under($this->project->root(), $this->project->vendor())));
 
         return $ran->succeeded() ? $ran : CoverageFailure::said(Program::Pest, $ran->output());
     }

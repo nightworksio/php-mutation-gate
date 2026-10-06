@@ -12,6 +12,7 @@
     "prefer-stable": true,
     "autoload": {
         "psr-4": {
+            "Beside\\": "library/beside/",
             "Library\\": "library/src/",
             "NightWorksIO\\MutationGate\\": "../../../../src/",
             "Quirks\\": "src/"

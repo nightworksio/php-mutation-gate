@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
+use NightWorksIO\MutationGate\Core\Runner\PcovReach;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -34,6 +35,12 @@ function invocation(): Invocation
     return Invocation::installedIn(Path::of('vendor'));
 }
 
+/** Where pcov collects in a project at `/p` that installs packages in `vendor`. */
+function reach(): PcovReach
+{
+    return PcovReach::under('/p', Path::of('vendor'));
+}
+
 it('lists the groups without colour', function (): void {
     expect(invocation()->listingGroups(Withheld::standard()))
         ->toEqual(Command::pest('vendor/pestphp/pest/bin/pest', Withheld::standard(), '--list-groups', '--colors=never'));
@@ -48,11 +55,16 @@ it('runs the whole suite under coverage into a directory, as --coverage expects 
     $request = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'))
         ->across(ProcessCount::of(4));
 
-    expect(invocation()->coverage($request, '/p/.mutation-gate/coverage'))->toEqual(Command::pest(
-        'vendor/pestphp/pest/bin/pest',
+    expect(invocation()->coverage($request, '/p/.mutation-gate/coverage', reach()))->toEqual(Command::php(
         Withheld::standard(),
+        '-d',
+        'pcov.directory=/p',
+        '-d',
+        'pcov.exclude=~^/p/vendor/~',
+        'vendor/pestphp/pest/bin/pest',
         '--parallel',
         '--processes=4',
+        "--passthru-php='-d' 'pcov.directory=/p' '-d' 'pcov.exclude=~^/p/vendor/~'",
         '--no-tia',
         '--coverage-php=/p/.mutation-gate/coverage/coverage.php',
         '--log-junit=/p/.mutation-gate/coverage/junit.xml',
@@ -62,11 +74,16 @@ it('runs the whole suite under coverage into a directory, as --coverage expects 
 it('runs one group under coverage', function (): void {
     $request = CoverageRun::of(Group::named('holds:src/Held.php'), Path::of('held'));
 
-    expect(invocation()->coverage($request, '/p/held')->arguments())->toBe([
+    expect(invocation()->coverage($request, '/p/held', reach())->arguments())->toBe([
         PHP_BINARY,
+        '-d',
+        'pcov.directory=/p',
+        '-d',
+        'pcov.exclude=~^/p/vendor/~',
         'vendor/pestphp/pest/bin/pest',
         '--parallel',
         '--processes=1',
+        "--passthru-php='-d' 'pcov.directory=/p' '-d' 'pcov.exclude=~^/p/vendor/~'",
         '--no-tia',
         '--coverage-php=/p/held/coverage.php',
         '--log-junit=/p/held/junit.xml',
@@ -75,10 +92,19 @@ it('runs one group under coverage', function (): void {
     ]);
 });
 
+it('hands every process paratest starts the settings pcov collects with, each quoted for the shell paratest reads them through', function (): void {
+    $request = CoverageRun::of(WholeSuite::tests(), Path::of('c'));
+    $arguments = invocation()->coverage($request, '/p/c', PcovReach::under("/it's here", Path::of('vendor')))->arguments();
+
+    expect($arguments)->toContain(
+        "--passthru-php='-d' 'pcov.directory=/it'\\''s here' '-d' 'pcov.exclude=~^/it'\\''s here/vendor/~'",
+    );
+});
+
 it('runs some test files under coverage, in place of the suite', function (): void {
     $request = CoverageRun::of(TestPaths::of(Paths::of(Path::of('tests/MoneySpec.php'), Path::of('tests/Unit/HeldSpec.php'))), Path::of('held'));
 
-    expect(array_slice(invocation()->coverage($request, '/p/held')->arguments(), -3))->toBe([
+    expect(array_slice(invocation()->coverage($request, '/p/held', reach())->arguments(), -3))->toBe([
         'tests/MoneySpec.php',
         'tests/Unit/HeldSpec.php',
         '--do-not-fail-on-empty-test-suite',
@@ -88,7 +114,7 @@ it('runs some test files under coverage, in place of the suite', function (): vo
 it('runs the tests a filter names under coverage', function (): void {
     $request = CoverageRun::of(Filter::matching('HeldTest'), Path::of('held'));
 
-    expect(array_slice(invocation()->coverage($request, '/p/held')->arguments(), -2))->toBe([
+    expect(array_slice(invocation()->coverage($request, '/p/held', reach())->arguments(), -2))->toBe([
         '--filter=HeldTest',
         '--do-not-fail-on-empty-test-suite',
     ]);
@@ -192,6 +218,7 @@ it('withholds from the listing, the coverage run and the mutation run what each 
         $coverage = invocation()->coverage(
             CoverageRun::of(WholeSuite::tests(), Path::of('c'))->withholding(Withheld::of('CI_JOB_TOKEN')),
             '/p/c',
+            reach(),
         );
         $mutation = invocation()->mutation(
             MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())
@@ -275,7 +302,7 @@ it('keeps the coverage run and the mutation run to one suite where the run names
     expect(invocation()->mutation($suited, WholeSuite::tests(), '/p/results.jsonl')->arguments())->toContain('--testsuite=unit')
         ->and(invocation()->mutation($request, WholeSuite::tests(), '/p/results.jsonl')->arguments())
         ->not->toContain('--testsuite=unit')
-        ->and(array_slice(invocation()->coverage($run->inSuite(SuiteName::of('unit')), '/p/cov')->arguments(), -1))
+        ->and(array_slice(invocation()->coverage($run->inSuite(SuiteName::of('unit')), '/p/cov', reach())->arguments(), -1))
         ->toBe(['--testsuite=unit'])
-        ->and(invocation()->coverage($run, '/p/cov')->arguments())->not->toContain('--testsuite=unit');
+        ->and(invocation()->coverage($run, '/p/cov', reach())->arguments())->not->toContain('--testsuite=unit');
 });

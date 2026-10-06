@@ -70,7 +70,9 @@ use SebastianBergmann\CodeCoverage\Serialization\Serializer;
 // (PhpUnit) once its steps have installed phpunit-fixture/, whose library/
 // holds the same code tested by PHPUnit. The Pest and Infection libraries also
 // hold their runner's own ignore marker in marked/Marked.php; the PHPUnit
-// runner has none. The runs are real, so each request runs once per library.
+// runner has none. Every library holds beside/Ledger.php too, outside src/,
+// which its phpunit.xml names as source and tests/LedgerSpec.php tests. The
+// runs are real, so each request runs once per library.
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -405,6 +407,16 @@ it('names the test files that judge a covered file, and none for an uncovered on
     expect($covered)->toEqual(Paths::of(Path::of('tests/DrainSpec.php'), Path::of('tests/MoneySpec.php')))
         ->and($uncovered)->toEqual(Paths::none());
 })->with($libraries);
+
+// pcov, left unset, collects from src/ alone, so the lines of beside/ would
+// read as run by no test.
+it('measures a tree outside src/ that the project names as source, naming the test files that judge it', function (Library $library): void {
+    $map = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));
+    $judges = $map instanceof CoverageMap ? $library->runner()->judges(Path::of('beside/Ledger.php'), $map) : $map;
+
+    expect($judges)->toEqual(Paths::of(Path::of('tests/LedgerSpec.php')));
+})->with($onDisk === [] ? ['none installed' => fn(): Library => Library::fake()] : $onDisk)
+    ->skip($onDisk === [], 'the runner contracts jobs install the libraries whose runner reads from disk');
 
 /** @return array<string, list<string>> each covered line of a map, by its file and line, with its tests sorted */
 function contractLines(CoverageMap $map): array

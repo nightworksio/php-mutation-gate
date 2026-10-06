@@ -131,7 +131,7 @@ it('runs the tests that judge the request under coverage, then each covered muta
 
     expect(statusesOf($result))->toBe([['src/Money.php', 'killed'], ['src/Tax.php', 'uncovered']])
         ->and($shell->commands())->toHaveCount(2)
-        ->and($coverage->arguments()[2] ?? '')->toBe(sprintf('--coverage-php=%s/.mutation-gate/phpunit/coverage/coverage.php', $project->root()))
+        ->and($coverage->arguments())->toContain(sprintf('--coverage-php=%s/.mutation-gate/phpunit/coverage/coverage.php', $project->root()))
         ->and($coverage->withheld())->toEqual(Withheld::standard()->and($withheld))
         ->and($coverage->scanned())->toBeInstanceOf(Uncapped::class)
         ->and($caps->getArrayCopy())->toBe(["memory_limit=64M\ndisplay_errors=stdout\n"])
@@ -180,7 +180,7 @@ it('reads one map for every run of the same, and runs the suite under coverage o
 
     $coverageRuns = array_filter(
         $shell->commands(),
-        static fn(Command $command): bool => str_starts_with($command->arguments()[2] ?? '', '--coverage-php='),
+        static fn(Command $command): bool => preg_grep('/^--coverage-php=/', $command->arguments()) !== [],
     );
 
     expect($coverageRuns)->toHaveCount(1);

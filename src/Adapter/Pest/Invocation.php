@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_map;
 use function count;
+use function escapeshellarg;
 use function implode;
 use function is_file;
 
@@ -17,6 +18,7 @@ use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\PcovReach;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
@@ -43,6 +45,9 @@ final readonly class Invocation
 
     /** Pest's script, in the directory Composer installed the project's packages in. */
     private const string SCRIPT = '%s/pestphp/pest/bin/pest';
+
+    /** paratest's option of the PHP options each worker starts with. */
+    private const string PASSED_ON = '--passthru-php=%s';
 
     private function __construct(private string $script)
     {
@@ -77,18 +82,27 @@ final readonly class Invocation
         return is_file($project->absolute(Path::of($this->script)));
     }
 
-    public function coverage(CoverageRun $request, string $directory): Command
+    /**
+     * A coverage run, with pcov collecting from every tree of the project in
+     * Pest's own process and in each worker paratest starts, which reads
+     * `--passthru-php` through a shell.
+     */
+    public function coverage(CoverageRun $request, string $directory, PcovReach $reach): Command
     {
-        return Command::pest(
-            $this->script,
+        return Command::php(
             $request->withheld(),
-            '--parallel',
-            sprintf('--processes=%d', $request->processes()->count()),
-            '--no-tia',
-            sprintf('%s=%s/%s', PhpUnitOption::CoveragePhp->value, $directory, self::MAP),
-            sprintf('%s=%s/%s', PhpUnitOption::LogJunit->value, $directory, self::JUNIT),
-            ...$this->covering($request->tests()),
-            ...PhpUnitOption::inSuite($request->suite()),
+            ...$reach->options(),
+            ...[
+                $this->script,
+                '--parallel',
+                sprintf('--processes=%d', $request->processes()->count()),
+                sprintf(self::PASSED_ON, implode(' ', array_map(escapeshellarg(...), $reach->options()))),
+                '--no-tia',
+                sprintf('%s=%s/%s', PhpUnitOption::CoveragePhp->value, $directory, self::MAP),
+                sprintf('%s=%s/%s', PhpUnitOption::LogJunit->value, $directory, self::JUNIT),
+                ...$this->covering($request->tests()),
+                ...PhpUnitOption::inSuite($request->suite()),
+            ],
         );
     }
 

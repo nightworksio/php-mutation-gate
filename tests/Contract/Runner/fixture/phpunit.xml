@@ -13,6 +13,7 @@
     <source>
         <include>
             <directory>src</directory>
+            <directory>beside</directory>
         </include>
     </source>
 </phpunit>

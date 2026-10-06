@@ -352,7 +352,12 @@ its parser attributes. Both change when the checkout moves.
    - **Coverage** is an invocation of its own, never part of a mutation run:
      - `<vendor>/pestphp/pest/bin/pest --parallel --coverage-php=<dir>/coverage.php
        --log-junit=<dir>/junit.xml` under pcov or Xdebug, without `--coverage`,
-       whose own report path would win. The map is read with
+       whose own report path would win. pcov collects from the project's
+       root, less its vendor directory (`-d pcov.directory=<root>
+       -d pcov.exclude=~^<vendor>/~`), in Pest's own process and, through
+       `--passthru-php`, in each worker paratest starts. Left unset, pcov
+       collects from the first of `src`, `lib` and `app` alone, so the lines
+       of a tree beside it would read as run by no test. The map is read with
        `phpunit/php-code-coverage`, and its `testResults` carry each test's
        duration. That map is PHP, which reading runs, so only the job that
        wrote it reads it.
@@ -551,7 +556,8 @@ its parser attributes. Both change when the checkout moves.
      carries no rejection either, since the log names no finding.
    - **Coverage** comes from `vendor/bin/phpunit --coverage-xml=<dir>/coverage-xml
      --log-junit=<dir>/junit.xml`, or `phpUnit.customPath`, with
-     `initialTestsPhpOptions` as PHP options, the project's
+     `initialTestsPhpOptions` as PHP options, then the pcov settings Pest's
+     coverage run takes, which win over them, the project's
      `testFrameworkExtraArgs` and, for a held path, its group or filter. That
      is the layout `--coverage` expects, and the gate reads its per-line
      `covered by` entries as its own map, so one run serves both. The map
