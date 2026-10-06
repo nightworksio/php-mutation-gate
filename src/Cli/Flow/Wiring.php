@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Adapter\Infection\StaticAnalysis;
 use NightWorksIO\MutationGate\Adapter\Opcache\Prover;
 use NightWorksIO\MutationGate\Adapter\Pest\PestOptions;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnitOptions;
+use NightWorksIO\MutationGate\Adapter\Project\PhpUnitSuite;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\Config\DeclaredTrees;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
@@ -100,7 +101,10 @@ final readonly class Wiring
         $chosen = new Chosen($this->extensions);
         $source = BuiltinVersionControl::in($this->environment)->named();
         $checker = $this->checker($settings->staticCheck(), $chosen);
-        $runner = $chosen->runner($this->runnerChoice($settings, $checker, $mutators));
+        $suite = Suite::configured($project);
+        $runner = $suite instanceof PhpUnitSuite
+            ? $chosen->runner($this->runnerChoice($settings, $checker, $mutators, $suite))
+            : $suite;
         $found = $chosen->treeSource($settings->treeSource());
         $trees = $found instanceof TreeSource ? new DeclaredTrees($found, $settings->floors()->trees()) : $found;
         $costs = $lookup->costModel(BuiltinCostModel::Learned->named(), $settings->shards()->costOptions());
@@ -185,19 +189,25 @@ final readonly class Wiring
      * and each told the classes of the
      * registered mutators it makes mutants with (ADR-0021): Pest and
      * Infection those the config turns on, beside their own, and the PHPUnit
-     * runner the `default` set's and those (ADR-0023, decision 8).
+     * runner the `default` set's and those (ADR-0023, decision 8); and each
+     * told the directories the tests are in, as the PHPUnit config declares
+     * them, so a test outside the conventional `tests` is one the runner
+     * lists.
      */
     private function runnerChoice(
         Settings $settings,
         StaticChecker|NoAnalyser|Invalid|CannotJudge $checker,
         EnabledMutators $mutators,
+        PhpUnitSuite $suite,
     ): Choice {
         $runner = $settings->runner()->choice();
         $use = $runner->use()->value();
         $seconds = $settings->triage()->limit()->seconds();
         $most = $settings->triage()->most()->seconds();
         $beside = Json::items(...$mutators->besideTheRunners()->classes());
+        $tests = $this->testsOf($suite);
         $infection = Json::object(
+            Member::of(Setup::TESTS, $tests),
             Member::of(Setup::TIMEOUT, $seconds),
             Member::of(Setup::MOST, $most),
             Member::of(Setup::MUTATORS, $beside),
@@ -206,6 +216,7 @@ final readonly class Wiring
                 : [],
         );
         $native = Json::object(
+            Member::of(PhpUnitOptions::TESTS, $tests),
             Member::of(PhpUnitOptions::TIMEOUT, $seconds),
             Member::of(PhpUnitOptions::MOST, $most),
             Member::of(PhpUnitOptions::MUTATORS, Json::items(...$mutators->forTheEngine()->classes())),
@@ -217,6 +228,7 @@ final readonly class Wiring
             $use === BuiltinRunner::Pest->value => Choice::of(
                 $use,
                 $runner->options()->over(Json::object(
+                    Member::of(PestOptions::TESTS, $tests),
                     Member::of(PestOptions::TIMEOUT, $seconds),
                     Member::of(PestOptions::MOST, $most),
                     Member::of(PestOptions::MUTATORS, $beside),
@@ -224,6 +236,18 @@ final readonly class Wiring
             ),
             default => $runner,
         };
+    }
+
+    /** The directories a suite's tests are in, as a runner's `tests` option holds them. */
+    private function testsOf(PhpUnitSuite $suite): Json
+    {
+        $tests = [];
+
+        foreach ($suite->paths() as $path) {
+            $tests[] = $path->value();
+        }
+
+        return Json::items(...$tests);
     }
 
 

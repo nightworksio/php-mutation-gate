@@ -8,6 +8,7 @@ use function array_any;
 use function array_values;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Project\DirectoryGlob;
 use NightWorksIO\MutationGate\Adapter\Project\PhpUnitSuite;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -134,14 +135,20 @@ final readonly class Suite
         return $holdings;
     }
 
-    /** The suite the first PHPUnit config the project has declares; the conventional one where it has none. */
+    /**
+     * The suite the first PHPUnit config the project has declares, its
+     * wildcards expanded from the project's root; the conventional one where
+     * it has none.
+     */
     public static function configured(Directory $project): PhpUnitSuite|CannotJudge
     {
         foreach (PhpUnitConfig::candidatesIn(Path::root()) as $candidate) {
             $contents = $project->read($candidate);
 
             if ($contents instanceof Contents || $contents instanceof CannotJudge) {
-                return $contents instanceof Contents ? PhpUnitSuite::declaredIn($contents, $candidate) : $contents;
+                return $contents instanceof Contents
+                    ? PhpUnitSuite::declaredIn($contents, $candidate, DirectoryGlob::from($project->root()))
+                    : $contents;
             }
         }
 

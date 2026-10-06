@@ -5,10 +5,11 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 
-it('holds every file inside it, and tells its test cases by their suffix', function (): void {
+it('is its directory, holds every file inside it, and tells its test cases by their suffix', function (): void {
     $directory = SuiteDirectory::of(Path::of('tests/Feature'), '.phpt');
 
-    expect($directory->holds(Path::of('tests/Feature/Fakes/Clock.php')))->toBeTrue()
+    expect($directory->path())->toEqual(Path::of('tests/Feature'))
+        ->and($directory->holds(Path::of('tests/Feature/Fakes/Clock.php')))->toBeTrue()
         ->and($directory->holds(Path::of('tests/Unit/money.phpt')))->toBeFalse()
         ->and($directory->holdsTestCase(Path::of('tests/Feature/money.phpt')))->toBeTrue()
         ->and($directory->holdsTestCase(Path::of('tests/Feature/MoneyTest.php')))->toBeFalse()

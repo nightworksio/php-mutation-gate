@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Project\DirectoryGlob;
 use NightWorksIO\MutationGate\Adapter\Project\PhpUnitSuite;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\FirstParty;
@@ -14,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
@@ -80,7 +82,7 @@ it('cannot place a test with no covering file where the trees or the PHPUnit con
 
     $stub = $broken === 'trees' ? stubbingOf($project, new TreeSourceFake(CannotJudge::because('No trees.'))) : stubbingOf($project);
 
-    $suite = PhpUnitSuite::declaredIn(Contents::of('<phpunit'), Path::of('phpunit.xml'));
+    $suite = PhpUnitSuite::declaredIn(Contents::of('<phpunit'), Path::of('phpunit.xml'), DirectoryGlob::from(Root::here()));
     $unread = $suite instanceof CannotJudge ? $suite->why() : 'a suite';
 
     expect($stub instanceof CannotJudge ? $stub->why() : $stub)->toBe($broken === 'trees' ? 'No trees.' : $unread);

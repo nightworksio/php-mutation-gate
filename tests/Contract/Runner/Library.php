@@ -14,6 +14,7 @@ use function getenv;
 use function is_dir;
 use function iterator_to_array;
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Infection\ProcessShell as InfectionShell;
 use NightWorksIO\MutationGate\Adapter\Infection\Project as InfectionProject;
@@ -25,7 +26,9 @@ use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnit;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\ProcessShell as PhpUnitShell;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Project as PhpUnitProject;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
+use NightWorksIO\MutationGate\Adapter\Project\PhpUnitSuite;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
+use NightWorksIO\MutationGate\Cli\Flow\Suite;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Triage;
@@ -60,6 +63,9 @@ use Pest\Mutate\Mutators\Arithmetic\PostDecrementToPostIncrement;
 use Pest\Mutate\Mutators\Equality\GreaterToGreaterOrEqual;
 
 use function realpath;
+
+use RuntimeException;
+
 use function sort;
 use function sprintf;
 
@@ -268,7 +274,7 @@ final class Library
     public static function infectionAt(string $root, LimitBounds $bounds): self
     {
         $infection = static function (string $root) use ($bounds): Infection {
-            $project = InfectionProject::at(Root::of($root), Paths::of(Path::of('tests')), Path::of('.mutation-gate'));
+            $project = InfectionProject::at(Root::of($root), self::testsIn($root), Path::of('.mutation-gate'));
 
             return new Infection($project, new InfectionShell(new LocalProcesses(new SystemClock()), $root, getenv()), $bounds, nativeMarkersAllowed: false, files: new CapDirectory());
         };
@@ -307,7 +313,7 @@ final class Library
     {
         $root = Tree::at(self::PHPUNIT_DIRECTORY);
         $phpunit = static fn(string $root): PhpUnit => new PhpUnit(
-            PhpUnitProject::at($root, Paths::of(Path::of('tests')), Path::of('../vendor'), Path::of('.mutation-gate')),
+            PhpUnitProject::at($root, self::testsIn($root), Path::of('../vendor'), Path::of('.mutation-gate')),
             new PhpUnitShell(new LocalProcesses(new SystemClock()), $root, getenv()),
             self::defaultSet(),
             $kept,
@@ -510,8 +516,7 @@ final class Library
     private static function pestRooted(string $root, Patching $patching, LimitBounds $kept, string $name): self
     {
         $pest = static function (string $root) use ($patching, $kept): Pest {
-            $tests = Paths::of(Path::of('tests'));
-            $project = Project::at($root, $tests, Path::of('.mutation-gate'), Path::of('vendor'));
+            $project = Project::at($root, self::testsIn($root), Path::of('.mutation-gate'), Path::of('vendor'));
 
             return new Pest($project, new ProcessShell(new LocalProcesses(new SystemClock()), $root), $patching, new CapDirectory(), $kept);
         };
@@ -527,6 +532,14 @@ final class Library
             package: Path::of(basename($root)),
             root: $root,
         );
+    }
+
+    /** The directories the tests of a library at a root are in, as the flows read them from its PHPUnit config. */
+    private static function testsIn(string $root): Paths
+    {
+        $suite = Suite::configured(Directory::at($root));
+
+        return $suite instanceof PhpUnitSuite ? $suite->paths() : throw new RuntimeException($suite->why());
     }
 
     /** The engine of the default set, as the flows hand it to the PHPUnit runner. */

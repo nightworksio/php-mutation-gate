@@ -25,11 +25,11 @@ use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
  * What the `pest` runner's options say: `patch`, whether the project applies
  * `pest:patch`, false by default; `canary`, the group a patched shard opens
  * on, `mutation-canary` by default; `tests`, the directories the tests live
- * in, `tests` by default; `timeout` and `most`, the floor and the most of
- * each mutant's limit, which the flows write from `timeouts.seconds` and
- * `timeouts.most`; and `mutators`, the classes of the registered mutators
- * Pest makes mutants with beside its own, which the flows write (ADR-0021),
- * none by default.
+ * in, which the flows write from the PHPUnit config, `tests` by default;
+ * `timeout` and `most`, the floor and the most of each mutant's limit, which
+ * the flows write from `timeouts.seconds` and `timeouts.most`; and
+ * `mutators`, the classes of the registered mutators Pest makes mutants with
+ * beside its own, which the flows write (ADR-0021), none by default.
  */
 final readonly class PestOptions
 {
@@ -42,11 +42,12 @@ final readonly class PestOptions
     /** The option that holds `timeouts.most`, which the flows write. */
     public const string MOST = 'most';
 
+    /** The option that holds the directories the tests are in, which the flows write from the PHPUnit config. */
+    public const string TESTS = 'tests';
+
     private const string PATCH = 'patch';
 
     private const string CANARY = 'canary';
-
-    private const string TESTS = 'tests';
 
     private function __construct(
         private Patching $patching,

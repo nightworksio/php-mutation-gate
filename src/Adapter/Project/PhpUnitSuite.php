@@ -27,9 +27,10 @@ use function trim;
  * The test suite the project's PHPUnit config declares: the `<directory>`
  * and `<file>` of every `<testsuite>`, less each `<exclude>`, as PHPUnit
  * itself, and the runners over it, read them, each directory with the suffix
- * that tells its files of test cases, and each `<testsuite>` by its name.
- * Without a config, or one that names no test directory, the tests are in the
- * conventional directory.
+ * that tells its files of test cases, and each `<testsuite>` by its name. A
+ * `<directory>` with a wildcard is each directory it matches, as PHPUnit
+ * expands it. Without a config, or one whose directories are none, the tests
+ * are in the conventional directory.
  */
 final readonly class PhpUnitSuite
 {
@@ -65,8 +66,8 @@ final readonly class PhpUnitSuite
         return new self([SuiteDirectory::conventional()], Paths::none(), Paths::none(), DeclaredSuites::none());
     }
 
-    /** The suite a PHPUnit config, read from this file, declares. */
-    public static function declaredIn(Contents $config, Path $file): self|CannotJudge
+    /** The suite a PHPUnit config, read from this file, declares, its wildcards expanded by a glob. */
+    public static function declaredIn(Contents $config, Path $file, DirectoryGlob $glob): self|CannotJudge
     {
         $xml = simplexml_load_string($config->text(), options: Xml::QUIET);
 
@@ -74,17 +75,13 @@ final readonly class PhpUnitSuite
             return CannotJudge::because(sprintf(self::NOT_XML, $file->value()));
         }
 
-        $directories = [];
-
-        foreach (self::nodesIn($xml, self::DIRECTORIES) as $node) {
-            $directories[] = SuiteDirectory::of(Path::of(trim((string) $node)), (string) $node->attributes()?->suffix);
-        }
+        $directories = self::directoriesIn($xml, self::DIRECTORIES, $glob);
 
         return new self(
             $directories === [] ? [SuiteDirectory::conventional()] : $directories,
             self::pathsIn($xml, self::FILES),
             self::pathsIn($xml, self::EXCLUDED),
-            self::suitesIn($xml),
+            self::suitesIn($xml, $glob),
         );
     }
 
@@ -116,6 +113,18 @@ final readonly class PhpUnitSuite
         return $this->directories;
     }
 
+    /** Where the tests are: each directory once, in the order the config names them. */
+    public function paths(): Paths
+    {
+        $paths = Paths::none();
+
+        foreach ($this->directories as $directory) {
+            $paths = $paths->with($directory->path());
+        }
+
+        return $paths;
+    }
+
     /** Each `<testsuite>` the config declares, by its name, in its order (ADR-0025, decision 8). */
     public function suites(): DeclaredSuites
     {
@@ -123,27 +132,41 @@ final readonly class PhpUnitSuite
     }
 
     /** Each `<testsuite>` of a config, by its name, with its own directories, files and excludes. */
-    private static function suitesIn(SimpleXMLElement $xml): DeclaredSuites
+    private static function suitesIn(SimpleXMLElement $xml, DirectoryGlob $glob): DeclaredSuites
     {
         $suites = [];
 
         foreach (self::nodesIn($xml, self::SUITES) as $suite) {
-            $directories = [];
-
-            foreach (self::nodesIn($suite, self::DIRECTORY) as $node) {
-                $suffix = (string) $node->attributes()?->suffix;
-                $directories[] = SuiteDirectory::of(Path::of(trim((string) $node)), $suffix);
-            }
-
             $suites[] = DeclaredSuite::named(
                 (string) $suite->attributes()?->name,
                 self::pathsIn($suite, self::FILE),
                 self::pathsIn($suite, self::EXCLUDE),
-                ...$directories,
+                ...self::directoriesIn($suite, self::DIRECTORY, $glob),
             );
         }
 
         return DeclaredSuites::of(...$suites);
+    }
+
+    /**
+     * Each directory the `<directory>` nodes a query finds name, each
+     * wildcard expanded, with the suffix of its node.
+     *
+     * @return list<SuiteDirectory>
+     */
+    private static function directoriesIn(SimpleXMLElement $xml, string $query, DirectoryGlob $glob): array
+    {
+        $directories = [];
+
+        foreach (self::nodesIn($xml, $query) as $node) {
+            $suffix = (string) $node->attributes()?->suffix;
+
+            foreach ($glob->expanded(Path::of(trim((string) $node))) as $directory) {
+                $directories[] = SuiteDirectory::of($directory, $suffix);
+            }
+        }
+
+        return $directories;
     }
 
     /** @return list<SimpleXMLElement> */
