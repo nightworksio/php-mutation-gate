@@ -23,7 +23,9 @@ use Traversable;
 /**
  * One timing per unit, the newest measurement winning: a timing measured
  * before the one held is dropped, and one measured at the same instant or
- * later replaces it.
+ * later replaces it. What a run learns is first smoothed over what was held:
+ * an exponentially weighted moving average of a unit's measurements by the
+ * same runner (ADR-0006, decision 4).
  *
  * @implements IteratorAggregate<int, Timing>
  */
@@ -53,6 +55,26 @@ final readonly class Timings implements Countable, IteratorAggregate
     public function and(self $other): self
     {
         return new self(self::newest($this->timings, $other->timings));
+    }
+
+    /**
+     * These timings, as a run measured them, each smoothed over the unit's
+     * timing held from an earlier measurement by the same runner, as
+     * `Timing::smoothedOver()` weighs them. A unit with none held,
+     * or one an other runner measured or measured later, takes its newest
+     * measurement as it is.
+     */
+    public function smoothedOver(self $held): self
+    {
+        $smoothed = [];
+
+        foreach ($this->timings as $unit => $timing) {
+            $before = array_key_exists($unit, $held->timings) ? $held->timings[$unit] : $timing;
+            $blends = $before->runner() === $timing->runner() && $timing->at()->isAfter($before->at());
+            $smoothed[] = $blends ? $timing->smoothedOver($before) : $timing;
+        }
+
+        return self::of(...$smoothed);
     }
 
     /** Only the timings of these units, which are the ones that still exist. */

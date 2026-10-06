@@ -144,8 +144,16 @@ Two parts of that do not carry over to a public package.
      - from Infection, which reports none, each mutant's stand-in, the JUnit
        time of the tests that cover its line.
 
-     A unit's newest share replaces its older one. A unit that was proved
-     rather than run keeps its last timing.
+     A unit's newest share is smoothed over the timing held of it, where
+     the same runner measured that one earlier: an exponentially weighted
+     moving average, the newest share weighing 0.9 and the held timing 0.1.
+     The weight was fitted by predicting the gate's own third full self-gate
+     run from the two before it, against last-value, max-of-k and other
+     weights. One of those two runs predates the per-mutant limit of
+     ADR-0008 decision 2, so the weight is refitted from three runs after
+     it once a third lands. A share from another runner, or with no timing
+     held, replaces it as it is. A unit that was proved rather than run
+     keeps its last timing.
    - **Where timings live.** In the ledger (ADR-0007), keyed by unit path, with
      the runner and the time of measurement. They are not committed: they
      describe the CI's machines, not the code, and they change on every run.
@@ -268,7 +276,7 @@ Two parts of that do not carry over to a public package.
 | **Mutant-level sharding** | Neither runner can be given a list of mutants: Pest's and Infection's `--id` each take one. A file is the smallest thing both accept. |
 | **Longest-first bin packing instead of path-order cuts** | Balances a few percent better. It scatters a tree over every shard, so a label says nothing and a shard's contents shift with every timing. The best cut in path order comes within a few percent of it. |
 | **Timings committed to the repository** | Rewritten by every run, conflicting across pull requests, and true only of the CI's machines. |
-| **A moving average of timings** | Smoother, and it lags a real change: a file whose tests got twice as slow is misplaced for several runs. The seed takes the newest measurement, and placement errors cost only time. |
+| **A moving average of timings over the last k runs, or their maximum** | Grows the ledger k-fold, and both predicted the gate's own runs worse than the weighted average. |
 | **A fixed `parallel: N` as the only model** | Cannot shrink to zero shards when nothing is reached, and holds N runners for a one-file change. It stays available as `--shards=<N>` for CIs that need it. |
 | **Aggregating from the CI's job results** | A job that was skipped by design and one skipped because something upstream broke look the same, which is why the in-house gate's aggregating job needs a paragraph of conditions. A missing result file is unambiguous. |
 | **A shard that exits non-zero when its mutants survive** | Each CI would then need its own way to keep going after a red shard, and the shard's status would say less than the verdict. A shard's exit code says only whether it left its result. |

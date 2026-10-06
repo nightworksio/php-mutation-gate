@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Proof\ReadsOnly;
 use NightWorksIO\MutationGate\Core\Proof\Recording;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Undigested;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestName;
@@ -63,7 +64,9 @@ final readonly class Recorded
         $written = $ledgers->written()->atBase($plan->base());
         $written = $written->withAnalysers($written->analysers()->plus($results->checks()->histories()));
         $proved = $this->proved($written, $plan, $fresh, $run);
-        $learned = $this->adapters->narrowing->isNone() ? $this->learned($proved, $results) : $proved;
+        $learned = $this->adapters->narrowing->isNone()
+            ? $this->learned($proved, $results, $ledgers->timings())
+            : $proved;
         $ledger = $this->taught($learned, $fresh);
 
         if ($ledger instanceof CannotJudge) {
@@ -186,10 +189,11 @@ final readonly class Recorded
 
     /**
      * The ledger, with what each shard taught the cost model of the units it
-     * ran, timed by the map it was handed: a unit its budget ran out before
-     * took none of its time.
+     * ran, timed by the map it was handed, each smoothed over the timing every
+     * ledger read held of it: a unit its budget ran out before took none of
+     * its time.
      */
-    private function learned(Ledger $ledger, Results $results): Ledger|CannotJudge
+    private function learned(Ledger $ledger, Results $results, Timings $held): Ledger|CannotJudge
     {
         $handoff = new Handoff($this->adapters->project, Handoff::limits());
 
@@ -205,7 +209,7 @@ final readonly class Recorded
                 $mutated->mutants(),
                 $map,
                 $result->measured(),
-            ));
+            )->smoothedOver($held));
         }
 
         return $ledger;
