@@ -9,6 +9,8 @@
     "markdownlint-cli2-formatter-json": "0.0.10"
   },
   "overrides": {
-    "braces": "$braces"
+    "braces": "$braces",
+    "katex": "0.18.2",
+    "smol-toml": "1.9.0"
   }
 }
