@@ -18,7 +18,7 @@ final readonly class ReachKeys
     public static function fields(PathOrigin $origin): array
     {
         $judges = Effect::JudgesOrReportsOnly;
-        $everything = Field::optional('everything', Items::of(Pattern::glob($origin)), $judges);
+        $everything = Field::optional('everything', Items::of(Pattern::glob($origin)), Effect::DecidesHowTheGateRuns);
         $hotPath = Field::optional('hotPath', Number::between(0, 1), $judges);
 
         return [

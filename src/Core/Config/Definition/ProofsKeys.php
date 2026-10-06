@@ -18,10 +18,10 @@ final readonly class ProofsKeys
     /** @return list<Field<Layer>> */
     public static function fields(PathOrigin $origin): array
     {
-        $judges = Effect::JudgesOrReportsOnly;
-        $store = Field::optional('store', Adapter::choosing(Builtins::stores($origin)), $judges);
-        $ignore = Field::optional('ignore', Items::of(Pattern::glob($origin)), $judges);
-        $write = Field::optional('write', Enumerated::of(Writing::cases()), $judges);
+        $decides = Effect::DecidesHowTheGateRuns;
+        $store = Field::optional('store', Adapter::choosing(Builtins::stores($origin)), $decides);
+        $ignore = Field::optional('ignore', Items::of(Pattern::glob($origin)), $decides);
+        $write = Field::optional('write', Enumerated::of(Writing::cases()), $decides);
 
         return [Field::section(
             'proofs',

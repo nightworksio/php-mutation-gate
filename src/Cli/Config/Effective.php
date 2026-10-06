@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\BuiltinPreset;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
+use NightWorksIO\MutationGate\Core\Config\Canonical;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
 use NightWorksIO\MutationGate\Core\Config\Definition;
@@ -47,16 +48,16 @@ final readonly class Effective
     }
 
     /**
-     * The settings that affect results, serialised canonically (ADR-0007),
+     * The settings that decide how the gate runs, serialised canonically,
      * where a config file holds what this copy holds, as it stood at a base
      * a change is read since (ADR-0005, decision 4); or why they cannot be
      * read.
      */
-    public function canonicalOf(CommandLine $given, ConfigFile $copy): string|Invalid|CannotJudge
+    public function decidingOf(CommandLine $given, ConfigFile $copy): string|Invalid|CannotJudge
     {
         $settings = $this->over($this->loaded($copy), $given);
 
-        return $settings instanceof Settings ? $settings->canonical() : $settings;
+        return $settings instanceof Settings ? Canonical::decidingIn($settings) : $settings;
     }
 
     /** Whether the config file or the command line chooses the runner, rather than leave it to zero-config. */

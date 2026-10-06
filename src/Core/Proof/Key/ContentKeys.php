@@ -69,7 +69,7 @@ use function sprintf;
  */
 final readonly class ContentKeys
 {
-    public const string FORMAT = 'mutation-gate proof 3';
+    public const string FORMAT = 'mutation-gate proof 4';
 
     private function __construct(
         private HashContext $everyKey,

@@ -47,7 +47,7 @@ const CONTENT_KEY_SOURCE = [
     '.github/workflows/mutation.yml' => 'm1',
 ];
 
-const CONTENT_KEY_CI = "name: mutation\n# The gate.\n  - uses: actions/checkout@3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d # v7\n";
+const CONTENT_KEY_CI = "name: mutation\n# The gate.\nsteps:\n  - uses: actions/checkout@3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d # v7\n";
 
 const CONTENT_KEY_CASES = [
     'tests/Unit/MoneyTest.php' => ['m1', "<?php\nit('adds', fn() => new Helper());\n"],
@@ -200,9 +200,9 @@ $framed = static fn(string ...$fields): Digest => Digest::of(hash('sha256', impl
 ))));
 
 it('hashes everything a result could depend on, in order', function () use ($keyOf, $framed): void {
-    expect(ContentKeys::FORMAT)->toBe('mutation-gate proof 3')
+    expect(ContentKeys::FORMAT)->toBe('mutation-gate proof 4')
         ->and($keyOf())->toEqual($framed(
-            'mutation-gate proof 3',
+            'mutation-gate proof 4',
             'gate',
             'nightworksio/mutation-gate',
             '1.0.0',
@@ -234,7 +234,7 @@ it('hashes everything a result could depend on, in order', function () use ($key
             'ci',
             '1',
             '.github/workflows/mutation.yml',
-            "name: mutation\n  - uses: actions/checkout@",
+            "name: mutation\nsteps:\n  - uses: actions/checkout@3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d # v7\n",
             'always',
             '4',
             'tests/Pest.php',
@@ -288,6 +288,8 @@ it('changes with every input a result could depend on', function (Closure $chang
     'what is installed' => [fn(): Digest|Unkeyed => $keyOf(installed: 'installed differently')],
     'a source file' => [fn(): Digest|Unkeyed => $keyOf(source: [...CONTENT_KEY_SOURCE, 'src/A.php' => 'a2'])],
     'the CI definition' => [fn(): Digest|Unkeyed => $keyOf(ci: "name: mutation\n  - run: vendor/bin/pest\n")],
+    'the commit an action is pinned at' => [fn(): Digest|Unkeyed => $keyOf(ci: sprintf("name: mutation\n# The gate.\nsteps:\n  - uses: actions/checkout@%s # v7\n", str_repeat('4e', 20)))],
+    'a blank line in the CI definition' => [fn(): Digest|Unkeyed => $keyOf(ci: sprintf("name: mutation\n\nsteps:\n  - uses: actions/checkout@%s # v7\n", str_repeat('3d', 20)))],
     'a second CI definition that runs the gate' => [fn(): Digest|Unkeyed => $keyOf(template: 'stages: [mutation]')],
     'a judging test' => [fn(): Digest|Unkeyed => $keyOf(cases: [...CONTENT_KEY_CASES, 'tests/Unit/MoneyTest.php' => ['m2', "<?php\nit('adds', fn() => new Helper());\n"]])],
     'the support a judging test names' => [fn(): Digest|Unkeyed => $keyOf(others: [...CONTENT_KEY_OTHERS, 'tests/Support/Helper.php' => ['h2', "<?php\nfinal class Helper {}\n"]])],
@@ -312,8 +314,7 @@ it('stays the same for what no result depends on', function (Closure $unchanged)
     'another CI definition' => [fn(): Digest|Unkeyed => $keyOf(source: [...CONTENT_KEY_SOURCE, '.github/workflows/ci.yml' => 'w2'])],
     'the ledger' => [fn(): Digest|Unkeyed => $keyOf(source: [...CONTENT_KEY_SOURCE, '.mutation-gate/ledger/refs/heads/main/ledger.json' => 'l2'])],
     'the CI definition\'s own digest' => [fn(): Digest|Unkeyed => $keyOf(source: [...CONTENT_KEY_SOURCE, '.github/workflows/mutation.yml' => 'm2'])],
-    'a comment in the CI definition' => [fn(): Digest|Unkeyed => $keyOf(ci: sprintf("name: mutation\n\n# Another comment.\n  - uses: actions/checkout@%s # v7\n", str_repeat('3d', 20)))],
-    'the commit an action is pinned at' => [fn(): Digest|Unkeyed => $keyOf(ci: sprintf("name: mutation\n  - uses: actions/checkout@%s # v8\n", str_repeat('4e', 20)))],
+    'a comment line in the CI definition' => [fn(): Digest|Unkeyed => $keyOf(ci: sprintf("name: mutation\n# Another comment.\nsteps:\n  # And one more.\n  - uses: actions/checkout@%s # v7\n", str_repeat('3d', 20)))],
     'a test the map knows and that cannot judge the unit' => [fn(): Digest|Unkeyed => $keyOf(cases: [...CONTENT_KEY_CASES, 'tests/Unit/OtherTest.php' => ['o2', "<?php\nit('other', fn() => new Unused());\n"]])],
     'support nothing names' => [fn(): Digest|Unkeyed => $keyOf(others: [...CONTENT_KEY_OTHERS, 'tests/Support/Unused.php' => ['x2', "<?php\nfinal class Unused {}\n"]])],
     'the order the runner lists the packages it drives in' => [fn(): Digest|Unkeyed => $keyOf(versions: array_reverse(CONTENT_KEY_VERSIONS))],
@@ -354,7 +355,7 @@ $bare = static fn(): ContentKeys => ContentKeys::of(
 
 it('writes what holds a unit, by its name', function (Unit $unit, string $heldBy) use ($bare, $framed): void {
     expect($bare()->keyOf($unit, Paths::none(), CoverageMap::empty()))->toEqual($framed(
-        'mutation-gate proof 3',
+        'mutation-gate proof 4',
         'gate',
         'nightworksio/mutation-gate',
         '1.0.0',
@@ -451,12 +452,12 @@ it('keys each unit of a fixture with the bytes its format gives it, whatever ord
     expect($keys->keyOf($unit, $judges, $coverage))->toEqual(Digest::of($key))
         ->and($keys->keyOf($unit, Paths::of(...array_reverse([...$judges])), $coverage))->toEqual(Digest::of($key));
 })->with([
-    'a unit judged by one test file' => [Unit::file(Path::of('src/A.php')), Paths::of(Path::of('tests/Unit/MoneyTest.php')), '3385f90a249d312187accf9b52ac7905f3d7ecc57b4c1f41b742c10c90cb690f'],
-    'a unit judged by test files named by digits' => [Unit::file(Path::of('src/A.php')), Paths::of(Path::of('tests/10'), Path::of('tests/9'), Path::of('tests/Unit/LedgerTest.php')), '0d15d27859f93e19e6964ca88cae47031257f9a90eb9a75ea76c2b606c0b6739'],
-    'a unit judged by a test file the key does not hold' => [Unit::file(Path::of('src/B.php')), Paths::of(Path::of('tests/Unit/GoneTest.php'), Path::of('tests/Unit/MoneyTest.php')), '3089d711dad7ce9a15cbd50824683516f3bc8546eeacba4d0e833d8a8d6a7d39'],
-    'a unit nothing judges' => [Unit::file(Path::of('src/C.php')), Paths::none(), '3b72522f14ac0a0afaedc5903a4f90017e4d6989eeac11ba95720d84d2623cb0'],
-    'a unit a group holds' => [Unit::held(Path::of('src/A.php'), Group::named('holds:src/A.php')), Paths::none(), 'd73620fca9f0052b4a3f7dc59a66de8e57a8679971c3b7f2b095b266c04801b4'],
-    'a unit a filter holds' => [Unit::held(Path::of('src/B.php'), Filter::matching('Money')), Paths::of(Path::of('tests/Unit/MoneyTest.php')), '15c1164b087a5da6e3a0aefbcc1f7c6bb3a4683984628f3234a9bd3d067bfa75'],
+    'a unit judged by one test file' => [Unit::file(Path::of('src/A.php')), Paths::of(Path::of('tests/Unit/MoneyTest.php')), '2e1336c4087c23c7cf3d9a0cff6aef712260018272ca66d597084c3a5abf6cef'],
+    'a unit judged by test files named by digits' => [Unit::file(Path::of('src/A.php')), Paths::of(Path::of('tests/10'), Path::of('tests/9'), Path::of('tests/Unit/LedgerTest.php')), 'ec90d582aad95f1ac6677b28cf795ffae2e71adf877773425342cc588ce8743e'],
+    'a unit judged by a test file the key does not hold' => [Unit::file(Path::of('src/B.php')), Paths::of(Path::of('tests/Unit/GoneTest.php'), Path::of('tests/Unit/MoneyTest.php')), 'aaa4d928c769fc5ce16082d1c69f2c5b2202924cda849e098afa789d5c88ab07'],
+    'a unit nothing judges' => [Unit::file(Path::of('src/C.php')), Paths::none(), 'ed2a0e79b4c3048e83ec5ba4c18e58b7dbe19bdc50f1b7b5078e48fe569f384e'],
+    'a unit a group holds' => [Unit::held(Path::of('src/A.php'), Group::named('holds:src/A.php')), Paths::none(), 'd6837f6de13d65979fa49b9f773161a3e27c5e4d6648f787685060d3441b2761'],
+    'a unit a filter holds' => [Unit::held(Path::of('src/B.php'), Filter::matching('Money')), Paths::of(Path::of('tests/Unit/MoneyTest.php')), '61e42728a6fe0532c4dc36fb3d5e508013e4c958f5e23e12c9e77ec76e29d804'],
 ]);
 
 it('keys many units at once as it keys each alone, reading a set of judging files once', function (): void {
@@ -521,7 +522,7 @@ it('names the base every key of a run is built on: the digest of what every key 
     $keys = $bare();
 
     expect($keys->base())->toEqual($framed(
-        'mutation-gate proof 3',
+        'mutation-gate proof 4',
         'gate',
         'nightworksio/mutation-gate',
         '1.0.0',
@@ -598,7 +599,7 @@ it('digests what decides a mutant set, each unit\'s source, and each test file w
     $digests = contentDigestsOf(Units::of(Unit::file(Path::of('src/A.php')), Unit::held(Path::of('src'), Group::named('holds:src'))));
 
     expect($digests->mutation())->toEqual($framed(
-        'mutation-gate proof 3',
+        'mutation-gate proof 4',
         'gate',
         'nightworksio/mutation-gate',
         '1.0.0',

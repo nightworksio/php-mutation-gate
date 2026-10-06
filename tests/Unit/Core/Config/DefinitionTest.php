@@ -32,18 +32,21 @@ it('lets a config file leave the runner for zero-config to find', function (): v
         ->toContain('runner');
 });
 
-it('declares every setting as affecting results or as judging or reporting only', function (): void {
+it('declares every setting as affecting results, as deciding how the gate runs, or as judging or reporting only', function (): void {
     $results = Effect::AffectsResults;
+    $decides = Effect::DecidesHowTheGateRuns;
     $judges = Effect::JudgesOrReportsOnly;
 
     // ADR-0007 decision 2.3: what affects results is in a proof's key, and
-    // every other setting is left out of it.
+    // every other setting is left out of it. ADR-0005 decision 4: a change
+    // to any setting but one that only judges or reports reaches everything,
+    // so each judge here was reviewed as unable to change a proof or a reach.
     expect(Definition::effects())->toBe([
         '$schema' => $judges,
-        'extensions' => $judges,
-        'preset' => $judges,
+        'extensions' => $results,
+        'preset' => $decides,
         'runner' => $results,
-        'runner.withhold' => $judges,
+        'runner.withhold' => $results,
         'runner.memory' => $results,
         'runner.workers' => $results,
         'treeSource' => $results,
@@ -58,7 +61,7 @@ it('declares every setting as affecting results or as judging or reporting only'
         'baseline.path' => $judges,
         'baseline.improvement' => $judges,
         'packages' => $results,
-        'reach.everything' => $judges,
+        'reach.everything' => $decides,
         'holds.hotPath' => $judges,
         'shards.seconds' => $judges,
         'shards.max' => $judges,
@@ -68,29 +71,29 @@ it('declares every setting as affecting results or as judging or reporting only'
         'costs.perRunnerMinute' => $judges,
         'costs.perRunnerMinute.amount' => $judges,
         'costs.perRunnerMinute.currency' => $judges,
-        'ci.plan' => $judges,
-        'ci.defaultBranch' => $judges,
-        'ci.check' => $judges,
-        'ci.trustMergedPullRequests' => $judges,
+        'ci.plan' => $decides,
+        'ci.defaultBranch' => $decides,
+        'ci.check' => $decides,
+        'ci.trustMergedPullRequests' => $decides,
         'ci.gitlab.template' => $results,
-        'ci.buildkite.step' => $judges,
+        'ci.buildkite.step' => $results,
         'ci.buildkite.definition' => $results,
         'ci.azure.definition' => $results,
         'ci.bitbucket.definition' => $results,
         'ci.jenkins.definition' => $results,
-        'proofs.store' => $judges,
-        'proofs.store.with.path' => $judges,
-        'proofs.store.with.bucket' => $judges,
-        'proofs.store.with.prefix' => $judges,
-        'proofs.store.with.region' => $judges,
-        'proofs.store.with.endpoint' => $judges,
-        'proofs.store.with.insecureEndpoint' => $judges,
-        'proofs.store.with.publicUrl' => $judges,
-        'proofs.store.with.account' => $judges,
-        'proofs.store.with.container' => $judges,
-        'proofs.store.with.publicContainer' => $judges,
-        'proofs.ignore' => $judges,
-        'proofs.write' => $judges,
+        'proofs.store' => $decides,
+        'proofs.store.with.path' => $decides,
+        'proofs.store.with.bucket' => $decides,
+        'proofs.store.with.prefix' => $decides,
+        'proofs.store.with.region' => $decides,
+        'proofs.store.with.endpoint' => $decides,
+        'proofs.store.with.insecureEndpoint' => $decides,
+        'proofs.store.with.publicUrl' => $decides,
+        'proofs.store.with.account' => $decides,
+        'proofs.store.with.container' => $decides,
+        'proofs.store.with.publicContainer' => $decides,
+        'proofs.ignore' => $decides,
+        'proofs.write' => $decides,
         'budget' => $judges,
         'timeouts.mode' => $judges,
         'timeouts.seconds' => $results,
@@ -127,7 +130,7 @@ it('declares every setting as affecting results or as judging or reporting only'
         'mutators.except' => $results,
         'local.watchBudget' => $judges,
         'local.prePushBudget' => $judges,
-        'coverage.incremental' => $judges,
+        'coverage.incremental' => $decides,
     ]);
 });
 

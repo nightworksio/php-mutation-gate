@@ -210,10 +210,21 @@ it('reaches everything where a file that decides how the gate runs changed', fun
     'a file that defines the runner' => ['tests/Pest.php'],
 ]);
 
-it('reaches nothing where only the commits a workflow is pinned at moved', function () use ($money): void {
+it('reaches everything where the commit a workflow pins an action at moved', function () use ($money): void {
     $reached = reachedSince(
         Changes::of(Change::modified(Path::of('.github/workflows/gate.yml'), Lines::of(Line::of(5)))),
         ['.github/workflows/gate.yml' => sprintf(REACHED_WORKFLOW, str_repeat('b', 40))],
+        ['.github/workflows/gate.yml' => sprintf(REACHED_WORKFLOW, str_repeat('a', 40))],
+    );
+
+    expect($reached->reach()->isEverywhere())->toBeTrue()
+        ->and($reached->reach()->reaches($money))->toBeTrue();
+});
+
+it('reaches nothing where only a workflow\'s comment lines changed', function () use ($money): void {
+    $reached = reachedSince(
+        Changes::of(Change::modified(Path::of('.github/workflows/gate.yml'), Lines::of(Line::of(5)))),
+        ['.github/workflows/gate.yml' => sprintf("# The gate.\n%s", sprintf(REACHED_WORKFLOW, str_repeat('a', 40)))],
         ['.github/workflows/gate.yml' => sprintf(REACHED_WORKFLOW, str_repeat('a', 40))],
     );
 

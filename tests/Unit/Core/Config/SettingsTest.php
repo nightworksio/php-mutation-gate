@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\Canonical;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\DeclaredTree;
 use NightWorksIO\MutationGate\Core\Config\Definition;
@@ -458,20 +459,20 @@ it('leaves an ignore without an end date open when nothing limits it', function 
 it('serialises the settings that affect results canonically, and only those', function (): void {
     expect(Configs::settings(['runner' => 'pest'])->canonical())->toBe(
         '{"ci":{"azure":{"definition":"azure-pipelines.yml"},"bitbucket":{"definition":"bitbucket-pipelines.yml"},'
-        . '"buildkite":{"definition":".buildkite/pipeline.yml"},'
+        . '"buildkite":{"definition":".buildkite/pipeline.yml","step":{}},'
         . '"gitlab":{"template":".gitlab/mutation-gate.yml"},"jenkins":{"definition":"Jenkinsfile"}},'
-        . '"flaky":{"confirmSurvivors":true},"mutators":{"except":[],"sets":[]},"packages":[],'
+        . '"extensions":[],"flaky":{"confirmSurvivors":true},"mutators":{"except":[],"sets":[]},"packages":[],'
         . '"pest":{"canary":"mutation-canary","patch":false},'
         . '"runner":{"memory":"1G","use":"pest"},"staticCheck":{"seconds":60,"tool":"auto"},"tests":{"order":"killers-first"},'
         . '"timeouts":{"most":300,"retries":20,"seconds":10},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
     )->and(Configs::settings(EVERYTHING)->canonical())->toBe(
         '{"ci":{"azure":{"definition":"ci/azure.yml"},"bitbucket":{"definition":"ci/bitbucket.yml"},'
-        . '"buildkite":{"definition":".buildkite/mutation.yml"},'
+        . '"buildkite":{"definition":".buildkite/mutation.yml","step":{"agents":{"queue":"mutation"}}},'
         . '"gitlab":{"template":".gitlab/gate.yml"},"jenkins":{"definition":"ci/Jenkinsfile"}},'
-        . '"flaky":{"confirmSurvivors":false},'
+        . '"extensions":["Acme\\\\GateSlack\\\\SlackExtension"],"flaky":{"confirmSurvivors":false},'
         . '"mutators":{"except":["acme/RemoveAudit"],"sets":["acme","acme-auth"]},"packages":["packages/*"],'
         . '"pest":{"canary":"canary","patch":true},'
-        . '"runner":{"memory":"512M","use":"infection","workers":"fresh"},'
+        . '"runner":{"memory":"512M","use":"infection","withhold":["DEPLOY_*","COMPOSER_AUTH"],"workers":"fresh"},'
         . '"staticCheck":{"config":"phpstan.dist.neon","seconds":45,"tool":"phpstan"},'
         . '"tests":{"order":"killers-first"},"timeouts":{"most":120,"retries":0,"seconds":30},'
         . '"treeSource":{"use":"phpunit","with":{"fallback":["app","lib"]}},'
@@ -505,11 +506,45 @@ it('keeps the settings that only judge or report out of the canonical form', fun
         'budget' => '5m',
         'proofs' => ['write' => 'auto'],
         'coverage' => ['incremental' => true],
-        'runner' => ['use' => 'infection', 'with' => [], 'memory' => '512M', 'workers' => 'fresh'],
+        'reach' => ['everything' => ['bootstrap/**']],
+        'ci' => [...EVERYTHING['ci'], 'check' => 'other', 'trustMergedPullRequests' => false],
     ];
 
     expect(Configs::settings($judging)->canonical())->toBe(Configs::settings(EVERYTHING)->canonical());
 });
+
+it('keeps out of what decides how the gate runs only the settings that judge or report', function (): void {
+    $judging = [
+        ...EVERYTHING,
+        'trees' => [
+            ['path' => 'app/Domain', 'floor' => 50],
+            ['path' => 'app/Http'],
+            ['path' => 'app/Generated'],
+            ['path' => 'app/Legacy'],
+        ],
+        'newCode' => ['floor' => 10],
+        'reports' => [['use' => 'json', 'path' => 'build/mutation.json']],
+        'ignores' => ['entries' => []],
+        'budget' => '5m',
+    ];
+
+    expect(Canonical::decidingIn(Configs::settings($judging)))->toBe(Canonical::decidingIn(Configs::settings(EVERYTHING)));
+});
+
+it('changes what decides how the gate runs, and not the canonical form, with every setting that decides how it runs', function (array $change): void {
+    expect(Canonical::decidingIn(Configs::settings([...EVERYTHING, ...$change])))
+        ->not->toBe(Canonical::decidingIn(Configs::settings(EVERYTHING)))
+        ->and(Configs::settings([...EVERYTHING, ...$change])->canonical())
+        ->toBe(Configs::settings(EVERYTHING)->canonical());
+})->with([
+    'what reaches everything' => [['reach' => ['everything' => ['bootstrap/**']]]],
+    'the check' => [['ci' => [...EVERYTHING['ci'], 'check' => 'other']]],
+    'the default branch' => [['ci' => [...EVERYTHING['ci'], 'defaultBranch' => 'develop']]],
+    'trusting merged pull requests' => [['ci' => [...EVERYTHING['ci'], 'trustMergedPullRequests' => false]]],
+    'the proof store' => [['proofs' => [...EVERYTHING['proofs'], 'store' => ['use' => 's3', 'with' => ['bucket' => 'forged']]]]],
+    'the paths proofs ignore' => [['proofs' => [...EVERYTHING['proofs'], 'ignore' => ['build/**']]]],
+    'kept coverage' => [['coverage' => ['incremental' => true]]],
+]);
 
 it('changes the canonical form with every setting that affects results', function (array $change): void {
     expect(Configs::settings([...EVERYTHING, ...$change])->canonical())
@@ -537,6 +572,9 @@ it('changes the canonical form with every setting that affects results', functio
     'the Jenkinsfile' => [['ci' => [...EVERYTHING['ci'], 'jenkins' => ['definition' => 'ci/Other.Jenkinsfile']]]],
     'the mutator sets' => [['mutators' => [...EVERYTHING['mutators'], 'sets' => ['acme']]]],
     'the mutators turned off' => [['mutators' => [...EVERYTHING['mutators'], 'except' => []]]],
+    'the extensions' => [['extensions' => []]],
+    'what the runner withholds' => [['runner' => [...EVERYTHING['runner'], 'withhold' => []]]],
+    'the Buildkite step' => [['ci' => [...EVERYTHING['ci'], 'buildkite' => ['definition' => '.buildkite/mutation.yml']]]],
 ]);
 
 it('changes the canonical form with the options of a runner or a tree source', function (string $setting): void {

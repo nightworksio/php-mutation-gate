@@ -128,29 +128,61 @@ it('reaches nothing where a CI definition changed only what does not decide how 
 
     expect($reach->isEverywhere())->toBeFalse()
         ->and($reach->reaches(Unit::file(Path::of('src/Money.php'))))->toBeFalse()
-        ->and($said($reach))->toBe(['`.github/workflows/gate.yml` changed only its comments, blank lines or action pins, so it reaches nothing.']);
+        ->and($said($reach))->toBe(['`.github/workflows/gate.yml` changed only its comment lines, so it reaches nothing.']);
 })->with([
-    'its action pins' => [
-        sprintf("steps:\n  - uses: actions/checkout@%s # v4\n", str_repeat('a', 40)),
-        sprintf("steps:\n  - uses: actions/checkout@%s # v5\n", str_repeat('b', 40)),
-    ],
-    'its comments and blank lines' => [
+    'its comment lines' => [
         "# Runs the gate.\nsteps:\n  - run: composer test\n",
-        "# Runs the gate on every push.\n\nsteps:\n\n  # The suite first.\n  - run: composer test\n",
+        "# Runs the gate on every push.\nsteps:\n  # The suite first.\n  - run: composer test\n",
     ],
 ]);
 
-it('reaches nothing where the gate\'s config changed nothing that decides how the gate runs, under either name', function (Change $change) use ($reaching, $judges, $said): void {
+it('reaches nothing where the gate\'s config changed nothing that decides how the gate runs', function () use ($reaching, $judges, $said): void {
     $sources = Sources::none()->decidingAlike(Path::of('mutation-gate.json'));
 
-    $reach = $reaching()->of(Changes::of($change), $judges(), $sources);
+    $reach = $reaching()->of(Changes::of(Change::modified(Path::of('mutation-gate.json'), Lines::of(Line::of(4)))), $judges(), $sources);
 
     expect($reach->isEverywhere())->toBeFalse()
         ->and($reach->reaches(Unit::file(Path::of('src/Money.php'))))->toBeFalse()
         ->and($said($reach))->toBe(['`mutation-gate.json` changed nothing that decides how the gate runs, so it reaches nothing.']);
+});
+
+it('reaches everything where a file that decides how the gate runs was renamed, moved, added or deleted, however alike it reads', function (Change $change, string $said) use ($reaching, $judges): void {
+    $sources = Sources::none()
+        ->decidingAlike($change->path())
+        ->decidingAlike($change->previousPath());
+
+    $reach = $reaching()->of(Changes::of($change), $judges(), $sources);
+
+    expect($reach->isEverywhere())->toBeTrue()
+        ->and(array_map(static fn(Reason $reason): string => $reason->text(), iterator_to_array($reach->reasons(), preserve_keys: false)))
+        ->toBe([sprintf('`%s` decides how the gate runs, so every unit is reached.', $said)]);
 })->with([
-    'changed' => [fn(): Change => Change::modified(Path::of('mutation-gate.json'), Lines::of(Line::of(4)))],
-    'renamed to' => [fn(): Change => Change::renamed(Path::of('mutation-gate.yaml'), Path::of('mutation-gate.json'), Lines::none())],
+    'the config renamed' => [fn(): Change => Change::renamed(Path::of('mutation-gate.yaml'), Path::of('mutation-gate.json'), Lines::none()), 'mutation-gate.json'],
+    'another file moved onto the config' => [fn(): Change => Change::renamed(Path::of('config/gate.json'), Path::of('mutation-gate.json'), Lines::none()), 'mutation-gate.json'],
+    'the config moved away' => [fn(): Change => Change::renamed(Path::of('mutation-gate.json'), Path::of('config/gate.json'), Lines::none()), 'mutation-gate.json'],
+    'a config added' => [fn(): Change => Change::added(Path::of('mutation-gate.php'), Lines::none()), 'mutation-gate.php'],
+    'the config deleted, so the gate falls back to its defaults' => [fn(): Change => Change::deleted(Path::of('mutation-gate.json')), 'mutation-gate.json'],
+    'a phpunit.xml added' => [fn(): Change => Change::added(Path::of('phpunit.xml'), Lines::none()), 'phpunit.xml'],
+    'a phpunit.xml.dist added' => [fn(): Change => Change::added(Path::of('phpunit.xml.dist'), Lines::none()), 'phpunit.xml.dist'],
+    'a phpunit.xml.dist deleted' => [fn(): Change => Change::deleted(Path::of('phpunit.xml.dist')), 'phpunit.xml.dist'],
+]);
+
+it('reaches everything where a CI definition that runs the gate was renamed, moved, added or deleted, however alike it reads', function (Change $change, string $said) use ($reaching, $judges): void {
+    $definition = Contents::of("steps:\n  - run: composer test\n");
+    $sources = Sources::none()
+        ->withBefore($change->previousPath(), $definition)
+        ->withNow($change->path(), $definition);
+
+    $reach = $reaching()->of(Changes::of($change), $judges(), $sources);
+
+    expect($reach->isEverywhere())->toBeTrue()
+        ->and(array_map(static fn(Reason $reason): string => $reason->text(), iterator_to_array($reach->reasons(), preserve_keys: false)))
+        ->toBe([sprintf('`%s` decides how the gate runs, so every unit is reached.', $said)]);
+})->with([
+    'renamed onto it' => [fn(): Change => Change::renamed(Path::of('.github/workflows/old.yml'), Path::of('.github/workflows/gate.yml'), Lines::none()), '.github/workflows/gate.yml'],
+    'moved away' => [fn(): Change => Change::renamed(Path::of('.github/workflows/gate.yml'), Path::of('.github/gate.yml'), Lines::none()), '.github/workflows/gate.yml'],
+    'added' => [fn(): Change => Change::added(Path::of('.github/workflows/gate.yml'), Lines::none()), '.github/workflows/gate.yml'],
+    'deleted' => [fn(): Change => Change::deleted(Path::of('.github/workflows/gate.yml')), '.github/workflows/gate.yml'],
 ]);
 
 it('reaches everything where the gate\'s config changed what decides how the gate runs', function () use ($reaching, $judges, $said): void {

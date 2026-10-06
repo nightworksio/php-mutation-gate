@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Reach;
 
+use NightWorksIO\MutationGate\Core\Change\Change;
+use NightWorksIO\MutationGate\Core\Change\ChangeKind;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
@@ -67,10 +69,31 @@ final readonly class Sources
         return new self($this->now, $this->before, $this->alike->with($path));
     }
 
-    /** Whether a changed file decides how the gate runs as it did at the base. */
-    public function decidesAlike(Path $path): bool
+    /**
+     * Whether a change to a file that decides how the gate runs leaves it
+     * deciding as it did at the base: a change to the file in its place, never
+     * one that renames, moves, adds or deletes it, which decides anew where
+     * the gate looks (ADR-0005, decision 4).
+     */
+    public function decidesAlike(Change $change): bool
     {
-        return $this->alike->has($path);
+        return $change->kind() === ChangeKind::Modified && $this->alike->has($change->path());
+    }
+
+    /**
+     * Whether a change to a CI definition that runs the gate leaves it running
+     * the gate as it did at the base: a change to the file in its place that
+     * moved only lines no runner reads (AsItRuns).
+     */
+    public function runsAlike(Change $change): bool
+    {
+        $before = $this->before($change->path());
+        $after = $this->now($change->path());
+
+        return $change->kind() === ChangeKind::Modified
+            && $before instanceof Contents
+            && $after instanceof Contents
+            && AsItRuns::alike($before, $after);
     }
 
     public function now(Path $path): Contents|Missing

@@ -57,30 +57,44 @@ has to bring its result with it.
    adding an ignore re-runs nothing.
 
 2. **The content key is a SHA-256 over all of the following, in this order.**
-   1. **The key's format**, `mutation-gate proof 3`. It changes whenever what
+   1. **The key's format**, `mutation-gate proof 4`. It changes whenever what
       the key means changes, so an older proof is never read as a newer one.
       Format 2 moved the test files every key reads into the base (items 7
       and 8), in the same change as ledger format 2 (decision 3), so the one
-      bump covers both. Format 3 added the static analyser to item 4.
+      bump covers both. Format 3 added the static analyser to item 4. Format 4
+      kept every pin and blank line of a CI definition in item 6, and moved
+      `extensions`, `runner.withhold` and `ci.buildkite.step` into item 3.
    2. **The gate**: its installed version and source reference.
    3. **The configuration** as it affects results: the effective config after
       presets, serialised canonically, with the settings that only judge or
       report left out.
-      - In: `runner` with its options, `runner.memory` (ADR-0004, decision 9),
+      - In: `runner` with its options, `runner.withhold` (ADR-0004),
+        `runner.memory` (ADR-0004, decision 9),
         `runner.workers` (ADR-0023, decision 14),
         `pest.patch`, `pest.canary`,
         `timeouts.seconds`, `timeouts.most`, `timeouts.retries`, `flaky.confirmSurvivors`,
         `tests.order` (ADR-0013, decision 4), `mutators.sets` and
-        `mutators.except` (ADR-0021), and what decides the trees and packages (`trees[].path`, `trees[].exclude` (ADR-0016), `treeSource`,
+        `mutators.except` (ADR-0021), `extensions`, the Buildkite step template
+        (`ci.buildkite.step`) and the CI files the gate is told of
+        (`ci.*.definition`, `ci.gitlab.template`), and what decides the trees and packages (`trees[].path`, `trees[].exclude` (ADR-0016), `treeSource`,
         `packages`).
       - Left out: floors and their reasons (`trees[].floor`,
         `trees[].reason`, `newCode`), `baseline`, `uncovered`, `ignores`,
-        `timeouts.mode`, `budget`, `reports`, `badge`, `ci`, `shards`, `costs`,
-        `proofs`, `reach`, `holds`, `local`, `equivalence` and `extensions`.
+        `timeouts.mode`, `budget`, `reports`, `badge`, the rest of `ci`, `shards`, `costs`,
+        `proofs`, `reach`, `holds`, `local`, `equivalence` and `coverage`.
         `preset` is not
         in the key itself: it is expanded into the settings above.
-      - Every setting is declared as affecting results or not, and a test fails
-        when a setting is neither. A new setting cannot be left out by accident.
+      - Every setting is declared as affecting results, as deciding how the
+        gate runs, or as judging or reporting only, and a test fails when a
+        setting is none of them. Only those that affect results are in the
+        key. A setting that decides how the gate runs is left out of the key
+        but compared by what a change to the config file reaches (ADR-0005,
+        decision 4): `preset`, `reach.everything`, `ci.plan`,
+        `ci.defaultBranch`, `ci.check`, `ci.trustMergedPullRequests`,
+        `proofs.store`, `proofs.ignore`, `proofs.write` and
+        `coverage.incremental`. A key no setting declares, outside every
+        setting that declares what it holds, is in the key. A new setting
+        cannot be left out by accident.
    4. **The runner's identity** (ADR-0004):
       - the exact version and source reference of every package it drives,
         including, for Infection, the static analysis tool its config has kill
@@ -122,9 +136,15 @@ has to bring its result with it.
         what of it affects results. Each `composer.json` is hashed with its
         `extra.mutation-gate` entry removed, for the same reason.
       - **CI definition files** are left out, except the ones that run the
-        gate (ADR-0005, rule 1). Those are included as their text with comments and action pins
-        (`uses: owner/repo@<sha>`) removed. A pin move or a comment is not a
-        change to how a mutant runs. The seed does the same.
+        gate (ADR-0005, rule 1). Those are included as their text without the
+        comment lines between their nodes, which no runner reads. Every
+        other byte stays: each blank line, each comment after a value or
+        inside one, each line of a block scalar, and the commit each action is
+        pinned at, since a pin can move the gate's own action or the runtime
+        it runs on. A definition whose values cannot be bounded line by line,
+        or that holds a carriage return, a tab, another control character, a
+        byte order mark, NEL or a Unicode line or paragraph separator, is
+        included whole.
       - **The baseline file** only holds floors.
       - **The gate's own files** are left out whatever `.gitignore` says:
         `.mutation-gate/`, the directory store's `path`, the `--publish-dir`

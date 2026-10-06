@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use function array_any;
 use function array_key_exists;
 use function array_keys;
+
+use Closure;
+
 use function ksort;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
@@ -17,9 +21,13 @@ use function sprintf;
 use function str_starts_with;
 
 /**
- * The settings that affect results, serialised canonically (ADR-0007): one
- * line of JSON with every object's keys in byte order, holding nothing that
- * only judges or reports. It is the configuration part of a proof's key.
+ * A config's settings of one kind, serialised canonically: one line of JSON
+ * with every object's keys in byte order. The settings that affect results
+ * are the configuration part of a proof's key (ADR-0007); those that decide
+ * how the gate runs, which they are among, are what a change to the config
+ * file is compared by (ADR-0005, decision 4). A key no setting declares,
+ * outside every setting that declares what it holds, is kept in both, so a
+ * key the definition does not know never goes unnoticed.
  */
 final readonly class Canonical
 {
@@ -29,39 +37,69 @@ final readonly class Canonical
     /** The key an adapter chosen by an object names it by. */
     private const string USE = 'use';
 
-    /** @param array<string, Effect> $effects every setting, by its path, with what it can change */
-    private function __construct(private array $effects)
+    /**
+     * @param array<string, Effect>  $effects every setting, by its path, with what it can change
+     * @param Closure(Effect): bool $keeps   whether a setting with an effect is kept
+     */
+    private function __construct(private array $effects, private Closure $keeps)
     {
     }
 
     /**
-     * The canonical form of a config as it writes every setting.
+     * The settings that affect results, as a config writes every setting.
      *
      * @param array<string, Effect> $effects every setting, by its path, with what it can change
      */
     public static function of(Json $written, array $effects): string
     {
-        $kept = new self($effects)->kept(Node::config($written->line()), $written, '');
+        return new self($effects, static fn(Effect $effect): bool => $effect->isKeyed())->line($written);
+    }
+
+    /**
+     * The settings that decide how the gate runs, as a config writes every setting.
+     *
+     * @param array<string, Effect> $effects every setting, by its path, with what it can change
+     */
+    public static function deciding(Json $written, array $effects): string
+    {
+        return new self($effects, static fn(Effect $effect): bool => $effect->decides())->line($written);
+    }
+
+    /**
+     * The settings that decide how the gate runs, as these settings hold them: every setting but those that
+     * only judge or report, and any key no setting declares (ADR-0005, decision 4).
+     */
+    public static function decidingIn(Settings $settings): string
+    {
+        return self::deciding($settings->effective()->written(ProjectRoot::origin()), Definition::effects());
+    }
+
+    private function line(Json $written): string
+    {
+        $kept = $this->kept(Node::config($written->line()), $written, '');
 
         return $kept instanceof Json ? $kept->line() : Json::object()->line();
     }
 
     /**
-     * The part of a value at a path that affects results: all of it where its setting does, but for the
-     * settings under it that only judge, and else each part under it that does.
+     * The part of a value at a path that is kept: all of it where its setting is, or where no setting declares
+     * it or anything under it, but for the settings under it that are not, and else each part under it that is.
      */
     private function kept(Node $at, Json $as, string $path): Json|string|int|float|bool|Absent
     {
+        $effect = $this->effect($path);
+
         return match (true) {
-            $this->effect($path) === Effect::AffectsResults => $this->whole($at, $as, $path),
-            ! $this->holds($path) => Absent::setting(),
+            $effect instanceof Effect && ($this->keeps)($effect) => $this->whole($at, $as, $path),
+            $effect instanceof Effect && ! $this->holds($path) => Absent::setting(),
+            ! $effect instanceof Effect && ! $this->declaresUnder($path) => $this->whole($at, $as, $path),
             default => $this->parts($at, $as, $path),
         };
     }
 
     /**
-     * A value whose setting affects results, without the settings under it that only judge. An empty object
-     * stays an object, and an empty list a list.
+     * A value that is kept, without the settings under it that are not. An empty object stays an object, and
+     * an empty list a list.
      */
     private function whole(Node $at, Json $as, string $path): Json|string|int|float|bool|Absent
     {
@@ -77,7 +115,7 @@ final readonly class Canonical
         };
     }
 
-    /** The parts of a value under its path that affect results, or nothing where none does. */
+    /** The parts of a value under its path that are kept, or nothing where none is. */
     private function parts(Node $at, Json $as, string $path): Json|Absent
     {
         $parts = $at->kind() === Kind::List
@@ -102,9 +140,9 @@ final readonly class Canonical
         foreach ($entries as $entryKey => $member) {
             $key = sprintf('%s', $entryKey);
             $under = $path === '' ? $key : sprintf('%s.%s', $path, $key);
-            $judged = $this->effect($under) === Effect::JudgesOrReportsOnly;
+            $effect = $this->effect($under);
             $kept = match (true) {
-                $whole && $judged => Absent::setting(),
+                $whole && $effect instanceof Effect && ! ($this->keeps)($effect) => Absent::setting(),
                 $whole => $this->whole($member, $written[$key], $under),
                 default => $this->kept($member, $written[$key], $under),
             };
@@ -146,19 +184,25 @@ final readonly class Canonical
         return array_key_exists($path, $this->effects) ? $this->effects[$path] : Absent::setting();
     }
 
-    /** Whether some setting under a path affects results. */
+    /** Whether some setting under a path is kept. */
     private function holds(string $path): bool
     {
-        foreach ($this->effects as $setting => $effect) {
-            $under = $path === ''
-                || str_starts_with($setting, sprintf('%s.', $path))
-                || str_starts_with($setting, sprintf('%s%s', $path, self::EACH));
+        return array_any(
+            $this->effects,
+            fn(Effect $effect, string $setting): bool => $this->isUnder($setting, $path) && ($this->keeps)($effect),
+        );
+    }
 
-            if ($under && $effect === Effect::AffectsResults) {
-                return true;
-            }
-        }
+    /** Whether some setting is declared under a path, as every one is under the top. */
+    private function declaresUnder(string $path): bool
+    {
+        return array_any(array_keys($this->effects), fn(string $setting): bool => $this->isUnder($setting, $path));
+    }
 
-        return false;
+    private function isUnder(string $setting, string $path): bool
+    {
+        return $path === ''
+            || str_starts_with($setting, sprintf('%s.', $path))
+            || str_starts_with($setting, sprintf('%s%s', $path, self::EACH));
     }
 }

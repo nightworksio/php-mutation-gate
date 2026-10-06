@@ -13,7 +13,6 @@ use NightWorksIO\MutationGate\Core\Change\ChangeKind;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Coverage\Judges;
 use NightWorksIO\MutationGate\Core\Coverage\NoMap;
-use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Tree\Package;
@@ -27,10 +26,11 @@ use function sprintf;
  *
  * 1. a file that decides how the gate runs reaches everything in its package
  *    and in the packages that depend on it, and a root file reaches every
- *    package, unless it decides as it did at the base, as a config whose
- *    change moved no setting that affects results does; a CI definition
- *    that runs the gate reaches everything too, unless it runs the gate as
- *    it did, its change moving only comments, blank lines and action pins;
+ *    package, unless a change in its place leaves it deciding as it did at
+ *    the base, as a config whose change moved no setting that decides how
+ *    the gate runs does; a CI definition that runs the gate, as it is or as
+ *    it was, reaches everything too, unless a change in its place moved
+ *    only lines no runner reads (AsItRuns);
  * 2. a changed source file in a tree reaches its unit;
  * 3. a changed test reaches every unit its tests run, by the coverage map;
  * 4. changed test support reaches what the tests that use it run;
@@ -47,7 +47,7 @@ final readonly class Reaching
     private const string DECIDES_IN = '`%s` decides how the gate runs in %s, so every unit of %s is reached.';
 
     private const string RUNS_ALIKE
-        = '`%s` changed only its comments, blank lines or action pins, so it reaches nothing.';
+        = '`%s` changed only its comment lines, so it reaches nothing.';
 
     private const string DECIDES_ALIKE
         = '`%s` changed nothing that decides how the gate runs, so it reaches nothing.';
@@ -91,13 +91,14 @@ final readonly class Reaching
     ): Reach {
         $path = $change->path();
         $deciding = $this->decidingIn($change, $packages);
+        $definition = $this->layout->definitionIn($change);
 
         return match (true) {
-            $deciding instanceof Path && $sources->decidesAlike($deciding) => $reach->because(
+            $deciding instanceof Path && $sources->decidesAlike($change) => $reach->because(
                 Reason::that(sprintf(self::DECIDES_ALIKE, $deciding->value())),
             ),
             $deciding instanceof Path => $this->decided($reach, $deciding, $packages->holding($deciding), $packages),
-            $this->layout->runsTheGate($path) => $this->definitionChanged($reach, $change, $sources),
+            $definition instanceof Path => $this->definitionChanged($reach, $change, $definition, $sources),
             $this->isSource($path) => $this->sourceChanged($reach, $change),
             default => $tests->reach($reach, $change),
         };
@@ -143,14 +144,11 @@ final readonly class Reaching
         );
     }
 
-    private function definitionChanged(Reach $reach, Change $change, Sources $sources): Reach
+    private function definitionChanged(Reach $reach, Change $change, Path $definition, Sources $sources): Reach
     {
-        $before = $sources->before($change->previousPath());
-        $after = $sources->now($change->path());
-
-        return $before instanceof Contents && $after instanceof Contents && AsItRuns::alike($before, $after)
-            ? $reach->because(Reason::that(sprintf(self::RUNS_ALIKE, $change->path()->value())))
-            : $reach->everywhere(Reason::that(sprintf(self::DECIDES, $change->path()->value())));
+        return $sources->runsAlike($change)
+            ? $reach->because(Reason::that(sprintf(self::RUNS_ALIKE, $definition->value())))
+            : $reach->everywhere(Reason::that(sprintf(self::DECIDES, $definition->value())));
     }
 
     private function sourceChanged(Reach $reach, Change $change): Reach
