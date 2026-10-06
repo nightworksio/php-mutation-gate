@@ -34,12 +34,12 @@ it('holds a PHPUnit to run only where its script is in the vendor directory, and
     $root = Scratch::directory();
     Scratch::write($root, 'packages/billing/lib/vendor/bin/phpunit', '<?php');
     $project = $at($root);
-    $billing = $project->in(Path::of('packages/billing'));
+    $billing = $project->in(Path::of('packages/billing'), Paths::of(Path::of('spec')));
 
     expect($project->hasPhpUnit())->toBeFalse()
         ->and($billing->hasPhpUnit())->toBeTrue()
         ->and($billing->root())->toBe(sprintf('%s/packages/billing', (string) realpath($root)))
-        ->and($billing->tests())->toEqual(Paths::of(Path::of('tests')))
+        ->and($billing->tests())->toEqual(Paths::of(Path::of('spec')))
         ->and($billing->workspace())->toEqual(DiskPath::of(sprintf('%s/packages/billing/.gate', (string) realpath($root))));
 });
 

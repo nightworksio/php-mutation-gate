@@ -50,10 +50,13 @@ final readonly class Project
         return $this->root->at($this->workspace)->value();
     }
 
-    /** The same project in one of its directories: the tests and the gate's directory are that directory's. */
-    public function in(Path $directory): self
+    /**
+     * The same project in one of its directories, with its tests in these:
+     * the gate's directory is that directory's.
+     */
+    public function in(Path $directory, Paths $tests): self
     {
-        return self::at(Root::of($this->absolute($directory)), $this->tests, $this->workspace);
+        return self::at(Root::of($this->absolute($directory)), $tests, $this->workspace);
     }
 
     /** The root's real path, as Infection's config and the coverage layout write it. */

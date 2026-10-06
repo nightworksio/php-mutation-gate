@@ -485,8 +485,8 @@ final class ScriptedRunner implements Runner
         return $this->fake->names($tests, $withheld);
     }
 
-    public function rootedAt(Path $package): Runner|CannotJudge
+    public function rootedAt(Path $package, Paths $tests): Runner|CannotJudge
     {
-        return $this->fake->rootedAt($package);
+        return $this->fake->rootedAt($package, $tests);
     }
 }

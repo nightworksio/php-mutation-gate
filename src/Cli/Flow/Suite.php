@@ -155,6 +155,18 @@ final readonly class Suite
         return PhpUnitSuite::conventional();
     }
 
+    /**
+     * The directories a package's tests are in, as its own PHPUnit config
+     * declares them, read as the root's is: what a runner rooted in the
+     * package is told (ADR-0005, decision 7).
+     */
+    public static function testsIn(Directory $project, Path $package): Paths|CannotJudge
+    {
+        $suite = self::configured(Directory::at($project->root()->at($package)->value()));
+
+        return $suite instanceof PhpUnitSuite ? $suite->paths() : $suite;
+    }
+
     /** The suite, of the test files the PHPUnit config declares and those of every other package's tests. */
     private static function readIn(
         Trees $trees,

@@ -244,3 +244,27 @@ it('keeps a file a tree holds apart as source, though the config keeps its tests
         ->toBe(['src/MoneyTest.php'])
         ->and($read->outside())->toEqual($listed('phpunit.xml', 'src/Money.php'));
 });
+
+it('reads the tests of a package from its own PHPUnit config, wildcards expanded, and the conventional ones where it has none', function (): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'phpunit.xml', '<phpunit><testsuites><testsuite name="Root"><directory>root-tests</directory></testsuite></testsuites></phpunit>');
+    Scratch::write($project, 'packages/billing/phpunit.xml', <<<'XML'
+        <phpunit>
+            <testsuites>
+                <testsuite name="Billing">
+                    <directory>spec</directory>
+                    <directory>modules/*/spec</directory>
+                </testsuite>
+            </testsuites>
+        </phpunit>
+        XML);
+    Scratch::write($project, 'packages/billing/modules/ledger/spec/LedgerSpec.php', '<?php');
+    Scratch::write($project, 'packages/plain/composer.json', '{}');
+    Scratch::write($project, 'packages/broken/phpunit.xml', '<phpunit><testsuites>');
+
+    expect(Suite::testsIn(Directory::at($project), Path::of('packages/billing')))
+        ->toEqual(Paths::of(Path::of('spec'), Path::of('modules/ledger/spec')))
+        ->and(Suite::testsIn(Directory::at($project), Path::of('packages/plain')))->toEqual(Paths::of(Path::of('tests')))
+        ->and(Suite::testsIn(Directory::at($project), Path::of('packages/broken')))
+        ->toEqual(CannotJudge::because('phpunit.xml is not XML, so the test suite it declares cannot be read.'));
+});

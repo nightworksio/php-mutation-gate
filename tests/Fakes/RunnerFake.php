@@ -273,8 +273,8 @@ final readonly class RunnerFake implements Runner
         return $named;
     }
 
-    /** The same runner in a package it knows, which answers as it does. */
-    public function rootedAt(Path $package): self|CannotJudge
+    /** The same runner in a package it knows, which answers as it does, whatever tests it is told. */
+    public function rootedAt(Path $package, Paths $tests): self|CannotJudge
     {
         return $this->packages->has($package)
             ? $this

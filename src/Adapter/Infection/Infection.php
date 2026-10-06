@@ -310,9 +310,9 @@ final readonly class Infection implements Runner
     }
 
     /** Infection in a package's directory, where Composer installed it there. */
-    public function rootedAt(Path $package): self|CannotJudge
+    public function rootedAt(Path $package, Paths $tests): self|CannotJudge
     {
-        $project = $this->project->in($package);
+        $project = $this->project->in($package, $tests);
 
         return Invocation::runnableIn($project)
             ? new self(
