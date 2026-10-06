@@ -9,10 +9,12 @@ use NightWorksIO\MutationGate\Adapter\PhpUnit\MutationRun;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Project;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\TestFiles;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Variable;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\WallClock;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Refusal;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\WarmRun;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Workforce;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Cost\Laps;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Doctor\WarmRefusal;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -103,6 +105,7 @@ function warmMutation(Project $project, PhpUnitWorkersFake $shell): MutationRun
         Engine::with(new PlusToMinus(), new RemoveEcho()),
         $judging,
         new Workforce($project, $shell, $invocation, $scan, $judging),
+        Laps::from(new WallClock()->seconds(...)),
     );
 }
 

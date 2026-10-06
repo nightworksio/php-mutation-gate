@@ -8,11 +8,15 @@ use function array_filter;
 use function array_map;
 use function array_slice;
 use function array_values;
+
+use Closure;
+
 use function count;
 use function max;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
@@ -35,7 +39,7 @@ use Psr\Clock\ClockInterface;
  * `flaky.confirmSurvivors` asks for it (ADR-0008). Under a budget, a
  * mutant whose second run would not fit in the time left, at the doubled
  * most for a timeout and at `timeouts.seconds` for a survivor, is not run
- * again, and is unjudged.
+ * again, and is unjudged. Each step is timed on the shard's stopwatch.
  */
 final readonly class Invoking
 {
@@ -47,13 +51,14 @@ final readonly class Invoking
         private Settings $settings,
         private ClockInterface $clock,
         private Deadline|Unlimited $deadline,
+        private Stopwatch $stopwatch,
     ) {
     }
 
     /** One invocation, its timeouts retried and its survivors run once more; or the first cannot judge. */
     public function invoked(MutationRequest $request, int $retries): Invoked|CannotJudge
     {
-        $result = $this->adapters->runner->mutate($request);
+        $result = $this->mutated($request);
         $retried = $result instanceof CannotJudge ? $result : $this->retried($result->mutants(), $request, $retries);
         $again = $retried instanceof Mutants ? $this->confirmed($retried, $request) : $retried;
 
@@ -67,6 +72,19 @@ final readonly class Invoking
                 count($this->capped($result->mutants())),
             ),
         };
+    }
+
+    /** The runner's run of the request, the steps its time went to kept. */
+    private function mutated(MutationRequest $request): MutationResult|CannotJudge
+    {
+        $from = $this->stopwatch->now();
+        $result = $this->adapters->runner->mutate($request);
+
+        if (! $result instanceof CannotJudge) {
+            $this->stopwatch->ran($result->steps(), $from);
+        }
+
+        return $result;
     }
 
     /**
@@ -85,10 +103,14 @@ final readonly class Invoking
         $most = Seconds::of($this->settings->triage()->most()->seconds() * self::DOUBLED);
         $fitting = $this->fitting(count($taken), $most);
         $left = $this->unjudged(array_slice($taken, $fitting), OutOfTime::BeforeRetrying);
-        $again = $fitting === 0 ? Mutants::none() : $this->adapters->runner->retry(
-            $this->retimed($request),
-            Mutants::of(...array_slice($taken, 0, $fitting)),
-            $most,
+        $again = $this->again(
+            Step::Retry,
+            $fitting,
+            fn(): Mutants|CannotJudge => $this->adapters->runner->retry(
+                $this->retimed($request),
+                Mutants::of(...array_slice($taken, 0, $fitting)),
+                $most,
+            ),
         );
 
         return $again instanceof CannotJudge ? $again : $mutants->replacing(Mutants::of(...$again, ...$left));
@@ -155,7 +177,14 @@ final readonly class Invoking
             return new Confirmed($mutants, MutantIds::none());
         }
 
+        $from = $this->stopwatch->now();
         $equivalent = new StaticEquivalence($this->adapters, $this->settings)->proven($mutants)->proven;
+        $survived = $mutants->counting(MutantStatus::Survived);
+
+        if ($survived > 0) {
+            $this->stopwatch->stop(Step::Equivalence, $from, $survived);
+        }
+
         $survivors = array_values(array_filter(
             [...$mutants],
             static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Survived
@@ -168,16 +197,40 @@ final readonly class Invoking
 
         $fitting = $this->fitting(count($survivors), $this->settings->triage()->limit());
         $left = $this->unjudged(array_slice($survivors, $fitting), OutOfTime::BeforeConfirming);
-        $again = $fitting === 0 ? Mutants::none() : $this->adapters->runner->retry(
-            $this->retimed($request)->across(Pool::of($request->pool()->processes(), Workers::Fresh)),
-            Mutants::of(...array_slice($survivors, 0, $fitting)),
-            $this->settings->triage()->most(),
+        $again = $this->again(
+            Step::Survivors,
+            $fitting,
+            fn(): Mutants|CannotJudge => $this->adapters->runner->retry(
+                $this->retimed($request)->across(Pool::of($request->pool()->processes(), Workers::Fresh)),
+                Mutants::of(...array_slice($survivors, 0, $fitting)),
+                $this->settings->triage()->most(),
+            ),
         );
 
         return $again instanceof CannotJudge
             ? $again
             : new Confirmed($mutants->replacing($left), $this->killed($again));
     }
+
+    /**
+     * The mutants a step runs again, this many of them, timed as that step;
+     * none, and no step, where none fit.
+     *
+     * @param Closure(): (Mutants|CannotJudge) $running
+     */
+    private function again(Step $step, int $fitting, Closure $running): Mutants|CannotJudge
+    {
+        if ($fitting === 0) {
+            return Mutants::none();
+        }
+
+        $from = $this->stopwatch->now();
+        $again = $running();
+        $this->stopwatch->stop($step, $from, $fitting);
+
+        return $again;
+    }
+
 
     /** The ids of those of these mutants that were killed, by a test or by a static analyser. */
     private function killed(Mutants $mutants): MutantIds

@@ -405,6 +405,21 @@ Operating the gate raises four needs its reports do not yet meet.
     - Shards write their timings into their result files, which already hold
       what the shard measured (ADR-0006 decision 1), and the verdict merges
       them.
+    - A shard's result names the steps its time went to under
+      `measured.steps`, in the order they started: each its `step`, the
+      seconds after the shard began that it started (`since`), the seconds
+      it took, and, where it handled more than one, how many (`count`). The
+      steps are one closed set, whichever runner runs: `held coverage`,
+      `coverage`, `preparing`, `mutation`, `reading`, `trial coverage`,
+      `trials`, `baselines`, `confirmation`, `retry`, `equivalence`,
+      `survivors` and `static check`. A step with nothing to do is not
+      named.
+    - Each runner names the steps of its own run on the `MutationResult` it
+      returns, timed on its own clock from when the run began, and the
+      runner contract checks that every runner names its `mutation` step
+      with every mutant it judged. The flows time the steps around the
+      runner: held coverage, retry, equivalence, survivors and static check.
+      A runner that names no step has its whole run named `mutation`.
     - The console, JSON, cost and OTLP output all read these same numbers.
 
 ## Alternatives considered

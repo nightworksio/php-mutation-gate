@@ -13,11 +13,13 @@ use NightWorksIO\MutationGate\Core\Ci\WhichShard;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Cost\FirstRun;
+use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Order\Ordering;
@@ -141,6 +143,7 @@ final readonly class Running
         }
 
         $started = $this->setup->clock->now();
+        $stopwatch = new Stopwatch($this->setup->clock, $started);
         $map = new Handoff($this->adapters->project, Handoff::limits())->read($id);
         $history = new Handoff($this->adapters->project, Handoff::limits())->history($id);
         $ordering = Ordering::of(
@@ -148,7 +151,9 @@ final readonly class Running
             $history instanceof KillHistory ? $history : KillHistory::none(),
         );
         $search = KillSearch::of($ordering, $plan->briefing()->matrix());
-        $outcome = $map instanceof CoverageMap ? $this->mutated($plan, $shard, $map, $search, $deadline) : $map;
+        $outcome = $map instanceof CoverageMap
+            ? $this->mutated($plan, $shard, $map, $search, $deadline, $stopwatch)
+            : $map;
         $ended = $this->setup->clock->now();
         $spent = Seconds::between($started, $ended);
         $identity = $this->adapters->runner->identity($this->adapters->withheld);
@@ -157,7 +162,8 @@ final readonly class Running
             $id,
             $this->keysOf($shard->units(), $plan->keys()),
             $outcome instanceof CannotJudge ? $outcome : $outcome->result,
-            Measurement::of($spent, $identity instanceof CannotJudge ? '' : $identity->runner(), Instant::at($ended)),
+            Measurement::of($spent, $identity instanceof CannotJudge ? '' : $identity->runner(), Instant::at($ended))
+                ->withSteps($stopwatch->steps()),
         );
         $result = $this->left($result, $outcome);
         $result = $result->withWarnings($result->warnings()->and($history instanceof CannotJudge ? Warnings::of(
@@ -198,15 +204,22 @@ final readonly class Running
         CoverageMap $map,
         KillSearch $search,
         Deadline|Unlimited $deadline,
+        Stopwatch $stopwatch,
     ): Mutated|CannotJudge {
+        $from = $stopwatch->now();
         $held = new HeldCoverage($this->adapters)->checked($shard, $map);
+        $holding = $shard->units()->held();
+
+        if ($holding > 0) {
+            $stopwatch->stop(Step::HeldCoverage, $from, $holding);
+        }
 
         if ($held instanceof CannotJudge) {
             return $held;
         }
 
         $kept = HeldCoverage::kept($shard, $held->misses());
-        $invoking = new Invoking($this->adapters, $this->settings, $this->setup->clock, $deadline);
+        $invoking = new Invoking($this->adapters, $this->settings, $this->setup->clock, $deadline, $stopwatch);
         $spent = $deadline instanceof Deadline
             ? $this->spentWithin($invoking, $deadline, $plan, $kept, $map, $search)
             : $this->spentWhole($invoking, $kept, $search);
@@ -215,6 +228,7 @@ final readonly class Running
             return $spent;
         }
 
+        $from = $stopwatch->now();
         $checked = new SurvivorChecking(
             $this->adapters,
             $this->setup->clock,
@@ -222,6 +236,11 @@ final readonly class Running
             $this->settings->staticCheck()->seconds(),
         )
             ->checked($spent->mutants, $spent->flaky);
+        $survived = $spent->mutants->counting(MutantStatus::Survived);
+
+        if ($survived > 0) {
+            $stopwatch->stop(Step::StaticCheck, $from, $survived);
+        }
 
         return new Mutated(
             MutationResult::of(

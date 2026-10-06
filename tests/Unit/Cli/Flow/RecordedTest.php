@@ -329,7 +329,7 @@ it('learns nothing of a unit a shard\'s budget ran out before', function () use 
         new TickingClock('2026-09-30T12:00:00+00:00', 10),
         new PeakMemoryFake(NotGiven::value()),
     );
-    $results = recordedRanWith($plan, $project, ScriptedRunner::fixture(), $map(), Flows::settings(Budget::of('25s')), $setup);
+    $results = recordedRanWith($plan, $project, ScriptedRunner::fixture(), $map(), Flows::settings(Budget::of('45s')), $setup);
 
     new Recorded(Flows::adapters($project, [], $store))->write(
         $plan,

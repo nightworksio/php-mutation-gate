@@ -20,6 +20,8 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
+use NightWorksIO\MutationGate\Core\Cost\Step;
+use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
@@ -164,10 +166,10 @@ it('runs the shard it is named, on the commit its plan was made on, and leaves i
         ->toEqual(Keys::none()->with(Path::of('src/Money.php'), Digest::sha256Of('money')))
         ->and($statuses($result))
         ->toBe(['Plus-11 killed', 'GreaterThan-16 survived', 'Minus-21 uncovered', 'Decrement-27 timed-out'])
-        ->and($result instanceof ShardResult ? $result->measured()->spent() : $result)->toEqual(Seconds::of(3.0))
+        ->and($result instanceof ShardResult ? $result->measured()->spent() : $result)->toEqual(Seconds::of(27.0))
         ->and($result instanceof ShardResult ? $result->measured()->runner() : $result)->toBe('fake')
         ->and($result instanceof ShardResult ? $result->measured()->at() : $result)
-        ->toEqual(Moment::at('2026-09-30T12:00:03Z'))
+        ->toEqual(Moment::at('2026-09-30T12:00:27Z'))
         ->and(is_file(sprintf('%s/.mutation-gate/results/2.json', $project)))->toBeFalse();
 });
 
@@ -951,6 +953,40 @@ it('stops before the batch after the one an interruption arrived in, leaving the
         ->and($unjudged($resultIn($project, 1)))->toBe(['src/Held.php']);
 });
 
+it('leaves the steps its time went to in its result, the runner\'s own and those around it, each from when the shard began', function () use (
+    $ticking,
+    $resultIn,
+): void {
+    $project = Flows::project();
+    $plan = Planned::handedIn($project, Planned::oneShard());
+
+    new Running(Flows::adapters($project, [], ScriptedRunner::fixture()), Flows::settings(), $ticking())
+        ->run($plan, ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+    $steps = $result instanceof ShardResult ? array_map(
+        static fn(StepTime $step): array => [$step->step(), $step->count()],
+        [...$result->measured()->steps()],
+    ) : $result;
+    $since = $result instanceof ShardResult ? array_map(
+        static fn(StepTime $step): float => $step->since()->seconds(),
+        [...$result->measured()->steps()],
+    ) : [];
+    $ordered = $since;
+    sort($ordered);
+
+    expect($steps)->toBe([
+        [Step::HeldCoverage, 1],
+        [Step::Mutation, 1],
+        [Step::Equivalence, 1],
+        [Step::Survivors, 1],
+        [Step::Mutation, 4],
+        [Step::Equivalence, 1],
+        [Step::Survivors, 1],
+        [Step::StaticCheck, 2],
+    ])
+        ->and($since)->toBe($ordered);
+});
+
 it('leaves the units no batch took unjudged, and each survivor it had no time to confirm', function () use (
     $tickingBy,
     $resultIn,
@@ -959,7 +995,7 @@ it('leaves the units no batch took unjudged, and each survivor it had no time to
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
 
-    new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('25s')), $tickingBy(10))
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('45s')), $tickingBy(10))
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
     $result = $resultIn($project, 1);
     $outcome = $result instanceof ShardResult ? $result->outcome() : $result;

@@ -234,6 +234,6 @@ it('says a run was cut short where its budget ran out before a unit or left a mu
     expect($results instanceof Results ? $results->wereCutShort() : $results)->toBe($cut);
 })->with([
     'no budget' => [Flows::settings(Timeouts::seconds(5), Timeouts::most(5), Timeouts::retries(2), Flaky::notConfirmingSurvivors()), 1, false],
-    'a timeout it had no time to run again' => [Flows::settings(Timeouts::seconds(5), Timeouts::most(5), Timeouts::retries(2), Flaky::notConfirmingSurvivors(), Budget::of('6s')), 1, true],
+    'a timeout it had no time to run again' => [Flows::settings(Timeouts::seconds(5), Timeouts::most(5), Timeouts::retries(2), Flaky::notConfirmingSurvivors(), Budget::of('10s')), 1, true],
     'a budget no unit fits' => [Flows::settings(Budget::of('1s')), 1, true],
 ]);

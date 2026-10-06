@@ -16,6 +16,9 @@ use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Cost\Laps;
+use NightWorksIO\MutationGate\Core\Cost\Step;
+use NightWorksIO\MutationGate\Core\Cost\StepTimes;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
@@ -220,11 +223,15 @@ final readonly class Infection implements Runner
         }
 
         $this->held->forget();
+        $laps = Laps::fromNanoseconds($this->clock->nanoseconds(...));
+        $from = $laps->now();
         $coverage = $this->covering()->of($config, $request);
-
-        return $coverage instanceof CannotJudge
+        $covered = StepTimes::of($laps->lap(Step::Coverage, $from));
+        $result = $coverage instanceof CannotJudge
             ? $coverage
-            : $this->run($config)->of($request, $coverage, $this->bounds);
+            : $this->run($config)->of($request, $coverage, $this->bounds, $laps);
+
+        return $result instanceof CannotJudge ? $result : $result->withStepsBefore($covered);
     }
 
     /**

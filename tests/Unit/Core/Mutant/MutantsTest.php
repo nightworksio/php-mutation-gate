@@ -66,3 +66,18 @@ it('replaces a mutant whose id is digits alone, by its id', function () use ($na
 
     expect($natives(Mutants::of($of('first'))->replacing(Mutants::of($of('again')))))->toBe(['again']);
 });
+
+it('counts the mutants of one status', function () use ($mutant): void {
+    $survived = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'LessThan', 's', 0),
+        's',
+        Location::of(Path::of('src/Money.php'), Line::of(1), Line::of(1)),
+        Mutation::of('LessThan', MutatorFamily::Boundary, ''),
+        MutantStatus::Survived,
+        Unmeasured::duration(),
+    );
+    $mutants = Mutants::of($mutant('a'), $survived, $mutant('b'));
+
+    expect($mutants->counting(MutantStatus::Survived))->toBe(1)
+        ->and($mutants->counting(MutantStatus::Uncovered))->toBe(0);
+});

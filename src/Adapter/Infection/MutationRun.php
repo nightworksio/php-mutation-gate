@@ -5,9 +5,14 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use function array_map;
+use function count;
 use function file_put_contents;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Cost\Laps;
+use NightWorksIO\MutationGate\Core\Cost\Step;
+use NightWorksIO\MutationGate\Core\Cost\StepTime;
+use NightWorksIO\MutationGate\Core\Cost\StepTimes;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
@@ -52,18 +57,27 @@ final readonly class MutationRun
      * Infection's own under the most where it is not, which the result
      * warns of.
      */
-    public function of(MutationRequest $request, DiskPath $coverage, LimitBounds $bounds): MutationResult|CannotJudge
-    {
+    public function of(
+        MutationRequest $request,
+        DiskPath $coverage,
+        LimitBounds $bounds,
+        Laps $laps,
+    ): MutationResult|CannotJudge {
+        $from = $laps->now();
         $limits = $this->limits($coverage, $bounds);
+        $read = $laps->lap(Step::Coverage, $from);
 
         if ($limits instanceof CannotJudge) {
             return $limits;
         }
 
+        $from = $laps->now();
         $targets = $this->prepared($request, $bounds->most());
+        $prepared = StepTimes::of($read, $laps->lap(Step::Preparing, $from));
         $result = $targets instanceof CannotJudge
             ? $targets
-            : $this->ran($request, $coverage, $targets, $limits, $bounds->floor());
+            : $this->ran($request, $coverage, $targets, $limits, $bounds->floor(), $laps);
+        $result = $result instanceof CannotJudge ? $result : $result->withStepsBefore($prepared);
 
         return $result instanceof CannotJudge || $this->state === PatchState::Applied
             ? $result
@@ -76,6 +90,7 @@ final readonly class MutationRun
         Targets $targets,
         Limits $limits,
         Seconds $floor,
+        Laps $laps,
     ): MutationResult|CannotJudge {
         $invoked = Invocation::mutation(
             $this->project,
@@ -94,10 +109,12 @@ final readonly class MutationRun
             return $scan;
         }
 
+        $from = $laps->now();
         $ran = $this->shell->run($scan->onto($invoked));
+        $mutation = $laps->lap(Step::Mutation, $from);
         $scan->remove();
-
-        return $ran->wasStopped()
+        $from = $laps->now();
+        $result = $ran->wasStopped()
             ? CannotJudge::because(self::STOPPED)
             : Results::read(
                 $this->project,
@@ -109,6 +126,11 @@ final readonly class MutationRun
                 $this->nativeMarkersAllowed,
                 $this->bridges,
             );
+
+        return $result instanceof CannotJudge ? $result : $result->withSteps(StepTimes::of(
+            StepTime::counted($mutation, count($result->mutants())),
+            $laps->lap(Step::Reading, $from),
+        ));
     }
 
     /** What Infection allows each mutant, from the coverage the run reads. */

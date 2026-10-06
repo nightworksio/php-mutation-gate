@@ -11,6 +11,9 @@ use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Workforce;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Cost\Laps;
+use NightWorksIO\MutationGate\Core\Cost\Step;
+use NightWorksIO\MutationGate\Core\Cost\StepTimes;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -67,6 +70,7 @@ final readonly class Mutating
         private CapFiles $files,
         private HeldCoverage $held,
         private Engine|CannotJudge $engine,
+        private Clock $clock = new WallClock(),
     ) {
     }
 
@@ -82,15 +86,19 @@ final readonly class Mutating
             return $engine;
         }
 
+        $laps = Laps::from($this->clock->seconds(...));
         $override = Override::writtenFor($this->project);
         $invocation = is_string($override) ? new Invocation($this->project, $override) : $override;
+        $from = $laps->now();
         $map = $invocation instanceof Invocation ? $this->mapOf($request, $invocation) : $invocation;
-
-        return match (true) {
+        $coverage = StepTimes::of($laps->lap(Step::Coverage, $from));
+        $result = match (true) {
             ! $invocation instanceof Invocation => $invocation,
             $map instanceof CannotJudge => $map,
-            default => $this->capped($engine, $invocation, $map, $request, $bounds, $only),
+            default => $this->capped($engine, $invocation, $map, $request, $bounds, $only, $laps),
         };
+
+        return $result instanceof CannotJudge ? $result : $result->withStepsBefore($coverage);
     }
 
     /**
@@ -186,6 +194,7 @@ final readonly class Mutating
         MutationRequest $request,
         LimitBounds $bounds,
         MutantIds|NotGiven $only,
+        Laps $laps,
     ): MutationResult|CannotJudge {
         $scan = MemoryScan::in($this->project, $request->memory(), $this->files);
 
@@ -202,7 +211,7 @@ final readonly class Mutating
             $this->project->errorDisplay(),
         );
         $workforce = new Workforce($this->project, $this->shell, $invocation, $scan, $judging);
-        $run = new MutationRun($this->project, $engine, $judging, $workforce);
+        $run = new MutationRun($this->project, $engine, $judging, $workforce, $laps);
         $result = ($only instanceof MutantIds ? $run->makingOnly($only) : $run)->of($request, $map, $bounds);
         $scan->remove();
 
