@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Remembered;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -44,26 +45,31 @@ it('learns each thing once, and each set of groups once for what it withheld', f
         ->and($written)->toBe(1);
 });
 
-it('runs each baseline once, keeping whether it passed, and keeps nothing of one stopped at its deadline', function (): void {
+it('runs each baseline once, all it does not know in one call, and keeps nothing of one stopped or never started', function (): void {
     $remembered = new Remembered();
-    $runs = 0;
-    $running = static function (Ran $ran) use (&$runs): Closure {
-        return static function () use ($ran, &$runs): Ran {
-            $runs++;
+    $asked = [];
+    $running = static function (Ran ...$ends) use (&$asked): Closure {
+        return static function (array $keys) use ($ends, &$asked): ProcessEnds {
+            $asked[] = $keys;
 
-            return $ran;
+            return ProcessEnds::of(...$ends);
         };
     };
 
-    $passed = [
-        $remembered->baseline('passes', $running(Ran::finished(succeeded: true, output: ''))),
-        $remembered->baseline('passes', $running(Ran::finished(succeeded: false, output: ''))),
-        $remembered->baseline('fails', $running(Ran::finished(succeeded: false, output: ''))),
-        $remembered->baseline('fails', $running(Ran::finished(succeeded: true, output: ''))),
-        $remembered->baseline('stopped', $running(Ran::stopped(''))),
-        $remembered->baseline('stopped', $running(Ran::finished(succeeded: true, output: ''))),
-    ];
+    $first = $remembered->baselines(
+        ['passes', 'fails', 'passes', 'stopped', 'unstarted'],
+        $running(Ran::finished(succeeded: true, output: ''), Ran::finished(succeeded: false, output: ''), Ran::stopped('')),
+    );
+    $again = $remembered->baselines(
+        ['fails', 'stopped', 'passes', 'unstarted'],
+        $running(Ran::finished(succeeded: true, output: ''), Ran::finished(succeeded: true, output: '')),
+    );
+    $known = $remembered->baselines(['passes'], $running());
 
-    expect($passed)->toBe([true, true, false, false, false, true])
-        ->and($runs)->toBe(4);
+    expect([$first, $again, $known])->toBe([
+        [true, false, true, false, false],
+        [false, true, true, true],
+        [true],
+    ])
+        ->and($asked)->toBe([['passes', 'fails', 'stopped', 'unstarted'], ['stopped', 'unstarted']]);
 });

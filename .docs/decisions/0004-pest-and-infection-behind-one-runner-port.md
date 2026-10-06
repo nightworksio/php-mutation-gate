@@ -422,7 +422,9 @@ its parser attributes. Both change when the checkout moves.
        - any other counts only where every test in the files its run loaded
          passes on the unmutated code, loaded alone as that run loaded them.
          That run is made once for each set of files, and kept while the gate
-         runs.
+         runs. The runs a mutation run needs are made side by side, in the
+         places of its pool, each told what its place tells it, as the
+         mutants' own runs were.
 
        A kill that does not count runs again with every test file within the
        time left, or is unjudged. A kill whose records cannot be read does

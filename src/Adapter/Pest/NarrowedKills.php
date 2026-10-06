@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_key_exists;
+use function array_keys;
+use function array_map;
 
 use Closure;
 
@@ -80,16 +82,24 @@ final readonly class NarrowedKills
 
     /**
      * The doubtful kills, and each narrowed kill whose files' tests do not
-     * pass on the unmutated code, as asked once for each set of files.
+     * pass on the unmutated code, as asked once for every set of files at
+     * once, so the runs that answer can run side by side.
      *
-     * @param Closure(list<string>): bool $pass whether the tests of these files, by their paths on disk, pass
+     * @param Closure(non-empty-list<list<string>>): list<bool> $pass whether the tests of each set of files, by
+     *                                                         their paths on disk, pass, in the order given
      */
     public function doubted(Closure $pass): Mutants
     {
         $doubted = $this->doubtful;
+        $sets = array_keys($this->narrowed);
+        $passed = $sets === [] ? [] : $pass(array_map(
+            static fn(string $files): array => explode(self::BETWEEN, $files),
+            $sets,
+        ));
 
-        foreach ($this->narrowed as $files => $mutants) {
-            $doubted = $pass(explode(self::BETWEEN, $files)) ? $doubted : [...$doubted, ...$mutants];
+        foreach ($sets as $at => $files) {
+            $stands = array_key_exists($at, $passed) && $passed[$at];
+            $doubted = $stands ? $doubted : [...$doubted, ...$this->narrowed[$files]];
         }
 
         return Mutants::of(...$doubted);

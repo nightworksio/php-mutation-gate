@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use function array_filter;
 use function array_key_exists;
+use function array_map;
+use function array_unique;
+use function array_values;
 
 use Closure;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
-use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 
@@ -104,23 +108,30 @@ final class Remembered
     }
 
     /**
-     * Whether a baseline run passed, run once for its key; a run stopped at
-     * its deadline says nothing of the tests, is not kept, and does not pass.
+     * Whether each baseline run passed, by its key, in the order given: the
+     * keys not yet kept run once each, all in one call; a run stopped at its
+     * deadline, or never started, says nothing of the tests, is not kept, and
+     * does not pass.
      *
-     * @param Closure(): Ran $running
+     * @param  list<string>                              $keys
+     * @param  Closure(non-empty-list<string>): ProcessEnds $running the ends of the runs of these keys, in their order
+     * @return list<bool>
      */
-    public function baseline(string $key, Closure $running): bool
+    public function baselines(array $keys, Closure $running): array
     {
-        if (! array_key_exists($key, $this->baselines)) {
-            $ran = $running();
+        $unknown = array_values(array_unique(array_filter(
+            $keys,
+            fn(string $key): bool => ! array_key_exists($key, $this->baselines),
+        )));
+        $ends = $unknown === [] ? [] : [...$running($unknown)];
 
-            if ($ran->wasStopped()) {
-                return false;
-            }
-
-            $this->baselines[$key] = $ran->succeeded();
+        foreach ($ends as $at => $ran) {
+            $this->baselines += $ran->wasStopped() ? [] : [$unknown[$at] => $ran->succeeded()];
         }
 
-        return $this->baselines[$key];
+        return array_map(
+            fn(string $key): bool => array_key_exists($key, $this->baselines) && $this->baselines[$key],
+            $keys,
+        );
     }
 }
