@@ -70,13 +70,16 @@ final readonly class Compiler
 
     private const string NO_OPCACHE = 'U';
 
+    /**
+     * What the child runs with besides PHP's own defaults, which `-n` leaves it: opcache on the command line, its
+     * optimized opcodes dumped, every file cached however new, and no error shown among the answers. PHP logs no
+     * error by default.
+     */
     private const array SETTINGS = [
-        'opcache.enable=1',
         'opcache.enable_cli=1',
         'opcache.opt_debug_level=0x20000',
         'opcache.file_update_protection=0',
         'display_errors=0',
-        'log_errors=0',
     ];
 
     /** The child's script: for each file, the marker on the dump's stream, then whether it compiled. */

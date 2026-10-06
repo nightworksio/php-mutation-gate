@@ -60,6 +60,31 @@ it('says a program that does not compile failed, and compiles every other one of
         ->and(compiledAs($compiled, 'original', 'again'))->toBeTrue();
 });
 
+it('compiles a program that warns as it compiles, with no warning in its answer or its opcodes', function (): void {
+    $warning = "<?php\nfunction late(\$a = 1, \$b) { return \$a + \$b; }\n";
+    $compiled = compiledPrograms(['warns' => Contents::of($warning), 'again' => Contents::of($warning)], 1);
+
+    expect(compiledAs($compiled, 'warns', 'again'))->toBeTrue()
+        ->and($compiled['warns'] instanceof Opcodes ? $compiled['warns']->text() : '')->not->toContain('Deprecated');
+});
+
+it('compiles at most a hundred programs in one child', function (int $programs, int $children): void {
+    $log = sprintf('%s/children', Scratch::directory());
+    $child = sprintf('%s/counting-php', Scratch::directory());
+    file_put_contents($child, sprintf("#!/bin/sh\necho started >> %s\nexec %s \"$@\"\n", $log, PHP_BINARY));
+    chmod($child, 0o755);
+    $listed = [];
+
+    foreach (range(1, $programs) as $at) {
+        $listed[sprintf('p%d', $at)] = Contents::of(sprintf("<?php\nfunction p%d(): int { return %d; }\n", $at, $at));
+    }
+
+    $compiled = new Compiler($child, sprintf('%s/equivalence', Scratch::directory()), 30.0, 1)->compiled($listed);
+
+    expect(array_filter($compiled, static fn(Opcodes|Uncompiled $one): bool => ! $one instanceof Opcodes))->toBe([])
+        ->and(substr_count((string) file_get_contents($log), 'started'))->toBe($children);
+})->with(['a hundred, in one child' => [100, 1], 'one more, in two' => [101, 2]]);
+
 it('takes away every program it wrote once they are compiled', function (): void {
     $directory = sprintf('%s/equivalence', Scratch::directory());
     new Compiler(PHP_BINARY, $directory, 30.0, 1)->compiled(['one' => Contents::of(COMPILED_PROGRAM)]);
