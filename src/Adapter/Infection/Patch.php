@@ -47,9 +47,9 @@ final readonly class Patch
     /** The command that applies the patch. */
     public const string COMMAND = 'infection:patch';
 
-    /** Why the command patches no release it does not know. */
+    /** Why the command patches no release it does not know, which then runs with Infection's own limit. */
     private const string UNSUPPORTED
-        = '%s patched nothing: it patches Infection %s, and %s holds Infection %s. Install a supported release.';
+        = '%s patched nothing: it patches Infection %s, and %s holds Infection %s, which keeps its own mutant limit.';
 
     /** Why the command cannot say which release is installed. */
     private const string UNLISTED = '%s patched nothing: %s lists no Infection. Is Infection installed?';
@@ -159,15 +159,15 @@ final readonly class Patch
 
     /**
      * Patch Infection and its include-interceptor in a vendor directory,
-     * where Infection is a supported release, and say what was done.
+     * where Infection is a supported release, and say what was done; a
+     * release it does not patch, which runs unpatched; or why a release it
+     * supports cannot be patched.
      */
-    public static function applyIn(string $vendor): string|CannotJudge
+    public static function applyIn(string $vendor): string|UnsupportedRelease|CannotJudge
     {
         $release = self::release($vendor);
 
-        return $release instanceof CannotJudge
-            ? $release
-            : PackageSource::applyIn($vendor, ...self::patches());
+        return $release instanceof Version ? PackageSource::applyIn($vendor, ...self::patches()) : $release;
     }
 
     /** Whether Infection and its include-interceptor in a vendor directory carry every hunk, none another gate's. */
@@ -194,7 +194,7 @@ final readonly class Patch
     }
 
     /** The Infection release installed in a vendor directory, where the patch supports it; or why not. */
-    private static function release(string $vendor): Version|CannotJudge
+    private static function release(string $vendor): Version|UnsupportedRelease|CannotJudge
     {
         $file = Installed::fileIn(Path::of($vendor));
         $installed = is_file($file->value())
@@ -208,7 +208,7 @@ final readonly class Patch
         return match (true) {
             $installed instanceof CannotJudge => $installed,
             $release instanceof CannotJudge, Release::tryFrom($release->release()) instanceof Release => $release,
-            default => CannotJudge::because(sprintf(
+            default => UnsupportedRelease::because(sprintf(
                 self::UNSUPPORTED,
                 self::COMMAND,
                 Release::listed(),

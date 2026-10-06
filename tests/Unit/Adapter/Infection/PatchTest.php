@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Infection\Patch;
 use NightWorksIO\MutationGate\Adapter\Infection\PatchState;
 use NightWorksIO\MutationGate\Adapter\Infection\Release;
 use NightWorksIO\MutationGate\Adapter\Infection\Silence;
+use NightWorksIO\MutationGate\Adapter\Infection\UnsupportedRelease;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Tests\Support\FileModes;
 use NightWorksIO\MutationGate\Tests\Support\InfectionSource;
@@ -63,8 +64,8 @@ it('finds the patch in place and changes nothing when patching again', function 
 it('patches no release it does not support, and says which it supports', function (): void {
     $at = InfectionSource::pristine()->vendor('0.34.0');
 
-    expect(Patch::applyIn($at))->toEqual(CannotJudge::because(sprintf(
-        'infection:patch patched nothing: it patches Infection %s, and %s holds Infection 0.34.0. Install a supported release.',
+    expect(Patch::applyIn($at))->toEqual(UnsupportedRelease::because(sprintf(
+        'infection:patch patched nothing: it patches Infection %s, and %s holds Infection 0.34.0, which keeps its own mutant limit.',
         Release::listed(),
         $at,
     )))

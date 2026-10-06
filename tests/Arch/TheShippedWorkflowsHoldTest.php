@@ -47,7 +47,7 @@ function holdsACredential(Node $mapping): bool
 /** Whether a step's `run` starts the project's installed gate on a command that runs or loads the project's code. */
 function runsTheProject(Node $step): bool
 {
-    return preg_match('/"\$\{GATE\}" (plan|run|survivors|verdict|config:show|pest:patch)\b/', Lenient::text($step->field('run'))) === 1;
+    return preg_match('/"\$\{GATE\}" (plan|run|survivors|verdict|config:show|pest:patch|infection:patch)\b/', Lenient::text($step->field('run'))) === 1;
 }
 
 /**

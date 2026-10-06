@@ -453,6 +453,22 @@ jobs:
         env:
           GATE: ${{ steps.resolve.outputs.gate }}
         run: '"${GATE}" pest:patch'
+      # ADR-0004: Infection gives each mutant its own limit until
+      # infection:patch gives it the gate's, so this job patches the vendor
+      # directory it installed, as the action does for a shard: a release it
+      # does not patch runs unpatched with a warning, and one it cannot patch
+      # fails the step.
+      - name: Apply the Infection patch
+        if: steps.config.outputs.infection_patch == 'true'
+        env:
+          GATE: ${{ steps.resolve.outputs.gate }}
+        run: |
+          set -uo pipefail
+          said="${RUNNER_TEMP}/infection-patch.txt"
+          code=0
+          "${GATE}" infection:patch 2> "${said}" || code=$?
+          cat "${said}" >&2
+          CODE="${code}" SAID="${said}" python3 "${GATE_ACTION}/resources/action/gate_action.py" infection
       # The branch's own ledger holds its last run's survivors.
       - name: Restore this scope's ledger
         if: steps.config.outputs.default_store == 'true' && steps.resolve.outputs.own_dir != ''

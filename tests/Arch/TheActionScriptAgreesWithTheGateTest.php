@@ -73,8 +73,15 @@ it('reads the installed gate\'s version where the gate reads what Composer insta
     expect(scriptText('INSTALLED'))->toBe(Installed::fileIn(Path::of(Manifest::VENDOR))->value());
 });
 
-it('names the Pest runner by the word the config chooses it by', function (): void {
-    expect(scriptText('PEST'))->toBe(BuiltinRunner::Pest->value);
+it('names the Pest and Infection runners by the words the config chooses them by', function (): void {
+    expect(scriptText('PEST'))->toBe(BuiltinRunner::Pest->value)
+        ->and(scriptText('INFECTION'))->toBe(BuiltinRunner::Infection->value);
+});
+
+it('reads the exit infection:patch gives a release it does not patch as the one the command gives it', function (): void {
+    preg_match('/^UNSUPPORTED_RELEASE = (?<code>\d+)$/mu', actionScript(), $found);
+
+    expect(intval($found['code'] ?? '-1'))->toBe(ExitCode::Failed->value);
 });
 
 it('names the package as Composer does', function (): void {
@@ -110,7 +117,7 @@ it('reads each exit code as the verdict the gate means by it', function (): void
     ]);
 });
 
-it('reads this package\'s effective config as the gate prints it: the ledger in the cached directory, and Pest patched', function (): void {
+it('reads this package\'s effective config as the gate prints it: the ledger in the cached directory, Pest patched, Infection not run', function (): void {
     $shown = new Process([PHP_BINARY, 'bin/mutation-gate', 'config:show', '--format=json'], Tree::root());
     $shown->mustRun();
     $output = sprintf('%s/output', Scratch::directory());
@@ -118,5 +125,5 @@ it('reads this package\'s effective config as the gate prints it: the ledger in 
     $variables = ['GITHUB_OUTPUT' => $output, 'CACHE' => 'true'];
     new Process(['python3', 'resources/action/gate_action.py', 'config'], Tree::root(), $variables, $shown->getOutput())->mustRun();
 
-    expect((string) file_get_contents($output))->toBe("default_store=true\npest_patch=true\n");
+    expect((string) file_get_contents($output))->toBe("default_store=true\npest_patch=true\ninfection_patch=false\n");
 });
