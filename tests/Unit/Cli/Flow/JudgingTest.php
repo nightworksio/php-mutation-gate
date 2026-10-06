@@ -379,6 +379,23 @@ it('records a pass under the check the config names', function () use ($tree, $r
         ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'gate / verdict', 0));
 });
 
+it('records a pass measured against its own scope\'s coverage map as one that used its own scope, which the default branch never trusts', function () use ($tree, $reporting, $judged): void {
+    $project = Flows::project();
+    $store = new ProofStoreFake();
+    $plan = Planned::twoShards();
+
+    judgingVerdictOf($judged(
+        $plan->briefed($plan->briefing()->onOwnScopeCoverage()),
+        Flows::adapters($project, [], $store, $tree(Floor::of(40))),
+        judgingSettings(),
+        $reporting(new ReporterFake()),
+    ));
+    $passed = LedgerRead::ledger($store->read(Scope::branch('main')))->lastPassed();
+
+    expect($passed)->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 0)->onOwnScopeCoverage())
+        ->and($passed instanceof Passed && $passed->usedOwnScope())->toBeTrue();
+});
+
 it('says what a reporter could not write', function () use ($tree, $reporting, $judged): void {
     $unwritten = new class implements Reporter {
         public function report(Verdict $verdict): NotWritten

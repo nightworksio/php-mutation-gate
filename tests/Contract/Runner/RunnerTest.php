@@ -9,14 +9,21 @@ use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Adapter\Pest\Records;
+use NightWorksIO\MutationGate\Cli\Flow\KeptCoverage;
+use NightWorksIO\MutationGate\Cli\Flow\KeptFrom;
 use NightWorksIO\MutationGate\Core\Analysis\AsWritten;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
+use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
+use NightWorksIO\MutationGate\Core\Coverage\KeptMap;
+use NightWorksIO\MutationGate\Core\Coverage\MapLimits;
+use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\Coverage\Remeasured;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -32,6 +39,10 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
+use NightWorksIO\MutationGate\Core\Proof\Access;
+use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -59,6 +70,7 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
+use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
 use NightWorksIO\MutationGate\Tests\Support\InfectionSource;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
@@ -444,6 +456,22 @@ function contractLines(CoverageMap $map): array
 
     return $lines;
 }
+
+it('keeps its map beside a pull request\'s ledger, and reads it back first, from that scope, as a full run\'s', function (Library $library): void {
+    $map = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));
+    $full = $map instanceof CoverageMap ? $map : CoverageMap::empty();
+    $bytes = CoverageMapFile::keeping(KeptMap::of($full, MeasuredAt::of(Revision::ref('HEAD'), dirty: false), EntryKeys::none()), MapLimits::standard());
+    $store = new ProofStoreFake();
+    $store->keep(Scope::branch('main'), Companion::Coverage, Contents::of(CoverageMapFile::encode(CoverageMap::empty(), Unplaced::map())));
+    $store->keep(Scope::pullRequest(7), Companion::Coverage, Contents::of(is_string($bytes) ? $bytes : ''));
+    $read = KeptCoverage::fromStore($store, Access::of(Scope::pullRequest(7), Scope::branch('main'), Writing::Auto));
+    $kept = $read->map();
+
+    expect($map)->toBeInstanceOf(CoverageMap::class)
+        ->and($read->from())->toBe(KeptFrom::OwnScope)
+        ->and($kept instanceof KeptMap ? contractLines($kept->map()) : $kept)->toBe(contractLines($full));
+})->with($onDisk === [] ? ['none installed' => fn(): Library => Library::fake()] : $onDisk)
+    ->skip($onDisk === [], 'the runner contracts jobs install the libraries whose runner reads from disk');
 
 it('measures a test file again, names the tests it holds, and the merged map is a full run\'s', function (Library $library): void {
     $runner = $library->runner();

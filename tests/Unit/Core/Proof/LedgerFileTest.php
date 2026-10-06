@@ -445,7 +445,16 @@ it('reads a passing record that is not well formed as none', function (array|int
     'no count of own proofs' => [['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate']],
     'a count below none' => [['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate', 'ownScopeProofs' => -1]],
     'a count that is not whole' => [['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate', 'ownScopeProofs' => 1.5]],
+    'own-scope coverage that is not true' => [['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate', 'ownScopeProofs' => 0, 'ownScopeCoverage' => false]],
 ]);
+
+it('reads back a passing verdict measured against its own scope\'s coverage map as one, and one without the field as one that was not', function () use ($ledger, $data, $written): void {
+    $passed = Passed::of(Revision::ref('5eeca8f0a1b2c3d4e5f60718293a4b5c6d7e8f90'), 'mutation / verdict', 0)->onOwnScopeCoverage();
+    $plain = LedgerFile::decode($written([...$data(), 'passed' => ['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate', 'ownScopeProofs' => 0]]))->lastPassed();
+
+    expect(LedgerFile::decode(LedgerFile::encode($ledger->withPassed($passed)))->lastPassed())->toEqual($passed)
+        ->and($plain instanceof Passed ? $plain->measuredOnOwnScope() : $plain)->toBeFalse();
+});
 
 it('reads back a passing verdict that used proofs of its own scope', function () use ($ledger): void {
     $passed = Passed::of(Revision::ref('5eeca8f0a1b2c3d4e5f60718293a4b5c6d7e8f90'), 'mutation / verdict', 3);

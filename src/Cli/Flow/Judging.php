@@ -517,6 +517,8 @@ final readonly class Judging
             $unjudged > 0 => CannotTell::because(self::UNJUDGED),
             $this->adapters->isSecurityOnly() => CannotTell::because(self::SECURITY_ONLY),
             $this->adapters->isSuiteOnly() => CannotTell::because(self::SUITE_ONLY),
+            $plan->briefing()->isOnOwnScopeCoverage()
+                => Passed::of($plan->commit(), $this->settings->ci()->check(), $ownScopeProofs)->onOwnScopeCoverage(),
             default => Passed::of($plan->commit(), $this->settings->ci()->check(), $ownScopeProofs),
         };
         $written = new Recorded($this->adapters)->write($plan, $results, $ledgers, $run, $passed);

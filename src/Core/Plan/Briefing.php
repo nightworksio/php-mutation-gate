@@ -16,8 +16,9 @@ use NightWorksIO\MutationGate\Core\Test\SuiteName;
  * triage weighs its mutants against (ADR-0004, decision 9), how much of the
  * kill matrix the run records (ADR-0014, decision 7), whether the run makes
  * mutants with the security mutators alone and holds only the security sets
- * (ADR-0021, decision 20), and the one suite whose tests alone judge them,
- * where there is one (ADR-0025, decision 9).
+ * (ADR-0021, decision 20), the one suite whose tests alone judge them,
+ * where there is one (ADR-0025, decision 9), and whether its coverage map
+ * was measured against the map its own scope keeps (ADR-0023, decision 2).
  */
 final readonly class Briefing
 {
@@ -26,6 +27,7 @@ final readonly class Briefing
         private MatrixKind $matrix,
         private bool $securityOnly,
         private SuiteName|NotGiven $suite,
+        private bool $ownScopeCoverage,
     ) {
     }
 
@@ -35,7 +37,13 @@ final readonly class Briefing
      */
     public static function standard(): self
     {
-        return new self(NotGiven::value(), MatrixKind::FirstKiller, securityOnly: false, suite: NotGiven::value());
+        return new self(
+            NotGiven::value(),
+            MatrixKind::FirstKiller,
+            securityOnly: false,
+            suite: NotGiven::value(),
+            ownScopeCoverage: false,
+        );
     }
 
     /** This briefing, with the most memory the unmutated suite's largest process held, or none measured. */
@@ -60,6 +68,22 @@ final readonly class Briefing
     public function inSuite(SuiteName $suite): self
     {
         return clone($this, ['suite' => $suite]);
+    }
+
+    /**
+     * This briefing, for a run whose coverage map was measured against the
+     * map its own scope keeps, which its own code could have written, so its
+     * verdict counts as one that used its own scope (ADR-0007, decision 3).
+     */
+    public function onOwnScopeCoverage(): self
+    {
+        return clone($this, ['ownScopeCoverage' => true]);
+    }
+
+    /** Whether the run's coverage map was measured against the map its own scope keeps. */
+    public function isOnOwnScopeCoverage(): bool
+    {
+        return $this->ownScopeCoverage;
     }
 
     /** The suite whose tests alone judge the run's mutants; none where every test judges them. */

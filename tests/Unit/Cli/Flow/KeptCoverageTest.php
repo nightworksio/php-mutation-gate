@@ -5,6 +5,8 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Cli\Flow\CoverageMeasured;
 use NightWorksIO\MutationGate\Cli\Flow\Inventory;
 use NightWorksIO\MutationGate\Cli\Flow\KeptCoverage;
+use NightWorksIO\MutationGate\Cli\Flow\KeptFrom;
+use NightWorksIO\MutationGate\Cli\Flow\StoredCoverage;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Coverage;
 use NightWorksIO\MutationGate\Config\Setting;
@@ -13,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Detached;
+use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
@@ -44,6 +47,7 @@ use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
+use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
@@ -153,7 +157,8 @@ function keptMeasured(
     Changes|NotGiven $since = new NotGiven(),
 ): array|CannotJudge {
     [$kept, $inventory] = keptFlow($files, $runner, $since instanceof Changes ? $since : Changes::none());
-    $measured = $inventory instanceof Inventory ? $kept->measuring($kept->entries($inventory), $map, $ownMap) : $inventory;
+    $from = $ownMap ? KeptFrom::LastRound : KeptFrom::DefaultBranch;
+    $measured = $inventory instanceof Inventory ? $kept->measuring($kept->entries($inventory), $map, $from) : $inventory;
 
     return $measured instanceof CoverageMeasured ? [$measured->request(), $measured->said()] : $measured;
 }
@@ -195,7 +200,7 @@ it('measures again only the test files whose entries moved, and writes the kept 
     $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map())->runningFiles(remeasuredMoney());
     [$kept, $inventory, $project] = keptFlow($files, $runner, Changes::none());
     $measured = $inventory instanceof Inventory
-        ? $kept->measuring($kept->entries($inventory), keptMap(Flows::map(), keptAt()), ownMap: false)
+        ? $kept->measuring($kept->entries($inventory), keptMap(Flows::map(), keptAt()), KeptFrom::DefaultBranch)
         : $inventory;
 
     expect($measured)->toEqual(CoverageMeasured::of(
@@ -216,7 +221,7 @@ it('measures no test where no entry moved, and writes the kept map as measured n
     $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
     [$kept, $inventory, $project] = keptFlow(keptFiles(), $runner, Changes::none());
     $measured = $inventory instanceof Inventory
-        ? $kept->measuring($kept->entries($inventory), keptMap(Flows::map(), keptAt()), ownMap: false)
+        ? $kept->measuring($kept->entries($inventory), keptMap(Flows::map(), keptAt()), KeptFrom::DefaultBranch)
         : $inventory;
     $written = (string) file_get_contents(sprintf('%s/.mutation-gate/coverage/map.json.gz', $project));
 
@@ -233,7 +238,7 @@ it('drops the entries of a gone test file, measuring nothing for it', function (
     $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
     [$kept, $inventory, $project] = keptFlow(Flows::FILES, $runner, Changes::none());
     $measured = $inventory instanceof Inventory
-        ? $kept->measuring($kept->entries($inventory), keptMap(Flows::map(), keptAt()), ownMap: false)
+        ? $kept->measuring($kept->entries($inventory), keptMap(Flows::map(), keptAt()), KeptFrom::DefaultBranch)
         : $inventory;
 
     expect($measured)->toEqual(CoverageMeasured::of(
@@ -298,7 +303,7 @@ it('measures every test where coverage.incremental is false, whatever is kept', 
         Coverage::full(),
     );
     $measured = $inventory instanceof Inventory
-        ? $kept->measuring($kept->entries($inventory), keptMap(Flows::map(), keptAt()), ownMap: false)
+        ? $kept->measuring($kept->entries($inventory), keptMap(Flows::map(), keptAt()), KeptFrom::DefaultBranch)
         : $inventory;
 
     expect($measured)->toEqual(CoverageMeasured::of(
@@ -366,7 +371,7 @@ it('measures every test where the moved test files cannot be measured, or the ma
     }
 
     $measured = $inventory instanceof Inventory
-        ? $kept->measuring($kept->entries($inventory), keptMap(Flows::map(), keptAt()), ownMap: false)
+        ? $kept->measuring($kept->entries($inventory), keptMap(Flows::map(), keptAt()), KeptFrom::DefaultBranch)
         : $inventory;
 
     expect($measured)->toEqual(CoverageMeasured::of(KeptCoverage::built(), sprintf($said, $project)));
@@ -402,7 +407,7 @@ it('measures every test where the project cannot be listed', function (): void {
         ->toEqual(CoverageMeasured::of(KeptCoverage::built(), 'Coverage: No tree is declared. So every test was measured.'));
 });
 
-it('reads the map the default branch\'s runs keep from a store, whatever scope the run is on', function (
+it('reads the map the default branch\'s runs keep from a store, where the run\'s own scope keeps none', function (
     Scope|Detached $on,
 ): void {
     $store = new ProofStoreFake();
@@ -410,21 +415,39 @@ it('reads the map the default branch\'s runs keep from a store, whatever scope t
     $bytes = CoverageMapFile::keeping($kept, MapLimits::standard());
     $store->keep(Scope::branch('main'), Companion::Coverage, Contents::of(is_string($bytes) ? $bytes : ''));
 
-    expect(KeptCoverage::fromStore($store, Access::of($on, Scope::branch('main'), Writing::Auto)))->toEqual($kept);
+    expect(KeptCoverage::fromStore($store, Access::of($on, Scope::branch('main'), Writing::Auto)))
+        ->toEqual(StoredCoverage::of($kept, KeptFrom::DefaultBranch));
 })->with([
     'the default branch' => [fn(): Scope => Scope::branch('main')],
     'a pull request' => [fn(): Scope => Scope::pullRequest(7)],
     'a detached HEAD' => [Detached::head()],
 ]);
 
+it('reads the map its own scope keeps first, and the default branch\'s where its own cannot be read', function (): void {
+    $store = new ProofStoreFake();
+    $main = keptMap(Flows::map(), keptAt());
+    $own = keptMap(remeasuredMoney(), keptAt());
+    $bytes = static fn(KeptMap $map): string => (static fn(mixed $kept): string => is_string($kept) ? $kept : '')(
+        CoverageMapFile::keeping($map, MapLimits::standard()),
+    );
+    $access = Access::of(Scope::pullRequest(7), Scope::branch('main'), Writing::Auto);
+    $store->keep(Scope::branch('main'), Companion::Coverage, Contents::of($bytes($main)));
+    $store->keep(Scope::pullRequest(7), Companion::Coverage, Contents::of($bytes($own)));
+    $first = KeptCoverage::fromStore($store, $access);
+    $store->keep(Scope::pullRequest(7), Companion::Coverage, Contents::of('not a map'));
+
+    expect($first)->toEqual(StoredCoverage::of($own, KeptFrom::OwnScope))
+        ->and(KeptCoverage::fromStore($store, $access))->toEqual(StoredCoverage::of($main, KeptFrom::DefaultBranch));
+});
+
 it('reads no map from a store that keeps none, and says why one that is no map cannot be read', function (): void {
     $store = new ProofStoreFake();
     $access = Access::of(Scope::branch('main'), Scope::branch('main'), Writing::Auto);
-    $none = KeptCoverage::fromStore($store, $access);
+    $none = KeptCoverage::fromStore($store, $access)->map();
     $store->keep(Scope::branch('main'), Companion::Coverage, Contents::of('not a map'));
 
     expect($none)->toBeInstanceOf(Missing::class)
-        ->and(KeptCoverage::fromStore($store, $access))->toBeInstanceOf(CannotJudge::class);
+        ->and(KeptCoverage::fromStore($store, $access)->map())->toBeInstanceOf(CannotJudge::class);
 });
 
 it('reads the default branch\'s map where a run asks for the whole suite, and the last round\'s for watch', function (): void {
@@ -445,6 +468,29 @@ it('reads the default branch\'s map where a run asks for the whole suite, and th
 
     expect($lastRound)->toBe("Coverage: measured 1 of 2 test files again; kept the rest from the last round's map.")
         ->and($said(ownMap: false))->toBe("Coverage: measured 1 of 2 test files again; kept the rest from the default branch's map.");
+});
+
+it('measures against its own scope\'s map where it keeps one, saying so, and marks what it measured as its own scope\'s', function (): void {
+    $files = keptFiles(['tests/MoneyTest.php' => "<?php\n\n// changed\n"]);
+    $project = keptProject($files);
+    $store = new ProofStoreFake();
+    $bytes = CoverageMapFile::keeping(keptMap(Flows::map(), keptAt()), MapLimits::standard());
+    $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map())->runningFiles(remeasuredMoney());
+    $adapters = Flows::adapters($project, [], $runner, keptCheckout($files, Changes::none()), $store, new CiPlanFake(RunOn::at(Scope::pullRequest(7), Scope::branch('main'))));
+    $flow = new KeptCoverage($adapters, Flows::settings(), Flows::setup());
+    $inventory = Inventory::of($adapters, Flows::settings());
+    $store->keep(Scope::branch('main'), Companion::Coverage, Contents::of(is_string($bytes) ? $bytes : ''));
+    $measured = static fn(): CoverageMeasured|CannotJudge => $inventory instanceof Inventory
+        ? $flow->forRun($inventory, $flow->entries($inventory), KeptCoverage::built(), ownMap: false)
+        : $inventory;
+    $fromMain = $measured();
+    $store->keep(Scope::pullRequest(7), Companion::Coverage, Contents::of(is_string($bytes) ? $bytes : ''));
+    $fromOwn = $measured();
+
+    expect($fromMain instanceof CoverageMeasured ? [$fromMain->said(), $fromMain->isFromOwnScope()] : $fromMain)
+        ->toBe(["Coverage: measured 1 of 2 test files again; kept the rest from the default branch's map.", false])
+        ->and($fromOwn instanceof CoverageMeasured ? [$fromOwn->said(), $fromOwn->isFromOwnScope()] : $fromOwn)
+        ->toBe(["Coverage: measured 1 of 2 test files again; kept the rest from this scope's map.", true]);
 });
 
 it('reads the map a run asks to read as it is, saying nothing', function (): void {
@@ -527,6 +573,14 @@ it('keeps the map the plan handed on beside the default branch\'s ledger, for a 
         ->toEqual(CoverageMapFile::kept($handed, MapLimits::standard()));
 });
 
+it('keeps the map of a run on a pull request beside its own scope\'s ledger, and never the default branch\'s', function (): void {
+    $handed = CoverageMapFile::encode(Flows::map(), keptAt(), EntryKeys::none()->with(Path::of('tests/MoneyTest.php'), Digest::sha256Of('key')));
+    [, $store, $kept] = keptKeeping($handed, Scope::pullRequest(7));
+
+    expect($kept)->toEqual(Written::to('memory:refs/pull/7/coverage.json.gz'))
+        ->and($store->companion(Scope::branch('main'), Companion::Coverage))->toBeInstanceOf(Missing::class);
+});
+
 it('keeps no map where it is not to be kept, saying why', function (
     string|NotGiven $handed,
     Scope $on,
@@ -543,14 +597,6 @@ it('keeps no map where it is not to be kept, saying why', function (
         fn(): Scope => Scope::branch('main'),
         Coverage::full(),
         fn(): ReadsOnly => ReadsOnly::because('coverage.incremental is false, so no coverage map is kept.'),
-    ],
-    'a pull request' => [
-        fn(): string => CoverageMapFile::encode(Flows::map(), keptAt()),
-        fn(): Scope => Scope::pullRequest(7),
-        Coverage::incremental(),
-        fn(): ReadsOnly => ReadsOnly::because(
-            'A run on refs/pull/7 keeps no coverage map: only runs on refs/heads/main do, which later runs reuse.',
-        ),
     ],
     'no map handed on' => [
         NotGiven::value(),
@@ -578,7 +624,7 @@ it('measures every test where it is given no entries or entries that cannot be t
 ): void {
     [$kept] = keptFlow(keptFiles(), new CoverageAsked(ScriptedRunner::fixture(), Flows::map()), Changes::none());
 
-    expect($kept->measuring($entries, keptMap(Flows::map(), keptAt()), ownMap: false))
+    expect($kept->measuring($entries, keptMap(Flows::map(), keptAt()), KeptFrom::DefaultBranch))
         ->toEqual(CoverageMeasured::of(KeptCoverage::built(), $said));
 })->with([
     'none, as coverage.incremental false gives' => [

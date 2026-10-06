@@ -331,11 +331,14 @@ has to bring its result with it.
      That commit is the `last-passed` base (ADR-0005). `check` is the name of
      the check-run the verdict reported under, the one `ci.check` names
      (`mutation / verdict` by default), and `ownScopeProofs` is how
-     many proofs of this scope's own ledger that verdict used. A pull
-     request's passing run is trusted on the default branch only where it
-     used none, because its own code could have written them, and only as the
-     named check-run shows it. A `passed` that is not such a record reads as
-     none.
+     many proofs of this scope's own ledger that verdict used.
+     `ownScopeCoverage`, `true` where it is written, says the verdict's plan
+     measured its coverage map against the map this scope keeps (ADR-0023,
+     decision 2). A pull request's passing run is trusted on the default
+     branch only where it used neither, because its own code could have
+     written both, and only as the named check-run shows it. A `passed` that
+     is not such a record, one whose `ownScopeCoverage` is anything but
+     `true` among them, reads as none.
 
 4. **The ProofStore port reads and writes one ledger per scope.** A scope is a
    ref: `refs/heads/<branch>` or `refs/pull/<n>`.
