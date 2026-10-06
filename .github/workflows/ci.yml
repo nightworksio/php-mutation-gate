@@ -615,8 +615,10 @@ jobs:
   # as `git archive` writes it, with nothing left out: its .gitattributes leave
   # its tests out of every archive GitHub serves, so its tag is cloned and
   # archived here. jwt's own PHPUnit is 11, and PHPUnit 13 warns of the
-  # repeated `#[Uses]` attributes of its tests, so its config is relaxed to
-  # pass on PHPUnit's own warnings and deprecations. Each run is the gate's
+  # repeated `#[Uses]` attributes of its tests and refuses the
+  # `beStrictAboutTodoAnnotatedTests` attribute of its config, so its config
+  # drops that attribute and passes on PHPUnit's own warnings and
+  # deprecations. Each run is the gate's
   # local run: GITHUB_ACTIONS unset, it writes a baseline rather than failing
   # for want of one.
   warm-workers:
@@ -640,6 +642,8 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           coverage: pcov
           extensions: pcntl, sodium
+          # jwt's tests expect assertions to run, as a development PHP has them.
+          ini-values: zend.assertions=1
       - name: lcobucci/jwt, at its pinned tag, commit and tree
         run: |
           set -euo pipefail
@@ -674,8 +678,8 @@ jobs:
           composer show --format=json > "${RUNNER_TEMP}/installed.json"
           jq -r '.installed[] | select(.name == "phpunit/phpunit" or .name == "nightworksio/mutation-gate") | "\(.name) \(.version)"' \
             "${RUNNER_TEMP}/installed.json"
-          sed 's/failOnRisky="true"/failOnRisky="true" failOnPhpunitWarning="false" failOnPhpunitDeprecation="false"/' \
-            phpunit.xml.dist > phpunit.xml
+          sed -e 's/failOnRisky="true"/failOnRisky="true" failOnPhpunitWarning="false" failOnPhpunitDeprecation="false"/' \
+            -e 's/ *beStrictAboutTodoAnnotatedTests="true"//' phpunit.xml.dist > phpunit.xml
           printf 'vendor/\n.mutation-gate/\nwarm-*.json\nmutation-gate.baseline.json\n' > .gitignore
           for mode in fresh fork; do
             printf '{"runner": {"use": "phpunit", "workers": "%s"}, "trees": [{"path": "src"}]}\n' "${mode}" > "warm-${mode}.json"
