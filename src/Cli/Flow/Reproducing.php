@@ -51,7 +51,7 @@ final readonly class Reproducing
         $judgedBy = $this->judgedBy($recorded->proof()->unit(), $units);
         $mutant = Reproducible::of($recorded->mutant());
         $request = RunRequest::of($this->adapters, $this->settings, Paths::of($mutant->file()), $judgedBy);
-        $now = $this->adapters->runner->reproduce($mutant, $request, $this->settings->triage()->limit());
+        $now = $this->adapters->runner->reproduce($mutant, $request, $this->settings->triage()->most());
 
         return $now instanceof CannotJudge ? $now : new Reproduced($recorded, $judgedBy, $now);
     }

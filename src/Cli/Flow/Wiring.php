@@ -179,10 +179,11 @@ final readonly class Wiring
 
     /**
      * The runner the config chooses: Infection told each mutant's cap,
-     * `timeouts.seconds` (ADR-0008, decision 2), and that the gate checks its
+     * `timeouts.most` (ADR-0008, decision 2), and that the gate checks its
      * survivors, where an analyser does, so it runs no static analysis of its
-     * own (ADR-0020, decision 13); the PHPUnit runner told the cap on each
-     * mutant's limit, `timeouts.seconds`; and each told the classes of the
+     * own (ADR-0020, decision 13); Pest and the PHPUnit runner told the
+     * bounds of each mutant's limit, `timeouts.seconds` and `timeouts.most`;
+     * and each told the classes of the
      * registered mutators it makes mutants with (ADR-0021): Pest and
      * Infection those the config turns on, beside their own, and the PHPUnit
      * runner the `default` set's and those (ADR-0023, decision 8).
@@ -195,9 +196,10 @@ final readonly class Wiring
         $runner = $settings->runner()->choice();
         $use = $runner->use()->value();
         $seconds = $settings->triage()->limit()->seconds();
+        $most = $settings->triage()->most()->seconds();
         $beside = Json::items(...$mutators->besideTheRunners()->classes());
         $infection = Json::object(
-            Member::of(Setup::TIMEOUT, $seconds),
+            Member::of(Setup::TIMEOUT, $most),
             Member::of(Setup::MUTATORS, $beside),
             ...$checker instanceof StaticChecker
                 ? [Member::of(Setup::STATIC_ANALYSIS, StaticAnalysis::Gate->value)]
@@ -205,6 +207,7 @@ final readonly class Wiring
         );
         $native = Json::object(
             Member::of(PhpUnitOptions::TIMEOUT, $seconds),
+            Member::of(PhpUnitOptions::MOST, $most),
             Member::of(PhpUnitOptions::MUTATORS, Json::items(...$mutators->forTheEngine()->classes())),
         );
 
@@ -215,6 +218,7 @@ final readonly class Wiring
                 $use,
                 $runner->options()->over(Json::object(
                     Member::of(PestOptions::TIMEOUT, $seconds),
+                    Member::of(PestOptions::MOST, $most),
                     Member::of(PestOptions::MUTATORS, $beside),
                 )),
             ),

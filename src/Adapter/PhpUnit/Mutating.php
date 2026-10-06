@@ -24,13 +24,13 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 
@@ -70,10 +70,10 @@ final readonly class Mutating
     ) {
     }
 
-    /** Every mutant the request asks for, or only those with these ids, each stopped at its limit under this cap. */
+    /** Every mutant the request asks for, or only those with these ids, each stopped at its limit in these bounds. */
     public function result(
         MutationRequest $request,
-        Seconds $cap,
+        LimitBounds $bounds,
         MutantIds|NotGiven $only,
     ): MutationResult|CannotJudge {
         $engine = $this->engine;
@@ -89,7 +89,7 @@ final readonly class Mutating
         return match (true) {
             ! $invocation instanceof Invocation => $invocation,
             $map instanceof CannotJudge => $map,
-            default => $this->capped($engine, $invocation, $map, $request, $cap, $only),
+            default => $this->capped($engine, $invocation, $map, $request, $bounds, $only),
         };
     }
 
@@ -97,7 +97,7 @@ final readonly class Mutating
      * These mutants run again: the request narrowed to their files and their
      * mutators, making only them, each handed back under its id.
      */
-    public function again(MutationRequest $request, Mutants $mutants, Seconds $cap): Mutants|CannotJudge
+    public function again(MutationRequest $request, Mutants $mutants, LimitBounds $bounds): Mutants|CannotJudge
     {
         $files = [];
         $mutators = [];
@@ -118,7 +118,7 @@ final readonly class Mutating
                 Paths::of(...array_values($files)),
                 $request->narrowing()->toMutators(Mutators::named(...array_values($mutators))),
             ),
-            $cap,
+            $bounds,
             $ids,
         );
 
@@ -129,14 +129,14 @@ final readonly class Mutating
     public function reproduced(
         Reproducible $mutant,
         MutationRequest $request,
-        Seconds $cap,
+        LimitBounds $bounds,
         Transcribing $printing,
     ): Reproduction|CannotJudge {
         $narrowed = $request->narrowedTo(
             Paths::of($mutant->file()),
             $request->narrowing()->toMutators(Mutators::named($mutant->mutator())),
         );
-        $result = $this->result($narrowed, $cap, MutantIds::of($mutant->id()));
+        $result = $this->result($narrowed, $bounds, MutantIds::of($mutant->id()));
 
         $unmade = Reason::that(self::NOT_FOUND_AGAIN);
 
@@ -184,7 +184,7 @@ final readonly class Mutating
         Invocation $invocation,
         CoverageMap $map,
         MutationRequest $request,
-        Seconds $cap,
+        LimitBounds $bounds,
         MutantIds|NotGiven $only,
     ): MutationResult|CannotJudge {
         $scan = MemoryScan::in($this->project, $request->memory(), $this->files);
@@ -203,7 +203,7 @@ final readonly class Mutating
         );
         $workforce = new Workforce($this->project, $this->shell, $invocation, $scan, $judging);
         $run = new MutationRun($this->project, $engine, $judging, $workforce);
-        $result = ($only instanceof MutantIds ? $run->makingOnly($only) : $run)->of($request, $map, $cap);
+        $result = ($only instanceof MutantIds ? $run->makingOnly($only) : $run)->of($request, $map, $bounds);
         $scan->remove();
 
         return $result;

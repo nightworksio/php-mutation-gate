@@ -9,15 +9,16 @@ use function array_keys;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 use NightWorksIO\MutationGate\Core\Test\TestMethod;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
- * The seconds Infection allows each mutant: the standard mutant limit of the
- * time of the test classes that cover it, each counted once, under the
- * configured timeout, the cap. A mutant whose classes alone take the cap is
- * skipped.
+ * The seconds Infection allows each mutant: Infection's own mutant limit of
+ * the time of the test classes that cover it, each counted once, under its
+ * `timeout`, the cap, `timeouts.most`. A mutant whose classes alone take the
+ * cap is skipped.
  */
 final readonly class Limits
 {
@@ -45,6 +46,6 @@ final readonly class Limits
             $time += $this->junit->classSeconds($class);
         }
 
-        return MutantLimit::standard()->of(Seconds::of($time), $this->cap);
+        return MutantLimit::infections()->of(Seconds::of($time), LimitBounds::upTo($this->cap));
     }
 }

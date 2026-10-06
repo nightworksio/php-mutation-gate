@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
@@ -52,12 +53,12 @@ final readonly class Judging
     /** Where the judging runs write their guards and logs, in the directory of the results file. */
     private const string TRIALS = '%s/trials';
 
-    /** @param Seconds $cap `timeouts.seconds`, the most a trial run is allowed */
+    /** @param LimitBounds $bounds what a trial run's limit is kept between */
     public function __construct(
         private Project $project,
         private Shell $shell,
         private CapFiles $files,
-        private Seconds $cap,
+        private LimitBounds $bounds,
     ) {
     }
 
@@ -198,7 +199,7 @@ final readonly class Judging
             $file = $mutants[$at]->location()->file();
             $copy = Recorder::mutantBeside($results, $mutants[$at]->nativeId());
             $trials += $those instanceof Paths
-                ? [$at => TrialRun::of($those, $file, $copy, $selector->limitOf($those, $this->cap))]
+                ? [$at => TrialRun::of($those, $file, $copy, $selector->limitOf($those, $this->bounds))]
                 : [];
         }
 

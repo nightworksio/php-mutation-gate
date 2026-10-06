@@ -19,8 +19,8 @@ use function sprintf;
 /**
  * A retry for Infection (ADR-0008): each mutant runs again, narrowed to its
  * file and mutator, and is matched back by the gate's id. A timed-out or
- * skipped mutant runs again only where the cap decided its limit: where the
- * formula decided it, a higher cap would not change it.
+ * skipped mutant runs again only where the cap, `timeouts.most`, decided its
+ * limit: where the formula decided it, a higher cap would not change it.
  */
 final readonly class Retrial
 {

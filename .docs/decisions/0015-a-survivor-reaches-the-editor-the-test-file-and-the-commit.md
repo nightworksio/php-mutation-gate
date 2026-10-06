@@ -50,7 +50,7 @@ one of those values the gate can know or check.
    - For a flaky, unjudged or too-slow mutant it exits 2 with the next step
      instead:
      - `triage` for a flaky one;
-     - holding the path, or raising `timeouts.seconds`, for one too slow
+     - holding the path, or raising `timeouts.most`, for one too slow
        (ADR-0008);
      - a test that references the value, for ADR-0004's *no test reaches
        this value*.

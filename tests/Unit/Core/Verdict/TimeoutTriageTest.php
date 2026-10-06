@@ -36,16 +36,18 @@ function triagedMutant(MutantStatus $status, float $limit, float $tests, int $la
     return $tests > 0 ? $limited->withUnmutatedNeed(Seconds::of($tests)) : $limited;
 }
 
-it('kills a timeout whose judging tests take under half its limit, and no other', function (
+it('kills a timeout whose limit allowed its judging tests three times their own time, the limit\'s own multiple, and no other', function (
     Mutant $mutant,
     MutantJudgement $judged,
 ): void {
     expect(TimeoutTriage::under(TimeoutMode::Confirm)->judged($mutant))->toBe($judged);
 })->with([
-    'well under half' => [triagedMutant(MutantStatus::TimedOut, 10.0, 1.0), MutantJudgement::KilledByTimeout],
-    'just under half' => [triagedMutant(MutantStatus::TimedOut, 10.0, 4.99), MutantJudgement::KilledByTimeout],
-    'half' => [triagedMutant(MutantStatus::TimedOut, 10.0, 5.0), MutantJudgement::TooSlowToJudge],
-    'more than half' => [triagedMutant(MutantStatus::TimedOut, 10.0, 8.0), MutantJudgement::TooSlowToJudge],
+    'a limit the floor decided' => [triagedMutant(MutantStatus::TimedOut, 10.0, 1.0), MutantJudgement::KilledByTimeout],
+    'a limit the formula decided' => [triagedMutant(MutantStatus::TimedOut, 35.0, 10.0), MutantJudgement::KilledByTimeout],
+    'just under a third' => [triagedMutant(MutantStatus::TimedOut, 10.0, 3.33), MutantJudgement::KilledByTimeout],
+    'a third' => [triagedMutant(MutantStatus::TimedOut, 9.0, 3.0), MutantJudgement::TooSlowToJudge],
+    'under half, over a third' => [triagedMutant(MutantStatus::TimedOut, 10.0, 4.0), MutantJudgement::TooSlowToJudge],
+    'a limit the most decided' => [triagedMutant(MutantStatus::TimedOut, 300.0, 150.0), MutantJudgement::TooSlowToJudge],
     'no limit known' => [triagedMutant(MutantStatus::TimedOut, 0.0, 1.0), MutantJudgement::TooSlowToJudge],
     'no test time known' => [triagedMutant(MutantStatus::TimedOut, 10.0, 0.0), MutantJudgement::TooSlowToJudge],
     'a skipped mutant' => [triagedMutant(MutantStatus::Skipped, 10.0, 1.0), MutantJudgement::TooSlowToJudge],

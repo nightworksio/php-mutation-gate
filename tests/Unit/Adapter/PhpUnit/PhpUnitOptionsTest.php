@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 use NightWorksIO\MutationGate\Mutator\Engine\MadeMutant;
@@ -29,21 +30,24 @@ function mutatingWith(Engine|CannotJudge $engine): array
 it('finds the tests in tests, allows each mutant timeouts.seconds\'s own default, and has no mutator, by default', function (): void {
     $options = PhpUnitOptions::read(Options::none());
 
-    expect($options instanceof PhpUnitOptions ? [$options->tests(), $options->timeout(), $options->engine()] : [])->toEqual([
+    expect($options instanceof PhpUnitOptions ? [$options->tests(), $options->bounds(), $options->engine()] : [])->toEqual([
         Paths::of(Path::of('tests')),
-        Seconds::of(10.0),
+        LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0)),
         CannotJudge::because('The phpunit runner makes its mutants with the default mutator set, and no extension registers one.'),
     ]);
 });
 
-it('takes the test directories, the timeout and the mutators the flows write', function (): void {
+it('takes the test directories, the timeout, the most and the mutators the flows write', function (): void {
     $options = PhpUnitOptions::read(Configs::options(sprintf(
-        '{"tests": ["tests/Unit", "tests/Feature"], "timeout": 30, "mutators": [%s]}',
+        '{"tests": ["tests/Unit", "tests/Feature"], "timeout": 30, "most": 120, "mutators": [%s]}',
         json_encode(PlusToMinus::class),
     )));
 
-    expect($options instanceof PhpUnitOptions ? [$options->tests(), $options->timeout()] : [])
-        ->toEqual([Paths::of(Path::of('tests/Unit'), Path::of('tests/Feature')), Seconds::of(30.0)])
+    expect($options instanceof PhpUnitOptions ? [$options->tests(), $options->bounds()] : [])
+        ->toEqual([
+            Paths::of(Path::of('tests/Unit'), Path::of('tests/Feature')),
+            LimitBounds::between(Seconds::of(30.0), Seconds::of(120.0)),
+        ])
         ->and(mutatingWith($options instanceof PhpUnitOptions ? $options->engine() : CannotJudge::because('')))->toBe(['acme/PlusToMinus']);
 });
 

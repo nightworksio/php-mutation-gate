@@ -29,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -114,7 +115,7 @@ function phpUnitAnswering(Project $project): PhpUnitShellFake
 
 function phpUnitRunner(Project $project, PhpUnitShellFake $shell): PhpUnit
 {
-    return new PhpUnit($project, $shell, Engine::with(new PlusToMinus()), Seconds::of(7.0), new CapDirectory());
+    return new PhpUnit($project, $shell, Engine::with(new PlusToMinus()), LimitBounds::between(Seconds::of(5.0), Seconds::of(6.0)), new CapDirectory());
 }
 
 $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
@@ -229,7 +230,7 @@ it('cannot time a run of no test that fails, of a file that is gone, or without 
         });
 })->with(['a run that fails', 'a file that is gone', 'no override']);
 
-it('mutates afresh each time, allowing each mutant its limit under the cap, and runs a mutant again on the map its run read under a raised one', function () use ($request): void {
+it('mutates afresh each time, allowing each mutant its limit within the bounds, and runs a mutant again on the map its run read under a raised most', function () use ($request): void {
     $project = phpUnitRunnerProject();
     $shell = phpUnitAnswering($project);
     $runner = phpUnitRunner($project, $shell);
@@ -241,10 +242,10 @@ it('mutates afresh each time, allowing each mutant its limit under the cap, and 
     $last = $shell->commands()[count($shell->commands()) - 1];
 
     expect($money->status())->toBe(MutantStatus::Killed)
-        ->and($shell->commands()[1]->deadline())->toEqual(Seconds::of(7.0))
+        ->and($shell->commands()[1]->deadline())->toEqual(Seconds::of(6.0))
         ->and($retried instanceof Mutants ? array_map(static fn(Mutant $mutant): string => $mutant->id()->value(), [...$retried]) : [])
         ->toBe([$money->id()->value()])
-        ->and($last->deadline())->toEqual(Seconds::of(7.5))
+        ->and($last->deadline())->toEqual(Seconds::of(6.5))
         ->and($coverageRuns)->toHaveCount(2);
 });
 

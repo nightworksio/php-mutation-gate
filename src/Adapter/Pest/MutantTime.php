@@ -12,6 +12,8 @@ use function is_numeric;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -19,13 +21,14 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 /**
  * The seconds a patched Pest allows one mutant, read in Pest's parent
  * process: the standard mutant limit (ADR-0008, decision 2) of its covering
- * tests' own time, as the coverage map Pest loaded timed them, under the cap
- * the gate names. A covering test the map did not time leaves the cap.
+ * tests' own time, as the coverage map Pest loaded timed them, within the
+ * bounds the gate names. A covering test the map did not time leaves the
+ * floor.
  *
  * Each limit binds only once it is recorded, by the mutant's mutated copy,
  * in the results file the gate names, so the gate triages each timeout by
  * the limit that applied; where it cannot be recorded, or the gate names no
- * cap, the mutant keeps the limit Pest gave it.
+ * bounds, the mutant keeps the limit Pest gave it.
  */
 final class MutantTime
 {
@@ -52,25 +55,39 @@ final class MutantTime
     /**
      * The seconds the mutant with this mutated copy is allowed, its covering
      * tests named by their ids as Pest's coverage map names them; the limit
-     * Pest gave it where no cap is named or the limit cannot be recorded.
+     * Pest gave it where the gate names no bounds or the limit cannot be
+     * recorded.
      *
      * @param list<string> $tests
      */
     public static function of(array $tests, string $mutated, int $pest): float
     {
-        $cap = getenv(GateVariable::MutantCap->value);
+        $bounds = self::bounds();
         $results = getenv(GateVariable::Results->value);
 
-        if (! is_string($cap) || ! is_numeric($cap) || (float) $cap <= 0.0) {
+        if (! $bounds instanceof LimitBounds) {
             return $pest;
         }
 
-        $limit = MutantLimit::standard()->of(self::ownTime($tests), Seconds::of((float) $cap))->seconds();
+        $limit = MutantLimit::standard()->of(self::ownTime($tests), $bounds)->seconds();
 
         $recorded = $mutated !== '' && is_string($results) && $results !== ''
             && file_put_contents($results, RecordLine::limited($mutated, $limit), FILE_APPEND | LOCK_EX) !== false;
 
         return $recorded ? $limit : $pest;
+    }
+
+    /** The bounds the gate names, the floor and the most, each a positive number of seconds; or none. */
+    private static function bounds(): LimitBounds|NotGiven
+    {
+        $floor = getenv(GateVariable::MutantFloor->value);
+        $most = getenv(GateVariable::MutantCap->value);
+        $named = is_string($floor) && is_numeric($floor) && (float) $floor > 0.0
+            && is_string($most) && is_numeric($most) && (float) $most > 0.0;
+
+        return $named
+            ? LimitBounds::between(Seconds::of((float) $floor), Seconds::of((float) $most))
+            : NotGiven::value();
     }
 
     /** @param list<string> $tests */

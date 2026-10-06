@@ -31,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
@@ -631,7 +632,7 @@ it('names the test that killed a mutant, as the coverage map names it, with Pest
     expect($killers)->toBe([11 => ['P\\Tests\\MoneySpec::__pest_evaluable_it_adds_two_amounts'], 16 => [], 21 => [], 27 => []]);
 })->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
-it('reports a mutant Infection skips, allowed the cap, and judges it when run again at a higher cap', function (): void {
+it('reports a mutant Infection skips at timeouts.most, allowed it, and judges it when run again at a higher most', function (): void {
     $library = Library::infection(Seconds::of(1.0));
     $request = MutationRequest::of(Paths::of(Path::of('src/Slow.php')), WholeSuite::tests())
         ->narrowedTo(Paths::of(Path::of('src/Slow.php')), Narrowing::none()->toMutators(Mutators::named('Minus')));
@@ -652,7 +653,7 @@ it('reports a mutant Infection skips, allowed the cap, and judges it when run ag
         ->and($again instanceof Mutants ? $statuses($again) : [])->toBe([MutantStatus::Killed->value]);
 })->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 
-it('allows a mutant Infection times out five seconds and five times its tests\' time, and runs it again only at the cap', function (): void {
+it('allows a mutant Infection times out its own five seconds and five times its tests\' time, and runs it again only at timeouts.most', function (): void {
     $library = Library::infection(Seconds::of(10.0));
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
         ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('drains')));
@@ -669,7 +670,7 @@ it('allows a mutant Infection times out five seconds and five times its tests\' 
         ->and($again)->toEqual($timedOut);
 })->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 
-it('allows a mutant patched Pest times out five seconds and five times its tests\' time, and runs it again under the raised limit', function (): void {
+it('allows a mutant patched Pest times out the floor its quick tests fall under, and runs it again within a raised most', function (): void {
     Patch::applyIn(Library::vendor());
     $library = Library::pest(Patching::on(Library::canary()));
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
@@ -683,10 +684,47 @@ it('allows a mutant patched Pest times out five seconds and five times its tests
     $again = $library->runner()->retry($request, $timedOut, Seconds::of(20.0));
 
     expect(Library::records($timedOut))->toBe($library->expected('drains'))
-        ->and($limits($timedOut)[0] ?? 0.0)->toBeGreaterThan(5.0)->toBeLessThan(6.0)
+        ->and($limits($timedOut))->toBe([10.0])
         ->and($again instanceof Mutants ? Library::records($again) : [])->toBe($library->expected('drains'))
-        ->and($again instanceof Mutants ? $limits($again)[0] ?? 0.0 : 0.0)->toBeGreaterThan(5.0)->toBeLessThan(6.0);
+        ->and($again instanceof Mutants ? $limits($again) : [])->toBe([10.0]);
 })->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+
+// A floor of a millisecond is less than any covering test takes, so a
+// limit the floor capped would stop each mutant's run before its tests end.
+it('judges a mutant whose covering tests take longer than the floor, rather than stopping it at the floor, with PHPUnit', function (): void {
+    $library = Library::phpunitWithin(LimitBounds::between(Seconds::of(0.001), Seconds::of(300.0)), 'phpunit under a floor of a millisecond');
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('adds')));
+    $result = $library->mutate('adds', $request);
+
+    expect($result instanceof MutationResult ? Library::records($result->mutants()) : [])->toBe($library->expected('adds'));
+})->skip(! Library::isPhpUnitInstalled(), 'the PHPUnit runner contracts steps install its library');
+
+it('judges a mutant whose covering tests take longer than the floor, rather than stopping it at the floor, with patched Pest', function (): void {
+    Patch::applyIn(Library::vendor());
+    $library = Library::pestWithin(
+        Patching::on(Library::canary()),
+        LimitBounds::between(Seconds::of(0.001), Seconds::of(300.0)),
+        'pest patched under a floor of a millisecond',
+    );
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('adds')));
+    $result = $library->mutate('adds', $request);
+
+    expect($result instanceof MutationResult ? Library::records($result->mutants()) : [])->toBe($library->expected('adds'));
+})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+
+it('judges a mutant whose covering class takes longer than timeouts.seconds, skipping only at timeouts.most, with Infection', function (): void {
+    $library = Library::infection(Seconds::of(3.0));
+    $request = MutationRequest::of(Paths::of(Path::of('src/Slow.php')), WholeSuite::tests())
+        ->narrowedTo(Paths::of(Path::of('src/Slow.php')), Narrowing::none()->toMutators(Mutators::named('Minus')));
+    $result = $library->mutate('slow', $request);
+
+    expect($result instanceof MutationResult ? array_map(
+        static fn(Mutant $mutant): string => $mutant->status()->value,
+        iterator_to_array($result->mutants(), preserve_keys: false),
+    ) : [])->toBe([MutantStatus::Killed->value]);
+})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 
 it('leaves a mutant unjudged, naming the test, when Pest\'s filter cannot select a covering test', function (): void {
     $library = Library::pest(Patching::off());

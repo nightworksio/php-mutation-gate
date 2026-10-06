@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestsDirectory;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -24,9 +25,11 @@ use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
  * What the `pest` runner's options say: `patch`, whether the project applies
  * `pest:patch`, false by default; `canary`, the group a patched shard opens
  * on, `mutation-canary` by default; `tests`, the directories the tests live
- * in, `tests` by default; and `mutators`, the classes of the registered
- * mutators Pest makes mutants with beside its own, which the flows write
- * (ADR-0021), none by default.
+ * in, `tests` by default; `timeout` and `most`, the floor and the most of
+ * each mutant's limit, which the flows write from `timeouts.seconds` and
+ * `timeouts.most`; and `mutators`, the classes of the registered mutators
+ * Pest makes mutants with beside its own, which the flows write (ADR-0021),
+ * none by default.
  */
 final readonly class PestOptions
 {
@@ -35,6 +38,9 @@ final readonly class PestOptions
 
     /** The option that holds `timeouts.seconds`, which the flows write. */
     public const string TIMEOUT = 'timeout';
+
+    /** The option that holds `timeouts.most`, which the flows write. */
+    public const string MOST = 'most';
 
     private const string PATCH = 'patch';
 
@@ -46,7 +52,7 @@ final readonly class PestOptions
         private Patching $patching,
         private Paths $tests,
         private Bridges $bridges,
-        private Seconds $timeout,
+        private LimitBounds $bounds,
     ) {
     }
 
@@ -57,6 +63,7 @@ final readonly class PestOptions
         $tests = $options->paths(Key::of(self::TESTS));
         $mutators = $options->texts(Key::of(self::MUTATORS));
         $timeout = $options->number(Key::of(self::TIMEOUT));
+        $most = $options->number(Key::of(self::MOST));
 
         return match (true) {
             $patch instanceof Problem => Invalid::because($patch),
@@ -64,6 +71,7 @@ final readonly class PestOptions
             $tests instanceof Problem => Invalid::because($tests),
             $mutators instanceof Problem => Invalid::because($mutators),
             $timeout instanceof Problem => Invalid::because($timeout),
+            $most instanceof Problem => Invalid::because($most),
             default => new self(
                 $patch === true
                     ? Patching::on(
@@ -72,7 +80,10 @@ final readonly class PestOptions
                     : Patching::off(),
                 $tests instanceof NotGiven ? Paths::of(TestsDirectory::conventional()) : $tests,
                 self::bridgesTo($mutators instanceof Listed ? [...$mutators] : []),
-                $timeout instanceof NotGiven ? Triage::standard()->limit() : Seconds::of($timeout),
+                LimitBounds::between(
+                    $timeout instanceof NotGiven ? Triage::standard()->limit() : Seconds::of($timeout),
+                    $most instanceof NotGiven ? Triage::standard()->most() : Seconds::of($most),
+                ),
             ),
         };
     }
@@ -87,10 +98,10 @@ final readonly class PestOptions
         return $this->tests;
     }
 
-    /** `timeouts.seconds`: the most a mutant's run is allowed, which a patched run and every trial run keep to. */
-    public function timeout(): Seconds
+    /** `timeouts.seconds` and `timeouts.most`: what a patched run and every trial run keep each limit between. */
+    public function bounds(): LimitBounds
     {
-        return $this->timeout;
+        return $this->bounds;
     }
 
     /** The bridges to the registered mutators the options name, or why Pest cannot make mutants with one. */

@@ -74,7 +74,7 @@ it('runs the newest record of a mutant again by the whole suite, allowed the con
         ->and($reproduced instanceof Reproduced ? $reproduced->judgedBy : $reproduced)->toEqual(WholeSuite::tests())
         ->and(count($asked))->toBe(1)
         ->and([$asked[0][2]->seconds(), $asked[0][1]->withheld(), $asked[0][1]->memory()])->toEqual([
-            Flows::settings()->triage()->limit()->seconds(),
+            Flows::settings()->triage()->most()->seconds(),
             Withheld::standard()->and(CiPlanFake::withheld()),
             MemoryCap::standard(),
         ])

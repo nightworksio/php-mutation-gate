@@ -55,7 +55,7 @@ use function sprintf;
  * units against the whole suite, reading the coverage map the plan handed it. The
  * shard leaves every mutant's record, each unit's key and what it measured,
  * or the runner's cannot judge, for the verdict. Each mutant whose time ran
- * out and whose limit the configured cap decided runs once more with the cap
+ * out and whose limit `timeouts.most` decided runs once more with the most
  * doubled, where the runner can raise it, and each keeps the time its judging
  * tests take on their own, from the handed map, for timeout triage. Under
  * `tests.order: killers-first` each mutant's likely killers run first, by the

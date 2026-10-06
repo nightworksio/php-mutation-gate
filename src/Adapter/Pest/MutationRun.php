@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -82,7 +83,7 @@ final readonly class MutationRun
         private Patching $patching,
         private Remembered $remembered,
         private Closure $groups,
-        private Seconds $cap,
+        private LimitBounds $bounds,
         private array $only = [],
         private Clock $clock = new WallClock(),
         private bool $whole = false,
@@ -100,13 +101,10 @@ final readonly class MutationRun
         return clone($this, ['only' => array_values($nativeIds)]);
     }
 
-    /**
-     * This run, in which a patched run allows no mutant more than this long:
-     * `timeouts.seconds`, or the raised limit of a retry.
-     */
-    public function cappedAt(Seconds $cap): self
+    /** This run, in which a patched run allows no mutant more than this long: the raised most of a retry. */
+    public function upTo(Seconds $most): self
     {
-        return clone($this, ['cap' => $cap]);
+        return clone($this, ['bounds' => $this->bounds->upToInstead($most)]);
     }
 
     /**
@@ -174,7 +172,7 @@ final readonly class MutationRun
             GateVariable::Only->value => OnlyList::write(OnlyList::beside($results), ...$this->only),
         ];
         $narrow = $this->narrows() ? [GateVariable::Narrow->value => '1'] : [];
-        $ran = $this->shell->run($command->with([...$only, ...$narrow, ...$this->patching->capping($this->cap)]));
+        $ran = $this->shell->run($command->with([...$only, ...$narrow, ...$this->patching->bounding($this->bounds)]));
         $scan->remove();
         $coverage = $shared instanceof CoverageMap
             ? new HandedOver($shared, $this->project)
@@ -194,7 +192,7 @@ final readonly class MutationRun
 
         return $reads instanceof CannotJudge
             ? $reads
-            : new Judging($this->project, $this->shell, $this->files, $this->cap)
+            : new Judging($this->project, $this->shell, $this->files, $this->bounds)
                 ->of($result, $request, $results, $reads);
     }
 

@@ -40,8 +40,8 @@ use function str_replace;
  * - Given a coverage map another job wrote, the opening run is the canary
  *   group alone, and the map is copied in place of the one that run wrote.
  * - Each mutant is allowed the standard mutant limit of its covering tests'
- *   own time, under the cap the gate names (see MutantTime), not the time
- *   of the whole suite.
+ *   own time, within the bounds the gate names (see MutantTime), not the
+ *   time of the whole suite.
  * - Given a list of native ids (see OnlyList), a run makes only those mutants.
  * - Where the gate narrows a run, a mutant's own run loads only the test files
  *   its covering tests need (see CoveringFiles), not every test file, and the

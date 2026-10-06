@@ -268,11 +268,12 @@ manual.
      it unjudged, and so does a run whose every test was skipped or marked
      incomplete, with what PHPUnit said where it failed the run.
    - The gate enforces the timeout on the process: a mutant's run is allowed
-     the smaller of 5 s plus five times its covering tests' own time, as the
-     coverage map timed them, and `timeouts.seconds`, which the flows hand
-     the runner; `timeouts.seconds` alone where a covering test is untimed.
-     A run again takes the cap the flows give it in place of
-     `timeouts.seconds` (ADR-0008 decision 2).
+     the standard mutant limit, 5 s plus three times its covering tests' own
+     time, as the coverage map timed them, kept between `timeouts.seconds`
+     and `timeouts.most`, which the flows hand the runner;
+     `timeouts.seconds` alone where a covering test is untimed. A run again
+     takes the most the flows give it in place of `timeouts.most` (ADR-0008
+     decision 2).
    - Each mutant's PHPUnit, and every process it starts, runs under the
      memory cap (ADR-0004 decision 9): the cap's ini, in the runner's own
      directory, also sets `display_errors=stdout`, and the run's

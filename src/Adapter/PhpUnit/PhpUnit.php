@@ -29,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
@@ -55,7 +56,7 @@ use function sprintf;
  * its own, served through the gate's override and recorded by its extension, so
  * the gate is installed in the project's vendor directory. It runs in the
  * project's root, and allows each mutant's run the standard mutant limit
- * under `timeouts.seconds` (ADR-0008, decision 2).
+ * within `timeouts.seconds` and `timeouts.most` (ADR-0008, decision 2).
  */
 final readonly class PhpUnit implements Runner
 {
@@ -80,7 +81,7 @@ final readonly class PhpUnit implements Runner
         private Project $project,
         private Shell $shell,
         private Engine|CannotJudge $engine,
-        private Seconds $cap,
+        private LimitBounds $bounds,
         private CapFiles $files,
     ) {
         $this->tests = new TestFiles($project);
@@ -108,7 +109,7 @@ final readonly class PhpUnit implements Runner
         $project = Project::at(self::ROOT, $read->tests(), $vendor, Workspace::root());
         $shell = new ProcessShell($processes, $project->root(), getenv());
 
-        return new self($project, $shell, $read->engine(), $read->timeout(), $files);
+        return new self($project, $shell, $read->engine(), $read->bounds(), $files);
     }
 
     /**
@@ -188,22 +189,22 @@ final readonly class PhpUnit implements Runner
         };
     }
 
-    /** Every mutant of the requested files, each run allowed its limit under `timeouts.seconds`. */
+    /** Every mutant of the requested files, each run allowed its limit within `timeouts.seconds` and `.most`. */
     public function mutate(MutationRequest $request): MutationResult|CannotJudge
     {
         $this->held->forget();
 
-        return $this->mutating($this->shell)->result($request, $this->cap, NotGiven::value());
+        return $this->mutating($this->shell)->result($request, $this->bounds, NotGiven::value());
     }
 
     /**
      * The mutants run again, as the invocation that made them asked: over
      * their files with their mutators, reading the map it read, making only
-     * them, each allowed its limit under this cap.
+     * them, each allowed its limit up to this most.
      */
-    public function retry(MutationRequest $request, Mutants $mutants, Seconds $limit): Mutants|CannotJudge
+    public function retry(MutationRequest $request, Mutants $mutants, Seconds $most): Mutants|CannotJudge
     {
-        return $this->mutating($this->shell)->again($request, $mutants, $limit);
+        return $this->mutating($this->shell)->again($request, $mutants, $this->bounds->upToInstead($most));
     }
 
     /**
@@ -226,15 +227,15 @@ final readonly class PhpUnit implements Runner
         return $patched instanceof Contents ? Checkable::inPlace($patched) : $patched;
     }
 
-    /** One mutant run again on its own, allowed its limit under this cap, with what PHPUnit printed. */
+    /** One mutant run again on its own, allowed its limit up to this most, with what PHPUnit printed. */
     public function reproduce(
         Reproducible $mutant,
         MutationRequest $request,
-        Seconds $limit,
+        Seconds $most,
     ): Reproduction|CannotJudge {
         $printing = Transcribing::over($this->shell);
 
-        return $this->mutating($printing)->reproduced($mutant, $request, $limit, $printing);
+        return $this->mutating($printing)->reproduced($mutant, $request, $this->bounds->upToInstead($most), $printing);
     }
 
     /** The gate makes its own mutants, so the runner has no ignore marker of its own: `ignores.entries` is the one. */
@@ -264,7 +265,7 @@ final readonly class PhpUnit implements Runner
         $project = $this->project->in($package);
 
         return $project->hasPhpUnit()
-            ? new self($project, $this->shell->in($project->root()), $this->engine, $this->cap, $this->files)
+            ? new self($project, $this->shell->in($project->root()), $this->engine, $this->bounds, $this->files)
             : CannotJudge::because(sprintf(self::NO_PROJECT, $package->value(), $project->vendor()->value()));
     }
 

@@ -30,15 +30,16 @@ use Psr\Clock\ClockInterface;
 
 /**
  * One runner invocation of a shard, as the shard makes it: each mutant
- * whose time ran out at the configured cap run once more with the cap
- * doubled, where the runner can raise it, and each survivor run once more,
- * where `flaky.confirmSurvivors` asks for it (ADR-0008). Under a budget, a
- * mutant whose second run would not fit in the time left, at its whole
- * limit, is not run again, and is unjudged.
+ * whose time ran out at `timeouts.most` run once more with it doubled,
+ * where the runner can raise it, and each survivor run once more, where
+ * `flaky.confirmSurvivors` asks for it (ADR-0008). Under a budget, a
+ * mutant whose second run would not fit in the time left, at the doubled
+ * most for a timeout and at `timeouts.seconds` for a survivor, is not run
+ * again, and is unjudged.
  */
 final readonly class Invoking
 {
-    /** A retried timeout's cap is the configured one doubled. */
+    /** A retried timeout's most is the configured one doubled. */
     private const int DOUBLED = 2;
 
     public function __construct(
@@ -69,9 +70,9 @@ final readonly class Invoking
     }
 
     /**
-     * Timeout retry (ADR-0008): each mutant whose time ran out at the cap, up
-     * to the retries left, run once more with the cap doubled, and the rest as
-     * they were. A runner whose limit cannot be raised retries nothing.
+     * Timeout retry (ADR-0008): each mutant whose time ran out at the most, up
+     * to the retries left, run once more with the most doubled, and the rest
+     * as they were. A runner whose limit cannot be raised retries nothing.
      */
     private function retried(Mutants $mutants, MutationRequest $request, int $retries): Mutants|CannotJudge
     {
@@ -81,13 +82,13 @@ final readonly class Invoking
             return $mutants;
         }
 
-        $limit = Seconds::of($this->settings->triage()->limit()->seconds() * self::DOUBLED);
-        $fitting = $this->fitting(count($taken), $limit);
+        $most = Seconds::of($this->settings->triage()->most()->seconds() * self::DOUBLED);
+        $fitting = $this->fitting(count($taken), $most);
         $left = $this->unjudged(array_slice($taken, $fitting), OutOfTime::BeforeRetrying);
         $again = $fitting === 0 ? Mutants::none() : $this->adapters->runner->retry(
             $this->retimed($request),
             Mutants::of(...array_slice($taken, 0, $fitting)),
-            $limit,
+            $most,
         );
 
         return $again instanceof CannotJudge ? $again : $mutants->replacing(Mutants::of(...$again, ...$left));
@@ -123,19 +124,19 @@ final readonly class Invoking
     }
 
     /**
-     * The mutants whose time ran out at the configured cap: those whose
-     * limit came from the runner's own formula would not change with it.
+     * The mutants whose time ran out at the configured most: those whose
+     * limit came from the formula or the floor would not change with it.
      *
      * @return list<Mutant>
      */
     private function capped(Mutants $mutants): array
     {
-        $cap = $this->settings->triage()->limit()->seconds();
+        $most = $this->settings->triage()->most()->seconds();
 
-        return array_values(array_filter([...$mutants], static function (Mutant $mutant) use ($cap): bool {
+        return array_values(array_filter([...$mutants], static function (Mutant $mutant) use ($most): bool {
             $limit = $mutant->limit();
 
-            return $mutant->status()->ranOutOfTime() && $limit instanceof Seconds && $limit->seconds() >= $cap;
+            return $mutant->status()->ranOutOfTime() && $limit instanceof Seconds && $limit->seconds() >= $most;
         }));
     }
 
@@ -170,7 +171,7 @@ final readonly class Invoking
         $again = $fitting === 0 ? Mutants::none() : $this->adapters->runner->retry(
             $this->retimed($request)->across(Pool::of($request->pool()->processes(), Workers::Fresh)),
             Mutants::of(...array_slice($survivors, 0, $fitting)),
-            $this->settings->triage()->limit(),
+            $this->settings->triage()->most(),
         );
 
         return $again instanceof CannotJudge

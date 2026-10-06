@@ -29,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Php\Source;
 use NightWorksIO\MutationGate\Core\Php\StatementTail;
 use NightWorksIO\MutationGate\Core\Php\Symbol;
 use NightWorksIO\MutationGate\Core\Php\Unnamed;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -114,14 +115,14 @@ final readonly class Selector
 
     /**
      * How long a run of the tests in some files is allowed: the standard
-     * mutant limit of their own time, as the map timed them, under a cap
-     * (ADR-0008, decision 2).
+     * mutant limit of their own time, as the map timed them, kept between
+     * the bounds (ADR-0008, decision 2).
      */
-    public function limitOf(Paths $files, Seconds $cap): Seconds
+    public function limitOf(Paths $files, LimitBounds $bounds): Seconds
     {
         $tests = $this->tests->holding($files, $this->map);
 
-        return MutantLimit::standard()->of(OwnTime::of($this->map, $tests), $cap);
+        return MutantLimit::standard()->of(OwnTime::of($this->map, $tests), $bounds);
     }
 
     /** Which test files judge a mutant of a file whose changed value a symbol names. */

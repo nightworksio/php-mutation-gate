@@ -505,7 +505,8 @@ and `?` match within one directory, and `**` across any number of them.
 | `coverage.incremental` | boolean: whether a run measures again only the test files whose coverage could have moved, keeping the rest from the default branch's kept map | `true` | [0023](.docs/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
 | `budget` | duration | none | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `timeouts.mode` | `confirm` or `unjudged` | `confirm` | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
-| `timeouts.seconds` | integer | `10`; `30` in the `laravel` and `symfony` presets | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
+| `timeouts.seconds` | integer: the least a mutant's run is allowed, and what one whose covering tests were not all timed is; each mutant otherwise gets 5 s plus three times its covering tests' own time, within the two bounds. Infection is given `timeouts.most` as its own `timeout` and keeps its own limit | `10`; `30` in the `laravel` and `symfony` presets | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
+| `timeouts.most` | integer, at least `timeouts.seconds`: the most a mutant's run is allowed; Infection skips a mutant whose covering tests take as long | `300` | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `timeouts.retries` | integer | `20` | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `flaky.confirmSurvivors` | boolean | `true` | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `tests.order` | `killers-first` or `runner` | `killers-first` | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |

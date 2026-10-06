@@ -375,8 +375,8 @@ it('runs each survivor once more and keeps those killed then as flaky', function
     $withheld = Withheld::standard()->and($adapters->withheld);
 
     expect($asked)->toEqual([
-        [['Plus-11'], Seconds::of(10.0), Group::named('holds:src/Held.php'), $withheld],
-        [['GreaterThan-16'], Seconds::of(10.0), WholeSuite::tests(), $withheld],
+        [['Plus-11'], Seconds::of(300.0), Group::named('holds:src/Held.php'), $withheld],
+        [['GreaterThan-16'], Seconds::of(300.0), WholeSuite::tests(), $withheld],
     ])
         ->and($flaky($resultIn($project, 1)))->toBe(array_map(
             static fn(Mutant $mutant): string => $mutant->id()->value(),
@@ -446,11 +446,11 @@ it('runs survivors again within what the budget has left, not what the invocatio
         ->toEqual([Unlimited::time(), Unlimited::time()]);
 });
 
-it('runs survivors again with the timeout the config sets', function (): void {
+it('runs survivors again with the most the config sets', function (): void {
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
 
-    $settings = Flows::settings(Timeouts::seconds(25));
+    $settings = Flows::settings(Timeouts::most(25));
 
     new Running(Flows::adapters($project, [], $runner), $settings, Flows::setup())
         ->run(Planned::handedIn($project, Planned::twoShards()), ShardId::of(1), Workspace::results());
@@ -540,7 +540,7 @@ it('keeps with each timed-out mutant the time its covering tests take, from the 
         ->and($timed[0]->unmutatedNeed())->toEqual(Seconds::of(0.2));
 });
 
-it('runs each timeout its cap decided once more with the cap doubled, up to timeouts.retries', function (
+it('runs each timeout its most decided once more with the most doubled, up to timeouts.retries', function (
     Setting $retries,
     RunnerBehaviour $behaviour,
     array $retried,
@@ -551,7 +551,7 @@ it('runs each timeout its cap decided once more with the cap doubled, up to time
 
     new Running(
         $adapters,
-        Flows::settings(Timeouts::seconds(5), $retries, Flaky::notConfirmingSurvivors()),
+        Flows::settings(Timeouts::seconds(1), Timeouts::most(5), $retries, Flaky::notConfirmingSurvivors()),
         Flows::setup(),
     )->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
 
@@ -567,7 +567,7 @@ it('runs each timeout its cap decided once more with the cap doubled, up to time
         ->and($statuses($resultIn($project, 1)))
         ->toContain($retried === [] ? 'Decrement-27 timed-out' : 'Decrement-27 survived');
 })->with([
-    'a runner whose cap can be raised' => [
+    'a runner whose most can be raised' => [
         Timeouts::retries(20),
         RunnerBehaviour::standard(),
         [[['Decrement-27'], Seconds::of(10.0)]],
@@ -576,11 +576,11 @@ it('runs each timeout its cap decided once more with the cap doubled, up to time
     'a runner whose limit cannot be raised' => [Timeouts::retries(20), RunnerBehaviour::standard()->raisingNoLimit(), []],
 ]);
 
-it('runs no timeout again whose limit its runner\'s own formula decided', function (): void {
+it('runs no timeout again whose limit the formula or the floor decided', function (): void {
     $project = Flows::project();
     $scripted = ScriptedRunner::fixture();
 
-    $settings = Flows::settings(Flaky::notConfirmingSurvivors());
+    $settings = Flows::settings(Timeouts::seconds(5), Flaky::notConfirmingSurvivors());
 
     new Running(Flows::adapters($project, [], $scripted), $settings, Flows::setup())
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
@@ -750,7 +750,7 @@ it('spends one timeouts.retries across every invocation of a shard', function ()
 
     new Running(
         Flows::adapters($project, [], $scripted),
-        Flows::settings(Timeouts::seconds(5), Timeouts::retries(1), Flaky::notConfirmingSurvivors()),
+        Flows::settings(Timeouts::seconds(5), Timeouts::most(5), Timeouts::retries(1), Flaky::notConfirmingSurvivors()),
         Flows::setup(),
     )->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
 
@@ -1013,7 +1013,7 @@ it('runs no timeout again whose doubled cap does not fit the time left, and leav
 
     new Running(
         Flows::adapters($project, [], $scripted),
-        Flows::settings(Timeouts::seconds(5), Timeouts::retries(2), Flaky::notConfirmingSurvivors(), Budget::of('6s')),
+        Flows::settings(Timeouts::seconds(5), Timeouts::most(5), Timeouts::retries(2), Flaky::notConfirmingSurvivors(), Budget::of('6s')),
         $tickingBy(1),
     )->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
 

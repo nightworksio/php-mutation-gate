@@ -14,7 +14,7 @@ final readonly class Timeouts implements Setting
     {
     }
 
-    /** A timeout is a kill when the covering tests normally finish in under half the limit. */
+    /** A timeout is a kill when its limit allowed the covering tests their multiple of their own time (ADR-0008). */
     public static function confirmed(): self
     {
         return new self(Json::at('timeouts.mode', TimeoutMode::Confirm->value));
@@ -30,6 +30,12 @@ final readonly class Timeouts implements Setting
     public static function seconds(int $seconds): self
     {
         return new self(Json::at('timeouts.seconds', $seconds));
+    }
+
+    /** `timeouts.most` */
+    public static function most(int $seconds): self
+    {
+        return new self(Json::at('timeouts.most', $seconds));
     }
 
     /** `timeouts.retries` */

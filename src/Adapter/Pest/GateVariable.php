@@ -22,7 +22,10 @@ enum GateVariable: string
     /** The whole suite's seconds, one test after another, which Pest's own limit is worked out from. */
     case SuiteSeconds = 'MUTATION_GATE_SUITE_SECONDS';
 
-    /** The most a patched run allows one mutant: `timeouts.seconds`, or a retry's raised limit (see MutantTime). */
+    /** The least a patched run allows one mutant: `timeouts.seconds` (see MutantTime). */
+    case MutantFloor = 'MUTATION_GATE_MUTANT_FLOOR';
+
+    /** The most a patched run allows one mutant: `timeouts.most`, or a retry's raised most (see MutantTime). */
     case MutantCap = 'MUTATION_GATE_MUTANT_CAP';
 
     /** The canary group a patched shard's opening run is. */
