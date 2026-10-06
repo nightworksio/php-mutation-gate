@@ -178,6 +178,38 @@ class PestPatch(unittest.TestCase):
         self.assertFalse(action.patches_pest({}))
 
 
+class InfectionPatch(unittest.TestCase):
+    def test_patches_where_the_config_runs_infection(self):
+        self.assertTrue(action.patches_infection({"runner": {"use": "infection", "memory": "1G"}}))
+
+    def test_leaves_infection_alone_where_another_runner_runs(self):
+        self.assertFalse(action.patches_infection({"runner": {"use": "pest"}, "pest": {"patch": True}}))
+        self.assertFalse(action.patches_infection({"runner": {"use": "phpunit"}}))
+        self.assertFalse(action.patches_infection({}))
+
+    def test_warns_of_a_release_the_patch_does_not_patch_and_carries_on(self):
+        said = "infection:patch patched nothing: it patches Infection 0.36, and vendor holds Infection 0.34.0."
+
+        self.assertEqual(
+            action.infection_patched(1, said),
+            "Infection runs unpatched, with its own limit for each mutant: " + said,
+        )
+
+    def test_carries_on_quietly_where_the_patch_is_applied(self):
+        self.assertIsNone(action.infection_patched(0, "infection:patch patched 2 of the 2 files"))
+
+    def test_refuses_where_a_supported_release_cannot_be_patched(self):
+        with self.assertRaisesRegex(action.Refused, "the lines it rewrites have moved"):
+            action.infection_patched(2, "infection:patch patched nothing: the lines it rewrites have moved in x.")
+        with self.assertRaisesRegex(action.Refused, "exited 127"):
+            action.infection_patched(127, "")
+
+
+class WorkflowCommand(unittest.TestCase):
+    def test_escapes_what_a_workflow_command_reads_as_its_end(self):
+        self.assertEqual(action.command_text("50% done\r\nnext"), "50%25 done%0D%0Anext")
+
+
 class Outputs(unittest.TestCase):
     def test_reads_each_score_by_path(self):
         report = {

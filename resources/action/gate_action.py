@@ -6,8 +6,12 @@ Usage:
   gate_action.py resolve   the run's scope, ledger cache, gate binary and options:
                            `plan_options` adds the mode's to `options`
   gate_action.py config    from the effective config on stdin: whether it keeps
-                           its ledger in the default directory, and whether it
-                           runs Pest with the optional patches
+                           its ledger in the default directory, whether it runs
+                           Pest with the optional patches, and whether it runs
+                           Infection
+  gate_action.py infection what `infection:patch` exited with, CODE, and said,
+                           in the file SAID: a warning where the release runs
+                           unpatched, a refusal where it could not be patched
   gate_action.py outputs   the verdict, scores, report paths and files, and plan
 
 Every subcommand reads GitHub's environment and writes `key=value` lines to
@@ -52,6 +56,9 @@ GATE = "nightworksio/mutation-gate"
 # options sit under the same word.
 PEST = "pest"
 
+# The word the config names the Infection runner by, under `runner.use`.
+INFECTION = "infection"
+
 # What Composer installed into a project, where the gate reads its own version.
 INSTALLED = "vendor/composer/installed.json"
 
@@ -62,6 +69,10 @@ INSTALLED = "vendor/composer/installed.json"
 LINE = "0.1"
 
 EXIT_CODES = {0: "passed", 1: "failed", 2: "cannot-judge"}
+
+# What `infection:patch` exits with where the installed Infection is a release
+# it does not patch, which then runs with its own limit for each mutant.
+UNSUPPORTED_RELEASE = 1
 
 
 class Refused(Exception):
@@ -203,6 +214,26 @@ def patches_pest(config: dict) -> bool:
     return runner == PEST and (config.get(PEST) or {}).get("patch") is True
 
 
+def patches_infection(config: dict) -> bool:
+    """Whether the effective config runs Infection, whose mutants get the gate's limit only once patched (ADR-0004)."""
+    return (config.get("runner") or {}).get("use") == INFECTION
+
+
+def infection_patched(code: int, said: str) -> str | None:
+    """What the action says of `infection:patch`'s exit: nothing where it patched, a warning where the release
+    runs unpatched, or a refusal where a release it supports could not be patched (ADR-0004)."""
+    if code == 0:
+        return None
+    if code == UNSUPPORTED_RELEASE:
+        return f"Infection runs unpatched, with its own limit for each mutant: {said}"
+    raise Refused(said or f"infection:patch exited {code}.")
+
+
+def command_text(text: str) -> str:
+    """Text a workflow command carries whole: its percent signs and line breaks escaped."""
+    return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
 def scores(report: dict) -> dict:
     """Each tree's score and each package's new code's, by path, as the JSON report says them."""
     return {
@@ -250,7 +281,7 @@ def output_lines(values: dict[str, str]) -> str:
 
 
 def main(argv: list[str]) -> int:
-    commands = {"guard": _guard, "resolve": _resolve, "config": _config, "outputs": _outputs}
+    commands = {"guard": _guard, "resolve": _resolve, "config": _config, "infection": _infection, "outputs": _outputs}
     if len(argv) != 2 or argv[1] not in commands:
         print(__doc__, file=sys.stderr)
         return 2
@@ -296,7 +327,19 @@ def _config() -> dict[str, str]:
     return {
         "default_store": "true" if kept else "false",
         "pest_patch": "true" if patches_pest(config) else "false",
+        "infection_patch": "true" if patches_infection(config) else "false",
     }
+
+
+def _infection() -> dict[str, str]:
+    with open(os.environ["SAID"], encoding="utf-8") as file:
+        said = file.read().strip()
+    warning = infection_patched(int(os.environ["CODE"]), said)
+    if warning is not None:
+        print(f"::warning title=Infection runs unpatched::{command_text(warning)}")
+        with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as file:
+            file.write(f"> [!WARNING]\n> {warning}\n\n")
+    return {}
 
 
 def _outputs() -> dict[str, str]:

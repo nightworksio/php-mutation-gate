@@ -143,6 +143,24 @@ runs:
         GATE: ${{ steps.resolve.outputs.gate }}
       run: '"${GATE}" pest:patch'
 
+    # ADR-0004: Infection gives each mutant its own limit until infection:patch
+    # gives it the gate's. The action patches the vendor directory this job
+    # installed, so the project's Composer hook is for its runs elsewhere. A
+    # release the patch does not patch runs unpatched, with a warning in the
+    # log and the step summary; one it cannot patch fails the step.
+    - name: Apply the Infection patch
+      if: inputs.deliver != 'true' && steps.config.outputs.infection_patch == 'true'
+      shell: bash
+      env:
+        GATE: ${{ steps.resolve.outputs.gate }}
+      run: |
+        set -uo pipefail
+        said="${RUNNER_TEMP}/infection-patch.txt"
+        code=0
+        "${GATE}" infection:patch 2> "${said}" || code=$?
+        cat "${said}" >&2
+        CODE="${code}" SAID="${said}" python3 "${GITHUB_ACTION_PATH}/resources/action/gate_action.py" infection
+
     # A shard of a plan reads no ledger: the plan it runs was made from them.
     - name: Restore this scope's ledger
       id: own

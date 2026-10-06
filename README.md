@@ -200,7 +200,7 @@ run does.
 | `stub <id> [--style=pest\|phpunit] [--write]` | Print a failing Pest or PHPUnit test for a survivor or an uncovered mutant, or one for a cluster, in the style of its nearest covering test, found as `explain` finds the mutant; with `--write`, add it to that file, or create one, never overwriting. Exits 2 where there is nothing to stub, with the next step where there is one |
 | `config:show [--format=…]` / `config:schema` | Print the effective config (JSON by default), or the JSON Schema |
 | `pest:patch` | Apply the optional Pest patches ([ADR-0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md)) |
-| `infection:patch` | Give Infection the gate's mutant limit ([ADR-0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md)) |
+| `infection:patch` | Give Infection the gate's mutant limit. Exits 1 where the installed Infection is a release it does not patch, which keeps Infection's own limit, and 2 where it cannot patch a release it supports ([ADR-0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md)) |
 
 Options:
 
@@ -649,15 +649,20 @@ Two things the setup relies on:
   (`pest.patch: true`, plus `@php vendor/bin/mutation-gate pest:patch` in
   `post-install-cmd` and `post-update-cmd`) lets every shard reuse the planning
   job's coverage instead of running the whole suite again, and allows each
-  mutant the time its own covering tests take, not the whole suite's. The
-  action and the reusable workflow apply the Pest patch in their own jobs, so
-  on GitHub its Composer hook is needed only for local runs.
+  mutant the time its own covering tests take, not the whole suite's.
 - **The Infection patch.** With Infection as the runner, add
   `@php vendor/bin/mutation-gate infection:patch` to `post-install-cmd` and
   `post-update-cmd`, so each mutant gets the gate's limit, with its
   `timeouts.seconds` floor. It patches only the Infection releases the gate
   supports. Unpatched, each mutant keeps Infection's own limit, and every run
   says so in its report.
+
+The action and the reusable workflow apply both patches in their own jobs,
+the Pest patch where `pest.patch` is on and the Infection patch where the
+runner is Infection, so on GitHub the Composer hooks are needed only for runs
+elsewhere. An Infection release the patch does not patch runs unpatched: the
+step warns, in its log and the step summary, and the run goes on with
+Infection's own limit. A release it supports but cannot patch fails the step.
 
 The proof ledger's trust boundary is the store's access control. Withholding a
 variable keeps it out of the tests' environment, not out of the project's
