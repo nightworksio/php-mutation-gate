@@ -610,10 +610,10 @@ jobs:
   # gate run on a pinned PHPUnit library, lcobucci/jwt, on one coverage map,
   # once with `runner.workers: fresh` and once with `fork`, at the PHPUnit the
   # PHPUnit runner's fixture locks. The step summary holds what each run took.
-  # Where the forked run judges a mutant otherwise, the gate runs fresh twice
-  # more, and the job fails only where the forked verdict differs from one all
-  # three fresh runs agree on; a mutant they disagree on is named in the
-  # summary as unsettled. The library is pinned by its tag, its commit and the
+  # Where the forked run judges a mutant otherwise, the gate runs each mode
+  # twice more, and the job fails only where all three forked runs give a
+  # mutant one verdict and all three fresh runs another; a mutant the runs of
+  # one mode disagree on is named in the summary as unsettled. The library is pinned by its tag, its commit and the
   # SHA-256 of its whole tree as `git archive` writes it, with nothing left
   # out: its .gitattributes leave its tests out of every archive GitHub
   # serves, so its tag is cloned and archived here. jwt's own PHPUnit is 11,
@@ -627,14 +627,13 @@ jobs:
     needs: scope
     if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
       JWT_VERSION: "5.6.0"
       JWT_COMMIT: "bb3e9f21e4196e8afc41def81ef649c164bca25e"
       JWT_SHA256: "6d867830ac3b1c80d34e831f25afc8237887a63c1d89940eccbb7d547fa7b0a6"
       # The library's archive holds no version for Composer to read.
       COMPOSER_ROOT_VERSION: "5.6.0"
-      WARM_SETTLE: always
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -710,19 +709,23 @@ jobs:
           }
           gate fresh fresh
           gate fork fork
-          runs=(--fresh "${RUNNER_TEMP}/fresh.json" "$(cat "${RUNNER_TEMP}/fresh.seconds")")
-          # A verdict the forked run alone gives may be one a fresh run gives
-          # only now and then: two more fresh runs settle it.
+          runs=()
+          # Every run of a mode, its report and its wall time, as the measure reads them.
+          for run in fresh fork; do
+            runs+=("--${run}" "${RUNNER_TEMP}/${run}.json" "$(cat "${RUNNER_TEMP}/${run}.seconds")")
+          done
+          # A verdict one run gives may be one its mode gives only now and
+          # then: two more runs of each mode settle it.
           suspects=$(python3 "${measure}" suspects "${RUNNER_TEMP}/fresh.json" "${RUNNER_TEMP}/fork.json")
-          if [ "${suspects}" -gt 0 ] || [ "${WARM_SETTLE:-}" = always ]; then
-            for again in fresh-2 fresh-3; do
-              gate fresh "${again}"
-              runs+=(--fresh "${RUNNER_TEMP}/${again}.json" "$(cat "${RUNNER_TEMP}/${again}.seconds")")
+          if [ "${suspects}" -gt 0 ]; then
+            for again in 2 3; do
+              for mode in fresh fork; do
+                gate "${mode}" "${mode}-${again}"
+                runs+=("--${mode}" "${RUNNER_TEMP}/${mode}-${again}.json" "$(cat "${RUNNER_TEMP}/${mode}-${again}.seconds")")
+              done
             done
           fi
-          python3 "${measure}" judge "${runs[@]}" \
-            --fork "${RUNNER_TEMP}/fork.json" "$(cat "${RUNNER_TEMP}/fork.seconds")" \
-            --findings "${GITHUB_WORKSPACE}/evidence/raw/warm-workers.json"
+          python3 "${measure}" judge "${runs[@]}" --findings "${GITHUB_WORKSPACE}/evidence/raw/warm-workers.json"
       # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
       - name: evidence
         if: ${{ !cancelled() }}

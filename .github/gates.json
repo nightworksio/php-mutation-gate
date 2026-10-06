@@ -190,14 +190,14 @@
     },
     "warm-workers": {
       "check": "warm workers",
-      "checks": "The gate run on a pinned lcobucci/jwt with runner.workers fresh and with fork, on one coverage map, and fresh twice more where they disagree: no mutant gets a verdict from a warm worker that differs from one every fresh run agrees on, and the step summary says what each run took (ADR-0023, decisions 12 to 14).",
+      "checks": "The gate run on a pinned lcobucci/jwt with runner.workers fresh and with fork, on one coverage map, and each twice more where they disagree: no mutant gets one verdict from every forked run and another from every fresh run, and the step summary says what each run took (ADR-0023, decisions 12 to 14).",
       "reproduce": "Install lcobucci/jwt at the tag and commit the job pins with this checkout's gate, run vendor/bin/mutation-gate coverage, then vendor/bin/mutation-gate run with each of runner.workers fresh and fork, each with --report=json:<file>, and python3 .github/scripts/warm_measure.py judge --fresh <report> <seconds> --fork <report> <seconds> --findings <file>",
       "evidence": [
         {"step": "measure", "tool": "warm", "raw": "evidence/raw/warm-workers.json"}
       ],
       "rules": {
         "warm": "The two runs did not both finish, so nothing was compared.",
-        "verdict": "A mutant's verdict from a warm worker's child differs from the verdict every fresh run of it gave."
+        "verdict": "Every forked run gave a mutant one verdict, and every fresh run another."
       }
     },
     "runner-canary": {
