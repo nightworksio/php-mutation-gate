@@ -159,6 +159,19 @@ final readonly class MutantText
     }
 
     /**
+     * Its hint, after the reason its runner gave where its record holds one,
+     * for a line that has no room for `stands`: why it was left unjudged,
+     * or why an ignore leaves it out, comes first.
+     */
+    public static function hinted(JudgedMutant $judged): string
+    {
+        $reason = $judged->mutant()->reason();
+        $hint = $judged->hint()->text();
+
+        return $reason instanceof Reason ? sprintf(Fit::JOINED, $reason->text(), $hint) : $hint;
+    }
+
+    /**
      * What its tests miss, and the callee it may be deleted with where the
      * gate found one (ADR-0025, decision 12).
      *

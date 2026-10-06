@@ -9,7 +9,6 @@ use function implode;
 
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Format\Fit;
-use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Report\ClusterText;
 use NightWorksIO\MutationGate\Core\Report\Escape;
 use NightWorksIO\MutationGate\Core\Report\Label;
@@ -154,16 +153,13 @@ final readonly class MarkdownItems
     private static function row(JudgedMutant $judged): string
     {
         $mutant = $judged->mutant();
-        $reason = $mutant->reason();
 
         return sprintf(
             '| %s | %s | %s | %s | %s |',
             self::place($judged),
             Escape::text(Mutator::short($mutant->mutator())),
             Label::of($judged->judgement()),
-            Escape::text(self::cut($reason instanceof Reason
-                ? sprintf('%s %s', $reason->text(), $judged->hint()->text())
-                : $judged->hint()->text())),
+            Escape::text(self::cut(MutantText::hinted($judged))),
             Escape::code($judged->reproduce()),
         );
     }

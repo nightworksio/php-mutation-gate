@@ -59,7 +59,7 @@ final readonly class JudgedKill
         return TestIds::none();
     }
 
-    /** What its tests miss: nothing, since they killed it; or that nothing judged it before the run stopped. */
+    /** What its tests miss: nothing, since they killed it; or that nothing judged it. */
     public function hint(): Hint
     {
         return $this->kill->status() === MutantStatus::Killed ? Hint::killed() : Hint::unjudged();
