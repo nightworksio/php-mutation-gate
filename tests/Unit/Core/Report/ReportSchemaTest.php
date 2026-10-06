@@ -18,7 +18,7 @@ it('holds every property of every object to a closed list', function (): void {
         ->and(Decoded::at($schema, 'required'))
         ->toBe(['format', 'judgement', 'cutShort', 'uncovered', 'counts', 'trees', 'newCode', 'security', 'suites', 'matrix', 'tests', 'mutants', 'clusters', 'reach', 'warnings', 'failures', 'cannotJudge'])
         ->and(Decoded::at($schema, 'properties', 'mutants', 'items', 'required'))
-        ->toBe(['id', 'file', 'line', 'mutator', 'status', 'judgement', 'changedLine', 'tests', 'coveredBy', 'killedBy', 'hint', 'reproduce', 'explain'])
+        ->toBe(['id', 'file', 'line', 'mutator', 'status', 'judgement', 'changedLine', 'coveredBy', 'killedBy', 'hint', 'reproduce', 'explain'])
         ->and(Decoded::at($schema, 'properties', 'trees', 'items', 'properties', 'units', 'items', 'required'))->toBe(['path', 'origin'])
         ->and(Decoded::at($schema, 'properties', 'suites', 'items', 'required'))->toBe(['name', 'covered', 'killed', 'exact']);
 });

@@ -42,11 +42,11 @@ it('names the cluster it explains, and gives each member its entry', function ()
     $cluster = $explained->cluster();
     $json = explainedJson($explained);
 
-    expect(Decoded::at($json, 'format'))->toBe(1)
+    expect(Decoded::at($json, 'format'))->toBe(2)
         ->and(Decoded::at($json, 'cluster', 'id'))->toBe($cluster instanceof Cluster ? $cluster->id()->value() : 'a cluster')
         ->and(Decoded::at($json, 'cluster', 'members', 0))->toBe(Decoded::at($json, 'mutants', 0, 'mutant', 'id'))
         ->and(Decoded::at($json, 'cluster', 'members', 2))->toBe(Decoded::at($json, 'mutants', 2, 'mutant', 'id'))
-        ->and(Decoded::at($json, 'mutants', 0, 'mutant', 'tests'))->toBe(['CartTest::fits', 'CartTest::saves'])
+        ->and(Decoded::at($json, 'mutants', 0, 'mutant'))->not->toHaveKey('tests')
         ->and(Decoded::at($json, 'mutants', 0, 'unit'))->toBe(['unknown' => 'Not run.']);
 });
 

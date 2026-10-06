@@ -74,6 +74,21 @@ final readonly class TestTable
         return $places;
     }
 
+    /**
+     * The places of the tests that judged a mutant, where they are not the
+     * tests that cover it, as a held unit's holding tests are not; none where
+     * they are, or where nothing says which tests judged it. A judging test
+     * is one of the covering tests, so the table holds it.
+     *
+     * @return list<int>
+     */
+    public function placesJudging(TestIds $judging, TestIds $covering): array
+    {
+        $same = $judging->without($covering)->count() === 0 && $covering->without($judging)->count() === 0;
+
+        return $same ? [] : $this->placesOf($judging->among($this->tests));
+    }
+
     private function placeOf(TestId $test): int
     {
         return $this->places[$test->value()];

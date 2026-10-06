@@ -104,8 +104,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *     reason?: string,
  *     rejection?: RejectionWritten,
  *     changedLine: bool,
- *     tests: list<string>,
  *     coveredBy: list<int>,
+ *     judgedBy?: list<int>,
  *     killedBy: list<int>,
  *     hint: string,
  *     reproduce: string,
@@ -120,7 +120,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
 final readonly class JsonReport
 {
     /** The version of this format, which changes only when a reader would misread the new one. */
-    public const int FORMAT = 1;
+    public const int FORMAT = 2;
 
     public static function encode(Verdict $verdict): string
     {
@@ -178,11 +178,8 @@ final readonly class JsonReport
     {
         $mutant = $judged->mutant();
         $end = $mutant->location()->end();
-        $tests = [];
-
-        foreach ($judged->tests() as $test) {
-            $tests[] = $test->value();
-        }
+        $covering = $matrix->coveredBy($judged);
+        $judgedBy = $table->placesJudging($judged->tests(), $covering);
 
         return [
             'id' => $mutant->id()->value(),
@@ -197,8 +194,8 @@ final readonly class JsonReport
             'judgement' => $judged->judgement()->value,
             ...self::why($mutant),
             'changedLine' => $judged->isOnChangedLine(),
-            'tests' => $tests,
-            'coveredBy' => $table->placesOf($matrix->coveredBy($judged)),
+            'coveredBy' => $table->placesOf($covering),
+            ...$judgedBy === [] ? [] : ['judgedBy' => $judgedBy],
             'killedBy' => $table->placesOf($judged->mutant()->killers()),
             'hint' => $judged->hint()->text(),
             'reproduce' => $judged->reproduce(),

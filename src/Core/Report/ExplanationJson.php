@@ -49,7 +49,7 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
  */
 final readonly class ExplanationJson
 {
-    public const int FORMAT = 1;
+    public const int FORMAT = JsonReport::FORMAT;
 
     public static function of(Explanations $explained): string
     {
