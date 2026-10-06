@@ -27,6 +27,8 @@ use function str_contains;
  */
 final readonly class Glob
 {
+    /** The wildcard that crosses directories. */
+    public const string DEEP = '**';
     /** What each wildcard stands for, as a regular expression. */
     private const array WILDCARDS = [
         '**/' => '(?:.*/)?',
@@ -40,9 +42,6 @@ final readonly class Glob
 
     /** A segment that holds a wildcard. */
     private const string WILD = '#[*?]#u';
-
-    /** The wildcard that crosses directories. */
-    private const string DEEP = '**';
 
     /**
      * @param string $pattern    the pattern as it is written

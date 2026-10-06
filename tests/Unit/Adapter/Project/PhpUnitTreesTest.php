@@ -172,3 +172,47 @@ it('says every path <source><include> names, none without a phpunit.xml, and why
         ->and(PhpUnitTrees::in($none, Paths::none())->included())->toEqual(Paths::none())
         ->and(PhpUnitTrees::in($broken, Paths::none())->included())->toBeInstanceOf(CannotJudge::class);
 });
+
+it('takes each directory a <directory> glob matches as a tree, as PHPUnit expands it, and none for one it does not match', function () use (
+    $found,
+    $phpunit,
+): void {
+    $project = Scratch::directory();
+
+    foreach (['plugins/a/src/A.php', 'plugins/b/src/B.php', 'plugins/c/README', 'plugins/a/src/Generated/G.php', 'modules/lib/L.php', 'modules/x/lib/L.php', 'modules/x/y/lib/L.php'] as $file) {
+        Scratch::write($project, $file, '<?php');
+    }
+
+    Scratch::write($project, 'phpunit.xml', $phpunit(
+        '<include><directory>plugins/*/src</directory><directory>modules/**/lib</directory>'
+        . '<directory>missing/*/src</directory><file>plugins/*/src/A.php</file></include>'
+        . '<exclude><directory>plugins/*/src/Generated</directory></exclude>',
+    ));
+
+    expect($found(PhpUnitTrees::in($project, Paths::none())->trees()))->toEqual([
+        ['plugins/a/src', Undeclared::floor()],
+        ['plugins/b/src', Undeclared::floor()],
+        ['modules/lib', Undeclared::floor()],
+        ['modules/x/lib', Undeclared::floor()],
+        ['modules/x/y/lib', Undeclared::floor()],
+        ['plugins/*/src/A.php', Undeclared::floor()],
+        ['plugins/a/src/Generated', Exempt::because('phpunit.xml excludes it from <source>')],
+    ]);
+});
+
+it('expands a glob from the project\'s root as the registration spells it, relative or not', function () use ($phpunit): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'plugins/a/src/A.php', '<?php');
+    Scratch::write($project, 'phpunit.xml', $phpunit('<include><directory>plugins/*/src</directory></include>'));
+    $here = getcwd();
+    chdir($project);
+
+    try {
+        $relative = PhpUnitTrees::in('.', Paths::none())->included();
+    } finally {
+        chdir((string) $here);
+    }
+
+    expect($relative)->toEqual(Paths::of(Path::of('plugins/a/src')))
+        ->and(PhpUnitTrees::in($project, Paths::none())->included())->toEqual(Paths::of(Path::of('plugins/a/src')));
+});

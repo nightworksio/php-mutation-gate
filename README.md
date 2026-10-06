@@ -143,7 +143,8 @@ vendor/bin/mutation-gate
 With no config file, the gate works everything out:
 
 - **trees**: from the `<source>` of `phpunit.xml` (or `phpunit.dist.xml`, or
-  `phpunit.xml.dist`);
+  `phpunit.xml.dist`), one per directory a glob such as `plugins/*/src`
+  matches;
 - **runner**: whichever of Pest's mutation plugin and Infection is installed,
   or the PHPUnit runner where neither is, PHPUnit is, and Pest is not;
 - **preset**: Laravel, Symfony or library, from your `composer.json`.

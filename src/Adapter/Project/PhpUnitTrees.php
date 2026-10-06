@@ -34,7 +34,8 @@ use function trim;
 /**
  * The `phpunit` tree source (ADR-0002, ADR-0005): one tree per `<directory>`
  * and `<file>` under `<source><include>` of the `phpunit.xml` PHPUnit itself
- * would read, less what `<source><exclude>` leaves out. A path excluded
+ * would read, less what `<source><exclude>` leaves out, each `<directory>`
+ * that holds a wildcard expanded as PHPUnit expands it (see DirectoryGlob). A path excluded
  * inside a tree is a tree of its own with a floor of 0, so it is never
  * mutated and every run says why. Without an `<include>`, the preset's
  * trees: the fallback paths, or the `autoload` paths of `composer.json`.
@@ -50,8 +51,14 @@ final readonly class PhpUnitTrees implements TreeSource
 
     private const string EXCLUDED = '/phpunit/source/exclude/directory | /phpunit/source/exclude/file';
 
+    /** Whether a node of `<source>` is a `<directory>`, whose path PHPUnit expands as a glob. */
+    private const string GLOBBED = 'self::directory';
+
+    private DirectoryGlob $glob;
+
     private function __construct(private Root $root, private Paths $fallback, private Manifests $manifests)
     {
+        $this->glob = DirectoryGlob::from($root);
     }
 
     /**
@@ -161,13 +168,15 @@ final readonly class PhpUnitTrees implements TreeSource
             : CannotJudge::because(sprintf(self::NOT_XML, $config->value()));
     }
 
+    /** The paths the nodes a query finds name, in their order, each `<directory>` glob expanded. */
     private function paths(SimpleXMLElement|Missing $xml, string $query): Paths
     {
         $nodes = $xml instanceof SimpleXMLElement ? $xml->xpath($query) : [];
         $paths = [];
 
         foreach (is_array($nodes) ? $nodes : [] as $node) {
-            $paths[] = Path::of(trim((string) $node));
+            $path = Path::of(trim((string) $node));
+            $paths = [...$paths, ...($node->xpath(self::GLOBBED) === [] ? [$path] : $this->glob->expanded($path))];
         }
 
         return Paths::of(...$paths);
