@@ -10,6 +10,7 @@ enum GateMethod: string
     case Runner = 'runner';
     case Withholding = 'withholding';
     case CappedAt = 'cappedAt';
+    case InWorkers = 'inWorkers';
     case Trees = 'trees';
     case NewCode = 'newCode';
     case Security = 'security';

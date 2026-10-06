@@ -121,9 +121,11 @@ Requirements:
     with `colinodell/json5` and `ext-dom`, which Infection itself requires;
   - **PHPUnit** on its own: `phpunit/phpunit` 13.2 or later, the first with
     `--test-id-filter-file`. The gate makes each mutant with its `default`
-    mutator set, and the project's PHPUnit runs the tests that cover it, one
-    mutant after another, loading the gate's extension from the project's
-    vendor directory, where `composer require --dev` puts it.
+    mutator set, and the project's PHPUnit runs the tests that cover it, a
+    mutant on each core at once, loading the gate's extension from the
+    project's vendor directory, where `composer require --dev` puts it. With
+    `ext-pcntl` in the PHP it starts, each mutant is forked from a worker that
+    booted once (`runner.workers`).
 
   Infection and the PHPUnit runner do not run Pest suites, so a Pest project
   uses Pest's own mutation testing.
@@ -451,6 +453,7 @@ and `?` match within one directory, and `**` across any number of them.
 | `runner` | adapter: `pest`, `infection`, `phpunit` | the one installed: `phpunit` only where neither of the others is, and Pest is not | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md), [0023](.docs/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
 | `runner.withhold` | list of environment-variable names or globs the runner never hands the project's tests, added to those every run withholds; a guard against accidents, not a sandbox | `[]` | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | `runner.memory` | the `memory_limit` of every PHP process a mutation run starts, as PHP writes it (`512M`, `1G`), or `-1` for none; a `memory_limit` the project sets in `phpunit.xml` or a bootstrap file wins over it. Under Infection and the PHPUnit runner it also sets `display_errors=stdout`, so a warning raised outside a test, such as in a bootstrap file, also prints on standard output | `1G` | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
+| `runner.workers` | how the PHPUnit runner starts each mutant's run: `fork`, from a worker per process that boots the autoloader and the bootstrap once, or `fresh`, a new PHP process per mutant. `fork` needs `pcntl` in the PHP the runner starts, and mutants run fresh without it. A boot that leaves a socket or database connection open, starts PHPUnit's events or loads a file the run mutates is refused: its mutants run fresh, and the run warns of why, as `doctor` does. Survivors are always confirmed in a fresh process. Pest and Infection start their own processes, so it changes nothing for them | `fork` | [0023](.docs/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
 | `treeSource` | adapter: `phpunit`, `composer` | `phpunit` | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `treeSource.with.fallback` | list of paths, the trees when `phpunit.xml` has no `<source>` | `[]`, or the preset's; `[]` takes the `autoload` paths of `composer.json` | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
 | `trees` | list of `{path, floor, reason, exclude}`, laid over the tree source's trees: a listed path takes its floor, reason and exclude from here | the tree source's trees | [0003](.docs/decisions/0003-a-floor-only-rises.md) |

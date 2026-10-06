@@ -34,6 +34,7 @@ use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
 it('writes nothing for a config with no settings', function (): void {
@@ -214,6 +215,13 @@ it('writes the memory cap beside the runner it chooses, and alone where a later 
         ->toBe(['runner' => ['use' => 'pest', 'memory' => '512M']])
         ->and(Configs::written(Gate::configure()->withholding(Withheld::of('DEPLOY_*'))->cappedAt(MemoryCap::none())))
         ->toBe(['runner' => ['withhold' => ['DEPLOY_*'], 'memory' => '-1']]);
+});
+
+it('writes how the runner\'s workers start beside the runner it chooses, and alone where a later layer chooses one', function (): void {
+    expect(Configs::written(Gate::configure()->runner(Runner::phpunit()->inWorkers(Workers::Fresh))))
+        ->toBe(['runner' => ['use' => 'phpunit', 'workers' => 'fresh']])
+        ->and(Configs::written(Gate::configure()->inWorkers(Workers::Fork)))
+        ->toBe(['runner' => ['workers' => 'fork']]);
 });
 
 it('writes each other way to choose an adapter or a word', function (): void {

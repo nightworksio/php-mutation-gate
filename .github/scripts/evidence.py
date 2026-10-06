@@ -278,6 +278,7 @@ READERS = {
     "scripts": own("scripts"),
     "description": own("description"),
     "pins": own("pins"),
+    "warm": own("warm"),
 }
 
 

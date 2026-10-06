@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Adapter\PhpUnit\MutationRun;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Project;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\TestFiles;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Variable;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Workforce;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -22,8 +23,10 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
+use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlot;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -65,10 +68,13 @@ function killingRun(string $root): array
 
         return Ran::finished(succeeded: false, output: '')->took(Seconds::of(0.2));
     });
+    $invocation = new Invocation($project, '/gate/override.php');
+    $judging = new MutantRun($project, $shell, $invocation, new TestFiles($project), PhpUnitScan::uncapped($project), NotGiven::value());
     $run = new MutationRun(
         $project,
         Engine::with(new PlusToMinus(), new RemoveEcho()),
-        new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project), PhpUnitScan::uncapped($project), NotGiven::value()),
+        $judging,
+        new Workforce($project, $shell, $invocation, PhpUnitScan::uncapped($project), $judging),
     );
 
     return [$run, $shell];
@@ -199,7 +205,7 @@ function sums(int $count): array
 
 it('runs the mutants side by side across the request\'s processes, each told its place', function () use ($covered): void {
     [$run, $shell] = killingRun(library());
-    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->across(ProcessCount::of(2));
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->across(Pool::of(ProcessCount::of(2), Workers::Fresh));
     $result = $run->of($request, $covered, Seconds::of(5.0));
     $told = array_map(
         static fn(WorkerSlot $slot): array => iterator_to_array($slot->variables(), preserve_keys: true),
@@ -231,7 +237,7 @@ it('runs sixteen runs a process in each batch, and the rest in the last', functi
 it('runs as many runs in a batch as sixteen for each process, and no batch once the last is full', function (): void {
     [$root, $map] = sums(33);
     [$run, $shell] = killingRun($root);
-    $request = MutationRequest::of(Paths::of(Path::of('src/Sums.php')), WholeSuite::tests())->across(ProcessCount::of(2));
+    $request = MutationRequest::of(Paths::of(Path::of('src/Sums.php')), WholeSuite::tests())->across(Pool::of(ProcessCount::of(2), Workers::Fresh));
     $run->of($request, $map, Seconds::of(5.0));
     [$exact, $full] = sums(16);
     [$once, $one] = killingRun($exact);

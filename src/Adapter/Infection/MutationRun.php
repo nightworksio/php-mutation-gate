@@ -60,7 +60,7 @@ final readonly class MutationRun
             $this->config,
             $request->judgedBy(),
             $coverage,
-            $request->processes(),
+            $request->pool()->processes(),
             $targets->paths(),
             $request->narrowing()->suite(),
         )->withholding($request->withheld())->within($request->deadline());

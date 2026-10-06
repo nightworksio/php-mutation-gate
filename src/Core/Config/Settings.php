@@ -41,8 +41,9 @@ final readonly class Settings
                 $settled,
                 ChosenRunner::of(
                     $settled->pest()->beneath($runner),
-                    $layer->setup()->withhold(),
-                    $settled->setup()->memory(),
+                    $layer->setup()->runnerLayer()->withhold(),
+                    $settled->setup()->runnerLayer()->memory(),
+                    $settled->setup()->runnerLayer()->workers(),
                 ),
             )
             : Invalid::because(...$problems);

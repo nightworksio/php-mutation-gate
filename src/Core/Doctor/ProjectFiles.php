@@ -27,6 +27,7 @@ final readonly class ProjectFiles
         private PhpUnitMemory|NotGiven $phpUnitMemory,
         private bool $shallow,
         private SonarSources|NotGiven $sonarSources,
+        private WarmRefusal|NotGiven $warmRefusal,
     ) {
     }
 
@@ -34,7 +35,17 @@ final readonly class ProjectFiles
     {
         $none = NotGiven::value();
 
-        return new self($none, $none, $none, $none, $none, $none, shallow: false, sonarSources: $none);
+        return new self(
+            $none,
+            $none,
+            $none,
+            $none,
+            $none,
+            $none,
+            shallow: false,
+            sonarSources: $none,
+            warmRefusal: $none,
+        );
     }
 
     /** These, with the project's `.gitignore`, empty where it has none. */
@@ -89,6 +100,17 @@ final readonly class ProjectFiles
     public function withSonarSources(SonarSources $sources): self
     {
         return clone($this, ['sonarSources' => $sources]);
+    }
+
+    /** These, with why the last run's warm workers forked nothing (ADR-0023, decision 13). */
+    public function withWarmRefusal(WarmRefusal $refusal): self
+    {
+        return clone($this, ['warmRefusal' => $refusal]);
+    }
+
+    public function warmRefusal(): WarmRefusal|NotGiven
+    {
+        return $this->warmRefusal;
     }
 
     public function gitIgnore(): GitIgnore|NotGiven

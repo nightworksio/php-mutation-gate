@@ -15,8 +15,10 @@ use NightWorksIO\MutationGate\Core\Order\Ordering;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
+use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
@@ -32,7 +34,7 @@ it('asks for some files judged by some tests, and by default nothing more', func
         ->and($request->leftOut())->toEqual(Paths::none())
         ->and($request->narrowing()->mutators())->toEqual(Mutators::all())
         ->and($request->deadline())->toEqual(Unlimited::time())
-        ->and($request->processes())->toEqual(ProcessCount::of(1))
+        ->and($request->pool())->toEqual(Pool::of(ProcessCount::of(1), Workers::Fresh))
         ->and($request->coverage())->toEqual(Fresh::coverage())
         ->and($request->search())->toEqual(KillSearch::standard())
         ->and($request->memory())->toEqual(MemoryCap::none());
@@ -43,7 +45,7 @@ it('takes each setting on its own, leaving the rest as they were', function (): 
         ->narrowedTo(Paths::of(Path::of('src')), Narrowing::none()->toMutators(Mutators::named('LessThan')))
         ->leavingOut(Paths::of(Path::of('src/Kernel.php')))
         ->within(Seconds::of(600.0))
-        ->across(ProcessCount::of(8))
+        ->across(Pool::of(ProcessCount::of(8), Workers::Fresh))
         ->reusingCoverage(Handed::maps(Path::of('.mutation-gate/coverage/shard-1'), Path::of('.mutation-gate/coverage')))
         ->searching(KillSearch::of(Ordering::of(TestOrder::KillersFirst, KillHistory::none()), MatrixKind::Full))
         ->cappedAt(MemoryCap::standard());
@@ -53,7 +55,7 @@ it('takes each setting on its own, leaving the rest as they were', function (): 
         ->and($request->leftOut())->toEqual(Paths::of(Path::of('src/Kernel.php')))
         ->and($request->narrowing()->mutators())->toEqual(Mutators::named('LessThan'))
         ->and($request->deadline())->toEqual(Seconds::of(600.0))
-        ->and($request->processes())->toEqual(ProcessCount::of(8))
+        ->and($request->pool())->toEqual(Pool::of(ProcessCount::of(8), Workers::Fresh))
         ->and($request->coverage())->toEqual(Handed::maps(Path::of('.mutation-gate/coverage/shard-1'), Path::of('.mutation-gate/coverage')))
         ->and($request->search())->toEqual(KillSearch::of(Ordering::of(TestOrder::KillersFirst, KillHistory::none()), MatrixKind::Full))
         ->and($request->memory())->toEqual(MemoryCap::standard());
@@ -64,7 +66,7 @@ it('leaves the request it came from as it was', function (): void {
     $request->leavingOut(Paths::of(Path::of('a')));
     $request->narrowedTo(Paths::none(), Narrowing::none()->toMutators(Mutators::named('LessThan')));
     $request->within(Seconds::of(1.0));
-    $request->across(ProcessCount::of(2));
+    $request->across(Pool::of(ProcessCount::of(2), Workers::Fresh));
     $request->reusingCoverage(Handed::maps(Path::of('c'), Path::of('c')));
     $request->cappedAt(MemoryCap::standard());
 
@@ -99,6 +101,7 @@ it('narrows to some files and mutators with nothing left out, keeping how it run
         ->leavingOut(Paths::of(Path::of('src/Kernel.php')))
         ->withholding(Withheld::of('DEPLOY_*'))
         ->cappedAt(MemoryCap::standard())
+        ->across(Pool::of(ProcessCount::single(), Workers::Fresh))
         ->within(Seconds::of(600.0));
     $narrowed = $request->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators(Mutators::named('LessThan')));
 
@@ -108,6 +111,7 @@ it('narrows to some files and mutators with nothing left out, keeping how it run
         ->and($narrowed->judgedBy())->toEqual(Group::named('slow'))
         ->and($narrowed->withheld())->toEqual($request->withheld())
         ->and($narrowed->memory())->toEqual(MemoryCap::standard())
+        ->and($narrowed->pool())->toEqual(Pool::of(ProcessCount::single(), Workers::Fresh))
         ->and($narrowed->deadline())->toEqual(Seconds::of(600.0));
 });
 

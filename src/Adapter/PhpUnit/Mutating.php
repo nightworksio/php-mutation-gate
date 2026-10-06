@@ -9,6 +9,7 @@ use function array_values;
 use function implode;
 use function is_string;
 
+use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Workforce;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
@@ -200,7 +201,8 @@ final readonly class Mutating
             $scan,
             $this->project->errorDisplay(),
         );
-        $run = new MutationRun($this->project, $engine, $judging);
+        $workforce = new Workforce($this->project, $this->shell, $invocation, $scan, $judging);
+        $run = new MutationRun($this->project, $engine, $judging, $workforce);
         $result = ($only instanceof MutantIds ? $run->makingOnly($only) : $run)->of($request, $map, $cap);
         $scan->remove();
 

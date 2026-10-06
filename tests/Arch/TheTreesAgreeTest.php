@@ -7,11 +7,11 @@ use NightWorksIO\MutationGate\Tests\Support\Tree;
 // R3: the analyser, the refactorer and the Arch suite read the same trees. The
 // Arch suite reads src, plugins, tests and phpstan; a tree one of the other two
 // leaves out is a tree whose rules nothing enforces. The analyser and the
-// refactorer read the executable as well, which the Arch suite, reading PHP
-// files, skips.
+// refactorer read the executables as well, the gate's and the warm worker's,
+// which the Arch suite, reading PHP files, skips.
 
-/** The trees every one of them reads, and the executable. */
-const THE_TREES = ['bin/mutation-gate', 'phpstan', 'plugins', 'src', 'tests'];
+/** The trees every one of them reads, and the executables. */
+const THE_TREES = ['bin/mutation-gate', 'bin/mutation-gate-worker', 'phpstan', 'plugins', 'src', 'tests'];
 
 /**
  * The trees a configuration file names, in the shape it names them.

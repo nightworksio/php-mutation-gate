@@ -93,7 +93,7 @@ it('runs a unit as many times as asked, handing each run on as it ends, and give
         ->and(array_map(static fn(MutationRequest $request): array => [
             $request->files(),
             $request->judgedBy(),
-            $request->processes(),
+            $request->pool()->processes(),
             $request->search()->matrix(),
         ], $runner->requests()))->toEqual(array_fill(0, 3, [
             Paths::of(Path::of('src/Money.php')),

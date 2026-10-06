@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Doctor\KeptLedgers;
 use NightWorksIO\MutationGate\Core\Doctor\PhpUnitMemory;
 use NightWorksIO\MutationGate\Core\Doctor\RunnerPhp;
 use NightWorksIO\MutationGate\Core\Doctor\SonarSources;
+use NightWorksIO\MutationGate\Core\Doctor\WarmRefusal;
 use NightWorksIO\MutationGate\Core\File\GitIgnore;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -254,4 +255,14 @@ it('observes a shallow clone, and a clone of the whole history, or no clone, as 
     expect($observed($clone))->toBeTrue()
         ->and($observed($origin->root))->toBeFalse()
         ->and($observed(Scratch::copy('tests/Fixtures/Projects/Library')))->toBeFalse();
+});
+
+it('observes why the last run\'s warm workers forked nothing, and nothing where no run kept why', function (): void {
+    $kept = Scratch::copy('tests/Fixtures/Projects/Library');
+    Scratch::write($kept, '.mutation-gate/phpunit/warm-refused.txt', "The boot left 1 socket open once tests/bootstrap.php ran.\n");
+    $php = FakePhp::printing(Described::output([], []));
+    $observed = static fn(string $project): WarmRefusal|NotGiven => Doctored::observed($project, sprintf('%s/php', $php))->of(CommandLine::nothing())->files()->warmRefusal();
+
+    expect($observed($kept))->toEqual(WarmRefusal::of('The boot left 1 socket open once tests/bootstrap.php ran.'))
+        ->and($observed(Scratch::copy('tests/Fixtures/Projects/Library')))->toEqual(NotGiven::value());
 });

@@ -7,13 +7,14 @@ use Rector\Config\RectorConfig;
 use Rector\Php55\Rector\String_\StringClassNameToClassConstantRector;
 
 return RectorConfig::configure()
-    // R3 — the same trees phpstan.neon and the Arch suite read, and the executable.
+    // R3 — the same trees phpstan.neon and the Arch suite read, and the executables.
     ->withPaths([
         __DIR__ . '/src',
         __DIR__ . '/plugins',
         __DIR__ . '/tests',
         __DIR__ . '/phpstan',
         __DIR__ . '/bin/mutation-gate',
+        __DIR__ . '/bin/mutation-gate-worker',
     ])
     ->withPhpSets()
     ->withPreparedSets(

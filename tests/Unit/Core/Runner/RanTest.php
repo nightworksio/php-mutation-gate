@@ -67,3 +67,9 @@ it('was ended by a signal where its exit code is 128 plus a signal\'s number, fr
         ->and(Ran::exited(NotGiven::value(), '')->endedBySignal())->toBeFalse()
         ->and(Ran::stopped('')->endedBySignal())->toBeFalse();
 });
+
+it('is a program a signal ended, as a shell reports it: 128 and the signal', function (): void {
+    $killed = Ran::signalled(9, 'Killed');
+
+    expect([$killed->exitCode(), $killed->endedBySignal(), $killed->output()])->toBe([137, true, 'Killed']);
+});

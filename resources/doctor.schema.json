@@ -45,6 +45,7 @@
                             "memory-cap-lifted",
                             "memory-cap-near",
                             "shallow-clone",
+                            "warm-boot-refused",
                             "anonymous-reads-refused",
                             "outside-sonar-sources",
                             "survived",

@@ -274,6 +274,24 @@ a time budget never started, which leaves that unit unjudged.
 Clone the whole history. On GitHub Actions, give `actions/checkout`
 `fetch-depth: 0`; on GitLab, set `GIT_DEPTH: 0`.
 
+## warm-boot-refused
+
+The last run's warm workers forked nothing, so each mutant ran in a fresh
+process and paid the whole boot again (ADR-0023, decision 13). A warm worker
+boots the autoloader and the bootstrap once and forks a child for each
+mutant. It refuses a boot that leaves a socket open, such as a database
+connection, which every child would share; one that started PHPUnit's
+events, as PHPUnit before 13.4 does to report a deprecation in its
+configuration, whose buffered events every child would report again; and one
+that loads a file the run mutates, which no child could serve its mutant in
+place of. The finding names the bootstrap file, and its line where PHP can
+tell: the line that autoloaded a class, where the bootstrap did.
+
+Have the bootstrap open its connections lazily and leave the code under test
+unloaded, migrate a deprecated PHPUnit configuration with
+`vendor/bin/phpunit --migrate-configuration`, or set `runner.workers: fresh`
+to stop trying.
+
 ## anonymous-reads-refused
 
 `doctor --online` asked the `azure` store's public container for its

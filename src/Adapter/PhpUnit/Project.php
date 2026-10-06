@@ -37,6 +37,9 @@ final readonly class Project
     /** PHPUnit's script, in the vendor directory's `bin`. */
     private const string PHPUNIT = 'bin/phpunit';
 
+    /** Composer's autoloader, in the vendor directory. */
+    private const string AUTOLOADER = 'autoload.php';
+
     private const string UNWRITTEN = 'The gate cannot write %s, which the PHPUnit it starts reads.';
 
     private function __construct(
@@ -95,6 +98,24 @@ final readonly class Project
         return $this->absolute($this->vendor->child(Path::of(self::PHPUNIT)));
     }
 
+    /** Composer's autoloader in the vendor directory PHPUnit is installed in. */
+    public function autoloader(): string
+    {
+        return $this->absolute($this->vendor->child(Path::of(self::AUTOLOADER)));
+    }
+
+    /** The PHPUnit config PHPUnit reads in the root, by its absolute path; none where the project has none. */
+    public function config(): string|NotGiven
+    {
+        foreach (PhpUnitConfig::candidatesIn(Path::root()) as $candidate) {
+            if (is_file($this->absolute($candidate))) {
+                return $this->absolute($candidate);
+            }
+        }
+
+        return NotGiven::value();
+    }
+
     /** Whether PHPUnit's script is in the project's vendor directory, so the project holds a PHPUnit to run. */
     public function hasPhpUnit(): bool
     {
@@ -120,13 +141,11 @@ final readonly class Project
      */
     public function errorDisplay(): ErrorDisplay|NotGiven
     {
-        foreach (PhpUnitConfig::candidatesIn(Path::root()) as $candidate) {
-            if (is_file($this->absolute($candidate))) {
-                return PhpUnitIni::displayIn(sprintf('%s', file_get_contents($this->absolute($candidate))));
-            }
-        }
+        $config = $this->config();
 
-        return NotGiven::value();
+        return $config instanceof NotGiven
+            ? $config
+            : PhpUnitIni::displayIn(sprintf('%s', file_get_contents($config)));
     }
 
     /** A path of the adapter's own, inside the gate's directory, on disk. */

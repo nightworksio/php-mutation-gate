@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Workers;
 
 /** `runner`: the tool that mutates (ADR-0004). */
 final readonly class Runner
@@ -60,6 +61,18 @@ final readonly class Runner
         $runner = $this->json instanceof Json ? $this->json : Json::object(Member::of('use', $this->json));
 
         return new self($runner->with(Member::of('memory', $memory->written())));
+    }
+
+    /**
+     * This runner, starting each mutant's run as this says (ADR-0023):
+     * `runner.workers`, `Workers::Fork` or `Workers::Fresh`. Forking where no
+     * layer says.
+     */
+    public function inWorkers(Workers $workers): self
+    {
+        $runner = $this->json instanceof Json ? $this->json : Json::object(Member::of('use', $this->json));
+
+        return new self($runner->with(Member::of('workers', $workers->value)));
     }
 
     public function written(): Json|string

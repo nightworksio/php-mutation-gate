@@ -188,6 +188,18 @@
         "error": "A contract test threw before it could finish."
       }
     },
+    "warm-workers": {
+      "check": "warm workers",
+      "checks": "The gate run on a pinned lcobucci/jwt with runner.workers fresh and with fork, on one coverage map: every mutant has the same verdict in both, and the step summary says what each run took (ADR-0023, decisions 12 to 14).",
+      "reproduce": "Install lcobucci/jwt at the tag and commit the job pins with this checkout's gate, run vendor/bin/mutation-gate coverage, then vendor/bin/mutation-gate run once with each of runner.workers fresh and fork, each with --report=json:<file>, and python3 .github/scripts/warm_measure.py on the two reports",
+      "evidence": [
+        {"step": "measure", "tool": "warm", "raw": "evidence/raw/warm-workers.json"}
+      ],
+      "rules": {
+        "warm": "The two runs did not both finish, so nothing was compared.",
+        "verdict": "A mutant's verdict from a warm worker's child differs from its verdict in a fresh process."
+      }
+    },
     "runner-canary": {
       "check": "runner canary",
       "checks": "Every day, ADR-0004's Runner contract suite and ADR-0020's StaticChecker contract suite against the newest releases of Pest, Infection, PHPUnit, Mago and PHPStan, the pinned pest-plugin-mutate and Infection freed from the package's pin; then that composer.json takes each pinned release that passed (ADR-0017, decision 8). It is not required: a new release reds it alone.",

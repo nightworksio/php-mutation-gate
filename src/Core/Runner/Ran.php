@@ -53,6 +53,12 @@ final readonly class Ran
         return new self($output, $code === 0 ? Ending::Succeeded : Ending::Failed, $code, Unmeasured::duration());
     }
 
+    /** A process a signal ended, its exit code the one a shell gives it. */
+    public static function signalled(int $signal, string $output): self
+    {
+        return self::exited(self::SIGNALLED + $signal, $output);
+    }
+
     public static function stopped(string $output): self
     {
         return new self($output, Ending::Stopped, NotGiven::value(), Unmeasured::duration());

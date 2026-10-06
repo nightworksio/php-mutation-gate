@@ -19,7 +19,8 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
  * group or a filter. By default it leaves nothing out, applies every
  * mutator, runs every suite's tests, has no deadline, runs one process,
  * collects its own coverage, runs each mutant's tests in the runner's own
- * order, stopping at the first killer, and caps no process's memory. It
+ * order, stopping at the first killer, caps no process's memory, and runs
+ * each mutant in a fresh process. It
  * never says how uncovered mutants score: a runner reports every one, and
  * the gate applies `uncovered` when it judges (ADR-0003, ADR-0004).
  */
@@ -31,7 +32,7 @@ final readonly class MutationRequest
         private Paths $leftOut,
         private Narrowing $narrowing,
         private Seconds|Unlimited $deadline,
-        private ProcessCount $processes,
+        private Pool $pool,
         private Handed|Fresh $coverage,
         private Withheld $withheld,
         private KillSearch $search,
@@ -47,7 +48,7 @@ final readonly class MutationRequest
             Paths::none(),
             Narrowing::none(),
             Unlimited::time(),
-            ProcessCount::single(),
+            Pool::single(),
             Fresh::coverage(),
             Withheld::standard(),
             KillSearch::standard(),
@@ -79,9 +80,10 @@ final readonly class MutationRequest
         return clone($this, ['deadline' => $deadline]);
     }
 
-    public function across(ProcessCount $processes): self
+    /** This request, its mutants run in this pool (ADR-0023). */
+    public function across(Pool $pool): self
     {
-        return clone($this, ['processes' => $processes]);
+        return clone($this, ['pool' => $pool]);
     }
 
     /** This request, withholding these variables from the tests as well as those it already withholds. */
@@ -154,9 +156,10 @@ final readonly class MutationRequest
         return $this->deadline;
     }
 
-    public function processes(): ProcessCount
+    /** How many mutants run at once, and how each starts. */
+    public function pool(): Pool
     {
-        return $this->processes;
+        return $this->pool;
     }
 
     public function coverage(): Handed|Fresh

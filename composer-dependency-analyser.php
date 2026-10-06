@@ -84,11 +84,15 @@ return (new Configuration())
     // infection/infection has installed it (ADR-0021).
     ->ignoreErrorsOnPackages(['infection/mutator'], [ErrorType::DEV_DEPENDENCY_IN_PROD])
     ->ignoreErrorsOnExtension('ext-dom', [ErrorType::DEV_DEPENDENCY_IN_PROD])
+    // A warm worker forks each mutant only where the PHP the runner starts
+    // loads pcntl, and runs each fresh otherwise (ADR-0023, decision 14);
+    // composer.json suggests it.
+    ->ignoreErrorsOnExtension('ext-pcntl', [ErrorType::DEV_DEPENDENCY_IN_PROD])
     // A directory's test of a write that fails part way takes the process's
     // room to write files away, where the system lets it, and is skipped
     // where these are not installed.
     ->ignoreErrorsOnExtensionsAndPaths(
-        ['ext-pcntl', 'ext-posix'],
+        ['ext-posix'],
         [__DIR__ . '/tests/Unit/Adapter/Filesystem/DirectoryTest.php'],
         [ErrorType::SHADOW_DEPENDENCY],
     );

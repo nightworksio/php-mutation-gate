@@ -95,7 +95,7 @@ final readonly class Judging
             $request->withheld(),
             sprintf(self::TRIALS, dirname($results)),
             $scan,
-            WorkerSlots::of($request->processes(), strval(getmypid())),
+            WorkerSlots::of($request->pool()->processes(), strval(getmypid())),
         );
         $mutants = $this->judgedEach([...$result->mutants()], $selector, $trial, $results);
         $scan->remove();

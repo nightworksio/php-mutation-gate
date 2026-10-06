@@ -51,8 +51,8 @@ use function sprintf;
 /**
  * The gate's own PHPUnit runner behind the Runner port (ADR-0023, decisions 8
  * to 10): the gate makes each mutant with its own engine, and PHPUnit runs
- * the tests that cover it, one mutant after another, each in a process of its
- * own, served through the gate's override and recorded by its extension, so
+ * the tests that cover it, a mutant per core at once, each in a process of
+ * its own, served through the gate's override and recorded by its extension, so
  * the gate is installed in the project's vendor directory. It runs in the
  * project's root, and allows each mutant's run the standard mutant limit
  * under `timeouts.seconds` (ADR-0008, decision 2).
@@ -130,12 +130,12 @@ final readonly class PhpUnit implements Runner
     /**
      * PHPUnit lists `#[Holds]` as groups, the gate lays each mutant's limit
      * itself and can raise it, and each shard reads the map the plan handed
-     * on. It stops each mutant at its first failing test, and runs one
-     * mutant at a time.
+     * on. It stops each mutant at its first failing test, and runs a mutant
+     * per core at once (ADR-0023, decisions 5 and 12).
      */
     public function behaviour(): RunnerBehaviour
     {
-        return RunnerBehaviour::standard();
+        return RunnerBehaviour::standard()->runningPerCore();
     }
 
     /** The groups PHPUnit lists for the suite. */
