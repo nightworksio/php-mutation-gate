@@ -44,7 +44,9 @@ use function sprintf;
  * Pest's override serving the mutated copy in place of the original, as Pest
  * serves its own mutants, the trials of several mutants side by side, each
  * run told its place and writing in a directory of its own. The tests must
- * pass on their own first, once for each set of them. A run that loaded the
+ * pass on their own first, once for each set of them: where they run out of
+ * the limit there, the mutant is skipped as too slow to run, and where they
+ * fail, it is left unjudged. A run that loaded the
  * original before the override, never loaded it, or ran where opcache could
  * serve a cached original, judges nothing, and the reason says what the run
  * did (see Evidence), from what it printed and the JUnit log it writes beside
@@ -142,7 +144,8 @@ final class Trial
 
     /**
      * Each set of tests these trials run that has not run on its own, run
-     * side by side, its outcome kept where it fails there.
+     * side by side, its outcome kept where it fails or runs out of time
+     * there.
      *
      * @param list<TrialRun> $trials
      */
@@ -165,10 +168,24 @@ final class Trial
 
         foreach (array_values($sets) as $position => $trial) {
             $ran = $ends[$position];
-            $this->alone[$trial->set()] = $ran->succeeded()
-                ? true
-                : $this->unjudged(self::ALONE, $ran, $trial->tests(), $trial->limit(), $position);
+            $this->alone[$trial->set()] = match (true) {
+                $ran->succeeded() => true,
+                $ran->wasStopped() => $this->skipped($ran, $trial->limit()),
+                default => $this->unjudged(self::ALONE, $ran, $trial->tests(), $position),
+            };
         }
+    }
+
+    /**
+     * A mutant whose tests on their own ran out of its limit, which no run
+     * of the mutant within that limit can judge, with how long they took:
+     * the limit, where the run was stopped untimed.
+     */
+    private function skipped(Ran $ran, Seconds $limit): Outcome
+    {
+        $took = $ran->duration();
+
+        return Outcome::skipped()->took($took instanceof Seconds ? $took : $limit);
     }
 
     /** The run of a trial with the mutated copy served in place of its original, at a position in the batch. */
@@ -237,38 +254,36 @@ final class Trial
         return match (true) {
             is_string($text) => $this->read(Node::decode($text), $ran, $trial, $position),
             $ran->endedBySignal() => Outcome::killed(),
-            default => $this->unjudged(self::UNGUARDED, $ran, $trial->tests(), $trial->limit(), $position),
+            default => $this->unjudged(self::UNGUARDED, $ran, $trial->tests(), $position),
         };
     }
 
     private function read(Node $seen, Ran $ran, TrialRun $trial, int $position): Outcome
     {
         $tests = $trial->tests();
-        $limit = $trial->limit();
 
         try {
             return match (true) {
-                $seen->field('before')->boolean() => $this->unjudged(self::BEFORE, $ran, $tests, $limit, $position),
+                $seen->field('before')->boolean() => $this->unjudged(self::BEFORE, $ran, $tests, $position),
                 $seen->field('opcache')->boolean() => $this->unjudged(
                     sprintf(self::OPCACHE, Opcache::CLI, Opcache::FILE_CACHE),
                     $ran,
                     $tests,
-                    $limit,
                     $position,
                 ),
-                ! $seen->field('loaded')->boolean() => $this->unjudged(self::NEVER, $ran, $tests, $limit, $position),
+                ! $seen->field('loaded')->boolean() => $this->unjudged(self::NEVER, $ran, $tests, $position),
                 $ran->succeeded() => Outcome::survived(),
                 default => Outcome::killed(),
             };
         } catch (NotInShape) {
-            return $this->unjudged(self::UNGUARDED, $ran, $tests, $limit, $position);
+            return $this->unjudged(self::UNGUARDED, $ran, $tests, $position);
         }
     }
 
     /** A mutant left unjudged for a reason, which says what the run at a position in the batch did. */
-    private function unjudged(string $reason, Ran $ran, Paths $tests, Seconds $limit, int $position): Outcome
+    private function unjudged(string $reason, Ran $ran, Paths $tests, int $position): Outcome
     {
-        $evidence = Evidence::of($ran, $limit, FailedFirst::in($this->logOf($position)), $tests);
+        $evidence = Evidence::of($ran, FailedFirst::in($this->logOf($position)), $tests);
 
         return Outcome::unjudged(sprintf(self::SAID, $reason, $evidence->text()));
     }

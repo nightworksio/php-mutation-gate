@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
@@ -165,7 +166,7 @@ it('says the first test that failed on its own, from the JUnit log the run wrote
     ));
 });
 
-it('says a run on its own was stopped at its limit, and reads no failure from an earlier run\'s log', function (): void {
+it('reads no failure from an earlier run\'s log where the tests fail on their own', function (): void {
     $at = trialProject();
     mkdir(sprintf('%s/0', $at->root()));
     file_put_contents(
@@ -173,10 +174,31 @@ it('says a run on its own was stopped at its limit, and reads no failure from an
         '<testsuites><testcase name="x" file="tests/Old.php::x"><failure>x</failure></testcase></testsuites>',
     );
 
-    $outcome = trialOf($at, ShellFake::answering(Ran::stopped('Fatal: half')))
+    $outcome = trialOf($at, ShellFake::answering(Ran::exited(2, 'Fatal: half')))
         ->of(Paths::of(Path::of('tests/A.php')), Path::of('src/Money.php'), '/c', Seconds::of(6.0));
 
-    expect($outcome->reason())->toEqual(Reason::that('the selected tests fail on their own (stopped at its limit of 6s; last printed Fatal: half; ran tests/A.php)'));
+    expect($outcome->reason())->toEqual(Reason::that('the selected tests fail on their own (exit code 2; last printed Fatal: half; ran tests/A.php)'));
+});
+
+it('skips a mutant whose tests on their own run out of its limit, as too slow to run, running them alone once', function (): void {
+    $shell = ShellFake::answering(Ran::stopped('Fatal: half')->took(Seconds::of(6.2)));
+    $trial = trialOf(trialProject(), $shell);
+    $tests = Paths::of(Path::of('tests/A.php'));
+
+    $first = $trial->of($tests, Path::of('src/Money.php'), '/c', Seconds::of(6.0));
+    $second = $trial->of($tests, Path::of('src/Money.php'), '/c', Seconds::of(6.0));
+
+    expect($first)->toEqual(Outcome::skipped()->took(Seconds::of(6.2))->within(Seconds::of(6.0)))
+        ->and($first->reason())->toEqual(Unreported::reason())
+        ->and($second)->toEqual($first)
+        ->and($shell->commands())->toHaveCount(1);
+});
+
+it('skips a mutant whose tests on their own were stopped untimed, as having taken its limit', function (): void {
+    $outcome = trialOf(trialProject(), ShellFake::answering(Ran::stopped('')))
+        ->of(Paths::of(Path::of('tests/A.php')), Path::of('src/Money.php'), '/c', Seconds::of(6.0));
+
+    expect($outcome)->toEqual(Outcome::skipped()->took(Seconds::of(6.0))->within(Seconds::of(6.0)));
 });
 
 it('says the last line a run printed where it failed and no test did', function (): void {

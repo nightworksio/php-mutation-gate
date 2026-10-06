@@ -9,10 +9,14 @@ use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
-it('is killed, survived, timed out, or unjudged with its reason, and unmeasured until it took some time', function (): void {
+it('is killed, survived, timed out, skipped, or unjudged with its reason, and unmeasured until it took some time', function (): void {
     expect(Outcome::killed()->status())->toBe(MutantStatus::Killed)
         ->and(Outcome::survived()->status())->toBe(MutantStatus::Survived)
         ->and(Outcome::timedOut()->status())->toBe(MutantStatus::TimedOut)
+        ->and(Outcome::skipped()->status())->toBe(MutantStatus::Skipped)
+        ->and(Outcome::skipped()->reason())->toEqual(Unreported::reason())
+        ->and(Outcome::skipped()->duration())->toEqual(Unmeasured::duration())
+        ->and(Outcome::skipped()->limit())->toEqual(Unmeasured::duration())
         ->and(Outcome::unjudged('never loaded')->status())->toBe(MutantStatus::Unjudged)
         ->and(Outcome::unjudged('never loaded')->reason())->toEqual(Reason::that('never loaded'))
         ->and(Outcome::killed()->reason())->toEqual(Unreported::reason())
@@ -32,5 +36,6 @@ it('leaves the mutant alive only where it survived', function (): void {
     expect(Outcome::survived()->leftAlive())->toBeTrue()
         ->and(Outcome::killed()->leftAlive())->toBeFalse()
         ->and(Outcome::timedOut()->leftAlive())->toBeFalse()
+        ->and(Outcome::skipped()->leftAlive())->toBeFalse()
         ->and(Outcome::unjudged('x')->leftAlive())->toBeFalse();
 });

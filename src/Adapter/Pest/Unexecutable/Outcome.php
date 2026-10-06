@@ -36,6 +36,12 @@ final readonly class Outcome
         return new self(MutantStatus::TimedOut, Unreported::reason(), Unmeasured::duration(), Unmeasured::duration());
     }
 
+    /** Never run against the mutant, because its tests on their own run out of its limit. */
+    public static function skipped(): self
+    {
+        return new self(MutantStatus::Skipped, Unreported::reason(), Unmeasured::duration(), Unmeasured::duration());
+    }
+
     public static function unjudged(string $reason): self
     {
         return new self(MutantStatus::Unjudged, Reason::that($reason), Unmeasured::duration(), Unmeasured::duration());

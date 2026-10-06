@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
@@ -230,6 +231,18 @@ it('gives a mutant that timed out the limit its run was allowed: five seconds an
 
     expect($limits(Triage::standard()->limit()))->toEqual([[MutantStatus::TimedOut, Seconds::of(5.5)]])
         ->and($limits(Seconds::of(5.2)))->toEqual([[MutantStatus::TimedOut, Seconds::of(5.2)]]);
+});
+
+it('skips a mutant whose tests on their own run out of its limit, giving it that limit', function () use ($money): void {
+    $at = Unexecutables::project();
+    $results = Unexecutables::run($at, ['rate']);
+    $shell = new ShellFake(static fn(): Ran => Ran::stopped('')->took(Seconds::of(5.6)));
+    $judged = new Judging($at, $shell, new CapDirectory(), Triage::standard()->limit())->of(judgingResult('rate'), $money, $results, judgingCoverage($results));
+    $mutants = $judged instanceof MutationResult ? iterator_to_array($judged->mutants(), preserve_keys: false) : [];
+
+    expect(array_map(static fn(Mutant $mutant): array => [$mutant->status(), $mutant->limit(), $mutant->reason()], $mutants))
+        ->toEqual([[MutantStatus::Skipped, Seconds::of(5.5), Unreported::reason()]])
+        ->and($shell->commands())->toHaveCount(1);
 });
 
 it('judges only the uncovered mutants of a run, and keeps each mutant Pest judged as Pest judged it', function () use ($money): void {
