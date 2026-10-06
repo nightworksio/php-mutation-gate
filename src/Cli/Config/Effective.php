@@ -43,18 +43,20 @@ final readonly class Effective
 
     public function settings(CommandLine $given): Settings|Invalid|CannotJudge
     {
-        $file = $this->file($given->config);
-        $line = $given->layer();
+        return $this->over($this->file($given->config), $given);
+    }
 
-        if (! $file instanceof Layer || ! $line instanceof Layer) {
-            return $file instanceof Layer ? $line : $file;
-        }
+    /**
+     * The settings that affect results, serialised canonically (ADR-0007),
+     * where a config file holds what this copy holds, as it stood at a base
+     * a change is read since (ADR-0005, decision 4); or why they cannot be
+     * read.
+     */
+    public function canonicalOf(CommandLine $given, ConfigFile $copy): string|Invalid|CannotJudge
+    {
+        $settings = $this->over($this->loaded($copy), $given);
 
-        $registry = $given->firstPartyOnly
-            ? $this->extensions
-            : new Chosen($this->extensions)->withExtensions($file->setup()->extensions());
-
-        return $registry instanceof CannotJudge ? $registry : $this->layered($file->over($line), $registry);
+        return $settings instanceof Settings ? $settings->canonical() : $settings;
     }
 
     /** Whether the config file or the command line chooses the runner, rather than leave it to zero-config. */
@@ -68,6 +70,22 @@ final readonly class Effective
             && $file->over($line)->setup()->runner() instanceof Choice;
     }
 
+    /** The settings a config file's layer and the command line set, with every layer beneath them. */
+    private function over(Layer|Invalid|CannotJudge $file, CommandLine $given): Settings|Invalid|CannotJudge
+    {
+        $line = $given->layer();
+
+        if (! $file instanceof Layer || ! $line instanceof Layer) {
+            return $file instanceof Layer ? $line : $file;
+        }
+
+        $registry = $given->firstPartyOnly
+            ? $this->extensions
+            : new Chosen($this->extensions)->withExtensions($file->setup()->extensions());
+
+        return $registry instanceof CannotJudge ? $registry : $this->layered($file->over($line), $registry);
+    }
+
     /** The config file read, or a layer that sets nothing for zero-config. */
     private function file(string|NotGiven $given): Layer|Invalid|CannotJudge
     {
@@ -77,7 +95,12 @@ final readonly class Effective
             return $path instanceof NoConfigFile ? Layer::none() : $path;
         }
 
-        $file = ConfigFile::at($path, Path::of($this->project));
+        return $this->loaded(ConfigFile::at($path, Path::of($this->project)));
+    }
+
+    /** A config file read by the loader of its format, and judged. */
+    private function loaded(ConfigFile $file): Layer|Invalid|CannotJudge
+    {
         $loader = Formats::loader($this->extensions, $file);
         $loaded = $loader instanceof CannotJudge ? $loader : $loader->load($file);
 

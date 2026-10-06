@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Cli\Flow\Results;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
@@ -194,6 +195,7 @@ it('takes no unit a budget ran out before as run, and names every one', function
         Digest::sha256Of('installed'),
         new StoppedClock('2026-09-30T12:00:00Z'),
         new PeakMemoryFake(NotGiven::value()),
+        DecidingConfig::unread(),
     );
     new Running(Flows::adapters($project), Flows::settings(Budget::of('1s')), $setup)->runAll($plan, Workspace::results());
     $results = Results::read($plan, Workspace::results(), Directory::at($project));
@@ -226,6 +228,7 @@ it('says a run was cut short where its budget ran out before a unit or left a mu
         Digest::sha256Of('installed'),
         new TickingClock('2026-09-30T12:00:00+00:00', $step),
         new PeakMemoryFake(NotGiven::value()),
+        DecidingConfig::unread(),
     );
     new Running(Flows::adapters($project, [], ScriptedRunner::fixture()->answering(Mutants::of($timedOut), 0)), $settings, $setup)
         ->runAll($plan, Workspace::results());

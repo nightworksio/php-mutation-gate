@@ -114,11 +114,27 @@ The same repository has two more needs.
       (`.gitlab-ci.yml` by default) and the file `ci.gitlab.template` names;
       on Buildkite the file `ci.buildkite.definition` names
       (`.buildkite/pipeline.yml` by default); on CircleCI
-      `.circleci/config.yml`; and none under the JSON plan or locally. It
-      reaches everything except when every line its change touched is an
-      action pin (`uses: owner/repo@<40-hex sha>`, with or without a trailing
-      comment). A pin move changes which revision of an action runs, not how
-      the gate cuts, runs or judges.
+      `.circleci/config.yml`; and none under the JSON plan or locally.
+
+      Two of these files reach everything only where what they decide
+      changed, so that reach moves exactly when every proof's key moves
+      (ADR-0007, decision 2):
+      - **The gate's config file the run reads.** It reaches everything only
+        where the settings that affect results, serialised canonically as
+        key item 3 holds them, differ between the base and now, each read
+        with the presets and the command line the run lays over it. A change
+        to a floor, an ignore, a report or another setting that only judges
+        or reports reaches nothing: every proof still stands, and the verdict
+        judges the carried results by the settings as they are now. Where
+        either version cannot be read, the file reaches everything.
+      - **A CI definition that runs the gate.** It reaches everything only
+        where it runs the gate otherwise, read as key item 7 reads it:
+        without its comment lines, its blank lines, and the commit each
+        action is pinned at (`uses: owner/repo@<40-hex sha>`, with or
+        without a trailing comment). A comment or a pin move changes which
+        revision of an action runs, not how the gate cuts, runs or judges.
+
+      Every other file on this list reaches everything whenever it changes.
    2. **A changed source file in a tree reaches that unit.**
    3. **A changed test reaches every unit its tests execute**, according to the
       coverage map.

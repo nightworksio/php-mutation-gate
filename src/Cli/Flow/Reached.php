@@ -47,12 +47,13 @@ final readonly class Reached
         Settings $settings,
         Suite $suite,
         CoverageMap $map,
+        DecidingConfig $config,
     ): self {
         $changes = $adapters->changes->changesSince($base);
         $reach = new Reaching(self::layout($adapters, $settings, $suite), $trees)->of(
             $changes,
             self::judges($adapters, $map),
-            self::sources($changes, $base, $adapters, $suite->sources()),
+            self::sources($changes, $base, $adapters, $suite->sources(), $config),
         );
 
         return new self($reach, $changes instanceof Changes ? self::withLines($changes) : $changes);
@@ -97,18 +98,24 @@ final readonly class Reached
         return $layout;
     }
 
-    /** The test files on disk, and each changed file as it is on disk and as it was at the base. */
+    /**
+     * The test files on disk, each changed file as it is on disk and as it
+     * was at the base, and the config file marked deciding alike where its
+     * change moved no setting that affects results.
+     */
     public static function sources(
         Changes|CannotTell $changes,
         Revision $base,
         Adapters $adapters,
         Sources $sources,
+        DecidingConfig $config,
     ): Sources {
         foreach ($changes instanceof Changes ? $changes : Changes::none() as $change) {
             $now = $adapters->changes->fileAt($change->path(), Revision::workingTree());
             $before = $adapters->changes->fileAt($change->previousPath(), $base);
             $sources = $now instanceof Contents ? $sources->withNow($change->path(), $now) : $sources;
             $sources = $before instanceof Contents ? $sources->withBefore($change->previousPath(), $before) : $sources;
+            $sources = $before instanceof CannotTell ? $sources : $config->marking($sources, $change, $before);
         }
 
         return $sources;

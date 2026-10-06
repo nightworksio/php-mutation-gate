@@ -2,7 +2,13 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Cli\CommandLine;
+use NightWorksIO\MutationGate\Cli\Config\Detected;
+use NightWorksIO\MutationGate\Cli\Config\Effective;
+use NightWorksIO\MutationGate\Cli\Config\Registered;
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
+use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Cli\Flow\Reached;
 use NightWorksIO\MutationGate\Cli\Flow\Suite;
 use NightWorksIO\MutationGate\Config\Reach;
@@ -19,6 +25,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
+use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -26,8 +33,10 @@ use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
+use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -52,6 +61,18 @@ $held = Unit::held(Path::of('src/Held.php'), Group::named('holds:src/Held.php'))
  */
 function reachedSince(Changes $changes, array $now, array $before, object ...$ports): Reached
 {
+    return reachedReading(DecidingConfig::unread(...), $changes, $now, $before, ...$ports);
+}
+
+/**
+ * The same, where the run reads its config file as this reads it, given the project.
+ *
+ * @param Closure(string): DecidingConfig $config
+ * @param array<string, string>           $now
+ * @param array<string, string>           $before
+ */
+function reachedReading(Closure $config, Changes $changes, array $now, array $before, object ...$ports): Reached
+{
     $checkout = new ChangeSourceFake(Revision::ref('base'), $changes, [
         Revision::workingTree()->name() => [...Flows::FILES, ...$now],
         'base' => [...Flows::FILES, ...$before],
@@ -73,6 +94,7 @@ function reachedSince(Changes $changes, array $now, array $before, object ...$po
         Flows::settings(Reach::everything('config/**')),
         reachedSuite($checkout, $adapters),
         $map,
+        $config($project),
     );
 }
 
@@ -199,6 +221,32 @@ it('reaches nothing where only the commits a workflow is pinned at moved', funct
         ->and($reached->reach()->reaches($money))->toBeFalse();
 });
 
+it('reaches nothing where the config file the run reads changed no setting that affects results, and everything where it did', function (string $before, bool $everywhere) use ($money): void {
+    $config = static fn(string $project): DecidingConfig => DecidingConfig::read(
+        new Effective(
+            $project,
+            Registered::config(new Extensions(Origin::of('nightworksio/mutation-gate')), static fn(): bool => true),
+            new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project))),
+            new DateTimeImmutable(Configs::NOW),
+        ),
+        CommandLine::nothing(),
+        $project,
+        Path::of('mutation-gate.json'),
+    );
+    $reached = reachedReading(
+        $config,
+        Changes::of(Change::modified(Path::of('mutation-gate.json'), Lines::of(Line::of(1)))),
+        ['mutation-gate.json' => '{"runner": "pest", "trees": [{"path": "src", "floor": 90}]}'],
+        ['mutation-gate.json' => $before],
+    );
+
+    expect($reached->reach()->isEverywhere())->toBe($everywhere)
+        ->and($reached->reach()->reaches($money))->toBe($everywhere);
+})->with([
+    'a floor' => ['{"runner": "pest", "trees": [{"path": "src", "floor": 80}]}', false],
+    'the trees' => ['{"runner": "pest", "trees": [{"path": "lib"}]}', true],
+]);
+
 it('reaches everything where git cannot tell what changed, and says why it keeps no line', function () use ($held): void {
     $checkout = new ChangeSourceFake(
         Revision::ref('elsewhere'),
@@ -213,6 +261,7 @@ it('reaches everything where git cannot tell what changed, and says why it keeps
         Flows::settings(),
         reachedSuite($checkout, $adapters),
         CoverageMap::empty(),
+        DecidingConfig::unread(),
     );
 
     expect($reached->reach()->reaches($held))->toBeTrue()

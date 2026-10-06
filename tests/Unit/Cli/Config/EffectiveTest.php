@@ -403,3 +403,34 @@ it('says whether the config file or the command line chooses the runner, rather 
         ->and($effective($choosing)->choosesRunner($nothing()))->toBeTrue()
         ->and($effective($unreadable)->choosesRunner($nothing()))->toBeFalse();
 });
+
+it('reads the result-affecting config a copy of the config file sets in its place, the command line over it', function () use ($effective): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'mutation-gate.json', '{"runner": "pest", "trees": [{"path": "src", "floor": 90}]}');
+    Scratch::write($project, '.mutation-gate/base/mutation-gate.json', '{"runner": "pest", "trees": [{"path": "src", "floor": 80}]}');
+    Scratch::write($project, '.mutation-gate/moved/mutation-gate.json', '{"runner": "pest", "trees": [{"path": "lib"}]}');
+    $line = CommandLine::nothing()->withBudget('5m');
+    $now = $effective($project)->settings($line);
+    $copy = static fn(string $directory): ConfigFile => ConfigFile::copyOf(
+        Path::of(sprintf('%s/%s/mutation-gate.json', $project, $directory)),
+        Path::of(sprintf('%s/mutation-gate.json', $project)),
+        Path::of($project),
+    );
+
+    expect($effective($project)->canonicalOf($line, $copy('.mutation-gate/base')))
+        ->toBe($now instanceof Settings ? $now->canonical() : $now)
+        ->and($effective($project)->canonicalOf($line, $copy('.mutation-gate/moved')))
+        ->not->toBe($now instanceof Settings ? $now->canonical() : $now);
+});
+
+it('cannot read the config a copy sets where the copy is not a config', function () use ($effective): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'mutation-gate.json', '{"runner": "pest"}');
+    Scratch::write($project, '.mutation-gate/base/mutation-gate.json', '{"runner": 3}');
+
+    expect($effective($project)->canonicalOf(CommandLine::nothing(), ConfigFile::copyOf(
+        Path::of(sprintf('%s/.mutation-gate/base/mutation-gate.json', $project)),
+        Path::of(sprintf('%s/mutation-gate.json', $project)),
+        Path::of($project),
+    )))->toBeInstanceOf(Invalid::class);
+});

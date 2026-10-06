@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
+use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -61,7 +62,7 @@ it('is invalid where the settings no longer hold on the day its clock reads', fu
     $earlier = new Composed(
         $before->settings,
         $before->adapters,
-        new Setup($before->setup->configFile, $before->setup->gate, $before->setup->installed, new StoppedClock('2026-09-01T12:00:00+00:00'), $before->setup->memory),
+        new Setup($before->setup->configFile, $before->setup->gate, $before->setup->installed, new StoppedClock('2026-09-01T12:00:00+00:00'), $before->setup->memory, DecidingConfig::unread()),
         $before->reporting,
     );
 

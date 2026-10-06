@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Cli\Flow\Keying;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Suite;
@@ -241,6 +242,7 @@ it('leaves out of every key the config, the baseline, proofs.ignore and every fi
         Digest::of('installed'),
         new StoppedClock(Configs::NOW),
         new PeakMemoryFake(NotGiven::value()),
+        DecidingConfig::unread(),
     );
     $exceptions = Keying::exceptions(Flows::adapters(Flows::project()), $settings, $setup);
 

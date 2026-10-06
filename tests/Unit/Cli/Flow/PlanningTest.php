@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\Mode;
 use NightWorksIO\MutationGate\Cli\Flow\Planning;
@@ -172,7 +173,7 @@ $cappedPlan = static function (
     return Planned::from(new Planning(
         Flows::adapters($project, [], RunnerFake::ofTheFixture()->definedBy(Paths::of(Path::of($reads)))),
         Flows::settings(ConfiguredRunner::uses('fake')->cappedAt(MemoryCap::of(512, MemoryUnit::Megabytes))),
-        new Setup($setup->configFile, $setup->gate, $setup->installed, $setup->clock, new PeakMemoryFake($peak)),
+        new Setup($setup->configFile, $setup->gate, $setup->installed, $setup->clock, new PeakMemoryFake($peak), DecidingConfig::unread()),
     )->plan(
         Mode::full(),
         $handedOver ? CoverageRead::from(Path::of('.mutation-gate/planned')) : $coverage(),

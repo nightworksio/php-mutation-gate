@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\Ledgers;
 use NightWorksIO\MutationGate\Cli\Flow\Recorded;
@@ -328,6 +329,7 @@ it('learns nothing of a unit a shard\'s budget ran out before', function () use 
         Digest::sha256Of('installed'),
         new TickingClock('2026-09-30T12:00:00+00:00', 10),
         new PeakMemoryFake(NotGiven::value()),
+        DecidingConfig::unread(),
     );
     $results = recordedRanWith($plan, $project, ScriptedRunner::fixture(), $map(), Flows::settings(Budget::of('25s')), $setup);
 

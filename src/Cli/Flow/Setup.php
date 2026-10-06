@@ -14,8 +14,9 @@ use Psr\Clock\ClockInterface;
 /**
  * What a flow knows of how the gate was set up: the config file it read,
  * the gate's own version, the digest of what Composer installed, the clock
- * it reads the time from, and the most memory the processes it started have
- * held.
+ * it reads the time from, the most memory the processes it started have
+ * held, and how its config file decides how the gate runs, which a change
+ * to it is read against.
  */
 final readonly class Setup
 {
@@ -25,6 +26,7 @@ final readonly class Setup
         public Digest $installed,
         public ClockInterface $clock,
         public PeakMemory $memory,
+        public DecidingConfig $config,
     ) {
     }
 }

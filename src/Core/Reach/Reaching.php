@@ -27,8 +27,10 @@ use function sprintf;
  *
  * 1. a file that decides how the gate runs reaches everything in its package
  *    and in the packages that depend on it, and a root file reaches every
- *    package; a CI definition that runs the gate does too, unless all its
- *    change moved is its action pins;
+ *    package, unless it decides as it did at the base, as a config whose
+ *    change moved no setting that affects results does; a CI definition
+ *    that runs the gate reaches everything too, unless it runs the gate as
+ *    it did, its change moving only comments, blank lines and action pins;
  * 2. a changed source file in a tree reaches its unit;
  * 3. a changed test reaches every unit its tests run, by the coverage map;
  * 4. changed test support reaches what the tests that use it run;
@@ -44,7 +46,11 @@ final readonly class Reaching
 
     private const string DECIDES_IN = '`%s` decides how the gate runs in %s, so every unit of %s is reached.';
 
-    private const string PINS = '`%s` moved only the commits its actions are pinned at, so it reaches nothing.';
+    private const string RUNS_ALIKE
+        = '`%s` changed only its comments, blank lines or action pins, so it reaches nothing.';
+
+    private const string DECIDES_ALIKE
+        = '`%s` changed nothing that decides how the gate runs, so it reaches nothing.';
 
     private const string SOURCE = '`%s` changed, so its unit is reached.';
 
@@ -87,6 +93,9 @@ final readonly class Reaching
         $deciding = $this->decidingIn($change, $packages);
 
         return match (true) {
+            $deciding instanceof Path && $sources->decidesAlike($deciding) => $reach->because(
+                Reason::that(sprintf(self::DECIDES_ALIKE, $deciding->value())),
+            ),
             $deciding instanceof Path => $this->decided($reach, $deciding, $packages->holding($deciding), $packages),
             $this->layout->runsTheGate($path) => $this->definitionChanged($reach, $change, $sources),
             $this->isSource($path) => $this->sourceChanged($reach, $change),
@@ -139,8 +148,8 @@ final readonly class Reaching
         $before = $sources->before($change->previousPath());
         $after = $sources->now($change->path());
 
-        return $before instanceof Contents && $after instanceof Contents && Pins::onlyMoved($before, $after)
-            ? $reach->because(Reason::that(sprintf(self::PINS, $change->path()->value())))
+        return $before instanceof Contents && $after instanceof Contents && AsItRuns::alike($before, $after)
+            ? $reach->because(Reason::that(sprintf(self::RUNS_ALIKE, $change->path()->value())))
             : $reach->everywhere(Reason::that(sprintf(self::DECIDES, $change->path()->value())));
     }
 
