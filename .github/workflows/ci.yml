@@ -629,6 +629,8 @@ jobs:
       JWT_VERSION: "5.6.0"
       JWT_COMMIT: "bb3e9f21e4196e8afc41def81ef649c164bca25e"
       JWT_SHA256: "6d867830ac3b1c80d34e831f25afc8237887a63c1d89940eccbb7d547fa7b0a6"
+      # The library's archive holds no version for Composer to read.
+      COMPOSER_ROOT_VERSION: "5.6.0"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -669,7 +671,9 @@ jobs:
             | .["prefer-stable"] = true' composer.json > composer.json.new
           mv composer.json.new composer.json
           composer update --no-interaction --no-progress
-          composer show | grep -E '^(phpunit/phpunit|nightworksio/mutation-gate) '
+          composer show --format=json > "${RUNNER_TEMP}/installed.json"
+          jq -r '.installed[] | select(.name == "phpunit/phpunit" or .name == "nightworksio/mutation-gate") | "\(.name) \(.version)"' \
+            "${RUNNER_TEMP}/installed.json"
           sed 's/failOnRisky="true"/failOnRisky="true" failOnPhpunitWarning="false" failOnPhpunitDeprecation="false"/' \
             phpunit.xml.dist > phpunit.xml
           printf 'vendor/\n.mutation-gate/\nwarm-*.json\nmutation-gate.baseline.json\n' > .gitignore
