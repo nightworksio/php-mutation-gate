@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\File;
 
-use function array_fill;
 use function array_filter;
 use function array_last;
+use function array_map;
 use function array_pop;
 use function array_slice;
 use function basename;
@@ -189,7 +189,7 @@ final readonly class Path
             $shared++;
         }
 
-        $up = self::of(implode('/', array_fill(0, count($base) - $shared, self::UP)));
+        $up = self::of(implode('/', array_map(static fn(): string => self::UP, array_slice($base, $shared))));
 
         return $up->child(self::of(implode('/', array_slice($target, $shared))));
     }

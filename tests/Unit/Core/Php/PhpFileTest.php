@@ -12,7 +12,10 @@ use NightWorksIO\MutationGate\Core\Hold\HoldsAttributes;
 use NightWorksIO\MutationGate\Core\Hold\Standing;
 use NightWorksIO\MutationGate\Core\Php\Names;
 use NightWorksIO\MutationGate\Core\Php\PhpFile;
+use NightWorksIO\MutationGate\Core\Php\TopLevel;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
+
+pest()->group('holds:src/Core/Php/PhpFile.php');
 
 $support = <<<'PHP'
     <?php
@@ -77,6 +80,13 @@ it('only declares when loading it runs nothing, a closing tag at its end among i
         ->and(PhpFile::read(Contents::of("<?php\n\nit('ticks', fn () => true);\n"))->onlyDeclares())->toBeFalse();
 });
 
+it('keeps each statement at its top that runs when it is loaded, and no declaration', function (): void {
+    $running = PhpFile::read(Contents::of("<?php\n\nclass Money {}\nit('ticks', fn () => true);\necho 1;\n"))->running();
+
+    expect(array_map(static fn(array $statement): string => TopLevel::spelt(...$statement), $running))
+        ->toBe(["it ( 'ticks' , fn ( ) => true ) ;", 'echo 1 ;']);
+});
+
 it('reads the paths its #[Holds] declare held', function (): void {
     $test = <<<'PHP'
         <?php
@@ -136,6 +146,7 @@ it('names every fully qualified name a quoted string spells, as a class-string d
 it('names the last segment of every constant it declares, with const or the global define(), called by any spelling', function (): void {
     $file = PhpFile::read(Contents::of(<<<'PHP'
         <?php
+        declare(strict_types=1);
         namespace Tests\Reach;
         const REACH_AMOUNT = 5, REACH_OTHER = 6;
         define('REACH_DEFINED', 7);

@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
 
+pest()->group('holds:src/Core/Coverage/LineTests.php');
+
 /**
  * Every line as its file, number and the ids of its tests.
  *

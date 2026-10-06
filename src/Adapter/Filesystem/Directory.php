@@ -257,7 +257,7 @@ final readonly class Directory
         return match (true) {
             $real !== false => $real,
             $parent === $path => $path,
-            default => sprintf('%s/%s', rtrim(self::resolved($parent), '/'), basename($path)),
+            default => sprintf('%s/%s', self::resolved($parent), basename($path)),
         };
     }
 }

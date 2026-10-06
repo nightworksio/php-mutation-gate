@@ -171,7 +171,7 @@ final readonly class Shards implements Part
                     Member::of(
                         SecondsPerLine::KEY,
                         $this->secondsPerLine instanceof Table
-                            ? $this->perLineFrom($origin)->written()
+                            ? $this->perLineFrom($this->secondsPerLine, $origin)->written()
                             : $this->secondsPerLine,
                     ),
                     Member::of(
@@ -208,7 +208,9 @@ final readonly class Shards implements Part
     {
         $calls = [];
 
-        foreach ($this->secondsPerLine instanceof Table ? $this->perLineFrom($origin) : [] as $prefix => $seconds) {
+        $rates = $this->secondsPerLine instanceof Table ? $this->perLineFrom($this->secondsPerLine, $origin) : [];
+
+        foreach ($rates as $prefix => $seconds) {
             $calls[] = sprintf(
                 'Shards::secondsPerLine(%s, %s)',
                 PhpCalls::literal($prefix),
@@ -236,11 +238,11 @@ final readonly class Shards implements Part
     }
 
     /** `costs.secondsPerLine` as a layer at this origin writes it: each prefix but `""`, every path, named from it. */
-    private function perLineFrom(PathOrigin $origin): Table
+    private function perLineFrom(Table $rates, PathOrigin $origin): Table
     {
         $from = Table::none();
 
-        foreach ($this->secondsPerLine instanceof Table ? $this->secondsPerLine : [] as $prefix => $seconds) {
+        foreach ($rates as $prefix => $seconds) {
             $key = $prefix;
             $from = $from->merged(
                 Table::row($key === LineRate::EVERYWHERE ? $key : $origin->written(Path::of($key)), $seconds),

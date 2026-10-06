@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 
+pest()->group('holds:src/Core/Mutant/DiffPatch.php');
+
 $original = Contents::of(implode("\n", [
     '<?php',
     '',
@@ -78,4 +80,51 @@ it('puts a diff back where the mutant\'s line says nothing only where its lines 
         ->and($patch($once))->toContain("function sum(int \$a, int \$b): int\n{\n    return \$a - \$b;\n}")
         ->and($patch($once))->toContain("function add(int \$a, int \$b): int\n{\n    return \$a + \$b;\n}")
         ->and($patch("@@ @@\n-    return \$a * \$b;\n+    return \$a / \$b;"))->toBe('Its diff does not apply to src/Money.php as it is now.');
+});
+
+it('places a hunk by how many context lines lead it, counting the mutant\'s line from one', function () use ($patched, $text, $original): void {
+    $lines = explode("\n", $original->text());
+    $replaced = static fn(int $at): string => implode("\n", array_replace($lines, [$at => '    return $a - $b;']));
+    $diff = "@@ @@\n {\n-    return \$a + \$b;\n+    return \$a - \$b;\n }";
+
+    expect($text($patched($diff, 7)))->toBe($replaced(4))
+        ->and($text($patched($diff, 8)))->toBe($replaced(9));
+});
+
+it('counts a hunk\'s lead up to its first removed or added line alone', function () use ($patched, $text, $original): void {
+    $lines = explode("\n", $original->text());
+    $removed = array_values(array_diff_key($lines, [9 => true]));
+    $added = [...array_slice($lines, 0, 9), '    // checked', ...array_slice($lines, 9)];
+
+    expect($text($patched("@@ @@\n {\n-    return \$a + \$b;\n }", 8)))->toBe(implode("\n", $removed))
+        ->and($text($patched("@@ @@\n {\n+    // checked\n     return \$a + \$b;", 8)))->toBe(implode("\n", $added));
+});
+
+it('drops the blank lines a diff\'s last line break leaves only while both sides end in one', function () use ($patched, $text, $original): void {
+    $lines = explode("\n", $original->text());
+
+    expect($text($patched("@@ @@\n-    return \$a + \$b;\n+    return \$a - \$b;\n", 5)))
+        ->toBe(implode("\n", array_replace($lines, [4 => '    return $a - $b;'])))
+        ->and($text($patched("@@ @@\n }\n-\n", 6)))->toBe(implode("\n", array_values(array_diff_key($lines, [6 => true]))));
+});
+
+it('puts each later hunk where the mutant\'s line says nothing only where it stands once after the one before', function () use ($original): void {
+    $diff = "@@ @@\n-function add(int \$a, int \$b): int\n+function add(int \$a): int\n@@ @@\n-    return \$a + \$b;\n+    return \$a;";
+    $patched = DiffPatch::of(Mutation::of('Plus', MutatorFamily::Arithmetic, $diff))->ontoTheOnlyPlace($original, Path::of('src/Money.php'));
+
+    expect($patched)->toEqual(CannotJudge::because('Its diff stands in more than one place in src/Money.php, so the gate cannot tell which is the mutant.'));
+});
+
+it('leads a hunk by the context before its first change alone, however much follows it', function () use ($patched, $text, $original): void {
+    $lines = explode("\n", $original->text());
+
+    expect($text($patched("@@ @@\n {\n-    return \$a + \$b;\n+    return \$a - \$b;\n }\n \n", 8)))
+        ->toBe(implode("\n", array_replace($lines, [9 => '    return $a - $b;'])));
+});
+
+it('puts a later hunk at the first place after the one before, however far the mutant\'s line is', function () use ($patched, $text, $original): void {
+    $lines = explode("\n", $original->text());
+    $diff = "@@ @@\n-function add(int \$a, int \$b): int\n+function add(int \$a): int\n@@ @@\n-    return \$a + \$b;\n+    return \$a;";
+
+    expect($text($patched($diff, 10)))->toBe(implode("\n", array_replace($lines, [2 => 'function add(int $a): int', 4 => '    return $a;'])));
 });

@@ -9,7 +9,6 @@ use function array_intersect_key;
 use function array_key_exists;
 use function array_keys;
 use function array_map;
-use function array_values;
 use function count;
 
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -97,7 +96,7 @@ final readonly class LineTests
         $kept = [];
 
         foreach ($files as $file) {
-            $kept[$file->value()] = true;
+            $kept[$file->value()] = $file;
         }
 
         return new self($this->tests, $this->places, array_intersect_key($this->lines, $kept));
@@ -167,7 +166,7 @@ final readonly class LineTests
     /** Every test that ran any line of a file. */
     public function runningFile(Path $file): TestIds
     {
-        return $this->testsOf(...array_values($this->linesOf($file)));
+        return $this->testsOf(...$this->linesOf($file));
     }
 
     /**

@@ -37,6 +37,21 @@
                 "mutant": "07c3b2ec795f",
                 "reason": "Equivalent: the step only sets how many compressed bytes each inflate call takes. A stream inflates to the same text, TooLarge or CannotJudge at any step size, since inflating stops where the stream ends.",
                 "expires": "2027-10-03"
+            },
+            {
+                "mutant": "976cfe40169a",
+                "reason": "Equivalent: readAtMost reads one byte past the limit to tell a file past it from one at it. Reading more than one past, or the floor that keeps a negative limit from reaching file_get_contents, changes nothing a caller sees: a file past the limit is TooLarge however many bytes past it were read.",
+                "expires": "2027-10-06"
+            },
+            {
+                "mutant": "7693175ba94f",
+                "reason": "Equivalent: readAtMost reads one byte past the limit to tell a file past it from one at it. Reading more than one past, or the floor that keeps a negative limit from reaching file_get_contents, changes nothing a caller sees: a file past the limit is TooLarge however many bytes past it were read.",
+                "expires": "2027-10-06"
+            },
+            {
+                "mutant": "178b7c69e4b4",
+                "reason": "Equivalent: readAtMost reads one byte past the limit to tell a file past it from one at it. Reading more than one past, or the floor that keeps a negative limit from reaching file_get_contents, changes nothing a caller sees: a file past the limit is TooLarge however many bytes past it were read.",
+                "expires": "2027-10-06"
             }
         ]
     }

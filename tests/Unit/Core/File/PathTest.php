@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Path;
 
+pest()->group('holds:src/Core/File/Path.php');
+
 it('spells a path with forward slashes', function (): void {
     expect(Path::of('src\\Core\\Money.php')->value())->toBe('src/Core/Money.php');
 });
@@ -112,6 +114,8 @@ it('spells itself from a directory, both spelt from the same base', function (
     'an absolute path from an absolute directory' => ['/project/src', '/project', 'src'],
     'an absolute path beside an absolute directory' => ['/shared/x', '/project', '../shared/x'],
     'a path from the project, from an absolute directory' => ['src', '/project', 'src'],
+    'the directory from itself' => ['src/Core', 'src/Core', '.'],
+    'two ups' => ['src', 'ci/github', '../../src'],
 ]);
 
 it('names the base it is spelt from, and itself as that base spells it', function (

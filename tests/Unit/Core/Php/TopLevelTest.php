@@ -5,6 +5,8 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Php\Names;
 use NightWorksIO\MutationGate\Core\Php\TopLevel;
 
+pest()->group('holds:src/Core/Php/TopLevel.php');
+
 $top = static fn(string $code): TopLevel => TopLevel::of(array_values(array_filter(
     PhpToken::tokenize($code),
     static fn(PhpToken $token): bool => ! $token->isIgnorable() && ! $token->is(T_CLOSE_TAG),
@@ -167,4 +169,12 @@ it('reads the braces of a variable in a string as ending no statement, and an at
         '$label = " ${ name }  held by  { $owner } " ;',
         "it ( 'holds' , function ( ) : void { expect ( 1 ) -> toBe ( 1 ) ; } ) ;",
     ]);
+});
+
+it('ends a declaration at the brace that closes its body, though a string inside it interpolates a variable in braces', function () use ($top): void {
+    $file = $top("<?php\n\nfunction greet(string \$name): string { return \"Hello {\$name}\"; }\necho greet('you');\n");
+
+    expect($file->declared())->toBe(['greet'])
+        ->and(array_map(static fn(array $statement): string => TopLevel::spelt(...$statement), $file->running()))
+        ->toBe(["echo greet ( 'you' ) ;"]);
 });
