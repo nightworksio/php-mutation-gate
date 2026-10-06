@@ -49,7 +49,7 @@ it('finds the patch in place and changes nothing when patching again', function 
     Patch::applyIn($at);
     $patched = array_map(static fn(string $file): string => $source($at, $file), InfectionSource::FILES);
 
-    expect(Patch::applyIn($at))->toBe('infection:patch patched 0 of the 2 files it changes in infection.')
+    expect(Patch::applyIn($at))->toBe('infection:patch found its patch already in place in the 2 files it changes in infection.')
         ->and(array_map(static fn(string $file): string => $source($at, $file), InfectionSource::FILES))->toBe($patched);
 });
 

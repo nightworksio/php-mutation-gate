@@ -65,7 +65,7 @@ it('finds the patch in place and changes nothing when patching again', function 
     Patch::applyIn($at);
     $patched = array_map(static fn(string $file): string => $source($at, $file), MutatePlugin::FILES);
 
-    expect(Patch::applyIn($at))->toBe('pest:patch patched 0 of the 3 files it changes in pest-plugin-mutate.')
+    expect(Patch::applyIn($at))->toBe('pest:patch found its patch already in place in the 3 files it changes in pest-plugin-mutate.')
         ->and(array_map(static fn(string $file): string => $source($at, $file), MutatePlugin::FILES))->toBe($patched);
 });
 
@@ -132,7 +132,7 @@ it('counts a vendor it already patched as patched, though none of its files can 
         array_map(static fn(string $file): bool => chmod($file, 0o644), $files);
     }
 
-    expect($again)->toBe('pest:patch patched 0 of the 3 files it changes in pest-plugin-mutate.')
+    expect($again)->toBe('pest:patch found its patch already in place in the 3 files it changes in pest-plugin-mutate.')
         ->and($applied)->toBeTrue();
 });
 
