@@ -24,6 +24,17 @@ final readonly class Timing
         return new self($unit, $seconds, $runner, $at);
     }
 
+    /**
+     * This measurement, smoothed over an earlier timing of the same unit:
+     * weighing this much itself, and the earlier timing the rest.
+     */
+    public function over(self $earlier, float $weight): self
+    {
+        $seconds = $weight * $this->seconds->seconds() + (1 - $weight) * $earlier->seconds->seconds();
+
+        return new self($this->unit, Seconds::of($seconds), $this->runner, $this->at);
+    }
+
     public function unit(): Path
     {
         return $this->unit;

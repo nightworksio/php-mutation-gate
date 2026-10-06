@@ -63,6 +63,7 @@ use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\ReadsOnly;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Undigested;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
@@ -554,4 +555,43 @@ it('records no digests where the plan has none', function () use ($map, $run, $l
     $money = LedgerRead::ledger($store->read(Scope::branch('main')))->proofs()->proofFor(Digest::sha256Of('money'));
 
     expect($money instanceof Proof ? $money->inputs() : $money)->toEqual(Undigested::proof());
+});
+
+it('smooths what a shard teaches of a unit over the timing a ledger held of it from the same runner', function () use (
+    $map,
+    $run,
+    $ledgers,
+): void {
+    $plan = Planned::twoShards();
+    $learnt = static function (Ledger $held) use ($map, $run, $ledgers, $plan): Timing|NotGiven {
+        $project = Flows::project();
+        $store = new ProofStoreFake();
+        $store->write(Scope::branch('main'), $held);
+        new Recorded(Flows::adapters($project, [], $store))->write(
+            $plan,
+            recordedRan($project, ScriptedRunner::fixture(), $map()),
+            $ledgers($store, $plan),
+            $run($plan),
+            CannotTell::because('It failed.'),
+        );
+
+        foreach (LedgerRead::ledger($store->read(Scope::branch('main')))->timings() as $timing) {
+            if ($timing->unit()->equals(Path::of('src/Money.php'))) {
+                return $timing;
+            }
+        }
+
+        return NotGiven::value();
+    };
+    $measured = $learnt(Ledger::empty());
+    $by = $measured instanceof Timing ? $measured->runner() : '';
+    $first = $measured instanceof Timing ? $measured->seconds()->seconds() : -1.0;
+    $held = static fn(string $runner): Ledger => Ledger::empty()->withTimings(Timings::of(
+        Timing::of(Path::of('src/Money.php'), Seconds::of(100.0), $runner, Moment::at('2026-01-01T00:00:00Z')),
+    ));
+    $seconds = static fn(Timing|NotGiven $timing): float => $timing instanceof Timing ? $timing->seconds()->seconds() : -1.0;
+
+    expect($seconds($learnt($held($by))))->toEqualWithDelta(Timings::NEWEST * $first + (1 - Timings::NEWEST) * 100.0, 1e-9)
+        ->and($seconds($learnt($held('another runner'))))->toEqualWithDelta($first, 1e-9)
+        ->and($first)->toBeLessThan(100.0);
 });

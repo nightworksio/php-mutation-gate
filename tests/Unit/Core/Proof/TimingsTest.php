@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
+use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
@@ -87,4 +88,37 @@ it('builds, merges and trims timings in time linear in their number', function (
     expect($kept(10)())->toHaveCount(10)
         ->and($kept(10)()->secondsFor(Path::of('src/F1.php')))->toEqual(Seconds::of(2.0))
         ->and(Growth::of(625, $kept))->toBeLessThan(Growth::LINEAR);
+});
+
+it('smooths each new measurement over the held timing of its unit by the same runner, the newest weighing nine tenths', function () use ($timing, $seconds): void {
+    $held = Timings::of($timing('src/A.php', 10.0), $timing('src/B.php', 4.0));
+    $measured = Timings::of($timing('src/A.php', 2.0, '2026-09-29T21:00:00Z'), $timing('src/C.php', 7.0, '2026-09-29T21:00:00Z'));
+    $smoothed = $measured->smoothedOver($held);
+
+    expect($seconds($smoothed))->toEqualWithDelta([2.8, 7.0], 1e-9)
+        ->and(array_map(static fn(Timing $each): Instant => $each->at(), [...$smoothed]))
+        ->toEqual([Moment::at('2026-09-29T21:00:00Z'), Moment::at('2026-09-29T21:00:00Z')]);
+});
+
+it('takes a new measurement as it is where the held timing is another runner\'s, or not older', function () use ($timing, $seconds): void {
+    $other = Timings::of(Timing::of(Path::of('src/A.php'), Seconds::of(10.0), 'infection', Moment::at('2026-09-29T19:00:00Z')));
+    $same = Timings::of($timing('src/A.php', 10.0, '2026-09-29T21:00:00Z'));
+    $measured = Timings::of($timing('src/A.php', 2.0, '2026-09-29T21:00:00Z'));
+
+    expect($seconds($measured->smoothedOver($other)))->toBe([2.0])
+        ->and($seconds($measured->smoothedOver($same)))->toBe([2.0])
+        ->and($seconds($measured->smoothedOver(Timings::none())))->toBe([2.0]);
+});
+
+it('smooths in time linear in the number of timings', function () use ($timing): void {
+    $smoothing = static function (int $size) use ($timing): Closure {
+        $units = array_map(static fn(int $at): string => sprintf('src/F%d.php', $at), range(1, $size));
+        $held = Timings::of(...array_map(static fn(string $unit): Timing => $timing($unit, 1.0), $units));
+        $measured = Timings::of(...array_map(static fn(string $unit): Timing => $timing($unit, 2.0, '2026-09-29T21:00:00Z'), $units));
+
+        return static fn(): Timings => $measured->smoothedOver($held);
+    };
+
+    expect($smoothing(10)())->toHaveCount(10)
+        ->and(Growth::of(625, $smoothing))->toBeLessThan(Growth::LINEAR);
 });
