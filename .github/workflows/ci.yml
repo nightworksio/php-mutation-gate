@@ -680,7 +680,8 @@ jobs:
           sed -e 's/failOnRisky="true"/failOnRisky="true" failOnPhpunitWarning="false" failOnPhpunitDeprecation="false"/' \
             -e 's/ *beStrictAboutTodoAnnotatedTests="true"//' phpunit.xml.dist > phpunit.xml
           printf 'vendor/\n.mutation-gate/\nwarm-*.json\n' > .gitignore
-          printf '{"format": 1, "trees": {"src": {"floor": 0}}, "security": {".": {"floor": 0}}}\n' > mutation-gate.baseline.json
+          printf '{"format": 1, "trees": {"src": {"floor": 0}}, "security": {".": {"floor": 0}}}\n' > warm-baseline.json
+          cp warm-baseline.json mutation-gate.baseline.json
           for mode in fresh fork; do
             printf '{"runner": {"use": "phpunit", "workers": "%s"}, "trees": [{"path": "src"}]}\n' "${mode}" > "warm-${mode}.json"
           done
@@ -695,6 +696,8 @@ jobs:
           env -u GITHUB_ACTIONS -u CI vendor/bin/mutation-gate coverage --no-interaction --config=warm-fresh.json
           for mode in fresh fork; do
             rm -rf .mutation-gate/ledger .mutation-gate/results .mutation-gate/equivalence
+            # A local run raises the floors it beat; each run starts from 0.
+            cp warm-baseline.json mutation-gate.baseline.json
             started=$(date +%s.%N)
             env -u GITHUB_ACTIONS -u CI vendor/bin/mutation-gate run --no-interaction --config="warm-${mode}.json" \
               --report="json:${RUNNER_TEMP}/${mode}.json"
