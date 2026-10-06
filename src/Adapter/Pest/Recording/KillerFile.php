@@ -14,8 +14,8 @@ use function is_file;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\WholeNumber;
 
-use function preg_match;
 use function rawurldecode;
 use function rawurlencode;
 use function sprintf;
@@ -40,9 +40,6 @@ final readonly class KillerFile
     private const string FILE = '%s.%s.killers';
 
     private const string LINE = "\n";
-
-    /** How a count of tests is written: a whole number. */
-    private const string COUNT = '/\A\d+\z/';
 
     /** What parts a line: the record before it, the test after. */
     private const string SEPARATOR = ' ';
@@ -123,7 +120,7 @@ final readonly class KillerFile
             RecordEvent::Killed => [RecordLine::killed($mutated, rawurldecode($test))],
             RecordEvent::Errored => [RecordLine::errored($mutated, rawurldecode($test))],
             RecordEvent::Preloaded => [RecordLine::preloaded($mutated)],
-            RecordEvent::Ran => preg_match(self::COUNT, $test) === 1 ? [RecordLine::ran($mutated, (int) $test)] : [],
+            RecordEvent::Ran => WholeNumber::isDigits($test) ? [RecordLine::ran($mutated, (int) $test)] : [],
             default => [],
         };
     }
