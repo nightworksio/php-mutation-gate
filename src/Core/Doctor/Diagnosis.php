@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Doctor\Check\SonarDrops;
 use NightWorksIO\MutationGate\Core\Doctor\Check\TreeFloors;
 use NightWorksIO\MutationGate\Core\Doctor\Check\TreesFound;
 use NightWorksIO\MutationGate\Core\Doctor\Check\VerdictRequired;
+use NightWorksIO\MutationGate\Core\Doctor\Check\WarmBoot;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Workspace;
 use NightWorksIO\MutationGate\Core\Doctor\Check\Xdebug;
 
@@ -64,6 +65,7 @@ final readonly class Diagnosis
             PublicContainer::in($observed),
             ScheduleRunning::in($observed),
             ShallowClone::in($observed),
+            WarmBoot::in($observed),
         );
     }
 }

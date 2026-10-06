@@ -55,6 +55,7 @@ final readonly class Php
         'MemoryCap' => 'NightWorksIO\\MutationGate\\Core\\Runner',
         'MemoryUnit' => 'NightWorksIO\\MutationGate\\Core\\Runner',
         'Withheld' => 'NightWorksIO\\MutationGate\\Core\\Runner',
+        'Workers' => 'NightWorksIO\\MutationGate\\Core\\Runner',
     ];
 
     public static function render(PhpCalls $calls): string

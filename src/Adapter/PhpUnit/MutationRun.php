@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
+use function array_filter;
 use function count;
 use function file_get_contents;
 use function getmypid;
@@ -11,6 +12,8 @@ use function hrtime;
 use function in_array;
 use function iterator_to_array;
 
+use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Forked;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Workforce;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\OwnTime;
@@ -23,6 +26,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -40,9 +44,12 @@ use function strval;
  * coverage map says cover its lines, and allowed the standard mutant limit of
  * their time as the map timed it (ADR-0008, decision 2). Their runs go side by
  * side, as many at once as the request's processes, each process told its
- * place as paratest tells its workers. A mutant no test covers is uncovered,
- * without a run. A mutant whose run has not started by the request's deadline
- * is skipped with no record. A run again makes only the mutants it names.
+ * place as paratest tells its workers: each forked from a warm worker where
+ * the request's pool asks for that and a worker can fork, and in a fresh
+ * process otherwise (ADR-0023, decisions 12 to 14). A mutant no test covers
+ * is uncovered, without a run. A mutant whose run has not started by the
+ * request's deadline is skipped with no record. A run again makes only the
+ * mutants it names.
  */
 final readonly class MutationRun
 {
@@ -58,6 +65,7 @@ final readonly class MutationRun
         private Project $project,
         private Engine $engine,
         private MutantRun $run,
+        private Workforce $workforce,
         private MutantIds|NotGiven $only = new NotGiven(),
     ) {
     }
@@ -65,7 +73,7 @@ final readonly class MutationRun
     /** This run, making only the mutants with these ids, as a run again does. */
     public function makingOnly(MutantIds $ids): self
     {
-        return new self($this->project, $this->engine, $this->run, $ids);
+        return new self($this->project, $this->engine, $this->run, $this->workforce, $ids);
     }
 
     /** Each mutant, each of its runs stopped at its limit under this cap. */
@@ -76,33 +84,30 @@ final readonly class MutationRun
 
         return match (true) {
             $judged instanceof CannotJudge => $judged,
-            default => MutationResult::of(Mutants::of(...$judged), count($made) - count($judged)),
+            default => MutationResult::of(Mutants::of(...$judged->mutants()), count($made) - count($judged->mutants()))
+                ->withWarnings($judged->warnings()),
         };
     }
 
     /**
      * Each mutant judged, until the request's deadline: one no test covers
-     * without a run, and the rest by runs side by side, a batch at a time,
-     * in the order they were made; or why one cannot be.
+     * without a run, and the rest by their runs, forked from warm workers
+     * where the request asks for them and fresh otherwise, in the order they
+     * were made; or why one cannot be.
      *
-     * @param  list<MadeMutant>    $made
-     * @return list<Mutant>|CannotJudge
+     * @param list<MadeMutant> $made
      */
     private function judgedAll(
         array $made,
         MutationRequest $request,
         CoverageMap $map,
         Seconds $cap,
-    ): array|CannotJudge {
-        $batch = PreparedBatch::of(
-            $this->run,
-            WorkerSlots::of($request->processes(), strval(getmypid())),
-            self::RUNS_PER_PLACE * $request->processes()->count(),
-            $this->endOf($request->deadline()),
-        );
+    ): Judged|CannotJudge {
+        $end = $this->endOf($request->deadline());
+        $queue = [];
 
         foreach ($made as $mutant) {
-            if ($batch->hasRunOut()) {
+            if (hrtime(as_number: true) >= $end) {
                 break;
             }
 
@@ -112,10 +117,44 @@ final readonly class MutationRun
                 return $prepared;
             }
 
-            $batch->add($prepared);
+            $queue[] = $prepared;
         }
 
-        return $batch->finished();
+        $runs = array_filter($queue, static fn(PreparedRun|Mutant $prepared): bool => $prepared instanceof PreparedRun);
+        $forked = $request->pool()->workers() === Workers::Fork
+            ? $this->workforce->judged($request, $end, $runs)
+            : Forked::nothing();
+
+        return $this->freshly($queue, $forked, $request, $end);
+    }
+
+    /**
+     * Each mutant in its order: as a warm worker's child judged it, without a
+     * run, or by a fresh run, side by side a batch at a time, while the time
+     * to start runs in lasts.
+     *
+     * @param list<PreparedRun|Mutant> $queue
+     */
+    private function freshly(array $queue, Forked $forked, MutationRequest $request, int|float $end): Judged
+    {
+        $processes = $request->pool()->processes();
+        $batch = PreparedBatch::of(
+            $this->run,
+            WorkerSlots::of($processes, strval(getmypid())),
+            self::RUNS_PER_PLACE * $processes->count(),
+            $end,
+        );
+
+        foreach ($queue as $at => $prepared) {
+            $judged = $forked->judgedAt($at);
+            $next = $judged instanceof Mutant ? $judged : $prepared;
+
+            if ($next instanceof Mutant || ! $batch->hasRunOut()) {
+                $batch->add($next);
+            }
+        }
+
+        return Judged::of($batch->finished(), $forked->warnings());
     }
 
     /**

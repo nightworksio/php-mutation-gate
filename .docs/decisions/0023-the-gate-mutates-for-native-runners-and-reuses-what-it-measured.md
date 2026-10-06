@@ -324,7 +324,8 @@ manual.
     - `Adapter\PhpUnit` holds the extension, the runner and the override. No
       port changes. It behaves as `RunnerBehaviour::standard()` says: it lists
       `#[Holds]` as groups, can raise a limit, reads the map the plan handed
-      each shard, and runs one mutant at a time.
+      each shard, and runs a mutant on each core at once (decisions 5 and
+      12).
 
 11. **Zero-config chooses the PHPUnit runner only where nothing else fits.**
     - `runner: phpunit` is chosen only when neither Pest's mutate plugin nor
@@ -346,12 +347,28 @@ manual.
 
 12. **Under a native runner, a worker per core boots once and forks a child
     per mutant.**
-    - The worker boots the autoloader, PHPUnit's configuration and its
-      bootstrap, with the override registered at start (decision 9).
-    - For each mutant it forks a child, which tells the override which
-      mutant to serve, runs the selected tests, reports and exits. The parent
-      is never touched by a mutant, so every mutant runs in a clean copy of
-      the booted process.
+    - The shard's PHPUnit runner starts one worker in each of its places,
+      and each lives for the whole run: it claims the next mutant from a
+      queue the workers share, under a lock, until none is left or the
+      run's time to start mutants has passed, which it checks before each
+      claim. The `Processes` port starts the workers as it starts any run,
+      and no port changes.
+    - A worker is `bin/mutation-gate-worker`, started as a mutant's own run
+      starts PHP, with the override registered at start (decision 9). It
+      boots as PHPUnit's own script does: the autoloader, PHPUnit's
+      configuration and its PHP settings, then the configured bootstrap.
+    - For each mutant it forks a child, which takes on the variables that
+      mutant's run is told, tells the override which mutant to serve, and
+      runs PHPUnit's `Application` with the command line a fresh run of that
+      mutant has. The parent is never touched by a mutant, so every mutant
+      runs in a clean copy of the booted process. `Application`, PHPUnit's
+      configuration loader and its PHP settings handler are `@internal` to
+      PHPUnit; the runner contract runs warm workers at the lowest and the
+      highest PHPUnit it installs, and goes red where a PHPUnit release
+      changes them.
+    - A child is stopped at its mutant's limit with every process under
+      it, and is judged as a fresh run is: what it printed is the growth of
+      the worker's output files between its fork and its end.
     - Mutant schemata are not used: a schematised program is not the mutant
       program, and a mutant of a declaration cannot be switched at run time.
     - Pest and Infection start their own processes, so warm workers exist
@@ -361,24 +378,43 @@ manual.
     share.**
     - The worker forks before the project's tests start, after only the
       autoloader, PHPUnit's configuration and the configured bootstrap.
-    - Before the first fork a guard checks that no socket, `pgsql` or
-      `mysqli` resource is open (`get_resources()`), and that no class of the
-      unit is loaded.
-    - A worker that fails the guard is dropped, and its mutants run in fresh
-      processes. The guard's reason is recorded, as ADR-0004 decision 8's
-      guards are, and `doctor` names the bootstrap line.
+    - Before the first fork a guard checks that the process holds no socket
+      open beyond its standard streams, read from the files the system lists
+      it as holding open, which counts a `pgsql` or `mysqli` connection
+      whether PHP holds it as a resource or as an object, and from PHP's own
+      socket streams where the system lists none. It also checks that the
+      boot did not start PHPUnit's event facade, whose buffered events and
+      start time every child would inherit, as PHPUnit before 13.4 starts it
+      to report a deprecation in its configuration, and that no file the run
+      mutates is loaded.
+    - A worker that fails the guard forks nothing, and its mutants run in
+      fresh processes. A worker that cannot fork, as where `pcntl` is not
+      loaded, does the same and warns of nothing.
+    - The guard's reason names the bootstrap file, and the line where PHP
+      can tell: for a file the run mutates, the line of the bootstrap that
+      autoloaded its class, or the autoloader where it was loaded before the
+      bootstrap ran; for a socket, or the event facade, the file of the boot
+      that ran last, since PHP does not tell which line opened it.
+    - Each reason a worker forked nothing for, and each worker that failed,
+      with what it printed, is one warning on the runner's result, which the
+      verdict, the console and the JSON report carry. The last run's reason
+      is kept, and `doctor` reports it as `warm-boot-refused`.
 
 14. **Whether a worker forks is a setting that can move a result.**
-    - `runner.workers`: `fork` or `fresh`. The default is `fork` where
-      `pcntl` is loaded and the runner is native, and `fresh` otherwise.
+    - `runner.workers`: `fork` (the default) or `fresh`. Under a runner that
+      is not native, and on a PHP that cannot fork, every mutant runs in a
+      fresh process whatever it says.
     - It affects results and is in key item 3 (ADR-0007 decision 2.3), since
       a boot's state is a new source of state, as test order is (ADR-0013
       decision 4).
     - Survivor confirmation (ADR-0008 decision 3) always runs in a fresh
       process, so a survivor a warm boot made shows up as flaky.
-    - The first step of the build measures the boot's share of a mutant's
-      time on the benchmark's Laravel and Symfony projects (ADR-0017
-      decision 14), and proves the guard on them.
+    - CI's `warm workers` job runs the gate with each setting on a pinned
+      PHPUnit library, `lcobucci/jwt`, and says what each run took. Where
+      they disagree it runs each setting twice more, and fails where every
+      forked run gives a mutant one verdict and every fresh run another. The benchmark's Symfony
+      project (ADR-0017 decision 14) measures the boot's share of a mutant's
+      time once the benchmark lands.
 
 ## Alternatives considered
 

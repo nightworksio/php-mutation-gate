@@ -20,8 +20,16 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
 final readonly class Command
 {
     /**
+     * The shell, and its script, that run a program with its standard output
+     * and error written to two files, which the two arguments after the
+     * script's own name name.
+     */
+    private const array WRITING = ['/bin/sh', '-c', 'out=$1 err=$2; shift 2; exec "$@" >"$out" 2>"$err"', 'sh'];
+
+    /**
      * @param list<string>          $arguments after the PHP binary
      * @param array<string, string> $told      the variables it is set
+     * @param list<string>          $writing   the shell that writes its output to files, and its arguments; none
      */
     private function __construct(
         private array $arguments,
@@ -29,6 +37,7 @@ final readonly class Command
         private Withheld $withheld,
         private Seconds|Unlimited $deadline,
         private DiskPath|Uncapped $scanned,
+        private array $writing = [],
     ) {
     }
 
@@ -61,10 +70,19 @@ final readonly class Command
         return clone($this, ['scanned' => $directory]);
     }
 
-    /** @return list<string> the PHP binary, then the arguments */
+    /**
+     * This command, its PHP's standard output and error written to these
+     * files from its start, so every process it forks writes there too.
+     */
+    public function writingTo(string $out, string $err): self
+    {
+        return clone($this, ['writing' => [...self::WRITING, $out, $err]]);
+    }
+
+    /** @return list<string> the PHP binary, then the arguments: after the shell writing its output, where one does */
     public function arguments(): array
     {
-        return [PHP_BINARY, ...$this->arguments];
+        return [...$this->writing, PHP_BINARY, ...$this->arguments];
     }
 
     /** @return array<string, string> */

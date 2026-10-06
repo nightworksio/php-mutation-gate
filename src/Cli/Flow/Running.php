@@ -33,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Instant;
@@ -158,9 +159,10 @@ final readonly class Running
             $outcome instanceof CannotJudge ? $outcome : $outcome->result,
             Measurement::of($spent, $identity instanceof CannotJudge ? '' : $identity->runner(), Instant::at($ended)),
         );
-        $result = $this->left($result, $outcome)->withWarnings($history instanceof CannotJudge ? Warnings::of(
+        $result = $this->left($result, $outcome);
+        $result = $result->withWarnings($result->warnings()->and($history instanceof CannotJudge ? Warnings::of(
             Warning::that(sprintf(self::UNREAD_HISTORY, $id->number(), $history->why())),
-        ) : Warnings::none());
+        ) : Warnings::none()));
 
         return $this->adapters->project->write(
             Workspace::result($results, $id),
@@ -168,7 +170,7 @@ final readonly class Running
         );
     }
 
-    /** The result with what the shard's mutating left beside its mutants: nothing where it cannot judge. */
+    /** The result with what the shard's mutating left beside its mutants, warnings too: none where it cannot judge. */
     private function left(ShardResult $result, Mutated|CannotJudge $outcome): ShardResult
     {
         return $outcome instanceof CannotJudge ? $result : $result
@@ -176,7 +178,8 @@ final readonly class Running
             ->withMisses($outcome->held->misses())
             ->withCovered($outcome->held->covered())
             ->withUnjudged($outcome->unjudged)
-            ->withChecks($outcome->checks);
+            ->withChecks($outcome->checks)
+            ->withWarnings($outcome->result->warnings());
     }
 
     /**
@@ -224,7 +227,7 @@ final readonly class Running
             MutationResult::of(
                 MemoryTriage::weighed(TimeoutTriage::timed($checked->mutants, $map), $plan->briefing()->peak()),
                 $spent->skipped,
-            ),
+            )->withWarnings($spent->warnings),
             $spent->flaky,
             $held,
             $spent->unjudged,
@@ -337,7 +340,7 @@ final readonly class Running
         }
 
         return RunRequest::of($this->adapters, $this->settings, $files, $judgedBy)
-            ->across($this->adapters->processes())
+            ->across(Pool::of($this->adapters->processes(), $this->settings->runner()->workers()))
             ->reusingCoverage(Handed::maps(Workspace::shardCoverage($shard), Workspace::coverage()))
             ->searching($search);
     }

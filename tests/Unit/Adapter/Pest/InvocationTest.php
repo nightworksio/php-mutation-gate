@@ -11,8 +11,10 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
+use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
@@ -148,7 +150,7 @@ it('mutates a tree less its held paths, by a group and some mutators, by a deadl
             TrueToFalse::class,
         )))
         ->leavingOut(Paths::of(Path::of('src/Kernel.php'), Path::of('src/Boot')))
-        ->across(ProcessCount::of(8))
+        ->across(Pool::of(ProcessCount::of(8), Workers::Fork))
         ->within(Seconds::of(600.0));
     $command = invocation()->mutation($request, Group::named('holds:src'), '/p/results.jsonl');
 

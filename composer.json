@@ -44,6 +44,7 @@
     },
     "require-dev": {
         "ext-dom": "*",
+        "ext-pcntl": "*",
         "ext-sodium": "*",
         "async-aws/core": "^1.30",
         "async-aws/s3": "^3",
@@ -81,6 +82,7 @@
     },
     "suggest": {
         "ext-dom": "To read PHPUnit's XML coverage and JUnit log, which the Infection adapter does (infection/infection requires it)",
+        "ext-pcntl": "To fork each mutant from a warm worker under the PHPUnit runner, which runs each in a fresh process without it",
         "async-aws/s3": "To keep proofs in S3 or R2 (^3)",
         "colinodell/json5": "To read a project's infection.json5, which the Infection adapter does (^3.0; infection/infection requires it)",
         "infection/infection": "To mutate with Infection (~0.35.0) and PHPUnit 12 or 13, through the Infection adapter",

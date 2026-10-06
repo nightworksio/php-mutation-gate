@@ -21,6 +21,8 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Pool;
+use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -59,7 +61,7 @@ final readonly class Invoking
             $retried instanceof CannotJudge => $retried,
             $again instanceof CannotJudge => $again,
             default => new Invoked(
-                MutationResult::of($again->mutants, $result->skipped()),
+                MutationResult::of($again->mutants, $result->skipped())->withWarnings($result->warnings()),
                 $again->flaky,
                 count($this->capped($result->mutants())),
             ),
@@ -138,10 +140,11 @@ final readonly class Invoking
     }
 
     /**
-     * Survivor confirmation (ADR-0008): each survivor run once more, alone and
-     * by the same tests, where `flaky.confirmSurvivors` asks for it, unless
-     * it is proven equivalent, so no test can tell it from its original
-     * (ADR-0013, decision 10); the verdict proves the survivors again itself.
+     * Survivor confirmation (ADR-0008): each survivor run once more, alone,
+     * in a fresh process (ADR-0023, decision 14) and by the same tests, where
+     * `flaky.confirmSurvivors` asks for it, unless it is proven equivalent, so
+     * no test can tell it from its original (ADR-0013, decision 10); the
+     * verdict proves the survivors again itself.
      * Those killed the second time are flaky, and those the time left had no
      * room for are unjudged.
      */
@@ -165,7 +168,7 @@ final readonly class Invoking
         $fitting = $this->fitting(count($survivors), $this->settings->triage()->limit());
         $left = $this->unjudged(array_slice($survivors, $fitting), OutOfTime::BeforeConfirming);
         $again = $fitting === 0 ? Mutants::none() : $this->adapters->runner->retry(
-            $this->retimed($request),
+            $this->retimed($request)->across(Pool::of($request->pool()->processes(), Workers::Fresh)),
             Mutants::of(...array_slice($survivors, 0, $fitting)),
             $this->settings->triage()->limit(),
         );

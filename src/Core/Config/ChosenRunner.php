@@ -6,21 +6,27 @@ namespace NightWorksIO\MutationGate\Core\Config;
 
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Workers;
 
 /**
  * The runner a config chooses, the environment variables it adds to those
- * the runner withholds from the project's tests, and the memory each of its
- * mutants' processes may use (ADR-0004).
+ * the runner withholds from the project's tests, the memory each of its
+ * mutants' processes may use (ADR-0004), and how each of its mutants' runs
+ * starts (ADR-0023).
  */
 final readonly class ChosenRunner
 {
-    private function __construct(private Choice $choice, private Withheld $withhold, private MemoryCap $memory)
-    {
+    private function __construct(
+        private Choice $choice,
+        private Withheld $withhold,
+        private MemoryCap $memory,
+        private Workers $workers,
+    ) {
     }
 
-    public static function of(Choice $choice, Withheld $withhold, MemoryCap $memory): self
+    public static function of(Choice $choice, Withheld $withhold, MemoryCap $memory, Workers $workers): self
     {
-        return new self($choice, $withhold, $memory);
+        return new self($choice, $withhold, $memory, $workers);
     }
 
     public function choice(): Choice
@@ -41,5 +47,11 @@ final readonly class ChosenRunner
     public function memory(): MemoryCap
     {
         return $this->memory;
+    }
+
+    /** `runner.workers`: how each mutant's run starts (ADR-0023, decision 14). */
+    public function workers(): Workers
+    {
+        return $this->workers;
     }
 }

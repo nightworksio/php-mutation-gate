@@ -23,6 +23,7 @@ parameters:
         - tests
         - phpstan
         - bin/mutation-gate
+        - bin/mutation-gate-worker
 
     # The runner contract suite's fixture is a project of its own, with its own
     # dependencies, written as a user's library is rather than to these rules.
@@ -266,6 +267,8 @@ parameters:
                 - src/Adapter/*
                 - src/Cli/*
                 - tests/*
+                # A warm worker's child is told its mutant's variables in its own process (ADR-0023, decision 12).
+                - bin/mutation-gate-worker
 
         # --- B7: waiting is an adapter's -----------------------------------------
         -
@@ -318,6 +321,9 @@ parameters:
                 # file, so a fatal error Pest's handling loses is still read; the entry below keeps it to the two
                 # inert settings that do so (ADR-0004).
                 - src/Adapter/Pest/Recording/Killers.php
+                # A warm worker's script sets the time zone PHPUnit's own script sets where PHP sets none, in its
+                # own process, which the gate starts for it and no test boots (ADR-0023, decision 12).
+                - bin/mutation-gate-worker
 
         # The extension keys each entry by its call, so a second 'ini_set()' would replace the one above; the
         # pattern 'ini_set*()' matches ini_set() alone and keeps both.
@@ -561,6 +567,14 @@ services:
                     - OTLP # a key of the delivery, not the reporter's name
                 'NightWorksIO\MutationGate\Adapter\PhpUnit\MutationRun':
                     - RUNS_PER_PLACE # mutant runs a place queues per batch, not a span id's length
+                'NightWorksIO\MutationGate\Adapter\PhpUnit\Command':
+                    - WRITING # the shell's flag that takes its script, not git's flag that takes a setting
+                'NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\BootCheck':
+                    - FIRST_OWN # the first file number a process opens itself, after its three standard streams
+                'NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Worker':
+                    - PACKAGE # directories from the worker's file up to the package's own, not a status record
+                'NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Workforce':
+                    - SLACK # seconds a warm worker may take past its last run, not the ledger's limit
                 'NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan':
                     - TRUSTED_SOURCES # Buildkite's build.source values, not another CI's event names
                 'NightWorksIO\MutationGate\Core\Cost\StartUpSamples':
@@ -953,10 +967,12 @@ services:
         class: NightWorksIO\MutationGate\PHPStan\Rules\NoMagicMethodRule
         tags:
             - phpstan.rules.rule
-    # P2, with the three files that construct a class by a name they read: the
+    # P2, with the four files that construct a class by a name they read: the
     # extension classes the Composer manifests name (ADR-0001), the extensions
-    # and adapters a config names by class (ADR-0002), and the mutators a set
-    # registers by class (ADR-0021).
+    # and adapters a config names by class (ADR-0002), the mutators a set
+    # registers by class (ADR-0021), and the two PHPUnit classes a warm worker
+    # builds, whose constructors PHPUnit's releases declare differently
+    # (ADR-0023).
     -
         class: NightWorksIO\MutationGate\PHPStan\Rules\NoDynamicAccessRule
         arguments:
@@ -964,6 +980,7 @@ services:
                 - src/Cli/Discovery/Discovery.php
                 - src/Cli/Config/Chosen.php
                 - src/Mutator/Engine/Enabled.php
+                - src/Adapter/PhpUnit/Warm/Configuring.php
         tags:
             - phpstan.rules.rule
     # Q3

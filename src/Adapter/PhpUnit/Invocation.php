@@ -6,6 +6,8 @@ namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
 use function array_map;
 
+use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Worker;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Workplace;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
@@ -73,6 +75,21 @@ final readonly class Invocation
             ->within($limit);
     }
 
+    /**
+     * A warm worker (ADR-0023, decision 12), its PHP started as a mutant's own
+     * run starts it, running the worker's script on the project's autoloader
+     * in a place of a workplace, and writing its output, and its children's,
+     * to files.
+     */
+    public function worker(Workplace $workplace, int $place, Withheld $withheld): Command
+    {
+        $where = [$this->project->autoloader(), $workplace->directory(), sprintf('%d', $place)];
+
+        return $this->overridden(Worker::script(), ...$where)
+            ->withholding($withheld)
+            ->writingTo($workplace->out($place), $workplace->err($place));
+    }
+
     /** A run of no test, started as a mutant's own run is, its mutant the file unchanged. */
     public function startingUp(MutantFiles $files, Withheld $withheld): Command
     {
@@ -123,11 +140,7 @@ final readonly class Invocation
             ? []
             : [PhpUnitOption::StopOnError->value, PhpUnitOption::StopOnFailure->value];
 
-        return Command::php(
-            '-d',
-            sprintf(self::OFF, Opcache::CLI),
-            '-d',
-            sprintf('auto_prepend_file=%s', $this->override),
+        return $this->overridden(
             $this->project->phpunit(),
             PhpUnitOption::Extension->value,
             Extension::class,
@@ -145,6 +158,18 @@ final readonly class Invocation
             ->telling(Variable::Guard, $files->guard())
             ->telling(Variable::Mutant, $files->original())
             ->telling(Variable::Mutated, $files->mutated());
+    }
+
+    /** PHP with opcache off and the override prepended, as every run of a mutant starts it, running these. */
+    private function overridden(string ...$arguments): Command
+    {
+        return Command::php(
+            '-d',
+            sprintf(self::OFF, Opcache::CLI),
+            '-d',
+            sprintf('auto_prepend_file=%s', $this->override),
+            ...$arguments,
+        );
     }
 
     /** @return list<string> what narrows a coverage run: a group, a filter, or the test files run in place of suites */

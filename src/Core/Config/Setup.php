@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Workers;
 
 use function sprintf;
 
@@ -64,11 +65,12 @@ final readonly class Setup implements Part
         Choice|Absent $treeSource = new Absent(),
         MemoryCap|Absent $memory = new Absent(),
         Mutators|Absent $mutators = new Absent(),
+        Workers|Absent $workers = new Absent(),
     ): self {
         return new self(
             $extensions,
             $presets,
-            RunnerLayer::of($runner, $withhold, $memory),
+            RunnerLayer::of($runner, $withhold, $memory, $workers),
             $treeSource,
             $mutators instanceof Mutators ? $mutators : Mutators::none(),
         );
@@ -86,7 +88,7 @@ final readonly class Setup implements Part
         return self::of(
             extensions: $none->extensions(),
             treeSource: $none->treeSource(),
-            memory: $none->memory(),
+            memory: $none->runnerLayer()->memory(),
             mutators: Mutators::standard(),
         );
     }
@@ -126,16 +128,14 @@ final readonly class Setup implements Part
         return $this->runner->runner();
     }
 
-    /** `runner.withhold`: what the runner withholds from the project's tests, beside what every run does. */
-    public function withhold(): Withheld
+    /**
+     * What the layers say of the runner: `runner.withhold`, `runner.memory`
+     * (1G where no layer says) and `runner.workers` (forking where no layer
+     * says).
+     */
+    public function runnerLayer(): RunnerLayer
     {
-        return $this->runner->withhold();
-    }
-
-    /** `runner.memory`: the memory each process that runs a mutant may use, 1G where no layer says. */
-    public function memory(): MemoryCap
-    {
-        return $this->runner->memory();
+        return $this->runner;
     }
 
     /** The registered mutators the config turns on beside the runner's own (ADR-0021). */

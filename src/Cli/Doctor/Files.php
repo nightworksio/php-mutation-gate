@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Doctor\InfectionConfig;
 use NightWorksIO\MutationGate\Core\Doctor\PhpUnitMemory;
 use NightWorksIO\MutationGate\Core\Doctor\ProjectFiles;
 use NightWorksIO\MutationGate\Core\Doctor\SonarSources;
+use NightWorksIO\MutationGate\Core\Doctor\WarmRefusal;
 use NightWorksIO\MutationGate\Core\File\GitIgnore;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -37,12 +38,13 @@ use NightWorksIO\MutationGate\Core\ThisPackage;
 use function sprintf;
 use function str_contains;
 use function str_ends_with;
+use function trim;
 
 /**
  * What `doctor` reads of the project's own files: its `.gitignore`, its
  * Infection config, how its `composer.json` installs its packages, the CI
- * definitions that run the gate, the baseline the config names, and whether
- * git cloned it shallow.
+ * definitions that run the gate, the baseline the config names, whether git
+ * cloned it shallow, and why the last run's warm workers forked nothing.
  */
 final readonly class Files
 {
@@ -69,6 +71,8 @@ final readonly class Files
         $files = $this->git->isShallow() === true ? $files->shallow() : $files;
         $sonar = SonarSources::in(Properties::decode($this->text(Path::of(SonarSources::FILE))));
         $files = $sonar instanceof SonarSources ? $files->withSonarSources($sonar) : $files;
+        $warm = trim($this->text(WarmRefusal::file()));
+        $files = $warm === '' ? $files : $files->withWarmRefusal(WarmRefusal::of($warm));
 
         return $settings instanceof Settings
             ? $files->withBaseline($this->baseline($settings->floors()->baseline()))

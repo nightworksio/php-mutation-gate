@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Workers;
 
 /**
  * The PHP config (ADR-0002): a `mutation-gate.php` returns
@@ -69,6 +70,12 @@ final readonly class Gate
     public function cappedAt(MemoryCap $memory): self
     {
         return $this->merge(Json::object(Member::of('runner', Json::object(Member::of('memory', $memory->written())))));
+    }
+
+    /** `runner.workers`, where a preset or another layer chooses the runner: `Workers::Fresh`. */
+    public function inWorkers(Workers $workers): self
+    {
+        return $this->merge(Json::object(Member::of('runner', Json::object(Member::of('workers', $workers->value)))));
     }
 
     public function treeSource(Source $source): self

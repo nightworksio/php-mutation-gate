@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Order\Ordering;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Triage\Repeated;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 
@@ -92,7 +93,7 @@ final readonly class Triaging
             ->onlyIn($this->filesOf($unit, $inventory));
 
         return RunRequest::of($this->adapters, $this->settings, Paths::of($unit->path()), $unit->judgedBy())
-            ->across($this->adapters->processes())
+            ->across(Pool::of($this->adapters->processes(), $this->settings->runner()->workers()))
             ->searching(KillSearch::of(Ordering::of($order, $history), MatrixKind::FirstKiller));
     }
 

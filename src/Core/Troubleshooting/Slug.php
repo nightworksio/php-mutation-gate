@@ -38,6 +38,7 @@ enum Slug: string
     case MemoryCapLifted = 'memory-cap-lifted';
     case MemoryCapNear = 'memory-cap-near';
     case ShallowClone = 'shallow-clone';
+    case WarmBootRefused = 'warm-boot-refused';
     case AnonymousReadsRefused = 'anonymous-reads-refused';
     case OutsideSonarSources = 'outside-sonar-sources';
     case Survived = 'survived';

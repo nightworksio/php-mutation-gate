@@ -34,10 +34,13 @@ use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
+use NightWorksIO\MutationGate\Core\Runner\Pool;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
 use NightWorksIO\MutationGate\Core\Runner\Unmade;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
@@ -174,8 +177,23 @@ it('reports a killed, a survived, an uncovered and a timed-out mutant', function
     expect($result)->toBeInstanceOf(MutationResult::class)
         ->and($result instanceof MutationResult ? $result->skipped() : -1)->toBe(0)
         ->and($result instanceof MutationResult ? Library::records($result->mutants()) : [])
-        ->toEqualCanonicalizing($library->expected('adds', 'large', 'unused', 'drains'));
+        ->toEqualCanonicalizing($library->expected('adds', 'large', 'unused', 'drains'))
+        ->and($result instanceof MutationResult ? [...$result->warnings()] : ['cannot judge'])->toBe([]);
 })->with($libraries);
+
+it('reports the same four mutants from warm workers, and warns of nothing, with PHPUnit', function (): void {
+    $library = Library::phpunit();
+    $result = $library->mutate(
+        'money warm',
+        MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+            ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('adds', 'large', 'unused', 'drains')))
+            ->across(Pool::of(ProcessCount::of(2), Workers::Fork)),
+    );
+
+    expect($result instanceof MutationResult ? Library::records($result->mutants()) : [])
+        ->toEqualCanonicalizing($library->expected('adds', 'large', 'unused', 'drains'))
+        ->and($result instanceof MutationResult ? [...$result->warnings()] : ['cannot judge'])->toBe([]);
+})->skip(! Library::isPhpUnitInstalled() || ! function_exists('pcntl_fork'), 'the runner contracts job installs the PHPUnit library, on a PHP that forks');
 
 // PHPUnit fails a run for an option it deprecates only where the project's
 // config fails on its own deprecations. The phpunit library's does, so a

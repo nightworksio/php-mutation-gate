@@ -61,10 +61,12 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
+use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -249,7 +251,7 @@ it('asks a runner that runs a mutant per core for every core the machine has', f
     new Running($adapters, Flows::settings(), Flows::setup())
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
 
-    expect(array_map(static fn(MutationRequest $request): ProcessCount => $request->processes(), $runner->requests()))
+    expect(array_map(static fn(MutationRequest $request): ProcessCount => $request->pool()->processes(), $runner->requests()))
         ->toEqual([$adapters->cores, $adapters->cores])
         ->and($adapters->cores)->not->toEqual(ProcessCount::single());
 });
@@ -270,7 +272,7 @@ it('runs the held path by its group, the rest by the suite, on the shard\'s map,
         ->and($rest->judgedBy())->toEqual(WholeSuite::tests())
         ->and($held->coverage())->toEqual(Handed::maps(Workspace::shardCoverage(ShardId::of(1)), Workspace::coverage()))
         ->and($rest->coverage())->toEqual(Handed::maps(Workspace::shardCoverage(ShardId::of(1)), Workspace::coverage()))
-        ->and($held->processes())->toEqual(ProcessCount::single())
+        ->and($held->pool())->toEqual(Pool::of(ProcessCount::single(), Workers::Fork))
         ->and($held->withheld())->toEqual(Withheld::standard()->and($adapters->withheld))
         ->and($rest->withheld())->toEqual(Withheld::standard()->and($adapters->withheld))
         ->and($runner->identified())->not->toBeEmpty()
@@ -307,6 +309,25 @@ it('caps each mutant\'s process at runner.memory, and at 1G where the config set
     expect($capped(ConfiguredRunner::uses('fake')->cappedAt(MemoryCap::of(256, MemoryUnit::Megabytes))))
         ->toEqual([MemoryCap::of(256, MemoryUnit::Megabytes), MemoryCap::of(256, MemoryUnit::Megabytes)])
         ->and($capped())->toEqual([MemoryCap::standard(), MemoryCap::standard()]);
+});
+
+it('starts each mutant as runner.workers says, and confirms each survivor in a fresh process', function (): void {
+    $started = static function (ConfiguredRunner ...$runner): array {
+        $project = Flows::project();
+        $scripted = ScriptedRunner::fixture()->killingAgain(MutantStatus::Killed);
+
+        new Running(Flows::adapters($project, [], $scripted), Flows::settings(...$runner), Flows::setup())
+            ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+
+        return [
+            array_map(static fn(MutationRequest $request): Workers => $request->pool()->workers(), $scripted->requests()),
+            array_map(static fn(array $retry): Workers => $retry[4]->pool()->workers(), $scripted->retries()),
+        ];
+    };
+
+    expect($started(ConfiguredRunner::uses('fake')->inWorkers(Workers::Fresh)))
+        ->toBe([[Workers::Fresh, Workers::Fresh], [Workers::Fresh, Workers::Fresh]])
+        ->and($started())->toBe([[Workers::Fork, Workers::Fork], [Workers::Fresh, Workers::Fresh]]);
 });
 
 it('leaves every invocation\'s mutants in one result, with what each skipped added up', function () use (
@@ -832,6 +853,27 @@ it('judges a shard whose kill history cannot be read without it, and warns of it
         ->and($warnings[0] ?? null)->toBeInstanceOf(Warning::class)
         ->and(($warnings[0] ?? null)?->text())
         ->toStartWith('Shard 1 ran its tests without the kill history the plan handed it. A kill history cannot be read: ');
+});
+
+it('keeps what the runner warned of in each invocation, before the shard\'s own warnings', function () use ($resultIn): void {
+    $project = Flows::project();
+    $plan = Planned::handedIn($project, Planned::oneShard());
+    Scratch::write($project, '.mutation-gate/coverage/shard-1/killers.json', '{"format": 1, "tests": 3}');
+    $warned = static fn(string $text): MutationResult => MutationResult::of(Mutants::none(), 0)
+        ->withWarnings(Warnings::of(Warning::that($text)));
+    $runner = ScriptedRunner::fixture()->answeringInTurn($warned('held'), $warned('rest'));
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
+        ->run($plan, ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+    $texts = array_map(
+        static fn(Warning $warning): string => $warning->text(),
+        $result instanceof ShardResult ? [...$result->warnings()] : [],
+    );
+
+    expect(array_slice($texts, 0, 2))->toBe(['held', 'rest'])
+        ->and($texts)->toHaveCount(3)
+        ->and($texts[2] ?? '')->toStartWith('Shard 1 ran its tests without the kill history');
 });
 
 it('runs every batch that fits a budget with the time left, leaving nothing unjudged', function () use ($resultIn, $unjudged): void {

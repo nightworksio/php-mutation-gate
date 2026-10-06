@@ -1,0 +1,66 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+// A warm worker of the PHPUnit runner (ADR-0023, decisions 12 and 13), which
+// the gate starts on the PHP a mutant's run starts on, with the override
+// prepended, in the project's root: the project's autoloader, the workplace
+// and the worker's place among the workers, in that order. It sets PHP up as
+// PHPUnit's own script does before it runs, and each child it forks is told
+// its mutant's variables, has the override serve its mutant, and runs PHPUnit
+// as that script runs it. What runs only in a child, or only in this process
+// before the worker boots, is here.
+
+use NightWorksIO\MutationGate\Adapter\PhpUnit\MutantFile;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Forking;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Refusal;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\WarmRun;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Worker;
+use PHPUnit\TextUI\Application;
+
+$given = is_array($_SERVER['argv']) ? $_SERVER['argv'] : [];
+$arguments = [];
+
+foreach ($given as $argument) {
+    $arguments[] = is_string($argument) ? $argument : '';
+}
+
+[, $autoloader, $workplace, $place] = [...$arguments, '', '', '', ''];
+
+if (ini_get('date.timezone') === '') {
+    ini_set('date.timezone', 'UTC');
+}
+
+define('PHPUNIT_COMPOSER_INSTALL', $autoloader);
+
+require $autoloader;
+
+$worker = Worker::at($workplace, (int) $place);
+
+if (! function_exists('pcntl_fork')) {
+    exit($worker->refused(Refusal::unforkable('The PHP the runner starts cannot fork: pcntl is not loaded.')));
+}
+
+exit($worker->run(new class implements Forking {
+    public function forked(WarmRun $run): int
+    {
+        $child = pcntl_fork();
+
+        if ($child !== 0) {
+            return $child;
+        }
+
+        foreach ($run->environment() as $name => $value) {
+            putenv(sprintf('%s=%s', $name, $value));
+            $_ENV[$name] = $value;
+            $_SERVER[$name] = $value;
+        }
+
+        MutantFile::serve($run->original(), $run->mutated(), $run->guard());
+        $_SERVER['argv'] = $run->argv();
+        $_SERVER['argc'] = count($run->argv());
+
+        exit(new Application()->run($run->argv()));
+    }
+}));

@@ -29,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
@@ -165,7 +166,7 @@ const EVERYTHING = [
     '$schema' => 'resources/mutation-gate.schema.json',
     'extensions' => ['Acme\\GateSlack\\SlackExtension'],
     'preset' => ['laravel', 'acme'],
-    'runner' => ['use' => 'infection', 'with' => [], 'withhold' => ['DEPLOY_*', 'COMPOSER_AUTH'], 'memory' => '512m'],
+    'runner' => ['use' => 'infection', 'with' => [], 'withhold' => ['DEPLOY_*', 'COMPOSER_AUTH'], 'memory' => '512m', 'workers' => 'fresh'],
     'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app', 'lib']]],
     'mutators' => ['sets' => ['acme', 'acme-auth'], 'except' => ['acme/RemoveAudit']],
     'trees' => [
@@ -284,6 +285,7 @@ it('reads the defaults into their types', function (): void {
         ->and($settings->ci()->jenkinsDefinition())->toEqual(Path::of('Jenkinsfile'))
         ->and($settings->runner()->withhold())->toEqual(Withheld::nothing())
         ->and($settings->runner()->memory())->toEqual(MemoryCap::standard())
+        ->and($settings->runner()->workers())->toBe(Workers::Fork)
         ->and($settings->proofs()->store())->toEqual(Choice::of('directory', Configs::options('{"path":".mutation-gate/ledger"}')))
         ->and([...$settings->proofs()->ignore()])->toBe([])
         ->and($settings->proofs()->write())->toBe(Writing::Auto)
@@ -320,6 +322,7 @@ it('reads every setting a config writes into its type', function (): void {
         ->and($settings->runner()->choice())->toEqual(Choice::of('infection', Configs::options('{}')))
         ->and($settings->runner()->withhold())->toEqual(Withheld::of('DEPLOY_*', 'COMPOSER_AUTH'))
         ->and($settings->runner()->memory())->toEqual(MemoryCap::of(512, MemoryUnit::Megabytes))
+        ->and($settings->runner()->workers())->toBe(Workers::Fresh)
         ->and($settings->treeSource())->toEqual(Choice::of('phpunit', Configs::options('{"fallback":["app","lib"]}')))
         ->and([...$settings->mutators()->sets()])->toEqual([Name::of('acme'), Name::of('acme-auth')])
         ->and([...$settings->mutators()->except()])->toBe(['acme/RemoveAudit'])
@@ -414,7 +417,7 @@ it('shows the memory cap beside the runner, and what it withholds only where it 
         ->and(Configs::shown(Configs::settings(['runner' => ['use' => 'pest', 'memory' => '-1']]), 'runner'))
         ->toBe(['use' => 'pest', 'memory' => '-1'])
         ->and(Configs::shown(Configs::settings(EVERYTHING), 'runner'))
-        ->toBe(['use' => 'infection', 'withhold' => ['DEPLOY_*', 'COMPOSER_AUTH'], 'memory' => '512M']);
+        ->toBe(['use' => 'infection', 'withhold' => ['DEPLOY_*', 'COMPOSER_AUTH'], 'memory' => '512M', 'workers' => 'fresh']);
 });
 
 it('refuses a runner that withholds without naming the runner, or withholds anything but names', function (
@@ -464,7 +467,7 @@ it('serialises the settings that affect results canonically, and only those', fu
         . '"flaky":{"confirmSurvivors":false},'
         . '"mutators":{"except":["acme/RemoveAudit"],"sets":["acme","acme-auth"]},"packages":["packages/*"],'
         . '"pest":{"canary":"canary","patch":true},'
-        . '"runner":{"memory":"512M","use":"infection"},'
+        . '"runner":{"memory":"512M","use":"infection","workers":"fresh"},'
         . '"staticCheck":{"config":"phpstan.dist.neon","seconds":45,"tool":"phpstan"},'
         . '"tests":{"order":"killers-first"},"timeouts":{"retries":0,"seconds":30},'
         . '"treeSource":{"use":"phpunit","with":{"fallback":["app","lib"]}},'
@@ -498,7 +501,7 @@ it('keeps the settings that only judge or report out of the canonical form', fun
         'budget' => '5m',
         'proofs' => ['write' => 'auto'],
         'coverage' => ['incremental' => true],
-        'runner' => ['use' => 'infection', 'with' => [], 'memory' => '512M'],
+        'runner' => ['use' => 'infection', 'with' => [], 'memory' => '512M', 'workers' => 'fresh'],
     ];
 
     expect(Configs::settings($judging)->canonical())->toBe(Configs::settings(EVERYTHING)->canonical());
@@ -510,6 +513,7 @@ it('changes the canonical form with every setting that affects results', functio
 })->with([
     'the runner' => [['runner' => 'pest']],
     'the memory cap' => [['runner' => [...EVERYTHING['runner'], 'memory' => '-1']]],
+    'how its workers start' => [['runner' => [...EVERYTHING['runner'], 'workers' => 'fork']]],
     'its tree source' => [['treeSource' => 'composer']],
     'a tree\'s path' => [['trees' => [['path' => 'app']]]],
     'the packages' => [['packages' => []]],
@@ -1168,4 +1172,14 @@ it('re-checks the comment\'s count of survivors first by default, as many as set
         ->toBeTrue()
         ->and(Configs::problems(Configs::validated(['runner' => 'pest', 'survivorsFirst' => ['max' => -1]])))
         ->toBe(['survivorsFirst.max: expected an integer of at least 0, got -1']);
+});
+
+it('reads how the runner\'s workers start, forking where no layer says, and refuses any other word', function (): void {
+    $fresh = Configs::settings(['runner' => ['use' => 'phpunit', 'workers' => 'fresh']]);
+
+    expect($fresh->runner()->workers())->toBe(Workers::Fresh)
+        ->and(Configs::settings(['runner' => 'phpunit'])->runner()->workers())->toBe(Workers::Fork)
+        ->and(Configs::shown($fresh, 'runner'))->toBe(['use' => 'phpunit', 'memory' => '1G', 'workers' => 'fresh'])
+        ->and(Configs::problems(Configs::validated(['runner' => ['use' => 'phpunit', 'workers' => 'warm']])))
+        ->toBe(['runner.workers: expected "fork" or "fresh", got "warm"']);
 });

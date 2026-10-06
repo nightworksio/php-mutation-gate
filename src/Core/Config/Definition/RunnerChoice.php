@@ -16,12 +16,14 @@ use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Workers;
 
 /**
  * The `runner` key: an adapter chosen as any other is, and in its object
  * form also `withhold`, the environment variables a project adds to those the
  * runner never hands its tests, and `memory`, the memory each process that
- * runs a mutant may use (ADR-0004). A layer may write `withhold` or `memory`
+ * runs a mutant may use (ADR-0004), and `workers`, how each mutant's run
+ * starts (ADR-0023). A layer may write `withhold`, `memory` or `workers`
  * alone, for a later layer or zero-config to choose the runner.
  *
  * @implements Shape<Setup>
@@ -43,14 +45,16 @@ final readonly class RunnerChoice implements Shape
         $with = Field::optional('with', OpenObject::any(), $judges);
         $withhold = Field::optional('withhold', Items::of(Text::of('a variable name or a glob')), $judges);
         $memory = Field::optional('memory', MemoryAmount::written(), Effect::AffectsResults);
+        $workers = Field::optional('workers', Enumerated::of(Workers::cases()), Effect::AffectsResults);
 
         return new self(
             Adapter::choosing($builtins),
             Section::of(
-                static function (Node $at) use ($builtins, $use, $with, $withhold, $memory): Setup|Invalid {
+                static function (Node $at) use ($builtins, $use, $with, $withhold, $memory, $workers): Setup|Invalid {
                     $named = $use->read($at);
                     $withheld = $withhold->read($at);
                     $capped = $memory->read($at);
+                    $started = $workers->read($at);
 
                     return Reading::built(
                         static fn(): Setup|Invalid => self::object(
@@ -59,17 +63,20 @@ final readonly class RunnerChoice implements Shape
                             $named->value(),
                             $withheld->value(),
                             $capped->value(),
+                            $started->value(),
                         ),
                         $named,
                         $with->read($at),
                         $withheld,
                         $capped,
+                        $started,
                     );
                 },
                 $use,
                 $with,
                 $withhold,
                 $memory,
+                $workers,
             ),
             $builtins,
         );
@@ -96,6 +103,7 @@ final readonly class RunnerChoice implements Shape
         $alone = Json::object(
             Member::of('withhold', Items::of(Text::of('a variable name or a glob'))->schema()),
             Member::of('memory', MemoryAmount::written()->schema()),
+            Member::of('workers', Enumerated::of(Workers::cases())->schema()),
         );
 
         return Json::object(Member::of(
@@ -121,6 +129,7 @@ final readonly class RunnerChoice implements Shape
             ...$this->adapter->effects(),
             '.withhold' => Effect::JudgesOrReportsOnly,
             '.memory' => Effect::AffectsResults,
+            '.workers' => Effect::AffectsResults,
         ];
     }
 
@@ -131,24 +140,24 @@ final readonly class RunnerChoice implements Shape
         string|Absent $use,
         Listed|Absent $withhold,
         MemoryCap|Absent $memory,
+        Workers|Absent $workers,
     ): Setup|Invalid {
         $withheld = $withhold instanceof Absent ? Withheld::nothing() : Withheld::of(...$withhold);
         $options = $at->field('with');
+        $alone = $withhold instanceof Absent && $memory instanceof Absent && $workers instanceof Absent;
+        $chosen = $use instanceof Absent ? new Absent() : Adapter::chosen($builtins->choose($use, $options));
 
         return match (true) {
-            ! $use instanceof Absent => self::chosen(
-                Adapter::chosen($builtins->choose($use, $options)),
-                $withheld,
-                $memory,
+            $chosen instanceof Invalid => $chosen,
+            $chosen instanceof Choice => Setup::of(
+                runner: $chosen,
+                withhold: $withheld,
+                memory: $memory,
+                workers: $workers,
             ),
-            ($withhold instanceof Absent && $memory instanceof Absent), $options->kind() !== Kind::Nothing
+            $alone, $options->kind() !== Kind::Nothing
                 => Invalid::because($at->field('use')->mismatch('a name or a class')),
-            default => Setup::of(withhold: $withheld, memory: $memory),
+            default => Setup::of(withhold: $withheld, memory: $memory, workers: $workers),
         };
-    }
-
-    private static function chosen(Choice|Invalid $choice, Withheld $withhold, MemoryCap|Absent $memory): Setup|Invalid
-    {
-        return $choice instanceof Choice ? Setup::of(runner: $choice, withhold: $withhold, memory: $memory) : $choice;
     }
 }

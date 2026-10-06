@@ -606,6 +606,143 @@ jobs:
         if: failure()
         run: python3 .github/scripts/gate_summary.py runner-contracts
 
+  # Warm workers against fresh processes (ADR-0023, decisions 12 to 14): the
+  # gate run on a pinned PHPUnit library, lcobucci/jwt, on one coverage map,
+  # once with `runner.workers: fresh` and once with `fork`, at the PHPUnit the
+  # PHPUnit runner's fixture locks. The step summary holds what each run took.
+  # Where the forked run judges a mutant otherwise, the gate runs each mode
+  # twice more, and the job fails only where all three forked runs give a
+  # mutant one verdict and all three fresh runs another; a mutant the runs of
+  # one mode disagree on is named in the summary as unsettled. The library is pinned by its tag, its commit and the
+  # SHA-256 of its whole tree as `git archive` writes it, with nothing left
+  # out: its .gitattributes leave its tests out of every archive GitHub
+  # serves, so its tag is cloned and archived here. jwt's own PHPUnit is 11,
+  # and PHPUnit 13 warns of the repeated `#[Uses]` attributes of its tests and
+  # refuses the `beStrictAboutTodoAnnotatedTests` attribute of its config, so
+  # its config drops that attribute and passes on PHPUnit's own warnings and
+  # deprecations. Each run is the gate's local run, with GITHUB_ACTIONS and CI
+  # unset, on a baseline whose floors are 0, so a score never fails it.
+  warm-workers:
+    name: warm workers
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      JWT_VERSION: "5.6.0"
+      JWT_COMMIT: "bb3e9f21e4196e8afc41def81ef649c164bca25e"
+      JWT_SHA256: "6d867830ac3b1c80d34e831f25afc8237887a63c1d89940eccbb7d547fa7b0a6"
+      # The library's archive holds no version for Composer to read.
+      COMPOSER_ROOT_VERSION: "5.6.0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+          extensions: pcntl, sodium
+          # jwt's tests expect assertions to run, as a development PHP has them.
+          ini-values: zend.assertions=1
+      - name: lcobucci/jwt, at its pinned tag, commit and tree
+        run: |
+          set -euo pipefail
+          src="${RUNNER_TEMP}/jwt-src"
+          git clone --quiet --depth 1 --branch "${JWT_VERSION}" https://github.com/lcobucci/jwt.git "${src}"
+          test "$(git -C "${src}" rev-parse HEAD)" = "${JWT_COMMIT}"
+          # A repository's info/attributes is read before its tree's own.
+          printf '* -export-ignore -export-subst\n' > "${src}/.git/info/attributes"
+          git -C "${src}" archive --format=tar HEAD > "${RUNNER_TEMP}/jwt.tar"
+          sha256sum --check --strict <<<"${JWT_SHA256}  ${RUNNER_TEMP}/jwt.tar"
+          mkdir "${RUNNER_TEMP}/jwt"
+          tar xf "${RUNNER_TEMP}/jwt.tar" -C "${RUNNER_TEMP}/jwt"
+      - name: install it with this checkout's gate, at the PHPUnit the runner's fixture locks
+        working-directory: ${{ runner.temp }}/jwt
+        run: |
+          set -euo pipefail
+          lock="${GITHUB_WORKSPACE}/tests/Contract/Runner/phpunit-fixture/composer.lock"
+          phpunit=$(jq -r '.packages[] | select(.name == "phpunit/phpunit") | .version' "${lock}")
+          jq --arg gate "${GITHUB_WORKSPACE}" --arg phpunit "${phpunit}" '
+            .["require-dev"] = {
+              "lcobucci/clock": .["require-dev"]["lcobucci/clock"],
+              "phpunit/phpunit": $phpunit,
+              "nightworksio/mutation-gate": "@dev"
+            }
+            | del(.config.platform)
+            | .config["allow-plugins"] = {}
+            | .repositories = [{"type": "path", "url": $gate, "options": {"symlink": true}}]
+            | .["minimum-stability"] = "dev"
+            | .["prefer-stable"] = true' composer.json > composer.json.new
+          mv composer.json.new composer.json
+          composer update --no-interaction --no-progress
+          composer show --format=json > "${RUNNER_TEMP}/installed.json"
+          jq -r '.installed[] | select(.name == "phpunit/phpunit" or .name == "nightworksio/mutation-gate") | "\(.name) \(.version)"' \
+            "${RUNNER_TEMP}/installed.json"
+          sed -e 's/failOnRisky="true"/failOnRisky="true" failOnPhpunitWarning="false" failOnPhpunitDeprecation="false"/' \
+            -e 's/ *beStrictAboutTodoAnnotatedTests="true"//' phpunit.xml.dist > phpunit.xml
+          printf 'vendor/\n.mutation-gate/\nwarm-*.json\n' > .gitignore
+          printf '{"format": 1, "trees": {"src": {"floor": 0}}, "security": {".": {"floor": 0}}}\n' > warm-baseline.json
+          cp warm-baseline.json mutation-gate.baseline.json
+          for mode in fresh fork; do
+            printf '{"runner": {"use": "phpunit", "workers": "%s"}, "trees": [{"path": "src"}]}\n' "${mode}" > "warm-${mode}.json"
+          done
+          git init --quiet
+          git add --all
+          git -c user.name=warm -c user.email=warm@localhost commit --quiet --message "lcobucci/jwt ${JWT_VERSION}"
+      - id: measure
+        working-directory: ${{ runner.temp }}/jwt
+        run: |
+          set -euo pipefail
+          mkdir -p "${GITHUB_WORKSPACE}/evidence/raw"
+          measure="${GITHUB_WORKSPACE}/.github/scripts/warm_measure.py"
+          env -u GITHUB_ACTIONS -u CI vendor/bin/mutation-gate coverage --no-interaction --config=warm-fresh.json
+          # One run of the gate, in a mode, its report and wall time kept under a name.
+          gate() {
+            rm -rf .mutation-gate/ledger .mutation-gate/results .mutation-gate/equivalence
+            # A local run raises the floors it beat; each run starts from 0.
+            cp warm-baseline.json mutation-gate.baseline.json
+            started=$(date +%s.%N)
+            env -u GITHUB_ACTIONS -u CI vendor/bin/mutation-gate run --no-interaction --config="warm-$1.json" \
+              --report="json:${RUNNER_TEMP}/$2.json"
+            python3 -c "print($(date +%s.%N) - ${started})" > "${RUNNER_TEMP}/$2.seconds"
+          }
+          gate fresh fresh
+          gate fork fork
+          runs=()
+          # Every run of a mode, its report and its wall time, as the measure reads them.
+          for run in fresh fork; do
+            runs+=("--${run}" "${RUNNER_TEMP}/${run}.json" "$(cat "${RUNNER_TEMP}/${run}.seconds")")
+          done
+          # A verdict one run gives may be one its mode gives only now and
+          # then: two more runs of each mode settle it.
+          suspects=$(python3 "${measure}" suspects "${RUNNER_TEMP}/fresh.json" "${RUNNER_TEMP}/fork.json")
+          if [ "${suspects}" -gt 0 ]; then
+            for again in 2 3; do
+              for mode in fresh fork; do
+                gate "${mode}" "${mode}-${again}"
+                runs+=("--${mode}" "${RUNNER_TEMP}/${mode}-${again}.json" "$(cat "${RUNNER_TEMP}/${mode}-${again}.seconds")")
+              done
+            done
+          fi
+          python3 "${measure}" judge "${runs[@]}" --findings "${GITHUB_WORKSPACE}/evidence/raw/warm-workers.json"
+      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py warm-workers
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-warm-workers
+          path: evidence/warm-workers*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py warm-workers
+
   # G8 — every mutant of src is killed. The package holds its own code to a
   # floor of 100 through its own gate: the reusable workflow and the action in
   # this repository, run from the same commit. Until the gate can run itself
@@ -691,7 +828,7 @@ jobs:
   # left none.
   evidence:
     name: evidence
-    needs: [scope, scripts, hygiene, security, rules, guards, checks, tests, lowest, runner-contract, runner-contracts, sonar, gate]
+    needs: [scope, scripts, hygiene, security, rules, guards, checks, tests, lowest, runner-contract, runner-contracts, warm-workers, sonar, gate]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

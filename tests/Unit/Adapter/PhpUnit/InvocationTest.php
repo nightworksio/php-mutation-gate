@@ -7,6 +7,8 @@ use NightWorksIO\MutationGate\Adapter\PhpUnit\Invocation;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\MutantFiles;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Project;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Variable;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Worker;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Workplace;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
@@ -120,4 +122,30 @@ it('keeps the coverage run and each mutant\'s run to one suite where the run nam
         ->and(array_slice($invocation->coverage($run->inSuite(SuiteName::of('unit')), '/map.php')->arguments(), -1))
         ->toBe(['--testsuite=unit'])
         ->and($invocation->coverage($run, '/map.php')->arguments())->not->toContain('--testsuite=unit');
+});
+
+it('starts a warm worker as a mutant\'s own run starts PHP, on the worker\'s script, the autoloader and its place, writing its output to its files', function () use ($project): void {
+    $at = $project();
+    $workplace = Workplace::at(sprintf('%s/warm', $at->root()));
+    $command = new Invocation($at, '/gate/override.php')->worker($workplace, 2, Withheld::of('SECRET'));
+
+    expect($command->arguments())->toBe([
+        '/bin/sh',
+        '-c',
+        'out=$1 err=$2; shift 2; exec "$@" >"$out" 2>"$err"',
+        'sh',
+        $workplace->out(2),
+        $workplace->err(2),
+        PHP_BINARY,
+        '-d',
+        'opcache.enable_cli=0',
+        '-d',
+        'auto_prepend_file=/gate/override.php',
+        Worker::script(),
+        sprintf('%s/vendor/autoload.php', $at->root()),
+        $workplace->directory(),
+        '2',
+    ])
+        ->and($command->withheld())->toEqual(Withheld::standard()->and(Withheld::of('SECRET')))
+        ->and($command->environment())->toBe([]);
 });

@@ -155,9 +155,9 @@ it('cannot name a PHPUnit it cannot drive, or a PHP that does not describe itsel
         ->and(phpUnitRunner($silent, $shell)->identity(Withheld::standard()))->toEqual(Platform::ofRunner('Segmentation fault'));
 });
 
-it('behaves as a standard runner: holds as groups, a limit it can raise, the map the plan handed on, one mutant at a time', function (): void {
+it('behaves as a standard runner: holds as groups, a limit it can raise, the map the plan handed on, a mutant per core at once', function (): void {
     expect(phpUnitRunner(phpUnitRunnerProject(), PhpUnitShellFake::answering(Ran::finished(succeeded: true, output: '')))->behaviour())
-        ->toEqual(RunnerBehaviour::standard());
+        ->toEqual(RunnerBehaviour::standard()->runningPerCore());
 });
 
 it('lists the groups PHPUnit lists for the suite', function (): void {
