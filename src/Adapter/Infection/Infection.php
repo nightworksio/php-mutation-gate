@@ -235,15 +235,14 @@ final readonly class Infection implements Runner
     }
 
     /**
-     * Each timed-out or skipped mutant the cap decided runs again with this
-     * most as the cap, as the invocation that made it asked: judged by its
-     * tests, reading the coverage it read, withheld and timed as it was. The
-     * rest are answered as they were.
+     * Each mutant runs again with this most as the cap, as the invocation
+     * that made it asked: judged by its tests, reading the coverage it read,
+     * withheld and timed as it was.
      */
     public function retry(MutationRequest $request, Mutants $mutants, Seconds $most): Mutants|CannotJudge
     {
         return $this->rerunning()->retry(
-            Retrial::under($this->bounds->most()),
+            Retrial::of(),
             $request,
             $mutants,
             $this->bounds->upToInstead($most),

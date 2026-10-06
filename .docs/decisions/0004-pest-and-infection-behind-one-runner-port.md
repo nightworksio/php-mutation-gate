@@ -150,9 +150,8 @@ its parser attributes. Both change when the checkout moves.
      - killed, survived, uncovered or errored;
      - timed out, or skipped: too slow to run at all, because the tests
        alone take its limit (unpatched Infection's own skip, and decision
-       8's). Retries
-       run in the shard, and the timeout rule is applied at verdict time
-       (ADR-0008);
+       8's). None is run again, and the timeout rule is applied at verdict
+       time (ADR-0008);
      - unjudged: no result, because the budget ran out, the runner stopped
        first, a covering test could not be put in Pest's filter (decision 3),
        or decision 8 could not judge it, with its reason.
@@ -163,8 +162,7 @@ its parser attributes. Both change when the checkout moves.
      the gate (ADR-0008).
    - **duration**, where the runner reports one.
    - **limit**, for a timed-out or skipped mutant: the seconds the runner
-     allowed it, and whether it was retried. Timeout triage needs both
-     (ADR-0008).
+     allowed it, which timeout triage needs (ADR-0008).
 
 3. **The Pest adapter** (`pestphp/pest` ^5.1, `pestphp/pest-plugin-mutate`
    ^5.0, and the PHPUnit 13 release Pest pins).
@@ -425,6 +423,10 @@ its parser attributes. Both change when the checkout moves.
          runs. The runs a mutation run needs are made side by side, in the
          places of its pool, each told what its place tells it, as the
          mutants' own runs were.
+         Only Pest's runs need them: Pest alone narrows a mutant's own run
+         to some test files. The PHPUnit runner and Infection load every
+         test file in each mutant's run, so a kill there never rests on a
+         file it left out.
 
        A kill that does not count runs again with every test file within the
        time left, or is unjudged. A kill whose records cannot be read does
@@ -513,8 +515,7 @@ its parser attributes. Both change when the checkout moves.
      - `source.directories` are the directories of the files the run mutates.
      - `logs.json` and `logs.text` point into `.mutation-gate/infection/logs/`,
        and every other log is off.
-     - `timeout` is `timeouts.most` (ADR-0008), or the doubled most of a
-       retry. Every run is started with `MUTATION_GATE_MUTANT_FLOOR` set to
+     - `timeout` is `timeouts.most` (ADR-0008). Every run is started with `MUTATION_GATE_MUTANT_FLOOR` set to
        `timeouts.seconds`, which the lines `infection:patch` writes read.
    - **`infection:patch` gives Infection the gate's mutant limit.** It is
      `@php vendor/bin/mutation-gate infection:patch` in `post-install-cmd`

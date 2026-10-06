@@ -94,12 +94,12 @@ it('writes the reason a runner left a mutant unjudged in the full record', funct
 });
 
 it('writes and reads back what a time budget ran out before, where one left the mutant unjudged', function () use ($timedOut, $unjudged, $read): void {
-    $left = $timedOut->unjudged(OutOfTime::BeforeRetrying);
+    $left = $timedOut->unjudged(OutOfTime::BeforeConfirming);
 
     expect(MutantRecord::full($left))->toMatchArray([
         'status' => 'unjudged',
-        'reason' => OutOfTime::BeforeRetrying->reason()->text(),
-        'outOfTime' => 'before-retrying',
+        'reason' => OutOfTime::BeforeConfirming->reason()->text(),
+        'outOfTime' => 'before-confirming',
     ])
         ->and(MutantRecord::full($unjudged))->not->toHaveKey('outOfTime')
         ->and(MutantRecord::readFull($read(MutantRecord::full($left))))->toEqual($left)

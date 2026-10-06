@@ -81,7 +81,7 @@ it('finds the preset and the runner of a project with no config', function () us
         'runner' => ['use' => 'pest', 'memory' => '1G'],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app']]],
         'reach' => ['everything' => ['bootstrap/**', 'config/**', 'routes/**', '.env.testing']],
-        'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'most' => 300, 'retries' => 20],
+        'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'most' => 300],
     ]);
 });
 
@@ -99,7 +99,7 @@ it('lays the config file over its presets, and the command line over both', func
         'trees' => [['path' => 'src/Domain', 'floor' => 100]],
         'reach' => ['everything' => ['config/**', '.env.test', 'tests/bootstrap.php', 'migrations/**']],
         'budget' => '5m',
-        'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'most' => 300, 'retries' => 20],
+        'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'most' => 300],
         'reports' => [
             ['use' => 'sarif', 'path' => 'build/mutation.sarif'],
             ['use' => 'json', 'path' => 'build/mutation.json'],
@@ -172,10 +172,10 @@ it('gives a library listed after a framework its own timeout and floor', functio
 
     expect($shown($effective($project)->settings($nothing())))->toMatchArray([
         'newCode' => ['floor' => 100],
-        'timeouts' => ['seconds' => 10, 'most' => 300, 'retries' => 20, 'mode' => 'confirm'],
+        'timeouts' => ['seconds' => 10, 'most' => 300, 'mode' => 'confirm'],
     ])->and($shown($effective($project)->settings($framework)))->toMatchArray([
         'newCode' => ['floor' => 100],
-        'timeouts' => ['seconds' => 30, 'most' => 300, 'retries' => 20, 'mode' => 'confirm'],
+        'timeouts' => ['seconds' => 30, 'most' => 300, 'mode' => 'confirm'],
     ]);
 });
 
@@ -191,7 +191,7 @@ it('chooses the library preset for a project without composer.json', function ()
         'preset' => 'library',
         'runner' => ['use' => 'infection', 'memory' => '1G'],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => []]],
-        'timeouts' => ['mode' => 'confirm', 'seconds' => 10, 'most' => 300, 'retries' => 20],
+        'timeouts' => ['mode' => 'confirm', 'seconds' => 10, 'most' => 300],
     ]);
 });
 
@@ -348,7 +348,7 @@ it('judges a layer a loader or a preset built by hand, as the definition judges 
     $smuggled = Layer::of(
         Setup::of(runner: Choice::of('pest', Configs::options('{}'))),
         Floors::of(trees: Listed::of(DeclaredTree::of(Path::of('src'), Floor::of(0), Listed::of()))),
-        Triage::of(limit: Seconds::of(-5), retries: -1),
+        Triage::of(limit: Seconds::of(-5)),
         Shards::of(seconds: Seconds::of(600), max: 0, target: Seconds::of(1200)),
         Ignores::of(entries: Listed::of($unexplained)),
     );
@@ -379,7 +379,7 @@ it('judges a layer a loader or a preset built by hand, as the definition judges 
 
     expect($paths)->toBe(array_map(
         static fn(string $path): string => sprintf($at, $path),
-        ['trees[0].reason', 'shards.max', 'shards', 'timeouts.seconds', 'timeouts.retries', 'ignores.entries[0].reason'],
+        ['trees[0].reason', 'shards.max', 'shards', 'timeouts.seconds', 'ignores.entries[0].reason'],
     ));
 })->with([
     'a loader' => ['gate.smuggled', '%s'],

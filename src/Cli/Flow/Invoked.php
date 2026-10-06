@@ -7,14 +7,10 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 
-/**
- * What one invocation of a shard came to: its mutants, each timeout its
- * retry answered replaced by that answer, the survivors a second run killed,
- * and how many of its mutants first ran out of time.
- */
+/** What one invocation of a shard came to: its mutants, and the survivors a second run killed. */
 final readonly class Invoked
 {
-    public function __construct(public MutationResult $result, public MutantIds $flaky, public int $outOfTime)
+    public function __construct(public MutationResult $result, public MutantIds $flaky)
     {
     }
 }

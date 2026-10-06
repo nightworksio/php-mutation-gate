@@ -9,7 +9,6 @@ use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Budget;
-use NightWorksIO\MutationGate\Config\Flaky;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
@@ -24,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -211,17 +211,19 @@ it('says a run was cut short where its budget ran out before a unit or left a mu
     Settings $settings,
     int $step,
     bool $cut,
+    array $left,
 ): void {
     $project = Flows::project();
     $plan = Planned::handedIn($project, Planned::oneShard());
-    $timedOut = Mutant::of(
-        MutantId::hash(Path::of('src/Money.php'), 'Plus', '@@ @@', 0),
+    $diff = "@@ @@\n-        return \$a + \$b;\n+        return \$a - \$b;";
+    $survivor = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', $diff, 0),
         'Plus-1',
         Location::of(Path::of('src/Money.php'), Line::of(1), Line::of(1)),
-        Mutation::of('Plus', MutatorFamily::Arithmetic, '@@ @@'),
-        MutantStatus::TimedOut,
-        Seconds::of(5.0),
-    )->withLimit(Seconds::of(5.0));
+        Mutation::of('Plus', MutatorFamily::Arithmetic, $diff),
+        MutantStatus::Survived,
+        Seconds::of(1.0),
+    );
     $setup = new Setup(
         Absent::setting(),
         Version::of('nightworksio/mutation-gate', '1.0.0', 'gate'),
@@ -230,13 +232,22 @@ it('says a run was cut short where its budget ran out before a unit or left a mu
         new PeakMemoryFake(NotGiven::value()),
         DecidingConfig::unread(),
     );
-    new Running(Flows::adapters($project, [], ScriptedRunner::fixture()->answering(Mutants::of($timedOut), 0)), $settings, $setup)
+    new Running(Flows::adapters($project, [], ScriptedRunner::fixture()->answering(Mutants::of($survivor), 0)), $settings, $setup)
         ->runAll($plan, Workspace::results());
     $results = Results::read($plan, Workspace::results(), Directory::at($project));
 
-    expect($results instanceof Results ? $results->wereCutShort() : $results)->toBe($cut);
+    $outOfTime = [];
+
+    foreach ($results instanceof Results ? $results->units() : [] as $unit) {
+        foreach ($unit->mutants() as $mutant) {
+            $outOfTime = OutOfTime::left($mutant) ? [...$outOfTime, $mutant->nativeId()] : $outOfTime;
+        }
+    }
+
+    expect($results instanceof Results ? $results->wereCutShort() : $results)->toBe($cut)
+        ->and($outOfTime)->toBe($left);
 })->with([
-    'no budget' => [Flows::settings(Timeouts::seconds(5), Timeouts::most(5), Timeouts::retries(2), Flaky::notConfirmingSurvivors()), 1, false],
-    'a timeout it had no time to run again' => [Flows::settings(Timeouts::seconds(5), Timeouts::most(5), Timeouts::retries(2), Flaky::notConfirmingSurvivors(), Budget::of('10s')), 1, true],
-    'a budget no unit fits' => [Flows::settings(Budget::of('1s')), 1, true],
+    'no budget' => [Flows::settings(Timeouts::seconds(5)), 1, false, []],
+    'a survivor it had no time to confirm' => [Flows::settings(Timeouts::seconds(5), Budget::of('20s')), 1, true, ['Plus-1']],
+    'a budget no unit fits' => [Flows::settings(Budget::of('1s')), 1, true, []],
 ]);

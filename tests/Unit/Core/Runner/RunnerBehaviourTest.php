@@ -10,11 +10,11 @@ use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 
-it('lists holds as groups, raises limits, has no group in every key and opens no shard of its own, by default', function (): void {
+it('lists holds as groups, has no group in every key and opens no shard of its own, by default', function (): void {
     $standard = RunnerBehaviour::standard();
 
-    expect([$standard->holdsAsLoaded(), $standard->raisesLimits(), $standard->opensEachShard()])
-        ->toBe([false, true, false])
+    expect([$standard->holdsAsLoaded(), $standard->opensEachShard()])
+        ->toBe([false, false])
         ->and($standard->readByEveryKey())->toEqual(Groups::none())
         ->and($standard->whyNotFull())->toBe(NotFull::FirstKillers)
         ->and($standard->parallelism())->toBe(Parallelism::Serial)
@@ -29,18 +29,17 @@ it('says each way it behaves otherwise, and nothing more', function (): void {
     $canary = Group::named('mutation-canary');
     $pest = RunnerBehaviour::standard()
         ->holdingAsLoaded()
-        ->raisingNoLimit()
         ->readingInEveryKey($canary)
         ->openingEachShard();
 
-    expect([$pest->holdsAsLoaded(), $pest->raisesLimits(), $pest->opensEachShard()])->toBe([true, false, true])
+    expect([$pest->holdsAsLoaded(), $pest->opensEachShard()])->toBe([true, true])
         ->and($pest->readByEveryKey())->toEqual(Groups::of($canary))
-        ->and(RunnerBehaviour::standard()->raisingNoLimit()->holdsAsLoaded())->toBeFalse()
+        ->and(RunnerBehaviour::standard()->openingEachShard()->holdsAsLoaded())->toBeFalse()
         ->and(RunnerBehaviour::standard()->stoppingAtFirstKiller(NotFull::Infection)->whyNotFull())
         ->toBe(NotFull::Infection)
-        ->and(RunnerBehaviour::standard()->stoppingAtFirstKiller(NotFull::Infection)->raisesLimits())->toBeTrue()
+        ->and(RunnerBehaviour::standard()->stoppingAtFirstKiller(NotFull::Infection)->opensEachShard())->toBeFalse()
         ->and(RunnerBehaviour::standard()->runningPerCore()->parallelism())->toBe(Parallelism::PerCore)
-        ->and(RunnerBehaviour::standard()->runningPerCore()->raisesLimits())->toBeTrue();
+        ->and(RunnerBehaviour::standard()->runningPerCore()->opensEachShard())->toBeFalse();
 });
 
 it('records first killers always, and every killer unless it is Infection', function (): void {

@@ -24,7 +24,6 @@ it('says what the budget ran out before, and the command that judges it', functi
         ->and($before->reason()->outOfTime())->toBe($before);
 })->with([
     'mutating' => [OutOfTime::BeforeMutating, 'this run mutated its unit'],
-    'retrying' => [OutOfTime::BeforeRetrying, 'it could run again with a doubled limit'],
     'confirming' => [OutOfTime::BeforeConfirming, 'its survival could be confirmed'],
 ]);
 
@@ -42,13 +41,12 @@ it('knows a mutant or a kill a time budget left unjudged by what its reason reco
     $kill = ProvedKill::of(MutantId::hash(Path::of('src/Money.php'), 'Plus', '2', 0), Path::of('src/Money.php'), Line::of(2), 'Plus', TestIds::none());
 
     return [
-        'a timeout it had no time to run again' => [$mutant(MutantStatus::TimedOut)->unjudged(OutOfTime::BeforeRetrying), true],
         'a survivor it had no time to confirm' => [$mutant(MutantStatus::Survived)->unjudged(OutOfTime::BeforeConfirming), true],
         'a kill that no longer stands' => [$kill->unjudged(OutOfTime::BeforeMutating), true],
         'a kill' => [$kill, false],
         'a mutant the runner left unjudged for its own reason' => [$mutant(MutantStatus::Unjudged)->because(Reason::that('No test could be named.')), false],
         'a mutant unjudged with no reason' => [$mutant(MutantStatus::Unjudged), false],
         'a survivor whose reason is the budget\'s' => [$mutant(MutantStatus::Survived)->because(OutOfTime::BeforeConfirming->reason()), false],
-        'a mutant the runner left unjudged in the budget\'s words' => [$mutant(MutantStatus::Unjudged)->because(Reason::that(OutOfTime::BeforeRetrying->reason()->text())), false],
+        'a mutant the runner left unjudged in the budget\'s words' => [$mutant(MutantStatus::Unjudged)->because(Reason::that(OutOfTime::BeforeConfirming->reason()->text())), false],
     ];
 });

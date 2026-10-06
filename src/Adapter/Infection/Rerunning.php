@@ -25,9 +25,9 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
  * Mutants run again, each file with only one mutator and the project's
- * settings for it, each mutant's limit within the bounds: a retry's, as the invocation
- * that made them asked, reading the coverage it read, its runs together
- * ending by the request's deadline, and one mutant
+ * settings for it, each mutant's limit within the bounds a run again asks
+ * for, as the invocation that made them asked, reading the coverage it read,
+ * its runs together ending by the request's deadline, and one mutant
  * reproduced by the tests given, with what Infection printed. The run under
  * coverage Infection reads first is not part of what it printed.
  */

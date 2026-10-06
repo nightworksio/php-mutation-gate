@@ -22,12 +22,10 @@ use function sprintf;
  */
 final readonly class Triage implements Part
 {
-    /** The least and the most seconds a mutant may run, and how many timed-out mutants are run again. */
+    /** The least and the most seconds a mutant may run. */
     private const int TIMEOUT = 10;
 
     private const int MOST = 300;
-
-    private const int RETRIES = 20;
 
     private const string UNDER_THE_FLOOR = 'expected at least timeouts.seconds, %d, got %d';
 
@@ -36,7 +34,6 @@ final readonly class Triage implements Part
         private TimeoutMode|Absent $mode,
         private Seconds|Absent $limit,
         private Seconds|Absent $most,
-        private int|Absent $retries,
         private bool|Absent $confirmSurvivors,
         private TestOrder|Absent $order,
         private SurvivorsFirst|Absent $survivorsFirst,
@@ -48,12 +45,11 @@ final readonly class Triage implements Part
         TimeoutMode|Absent $mode = new Absent(),
         Seconds|Absent $limit = new Absent(),
         Seconds|Absent $most = new Absent(),
-        int|Absent $retries = new Absent(),
         bool|Absent $confirmSurvivors = new Absent(),
         TestOrder|Absent $order = new Absent(),
         SurvivorsFirst|Absent $survivorsFirst = new Absent(),
     ): self {
-        return new self($budget, $mode, $limit, $most, $retries, $confirmSurvivors, $order, $survivorsFirst);
+        return new self($budget, $mode, $limit, $most, $confirmSurvivors, $order, $survivorsFirst);
     }
 
     public static function none(): self
@@ -69,7 +65,6 @@ final readonly class Triage implements Part
             mode: $none->timeouts(),
             limit: $none->limit(),
             most: $none->most(),
-            retries: $none->retries(),
             confirmSurvivors: $none->confirmSurvivors(),
             order: $none->order(),
             survivorsFirst: $none->survivorsFirst(),
@@ -84,7 +79,6 @@ final readonly class Triage implements Part
                 Absent::laid($this->mode, $later->mode),
                 Absent::laid($this->limit, $later->limit),
                 Absent::laid($this->most, $later->most),
-                Absent::laid($this->retries, $later->retries),
                 Absent::laid($this->confirmSurvivors, $later->confirmSurvivors),
                 Absent::laid($this->order, $later->order),
                 Absent::laid($this->survivorsFirst, $later->survivorsFirst),
@@ -133,12 +127,6 @@ final readonly class Triage implements Part
             : Absent::setting();
     }
 
-    /** `timeouts.retries`: the most timed-out mutants retried per shard. */
-    public function retries(): int
-    {
-        return $this->retries instanceof Absent ? self::RETRIES : $this->retries;
-    }
-
     /** `flaky.confirmSurvivors`: whether each survivor is run once more before it counts. */
     public function confirmSurvivors(): bool
     {
@@ -170,7 +158,6 @@ final readonly class Triage implements Part
                         $this->limit instanceof Seconds ? intval($this->limit->seconds()) : $this->limit,
                     ),
                     Member::of('most', $this->most instanceof Seconds ? intval($this->most->seconds()) : $this->most),
-                    Member::of('retries', $this->retries),
                 ),
             ),
             Member::unlessEmpty('flaky', Json::object(Member::of('confirmSurvivors', $this->confirmSurvivors))),
@@ -206,7 +193,6 @@ final readonly class Triage implements Part
                 ? [sprintf('Timeouts::seconds(%d)', intval($this->limit->seconds()))]
                 : [],
             ...$this->most instanceof Seconds ? [sprintf('Timeouts::most(%d)', intval($this->most->seconds()))] : [],
-            ...$this->retries instanceof Absent ? [] : [sprintf('Timeouts::retries(%d)', $this->retries)],
             ...$this->confirmSurvivors instanceof Absent ? [] : [
                 $this->confirmSurvivors ? 'Flaky::confirmingSurvivors()' : 'Flaky::notConfirmingSurvivors()',
             ],

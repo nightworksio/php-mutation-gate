@@ -42,7 +42,7 @@ interface Runner
 
     /**
      * How the runner behaves where the flows must know it: how it reads
-     * `#[Holds]`, whether a limit can be raised, what every key reads, and
+     * `#[Holds]`, what every key reads, and
      * whether each shard opens on its own run. `RunnerBehaviour::standard()`
      * unless the runner behaves otherwise.
      */

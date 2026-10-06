@@ -928,7 +928,6 @@
                                                 "trials",
                                                 "baselines",
                                                 "confirmation",
-                                                "retry",
                                                 "equivalence",
                                                 "survivors",
                                                 "static check"

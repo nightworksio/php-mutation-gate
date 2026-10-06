@@ -72,7 +72,7 @@ has to bring its result with it.
         `runner.memory` (ADR-0004, decision 9),
         `runner.workers` (ADR-0023, decision 14),
         `pest.patch`, `pest.canary`,
-        `timeouts.seconds`, `timeouts.most`, `timeouts.retries`, `flaky.confirmSurvivors`,
+        `timeouts.seconds`, `timeouts.most`, `flaky.confirmSurvivors`,
         `tests.order` (ADR-0013, decision 4), `mutators.sets` and
         `mutators.except` (ADR-0021), `extensions`, the Buildkite step template
         (`ci.buildkite.step`) and the CI files the gate is told of

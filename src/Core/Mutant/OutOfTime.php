@@ -16,9 +16,6 @@ enum OutOfTime: string
     /** The run never mutated the mutant's unit, which counts by its newest result in the ledgers. */
     case BeforeMutating = 'before-mutating';
 
-    /** The mutant's time ran out at the cap, and its second run, with the cap doubled, did not fit. */
-    case BeforeRetrying = 'before-retrying';
-
     /** The mutant survived, and its second run, which would confirm it, did not fit. */
     case BeforeConfirming = 'before-confirming';
 
@@ -48,7 +45,6 @@ enum OutOfTime: string
     {
         return match ($this) {
             self::BeforeMutating => 'this run mutated its unit',
-            self::BeforeRetrying => 'it could run again with a doubled limit',
             self::BeforeConfirming => 'its survival could be confirmed',
         };
     }

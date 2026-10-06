@@ -38,12 +38,6 @@ final readonly class Timeouts implements Setting
         return new self(Json::at('timeouts.most', $seconds));
     }
 
-    /** `timeouts.retries` */
-    public static function retries(int $mutants): self
-    {
-        return new self(Json::at('timeouts.retries', $mutants));
-    }
-
     public function written(): Json
     {
         return $this->json;

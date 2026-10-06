@@ -226,18 +226,14 @@ presets for Laravel, Symfony and plain libraries.
      own formula decided.
    - **k times the tests reach the limit.** Only `timeouts.most` decides such
      a limit. It says nothing about this mutant, so it is **too slow to
-     judge**, and counts as not killed. A skipped mutant that its retry does
-     not resolve is always here. The hint points at holding the path with a
-     group (ADR-0005) or raising `timeouts.most`.
-   - **Retry.** Before the rule is applied, each timed-out or skipped mutant
-     whose limit `timeouts.most` decided is run once more with it doubled,
-     narrowed to its file and mutator (ADR-0004). If it finishes, its real
-     status replaces the timeout. If not, the rule is applied with the
-     doubled limit. A mutant whose limit came from the formula or the floor
-     is not retried, because a higher most would not change it. At most
-     `timeouts.retries` mutants are retried per shard, an integer, 20 by
-     default. Unpatched, Pest's limit cannot be raised, so unpatched Pest has
-     no retry.
+     judge**, and counts as not killed. A skipped mutant is always here. The
+     hint points at holding the path with a group (ADR-0005) or raising
+     `timeouts.most`.
+   - **No retry.** A timed-out or skipped mutant is never run again, in any
+     runner: the rule above judges it as its run left it. A mutant whose
+     tests finish well inside its limit and that still ran past it is a
+     detected mutant, and a second run spends its limit again to say the
+     same.
    - **The mode.** `timeouts.mode` is `confirm` by default, as described above,
      or `unjudged`, which makes every timeout too slow to judge, for projects
      that want no kill they cannot see.
@@ -272,8 +268,8 @@ presets for Laravel, Symfony and plain libraries.
      times, 5 by default and never fewer than 2, and lists every mutant whose
      status varied, with the runs that gave each status and the tests that
      killed it in them. A mutant some runs made and others did not varied
-     too. Each run is the runner's own: no timeout is retried, no survivor
-     confirmed or checked by an analyser, and nothing is recorded.
+     too. Each run is the runner's own: no survivor confirmed or checked by
+     an analyser, and nothing is recorded.
      `--order=runner|killers-first`, `tests.order` by default, chooses the
      order of each mutant's tests, to hunt a kill an order made (ADR-0013);
      killers first reads the history every ledger holds of the unit's files.

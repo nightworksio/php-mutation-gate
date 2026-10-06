@@ -74,7 +74,7 @@ it('writes a config that reads back into the same effective config', function (a
             'write' => 'never',
         ],
         'budget' => '1h30m',
-        'timeouts' => ['mode' => 'unjudged', 'seconds' => 30, 'retries' => 0],
+        'timeouts' => ['mode' => 'unjudged', 'seconds' => 30],
         'flaky' => ['confirmSurvivors' => false],
         'ignores' => [
             'entries' => [

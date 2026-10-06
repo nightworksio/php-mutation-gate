@@ -12,7 +12,6 @@ use function array_values;
 use Closure;
 
 use function count;
-use function max;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Settings;
@@ -33,19 +32,15 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use Psr\Clock\ClockInterface;
 
 /**
- * One runner invocation of a shard, as the shard makes it: each mutant
- * whose time ran out at `timeouts.most` run once more with it doubled,
- * where the runner can raise it, and each survivor run once more, where
- * `flaky.confirmSurvivors` asks for it (ADR-0008). Under a budget, a
- * mutant whose second run would not fit in the time left, at the doubled
- * most for a timeout and at `timeouts.seconds` for a survivor, is not run
- * again, and is unjudged. Each step is timed on the shard's stopwatch.
+ * One runner invocation of a shard, as the shard makes it: each survivor
+ * run once more, where `flaky.confirmSurvivors` asks for it (ADR-0008). A
+ * mutant whose time ran out is never run again. Under a budget, a survivor
+ * whose second run would not fit in the time left, at `timeouts.seconds`,
+ * is not run again, and is unjudged. Each step is timed on the shard's
+ * stopwatch.
  */
 final readonly class Invoking
 {
-    /** A retried timeout's most is the configured one doubled. */
-    private const int DOUBLED = 2;
-
     public function __construct(
         private Adapters $adapters,
         private Settings $settings,
@@ -55,21 +50,18 @@ final readonly class Invoking
     ) {
     }
 
-    /** One invocation, its timeouts retried and its survivors run once more; or the first cannot judge. */
-    public function invoked(MutationRequest $request, int $retries): Invoked|CannotJudge
+    /** One invocation, its survivors run once more; or the first cannot judge. */
+    public function invoked(MutationRequest $request): Invoked|CannotJudge
     {
         $result = $this->mutated($request);
-        $retried = $result instanceof CannotJudge ? $result : $this->retried($result->mutants(), $request, $retries);
-        $again = $retried instanceof Mutants ? $this->confirmed($retried, $request) : $retried;
+        $again = $result instanceof CannotJudge ? $result : $this->confirmed($result->mutants(), $request);
 
         return match (true) {
             $result instanceof CannotJudge => $result,
-            $retried instanceof CannotJudge => $retried,
             $again instanceof CannotJudge => $again,
             default => new Invoked(
                 MutationResult::of($again->mutants, $result->skipped())->withWarnings($result->warnings()),
                 $again->flaky,
-                count($this->capped($result->mutants())),
             ),
         };
     }
@@ -85,35 +77,6 @@ final readonly class Invoking
         }
 
         return $result;
-    }
-
-    /**
-     * Timeout retry (ADR-0008): each mutant whose time ran out at the most, up
-     * to the retries left, run once more with the most doubled, and the rest
-     * as they were. A runner whose limit cannot be raised retries nothing.
-     */
-    private function retried(Mutants $mutants, MutationRequest $request, int $retries): Mutants|CannotJudge
-    {
-        $taken = array_slice($this->capped($mutants), 0, max(0, $retries));
-
-        if ($taken === [] || ! $this->adapters->runner->behaviour()->raisesLimits()) {
-            return $mutants;
-        }
-
-        $most = Seconds::of($this->settings->triage()->most()->seconds() * self::DOUBLED);
-        $fitting = $this->fitting(count($taken), $most);
-        $left = $this->unjudged(array_slice($taken, $fitting), OutOfTime::BeforeRetrying);
-        $again = $this->again(
-            Step::Retry,
-            $fitting,
-            fn(): Mutants|CannotJudge => $this->adapters->runner->retry(
-                $this->retimed($request),
-                Mutants::of(...array_slice($taken, 0, $fitting)),
-                $most,
-            ),
-        );
-
-        return $again instanceof CannotJudge ? $again : $mutants->replacing(Mutants::of(...$again, ...$left));
     }
 
     /**
@@ -143,23 +106,6 @@ final readonly class Invoking
     private function unjudged(array $mutants, OutOfTime $before): Mutants
     {
         return Mutants::of(...array_map(static fn(Mutant $mutant): Mutant => $mutant->unjudged($before), $mutants));
-    }
-
-    /**
-     * The mutants whose time ran out at the configured most: those whose
-     * limit came from the formula or the floor would not change with it.
-     *
-     * @return list<Mutant>
-     */
-    private function capped(Mutants $mutants): array
-    {
-        $most = $this->settings->triage()->most()->seconds();
-
-        return array_values(array_filter([...$mutants], static function (Mutant $mutant) use ($most): bool {
-            $limit = $mutant->limit();
-
-            return $mutant->status()->ranOutOfTime() && $limit instanceof Seconds && $limit->seconds() >= $most;
-        }));
     }
 
     /**

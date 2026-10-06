@@ -123,8 +123,7 @@ const DEFAULTS = <<<'JSON'
         "timeouts": {
             "mode": "confirm",
             "seconds": 10,
-            "most": 300,
-            "retries": 20
+            "most": 300
         },
         "flaky": {
             "confirmSurvivors": true
@@ -207,7 +206,7 @@ const EVERYTHING = [
     ],
     'coverage' => ['incremental' => false],
     'budget' => '1h30m',
-    'timeouts' => ['mode' => 'unjudged', 'seconds' => 30, 'most' => 120, 'retries' => 0],
+    'timeouts' => ['mode' => 'unjudged', 'seconds' => 30, 'most' => 120],
     'flaky' => ['confirmSurvivors' => false],
     'survivorsFirst' => ['max' => 5],
     'ignores' => [
@@ -297,7 +296,6 @@ it('reads the defaults into their types', function (): void {
         ->and($settings->triage()->budget())->toEqual(Unlimited::time())
         ->and($settings->triage()->timeouts())->toBe(TimeoutMode::Confirm)
         ->and($settings->triage()->limit())->toEqual(Seconds::of(10))
-        ->and($settings->triage()->retries())->toBe(20)
         ->and($settings->triage()->confirmSurvivors())->toBeTrue()
         ->and([...$settings->ignores()->entries()])->toBe([])
         ->and($settings->ignores()->maxDays())->toEqual(Absent::setting())
@@ -370,7 +368,6 @@ it('reads every setting a config writes into its type', function (): void {
         ->and($settings->triage()->budget())->toEqual(Seconds::of(5400))
         ->and($triage->timeouts())->toBe(TimeoutMode::Unjudged)
         ->and($triage->limit())->toEqual(Seconds::of(30))
-        ->and($triage->retries())->toBe(0)
         ->and($triage->confirmSurvivors())->toBeFalse()
         ->and($settings->ignores()->maxDays())->toBe(90)
         ->and($settings->ignores()->native())->toBe(NativeMarkers::Allow)
@@ -464,7 +461,7 @@ it('serialises the settings that affect results canonically, and only those', fu
         . '"extensions":[],"flaky":{"confirmSurvivors":true},"mutators":{"except":[],"sets":[]},"packages":[],'
         . '"pest":{"canary":"mutation-canary","patch":false},'
         . '"runner":{"memory":"1G","use":"pest"},"staticCheck":{"seconds":60,"tool":"auto"},"tests":{"order":"killers-first"},'
-        . '"timeouts":{"most":300,"retries":20,"seconds":10},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
+        . '"timeouts":{"most":300,"seconds":10},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
     )->and(Configs::settings(EVERYTHING)->canonical())->toBe(
         '{"ci":{"azure":{"definition":"ci/azure.yml"},"bitbucket":{"definition":"ci/bitbucket.yml"},'
         . '"buildkite":{"definition":".buildkite/mutation.yml","step":{"agents":{"queue":"mutation"}}},'
@@ -474,7 +471,7 @@ it('serialises the settings that affect results canonically, and only those', fu
         . '"pest":{"canary":"canary","patch":true},'
         . '"runner":{"memory":"512M","use":"infection","withhold":["DEPLOY_*","COMPOSER_AUTH"],"workers":"fresh"},'
         . '"staticCheck":{"config":"phpstan.dist.neon","seconds":45,"tool":"phpstan"},'
-        . '"tests":{"order":"killers-first"},"timeouts":{"most":120,"retries":0,"seconds":30},'
+        . '"tests":{"order":"killers-first"},"timeouts":{"most":120,"seconds":30},'
         . '"treeSource":{"use":"phpunit","with":{"fallback":["app","lib"]}},'
         . '"trees":[{"path":"app/Domain"},{"path":"app/Http"},'
         . '{"path":"app/Generated"},{"path":"app/Legacy"}]}',
@@ -558,7 +555,6 @@ it('changes the canonical form with every setting that affects results', functio
     'the packages' => [['packages' => []]],
     'the timeout' => [['timeouts' => ['seconds' => 31]]],
     'the most' => [['timeouts' => ['most' => 121]]],
-    'the retries' => [['timeouts' => ['retries' => 1]]],
     'survivor confirmation' => [['flaky' => ['confirmSurvivors' => true]]],
     'the Pest patches' => [['pest' => ['patch' => false]]],
     'the canary group' => [['pest' => ['canary' => 'other']]],
@@ -672,12 +668,12 @@ it('refuses a config that is not an object', function (string $json, string $pro
 
 it('refuses a string where a number belongs, and a fraction where an integer does', function (): void {
     expect(Configs::problems(Configs::validated(
-        '{"runner": "pest", "newCode": {"floor": "100"}, "timeouts": {"seconds": 10.0, "retries": -1}, '
+        '{"runner": "pest", "newCode": {"floor": "100"}, "timeouts": {"seconds": 10.0, "most": 0}, '
         . '"flaky": {"confirmSurvivors": 1}, "staticCheck": {"seconds": 2.5}}',
     )))->toBe([
         'newCode.floor: expected a number from 0 to 100, got "100"',
         'timeouts.seconds: expected an integer of at least 1, got 10.0',
-        'timeouts.retries: expected an integer of at least 0, got -1',
+        'timeouts.most: expected an integer of at least 1, got 0',
         'flaky.confirmSurvivors: expected true or false, got 1',
         'staticCheck.seconds: expected an integer of at least 1, got 2.5',
     ]);
@@ -691,7 +687,7 @@ it('takes the ends of every range', function (): void {
         'holds' => ['hotPath' => 0],
         'costs' => ['secondsPerLine' => ['' => 0]],
         'badge' => ['colors' => ['green' => 100, 'red' => 0]],
-        'timeouts' => ['seconds' => 1, 'most' => 1, 'retries' => 0],
+        'timeouts' => ['seconds' => 1, 'most' => 1],
         'shards' => ['seconds' => 1, 'max' => 1],
         'ignores' => ['maxDays' => 1],
     ]);
