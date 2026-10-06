@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\Kills;
 use NightWorksIO\MutationGate\Core\Order\Ranking;
+use NightWorksIO\MutationGate\Core\Plan\OwnOnly;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\NeverProved;
@@ -26,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\ReadsOnly;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
 use NightWorksIO\MutationGate\Core\Proof\Scopes;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
@@ -63,7 +65,7 @@ $ledger = static function (string $unit, string $key, string $base, string $pass
     return Ledger::empty()
         ->withProof(Proof::of(Digest::of($key), Path::of($unit), Mutants::none(), $run))
         ->withTimings(Timings::of(Timing::of(Path::of($unit), Seconds::of(2.0), 'fake', $at)))
-        ->withPassed(Passed::of(Revision::ref($passed), 'check', 0));
+        ->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref($passed), 'check', 0)));
 };
 
 /** The default branch's ledger and a pull request's, in a store. */
@@ -201,10 +203,10 @@ it('proves and carries a run that records every killer only from proofs whose ru
     expect($ledgers->proving($units, $keys, Digest::sha256Of('now'), MatrixKind::Full)->toRun())
         ->toEqual(Units::of(Unit::file(Path::of('src/B.php'))))
         ->and($ledgers->proving($units, $keys, Digest::sha256Of('now'), MatrixKind::FirstKiller)->toRun())->toEqual(Units::none())
-        ->and($ledgers->considering($units, $unreached, MatrixKind::Full)->considered())
+        ->and($ledgers->considering($units, $unreached, MatrixKind::Full, OwnOnly::none())->considered())
         ->toEqual(Units::of(Unit::file(Path::of('src/B.php'))))
-        ->and($ledgers->considering($units, $unreached, MatrixKind::Full)->carried())->toHaveCount(1)
-        ->and($ledgers->considering($units, $unreached, MatrixKind::FirstKiller)->carried())->toHaveCount(2);
+        ->and($ledgers->considering($units, $unreached, MatrixKind::Full, OwnOnly::none())->carried())->toHaveCount(1)
+        ->and($ledgers->considering($units, $unreached, MatrixKind::FirstKiller, OwnOnly::none())->carried())->toHaveCount(2);
 });
 
 it('looks for no proof in a ledger that holds none at the base the keys are built on', function () use (

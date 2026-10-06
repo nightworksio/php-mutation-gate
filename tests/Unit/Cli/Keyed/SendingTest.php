@@ -30,6 +30,7 @@ use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Port\ProofStore;
@@ -132,11 +133,11 @@ it('writes no ledger for a scope other than the one its own run may write', func
 it('writes the ledger to the store its own environment locates, under its own run\'s scope, on a trusted run', function (): void {
     $built = new ArrayObject();
     $store = new ProofStoreFake();
-    $ledger = Ledger::empty()->withPassed(Passed::of(
+    $ledger = Ledger::empty()->withRuns(ScopeRuns::none()->passing(Passed::of(
         Revision::ref('abc'),
         'mutation / verdict',
         0,
-    ));
+    )));
     $sent = sendingOf(SENDING_STORE, $built, $store)->sent(sendingLedger(Scope::branch('main')), Scope::branch('main'), static fn(): Ledger => $ledger);
 
     expect([...$built])->toBe(['{"prefix":"mutation-gate","region":"us-east-1","insecureEndpoint":false,"bucket":"proofs"}'])

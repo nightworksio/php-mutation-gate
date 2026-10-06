@@ -61,7 +61,8 @@ final readonly class LedgerJson
         $inputs = InputsTable::of(...$kept);
         $timings = self::timings($ledger->timings());
         $analysers = AnalysersRecord::of($ledger->analysers());
-        $passed = $ledger->lastPassed();
+        $passed = $ledger->runs()->passed();
+        $lastRun = $ledger->runs()->lastRun();
         $proofs = self::proofsWritten($kept, array_flip($mutators), $testIndex, $inputs);
 
         yield 'format' => sprintf('%d', LedgerFile::FORMAT);
@@ -87,6 +88,10 @@ final readonly class LedgerJson
                 'ownScopeProofs' => $passed->ownScopeProofs(),
                 ...$passed->measuredOnOwnScope() ? [LedgerFile::OWN_SCOPE_COVERAGE => true] : [],
             ]);
+        }
+
+        if ($lastRun instanceof LastRun) {
+            yield LastRunRecord::SECTION => JsonText::compact(LastRunRecord::of($lastRun));
         }
     }
 

@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Unit;
 
 use function array_any;
 use function array_filter;
+use function array_map;
 use function array_values;
 
 use ArrayIterator;
@@ -15,6 +16,7 @@ use function count;
 use Countable;
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use Traversable;
 
 /**
@@ -54,6 +56,21 @@ final readonly class Units implements Countable, IteratorAggregate
         }
 
         return new self($kept);
+    }
+
+    /** Those of these units at one of these paths. */
+    public function within(Paths $paths): self
+    {
+        return new self(array_values(array_filter(
+            $this->units,
+            static fn(Unit $unit): bool => $paths->has($unit->path()),
+        )));
+    }
+
+    /** The path of each of these units. */
+    public function paths(): Paths
+    {
+        return Paths::of(...array_map(static fn(Unit $unit): Path => $unit->path(), $this->units));
     }
 
     /** Whether one of these units is at this path. */

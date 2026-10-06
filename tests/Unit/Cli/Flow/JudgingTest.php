@@ -93,6 +93,7 @@ use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
@@ -323,7 +324,7 @@ it('judges every tree whole, records the run, and reports it, timed by each shar
         ->and(count($verdict->sets()->newCode()))->toBe(0)
         ->and(count($verdict->failures()))->toBe(0)
         ->and($judgement instanceof Judged ? $judgement->exitCode() : $judgement)->toBe(ExitCode::Failed)
-        ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->lastPassed())->toBeInstanceOf(CannotTell::class)
+        ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->runs()->passed())->toBeInstanceOf(CannotTell::class)
         ->and($verdict->account()->timings() instanceof RunTimings ? count([...$verdict->account()->timings()->shards()]) : 0)
         ->toBe(2);
 });
@@ -378,7 +379,7 @@ it('records a pass under the check the config names', function () use ($tree, $r
     ));
 
     expect($verdict->judgement())->toBe(Judgement::Passed)
-        ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->lastPassed())
+        ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->runs()->passed())
         ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'gate / verdict', 0));
 });
 
@@ -393,7 +394,7 @@ it('records a pass measured against its own scope\'s coverage map as one that us
         judgingSettings(),
         $reporting(new ReporterFake()),
     ));
-    $passed = LedgerRead::ledger($store->read(Scope::branch('main')))->lastPassed();
+    $passed = LedgerRead::ledger($store->read(Scope::branch('main')))->runs()->passed();
 
     expect($passed)->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 0)->onOwnScopeCoverage())
         ->and($passed instanceof Passed && $passed->usedOwnScope())->toBeTrue();
@@ -725,7 +726,7 @@ it('counts the proofs and the results of its own scope it took, and records how 
         Flows::setup(),
         $reporting(new ReporterFake()),
     )->verdict($plan, judgingNoResults($project));
-    $passed = LedgerRead::ledger($store->read(Scope::pullRequest(7)))->lastPassed();
+    $passed = LedgerRead::ledger($store->read(Scope::pullRequest(7)))->runs()->passed();
 
     expect($judgement instanceof Judged ? $judgement->verdict->judgement() : $judgement)->toBe(Judgement::Passed)
         ->and($passed)->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 2));
@@ -753,7 +754,7 @@ it('uses none of its own scope where the default branch proved what it took', fu
         $reporting(new ReporterFake()),
     )->verdict($plan, judgingNoResults($project));
 
-    expect(LedgerRead::ledger($store->read(Scope::pullRequest(7)))->lastPassed())
+    expect(LedgerRead::ledger($store->read(Scope::pullRequest(7)))->runs()->passed())
         ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 0));
 });
 
@@ -807,7 +808,7 @@ it('takes a planned proof from the run\'s own scope where it has moved there fro
     )->verdict($plan, judgingNoResults($project));
 
     expect($judgement instanceof Judged ? count($judgement->verdict->trees()->units()) : $judgement)->toBe(1)
-        ->and(LedgerRead::ledger($store->read(Scope::pullRequest(7)))->lastPassed())
+        ->and(LedgerRead::ledger($store->read(Scope::pullRequest(7)))->runs()->passed())
         ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 1));
 });
 
@@ -1385,7 +1386,7 @@ it('never passes new code in a unit the budget never started, whose newest resul
             . 'More time judges it: vendor/bin/mutation-gate run --budget=<duration>',
         ])
         ->and($verdict->wasCutShort())->toBeTrue()
-        ->and(LedgerRead::ledger($store->read(Scope::pullRequest(7)))->lastPassed())->toBeInstanceOf(CannotTell::class);
+        ->and(LedgerRead::ledger($store->read(Scope::pullRequest(7)))->runs()->passed())->toBeInstanceOf(CannotTell::class);
 });
 
 it('never records a pass for a run whose budget left a mutant unjudged', function () use ($tree, $reporting, $judged): void {
@@ -1407,7 +1408,7 @@ it('never records a pass for a run whose budget left a mutant unjudged', functio
         ])
         ->and($trees[0]->counts()->number(MutantJudgement::Unjudged))->toBe(1)
         ->and($trees[0]->raised())->toEqual(Unraised::floor())
-        ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->lastPassed())->toBeInstanceOf(CannotTell::class)
+        ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->runs()->passed())->toBeInstanceOf(CannotTell::class)
         ->and(count(LedgerRead::ledger($store->read(Scope::branch('main')))->proofs()))->toBe(2);
 });
 
@@ -1426,7 +1427,7 @@ it('passes a run whose budget left units whose newest results all stand, and rec
         ->and($verdict->wasCutShort())->toBeTrue()
         ->and($trees[0]->counts()->number(MutantJudgement::Killed))->toBe(1)
         ->and($trees[0]->counts()->number(MutantJudgement::Survived))->toBe(1)
-        ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->lastPassed())->toBeInstanceOf(Passed::class);
+        ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->runs()->passed())->toBeInstanceOf(Passed::class);
 });
 
 it('fails on an ignore that names nothing where every unit the budget left has a result that stands', function () use (
@@ -1542,7 +1543,7 @@ it('records no pass for a verdict that passed with a mutant the runner left unju
     ));
 
     expect($verdict->judgement())->toBe(Judgement::Passed)
-        ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->lastPassed())->toBeInstanceOf(CannotTell::class);
+        ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->runs()->passed())->toBeInstanceOf(CannotTell::class);
 });
 
 it('keeps the last commit that passed where a budget left a kill unjudged, so the next run from it judges the unit again', function () use (
@@ -1552,7 +1553,7 @@ it('keeps the last commit that passed where a budget left a kill unjudged, so th
 ): void {
     $passed = Revision::ref(str_repeat('a1', 20));
     $store = judgingProven('money', 'money test before');
-    $store->write(Scope::branch('main'), LedgerRead::ledger($store->read(Scope::branch('main')))->withPassed(Passed::of($passed, 'mutation-gate', 0)));
+    $store->write(Scope::branch('main'), LedgerRead::ledger($store->read(Scope::branch('main')))->withRuns(ScopeRuns::none()->passing(Passed::of($passed, 'mutation-gate', 0))));
     $checkout = new ChangeSourceFake(
         $passed,
         Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(2)))),
@@ -1581,7 +1582,7 @@ it('keeps the last commit that passed where a budget left a kill unjudged, so th
         }
     }
 
-    $lastPassed = LedgerRead::ledger($store->read(Scope::branch('main')))->lastPassed();
+    $lastPassed = LedgerRead::ledger($store->read(Scope::branch('main')))->runs()->passed();
 
     expect($first->judgement())->toBe(Judgement::Failed)
         ->and($lastPassed instanceof Passed ? $lastPassed->commit() : $lastPassed)->toEqual($passed)
@@ -1762,7 +1763,7 @@ it('holds only the security sets in a run of the security mutators alone, exempt
         ->and($mutators)->toBe(['Plus', 'Plus'])
         ->and([...$verdict->sets()->security()][0]->mutants())->toHaveCount(2)
         ->and([...$verdict->sets()->newCode()])->toBe([])
-        ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->lastPassed())->toBeInstanceOf(CannotTell::class);
+        ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->runs()->passed())->toBeInstanceOf(CannotTell::class);
 });
 
 it('holds no floor in a run of one suite\'s tests alone, exempting each tree and security set and recording no pass', function () use (
@@ -1791,7 +1792,7 @@ it('holds no floor in a run of one suite\'s tests alone, exempting each tree and
         ->and($sets[0]->floor())->toEqual(Exempt::because('--suite judges no floor'))
         ->and($sets[0]->raised())->toBeInstanceOf(Unraised::class)
         ->and([...$verdict->sets()->newCode()])->toBe([])
-        ->and(LedgerRead::ledger($store->read(Scope::pullRequest(7)))->lastPassed())->toBeInstanceOf(CannotTell::class);
+        ->and(LedgerRead::ledger($store->read(Scope::pullRequest(7)))->runs()->passed())->toBeInstanceOf(CannotTell::class);
 });
 
 it('holds the security sets in a run of one suite\'s tests and the security mutators alone', function () use (
@@ -1919,3 +1920,54 @@ it('checks, in a run of the security mutators alone, only the ignores of the mut
             'The ignore of Plus in src/Log/** names no mutant it could leave out, in a run that judged every unit: remove it.',
         ]);
 });
+
+it('takes the run\'s own result for a unit that carries its own alone, however newer the default branch\'s, and cannot judge it where that result is no longer of the code', function (string $source, string $vanished) use (
+    $tree,
+    $reporting,
+): void {
+    $project = Flows::project();
+    $store = new ProofStoreFake();
+    $mutation = Digest::sha256Of('mutation');
+    $plan = Planned::of()
+        ->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')))
+        ->digesting(Digests::of($mutation)->withSource(Path::of('src/Held.php'), Digest::sha256Of('held now')))
+        ->considering(
+            Considered::everything()
+                ->proving(Units::of(Planned::money()))
+                ->carrying(Units::of(Planned::held()))
+                ->carryingOwn(Units::of(Planned::held())),
+        );
+    $proofAt = static fn(string $key, string $file, string $at): Proof => Proof::of(
+        Digest::sha256Of($key),
+        Path::of($file),
+        Flows::mutantsOf($file),
+        Run::of('github:1/1', Moment::at($at), $plan->base()),
+    );
+    $store->write(Scope::branch('main'), Ledger::empty()
+        ->withProof($proofAt('money', 'src/Money.php', '2026-09-29T12:00:00Z'))
+        ->withProof($proofAt('held on main', 'src/Held.php', '2026-10-03T12:00:00Z')
+            ->withInputs(Inputs::of(Digest::sha256Of('held on main'), $mutation))));
+    $store->write(Scope::pullRequest(7), Ledger::empty()->withProof(
+        $proofAt('held', 'src/Held.php', '2026-10-01T12:00:00Z')->withInputs(Inputs::of(Digest::sha256Of($source), $mutation)),
+    ));
+
+    $judgement = new Judging(
+        Flows::adapters($project, [], $store, $tree(Floor::of(40))),
+        judgingSettings(),
+        Flows::setup(),
+        $reporting(new ReporterFake()),
+    )->verdict($plan, judgingNoResults($project));
+
+    expect($vanished === ''
+        ? LedgerRead::ledger($store->read(Scope::pullRequest(7)))->runs()->passed()
+        : $judgement)->toEqual($vanished === ''
+            ? Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 1)
+            : CannotJudge::because(sprintf(<<<'SAID'
+                The ledger no longer holds a proof the plan took, so these units cannot be judged:
+                %s
+                A proof pruned, or a cache replaced, between the plan and the verdict does this. Plan the run again.
+                SAID, $vanished)));
+})->with([
+    'its own result of the code as it is' => ['held now', ''],
+    'its own result of other code, as a race leaves it' => ['held before', 'src/Held.php'],
+]);

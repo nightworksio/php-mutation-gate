@@ -20,11 +20,14 @@ use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\Kills;
 use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Proof\Bases;
+use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Run;
+use NightWorksIO\MutationGate\Core\Proof\RunProfile;
+use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -49,19 +52,19 @@ it('has proved nothing to begin with', function (): void {
 
     expect($ledger->proofs())->toEqual(Proofs::none())
         ->and($ledger->timings())->toEqual(Timings::none())
-        ->and($ledger->lastPassed())->toEqual(CannotTell::because('No commit of this scope has passed yet.'));
+        ->and($ledger->runs()->passed())->toEqual(CannotTell::because('No commit of this scope has passed yet.'));
 });
 
 it('holds proofs, timings and the newest passing commit of its scope', function () use ($proof, $timing): void {
     $ledger = Ledger::empty()
         ->withProof($proof('9c1e', 'src/Money.php'))
         ->withTimings(Timings::of($timing('src/Money.php', 12.4)))
-        ->withPassed(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0))
-        ->withPassed(Passed::of(Revision::ref('206b4e0'), 'mutation-gate', 0));
+        ->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0)))
+        ->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('206b4e0'), 'mutation-gate', 0)));
 
     expect($ledger->proofs())->toEqual(Proofs::of($proof('9c1e', 'src/Money.php')))
         ->and($ledger->timings())->toEqual(Timings::of($timing('src/Money.php', 12.4)))
-        ->and($ledger->lastPassed())->toEqual(Passed::of(Revision::ref('206b4e0'), 'mutation-gate', 0));
+        ->and($ledger->runs()->passed())->toEqual(Passed::of(Revision::ref('206b4e0'), 'mutation-gate', 0));
 });
 
 it('drops the proof under a key and keeps the rest', function () use ($proof, $timing): void {
@@ -69,42 +72,42 @@ it('drops the proof under a key and keeps the rest', function () use ($proof, $t
         ->withProof($proof('a', 'src/A.php'))
         ->withProof($proof('b', 'src/B.php'))
         ->withTimings(Timings::of($timing('src/A.php', 1.0)))
-        ->withPassed(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0))
+        ->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0)))
         ->withoutProof(Digest::of('a'));
 
     expect($ledger->proofs())->toEqual(Proofs::of($proof('b', 'src/B.php')))
         ->and($ledger->timings())->toEqual(Timings::of($timing('src/A.php', 1.0)))
-        ->and($ledger->lastPassed())->toEqual(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0));
+        ->and($ledger->runs()->passed())->toEqual(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0));
 });
 
 it('takes what a shard measured, each unit keeping its newest timing', function () use ($proof, $timing): void {
     $ledger = Ledger::empty()
         ->withProof($proof('a', 'src/A.php'))
         ->withTimings(Timings::of($timing('src/A.php', 1.0, '2026-09-29T21:00:00Z')))
-        ->withPassed(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0))
+        ->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0)))
         ->withTimings(Timings::of($timing('src/A.php', 9.0), $timing('src/B.php', 2.0)));
 
     expect($ledger->timings())->toEqual(Timings::of($timing('src/A.php', 1.0, '2026-09-29T21:00:00Z'), $timing('src/B.php', 2.0)))
         ->and($ledger->proofs())->toEqual(Proofs::of($proof('a', 'src/A.php')))
-        ->and($ledger->lastPassed())->toEqual(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0));
+        ->and($ledger->runs()->passed())->toEqual(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0));
 });
 
 it('reads another scope\'s ledger beside its own, its own proofs and passing commit first', function () use ($proof, $timing): void {
     $ours = Ledger::empty()
         ->withProof($proof('a', 'src/Ours.php'))
         ->withTimings(Timings::of($timing('src/A.php', 1.0)))
-        ->withPassed(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0));
+        ->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0)));
     $theirs = Ledger::empty()
         ->withProof($proof('a', 'src/Theirs.php'))
         ->withProof($proof('b', 'src/B.php'))
         ->withTimings(Timings::of($timing('src/A.php', 3.0, '2026-09-29T21:00:00Z')))
-        ->withPassed(Passed::of(Revision::ref('206b4e0'), 'mutation-gate', 0));
+        ->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('206b4e0'), 'mutation-gate', 0)));
     $read = $ours->and($theirs);
 
     expect($read->proofs())->toEqual(Proofs::of($proof('a', 'src/Ours.php'), $proof('b', 'src/B.php')))
         ->and($read->timings())->toEqual(Timings::of($timing('src/A.php', 3.0, '2026-09-29T21:00:00Z')))
-        ->and($read->lastPassed())->toEqual(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0))
-        ->and(Ledger::empty()->and($theirs)->lastPassed())->toEqual(CannotTell::because('No commit of this scope has passed yet.'));
+        ->and($read->runs()->passed())->toEqual(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0))
+        ->and(Ledger::empty()->and($theirs)->runs()->passed())->toEqual(CannotTell::because('No commit of this scope has passed yet.'));
 });
 
 it('keeps only the timings of units that still exist, and every proof', function () use ($proof, $timing): void {
@@ -112,12 +115,12 @@ it('keeps only the timings of units that still exist, and every proof', function
         ->withProof($proof('a', 'src/Gone.php'))
         ->withTimings(Timings::of($timing('src/Gone.php', 1.0)))
         ->withTimings(Timings::of($timing('src/Here.php', 2.0)))
-        ->withPassed(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0))
+        ->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0)))
         ->keepingTimingsOf(Paths::of(Path::of('src/Here.php')));
 
     expect($ledger->timings())->toEqual(Timings::of($timing('src/Here.php', 2.0)))
         ->and($ledger->proofs())->toEqual(Proofs::of($proof('a', 'src/Gone.php')))
-        ->and($ledger->lastPassed())->toEqual(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0));
+        ->and($ledger->runs()->passed())->toEqual(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0));
 });
 
 it('leaves the ledger it came from as it was', function () use ($proof, $timing): void {
@@ -125,7 +128,7 @@ it('leaves the ledger it came from as it was', function () use ($proof, $timing)
     $ledger->withProof($proof('a', 'src/A.php'));
     $ledger->withTimings(Timings::of($timing('src/A.php', 1.0)));
     $ledger->withTimings(Timings::of($timing('src/A.php', 1.0)));
-    $ledger->withPassed(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0));
+    $ledger->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('5eeca8f'), 'mutation-gate', 0)));
 
     expect($ledger)->toEqual(Ledger::empty());
 });
@@ -156,7 +159,7 @@ it('holds the bases its runs keyed at, the most recently seen first, whatever el
         ->withoutProof(Digest::of(str_repeat('a', 64)))
         ->withTimings(Timings::of($timing('src/A.php', 1.0)))
         ->withTimings(Timings::none())
-        ->withPassed(Passed::of(Revision::ref('206b4e0'), 'mutation-gate', 0))
+        ->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('206b4e0'), 'mutation-gate', 0)))
         ->keepingTimingsOf(Paths::none());
 
     expect(Ledger::empty()->bases())->toEqual(Bases::none())
@@ -194,4 +197,19 @@ it('holds what a run learned of the analysers, and reads its own before another 
         ->and(Ledger::empty()->withAnalysers($own)->analysers())->toBe($own)
         ->and($read->analysers()->of($phpstan)->rateOf($plus))->toEqual(RejectionRate::of('Plus', 3, 1))
         ->and($read->analysers()->of($phpstan)->time())->toEqual(CheckTime::of(90, Seconds::of(45.0)));
+});
+
+it('holds the newest commit whose run judged every unit it considered, and reads another scope\'s beside its own, its own first', function (): void {
+    $kind = RunProfile::standard();
+    $ours = Ledger::empty()->withRuns(ScopeRuns::none()->lastRunAt(LastRun::of(Revision::ref('5eeca8f'), 'mutation / verdict', $kind)));
+    $theirs = Ledger::empty()->withRuns(ScopeRuns::none()->lastRunAt(LastRun::of(Revision::ref('206b4e0'), 'mutation / verdict', $kind)));
+
+    expect(Ledger::empty()->runs()->lastRun())->toEqual(CannotTell::because('No run of this scope has judged every unit it considered yet.'))
+        ->and($ours->runs()->lastRun())->toEqual(LastRun::of(Revision::ref('5eeca8f'), 'mutation / verdict', $kind))
+        ->and($ours->and($theirs)->runs()->lastRun())->toEqual(LastRun::of(Revision::ref('5eeca8f'), 'mutation / verdict', $kind))
+        ->and(Ledger::empty()->and($theirs)->runs()->lastRun())->toBeInstanceOf(CannotTell::class)
+        ->and($ours->runs()->passing(Passed::of(Revision::ref('206b4e0'), 'mutation / verdict', 0))->lastRun())
+        ->toEqual(LastRun::of(Revision::ref('5eeca8f'), 'mutation / verdict', $kind))
+        ->and($ours->runs()->cutShort()->lastRun())->toBeInstanceOf(CannotTell::class)
+        ->and($ours->runs()->cutShort()->passed())->toEqual($ours->runs()->passed());
 });

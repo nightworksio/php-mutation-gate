@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Plan\Considering;
+use NightWorksIO\MutationGate\Core\Plan\OwnOnly;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
@@ -66,7 +67,7 @@ final readonly class ScoreChanging
         $ledgers = Ledgers::read($this->adapters->proofs, $inventory->standing, Writing::Never);
         $defaultBranch = $ledgers->defaultBranch()->proofs();
         $reach = Reached::since(
-            $inventory->standing->fetchedDefaultBranch(),
+            ChangeBase::since($inventory->standing->fetchedDefaultBranch()),
             $trees,
             $this->adapters,
             $this->settings,
@@ -74,7 +75,13 @@ final readonly class ScoreChanging
             $map,
             $this->setup->config,
         )->reach();
-        $considering = Considering::of($inventory->units, $reach, $defaultBranch, $ledgers->own()->proofs());
+        $considering = Considering::of(
+            $inventory->units,
+            $reach,
+            $defaultBranch,
+            $ledgers->own()->proofs(),
+            OwnOnly::none(),
+        );
         $reached = $considering->considered();
         $proving = $ledgers->proving($reached, $keying->keysOf($reached), $keying->base(), MatrixKind::FirstKiller);
         $completing = Considering::of(
@@ -82,6 +89,7 @@ final readonly class ScoreChanging
             Reach::nothing(Packages::of($trees)),
             $defaultBranch,
             $ledgers->own()->proofs(),
+            OwnOnly::none(),
         );
         $judge = Judge::of(
             $trees,

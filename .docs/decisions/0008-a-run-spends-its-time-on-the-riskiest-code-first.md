@@ -61,7 +61,9 @@ presets for Laravel, Symfony and plain libraries.
      - counts as not killed (ADR-0003);
      - is listed by unit in every report, with the command that judges it
        (`vendor/bin/mutation-gate run --budget=<duration>`);
-     - keeps its unit out of the ledger (ADR-0007);
+     - keeps its unit out of the ledger (ADR-0007), and the run's commit out
+       of its `lastRun`, which the run removes, so the scope's next `last-run`
+       change is read since the default branch again (ADR-0005, decision 2);
      - means its tree's floor is never raised by this run;
      - fails the verdict, naming its unit.
 

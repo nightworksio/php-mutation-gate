@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
 use NightWorksIO\MutationGate\Port\ChangeSource;
@@ -95,7 +96,7 @@ function passedLedgers(array $commits): ProofStoreFake
     foreach ($commits as $at => $commit) {
         $ledgers->write(
             Scope::pullRequest($at + 1),
-            Ledger::empty()->withPassed(Passed::of(Revision::ref(sprintf('pr-%s', $commit)), PULL_REQUESTS_CHECK, 0)),
+            Ledger::empty()->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref(sprintf('pr-%s', $commit)), PULL_REQUESTS_CHECK, 0))),
         );
     }
 
@@ -276,11 +277,11 @@ it('reads everything since the base when a pull request\'s ledger does not vouch
         ->toEqual(CannotTell::because('base is not a revision this repository has.'));
 })->with([
     'no pass recorded' => [Ledger::empty()],
-    'another head passed' => [Ledger::empty()->withPassed(Passed::of(Revision::ref('pr-other'), PULL_REQUESTS_CHECK, 0))],
-    'another check passed' => [Ledger::empty()->withPassed(Passed::of(Revision::ref('pr-two'), 'lint', 0))],
-    'its own proofs were used' => [Ledger::empty()->withPassed(Passed::of(Revision::ref('pr-two'), PULL_REQUESTS_CHECK, 1))],
+    'another head passed' => [Ledger::empty()->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('pr-other'), PULL_REQUESTS_CHECK, 0)))],
+    'another check passed' => [Ledger::empty()->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('pr-two'), 'lint', 0)))],
+    'its own proofs were used' => [Ledger::empty()->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('pr-two'), PULL_REQUESTS_CHECK, 1)))],
     'its own coverage map was measured against' => [
-        Ledger::empty()->withPassed(Passed::of(Revision::ref('pr-two'), PULL_REQUESTS_CHECK, 0)->onOwnScopeCoverage()),
+        Ledger::empty()->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('pr-two'), PULL_REQUESTS_CHECK, 0)->onOwnScopeCoverage())),
     ],
 ]);
 

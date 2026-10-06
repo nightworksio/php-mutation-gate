@@ -50,6 +50,24 @@ The same repository has two more needs.
      - `last-passed` means the newest commit of this scope whose verdict
        passed, which the ledger records (ADR-0007). With none recorded, the run
        is full.
+     - `last-run` means the commit this scope's last run judged, which the
+       ledger records beside it (ADR-0007, decision 3), for a run off the
+       default branch:
+       - the change is read from that commit itself, not from a merge base,
+         so a history rewritten since is still diffed file by file;
+       - the fetched default branch still gives the new code, and every file
+         changed since it carries only this scope's own result, so a newer
+         result of the default branch's code never stands in for the
+         branch's;
+       - such a result is carried only where it records the unit's source
+         and what decides its mutant set as they are now, so a race between
+         two runs or a ledger evicted from a cache reaches the unit instead;
+       - the run falls back to the fetched default branch where the scope
+         records no last run, where that run was of another kind (its kill
+         matrix, `--security` or `--suite`) or reported under another
+         check, or where git cannot read its commit, as after a force-push.
+       On the default branch `last-run` reads the change since
+       `last-passed`.
      - The package's GitHub action and reusable workflow pass the pull
        request's base on `pull_request`, and `last-passed` on a push to the
        default branch (ADR-0011).
@@ -77,7 +95,8 @@ The same repository has two more needs.
    - **Paths**: the diff from the merge base of `<ref>` and `HEAD` to the
      working tree, with renames detected (`git diff --find-renames`). Using the
      merge base means a branch behind its base never counts the base's newer
-     commits as its own.
+     commits as its own. A `last-run` change is the diff from the last run's
+     commit itself.
    - **Changed lines**: the lines on the new side of `git diff --unified=0` that
      were added or modified, in PHP files inside a tree. The new-code floor
      judges the mutants on these lines (ADR-0003).

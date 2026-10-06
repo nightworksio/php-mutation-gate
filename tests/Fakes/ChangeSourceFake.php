@@ -37,6 +37,7 @@ final readonly class ChangeSourceFake implements ChangeSource
      * @param array<string, string>                $changedAt when each committed file last changed, by its path
      * @param list<string>                         $unchanged the revisions nothing changed since, by name
      * @param list<string>                         $alike     the revisions the same changed since as since the base, by name
+     * @param array<string, Changes>               $from      what changed from each of these revisions itself, by name
      */
     public function __construct(
         private Revision $base,
@@ -45,19 +46,34 @@ final readonly class ChangeSourceFake implements ChangeSource
         private array $changedAt = [],
         private array $unchanged = [],
         private array $alike = [],
+        private array $from = [],
     ) {
+    }
+
+    /** This repository, where this changed from a revision itself, wherever it stands in history. */
+    public function changedFrom(Revision $commit, Changes $changes): self
+    {
+        return new self(
+            $this->base,
+            $this->changes,
+            $this->files,
+            $this->changedAt,
+            $this->unchanged,
+            $this->alike,
+            [...$this->from, $commit->name() => $changes],
+        );
     }
 
     /** This repository, where the same changed since this revision as since its base. */
     public function alsoFrom(Revision $revision): self
     {
-        return new self($this->base, $this->changes, $this->files, $this->changedAt, $this->unchanged, [...$this->alike, $revision->name()]);
+        return new self($this->base, $this->changes, $this->files, $this->changedAt, $this->unchanged, [...$this->alike, $revision->name()], $this->from);
     }
 
     /** This repository, where nothing changed since this revision, as at the commit HEAD is at. */
     public function unchangedSince(Revision $revision): self
     {
-        return new self($this->base, $this->changes, $this->files, $this->changedAt, [...$this->unchanged, $revision->name()], $this->alike);
+        return new self($this->base, $this->changes, $this->files, $this->changedAt, [...$this->unchanged, $revision->name()], $this->alike, $this->from);
     }
 
     /** The repository of the contract suite's fixture: a base, and a working tree that changed one line and added a file. */
@@ -86,10 +102,13 @@ final readonly class ChangeSourceFake implements ChangeSource
         };
     }
 
-    /** What changed from a revision itself: from the base, what changed since it, as the fake holds one history. */
+    /**
+     * What changed from a revision itself: what the fake was told changed from it, or else, from the base, what
+     * changed since it, as the fake holds one history.
+     */
     public function changesFrom(Revision $commit): Changes|CannotTell
     {
-        return $this->changesSince($commit);
+        return array_key_exists($commit->name(), $this->from) ? $this->from[$commit->name()] : $this->changesSince($commit);
     }
 
     public function fingerprints(): Fingerprints

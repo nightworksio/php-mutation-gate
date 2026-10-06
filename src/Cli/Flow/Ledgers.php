@@ -13,9 +13,11 @@ use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Plan\Considering;
+use NightWorksIO\MutationGate\Core\Plan\OwnOnly;
 use NightWorksIO\MutationGate\Core\Plan\Proving;
 use NightWorksIO\MutationGate\Core\Proof\Access;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
+use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\NewestProofs;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
@@ -178,16 +180,38 @@ final readonly class Ledgers
     /**
      * Of these units, those the run considers, and those that carry the
      * newest proof of their path that records what a run of this kind asks
-     * for.
+     * for, the units of these files carrying only their own scope's.
      */
-    public function considering(Units $units, Reach $reach, MatrixKind $matrix): Considering
+    public function considering(Units $units, Reach $reach, MatrixKind $matrix, OwnOnly $ownOnly): Considering
     {
         return Considering::of(
             $units,
             $reach,
             $this->defaultBranch->proofs()->recording($matrix),
             $this->own->proofs()->recording($matrix),
+            $ownOnly,
         );
+    }
+
+    /**
+     * The newest commit of the run's own scope whose run judged every unit it
+     * considered; none for a run with no scope.
+     */
+    public function lastRun(): LastRun|CannotTell
+    {
+        return match (true) {
+            ! $this->scope instanceof Scope => CannotTell::because(
+                'The run has no ref of its own, so no run of its own is recorded.',
+            ),
+            $this->readsOwnScope() => $this->own->runs()->lastRun(),
+            default => $this->defaultBranch->runs()->lastRun(),
+        };
+    }
+
+    /** Whether the run reads a scope of its own beside the default branch's: it runs off the default branch. */
+    public function readsOwnScope(): bool
+    {
+        return $this->access->reads()->count() > 1;
     }
 
     /** The newest commit of the run's own scope whose verdict passed; none for a run with no scope. */
@@ -197,8 +221,8 @@ final readonly class Ledgers
             ! $this->scope instanceof Scope => CannotTell::because(
                 'The run has no ref of its own, so no commit of its own has passed.',
             ),
-            $this->access->reads()->count() > 1 => $this->own->lastPassed(),
-            default => $this->defaultBranch->lastPassed(),
+            $this->readsOwnScope() => $this->own->runs()->passed(),
+            default => $this->defaultBranch->runs()->passed(),
         };
     }
 

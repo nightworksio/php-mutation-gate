@@ -12,8 +12,10 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * What a plan considered beyond its shards, and why: the lines a change
  * added or modified, which the new-code floor judges, those of them no test
  * runs, why it reached what it did, the units a proof whose key still
- * matches holds, and the units whose newest result is carried because the
- * change does not reach them.
+ * matches holds, the units whose newest result is carried because the
+ * change does not reach them, and those of them that carry only the run's
+ * own scope's newest result, since only it judged them as they are
+ * (ADR-0005, decision 2).
  */
 final readonly class Considered
 {
@@ -23,13 +25,14 @@ final readonly class Considered
         private Units $proved,
         private Units $carried,
         private Changes $untested,
+        private Units $carriedOwn,
     ) {
     }
 
     /** A full run's: no change, no reason, nothing proved or carried. */
     public static function everything(): self
     {
-        return new self(Changes::none(), Reasons::of(), Units::none(), Units::none(), Changes::none());
+        return new self(Changes::none(), Reasons::of(), Units::none(), Units::none(), Changes::none(), Units::none());
     }
 
     /** This, for a change: the lines it added or modified in each source file, and why it reached what it did. */
@@ -87,5 +90,17 @@ final readonly class Considered
     public function carried(): Units
     {
         return $this->carried;
+    }
+
+    /** This, with the units that carry only the run's own scope's newest result. */
+    public function carryingOwn(Units $carried): self
+    {
+        return clone($this, ['carriedOwn' => $carried]);
+    }
+
+    /** The units that carry only the run's own scope's newest result. */
+    public function carriedOwn(): Units
+    {
+        return $this->carriedOwn;
     }
 }

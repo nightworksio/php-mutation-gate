@@ -68,7 +68,11 @@ use stdClass;
  *
  * @phpstan-type RunOnWritten array{ref?: string, defaultBranch?: string}
  * @phpstan-type ShardWritten array<string, int|string|float|list<UnitWritten>>
- * @phpstan-type ConsideredWritten array{proved?: list<UnitWritten>, carried?: list<UnitWritten>}
+ * @phpstan-type ConsideredWritten array{
+ *     proved?: list<UnitWritten>,
+ *     carried?: list<UnitWritten>,
+ *     carriedOwn?: list<UnitWritten>,
+ * }
  * @phpstan-type ChangeWritten array{
  *     changed?: array<string, list<int>>,
  *     untested?: array<string, list<int>>,
@@ -84,6 +88,7 @@ use stdClass;
  *     shards: list<ShardWritten>,
  *     proved?: list<UnitWritten>,
  *     carried?: list<UnitWritten>,
+ *     carriedOwn?: list<UnitWritten>,
  *     changed?: array<string, list<int>>,
  *     untested?: array<string, list<int>>,
  *     reach?: list<string>,
@@ -105,6 +110,8 @@ final readonly class PlanFile
     private const string PROVED = 'proved';
 
     private const string CARRIED = 'carried';
+
+    private const string CARRIED_OWN = 'carriedOwn';
 
     private const string CHANGED = 'changed';
 
@@ -184,13 +191,27 @@ final readonly class PlanFile
         ];
     }
 
-    /** @return ConsideredWritten the units proved and those carried, each where there are any */
+    /**
+     * @return ConsideredWritten the units proved, those carried and those that carry their own scope's result alone,
+     *                           each where there are any
+     */
     private static function considered(Considered $considered): array
     {
         return [
-            ...count($considered->proved()) > 0 ? [self::PROVED => UnitRecord::all($considered->proved())] : [],
-            ...count($considered->carried()) > 0 ? [self::CARRIED => UnitRecord::all($considered->carried())] : [],
+            ...self::listed(self::PROVED, $considered->proved()),
+            ...self::listed(self::CARRIED, $considered->carried()),
+            ...self::listed(self::CARRIED_OWN, $considered->carriedOwn()),
         ];
+    }
+
+    /**
+     * Units under a field, where there are any.
+     *
+     * @return array<string, list<UnitWritten>>
+     */
+    private static function listed(string $field, Units $units): array
+    {
+        return count($units) > 0 ? [$field => UnitRecord::all($units)] : [];
     }
 
     /**
@@ -265,7 +286,8 @@ final readonly class PlanFile
                     ->reaching(self::changesIn($file->field(self::CHANGED)), self::reachIn($file))
                     ->untesting(self::changesIn($file->field(self::UNTESTED)))
                     ->proving(self::unitsIn($file->field(self::PROVED)))
-                    ->carrying(self::unitsIn($file->field(self::CARRIED))),
+                    ->carrying(self::unitsIn($file->field(self::CARRIED)))
+                    ->carryingOwn(self::unitsIn($file->field(self::CARRIED_OWN))),
             );
         $digests = $file->field(self::DIGESTS);
         $plan = $digests->isPresent() ? $plan->digesting(DigestsRecord::readRun($digests)) : $plan;

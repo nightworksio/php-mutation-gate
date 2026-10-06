@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistory;
 use NightWorksIO\MutationGate\Core\Analysis\CheckTime;
 use NightWorksIO\MutationGate\Core\Analysis\RejectionRate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -32,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Order\RankedMutant;
 use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Proof\Bases;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
+use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\LedgerLimits;
@@ -39,10 +41,13 @@ use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Run;
+use NightWorksIO\MutationGate\Core\Proof\RunProfile;
+use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Uncommitted;
 use NightWorksIO\MutationGate\Core\Proof\Unproved;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Instant;
@@ -93,7 +98,7 @@ $ledgerOf = static fn(Proof $money): Ledger => Ledger::empty()
     ->withProof(Proof::of(Digest::of($keyB), Path::of('src/B.php'), Mutants::none(), $run('github:2/1', '2026-09-29T21:00:00Z')))
     ->withTimings(Timings::of(Timing::of(Path::of('src/Money.php'), Seconds::of(12.4), 'infection', $at('2026-09-29T20:48:17Z'))))
     ->atBase(Digest::of($base))
-    ->withPassed(Passed::of(Revision::ref('206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708'), 'mutation-gate', 0))
+    ->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708'), 'mutation-gate', 0)))
     ->withKillers(KillHistory::none()
         ->withMutant($killedId, Ranking::of(
             Kills::of(TestId::of('MoneyTest::adds'), 3),
@@ -388,7 +393,7 @@ it('drops a timing that is not well formed and keeps a timing of no time at all'
 it('reads proofs and timings that are not maps as none, and keeps what else it holds', function () use ($data, $written, $base, $ledger): void {
     $file = [...$data(), 'proofs' => 7, 'timings' => 'none'];
 
-    expect(LedgerFile::decode($written($file)))->toEqual(Ledger::empty()->atBase(Digest::of($base))->withPassed(Passed::of(Revision::ref('206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708'), 'mutation-gate', 0))->withKillers($ledger->killers()));
+    expect(LedgerFile::decode($written($file)))->toEqual(Ledger::empty()->atBase(Digest::of($base))->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708'), 'mutation-gate', 0)))->withKillers($ledger->killers()));
 });
 
 it('drops each kill pair that is not well formed, a ranking left with none, and an entry under no name', function () use ($data, $written, $killedId): void {
@@ -433,7 +438,7 @@ it('reads a passing record that is not well formed as none', function (array|int
     $file = [...$data(), 'passed' => $passed];
     $read = LedgerFile::decode($written($file));
 
-    expect($read->lastPassed())->toEqual(Ledger::empty()->lastPassed())
+    expect($read->runs()->passed())->toEqual(Ledger::empty()->runs()->passed())
         ->and($read->proofs())->toEqual($readBack->proofs());
 })->with([
     'a bare commit' => ['206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708'],
@@ -450,16 +455,16 @@ it('reads a passing record that is not well formed as none', function (array|int
 
 it('reads back a passing verdict measured against its own scope\'s coverage map as one, and one without the field as one that was not', function () use ($ledger, $data, $written): void {
     $passed = Passed::of(Revision::ref('5eeca8f0a1b2c3d4e5f60718293a4b5c6d7e8f90'), 'mutation / verdict', 0)->onOwnScopeCoverage();
-    $plain = LedgerFile::decode($written([...$data(), 'passed' => ['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate', 'ownScopeProofs' => 0]]))->lastPassed();
+    $plain = LedgerFile::decode($written([...$data(), 'passed' => ['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate', 'ownScopeProofs' => 0]]))->runs()->passed();
 
-    expect(LedgerFile::decode(LedgerFile::encode($ledger->withPassed($passed)))->lastPassed())->toEqual($passed)
+    expect(LedgerFile::decode(LedgerFile::encode($ledger->withRuns(ScopeRuns::none()->passing($passed))))->runs()->passed())->toEqual($passed)
         ->and($plain instanceof Passed ? $plain->measuredOnOwnScope() : $plain)->toBeFalse();
 });
 
 it('reads back a passing verdict that used proofs of its own scope', function () use ($ledger): void {
     $passed = Passed::of(Revision::ref('5eeca8f0a1b2c3d4e5f60718293a4b5c6d7e8f90'), 'mutation / verdict', 3);
 
-    expect(LedgerFile::decode(LedgerFile::encode($ledger->withPassed($passed)))->lastPassed())->toEqual($passed);
+    expect(LedgerFile::decode(LedgerFile::encode($ledger->withRuns(ScopeRuns::none()->passing($passed))))->runs()->passed())->toEqual($passed);
 });
 
 it('reads a full ledger and joins it to another in time linear in its proofs', function () use ($run, $killed, $base): void {
@@ -640,3 +645,29 @@ it('writes the matrix of a proof whose run recorded every killer, and reads one 
         ->and($fullRead instanceof Proof ? $fullRead->run()->matrix() : $fullRead)->toBe(MatrixKind::Full)
         ->and($firstRead instanceof Proof ? $firstRead->run()->matrix() : $firstRead)->toBe(MatrixKind::FirstKiller);
 });
+
+it('reads back the newest commit whose run judged every unit, of every kind of run', function (RunProfile $kind) use ($ledger): void {
+    $last = LastRun::of(Revision::ref('5eeca8f0a1b2c3d4e5f60718293a4b5c6d7e8f90'), 'mutation / verdict', $kind);
+
+    expect(LedgerFile::decode(LedgerFile::encode($ledger->withRuns(ScopeRuns::none()->lastRunAt($last))))->runs()->lastRun())->toEqual($last)
+        ->and(LedgerFile::decode(LedgerFile::encode($ledger))->runs()->lastRun())->toBeInstanceOf(CannotTell::class);
+})->with([
+    'first killers, every mutator, every test' => [RunProfile::standard()],
+    'every killer, the security sets, one suite' => [fn(): RunProfile => RunProfile::standard()->recording(MatrixKind::Full)->securityOnly()->inSuite(SuiteName::of('unit'))],
+]);
+
+it('reads a last run that is not well formed as none, and keeps the rest', function (array|int|string $lastRun) use ($data, $written, $readBack): void {
+    $read = LedgerFile::decode($written([...$data(), 'lastRun' => $lastRun]));
+
+    expect($read->runs()->lastRun())->toBeInstanceOf(CannotTell::class)
+        ->and($read->proofs())->toEqual($readBack->proofs());
+})->with([
+    'a bare commit' => ['206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708'],
+    'a commit that is not its full id' => [['commit' => '206b4e0', 'check' => 'mutation-gate', 'kind' => []]],
+    'a commit git would read as an option' => [['commit' => '--output=/tmp/x', 'check' => 'mutation-gate', 'kind' => []]],
+    'a check that is not text' => [['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => null, 'kind' => []]],
+    'no kind' => [['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate']],
+    'a matrix it does not know' => [['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate', 'kind' => ['matrix' => 'some']]],
+    'security that is not true' => [['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate', 'kind' => ['security' => false]]],
+    'an empty suite' => [['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate', 'kind' => ['suite' => '']]],
+]);
