@@ -96,22 +96,32 @@ it('gives each unit of a shard the mutants its shard found flaky', function () u
         ->and($units[0]->origin())->toBe(Origin::Run);
 });
 
-it('cannot judge a shard that left no result', function (): void {
+it('cannot judge a shard that left no result, naming every one that left none', function (): void {
     $project = Flows::project();
+    $one = Planned::of(Shard::of(ShardId::of(1), Package::at(Path::root()), Units::of(Planned::money()), Seconds::of(2.0), 'money'));
 
-    expect(Results::read(Planned::twoShards(), Workspace::results(), Directory::at($project)))
+    expect(Results::read($one, Workspace::results(), Directory::at($project)))
         ->toEqual(CannotJudge::because(<<<'SAID'
             Shard 1 (money) left no result at .mutation-gate/results/1.json, so its mutants cannot be judged.
             A shard that crashed, was cancelled or never started leaves none. Run it again.
+            SAID))
+        ->and(Results::read(Planned::twoShards(), Workspace::results(), Directory::at($project)))
+        ->toEqual(CannotJudge::because(<<<'SAID'
+            Shards 1 (money), 2 (held) left no result in .mutation-gate/results, so their mutants cannot be judged.
+            A shard that crashed, was cancelled or never started leaves none. Run them again.
             SAID));
 });
 
-it('cannot judge a result that cannot be read', function (): void {
+it('cannot judge a result that cannot be read, and says too which shards left none', function (): void {
     $project = Flows::project();
     Scratch::write($project, '.mutation-gate/results/1.json', 'not a result');
 
     expect(Results::read(Planned::twoShards(), Workspace::results(), Directory::at($project)))
-        ->toEqual(CannotJudge::because('A shard result cannot be read: the file.format is missing.'));
+        ->toEqual(CannotJudge::because(<<<'SAID'
+            A shard result cannot be read: the file.format is missing.
+            Shard 2 (held) left no result at .mutation-gate/results/2.json, so its mutants cannot be judged.
+            A shard that crashed, was cancelled or never started leaves none. Run it again.
+            SAID));
 });
 
 it('cannot judge a result that followed another plan', function () use ($ran): void {
@@ -128,15 +138,20 @@ it('cannot judge a result that followed another plan', function () use ($ran): v
             SAID));
 });
 
-it('cannot judge a shard the runner could not judge, saying why', function () use ($ran): void {
+it('cannot judge a shard the runner could not judge, saying why for every one', function () use ($ran): void {
     expect($ran(Flows::project(), ScriptedRunner::fixture()->refusing('The suite failed without mutants.')))
-        ->toEqual(CannotJudge::because('Shard 1 (money) could not be judged: The suite failed without mutants.'));
+        ->toEqual(CannotJudge::because(<<<'SAID'
+            Shard 1 (money) could not be judged: The suite failed without mutants.
+            Shard 2 (held) could not be judged: The suite failed without mutants.
+            SAID));
 });
 
 it('cannot judge a shard whose runner skipped mutants it kept no record of', function () use ($ran): void {
     expect($ran(Flows::project(), ScriptedRunner::fixture()->answering(Mutants::none(), 3)))
         ->toEqual(CannotJudge::because(<<<'SAID'
             Shard 1 (money) skipped 3 mutants without a record of them, so they cannot be judged.
+            The runner leaves no mutant unjudged in a run the gate judges.
+            Shard 2 (held) skipped 3 mutants without a record of them, so they cannot be judged.
             The runner leaves no mutant unjudged in a run the gate judges.
             SAID));
 });

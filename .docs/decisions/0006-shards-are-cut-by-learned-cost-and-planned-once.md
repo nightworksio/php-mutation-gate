@@ -101,7 +101,9 @@ Two parts of that do not carry over to a public package.
 2. **The verdict is the one check a branch protects.** It reads the result
    files, not the CI's job statuses. A shard that crashed, was cancelled or
    never started leaves no result file, and the verdict is then *cannot judge*
-   (exit code 2), whatever the CI thinks of the job. Every pipeline this
+   (exit code 2), whatever the CI thinks of the job. It names every shard
+   that left none, and every result it cannot read or merge, at once, so one
+   run again is enough. Every pipeline this
    package generates or documents runs the verdict after a failed shard job
    too, so that answer is always given. A plan with no shards is a real answer:
    nothing is reached, or everything is proved. Its verdict judges the trees
