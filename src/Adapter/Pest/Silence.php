@@ -40,18 +40,20 @@ final class Silence
 
     /**
      * Watches an own run, its covering tests named by their ids as the
-     * coverage map names them, by its mutated copy. Whatever was watched
-     * under its process's id before is forgotten, since PHP gives a freed
-     * process's id to the next.
+     * coverage map names them, by its mutated copy, where the run passes
+     * this filter of them. A run whose filter was left out runs every test
+     * it loads, of which the slowest is not known, so it is not watched.
+     * Whatever was watched under its process's id before is forgotten, since
+     * PHP gives a freed process's id to the next.
      *
      * @param list<string> $tests
      */
-    public static function watch(Process $process, array $tests, string $mutated): void
+    public static function watch(Process $process, array $tests, string $mutated, string $filter): void
     {
         $limit = MutantTime::silence($tests);
         unset(self::$watched[spl_object_id($process)]);
 
-        if ($limit instanceof Seconds) {
+        if ($limit instanceof Seconds && Ceiling::admits($filter)) {
             self::$watched[spl_object_id($process)] = [$limit->seconds(), $mutated, 0.0];
         }
     }

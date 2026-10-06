@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Ceiling;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\MutantTime;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
@@ -55,7 +56,7 @@ it('holds a run to no limit before its tests begin, then stops it once no test h
     $results = sprintf('%s/results.jsonl', Scratch::directory());
     putenv(sprintf('%s=%s', GateVariable::Results->value, $results));
     $process = silenceRun(0.2);
-    Silence::watch($process, ['T::a'], '/tmp/mutations/abc');
+    Silence::watch($process, ['T::a'], '/tmp/mutations/abc', '--filter="T::a"');
     $start = microtime(as_float: true);
 
     Silence::check($process, $start + 100.0);
@@ -69,23 +70,24 @@ it('holds a run to no limit before its tests begin, then stops it once no test h
         ->and(file_get_contents($results))->toBe(RecordLine::silent('/tmp/mutations/abc', 8.0));
 });
 
-it('never stops a run it does not watch, nor one watched again under tests the map did not time', function (): void {
+it('never stops a run it does not watch, one watched again under tests the map did not time, nor one whose filter was left out', function (): void {
     $unwatched = silenceRun(0.0);
     $untimed = silenceRun(0.0);
-    Silence::watch($untimed, ['T::a'], '/tmp/mutations/timed');
-    Silence::watch($untimed, ['T::never'], '/tmp/mutations/untimed');
-    silenceBeaten($unwatched);
-    silenceBeaten($untimed);
-
+    $unfiltered = silenceRun(0.0);
+    Silence::watch($untimed, ['T::a'], '/tmp/mutations/timed', '--filter="T::a"');
+    Silence::watch($untimed, ['T::never'], '/tmp/mutations/untimed', '--filter="T::never"');
+    Silence::watch($unfiltered, ['T::a'], '/tmp/mutations/unfiltered', str_repeat('T::a|', Ceiling::BYTES));
+    $runs = [$unwatched, $untimed, $unfiltered];
+    array_map(silenceBeaten(...), $runs);
     $now = microtime(as_float: true);
 
     foreach ([$now, $now + 1000.0] as $at) {
-        Silence::check($unwatched, $at);
-        Silence::check($untimed, $at);
+        array_map(static fn(Process $run) => Silence::check($run, $at), $runs);
     }
 
-    expect([$unwatched->isRunning(), $untimed->isRunning()])->toBe([true, true]);
+    expect(array_map(static fn(Process $run): bool => $run->isRunning(), $runs))->toBe([true, true, true]);
 
-    $unwatched->stop(0);
-    $untimed->stop(0);
+    foreach ($runs as $run) {
+        $run->stop(0);
+    }
 });

@@ -391,9 +391,12 @@ its parser attributes. Both change when the checkout moves.
        writes a byte to its error output as the run starts executing tests and
        as each test finishes, and Pest's parent process, as it checks the
        run's limit, stops the run where none came for the silence limit since
-       the last. Before the first, the run is held only to its own limit. The
-       patched plugin records each stop in the results file, and the mutant
-       is timed out at its own limit, with a reason naming the silence limit.
+       the last. Before the first, the run is held only to its own limit. A
+       run whose filter was left out runs tests whose times are not known,
+       and a covering test the map did not time has none, so neither run has
+       a silence limit. The patched plugin records each stop in the results
+       file, and the mutant is timed out at its own limit, with a reason
+       naming the silence limit.
      - A mutant's own run loads only the test files its covering tests need:
        the file that declares each covering test's class, and every test file
        Pest's parent process loaded that declares a name those use, in turn.
