@@ -337,6 +337,22 @@ it('states a link itself or what it points at, and a dangling link, without a wa
         ->and($native)->toBe([[true, true, 4, false, false, true], []]);
 });
 
+it('states a file it cannot read as there, though not readable, as PHP\'s own wrapper does', function (): void {
+    [$native, $served] = nativeThenServed(static function (string $directory): array {
+        $file = sprintf('%s/unreadable.txt', $directory);
+        file_put_contents($file, 'here');
+        chmod($file, 0o000);
+        $stated = [file_exists($file), is_file($file), is_readable($file), filesize($file)];
+        chmod($file, 0o600);
+        unlink($file);
+
+        return $stated;
+    });
+
+    expect($served)->toBe($native)
+        ->and($native)->toBe([[true, true, false, 4], []]);
+})->skip(function_exists('posix_geteuid') && posix_geteuid() === 0, 'root reads a file whatever its mode');
+
 it('raises only PHP\'s own warning for a file that is not there', function (): void {
     [$native, $served] = nativeThenServed(static function (string $directory): array {
         $gone = sprintf('%s/gone.txt', $directory);
