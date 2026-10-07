@@ -41,6 +41,7 @@
             <directory>tests/Contract</directory>
             <exclude>tests/Contract/Runner/fixture</exclude>
             <exclude>tests/Contract/Runner/infection-fixture</exclude>
+            <exclude>tests/Contract/Runner/crash</exclude>
             <exclude>tests/Contract/Runner/reach</exclude>
             <exclude>tests/Contract/Runner/stall</exclude>
             <exclude>tests/Contract/Runner/override</exclude>

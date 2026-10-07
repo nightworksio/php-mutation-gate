@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Format\Secrets;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\KillSearch;
@@ -62,7 +63,10 @@ use function sprintf;
  * orders its tests as though no test had killed anything yet, and one whose
  * history cannot be read does too, and warns of it. A pull request's shard
  * runs in chunks, and stops once a survivor makes its run certain to fail,
- * naming that survivor in its result (ADR-0008, decision 6).
+ * naming that survivor in its result (ADR-0008, decision 6). Each kill's
+ * evidence the runner gave is left beside its mutant, what a process printed
+ * kept only where it holds no secret the gate withholds (ADR-0014,
+ * decision 16).
  */
 final readonly class Running
 {
@@ -266,14 +270,16 @@ final readonly class Running
             $stopwatch->stop(Step::StaticCheck, $from, $survived);
         }
 
+        $mutants = MemoryTriage::weighed(
+            TimeoutTriage::timed($checked->mutants, $map, $held->covered()),
+            $plan->briefing()->peak(),
+        );
+        $secrets = Secrets::withheldIn($this->adapters->environment, $this->adapters->withheld);
+
         return new Mutated(
-            MutationResult::of(
-                MemoryTriage::weighed(
-                    TimeoutTriage::timed($checked->mutants, $map, $held->covered()),
-                    $plan->briefing()->peak(),
-                ),
-                $spent->skipped,
-            )->withWarnings($spent->warnings),
+            MutationResult::of($mutants, $spent->skipped)
+                ->withWarnings($spent->warnings)
+                ->withEvidence(Hidden::in($spent->evidence, $mutants, $secrets)),
             $spent->flaky,
             $held,
             $spent->unjudged,

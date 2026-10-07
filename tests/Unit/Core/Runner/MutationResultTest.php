@@ -5,7 +5,18 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Cost\StepTimes;
+use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Mutant\Evidence;
+use NightWorksIO\MutationGate\Core\Mutant\Evidences;
+use NightWorksIO\MutationGate\Core\Mutant\Location;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\Mutation;
+use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
@@ -45,4 +56,25 @@ it('names the steps its time went to, those before first, and keeps them, its wa
         ->and($replaced->skipped())->toBe(2)
         ->and($replaced->warnings())->toEqual($result->warnings())
         ->and(count(MutationResult::of(Mutants::none(), 0)->steps()))->toBe(0);
+});
+
+it('keeps the evidence of each mutant it is given again as it was, and none of one put in its place', function (): void {
+    $killed = static fn(string $mutator, MutantStatus $status): Mutant => Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), $mutator, "-a + b\n+a - b", 0),
+        '8',
+        Location::of(Path::of('src/Money.php'), Line::of(9), Line::of(9)),
+        Mutation::of($mutator, MutatorFamily::Arithmetic, "-a + b\n+a - b"),
+        $status,
+        Seconds::of(0.5),
+    );
+    $kept = $killed('Plus', MutantStatus::Killed);
+    $replaced = $killed('Minus', MutantStatus::Killed);
+    $evidence = Evidence::none()->withPrefix(Prefix::at(2));
+    $result = MutationResult::of(Mutants::of($kept, $replaced), 0)
+        ->withEvidence(Evidences::none()->with($kept->id(), $evidence)->with($replaced->id(), $evidence));
+    $again = $result->withMutants(Mutants::of($kept, $killed('Minus', MutantStatus::Survived)));
+
+    expect($again->evidence()->of($kept->id()))->toBe($evidence)
+        ->and($again->evidence()->of($replaced->id()))->toEqual(Evidence::none())
+        ->and($again->evidence())->toHaveCount(1);
 });

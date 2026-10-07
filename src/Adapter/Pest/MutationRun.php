@@ -268,16 +268,20 @@ final readonly class MutationRun
 
         $from = $laps->now();
         $left = $this->left($request, $started);
+        $unconfirmed = Reason::that(self::NO_TIME_TO_CONFIRM);
         $again = $left instanceof Seconds && $left->seconds() <= 0.0
-            ? FoundAgain::among($doubtful, Mutants::none(), Reason::that(self::NO_TIME_TO_CONFIRM))
+            ? MutationResult::of(FoundAgain::among($doubtful, Mutants::none(), $unconfirmed), 0)
             : $this->whole()->again($doubtful, $left instanceof Seconds ? $request->within($left) : $request);
         $runs = new AloneRuns($this->project, $this->shell, $this->remembered);
         $again = $again instanceof CannotJudge
             ? $again
-            : $controls->applied($again, $runs, $request, $this->left($request, $started), $results);
+            : $again->withMutants(
+                $controls->applied($again->mutants(), $runs, $request, $this->left($request, $started), $results),
+            );
 
         return $again instanceof CannotJudge ? $again : $result
-            ->withMutants(FoundAgain::replacing($result->mutants(), $again))
+            ->withMutants(FoundAgain::replacing($result->mutants(), $again->mutants()))
+            ->withEvidence($again->evidence())
             ->withSteps(StepTimes::of($laps->lap(Step::Confirmation, $from)));
     }
 
@@ -291,8 +295,11 @@ final readonly class MutationRun
             : $deadline;
     }
 
-    /** These mutants made again over their files with their mutators, each matched to the one asked for. */
-    private function again(Mutants $mutants, MutationRequest $request): Mutants|CannotJudge
+    /**
+     * These mutants made again over their files with their mutators, each
+     * matched to the one asked for, with the evidence of each kill.
+     */
+    private function again(Mutants $mutants, MutationRequest $request): MutationResult|CannotJudge
     {
         $files = [];
         $mutators = [];
@@ -311,9 +318,10 @@ final readonly class MutationRun
             ),
         );
 
-        return $result instanceof CannotJudge
-            ? $result
-            : FoundAgain::among($mutants, $result->mutants(), Reason::that(self::NOT_MADE_TO_CONFIRM));
+        return $result instanceof CannotJudge ? $result : MutationResult::of(
+            FoundAgain::among($mutants, $result->mutants(), Reason::that(self::NOT_MADE_TO_CONFIRM)),
+            0,
+        )->withEvidence(FoundAgain::evidenceAmong($mutants, $result));
     }
 
     private function commandFor(

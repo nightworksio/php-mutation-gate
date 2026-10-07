@@ -47,6 +47,8 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
+use NightWorksIO\MutationGate\Core\Mutant\Ended;
+use NightWorksIO\MutationGate\Core\Mutant\Evidence;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -891,6 +893,48 @@ it('runs a mutant a narrowed run killed with no killer again with every test fil
 })->with([
     'within a deadline' => [adapterMoney()->within(Seconds::of(60.0))],
     'with no deadline' => [adapterMoney()],
+]);
+
+/**
+ * A shell whose narrowed run kills src/Money.php's line 11 with no killer, its process ending with code 2, and whose
+ * run with every test file kills it again with code 255, or lets it survive; its control passes or fails.
+ */
+function adapterEndedTwice(Project $at, bool $killedAgain, bool $controlPasses = true): ShellFake
+{
+    return new ShellFake(static function (Command $command, int $before) use ($at, $killedAgain, $controlPasses): Ran {
+        $results = sprintf('%s', $command->environment()[GateVariable::Results->value] ?? '');
+
+        if ($results === '') {
+            return Ran::finished(succeeded: $controlPasses, output: 'the control on the unmutated code');
+        }
+
+        CoverageMaps::write(Recorder::coverageBeside($results), sprintf('%s/', $at->root()), ['src/Money.php' => [11 => [0]]], [RUN_ADDS], []);
+        $killed = $before === 0 || $killedAgain;
+        $status = $killed ? PestStatus::Tested : PestStatus::Untested;
+        PestRun::write($results, [
+            PestRun::planned('n1', sprintf('%s/src/Money.php', $at->root()), 11, RUN_PLUS, 'return $a + $b;', 'return $a - $b;'),
+            PestRun::made(1),
+            ...($killed ? [PestRun::ended('n1', Ended::of($before === 0 ? 2 : 255, signalled: false, printed: sprintf('run %d', $before)))] : []),
+            PestRun::finished('n1', $status, 0.25),
+            PestRun::end(),
+        ]);
+
+        return Ran::finished(succeeded: true, output: sprintf('  Mutations: 1 %s', $status->value));
+    });
+}
+
+it('gives a kill run again with every test file the evidence of that run, and none of the narrowed run it replaced', function (bool $killedAgain, bool $controlPasses, Evidence $expected): void {
+    $at = adapterProject();
+
+    $result = new Pest($at, adapterEndedTwice($at, $killedAgain, $controlPasses), adapterCanary(), new CapDirectory(), Triage::standard()->bounds())->mutate(adapterMoney());
+    $mutants = $result instanceof MutationResult ? [...$result->mutants()] : [];
+
+    expect($mutants)->toHaveCount(1)
+        ->and($result instanceof MutationResult && $mutants !== [] ? $result->evidence()->of($mutants[0]->id()) : null)->toEqual($expected);
+})->with([
+    'killed again' => [true, true, Evidence::none()->withEnded(Ended::unprinted(255, signalled: false))],
+    'killed again, its control failing, so unjudged' => [true, false, Evidence::none()],
+    'surviving' => [false, true, Evidence::none()],
 ]);
 
 it('runs a mutant a narrowed run killed only by tests that errored again with every test file, before it counts', function (): void {

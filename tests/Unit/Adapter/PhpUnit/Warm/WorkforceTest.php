@@ -21,6 +21,9 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
+use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
@@ -282,4 +285,26 @@ it('claims no run once the request\'s deadline has passed, and leaves it unstart
     expect($slow->children())->toHaveCount(1)
         ->and($slow->fresh())->toBe([])
         ->and($result instanceof MutationResult ? $result->skipped() : -1)->toBe(1);
+});
+
+it('gives each kill a worker\'s child made how far its run went, from the test its results file says started', function () use ($both): void {
+    $started = static function (string $results, string $guard): Ran {
+        $ran = warmKilled($results, $guard);
+        file_put_contents($results, sprintf("started Tests%%5CMoneySpec%%3A%%3Aadds\n%s", (string) file_get_contents($results)));
+
+        return $ran;
+    };
+    $shell = new PhpUnitWorkersFake(
+        static fn(WarmRun $run): Ran => $started($run->environment()[Variable::Results->value], $run->guard()),
+        static fn(Command $command): Ran => $started($command->environment()[Variable::Results->value], $command->environment()[Variable::Guard->value]),
+    );
+
+    $result = warmMutation(warmLibrary(), $shell)->of(forking(1), $both, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
+    $prefixes = $result instanceof MutationResult ? array_map(
+        static fn(Mutant $mutant): Prefix|NotGiven => $result->evidence()->of($mutant->id())->prefix(),
+        array_values(array_filter([...$result->mutants()], static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Killed)),
+    ) : [];
+    $expected = Prefix::keyedAt(1, Prefix::keyOf(Paths::none(), OrderDigest::of(TestId::of('Tests\MoneySpec::adds'))->value()));
+
+    expect($prefixes)->toEqual([$expected, $expected]);
 });

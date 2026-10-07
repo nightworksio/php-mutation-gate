@@ -43,6 +43,9 @@ enum RecordEvent: string
     /** A mutant's own process ran out of its memory limit. */
     case Exhausted = 'exhausted';
 
+    /** How a mutant's own process ended, as Pest's parent process saw it, by its mutated copy (see Ending). */
+    case Ended = 'ended';
+
     /** The run reached its end. */
     case End = 'end';
 }

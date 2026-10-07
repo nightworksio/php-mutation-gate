@@ -99,6 +99,7 @@ final readonly class MutationRun
             $judged instanceof CannotJudge => $judged,
             default => MutationResult::of(Mutants::of(...$judged->mutants()), count($made) - count($judged->mutants()))
                 ->withWarnings($judged->warnings())
+                ->withEvidence($judged->evidence())
                 ->withSteps(StepTimes::of($preparing, $this->laps->lap(Step::Mutation, $from, count($queue)))),
         };
     }
@@ -180,7 +181,8 @@ final readonly class MutationRun
             }
         }
 
-        return Judged::of($batch->finished(), $forked->warnings());
+        return Judged::of($batch->finished(), $forked->warnings())
+            ->withEvidence($forked->evidence()->and($batch->evidence()));
     }
 
     /**

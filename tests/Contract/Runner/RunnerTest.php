@@ -33,6 +33,9 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Ended;
+use NightWorksIO\MutationGate\Core\Mutant\Evidence;
+use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
@@ -42,8 +45,10 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Considering;
 use NightWorksIO\MutationGate\Core\Plan\OwnOnly;
 use NightWorksIO\MutationGate\Core\Proof\Access;
@@ -91,6 +96,7 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
 use NightWorksIO\MutationGate\Tests\Support\InfectionSource;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
@@ -256,6 +262,24 @@ it('leaves a proof of what it judged, which a last-run change carries while its 
     expect($proof)->toBeInstanceOf(Proof::class)
         ->and(count($carrying($asRun)->carried()))->toBe(1)
         ->and(count($carrying(Digests::of($mutation)->withSource($unit, Digest::sha256Of('money since')))->considered()))->toBe(1);
+})->with($libraries);
+
+it('gives a kill how far its run went where its runner can tell, and no ending where it names a killer', function (Library $library) use ($money): void {
+    $result = $money($library);
+    $killed = array_values(array_filter(
+        $result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false) : [],
+        static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Killed,
+    ));
+    $evidence = $result instanceof MutationResult && $killed !== [] ? $result->evidence()->of($killed[0]->id()) : Evidence::none();
+    $prefix = $evidence->prefix();
+
+    expect($killed)->toHaveCount(1)
+        ->and($evidence->ended())->toBeInstanceOf(NotGiven::class)
+        ->and($library->runner() instanceof Infection ? $prefix instanceof NotGiven : $prefix instanceof Prefix && $prefix->position() >= 1)
+        ->toBeTrue()
+        ->and($prefix instanceof Prefix && is_string($prefix->key()) ? $prefix->key() : '')
+        ->toMatch($library->runner() instanceof Infection || $library->runner() instanceof RunnerFake ? '/^$/' : '/^[0-9a-f]{12}$/')
+        ->and($result instanceof MutationResult ? count($result->evidence()) : -1)->toBe($library->runner() instanceof Infection ? 0 : 1);
 })->with($libraries);
 
 it('names the steps its time went to, in the order they started, the mutants\' run among them with every mutant it judged', function (Library $library) use ($money): void {
@@ -874,6 +898,93 @@ it('stops a mutant\'s run where no test of it finishes for its silence limit, sh
         ))
         ->each->toStartWith('No test finished for ');
 })->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+
+it('gives a kill how far its run went, keyed by the test files it loaded, with patched Pest', function (): void {
+    Patch::applyIn(Library::vendor());
+    $library = Library::pest(Patching::on(Library::canary()));
+    $result = $library->runner()->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('adds'))));
+    $mutants = $result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false) : [];
+    $prefix = $result instanceof MutationResult && $mutants !== [] ? $result->evidence()->of($mutants[0]->id())->prefix() : NotGiven::value();
+
+    expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::Killed])
+        ->and($prefix instanceof Prefix && $prefix->position() >= 1)->toBeTrue()
+        ->and($prefix instanceof Prefix ? $prefix->key() : '')->toMatch('/^[0-9a-f]{12}$/');
+})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+
+/**
+ * The crash fixture's mutant as a runner over the library in this directory
+ * reports it: its source and its spec copied in for the run, and taken out
+ * again once it is done.
+ *
+ * @param  Closure(): (MutationResult|CannotJudge) $run
+ * @param  array<string, string>                   $files each file copied in, by where in the library, from where in crash/
+ * @return array{list<Mutant>, Evidences}
+ */
+function crashed(string $directory, array $files, Closure $run): array
+{
+    foreach ($files as $into => $from) {
+        copy(Tree::at(sprintf('tests/Contract/Runner/crash/%s', $from)), Tree::at(sprintf('%s/%s', $directory, $into)));
+    }
+
+    try {
+        $result = $run();
+    } finally {
+        foreach (array_keys($files) as $into) {
+            unlink(Tree::at(sprintf('%s/%s', $directory, $into)));
+        }
+    }
+
+    return $result instanceof MutationResult
+        ? [iterator_to_array($result->mutants(), preserve_keys: false), $result->evidence()]
+        : [[], Evidences::none()];
+}
+
+/** The request for the crash fixture's one mutant. */
+function crashRequest(Library $library): MutationRequest
+{
+    return MutationRequest::of(Paths::of(Path::of('src/Crash.php')), WholeSuite::tests())
+        ->narrowedTo(Paths::of(Path::of('src/Crash.php')), Narrowing::none()->toMutators($library->mutators('large')));
+}
+
+// A mutant that ends its process before any test fails is killed with no
+// killer named, where the runner cannot tell which test it ended in. A
+// runner that sees the process end says how: its code, whether a signal
+// ended it and the end of what it printed.
+it('gives a kill that names no killer how its process ended, with patched Pest', function (): void {
+    Patch::applyIn(Library::vendor());
+    $library = Library::pest(Patching::on(Library::canary()));
+    [$mutants, $evidence] = crashed(Library::DIRECTORY, ['src/Crash.php' => 'src/Crash.php', 'tests/CrashSpec.php' => 'tests/CrashSpec.php'], static fn(): MutationResult|CannotJudge => $library->runner()->mutate(crashRequest($library)));
+    $ended = $mutants === [] ? NotGiven::value() : $evidence->of($mutants[0]->id())->ended();
+
+    expect(array_map(static fn(Mutant $mutant): array => [$mutant->status(), count($mutant->killers())], $mutants))->toBe([[MutantStatus::Killed, 0]])
+        ->and($ended instanceof Ended ? [is_int($ended->code()) && $ended->code() !== 0, $ended->signalled()] : [])->toBe([true, false])
+        ->and($mutants === [] ? null : $evidence->of($mutants[0]->id())->prefix())->toBeInstanceOf(NotGiven::class);
+})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+
+it('names the test a mutant ended the process in as its killer, and so gives no ending, with PHPUnit', function (Workers $workers): void {
+    $library = Library::phpunit();
+    [$mutants, $evidence] = crashed(Library::PHPUNIT_DIRECTORY, ['src/Crash.php' => 'src/Crash.php', 'tests/CrashSpec.php' => 'phpunit/CrashSpec.php'], static fn(): MutationResult|CannotJudge => $library->runner()->mutate(crashRequest($library)->across(Pool::of(ProcessCount::of(1), $workers))));
+    $killers = $mutants === [] ? [] : array_map(static fn(TestId $test): string => $test->value(), [...$mutants[0]->killers()]);
+    $prefix = $mutants === [] ? NotGiven::value() : $evidence->of($mutants[0]->id())->prefix();
+
+    expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::Killed])
+        ->and($killers)->toBe(['Tests\\CrashSpec::settlesACodeOfNone'])
+        ->and($prefix instanceof Prefix ? $prefix->position() : 0)->toBe(1)
+        ->and($mutants === [] ? null : $evidence->of($mutants[0]->id())->ended())->toBeInstanceOf(NotGiven::class);
+})->with([
+    'in a fresh process' => [Workers::Fresh],
+    'forked from a warm worker' => [Workers::Fork],
+])->skip(! Library::isPhpUnitInstalled() || ! function_exists('pcntl_fork'), 'the runner contracts job installs the PHPUnit library, on a PHP that forks');
+
+it('gives a kill that names no killer what its process printed, and no code or signal, which Infection does not log', function (): void {
+    $library = Library::infection(Seconds::of(10.0));
+    [$mutants, $evidence] = crashed(Library::INFECTION_DIRECTORY, ['src/Crash.php' => 'src/Crash.php', 'tests/CrashSpec.php' => 'phpunit/CrashSpec.php'], static fn(): MutationResult|CannotJudge => $library->runner()->mutate(crashRequest($library)));
+    $ended = $mutants === [] ? NotGiven::value() : $evidence->of($mutants[0]->id())->ended();
+
+    expect(array_map(static fn(Mutant $mutant): array => [$mutant->status(), count($mutant->killers())], $mutants))->toBe([[MutantStatus::Killed, 0]])
+        ->and($ended instanceof Ended ? [$ended->code(), $ended->signalled()] : [])->toEqual([NotGiven::value(), NotGiven::value()]);
+})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 
 // The same, with PHPUnit, in a fresh process and forked from a warm worker:
 // its run is stopped where no test of it starts or ends for its silence

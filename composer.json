@@ -31,6 +31,7 @@
         "ext-libxml": "*",
         "ext-mbstring": "*",
         "ext-simplexml": "*",
+        "ext-sodium": "*",
         "ext-tokenizer": "*",
         "ext-zlib": "*",
         "composer-runtime-api": "^2.2",
@@ -45,7 +46,6 @@
     "require-dev": {
         "ext-dom": "*",
         "ext-pcntl": "*",
-        "ext-sodium": "*",
         "async-aws/core": "^1.30",
         "async-aws/s3": "^3",
         "colinodell/json5": "^3.0",

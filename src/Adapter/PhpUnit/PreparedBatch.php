@@ -11,6 +11,7 @@ use function hrtime;
 use function ksort;
 use function max;
 
+use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -35,6 +36,8 @@ final class PreparedBatch
 
     private bool $stopped = false;
 
+    private Evidences $evidence;
+
     /** @param positive-int $size */
     private function __construct(
         private readonly MutantRun $run,
@@ -42,6 +45,7 @@ final class PreparedBatch
         private readonly int $size,
         private readonly int|float $end,
     ) {
+        $this->evidence = Evidences::none();
     }
 
     /**
@@ -95,6 +99,12 @@ final class PreparedBatch
         return array_values($this->judged);
     }
 
+    /** The evidence of the kills of every batch run so far. */
+    public function evidence(): Evidences
+    {
+        return $this->evidence;
+    }
+
     private function ranWaiting(): void
     {
         if ($this->waiting === []) {
@@ -104,11 +114,12 @@ final class PreparedBatch
         $positions = array_keys($this->waiting);
         $ended = $this->run->judgedSideBySide($this->slots, $this->remaining(), ...array_values($this->waiting));
 
-        foreach ($ended as $at => $mutant) {
+        foreach ($ended->mutants() as $at => $mutant) {
             $this->judged[$positions[$at]] = $mutant;
         }
 
-        $this->stopped = count($ended) < count($positions);
+        $this->evidence = $this->evidence->and($ended->evidence());
+        $this->stopped = count($ended->mutants()) < count($positions);
         $this->waiting = [];
     }
 

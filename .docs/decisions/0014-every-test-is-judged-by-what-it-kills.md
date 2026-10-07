@@ -295,6 +295,70 @@ running it: why is this mutant here, and has it always been?
       - An id with no record is exit 2, with the sentence `reproduce` gives:
         run the gate on the code that has the mutant to record it.
 
+16. **A shard result keeps the evidence of each kill, which judges nothing.**
+    Each killed mutant's record in `results/<id>.json` may hold two fields
+    beside the record's own. Neither is read by a verdict, a proof or a report.
+    - `prefix: {at, key?}`: how far the mutant's own run went. `at` is the
+      position, from 1, of its first failing test in the order the run took
+      its tests in, which is how many tests a run that stops at its first
+      failure ran. `key` is twelve lowercase hex digits shared by every run
+      that loaded the same test files and took the same order up to its last
+      failing test: the start of the SHA-256 digest of the test files it loaded
+      under the project's root, sorted, a line each, then an empty line, then
+      the SHA-256 digest of each test id followed by a line end, in order, up
+      to and including that test. A run that loaded every test file names no
+      file.
+    - `ended: {code?, signalled?, tail?}`, only for a kill that names no
+      killer: the code its process exited with, whether a signal ended it, and
+      the last 2 KiB of what it printed, every control and format character
+      but a tab and a line end dropped, cut on a character's edge.
+    - The tail is what project code printed, so it is screened whole, never
+      redacted in part, and kept only where it can be shown to hold no secret.
+      The screen runs in the gate's own process, before the cut, over the last
+      8 KiB the runner kept:
+      - Where that is less than the process printed, as many bytes as the
+        longest form of a secret holds are dropped from its start first, so no
+        end of a secret the cut split is left. This happens before control
+        characters go, which would otherwise draw that end into the tail.
+      - A secret is the value of a variable the gate withholds, of eight
+        characters or more. Its pieces are the value trimmed, each of its
+        lines, each string in it where it is JSON, each of its words and each
+        word's part after an `=`, and the user and password of a URL in it.
+        Its forms are each piece as it is, URL-encoded, form-encoded,
+        hex-encoded, JSON-escaped four ways, backslash-escaped,
+        shell-escaped, HTML-escaped two ways, SQL-quoted and as `var_export`
+        writes it, and base64-encoded in both alphabets at each of three
+        alignments. A form of eight characters or more counts.
+      - They are found in any case, in the text as it is and with each
+        terminal escape sequence taken out, and with no whitespace in either
+        where a form keeps eight characters without its own, so a value
+        coloured or wrapped across lines is found too.
+      - Anything shaped like a credential, withheld or not, counts too: a
+        private key, a GitHub, AWS, Slack or GitLab token, the token
+        actions/checkout keeps, an authorization header, and a service
+        account's key file.
+      - Where any of them appears, the record keeps `code` and `signalled`
+        and no `tail`.
+    - A runner gives what it saw and leaves out what it cannot tell, and
+      nothing is run for it:
+      - The PHPUnit runner gives the prefix from the tests its extension saw
+        start, and how the process ended where no test is named.
+      - Pest's plugin counts and digests the tests each mutant's own process
+        starts, and writes the position and digest with each failing test.
+        With `pest.patch` on, Pest's parent writes how a failed own process
+        ended: its code and signal, never what it printed. That process does
+        not hold the withheld values to screen with, and its results file sits
+        in the workspace a CI uploads. So a Pest kill has no `tail`. A mutant that shares its mutated copy with another, or whose
+        killers came from more than one process, has no evidence, since which
+        run went how far cannot be told. A kill run again with every test file
+        has the evidence of that run.
+      - Infection logs only what a mutant's process printed, so a kill that
+        names no killer has its `tail` alone, and no kill has a prefix.
+      - A registered runner gives evidence through
+        `MutationResult::withEvidence()`.
+    - A shard result without these fields reads as before; one whose field is
+      malformed is refused.
+
 ## Alternatives considered
 
 | Option | Why it lost |

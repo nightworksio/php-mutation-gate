@@ -16,6 +16,9 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Hold\Covered;
 use NightWorksIO\MutationGate\Core\Hold\HeldChecks;
 use NightWorksIO\MutationGate\Core\Hold\NotCovered;
+use NightWorksIO\MutationGate\Core\Mutant\Ended;
+use NightWorksIO\MutationGate\Core\Mutant\Evidence;
+use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -24,6 +27,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\Prefix;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
@@ -130,6 +135,79 @@ it('reads back a finished shard it wrote', function () use ($finished, $survivor
     $result = $finished($survivor, $measured);
 
     expect(ShardResultFile::decode(ShardResultFile::encode($result)))->toEqual($result);
+});
+
+it('writes each kill\'s evidence beside its mutant, and reads it back', function () use ($measured): void {
+    $killed = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', "-a + b\n+a - b", 0),
+        '8',
+        Location::of(Path::of('src/Money.php'), Line::of(9), Line::of(9)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, "-a + b\n+a - b"),
+        MutantStatus::Killed,
+        Seconds::of(0.5),
+    );
+    $evidence = Evidence::none()
+        ->withPrefix(Prefix::keyedAt(3, '0123456789ab'))
+        ->withEnded(Ended::of(255, signalled: false, printed: "PHP Fatal error\n"));
+    $result = ShardResult::of(
+        Digest::of('9c1e'),
+        ShardId::of(1),
+        Keys::none(),
+        MutationResult::of(Mutants::of($killed), 0)->withEvidence(Evidences::none()->with($killed->id(), $evidence)),
+        $measured,
+    );
+    $written = ShardResultFile::encode($result);
+
+    expect($written)->toContain("\"prefix\": {\n                \"at\": 3,\n                \"key\": \"0123456789ab\"\n            },\n"
+        . "            \"ended\": {\n                \"code\": 255,\n                \"signalled\": false,\n                \"tail\": \"PHP Fatal error\\n\"\n            }")
+        ->and(ShardResultFile::decode($written))->toEqual($result);
+});
+
+it('writes only the evidence a runner gave: a prefix without its key, a process end without its code', function () use ($measured): void {
+    $killed = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', "-a + b\n+a - b", 0),
+        '8',
+        Location::of(Path::of('src/Money.php'), Line::of(9), Line::of(9)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, "-a + b\n+a - b"),
+        MutantStatus::Killed,
+        Seconds::of(0.5),
+    );
+    $evidence = Evidence::none()->withPrefix(Prefix::at(1))->withEnded(Ended::of(NotGiven::value(), NotGiven::value(), 'Timeout'));
+    $result = ShardResult::of(
+        Digest::of('9c1e'),
+        ShardId::of(1),
+        Keys::none(),
+        MutationResult::of(Mutants::of($killed), 0)->withEvidence(Evidences::none()->with($killed->id(), $evidence)),
+        $measured,
+    );
+    $written = ShardResultFile::encode($result);
+
+    expect($written)->toContain("\"prefix\": {\n                \"at\": 1\n            },\n            \"ended\": {\n                \"tail\": \"Timeout\"\n            }")
+        ->and(ShardResultFile::decode($written))->toEqual($result)
+        ->and(ShardResultFile::encode($result->withFlaky(MutantIds::none())))->toBe($written);
+});
+
+it('writes a process end that kept nothing it printed as its code and signal alone, and reads it back', function () use ($measured): void {
+    $killed = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', "-a + b\n+a - b", 0),
+        '8',
+        Location::of(Path::of('src/Money.php'), Line::of(9), Line::of(9)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, "-a + b\n+a - b"),
+        MutantStatus::Killed,
+        Seconds::of(0.5),
+    );
+    $evidence = Evidence::none()->withEnded(Ended::unprinted(2, signalled: false));
+    $result = ShardResult::of(
+        Digest::of('9c1e'),
+        ShardId::of(1),
+        Keys::none(),
+        MutationResult::of(Mutants::of($killed), 0)->withEvidence(Evidences::none()->with($killed->id(), $evidence)),
+        $measured,
+    );
+    $written = ShardResultFile::encode($result);
+
+    expect($written)->toContain("\"ended\": {\n                \"code\": 2,\n                \"signalled\": false\n            }")
+        ->and(ShardResultFile::decode($written))->toEqual($result);
 });
 
 it('lists the mutants that gave two answers after the rest, and reads them back', function () use (
@@ -339,5 +417,25 @@ it('refuses what is not a shard result, saying where it went wrong', function (s
             . '"measured": {"seconds": 1, "runner": "pest", "at": "2026-09-29T20:48:17Z"}, '
             . '"doomed": {"unit": "src/A.php", "mutant": "0123456789ab", "floor": 100, "why": "tree"}}',
         'the file.doomed.tree is missing.',
+    ],
+    'a prefix at nought' => [
+        '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "mutants": [{"id": "0123456789ab", "native": "1", "file": "src/A.php", "line": 1, "mutator": "Plus", "family": "arithmetic", "diff": "", "status": "killed", "prefix": {"at": 0}}], "skipped": 0, '
+            . '"measured": {"seconds": 1, "runner": "pest", "at": "2026-09-29T20:48:17Z"}}',
+        'the file.mutants[0].prefix.at is not a position, which counts from one.',
+    ],
+    'a prefix whose key is not twelve hex digits' => [
+        '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "mutants": [{"id": "0123456789ab", "native": "1", "file": "src/A.php", "line": 1, "mutator": "Plus", "family": "arithmetic", "diff": "", "status": "killed", "prefix": {"at": 1, "key": "XYZ"}}], "skipped": 0, '
+            . '"measured": {"seconds": 1, "runner": "pest", "at": "2026-09-29T20:48:17Z"}}',
+        'the file.mutants[0].prefix.key is not twelve lowercase hex digits.',
+    ],
+    'a process end whose tail is not text' => [
+        '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "mutants": [{"id": "0123456789ab", "native": "1", "file": "src/A.php", "line": 1, "mutator": "Plus", "family": "arithmetic", "diff": "", "status": "killed", "ended": {"code": 1, "tail": 5}}], "skipped": 0, '
+            . '"measured": {"seconds": 1, "runner": "pest", "at": "2026-09-29T20:48:17Z"}}',
+        'the file.mutants[0].ended.tail is not text.',
+    ],
+    'a process end whose signal is not yes or no' => [
+        '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "mutants": [{"id": "0123456789ab", "native": "1", "file": "src/A.php", "line": 1, "mutator": "Plus", "family": "arithmetic", "diff": "", "status": "killed", "ended": {"signalled": "yes", "tail": ""}}], "skipped": 0, '
+            . '"measured": {"seconds": 1, "runner": "pest", "at": "2026-09-29T20:48:17Z"}}',
+        'the file.mutants[0].ended.signalled is not true or false.',
     ],
 ]);

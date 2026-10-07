@@ -135,6 +135,21 @@ final class Records
         return $this->runs->of($mutant->mutated()->value());
     }
 
+    /**
+     * Whether another planned mutant shares this one's mutated copy, so that
+     * what their own runs recorded cannot be told apart.
+     */
+    public function sharesItsCopy(PlannedMutant $mutant): bool
+    {
+        $copy = $mutant->mutated()->value();
+        $sharing = array_filter(
+            $this->planned,
+            static fn(PlannedMutant $one): bool => $one->mutated()->value() === $copy,
+        );
+
+        return count($sharing) > 1;
+    }
+
     /** The silence limit a patched run stopped the mutant's own run at; none where it did not. */
     public function silenceOf(PlannedMutant $mutant): Seconds|NotGiven
     {
@@ -218,6 +233,7 @@ final class Records
             RecordEvent::Limited => $this->runs->limited($record),
             RecordEvent::Silent => $this->runs->silent($record),
             RecordEvent::Ran => $this->runs->ran($record),
+            RecordEvent::Ended => $this->runs->ended($record),
             RecordEvent::End => $this->ended = true,
             null => throw NotInShape::at($event->at(), 'an event the plugin writes'),
         };

@@ -16,6 +16,8 @@ use function preg_replace;
  */
 final readonly class Printable
 {
+    /** The encoding of text from outside, as it is read and cut. */
+    public const string UTF8 = 'UTF-8';
     /**
      * A control or format character but a tab and the ends of lines: what starts an escape sequence a terminal or a
      * CI's log reads, such as ANSI's erase and conceal, GitLab's sections and Buildkite's inline images, and a
@@ -25,6 +27,6 @@ final readonly class Printable
 
     public static function text(string $text): string
     {
-        return preg_replace(self::UNPRINTABLE, '', mb_scrub($text, 'UTF-8')) ?? '';
+        return preg_replace(self::UNPRINTABLE, '', mb_scrub($text, self::UTF8)) ?? '';
     }
 }

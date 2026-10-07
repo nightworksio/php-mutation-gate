@@ -9,13 +9,18 @@ use function count;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\Mutant\Ended;
+use NightWorksIO\MutationGate\Core\Mutant\Evidence;
+use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
+use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
@@ -38,7 +43,8 @@ use function sprintf;
  * would have called that mutant killed or uncovered without running the test;
  * a mutant whose own process had loaded its file before the mutant was in
  * place, because its tests ran the original code; and a survivor whose own
- * process said it ran no test, because nothing judged it.
+ * process said it ran no test, because nothing judged it. Each kill keeps
+ * the evidence its own run recorded, which judges nothing.
  */
 final readonly class Interpretation
 {
@@ -141,6 +147,7 @@ final readonly class Interpretation
     private function mutants(Records $records, Covering $coverage): MutationResult|CannotJudge
     {
         $mutants = [];
+        $evidence = Evidences::none();
         $planned = $records->planned();
         $ids = Identities::of(Root::of($this->project->root()), $planned);
 
@@ -156,10 +163,37 @@ final readonly class Interpretation
                 ));
             }
 
-            $mutants[] = $this->mutant($ids[$at], $mutant, $records, $selection);
+            $judged = $this->mutant($ids[$at], $mutant, $records, $selection);
+            $mutants[] = $judged;
+            $evidence = $evidence->with($judged->id(), $this->evidenceOf($judged, $mutant, $records));
         }
 
-        return MutationResult::of(Mutants::of(...$mutants), 0);
+        return MutationResult::of(Mutants::of(...$mutants), 0)->withEvidence($evidence);
+    }
+
+    /**
+     * The evidence of a kill (ADR-0014, decision 16): how far its own run
+     * went, keyed by the test files it was narrowed to, or by none where it
+     * loaded every one; and, where it names no killer, how its process
+     * ended. None of a mutant that is not killed, or that shares its mutated
+     * copy with another, whose runs cannot be told apart.
+     */
+    private function evidenceOf(Mutant $judged, PlannedMutant $planned, Records $records): Evidence
+    {
+        if ($judged->status() !== MutantStatus::Killed || $records->sharesItsCopy($planned)) {
+            return Evidence::none();
+        }
+
+        $run = $records->runOf($planned);
+        $files = Paths::of(...array_map(
+            $this->project->relative(...),
+            $run->narrowedTo(),
+        ));
+        $prefix = $run->prefix($files);
+        $ended = $run->ended();
+        $evidence = $prefix instanceof Prefix ? Evidence::none()->withPrefix($prefix) : Evidence::none();
+
+        return $ended instanceof Ended && count($run->killers()) === 0 ? $evidence->withEnded($ended) : $evidence;
     }
 
     /**

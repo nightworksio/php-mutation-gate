@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Killers;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Loaded;
+use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Tests\Support\Beats;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitEvents;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -28,4 +30,18 @@ it('names a test that failed in a mutant\'s own process, by its id', function ()
     expect($line)->toMatchArray(['event' => 'killed', 'mutated' => '/tmp/mutations/abc'])
         ->and(is_array($line) ? $line['test'] : '')
         ->toStartWith('P\\Tests\\Unit\\Adapter\\Pest\\Recording\\OnFailedTest::__pest_evaluable_it_names_a_test');
+});
+
+it('places a test that failed at how many tests its process had started, with the digest of their order', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    $events = new Facade();
+    Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat());
+
+    PhpUnitEvents::started($events);
+    PhpUnitEvents::failed($events);
+
+    $line = json_decode((string) file_get_contents($results), associative: true);
+    $test = is_array($line) && is_string($line['test']) ? $line['test'] : '';
+
+    expect($line)->toMatchArray(['at' => 1, 'order' => OrderDigest::of(TestId::of($test))->value(), 'run' => getmypid()]);
 });

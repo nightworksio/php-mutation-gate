@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Adapter\PhpUnit\PreparedRun;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Project;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Shell;
 use NightWorksIO\MutationGate\Core\Doctor\WarmRefusal;
+use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
@@ -104,17 +105,23 @@ final readonly class Workforce
 
         $ends = $this->shell->sideBySide($slots, Unlimited::time(), ...$commands);
         $judged = [];
+        $evidence = Evidences::none();
         $positions = array_keys($runs);
 
         foreach (array_values($runs) as $at => $run) {
             $ran = End::ranIn($workplace, $at);
-            $judged += $ran instanceof Ran ? [$positions[$at] => $this->run->finished($run, $ran)] : [];
+
+            if ($ran instanceof Ran) {
+                $mutant = $this->run->finished($run, $ran);
+                $judged[$positions[$at]] = $mutant;
+                $evidence = $evidence->with($mutant->id(), $this->run->evidenced($run, $ran, $mutant));
+            }
         }
 
         $warnings = $this->refusals($workplace, $ends);
         $this->kept($warnings);
 
-        return Forked::of($judged, $warnings);
+        return Forked::of($judged, $warnings, $evidence);
     }
 
     /**

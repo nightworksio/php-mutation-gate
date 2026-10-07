@@ -40,6 +40,7 @@ return RectorConfig::configure()
         // The runner contract suite's fixture is a project of its own, written as a user's library is.
         __DIR__ . '/tests/Contract/Runner/fixture',
         __DIR__ . '/tests/Contract/Runner/infection-fixture',
+        __DIR__ . '/tests/Contract/Runner/crash',
         __DIR__ . '/tests/Contract/Runner/reach',
         __DIR__ . '/tests/Contract/Runner/stall',
         __DIR__ . '/tests/Contract/Runner/override',

@@ -8,8 +8,12 @@ use function array_values;
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Mutant\Ended;
+use NightWorksIO\MutationGate\Core\Mutant\Evidence;
+use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ErrorDisplay;
@@ -24,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Mutator\Engine\MadeMutant;
 
 use function sprintf;
@@ -120,15 +125,14 @@ final readonly class MutantRun
     /**
      * Prepared runs, side by side, one in each place at a time, none started
      * once the time to start them in has run out: each mutant whose run
-     * started, judged as its run ended, in the order the runs were given.
-     *
-     * @return list<Mutant>
+     * started, judged as its run ended, in the order the runs were given,
+     * with the evidence of each kill.
      */
     public function judgedSideBySide(
         WorkerSlots $slots,
         Seconds|Unlimited $startingWithin,
         PreparedRun ...$prepared,
-    ): array {
+    ): Judged {
         $runs = array_values($prepared);
         $commands = [];
 
@@ -137,12 +141,15 @@ final readonly class MutantRun
         }
 
         $judged = [];
+        $evidence = Evidences::none();
 
         foreach ($this->shell->sideBySide($slots, $startingWithin, ...$commands) as $at => $ran) {
-            $judged[] = $this->finished($runs[$at], $ran);
+            $mutant = $this->finished($runs[$at], $ran);
+            $judged[] = $mutant;
+            $evidence = $evidence->with($mutant->id(), $this->evidenced($runs[$at], $ran, $mutant));
         }
 
-        return $judged;
+        return Judged::of($judged, Warnings::none())->withEvidence($evidence);
     }
 
     /**
@@ -204,6 +211,30 @@ final readonly class MutantRun
             $status === MutantStatus::Killed => $mutant->killedBy($recorded->credited()),
             default => $mutant,
         };
+    }
+
+    /**
+     * The evidence of a killed mutant's kill, as the run it was judged by
+     * recorded it (ADR-0014, decision 16): where its first killer stood in
+     * the order its tests started; and, where no test the run selected is
+     * credited with the kill, how its process ended. A mutant it did not
+     * kill has none.
+     */
+    public function evidenced(PreparedRun $prepared, Ran $ran, Mutant $judged): Evidence
+    {
+        if ($judged->status() !== MutantStatus::Killed) {
+            return Evidence::none();
+        }
+
+        $prefix = Recorded::in($prepared->files()->results(), $prepared->covering())->prefix();
+        $code = $ran->exitCode();
+        $evidence = $prefix instanceof Prefix ? Evidence::none()->withPrefix($prefix) : Evidence::none();
+
+        return count($judged->killers()) > 0 ? $evidence : $evidence->withEnded(Ended::of(
+            $code,
+            $code instanceof NotGiven ? $code : $ran->endedBySignal(),
+            $ran->output(),
+        ));
     }
 
     /**

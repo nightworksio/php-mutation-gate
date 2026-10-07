@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -63,6 +64,7 @@ use function usort;
  *     diff: string,
  *     killers: TestIds,
  *     limit: MemoryCap|NotGiven,
+ *     output: string|NotGiven,
  * }
  */
 final readonly class Results
@@ -112,7 +114,7 @@ final readonly class Results
 
         return $found instanceof CannotJudge
             ? $found
-            : MutationResult::of(self::mutants($project, $found, $text, $limits, $bridges), 0);
+            : self::result($project, $found, $text, $limits, $bridges);
     }
 
     /** Why a run that wrote no log cannot be judged: Infection's own process out of the memory cap, or what it said. */
@@ -195,6 +197,7 @@ final readonly class Results
                 'status' => MutantStatus::Skipped,
                 'killers' => TestIds::none(),
                 'limit' => NotGiven::value(),
+                'output' => NotGiven::value(),
             ];
         }
 
@@ -213,7 +216,8 @@ final readonly class Results
     private static function entry(LogList $list, Node $entry, MemoryCap $cap, ErrorDisplay|NotGiven $display): array
     {
         $mutator = $entry->field(self::MUTATOR);
-        $output = Lenient::text($entry->field(self::OUTPUT));
+        $printed = $entry->field(self::OUTPUT);
+        $output = Lenient::text($printed);
         $outOfMemory = $list->mayRunOutOfMemory() && self::outOfMemory($output, $cap, $display);
         $named = $outOfMemory && Exhaustion::isOf(Exhaustion::in($output), $cap);
 
@@ -225,6 +229,7 @@ final readonly class Results
             'diff' => $entry->field('diff')->text(),
             'killers' => $list->namesKillers() && ! $outOfMemory ? KillingTests::in($output) : TestIds::none(),
             'limit' => $named ? $cap : NotGiven::value(),
+            'output' => $printed->isPresent() ? $output : NotGiven::value(),
         ];
     }
 
@@ -245,17 +250,18 @@ final readonly class Results
      * The mutants, by file and then by line, each with the gate's id, the
      * native id the text log gives it, its family, a bridged mutator's own,
      * and, for one that timed out or was skipped, its limit, and for one out
-     * of memory, the cap where its output named it.
+     * of memory, the cap where its output named it; and the evidence of each
+     * kill that names no killer (see KillOutput).
      *
      * @param list<Found> $found
      */
-    private static function mutants(
+    private static function result(
         Project $project,
         array $found,
         TextLog $text,
         Limits $limits,
         Bridges $bridges,
-    ): Mutants {
+    ): MutationResult {
         usort(
             $found,
             static fn(array $one, array $other): int
@@ -263,6 +269,7 @@ final readonly class Results
         );
         $mutants = [];
         $seen = [];
+        $evidence = Evidences::none();
 
         foreach ($found as $mutant) {
             $file = $project->relative($mutant['file']);
@@ -292,9 +299,10 @@ final readonly class Results
                 $mutant['limit'] instanceof MemoryCap => $recorded->withLimit($mutant['limit']),
                 default => $recorded,
             };
+            $evidence = $evidence->with($recorded->id(), KillOutput::evidenceOf($recorded, $mutant['output']));
         }
 
-        return Mutants::of(...$mutants);
+        return MutationResult::of(Mutants::of(...$mutants), 0)->withEvidence($evidence);
     }
 
     /** A timed-out mutant, saying its run was stopped at its silence limit where it was. */

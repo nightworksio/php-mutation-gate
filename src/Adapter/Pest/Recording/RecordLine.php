@@ -8,6 +8,8 @@ use function json_encode;
 
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
+use NightWorksIO\MutationGate\Core\Mutant\Ended;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -71,23 +73,25 @@ final readonly class RecordLine
         ]);
     }
 
-    /** A test that failed in the own process of the mutant Pest serves this mutated copy for. */
-    public static function killed(string $mutated, string $test): string
+    /** A test that failed in the own process of the mutant Pest serves this mutated copy for, and where it stood. */
+    public static function killed(string $mutated, string $test, Placed $placed): string
     {
         return self::line([
             RecordField::Event->value => RecordEvent::Killed->value,
             RecordField::Mutated->value => $mutated,
             RecordField::Test->value => $test,
+            ...$placed->fields(),
         ]);
     }
 
-    /** A test that errored in the own process of the mutant Pest serves this mutated copy for. */
-    public static function errored(string $mutated, string $test): string
+    /** A test that errored in the own process of the mutant Pest serves this mutated copy for, and where it stood. */
+    public static function errored(string $mutated, string $test, Placed $placed): string
     {
         return self::line([
             RecordField::Event->value => RecordEvent::Errored->value,
             RecordField::Mutated->value => $mutated,
             RecordField::Test->value => $test,
+            ...$placed->fields(),
         ]);
     }
 
@@ -153,6 +157,25 @@ final readonly class RecordLine
         ]);
     }
 
+    /**
+     * How the own process of the mutant Pest serves this mutated copy for
+     * ended, as the parent process saw it: its code and whether a signal
+     * ended it, where it could tell, and never what it printed, which this
+     * file, kept in the workspace a CI may upload, holds unscreened.
+     */
+    public static function ended(string $mutated, Ended $ended): string
+    {
+        $code = $ended->code();
+        $signalled = $ended->signalled();
+
+        return self::line([
+            RecordField::Event->value => RecordEvent::Ended->value,
+            RecordField::Mutated->value => $mutated,
+            ...($code instanceof NotGiven ? [] : [RecordField::Code->value => $code]),
+            ...($signalled instanceof NotGiven ? [] : [RecordField::Signalled->value => $signalled]),
+        ]);
+    }
+
     public static function end(): string
     {
         return self::line([RecordField::Event->value => RecordEvent::End->value]);
@@ -162,7 +185,7 @@ final readonly class RecordLine
      * A line of JSON, or a failure, so that a record JSON cannot hold, such
      * as a duration that is not a number, is never written as an empty line.
      *
-     * @param array<string, string|int|float|list<string>> $fields
+     * @param array<string, string|int|float|bool|list<string>> $fields
      */
     private static function line(array $fields): string
     {

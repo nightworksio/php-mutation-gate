@@ -16,6 +16,9 @@ use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Hold\Covered;
 use NightWorksIO\MutationGate\Core\Hold\HeldChecks;
 use NightWorksIO\MutationGate\Core\Hold\NotCovered;
+use NightWorksIO\MutationGate\Core\Mutant\EvidenceRecord;
+use NightWorksIO\MutationGate\Core\Mutant\Evidences;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
@@ -47,9 +50,10 @@ use function sprintf;
  * survivors came to, where they came to anything (see SurvivorChecksRecord),
  * and `doomed` the survivor it stopped on once its run could not pass, where
  * it did (see DoomedRecord). `measured.steps` holds the steps the shard's
- * time went to, where it timed any (see StepsRecord). A result that cannot
- * be read is refused, and the verdict reads that shard as having left no
- * result.
+ * time went to, where it timed any (see StepsRecord). Each mutant's record
+ * holds its kill's evidence beside it, where the runner gave any (see
+ * EvidenceRecord). A result that cannot be read is refused, and the verdict
+ * reads that shard as having left no result.
  *
  * @internal the shape of the shard result file
  */
@@ -97,7 +101,10 @@ final readonly class ShardResultFile
             ],
             ...$outcome instanceof CannotJudge ? [self::CANNOT_JUDGE => $outcome->why()] : [
                 'mutants' => array_map(
-                    MutantRecord::full(...),
+                    static fn(Mutant $mutant): array => [
+                        ...MutantRecord::full($mutant),
+                        ...EvidenceRecord::of($outcome->evidence()->of($mutant->id())),
+                    ],
                     [...$outcome->mutants()],
                 ),
                 'skipped' => $outcome->skipped(),
@@ -219,12 +226,16 @@ final readonly class ShardResultFile
         }
 
         $mutants = [];
+        $evidence = Evidences::none();
 
         foreach ($file->field('mutants')->items() as $record) {
-            $mutants[] = MutantRecord::readFull($record);
+            $mutant = MutantRecord::readFull($record);
+            $mutants[] = $mutant;
+            $evidence = $evidence->with($mutant->id(), EvidenceRecord::read($record));
         }
 
-        return MutationResult::of(Mutants::of(...$mutants), $file->field('skipped')->integer());
+        return MutationResult::of(Mutants::of(...$mutants), $file->field('skipped')->integer())
+            ->withEvidence($evidence);
     }
 
     /** @throws NotInShape */

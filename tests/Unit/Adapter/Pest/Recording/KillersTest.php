@@ -42,10 +42,12 @@ it('writes each killer as a line of its own, with the mutated copy it ran on', f
         $killers->killedBy("Tests\\LegacySpec::testAdds#(1)\xff");
     }
 
-    expect(file_get_contents($results))->toBe(
-        "{\"event\":\"killed\",\"mutated\":\"/tmp/mutations/abc\",\"test\":\"P\\\\Tests\\\\MoneySpec::__pest_evaluable_it_adds\"}\n"
-        . "{\"event\":\"killed\",\"mutated\":\"/tmp/mutations/abc\",\"test\":\"Tests\\\\LegacySpec::testAdds#(1)\\ufffd\"}\n",
-    );
+    expect(file_get_contents($results))->toBe(sprintf(
+        "{\"event\":\"killed\",\"mutated\":\"/tmp/mutations/abc\",\"test\":\"P\\\\Tests\\\\MoneySpec::__pest_evaluable_it_adds\",\"run\":%d}\n"
+        . "{\"event\":\"killed\",\"mutated\":\"/tmp/mutations/abc\",\"test\":\"Tests\\\\LegacySpec::testAdds#(1)\\ufffd\",\"run\":%d}\n",
+        getmypid(),
+        getmypid(),
+    ));
 });
 
 it('writes first that its process had loaded the original before the override, by its real path, and nothing where it had not', function (): void {
@@ -63,10 +65,11 @@ it('writes first that its process had loaded the original before the override, b
         $killers->killedBy('T::adds');
     }
 
-    expect(file_get_contents($results))->toBe(
+    expect(file_get_contents($results))->toBe(sprintf(
         "{\"event\":\"preloaded\",\"mutated\":\"/tmp/mutations/abc\"}\n"
-        . "{\"event\":\"killed\",\"mutated\":\"/tmp/mutations/abc\",\"test\":\"T::adds\"}\n",
-    )->and(is_file($clean))->toBeFalse();
+        . "{\"event\":\"killed\",\"mutated\":\"/tmp/mutations/abc\",\"test\":\"T::adds\",\"run\":%d}\n",
+        getmypid(),
+    ))->and(is_file($clean))->toBeFalse();
 });
 
 it('writes a test that errored apart from one that failed, with the mutated copy it ran on', function (): void {
@@ -77,7 +80,10 @@ it('writes a test that errored apart from one that failed, with the mutated copy
         $killers->erroredBy('T::adds');
     }
 
-    expect(file_get_contents($results))->toBe("{\"event\":\"errored\",\"mutated\":\"/tmp/mutations/abc\",\"test\":\"T::adds\"}\n");
+    expect(file_get_contents($results))->toBe(sprintf(
+        "{\"event\":\"errored\",\"mutated\":\"/tmp/mutations/abc\",\"test\":\"T::adds\",\"run\":%d}\n",
+        getmypid(),
+    ));
 });
 
 it('logs its process\'s errors to the mutant\'s own file, emptied of what an earlier run left', function (): void {

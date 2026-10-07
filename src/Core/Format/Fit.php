@@ -30,6 +30,9 @@ final readonly class Fit
     /** Two texts on one line, the second after the first and a space. */
     public const string JOINED = '%s %s';
 
+    /** Any run of white space, which a plain line holds as one space. */
+    public const string SPACE = '/\s+/u';
+
     private const string MORE = 'And %d more.';
 
     /** The names a list shows, then how many more it holds. */
@@ -40,9 +43,6 @@ final readonly class Fit
 
     /** What is added to a text that is cut, as `…`. */
     private const string CUT = '…';
-
-    /** Any run of white space, which a plain line holds as one space. */
-    private const string SPACE = '/\s+/u';
 
     /**
      * A control or format character: an escape, a bell, a carriage return, a

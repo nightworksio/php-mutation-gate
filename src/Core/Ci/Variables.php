@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Ci;
 
 use function array_key_exists;
+use function preg_match;
 
 /** The environment variables a CI set for a job, as the adapter that read them hands them on. */
 final readonly class Variables
@@ -86,6 +87,22 @@ final readonly class Variables
     public function says(string $name): bool
     {
         return $this->valueOf($name) === 'true';
+    }
+
+    /**
+     * The values of the variables whose names a PCRE pattern matches.
+     *
+     * @return list<string>
+     */
+    public function matching(string $pattern): array
+    {
+        $values = [];
+
+        foreach ($this->values as $name => $value) {
+            $values = preg_match($pattern, $name) === 1 ? [...$values, $value] : $values;
+        }
+
+        return $values;
     }
 
     /** A variable's value, and nothing where it is not set. */

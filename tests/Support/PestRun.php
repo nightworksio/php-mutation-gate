@@ -10,9 +10,11 @@ use function implode;
 
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Placed;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\Mutant\Ended;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -22,6 +24,9 @@ use function sprintf;
 /** What this package's Pest plugin leaves after a run: its results file, one JSON line per record. */
 final readonly class PestRun
 {
+    /** The id of the own process a killer line comes from, unless a test names another. */
+    public const int RUN = 4242;
+
     /** @param list<string> $lines each line as the plugin writes it, or any text a test writes in its place */
     public static function write(string $results, array $lines): void
     {
@@ -63,13 +68,25 @@ final readonly class PestRun
     /** A test that failed in the own process of the mutant with this native id. */
     public static function killed(string $id, string $test): string
     {
-        return self::line(RecordLine::killed(self::mutated($id), $test));
+        return self::killedAt($id, $test, Placed::unplaced(self::RUN));
+    }
+
+    /** A test that failed in the own process of the mutant with this native id, standing where it is placed. */
+    public static function killedAt(string $id, string $test, Placed $placed): string
+    {
+        return self::line(RecordLine::killed(self::mutated($id), $test, $placed));
     }
 
     /** A test that errored in the own process of the mutant with this native id. */
     public static function errored(string $id, string $test): string
     {
-        return self::line(RecordLine::errored(self::mutated($id), $test));
+        return self::line(RecordLine::errored(self::mutated($id), $test, Placed::unplaced(self::RUN)));
+    }
+
+    /** How the failed own process of the mutant with this native id ended, as Pest's parent saw it. */
+    public static function ended(string $id, Ended $ended): string
+    {
+        return self::line(RecordLine::ended(self::mutated($id), $ended));
     }
 
     /**

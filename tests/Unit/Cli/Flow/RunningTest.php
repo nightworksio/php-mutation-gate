@@ -34,6 +34,9 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Hold\NotCovered;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
+use NightWorksIO\MutationGate\Core\Mutant\Ended;
+use NightWorksIO\MutationGate\Core\Mutant\Evidence;
+use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -44,6 +47,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
+use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
@@ -1246,3 +1250,27 @@ it('runs a pull request\'s shard to its end, whole, where static analysis could 
     'equivalence.static' => [Flows::settings()],
     'a static check' => [Flows::settings(Equivalence::notProvenStatically()), StaticCheckerFake::findingNothing()],
 ]);
+
+it('leaves each kill\'s evidence beside its mutant in the shard\'s result, keeping nothing a process printed where a withheld secret is in it', function () use ($resultIn): void {
+    $project = Flows::project();
+    $mutants = Flows::mutantsOf('src/Money.php');
+    $killed = [...array_filter([...$mutants], static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Killed)][0];
+    $evidence = Evidence::none()
+        ->withPrefix(Prefix::keyedAt(2, '0123456789ab'))
+        ->withEnded(Ended::of(255, signalled: false, printed: 'token hunter2hunter2 in a dump'));
+    $runner = ScriptedRunner::fixture()->answeringInTurn(
+        MutationResult::of($mutants, 0)->withEvidence(Evidences::none()->with($killed->id(), $evidence)),
+        MutationResult::of(Mutants::none(), 0),
+    );
+
+    new Running(Flows::adapters($project, ['GITHUB_TOKEN' => 'hunter2hunter2'], $runner), Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+    $outcome = $result instanceof ShardResult ? $result->outcome() : $result;
+    $read = $outcome instanceof MutationResult ? $outcome->evidence()->of($killed->id()) : Evidence::none();
+    $ended = $read->ended();
+
+    expect($read->prefix())->toEqual(Prefix::keyedAt(2, '0123456789ab'))
+        ->and($ended instanceof Ended ? [$ended->code(), $ended->signalled(), $ended->tail()] : $ended)
+        ->toEqual([255, false, NotGiven::value()]);
+});

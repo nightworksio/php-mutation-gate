@@ -7,6 +7,9 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 use function array_diff;
 use function array_map;
 
+use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Ended;
+use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -18,8 +21,10 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
  * which of them errored, the test files it was narrowed to load, the
  * memory limit it ran out of, where it did, whether it had loaded the
  * original file before the mutant was in its place, and how many tests it
- * ran, where it said. Any two mutants that leave the same source share their
- * mutated copy, and so this, even under different mutators.
+ * ran, where it said; and the evidence of its kill: where its killers stood
+ * in its order, and how it ended (ADR-0014, decision 16). Any two mutants
+ * that leave the same source share their mutated copy, and so this, even
+ * under different mutators.
  */
 final readonly class OwnRun
 {
@@ -35,6 +40,8 @@ final readonly class OwnRun
         private MemoryCap|NotGiven $exhaustion,
         private bool $preloaded,
         private int|NotGiven $tests,
+        private Places $places,
+        private Ended|NotGiven $ended,
     ) {
     }
 
@@ -54,7 +61,39 @@ final readonly class OwnRun
         bool $preloaded,
         int|NotGiven $tests,
     ): self {
-        return new self($killers, $errored, $loaded, $exhaustion, $preloaded, $tests);
+        $places = Places::none();
+
+        return new self($killers, $errored, $loaded, $exhaustion, $preloaded, $tests, $places, NotGiven::value());
+    }
+
+    /** This, with where its killers stood in its order, and how it ended where it failed and that is known. */
+    public function withEvidence(Places $places, Ended|NotGiven $ended): self
+    {
+        return new self(
+            $this->killers,
+            $this->errored,
+            $this->loaded,
+            $this->exhaustion,
+            $this->preloaded,
+            $this->tests,
+            $places,
+            $ended,
+        );
+    }
+
+    /**
+     * How far it went, the test files it loaded these, where its killers'
+     * lines tell (see Places).
+     */
+    public function prefix(Paths $files): Prefix|NotGiven
+    {
+        return $this->places->prefix($files);
+    }
+
+    /** How it ended, where it failed and one ending is recorded for its copy. */
+    public function ended(): Ended|NotGiven
+    {
+        return $this->ended;
     }
 
     /** The tests that failed in it, in the order they failed: the first killed the mutant. */

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Ending;
 use NightWorksIO\MutationGate\Adapter\Pest\MutantTime;
 use NightWorksIO\MutationGate\Adapter\Pest\OnlyList;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
@@ -54,7 +55,9 @@ it('patches the four files, leaving each one PHP', function () use ($vendor, $so
         ))
         ->and($source($at, 'Support/StreamWrapper.php'))
         ->toContain("if (! file_exists(\$path) && ! (\$link && is_link(\$path))) {\n")
-        ->and($source($at, 'Support/StreamWrapper.php'))->not->toContain('is_readable($path) === false');
+        ->and($source($at, 'Support/StreamWrapper.php'))->not->toContain('is_readable($path) === false')
+        ->and($source($at, 'MutationTest.php'))
+        ->toContain(sprintf("\\%s::record(\$this->process, \$this->mutation->modifiedSourcePath);\n", Ending::class));
 
     foreach (MutatePlugin::FILES as $file) {
         $lint = new Process([PHP_BINARY, '-l', sprintf('%s/pestphp/pest-plugin-mutate/src/%s', $at, $file)]);
@@ -187,7 +190,7 @@ it('marks every hunk it writes, one mark to a hunk, so another version\'s are fo
         MutatePlugin::FILES,
     ));
 
-    expect($marks)->toBe(12);
+    expect($marks)->toBe(13);
 });
 
 /**
