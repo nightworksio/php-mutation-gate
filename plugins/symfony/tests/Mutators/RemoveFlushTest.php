@@ -19,7 +19,7 @@ it('is named in the symfony set, a removed call, untagged, with its own hint', f
         ->and($mutator->hint())->toEqual(Hint::that('No test reads back what this flush saves.'));
 });
 
-it('removes the flush of an entity manager under both runners, emptying it under Infection', function (): void {
+it('removes the flush of an entity manager, by name or as either registry method hands it out, under both runners, emptying it under Infection', function (): void {
     $code = <<<'PHP'
         <?php
 
@@ -30,6 +30,7 @@ it('removes the flush of an entity manager under both runners, emptying it under
                 $em->flush();
                 $this->entityManager->flush();
                 $this->doctrine->getManager()->flush();
+                $this->registry->getEntityManager()->flush();
                 $objectManager->flush();
                 $manager->flush();
             }
@@ -41,6 +42,7 @@ it('removes the flush of an entity manager under both runners, emptying it under
         "-        \$em->flush();",
         "-        \$this->entityManager->flush();",
         "-        \$this->doctrine->getManager()->flush();",
+        "-        \$this->registry->getEntityManager()->flush();",
         "-        \$objectManager->flush();",
         "-        \$manager->flush();",
     ])
@@ -48,6 +50,7 @@ it('removes the flush of an entity manager under both runners, emptying it under
             "-        \$em->flush();\n+        ",
             "-        \$this->entityManager->flush();\n+        ",
             "-        \$this->doctrine->getManager()->flush();\n+        ",
+            "-        \$this->registry->getEntityManager()->flush();\n+        ",
             "-        \$objectManager->flush();\n+        ",
             "-        \$manager->flush();\n+        ",
         ]);
