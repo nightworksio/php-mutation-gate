@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Plan;
 
+use function array_filter;
 use function array_map;
 use function count;
 
@@ -13,8 +14,7 @@ use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Hold\Covered;
-use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
-use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
+use NightWorksIO\MutationGate\Core\Hold\HeldChecks;
 use NightWorksIO\MutationGate\Core\Hold\NotCovered;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
@@ -41,14 +41,15 @@ use function sprintf;
  * answers where there are any, `missed` each held unit whose holding tests
  * miss lines of it, with why, where there are any, `covered` each held unit
  * whose holding tests cover it, with those of them that run it as `judging`,
- * where there are any, `warnings` what the
- * shard warns of, where it warns of anything, and `unjudged` the units its
- * budget ran out before, where there are any, and `staticChecks` what
- * static analysis's checks of its survivors came to, where they came to
- * anything (see SurvivorChecksRecord). `measured.steps` holds the steps the
- * shard's time went to, where it timed any (see StepsRecord). A result that
- * cannot be read is refused, and the verdict reads that shard as having left
- * no result.
+ * where there are any, `warnings` what the shard warns of, where it warns of
+ * anything, `unjudged` the units its budget ran out before or its doom left,
+ * where there are any, `staticChecks` what static analysis's checks of its
+ * survivors came to, where they came to anything (see SurvivorChecksRecord),
+ * and `doomed` the survivor it stopped on once its run could not pass, where
+ * it did (see DoomedRecord). `measured.steps` holds the steps the shard's
+ * time went to, where it timed any (see StepsRecord). A result that cannot
+ * be read is refused, and the verdict reads that shard as having left no
+ * result.
  *
  * @internal the shape of the shard result file
  */
@@ -56,6 +57,9 @@ final readonly class ShardResultFile
 {
     /** The field that says why, of a held unit left unmutated and of a survivor left unchecked. */
     public const string WHY = 'why';
+
+    /** The field that names a unit, of a held unit left unmutated or covered, and of a doom. */
+    public const string UNIT = 'unit';
     private const int FORMAT = 1;
 
     private const string CANNOT_JUDGE = 'cannotJudge';
@@ -65,8 +69,6 @@ final readonly class ShardResultFile
     private const string FLAKY = 'flaky';
 
     private const string MISSED = 'missed';
-
-    private const string UNIT = 'unit';
 
     private const string COVERED = 'covered';
 
@@ -78,6 +80,7 @@ final readonly class ShardResultFile
     {
         $outcome = $result->outcome();
         $checks = SurvivorChecksRecord::of($result->checks());
+        $doomed = DoomedRecord::of($result->doomed());
 
         return JsonText::encode([
             'format' => self::FORMAT,
@@ -103,14 +106,14 @@ final readonly class ShardResultFile
                 static fn(MutantId $id): string => $id->value(),
                 [...$result->flaky()],
             )] : [],
-            ...count($result->misses()) > 0 ? [self::MISSED => array_map(
+            ...count($result->held()->misses()) > 0 ? [self::MISSED => array_map(
                 static fn(NotCovered $miss): array => [
                     self::UNIT => UnitRecord::one($miss->unit()),
                     self::WHY => $miss->why(),
                 ],
-                [...$result->misses()],
+                [...$result->held()->misses()],
             )] : [],
-            ...count($result->covered()) > 0 ? [self::COVERED => array_map(
+            ...count($result->held()->covered()) > 0 ? [self::COVERED => array_map(
                 static fn(Covered $covered): array => [
                     self::UNIT => UnitRecord::one($covered->unit()),
                     ProofRecord::JUDGING => array_map(
@@ -118,14 +121,17 @@ final readonly class ShardResultFile
                         [...$covered->tests()],
                     ),
                 ],
-                [...$result->covered()],
+                [...$result->held()->covered()],
             )] : [],
             ...count($result->warnings()) > 0 ? [self::WARNINGS => array_map(
                 static fn(Warning $warning): string => $warning->text(),
                 [...$result->warnings()],
             )] : [],
             ...count($result->unjudged()) > 0 ? [self::UNJUDGED => UnitRecord::all($result->unjudged())] : [],
-            ...$checks === [] ? [] : [SurvivorChecksRecord::SECTION => $checks],
+            ...array_filter(
+                [SurvivorChecksRecord::SECTION => $checks, DoomedRecord::SECTION => $doomed],
+                static fn(array $section): bool => $section !== [],
+            ),
         ]);
     }
 
@@ -155,11 +161,11 @@ final readonly class ShardResultFile
             self::measuredIn($file->field(self::MEASURED)),
         )
             ->withFlaky(self::flakyIn($file->field(self::FLAKY)))
-            ->withMisses(self::missesIn($file->field(self::MISSED)))
-            ->withCovered(self::coveredIn($file->field(self::COVERED)))
+            ->withHeld(self::heldIn($file->field(self::MISSED), $file->field(self::COVERED)))
             ->withWarnings(self::warningsIn($file->field(self::WARNINGS)))
             ->withUnjudged(self::unjudgedIn($file->field(self::UNJUDGED)))
-            ->withChecks(SurvivorChecksRecord::read($file->field(SurvivorChecksRecord::SECTION)));
+            ->withChecks(SurvivorChecksRecord::read($file->field(SurvivorChecksRecord::SECTION)))
+            ->withDoomed(DoomedRecord::read($file->field(DoomedRecord::SECTION)));
     }
 
     /** @throws NotInShape */
@@ -181,24 +187,16 @@ final readonly class ShardResultFile
     }
 
     /** @throws NotInShape */
-    private static function missesIn(Node $missed): HeldMisses
+    private static function heldIn(Node $missed, Node $covered): HeldChecks
     {
-        $misses = [];
+        $held = HeldChecks::none();
 
         foreach ($missed->isPresent() ? $missed->items() : [] as $miss) {
-            $misses[] = NotCovered::because(
+            $held = $held->with(NotCovered::because(
                 UnitRecord::read($miss->field(self::UNIT)),
                 $miss->field(self::WHY)->text(),
-            );
+            ));
         }
-
-        return HeldMisses::of(...$misses);
-    }
-
-    /** @throws NotInShape */
-    private static function coveredIn(Node $covered): HeldCovered
-    {
-        $read = HeldCovered::none();
 
         foreach ($covered->isPresent() ? $covered->items() : [] as $one) {
             $tests = TestIds::none();
@@ -207,10 +205,10 @@ final readonly class ShardResultFile
                 $tests = $tests->with(TestId::of($test->text()));
             }
 
-            $read = $read->with(Covered::by(UnitRecord::read($one->field(self::UNIT)), $tests));
+            $held = $held->with(Covered::by(UnitRecord::read($one->field(self::UNIT)), $tests));
         }
 
-        return $read;
+        return $held;
     }
 
     /** @throws NotInShape */

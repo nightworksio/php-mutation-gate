@@ -18,7 +18,9 @@ use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
@@ -56,6 +58,7 @@ use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
+use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
@@ -69,6 +72,7 @@ use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
+use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -77,12 +81,18 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Tree\Package;
+use NightWorksIO\MutationGate\Core\Tree\Tree;
+use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Verdict\Doomed;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Core\Written;
+use NightWorksIO\MutationGate\Tests\Fakes\CostModelFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
+use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
+use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
@@ -615,7 +625,7 @@ it('mutates no held unit whose holding tests miss lines of it, and leaves why', 
         CoverageRun::of(Group::named('holds:src/Held.php'), Path::of('.mutation-gate/held/shard-1'))
             ->withholding($adapters->withheld),
     ])
-        ->and($result instanceof ShardResult ? [...$result->misses()] : $result)->toEqual([NotCovered::because(
+        ->and($result instanceof ShardResult ? [...$result->held()->misses()] : $result)->toEqual([NotCovered::because(
             Planned::held(),
             <<<'SAID'
                 holds:src/Held.php does not cover src/Held.php, so its mutants cannot be judged by it.
@@ -662,7 +672,7 @@ it('mutates a unit the whole suite judges, though the map reaches none of it, an
         CoverageRun::of(Group::named('holds:src/Held.php'), Path::of('.mutation-gate/held/shard-1'))
             ->withholding($adapters->withheld),
     ])
-        ->and($result instanceof ShardResult ? [...$result->misses()] : $result)->toBe([])
+        ->and($result instanceof ShardResult ? [...$result->held()->misses()] : $result)->toBe([])
         ->and(array_map(static fn(MutationRequest $request): array => [...$request->files()], $scripted->requests()))
         ->toEqual([[Path::of('src/Held.php')], [Path::of('src/Money.php')]]);
 });
@@ -683,7 +693,7 @@ it('mutates each held unit its holding tests cover, and cannot judge a shard who
     $said = $result instanceof ShardResult ? $result->outcome() : $result;
 
     expect($said instanceof CannotJudge ? $said->why() : $said::class)->toBe($outcome)
-        ->and($result instanceof ShardResult ? count($result->misses()) : $result)->toBe(0);
+        ->and($result instanceof ShardResult ? count($result->held()->misses()) : $result)->toBe(0);
 })->with([
     'tests that cover what they hold' => [Flows::map(), MutationResult::class],
     'tests that fail on their own' => [
@@ -1015,9 +1025,224 @@ it('leaves a batch unjudged whose runner stopped at the deadline, and cannot jud
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
     $result = $resultIn($project, 1);
 
-    expect($unjudged($result))->toBe($left)
+    expect($runner->requests())->toHaveCount(1)
+        ->and($unjudged($result))->toBe($left)
         ->and($result instanceof ShardResult && $result->outcome() instanceof MutationResult)->toBe($judged);
 })->with([
-    'stopped at the deadline' => [10, ['src/Money.php', 'src/Held.php'], true],
+    'stopped at the deadline' => [5, ['src/Money.php', 'src/Held.php'], true],
     'failed before it' => [1, [], false],
+]);
+
+/** The plan, as made on a pull request, whose verdict holds its trees and new code to their floors. */
+
+/** Settings under which no static analysis can clear a survivor after its tests, so a pull request's shard can stop. */
+$doomable = static fn(): Settings => Flows::settings(Equivalence::notProvenStatically());
+
+$onPullRequest = static fn(Plan $plan): Plan => $plan->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')));
+
+/** The project's one tree, `src`, held to this floor. */
+$floored = static fn(Floor $floor): TreeSourceFake => new TreeSourceFake(
+    Trees::of(Tree::at(Path::of('src'), $floor, Package::at(Path::root()))),
+);
+
+/** @return list<list<string>> the files each invocation was asked to mutate */
+$asked = static fn(ScriptedRunner $runner): array => array_map(
+    static fn(MutationRequest $request): array => array_map(static fn(Path $file): string => $file->value(), [...$request->files()]),
+    $runner->requests(),
+);
+
+/** @return array{string, string, string, int, string}|string what a result's doom names, or that there is none */
+$doomOf = static fn(ShardResult|CannotJudge $result): array|string => $result instanceof ShardResult && $result->doomed() instanceof Doomed
+    ? [
+        $result->doomed()->unit()->value(),
+        $result->doomed()->mutant()->value(),
+        $result->doomed()->tree()->value(),
+        $result->doomed()->floor()->hundredths(),
+        $result->doomed()->by()->value,
+    ]
+    : 'undoomed';
+
+/** The fixture's survivor of src/Money.php, by the gate's id. */
+$moneySurvivor = static function (): string {
+    foreach (Flows::mutantsOf('src/Money.php') as $mutant) {
+        if ($mutant->status() === MutantStatus::Survived) {
+            return $mutant->id()->value();
+        }
+    }
+
+    return 'none';
+};
+
+it('stops a pull request\'s shard after the chunk whose survivor makes its run certain to fail, leaving the rest unjudged', function () use (
+    $doomable,
+    $resultIn,
+    $unjudged,
+    $onPullRequest,
+    $floored,
+    $asked,
+    $doomOf,
+    $moneySurvivor,
+): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture();
+
+    new Running(Flows::adapters($project, [], $runner, $floored(Floor::whole())), $doomable(), Flows::setup())
+        ->run(Planned::handedIn($project, $onPullRequest(Planned::oneShard())), ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+
+    expect($asked($runner))->toBe([['src/Money.php']])
+        ->and($unjudged($result))->toBe(['src/Held.php'])
+        ->and($doomOf($result))->toBe(['src/Money.php', $moneySurvivor(), 'src', 10_000, 'tree']);
+});
+
+it('runs a pull request\'s shard to its end in chunks, in the plan\'s order, while no survivor makes its run certain to fail', function () use (
+    $doomable,
+    $resultIn,
+    $unjudged,
+    $onPullRequest,
+    $floored,
+    $asked,
+    $doomOf,
+): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture();
+
+    new Running(Flows::adapters($project, [], $runner, $floored(Floor::of(50))), $doomable(), Flows::setup())
+        ->run(Planned::handedIn($project, $onPullRequest(Planned::oneShard())), ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+
+    expect($asked($runner))->toBe([['src/Money.php'], ['src/Held.php']])
+        ->and($unjudged($result))->toBe([])
+        ->and($doomOf($result))->toBe('undoomed');
+});
+
+it('runs a shard off a pull request to its end, whatever its survivors', function () use (
+    $doomable,
+    $resultIn,
+    $unjudged,
+    $floored,
+    $asked,
+    $doomOf,
+): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture();
+
+    new Running(Flows::adapters($project, [], $runner, $floored(Floor::whole())), $doomable(), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+
+    expect($asked($runner))->toBe([['src/Held.php'], ['src/Money.php']])
+        ->and($unjudged($result))->toBe([])
+        ->and($doomOf($result))->toBe('undoomed');
+});
+
+it('runs a pull request\'s shard to its end where its survivor proves flaky', function () use (
+    $doomable,
+    $resultIn,
+    $unjudged,
+    $onPullRequest,
+    $floored,
+    $asked,
+    $doomOf,
+): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture()->killingAgain();
+
+    new Running(Flows::adapters($project, [], $runner, $floored(Floor::whole())), $doomable(), Flows::setup())
+        ->run(Planned::handedIn($project, $onPullRequest(Planned::oneShard())), ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+
+    expect($asked($runner))->toBe([['src/Money.php'], ['src/Held.php']])
+        ->and($unjudged($result))->toBe([])
+        ->and($doomOf($result))->toBe('undoomed');
+});
+
+it('runs a pull request\'s shard to its end where its trees cannot be read, or it holds no tree to a floor', function (object $port) use (
+    $doomable,
+    $resultIn,
+    $unjudged,
+    $onPullRequest,
+    $asked,
+    $doomOf,
+): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture();
+
+    new Running(Flows::adapters($project, [], $runner, $port), $doomable(), Flows::setup())
+        ->run(Planned::handedIn($project, $onPullRequest(Planned::oneShard())), ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+
+    expect($asked($runner))->toBe([['src/Held.php'], ['src/Money.php']])
+        ->and($unjudged($result))->toBe([])
+        ->and($doomOf($result))->toBe('undoomed');
+})->with([
+    'unreadable trees' => [new TreeSourceFake(CannotJudge::because('No composer.json.'))],
+    'security mutators alone' => [Narrowing::none()->toMutators(Mutators::named('Plus'))],
+    'one suite\'s tests alone' => [Narrowing::none()->toSuite(SuiteName::of('unit'))],
+]);
+
+it('chunks a pull request\'s shard in about two minutes of the work the cost model expects, each chunk at least one unit', function (float $each, array $chunks) use (
+    $doomable,
+    $onPullRequest,
+    $floored,
+    $asked,
+): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture();
+    $files = Units::of(Planned::money(), Unit::file(Path::of('src/Second.php')), Unit::file(Path::of('src/Third.php')));
+    $plan = $onPullRequest(Planned::of(Shard::of(ShardId::of(1), Package::at(Path::root()), $files, Seconds::of(3.0), 'files')));
+
+    new Running(
+        Flows::adapters($project, [], $runner, $floored(Floor::of(50)), new CostModelFake(Seconds::of($each))),
+        $doomable(),
+        Flows::setup(),
+    )->run(Planned::handedIn($project, $plan), ShardId::of(1), Workspace::results());
+
+    expect($asked($runner))->toBe($chunks);
+})->with([
+    'each a minute and a half' => [90.0, [['src/Money.php'], ['src/Second.php'], ['src/Third.php']]],
+    'each half a minute' => [30.0, [['src/Money.php', 'src/Second.php', 'src/Third.php']]],
+    'each a minute' => [50.0, [['src/Money.php', 'src/Second.php'], ['src/Third.php']]],
+]);
+
+it('runs no shard of a plan in one process after one that stopped once its run could not pass', function () use (
+    $doomable,
+    $resultIn,
+    $onPullRequest,
+    $floored,
+    $asked,
+): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture();
+
+    $written = new Running(Flows::adapters($project, [], $runner, $floored(Floor::whole())), $doomable(), Flows::setup())
+        ->runAll(Planned::handedIn($project, $onPullRequest(Planned::twoShards())), Workspace::results());
+
+    expect($written)->toBeInstanceOf(Written::class)
+        ->and($asked($runner))->toBe([['src/Money.php']])
+        ->and($resultIn($project, 1))->toBeInstanceOf(ShardResult::class)
+        ->and(is_file(sprintf('%s/.mutation-gate/results/2.json', $project)))->toBeFalse();
+});
+
+it('runs a pull request\'s shard to its end, whole, where static analysis could still clear its survivor', function (Settings $settings, object ...$ports) use (
+    $resultIn,
+    $unjudged,
+    $onPullRequest,
+    $floored,
+    $asked,
+    $doomOf,
+): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture();
+
+    new Running(Flows::adapters($project, [], $runner, $floored(Floor::whole()), ...$ports), $settings, Flows::setup())
+        ->run(Planned::handedIn($project, $onPullRequest(Planned::oneShard())), ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+
+    expect($asked($runner))->toBe([['src/Held.php'], ['src/Money.php']])
+        ->and($unjudged($result))->toBe([])
+        ->and($doomOf($result))->toBe('undoomed');
+})->with([
+    'equivalence.static' => [Flows::settings()],
+    'a static check' => [Flows::settings(Equivalence::notProvenStatically()), StaticCheckerFake::findingNothing()],
 ]);

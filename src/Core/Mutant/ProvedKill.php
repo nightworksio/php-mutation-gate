@@ -40,10 +40,17 @@ final readonly class ProvedKill
         return new self($id, $location, $mutator, $killers, MutantStatus::Killed, Unreported::reason());
     }
 
-    /** This kill, no longer standing: a time budget ran out before this run judged it again. */
-    public function unjudged(OutOfTime $before): self
+    /**
+     * This kill, no longer standing: a time budget ran out before this run
+     * judged it again, or the run stopped, for this reason, once it could not
+     * pass (ADR-0008, decisions 1 and 6).
+     */
+    public function unjudged(OutOfTime|Reason $why): self
     {
-        return clone($this, ['status' => MutantStatus::Unjudged, 'reason' => $before->reason()]);
+        return clone($this, [
+            'status' => MutantStatus::Unjudged,
+            'reason' => $why instanceof OutOfTime ? $why->reason() : $why,
+        ]);
     }
 
     public function id(): MutantId

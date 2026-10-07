@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function array_any;
 use function array_map;
 use function count;
 use function implode;
@@ -33,9 +34,13 @@ use function sprintf;
 /**
  * Every shard's result, read from the files the shards left. The verdict
  * requires one for every shard in the plan: a shard that crashed, was
- * cancelled or never started left none, and the verdict cannot judge. Nor
- * can it judge a shard whose runner skipped mutants it kept no record of:
- * they are unjudged, and belong to no unit.
+ * cancelled or never started left none, and the verdict cannot judge,
+ * unless another shard stopped once the run could not pass (ADR-0008,
+ * decision 6). Then the run's other shards may have been cancelled, and
+ * their units are stopped, as the units the doomed shard did not run are,
+ * since the verdict fails whatever they come to. Nor can it judge a shard
+ * whose runner skipped mutants it kept no record of: they are unjudged, and
+ * belong to no unit.
  */
 final readonly class Results
 {
@@ -64,8 +69,11 @@ final readonly class Results
         The runner leaves no mutant unjudged in a run the gate judges.
         SAID;
 
-    /** @param list<array{Shard, ShardResult, MutationResult}> $read each shard, with its result and its mutants */
-    private function __construct(private array $read)
+    /**
+     * @param list<array{Shard, ShardResult, MutationResult}> $read    each shard, with its result and its mutants
+     * @param Stopped                                         $stopped how they stopped once the run could not pass
+     */
+    private function __construct(private array $read, private Stopped $stopped)
     {
     }
 
@@ -91,9 +99,10 @@ final readonly class Results
             };
         }
 
-        $why = [...$unjudged, ...self::leftNone($missing, $directory)];
+        $stopped = Stopped::among($read, array_map(static fn(array $left): Shard => $left[0], $missing));
+        $why = [...$unjudged, ...$stopped->isDoomed() ? [] : self::leftNone($missing, $directory)];
 
-        return $why === [] ? new self($read) : CannotJudge::because(implode("\n", $why));
+        return $why === [] ? new self($read, $stopped) : CannotJudge::because(implode("\n", $why));
     }
 
     /**
@@ -107,14 +116,14 @@ final readonly class Results
 
         foreach ($this->read as [$shard, $result, $mutated]) {
             foreach ($shard->units() as $unit) {
-                if ($result->misses()->misses($unit->path()) || $result->unjudged()->has($unit->path())) {
+                if ($result->held()->misses()->misses($unit->path()) || $result->unjudged()->has($unit->path())) {
                     continue;
                 }
 
                 $results = $results->with(
                     UnitResult::of($unit, Origin::Run, $this->mutantsOf($unit, $mutated->mutants()))
                         ->withFlaky($result->flaky())
-                        ->judgedBy($result->covered()->testsOf($unit->path())),
+                        ->judgedBy($result->held()->covered()->testsOf($unit->path())),
                 );
             }
         }
@@ -128,39 +137,42 @@ final readonly class Results
         $misses = HeldMisses::none();
 
         foreach ($this->read as [, $result]) {
-            $misses = $misses->and($result->misses());
+            $misses = $misses->and($result->held()->misses());
         }
 
         return $misses;
     }
 
-    /** Every shard's units its time budget ran out before (ADR-0008, decision 1). */
+    /** Every shard's units its time budget ran out before (ADR-0008, decision 1), but a doomed shard's. */
     public function unjudged(): Units
     {
         $unjudged = Units::none();
 
         foreach ($this->read as [, $result]) {
-            foreach ($result->unjudged() as $unit) {
-                $unjudged = $unjudged->with($unit);
-            }
+            $unjudged = $unjudged->and($result->unjudged());
         }
 
-        return $unjudged;
+        return $unjudged->except($this->stopped->units());
+    }
+
+    /** How the shards stopped once the run could not pass, where one did (ADR-0008, decision 6). */
+    public function stopped(): Stopped
+    {
+        return $this->stopped;
     }
 
     /**
-     * Whether a shard's time budget stopped it before it judged everything:
-     * it ran out before a unit, or left a mutant unjudged (ADR-0008, decision 1).
+     * Whether a shard stopped before it judged everything: its time budget
+     * ran out before a unit or left a mutant unjudged, or it stopped once the
+     * run could not pass before a unit, or beside a shard that left no result
+     * (ADR-0008, decisions 1 and 6).
      */
     public function wereCutShort(): bool
     {
-        foreach ($this->read as [, $result, $mutated]) {
-            if (count($result->unjudged()) > 0 || $this->leftAny($mutated->mutants())) {
-                return true;
-            }
-        }
-
-        return false;
+        return count($this->stopped->units()) > 0 || array_any(
+            $this->read,
+            fn(array $one): bool => count($one[1]->unjudged()) > 0 || $this->leftAny($one[2]->mutants()),
+        );
     }
 
     /** What every shard warns of, shard by shard. */

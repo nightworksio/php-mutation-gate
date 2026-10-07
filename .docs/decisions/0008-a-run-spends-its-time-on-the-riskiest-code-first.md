@@ -412,6 +412,68 @@ presets for Laravel, Symfony and plain libraries.
    than listed. What is hot differs from app to app. Third-party presets
    (WordPress, Drupal, a company's own) are extensions.
 
+6. **A pull request's run stops once it cannot pass.**
+   - **When.** A run on a pull request whose verdict holds its trees' floors
+     and the new code's stops early. A run of the security mutators alone
+     (`--security`) or of one suite's tests alone (`--suite`) holds no tree to
+     a floor, so it runs to its end. So does a run whose trees or committed
+     baseline cannot be read. A run on a branch, a tag or a schedule also
+     runs to its end, since later runs build on what it records.
+   - **Doomed.** The run is certain to fail once one of its mutants is a
+     survivor the verdict will count. It did not prove flaky when run again
+     (decision 3), no ignore leaves it out (decision 4), and it is not proven
+     equivalent. Static analysis cannot clear it either: the run stops only
+     where `equivalence.static` is false and no static check runs
+     (`staticCheck.tool: none`, ADR-0020), since either could prove a
+     survivor equivalent or kill it after its tests. And one of two floors
+     holds it at 100:
+     - its tree's floor, the higher of the declared one and the baseline's;
+     - or, for a mutant on a line the change added or modified, the new-code
+       floor that line is held to, its tree's own or `newCode.floor`.
+
+     One such survivor leaves a score below 100 in whole hundredths, so the
+     verdict fails whatever the other mutants come to.
+   - **Chunks.** A runner orders the mutants of one invocation itself, so
+     the gate can stop only between invocations. A shard that can stop runs
+     its units in the plan's order, riskiest first (decision 1). It runs them
+     in chunks of about two minutes of the work the cost model expects
+     (ADR-0006), opening run included. A held unit runs alone, as in a
+     budgeted run, and a chunk always starts with its first unit, however
+     large. After each chunk, its survivors confirmed, the shard looks for a
+     doomed survivor, and it stops at the first. A shard that finds none runs
+     every unit, at the cost of one runner opening per chunk. One code path
+     serves every runner.
+   - **What it leaves.** The shard's result names the survivor under
+     `doomed`, with these fields:
+     - `unit`: the unit's path;
+     - `mutant`: the survivor's id;
+     - `tree`: the tree's path;
+     - `floor`: the floor it fails;
+     - `why`: `tree` or `newCode`.
+
+     The units the shard did not run are unjudged, as a budget leaves them:
+     - each counts by its newest result where that result stands
+       (decision 1);
+     - a mutant of it whose result does not stand is unjudged;
+     - none reaches the ledger.
+
+     The verdict fails, naming the survivor and its floor for each shard
+     that stopped. A run that left a unit unrun removes its `lastRun`, as a
+     budgeted run does (ADR-0005, decision 2). A run in one process runs no
+     shard after one that stopped.
+   - **The other shards.** A CI may cancel the run's other shards once a
+     shard's result names a survivor under `doomed`. The step that cancels
+     reads that result alone and runs none of the project's code. The
+     permission to cancel therefore never reaches a job that runs a pull
+     request's code. The verdict reads each shard that left no result
+     beside a shard that stopped as stopped too, so its units are unjudged
+     as above. Without a doomed shard, a shard that left no result still
+     means the verdict cannot judge.
+   - **Trust.** A forged or mistaken `doomed` can only fail the run whose
+     shard wrote it. The verdict fails on it whatever the other shards came
+     to, and counts a stopped unit for no more than its newest result stands
+     for.
+
 ## Alternatives considered
 
 | Option | Why it lost |
@@ -423,6 +485,9 @@ presets for Laravel, Symfony and plain libraries.
 | **Retry every killed mutant to catch flaky kills** | Doubles the cost of every run to find a rare problem. Survivor confirmation is cheap. Flaky kills are hunted on demand with `triage`. |
 | **Native ignore markers, as the runners ship them** | No reason, no expiry, no staleness check, and different per runner. The config holds one list for every runner. |
 | **Ignores by file and line** | Line numbers move with every edit above them. The gate's id does not use the line (ADR-0004). |
+| **Stop a doomed run inside each runner's own mutant loop** | Three runner-specific stops in the patches the gate applies, each resuming when a survivor proves flaky. The chunked stop is one code path, proved by every runner's contract. |
+| **Cancel a doomed run's other shards from the shard job** | The shard job runs the pull request's code, which could then cancel or re-run workflows. A separate step that reads the result alone holds that permission. |
+| **Stop at any floor once a tree's survivors outnumber what the floor allows** | Needs each tree's planned mutant total in the plan. A floor of 100, the default for new code, needs none. |
 | **Presets that exclude framework glue** (providers, kernels) | Excluding code from mutation hides it from the gate. Holding it with the tests that assert on it keeps it judged and cheap. |
 
 ## Consequences
@@ -436,6 +501,11 @@ the fix: hold the path with a group.
 **The ignore list is reviewable debt.** It has reasons, end dates and no dead
 entries.
 
+**A pull request that cannot pass says so early.** Its shards stop within
+about two minutes of finding a survivor of a floor of 100, instead of
+mutating the rest. A pull request that can pass pays one runner opening per
+chunk.
+
 **A Laravel or Symfony app gets a sensible first run with no config**, and the
 warnings say where holding groups would save time.
 
@@ -443,7 +513,8 @@ warnings say where holding groups would save time.
 
 - [ADR-0003](0003-a-floor-only-rises.md): how unjudged, flaky and ignored mutants enter the score
 - [ADR-0004](0004-pest-and-infection-behind-one-runner-port.md): runner timeouts, retries and Infection's ignored status
-- [ADR-0005](0005-what-a-change-reaches-is-what-is-mutated.md): holding groups and the hot-path warning
+- [ADR-0005](0005-what-a-change-reaches-is-what-is-mutated.md): holding groups and the hot-path warning, and the `lastRun` a run that stopped removes
+- [ADR-0006](0006-shards-are-cut-by-learned-cost-and-planned-once.md): the cost model a doomed run's chunks are sized by
 - [ADR-0009](0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md): mutator families, and how unjudged and flaky mutants are shown
 - [ADR-0010](0010-the-gate-runs-while-you-work-and-before-you-push.md): the budgets of watch and pre-push
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): the order survivor confirmation and `triage` use, and ignores a proof makes redundant

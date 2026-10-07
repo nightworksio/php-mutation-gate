@@ -100,7 +100,7 @@ it('writes the comment of a passing run, with the floors that can rise and a run
     expect(Markdown::comment(Verdicts::passing()->cutShort(), ''))->toBe(implode("\n\n", [
         '<!-- mutation-gate -->',
         '## mutation-gate: passed',
-        'The project scores 100.00%. The run\'s budget stopped it before every mutant was judged.',
+        'The project scores 100.00%. The run stopped before it judged every mutant.',
         "| Tree | Floor | Score | Against the base | Result |\n|---|---|---|---|---|\n| <code>src</code> | 80.00% | 100.00% |  | passed |",
         '### Floors that can rise',
         '- <code>src</code> to 100.00%',

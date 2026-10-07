@@ -48,3 +48,12 @@ it('counts the units their holding tests judge', function (): void {
     expect($units->held())->toBe(1)
         ->and(Units::none()->held())->toBe(0);
 });
+
+it('joins those units after its own, without changing either', function () use ($paths): void {
+    $own = Units::of(Unit::file(Path::of('src/A.php')));
+    $those = Units::of(Unit::file(Path::of('src/B.php')), Unit::file(Path::of('src/C.php')));
+
+    expect($paths($own->and($those)))->toBe(['src/A.php', 'src/B.php', 'src/C.php'])
+        ->and($paths($own))->toBe(['src/A.php'])
+        ->and($paths($those))->toBe(['src/B.php', 'src/C.php']);
+});

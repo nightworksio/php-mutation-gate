@@ -725,6 +725,12 @@ services:
                     - OF_A_MERGE # the parents of a merge commit, not an exit code or an argument's position
                 'NightWorksIO\MutationGate\Core\Proof\LastRunRecord':
                     - COMMIT # the ledger's last run's field, not the commit a plan's digests were taken at
+                    - TREE # the ledger's last run's field, not the tree floor a survivor dooms a run by
+                'NightWorksIO\MutationGate\Core\Plan\DoomedRecord':
+                    - TREE # the shard result's field naming a tree, not the tree floor a survivor dooms a run by
+                    - FLOOR # the shard result's field holding a floor, not a gate manifest's key
+                'NightWorksIO\MutationGate\Core\Plan\Batching':
+                    - CHUNK_MINUTES # minutes of expected work a chunk holds, not an argument's position or an exit code
                 'NightWorksIO\MutationGate\Core\Report\SuiteText':
                     - SHOWN_FROM # the fewest suites a report shows, not an argument's position or an exit code
                 'NightWorksIO\MutationGate\Core\Report\JUnit':

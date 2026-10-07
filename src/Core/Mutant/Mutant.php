@@ -92,12 +92,16 @@ final readonly class Mutant
         return clone($this, ['reason' => $reason]);
     }
 
-    /** This mutant, left without a result by a time budget that ran out before this. */
-    public function unjudged(OutOfTime $before): self
+    /**
+     * This mutant, left without a result: by a time budget that ran out
+     * before this, or for this reason, as a run that stopped once it could
+     * not pass leaves it (ADR-0008, decisions 1 and 6).
+     */
+    public function unjudged(OutOfTime|Reason $why): self
     {
         return clone($this, [
             'status' => MutantStatus::Unjudged,
-            'reason' => $before->reason(),
+            'reason' => $why instanceof OutOfTime ? $why->reason() : $why,
         ]);
     }
 

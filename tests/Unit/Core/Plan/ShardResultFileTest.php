@@ -14,8 +14,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Hold\Covered;
-use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
-use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
+use NightWorksIO\MutationGate\Core\Hold\HeldChecks;
 use NightWorksIO\MutationGate\Core\Hold\NotCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -32,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -40,6 +40,8 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Verdict\Doomed;
+use NightWorksIO\MutationGate\Core\Verdict\DoomedBy;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
@@ -153,11 +155,10 @@ it('lists each held unit its holding tests miss lines of, with why, and reads th
     $survivor,
     $measured,
 ): void {
-    $misses = HeldMisses::of(
-        NotCovered::because(Unit::held(Path::of('src/Kernel.php'), Group::named('holds:src/Kernel.php')), 'Missed 48.'),
-        NotCovered::because(Unit::held(Path::of('src/Http'), Filter::matching('HttpTest')), 'Missed all.'),
-    );
-    $result = $finished($survivor, $measured)->withMisses($misses);
+    $held = HeldChecks::none()
+        ->with(NotCovered::because(Unit::held(Path::of('src/Kernel.php'), Group::named('holds:src/Kernel.php')), 'Missed 48.'))
+        ->with(NotCovered::because(Unit::held(Path::of('src/Http'), Filter::matching('HttpTest')), 'Missed all.'));
+    $result = $finished($survivor, $measured)->withHeld($held);
     $written = ShardResultFile::encode($result);
 
     expect($written)->toContain('"missed": [')
@@ -170,14 +171,13 @@ it('lists each held unit its holding tests cover, with those of them that run it
     $survivor,
     $measured,
 ): void {
-    $covered = HeldCovered::of(
-        Covered::by(
+    $held = HeldChecks::none()
+        ->with(Covered::by(
             Unit::held(Path::of('src/Kernel.php'), Group::named('holds:src/Kernel.php')),
             TestIds::of(TestId::of('KernelTest::boots'), TestId::of('KernelTest::stops')),
-        ),
-        Covered::by(Unit::held(Path::of('src/Http'), Filter::matching('HttpTest')), TestIds::of(TestId::of('HttpTest::serves'))),
-    );
-    $result = $finished($survivor, $measured)->withCovered($covered);
+        ))
+        ->with(Covered::by(Unit::held(Path::of('src/Http'), Filter::matching('HttpTest')), TestIds::of(TestId::of('HttpTest::serves'))));
+    $result = $finished($survivor, $measured)->withHeld($held);
     $written = ShardResultFile::encode($result);
 
     expect($written)->toContain("\"judging\": [\n                \"KernelTest::boots\",\n                \"KernelTest::stops\"\n            ]")
@@ -206,6 +206,34 @@ it('lists the units its budget ran out before, and reads them back', function ()
     expect($written)->toContain('"unjudged": [')
         ->and(ShardResultFile::decode($written))->toEqual($result)
         ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"unjudged"');
+});
+
+it('names the survivor that made the run certain to fail, where the shard stopped on one, and reads it back', function (DoomedBy $by, string $why) use ($finished, $survivor, $measured): void {
+    $doomed = Doomed::of(Path::of('src/Money.php'), $survivor->id(), Path::of('src'), Floor::whole(), $by);
+    $result = $finished($survivor, $measured)->withDoomed($doomed);
+    $written = ShardResultFile::encode($result);
+
+    expect($written)->toEndWith(sprintf(
+        "    \"doomed\": {\n        \"unit\": \"src/Money.php\",\n        \"mutant\": \"%s\",\n"
+            . "        \"tree\": \"src\",\n        \"floor\": 100,\n        \"why\": \"%s\"\n    }\n}",
+        $survivor->id()->value(),
+        $why,
+    ))
+        ->and(ShardResultFile::decode($written))->toEqual($result)
+        ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"doomed"')
+        ->and(ShardResultFile::decode(ShardResultFile::encode($finished($survivor, $measured))))
+        ->toEqual($finished($survivor, $measured));
+})->with([
+    'by its tree' => [DoomedBy::Tree, 'tree'],
+    'by the new code' => [DoomedBy::NewCode, 'newCode'],
+]);
+
+it('reads back the floor a doom names as it was written', function () use ($finished, $survivor, $measured): void {
+    $doomed = Doomed::of(Path::of('src/Money.php'), $survivor->id(), Path::of('src'), Floor::of(87.5), DoomedBy::Tree);
+    $read = ShardResultFile::decode(ShardResultFile::encode($finished($survivor, $measured)->withDoomed($doomed)));
+
+    expect($read instanceof ShardResult && $read->doomed() instanceof Doomed ? $read->doomed()->floor()->hundredths() : $read)
+        ->toBe(8_750);
 });
 
 it('lists what static analysis\'s checks of its survivors came to, and reads it back', function () use ($finished, $survivor, $measured): void {
@@ -287,5 +315,29 @@ it('refuses what is not a shard result, saying where it went wrong', function (s
         '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "cannotJudge": "x", '
             . '"measured": {"seconds": 1, "runner": "pest", "at": "yesterday"}}',
         'the file.measured.at is not an instant.',
+    ],
+    'a doom for no reason the gate knows' => [
+        '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "cannotJudge": "x", '
+            . '"measured": {"seconds": 1, "runner": "pest", "at": "2026-09-29T20:48:17Z"}, '
+            . '"doomed": {"unit": "src/A.php", "mutant": "0123456789ab", "tree": "src", "floor": 100, "why": "fate"}}',
+        'the file.doomed.why is not why a survivor dooms a run.',
+    ],
+    'a doom by a mutant that is no id' => [
+        '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "cannotJudge": "x", '
+            . '"measured": {"seconds": 1, "runner": "pest", "at": "2026-09-29T20:48:17Z"}, '
+            . '"doomed": {"unit": "src/A.php", "mutant": "no", "tree": "src", "floor": 100, "why": "tree"}}',
+        'the file.doomed.mutant is not a mutant id.',
+    ],
+    'a doom by a floor that is no percentage' => [
+        '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "cannotJudge": "x", '
+            . '"measured": {"seconds": 1, "runner": "pest", "at": "2026-09-29T20:48:17Z"}, '
+            . '"doomed": {"unit": "src/A.php", "mutant": "0123456789ab", "tree": "src", "floor": 101, "why": "tree"}}',
+        'the file.doomed.floor is not a percentage.',
+    ],
+    'a doom that names no tree' => [
+        '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "cannotJudge": "x", '
+            . '"measured": {"seconds": 1, "runner": "pest", "at": "2026-09-29T20:48:17Z"}, '
+            . '"doomed": {"unit": "src/A.php", "mutant": "0123456789ab", "floor": 100, "why": "tree"}}',
+        'the file.doomed.tree is missing.',
     ],
 ]);

@@ -198,7 +198,7 @@ final readonly class Markdown
             SavingsText::of($verdict, $lately),
             implode(' ', [
                 SetText::project($overview->score()),
-                ...$verdict->wasCutShort() ? ['The run\'s budget stopped it before every mutant was judged.'] : [],
+                ...$verdict->wasCutShort() ? ['The run stopped before it judged every mutant.'] : [],
             ]),
         ];
     }

@@ -46,6 +46,12 @@ final readonly class Units implements Countable, IteratorAggregate
         return new self([...$this->units, $unit]);
     }
 
+    /** These units, then those. */
+    public function and(self $those): self
+    {
+        return new self([...$this->units, ...$those->units]);
+    }
+
     /** These units but those at the path of one of those. */
     public function except(self $those): self
     {

@@ -25,15 +25,26 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
+use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
+use NightWorksIO\MutationGate\Core\Proof\Keys;
+use NightWorksIO\MutationGate\Core\Proof\Measurement;
+use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Version;
+use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Verdict\Doomed;
+use NightWorksIO\MutationGate\Core\Verdict\DoomedBy;
+use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
+use NightWorksIO\MutationGate\Core\Verdict\Undoomed;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
@@ -251,3 +262,86 @@ it('says a run was cut short where its budget ran out before a unit or left a mu
     'a survivor it had no time to confirm' => [Flows::settings(Timeouts::seconds(5), Budget::of('20s')), 1, true, ['Plus-1']],
     'a budget no unit fits' => [Flows::settings(Budget::of('1s')), 1, true, []],
 ]);
+
+/** A shard's result of a plan, written where the verdict reads it: its units, the units it left, and its doom. */
+$left = static function (string $project, Plan $plan, int $shard, Units $left, Doomed|Undoomed $doomed): void {
+    $result = ShardResult::of(
+        $plan->digest(),
+        ShardId::of($shard),
+        Keys::none(),
+        MutationResult::of(Flows::mutantsOf('src/Money.php'), 0),
+        Measurement::of(Seconds::of(1.0), 'fake', Instant::at(new DateTimeImmutable('2026-10-07T12:00:00Z'))),
+    )->withUnjudged($left)->withDoomed($doomed);
+    Scratch::write($project, sprintf('.mutation-gate/results/%d.json', $shard), ShardResultFile::encode($result));
+};
+$doomed = Doomed::of(Path::of('src/Money.php'), MutantId::hash(Path::of('src/Money.php'), 'Plus', '1', 0), Path::of('src'), Floor::whole(), DoomedBy::Tree);
+
+/** @return list<string> the paths of these units */
+$paths = static fn(Units $units): array => array_map(static fn(Unit $unit): string => $unit->path()->value(), [...$units]);
+
+it('reads a shard that left no result as stopped, where another stopped once the run could not pass, and names that one\'s survivor', function () use (
+    $left,
+    $doomed,
+    $paths,
+): void {
+    $project = Flows::project();
+    $plan = Planned::twoShards();
+    $left($project, $plan, 1, Units::none(), $doomed);
+    $results = Results::read($plan, Workspace::results(), Directory::at($project));
+
+    expect($results)->toBeInstanceOf(Results::class)
+        ->and($results instanceof Results ? $paths($results->stopped()->units()) : $results)->toBe(['src/Held.php'])
+        ->and($results instanceof Results ? $paths($results->unjudged()) : $results)->toBe([])
+        ->and($results instanceof Results ? $results->stopped()->doomed() : $results)->toEqual($doomed)
+        ->and($results instanceof Results ? $results->wereCutShort() : $results)->toBeTrue()
+        ->and($results instanceof Results ? array_map(static fn(Failure $failure): string => $failure->text(), [...$results->stopped()->failures()]) : $results)
+        ->toBe([$doomed->said(1)]);
+});
+
+it('takes the units a doomed shard left as stopped, and those a budget left in another shard as unjudged', function () use (
+    $left,
+    $doomed,
+    $paths,
+): void {
+    $project = Flows::project();
+    $plan = Planned::twoShards();
+    $left($project, $plan, 1, Units::of(Planned::money()), $doomed);
+    $left($project, $plan, 2, Units::of(Planned::held()), Undoomed::run());
+    $results = Results::read($plan, Workspace::results(), Directory::at($project));
+
+    expect($results instanceof Results ? $paths($results->stopped()->units()) : $results)->toBe(['src/Money.php'])
+        ->and($results instanceof Results ? $paths($results->unjudged()) : $results)->toBe(['src/Held.php'])
+        ->and($results instanceof Results ? [...$results->units()] : $results)->toBe([]);
+});
+
+it('names every doomed shard\'s survivor, and the first shard\'s doom as the run\'s', function () use ($left, $doomed): void {
+    $project = Flows::project();
+    $plan = Planned::twoShards();
+    $later = Doomed::of(Path::of('src/Held.php'), MutantId::hash(Path::of('src/Held.php'), 'Plus', '2', 0), Path::of('src'), Floor::whole(), DoomedBy::NewCode);
+    $left($project, $plan, 1, Units::none(), $doomed);
+    $left($project, $plan, 2, Units::none(), $later);
+    $results = Results::read($plan, Workspace::results(), Directory::at($project));
+
+    expect($results instanceof Results ? $results->stopped()->doomed() : $results)->toEqual($doomed)
+        ->and($results instanceof Results ? array_map(static fn(Failure $failure): string => $failure->text(), [...$results->stopped()->failures()]) : $results)
+        ->toBe([$doomed->said(1), $later->said(2)]);
+});
+
+it('stops nothing and dooms nothing where no shard stopped once the run could not pass', function () use ($ran, $paths): void {
+    $results = $ran(Flows::project(), ScriptedRunner::fixture());
+
+    expect($results instanceof Results ? $paths($results->stopped()->units()) : $results)->toBe([])
+        ->and($results instanceof Results ? $results->stopped()->doomed() : $results)->toEqual(Undoomed::run())
+        ->and($results instanceof Results ? count($results->stopped()->failures()) : $results)->toBe(0)
+        ->and($results instanceof Results ? $results->wereCutShort() : $results)->toBeFalse();
+});
+
+it('still cannot judge a result that cannot be read, beside a doomed shard', function () use ($left, $doomed): void {
+    $project = Flows::project();
+    $plan = Planned::twoShards();
+    $left($project, $plan, 1, Units::none(), $doomed);
+    Scratch::write($project, '.mutation-gate/results/2.json', 'not a result');
+
+    expect(Results::read($plan, Workspace::results(), Directory::at($project)))
+        ->toEqual(CannotJudge::because('A shard result cannot be read: the file.format is missing.'));
+});
