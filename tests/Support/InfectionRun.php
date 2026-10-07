@@ -24,6 +24,10 @@ use function str_repeat;
  * What PHPUnit and Infection leave after a run, as the Infection adapter reads
  * them: a coverage directory in the layout `--coverage` reads, and
  * Infection's JSON and text logs.
+ *
+ * `Lists` holds the JSON log's lists, by name, each with its entries.
+ *
+ * @phpstan-type Lists array<string, list<array<string, mixed>>>
  */
 final readonly class InfectionRun
 {

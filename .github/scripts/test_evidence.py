@@ -111,6 +111,15 @@ class Readers(unittest.TestCase):
         self.assertEqual([(f["path"], f["line"], f["rule"]) for f in found][0], ("README.md", 3, "typo"))
         self.assertTrue(found[0]["detail"].endswith(" -> the"))
 
+    def test_the_line_cap_names_each_file_over_it(self):
+        found = evidence.lines((FIXTURES / "lines.txt").read_text(encoding="utf-8"), ROOT)
+
+        self.assertEqual(
+            [(f["path"], f["line"], f["rule"]) for f in found],
+            [("tests/Unit/Cli/Flow/JudgingTest.php", 0, "over-cap"), ("phpstan.neon", 0, "over-cap")],
+        )
+        self.assertTrue(found[0]["detail"].startswith("tests/Unit/Cli/Flow/JudgingTest.php is 2104 lines"))
+
     def test_markdownlint_names_each_rule_by_its_number(self):
         self.assertEqual(
             read("markdownlint", "markdownlint.json"),

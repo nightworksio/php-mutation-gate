@@ -14,8 +14,14 @@ use NightWorksIO\MutationGate\Tests\Support\Schema;
 use NightWorksIO\MutationGate\Tests\Support\Secured;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
+/** SARIF 2.1.0's schema as OASIS publishes it, with errata 01, and its SHA-256. */
+const SARIF_SCHEMA = [
+    'https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json',
+    'c3b4bb2d6093897483348925aaa73af03b3e3f4bd4ca38cef26dcb4212a2682e',
+];
+
 it('writes SARIF 2.1.0 as its schema describes it', function (string $verdict): void {
-    $schema = Schema::at('tests/Fixtures/sarif-schema-2.1.0.json');
+    $schema = Schema::fetched(...SARIF_SCHEMA);
 
     expect(Schema::errors(Sarif::json(Verdicts::named($verdict)), $schema))->toBe([])
         ->and(Schema::errors(Sarif::rootedAt(Verdicts::named($verdict), SourceRoot::at('/work/gate')), $schema))->toBe([]);
@@ -120,5 +126,5 @@ it('says a security mutant\'s result is one, and makes it an error where its sec
     expect(count($security))->toBe(1)
         ->and($security[0]['level'] ?? null)->toBe('error')
         ->and($security[0]['properties']['id'] ?? null)->toBe(Secured::mutant(MutantJudgement::Survived, 3)->mutant()->id()->value())
-        ->and(Schema::errors($sarif, Schema::at('tests/Fixtures/sarif-schema-2.1.0.json')))->toBe([]);
+        ->and(Schema::errors($sarif, Schema::fetched(...SARIF_SCHEMA)))->toBe([]);
 });

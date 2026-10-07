@@ -28,29 +28,43 @@ use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
 use Symfony\Component\Yaml\Yaml;
 
 /**
- * Each provider's published JSON Schema, vendored under tests/Fixtures/CiSchemas (ADR-0015 decision 17):
+ * Each provider's published JSON Schema, fetched at a pinned commit and held to its SHA-256 (ADR-0015 decision 17),
+ * by the directory that holds its templates:
  *
- * - gitlab-ci.json: gitlab.com/gitlab-org/gitlab, app/assets/javascripts/editor/schema/ci.json (MIT);
- * - buildkite.json: github.com/buildkite/pipeline-schema, schema.json (MIT);
- * - circleci.json: github.com/CircleCI-Public/circleci-yaml-language-server, schema.json (Apache-2.0);
- * - github-workflow.json: json.schemastore.org/github-workflow.json (Apache-2.0), beside actionlint in CI;
- * - azure-pipelines.json: github.com/microsoft/azure-pipelines-vscode, service-schema.json (MIT).
+ * - github: SchemaStore's github-workflow.json (Apache-2.0), beside actionlint in CI;
+ * - gitlab: gitlab-org/gitlab's app/assets/javascripts/editor/schema/ci.json (MIT);
+ * - buildkite: buildkite/pipeline-schema's schema.json (MIT);
+ * - circleci: CircleCI-Public/circleci-yaml-language-server's schema.json (Apache-2.0);
+ * - azure: microsoft/azure-pipelines-vscode's service-schema.json (MIT);
+ * - bitbucket: Bitbucket's published schema, which pins no version, so its digest says when it changed.
  *
- * Bitbucket states no licence for its schema, so it is fetched instead, and held to BITBUCKET_SCHEMA's digest.
  * Jenkins publishes no schema for a Jenkinsfile, so its template is held by its snapshot alone (ADR-0024 decision 6).
  */
 const CI_SCHEMAS = [
-    'github' => 'github-workflow',
-    'gitlab' => 'gitlab-ci',
-    'buildkite' => 'buildkite',
-    'circleci' => 'circleci',
-    'azure' => 'azure-pipelines',
-];
-
-/** Bitbucket Pipelines' published schema, and the SHA-256 of the version the template is validated against. */
-const BITBUCKET_SCHEMA = [
-    'https://api.bitbucket.org/schemas/pipelines-configuration',
-    '9387b9d72352521be95652848b9148163c6fa4090e870efc87ce731b2ff80630',
+    'github' => [
+        'https://raw.githubusercontent.com/SchemaStore/schemastore/8b994c014937a9332f2fb53d993eb1a30705677c/src/schemas/json/github-workflow.json',
+        'd10c9f4656e1bd5bc6727e9b35080e017dc167154726fca93da33c7a6bd1c4f3',
+    ],
+    'gitlab' => [
+        'https://gitlab.com/gitlab-org/gitlab/-/raw/0b9ee9048163062fa2329b8cc8df52bb6c411afa/app/assets/javascripts/editor/schema/ci.json',
+        'ca545816e585b0b2e17cb89a8782d1e93260d215c28c8ebd1427fb19e8fcea8b',
+    ],
+    'buildkite' => [
+        'https://raw.githubusercontent.com/buildkite/pipeline-schema/08f40154be6603b1f19baf485d02be8b8f95433d/schema.json',
+        'f5138ecff10e6d9faf54cc60942d9071d76c00cd4bf64a879a0e5d407d77e5f4',
+    ],
+    'circleci' => [
+        'https://raw.githubusercontent.com/CircleCI-Public/circleci-yaml-language-server/58c59af74039362161f75f8317366391245652ba/schema.json',
+        '404b5b520d36f9f01a72ee6b776f7f3fe13187e5ea8fd1b5d8a5cf31021b5992',
+    ],
+    'azure' => [
+        'https://raw.githubusercontent.com/microsoft/azure-pipelines-vscode/9e40e814abd20917f273dd587497086f0476a563/service-schema.json',
+        'f00a9630f6550204148634d9a13f634b5750a225559886effe09a751482f0459',
+    ],
+    'bitbucket' => [
+        'https://api.bitbucket.org/schemas/pipelines-configuration',
+        '9387b9d72352521be95652848b9148163c6fa4090e870efc87ce731b2ff80630',
+    ],
 ];
 
 /**
@@ -78,9 +92,7 @@ function ciCommentMark(CiTemplate $template): string
 /** The schema a provider's templates are validated against, by the directory that holds them. */
 function ciSchema(string $provider): string
 {
-    return $provider === 'bitbucket'
-        ? Schema::fetched(...BITBUCKET_SCHEMA)
-        : Schema::at(sprintf('tests/Fixtures/CiSchemas/%s.json', CI_SCHEMAS[$provider]));
+    return Schema::fetched(...CI_SCHEMAS[$provider]);
 }
 
 /**

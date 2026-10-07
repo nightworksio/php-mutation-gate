@@ -1,4 +1,5 @@
-# Workflow lint and audit, spelling, links and Markdown, over the whole tree.
+# Workflow lint and audit, spelling, links, Markdown and the line cap, over the
+# whole tree.
 # Called by ci.yml; each tool reads its configuration from the repository
 # root, reports in its structured form into evidence/raw, and the evidence
 # step shows every finding as an annotation (ADR-0019, decision 5).
@@ -133,6 +134,45 @@ jobs:
       - name: what failed
         if: failure()
         run: python3 .github/scripts/gate_summary.py hygiene/typos
+
+  # No tracked file longer than the line cap, read by the organisation's
+  # canonical check: lockfiles, images and fonts are not counted, and a file
+  # scripts/generated.py registers is held to the cap through its sources.
+  lines:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          repository: lemonfiber/spec
+          ref: main
+          path: .spec-canonical
+          sparse-checkout: scripts/check_line_cap.py
+          sparse-checkout-cone-mode: false
+      - id: lines
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/raw
+          python3 .spec-canonical/scripts/check_line_cap.py --root . | tee evidence/raw/lines.txt
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py hygiene/lines
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-hygiene-lines
+          path: evidence/hygiene-lines*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py hygiene/lines
 
   # lychee.toml turns hidden files on and holds the accepted status codes.
   links:

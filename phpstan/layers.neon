@@ -1,0 +1,361 @@
+# The layers and the calls each may make, included by phpstan.neon after the
+# extensions whose entries these replace by call.
+parameters:
+    # -----------------------------------------------------------------------
+    # The layers, enforced at the call site (ARCHITECTURE.md A, B, C, P, Q, L).
+    #
+    # Core, Port, Config and Extension perform no I/O. Adapter and Cli do, and
+    # every entry below that allows a call names them and nothing wider.
+    # `allowIn` paths are fnmatch patterns resolved against `filesRootDir`.
+    # -----------------------------------------------------------------------
+    filesRootDir: %rootDir%/../../..
+
+    disallowedFunctionCalls:
+        # --- B1: time arrives through Psr\Clock\ClockInterface ------------------
+        -
+            function:
+                - 'time()'
+                - 'microtime()'
+                - 'hrtime()'
+                - 'date()'
+                - 'gmdate()'
+                - 'mktime()'
+                - 'gmmktime()'
+                - 'strtotime()'
+                - 'getdate()'
+                - 'localtime()'
+                - 'gettimeofday()'
+                - 'idate()'
+                - 'date_create()'
+                - 'date_create_immutable()'
+            message: "B1 — time is an input, and the core reads it through Psr\\Clock\\ClockInterface so a test can pin it. Only an adapter or the CLI reads the system clock (B1)."
+            allowIn:
+                - src/Adapter/*
+                - src/Cli/*
+                - tests/*
+
+        # --- B2: randomness is an input too ------------------------------------
+        -
+            function:
+                - 'random_int()'
+                - 'random_bytes()'
+                - 'rand()'
+                - 'mt_rand()'
+                - 'srand()'
+                - 'mt_srand()'
+                - 'shuffle()'
+                - 'str_shuffle()'
+                - 'array_rand()'
+                - 'uniqid()'
+                - 'lcg_value()'
+                - 'mt_getrandmax()'
+            message: "B2 — randomness is a hidden input, and a plan cut from it differs between two runners that must cut the same shards. Nothing in src draws a random number (B2)."
+            allowIn:
+                - tests/*
+
+        # --- B3: the filesystem belongs to an adapter ---------------------------
+        -
+            function:
+                - 'file_get_contents()'
+                - 'file_put_contents()'
+                - 'fopen()'
+                - 'fwrite()'
+                - 'fread()'
+                - 'fclose()'
+                - 'fputs()'
+                - 'fgets()'
+                - 'fgetc()'
+                - 'fgetcsv()'
+                - 'fputcsv()'
+                - 'unlink()'
+                - 'mkdir()'
+                - 'rmdir()'
+                - 'rename()'
+                - 'copy()'
+                - 'touch()'
+                - 'chmod()'
+                - 'symlink()'
+                - 'link()'
+                - 'tempnam()'
+                - 'tmpfile()'
+                - 'file_exists()'
+                - 'is_file()'
+                - 'is_dir()'
+                - 'is_readable()'
+                - 'is_writable()'
+                - 'filesize()'
+                - 'filemtime()'
+                - 'realpath()'
+                - 'scandir()'
+                - 'glob()'
+                - 'opendir()'
+                - 'readdir()'
+                - 'closedir()'
+                - 'file()'
+                - 'readfile()'
+                - 'sys_get_temp_dir()'
+                - 'getcwd()'
+                - 'chdir()'
+                - 'simplexml_load_file()'
+                - 'parse_ini_file()'
+            message: "B3 — the filesystem belongs to an adapter. A decision that reads a file cannot be tested without one, so the core is handed what the file says through a port (B3)."
+            allowIn:
+                - bin/*
+                - src/Adapter/*
+                - src/Cli/*
+                - tests/*
+                - phpstan/*
+
+        # --- B4: running a program belongs to an adapter ------------------------
+        -
+            function:
+                - 'exec()'
+                - 'shell_exec()'
+                - 'passthru()'
+                - 'system()'
+                - 'proc_open()'
+                - 'popen()'
+                - 'pcntl_exec()'
+            message: "B4 — running a program is an adapter's job: the runner adapters run Pest and Infection, and the git adapter runs git. The core asks them through a port (B4, S1)."
+            allowIn:
+                - src/Adapter/*
+                - tests/*
+
+        # --- B5: the network belongs to an adapter ------------------------------
+        -
+            function:
+                - 'curl_init()'
+                - 'curl_exec()'
+                - 'curl_setopt()'
+                - 'curl_setopt_array()'
+                - 'curl_multi_init()'
+                - 'fsockopen()'
+                - 'pfsockopen()'
+                - 'stream_socket_client()'
+                - 'stream_context_create()'
+                - 'socket_create()'
+                - 'get_headers()'
+            message: "B5 — the network belongs to an adapter: a proof store in a bucket, a comment on a pull request. The core is handed the answer (B5)."
+            allowIn:
+                - src/Adapter/*
+
+        # --- B6: the environment is read once, at the edge -----------------------
+        -
+            function:
+                - 'getenv()'
+                - 'putenv()'
+                - 'apache_getenv()'
+            message: "B6 — the environment is an input. The CLI and the adapters read it and hand the core a value; a core that read it would decide differently on two machines with the same config (B6)."
+            allowIn:
+                - src/Adapter/*
+                - src/Cli/*
+                - tests/*
+                # A warm worker's child is told its mutant's variables in its own process (ADR-0023, decision 12).
+                - bin/mutation-gate-worker
+
+        # --- B7: waiting is an adapter's -----------------------------------------
+        -
+            function:
+                - 'sleep()'
+                - 'usleep()'
+                - 'time_nanosleep()'
+                - 'time_sleep_until()'
+            message: "B7 — waiting blocks the one process that plans and judges, and a test that sleeps is slow and still flaky. Only an adapter polling something outside waits (B7)."
+            allowIn:
+                - src/Adapter/*
+
+        # --- P3: a method's parameters are its signature --------------------------
+        -
+            function: 'func_get_args()'
+            message: "P3 — func_get_args() takes arguments the signature does not declare, so no call site can be checked. Declare the parameters (P3)."
+
+        # --- Q1: nothing reconfigures the runtime -------------------------------
+        -
+            function:
+                - 'ini_alter()'
+                - 'ini_restore()'
+                - 'error_reporting()'
+                - 'set_error_handler()'
+                - 'set_exception_handler()'
+                - 'restore_error_handler()'
+                - 'date_default_timezone_set()'
+                - 'setlocale()'
+                - 'set_time_limit()'
+                - 'assert_options()'
+                - 'mb_internal_encoding()'
+                - 'mb_regex_encoding()'
+                - 'iconv_set_encoding()'
+            message: "Q1 — the gate runs inside somebody else's process when a test boots it, and a setting changed here stays changed for them. Pass the value where it is needed (Q1)."
+            allowIn:
+                - tests/*
+                # zlib raises a broken stream as a warning as well as answering false; the handler that keeps the
+                # warning from the run's output is restored before inflate_add's answer is returned.
+                - src/Core/Format/Gzip.php
+
+        # --- Q1, for ini_set: only the command, and the mutant's own error log ----------------------------
+        -
+            function: 'ini_set()'
+            message: "Q1 — the gate runs inside somebody else's process when a test boots it, and a setting changed here stays changed for them. Pass the value where it is needed (Q1)."
+            allowIn:
+                - tests/*
+                # The command, and no library code, gives its own process the memory its ledgers may need.
+                - bin/mutation-gate
+                # In a mutant's own process, which Pest starts for the gate, errors are logged to the mutant's own
+                # file, so a fatal error Pest's handling loses is still read; the entry below keeps it to the two
+                # inert settings that do so (ADR-0004).
+                - src/Adapter/Pest/Recording/Killers.php
+                # A warm worker's script sets the time zone PHPUnit's own script sets where PHP sets none, in its
+                # own process, which the gate starts for it and no test boots (ADR-0023, decision 12).
+                - bin/mutation-gate-worker
+
+        # The extension keys each entry by its call, so a second 'ini_set()' would replace the one above; the
+        # pattern 'ini_set*()' matches ini_set() alone and keeps both.
+        -
+            function: 'ini_set*()'
+            message: "Q1 — in a mutant's own process the plugin sets only log_errors and error_log, which decide where an error is written and nothing a test computes (Q1)."
+            allowExceptIn:
+                - src/Adapter/Pest/Recording/Killers.php
+            allowParamsInAllowed:
+                -
+                    position: 1
+                    name: 'option'
+                    typeString: "'log_errors'|'error_log'"
+
+        # --- base64 of what holds no secret ------------------------------------------
+        # The extension keys each entry by its call, so this entry replaces the timing-safe set's own for
+        # base64_encode() and keeps its message everywhere else.
+        -
+            function: 'base64_encode()'
+            message: 'it is not timing-safe, use sodium_bin2base64() instead'
+            allowIn:
+                # A coverage map holds no secret, so how long encoding it takes tells nothing; base64 holds no line
+                # break, so no test name in the map can end the nowdoc it is written in.
+                - src/Adapter/Pest/SharedCoverage.php
+
+        # --- L3: bytes are not characters -----------------------------------------
+        -
+            function:
+                - 'strlen()'
+                - 'substr()'
+                - 'strtoupper()'
+                - 'strtolower()'
+                - 'ucfirst()'
+                - 'lcfirst()'
+                - 'str_pad()'
+                - 'str_split()'
+                - 'strpos()'
+                - 'strrpos()'
+                - 'stripos()'
+                - 'strripos()'
+                - 'strstr()'
+                - 'stristr()'
+                - 'strrchr()'
+                - 'strrev()'
+                - 'ucwords()'
+                - 'wordwrap()'
+                - 'substr_count()'
+                - 'substr_replace()'
+                - 'str_word_count()'
+            message: "L3 — a path, a test name or a message is text, and a byte function splits a multibyte character in half. Use the mb_* equivalent (L3)."
+            allowIn:
+                - tests/*
+                - phpstan/*
+
+    disallowedNamespaces:
+        # --- B1: the clock, as a type --------------------------------------------
+        -
+            class:
+                - 'DateTime'
+                - 'DateTimeImmutable'
+            allowInParamTypes: true
+            allowInReturnType: true
+            allowInUse: true
+            message: "B1 — a DateTimeImmutable built with no argument reads the system clock. Take the instant from Psr\\Clock\\ClockInterface (B1)."
+            allowIn:
+                - src/Adapter/*
+                - src/Cli/*
+                - tests/*
+
+        # --- B4: Symfony Process runs a program ----------------------------------
+        -
+            class: 'Symfony\Component\Process\*'
+            message: "B4 — running a program is an adapter's job; the core asks through a port (B4)."
+            allowIn:
+                - src/Adapter/*
+                - tests/*
+
+        # --- P4: reflection is the analyser's blind spot -------------------------
+        -
+            class:
+                - 'Reflection*'
+            message: "P4 — a member reached by name is one no rule can find. The tests reflect on purpose, to ask PHP what the analyser cannot (P4)."
+            allowIn:
+                - tests/*
+                - phpstan/*
+                # Pest's filter reads #[Holds] from the closures Pest hands it (ADR-0004).
+                - src/Adapter/Pest/Grouping/HoldsGroups.php
+                # The plugin names each test from the class Pest built for it (ADR-0014).
+                - src/Adapter/Pest/Recording/Naming.php
+
+    disallowedSuperglobals:
+        # --- B6: the environment, read the other way -----------------------------
+        -
+            superglobal:
+                - '$_GET'
+                - '$_POST'
+                - '$_REQUEST'
+                - '$_SERVER'
+                - '$_ENV'
+                - '$_COOKIE'
+                - '$_SESSION'
+                - '$_FILES'
+                - '$GLOBALS'
+            message: "B6 — the environment is an input, read once by the CLI and handed on as a value (B6)."
+            allowIn:
+                - bin/*
+                - src/Cli/*
+                - tests/*
+
+    disallowedConstants:
+        # --- B3: the standard streams are files ----------------------------------
+        -
+            constant:
+                - 'STDIN'
+                - 'STDOUT'
+                - 'STDERR'
+            message: "B3 — the standard streams belong to the CLI and the reporters that write to them (B3, Q4)."
+            allowIn:
+                - src/Adapter/*
+                - src/Cli/*
+                - tests/*
+
+    disallowedAttributes:
+        -
+            attribute: 'AllowDynamicProperties'
+            message: "P3 — a class's properties are declared. A dynamic property cannot be typed and turns a typo into a new field (P3)."
+
+    disallowedControlStructures:
+        # --- C5: no `else` ---------------------------------------------------------
+        -
+            controlStructure:
+                - 'else'
+                - 'elseif'
+            message: "C5 — no `else`. Return from the condition that refuses and let the rest carry on at one indent; where both branches are answers, write a match (C5)."
+
+    disallowedMethodCalls:
+        # --- C3: an exception says which refusal it is ------------------------------
+        -
+            method:
+                - 'Exception::__construct()'
+                - 'RuntimeException::__construct()'
+                - 'LogicException::__construct()'
+                - 'InvalidArgumentException::__construct()'
+                - 'DomainException::__construct()'
+                - 'UnexpectedValueException::__construct()'
+                - 'ErrorException::__construct()'
+            allowIn:
+                - tests/*
+                - phpstan/*
+            allowInInstanceOf:
+                - 'Throwable'
+            message: "C3 — a bare exception tells a catch block nothing it can act on. Name the refusal with a class of this package's own, and across a port answer with an outcome instead (C3, C1)."

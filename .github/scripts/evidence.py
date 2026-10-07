@@ -53,6 +53,9 @@ AT = re.compile(r"^at (\S+?):(\d+)$", re.MULTILINE)
 # Where the dependency analyser says a class is used: "src/Money.php:12".
 USED_AT = re.compile(r"^(\S+?):(\d+)$")
 
+# The line cap's annotation of a file over the cap: its path, then why.
+OVER_CAP = re.compile(r"^::error file=([^:]+)::(.+)$")
+
 
 def finding(tool: str, path: str, line: int, rule: str, detail: str = "") -> dict:
     return {"tool": tool, "path": path, "line": line, "rule": rule, "detail": detail[:MOST_DETAIL]}
@@ -179,6 +182,16 @@ def typos(text: str, root: str) -> list[dict]:
     return found
 
 
+def lines(text: str, root: str) -> list[dict]:
+    """The line cap's annotations: `::error file=<path>::<why>`, one per file over the cap."""
+    found = []
+    for line in text.splitlines():
+        over = OVER_CAP.match(line)
+        if over:
+            found.append(finding("lines", relative(over.group(1), root), 0, "over-cap", over.group(2)))
+    return found
+
+
 def markdownlint(text: str, root: str) -> list[dict]:
     """markdownlint-cli2's JSON formatter: each rule broken, by line."""
     found = []
@@ -266,6 +279,7 @@ READERS = {
     "composer-audit": audit,
     "dependency-analyser": dependencies,
     "typos": typos,
+    "lines": lines,
     "markdownlint": markdownlint,
     "actionlint": actionlint,
     "zizmor": zizmor,
