@@ -138,7 +138,7 @@ final readonly class Worker
         $child = $forking->forked($run);
 
         if ($child > 0) {
-            Waiting::for($child, $run->limit(), $started)
+            Waiting::for($child, $run->limit(), $started, $run->silence())
                 ->ended($printed, $this->workplace)
                 ->writtenTo($this->workplace->end($at));
         }

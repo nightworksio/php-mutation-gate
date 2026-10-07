@@ -10,6 +10,7 @@ use function getenv;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
+use NightWorksIO\MutationGate\Core\Runner\Progress;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function spl_object_id;
@@ -32,8 +33,6 @@ final class Silence
     /** What an own run writes on its error output as its tests begin and as each finishes. */
     public const string BEAT = "\x06";
 
-    /** A time every started run has run past, so cutting a run's time to it stops the run. */
-    private const float RUN_PAST = 0.000_001;
 
     /** @var array<int, array{float, string, float}> each run's limit, mutated copy and last beat, by its process */
     private static array $watched = [];
@@ -80,7 +79,7 @@ final class Silence
         if ($beat > 0.0 && $now - $beat > $limit) {
             unset(self::$watched[$id]);
             self::recorded($mutated, $limit);
-            $process->setTimeout(self::RUN_PAST);
+            $process->setTimeout(Progress::RUN_PAST);
             $process->checkTimeout();
         }
     }

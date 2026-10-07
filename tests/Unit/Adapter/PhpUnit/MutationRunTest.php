@@ -29,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlot;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -121,6 +122,24 @@ it('allows each mutant 5 s plus three times its covering tests\' own time within
     ])
         ->and(array_map(static fn(Command $command): mixed => $command->deadline(), $shell->commands()))
         ->toEqual([Seconds::of(6.0), Seconds::of(8.0)]);
+});
+
+it('gives each mutant\'s run the silence limit of its slowest covering test, on its results file, and none where one is untimed', function (): void {
+    $root = library();
+    Scratch::write($root, 'src/Span.php', "<?php\n\nfunction add(\$a, \$b)\n{\n    return \$a\n        + \$b;\n}\n");
+    [$run, $shell] = killingRun($root);
+    $spanned = CoverageMap::empty()
+        ->covered(Path::of('src/Span.php'), Line::of(5), TestId::of('Tests\MoneySpec::adds'))
+        ->covered(Path::of('src/Span.php'), Line::of(6), TestId::of('Tests\MoneySpec::sums'))
+        ->covered(Path::of('src/Money.php'), Line::of(7), TestId::of('Tests\MoneySpec::untimed'))
+        ->timed(TestId::of('Tests\MoneySpec::adds'), Seconds::of(1.0))
+        ->timed(TestId::of('Tests\MoneySpec::sums'), Seconds::of(2.0));
+    $run->of(MutationRequest::of(Paths::of(Path::of('src/Span.php'), Path::of('src/Money.php')), WholeSuite::tests()), $spanned, LimitBounds::between(Seconds::of(6.0), Seconds::of(30.0)));
+
+    expect(array_map(static fn(Command $command): mixed => $command->silence(), $shell->commands()))->toEqual([
+        NotGiven::value(),
+        SilenceLimit::of(Seconds::of(11.0), $shell->commands()[1]->environment()[Variable::Results->value]),
+    ]);
 });
 
 it('judges a mutant that spans lines by the tests of every line it spans, and times it by them all', function (): void {

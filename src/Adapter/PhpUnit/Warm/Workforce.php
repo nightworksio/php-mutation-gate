@@ -170,6 +170,7 @@ final readonly class Workforce
             $files->original(),
             $files->mutated(),
             $files->guard(),
+            $run->command()->silence(),
         );
     }
 

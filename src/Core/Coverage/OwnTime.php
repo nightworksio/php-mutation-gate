@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Coverage;
 
 use function count;
+use function max;
 
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -33,5 +34,27 @@ final readonly class OwnTime
         }
 
         return count($tests) > 0 ? Seconds::of($total) : Unmeasured::duration();
+    }
+
+    /**
+     * The own time of the slowest of the tests, which a run's silence limit
+     * is weighed against; unmeasured where the map did not time one of them,
+     * or where there are none.
+     */
+    public static function slowest(CoverageMap $map, TestIds $tests): Seconds|Unmeasured
+    {
+        $slowest = 0.0;
+
+        foreach ($tests as $test) {
+            $duration = $map->durationOf($test);
+
+            if (! $duration instanceof Seconds) {
+                return $duration;
+            }
+
+            $slowest = max($slowest, $duration->seconds());
+        }
+
+        return count($tests) > 0 ? Seconds::of($slowest) : Unmeasured::duration();
     }
 }

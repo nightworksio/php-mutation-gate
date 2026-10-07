@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Infection\MutantTime;
 use NightWorksIO\MutationGate\Adapter\Infection\Patch;
 use NightWorksIO\MutationGate\Adapter\Infection\PatchState;
 use NightWorksIO\MutationGate\Adapter\Infection\Release;
+use NightWorksIO\MutationGate\Adapter\Infection\Silence;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Tests\Support\InfectionSource;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -20,11 +21,11 @@ $source = static fn(string $vendor, string $file): string => (string) file_get_c
     sprintf('%s/infection/infection/src/%s', $vendor, $file),
 );
 
-it('patches the limit and the skip of every supported release, leaving each file PHP', function (Release $release) use ($source): void {
+it('patches the limit, the skip and the silence limit of every supported release, leaving each file PHP', function (Release $release) use ($source): void {
     $at = InfectionSource::pristine($release->value)->vendor();
 
     expect(Patch::stateIn($at))->toBe(PatchState::Missing)
-        ->and(Patch::applyIn($at))->toBe('infection:patch patched 2 of the 2 files it changes in infection.')
+        ->and(Patch::applyIn($at))->toBe('infection:patch patched 3 of the 3 files it changes in infection.')
         ->and(Patch::stateIn($at))->toBe(PatchState::Applied)
         ->and($source($at, 'Process/Factory/MutantProcessContainerFactory.php'))
         ->toContain(sprintf(
@@ -34,7 +35,11 @@ it('patches the limit and the skip of every supported release, leaving each file
         ->and($source($at, 'Process/Runner/MutationTestingRunner.php'))
         ->toContain(sprintf("if (class_exists(\\%1\$s::class) && \\%1\$s::bounded()) {\n", MutantTime::class))
         ->and($source($at, 'Process/Runner/MutationTestingRunner.php'))
-        ->toContain('// mutation-gate infection:patch: within the gate\'s bounds');
+        ->toContain('// mutation-gate infection:patch: within the gate\'s bounds')
+        ->and($source($at, 'Process/Factory/MutantProcessContainerFactory.php'))
+        ->toContain(sprintf("\\%s::watch(\$process, \$mutant, \$this->timeout);\n", Silence::class))
+        ->and($source($at, 'Process/Runner/ParallelProcessRunner.php'))
+        ->toContain(sprintf("\\%s::check(\$process, microtime(true));\n", Silence::class));
 
     foreach (InfectionSource::FILES as $file) {
         $lint = new Process([PHP_BINARY, '-l', sprintf('%s/infection/infection/src/%s', $at, $file)]);
@@ -49,7 +54,7 @@ it('finds the patch in place and changes nothing when patching again', function 
     Patch::applyIn($at);
     $patched = array_map(static fn(string $file): string => $source($at, $file), InfectionSource::FILES);
 
-    expect(Patch::applyIn($at))->toBe('infection:patch found its patch already in place in the 2 files it changes in infection.')
+    expect(Patch::applyIn($at))->toBe('infection:patch found its patch already in place in the 3 files it changes in infection.')
         ->and(array_map(static fn(string $file): string => $source($at, $file), InfectionSource::FILES))->toBe($patched);
 });
 

@@ -47,7 +47,8 @@ use function strval;
  * Every mutant of a request's files the gate's own engine makes with the
  * enabled mutators (ADR-0023 decision 8), each judged by the tests the
  * coverage map says cover its lines, and allowed the standard mutant limit of
- * their time as the map timed it (ADR-0008, decision 2). Their runs go side by
+ * their time as the map timed it, and the silence limit of the slowest's
+ * (ADR-0008, decision 2). Their runs go side by
  * side, as many at once as the request's processes, each process told its
  * place as paratest tells its workers: each forked from a warm worker where
  * the request's pool asks for that and a worker can fork, and in a fresh
@@ -207,6 +208,7 @@ final readonly class MutationRun
                 $covering,
                 $request,
                 MutantLimit::standard()->of(OwnTime::of($map, $covering), $bounds),
+                $this->silenceOf(OwnTime::slowest($map, $covering), $bounds),
             );
     }
 
@@ -255,6 +257,17 @@ final readonly class MutationRun
         $location = $mutant->location();
 
         return $map->testsCoveringSpan($location->file(), $location->start(), $location->last());
+    }
+
+    /**
+     * The silence limit of a mutant's run: the standard limit of its slowest
+     * covering test's own time (ADR-0008, decision 2); none where the map did
+     * not time every one of them, as a test of unknown length could be
+     * stopped while it runs.
+     */
+    private function silenceOf(Seconds|Unmeasured $slowest, LimitBounds $bounds): Seconds|NotGiven
+    {
+        return $slowest instanceof Seconds ? MutantLimit::standard()->of($slowest, $bounds) : NotGiven::value();
     }
 
     /** When the run stops making mutants, on `hrtime`'s clock: never, where it has no deadline. */

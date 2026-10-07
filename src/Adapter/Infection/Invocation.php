@@ -41,6 +41,9 @@ final readonly class Invocation
 
     public const string TEXT = 'logs/infection.log';
 
+    /** The mutants a patched Infection stopped at their silence limit (see Silenced). */
+    public const string SILENCED = 'logs/silenced.jsonl';
+
     public const string TMP = 'tmp';
 
     /** PHPUnit's XML coverage in a coverage directory, where Infection's `--coverage` looks for it. */

@@ -651,6 +651,8 @@ services:
                     - TOOLS # infection.json's sections, not the analysers the gate runs
                 'NightWorksIO\MutationGate\Adapter\Infection\Invocation':
                     - CONFIG # the file the gate writes and names with --configuration, not one Infection looks for
+                'NightWorksIO\MutationGate\Adapter\Infection\Silenced':
+                    - FIELDS # the fields of a silence record, not a ranking's top
                 'NightWorksIO\MutationGate\Core\Doctor\Check\Xdebug':
                     - CHEAP # Xdebug's modes, not the Infection adapter's directory
                 'NightWorksIO\MutationGate\Adapter\Pest\Listing':

@@ -527,20 +527,35 @@ its parser attributes. Both change when the checkout moves.
      - `source.directories` are the directories of the files the run mutates.
      - `logs.json` and `logs.text` point into `.mutation-gate/infection/logs/`,
        and every other log is off.
-     - `timeout` is `timeouts.most` (ADR-0008). Every run is started with `MUTATION_GATE_MUTANT_FLOOR` set to
-       `timeouts.seconds`, which the lines `infection:patch` writes read.
+     - `timeout` is `timeouts.most` (ADR-0008). Every run is started with
+       `MUTATION_GATE_MUTANT_FLOOR` set to `timeouts.seconds`, which the lines
+       `infection:patch` writes read, and `MUTATION_GATE_RESULTS` naming the
+       file they record silence stops in.
    - **`infection:patch` gives Infection the gate's mutant limit.** It is
      `@php vendor/bin/mutation-gate infection:patch` in `post-install-cmd`
-     and `post-update-cmd`. It rewrites two places in Infection, each marked
+     and `post-update-cmd`. It rewrites four places in Infection, each marked
      with a `// mutation-gate infection:patch:` comment:
      - `MutantProcessContainerFactory` allows each mutant the gate's standard
        limit (ADR-0008, decision 2) of Infection's own time for its covering
        tests, between `MUTATION_GATE_MUTANT_FLOOR` and Infection's `timeout`,
        in place of Infection's 5 s plus five times that time under `timeout`.
      - `MutationTestingRunner` skips no mutant for the time its tests take.
+     - `MutantProcessContainerFactory` also watches each mutant's run for its
+       silence limit (ADR-0008, decision 2): the same rule, of its slowest
+       covering test class's time, as Infection times each test by its whole
+       class, between the same bounds; none where a covering class is
+       untimed. `ParallelProcessRunner`, as it checks each run's timeout,
+       stops a run that has printed nothing on its standard output for its
+       silence limit since it last printed. PHPUnit prints its header once
+       it has loaded every test, and a mark as each test ends, so its start
+       is held only to the mutant's own limit. Each stop is recorded, by the
+       mutant's file, line, mutator and diff as Infection's log names them,
+       in `logs/silenced.jsonl`, which `MUTATION_GATE_RESULTS` names, and the
+       mutant is timed out at its own limit, with a reason naming the
+       silence limit.
 
-     Both read the gate's floor, so Infection run outside the gate keeps its
-     own limit and skip. The command patches only the Infection releases the
+     Each reads the gate's floor, so Infection run outside the gate keeps its
+     own limit and skip, and stops no run for silence. The command patches only the Infection releases the
      runner contracts run, listed in `Adapter\Infection\Release`,
      reading the release from Composer's list of what it installed. It
      refuses any other release, a file whose lines have moved, and a file

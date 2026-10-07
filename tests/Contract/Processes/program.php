@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 // The program the Processes contract cases run: `say <text> <exit code>`
 // prints the text and exits so, `tell <variable>` prints what the process was
-// told, and anything else prints the directory it runs in.
+// told, `stall <file>` adds a line to the file and then loops while the file is there, and
+// anything else prints the directory it runs in.
 
 $verb = $argv[1] ?? '';
 $first = $argv[2] ?? '';
@@ -19,6 +20,14 @@ if ($verb === 'tell') {
     echo (string) getenv($first);
 
     exit(0);
+}
+
+if ($verb === 'stall') {
+    file_put_contents($first, "started\n", FILE_APPEND);
+
+    while (is_file($first)) {
+        clearstatcache();
+    }
 }
 
 echo (string) getcwd();

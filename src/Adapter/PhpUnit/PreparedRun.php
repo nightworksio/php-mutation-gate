@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -12,7 +13,7 @@ use NightWorksIO\MutationGate\Mutator\Engine\MadeMutant;
 /**
  * One mutant's run, ready to start: the mutant, the tests that cover it, the
  * files PHPUnit reads and writes for it, the command that runs them, and the
- * limit and memory cap it runs under.
+ * limit, memory cap and silence limit it runs under, where it has one.
  */
 final readonly class PreparedRun
 {
@@ -23,6 +24,7 @@ final readonly class PreparedRun
         private Command $command,
         private Seconds $limit,
         private MemoryCap $cap,
+        private Seconds|NotGiven $silence,
     ) {
     }
 
@@ -33,8 +35,9 @@ final readonly class PreparedRun
         Command $command,
         Seconds $limit,
         MemoryCap $cap,
+        Seconds|NotGiven $silence,
     ): self {
-        return new self($made, $covering, $files, $command, $limit, $cap);
+        return new self($made, $covering, $files, $command, $limit, $cap, $silence);
     }
 
     public function made(): MadeMutant
@@ -65,5 +68,11 @@ final readonly class PreparedRun
     public function cap(): MemoryCap
     {
         return $this->cap;
+    }
+
+    /** How long the run may go with no test starting or ending; none where only its limit stops it. */
+    public function silence(): Seconds|NotGiven
+    {
+        return $this->silence;
     }
 }

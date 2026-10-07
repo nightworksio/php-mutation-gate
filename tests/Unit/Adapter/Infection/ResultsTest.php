@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Infection\Limits;
 use NightWorksIO\MutationGate\Adapter\Infection\PatchState;
 use NightWorksIO\MutationGate\Adapter\Infection\Project;
 use NightWorksIO\MutationGate\Adapter\Infection\Results;
+use NightWorksIO\MutationGate\Adapter\Infection\Silenced;
 use NightWorksIO\MutationGate\Adapter\Infection\TextLog;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -23,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ErrorDisplay;
@@ -339,4 +341,37 @@ it('cannot judge a log that is not in the shape Infection writes', function (): 
 
     expect(Results::read($at, Ran::finished(succeeded: true, output: ''), TextLog::read(''), resultsLimits($at), MemoryCap::standard(), NotGiven::value(), nativeMarkersAllowed: false))
         ->toEqual(CannotJudge::because("Infection's log is not in the shape the gate reads: the file.stats.killedCount is not a whole number."));
+});
+
+it('says a timed-out mutant a patched Infection stopped at its silence limit was stopped there, and keeps its own limit', function (): void {
+    $at = resultsProject();
+    $silenced = sprintf('%s/silenced.jsonl', Scratch::directory());
+    $diff = InfectionRun::diff('$a--;', '$a++;');
+    file_put_contents($silenced, sprintf("%s\n", json_encode([sprintf('%s/src/Money.php', $at->root()), 27, 'Decrement', $diff, 9.0])));
+    InfectionRun::log($at->own(Invocation::JSON), ['timeouted' => [
+        resultsMutant($at, 'Decrement', 'src/Money.php', 27, '$a--;', '$a++;'),
+        resultsMutant($at, 'Decrement', 'src/Money.php', 29, '$a--;', '$a++;'),
+    ]], []);
+    InfectionRun::text($at->own(Invocation::TEXT), []);
+    $result = Results::read(
+        $at,
+        Ran::finished(succeeded: false, output: 'exit 1'),
+        TextLog::at($at->own(Invocation::TEXT)),
+        resultsLimits($at)->silencedAt(Silenced::in($silenced)),
+        MemoryCap::standard(),
+        NotGiven::value(),
+        nativeMarkersAllowed: false,
+    );
+
+    expect($result instanceof MutationResult ? array_map(
+        static fn(Mutant $mutant): array => [
+            $mutant->status(),
+            $mutant->limit(),
+            $mutant->reason() instanceof Reason ? $mutant->reason()->text() : '',
+        ],
+        iterator_to_array($result->mutants(), preserve_keys: false),
+    ) : [])->toEqual([
+        [MutantStatus::TimedOut, Seconds::of(5.0), Reason::silent(Seconds::of(9.0))->text()],
+        [MutantStatus::TimedOut, Seconds::of(5.0), ''],
+    ]);
 });

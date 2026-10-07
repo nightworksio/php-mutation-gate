@@ -221,8 +221,11 @@ presets for Laravel, Symfony and plain libraries.
    is held only to the mutant's own limit. A mutant stopped at its silence
    limit is timed out with its own limit, which k times its tests always
    clear, so the triage below reads it as killed by timeout, and its reason
-   names the silence limit. Pest applies it under `pest.patch`; the PHPUnit
-   runner and Infection do not.
+   names the silence limit. Pest applies it under `pest.patch`, and the
+   PHPUnit runner to a run that selects its tests by their ids, from warm
+   workers too (ADR-0023), and Infection under `infection:patch`, of its
+   slowest covering test class, as Infection times each test by its class
+   (ADR-0004).
 
    For every timed-out or skipped mutant the gate works out the limit that
    applied to it, and compares its judging tests' own time with it (ADR-0004,

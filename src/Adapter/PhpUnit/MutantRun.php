@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\PrematureEnd;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -44,7 +45,8 @@ use function trim;
  *   neither finished nor was skipped or marked incomplete, whose process died
  *   as it ran, and a `setUpBeforeClass` that fails or errors, which kills it
  *   by each test of its class the run selected.
- * - A run stopped at its limit timed out.
+ * - A run stopped at its limit timed out, and so did one stopped at its
+ *   silence limit, which says so.
  * - A run that killed it, or errored, whose output holds PHP's fatal error
  *   for exactly the memory cap is out of memory, with the cap; under a cap,
  *   so is one where PHPUnit says its process ended mid-test and PHP's errors
@@ -97,14 +99,18 @@ final readonly class MutantRun
     ) {
     }
 
-    /** The mutant, its tests run against it in one process stopped at its limit. */
+    /**
+     * The mutant, its tests run against it in one process stopped at its
+     * limit, or at its silence limit where it has one.
+     */
     public function judged(
         MadeMutant $made,
         TestIds $covering,
         MutationRequest $request,
         Seconds $limit,
+        Seconds|NotGiven $silence = new NotGiven(),
     ): Mutant|CannotJudge {
-        $prepared = $this->prepared($made, $covering, $request, $limit);
+        $prepared = $this->prepared($made, $covering, $request, $limit, $silence);
 
         return $prepared instanceof PreparedRun
             ? $this->finished($prepared, $this->shell->run($prepared->command()))
@@ -142,26 +148,38 @@ final readonly class MutantRun
     /**
      * The run that judges the mutant, its files written and its command
      * built, ready to start; or the mutant unjudged without a run, or why it
-     * cannot be written.
+     * cannot be written. The run is stopped at its silence limit where no
+     * test starts or ends for that long, as the results file shows, where it
+     * selects its tests by their ids: one that selects their files runs
+     * other tests too, whose times are not known, so it has none.
      */
     public function prepared(
         MadeMutant $made,
         TestIds $covering,
         MutationRequest $request,
         Seconds $limit,
+        Seconds|NotGiven $silence = new NotGiven(),
     ): PreparedRun|Mutant|CannotJudge {
         $files = $this->written($made, $covering);
 
-        return $files instanceof MutantFiles
-            ? PreparedRun::of(
-                $made,
-                $covering,
-                $files,
-                $this->scan->onto($this->invocation->of($files, $request, $limit)),
-                $limit,
-                $request->memory(),
-            )
-            : $files;
+        if (! $files instanceof MutantFiles) {
+            return $files;
+        }
+
+        $applied = Selection::of($covering) === Selection::Ids ? $silence : NotGiven::value();
+        $command = $this->scan->onto($this->invocation->of($files, $request, $limit));
+
+        return PreparedRun::of(
+            $made,
+            $covering,
+            $files,
+            $applied instanceof Seconds
+                ? $command->silencedAfter(SilenceLimit::of($applied, $files->results()))
+                : $command,
+            $limit,
+            $request->memory(),
+            $applied,
+        );
     }
 
     /** The mutant as a prepared run that ended so judges it, by the extension's records and the guard. */
@@ -178,7 +196,8 @@ final readonly class MutantRun
 
         return match (true) {
             $verdict instanceof Reason => $mutant->because($verdict),
-            $status === MutantStatus::TimedOut => $mutant->withLimit($prepared->limit()),
+            $status === MutantStatus::TimedOut
+                => $this->silenced($mutant->withLimit($prepared->limit()), $ran, $prepared),
             $status === MutantStatus::OutOfMemory && Exhaustion::isOf(Exhaustion::in($ran->output()), $cap)
                 => $mutant->withLimit($cap),
             $status === MutantStatus::Killed && $ran->wasStopped() => $mutant->killedBy($recorded->creditedFailures()),
@@ -259,6 +278,16 @@ final readonly class MutantRun
         $output = trim($ran->output());
 
         return Reason::that($output === '' ? sprintf(self::SAID_NOTHING, $why) : sprintf(self::SAID, $why, $output));
+    }
+
+    /** A timed-out mutant, saying its run was stopped at its silence limit where it was. */
+    private function silenced(Mutant $mutant, Ran $ran, PreparedRun $prepared): Mutant
+    {
+        $silence = $prepared->silence();
+
+        return $ran->wasSilenced() && $silence instanceof Seconds
+            ? $mutant->because(Reason::silent($silence))
+            : $mutant;
     }
 
     private function mutant(MadeMutant $made, MutantStatus $status, Seconds|Unmeasured $duration): Mutant

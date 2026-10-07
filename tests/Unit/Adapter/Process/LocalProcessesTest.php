@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Runner\Environment;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -70,6 +71,24 @@ it('stops a program at its deadline with every process it started, keeping what 
     expect([$ran->wasStopped(), $ran->output()])->toBe([true, 'started'])
         ->and(Measured::of($ran)->seconds())->toBeLessThan(20.0)
         ->and(array_filter($state, static fn(string $line): bool => ! str_starts_with(trim($line), 'Z')))->toBe([]);
+});
+
+it('stops a program that has made no progress for its silence limit since it last did, and holds one that never has only to its deadline', function (): void {
+    $directory = Scratch::directory();
+    $silent = static fn(string $name, string $code): ProcessCommand => ProcessCommand::of($directory, PHP_BINARY, '-r', $code)
+        ->within(Seconds::of(2.0))
+        ->silencedAfter(SilenceLimit::of(Seconds::of(0.5), sprintf('%s/%s', $directory, $name)));
+    $ends = [...new LocalProcesses(new SystemClock())->sideBySide(
+        WorkerSlots::of(ProcessCount::of(3), 'test'),
+        Unlimited::time(),
+        $silent('stalls', 'file_put_contents("stalls", "started\n"); sleep(30);'),
+        $silent('silent', 'sleep(30);'),
+        $silent('beats', 'for ($at = 0; $at < 6; $at++) { file_put_contents("beats", "ended\n", FILE_APPEND); usleep(200000); }'),
+    )];
+
+    expect(array_map(static fn(Ran $ran): array => [$ran->wasSilenced(), $ran->wasStopped(), $ran->succeeded()], $ends))
+        ->toBe([[true, true, false], [false, true, false], [false, false, true]])
+        ->and(Measured::of($ends[0])->seconds())->toBeLessThan(2.0);
 });
 
 it('measures a deadline on its clock', function (): void {

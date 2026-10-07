@@ -9,17 +9,24 @@ use function array_map;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
 
 /**
  * One mutant's run as a warm worker's child makes it: PHPUnit's command line,
- * the variables the child is told, the limit it is stopped at, and the file
- * the override serves the mutated file in place of, with the guard it says so
- * in.
+ * the variables the child is told, the limit it is stopped at, the file the
+ * override serves the mutated file in place of, with the guard it says so
+ * in, and the silence limit it is stopped at too, where it has one.
  */
 final readonly class WarmRun
 {
+    private const string SILENCE = 'silence';
+
+    private const string PROGRESS = 'progress';
+
     /**
      * @param list<string>          $argv        PHPUnit's command line, its script first
      * @param array<string, string> $environment each variable the child is told, by its name
@@ -31,6 +38,7 @@ final readonly class WarmRun
         private string $original,
         private string $mutated,
         private string $guard,
+        private SilenceLimit|NotGiven $silence,
     ) {
     }
 
@@ -45,8 +53,9 @@ final readonly class WarmRun
         string $original,
         string $mutated,
         string $guard,
+        SilenceLimit|NotGiven $silence,
     ): self {
-        return new self($argv, $environment, $limit, $original, $mutated, $guard);
+        return new self($argv, $environment, $limit, $original, $mutated, $guard, $silence);
     }
 
     /** The run a job wrote. */
@@ -65,6 +74,7 @@ final readonly class WarmRun
             $at->field('original')->text(),
             $at->field('mutated')->text(),
             $at->field('guard')->text(),
+            self::silenceIn($at),
         );
     }
 
@@ -83,6 +93,7 @@ final readonly class WarmRun
             Member::of('original', $this->original),
             Member::of('mutated', $this->mutated),
             Member::of('guard', $this->guard),
+            ...$this->silenceMembers(),
         );
     }
 
@@ -117,5 +128,32 @@ final readonly class WarmRun
     public function guard(): string
     {
         return $this->guard;
+    }
+
+    /** How long the child may go with no test starting or ending; none where only its limit stops it. */
+    public function silence(): SilenceLimit|NotGiven
+    {
+        return $this->silence;
+    }
+
+    /** The silence limit a job wrote for the run; none where it wrote none. */
+    private static function silenceIn(Node $at): SilenceLimit|NotGiven
+    {
+        $silence = $at->field(self::SILENCE);
+
+        return $silence->isPresent()
+            ? SilenceLimit::of(Seconds::of($silence->number()), $at->field(self::PROGRESS)->text())
+            : NotGiven::value();
+    }
+
+    /** @return list<Member> the silence limit and the file whose growth is the child's progress, where it has one */
+    private function silenceMembers(): array
+    {
+        return $this->silence instanceof SilenceLimit
+            ? [
+                Member::of(self::SILENCE, $this->silence->limit()->seconds()),
+                Member::of(self::PROGRESS, $this->silence->progress()),
+            ]
+            : [];
     }
 }

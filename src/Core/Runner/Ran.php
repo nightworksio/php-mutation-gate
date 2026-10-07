@@ -64,6 +64,12 @@ final readonly class Ran
         return new self($output, Ending::Stopped, NotGiven::value(), Unmeasured::duration());
     }
 
+    /** A process stopped where it made no progress for its silence limit, before its deadline. */
+    public static function silenced(string $output): self
+    {
+        return new self($output, Ending::Silenced, NotGiven::value(), Unmeasured::duration());
+    }
+
     /** This, having taken so long. */
     public function took(Seconds $took): self
     {
@@ -102,9 +108,16 @@ final readonly class Ran
         return $this->ending === Ending::Succeeded;
     }
 
+    /** Whether it was stopped, at its deadline or at its silence limit. */
     public function wasStopped(): bool
     {
-        return $this->ending === Ending::Stopped;
+        return $this->ending === Ending::Stopped || $this->ending === Ending::Silenced;
+    }
+
+    /** Whether it was stopped at its silence limit. */
+    public function wasSilenced(): bool
+    {
+        return $this->ending === Ending::Silenced;
     }
 
     public function duration(): Seconds|Unmeasured

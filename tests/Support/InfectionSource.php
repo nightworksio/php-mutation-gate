@@ -15,7 +15,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use function sprintf;
 
 /**
- * The two files of Infection that `infection:patch` changes, copied into a
+ * The files of Infection that `infection:patch` changes, copied into a
  * vendor directory with Composer's list of what it installed: as a release
  * the patch supports ships them, or as the Infection runner contracts'
  * library holds them, at whichever release its leg installed.
@@ -26,11 +26,12 @@ final readonly class InfectionSource
     public const array FILES = [
         'Process/Factory/MutantProcessContainerFactory.php',
         'Process/Runner/MutationTestingRunner.php',
+        'Process/Runner/ParallelProcessRunner.php',
     ];
 
     /**
      * Each release the patch supports, by the release whose files in
-     * tests/Fixtures it ships unchanged: its two files are the same.
+     * tests/Fixtures it ships unchanged: its files are the same.
      */
     public const array SHIPS_AS = [
         '0.35.0' => '0.35.0',

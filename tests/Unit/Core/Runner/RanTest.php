@@ -73,3 +73,12 @@ it('is a program a signal ended, as a shell reports it: 128 and the signal', fun
 
     expect([$killed->exitCode(), $killed->endedBySignal(), $killed->output()])->toBe([137, true, 'Killed']);
 });
+
+it('is a program stopped at its silence limit, which was stopped, did not succeed and has no exit code', function (): void {
+    $silenced = Ran::silenced('quiet');
+
+    expect([$silenced->wasSilenced(), $silenced->wasStopped(), $silenced->succeeded(), $silenced->ending(), $silenced->output()])
+        ->toBe([true, true, false, Ending::Silenced, 'quiet'])
+        ->and($silenced->exitCode())->toEqual(NotGiven::value())
+        ->and(Ran::stopped('late')->wasSilenced())->toBeFalse();
+});
