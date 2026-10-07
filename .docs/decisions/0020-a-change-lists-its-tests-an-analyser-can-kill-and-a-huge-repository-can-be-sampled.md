@@ -517,6 +517,12 @@ needs remain, and the runners' own behaviour shapes each answer.
       after an edit elsewhere in the file, where a runner's own id, such as
       Pest's, which hashes the whole mutated file, is not. One whose id is
       gone is reported as *gone*.
+    - Each run reads the coverage the plan handed on, as a shard's does
+      (ADR-0006 decision 1): the verdict's map of every unit the plan
+      considered stands as its own, with the whole map beside it. It runs a
+      mutant on each core the runner uses. So a re-check never runs the
+      suite under coverage, which would cost each file a run of the whole
+      suite.
     - `mutation-gate survivors [--plan=<file>]` re-checks them. The units
       are those the plan reaches, to run or proved, and the survivors those
       the comment lists: survived, and uncovered where the score counts
@@ -538,8 +544,8 @@ needs remain, and the runners' own behaviour shapes each answer.
 21. **Survivors are re-checked in a job of their own.**
     - The reusable workflow gains a `survivors` job beside the shard matrix,
       after `plan`, with `contents: read` and `pull-requests: write` and
-      nothing more. It never saves a ledger. This
-      amends ADR-0011 decision 8.
+      nothing more. It is handed every coverage map the plan made, as the
+      verdict is. It never saves a ledger. This amends ADR-0011 decision 8.
     - The one-step action and a one-process run re-check survivors as their
       first step.
     - The `survivors` job writes the comment only while it is still in its

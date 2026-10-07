@@ -11,6 +11,7 @@ use function array_slice;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\SurvivorsFirst;
+use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -25,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Recheck\NoRecheck;
 use NightWorksIO\MutationGate\Core\Recheck\Recheck;
 use NightWorksIO\MutationGate\Core\Recheck\Rechecked;
+use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
@@ -149,7 +151,11 @@ final readonly class Rechecking
 
     /**
      * The mutants one run of this file makes of these survivors' mutators, by
-     * the gate's id, judged by the tests that judge its unit.
+     * the gate's id, judged by the tests that judge its unit. As a shard's
+     * run does, it reads the coverage the plan handed on, the verdict's map
+     * of every unit the plan considered as its own, rather than running the
+     * suite under coverage again for each file, and runs a mutant on each
+     * core the runner uses.
      *
      * @param  list<JudgedMutant>      $survivors
      * @param  array<string, Unit>     $units
@@ -165,7 +171,9 @@ final readonly class Rechecking
 
         $names = array_keys($mutators);
         $judgedBy = $units[$file->value()]->judgedBy();
-        $request = RunRequest::of($this->adapters, $this->settings, Paths::of($file), $judgedBy);
+        $request = RunRequest::of($this->adapters, $this->settings, Paths::of($file), $judgedBy)
+            ->across(Pool::of($this->adapters->processes(), $this->settings->runner()->workers()))
+            ->reusingCoverage(Handed::maps(Workspace::verdictCoverage(), Workspace::coverage()));
         $result = $this->adapters->runner->mutate($request->narrowedTo(
             Paths::of($file),
             $request->narrowing()->toMutators(Mutators::named($names[0], ...array_slice($names, 1))),
