@@ -14,7 +14,7 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-/** A vendor directory holding a copy of pest-plugin-mutate's three files, as its allowed version ships them. */
+/** A vendor directory holding a copy of the files of pest-plugin-mutate the patch changes, as its allowed version ships them. */
 $vendor = static fn(): string => MutatePlugin::pristine()->vendor();
 
 /** A file of the copy, as it is now. */
@@ -22,11 +22,11 @@ $source = static fn(string $vendor, string $file): string => (string) file_get_c
     sprintf('%s/pestphp/pest-plugin-mutate/src/%s', $vendor, $file),
 );
 
-it('patches the three files, leaving each one PHP', function () use ($vendor, $source): void {
+it('patches the four files, leaving each one PHP', function () use ($vendor, $source): void {
     $at = $vendor();
 
     expect(Patch::isAppliedIn($at))->toBeFalse()
-        ->and(Patch::applyIn($at))->toBe('pest:patch patched 3 of the 3 files it changes in pest-plugin-mutate.')
+        ->and(Patch::applyIn($at))->toBe('pest:patch patched 4 of the 4 files it changes in pest-plugin-mutate.')
         ->and(Patch::isAppliedIn($at))->toBeTrue()
         ->and($source($at, 'MutationTest.php'))->toContain("...(strlen(\$filter) < 100000 ? [\$filter] : []),\n")
         ->and($source($at, 'Plugins/Mutate.php'))
@@ -50,7 +50,10 @@ it('patches the three files, leaving each one PHP', function () use ($vendor, $s
         ->toContain(sprintf(
             "? \\%s::of(\$covering, \$this->mutation->modifiedSourcePath, \$this->calculateTimeout())\n",
             MutantTime::class,
-        ));
+        ))
+        ->and($source($at, 'Support/StreamWrapper.php'))
+        ->toContain("if (! file_exists(\$path) && ! (\$link && is_link(\$path))) {\n")
+        ->and($source($at, 'Support/StreamWrapper.php'))->not->toContain('is_readable($path) === false');
 
     foreach (MutatePlugin::FILES as $file) {
         $lint = new Process([PHP_BINARY, '-l', sprintf('%s/pestphp/pest-plugin-mutate/src/%s', $at, $file)]);
@@ -65,7 +68,7 @@ it('finds the patch in place and changes nothing when patching again', function 
     Patch::applyIn($at);
     $patched = array_map(static fn(string $file): string => $source($at, $file), MutatePlugin::FILES);
 
-    expect(Patch::applyIn($at))->toBe('pest:patch found its patch already in place in the 3 files it changes in pest-plugin-mutate.')
+    expect(Patch::applyIn($at))->toBe('pest:patch found its patch already in place in the 4 files it changes in pest-plugin-mutate.')
         ->and(array_map(static fn(string $file): string => $source($at, $file), MutatePlugin::FILES))->toBe($patched);
 });
 
@@ -76,7 +79,7 @@ it('patches only the files that are not patched yet', function () use ($vendor, 
     file_put_contents(sprintf('%s/pestphp/pest-plugin-mutate/src/Tester/MutationTestRunner.php', $at), $pristine);
 
     expect(Patch::isAppliedIn($at))->toBeFalse()
-        ->and(Patch::applyIn($at))->toBe('pest:patch patched 1 of the 3 files it changes in pest-plugin-mutate.')
+        ->and(Patch::applyIn($at))->toBe('pest:patch patched 1 of the 4 files it changes in pest-plugin-mutate.')
         ->and(substr_count($source($at, 'Tester/MutationTestRunner.php'), 'MUTATION_GATE_SUITE_SECONDS'))->toBe(1);
 });
 
@@ -132,7 +135,7 @@ it('counts a vendor it already patched as patched, though none of its files can 
         array_map(static fn(string $file): bool => chmod($file, 0o644), $files);
     }
 
-    expect($again)->toBe('pest:patch found its patch already in place in the 3 files it changes in pest-plugin-mutate.')
+    expect($again)->toBe('pest:patch found its patch already in place in the 4 files it changes in pest-plugin-mutate.')
         ->and($applied)->toBeTrue();
 });
 
@@ -183,5 +186,83 @@ it('marks every hunk it writes, one mark to a hunk, so another version\'s are fo
         MutatePlugin::FILES,
     ));
 
-    expect($marks)->toBe(11);
+    expect($marks)->toBe(12);
 });
+
+/**
+ * What a PHP process says of a dangling link, a file it cannot read, a missing
+ * file, a plain one and a link to it, by these stat calls: without pest-plugin-mutate's
+ * override, or with the override from this vendor directory serving another
+ * file, and how many warnings each call raised.
+ *
+ * @return array<mixed>
+ */
+function overrideStats(string $vendor = ''): array
+{
+    $at = Scratch::directory();
+    Scratch::write($at, 'served.php', "<?php\n");
+    Scratch::write($at, 'copy.php', "<?php\n");
+    Scratch::write($at, 'plain', 'plain');
+    Scratch::write($at, 'unreadable', 'unreadable');
+    chmod(sprintf('%s/unreadable', $at), 0o000);
+    symlink(sprintf('%s/gone', $at), sprintf('%s/dangling', $at));
+    symlink(sprintf('%s/plain', $at), sprintf('%s/link', $at));
+    $wrapper = $vendor === '' ? '' : sprintf('%s/pestphp/pest-plugin-mutate/src/Support/StreamWrapper.php', $vendor);
+    $probe = <<<'PHP'
+        <?php
+        [, $at, $wrapper] = $argv;
+        if ($wrapper !== '') {
+            require $wrapper;
+            \Pest\Mutate\Support\StreamWrapper::start("$at/served.php", "$at/copy.php");
+        }
+        $warnings = 0;
+        set_error_handler(static function () use (&$warnings): bool { $warnings++; return true; });
+        $said = [];
+        foreach ([
+            'is_link(dangling)' => static fn() => is_link("$at/dangling"),
+            'file_exists(dangling)' => static fn() => file_exists("$at/dangling"),
+            'lstat(dangling)' => static fn() => lstat("$at/dangling") !== false,
+            'file_exists(unreadable)' => static fn() => file_exists("$at/unreadable"),
+            'is_file(unreadable)' => static fn() => is_file("$at/unreadable"),
+            'is_readable(unreadable)' => static fn() => is_readable("$at/unreadable"),
+            'file_exists(missing)' => static fn() => file_exists("$at/missing"),
+            'stat(missing)' => static fn() => stat("$at/missing"),
+            'is_link(plain)' => static fn() => is_link("$at/plain"),
+            'filesize(plain)' => static fn() => filesize("$at/plain"),
+            'is_file(link)' => static fn() => is_file("$at/link"),
+            'filesize(link)' => static fn() => filesize("$at/link"),
+            'is_link(link)' => static fn() => is_link("$at/link"),
+        ] as $call => $asked) {
+            $warnings = 0;
+            $said[$call] = [$asked(), $warnings];
+        }
+        echo json_encode($said);
+        PHP;
+    Scratch::write($at, 'probe.php', $probe);
+    $process = new Process([PHP_BINARY, '-n', sprintf('%s/probe.php', $at), $at, $wrapper]);
+    $process->run();
+    chmod(sprintf('%s/unreadable', $at), 0o600);
+    $said = json_decode($process->getOutput(), associative: true);
+
+    return is_array($said) ? $said : ['failed' => $process->getErrorOutput()];
+}
+
+it('stats a dangling link as a link, and a file it cannot read as there, while the patched override serves a file, as PHP does without it', function (): void {
+    $vendor = MutatePlugin::pristine()->vendor();
+    Patch::applyIn($vendor);
+
+    expect(overrideStats($vendor))->toBe(overrideStats())
+        ->and(overrideStats())->toMatchArray([
+            'is_link(dangling)' => [true, 0],
+            'file_exists(unreadable)' => [true, 0],
+            'stat(missing)' => [false, 1],
+            'file_exists(missing)' => [false, 0],
+        ]);
+})->skip(function_exists('posix_geteuid') && posix_geteuid() === 0, 'root reads a file whatever its mode');
+
+it('stats a dangling link and a file it cannot read as missing while the shipped override serves a file', function (): void {
+    expect(overrideStats(MutatePlugin::pristine()->vendor()))->toMatchArray([
+        'is_link(dangling)' => [false, 0],
+        'file_exists(unreadable)' => [false, 0],
+    ]);
+})->skip(function_exists('posix_geteuid') && posix_geteuid() === 0, 'root reads a file whatever its mode');

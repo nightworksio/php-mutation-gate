@@ -380,6 +380,16 @@ its parser attributes. Both change when the checkout moves.
        test its run loads. That can only kill more mutants, never fewer.
      - A run again makes only the mutants whose native ids a file beside the
        results lists.
+     - While the override serves a file, a path stats as it does without
+       it. The override pest-plugin-mutate ships reports a path the process
+       cannot read as missing, so a dangling link is no link and a file
+       without read permission is not there, and a test that stats either
+       fails in every mutant's run whatever the mutant changes. Patched, a
+       link, dangling or not, is stat'd by `lstat` where the caller asks for
+       the link, and any other path that exists by `stat`. The override
+       raises no warning of its own: PHP warns of a failed stat where the
+       caller did not ask for quiet (`STREAM_URL_STAT_QUIET`), as it does
+       without the override.
      - Each mutant is allowed the standard mutant limit (ADR-0008, decision
        2): 5 s plus three times its covering tests' own time, as the map
        Pest loaded timed them, never less than `timeouts.seconds` and never

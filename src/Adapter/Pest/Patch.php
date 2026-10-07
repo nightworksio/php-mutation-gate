@@ -27,6 +27,12 @@ use function sprintf;
  * - Where the gate narrows a run, a mutant's own run loads only the test files
  *   its covering tests need (see CoveringFiles), not every test file, and the
  *   files it loads are recorded by the mutant's mutated copy.
+ * - While the override serves a file, a path stats as it does without it: a
+ *   link, dangling or not, by `lstat`, and a file the process cannot read as
+ *   there. The override shipped reports both as missing, so a test that stats
+ *   one fails in a mutant's run whatever the mutant changes. The override
+ *   raises no warning of its own; PHP warns of a failed stat where the caller
+ *   did not ask for quiet (`STREAM_URL_STAT_QUIET`), as it does without it.
  *
  * Applied as a VendorPatch: every anchor checked before anything is written.
  */
@@ -41,6 +47,32 @@ final readonly class Patch
     private const string MUTATE_PLUGIN = 'Plugins/Mutate.php';
 
     private const string TEST_RUNNER = 'Tester/MutationTestRunner.php';
+
+    private const string STREAM_WRAPPER = 'Support/StreamWrapper.php';
+
+    private const string STAT_SHIPS = <<<'PHP'
+                    if (is_readable($path) === false) {
+                        return false;
+                    }
+
+                    if (($flags & STREAM_URL_STAT_LINK) !== 0) {
+                        return lstat($path);
+                    }
+
+                    return stat($path);
+        PHP;
+
+    private const string STAT_BECOMES = <<<'PHP'
+                    {MARK} a path stats as without the override: a link by lstat, an unreadable file as there.
+                    $link = ($flags & STREAM_URL_STAT_LINK) !== 0;
+
+                    if (! file_exists($path) && ! ($link && is_link($path))) {
+                        return false;
+                    }
+
+                    return $link ? lstat($path) : stat($path);
+        PHP;
+
     private const string FILTER_SHIPS = <<<'PHP'
                 $process = new Process(
                     command: [
@@ -270,6 +302,7 @@ final readonly class Patch
                 sprintf(self::LISTED_BECOMES, OnlyList::class, GateVariable::Only->value),
             ),
             Hunk::in(self::TEST_RUNNER, self::ONLY_SHIPS, self::ONLY_BECOMES),
+            Hunk::in(self::STREAM_WRAPPER, self::STAT_SHIPS, self::STAT_BECOMES),
         ];
     }
 }
