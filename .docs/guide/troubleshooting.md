@@ -1,7 +1,7 @@
 # Troubleshooting
 
 Every refusal, failure and warning the gate prints ends with a link to its
-section here. The section is named by the message's slug, which never changes
+section here. Each section is named by the message's slug, which never changes
 meaning once released (ADR-0018, decision 8). `mutation-gate doctor` finds most
 of these before a run does (ADR-0017, decision 9).
 
