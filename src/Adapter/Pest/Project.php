@@ -67,12 +67,12 @@ final readonly class Project
     }
 
     /**
-     * The same project in one of its directories: the tests, the gate's
-     * directory and the vendor directory are that directory's.
+     * The same project in one of its directories, with its tests in these:
+     * the gate's directory and the vendor directory are that directory's.
      */
-    public function in(Path $directory): self
+    public function in(Path $directory, Paths $tests): self
     {
-        return self::at($this->absolute($directory), $this->tests, $this->workspace, $this->vendor);
+        return self::at($this->absolute($directory), $tests, $this->workspace, $this->vendor);
     }
 
     /** The root's real path, as Pest's coverage and the processes it starts take it. */

@@ -142,9 +142,10 @@ interface Runner
 
     /**
      * The runner in a package's directory, as a path from the project's
-     * root: its tests, its vendor and the gate's directory are the package's.
-     * A directory that holds no project the runner can run cannot be judged
-     * (ADR-0005).
+     * root: its vendor and the gate's directory are the package's, and its
+     * tests are in these directories, which the CLI reads from the package's
+     * own PHPUnit config. A directory that holds no project the runner can
+     * run cannot be judged (ADR-0005, decision 7).
      */
-    public function rootedAt(Path $package): self|CannotJudge;
+    public function rootedAt(Path $package, Paths $tests): self|CannotJudge;
 }

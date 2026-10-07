@@ -1384,7 +1384,7 @@ it('roots itself in a package that installs Pest, running there with the package
     $at = adapterProject();
     Scratch::write($at->root(), 'packages/billing/vendor/pestphp/pest/bin/pest', '<?php');
     $shell = new ShellFake(static fn(Command $command): Ran => adapterNamed($command, $at));
-    $rooted = new Pest($at, $shell, Patching::off(), new CapDirectory(), Triage::standard()->bounds())->rootedAt(Path::of('packages/billing'));
+    $rooted = new Pest($at, $shell, Patching::off(), new CapDirectory(), Triage::standard()->bounds())->rootedAt(Path::of('packages/billing'), Paths::of(Path::of('tests')));
     $package = sprintf('%s/packages/billing', $at->root());
     $names = $rooted instanceof Pest ? $rooted->names(TestIds::of(), Withheld::standard()) : $rooted;
 
@@ -1394,21 +1394,24 @@ it('roots itself in a package that installs Pest, running there with the package
         ->toBe(sprintf('%s/.mutation-gate/pest/names.json', $package));
 });
 
-it('roots itself in a package with the cap it was given', function (): void {
+it('roots itself in a package with the cap it was given, and the tests the package keeps', function (): void {
     $at = adapterProject();
     Scratch::write($at->root(), 'packages/billing/vendor/pestphp/pest/bin/pest', '<?php');
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
     $package = Path::of('packages/billing');
+    $spec = Paths::of(Path::of('spec'));
+    $rooted = $at->in($package, $spec);
 
-    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), LimitBounds::between(Seconds::of(30.0), Seconds::of(30.0)))->rootedAt($package))
-        ->toEqual(new Pest($at->in($package), $shell->in($at->in($package)->root()), Patching::off(), new CapDirectory(), LimitBounds::between(Seconds::of(30.0), Seconds::of(30.0))));
+    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), LimitBounds::between(Seconds::of(30.0), Seconds::of(30.0)))->rootedAt($package, $spec))
+        ->toEqual(new Pest($rooted, $shell->in($rooted->root()), Patching::off(), new CapDirectory(), LimitBounds::between(Seconds::of(30.0), Seconds::of(30.0))))
+        ->and($rooted->tests())->toEqual($spec);
 });
 
 it('cannot root itself in a directory that installs no Pest', function (): void {
     $at = adapterProject('lib/vendor');
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
 
-    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), Triage::standard()->bounds())->rootedAt(Path::of('packages/billing')))->toEqual(CannotJudge::because(
+    expect(new Pest($at, $shell, Patching::off(), new CapDirectory(), Triage::standard()->bounds())->rootedAt(Path::of('packages/billing'), Paths::of(Path::of('tests'))))->toEqual(CannotJudge::because(
         'packages/billing holds no project Pest can run: Pest is not installed in its lib/vendor.',
     ))->and($shell->directories())->toBe([]);
 });

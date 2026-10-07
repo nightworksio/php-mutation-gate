@@ -780,16 +780,18 @@ it('names each test by the file that declares its class and its method, running 
         ->and($shell->commands())->toBe([]);
 });
 
-it('roots itself in a package that installs Infection, with the package\'s own tests', function (): void {
+it('roots itself in a package that installs Infection, with the tests the package keeps', function (): void {
     $at = infectionProject();
     Scratch::write($at->root(), 'packages/billing/vendor/bin/infection', '<?php');
-    Scratch::write($at->root(), 'packages/billing/tests/LedgerTest.php', "<?php\nnamespace Tests;\nfinal class LedgerTest {}");
+    Scratch::write($at->root(), 'packages/billing/spec/LedgerTest.php', "<?php\nnamespace Tests;\nfinal class LedgerTest {}");
+    Scratch::write($at->root(), 'packages/billing/tests/TallyTest.php', "<?php\nnamespace Tests;\nfinal class TallyTest {}");
     $shell = infectionShell($at, []);
-    $rooted = new Infection($at, $shell, LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory())->rootedAt(Path::of('packages/billing'));
-    $asked = TestIds::of(TestId::of('Tests\\LedgerTest::books'), TestId::of('Tests\\MoneyTest::adds'));
+    $rooted = new Infection($at, $shell, LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory())
+        ->rootedAt(Path::of('packages/billing'), Paths::of(Path::of('spec')));
+    $asked = TestIds::of(TestId::of('Tests\\LedgerTest::books'), TestId::of('Tests\\TallyTest::counts'), TestId::of('Tests\\MoneyTest::adds'));
 
     expect($rooted instanceof Infection ? $rooted->names($asked, Withheld::standard()) : $rooted)
-        ->toEqual(TestNames::none()->with(TestId::of('Tests\\LedgerTest::books'), TestName::in(Path::of('tests/LedgerTest.php'), 'books')))
+        ->toEqual(TestNames::none()->with(TestId::of('Tests\\LedgerTest::books'), TestName::in(Path::of('spec/LedgerTest.php'), 'books')))
         ->and($shell->directories())->toBe([sprintf('%s/packages/billing', $at->root())]);
 });
 
@@ -797,7 +799,7 @@ it('cannot root itself in a directory that installs no Infection', function (): 
     $at = infectionProject();
     $shell = infectionShell($at, []);
 
-    expect(new Infection($at, $shell, LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory())->rootedAt(Path::of('packages/billing')))
+    expect(new Infection($at, $shell, LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory())->rootedAt(Path::of('packages/billing'), Paths::of(Path::of('tests'))))
         ->toEqual(CannotJudge::because('packages/billing holds no project Infection can run: Infection is not installed there.'))
         ->and($shell->directories())->toBe([]);
 });
@@ -968,8 +970,8 @@ it('leaves static analysis to the gate where it checks the survivors itself, in 
     expect(infectionStatuses($first))->toBe([MutantStatus::Survived])
         ->and($mutated)->not->toContain('staticAnalysisTool')
         ->and($retried)->not->toContain('staticAnalysisTool')
-        ->and($gate->rootedAt(Path::of('packages/billing')))->toEqual(new Infection(
-            $at->in(Path::of('packages/billing')),
+        ->and($gate->rootedAt(Path::of('packages/billing'), Paths::of(Path::of('tests'))))->toEqual(new Infection(
+            $at->in(Path::of('packages/billing'), Paths::of(Path::of('tests'))),
             $shell->in(sprintf('%s/packages/billing', $at->root())),
             LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)),
             nativeMarkersAllowed: false,

@@ -160,8 +160,8 @@ final class CoverageAsked implements Runner
         return $this->runner->names($tests, $withheld);
     }
 
-    public function rootedAt(Path $package): Runner|CannotJudge
+    public function rootedAt(Path $package, Paths $tests): Runner|CannotJudge
     {
-        return $this->runner->rootedAt($package);
+        return $this->runner->rootedAt($package, $tests);
     }
 }

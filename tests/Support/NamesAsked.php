@@ -133,8 +133,8 @@ final class NamesAsked implements Runner
         return $this->naming instanceof Runner ? $this->naming->names($tests, $withheld) : $this->naming;
     }
 
-    public function rootedAt(Path $package): Runner|CannotJudge
+    public function rootedAt(Path $package, Paths $tests): Runner|CannotJudge
     {
-        return $this->runner->rootedAt($package);
+        return $this->runner->rootedAt($package, $tests);
     }
 }

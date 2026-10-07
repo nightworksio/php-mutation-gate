@@ -512,6 +512,20 @@ final class Library
         return Group::named(self::CANARY);
     }
 
+    /**
+     * The directories the library's tests are in, as the CLI reads them from
+     * its own PHPUnit config for a runner rooted in it from the directory
+     * around it; the conventional one for the fake, which reads no config.
+     */
+    public function packageTests(): Paths
+    {
+        $tests = $this->root === ''
+            ? Paths::of(Path::of('tests'))
+            : Suite::testsIn(Directory::at(dirname($this->root)), $this->package);
+
+        return $tests instanceof Paths ? $tests : throw new RuntimeException($tests->why());
+    }
+
     /** The Pest adapter over the library at a root, keeping each mutant's limit within these bounds, by this name. */
     private static function pestRooted(string $root, Patching $patching, LimitBounds $kept, string $name): self
     {

@@ -261,9 +261,9 @@ final readonly class PhpUnit implements Runner
     }
 
     /** PHPUnit in a package's directory, where Composer installed it in the package's vendor directory. */
-    public function rootedAt(Path $package): self|CannotJudge
+    public function rootedAt(Path $package, Paths $tests): self|CannotJudge
     {
-        $project = $this->project->in($package);
+        $project = $this->project->in($package, $tests);
 
         return $project->hasPhpUnit()
             ? new self(

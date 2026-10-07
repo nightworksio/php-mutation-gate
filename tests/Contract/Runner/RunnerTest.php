@@ -592,7 +592,7 @@ it('keys the PHP it starts, which a setting of the gate\'s own PHP never reaches
     $identity = $library->runner()->identity(Withheld::standard());
     $before = ini_get('memory_limit');
     ini_set('memory_limit', $before === '-1' ? '1G' : '-1');
-    $fresh = $library->outside()->rootedAt($library->package());
+    $fresh = $library->outside()->rootedAt($library->package(), $library->packageTests());
     $unreached = $fresh instanceof CannotJudge ? $fresh : $fresh->identity(Withheld::standard());
     ini_set('memory_limit', $before);
 
@@ -600,7 +600,7 @@ it('keys the PHP it starts, which a setting of the gate\'s own PHP never reaches
 })->with($libraries);
 
 it('answers as the runner built in a package when rooted in it from the directory around it', function (Library $library): void {
-    $rooted = $library->outside()->rootedAt($library->package());
+    $rooted = $library->outside()->rootedAt($library->package(), $library->packageTests());
     $runner = $library->runner();
 
     expect($rooted instanceof CannotJudge ? $rooted : $rooted->identity(Withheld::standard()))
@@ -610,9 +610,24 @@ it('answers as the runner built in a package when rooted in it from the director
         ->toEqual($runner->groups(Withheld::standard()));
 })->with($libraries);
 
+// A runner rooted in a package from the directory around it is told the
+// tests the package's own PHPUnit config names, read as the root's is: here
+// plugins/*/tests, which the directory around it, holding no config, would
+// read as the conventional tests alone.
+it('judges by the tests a package\'s own PHPUnit config names when rooted in it from the directory around it', function (Library $library): void {
+    $map = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));
+    $rooted = $library->outside()->rootedAt($library->package(), $library->packageTests());
+    $judges = $map instanceof CoverageMap && ! $rooted instanceof CannotJudge
+        ? $rooted->judges(Path::of('beside/Stock.php'), $map)
+        : $map;
+
+    expect($judges)->toEqual(Paths::of(Path::of('plugins/stock/tests/StockSpec.php')));
+})->with($onDisk === [] ? ['none installed' => fn(): Library => Library::fake()] : $onDisk)
+    ->skip($onDisk === [], 'the runner contracts jobs install the libraries whose runner reads from disk');
+
 it('cannot judge a directory that holds no project it can run', function (Library $library): void {
-    expect($library->runner()->rootedAt(Path::of('src')))->toBeInstanceOf(CannotJudge::class)
-        ->and($library->outside()->rootedAt(Path::of('nowhere')))->toBeInstanceOf(CannotJudge::class);
+    expect($library->runner()->rootedAt(Path::of('src'), $library->packageTests()))->toBeInstanceOf(CannotJudge::class)
+        ->and($library->outside()->rootedAt(Path::of('nowhere'), $library->packageTests()))->toBeInstanceOf(CannotJudge::class);
 })->with($libraries);
 
 it('times a run of no test that loads every test file through the mutant\'s wrapper and runs none, with Pest', function (): void {

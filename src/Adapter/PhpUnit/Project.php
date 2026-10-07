@@ -58,10 +58,13 @@ final readonly class Project
         return new self(Root::of($real === false ? $root : $real), $tests, $vendor, $workspace);
     }
 
-    /** The project in a directory of this one, with its tests, vendor and gate's directory named as this one's are. */
-    public function in(Path $directory): self
+    /**
+     * The project in a directory of this one, with its tests in these, and
+     * its vendor and gate's directory named as this one's are.
+     */
+    public function in(Path $directory, Paths $tests): self
     {
-        return self::at($this->absolute($directory), $this->tests, $this->vendor, $this->workspace);
+        return self::at($this->absolute($directory), $tests, $this->vendor, $this->workspace);
     }
 
     public function root(): string

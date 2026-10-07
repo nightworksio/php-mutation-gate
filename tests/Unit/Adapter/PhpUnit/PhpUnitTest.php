@@ -330,9 +330,16 @@ it('answers as PHPUnit in a package where Composer installed it there, and canno
     $shell = PhpUnitShellFake::answering(Ran::finished(succeeded: true, output: ''));
     $runner = phpUnitRunner($project, $shell);
 
-    expect($runner->rootedAt(Path::of('packages/billing')))->toBeInstanceOf(PhpUnit::class)
-        ->and($shell->directories())->toBe([sprintf('%s/packages/billing', $project->root())])
-        ->and($runner->rootedAt(Path::of('packages/none')))->toEqual(CannotJudge::because(
+    $spec = Paths::of(Path::of('spec'));
+
+    expect($runner->rootedAt(Path::of('packages/billing'), $spec))->toEqual(new PhpUnit(
+        $project->in(Path::of('packages/billing'), $spec),
+        $shell->in(sprintf('%s/packages/billing', $project->root())),
+        Engine::with(new PlusToMinus()),
+        LimitBounds::between(Seconds::of(5.0), Seconds::of(6.0)),
+        new CapDirectory(),
+    ))
+        ->and($runner->rootedAt(Path::of('packages/none'), $spec))->toEqual(CannotJudge::because(
             'packages/none holds no project the phpunit runner can run: PHPUnit is not installed in its vendor.',
         ));
 });
