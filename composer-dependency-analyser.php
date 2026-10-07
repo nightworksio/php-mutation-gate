@@ -33,6 +33,7 @@ return (new Configuration())
     // dependencies.
     ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/fixture')
     ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/infection-fixture')
+    ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/crash')
     ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/reach')
     ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/stall')
     ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/override')

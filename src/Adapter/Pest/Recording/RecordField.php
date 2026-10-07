@@ -54,4 +54,22 @@ enum RecordField: string
 
     /** How many bytes the memory limit a mutant's own process ran out of holds. */
     case Bytes = 'bytes';
+
+    /** How many tests a mutant's own process had started when the one a killer line names failed. */
+    case At = 'at';
+
+    /** The digest of the order a mutant's own process started its tests in, up to a killer (see OrderDigest). */
+    case Order = 'order';
+
+    /** The id of the mutant's own process a killer line came from. */
+    case Run = 'run';
+
+    /** The code a mutant's own process exited with. */
+    case Code = 'code';
+
+    /** Whether a signal ended a mutant's own process. */
+    case Signalled = 'signalled';
+
+    /** What a mutant's own process printed, on its output and then its error output, as much as evidence keeps. */
+    case Printed = 'printed';
 }

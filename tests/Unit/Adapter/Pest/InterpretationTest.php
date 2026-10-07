@@ -10,11 +10,15 @@ use NightWorksIO\MutationGate\Adapter\Pest\Interpretation;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Placed;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Ended;
+use NightWorksIO\MutationGate\Core\Mutant\Evidence;
+use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -22,6 +26,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
+use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
@@ -390,13 +396,14 @@ it('cannot judge records that do not add up to Pest\'s own summary', function ()
     ));
 });
 
-it('judges each of the mutants Pest gives one id, as two changes that leave the same source share it', function () use ($mutant, $plan, $read): void {
+it('judges each of the mutants Pest gives one id, as two changes that leave the same source share it, with no evidence of either kill', function () use ($mutant, $plan, $read): void {
     [$project, $results, $root] = interpretedRun([11 => [0]], []);
     PestRun::write($results, [
         $plan($root, 'same', 'src/Money.php:11', 'ab'),
         $plan($root, 'same', 'src/Money.php:11', 'ab'),
         PestRun::made(2),
-        PestRun::killed('same', INTERPRETED_TESTS[0]),
+        PestRun::killedAt('same', INTERPRETED_TESTS[0], Placed::at(1, OrderDigest::of(TestId::of(INTERPRETED_TESTS[0]))->value(), 7)),
+        PestRun::ended('same', Ended::of(1, signalled: false, printed: 'FAILED')),
         PestRun::finished('same', PestStatus::Tested, 0.25),
         PestRun::finished('same', PestStatus::Untested, 0.5),
         PestRun::end(),
@@ -408,6 +415,37 @@ it('judges each of the mutants Pest gives one id, as two changes that leave the 
                 ->killedBy(TestIds::of(TestId::of(INTERPRETED_TESTS[0]))),
             $mutant('same', 'src/Money.php:11', 'ab', MutantStatus::Survived, 0.5, 1),
         ), 0));
+});
+
+it('gives the evidence of each kill: how far its run went, keyed by the test files it loaded, and how a run it names no killer of ended', function () use ($mutant, $plan): void {
+    [$project, $results, $root] = interpretedRun([11 => [0], 12 => [0], 13 => [0]], []);
+    $order = OrderDigest::of(TestId::of('P\Tests\FirstSpec::__pest_evaluable_it_passes'), TestId::of(INTERPRETED_TESTS[0]))->value();
+    $ended = Ended::of(255, signalled: false, printed: 'PHP Fatal error:  Allowed memory size exhausted');
+    PestRun::write($results, [
+        $plan($root, 'n1', 'src/Money.php:11', 'ab'),
+        $plan($root, 'n2', 'src/Money.php:12', 'cd'),
+        $plan($root, 'n3', 'src/Money.php:13', 'ef'),
+        PestRun::made(3),
+        PestRun::narrowed('n1', [sprintf('%s/tests/MoneySpec.php', $root), sprintf('%s/tests/FirstSpec.php', $root)]),
+        PestRun::killedAt('n1', INTERPRETED_TESTS[0], Placed::at(2, $order, 7)),
+        PestRun::ended('n1', Ended::of(1, signalled: false, printed: 'FAILED')),
+        PestRun::ended('n2', $ended),
+        PestRun::killedAt('n3', INTERPRETED_TESTS[0], Placed::at(1, $order, 8)),
+        PestRun::finished('n1', PestStatus::Tested, 0.25),
+        PestRun::finished('n2', PestStatus::Tested, 0.25),
+        PestRun::finished('n3', PestStatus::Untested, 0.25),
+        PestRun::end(),
+    ]);
+    $result = new Interpretation($project, Patching::off(), MemoryCap::standard())
+        ->of(Ran::finished(succeeded: true, output: '  Mutations: 1 untested, 2 tested'), $results, CoverageFile::at(Recorder::coverageBeside($results)));
+    $files = Paths::of(Path::of('tests/MoneySpec.php'), Path::of('tests/FirstSpec.php'));
+    $evidence = $result instanceof MutationResult ? $result->evidence() : Evidences::none();
+
+    expect($evidence->of($mutant('n1', 'src/Money.php:11', 'ab', MutantStatus::Killed)->id()))
+        ->toEqual(Evidence::none()->withPrefix(Prefix::keyedAt(2, Prefix::keyOf($files, $order))))
+        ->and($evidence->of($mutant('n2', 'src/Money.php:12', 'cd', MutantStatus::Killed)->id()))
+        ->toEqual(Evidence::none()->withEnded($ended))
+        ->and($evidence)->toHaveCount(2);
 });
 
 it('cannot judge a run without the opening run\'s map', function () use ($six, $read): void {

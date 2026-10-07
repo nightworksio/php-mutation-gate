@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -15,7 +16,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Warnings;
  * What a shard's invocations have come to so far: every mutant, the
  * survivors a second run killed, the mutants skipped without a record, the
  * units its budget ran out before or its doom left, what the runner warned
- * of, and the survivor that made its run certain to fail, where one did.
+ * of, the evidence of its kills, and the survivor that made its run certain
+ * to fail, where one did.
  */
 final readonly class Spent
 {
@@ -25,6 +27,7 @@ final readonly class Spent
         public int $skipped,
         public Units $unjudged,
         public Warnings $warnings,
+        public Evidences $evidence,
         public Doomed|Undoomed $doomed,
     ) {
     }
@@ -32,7 +35,15 @@ final readonly class Spent
     /** Nothing spent yet. */
     public static function none(): self
     {
-        return new self(Mutants::none(), MutantIds::none(), 0, Units::none(), Warnings::none(), Undoomed::run());
+        return new self(
+            Mutants::none(),
+            MutantIds::none(),
+            0,
+            Units::none(),
+            Warnings::none(),
+            Evidences::none(),
+            Undoomed::run(),
+        );
     }
 
     /** What was spent, and one invocation more. */
@@ -44,6 +55,7 @@ final readonly class Spent
             $this->skipped + $invoked->result->skipped(),
             $this->unjudged,
             $this->warnings->and($invoked->result->warnings()),
+            $this->evidence->and($invoked->result->evidence()),
             $this->doomed,
         );
     }
@@ -57,12 +69,28 @@ final readonly class Spent
             $unjudged = $unjudged->with($unit);
         }
 
-        return new self($this->mutants, $this->flaky, $this->skipped, $unjudged, $this->warnings, $this->doomed);
+        return new self(
+            $this->mutants,
+            $this->flaky,
+            $this->skipped,
+            $unjudged,
+            $this->warnings,
+            $this->evidence,
+            $this->doomed,
+        );
     }
 
     /** What was spent, stopped on the survivor that made the run certain to fail (ADR-0008, decision 6). */
     public function doomedBy(Doomed $doomed): self
     {
-        return new self($this->mutants, $this->flaky, $this->skipped, $this->unjudged, $this->warnings, $doomed);
+        return new self(
+            $this->mutants,
+            $this->flaky,
+            $this->skipped,
+            $this->unjudged,
+            $this->warnings,
+            $this->evidence,
+            $doomed,
+        );
     }
 }

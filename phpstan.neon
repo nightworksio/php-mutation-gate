@@ -32,6 +32,7 @@ parameters:
         analyseAndScan:
             - tests/Contract/Runner/fixture
             - tests/Contract/Runner/infection-fixture
+            - tests/Contract/Runner/crash
             - tests/Contract/Runner/reach
             - tests/Contract/Runner/stall
             - tests/Contract/Runner/override
@@ -724,6 +725,23 @@ services:
                     - SUITE # a field of the plan and ledger files, not the command-line option of the same name
                 'NightWorksIO\MutationGate\Core\Change\Parents':
                     - OF_A_MERGE # the parents of a merge commit, not an exit code or an argument's position
+                'NightWorksIO\MutationGate\Core\Mutant\EvidenceRecord':
+                    - PREFIX # a kill's prefix in a shard result, not a store's key prefix
+                    - AT # a prefix's position, not when a proof was established
+                    - CODE # a process's exit code, not an analyser finding's code
+                    - KEY # a prefix's key, not a Buildkite step's key
+                    - ENDED # a field of a shard result, not the event of a Pest results file
+                    - SIGNALLED # a field of a shard result, not a field of a Pest results file
+                'NightWorksIO\MutationGate\Adapter\Pest\Project':
+                    - ORDER # the workspace directory of the plugin's orders, not a field of a Pest results file
+                'NightWorksIO\MutationGate\Core\Proof\ProofRecord':
+                    - AT # when a run was, not where a killer stood in a Pest results file
+                'NightWorksIO\MutationGate\Core\Mutant\Prefix':
+                    - KEPT # hex digits of a prefix's key, not a mutant id's length
+                'NightWorksIO\MutationGate\Core\Format\Secrets':
+                    - SHORTEST # characters a withheld value needs to be hidden, not a seed's first byte
+                'NightWorksIO\MutationGate\Core\Mutant\Ended':
+                    - KEPT # bytes of a process's output kept until its secrets are hidden, not a gzip read step
                 'NightWorksIO\MutationGate\Core\Proof\LastRunRecord':
                     - COMMIT # the ledger's last run's field, not the commit a plan's digests were taken at
                     - TREE # the ledger's last run's field, not the tree floor a survivor dooms a run by
@@ -777,6 +795,7 @@ services:
                     - END # a field of a shard result
                     - DIFF # a field of a shard result
                     - FILE # a field of a shard result
+                    - CODE # a field of a rejection, not the exit code a Pest results file records
                 'NightWorksIO\MutationGate\Adapter\Infection\Results':
                     - MUTATOR # a field of Infection's log
                 'NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile':

@@ -4,6 +4,7 @@
     "exclude": [
         "tests/Contract/Runner/fixture",
         "tests/Contract/Runner/infection-fixture",
+        "tests/Contract/Runner/crash",
         "tests/Contract/Runner/reach",
         "tests/Contract/Runner/stall",
         "tests/Contract/Runner/override",

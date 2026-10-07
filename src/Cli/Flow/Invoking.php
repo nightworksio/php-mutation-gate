@@ -60,7 +60,9 @@ final readonly class Invoking
             $result instanceof CannotJudge => $result,
             $again instanceof CannotJudge => $again,
             default => new Invoked(
-                MutationResult::of($again->mutants, $result->skipped())->withWarnings($result->warnings()),
+                MutationResult::of($again->mutants, $result->skipped())
+                    ->withWarnings($result->warnings())
+                    ->withEvidence($result->evidence()),
                 $again->flaky,
             ),
         };

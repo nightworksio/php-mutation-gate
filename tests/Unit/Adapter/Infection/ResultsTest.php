@@ -17,6 +17,8 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\Mutant\Ended;
+use NightWorksIO\MutationGate\Core\Mutant\Evidence;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -373,5 +375,28 @@ it('says a timed-out mutant a patched Infection stopped at its silence limit was
     ) : [])->toEqual([
         [MutantStatus::TimedOut, Seconds::of(5.0), Reason::silent(Seconds::of(9.0))->text()],
         [MutantStatus::TimedOut, Seconds::of(5.0), ''],
+    ]);
+});
+
+it('gives a kill that names no killer the output of its process, with no code or signal, which Infection does not log, and no other evidence', function (): void {
+    $at = resultsProject();
+    $failed = "There was 1 failure:\n\n1) Tests\\MoneySpec::addsTwoAmounts#0 with data (2, 3)\nFailed.";
+    $result = resultsRead($at, [
+        'killed' => [
+            [...resultsMutant($at, 'Plus', 'src/Money.php', 11, 'return $a + $b;', 'return $a - $b;'), 'processOutput' => $failed],
+            [...resultsMutant($at, 'Minus', 'src/Money.php', 12, 'return $a - $b;', 'return $a + $b;'), 'processOutput' => 'Segmentation fault'],
+            array_diff_key(resultsMutant($at, 'Plus', 'src/Held.php', 11, '$a + $a', '$a - $a'), ['processOutput' => true]),
+        ],
+        'errored' => [[...resultsMutant($at, 'Throw_', 'src/Money.php', 31, 'throw $e;', '$e;'), 'processOutput' => 'Fatal']],
+    ]);
+    $evidence = $result instanceof MutationResult
+        ? array_map(static fn(Mutant $mutant): Evidence => $result->evidence()->of($mutant->id()), iterator_to_array($result->mutants(), preserve_keys: false))
+        : [];
+
+    expect($evidence)->toEqual([
+        Evidence::none(),
+        Evidence::none(),
+        Evidence::none()->withEnded(Ended::of(NotGiven::value(), NotGiven::value(), 'Segmentation fault')),
+        Evidence::none(),
     ]);
 });

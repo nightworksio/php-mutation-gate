@@ -295,6 +295,43 @@ running it: why is this mutant here, and has it always been?
       - An id with no record is exit 2, with the sentence `reproduce` gives:
         run the gate on the code that has the mutant to record it.
 
+16. **A shard result keeps the evidence of each kill, which judges nothing.**
+    Each killed mutant's record in `results/<id>.json` may hold two fields
+    beside the record's own. Neither is read by a verdict, a proof or a report.
+    - `prefix: {at, key?}`: how far the mutant's own run went. `at` is the
+      position, from 1, of its first failing test in the order the run took
+      its tests in, which is how many tests a run that stops at its first
+      failure ran. `key` is twelve lowercase hex digits shared by every run
+      that loaded the same test files and took the same order up to its last
+      failing test: the start of the SHA-256 digest of the test files it loaded
+      under the project's root, sorted, a line each, then an empty line, then
+      the SHA-256 digest of each test id followed by a line end, in order, up
+      to and including that test. A run that loaded every test file names no
+      file.
+    - `ended: {code?, signalled?, tail}`, only for a kill that names no killer:
+      the code its process exited with, whether a signal ended it, and the last
+      2 KiB of what it printed, every control and format character but a tab
+      and a line end dropped, cut on a character's edge. Each value of a
+      withheld variable of eight characters or more is replaced by `***`
+      before the cut.
+    - A runner gives what it saw and leaves out what it cannot tell, and
+      nothing is run for it:
+      - The PHPUnit runner gives the prefix from the tests its extension saw
+        start, and how the process ended where no test is named.
+      - Pest's plugin counts and digests the tests each mutant's own process
+        starts, and writes the position and digest with each failing test.
+        With `pest.patch` on, Pest's parent writes how a failed own process
+        ended. A mutant that shares its mutated copy with another, or whose
+        killers came from more than one process, has no evidence, since which
+        run went how far cannot be told. A kill run again with every test file
+        has the evidence of that run.
+      - Infection logs only what a mutant's process printed, so a kill that
+        names no killer has its `tail` alone, and no kill has a prefix.
+      - A registered runner gives evidence through
+        `MutationResult::withEvidence()`.
+    - A shard result without these fields reads as before; one whose field is
+      malformed is refused.
+
 ## Alternatives considered
 
 | Option | Why it lost |

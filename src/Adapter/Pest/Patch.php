@@ -33,6 +33,9 @@ use function sprintf;
  *   one fails in a mutant's run whatever the mutant changes. The override
  *   raises no warning of its own; PHP warns of a failed stat where the caller
  *   did not ask for quiet (`STREAM_URL_STAT_QUIET`), as it does without it.
+ * - How a mutant's own run that failed ended, its code, whether a signal ended
+ *   it and the end of what it printed, is recorded by its mutated copy (see
+ *   Ending).
  *
  * Applied as a VendorPatch: every anchor checked before anything is written.
  */
@@ -201,6 +204,19 @@ final readonly class Patch
                         return false;
         PHP;
 
+    private const string ENDED_SHIPS = <<<'PHP'
+                $this->updateResult(MutationTestResult::Tested);
+        PHP;
+
+    private const string ENDED_BECOMES = <<<'PHP'
+                {MARK} how a failed own run ended, by its mutated copy (see Ending).
+                if (class_exists(\%1$s::class)) {
+                    \%1$s::record($this->process, $this->mutation->modifiedSourcePath);
+                }
+
+                $this->updateResult(MutationTestResult::Tested);
+        PHP;
+
     private const string ONLY_SHIPS = <<<'PHP'
                         $mutationSuite->repository->add($mutation);
         PHP;
@@ -287,6 +303,7 @@ final readonly class Patch
             Hunk::in(self::MUTATION_TEST, self::LIMIT_SHIPS, sprintf(self::LIMIT_BECOMES, MutantTime::class)),
             Hunk::in(self::MUTATION_TEST, self::WATCH_SHIPS, sprintf(self::WATCH_BECOMES, Silence::class)),
             Hunk::in(self::MUTATION_TEST, self::SILENCE_SHIPS, sprintf(self::SILENCE_BECOMES, Silence::class)),
+            Hunk::in(self::MUTATION_TEST, self::ENDED_SHIPS, sprintf(self::ENDED_BECOMES, Ending::class)),
             Hunk::in(
                 self::MUTATE_PLUGIN,
                 self::CANARY_SHIPS,

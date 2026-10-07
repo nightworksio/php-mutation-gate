@@ -19,8 +19,12 @@ use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
+use NightWorksIO\MutationGate\Core\Mutant\Ended;
+use NightWorksIO\MutationGate\Core\Mutant\Evidence;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
+use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -527,3 +531,60 @@ it('prepares no run for a mutant whose tests are in no file found, and leaves it
         'A test that covers it has a line break in its name, and no test file found holds every test that covers it.',
     ])->and($shell->commands())->toBe([]);
 });
+
+/** The evidence of a mutant's kill, as a prepared run that recorded these lines and ended so gives it. */
+function evidencedBy(string $lines, Ran $ran, TestIds $covering): Evidence
+{
+    $project = phpUnitProject();
+    $shell = recording($lines, $ran);
+    $run = new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project), PhpUnitScan::uncapped($project), NotGiven::value());
+    $prepared = $run->prepared(moneyMutant($project), $covering, MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), Seconds::of(3.0));
+
+    if (! $prepared instanceof PreparedRun) {
+        return Evidence::none();
+    }
+
+    $ended = $shell->run($prepared->command());
+
+    return $run->evidenced($prepared, $ended, $run->finished($prepared, $ended));
+}
+
+it('gives a kill by named tests the prefix its run recorded, and how its process ended to none', function () use ($adds): void {
+    $lines = records(Outcome::Started->line($adds->value()), Outcome::Passed->line($adds->value()), Outcome::Started->line('T::fails'), Outcome::Failed->line('T::fails'));
+    $evidence = evidencedBy($lines, Ran::exited(1, 'FAILURES!'), TestIds::of($adds, TestId::of('T::fails')));
+
+    expect($evidence->prefix())->toEqual(Prefix::keyedAt(2, Prefix::keyOf(Paths::none(), OrderDigest::of($adds, TestId::of('T::fails'))->value())))
+        ->and($evidence->ended())->toEqual(NotGiven::value());
+});
+
+it('gives a kill no selected test is credited with how its process ended: its code, no signal, and what it printed', function () use ($adds): void {
+    $lines = records(Outcome::Started->line($adds->value()), Outcome::Passed->line($adds->value()), Outcome::Started->line('U::beside'), Outcome::Failed->line('U::beside'));
+    $evidence = evidencedBy($lines, Ran::exited(1, "There was 1 failure:\nU::beside"), TestIds::of($adds));
+    $ended = $evidence->ended();
+
+    expect($ended instanceof Ended ? [$ended->code(), $ended->signalled(), $ended->tail()] : $ended)
+        ->toBe([1, false, "There was 1 failure:\nU::beside"])
+        ->and($evidence->prefix())->toEqual(Prefix::keyedAt(2, Prefix::keyOf(Paths::none(), OrderDigest::of($adds, TestId::of('U::beside'))->value())));
+});
+
+it('says a signal ended a kill\'s process where its code says so', function () use ($adds): void {
+    $lines = records(Outcome::Started->line('U::dies'));
+    $ended = evidencedBy($lines, Ran::signalled(9, 'Killed'), TestIds::of($adds))->ended();
+
+    expect($ended instanceof Ended ? [$ended->code(), $ended->signalled()] : $ended)->toBe([137, true]);
+});
+
+it('gives a kill whose code was never read no code and no signal, only what its process printed', function () use ($adds): void {
+    $lines = records(Outcome::Started->line('U::dies'));
+    $ended = evidencedBy($lines, Ran::finished(succeeded: false, output: 'gone'), TestIds::of($adds))->ended();
+
+    expect($ended instanceof Ended ? [$ended->code(), $ended->signalled(), $ended->tail()] : $ended)
+        ->toEqual([NotGiven::value(), NotGiven::value(), 'gone']);
+});
+
+it('gives no evidence of a mutant its run did not kill', function (string $lines, Ran $ran) use ($adds): void {
+    expect(evidencedBy($lines, $ran, TestIds::of($adds)))->toEqual(Evidence::none());
+})->with([
+    'survived' => [records(Outcome::Started->line('Tests\MoneySpec::addsTwoAmounts'), Outcome::Passed->line('Tests\MoneySpec::addsTwoAmounts')), Ran::finished(succeeded: true, output: '')],
+    'timed out' => [records(Outcome::Started->line('Tests\MoneySpec::addsTwoAmounts')), Ran::stopped('')],
+]);

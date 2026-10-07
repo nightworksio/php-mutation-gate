@@ -4,12 +4,18 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Placed;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Adapter\Pest\Records;
 use NightWorksIO\MutationGate\Adapter\Pest\Summary;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Ended;
+use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
+use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
@@ -70,7 +76,7 @@ it('refuses a line cut short anywhere but last, which would lose a killer withou
     $read = Records::in($results([
         $planned('a', '/p/src/Money.php', 10),
         '{"event": "killed", "mutated": "/tmp/a", "te',
-        RecordLine::killed('/tmp/a', 'T::second'),
+        RecordLine::killed('/tmp/a', 'T::second', Placed::unplaced(1)),
         RecordLine::end(),
     ]));
 
@@ -280,9 +286,9 @@ it('names the tests that failed in each mutant\'s own process, in order, by the 
     $records = Records::in($results([
         $planned('a', '/p/src/Money.php', 10),
         $planned('b', '/p/src/Money.php', 20),
-        RecordLine::killed('/tmp/a', 'P\\Tests\\MoneySpec::__pest_evaluable_it_adds'),
-        RecordLine::killed('/tmp/a', 'Tests\\LegacySpec::testAdds#(1)'),
-        RecordLine::killed('/tmp/elsewhere', 'P\\Tests\\OtherSpec::__pest_evaluable_it'),
+        RecordLine::killed('/tmp/a', 'P\\Tests\\MoneySpec::__pest_evaluable_it_adds', Placed::unplaced(1)),
+        RecordLine::killed('/tmp/a', 'Tests\\LegacySpec::testAdds#(1)', Placed::unplaced(1)),
+        RecordLine::killed('/tmp/elsewhere', 'P\\Tests\\OtherSpec::__pest_evaluable_it', Placed::unplaced(1)),
     ]));
     $named = static fn(string $id): array => $records instanceof Records
         ? array_map(static fn(TestId $test): string => $test->value(), [...$records->runOf($mutant($id, '/p/src/Money.php', 10))->killers()])
@@ -298,10 +304,10 @@ it('tells a mutant killed only by tests that errored from one a test failed on, 
         $planned('a', '/p/src/Money.php', 10),
         $planned('b', '/p/src/Money.php', 20),
         $planned('c', '/p/src/Money.php', 30),
-        RecordLine::errored('/tmp/a', 'T::adds'),
-        RecordLine::errored('/tmp/a', 'T::subtracts'),
-        RecordLine::errored('/tmp/b', 'T::adds'),
-        RecordLine::killed('/tmp/b', 'T::subtracts'),
+        RecordLine::errored('/tmp/a', 'T::adds', Placed::unplaced(1)),
+        RecordLine::errored('/tmp/a', 'T::subtracts', Placed::unplaced(1)),
+        RecordLine::errored('/tmp/b', 'T::adds', Placed::unplaced(1)),
+        RecordLine::killed('/tmp/b', 'T::subtracts', Placed::unplaced(1)),
     ]));
     $only = static fn(string $id): bool => $records instanceof Records
         && $records->runOf($mutant($id, '/p/src/Money.php', 10))->killedByErrorsOnly();
@@ -440,4 +446,102 @@ it('adds up only where the mutants finished in the order they were planned, as t
 
     expect($adds('a', 'b'))->toBeTrue()
         ->and($adds('b', 'a'))->toBeFalse();
+});
+
+it('gives where a mutant\'s own run first failed, keyed by its files and its order up to its last killer', function () use ($results, $planned, $mutant): void {
+    $first = OrderDigest::of(TestId::of('T::passes'), TestId::of('T::adds'))->value();
+    $last = OrderDigest::of(TestId::of('T::passes'), TestId::of('T::adds'), TestId::of('T::drains'))->value();
+    $records = Records::in($results([
+        $planned('a', '/p/src/Money.php', 10),
+        $planned('b', '/p/src/Money.php', 20),
+        $planned('c', '/p/src/Money.php', 30),
+        $planned('d', '/p/src/Money.php', 40),
+        $planned('e', '/p/src/Money.php', 50),
+        RecordLine::killed('/tmp/a', 'T::adds', Placed::at(2, $first, 7)),
+        RecordLine::errored('/tmp/a', 'T::drains', Placed::at(3, $last, 7)),
+        RecordLine::errored('/tmp/b', 'T', Placed::unplaced(7)),
+        RecordLine::killed('/tmp/b', 'T::adds', Placed::at(2, $first, 7)),
+        RecordLine::killed('/tmp/c', 'T::adds', Placed::at(2, $first, 7)),
+        RecordLine::killed('/tmp/c', 'T::adds', Placed::at(2, $first, 8)),
+        RecordLine::killed('/tmp/e', 'T::adds', Placed::at(2, $first, 7)),
+        RecordLine::errored('/tmp/e', 'T', Placed::unplaced(7)),
+    ]));
+    $files = Paths::of(Path::of('tests/MoneyTest.php'));
+    $prefix = static fn(string $id): Prefix|NotGiven => $records instanceof Records
+        ? $records->runOf($mutant($id, '/p/src/Money.php', 10))->prefix($files)
+        : NotGiven::value();
+
+    expect($prefix('a'))->toEqual(Prefix::keyedAt(2, Prefix::keyOf($files, $last)))
+        ->and($prefix('b'))->toBeInstanceOf(NotGiven::class)
+        ->and($prefix('c'))->toBeInstanceOf(NotGiven::class)
+        ->and($prefix('d'))->toBeInstanceOf(NotGiven::class)
+        ->and($prefix('e'))->toEqual(Prefix::at(2));
+});
+
+it('reads a killer line that names no process, as an earlier plugin wrote it, as one whose run cannot be told apart', function () use ($results, $planned, $mutant): void {
+    $records = Records::in($results([
+        $planned('a', '/p/src/Money.php', 10),
+        '{"event":"killed","mutated":"/tmp/a","test":"T::adds","at":1}',
+    ]));
+
+    expect($records instanceof Records ? $records->runOf($mutant('a', '/p/src/Money.php', 10))->prefix(Paths::none()) : null)
+        ->toBeInstanceOf(NotGiven::class)
+        ->and($records instanceof Records ? count($records->runOf($mutant('a', '/p/src/Money.php', 10))->killers()) : 0)->toBe(1);
+});
+
+it('refuses a killer line placed before the first test or by an order that is not a SHA-256 digest', function () use ($results, $planned): void {
+    $why = static function (string $line) use ($results, $planned): string {
+        $read = Records::in($results([$planned('a', '/p/src/Money.php', 10), $line]));
+
+        return $read instanceof CannotJudge ? $read->why() : '';
+    };
+
+    expect($why(RecordLine::killed('/tmp/a', 'T::adds', Placed::at(0, str_repeat('a', 64), 7))))
+        ->toEndWith('the record.at is not a position, which counts from one.')
+        ->and($why(RecordLine::errored('/tmp/a', 'T::adds', Placed::at(1, str_repeat('A', 64), 7))))
+        ->toEndWith('the record.order is not a SHA-256 digest in lowercase hex.')
+        ->and($why(RecordLine::killed('/tmp/a', 'T::adds', Placed::at(1, str_repeat('a', 63), 7))))
+        ->toEndWith('the record.order is not a SHA-256 digest in lowercase hex.');
+});
+
+it('gives how a mutant\'s own process ended where one ending is recorded for its copy, and none where two or none are', function () use ($results, $planned, $mutant): void {
+    $records = Records::in($results([
+        $planned('a', '/p/src/Money.php', 10),
+        RecordLine::ended('/tmp/a', Ended::of(255, signalled: false, printed: 'PHP Fatal error')),
+        RecordLine::ended('/tmp/b', Ended::of(NotGiven::value(), NotGiven::value(), 'first')),
+        RecordLine::ended('/tmp/b', Ended::of(1, signalled: false, printed: 'second')),
+    ]));
+    $ended = static fn(string $id): Ended|NotGiven => $records instanceof Records
+        ? $records->runOf($mutant($id, '/p/src/Money.php', 10))->ended()
+        : NotGiven::value();
+
+    expect($ended('a'))->toEqual(Ended::of(255, signalled: false, printed: 'PHP Fatal error'))
+        ->and($ended('b'))->toBeInstanceOf(NotGiven::class)
+        ->and($ended('c'))->toBeInstanceOf(NotGiven::class);
+});
+
+it('reads an ending with no code or signal as one whose code and signal are not known, and refuses one whose signal is not true or false', function () use ($results, $planned, $mutant): void {
+    $records = Records::in($results([
+        $planned('a', '/p/src/Money.php', 10),
+        '{"event":"ended","mutated":"/tmp/a","printed":"out"}',
+    ]));
+    $refused = Records::in($results([
+        $planned('a', '/p/src/Money.php', 10),
+        '{"event":"ended","mutated":"/tmp/a","signalled":"no","printed":"out"}',
+    ]));
+
+    expect($records instanceof Records ? $records->runOf($mutant('a', '/p/src/Money.php', 10))->ended() : null)
+        ->toEqual(Ended::of(NotGiven::value(), NotGiven::value(), 'out'))
+        ->and($refused instanceof CannotJudge ? $refused->why() : '')->toContain('the record.signalled is not');
+});
+
+it('knows a mutant that shares its mutated copy with another, whose own runs cannot be told apart', function () use ($results, $planned, $mutant): void {
+    $records = Records::in($results([
+        $planned('a', '/p/src/Money.php', 10),
+        RecordLine::planned(PlannedMutant::of('b', DiskPath::of('/p/src/Money.php'), Line::of(10), Line::of(11), PlusToMinus::class, 'diff', DiskPath::of('/tmp/a'))),
+        $planned('c', '/p/src/Money.php', 30),
+    ]));
+
+    expect($records instanceof Records && $records->sharesItsCopy($mutant('a', '/p/src/Money.php', 10)))->toBeTrue()
+        ->and($records instanceof Records && $records->sharesItsCopy($mutant('c', '/p/src/Money.php', 30)))->toBeFalse();
 });

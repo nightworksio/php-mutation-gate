@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
@@ -176,6 +177,7 @@ final readonly class RunnerFake implements Runner
     public function mutate(MutationRequest $request): MutationResult
     {
         $found = Mutants::none();
+        $evidence = Evidences::none();
 
         foreach ($this->library as $mutant) {
             $file = $mutant->location()->file();
@@ -183,12 +185,15 @@ final readonly class RunnerFake implements Runner
             $asked = $this->within($file, $request->files()) && ! $this->within($file, $request->leftOut());
 
             if ($asked && $this->applies($request->narrowing()->mutators(), $mutant)) {
-                $found = $found->with($this->judged($mutant, $request->judgedBy()));
+                $judged = $this->judged($mutant, $request->judgedBy());
+                $found = $found->with($judged);
+                $evidence = $evidence->with($judged->id(), FakeKill::evidenceOf($judged));
             }
         }
 
         return MutationResult::of($found, 0)
-            ->withSteps(StepTimes::of(StepTime::of(Step::Mutation, Seconds::of(0.0), Seconds::of(0.0), count($found))));
+            ->withSteps(StepTimes::of(StepTime::of(Step::Mutation, Seconds::of(0.0), Seconds::of(0.0), count($found))))
+            ->withEvidence($evidence);
     }
 
     public function retry(MutationRequest $request, Mutants $mutants, Seconds $limit): Mutants

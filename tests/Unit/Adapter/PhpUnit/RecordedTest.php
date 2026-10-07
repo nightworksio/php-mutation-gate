@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Outcome;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Recorded;
+use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
+use NightWorksIO\MutationGate\Core\Mutant\Prefix;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -90,3 +94,29 @@ it('names each selected test of a class whose setUpBeforeClass failed a killer, 
         ->and($recorded->ranAny())->toBeTrue()
         ->and($recorded->skippedEach())->toBeFalse();
 });
+
+it('says where its first killer stood in the order its tests started, keyed by that order up to its last killer', function (): void {
+    $recorded = recordedFrom(implode('', [
+        Outcome::Started->line('T::passes'),
+        Outcome::Passed->line('T::passes'),
+        Outcome::Started->line('T::fails'),
+        Outcome::Failed->line('T::fails'),
+        Outcome::Started->line('T::also'),
+        Outcome::Passed->line('T::also'),
+        Outcome::Started->line('T::dies'),
+        Outcome::Started->line('T::after'),
+        Outcome::Passed->line('T::after'),
+    ]));
+
+    expect($recorded->prefix())->toEqual(
+        Prefix::keyedAt(2, Prefix::keyOf(Paths::none(), OrderDigest::of(TestId::of('T::passes'), TestId::of('T::fails'), TestId::of('T::also'), TestId::of('T::dies'))->value())),
+    );
+});
+
+it('gives no prefix where no killer started, as one whose class failed before it, or none killed', function (string $lines): void {
+    expect(recordedFrom($lines, TestId::of('C::selected'))->prefix())->toEqual(NotGiven::value());
+})->with([
+    'a class that failed before its tests' => [Outcome::ClassFailed->line('C')],
+    'every test passed' => [implode('', [Outcome::Started->line('T::passes'), Outcome::Passed->line('T::passes')])],
+    'no line' => [''],
+]);

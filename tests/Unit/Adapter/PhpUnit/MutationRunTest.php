@@ -21,6 +21,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
+use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
@@ -307,4 +309,33 @@ it('judges no mutant after a batch whose runs could not all start by the deadlin
 
     expect($shell->batches())->toBe([16])
         ->and($result instanceof MutationResult ? [count($result->mutants()), $result->skipped()] : [])->toBe([3, 14]);
+});
+
+it('gives each kill a fresh run made how far its run went, from the test its results file says started', function () use ($covered): void {
+    $root = library();
+    $project = Project::at($root, Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'));
+    $shell = new PhpUnitShellFake(static function (Command $command): Ran {
+        file_put_contents($command->environment()[Variable::Results->value], "started Tests%5CMoneySpec%3A%3Aadds\nfailed Tests%5CMoneySpec%3A%3Aadds\n");
+        file_put_contents($command->environment()[Variable::Guard->value], "served\n");
+
+        return Ran::finished(succeeded: false, output: '')->took(Seconds::of(0.2));
+    });
+    $invocation = new Invocation($project, '/gate/override.php');
+    $judging = new MutantRun($project, $shell, $invocation, new TestFiles($project), PhpUnitScan::uncapped($project), NotGiven::value());
+    $run = new MutationRun(
+        $project,
+        Engine::with(new PlusToMinus(), new RemoveEcho()),
+        $judging,
+        new Workforce($project, $shell, $invocation, PhpUnitScan::uncapped($project), $judging),
+        Laps::from(new WallClock()->seconds(...)),
+    );
+
+    $result = $run->of(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $covered, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
+    $prefixes = $result instanceof MutationResult
+        ? array_map(static fn(Mutant $mutant): Prefix|NotGiven => $result->evidence()->of($mutant->id())->prefix(), [...$result->mutants()])
+        : [];
+    $expected = Prefix::keyedAt(1, Prefix::keyOf(Paths::none(), OrderDigest::of(TestId::of('Tests\MoneySpec::adds'))->value()));
+
+    expect(judgedMutants($result))->toBe([['src/Money.php', 'acme/RemoveEcho', 'killed'], ['src/Money.php', 'acme/PlusToMinus', 'killed']])
+        ->and($prefixes)->toEqual([$expected, $expected]);
 });

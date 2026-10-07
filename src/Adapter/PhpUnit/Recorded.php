@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
+use function array_slice;
 use function count;
 use function explode;
 use function file;
 use function is_array;
 use function is_file;
 
+use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
+use NightWorksIO\MutationGate\Core\Mutant\Prefix;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestMethod;
@@ -89,6 +94,31 @@ final readonly class Recorded
     public function creditedFailures(): TestIds
     {
         return $this->failed->among($this->selected);
+    }
+
+    /**
+     * Where the first of its killers stood in the order its tests started,
+     * from one, keyed by that order up to the last of them (ADR-0014,
+     * decision 16); none where no killer started, as one a failed
+     * `setUpBeforeClass` errored does not.
+     */
+    public function prefix(): Prefix|NotGiven
+    {
+        $killers = $this->killers();
+        $order = [];
+        $first = 0;
+        $last = 0;
+
+        foreach ($this->started as $test) {
+            $order[] = $test;
+            $killed = $killers->has($test);
+            $first = $killed && $first === 0 ? count($order) : $first;
+            $last = $killed ? count($order) : $last;
+        }
+
+        $digest = OrderDigest::of(...array_slice($order, 0, $last))->value();
+
+        return $first === 0 ? NotGiven::value() : Prefix::keyedAt($first, Prefix::keyOf(Paths::none(), $digest));
     }
 
     /** Whether any test started or finished. */
