@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Composer\Package;
 use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
@@ -998,18 +999,19 @@ it('judges a mutant whose covering class takes longer than timeouts.seconds, ski
 function withPatchedInfection(Closure $then): MutationResult|CannotJudge
 {
     $vendor = Tree::at(sprintf('%s/vendor', Library::INFECTION_DIRECTORY));
-    $kept = array_map(
-        static fn(string $file): string => (string) file_get_contents(sprintf('%s/infection/infection/src/%s', $vendor, $file)),
-        InfectionSource::FILES,
-    );
+    $files = [
+        ...array_map(static fn(string $file): string => sprintf('%s/infection/infection/src/%s', $vendor, $file), InfectionSource::FILES),
+        sprintf('%s/infection/include-interceptor/src/%s', $vendor, InfectionSource::INTERCEPTOR),
+    ];
+    $kept = array_map(static fn(string $file): string => (string) file_get_contents($file), $files);
 
     try {
         $patched = InfectionPatch::applyIn($vendor);
 
         return $patched instanceof CannotJudge ? $patched : $then();
     } finally {
-        foreach (InfectionSource::FILES as $at => $file) {
-            file_put_contents(sprintf('%s/infection/infection/src/%s', $vendor, $file), $kept[$at]);
+        foreach ($files as $at => $file) {
+            file_put_contents($file, $kept[$at]);
         }
     }
 }
@@ -1078,6 +1080,39 @@ it('stops a mutant\'s run at the lower floor timeouts.tighter gives its mutator,
         ->and(tighterSilenced($result)[0][2])->toBe(Reason::silent(Seconds::of(7.0))->text());
 })->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 
+// A test that stats a dangling link reads it alike through patched
+// Infection's include-interceptor and without it, so the loop's < made <=,
+// which looks twice and finds the link as before, survives, and the loop's
+// start raised to 1, which never looks, is killed.
+it('stats a dangling link through patched Infection\'s interceptor as PHP does, so a test of one kills only a mutant that changes what it finds', function (): void {
+    $files = ['src/Linked.php' => 'interceptor/Linked.php', 'tests/LinkedSpec.php' => 'interceptor/LinkedSpec.php'];
+
+    foreach ($files as $into => $from) {
+        copy(Tree::at(sprintf('tests/Contract/Runner/%s', $from)), Tree::at(sprintf('%s/%s', Library::INFECTION_DIRECTORY, $into)));
+    }
+
+    $library = Library::infectionWithin(Triage::standard()->bounds());
+    $request = MutationRequest::of(Paths::of(Path::of('src/Linked.php')), WholeSuite::tests())
+        ->narrowedTo(Paths::of(Path::of('src/Linked.php')), Narrowing::none()->toMutators(Mutators::named('IncrementInteger', 'LessThan')));
+
+    try {
+        $result = withPatchedInfection(static fn(): MutationResult|CannotJudge => $library->runner()->mutate($request));
+    } finally {
+        foreach (array_keys($files) as $into) {
+            unlink(Tree::at(sprintf('%s/%s', Library::INFECTION_DIRECTORY, $into)));
+        }
+    }
+
+    $loop = array_values(array_filter(
+        $result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false) : [],
+        static fn(Mutant $mutant): bool => $mutant->location()->start()->number() === 16,
+    ));
+    $judged = array_map(static fn(Mutant $mutant): array => [$mutant->mutation()->mutator(), $mutant->status()], $loop);
+    usort($judged, static fn(array $one, array $other): int => $one[0] <=> $other[0]);
+
+    expect($judged)->toBe([['IncrementInteger', MutantStatus::Killed], ['LessThan', MutantStatus::Survived]]);
+})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
+
 it('runs, patched, a mutant Infection skips unpatched at timeouts.most, and times it out at the most', function (): void {
     $library = Library::infectionWithin(LimitBounds::between(Seconds::of(1.0), Seconds::of(1.0)));
     $request = MutationRequest::of(Paths::of(Path::of('src/Slow.php')), WholeSuite::tests())
@@ -1090,18 +1125,23 @@ it('runs, patched, a mutant Infection skips unpatched at timeouts.most, and time
     ) : [$result])->toEqual([[MutantStatus::TimedOut->value, Seconds::of(1.0)]]);
 })->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 
-it('patches the Infection library\'s release, whichever its leg installed, into the files the pristine fixture of that release patches into', function (): void {
+it('patches the Infection library\'s release and its include-interceptor, whichever its leg installed, into the files the pristine fixtures of those releases patch into', function (): void {
     $release = InfectionSource::installedRelease();
+    $interceptor = InfectionSource::installedRelease(Package::IncludeInterceptor);
     $installed = InfectionSource::installed()->vendor();
-    $pristine = InfectionSource::pristine($release)->vendor();
-    $read = static fn(string $vendor): array => array_map(
-        static fn(string $file): string => (string) file_get_contents(sprintf('%s/infection/infection/src/%s', $vendor, $file)),
-        InfectionSource::FILES,
-    );
+    $pristine = InfectionSource::pristine($release, $interceptor)->vendor();
+    $read = static fn(string $vendor): array => [
+        ...array_map(
+            static fn(string $file): string => (string) file_get_contents(sprintf('%s/infection/infection/src/%s', $vendor, $file)),
+            InfectionSource::FILES,
+        ),
+        (string) file_get_contents(sprintf('%s/infection/include-interceptor/src/%s', $vendor, InfectionSource::INTERCEPTOR)),
+    ];
 
     expect(Release::tryFrom($release))->toBeInstanceOf(Release::class)
-        ->and(InfectionPatch::applyIn($installed))->toBe('infection:patch patched 3 of the 3 files it changes in infection.')
-        ->and(InfectionPatch::applyIn($pristine))->toBe('infection:patch patched 3 of the 3 files it changes in infection.')
+        ->and(array_key_exists($interceptor, InfectionSource::INTERCEPTOR_SHIPS_AS))->toBeTrue()
+        ->and(InfectionPatch::applyIn($installed))->toBe('infection:patch patched 3 of the 3 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.')
+        ->and(InfectionPatch::applyIn($pristine))->toBe('infection:patch patched 3 of the 3 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.')
         ->and($read($installed))->toBe($read($pristine));
 })->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 

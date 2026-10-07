@@ -27,7 +27,7 @@ it('patches Infection in the vendor directory and says so', function (): void {
 
     expect($tester->execute([]))->toBe(0)
         ->and(Printed::by($tester->getOutput()))
-        ->toBe("infection:patch patched 3 of the 3 files it changes in infection.\n");
+        ->toBe("infection:patch patched 3 of the 3 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.\n");
 });
 
 it('fails the install, with the reason on its error output, when it cannot patch', function (): void {
