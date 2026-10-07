@@ -37,14 +37,15 @@ final readonly class TimeoutTriage
      * tests take on their own, as a coverage map measured them: the tests
      * covering its lines, and of a held unit only those that hold it, the
      * tests its run selected. Where one of them was not measured, its time
-     * stays unknown.
+     * stays unknown. A mutant whose run already timed its own tests on their
+     * own, unmutated, as a trial does, keeps that time.
      */
     public static function timed(Mutants $mutants, CoverageMap $map, HeldCovered $held): Mutants
     {
         $timed = [];
 
         foreach ($mutants as $mutant) {
-            $time = $mutant->status()->ranOutOfTime()
+            $time = $mutant->status()->ranOutOfTime() && ! $mutant->unmutatedNeed() instanceof Seconds
                 ? self::judgingTimeOf($mutant, $map, $held)
                 : Unmeasured::duration();
             $timed[] = $time instanceof Seconds ? $mutant->withUnmutatedNeed($time) : $mutant;

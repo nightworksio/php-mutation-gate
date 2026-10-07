@@ -2,20 +2,29 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
+use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
+use NightWorksIO\MutationGate\Core\Verdict\TimeoutTriage;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
+use Pest\Mutate\Mutators\Number\DecrementInteger;
 use Pest\Mutate\Mutators\Number\IncrementInteger;
 
 // A mutant on a line php-code-coverage leaves out of its map, which Pest calls
@@ -143,3 +152,51 @@ it('makes no mutant of a value outside a function, only of a parameter\'s defaul
 
     expect($judged)->toBe(['src/Unexecutable/Values.php:20' => 'killed']);
 })->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
+
+/**
+ * The trial of the mutant that makes the fixture's loop step nought, under a
+ * library: its status, whether its tests' own time unmutated was recorded
+ * under its limit's own multiple, and what timeout triage makes of it.
+ *
+ * @return array{MutantStatus, bool, MutantJudgement}|list<never>
+ */
+function unexecutablePaced(Library $library): array
+{
+    $files = Paths::of(Path::of('src/Unexecutable/Paced.php'));
+    $request = MutationRequest::of($files, WholeSuite::tests())
+        ->narrowedTo($files, Narrowing::none()->toMutators(Mutators::named(DecrementInteger::class)));
+    $result = $library->runner()->mutate($request);
+    $paced = array_values(array_filter(
+        $result instanceof MutationResult ? [...$result->mutants()] : [],
+        static fn(Mutant $mutant): bool => $mutant->location()->start()->number() === 10,
+    ));
+    $need = $paced === [] ? Unmeasured::duration() : $paced[0]->unmutatedNeed();
+    $limit = $paced === [] ? Unmeasured::duration() : $paced[0]->limit();
+
+    return $paced === [] ? [] : [
+        $paced[0]->status(),
+        $need instanceof Seconds && $limit instanceof Seconds && $need->seconds() * 3 < $limit->seconds(),
+        TimeoutTriage::under(TimeoutMode::Confirm)->judged($paced[0]),
+    ];
+}
+
+// The step is a constant, which coverage cannot see run, so its mutant runs
+// as a trial. Its test passes on their own in a fraction of a second, and
+// with the step made nought it never ends: the trial records the time its
+// test took on its own, and timeout triage kills it by that time.
+it('records the time a trial\'s tests took on their own, unmutated, so a trial that hangs is killed by timeout', function (): void {
+    $library = Library::pestWithin(Patching::off(), LimitBounds::between(Seconds::of(1.0), Seconds::of(300.0)), 'pest unpatched, paced');
+
+    expect(unexecutablePaced($library))->toBe([MutantStatus::TimedOut, true, MutantJudgement::KilledByTimeout]);
+})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+
+it('records the time a trial\'s tests took on their own, unmutated, with patched Pest', function (): void {
+    Patch::applyIn(Library::vendor());
+    $library = Library::pestWithin(
+        Patching::on(Library::canary()),
+        LimitBounds::between(Seconds::of(1.0), Seconds::of(300.0)),
+        'pest patched, paced',
+    );
+
+    expect(unexecutablePaced($library))->toBe([MutantStatus::TimedOut, true, MutantJudgement::KilledByTimeout]);
+})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');

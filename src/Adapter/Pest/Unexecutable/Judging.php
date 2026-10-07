@@ -25,7 +25,6 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
-use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
@@ -33,7 +32,6 @@ use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\Filter;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
 use function strval;
@@ -140,7 +138,7 @@ final readonly class Judging
         }
 
         foreach ($this->tried($thens, $mutants, $selector, $trial, $results) as $at => $outcome) {
-            $mutants[$at] = $this->judged($mutants[$at], $outcome);
+            $mutants[$at] = $outcome->judging($mutants[$at]);
         }
 
         return array_values($mutants);
@@ -244,26 +242,5 @@ final readonly class Judging
         $source = $original->source();
 
         return $selector->judging($source, $source->changedAt($original->printed(), Contents::of($text)));
-    }
-
-    /** The mutant as an outcome judges it, with the limit its run was allowed where it ran out of time. */
-    private function judged(Mutant $mutant, Outcome $outcome): Mutant
-    {
-        $limit = $outcome->limit();
-        $judged = Mutant::of(
-            $mutant->id(),
-            $mutant->nativeId(),
-            $mutant->location(),
-            $mutant->mutation(),
-            $outcome->status(),
-            $outcome->duration(),
-        );
-        $reason = $outcome->reason();
-
-        return match (true) {
-            $reason instanceof Reason => $judged->because($reason),
-            $outcome->status()->ranOutOfTime() && $limit instanceof Seconds => $judged->withLimit($limit),
-            default => $judged,
-        };
     }
 }

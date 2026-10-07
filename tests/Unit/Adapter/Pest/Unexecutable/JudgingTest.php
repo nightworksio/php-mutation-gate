@@ -308,3 +308,25 @@ it('leaves unjudged a mutant of a file that no longer parses, so cannot be print
         ->toBe(['rate' => 'unjudged src/Money.php does not parse, so its mutant cannot be printed as Pest prints it: Syntax error, unexpected EOF on line 3'])
         ->and($shell->commands())->toBe([]);
 });
+
+it('gives a mutant that timed out the time its tests took on their own, unmutated, as the JUnit log of that run says', function () use ($money): void {
+    $at = Unexecutables::project();
+    $results = Unexecutables::run($at, ['rate']);
+    $shell = new ShellFake(static function (Command $command, int $before): Ran {
+        foreach ($command->arguments() as $argument) {
+            $log = str_starts_with($argument, '--log-junit=') ? mb_substr($argument, mb_strlen('--log-junit=')) : '';
+
+            if ($log !== '' && $before === 0) {
+                file_put_contents($log, '<testsuites><testcase name="a" time="0.3"/><testcase name="b" time="0.2"/></testsuites>');
+            }
+        }
+
+        return $before === 0 ? Ran::finished(succeeded: true, output: '') : Ran::stopped('');
+    });
+    $judged = new Judging($at, $shell, new CapDirectory(), Triage::standard()->bounds())
+        ->of(judgingResult('rate'), $money, $results, judgingCoverage($results));
+    $mutants = $judged instanceof MutationResult ? iterator_to_array($judged->mutants(), preserve_keys: false) : [];
+
+    expect(array_map(static fn(Mutant $mutant): array => [$mutant->status(), $mutant->limit(), $mutant->unmutatedNeed()], $mutants))
+        ->toEqual([[MutantStatus::TimedOut, Seconds::of(10.0), Seconds::of(0.5)]]);
+});

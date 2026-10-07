@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShellFake;
 
@@ -358,3 +359,28 @@ it('judges nothing, and runs nothing, where the file the tests judge cannot be s
     'gone' => ['src/Gone.php', 'The gate cannot read src/Gone.php to serve it unmutated.'],
     'no longer parsing' => ['src/Broken.php', 'src/Broken.php does not parse'],
 ]);
+
+it('says of a mutant its tests that passed on their own, unmutated, took this long there, by the JUnit log of that run', function (): void {
+    $at = trialProject();
+    $log = sprintf('%s/0/junit.xml', $at->root());
+    $shell = new ShellFake(static function (Command $command) use ($log): Ran {
+        $mutated = ($command->environment()['PEST_MUTATION_FILE'] ?? '') === '/c';
+        file_put_contents($log, $mutated ? '<testsuites/>' : <<<'XML'
+            <testsuites><testsuite name="T" time="9.0">
+              <testcase name="it adds" file="tests/A.php::it adds" time="0.25"/>
+              <testcase name="it subtracts" file="tests/A.php::it subtracts" time="0.5"/>
+            </testsuite></testsuites>
+            XML);
+
+        return $mutated ? Ran::stopped('') : Ran::finished(succeeded: true, output: '');
+    });
+    $tests = Paths::of(Path::of('tests/A.php'));
+
+    $outcome = trialOf($at, $shell)->of($tests, Path::of('src/Money.php'), '/c', Seconds::of(6.0));
+    $again = trialOf($at, new ShellFake(trialAnswering('', Ran::stopped(''))))
+        ->of($tests, Path::of('src/Money.php'), '/c', Seconds::of(6.0));
+
+    expect($outcome->status())->toBe(MutantStatus::TimedOut)
+        ->and($outcome->need())->toEqual(Seconds::of(0.75))
+        ->and($again->need())->toEqual(Unmeasured::duration());
+});
