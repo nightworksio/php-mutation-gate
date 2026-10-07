@@ -61,6 +61,9 @@ final class OwnRuns
     /** @var array<string, list<Ended>> how each failed own run ended, as Pest's parent saw it, by its copy */
     private array $ended = [];
 
+    /** @var array<string, true> each mutated copy whose own runs PHP recorded a fatal error in */
+    private array $fatal = [];
+
     /** What the own runs on this mutated copy recorded. */
     public function of(string $mutated): OwnRun
     {
@@ -131,6 +134,16 @@ final class OwnRuns
         );
     }
 
+    /**
+     * That PHP recorded a fatal error in an own run, as its error log says.
+     *
+     * @throws NotInShape
+     */
+    public function fatal(Node $record): void
+    {
+        $this->fatal[$this->mutatedIn($record)] = true;
+    }
+
     /** @throws NotInShape */
     public function exhausted(Node $record): void
     {
@@ -184,13 +197,21 @@ final class OwnRuns
 
     /**
      * How the own runs on a copy ended, where exactly one ending is
-     * recorded for it: of two, which run ended how cannot be told.
+     * recorded for it: of two, which run ended how cannot be told. A fatal
+     * error PHP recorded in a run on it goes with that ending, or, where Pest
+     * recorded none, stands alone, its code and signal not known.
      */
     private function endingOf(string $mutated): Ended|NotGiven
     {
         $endings = array_key_exists($mutated, $this->ended) ? $this->ended[$mutated] : [];
+        $fatal = array_key_exists($mutated, $this->fatal);
 
-        return count($endings) === 1 ? $endings[0] : NotGiven::value();
+        return match (true) {
+            count($endings) === 1 => $fatal ? $endings[0]->withFatal(fatal: true) : $endings[0],
+            count($endings) === 0 && $fatal
+                => Ended::unprinted(NotGiven::value(), NotGiven::value())->withFatal(fatal: true),
+            default => NotGiven::value(),
+        };
     }
 
     /**

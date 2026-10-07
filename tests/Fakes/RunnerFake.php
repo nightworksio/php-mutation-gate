@@ -108,21 +108,22 @@ final readonly class RunnerFake implements Runner
     /** The runner over the contract suite's fixture library, which knows each change's mutant. */
     public static function ofTheFixture(): self
     {
+        $map = CoverageMap::empty()
+            ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'))
+            ->covered(Path::of('src/Money.php'), Line::of(27), TestId::of('MoneyTest::adds'))
+            ->covered(Path::of('src/Held.php'), Line::of(11), TestId::of('HeldTest::doubles'))
+            ->timed(TestId::of('MoneyTest::adds'), Seconds::of(0.2));
         $mutants = Mutants::none();
 
         foreach (Library::CHANGES as $name => $change) {
             [$mutator, $family] = Library::FAKE[$name];
-            $mutants = $mutants->with(self::mutant($change, $mutator, $family));
+            $mutants = $mutants->with(self::mutant($change, $mutator, $family, $map));
         }
 
         return new self(
             Identity::of('fake', Versions::of(Version::of('fake/runner', '1.0.0', 'abc123')), Digest::of('php')),
             Groups::of(Group::named('holds:src/Held.php'), Group::named(Library::CANARY)),
-            CoverageMap::empty()
-                ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('MoneyTest::adds'))
-                ->covered(Path::of('src/Money.php'), Line::of(27), TestId::of('MoneyTest::adds'))
-                ->covered(Path::of('src/Held.php'), Line::of(11), TestId::of('HeldTest::doubles'))
-                ->timed(TestId::of('MoneyTest::adds'), Seconds::of(0.2)),
+            $map,
             $mutants,
             Paths::of(Path::of('tests/DrainSpec.php'), Path::of('tests/MoneySpec.php')),
             Paths::of(Path::of('tests/Pest.php'), Path::of('phpunit.xml')),
@@ -286,8 +287,12 @@ final readonly class RunnerFake implements Runner
             : CannotJudge::because(sprintf('%s holds no project the fake runner can run.', $package->value()));
     }
 
-    /** @param array{file: string, line: int, removed: string, added: string, status: MutantStatus} $change */
-    private static function mutant(array $change, string $mutator, MutatorFamily $family): Mutant
+    /**
+     * The mutant of a change, a kill naming the tests the map says cover its line.
+     *
+     * @param array{file: string, line: int, removed: string, added: string, status: MutantStatus} $change
+     */
+    private static function mutant(array $change, string $mutator, MutatorFamily $family, CoverageMap $map): Mutant
     {
         $file = Path::of($change['file']);
         $line = Line::of($change['line']);
@@ -302,7 +307,18 @@ final readonly class RunnerFake implements Runner
             $change['status'] === MutantStatus::Uncovered ? Unmeasured::duration() : Seconds::of(0.1),
         );
 
-        return $change['status'] === MutantStatus::TimedOut ? $mutant->withLimit(Seconds::of(5.0)) : $mutant;
+        return match ($change['status']) {
+            MutantStatus::Killed => $mutant->killedBy($map->testsCovering($file, $line)),
+            MutantStatus::TimedOut => $mutant->withLimit(Seconds::of(5.0)),
+            MutantStatus::KilledByStaticAnalysis,
+            MutantStatus::Survived,
+            MutantStatus::Uncovered,
+            MutantStatus::Errored,
+            MutantStatus::Unjudged,
+            MutantStatus::IgnoredByMarker,
+            MutantStatus::Skipped,
+            MutantStatus::OutOfMemory => $mutant,
+        };
     }
 
     /** A mutant as its judging tests see it: a group that does not hold its file runs no test on it. */

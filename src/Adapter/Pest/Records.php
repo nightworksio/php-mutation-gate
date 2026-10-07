@@ -228,6 +228,7 @@ final class Records
             RecordEvent::Killed => $this->runs->killed($record),
             RecordEvent::Errored => $this->runs->errored($record),
             RecordEvent::Exhausted => $this->runs->exhausted($record),
+            RecordEvent::Fatal => $this->runs->fatal($record),
             RecordEvent::Preloaded => $this->runs->preloaded($record),
             RecordEvent::Narrowed => $this->runs->narrowed($record),
             RecordEvent::Limited => $this->runs->limited($record),

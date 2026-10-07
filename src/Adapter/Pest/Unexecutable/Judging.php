@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Shell;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
@@ -95,11 +96,12 @@ final readonly class Judging
             sprintf(self::TRIALS, dirname($results)),
             $scan,
             WorkerSlots::of($request->pool()->processes(), strval(getmypid())),
+            $request->search()->matrix(),
         );
-        $mutants = $this->judgedEach([...$result->mutants()], $selector, $trial, $results);
+        [$mutants, $evidence] = $this->judgedEach([...$result->mutants()], $selector, $trial, $results);
         $scan->remove();
 
-        return $result->withMutants(Mutants::of(...$mutants));
+        return $result->withMutants(Mutants::of(...$mutants))->withEvidence($evidence);
     }
 
     private function leftUncovered(Mutants $mutants): bool
@@ -117,10 +119,11 @@ final readonly class Judging
      * Each mutant, each uncovered one judged where its line is not
      * executable: first by the tests that read what it changes, their trials
      * side by side, then, for each those leave alive, by the tests that cover
-     * the line, theirs side by side too.
+     * the line, theirs side by side too; and the evidence of each kill a
+     * trial made.
      *
-     * @param  list<Mutant> $mutants
-     * @return list<Mutant>
+     * @param  list<Mutant>                     $mutants
+     * @return array{list<Mutant>, Evidences}
      */
     private function judgedEach(array $mutants, Selector $selector, Trial $trial, string $results): array
     {
@@ -137,11 +140,14 @@ final readonly class Judging
             $thens[$at] = $this->then($choices[$at], $outcome, $mutants[$at]);
         }
 
+        $evidence = Evidences::none();
+
         foreach ($this->tried($thens, $mutants, $selector, $trial, $results) as $at => $outcome) {
             $mutants[$at] = $outcome->judging($mutants[$at]);
+            $evidence = $evidence->with($mutants[$at]->id(), $outcome->evidence());
         }
 
-        return array_values($mutants);
+        return [array_values($mutants), $evidence];
     }
 
     /**

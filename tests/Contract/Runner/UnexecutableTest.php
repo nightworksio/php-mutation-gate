@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -110,6 +111,21 @@ it('judges each kind of value on a line that is not executable by the tests that
     $judged = unexecutableJudged($library, unexecutableFiles(), WholeSuite::tests(), IncrementInteger::class);
 
     expect($judged)->toEqualCanonicalizing(UNEXECUTABLE_JUDGED);
+})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+
+it('names the tests that killed a mutant on a line that is not executable, as the coverage map names them', function (): void {
+    $files = Paths::of(Path::of('src/Unexecutable/Rates.php'));
+    $request = MutationRequest::of($files, WholeSuite::tests())->narrowedTo($files, Narrowing::none()->toMutators(Mutators::named(IncrementInteger::class)));
+    $result = Library::pest(Patching::off())->runner()->mutate($request);
+    $killers = [];
+
+    foreach ($result instanceof MutationResult ? $result->mutants() : [] as $mutant) {
+        $killers += $mutant->location()->start()->number() === 14
+            ? ['line 14' => array_map(static fn(TestId $test): string => $test->value(), [...$mutant->killers()])]
+            : [];
+    }
+
+    expect($killers)->toBe(['line 14' => ['P\Tests\UnexecutableSpec::__pest_evaluable_it_reads_a_constant_through_an_alias']]);
 })->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('says what a run that judged nothing did: its exit code, any test that failed, and the files it ran', function (): void {

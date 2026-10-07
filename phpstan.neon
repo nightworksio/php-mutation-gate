@@ -374,6 +374,7 @@ services:
                     - KEY # a prefix's key, not a Buildkite step's key
                     - ENDED # a field of a shard result, not the event of a Pest results file
                     - SIGNALLED # a field of a shard result, not a field of a Pest results file
+                    - FATAL # a field of a shard result, not the event of a Pest results file
                 'NightWorksIO\MutationGate\Adapter\Pest\Project':
                     - ORDER # the workspace directory of the plugin's orders, not a field of a Pest results file
                 'NightWorksIO\MutationGate\Core\Proof\ProofRecord':

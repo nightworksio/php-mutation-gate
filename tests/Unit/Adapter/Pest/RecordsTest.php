@@ -520,6 +520,24 @@ it('gives how a mutant\'s own process ended where one ending is recorded for its
         ->and($ended('c'))->toBeInstanceOf(NotGiven::class);
 });
 
+it('gives a fatal error PHP recorded in a mutant\'s own process with its ending, or alone where Pest recorded no ending', function () use ($results, $planned, $mutant): void {
+    $records = Records::in($results([
+        $planned('a', '/p/src/Money.php', 10),
+        RecordLine::ended('/tmp/a', Ended::unprinted(255, signalled: false)),
+        RecordLine::fatal('/tmp/a'),
+        RecordLine::fatal('/tmp/b'),
+        RecordLine::ended('/tmp/c', Ended::unprinted(1, signalled: false)),
+    ]));
+    $ended = static fn(string $id): Ended|NotGiven => $records instanceof Records
+        ? $records->runOf($mutant($id, '/p/src/Money.php', 10))->ended()
+        : NotGiven::value();
+
+    expect($ended('a'))->toEqual(Ended::unprinted(255, signalled: false)->withFatal(fatal: true))
+        ->and($ended('b'))->toEqual(Ended::unprinted(NotGiven::value(), NotGiven::value())->withFatal(fatal: true))
+        ->and($ended('c'))->toEqual(Ended::unprinted(1, signalled: false))
+        ->and($ended('d'))->toBeInstanceOf(NotGiven::class);
+});
+
 it('reads an ending with no code or signal as one whose code and signal are not known, keeps nothing a line says was printed, and refuses a signal that is not true or false', function () use ($results, $planned, $mutant): void {
     $records = Records::in($results([
         $planned('a', '/p/src/Money.php', 10),

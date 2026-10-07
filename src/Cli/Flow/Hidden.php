@@ -48,8 +48,6 @@ final readonly class Hidden
         $printed = $ended->printed();
         $screened = $printed instanceof NotGiven ? $printed : $secrets->screened($printed, cut: $ended->wasCut());
 
-        return $evidence->withEnded($screened instanceof NotGiven
-            ? Ended::unprinted($ended->code(), $ended->signalled())
-            : Ended::of($ended->code(), $ended->signalled(), $screened));
+        return $evidence->withEnded(Ended::screened($ended, $screened));
     }
 }

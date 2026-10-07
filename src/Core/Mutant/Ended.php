@@ -10,11 +10,14 @@ use function mb_strcut;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Format\Printable;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\FatalError;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 
 /**
  * How a killed mutant's own process ended, where the runner knows: the code
- * it exited with, whether a signal ended it, and the end of what it printed,
- * where the runner gives that. It keeps four times the tail of what was
+ * it exited with, whether a signal ended it, whether PHP recorded a fatal
+ * error in it (see FatalError), and the end of what it printed, where the
+ * runner gives that. It keeps four times the tail of what was
  * printed, and whether it cut any off, so that what a cut leaves of a secret
  * at its start can be dropped before the tail is taken (see Secrets); its
  * tail is the last 2 KiB of that, every control and format character but a
@@ -33,18 +36,59 @@ final readonly class Ended
         private bool|NotGiven $signalled,
         private string|NotGiven $printed,
         private bool $cut,
+        private bool|NotGiven $fatal,
     ) {
     }
 
     public static function of(int|NotGiven $code, bool|NotGiven $signalled, string $printed): self
     {
-        return new self($code, $signalled, self::last($printed, self::KEPT), Bytes::length($printed) > self::KEPT);
+        return new self(
+            $code,
+            $signalled,
+            self::last($printed, self::KEPT),
+            Bytes::length($printed) > self::KEPT,
+            NotGiven::value(),
+        );
+    }
+
+    /**
+     * How a run's process ended, as the gate saw it: its code, whether a
+     * signal ended it where its code is known, what it printed, and whether
+     * PHP's record of a fatal error is in that.
+     */
+    public static function ofRun(Ran $ran): self
+    {
+        $code = $ran->exitCode();
+
+        return self::of($code, $code instanceof NotGiven ? $code : $ran->endedBySignal(), $ran->output())
+            ->withFatal(FatalError::in($ran->output()));
     }
 
     /** A process that ended so, with nothing of what it printed. */
     public static function unprinted(int|NotGiven $code, bool|NotGiven $signalled): self
     {
-        return new self($code, $signalled, NotGiven::value(), cut: false);
+        return new self($code, $signalled, NotGiven::value(), cut: false, fatal: NotGiven::value());
+    }
+
+    /** This ending, of a process in which PHP recorded a fatal error, or recorded none, as the runner read it. */
+    public function withFatal(bool $fatal): self
+    {
+        return clone($this, ['fatal' => $fatal]);
+    }
+
+    /**
+     * An ending, keeping of what it printed only what a screen for secrets
+     * kept (see Secrets): all of it, as text a terminal shows safely, or none.
+     */
+    public static function screened(self $ended, string|NotGiven $kept): self
+    {
+        return clone($ended, ['printed' => $kept, 'cut' => false]);
+    }
+
+    /** Whether PHP recorded a fatal error in the process, where the runner can tell. */
+    public function fatal(): bool|NotGiven
+    {
+        return $this->fatal;
     }
 
     /**

@@ -82,10 +82,13 @@ interface Runner
 
     /**
      * Every mutant's result for the requested files, judged by the tests the
-     * request names, and how many were skipped with no record. A runner may
-     * give the evidence of its kills, as far as it saw it run, through
-     * `MutationResult::withEvidence()`, leaving out what it cannot tell; the
-     * evidence judges nothing (ADR-0014, decision 16).
+     * request names, and how many were skipped with no record. A runner
+     * names the tests that killed each mutant it kills, and gives the evidence
+     * of its kills, as far as it saw it run, through
+     * `MutationResult::withEvidence()`, leaving out what it cannot tell
+     * (ADR-0014, decision 16). A kill that names no killer stands only where
+     * its ending says a signal or a fatal error PHP recorded ended it, and is
+     * unjudged otherwise (ADR-0014, decision 17).
      */
     public function mutate(MutationRequest $request): MutationResult|CannotJudge;
 

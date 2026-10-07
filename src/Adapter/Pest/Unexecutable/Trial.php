@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Unexecutable;
 
 use function array_key_exists;
 use function array_keys;
+use function array_slice;
 use function array_values;
 use function count;
 use function file_get_contents;
@@ -28,6 +29,8 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
+use NightWorksIO\MutationGate\Core\Mutant\Ended;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -35,6 +38,7 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\JUnitLog;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -57,7 +61,10 @@ use function sprintf;
  * original before the override, never loaded it, or ran where opcache could
  * serve a cached original, judges nothing, and the reason says what the run
  * did (see Evidence), from what it printed and the JUnit log it writes beside
- * the guard.
+ * the guard. A kill names as its killer the first test that log says
+ * failed or errored, or every one under a full kill matrix (see
+ * JUnitKillers), and gives how its run ended where it names none (ADR-0014,
+ * decision 17).
  */
 final class Trial
 {
@@ -100,6 +107,7 @@ final class Trial
         private readonly string $directory,
         private readonly MemoryScan $scan,
         private readonly WorkerSlots $slots,
+        private readonly MatrixKind $matrix = MatrixKind::FirstKiller,
     ) {
     }
 
@@ -260,6 +268,18 @@ final class Trial
         return sprintf('%s/%s', $this->directoryOf($position), self::GUARD);
     }
 
+    /**
+     * The tests the JUnit log of a run at a position in the batch says failed
+     * or errored: the first of them, or every one where the run records a full
+     * kill matrix, as Pest's own mutants name theirs.
+     */
+    private function killersAt(int $position): TestIds
+    {
+        $killers = [...JUnitKillers::in($this->logOf($position))];
+
+        return TestIds::of(...$this->matrix === MatrixKind::Full ? $killers : array_slice($killers, 0, 1));
+    }
+
     /** The JUnit log a run at a position in the batch writes, beside its guard. */
     private function logOf(int $position): string
     {
@@ -278,7 +298,7 @@ final class Trial
 
         return match (true) {
             is_string($text) => $this->read(Node::decode($text), $ran, $trial, $position),
-            $ran->endedBySignal() => Outcome::killed(),
+            $ran->endedBySignal() => Outcome::killed($this->killersAt($position), Ended::ofRun($ran)),
             default => $this->unjudged(self::UNGUARDED, $ran, $trial->tests(), $position),
         };
     }
@@ -298,7 +318,7 @@ final class Trial
                 ),
                 ! $seen->field('loaded')->boolean() => $this->unjudged(self::NEVER, $ran, $tests, $position),
                 $ran->succeeded() => Outcome::survived(),
-                default => Outcome::killed(),
+                default => Outcome::killed($this->killersAt($position), Ended::ofRun($ran)),
             };
         } catch (NotInShape) {
             return $this->unjudged(self::UNGUARDED, $ran, $tests, $position);

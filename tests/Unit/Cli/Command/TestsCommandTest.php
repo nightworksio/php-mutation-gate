@@ -28,7 +28,7 @@ it('prints the tests report of the last run, running nothing, and exits 0 whatev
         ->and($reported->errors)->toBe('')
         ->and($reported->output)->toBe(<<<'SAID'
             Tests mutation cannot see
-            This judges mutation kills only, and never fails anything. One test judged no mutant with a known result, so it is not assessed.
+            This judges mutation kills only, and never fails anything.
 
             Kills nothing it covers (1)
               tests/HeldTest.php::it doubles  judged 1

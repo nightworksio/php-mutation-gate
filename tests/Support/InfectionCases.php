@@ -103,10 +103,17 @@ final readonly class InfectionCases
         };
     }
 
-    /** @return Lists */
+    /**
+     * Infection's lists with one kill, of line 11 of src/Money.php, whose
+     * output names its killer as PHPUnit lists a failure.
+     *
+     * @return Lists
+     */
     public static function killed(Project $at, string $mutator = 'Plus'): array
     {
-        return ['killed' => [InfectionRun::entry($mutator, sprintf('%s/src/Money.php', $at->root()), 11, '$a + $b', '$a - $b')]];
+        $entry = InfectionRun::entry($mutator, sprintf('%s/src/Money.php', $at->root()), 11, '$a + $b', '$a - $b');
+
+        return ['killed' => [[...$entry, 'processOutput' => "There was 1 failure:\n\n1) Tests\\MoneyTest::adds\nFailed asserting that -1 is identical to 3.\n"]]];
     }
 
     /** @return list<list<string>> each command's arguments, without the PHP that runs it */

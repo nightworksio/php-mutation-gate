@@ -8,10 +8,12 @@ use NightWorksIO\MutationGate\Tests\Support\Source;
 // A kill's evidence holds the end of what the project's own code printed
 // (ADR-0014, decision 16), which is text an attacker can write: markdown,
 // mentions, HTML and workflow commands. It is carried from the runners to the
-// shard result and written there as JSON, and no report, comment, log line,
-// step summary or annotation reads it. A renderer that takes it on keeps the
-// project's text as text first, as every other renderer of project output
-// does, and then joins this list.
+// shard result and written there as JSON. It reaches a report only as the
+// reason of a kill left unjudged for want of evidence (ADR-0014, decision 17,
+// see Unevidenced), which every renderer keeps as text, as it keeps any other
+// reason: MarkdownTest and ConsoleReportTest hold that with a hostile tail. A
+// renderer that takes the evidence on keeps the project's text as text first,
+// as every other renderer of project output does, and then joins this list.
 
 /** The files that may name a kill's evidence or read it from a result: its makers, its carriers and its writer. */
 const EVIDENCE_HOLDERS = [
@@ -24,6 +26,9 @@ const EVIDENCE_HOLDERS = [
     'src/Adapter/Pest/OwnRun.php',
     'src/Adapter/Pest/OwnRuns.php',
     'src/Adapter/Pest/Recording/RecordLine.php',
+    'src/Adapter/Pest/Unexecutable/Judging.php',
+    'src/Adapter/Pest/Unexecutable/Outcome.php',
+    'src/Adapter/Pest/Unexecutable/Trial.php',
     'src/Adapter/PhpUnit/Judged.php',
     'src/Adapter/PhpUnit/MutantRun.php',
     'src/Adapter/PhpUnit/MutationRun.php',
@@ -37,6 +42,7 @@ const EVIDENCE_HOLDERS = [
     'src/Core/Mutant/Evidence.php',
     'src/Core/Mutant/EvidenceRecord.php',
     'src/Core/Mutant/Evidences.php',
+    'src/Core/Mutant/Unevidenced.php',
     'src/Core/Plan/ShardResultFile.php',
     'src/Core/Runner/MutationResult.php',
 ];

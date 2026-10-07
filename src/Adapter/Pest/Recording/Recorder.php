@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
+use NightWorksIO\MutationGate\Core\Runner\FatalError;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -222,8 +223,9 @@ final readonly class Recorder
     }
 
     /**
-     * The memory limit a mutant's own process ran out of, where the errors
-     * it logged say so; the log is removed once read.
+     * The memory limit a mutant's own process ran out of, and that PHP
+     * recorded a fatal error in it, where the errors it logged say so; the
+     * log is removed once read.
      */
     public function exhausted(MutationTest $test): void
     {
@@ -234,11 +236,16 @@ final readonly class Recorder
             return;
         }
 
-        $limit = Exhaustion::in((string) file_get_contents($log));
+        $logged = (string) file_get_contents($log);
+        $limit = Exhaustion::in($logged);
         unlink($log);
 
         if ($limit instanceof MemoryCap) {
             $this->write(RecordLine::exhausted($mutated, $limit));
+        }
+
+        if (FatalError::in($logged)) {
+            $this->write(RecordLine::fatal($mutated));
         }
     }
 

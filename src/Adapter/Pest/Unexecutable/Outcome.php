@@ -4,14 +4,24 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Unexecutable;
 
+use function count;
+
+use NightWorksIO\MutationGate\Core\Mutant\Ended;
+use NightWorksIO\MutationGate\Core\Mutant\Evidence;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
-/** What one run of a mutant against the tests that read its value found, and why it found nothing where it did. */
+/**
+ * What one run of a mutant against the tests that read its value found, and
+ * why it found nothing where it did; of a kill, the tests that killed it,
+ * and, where none is named, how its run ended (ADR-0014, decision 17).
+ */
 final readonly class Outcome
 {
     private function __construct(
@@ -20,12 +30,18 @@ final readonly class Outcome
         private Seconds|Unmeasured $duration,
         private Seconds|Unmeasured $limit,
         private Seconds|Unmeasured $need,
+        private TestIds $killers,
+        private Ended|NotGiven $ended,
     ) {
     }
 
-    public static function killed(): self
+    /** Killed by these tests; where none is named, how the run ended is its evidence. */
+    public static function killed(TestIds $killers, Ended $ended): self
     {
-        return self::bare(MutantStatus::Killed, Unreported::reason());
+        return clone(self::bare(MutantStatus::Killed, Unreported::reason()), [
+            'killers' => $killers,
+            'ended' => count($killers) === 0 ? $ended : NotGiven::value(),
+        ]);
     }
 
     public static function survived(): self
@@ -52,19 +68,25 @@ final readonly class Outcome
     /** This outcome, of a run that took this long. */
     public function took(Seconds $duration): self
     {
-        return new self($this->status, $this->reason, $duration, $this->limit, $this->need);
+        return clone($this, ['duration' => $duration]);
     }
 
     /** This outcome, of a run allowed this long. */
     public function within(Seconds $limit): self
     {
-        return new self($this->status, $this->reason, $this->duration, $limit, $this->need);
+        return clone($this, ['limit' => $limit]);
     }
 
     /** This outcome, of tests that took this long on their own, unmutated (ADR-0008, decision 2). */
     public function needing(Seconds|Unmeasured $need): self
     {
-        return new self($this->status, $this->reason, $this->duration, $this->limit, $need);
+        return clone($this, ['need' => $need]);
+    }
+
+    /** The evidence of its kill: how its run ended, where no test is named as its killer; none otherwise. */
+    public function evidence(): Evidence
+    {
+        return $this->ended instanceof Ended ? Evidence::none()->withEnded($this->ended) : Evidence::none();
     }
 
     /** How long the tests took on their own, unmutated, where their run on their own timed them. */
@@ -101,9 +123,10 @@ final readonly class Outcome
     }
 
     /**
-     * The mutant as this outcome judges it; where it ran out of time, with
-     * the limit its run was allowed and the time its tests took on their
-     * own, unmutated, which timeout triage weighs that limit against.
+     * The mutant as this outcome judges it, killed by the tests that killed
+     * it; where it ran out of time, with the limit its run was allowed and
+     * the time its tests took on their own, unmutated, which timeout triage
+     * weighs that limit against.
      */
     public function judging(Mutant $mutant): Mutant
     {
@@ -114,7 +137,7 @@ final readonly class Outcome
             $mutant->mutation(),
             $this->status,
             $this->duration,
-        );
+        )->killedBy($this->killers);
 
         if ($this->reason instanceof Reason || ! $this->status->ranOutOfTime()) {
             return $this->reason instanceof Reason ? $judged->because($this->reason) : $judged;
@@ -130,6 +153,6 @@ final readonly class Outcome
     {
         $none = Unmeasured::duration();
 
-        return new self($status, $reason, $none, $none, $none);
+        return new self($status, $reason, $none, $none, $none, TestIds::none(), NotGiven::value());
     }
 }

@@ -43,6 +43,9 @@ enum RecordEvent: string
     /** A mutant's own process ran out of its memory limit. */
     case Exhausted = 'exhausted';
 
+    /** PHP recorded a fatal error in a mutant's own process, as the error log it kept says (see FatalError). */
+    case Fatal = 'fatal';
+
     /** How a mutant's own process ended, as Pest's parent process saw it, by its mutated copy (see Ending). */
     case Ended = 'ended';
 

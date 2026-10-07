@@ -29,7 +29,7 @@ use function trim;
 final readonly class FailedFirst
 {
     /** What the log puts in a test case that failed an assertion, or errored. */
-    private const array OUTCOMES = ['failure', 'error'];
+    public const array OUTCOMES = ['failure', 'error'];
 
     private function __construct(private string $test, private string $said)
     {

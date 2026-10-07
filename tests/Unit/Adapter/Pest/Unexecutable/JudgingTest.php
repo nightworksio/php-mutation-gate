@@ -16,11 +16,14 @@ use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Ended;
+use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
@@ -95,6 +98,29 @@ it('judges each uncovered mutant on a line that is not executable by the tests t
     ])->and($judged instanceof MutationResult ? $judged->skipped() : -1)->toBe(2)
         ->and($judged instanceof MutationResult ? array_map(static fn(Mutant $mutant): mixed => $mutant->limit(), [...$judged->mutants()]) : [])
         ->toEqual(array_fill(0, 4, Unmeasured::duration()));
+});
+
+it('leaves beside each kill a trial made with no killer named how its run ended, and nothing beside the rest', function () use (
+    $money,
+): void {
+    $at = Unexecutables::project();
+    $results = Unexecutables::run($at, ['rate', 'unread', 'internal', 'other']);
+    $shell = new ShellFake(static fn(Command $command): Ran => Unexecutables::answering($command, ['tests/OtherSpec.php', 'tests/MoneySpec.php']));
+    $judged = new Judging($at, $shell, new CapDirectory(), Triage::standard()->bounds())->of(judgingResult('rate', 'unread', 'internal', 'other'), $money, $results, judgingCoverage($results));
+    $evidence = $judged instanceof MutationResult ? $judged->evidence() : Evidences::none();
+    $endings = [];
+
+    foreach ($judged instanceof MutationResult ? $judged->mutants() : [] as $mutant) {
+        $ended = $evidence->of($mutant->id())->ended();
+        $endings[$mutant->nativeId()] = $ended instanceof Ended ? [$ended->code(), $ended->signalled(), $ended->fatal()] : 'none';
+    }
+
+    expect($endings)->toEqual([
+        'rate' => [NotGiven::value(), NotGiven::value(), false],
+        'unread' => 'none',
+        'internal' => [NotGiven::value(), NotGiven::value(), false],
+        'other' => 'none',
+    ]);
 });
 
 it('runs every judging of a mutant by reference under the run\'s memory cap, and removes it once done', function () use (

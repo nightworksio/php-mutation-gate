@@ -12,16 +12,17 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * A kill's evidence as a shard result writes it in its mutant's record
  * (ADR-0014, decision 16): `prefix`, with `at`, the position its run's first
  * failing test held, from one, and `key`, twelve hex digits, where the
- * runner gave one; and `ended`, with `code`, `signalled` where the runner
- * read them, and `tail`, the last 2 KiB its process printed, where the runner
- * gave that and it held no secret (see Secrets). A record of an
- * earlier gate holds neither, and reads as no evidence.
+ * runner gave one; and `ended`, with `code`, `signalled` and `fatal`, whether
+ * PHP recorded a fatal error, where the runner read them, and `tail`, the
+ * last 2 KiB its process printed, where the runner gave that and it held no
+ * secret (see Secrets). A record of an earlier gate holds neither, and reads
+ * as no evidence.
  *
  * @internal the shape of a shard result's mutant record
  *
  * @phpstan-type Written array{
  *     prefix?: array{at: int, key?: string},
- *     ended?: array{code?: int, signalled?: bool, tail?: string},
+ *     ended?: array{code?: int, signalled?: bool, fatal?: bool, tail?: string},
  * }
  */
 final readonly class EvidenceRecord
@@ -37,6 +38,8 @@ final readonly class EvidenceRecord
     private const string CODE = 'code';
 
     private const string SIGNALLED = 'signalled';
+
+    private const string FATAL = 'fatal';
 
     private const string TAIL = 'tail';
 
@@ -74,16 +77,18 @@ final readonly class EvidenceRecord
         return [self::AT => $prefix->position(), ...$key instanceof NotGiven ? [] : [self::KEY => $key]];
     }
 
-    /** @return array{code?: int, signalled?: bool, tail?: string} */
+    /** @return array{code?: int, signalled?: bool, fatal?: bool, tail?: string} */
     private static function ended(Ended $ended): array
     {
         $code = $ended->code();
         $signalled = $ended->signalled();
+        $fatal = $ended->fatal();
         $tail = $ended->tail();
 
         return [
             ...$code instanceof NotGiven ? [] : [self::CODE => $code],
             ...$signalled instanceof NotGiven ? [] : [self::SIGNALLED => $signalled],
+            ...$fatal instanceof NotGiven ? [] : [self::FATAL => $fatal],
             ...$tail instanceof NotGiven ? [] : [self::TAIL => $tail],
         ];
     }
@@ -110,10 +115,12 @@ final readonly class EvidenceRecord
     {
         $code = $ended->field(self::CODE);
         $signalled = $ended->field(self::SIGNALLED);
+        $fatal = $ended->field(self::FATAL);
         $tail = $ended->field(self::TAIL);
         $exited = $code->isPresent() ? $code->integer() : NotGiven::value();
         $killed = $signalled->isPresent() ? $signalled->boolean() : NotGiven::value();
+        $read = $tail->isPresent() ? Ended::of($exited, $killed, $tail->text()) : Ended::unprinted($exited, $killed);
 
-        return $tail->isPresent() ? Ended::of($exited, $killed, $tail->text()) : Ended::unprinted($exited, $killed);
+        return $fatal->isPresent() ? $read->withFatal($fatal->boolean()) : $read;
     }
 }

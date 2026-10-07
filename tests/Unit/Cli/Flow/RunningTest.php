@@ -36,6 +36,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Prefix;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -676,3 +677,37 @@ it('leaves each kill\'s evidence beside its mutant in the shard\'s result, keepi
         ->and($ended instanceof Ended ? [$ended->code(), $ended->signalled(), $ended->tail()] : $ended)
         ->toEqual([255, false, NotGiven::value()]);
 });
+
+it('leaves a kill no test is named for unjudged in the shard\'s result, saying how its process ended, unless a signal or a fatal error ended it', function (Ended $ended, MutantStatus $status, string $reason) use ($resultIn): void {
+    $project = Flows::project();
+    $mutants = Flows::mutantsOf('src/Money.php');
+    $named = [...array_filter([...$mutants], static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Killed)][0];
+    $unnamed = Mutant::of($named->id(), $named->nativeId(), $named->location(), $named->mutation(), MutantStatus::Killed, Seconds::of(0.1));
+    $runner = ScriptedRunner::fixture()->answeringInTurn(
+        MutationResult::of($mutants->replacing(Mutants::of($unnamed)), 0)
+            ->withEvidence(Evidences::none()->with($unnamed->id(), Evidence::none()->withEnded($ended))),
+        MutationResult::of(Mutants::none(), 0),
+    );
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+    $outcome = $result instanceof ShardResult ? $result->outcome() : $result;
+    $judged = [];
+
+    foreach ($outcome instanceof MutationResult ? $outcome->mutants() : [] as $mutant) {
+        $said = $mutant->reason();
+        $judged += $mutant->id()->value() === $unnamed->id()->value() ? [$mutant->status(), $said instanceof Reason ? $said->text() : ''] : [];
+    }
+
+    expect($judged)->toBe([$status, $reason])
+        ->and($outcome instanceof MutationResult ? $outcome->evidence()->of($unnamed->id())->ended() : null)->toBeInstanceOf(Ended::class);
+})->with([
+    'an exit code and what it printed' => [
+        Ended::of(1, signalled: false, printed: "boom\n")->withFatal(fatal: false),
+        MutantStatus::Unjudged,
+        "No test is named as its killer, and no signal or fatal error PHP recorded ended its process: it exited with code 1. Its output ended:\nboom\n",
+    ],
+    'a signal' => [Ended::unprinted(139, signalled: true), MutantStatus::Killed, ''],
+    'a fatal error' => [Ended::unprinted(255, signalled: false)->withFatal(fatal: true), MutantStatus::Killed, ''],
+]);

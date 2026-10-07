@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
 use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 
 $id = static fn(string $mutator): MutantId => MutantId::hash(Path::of('src/Money.php'), $mutator, "@@ @@\n-a\n+b", 0);
@@ -103,6 +104,31 @@ it('keeps how a process ended with nothing of what it printed, where that is not
         ->and($ended->tail())->toBeInstanceOf(NotGiven::class)
         ->and($ended->wasCut())->toBeFalse();
 });
+
+it('says whether PHP recorded a fatal error in the process, where the runner told, and keeps it when screened', function (): void {
+    $ended = Ended::of(255, signalled: false, printed: "PHP Fatal error:  boom\n");
+    $fatal = $ended->withFatal(fatal: true);
+
+    expect($ended->fatal())->toBeInstanceOf(NotGiven::class)
+        ->and($fatal->fatal())->toBeTrue()
+        ->and($ended->withFatal(fatal: false)->fatal())->toBeFalse()
+        ->and([$fatal->code(), $fatal->signalled(), $fatal->tail()])->toBe([255, false, "PHP Fatal error:  boom\n"])
+        ->and(Ended::screened($fatal, NotGiven::value())->fatal())->toBeTrue()
+        ->and(Ended::screened($fatal, NotGiven::value())->tail())->toBeInstanceOf(NotGiven::class)
+        ->and(Ended::screened($fatal, 'kept')->tail())->toBe('kept')
+        ->and(Ended::unprinted(1, signalled: false)->fatal())->toBeInstanceOf(NotGiven::class);
+});
+
+it('keeps a run\'s ending: its code, a signal where its code is known, what it printed, and PHP\'s record of a fatal error', function (Ran $ran, array $expected): void {
+    $ended = Ended::ofRun($ran);
+
+    expect([$ended->code(), $ended->signalled(), $ended->fatal(), $ended->tail()])->toEqual($expected);
+})->with([
+    'exited' => [Ran::exited(1, "fails\n"), [1, false, false, "fails\n"]],
+    'a fatal error' => [Ran::exited(255, "PHP Fatal error:  boom\n"), [255, false, true, "PHP Fatal error:  boom\n"]],
+    'signalled' => [Ran::signalled(9, ''), [137, true, false, '']],
+    'no code' => [Ran::exited(NotGiven::value(), 'gone'), [NotGiven::value(), NotGiven::value(), false, 'gone']],
+]);
 
 it('holds a kill\'s evidence: a prefix, how its process ended, either or neither', function (): void {
     $prefix = Prefix::at(2);

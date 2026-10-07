@@ -295,9 +295,10 @@ running it: why is this mutant here, and has it always been?
       - An id with no record is exit 2, with the sentence `reproduce` gives:
         run the gate on the code that has the mutant to record it.
 
-16. **A shard result keeps the evidence of each kill, which judges nothing.**
+16. **A shard result keeps the evidence of each kill.**
     Each killed mutant's record in `results/<id>.json` may hold two fields
-    beside the record's own. Neither is read by a verdict, a proof or a report.
+    beside the record's own. Neither is read by a verdict, a proof or a report;
+    the shard judges a kill no test is named for by them (decision 17).
     - `prefix: {at, key?}`: how far the mutant's own run went. `at` is the
       position, from 1, of its first failing test in the order the run took
       its tests in, which is how many tests a run that stops at its first
@@ -308,10 +309,14 @@ running it: why is this mutant here, and has it always been?
       the SHA-256 digest of each test id followed by a line end, in order, up
       to and including that test. A run that loaded every test file names no
       file.
-    - `ended: {code?, signalled?, tail?}`, only for a kill that names no
-      killer: the code its process exited with, whether a signal ended it, and
-      the last 2 KiB of what it printed, every control and format character
-      but a tab and a line end dropped, cut on a character's edge.
+    - `ended: {code?, signalled?, fatal?, tail?}`, only for a kill that names
+      no killer: the code its process exited with, whether a signal ended it,
+      whether PHP recorded a fatal error in it, and the last 2 KiB of what it
+      printed, every control and format character but a tab and a line end
+      dropped, cut on a character's edge. PHP's record of a fatal error is its
+      `Fatal error:` or `Parse error:` at the start of a line, after `PHP`
+      and the time where it logs it; PHPUnit's `Fatal error: Premature end of
+      PHP process`, which it prints after an `exit` too, is none.
     - The tail is what project code printed, so it is screened whole, never
       redacted in part, and kept only where it can be shown to hold no secret.
       The screen runs in the gate's own process, before the cut, over the last
@@ -342,22 +347,45 @@ running it: why is this mutant here, and has it always been?
     - A runner gives what it saw and leaves out what it cannot tell, and
       nothing is run for it:
       - The PHPUnit runner gives the prefix from the tests its extension saw
-        start, and how the process ended where no test is named.
+        start, and how the process ended where no test is named, a fatal
+        error PHP printed among it.
       - Pest's plugin counts and digests the tests each mutant's own process
         starts, and writes the position and digest with each failing test.
         With `pest.patch` on, Pest's parent writes how a failed own process
         ended: its code and signal, never what it printed. That process does
         not hold the withheld values to screen with, and its results file sits
-        in the workspace a CI uploads. So a Pest kill has no `tail`. A mutant that shares its mutated copy with another, or whose
-        killers came from more than one process, has no evidence, since which
-        run went how far cannot be told. A kill run again with every test file
-        has the evidence of that run.
+        in the workspace a CI uploads. So a Pest kill has no `tail`. Pest's
+        parent reads the error log of each mutant's own process, and writes
+        that PHP recorded a fatal error where the log holds one, beside that
+        ending or alone. A mutant that shares its mutated copy with another,
+        or whose killers came from more than one process, has no evidence,
+        since which run went how far cannot be told. A kill run again with
+        every test file has the evidence of that run.
+      - A trial (ADR-0004, decision 8) names the tests its JUnit log says
+        failed or errored as its kill's killers, and, where it names none,
+        gives how its run ended: its code, whether a signal ended it, what it
+        printed and a fatal error PHP printed among it.
       - Infection logs only what a mutant's process printed, so a kill that
-        names no killer has its `tail` alone, and no kill has a prefix.
+        names no killer has its `tail` and whether PHP's record of a fatal
+        error is in it, and no kill has a prefix.
       - A registered runner gives evidence through
         `MutationResult::withEvidence()`.
     - A shard result without these fields reads as before; one whose field is
       malformed is refused.
+
+17. **A kill needs evidence.** A shard judges each kill its runner reports,
+    once the runner has run again what it doubts (ADR-0004, decision 3), by
+    its evidence (decision 16):
+    - A kill stands where a test is named as its killer, where a signal ended
+      its process, or where PHP recorded a fatal error in it.
+    - Any other kill is unjudged. Its reason says how its process ended: the
+      code it exited with, where the runner read one, and the tail of what it
+      printed as the screen for secrets kept it, or that none is kept. The
+      record keeps the evidence beside the unjudged mutant.
+    - The reason is project text, and every report keeps it as text, as it
+      keeps any other reason.
+    - A registered runner that names no killer and gives no ending leaves
+      each of its kills unjudged.
 
 ## Alternatives considered
 

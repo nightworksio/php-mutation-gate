@@ -567,6 +567,16 @@ it('gives a kill no selected test is credited with how its process ended: its co
         ->and($evidence->prefix())->toEqual(Prefix::keyedAt(2, Prefix::keyOf(Paths::none(), OrderDigest::of($adds, TestId::of('U::beside'))->value())));
 });
 
+it('says PHP recorded a fatal error in a kill\'s process where what it printed holds PHP\'s record of one', function (string $printed, bool $fatal) use ($adds): void {
+    $lines = records(Outcome::Started->line($adds->value()), Outcome::Passed->line($adds->value()), Outcome::Started->line('U::beside'), Outcome::Failed->line('U::beside'));
+    $ended = evidencedBy($lines, Ran::exited(255, $printed), TestIds::of($adds))->ended();
+
+    expect($ended instanceof Ended ? $ended->fatal() : $ended)->toBe($fatal);
+})->with([
+    'PHP\'s fatal error' => ["PHP Fatal error:  Cannot redeclare function helper() in /p/src/helpers.php on line 9\n", true],
+    'PHPUnit\'s word for a process that ended mid-test' => ["Fatal error: Premature end of PHP process when running T::adds.\n", false],
+]);
+
 it('says a signal ended a kill\'s process where its code says so', function () use ($adds): void {
     $lines = records(Outcome::Started->line('U::dies'));
     $ended = evidencedBy($lines, Ran::signalled(9, 'Killed'), TestIds::of($adds))->ended();

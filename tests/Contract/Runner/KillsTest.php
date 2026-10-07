@@ -163,7 +163,8 @@ it('gives a kill how far its run went, keyed by the test files it loaded, with p
 // A mutant that ends its process before any test fails is killed with no
 // killer named, where the runner cannot tell which test it ended in. A
 // runner that sees the process end says how: its code, whether a signal
-// ended it and the end of what it printed.
+// ended it, whether PHP recorded a fatal error in it, which `exit` is not, and
+// the end of what it printed.
 it('gives a kill that names no killer how its process ended, with patched Pest', function (): void {
     Patch::applyIn(Library::vendor());
     $library = Library::pest(Patching::on(Library::canary()));
@@ -171,7 +172,7 @@ it('gives a kill that names no killer how its process ended, with patched Pest',
     $ended = $mutants === [] ? NotGiven::value() : $evidence->of($mutants[0]->id())->ended();
 
     expect(array_map(static fn(Mutant $mutant): array => [$mutant->status(), count($mutant->killers())], $mutants))->toBe([[MutantStatus::Killed, 0]])
-        ->and($ended instanceof Ended ? [is_int($ended->code()) && $ended->code() !== 0, $ended->signalled()] : [])->toBe([true, false])
+        ->and($ended instanceof Ended ? [is_int($ended->code()) && $ended->code() !== 0, $ended->signalled(), $ended->fatal()] : [])->toEqual([true, false, NotGiven::value()])
         ->and($mutants === [] ? null : $evidence->of($mutants[0]->id())->prefix())->toBeInstanceOf(NotGiven::class);
 })->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
@@ -196,7 +197,7 @@ it('gives a kill that names no killer what its process printed, and no code or s
     $ended = $mutants === [] ? NotGiven::value() : $evidence->of($mutants[0]->id())->ended();
 
     expect(array_map(static fn(Mutant $mutant): array => [$mutant->status(), count($mutant->killers())], $mutants))->toBe([[MutantStatus::Killed, 0]])
-        ->and($ended instanceof Ended ? [$ended->code(), $ended->signalled()] : [])->toEqual([NotGiven::value(), NotGiven::value()]);
+        ->and($ended instanceof Ended ? [$ended->code(), $ended->signalled(), $ended->fatal()] : [])->toEqual([NotGiven::value(), NotGiven::value(), false]);
 })->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 
 // The same, with PHPUnit, in a fresh process and forked from a warm worker:
