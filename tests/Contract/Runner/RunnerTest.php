@@ -1353,7 +1353,7 @@ it('patches the installed pest-plugin-mutate into the files the pristine fixture
     );
 
     expect(Patch::applyIn($installed))->toBeString()
-        ->and(Patch::applyIn($pristine))->toBe('pest:patch patched 3 of the 3 files it changes in pest-plugin-mutate.')
+        ->and(Patch::applyIn($pristine))->toBe('pest:patch patched 4 of the 4 files it changes in pest-plugin-mutate.')
         ->and($read($installed))->toBe($read($pristine));
 });
 

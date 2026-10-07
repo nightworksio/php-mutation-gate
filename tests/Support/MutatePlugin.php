@@ -8,14 +8,19 @@ use function file_get_contents;
 use function sprintf;
 
 /**
- * The three files of pest-plugin-mutate that `pest:patch` changes, copied into
+ * The files of pest-plugin-mutate that `pest:patch` changes, copied into
  * a vendor directory: as the version composer.json allows ships them, or as
  * this repository's vendor directory holds them.
  */
 final readonly class MutatePlugin
 {
     /** The files the patch changes, relative to the plugin's source. */
-    public const array FILES = ['MutationTest.php', 'Plugins/Mutate.php', 'Tester/MutationTestRunner.php'];
+    public const array FILES = [
+        'MutationTest.php',
+        'Plugins/Mutate.php',
+        'Tester/MutationTestRunner.php',
+        'Support/StreamWrapper.php',
+    ];
 
     private function __construct(private string $source, private string $suffix)
     {
