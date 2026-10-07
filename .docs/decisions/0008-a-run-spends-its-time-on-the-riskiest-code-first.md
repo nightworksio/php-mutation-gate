@@ -247,7 +247,10 @@ presets for Laravel, Symfony and plain libraries.
    For every timed-out or skipped mutant the gate works out the limit that
    applied to it, and compares its judging tests' own time with it (ADR-0004,
    decision 5). That time comes from the coverage run: Pest's map, or the JUnit
-   times of the judging test classes, which Infection sums the same way.
+   times of the judging test classes, which Infection sums the same way. A
+   mutant judged by a trial (ADR-0004, decision 8), which no coverage marks,
+   takes it from its trial's run of those tests on their own, unmutated: the
+   sum of each test's time in the JUnit log that run writes.
    The triage reads the limit's own k, so the two never drift apart:
    - **Under the limit at k times.** The limit allowed the covering tests k
      times their own time, the margin the limit itself grants for load. Tests

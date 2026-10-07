@@ -153,3 +153,13 @@ it('times a mutant of a held unit by the tests covering its line that hold it, a
         ->toEqual([Seconds::of(0.5), Seconds::of(20.0)])
         ->and(TimeoutTriage::under(TimeoutMode::Confirm)->judged($timed[0]))->toBe(MutantJudgement::KilledByTimeout);
 });
+
+it('keeps the time a mutant\'s own run timed its tests on their own, unmutated, as a trial does, whatever the map says of its lines', function (): void {
+    $map = CoverageMap::empty()
+        ->covered(Path::of('src/Loop.php'), Line::of(3), TestId::of('LoopTest::a'))
+        ->timed(TestId::of('LoopTest::a'), Seconds::of(30.0));
+    $timed = [...TimeoutTriage::timed(Mutants::of(triagedMutant(MutantStatus::TimedOut, 10.0, 0.4)), $map, HeldCovered::none())];
+
+    expect(array_map(static fn(Mutant $mutant): mixed => $mutant->unmutatedNeed(), $timed))->toEqual([Seconds::of(0.4)])
+        ->and(TimeoutTriage::under(TimeoutMode::Confirm)->judged($timed[0]))->toBe(MutantJudgement::KilledByTimeout);
+});

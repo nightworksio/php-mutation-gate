@@ -38,6 +38,7 @@ use NightWorksIO\MutationGate\Core\Test\JUnitLog;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 use function sprintf;
 
@@ -50,7 +51,9 @@ use function sprintf;
  * with that file served unmutated through the same override, so a test that
  * fails only while the override serves a file fails there too: where they
  * run out of the limit there, the mutant is skipped as too slow to run, and
- * where they fail, it is left unjudged. A run that loaded the
+ * where they fail, it is left unjudged. Where they pass, the time they took
+ * there, as the JUnit log of that run says, is what timeout triage weighs a
+ * mutant of theirs that runs out of its limit against. A run that loaded the
  * original before the override, never loaded it, or ran where opcache could
  * serve a cached original, judges nothing, and the reason says what the run
  * did (see Evidence), from what it printed and the JUnit log it writes beside
@@ -78,8 +81,9 @@ final class Trial
     private const string GUARD = 'guard.json';
 
     /**
-     * @var array<string, Outcome|true> each set of test files' outcome on its own for the file they judge, where they
-     *                                  fail, by the file and their paths (see TrialRun::set())
+     * @var array<string, Outcome|Seconds|Unmeasured> each set of test files' outcome on its own for the file they
+     *                                                judge, where they fail, or the time they took there, where
+     *                                                they pass, by the file and their paths (see TrialRun::set())
      */
     private array $alone = [];
 
@@ -123,6 +127,7 @@ final class Trial
         $this->aloneEach($trials);
         $outcomes = [];
         $runs = [];
+        $needs = [];
 
         foreach ($trials as $at => $trial) {
             $alone = $this->alone[$trial->set()];
@@ -134,6 +139,7 @@ final class Trial
             }
 
             $runs[$at] = $this->mutated($trial, count($runs));
+            $needs[$at] = $alone;
         }
 
         $ends = $runs === []
@@ -141,7 +147,7 @@ final class Trial
             : [...$this->shell->sideBySide($this->slots, Unlimited::time(), ...array_values($runs))];
 
         foreach (array_keys($runs) as $position => $at) {
-            $outcomes[$at] = $this->found($trials[$at], $ends[$position], $position);
+            $outcomes[$at] = $this->found($trials[$at], $ends[$position], $position)->needing($needs[$at]);
         }
 
         ksort($outcomes);
@@ -188,7 +194,7 @@ final class Trial
         foreach ($running as $position => $trial) {
             $ran = $ends[$position];
             $this->alone[$trial->set()] = match (true) {
-                $ran->succeeded() => true,
+                $ran->succeeded() => TestTimes::in($this->logOf($position)),
                 $ran->wasStopped() => $this->skipped($ran, $trial->limit()),
                 default => $this->unjudged(self::ALONE, $ran, $trial->tests(), $position),
             };
