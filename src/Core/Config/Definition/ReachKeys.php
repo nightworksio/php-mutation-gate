@@ -20,6 +20,7 @@ final readonly class ReachKeys
         $judges = Effect::JudgesOrReportsOnly;
         $everything = Field::optional('everything', Items::of(Pattern::glob($origin)), Effect::DecidesHowTheGateRuns);
         $hotPath = Field::optional('hotPath', Number::between(0, 1), $judges);
+        $full = Field::optional('full', Flag::boolean(), Effect::DecidesHowTheGateRuns);
 
         return [
             Field::optional(
@@ -42,6 +43,13 @@ final readonly class ReachKeys
                 Section::single(
                     $hotPath,
                     static fn(int|float|Absent $share): Layer => Layer::of(Reach::of(hotPath: $share)),
+                ),
+            ),
+            Field::section(
+                'run',
+                Section::single(
+                    $full,
+                    static fn(bool|Absent $full): Layer => Layer::of(Reach::of(full: $full)),
                 ),
             ),
         ];

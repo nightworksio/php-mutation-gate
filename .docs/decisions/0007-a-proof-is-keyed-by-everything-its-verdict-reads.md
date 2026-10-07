@@ -89,7 +89,7 @@ has to bring its result with it.
         setting is none of them. Only those that affect results are in the
         key. A setting that decides how the gate runs is left out of the key
         but compared by what a change to the config file reaches (ADR-0005,
-        decision 4): `preset`, `reach.everything`, `ci.plan`,
+        decision 4): `preset`, `reach.everything`, `run.full`, `ci.plan`,
         `ci.defaultBranch`, `ci.check`, `ci.trustMergedPullRequests`,
         `proofs.store`, `proofs.ignore`, `proofs.write` and
         `coverage.incremental`. A key no setting declares, outside every

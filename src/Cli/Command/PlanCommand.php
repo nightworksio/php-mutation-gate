@@ -69,7 +69,7 @@ final readonly class PlanCommand
     /** The plan the options ask for, with how its coverage map was measured; or why there is none. */
     public static function planOf(Composed $composed, InputInterface $input): PlanMade|CannotJudge
     {
-        $mode = FlowOptions::mode($input);
+        $mode = FlowOptions::mode($input, $composed->settings);
         $cut = FlowOptions::cut($input, $composed->settings);
         $matrix = FlowOptions::killMatrix($input);
 

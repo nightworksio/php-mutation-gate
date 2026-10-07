@@ -361,7 +361,7 @@ it('writes the floors a local full run raised into the baseline, and says which 
 ): void {
     $project = FlowCommands::project();
 
-    $ran = FlowCommands::run(RunCommand::command($composed($project, 30)));
+    $ran = FlowCommands::run(RunCommand::command($composed($project, 30)), '--full');
 
     expect($ran->code)->toBe(0)
         ->and($ran->output)->toStartWith(<<<'SAID'
@@ -379,7 +379,7 @@ it('writes the floors a local full run raised into the baseline, and says which 
 it('says no floor rose on a local full run that raised none', function () use ($composed): void {
     $project = FlowCommands::project();
 
-    $ran = FlowCommands::run(RunCommand::command($composed($project, 50)));
+    $ran = FlowCommands::run(RunCommand::command($composed($project, 50)), '--full');
 
     expect($ran->code)->toBe(1)
         ->and($ran->output)->toStartWith(
@@ -402,6 +402,11 @@ it('raises no floor on a run in CI or one scoped to a change', function (
     'in CI' => ['', true, "No earlier run of this branch to re-check.\nWrote memory:refs/heads/feature.\nWrote memory:refs/heads/feature/coverage.json.gz."],
     'changed since a ref' => [
         '--changed-since=base',
+        false,
+        "Wrote memory:refs/heads/main.\nWrote memory:refs/heads/main/coverage.json.gz.",
+    ],
+    'asked for no mode, so changed since the last commit that passed' => [
+        '',
         false,
         "Wrote memory:refs/heads/main.\nWrote memory:refs/heads/main/coverage.json.gz.",
     ],

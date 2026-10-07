@@ -92,7 +92,7 @@ final readonly class FlowOptions
             ->addOption(
                 self::CHANGED_SINCE,
                 mode: InputOption::VALUE_REQUIRED,
-                description: 'Consider what changed since this ref, or since the last commit that passed',
+                description: 'Consider what changed since this ref, last-passed (the default) or last-run',
             )
             ->addOption(self::FULL, mode: InputOption::VALUE_NONE, description: 'Consider every unit')
             ->addOption(
@@ -186,7 +186,12 @@ final readonly class FlowOptions
         };
     }
 
-    public static function mode(InputInterface $input): Mode|CannotJudge
+    /**
+     * The run mode the options ask for: `--full`, or `--changed-since`; with
+     * neither, every unit where `run.full` asks for it, and otherwise what
+     * changed since the scope's last passing commit (ADR-0005, decision 2).
+     */
+    public static function mode(InputInterface $input, Settings $settings): Mode|CannotJudge
     {
         $since = self::text($input, self::CHANGED_SINCE);
         $full = $input->hasOption(self::FULL) && $input->getOption(self::FULL) === true;
@@ -195,8 +200,10 @@ final readonly class FlowOptions
             $full && $since !== '' => CannotJudge::because(
                 '--full and --changed-since ask for different runs. Give one of them.',
             ),
+            $full => Mode::full(),
             $since !== '' => Mode::since($since),
-            default => Mode::full(),
+            $settings->reach()->isFullByDefault() => Mode::full(),
+            default => Mode::since(Mode::LAST_PASSED),
         };
     }
 
@@ -212,10 +219,12 @@ final readonly class FlowOptions
         };
     }
 
-    /** Whether the options ask for a full run: no `--changed-since`. */
-    public static function isFull(InputInterface $input): bool
+    /** Whether the options, with `run.full`, ask for a full run. */
+    public static function isFull(InputInterface $input, Settings $settings): bool
     {
-        return self::text($input, self::CHANGED_SINCE) === '';
+        $mode = self::mode($input, $settings);
+
+        return $mode instanceof Mode && $mode->isFull();
     }
 
     public static function coverage(InputInterface $input): CoverageRun|CoverageRead

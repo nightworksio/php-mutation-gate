@@ -6,7 +6,7 @@ namespace NightWorksIO\MutationGate\Config;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
 
-/** What decides what a change reaches (ADR-0005): `packages`, `reach.everything`, `holds.hotPath`. */
+/** What decides what a change reaches (ADR-0005): `packages`, `reach.everything`, `holds.hotPath`, `run.full`. */
 final readonly class Reach implements Setting
 {
     private function __construct(private Json $json)
@@ -29,6 +29,18 @@ final readonly class Reach implements Setting
     public static function hotPath(int|float $share): self
     {
         return new self(Json::at('holds.hotPath', $share));
+    }
+
+    /** `run.full`, `true`: a run given neither `--full` nor `--changed-since` considers every unit. */
+    public static function fullByDefault(): self
+    {
+        return new self(Json::at('run.full', value: true));
+    }
+
+    /** `run.full`, `false`: a run given neither `--full` nor `--changed-since` reads its change since `last-passed`. */
+    public static function changedByDefault(): self
+    {
+        return new self(Json::at('run.full', value: false));
     }
 
     public function written(): Json

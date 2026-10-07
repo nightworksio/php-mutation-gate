@@ -399,6 +399,16 @@
             },
             "additionalProperties": false
         },
+        "run": {
+            "type": "object",
+            "properties": {
+                "full": {
+                    "type": "boolean",
+                    "default": false
+                }
+            },
+            "additionalProperties": false
+        },
         "shards": {
             "type": "object",
             "properties": {

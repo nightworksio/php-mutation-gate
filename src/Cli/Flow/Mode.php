@@ -47,6 +47,12 @@ final readonly class Mode
         return new self($ref);
     }
 
+    /** Whether every unit is considered, as `--full` asks. */
+    public function isFull(): bool
+    {
+        return $this->since === '';
+    }
+
     /** The revision the change is read since, for a command that lists what a change reaches; or why it cannot. */
     public function base(Ledgers $ledgers): Revision|CannotTell
     {

@@ -12,9 +12,10 @@ use NightWorksIO\MutationGate\Core\Hold\HotPaths;
 use function sprintf;
 
 /**
- * What a change reaches (ADR-0005): `packages`, `reach.everything`, and the
+ * What a change reaches (ADR-0005): `packages`, `reach.everything`, the
  * share of the suite past which code nothing holds is warned about,
- * `holds.hotPath`.
+ * `holds.hotPath`, and whether a run given no mode considers every unit,
+ * `run.full`, rather than what changed since its last passing commit.
  */
 final readonly class Reach implements Part
 {
@@ -26,6 +27,7 @@ final readonly class Reach implements Part
         private Listed|Absent $packages,
         private Listed|Absent $everything,
         private int|float|Absent $hotPath,
+        private bool|Absent $full,
     ) {
     }
 
@@ -37,8 +39,9 @@ final readonly class Reach implements Part
         Listed|Absent $packages = new Absent(),
         Listed|Absent $everything = new Absent(),
         int|float|Absent $hotPath = new Absent(),
+        bool|Absent $full = new Absent(),
     ): self {
-        return new self($packages, $everything, $hotPath);
+        return new self($packages, $everything, $hotPath, $full);
     }
 
     public static function none(): self
@@ -50,7 +53,7 @@ final readonly class Reach implements Part
     {
         $none = self::none();
 
-        return self::of($none->packages(), $none->everything(), $none->hotPaths()->share());
+        return self::of($none->packages(), $none->everything(), $none->hotPaths()->share(), $none->isFullByDefault());
     }
 
     public function over(Part $later): self
@@ -60,6 +63,7 @@ final readonly class Reach implements Part
                 $this->joined($this->packages, $later->packages),
                 $this->joined($this->everything, $later->everything),
                 $later->hotPath instanceof Absent ? $this->hotPath : $later->hotPath,
+                $later->full instanceof Absent ? $this->full : $later->full,
             )
             : $this;
     }
@@ -82,6 +86,15 @@ final readonly class Reach implements Part
         return $this->hotPath instanceof Absent ? HotPaths::standard() : HotPaths::atShare($this->hotPath);
     }
 
+    /**
+     * Whether a run given neither `--full` nor `--changed-since` considers every unit; otherwise it considers what
+     * changed since its scope's last passing commit, `last-passed` (ADR-0005, decision 2).
+     */
+    public function isFullByDefault(): bool
+    {
+        return $this->full === true;
+    }
+
     public function written(PathOrigin $origin): Json
     {
         return Json::object(
@@ -101,6 +114,7 @@ final readonly class Reach implements Part
                 )),
             ),
             Member::unlessEmpty('holds', Json::object(Member::of('hotPath', $this->hotPath))),
+            Member::unlessEmpty('run', Json::object(Member::of('full', $this->full))),
         );
     }
 
@@ -119,7 +133,13 @@ final readonly class Reach implements Part
             ? []
             : [sprintf('Reach::hotPath(%s)', PhpCalls::literal($this->hotPath))];
 
-        return PhpCalls::inWith(...$packages, ...$everything, ...$hotPath);
+        $full = match ($this->full) {
+            true => ['Reach::fullByDefault()'],
+            false => ['Reach::changedByDefault()'],
+            default => [],
+        };
+
+        return PhpCalls::inWith(...$packages, ...$everything, ...$hotPath, ...$full);
     }
 
     /**

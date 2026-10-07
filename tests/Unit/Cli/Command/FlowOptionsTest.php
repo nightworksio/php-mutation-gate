@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Cli\Command\VerdictOutput;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Cli\Flow\Mode;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
+use NightWorksIO\MutationGate\Config\Reach;
 use NightWorksIO\MutationGate\Config\Shards;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
@@ -65,26 +66,30 @@ it('offers plan\'s options: a ref to change since, a full run, a coverage map, a
         ->and(array_keys($definition->getOptions()))->toBe(['changed-since', 'full', 'coverage', 'shards', 'kill-matrix', 'security', 'suite', 'deliver-later']);
 });
 
-it('runs in full unless asked to consider a change', function (array $options, Mode $mode, bool $full) use (
+it('considers what changed since the last commit that passed unless asked otherwise, or run.full asks for every unit', function (array $options, bool $fullByDefault, Mode $mode, bool $full) use (
     $given,
 ): void {
-    expect(FlowOptions::mode($given($options)))->toEqual($mode)
-        ->and(FlowOptions::isFull($given($options)))->toBe($full);
+    $settings = $fullByDefault ? Flows::settings(Reach::fullByDefault()) : Flows::settings();
+
+    expect(FlowOptions::mode($given($options), $settings))->toEqual($mode)
+        ->and(FlowOptions::isFull($given($options), $settings))->toBe($full);
 })->with([
-    'nothing asked' => [[], Mode::full(), true],
-    '--full' => [['--full' => true], Mode::full(), true],
-    '--changed-since' => [['--changed-since' => 'origin/main'], Mode::since('origin/main'), false],
-    'last-passed' => [['--changed-since' => 'last-passed'], Mode::since('last-passed'), false],
+    'nothing asked' => [[], false, Mode::since('last-passed'), false],
+    'nothing asked, where run.full is true' => [[], true, Mode::full(), true],
+    '--full' => [['--full' => true], false, Mode::full(), true],
+    '--changed-since' => [['--changed-since' => 'origin/main'], false, Mode::since('origin/main'), false],
+    '--changed-since, where run.full is true' => [['--changed-since' => 'origin/main'], true, Mode::since('origin/main'), false],
+    'last-run' => [['--changed-since' => 'last-run'], false, Mode::since('last-run'), false],
 ]);
 
 it('refuses a full run and a change-scoped one asked for together', function () use ($given): void {
-    expect(FlowOptions::mode($given(['--full' => true, '--changed-since' => 'origin/main'])))
+    expect(FlowOptions::mode($given(['--full' => true, '--changed-since' => 'origin/main']), Flows::settings()))
         ->toEqual(CannotJudge::because('--full and --changed-since ask for different runs. Give one of them.'));
 });
 
-it('runs in full where the command takes none of the flows\' options', function () use ($bare): void {
-    expect(FlowOptions::mode($bare()))->toEqual(Mode::full())
-        ->and(FlowOptions::isFull($bare()))->toBeTrue();
+it('considers what changed since the last commit that passed where the command takes none of the flows\' options', function () use ($bare): void {
+    expect(FlowOptions::mode($bare(), Flows::settings()))->toEqual(Mode::since('last-passed'))
+        ->and(FlowOptions::isFull($bare(), Flows::settings()))->toBeFalse();
 });
 
 it('runs the whole suite under coverage into the workspace, unless a map is named', function () use ($given): void {
