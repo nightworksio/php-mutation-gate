@@ -243,7 +243,10 @@ final readonly class Running
 
         return new Mutated(
             MutationResult::of(
-                MemoryTriage::weighed(TimeoutTriage::timed($checked->mutants, $map), $plan->briefing()->peak()),
+                MemoryTriage::weighed(
+                    TimeoutTriage::timed($checked->mutants, $map, $held->covered()),
+                    $plan->briefing()->peak(),
+                ),
                 $spent->skipped,
             )->withWarnings($spent->warnings),
             $spent->flaky,

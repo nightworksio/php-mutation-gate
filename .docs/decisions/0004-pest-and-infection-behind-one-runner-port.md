@@ -652,8 +652,9 @@ its parser attributes. Both change when the checkout moves.
 
    A mutant's *judging tests* are the tests that decide its result: its
    covering tests, or for decision 8 the test files it selected and, where
-   used, the fallback. Timeout triage, flaky triage and hints name these
-   (ADR-0008, ADR-0009).
+   used, the fallback. Of a held unit they are those of its covering tests
+   that hold it (ADR-0005), the only tests its run selects. Timeout triage,
+   flaky triage and hints name these (ADR-0008, ADR-0009).
 
 6. **Reproducing one mutant is runner-neutral.** `mutation-gate reproduce <id>`
    runs the runner over the one file with only that mutator: Pest's `--path`

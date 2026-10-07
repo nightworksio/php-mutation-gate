@@ -544,6 +544,46 @@ it('keeps with each timed-out mutant the time its covering tests take, from the 
         ->and($timed[0]->unmutatedNeed())->toEqual(Seconds::of(0.2));
 });
 
+// The held unit's run selects its holding tests alone. A test that covers
+// the line from outside the group never ran with the mutant in place, so
+// its time is not what the limit had to allow.
+it('keeps with a held unit\'s timed-out mutant the time its holding tests that run it take, not every covering test\'s', function () use (
+    $resultIn,
+): void {
+    $project = Flows::project();
+    $held = Path::of('src/Held.php');
+    $suite = CoverageMap::empty()
+        ->covered($held, Line::of(11), TestId::of('HeldTest::a'))
+        ->covered($held, Line::of(11), TestId::of('SuiteTest::b'))
+        ->timed(TestId::of('HeldTest::a'), Seconds::of(0.1))
+        ->timed(TestId::of('SuiteTest::b'), Seconds::of(30.0));
+    $group = CoverageMap::empty()->covered($held, Line::of(11), TestId::of('HeldTest::a'))
+        ->timed(TestId::of('HeldTest::a'), Seconds::of(0.1));
+    $hung = Mutant::of(
+        MutantId::hash($held, 'Plus', '11', 0),
+        'Plus-11',
+        Location::of($held, Line::of(11), Line::of(11)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, ''),
+        MutantStatus::TimedOut,
+        Unmeasured::duration(),
+    )->withLimit(Seconds::of(10.0));
+    new Handoff(Directory::at($project), HandedMaps::limits())->write(Planned::oneShard(), $suite, KillHistory::none(), Unplaced::map());
+    $scripted = ScriptedRunner::fixture()->answeringInTurn(
+        MutationResult::of(Mutants::of($hung), 0),
+        MutationResult::of(Mutants::none(), 0),
+    );
+
+    new Running(Flows::adapters($project, [], new CoverageAsked($scripted, $group)), Flows::settings(), Flows::setup())
+        ->run(Planned::oneShard(), ShardId::of(1), Workspace::results());
+    $result = $resultIn($project, 1);
+    $outcome = $result instanceof ShardResult ? $result->outcome() : $result;
+
+    expect(array_map(
+        static fn(Mutant $mutant): mixed => $mutant->unmutatedNeed(),
+        $outcome instanceof MutationResult ? [...$outcome->mutants()] : [],
+    ))->toEqual([Seconds::of(0.1)]);
+});
+
 it('never runs a timed-out mutant again, whatever decided its limit, and keeps it timed out', function () use (
     $statuses,
     $resultIn,

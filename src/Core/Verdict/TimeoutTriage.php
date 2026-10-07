@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Verdict;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\OwnTime;
+use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
@@ -32,16 +33,20 @@ final readonly class TimeoutTriage
     }
 
     /**
-     * The mutants, each one whose time ran out with the seconds the tests
-     * covering its line take on their own, as a coverage map measured them;
-     * where one of them was not measured, its time stays unknown.
+     * The mutants, each one whose time ran out with the seconds its judging
+     * tests take on their own, as a coverage map measured them: the tests
+     * covering its lines, and of a held unit only those that hold it, the
+     * tests its run selected. Where one of them was not measured, its time
+     * stays unknown.
      */
-    public static function timed(Mutants $mutants, CoverageMap $map): Mutants
+    public static function timed(Mutants $mutants, CoverageMap $map, HeldCovered $held): Mutants
     {
         $timed = [];
 
         foreach ($mutants as $mutant) {
-            $time = $mutant->status()->ranOutOfTime() ? self::judgingTimeOf($mutant, $map) : Unmeasured::duration();
+            $time = $mutant->status()->ranOutOfTime()
+                ? self::judgingTimeOf($mutant, $map, $held)
+                : Unmeasured::duration();
             $timed[] = $time instanceof Seconds ? $mutant->withUnmutatedNeed($time) : $mutant;
         }
 
@@ -63,10 +68,11 @@ final readonly class TimeoutTriage
             : MutantJudgement::reported($mutant->status());
     }
 
-    private static function judgingTimeOf(Mutant $mutant, CoverageMap $map): Seconds|Unmeasured
+    private static function judgingTimeOf(Mutant $mutant, CoverageMap $map, HeldCovered $held): Seconds|Unmeasured
     {
         $location = $mutant->location();
+        $covering = $map->testsCoveringSpan($location->file(), $location->start(), $location->last());
 
-        return OwnTime::of($map, $map->testsCoveringSpan($location->file(), $location->start(), $location->last()));
+        return OwnTime::of($map, $held->judgingAmong($location->file(), $covering));
     }
 }
