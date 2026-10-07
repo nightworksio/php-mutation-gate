@@ -60,6 +60,22 @@ final readonly class HeldCovered implements Countable, IteratorAggregate
             : TestIds::none();
     }
 
+    /**
+     * Those of these tests, covering a mutant in this file, that judge it:
+     * the ones among the holding tests of the held unit the file is in, where
+     * it is in one; every one, where it is not.
+     */
+    public function judgingAmong(Path $file, TestIds $covering): TestIds
+    {
+        foreach ($this->covered as $covered) {
+            if ($file->within($covered->unit()->path())) {
+                return $covering->among($covered->tests());
+            }
+        }
+
+        return $covering;
+    }
+
     public function count(): int
     {
         return count($this->covered);

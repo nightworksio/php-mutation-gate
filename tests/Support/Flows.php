@@ -29,6 +29,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -206,7 +207,7 @@ final readonly class Flows
             ->mutate(MutationRequest::of(Paths::of(Path::of($file)), WholeSuite::tests()))
             ->mutants();
 
-        return TimeoutTriage::timed($mutants, self::map());
+        return TimeoutTriage::timed($mutants, self::map(), HeldCovered::none());
     }
 
     /** The coverage map the fake runner measures of the project. */
