@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Plan;
 
 use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Reach\Packages;
+use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
@@ -66,6 +68,21 @@ final readonly class Considered
     public function changed(): Changes
     {
         return $this->changed;
+    }
+
+    /**
+     * The lines the change added or modified, over these packages, as the
+     * verdict marks the mutants on them; none for a full run.
+     */
+    public function lines(Packages $packages): Reach
+    {
+        $reach = Reach::nothing($packages);
+
+        foreach ($this->changed as $change) {
+            $reach = $reach->withLines($change->path(), $change->lines());
+        }
+
+        return $reach;
     }
 
     /** The changed lines of each source file no test runs; none for a full run. */

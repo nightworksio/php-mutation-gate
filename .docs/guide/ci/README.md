@@ -51,3 +51,25 @@ Schema, and the Jenkinsfile, which has no schema, with a snapshot test.
   Infection's include-interceptor serves the mutant. It patches only the
   Infection releases the gate supports. Unpatched, each mutant keeps
   Infection's own limit, and every run says so in its report.
+
+## A pull request that cannot pass
+
+A pull request's shard stops once its run cannot pass. That is a survivor
+that did not prove flaky, that no ignore leaves out and that is not proven
+equivalent, where its tree's floor is 100, or its line is one the change
+added or modified and the new-code floor is 100. It stops only where no
+static analysis can clear such a survivor: `equivalence.static` is `false`
+and `staticCheck.tool` is `none`. The shard runs its units riskiest first,
+in chunks of about two minutes of expected work, and stops after the chunk
+that confirms such a survivor. Its result names the survivor under `doomed`
+in `.mutation-gate/results/<id>.json`:
+
+```json
+"doomed": {"unit": "src/Money.php", "mutant": "3f9c2a1b7d4e", "tree": "src", "floor": 100, "why": "tree"}
+```
+
+`why` is `tree` or `newCode`. A CI step that reads only that result, and
+runs none of the project's code, can cancel the run's other shards. The
+verdict reads a shard that left no result beside a doomed one as stopped.
+The units the run did not mutate count by their newest results, as under a
+budget, and the verdict fails naming the survivor.

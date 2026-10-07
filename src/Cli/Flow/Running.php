@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
-use function array_map;
-use function array_slice;
-
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
@@ -41,8 +38,9 @@ use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
-use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Verdict\Doom;
+use NightWorksIO\MutationGate\Core\Verdict\Doomed;
 use NightWorksIO\MutationGate\Core\Verdict\MemoryTriage;
 use NightWorksIO\MutationGate\Core\Verdict\TimeoutTriage;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
@@ -62,7 +60,9 @@ use function sprintf;
  * `tests.order: killers-first` each mutant's likely killers run first, by the
  * kill history the plan handed the shard beside its map: a shard handed none
  * orders its tests as though no test had killed anything yet, and one whose
- * history cannot be read does too, and warns of it.
+ * history cannot be read does too, and warns of it. A pull request's shard
+ * runs in chunks, and stops once a survivor makes its run certain to fail,
+ * naming that survivor in its result (ADR-0008, decision 6).
  */
 final readonly class Running
 {
@@ -93,11 +93,13 @@ final readonly class Running
             : $plan->forCheckout($head);
         $id = $named instanceof ShardId ? $named : WhichShard::in($this->adapters->environment, $plan);
 
-        return match (true) {
+        $result = match (true) {
             $followed instanceof CannotJudge => $followed,
             $id instanceof CannotJudge => $id,
-            default => $this->ranShard($followed, $id, $results, $this->deadline()),
+            default => $this->resultOf($followed, $id, $this->deadline()),
         };
+
+        return $result instanceof CannotJudge ? $result : $this->written($result, $results);
     }
 
     /** Every shard of a plan, one after another in this process, each leaving its result. */
@@ -108,21 +110,26 @@ final readonly class Running
 
     /**
      * Every shard of a plan, as {@see runAll()} runs them, stopping at a
-     * deadline set before it, which several runs of one process share.
+     * deadline set before it, which several runs of one process share. Once
+     * a shard stops because the run cannot pass, no later shard runs, and
+     * the verdict reads each as stopped (ADR-0008, decision 6).
      */
     public function runAllBy(Plan $plan, Path $results, Deadline|Unlimited $deadline): Written|CannotJudge
     {
-        $written = Written::to($results->value());
-
         foreach ($plan as $shard) {
-            $ran = $this->ranShard($plan, $shard->id(), $results, $deadline);
+            $result = $this->resultOf($plan, $shard->id(), $deadline);
+            $ran = $result instanceof CannotJudge ? $result : $this->written($result, $results);
 
             if ($ran instanceof CannotJudge) {
                 return $ran;
             }
+
+            if ($result->doomed() instanceof Doomed) {
+                break;
+            }
         }
 
-        return $written;
+        return Written::to($results->value());
     }
 
     /** When this process must stop: its budget from now, or never where it has none (ADR-0008, decision 1). */
@@ -133,7 +140,17 @@ final readonly class Running
         return $budget instanceof Seconds ? Deadline::after($this->setup->clock->now(), $budget) : $budget;
     }
 
-    private function ranShard(Plan $plan, ShardId $id, Path $results, Deadline|Unlimited $deadline): Written|CannotJudge
+    /** A shard's result, left where the verdict reads it. */
+    private function written(ShardResult $result, Path $results): Written|CannotJudge
+    {
+        return $this->adapters->project->write(
+            Workspace::result($results, $result->shard()),
+            Contents::of(ShardResultFile::encode($result)),
+        );
+    }
+
+    /** What one shard of a plan came to, or why it has no result. */
+    private function resultOf(Plan $plan, ShardId $id, Deadline|Unlimited $deadline): ShardResult|CannotJudge
     {
         $shard = $plan->shard($id);
 
@@ -165,14 +182,10 @@ final readonly class Running
                 ->withSteps($stopwatch->steps()),
         );
         $result = $this->left($result, $outcome);
-        $result = $result->withWarnings($result->warnings()->and($history instanceof CannotJudge ? Warnings::of(
+
+        return $result->withWarnings($result->warnings()->and($history instanceof CannotJudge ? Warnings::of(
             Warning::that(sprintf(self::UNREAD_HISTORY, $id->number(), $history->why())),
         ) : Warnings::none()));
-
-        return $this->adapters->project->write(
-            Workspace::result($results, $id),
-            Contents::of(ShardResultFile::encode($result)),
-        );
     }
 
     /** The result with what the shard's mutating left beside its mutants, warnings too: none where it cannot judge. */
@@ -180,11 +193,11 @@ final readonly class Running
     {
         return $outcome instanceof CannotJudge ? $result : $result
             ->withFlaky($outcome->flaky)
-            ->withMisses($outcome->held->misses())
-            ->withCovered($outcome->held->covered())
+            ->withHeld($outcome->held)
             ->withUnjudged($outcome->unjudged)
             ->withChecks($outcome->checks)
-            ->withWarnings($outcome->result->warnings());
+            ->withWarnings($outcome->result->warnings())
+            ->withDoomed($outcome->doomed);
     }
 
     /**
@@ -194,8 +207,10 @@ final readonly class Running
      * unit but the held ones whose holding tests miss lines of them; or the
      * first cannot judge. A shard handed no map cannot judge at all. Under a
      * budget the units run in batches that fit the time left, and those the
-     * time ran out before are unjudged. Static analysis then checks the
-     * survivors, in the time left.
+     * time ran out before are unjudged. A shard that stops once its run
+     * cannot pass runs in chunks, and the units after the chunk that doomed
+     * it are unjudged too. Static analysis then checks the survivors, in the
+     * time left.
      */
     private function mutated(
         Plan $plan,
@@ -219,9 +234,19 @@ final readonly class Running
 
         $kept = HeldCoverage::kept($shard, $held->misses());
         $invoking = new Invoking($this->adapters, $this->settings, $this->setup->clock, $deadline, $stopwatch);
-        $spent = $deadline instanceof Deadline
-            ? $this->spentWithin($invoking, $deadline, $plan, $kept, $map, $search)
-            : $this->spentWhole($invoking, $kept, $search);
+        $doom = new Dooming($this->adapters, $this->settings, $this->setup->clock)->of($plan);
+        $batched = new Batched($invoking, $this->setup->clock, $deadline, $this->interruption, $doom);
+        $batching = Batching::opening($map->suiteDuration());
+        $requestFor = fn(Units $units): MutationRequest => $this->requestFor($units, $kept->id(), $search);
+        $spent = match (true) {
+            $doom instanceof Doom => $batched->spent(
+                $this->weighed($kept, $plan),
+                $batching->inChunksOf(Batching::chunk()),
+                $requestFor,
+            ),
+            $deadline instanceof Deadline => $batched->spent($this->weighed($kept, $plan), $batching, $requestFor),
+            default => $this->spentWhole($invoking, $kept, $search),
+        };
 
         if ($spent instanceof CannotJudge) {
             return $spent;
@@ -253,6 +278,7 @@ final readonly class Running
             $held,
             $spent->unjudged,
             $checked->checks,
+            $spent->doomed,
         );
     }
 
@@ -272,57 +298,6 @@ final readonly class Running
         }
 
         return $spent;
-    }
-
-    /**
-     * The shard's units in the order the plan lists them, riskiest first, in
-     * batches that each fit the time left, until one does not, the time is
-     * up, or the run is interrupted. A batch the runner cannot judge once the
-     * time is up is unjudged, as is every unit no batch took.
-     */
-    private function spentWithin(
-        Invoking $invoking,
-        Deadline $deadline,
-        Plan $plan,
-        Shard $kept,
-        CoverageMap $map,
-        KillSearch $search,
-    ): Spent|CannotJudge {
-        $queue = $this->weighed($kept, $plan);
-        $batching = Batching::opening($map->suiteDuration());
-        $spent = Spent::none();
-        $left = $deadline->left($this->setup->clock->now());
-        $batch = $this->batchOf($batching, $queue, $left);
-
-        while ($batch->count() > 0) {
-            $request = $this->requestFor($batch, $kept->id(), $search)->within($left);
-            $invoked = $invoking->invoked($request);
-            $queue = array_slice($queue, $batch->count());
-            $spent = match (true) {
-                ! $invoked instanceof CannotJudge => $spent->after($invoked),
-                $deadline->hasPassed($this->setup->clock->now()) => $spent->leaving($batch),
-                default => $invoked,
-            };
-
-            if ($spent instanceof CannotJudge) {
-                return $spent;
-            }
-
-            $left = $deadline->left($this->setup->clock->now());
-            $batch = $this->batchOf($batching, $queue, $left);
-        }
-
-        return $spent->leaving(Units::of(...array_map(static fn(Weighed $weighed): Unit => $weighed->unit(), $queue)));
-    }
-
-    /**
-     * The next batch that fits the time left, or none once the run is interrupted.
-     *
-     * @param list<Weighed> $queue
-     */
-    private function batchOf(Batching $batching, array $queue, Seconds $left): Units
-    {
-        return $this->interruption->arrived() ? Units::none() : $batching->next($queue, $left);
     }
 
     /**

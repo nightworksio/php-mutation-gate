@@ -90,7 +90,7 @@ it('prints the verdict, the trees, new code, units, reach, what was not killed, 
 it('says a run was cut short, and which floors can rise', function () use ($printed): void {
     expect($printed(Verdicts::passing()->cutShort()))->toBe(implode("\n", [
         'mutation-gate: passed',
-        'The run\'s budget stopped it before every mutant was judged.',
+        'The run stopped before it judged every mutant.',
         'The project scores 100.00%.',
         '',
         'Trees',

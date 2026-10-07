@@ -48,6 +48,7 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Verdict\Carrying;
 use NightWorksIO\MutationGate\Core\Verdict\ChangesSince;
+use NightWorksIO\MutationGate\Core\Verdict\Doomed;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\Failures;
 use NightWorksIO\MutationGate\Core\Verdict\HeldSets;
@@ -62,6 +63,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Ratchet;
 use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Unfinished;
+use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Core\Written;
@@ -271,7 +273,7 @@ final readonly class Judging
         $judge = Judge::of(
             $trees,
             $baseline,
-            $this->reachOf($plan, $trees),
+            $plan->considered()->lines(Packages::of($trees)),
             $uncovered,
             $this->settings->triage()->timeouts(),
             $ignoring,
@@ -285,15 +287,17 @@ final readonly class Judging
         );
         $map = new Handoff($this->adapters->project, Handoff::limits())->forVerdict();
         $newest = $ledgers->newest();
-        $commits = ChangesSince::commitsOf($results->unjudged(), $newest, $plan->base());
+        $stop = $results->stopped();
+        $commits = ChangesSince::commitsOf($results->unjudged()->and($stop->units()), $newest, $plan->base());
         $since = new Since($this->adapters, $this->settings)->of(...$commits);
-        $unjudged = LeftUnjudged::of(
-            $results->unjudged(),
-            $newest,
-            Carrying::against($plan->digests(), $plan->base(), $plan->names(), $map, $since),
-        );
+        $counted = Carrying::against($plan->digests(), $plan->base(), $plan->names(), $map, $since);
+        $unjudged = LeftUnjudged::of($results->unjudged(), $newest, $counted);
+        $doomed = $stop->doomed();
+        $stopped = $doomed instanceof Doomed
+            ? LeftUnjudged::stoppedBy($doomed, $stop->units(), $newest, $counted)->results()
+            : UnitResults::none();
         $matrix = $this->matrixOf($plan, $map);
-        $judged = $fresh->and($proving->proved())->and($carrying->carried())->and($unjudged->results());
+        $judged = $fresh->and($proving->proved())->and($carrying->carried())->and($unjudged->results())->and($stopped);
         $equivalents = new StaticEquivalence($this->adapters, $this->settings)->among($judged);
         $verdicts = $this->read($matrix, $judge->judging($matrix)->proving($equivalents->proven)->trees($judged));
         $security = $this->secured(
@@ -307,7 +311,7 @@ final readonly class Judging
         }
 
         $refused = $unfloored > 0 && $this->adapters->environment->inCi();
-        $unrun = $this->missed($results->misses())->and($unjudged->failures());
+        $unrun = $this->missed($results->misses())->and($unjudged->failures())->and($stop->failures());
         $verdict = $this->verdictOf(
             $plan,
             Lowering::against($committed, $baseline, $trees),
@@ -490,18 +494,6 @@ final readonly class Judging
             ->grouping($configured instanceof PhpUnitSuite ? $configured->suites() : DeclaredSuites::none());
 
         return $names instanceof TestNames ? $matrix->named($names) : $matrix;
-    }
-
-    /** The lines each change added or modified, which the new-code floor judges. */
-    private function reachOf(Plan $plan, Trees $trees): Reach
-    {
-        $reach = Reach::nothing(Packages::of($trees));
-
-        foreach ($plan->considered()->changed() as $change) {
-            $reach = $reach->withLines($change->path(), $change->lines());
-        }
-
-        return $reach;
     }
 
     /**

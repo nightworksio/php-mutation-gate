@@ -123,9 +123,12 @@ use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Verdict\Doomed;
+use NightWorksIO\MutationGate\Core\Verdict\DoomedBy;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedUnit;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\NoFinding;
@@ -1998,3 +2001,104 @@ it('records the commit it judged as its scope\'s last run, with what it was made
     'a commit git can say what it was made of' => [true],
     'one it cannot' => [false],
 ]);
+
+/**
+ * A pull request's run of its shards, each in a job of its own handed its
+ * map, in a store, with src held to this floor: shard 1, and shard 2 unless
+ * it was cancelled, which leaves no result; then judged.
+ *
+ * @param list<object> $ports the ports in place of the fakes, such as a checkout
+ */
+function judgingDoomed(ProofStoreFake $store, Floor $floor, bool $cancelled, string $project, array $ports = []): Judged|Invalid|CannotJudge
+{
+    $plan = judgingDigested('money', 'money test')->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')));
+    $adapters = Flows::adapters(
+        $project,
+        [],
+        $store,
+        new TreeSourceFake(Trees::of(Tree::at(Path::of('src'), $floor, Package::at(Path::root())))),
+        ...$ports,
+    );
+    $settings = judgingSettings(Equivalence::notProvenStatically());
+    new Handoff($adapters->project, HandedMaps::limits())->write($plan, Flows::map(), KillHistory::none(), Unplaced::map());
+
+    foreach ($cancelled ? [1] : [1, 2] as $shard) {
+        new Running($adapters, $settings, Flows::setup())->run($plan, ShardId::of($shard), Workspace::results());
+    }
+
+    $results = Results::read($plan, Workspace::results(), $adapters->project);
+    $reporting = new Reporting(new Chosen(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))->withReporter(
+        Name::of('recorded'),
+        static fn(): Reporter => new ReporterFake(),
+    )), Variables::of([]));
+
+    return $results instanceof Results
+        ? new Judging($adapters, $settings, Flows::setup(), $reporting)->verdict($plan, $results)
+        : $results;
+}
+
+/** The doom of a run whose first survivor of this file fails src's floor of 100. */
+function judgingDoomOf(string $file = 'src/Money.php'): Doomed
+{
+    $survivor = [...array_filter([...Flows::mutantsOf($file)], static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Survived)][0];
+
+    return Doomed::of(Path::of($file), $survivor->id(), Path::of('src'), Floor::whole(), DoomedBy::Tree);
+}
+
+it('fails a pull request\'s run that stopped once it could not pass, naming the survivor, and counts a cancelled shard\'s units by their newest results', function (): void {
+    $store = judgingProven('money', 'money test');
+    $verdict = judgingVerdictOf(judgingDoomed($store, Floor::whole(), cancelled: true, project: Flows::project()));
+    $units = array_map(
+        static fn(JudgedUnit $unit): string => sprintf('%s %s', $unit->unit()->path()->value(), $unit->origin()->value),
+        [...[...$verdict->trees()][0]->units()],
+    );
+
+    expect($verdict->judgement())->toBe(Judgement::Failed)
+        ->and(judgingTexts($verdict->failures()))->toBe([judgingDoomOf()->said(1)])
+        ->and($units)->toBe(['src/Money.php run', 'src/Held.php carried'])
+        ->and($verdict->wasCutShort())->toBeTrue()
+        ->and(LedgerRead::ledger($store->read(Scope::pullRequest(7)))->runs()->lastRun())->toBeInstanceOf(CannotTell::class);
+});
+
+it('carries a kill of a cancelled shard\'s unit from another commit, where nothing changed since reaches it', function (): void {
+    $commit = Revision::ref(str_repeat('c1', 20));
+    [$project] = judgingAcross('src/Tax.php', $commit);
+    $files = [];
+
+    foreach (['src/Money.php', 'src/Held.php', 'src/Equals.php', 'src/Tax.php', 'tests/MoneyTest.php', 'composer.json'] as $path) {
+        $files[$path] = (string) file_get_contents(sprintf('%s/%s', $project, $path));
+    }
+
+    $checkout = new ChangeSourceFake(
+        $commit,
+        Changes::of(Change::modified(Path::of('src/Tax.php'), Lines::of(Line::of(4)))),
+        [Revision::workingTree()->name() => $files, $commit->name() => $files, Flows::MAIN => $files],
+    );
+    $verdict = judgingVerdictOf(judgingDoomed(judgingProvenAcross($commit, $commit), Floor::whole(), cancelled: true, project: $project, ports: [$checkout]));
+    $trees = [...$verdict->trees()];
+
+    expect($verdict->judgement())->toBe(Judgement::Failed)
+        ->and($trees[0]->counts()->number(MutantJudgement::Unjudged))->toBe(0)
+        ->and(judgingTexts($verdict->failures()))->toBe([judgingDoomOf()->said(1)]);
+});
+
+it('fails a doomed run by its survivor alone where a cancelled shard\'s units have no result to count', function (): void {
+    $verdict = judgingVerdictOf(judgingDoomed(new ProofStoreFake(), Floor::whole(), cancelled: true, project: Flows::project()));
+
+    expect($verdict->judgement())->toBe(Judgement::Failed)
+        ->and(judgingTexts($verdict->failures()))->toBe([judgingDoomOf()->said(1)]);
+});
+
+it('fails a run by every shard that stopped once it could not pass, though each left its result, and records its last run', function (): void {
+    $store = new ProofStoreFake();
+    $verdict = judgingVerdictOf(judgingDoomed($store, Floor::whole(), cancelled: false, project: Flows::project()));
+
+    expect($verdict->judgement())->toBe(Judgement::Failed)
+        ->and(judgingTexts($verdict->failures()))->toBe([judgingDoomOf()->said(1), judgingDoomOf('src/Held.php')->said(2)])
+        ->and($verdict->wasCutShort())->toBeFalse()
+        ->and(LedgerRead::ledger($store->read(Scope::pullRequest(7)))->runs()->lastRun())->toBeInstanceOf(LastRun::class);
+});
+
+it('cannot judge a run whose shard left no result where no shard stopped once it could not pass', function (): void {
+    expect(judgingDoomed(new ProofStoreFake(), Floor::of(50), cancelled: true, project: Flows::project()))->toBeInstanceOf(CannotJudge::class);
+});

@@ -18,11 +18,13 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Run;
+use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestName;
@@ -32,6 +34,8 @@ use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Carrying;
 use NightWorksIO\MutationGate\Core\Verdict\ChangesSince;
+use NightWorksIO\MutationGate\Core\Verdict\Doomed;
+use NightWorksIO\MutationGate\Core\Verdict\DoomedBy;
 use NightWorksIO\MutationGate\Core\Verdict\Failure;
 use NightWorksIO\MutationGate\Core\Verdict\Failures;
 use NightWorksIO\MutationGate\Core\Verdict\LeftUnjudged;
@@ -143,4 +147,27 @@ it('carries a kill by static analysis of this base with its rejection, and one t
 
     expect($carried($rejected))->toEqual([$rejected])
         ->and($carried($unplaced))->toEqual([$unplaced->unjudged(OutOfTime::BeforeMutating)]);
+});
+
+it('counts a unit a doomed run stopped before by its newest result, each mutant that does not stand unjudged by that stop', function () use ($units, $newest, $carrying, $survivor, $timedOut, $standing, $stale): void {
+    $doomed = Doomed::of(Path::of('src/Late.php'), MutantId::hash(Path::of('src/Late.php'), 'Plus', '1', 0), Path::of('src'), Floor::whole(), DoomedBy::Tree);
+    $stopped = LeftUnjudged::stoppedBy($doomed, $units, $newest, $carrying);
+
+    expect([...$stopped->results()])->toEqual([UnitResult::held(
+        Unit::file(Path::of('src/Money.php')),
+        Origin::Carried,
+        Mutants::of($survivor, $timedOut->unjudged($doomed->left())),
+        ProvedKills::of($standing, $stale->unjudged($doomed->left())),
+        Run::of('main', Moment::at('2026-09-29T10:00:00Z'), Digest::sha256Of('base')),
+    )])
+        ->and($stopped->failures())->toHaveCount(0)
+        ->and(array_map(
+            static fn(Mutant|ProvedKill $left): string => $left->reason() instanceof Reason ? $left->reason()->text() : '',
+            [...[...$stopped->results()][0]->mutants(), ...[...$stopped->results()][0]->kills()],
+        ))->toBe(['', $doomed->left()->text(), '', $doomed->left()->text()])
+        ->and(OutOfTime::left($timedOut->unjudged($doomed->left())))->toBeFalse()
+        ->and($doomed->left()->text())->toBe(sprintf(
+            'The run stopped before this unit, once mutant %s of src/Late.php made it certain to fail. Kill that mutant and run again.',
+            $doomed->mutant()->value(),
+        ));
 });

@@ -331,6 +331,22 @@ it('reports only the files it was asked for, less the paths left out', function 
         ->and($leftOut instanceof MutationResult ? $files($leftOut->mutants()) : [])->toBe(['src/Money.php']);
 })->with($libraries);
 
+it('judges each file alike in a chunk of its own and in one beside another file, as a doomed run\'s chunks rely on', function (Library $library): void {
+    $request = static fn(Path ...$files): MutationRequest => MutationRequest::of(Paths::of(...$files), WholeSuite::tests())
+        ->narrowedTo(Paths::of(...$files), Narrowing::none()->toMutators($library->mutators('adds')));
+    $records = static fn(MutationResult|CannotJudge $result): array => $result instanceof MutationResult
+        ? Library::records($result->mutants())
+        : [$result->why()];
+    $together = $library->mutate('money and held', $request(Path::of('src/Money.php'), Path::of('src/Held.php')));
+    $money = $library->mutate('money alone', $request(Path::of('src/Money.php')));
+    $held = $library->mutate('held alone', $request(Path::of('src/Held.php')));
+
+    expect($records($together))->not->toBe([])
+        ->and($records($together))->toEqualCanonicalizing([...$records($money), ...$records($held)])
+        ->and($records($money))->not->toBe([])
+        ->and($records($held))->not->toBe([]);
+})->with($libraries);
+
 it('gives every mutant an id of its own in the gate\'s spelling', function (Library $library) use ($money): void {
     $result = $money($library);
     $mutants = $result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false) : [];

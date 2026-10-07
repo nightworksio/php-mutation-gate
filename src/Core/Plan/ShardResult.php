@@ -7,13 +7,14 @@ namespace NightWorksIO\MutationGate\Core\Plan;
 use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Digest;
-use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
-use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
+use NightWorksIO\MutationGate\Core\Hold\HeldChecks;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Verdict\Doomed;
+use NightWorksIO\MutationGate\Core\Verdict\Undoomed;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
 /**
@@ -21,8 +22,9 @@ use NightWorksIO\MutationGate\Core\Verdict\Warnings;
  * their keys, every mutant's record or the runner's cannot judge, what it
  * measured, the mutants that gave two answers, the held units whose holding
  * tests miss lines of them, which it did not mutate, what it warns of, the
- * units its budget ran out before, and what static analysis's checks of its
- * survivors came to.
+ * units its budget ran out before, what static analysis's checks of its
+ * survivors came to, and the survivor it stopped on once the run could not
+ * pass, where it did.
  */
 final readonly class ShardResult
 {
@@ -33,11 +35,11 @@ final readonly class ShardResult
         private MutationResult|CannotJudge $outcome,
         private Measurement $measured,
         private MutantIds $flaky,
-        private HeldMisses $misses,
-        private HeldCovered $covered,
+        private HeldChecks $held,
         private Warnings $warnings,
         private Units $unjudged,
         private SurvivorChecks $checks,
+        private Doomed|Undoomed $doomed,
     ) {
     }
 
@@ -55,11 +57,11 @@ final readonly class ShardResult
             $outcome,
             $measured,
             MutantIds::none(),
-            HeldMisses::none(),
-            HeldCovered::none(),
+            HeldChecks::none(),
             Warnings::none(),
             Units::none(),
             SurvivorChecks::none(),
+            Undoomed::run(),
         );
     }
 
@@ -69,16 +71,14 @@ final readonly class ShardResult
         return clone($this, ['flaky' => $flaky]);
     }
 
-    /** This result, with the held units whose holding tests miss lines of them, which it did not mutate. */
-    public function withMisses(HeldMisses $misses): self
+    /**
+     * This result, with what each held unit's holding tests found: the units
+     * they miss lines of, which it did not mutate, and those they cover, each
+     * with the tests of theirs that run it.
+     */
+    public function withHeld(HeldChecks $held): self
     {
-        return clone($this, ['misses' => $misses]);
-    }
-
-    /** This result, with the held units whose holding tests cover them, each with the tests that run it. */
-    public function withCovered(HeldCovered $covered): self
-    {
-        return clone($this, ['covered' => $covered]);
+        return clone($this, ['held' => $held]);
     }
 
     /** This result, with what the shard warns of, which judges nothing. */
@@ -87,7 +87,10 @@ final readonly class ShardResult
         return clone($this, ['warnings' => $warnings]);
     }
 
-    /** This result, with the units the budget ran out before, which it never started (ADR-0008, decision 1). */
+    /**
+     * This result, with the units the budget ran out before, or its doom
+     * left, which it never started (ADR-0008, decisions 1 and 6).
+     */
     public function withUnjudged(Units $unjudged): self
     {
         return clone($this, ['unjudged' => $unjudged]);
@@ -97,6 +100,16 @@ final readonly class ShardResult
     public function withChecks(SurvivorChecks $checks): self
     {
         return clone($this, ['checks' => $checks]);
+    }
+
+    /**
+     * This result, with the survivor that made the run certain to fail, on
+     * which the shard stopped, leaving the units it did not run unjudged
+     * (ADR-0008, decision 6).
+     */
+    public function withDoomed(Doomed|Undoomed $doomed): self
+    {
+        return clone($this, ['doomed' => $doomed]);
     }
 
     /** The digest of the plan the shard followed. */
@@ -133,16 +146,10 @@ final readonly class ShardResult
         return $this->flaky;
     }
 
-    /** The held units whose holding tests miss lines of them. */
-    public function misses(): HeldMisses
+    /** The held units whose holding tests miss lines of them, and those they cover, with the tests that run each. */
+    public function held(): HeldChecks
     {
-        return $this->misses;
-    }
-
-    /** The held units whose holding tests cover them, each with the tests of theirs that run it. */
-    public function covered(): HeldCovered
-    {
-        return $this->covered;
+        return $this->held;
     }
 
     /** What the shard warns of. */
@@ -151,7 +158,7 @@ final readonly class ShardResult
         return $this->warnings;
     }
 
-    /** The units the budget ran out before, which the shard never started. */
+    /** The units the budget ran out before, or the shard's doom left, which it never started. */
     public function unjudged(): Units
     {
         return $this->unjudged;
@@ -161,5 +168,11 @@ final readonly class ShardResult
     public function checks(): SurvivorChecks
     {
         return $this->checks;
+    }
+
+    /** The survivor the shard stopped on once the run could not pass, where it did. */
+    public function doomed(): Doomed|Undoomed
+    {
+        return $this->doomed;
     }
 }
