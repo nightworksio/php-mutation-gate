@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\PhpUnit\MutantFile;
+use NightWorksIO\MutationGate\Tests\Support\FileModes;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Source;
 
@@ -351,7 +352,7 @@ it('states a file it cannot read as there, though not readable, as PHP\'s own wr
 
     expect($served)->toBe($native)
         ->and($native)->toBe([[true, true, false, 4], []]);
-})->skip(function_exists('posix_geteuid') && posix_geteuid() === 0, 'root reads a file whatever its mode');
+})->skip(! FileModes::areEnforced(), 'root reads a file whatever its mode');
 
 it('raises only PHP\'s own warning for a file that is not there', function (): void {
     [$native, $served] = nativeThenServed(static function (string $directory): array {
