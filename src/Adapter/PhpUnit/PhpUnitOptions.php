@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Config\TighterOptions;
 use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -57,19 +58,21 @@ final readonly class PhpUnitOptions
         $tests = $options->paths(Key::of(self::TESTS));
         $timeout = $options->number(Key::of(self::TIMEOUT));
         $most = $options->number(Key::of(self::MOST));
+        $tighter = TighterOptions::read($options);
         $mutators = $options->texts(Key::of(self::MUTATORS));
 
         return match (true) {
             $tests instanceof Problem => Invalid::because($tests),
             $timeout instanceof Problem => Invalid::because($timeout),
             $most instanceof Problem => Invalid::because($most),
+            $tighter instanceof Problem => Invalid::because($tighter),
             $mutators instanceof Problem => Invalid::because($mutators),
             default => new self(
                 $tests instanceof Paths && count($tests) > 0 ? $tests : Paths::of(TestsDirectory::conventional()),
                 LimitBounds::between(
                     $timeout instanceof NotGiven ? Triage::standard()->limit() : Seconds::of($timeout),
                     $most instanceof NotGiven ? Triage::standard()->most() : Seconds::of($most),
-                ),
+                )->tighterFor($tighter),
                 self::engineOf($mutators instanceof Listed ? [...$mutators] : []),
             ),
         };

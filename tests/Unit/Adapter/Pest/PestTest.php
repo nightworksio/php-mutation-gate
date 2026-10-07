@@ -74,6 +74,8 @@ use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
+use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
+use NightWorksIO\MutationGate\Core\Runner\TighterVariables;
 use NightWorksIO\MutationGate\Core\Runner\Unmade;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
@@ -482,7 +484,7 @@ it('mutates against a group without reading a shared map', function (): void {
     new Pest($at, $shell, adapterCanary(), new CapDirectory(), Triage::standard()->bounds())->mutate($request);
 
     expect($shell->commands())->toEqual([
-        adapterInvocation()->mutation($request, $held, adapterResults($at))->with(['MUTATION_GATE_NARROW' => '1', 'MUTATION_GATE_MUTANT_FLOOR' => '10.000000', 'MUTATION_GATE_MUTANT_CAP' => '300.000000']),
+        adapterInvocation()->mutation($request, $held, adapterResults($at))->with(['MUTATION_GATE_NARROW' => '1', 'MUTATION_GATE_MUTANT_FLOOR' => '10.000000', 'MUTATION_GATE_MUTANT_CAP' => '300.000000', ...TighterVariables::of(TighterSilence::standard())]),
     ]);
 });
 
@@ -516,6 +518,7 @@ it('opens a patched shard on the canary group, with the planning job\'s map writ
                 'MUTATION_GATE_NARROW' => '1',
                 'MUTATION_GATE_MUTANT_FLOOR' => '10.000000',
                 'MUTATION_GATE_MUTANT_CAP' => '300.000000',
+                ...TighterVariables::of(TighterSilence::standard()),
             ]),
         ]);
 });
@@ -617,7 +620,7 @@ it('opens a shard on its own suite unpatched, or when it collects its own map', 
     expect($shell->commands())->toEqual([
         adapterInvocation()->mutation($reusing, WholeSuite::tests(), adapterResults($at)),
         adapterInvocation()->mutation(adapterMoney(), WholeSuite::tests(), adapterResults($at))
-            ->with(['MUTATION_GATE_NARROW' => '1', 'MUTATION_GATE_MUTANT_FLOOR' => '10.000000', 'MUTATION_GATE_MUTANT_CAP' => '300.000000']),
+            ->with(['MUTATION_GATE_NARROW' => '1', 'MUTATION_GATE_MUTANT_FLOOR' => '10.000000', 'MUTATION_GATE_MUTANT_CAP' => '300.000000', ...TighterVariables::of(TighterSilence::standard())]),
     ]);
 });
 
@@ -734,6 +737,7 @@ it('runs mutants again on the canary group, reading the map the planning job han
             'MUTATION_GATE_NARROW' => '1',
             'MUTATION_GATE_MUTANT_FLOOR' => '10.000000',
             'MUTATION_GATE_MUTANT_CAP' => '20.000000',
+            ...TighterVariables::of(TighterSilence::standard()),
         ]));
 });
 
@@ -1422,7 +1426,7 @@ it('is Pest in the project the gate runs in, as its options say, or the options\
         new ProcessShell(new LocalProcesses(new SystemClock()), Project::at('.', Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'))->root()),
         Patching::off(),
         new CapDirectory(),
-        $bounds,
+        $bounds->tighterFor(TighterSilence::standard()),
     );
 
     expect(Pest::fromOptions(Options::none(), Path::of('lib/vendor'), new CapDirectory(), new LocalProcesses(new SystemClock())))->toEqual($pest(LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0))))

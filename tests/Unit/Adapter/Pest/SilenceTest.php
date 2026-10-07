@@ -56,7 +56,7 @@ it('holds a run to no limit before its tests begin, then stops it once no test h
     $results = sprintf('%s/results.jsonl', Scratch::directory());
     putenv(sprintf('%s=%s', GateVariable::Results->value, $results));
     $process = silenceRun(0.2);
-    Silence::watch($process, ['T::a'], '/tmp/mutations/abc', '--filter="T::a"');
+    Silence::watch($process, ['T::a'], '/tmp/mutations/abc', '--filter="T::a"', 'P\\Plus');
     $start = microtime(as_float: true);
 
     Silence::check($process, $start + 100.0);
@@ -74,9 +74,9 @@ it('never stops a run it does not watch, one watched again under tests the map d
     $unwatched = silenceRun(0.0);
     $untimed = silenceRun(0.0);
     $unfiltered = silenceRun(0.0);
-    Silence::watch($untimed, ['T::a'], '/tmp/mutations/timed', '--filter="T::a"');
-    Silence::watch($untimed, ['T::never'], '/tmp/mutations/untimed', '--filter="T::never"');
-    Silence::watch($unfiltered, ['T::a'], '/tmp/mutations/unfiltered', str_repeat('T::a|', Ceiling::BYTES));
+    Silence::watch($untimed, ['T::a'], '/tmp/mutations/timed', '--filter="T::a"', 'P\\Plus');
+    Silence::watch($untimed, ['T::never'], '/tmp/mutations/untimed', '--filter="T::never"', 'P\\Plus');
+    Silence::watch($unfiltered, ['T::a'], '/tmp/mutations/unfiltered', str_repeat('T::a|', Ceiling::BYTES), 'P\\Plus');
     $runs = [$unwatched, $untimed, $unfiltered];
     array_map(silenceBeaten(...), $runs);
     $now = microtime(as_float: true);

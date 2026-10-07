@@ -30,6 +30,7 @@ use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
+use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlot;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -140,6 +141,24 @@ it('gives each mutant\'s run the silence limit of its slowest covering test, on 
         NotGiven::value(),
         SilenceLimit::of(Seconds::of(11.0), $shell->commands()[1]->environment()[Variable::Results->value]),
     ]);
+});
+
+it('keeps the silence limit of a mutant of a mutator timeouts.tighter lists above its lower floor', function (): void {
+    $root = library();
+    Scratch::write($root, 'src/Span.php', "<?php\n\nfunction add(\$a, \$b)\n{\n    return \$a\n        + \$b;\n}\n");
+    [$run, $shell] = killingRun($root);
+    $quick = CoverageMap::empty()
+        ->covered(Path::of('src/Span.php'), Line::of(5), TestId::of('Tests\MoneySpec::adds'))
+        ->timed(TestId::of('Tests\MoneySpec::adds'), Seconds::of(0.1));
+    $bounds = static fn(string ...$listed): LimitBounds => LimitBounds::between(Seconds::of(10.0), Seconds::of(30.0))
+        ->tighterFor(TighterSilence::of(Seconds::of(7.0), ...$listed));
+    $request = MutationRequest::of(Paths::of(Path::of('src/Span.php')), WholeSuite::tests());
+    $run->of($request, $quick, $bounds('PlusToMinus'));
+    $run->of($request, $quick, $bounds('MinusToPlus'));
+    $silence = array_map(static fn(Command $command): mixed => $command->silence(), $shell->commands());
+
+    expect(array_map(static fn(mixed $limit): mixed => $limit instanceof SilenceLimit ? $limit->limit() : $limit, $silence))
+        ->toEqual([Seconds::of(7.0), Seconds::of(10.0)]);
 });
 
 it('judges a mutant that spans lines by the tests of every line it spans, and times it by them all', function (): void {

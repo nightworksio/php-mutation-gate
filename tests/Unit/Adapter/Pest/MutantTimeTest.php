@@ -8,6 +8,8 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
+use Pest\Mutate\Mutators\Removal\RemoveArrayItem;
 
 afterEach(function (): void {
     putenv(GateVariable::MutantFloor->value);
@@ -104,12 +106,27 @@ it('holds a mutant\'s run to the standard limit of its slowest covering test\'s 
     mutantTimeBounds('2', '300');
     MutantTime::remember(['testResults' => mutantTimeTests(['T::a' => 0.25, 'T::b' => 1.5, 'T::never' => 0.0])]);
 
-    expect(MutantTime::silence(['T::a', 'T::b']))->toEqual(Seconds::of(9.5))
-        ->and(MutantTime::silence(['T::a']))->toEqual(Seconds::of(5.75))
-        ->and(MutantTime::silence(['T::a', 'T::never']))->toEqual(NotGiven::value())
-        ->and(MutantTime::silence([]))->toEqual(NotGiven::value());
+    expect(MutantTime::silence(['T::a', 'T::b'], 'P\\Plus'))->toEqual(Seconds::of(9.5))
+        ->and(MutantTime::silence(['T::a'], 'P\\Plus'))->toEqual(Seconds::of(5.75))
+        ->and(MutantTime::silence(['T::a', 'T::never'], 'P\\Plus'))->toEqual(NotGiven::value())
+        ->and(MutantTime::silence([], 'P\\Plus'))->toEqual(NotGiven::value());
 
     putenv(GateVariable::MutantFloor->value);
 
-    expect(MutantTime::silence(['T::a']))->toEqual(NotGiven::value());
+    expect(MutantTime::silence(['T::a'], 'P\\Plus'))->toEqual(NotGiven::value());
+});
+
+it('keeps the silence limit of a mutant of a mutator timeouts.tighter lists above its lower floor, by the mutator\'s short name', function (): void {
+    mutantTimeBounds('10', '300');
+    putenv(sprintf('%s=7', GateVariable::TighterFloor->value));
+    putenv(sprintf('%s=RemoveArrayItem,Ternary', GateVariable::TighterMutators->value));
+    MutantTime::remember(['testResults' => mutantTimeTests(['T::a' => 0.25])]);
+
+    try {
+        expect(MutantTime::silence(['T::a'], RemoveArrayItem::class))->toEqual(Seconds::of(7.0))
+            ->and(MutantTime::silence(['T::a'], PlusToMinus::class))->toEqual(Seconds::of(10.0));
+    } finally {
+        putenv(GateVariable::TighterFloor->value);
+        putenv(GateVariable::TighterMutators->value);
+    }
 });

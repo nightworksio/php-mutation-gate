@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
@@ -23,13 +24,13 @@ it('is unpatched, with the tests under tests and the standard timeouts, where th
     $read = PestOptions::read(Options::none());
 
     expect($read instanceof PestOptions ? [$read->patching(), $read->tests(), $read->bounds()] : $read)
-        ->toEqual([Patching::off(), Paths::of(Path::of('tests')), LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0))]);
+        ->toEqual([Patching::off(), Paths::of(Path::of('tests')), LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0))->tighterFor(TighterSilence::standard())]);
 });
 
 it('keeps each mutant\'s limit between the timeout and the most the flows write', function (): void {
     $read = PestOptions::read(Configs::options('{"timeout": 45, "most": 90}'));
 
-    expect($read instanceof PestOptions ? $read->bounds() : $read)->toEqual(LimitBounds::between(Seconds::of(45.0), Seconds::of(90.0)))
+    expect($read instanceof PestOptions ? $read->bounds() : $read)->toEqual(LimitBounds::between(Seconds::of(45.0), Seconds::of(90.0))->tighterFor(TighterSilence::standard()))
         ->and(PestOptions::read(Configs::options('{"most": "long"}')))->toBeInstanceOf(Invalid::class);
 });
 

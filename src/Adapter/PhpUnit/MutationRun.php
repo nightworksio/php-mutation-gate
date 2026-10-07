@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\RunnerMutatorName;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
@@ -208,7 +209,10 @@ final readonly class MutationRun
                 $covering,
                 $request,
                 MutantLimit::standard()->of(OwnTime::of($map, $covering), $bounds),
-                $this->silenceOf(OwnTime::slowest($map, $covering), $bounds),
+                $this->silenceOf(
+                    OwnTime::slowest($map, $covering),
+                    $bounds->silenceOf(RunnerMutatorName::of($mutant->mutation()->mutator())),
+                ),
             );
     }
 
@@ -261,9 +265,10 @@ final readonly class MutationRun
 
     /**
      * The silence limit of a mutant's run: the standard limit of its slowest
-     * covering test's own time (ADR-0008, decision 2); none where the map did
-     * not time every one of them, as a test of unknown length could be
-     * stopped while it runs.
+     * covering test's own time, within the bounds of its mutator's silence,
+     * `timeouts.tighter`'s lower floor where it lists the mutator (ADR-0008,
+     * decision 2); none where the map did not time every one of them, as a
+     * test of unknown length could be stopped while it runs.
      */
     private function silenceOf(Seconds|Unmeasured $slowest, LimitBounds $bounds): Seconds|NotGiven
     {

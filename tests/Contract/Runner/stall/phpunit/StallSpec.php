@@ -8,6 +8,8 @@ use Library\Stall;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+use function usleep;
+
 // Each test takes most of a second, so the silence limit of the slowest
 // falls seconds short of the limit of all three.
 final class StallSpec extends TestCase

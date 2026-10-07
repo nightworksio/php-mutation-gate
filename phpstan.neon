@@ -695,6 +695,8 @@ services:
                     - ERROR # Psalm's severity, not a JUnit outcome
                 'NightWorksIO\MutationGate\Adapter\Psalm\LanguageServer':
                     - PHP # the protocol's language identifier, not a config format
+                'NightWorksIO\MutationGate\Core\Runner\TighterSilence':
+                    - FLOOR # seconds of a silence limit's floor, not a seed's step
                 'NightWorksIO\MutationGate\Core\Runner\MutantLimit':
                     - START_UP # the time a mutant's run allows PHPUnit to start
                     - FACTOR # a mutant limit's multiple of its tests' time

@@ -67,6 +67,8 @@ use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
+use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
+use NightWorksIO\MutationGate\Core\Runner\TighterVariables;
 use NightWorksIO\MutationGate\Core\Runner\Unmade;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
@@ -890,6 +892,19 @@ it('keeps every PHP process of a capped run to the cap, and not its coverage run
         ],
     ])
         ->and(is_dir($directory))->toBeFalse();
+});
+
+it('tells a mutation run the mutators timeouts.tighter lists and their floor, which a patched Infection reads', function (): void {
+    $at = infectionProject();
+    $shell = infectionShell($at, [
+        'killed' => [InfectionRun::entry('Plus', sprintf('%s/src/Money.php', $at->root()), 11, '$a + $b', '$a - $b')],
+    ]);
+    $tighter = TighterSilence::of(Seconds::of(5.0), 'ArrayItemRemoval');
+    new Infection($at, $shell, LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0))->tighterFor($tighter), nativeMarkersAllowed: false, files: new CapDirectory())->mutate(
+        MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()),
+    );
+
+    expect($shell->commands()[1]->environment())->toMatchArray(TighterVariables::of($tighter));
 });
 
 it('cannot judge a capped run whose cap cannot be written', function (): void {

@@ -9,6 +9,7 @@ use function intval;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Time\Budgets;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -34,6 +35,7 @@ final readonly class Triage implements Part
         private TimeoutMode|Absent $mode,
         private Seconds|Absent $limit,
         private Seconds|Absent $most,
+        private TighterSilence|Absent $tighter,
         private bool|Absent $confirmSurvivors,
         private TestOrder|Absent $order,
         private SurvivorsFirst|Absent $survivorsFirst,
@@ -48,8 +50,9 @@ final readonly class Triage implements Part
         bool|Absent $confirmSurvivors = new Absent(),
         TestOrder|Absent $order = new Absent(),
         SurvivorsFirst|Absent $survivorsFirst = new Absent(),
+        TighterSilence|Absent $tighter = new Absent(),
     ): self {
-        return new self($budget, $mode, $limit, $most, $confirmSurvivors, $order, $survivorsFirst);
+        return new self($budget, $mode, $limit, $most, $tighter, $confirmSurvivors, $order, $survivorsFirst);
     }
 
     public static function none(): self
@@ -68,6 +71,7 @@ final readonly class Triage implements Part
             confirmSurvivors: $none->confirmSurvivors(),
             order: $none->order(),
             survivorsFirst: $none->survivorsFirst(),
+            tighter: $none->tighter(),
         );
     }
 
@@ -79,6 +83,7 @@ final readonly class Triage implements Part
                 Absent::laid($this->mode, $later->mode),
                 Absent::laid($this->limit, $later->limit),
                 Absent::laid($this->most, $later->most),
+                Absent::laid($this->tighter, $later->tighter),
                 Absent::laid($this->confirmSurvivors, $later->confirmSurvivors),
                 Absent::laid($this->order, $later->order),
                 Absent::laid($this->survivorsFirst, $later->survivorsFirst),
@@ -110,10 +115,23 @@ final readonly class Triage implements Part
         return $this->most instanceof Seconds ? $this->most : Seconds::of(self::MOST);
     }
 
-    /** What each mutant's limit is kept between: `timeouts.seconds` and `timeouts.most`. */
+    /**
+     * `timeouts.tighter`: the mutators, by their short names, whose silence
+     * limit has a lower floor, and that floor.
+     */
+    public function tighter(): TighterSilence
+    {
+        return $this->tighter instanceof TighterSilence ? $this->tighter : TighterSilence::standard();
+    }
+
+    /**
+     * What each mutant's limit is kept between, `timeouts.seconds` and
+     * `timeouts.most`, with the mutators whose silence limit has a lower
+     * floor, `timeouts.tighter`.
+     */
     public function bounds(): LimitBounds
     {
-        return LimitBounds::between($this->limit(), $this->most());
+        return LimitBounds::between($this->limit(), $this->most())->tighterFor($this->tighter());
     }
 
     /** Why the timeouts cannot be laid, a most under the floor; or nothing. */
@@ -158,6 +176,7 @@ final readonly class Triage implements Part
                         $this->limit instanceof Seconds ? intval($this->limit->seconds()) : $this->limit,
                     ),
                     Member::of('most', $this->most instanceof Seconds ? intval($this->most->seconds()) : $this->most),
+                    Member::of('tighter', $this->tighterWritten()),
                 ),
             ),
             Member::unlessEmpty('flaky', Json::object(Member::of('confirmSurvivors', $this->confirmSurvivors))),
@@ -193,11 +212,26 @@ final readonly class Triage implements Part
                 ? [sprintf('Timeouts::seconds(%d)', intval($this->limit->seconds()))]
                 : [],
             ...$this->most instanceof Seconds ? [sprintf('Timeouts::most(%d)', intval($this->most->seconds()))] : [],
+            ...$this->tighter instanceof TighterSilence ? [sprintf(
+                'Timeouts::tighter(%s)',
+                PhpCalls::literals(intval($this->tighter->floor()->seconds()), ...$this->tighter),
+            )] : [],
             ...$this->confirmSurvivors instanceof Absent ? [] : [
                 $this->confirmSurvivors ? 'Flaky::confirmingSurvivors()' : 'Flaky::notConfirmingSurvivors()',
             ],
             ...$this->orderCalls(),
         ]);
+    }
+
+    /** `timeouts.tighter` as a config writes it; nothing where no layer set it. */
+    private function tighterWritten(): Json|Absent
+    {
+        return $this->tighter instanceof TighterSilence
+            ? Json::object(
+                Member::of('mutators', Json::items(...$this->tighter)),
+                Member::of('floor', intval($this->tighter->floor()->seconds())),
+            )
+            : $this->tighter;
     }
 
     /** @return list<string> the builder's calls for the order of each mutant's tests, and of the survivors' re-check */

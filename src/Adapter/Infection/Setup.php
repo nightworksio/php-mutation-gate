@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\NativeMarkers;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Config\TighterOptions;
 use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -70,6 +71,7 @@ final readonly class Setup
         $tests = $options->paths(Key::of(self::TESTS));
         $timeout = $options->number(Key::of(self::TIMEOUT));
         $most = $options->number(Key::of(self::MOST));
+        $tighter = TighterOptions::read($options);
         $allowed = self::allowedIn($options->text(Key::of(self::MARKERS)));
         $analysis = self::analysisIn($options->text(Key::of(self::STATIC_ANALYSIS)));
         $mutators = $options->texts(Key::of(self::MUTATORS));
@@ -78,6 +80,7 @@ final readonly class Setup
             $tests instanceof Problem => Invalid::because($tests),
             $timeout instanceof Problem => Invalid::because($timeout),
             $most instanceof Problem => Invalid::because($most),
+            $tighter instanceof Problem => Invalid::because($tighter),
             $allowed instanceof Problem => Invalid::because($allowed),
             $analysis instanceof Problem => Invalid::because($analysis),
             $mutators instanceof Problem => Invalid::because($mutators),
@@ -86,7 +89,7 @@ final readonly class Setup
                 LimitBounds::between(
                     $timeout instanceof NotGiven ? Triage::standard()->limit() : Seconds::of($timeout),
                     $most instanceof NotGiven ? Triage::standard()->most() : Seconds::of($most),
-                ),
+                )->tighterFor($tighter),
                 $allowed,
                 $analysis,
                 self::bridgesTo($mutators instanceof Listed ? [...$mutators] : []),

@@ -44,7 +44,7 @@ final class Silence
     public static function watch(Process $process, Mutant $mutant, float $timeout): void
     {
         $id = spl_object_id($process);
-        $limit = MutantTime::silence($mutant->getTests(), $timeout);
+        $limit = MutantTime::silence($mutant->getTests(), $timeout, $mutant->getMutation()->getMutatorName());
         unset(self::$watched[$id]);
 
         if ($limit instanceof Seconds) {

@@ -13,9 +13,11 @@ use function is_string;
 use function max;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
+use NightWorksIO\MutationGate\Core\Mutant\RunnerMutatorName;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
+use NightWorksIO\MutationGate\Core\Runner\TighterVariables;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -80,24 +82,29 @@ final class MutantTime
 
     /**
      * The silence limit of a mutant's own run, its covering tests named by
-     * their ids: the standard limit of the slowest one's own time, within
-     * the bounds the gate names (ADR-0008, decision 2); none where the gate
-     * names no bounds or the map timed not every one of them, as a test of
-     * unknown length could be stopped while it runs.
+     * their ids, by its mutator's class: the standard limit of the slowest
+     * one's own time, within the bounds the gate names, with the lower floor
+     * `timeouts.tighter` gives the mutator where it lists it (ADR-0008,
+     * decision 2); none where the gate names no bounds or the map timed not
+     * every one of them, as a test of unknown length could be stopped while
+     * it runs.
      *
      * @param list<string> $tests
      */
-    public static function silence(array $tests): Seconds|NotGiven
+    public static function silence(array $tests, string $mutator): Seconds|NotGiven
     {
         $bounds = self::bounds();
         $slowest = self::slowest($tests);
 
         return $bounds instanceof LimitBounds && $slowest instanceof Seconds
-            ? MutantLimit::standard()->of($slowest, $bounds)
+            ? MutantLimit::standard()->of($slowest, $bounds->silenceOf(RunnerMutatorName::of($mutator)))
             : NotGiven::value();
     }
 
-    /** The bounds the gate names, the floor and the most, each a positive number of seconds; or none. */
+    /**
+     * The bounds the gate names, the floor and the most, each a positive
+     * number of seconds, with the mutators `timeouts.tighter` lists; or none.
+     */
     private static function bounds(): LimitBounds|NotGiven
     {
         $floor = getenv(GateVariable::MutantFloor->value);
@@ -106,7 +113,12 @@ final class MutantTime
             && is_string($most) && is_numeric($most) && (float) $most > 0.0;
 
         return $named
-            ? LimitBounds::between(Seconds::of((float) $floor), Seconds::of((float) $most))
+            ? LimitBounds::between(Seconds::of((float) $floor), Seconds::of((float) $most))->tighterFor(
+                TighterVariables::read(
+                    getenv(GateVariable::TighterFloor->value),
+                    getenv(GateVariable::TighterMutators->value),
+                ),
+            )
             : NotGiven::value();
     }
 
