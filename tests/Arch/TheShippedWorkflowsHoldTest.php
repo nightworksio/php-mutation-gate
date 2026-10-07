@@ -372,3 +372,26 @@ it('grants the reusable workflow, wherever this repository calls it, every permi
     'the self-gate' => ['.github/workflows/ci.yml', 'mutation'],
     'the release' => ['.github/workflows/release.yml', 'gate'],
 ]);
+
+it('stops the other shards where one is doomed, failing it fast only after its result is uploaded, with no job writing to Actions', function (): void {
+    $jobs = WorkflowFile::at(REUSABLE)->field('jobs');
+    $shard = $jobs->field('shard');
+    $steps = $shard->field('steps');
+    $result = WorkflowFile::stepsWhere($steps, 'uses', static fn(string $uses): bool => str_starts_with($uses, 'actions/upload-artifact@'));
+    $doomed = WorkflowFile::stepsWhere($steps, 'run', static fn(string $run): bool => str_contains($run, 'jq -e \'.doomed\' "${RESULT}"'));
+    $writing = array_filter(
+        Lenient::entries($jobs),
+        static fn(Node $job): bool => Lenient::text($job->field('permissions')->field('actions')) === 'write',
+    );
+    $at = count(Lenient::items($steps)) - 1;
+    $last = Lenient::items($steps)[$at];
+
+    expect(Lenient::boolean($shard->field('strategy')->field('fail-fast'), otherwise: false))->toBeTrue()
+        ->and($doomed)->toBe([$at])
+        ->and($result)->not->toBe([])
+        ->and($result)->each->toBeLessThan($at)
+        ->and(Lenient::text($last->field('if')))->toBe('${{ !cancelled() }}')
+        ->and(Lenient::text($last->field('env')->field('RESULT')))->toBe('.mutation-gate/results/${{ matrix.shard.id }}.json')
+        ->and(Lenient::text($last->field('run')))->toContain('exit 1')
+        ->and($writing)->toBe([]);
+});

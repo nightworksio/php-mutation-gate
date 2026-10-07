@@ -955,7 +955,10 @@ other branches.
 
 **Sharded, for large projects.** The reusable workflow runs a `plan` job, one
 `shard` job per shard and a `verdict` job. A last job, `publish`, runs on the
-default branch only and publishes the badge and trend.
+default branch only and publishes the badge and trend. The shards fail fast: a
+shard that is doomed, with a floor it can no longer meet whatever the others
+find, fails once its result is uploaded, and GitHub cancels the shards still
+running; the verdict reads those as stopped.
 
 ```yaml
 name: mutation

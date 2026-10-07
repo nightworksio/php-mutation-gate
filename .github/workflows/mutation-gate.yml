@@ -340,8 +340,13 @@ jobs:
     timeout-minutes: 360
     permissions:
       contents: read
+    # A doomed shard fails its job once its result is uploaded, and GitHub
+    # then cancels the shards still running or queued: the verdict reads
+    # those as stopped beside the doomed result. A shard that fails for any
+    # other reason stops them too, and the verdict cannot judge a run with a
+    # shard that left no result whether or not the others ran on.
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         shard: ${{ fromJSON(needs.plan.outputs.shards) }}
     steps:
@@ -389,6 +394,17 @@ jobs:
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 1
+      # A doomed shard, whose floor cannot be met whatever the others find,
+      # fails here, after its result is uploaded, so the matrix stops the rest.
+      - name: Stop the other shards where this one is doomed
+        if: ${{ !cancelled() }}
+        env:
+          RESULT: .mutation-gate/results/${{ matrix.shard.id }}.json
+        run: |
+          if [ -f "${RESULT}" ] && jq -e '.doomed' "${RESULT}" > /dev/null 2>&1; then
+            echo "::error::This shard is doomed: its floor cannot be met whatever the other shards find, so they are stopped."
+            exit 1
+          fi
 
   # On a pull request, the last run's survivors run again beside the shards,
   # for a signal within minutes (ADR-0020, decisions 19 to 21). It runs the
@@ -554,7 +570,9 @@ jobs:
   # The check a branch protects, shown as `<calling job> / verdict`. It runs
   # whenever the run was not cancelled, whatever the plan and the shards did:
   # GitHub passes a required check that was skipped. A plan that could not
-  # judge makes it cannot-judge, and so does a shard that left no result.
+  # judge makes it cannot-judge, and so does a shard that left no result,
+  # unless another shard's result is doomed: then the matrix stopped it, and
+  # it reads as stopped.
   verdict:
     name: verdict
     needs: [plan, shard, survivors]

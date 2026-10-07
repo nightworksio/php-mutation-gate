@@ -289,9 +289,13 @@ about Laravel, NativePHP or the project's modules, and does not.
          was called at) into a directory of its own. It downloads the plan's
          artifact into `.mutation-gate/`, and runs the action from the
          checkout of this repository with `shard`, so the workflow and the action are
-         always the same commit, and uploads its result file;
+         always the same commit, and uploads its result file. The matrix
+         fails fast: a shard whose result is doomed, with a floor it can no
+         longer meet whatever the others find, fails its job after the upload,
+         and GitHub cancels the shards still running or queued;
        - `verdict` runs whenever the run was not cancelled, even after a failed
-         shard. It restores the ledgers and the files published last time,
+         shard, and reads a shard that left no result as stopped where another
+         shard's result is doomed. It restores the ledgers and the files published last time,
          downloads what `fetch` read, runs the verdict with `--deliver-later`,
          writes the annotations and the step summary, saves the ledger to the
          Actions cache and uploads the delivery it left. It is the check a
