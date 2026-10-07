@@ -116,6 +116,19 @@ The same repository has two more needs.
    1. **A file that decides how the gate runs reaches everything in its
       package.** Those files are:
       - the gate's config and each package's `composer.json`;
+      - each file the gate's config file reads beside itself, as the loader
+        of its format finds it from its code without running it. In a
+        `mutation-gate.php`, a `require` or `include` of a literal path, or
+        of `__DIR__` and a literal, names that file wherever PHP looks for
+        it: from the working directory, and from the including file's own
+        for a path that does not begin with a dot. What that file includes
+        is read in turn. A config file that reads a file its loader cannot
+        name makes every change reach everything. That covers an include of
+        a path built as it runs, a call to any function outside those that
+        read nothing, a class outside the gate's builder, a call by a name
+        held as it runs, `eval`, a shell command, and a path outside the
+        project. JSON, YAML and NEON configs read no other file: NEON's
+        `includes:` is no key of the gate's config, which refuses it;
       - the PHPUnit config and the test bootstrap it names;
       - the files that define the runner, which the runner names itself
         (ADR-0004): Pest's `tests/Pest.php`, and Infection's config

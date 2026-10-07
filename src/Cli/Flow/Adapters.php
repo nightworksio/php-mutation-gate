@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
@@ -83,7 +84,14 @@ final readonly class Adapters
         public NamedMutators $security,
         public Narrowing $narrowing,
         public Prover $equivalence,
+        public ConfigReads $configReads,
     ) {
+    }
+
+    /** The same, where the config file reads these files beside itself (ADR-0005, decision 4). */
+    public function readingConfig(ConfigReads $reads): self
+    {
+        return clone($this, ['configReads' => $reads]);
     }
 
     /** The same, reading and writing ledgers in this store. */

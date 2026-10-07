@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Neon\NeonConfig;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
+use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -77,4 +78,15 @@ it('writes a config as NEON that reads back as the same config', function () use
         ->toBe("runner: pest\n")
         ->and($read($layer instanceof Layer ? new NeonConfig()->render($layer->written(ProjectRoot::origin())) : ''))
         ->toBe($config);
+});
+
+// NEON's `includes:` is no key of the gate's config, so a NEON config that
+// would include another file is refused, and none reads another file.
+it('refuses includes, so a config reads no other file', function () use ($read, $file): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'mutation-gate.neon', "includes:\n    - shared.neon\n");
+    Scratch::write($project, 'shared.neon', "runner:\n    use: pest\n");
+
+    expect($read("includes:\n    - shared.neon\nrunner:\n    use: pest\n"))->toBe(['includes: unknown key'])
+        ->and(new NeonConfig()->reads($file(sprintf('%s/mutation-gate.neon', $project))))->toEqual(ConfigReads::none());
 });

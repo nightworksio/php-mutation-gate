@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
+use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -93,4 +94,11 @@ it('writes ten levels of a config as blocks, and only what lies deeper on one li
     ));
 
     expect(new YamlConfig()->render($nested))->toBe(sprintf("%s%sl10: { l11: 1 }\n", $blocks, str_repeat('  ', 9)));
+});
+
+it('reads no other file, as the gate\'s YAML names none', function () use ($file): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'mutation-gate.yaml', "runner: pest\n");
+
+    expect(new YamlConfig()->reads($file(sprintf('%s/mutation-gate.yaml', $project))))->toEqual(ConfigReads::none());
 });

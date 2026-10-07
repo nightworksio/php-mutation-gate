@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Reach\Layout;
 use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 
@@ -133,4 +135,20 @@ it('keeps what it was given when given more', function (): void {
         ->and($layout->runsTheGate(Path::of('.gitlab-ci.yml')))->toBeTrue()
         ->and($layout->decides(Path::of('config/app.php'), Path::root()))->toBeTrue()
         ->and($layout->decides(Path::of('composer.json'), Path::root()))->toBeTrue();
+});
+
+it('decides with each file the config reads beside itself, spelt from the repository, and with every file where it reads one it cannot name', function (): void {
+    $named = layoutDefinedBy()->readByTheConfig(ConfigReads::named(Path::of('settings/shared.php')));
+    $unnamed = layoutDefinedBy()->readByTheConfig(ConfigReads::unnamed('It reads a file by glob().'));
+    $money = Path::of('packages/money');
+
+    expect($named->decides(Path::of('settings/shared.php'), Path::root()))->toBeTrue()
+        ->and($named->decides(Path::of('settings/shared.php'), $money))->toBeTrue()
+        ->and($named->decides(Path::of('settings/other.php'), Path::root()))->toBeFalse()
+        ->and($named->unnamed())->toEqual(NotGiven::value())
+        ->and(layoutDefinedBy()->unnamed())->toEqual(NotGiven::value())
+        ->and($unnamed->decides(Path::of('README.md'), Path::root()))->toBeTrue()
+        ->and($unnamed->unnamed())->toBe('It reads a file by glob().')
+        ->and($unnamed->decidedAlsoBy(Glob::of('config/**'))->runBy(Glob::of('ci.yml'))->testedIn()->withModule($money)->unnamed())
+        ->toBe('It reads a file by glob().');
 });

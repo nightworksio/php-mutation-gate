@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Config\Canonical;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\ChosenRunner;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
+use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\Config\DeclaredTree;
 use NightWorksIO\MutationGate\Core\Config\Floors;
 use NightWorksIO\MutationGate\Core\Config\IgnoredMutant;
@@ -361,6 +362,11 @@ it('judges a layer a loader or a preset built by hand, as the definition judges 
         {
             return $this->layer;
         }
+
+        public function reads(ConfigFile $file): ConfigReads
+        {
+            return ConfigReads::none();
+        }
     };
     $extensions = new Extensions(Origin::of('acme/smuggler'))
         ->withConfigLoader(Name::of('smuggled'), static fn(): ConfigLoader => $loader)
@@ -434,4 +440,21 @@ it('cannot read the config a copy sets where the copy is not a config', function
         Path::of(sprintf('%s/mutation-gate.json', $project)),
         Path::of($project),
     )))->toBeInstanceOf(Invalid::class);
+});
+
+it('reads what the config file reads beside itself, none without one, and names nothing where it cannot find or read the file', function () use ($effective): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'mutation-gate.php', "<?php\n\nrequire_once 'shared.php';\n\nreturn NightWorksIO\\MutationGate\\Config\\Gate::configure();\n");
+    Scratch::write($project, 'gate.toml', '');
+    $bare = Scratch::directory();
+    $two = Scratch::directory();
+    Scratch::write($two, 'mutation-gate.php', '<?php');
+    Scratch::write($two, 'mutation-gate.json', '{}');
+    $toml = $effective($project)->reads(CommandLine::nothing()->withConfig('gate.toml'));
+
+    expect($effective($project)->reads(CommandLine::nothing()))->toEqual(ConfigReads::named(Path::of('shared.php')))
+        ->and($effective($bare)->reads(CommandLine::nothing()))->toEqual(ConfigReads::none())
+        ->and($effective($two)->reads(CommandLine::nothing())->unnamedBecause())
+        ->toBe('More than one config file is here: mutation-gate.php, mutation-gate.json. Keep one, or name one with --config.')
+        ->and($toml->unnamedBecause())->toBe(sprintf('No config loader reads %s/gate.toml. Name a mutation-gate.php, .json, .yaml, .yml or .neon file.', $project));
 });

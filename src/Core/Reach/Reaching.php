@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Reach;
 
 use function array_map;
 use function implode;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
@@ -92,8 +93,10 @@ final readonly class Reaching
         $path = $change->path();
         $deciding = $this->decidingIn($change, $packages);
         $definition = $this->layout->definitionIn($change);
+        $unnamed = $this->layout->unnamed();
 
         return match (true) {
+            is_string($unnamed) => $reach->everywhere(Reason::that($unnamed)),
             $deciding instanceof Path && $sources->decidesAlike($change) => $reach->because(
                 Reason::that(sprintf(self::DECIDES_ALIKE, $deciding->value())),
             ),

@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Canonical;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
+use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
@@ -58,6 +59,26 @@ final readonly class Effective
         $settings = $this->over($this->loaded($copy), $given);
 
         return $settings instanceof Settings ? Canonical::decidingIn($settings) : $settings;
+    }
+
+    /**
+     * The files the config file a run reads reads beside itself, as the
+     * loader of its format finds them without running it; none where the run
+     * reads no config file; or why they cannot be named, where the file
+     * cannot be found or its format has no loader (ADR-0005, decision 4).
+     */
+    public function reads(CommandLine $given): ConfigReads
+    {
+        $path = ConfigLocation::in($this->project, $given->config);
+
+        if (! $path instanceof Path) {
+            return $path instanceof NoConfigFile ? ConfigReads::none() : ConfigReads::unnamed($path->why());
+        }
+
+        $file = ConfigFile::at($path, Path::of($this->project));
+        $loader = Formats::loader($this->extensions, $file);
+
+        return $loader instanceof CannotJudge ? ConfigReads::unnamed($loader->why()) : $loader->reads($file);
     }
 
     /** Whether the config file or the command line chooses the runner, rather than leave it to zero-config. */

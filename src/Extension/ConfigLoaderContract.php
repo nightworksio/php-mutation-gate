@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Extension;
 use function array_map;
 use function dirname;
 use function implode;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
@@ -50,8 +51,9 @@ use function sprintf;
  * date reads back as `YYYY-MM-DD`; a path that goes up from the file's
  * directory is named from the project, and so is a path among an adapter's
  * own options, `cache` in a project above the file's; the invalid file, and a mutant id
- * read as a number, read into the problems the gate finds in them; and a
- * file that is broken or not there cannot be judged.
+ * read as a number, read into the problems the gate finds in them; a
+ * file that is broken or not there cannot be judged; and the valid file,
+ * which names no other file, reads none beside itself (ADR-0005, decision 4).
  */
 final readonly class ConfigLoaderContract
 {
@@ -71,6 +73,10 @@ final readonly class ConfigLoaderContract
     private const string ADAPTER_PATH = 'cache';
 
     private const string UNQUOTED = '{"ignores":{"entries":[{"mutant":123456789012,"reason":"Equivalent"}]}}';
+
+    private const string READS = '%s names no other file, and the loader says it reads %s beside itself.';
+
+    private const string UNNAMED = 'what it cannot name (%s)';
 
     private function __construct(private ConfigLoader $loader, private Path $fixtures, private string $extension)
     {
@@ -98,7 +104,27 @@ final readonly class ConfigLoaderContract
             ...$contract->unjudged('broken', 'is not in its format, and was read anyway'),
             ...$contract->unjudged('missing', 'is not there, and was read anyway'),
             ...$contract->whereWritten('unquoted', self::UNQUOTED),
+            ...$contract->readsNoOther('valid'),
         ]);
+    }
+
+    /**
+     * A file that names no other file, which the loader must say it reads none beside.
+     *
+     * @return list<string>
+     */
+    private function readsNoOther(string $name): array
+    {
+        $file = $this->file($name, $this->fixtures);
+        $reads = $this->loader->reads($file);
+        $unnamed = $reads->unnamedBecause();
+        $named = array_map(static fn(Path $path): string => $path->value(), [...$reads->files()]);
+
+        return match (true) {
+            is_string($unnamed) => [sprintf(self::READS, $file->file()->value(), sprintf(self::UNNAMED, $unnamed))],
+            $named !== [] => [sprintf(self::READS, $file->file()->value(), implode(', ', $named))],
+            default => [],
+        };
     }
 
     /** @return list<string> */

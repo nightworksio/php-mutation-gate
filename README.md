@@ -347,6 +347,15 @@ reports:
 Quote mutant ids in YAML and NEON: an id such as `12e456789012` would
 otherwise be read as a number. Dates need no quotes.
 
+A `mutation-gate.php` may `require` or `include` another file by a literal
+path, or by `__DIR__` and a literal. A change to that file, or to one it
+includes in turn, reaches everything, as a change to the config does. The
+gate reads this from the code and never runs it to find out. A config that
+reads a file any other way, such as an include of a path it builds,
+`file_get_contents()`, `glob()`, a class outside the builder's, or a path
+outside the project, makes every change reach everything. JSON, YAML and NEON
+configs read no other file: NEON's `includes:` is refused.
+
 Every path and glob a config file writes is named from the file's own
 directory, and one that goes up out of the project, or is absolute, is
 refused

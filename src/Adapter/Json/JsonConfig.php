@@ -10,6 +10,7 @@ use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
+use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Format\Json;
@@ -20,6 +21,12 @@ use function sprintf;
 /** A `mutation-gate.json`, which the published JSON Schema checks in an editor. */
 final readonly class JsonConfig implements ConfigLoader
 {
+    /** JSON names no other file. */
+    public function reads(ConfigFile $file): ConfigReads
+    {
+        return ConfigReads::none();
+    }
+
     public function load(ConfigFile $file): Layer|Invalid|CannotJudge
     {
         $path = $file->file()->value();

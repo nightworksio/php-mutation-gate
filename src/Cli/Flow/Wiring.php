@@ -37,6 +37,7 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinCostModel;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\BuiltinVersionControl;
 use NightWorksIO\MutationGate\Core\Config\Choice;
+use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Name;
@@ -148,6 +149,7 @@ final readonly class Wiring
                     Cores::counted(),
                     ini_get('disable_functions'),
                 ),
+                ConfigReads::none(),
             ),
         };
     }
