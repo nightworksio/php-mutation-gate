@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
-use function array_diff_key;
 use function array_keys;
 use function array_map;
 use function array_unique;
@@ -20,7 +19,6 @@ use function iterator_to_array;
 use function ksort;
 
 use NightWorksIO\MutationGate\Adapter\Infection\Patch as InfectionPatch;
-use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -48,41 +46,6 @@ final readonly class RunnerContracts
 {
     /** What a run of the Infection library warns of while its Infection is not patched. */
     public const string INFECTION_UNPATCHED = 'Unpatched, Infection gave each mutant its own limit, with no floor. Run mutation-gate infection:patch.';
-    /**
-     * Each library a contract runs against, by its name: the fake, and each
-     * adapter whose library its job has installed.
-     *
-     * @return array<string, Closure(): Library>
-     */
-    public static function libraries(): array
-    {
-        $libraries = ['the fake' => Library::fake(...)];
-
-        if (Library::isInstalled()) {
-            $libraries['pest'] = fn(): Library => Library::pest(Patching::off());
-        }
-
-        if (Library::isInfectionInstalled()) {
-            $libraries['infection'] = fn(): Library => Library::infection(Seconds::of(10.0));
-        }
-
-        if (Library::isPhpUnitInstalled()) {
-            $libraries['phpunit'] = fn(): Library => Library::phpunit();
-        }
-
-        return $libraries;
-    }
-
-    /**
-     * The libraries whose runner reads a map from disk: every one but the fake.
-     *
-     * @return array<string, Closure(): Library>
-     */
-    public static function onDisk(): array
-    {
-        return array_diff_key(self::libraries(), ['the fake' => true]);
-    }
-
     /**
      * Which of the fixtures' marks a run leaves: whether it loaded MoneySpec,
      * loaded it through a user-space `file://` wrapper, and ran one of its tests.

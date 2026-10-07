@@ -105,9 +105,23 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-$libraries = RunnerContracts::libraries();
+$libraries = ['the fake' => fn(): Library => Library::fake()];
+
+if (Library::isInstalled()) {
+    $libraries['pest'] = fn(): Library => Library::pest(Patching::off());
+}
+
+if (Library::isInfectionInstalled()) {
+    $libraries['infection'] = fn(): Library => Library::infection(Seconds::of(10.0));
+}
+
+if (Library::isPhpUnitInstalled()) {
+    $libraries['phpunit'] = fn(): Library => Library::phpunit();
+}
+
 /** The libraries whose runner reads a map from disk: every one but the fake. */
-$onDisk = RunnerContracts::onDisk();
+$onDisk = array_diff_key($libraries, ['the fake' => true]);
+
 $money = RunnerContracts::money(...);
 $files = RunnerContracts::files(...);
 
