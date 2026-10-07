@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -40,6 +41,9 @@ use NightWorksIO\MutationGate\Core\Recheck\Recheck;
 use NightWorksIO\MutationGate\Core\Recheck\Rechecked;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\Pool;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
+use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
@@ -154,6 +158,26 @@ it('runs the survivors and counted uncovered mutants of the branch\'s last run a
             [['src/Held.php'], Mutators::named('Plus'), Group::named('holds:src/Held.php')],
             [['src/Money.php'], Mutators::named('GreaterThan', 'Minus'), WholeSuite::tests()],
         ]);
+});
+
+it('re-checks each file on the maps the plan handed on, a mutant on each core, so it runs no suite for coverage', function () use ($store): void {
+    $runner = ScriptedRunner::fixture()->behaving(RunnerBehaviour::standard()->runningPerCore());
+    $ran = recheckingPorts('feature', $store('src/Money.php', 'src/Held.php'), $runner);
+    $plan = recheckingPlan($ran, Flows::settings(), Mode::full());
+    $before = count($runner->requests());
+    $adapters = Flows::adapters(Flows::project(), [], ...$ran);
+
+    recheckingOf($adapters, Flows::settings(), $plan);
+    $asked = array_slice($runner->requests(), $before);
+
+    expect($asked)->toHaveCount(2)
+        ->and(array_map(static fn(MutationRequest $request): Handed|string => $request->coverage() instanceof Handed
+            ? $request->coverage()
+            : 'fresh', $asked))
+        ->each->toEqual(Handed::maps(Workspace::verdictCoverage(), Workspace::coverage()))
+        ->and(array_map(static fn(MutationRequest $request): Pool => $request->pool(), $asked))
+        ->each->toEqual(Pool::of($adapters->cores, Flows::settings()->runner()->workers()))
+        ->and($adapters->cores)->not->toEqual(ProcessCount::single());
 });
 
 it('says which were killed, and which the run made again by no mutant', function () use ($store, $outcomes): void {

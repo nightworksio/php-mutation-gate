@@ -481,7 +481,18 @@ jobs:
         with:
           name: mutation-gate-plan
           path: .mutation-gate
+      # Every map the plan wrote: the re-check reads the verdict's, the lines
+      # of every unit the plan considered, as a shard reads its own, and the
+      # whole map beside it, rather than running the suite under coverage
+      # again for each file. A plan that wrote none uploaded none, and the
+      # pattern then downloads nothing.
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: mutation-gate-coverage
+          path: .mutation-gate/coverage
+          merge-multiple: true
       - name: Re-check the last run's survivors
+        id: recheck
         env:
           GATE: ${{ steps.resolve.outputs.gate }}
           OPTIONS: ${{ steps.resolve.outputs.options }}

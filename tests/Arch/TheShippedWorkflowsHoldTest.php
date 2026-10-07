@@ -147,6 +147,23 @@ it('hands the verdict every coverage map the plan made, its own and each shard\'
         ->and($handed[0])->toBeLessThan($judged[0]);
 });
 
+it('hands the survivors re-check every coverage map the plan made before it re-checks, so it runs no suite for one', function (): void {
+    $steps = WorkflowFile::at(REUSABLE)->field('jobs')->field('survivors')->field('steps');
+    $coverage = Workspace::coverage()->value();
+    $downloads = WorkflowFile::stepsWhere($steps, 'uses', static fn(string $uses): bool => str_starts_with($uses, 'actions/download-artifact@'));
+    $handed = array_values(array_filter(
+        $downloads,
+        static fn(int $at): bool => Lenient::text(Lenient::items($steps)[$at]->field('with')->field('pattern')) === 'mutation-gate-coverage',
+    ));
+    $rechecked = WorkflowFile::stepsWhere($steps, 'id', static fn(string $id): bool => $id === 'recheck');
+
+    expect($handed)->toHaveCount(1)
+        ->and(Lenient::text(Lenient::items($steps)[$handed[0]]->field('with')->field('path')))->toBe($coverage)
+        ->and(dirname(Workspace::verdictCoverage()->value()))->toBe($coverage)
+        ->and($rechecked)->toHaveCount(1)
+        ->and($handed[0])->toBeLessThan($rechecked[0]);
+});
+
 it('hands each shard the plan\'s whole map beside its own, removing only the other shards\' directories', function (): void {
     $jobs = WorkflowFile::at(REUSABLE)->field('jobs');
     $coverage = Workspace::coverage()->value();
