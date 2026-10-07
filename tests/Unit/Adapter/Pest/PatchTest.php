@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\MutantTime;
 use NightWorksIO\MutationGate\Adapter\Pest\OnlyList;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Tests\Support\FileModes;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Symfony\Component\Process\Process;
@@ -258,11 +259,11 @@ it('stats a dangling link as a link, and a file it cannot read as there, while t
             'stat(missing)' => [false, 1],
             'file_exists(missing)' => [false, 0],
         ]);
-})->skip(function_exists('posix_geteuid') && posix_geteuid() === 0, 'root reads a file whatever its mode');
+})->skip(! FileModes::areEnforced(), 'root reads a file whatever its mode');
 
 it('stats a dangling link and a file it cannot read as missing while the shipped override serves a file', function (): void {
     expect(overrideStats(MutatePlugin::pristine()->vendor()))->toMatchArray([
         'is_link(dangling)' => [false, 0],
         'file_exists(unreadable)' => [false, 0],
     ]);
-})->skip(function_exists('posix_geteuid') && posix_geteuid() === 0, 'root reads a file whatever its mode');
+})->skip(! FileModes::areEnforced(), 'root reads a file whatever its mode');
