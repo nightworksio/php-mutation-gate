@@ -1251,7 +1251,7 @@ it('runs a pull request\'s shard to its end, whole, where static analysis could 
     'a static check' => [Flows::settings(Equivalence::notProvenStatically()), StaticCheckerFake::findingNothing()],
 ]);
 
-it('leaves each kill\'s evidence beside its mutant in the shard\'s result, every withheld secret hidden in what a process printed', function () use ($resultIn): void {
+it('leaves each kill\'s evidence beside its mutant in the shard\'s result, keeping nothing a process printed where a withheld secret is in it', function () use ($resultIn): void {
     $project = Flows::project();
     $mutants = Flows::mutantsOf('src/Money.php');
     $killed = [...array_filter([...$mutants], static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Killed)][0];
@@ -1272,5 +1272,5 @@ it('leaves each kill\'s evidence beside its mutant in the shard\'s result, every
 
     expect($read->prefix())->toEqual(Prefix::keyedAt(2, '0123456789ab'))
         ->and($ended instanceof Ended ? [$ended->code(), $ended->signalled(), $ended->tail()] : $ended)
-        ->toBe([255, false, 'token *** in a dump']);
+        ->toEqual([255, false, NotGiven::value()]);
 });

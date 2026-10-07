@@ -69,7 +69,4 @@ enum RecordField: string
 
     /** Whether a signal ended a mutant's own process. */
     case Signalled = 'signalled';
-
-    /** What a mutant's own process printed, on its output and then its error output, as much as evidence keeps. */
-    case Printed = 'printed';
 }

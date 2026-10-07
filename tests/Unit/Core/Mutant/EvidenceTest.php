@@ -68,7 +68,8 @@ it('keeps how a process ended: its code, whether a signal ended it, and the end 
 
 it('tails what a process printed at 2 KiB, on a character\'s edge, every control character but tabs and line ends dropped', function (): void {
     $long = sprintf("%sé\x1b[31mred\x07\tend\r\n", str_repeat('a', 5000));
-    $tail = Ended::of(1, signalled: false, printed: $long)->tail();
+    $tailed = Ended::of(1, signalled: false, printed: $long)->tail();
+    $tail = is_string($tailed) ? $tailed : '';
 
     expect(strlen($tail))->toBeLessThanOrEqual(2048)
         ->and($tail)->toEndWith("é[31mred\tend\r\n")
@@ -81,14 +82,26 @@ it('tails what a process printed at 2 KiB, on a character\'s edge, every control
         ->and(Ended::of(1, signalled: false, printed: $tail)->tail())->toBe($tail);
 });
 
-it('keeps twice its tail of what a process printed, so a secret is hidden before the cut', function (): void {
-    $printed = sprintf('%s%s', str_repeat('é', 3000), 'end');
-    $kept = Ended::of(1, signalled: false, printed: $printed)->printed();
+it('keeps four times its tail of what a process printed, and whether it cut any, so a secret is screened before the cut', function (): void {
+    $printed = sprintf('%s%s', str_repeat('é', 5000), 'end');
+    $ended = Ended::of(1, signalled: false, printed: $printed);
+    $kept = $ended->printed();
 
-    expect(strlen($kept))->toBeLessThanOrEqual(4096)
-        ->and(strlen($kept))->toBeGreaterThan(4090)
+    expect(is_string($kept) ? strlen($kept) : 0)->toBeLessThanOrEqual(8192)
+        ->and(is_string($kept) ? strlen($kept) : 0)->toBeGreaterThan(8186)
         ->and($kept)->toEndWith('éend')
-        ->and(mb_check_encoding($kept, 'UTF-8'))->toBeTrue();
+        ->and(is_string($kept) && mb_check_encoding($kept, 'UTF-8'))->toBeTrue()
+        ->and($ended->wasCut())->toBeTrue()
+        ->and(Ended::of(1, signalled: false, printed: str_repeat('a', 8192))->wasCut())->toBeFalse();
+});
+
+it('keeps how a process ended with nothing of what it printed, where that is not given', function (): void {
+    $ended = Ended::unprinted(2, signalled: false);
+
+    expect([$ended->code(), $ended->signalled()])->toBe([2, false])
+        ->and($ended->printed())->toBeInstanceOf(NotGiven::class)
+        ->and($ended->tail())->toBeInstanceOf(NotGiven::class)
+        ->and($ended->wasCut())->toBeFalse();
 });
 
 it('holds a kill\'s evidence: a prefix, how its process ended, either or neither', function (): void {

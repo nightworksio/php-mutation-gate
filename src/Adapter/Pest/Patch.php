@@ -33,9 +33,8 @@ use function sprintf;
  *   one fails in a mutant's run whatever the mutant changes. The override
  *   raises no warning of its own; PHP warns of a failed stat where the caller
  *   did not ask for quiet (`STREAM_URL_STAT_QUIET`), as it does without it.
- * - How a mutant's own run that failed ended, its code, whether a signal ended
- *   it and the end of what it printed, is recorded by its mutated copy (see
- *   Ending).
+ * - How a mutant's own run that failed ended, its code and whether a signal
+ *   ended it, is recorded by its mutated copy (see Ending).
  *
  * Applied as a VendorPatch: every anchor checked before anything is written.
  */

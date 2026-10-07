@@ -473,9 +473,9 @@ its parser attributes. Both change when the checkout moves.
        first. Where a test needs that, and its narrowed run leaves it out, a
        kill can count that a run with every test file would not have made.
      - Where a mutant's own run fails, Pest's parent process records how it
-       ended, by its mutated copy: the code it exited with, whether a signal
-       ended it, and what it printed, as the evidence of a kill (ADR-0014,
-       decision 16).
+       ended, by its mutated copy: the code it exited with and whether a
+       signal ended it, never what it printed, as the evidence of a kill
+       (ADR-0014, decision 16).
 
      Every anchor is checked before anything is written, and one that has moved
      fails the install: a patch that quietly matched nothing is worse than none.

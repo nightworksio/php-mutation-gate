@@ -27,28 +27,13 @@ function endedRun(string $output, string $error, int $code): Process
     return $process;
 }
 
-it('records how an own run ended by its mutated copy: its code, no signal, and its output then its error output, beats left out', function (): void {
+it('records how an own run ended by its mutated copy, its code and that no signal ended it, and nothing it printed', function (): void {
     $results = sprintf('%s/results.jsonl', Scratch::directory());
     putenv(sprintf('%s=%s', GateVariable::Results->value, $results));
 
-    Ending::record(endedRun('Tests: 1 failed', 'PHP Fatal error', 2), '/tmp/mutations/abc');
+    Ending::record(endedRun('a printed secret', 'PHP Fatal error', 2), '/tmp/mutations/abc');
 
-    expect(file_get_contents($results))->toBe(
-        "{\"event\":\"ended\",\"mutated\":\"/tmp/mutations/abc\",\"code\":2,\"signalled\":false,\"printed\":\"Tests: 1 failedPHP Fatal error\"}\n",
-    );
-});
-
-it('records no more of what an own run printed than evidence keeps, from its end', function (): void {
-    $results = sprintf('%s/results.jsonl', Scratch::directory());
-    putenv(sprintf('%s=%s', GateVariable::Results->value, $results));
-
-    Ending::record(endedRun(str_repeat('a', 5000), 'end', 1), '/tmp/mutations/abc');
-
-    $line = json_decode((string) file_get_contents($results), associative: true);
-    $printed = is_array($line) && is_string($line['printed']) ? $line['printed'] : '';
-
-    expect(strlen($printed))->toBe(4096)
-        ->and($printed)->toEndWith('aend');
+    expect(file_get_contents($results))->toBe("{\"event\":\"ended\",\"mutated\":\"/tmp/mutations/abc\",\"code\":2,\"signalled\":false}\n");
 });
 
 it('records nothing where the gate names no results file', function (): void {

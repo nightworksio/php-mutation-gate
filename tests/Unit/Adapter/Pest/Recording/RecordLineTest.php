@@ -52,8 +52,8 @@ it('writes each event as one line of JSON, slashes as they are and whole seconds
         "{\"event\":\"narrowed\",\"mutated\":\"/tmp/mutations/a1\",\"files\":[\"/p/tests/AddsSpec.php\"]}\n",
         "{\"event\":\"preloaded\",\"mutated\":\"/tmp/mutations/a1\"}\n",
         "{\"event\":\"ran\",\"mutated\":\"/tmp/mutations/a1\",\"count\":3}\n",
-        "{\"event\":\"ended\",\"mutated\":\"/tmp/mutations/a1\",\"code\":139,\"signalled\":true,\"printed\":\"Segmentation fault\"}\n",
-        "{\"event\":\"ended\",\"mutated\":\"/tmp/mutations/a1\",\"printed\":\"\"}\n",
+        "{\"event\":\"ended\",\"mutated\":\"/tmp/mutations/a1\",\"code\":139,\"signalled\":true}\n",
+        "{\"event\":\"ended\",\"mutated\":\"/tmp/mutations/a1\"}\n",
         "{\"event\":\"end\"}\n",
     ]);
 });

@@ -515,12 +515,12 @@ it('gives how a mutant\'s own process ended where one ending is recorded for its
         ? $records->runOf($mutant($id, '/p/src/Money.php', 10))->ended()
         : NotGiven::value();
 
-    expect($ended('a'))->toEqual(Ended::of(255, signalled: false, printed: 'PHP Fatal error'))
+    expect($ended('a'))->toEqual(Ended::unprinted(255, signalled: false))
         ->and($ended('b'))->toBeInstanceOf(NotGiven::class)
         ->and($ended('c'))->toBeInstanceOf(NotGiven::class);
 });
 
-it('reads an ending with no code or signal as one whose code and signal are not known, and refuses one whose signal is not true or false', function () use ($results, $planned, $mutant): void {
+it('reads an ending with no code or signal as one whose code and signal are not known, keeps nothing a line says was printed, and refuses a signal that is not true or false', function () use ($results, $planned, $mutant): void {
     $records = Records::in($results([
         $planned('a', '/p/src/Money.php', 10),
         '{"event":"ended","mutated":"/tmp/a","printed":"out"}',
@@ -531,7 +531,7 @@ it('reads an ending with no code or signal as one whose code and signal are not 
     ]));
 
     expect($records instanceof Records ? $records->runOf($mutant('a', '/p/src/Money.php', 10))->ended() : null)
-        ->toEqual(Ended::of(NotGiven::value(), NotGiven::value(), 'out'))
+        ->toEqual(Ended::unprinted(NotGiven::value(), NotGiven::value()))
         ->and($refused instanceof CannotJudge ? $refused->why() : '')->toContain('the record.signalled is not');
 });
 

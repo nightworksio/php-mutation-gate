@@ -160,7 +160,8 @@ final readonly class RecordLine
     /**
      * How the own process of the mutant Pest serves this mutated copy for
      * ended, as the parent process saw it: its code and whether a signal
-     * ended it, where it could tell, and what it printed.
+     * ended it, where it could tell, and never what it printed, which this
+     * file, kept in the workspace a CI may upload, holds unscreened.
      */
     public static function ended(string $mutated, Ended $ended): string
     {
@@ -172,7 +173,6 @@ final readonly class RecordLine
             RecordField::Mutated->value => $mutated,
             ...($code instanceof NotGiven ? [] : [RecordField::Code->value => $code]),
             ...($signalled instanceof NotGiven ? [] : [RecordField::Signalled->value => $signalled]),
-            RecordField::Printed->value => $ended->printed(),
         ]);
     }
 

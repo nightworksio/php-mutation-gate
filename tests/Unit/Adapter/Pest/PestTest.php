@@ -932,7 +932,7 @@ it('gives a kill run again with every test file the evidence of that run, and no
     expect($mutants)->toHaveCount(1)
         ->and($result instanceof MutationResult && $mutants !== [] ? $result->evidence()->of($mutants[0]->id()) : null)->toEqual($expected);
 })->with([
-    'killed again' => [true, true, Evidence::none()->withEnded(Ended::of(255, signalled: false, printed: 'run 1'))],
+    'killed again' => [true, true, Evidence::none()->withEnded(Ended::unprinted(255, signalled: false))],
     'killed again, its control failing, so unjudged' => [true, false, Evidence::none()],
     'surviving' => [false, true, Evidence::none()],
 ]);

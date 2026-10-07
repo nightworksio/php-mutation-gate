@@ -187,6 +187,29 @@ it('writes only the evidence a runner gave: a prefix without its key, a process 
         ->and(ShardResultFile::encode($result->withFlaky(MutantIds::none())))->toBe($written);
 });
 
+it('writes a process end that kept nothing it printed as its code and signal alone, and reads it back', function () use ($measured): void {
+    $killed = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', "-a + b\n+a - b", 0),
+        '8',
+        Location::of(Path::of('src/Money.php'), Line::of(9), Line::of(9)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, "-a + b\n+a - b"),
+        MutantStatus::Killed,
+        Seconds::of(0.5),
+    );
+    $evidence = Evidence::none()->withEnded(Ended::unprinted(2, signalled: false));
+    $result = ShardResult::of(
+        Digest::of('9c1e'),
+        ShardId::of(1),
+        Keys::none(),
+        MutationResult::of(Mutants::of($killed), 0)->withEvidence(Evidences::none()->with($killed->id(), $evidence)),
+        $measured,
+    );
+    $written = ShardResultFile::encode($result);
+
+    expect($written)->toContain("\"ended\": {\n                \"code\": 2,\n                \"signalled\": false\n            }")
+        ->and(ShardResultFile::decode($written))->toEqual($result);
+});
+
 it('lists the mutants that gave two answers after the rest, and reads them back', function () use (
     $finished,
     $survivor,
@@ -405,10 +428,10 @@ it('refuses what is not a shard result, saying where it went wrong', function (s
             . '"measured": {"seconds": 1, "runner": "pest", "at": "2026-09-29T20:48:17Z"}}',
         'the file.mutants[0].prefix.key is not twelve lowercase hex digits.',
     ],
-    'a process end with no tail' => [
-        '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "mutants": [{"id": "0123456789ab", "native": "1", "file": "src/A.php", "line": 1, "mutator": "Plus", "family": "arithmetic", "diff": "", "status": "killed", "ended": {"code": 1}}], "skipped": 0, '
+    'a process end whose tail is not text' => [
+        '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "mutants": [{"id": "0123456789ab", "native": "1", "file": "src/A.php", "line": 1, "mutator": "Plus", "family": "arithmetic", "diff": "", "status": "killed", "ended": {"code": 1, "tail": 5}}], "skipped": 0, '
             . '"measured": {"seconds": 1, "runner": "pest", "at": "2026-09-29T20:48:17Z"}}',
-        'the file.mutants[0].ended.tail is missing.',
+        'the file.mutants[0].ended.tail is not text.',
     ],
     'a process end whose signal is not yes or no' => [
         '{"format": 1, "plan": "9c1e", "shard": 1, "units": {}, "mutants": [{"id": "0123456789ab", "native": "1", "file": "src/A.php", "line": 1, "mutator": "Plus", "family": "arithmetic", "diff": "", "status": "killed", "ended": {"signalled": "yes", "tail": ""}}], "skipped": 0, '

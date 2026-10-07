@@ -420,7 +420,7 @@ it('judges each of the mutants Pest gives one id, as two changes that leave the 
 it('gives the evidence of each kill: how far its run went, keyed by the test files it loaded, and how a run it names no killer of ended', function () use ($mutant, $plan): void {
     [$project, $results, $root] = interpretedRun([11 => [0], 12 => [0], 13 => [0]], []);
     $order = OrderDigest::of(TestId::of('P\Tests\FirstSpec::__pest_evaluable_it_passes'), TestId::of(INTERPRETED_TESTS[0]))->value();
-    $ended = Ended::of(255, signalled: false, printed: 'PHP Fatal error:  Allowed memory size exhausted');
+    $ended = Ended::unprinted(255, signalled: false);
     PestRun::write($results, [
         $plan($root, 'n1', 'src/Money.php:11', 'ab'),
         $plan($root, 'n2', 'src/Money.php:12', 'cd'),

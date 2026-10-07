@@ -117,7 +117,7 @@ final class OwnRuns
 
     /**
      * How a failed own run ended; a code or a signal the line does not
-     * name is not known.
+     * name is not known, and nothing it printed is kept.
      *
      * @throws NotInShape
      */
@@ -125,10 +125,9 @@ final class OwnRuns
     {
         $code = $record->field(RecordField::Code->value);
         $signalled = $record->field(RecordField::Signalled->value);
-        $this->ended[$this->mutatedIn($record)][] = Ended::of(
+        $this->ended[$this->mutatedIn($record)][] = Ended::unprinted(
             $code->isPresent() ? $code->integer() : NotGiven::value(),
             $signalled->isPresent() ? $signalled->boolean() : NotGiven::value(),
-            $record->field(RecordField::Printed->value)->text(),
         );
     }
 

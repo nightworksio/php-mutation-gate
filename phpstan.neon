@@ -739,9 +739,9 @@ services:
                 'NightWorksIO\MutationGate\Core\Mutant\Prefix':
                     - KEPT # hex digits of a prefix's key, not a mutant id's length
                 'NightWorksIO\MutationGate\Core\Format\Secrets':
-                    - SHORTEST # characters a withheld value needs to be hidden, not a seed's first byte
-                'NightWorksIO\MutationGate\Core\Mutant\Ended':
-                    - KEPT # bytes of a process's output kept until its secrets are hidden, not a gzip read step
+                    - SHORTEST # characters a withheld value needs to be screened for, not a seed's first byte
+                    - GROUP_BYTES # bytes base64 encodes as one group, not the letters one edit of a name may change
+                    - GROUP_CHARACTERS # characters base64 writes one group as, not a mutant record's status column
                 'NightWorksIO\MutationGate\Core\Proof\LastRunRecord':
                     - COMMIT # the ledger's last run's field, not the commit a plan's digests were taken at
                     - TREE # the ledger's last run's field, not the tree floor a survivor dooms a run by
