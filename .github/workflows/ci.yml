@@ -564,7 +564,7 @@ jobs:
         with:
           persist-credentials: false
           sparse-checkout: .github
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: runner-contract-*
           path: evidence/raw
@@ -764,7 +764,7 @@ jobs:
           # introduced it, which is what makes "new code" a usable gate.
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: coverage-report
           path: coverage
