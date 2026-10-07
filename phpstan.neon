@@ -712,9 +712,11 @@ services:
                     - 'TRUE' # PHP's constant, not Infection's setting
                 'NightWorksIO\MutationGate\Mutator\Tag':
                     - SECURITY # a tag a mutator carries, not the config section of the same name
-                'NightWorksIO\MutationGate\Core\Plan\BriefingRecord':
-                    - SECURITY # a field of the plan file, not the config section of the same name
-                    - SUITE # a field of the plan file, not the command-line option of the same name
+                'NightWorksIO\MutationGate\Core\Proof\RunProfileRecord':
+                    - SECURITY # a field of the plan and ledger files, not the config section of the same name
+                    - SUITE # a field of the plan and ledger files, not the command-line option of the same name
+                'NightWorksIO\MutationGate\Core\Proof\LastRunRecord':
+                    - COMMIT # the ledger's last run's field, not the commit a plan's digests were taken at
                 'NightWorksIO\MutationGate\Core\Report\SuiteText':
                     - SHOWN_FROM # the fewest suites a report shows, not an argument's position or an exit code
                 'NightWorksIO\MutationGate\Core\Report\JUnit':

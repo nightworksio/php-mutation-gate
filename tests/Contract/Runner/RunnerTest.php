@@ -29,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\Coverage\Remeasured;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
@@ -36,15 +37,25 @@ use NightWorksIO\MutationGate\Core\Mutant\Marker;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
+use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
+use NightWorksIO\MutationGate\Core\Plan\Considering;
+use NightWorksIO\MutationGate\Core\Plan\OwnOnly;
 use NightWorksIO\MutationGate\Core\Proof\Access;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\Digests;
+use NightWorksIO\MutationGate\Core\Proof\Proof;
+use NightWorksIO\MutationGate\Core\Proof\Proofs;
+use NightWorksIO\MutationGate\Core\Proof\Recording;
+use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
+use NightWorksIO\MutationGate\Core\Reach\Packages;
+use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -70,11 +81,15 @@ use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Tree\Trees;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
+use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
 use NightWorksIO\MutationGate\Tests\Support\InfectionSource;
+use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
@@ -209,6 +224,34 @@ it('reports a killed, a survived, an uncovered and a timed-out mutant', function
         ->toEqualCanonicalizing($library->expected('adds', 'large', 'unused', 'drains'))
         ->and($result instanceof MutationResult ? array_map(static fn(Warning $warning): string => $warning->text(), [...$result->warnings()]) : ['cannot judge'])
         ->toBe($library->runner() instanceof Infection ? [INFECTION_UNPATCHED] : []);
+})->with($libraries);
+
+it('leaves a proof of what it judged, which a last-run change carries while its source reads as it did then, and reaches once it does not', function (Library $library) use ($money): void {
+    $result = $money($library);
+    $unit = Path::of('src/Money.php');
+    $mutation = Digest::sha256Of('mutation');
+    $asRun = Digests::of($mutation)->withSource($unit, Digest::sha256Of('money as it ran'));
+    $proof = $result instanceof MutationResult
+        ? Recording::of(
+            Digest::sha256Of('money'),
+            $unit,
+            $result->mutants(),
+            MutantIds::none(),
+            Run::of('contract', Moment::at('2026-10-01T10:00:00Z'), Digest::sha256Of('base')),
+            $asRun->inputsOf($unit, Paths::none()),
+        )
+        : $result;
+    $carrying = static fn(Digests $now): Considering => Considering::of(
+        Units::of(Unit::file($unit)),
+        Reach::nothing(Packages::of(Trees::none())),
+        Proofs::none(),
+        $proof instanceof Proof ? Proofs::of($proof) : Proofs::none(),
+        OwnOnly::of(Paths::of($unit), $now),
+    );
+
+    expect($proof)->toBeInstanceOf(Proof::class)
+        ->and(count($carrying($asRun)->carried()))->toBe(1)
+        ->and(count($carrying(Digests::of($mutation)->withSource($unit, Digest::sha256Of('money since')))->considered()))->toBe(1);
 })->with($libraries);
 
 it('names the steps its time went to, in the order they started, the mutants\' run among them with every mutant it judged', function (Library $library) use ($money): void {

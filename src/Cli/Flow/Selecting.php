@@ -51,6 +51,8 @@ final readonly class Selecting
 
     private const string NONE_PASSED = 'No commit of this scope has passed yet, so every test is listed.';
 
+    private const string EVERY_TEST = '%s So every test is listed.';
+
     private const string CANNOT_TELL = 'Git cannot tell what changed since %s. %s Run the whole suite.';
 
     public function __construct(private Adapters $adapters, private Settings $settings)
@@ -99,7 +101,11 @@ final readonly class Selecting
         $ledgers = Ledgers::read($this->adapters->proofs, $inventory->standing, Writing::Never);
         $base = Mode::since($since)->base($ledgers);
 
-        return $base instanceof Revision ? $base : Reason::that(self::NONE_PASSED);
+        return match (true) {
+            $base instanceof Revision => $base,
+            $since === Mode::LAST_RUN => Reason::that(sprintf(self::EVERY_TEST, $base->why())),
+            default => Reason::that(self::NONE_PASSED),
+        };
     }
 
     /**

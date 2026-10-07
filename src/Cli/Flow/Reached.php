@@ -25,23 +25,30 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
 /**
  * What a run reaches: every unit for a full run, and otherwise what the
  * change since its base reaches, by the rules of ADR-0005, with the lines
- * each source file's change added or modified; or why those lines are not
- * known, for a full run or where git cannot tell what changed.
+ * each source file's change since the base's ref added or modified; or why
+ * those lines are not known, for a full run or where git cannot tell what
+ * changed. Where the base is a last run whose commit git can read, the change
+ * is read from that commit itself, and the files changed since the ref carry
+ * only the run's own scope's results (ADR-0005, decision 2).
  */
 final readonly class Reached
 {
-    private function __construct(private Reach $reach, private Changes|CannotTell $changed)
+    private function __construct(private Reach $reach, private Changes|CannotTell $changed, private Paths $ownOnly)
     {
     }
 
     /** Every unit, for this reason. */
     public static function everything(Trees $trees, CannotTell $why): self
     {
-        return new self(Reach::nothing(Packages::of($trees))->everywhere(Reason::that($why->why())), $why);
+        return new self(
+            Reach::nothing(Packages::of($trees))->everywhere(Reason::that($why->why())),
+            $why,
+            Paths::none(),
+        );
     }
 
     public static function since(
-        Revision $base,
+        ChangeBase $base,
         Trees $trees,
         Adapters $adapters,
         Settings $settings,
@@ -49,14 +56,24 @@ final readonly class Reached
         CoverageMap $map,
         DecidingConfig $config,
     ): self {
-        $changes = $adapters->changes->changesSince($base);
+        $sinceRef = $adapters->changes->changesSince($base->ref());
+        $commit = $base->lastRunCommit();
+        $fromRun = $commit instanceof Revision && $sinceRef instanceof Changes
+            ? $adapters->changes->changesFrom($commit)
+            : $sinceRef;
+        $exact = $commit instanceof Revision && $fromRun instanceof Changes;
+        $changes = $exact ? $fromRun : $sinceRef;
         $reach = new Reaching(self::layout($adapters, $settings, $suite), $trees)->of(
             $changes,
             self::judges($adapters, $map),
-            self::sources($changes, $base, $adapters, $suite->sources(), $config),
+            self::sources($changes, $exact ? $commit : $base->ref(), $adapters, $suite->sources(), $config),
         );
 
-        return new self($reach, $changes instanceof Changes ? self::withLines($changes) : $changes);
+        return new self(
+            $reach,
+            $sinceRef instanceof Changes ? self::withLines($sinceRef) : $sinceRef,
+            $exact && $sinceRef instanceof Changes ? self::pathsOf($sinceRef) : Paths::none(),
+        );
     }
 
     /** The lines each source file's change since a base added or modified, or why git cannot tell. */
@@ -76,6 +93,12 @@ final readonly class Reached
     public function changed(): Changes|CannotTell
     {
         return $this->changed;
+    }
+
+    /** The files whose units carry only the run's own scope's results: those changed since a last run's ref. */
+    public function ownOnly(): Paths
+    {
+        return $this->ownOnly;
     }
 
     /**
@@ -132,6 +155,18 @@ final readonly class Reached
         }
 
         return $judges;
+    }
+
+    /** The path of each change, as it is now: where the units it touches stand. */
+    private static function pathsOf(Changes $changes): Paths
+    {
+        $paths = Paths::none();
+
+        foreach ($changes as $change) {
+            $paths = $paths->with($change->path());
+        }
+
+        return $paths;
     }
 
     private static function withLines(Changes $changes): Changes

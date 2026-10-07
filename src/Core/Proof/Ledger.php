@@ -5,26 +5,23 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Proof;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistories;
-use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 
 /**
  * What one scope has proved: its proofs, how long each unit took, the bases
- * the runs that wrote it keyed their units at, the most recent first, the
- * newest commit of the scope whose verdict passed, which tests killed its
- * mutants first, and what it learned of each static analyser.
+ * the runs that wrote it keyed their units at, the most recent first, what it
+ * holds of its runs ({@see ScopeRuns}), which tests killed its mutants first,
+ * and what it learned of each static analyser.
  */
 final readonly class Ledger
 {
-    private const string NEVER_PASSED = 'No commit of this scope has passed yet.';
-
     private function __construct(
         private Proofs $proofs,
         private Timings $timings,
         private Bases $bases,
-        private Passed|CannotTell $passed,
+        private ScopeRuns $runs,
         private KillHistory $killers,
         private AnalyserHistories $analysers,
     ) {
@@ -36,7 +33,7 @@ final readonly class Ledger
             Proofs::none(),
             Timings::none(),
             Bases::none(),
-            CannotTell::because(self::NEVER_PASSED),
+            ScopeRuns::none(),
             KillHistory::none(),
             AnalyserHistories::none(),
         );
@@ -80,10 +77,10 @@ final readonly class Ledger
         return clone($this, ['bases' => $this->bases->and($bases)]);
     }
 
-    /** This ledger, with the newest commit whose verdict passed, replacing the one held. */
-    public function withPassed(Passed $passed): self
+    /** This ledger, with what it holds of its runs, replacing what it held. */
+    public function withRuns(ScopeRuns $runs): self
     {
-        return clone($this, ['passed' => $passed]);
+        return clone($this, ['runs' => $runs]);
     }
 
     /** This ledger, with the kill history a run learned, replacing the one held. */
@@ -95,9 +92,9 @@ final readonly class Ledger
     /**
      * This ledger and another scope's, read together: this one's proofs first,
      * so a key both prove keeps this one's, each unit's newest timing, this
-     * one's bases before the other's, this one's passing commit, and where
-     * both know who killed a mutant or a function's mutants, this one's, and
-     * where both learned of an analyser, this one's.
+     * one's bases before the other's, what this one holds of its runs, and
+     * where both know who killed a mutant or a function's mutants, this
+     * one's, and where both learned of an analyser, this one's.
      */
     public function and(self $other): self
     {
@@ -105,7 +102,7 @@ final readonly class Ledger
             Proofs::of(...$this->proofs, ...$other->proofs),
             $this->timings->and($other->timings),
             $this->bases->and($other->bases),
-            $this->passed,
+            $this->runs,
             $this->killers->and($other->killers),
             $this->analysers->and($other->analysers),
         );
@@ -145,10 +142,10 @@ final readonly class Ledger
         return $this->bases;
     }
 
-    /** The newest commit of this scope whose verdict passed: the `last-passed` base. */
-    public function lastPassed(): Passed|CannotTell
+    /** What this ledger holds of its scope's runs: the `last-passed` and `last-run` bases. */
+    public function runs(): ScopeRuns
     {
-        return $this->passed;
+        return $this->runs;
     }
 
     /** Which tests killed this scope's mutants first, and its functions' mutants. */

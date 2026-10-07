@@ -244,7 +244,8 @@ has to bring its result with it.
        "analysers": {
            "phpstan": { "checks": 63, "seconds": 31.5, "mutators": { "Plus": [60, 12] } }
        },
-       "passed": { "commit": "<commit sha>", "check": "<check-run name>", "ownScopeProofs": 0 }
+       "passed": { "commit": "<commit sha>", "check": "<check-run name>", "ownScopeProofs": 0 },
+       "lastRun": { "commit": "<commit sha>", "check": "<check-run name>", "kind": { "matrix": "full" } }
    }
    ```
 
@@ -359,6 +360,20 @@ has to bring its result with it.
      written both, and only as the named check-run shows it. A `passed` that
      is not such a record, one whose `ownScopeCoverage` is anything but
      `true` among them, reads as none.
+   - `lastRun` records the commit this scope's last run judged, the
+     `last-run` base (ADR-0005, decision 2), with the check-run it reported
+     under and `kind`, the kind of run it was: `matrix` `full` where it
+     recorded every killer, `security` `true` where it made mutants with the
+     security mutators alone, and `suite` where one suite's tests alone
+     judged them, each written only where it holds. A run writes it only
+     where it judged every unit it considered: no time budget stopped it, no
+     held unit's tests missed its lines, and every unit it ran left a proof.
+     Any other run that writes the ledger removes it, so a `lastRun` is
+     always of the last run to write the ledger, and no result left since is
+     older than it. It says where to read a change from, never whether a
+     result stands: what a result records of its inputs decides that. A
+     `lastRun` that is not such a record reads as none, and the rest of the
+     ledger stands.
 
 4. **The ProofStore port reads and writes one ledger per scope.** A scope is a
    ref: `refs/heads/<branch>` or `refs/pull/<n>`.

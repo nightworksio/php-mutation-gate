@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function array_all;
+use function count;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -15,7 +18,9 @@ use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Proof\Agreement;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
+use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\NotRecorded;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\ReadsOnly;
@@ -37,9 +42,11 @@ use NightWorksIO\MutationGate\Core\Written;
  * shard taught the cost model, where it made mutants with every mutator and
  * judged them by every test, so that a narrowed run never stands in for a
  * unit's time (ADR-0021 decision 20, ADR-0025 decision 9), the time each
- * analyser's checks of the shards' survivors took, and, where the verdict
+ * analyser's checks of the shards' survivors took, where the verdict
  * passed, the commit it judged, the check-run it reported under and how many
- * proofs of the scope's own ledger it used.
+ * proofs of the scope's own ledger it used, and, where the run judged every
+ * unit it considered, the commit it judged as the scope's last run, which any
+ * other run removes (ADR-0007, decision 3).
  */
 final readonly class Recorded
 {
@@ -53,6 +60,7 @@ final readonly class Recorded
         Ledgers $ledgers,
         Run $run,
         Passed|CannotTell $passed,
+        LastRun $lastRun,
     ): Written|NotWritten|ReadsOnly|CannotJudge {
         $scope = $ledgers->access()->writes();
 
@@ -63,7 +71,8 @@ final readonly class Recorded
         $fresh = $this->checked($plan, $results, $ledgers);
         $written = $ledgers->written()->atBase($plan->base());
         $written = $written->withAnalysers($written->analysers()->plus($results->checks()->histories()));
-        $proved = $this->proved($written, $plan, $fresh, $run);
+        $recordings = $this->recordings($plan, $fresh, $run);
+        $proved = $this->proved($written, $plan, $recordings);
         $learned = $this->adapters->narrowing->isNone()
             ? $this->learned($proved, $results, $ledgers->timings())
             : $proved;
@@ -73,10 +82,51 @@ final readonly class Recorded
             return $ledger;
         }
 
-        return $this->adapters->proofs->write(
-            $scope,
-            $passed instanceof Passed ? $ledger->withPassed($passed) : $ledger,
-        );
+        $runs = $passed instanceof Passed ? $ledger->runs()->passing($passed) : $ledger->runs();
+        $runs = $this->judgedEvery($results, $recordings) ? $runs->lastRunAt($lastRun) : $runs->cutShort();
+
+        return $this->adapters->proofs->write($scope, $ledger->withRuns($runs));
+    }
+
+    /**
+     * Whether the run judged every unit it considered: no shard's budget
+     * stopped it, no held unit's tests missed its lines, and every unit it ran
+     * left a proof (ADR-0005, decision 2).
+     *
+     * @param list<array{UnitResult, Proof|NotRecorded}> $recordings
+     */
+    private function judgedEvery(Results $results, array $recordings): bool
+    {
+        return ! $results->wereCutShort()
+            && count($results->misses()) === 0
+            && array_all($recordings, static fn(array $recording): bool => $recording[1] instanceof Proof);
+    }
+
+    /**
+     * Each unit the shards ran, with the proof it leaves under its key, or why it leaves none.
+     *
+     * @return list<array{UnitResult, Proof|NotRecorded}>
+     */
+    private function recordings(Plan $plan, UnitResults $fresh, Run $run): array
+    {
+        $recordings = [];
+
+        foreach ($fresh as $result) {
+            $path = $result->unit()->path();
+            $recordings[] = [
+                $result,
+                Recording::of(
+                    $plan->keys()->keyOf($path),
+                    $path,
+                    $result->mutants(),
+                    $result->flaky(),
+                    $run,
+                    $this->inputsOf($plan, $result),
+                ),
+            ];
+        }
+
+        return $recordings;
     }
 
     /** Each unit the shards ran, with the mutants a proof under its key in either ledger disagrees on flaky. */
@@ -94,14 +144,13 @@ final readonly class Recorded
      * The ledger, with a proof of every unit that ran to the end under a key,
      * and without the proof under the key of one that did not: its result
      * and that proof are not both answers of the same code.
+     *
+     * @param list<array{UnitResult, Proof|NotRecorded}> $recordings
      */
-    private function proved(Ledger $ledger, Plan $plan, UnitResults $fresh, Run $run): Ledger
+    private function proved(Ledger $ledger, Plan $plan, array $recordings): Ledger
     {
-        foreach ($fresh as $result) {
-            $path = $result->unit()->path();
-            $key = $plan->keys()->keyOf($path);
-            $inputs = $this->inputsOf($plan, $result);
-            $proof = Recording::of($key, $path, $result->mutants(), $result->flaky(), $run, $inputs);
+        foreach ($recordings as [$result, $proof]) {
+            $key = $plan->keys()->keyOf($result->unit()->path());
             $ledger = match (true) {
                 $proof instanceof Proof => $ledger->withProof($proof->judgedBy($result->judging())),
                 $key instanceof Digest => $ledger->withoutProof($key),

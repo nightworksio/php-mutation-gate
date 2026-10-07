@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Order\RiskOrder;
 use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Plan\Considered;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
+use NightWorksIO\MutationGate\Core\Plan\OwnOnly;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Plan\Weighed;
@@ -163,8 +164,9 @@ final readonly class Planning
     ): Plan|CannotJudge {
         $writing = Writing::from($this->settings->proofs()->write()->value);
         $ledgers = Ledgers::read($this->adapters->proofs, $inventory->standing, $writing);
-        $base = $mode->base($ledgers);
-        $reached = $base instanceof Revision
+        $kind = $this->adapters->briefing(Briefing::standard()->recording($matrix))->profile();
+        $base = $mode->changeBase($ledgers, $inventory->standing, $kind, $this->settings->ci()->check());
+        $reached = $base instanceof ChangeBase
             ? Reached::since(
                 $base,
                 $inventory->trees,
@@ -175,7 +177,14 @@ final readonly class Planning
                 $this->setup->config,
             )
             : Reached::everything($inventory->trees, $base);
-        $considering = $ledgers->considering($inventory->units, $reached->reach(), $matrix);
+        $ownOnly = $reached->ownOnly();
+        $considering = $ledgers->considering(
+            $inventory->units,
+            $reached->reach(),
+            $matrix,
+            OwnOnly::of($ownOnly, $keying->digestsOf($inventory->units->within($ownOnly))),
+        );
+        $carriedOwn = $this->unitsOf($considering->carried())->within($ownOnly);
         $keys = $keying->keysOf($considering->considered());
         $proving = $ledgers->proving($considering->considered(), $keys, $keying->base(), $matrix);
         $opening = $map->suiteDuration();
@@ -191,7 +200,10 @@ final readonly class Planning
         );
         $shards = $shards instanceof Shards ? $this->opening($shards, $opening) : $shards;
         $changed = $this->newCode($inventory->standing, $reached);
-        $digests = $this->committed($keying->digestsOf($proving->toRun()), $inventory->standing->head());
+        $digests = $this->committed(
+            $keying->digestsOf(Units::of(...$proving->toRun(), ...$carriedOwn)),
+            $inventory->standing->head(),
+        );
 
         return match (true) {
             $shards instanceof CannotJudge => $shards,
@@ -206,7 +218,8 @@ final readonly class Planning
                             ->reaching($changed, $reached->reach()->reasons())
                             ->untesting(Untested::of($changed, $map))
                             ->proving($this->unitsOf($proving->proved()))
-                            ->carrying($this->unitsOf($considering->carried())),
+                            ->carrying($this->unitsOf($considering->carried()))
+                            ->carryingOwn($carriedOwn),
                     )
                     ->naming($this->adapters->runner->names($map->tests(), $this->adapters->withheld)),
                 $map,

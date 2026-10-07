@@ -148,7 +148,11 @@ final readonly class LedgerFile
             $timings[] = self::timingsIn(sprintf('%s', $unit), $entry);
         }
 
-        return self::passedIn($file)
+        $runs = self::passedIn($file);
+        $lastRun = LastRunRecord::read($file->field(LastRunRecord::SECTION));
+
+        return Ledger::empty()
+            ->withRuns($lastRun instanceof LastRun ? $runs->lastRunAt($lastRun) : $runs)
             ->withBases(self::basesIn($file))
             ->withTimings(Timings::of(...array_merge(...$timings)))
             ->withKillers(KillersRecord::read($file->field(KillersRecord::SECTION), self::namesIn($file, self::TESTS)))
@@ -166,7 +170,7 @@ final readonly class LedgerFile
         }
     }
 
-    private static function passedIn(Node $file): Ledger
+    private static function passedIn(Node $file): ScopeRuns
     {
         try {
             $passed = $file->field(self::PASSED);
@@ -181,13 +185,13 @@ final readonly class LedgerFile
             );
             $coverage = $passed->field(self::OWN_SCOPE_COVERAGE);
 
-            return Ledger::empty()->withPassed(match (true) {
+            return ScopeRuns::none()->passing(match (true) {
                 ! $coverage->isPresent() => $read,
                 $coverage->boolean() => $read->onOwnScopeCoverage(),
                 default => throw NotInShape::at($coverage->at(), 'true'),
             });
         } catch (NotInShape) {
-            return Ledger::empty();
+            return ScopeRuns::none();
         }
     }
 

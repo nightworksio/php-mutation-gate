@@ -187,7 +187,7 @@ final readonly class MergedHeads
     private function recordedAt(ProofStore $ledgers, int $pullRequest, string $head): bool
     {
         $ledger = $ledgers->read(Scope::pullRequest($pullRequest));
-        $passed = $ledger instanceof Ledger ? $ledger->lastPassed() : $ledger;
+        $passed = $ledger instanceof Ledger ? $ledger->runs()->passed() : $ledger;
 
         return $passed instanceof Passed
             && $passed->commit()->name() === $head

@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Plan\Considering;
+use NightWorksIO\MutationGate\Core\Plan\OwnOnly;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
@@ -56,6 +57,7 @@ final readonly class Measured
             Reach::nothing(Packages::of($inventory->trees)),
             $ledgers->defaultBranch()->proofs(),
             $ledgers->own()->proofs(),
+            OwnOnly::none(),
         );
         $unmeasured = Paths::none();
 

@@ -28,9 +28,11 @@ use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Considering;
+use NightWorksIO\MutationGate\Core\Plan\OwnOnly;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Proving;
 use NightWorksIO\MutationGate\Core\Proof\Agreement;
+use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\ReadsOnly;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
@@ -261,6 +263,7 @@ final readonly class Judging
             $plan->considered()->carried(),
             Reach::nothing(Packages::of($trees)),
             $kind,
+            OwnOnly::of($plan->considered()->carriedOwn()->paths(), $plan->digests()),
         );
         $uncovered = Uncovered::from($this->settings->floors()->uncovered()->value);
         $ignoring = Ignoring::of($this->settings->ignores()->entries(), $this->setup->clock->now());
@@ -535,7 +538,8 @@ final readonly class Judging
                 => Passed::of($plan->commit(), $this->settings->ci()->check(), $ownScopeProofs)->onOwnScopeCoverage(),
             default => Passed::of($plan->commit(), $this->settings->ci()->check(), $ownScopeProofs),
         };
-        $written = new Recorded($this->adapters)->write($plan, $results, $ledgers, $run, $passed);
+        $lastRun = LastRun::of($plan->commit(), $this->settings->ci()->check(), $plan->briefing()->profile());
+        $written = new Recorded($this->adapters)->write($plan, $results, $ledgers, $run, $passed, $lastRun);
 
         return match (true) {
             $written instanceof Written => $written->said(),

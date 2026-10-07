@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Registered;
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
+use NightWorksIO\MutationGate\Cli\Flow\ChangeBase;
 use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Cli\Flow\Reached;
 use NightWorksIO\MutationGate\Cli\Flow\Suite;
@@ -88,7 +89,7 @@ function reachedReading(Closure $config, Changes $changes, array $now, array $be
     $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'));
 
     return Reached::since(
-        Revision::ref('base'),
+        ChangeBase::since(Revision::ref('base')),
         Flows::trees(),
         $adapters,
         Flows::settings(Reach::everything('config/**')),
@@ -266,7 +267,7 @@ it('reaches everything where git cannot tell what changed, and says why it keeps
     );
     $adapters = Flows::adapters(Flows::project(), [], $checkout);
     $reached = Reached::since(
-        Revision::ref('base'),
+        ChangeBase::since(Revision::ref('base')),
         Flows::trees(),
         $adapters,
         Flows::settings(),
@@ -277,4 +278,54 @@ it('reaches everything where git cannot tell what changed, and says why it keeps
 
     expect($reached->reach()->reaches($held))->toBeTrue()
         ->and($reached->changed())->toEqual(CannotTell::because('base is not a revision this repository has.'));
+});
+
+/** What a run reaches whose change is read from this checkout, since this base. */
+function reachedFrom(ChangeSourceFake $checkout, ChangeBase $base): Reached
+{
+    $adapters = Flows::adapters(Flows::project(), [], $checkout);
+
+    return Reached::since(
+        $base,
+        Flows::trees(),
+        $adapters,
+        Flows::settings(),
+        reachedSuite($checkout, $adapters),
+        CoverageMap::empty(),
+        DecidingConfig::unread(),
+    );
+}
+
+it('reaches only what changed since its last run, gives the new code since the ref, and carries its own results alone for what changed since the ref', function () use ($money, $held): void {
+    $sinceRef = Changes::of(
+        Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(3))),
+        Change::modified(Path::of('src/Held.php'), Lines::of(Line::of(2))),
+    );
+    $checkout = new ChangeSourceFake(Revision::ref('base'), $sinceRef, [
+        Revision::workingTree()->name() => Flows::FILES,
+        'base' => Flows::FILES,
+        'last-run' => Flows::FILES,
+    ])->changedFrom(Revision::ref('last-run'), Changes::of(Change::modified(Path::of('src/Held.php'), Lines::of(Line::of(2)))));
+
+    $reached = reachedFrom($checkout, ChangeBase::lastRun(Revision::ref('last-run'), Revision::ref('base')));
+
+    expect($reached->reach()->reaches($held))->toBeTrue()
+        ->and($reached->reach()->reaches($money))->toBeFalse()
+        ->and($reached->changed())->toEqual($sinceRef)
+        ->and([...$reached->ownOnly()])->toEqual([Path::of('src/Money.php'), Path::of('src/Held.php')]);
+});
+
+it('reads its change since the ref where git cannot read the commit its last run judged, as after a force-push', function () use ($money, $held): void {
+    $sinceRef = Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(3))));
+    $checkout = new ChangeSourceFake(Revision::ref('base'), $sinceRef, [
+        Revision::workingTree()->name() => Flows::FILES,
+        'base' => Flows::FILES,
+    ]);
+
+    $reached = reachedFrom($checkout, ChangeBase::lastRun(Revision::ref('rewritten'), Revision::ref('base')));
+
+    expect($reached->reach()->reaches($money))->toBeTrue()
+        ->and($reached->reach()->reaches($held))->toBeFalse()
+        ->and($reached->changed())->toEqual($sinceRef)
+        ->and([...$reached->ownOnly()])->toBe([]);
 });

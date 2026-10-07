@@ -356,13 +356,13 @@ it('refuses what is not a plan, saying where it went wrong', function (string $j
     ],
 ]);
 
-it('writes and reads back the units it proved and those it carries, and neither where none are', function (): void {
+it('writes and reads back the units it proved, those it carries and those that carry their own scope\'s alone, and none where none are', function (): void {
     $empty = planFileEmpty();
     $plan = $empty
         ->on(RunOn::detached(Scope::branch('main')))
         ->considering(Considered::everything()->proving(Units::of(Unit::file(Path::of('src/A.php'))))->carrying(
             Units::of(Unit::held(Path::of('src/Kernel'), Group::named('holds:src/Kernel')), Unit::file(Path::of('src/B.php'))),
-        ));
+        )->carryingOwn(Units::of(Unit::file(Path::of('src/B.php')))));
     $written = PlanFile::encode($plan);
     $none = PlanFile::encode($empty);
 
@@ -374,6 +374,7 @@ it('writes and reads back the units it proved and those it carries, and neither 
             '            "group": "holds:src/Kernel"',
             '        },',
         ]))
+        ->and($written)->toContain("\"carriedOwn\": [\n        {\n            \"path\": \"src/B.php\"\n        }\n    ]")
         ->and(PlanFile::decode($written))->toEqual($plan)
         ->and($none)->not->toContain('"proved"')
         ->and($none)->not->toContain('"carried"');

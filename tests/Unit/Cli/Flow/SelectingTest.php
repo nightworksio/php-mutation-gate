@@ -166,6 +166,12 @@ it('lists every test, saying why, where the map cannot say what the change reach
         'last-passed',
         'No commit of this scope has passed yet, so every test is listed.',
     ],
+    'the commit a run judged, which only a run reads' => [
+        false,
+        selectingCheckout(),
+        'last-run',
+        '`last-run` names the commit a run of the gate judged, so only `run` reads it. So every test is listed.',
+    ],
 ]);
 
 it('cannot tell what changed since a ref git does not have', function () use ($project, $select, $map): void {

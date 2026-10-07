@@ -57,13 +57,16 @@ use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
+use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\ReadsOnly;
 use NightWorksIO\MutationGate\Core\Proof\Run;
+use NightWorksIO\MutationGate\Core\Proof\RunProfile;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Undigested;
@@ -79,14 +82,17 @@ use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\CostModel;
 use NightWorksIO\MutationGate\Port\ProofStore;
 use NightWorksIO\MutationGate\Tests\Fakes\CostModelFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
+use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
+use NightWorksIO\MutationGate\Tests\Support\Judged;
 use NightWorksIO\MutationGate\Tests\Support\LedgerRead;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\PeakMemoryFake;
@@ -95,6 +101,12 @@ use NightWorksIO\MutationGate\Tests\Support\RecordingChecker;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 use NightWorksIO\MutationGate\Tests\Support\TickingClock;
+
+/** The last run a verdict hands the ledger it writes. */
+function recordedLastRun(): LastRun
+{
+    return LastRun::of(Revision::ref('5eeca8f0a1b2c3d4e5f60718293a4b5c6d7e8f90'), 'mutation-gate', RunProfile::standard());
+}
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -143,6 +155,17 @@ function recordedRanWith(
     return $results instanceof Results ? $results : throw new RuntimeException($results->why());
 }
 
+/** Every shard of a plan run in a project whose held unit's tests miss lines of it, and the results read back. */
+function recordedRanMissing(Plan $plan, string $project, CoverageMap $map): Results
+{
+    new Handoff(Directory::at($project), HandedMaps::limits())->write($plan, $map, KillHistory::none(), Unplaced::map());
+    $adapters = Flows::adapters($project, [], new CoverageAsked(ScriptedRunner::fixture(), CoverageMap::empty()));
+    new Running($adapters, Flows::settings(), Flows::setup())->runAll($plan, Workspace::results());
+    $results = Results::read($plan, Workspace::results(), Directory::at($project));
+
+    return $results instanceof Results ? $results : throw new RuntimeException($results->why());
+}
+
 $ledgers = static fn(ProofStore $store, Plan $plan, Writing $writing = Writing::Auto): Ledgers => Ledgers::read(
     $store,
     Standing::planned($plan),
@@ -160,7 +183,7 @@ it('writes a proof of every unit that ran to the end, at the plan\'s base, and w
     $results = recordedRan($project, ScriptedRunner::fixture(), $map());
 
     $written = new Recorded(Flows::adapters($project, [], $store))
-        ->write($plan, $results, $ledgers($store, $plan), $run($plan), CannotTell::because('It failed.'));
+        ->write($plan, $results, $ledgers($store, $plan), $run($plan), CannotTell::because('It failed.'), recordedLastRun());
     $ledger = LedgerRead::ledger($store->read(Scope::branch('main')));
     $proof = $ledger->proofs()->proofFor(Digest::sha256Of('money'));
 
@@ -171,7 +194,7 @@ it('writes a proof of every unit that ran to the end, at the plan\'s base, and w
         ->toEqual([Path::of('src/Money.php'), $run($plan), 4])
         ->and($ledger->proofs()->has(Digest::sha256Of('held')))->toBeTrue()
         ->and(count($ledger->timings()))->toBe(2)
-        ->and($ledger->lastPassed())->toBeInstanceOf(CannotTell::class);
+        ->and($ledger->runs()->passed())->toBeInstanceOf(CannotTell::class);
 });
 
 it('writes the proofs of a narrowed run, and teaches the cost model nothing from it', function (Narrowing $narrowing) use (
@@ -185,7 +208,7 @@ it('writes the proofs of a narrowed run, and teaches the cost model nothing from
     $results = recordedRan($project, ScriptedRunner::fixture(), $map());
 
     new Recorded(Flows::adapters($project, [], $store, $narrowing))
-        ->write($plan, $results, $ledgers($store, $plan), $run($plan), CannotTell::because('It failed.'));
+        ->write($plan, $results, $ledgers($store, $plan), $run($plan), CannotTell::because('It failed.'), recordedLastRun());
     $ledger = LedgerRead::ledger($store->read(Scope::branch('main')));
 
     expect(count($ledger->proofs()))->toBe(2)
@@ -215,6 +238,7 @@ it('adds the time each analyser\'s checks of the shards\' survivors took to what
         $ledgers($store, $plan),
         $run($plan),
         CannotTell::because('It failed.'),
+        recordedLastRun(),
     );
 
     expect(LedgerRead::ledger($store->read(Scope::branch('main')))->analysers()->of($identity)->time())
@@ -234,9 +258,9 @@ it('records the commit that passed, under its check, with how many of its own pr
     $results = recordedRan($project, ScriptedRunner::fixture(), $map());
 
     new Recorded(Flows::adapters($project, [], $store))
-        ->write($plan, $results, $ledgers($store, $plan), $run($plan), $passed);
+        ->write($plan, $results, $ledgers($store, $plan), $run($plan), $passed, recordedLastRun());
 
-    expect(LedgerRead::ledger($store->read(Scope::branch('main')))->lastPassed())->toEqual($passed);
+    expect(LedgerRead::ledger($store->read(Scope::branch('main')))->runs()->passed())->toEqual($passed);
 });
 
 it('keeps the ledger it read, adding to it', function () use ($map, $run, $ledgers): void {
@@ -252,6 +276,7 @@ it('keeps the ledger it read, adding to it', function () use ($map, $run, $ledge
         $ledgers($store, $plan),
         $run($plan),
         CannotTell::because('It failed.'),
+        recordedLastRun(),
     );
 
     expect(LedgerRead::ledger($store->read(Scope::branch('main')))->proofs()->has(Digest::sha256Of('earlier')))->toBeTrue();
@@ -268,6 +293,7 @@ it('records no proof of a unit with a flaky mutant', function () use ($map, $run
         $ledgers($store, $plan),
         $run($plan),
         CannotTell::because('It failed.'),
+        recordedLastRun(),
     );
     $proofs = LedgerRead::ledger($store->read(Scope::branch('main')))->proofs();
 
@@ -311,6 +337,7 @@ it('learns what each shard cost of its units, timed by the map it was handed', f
         $ledgers($store, $plan),
         $run($plan),
         CannotTell::because('It failed.'),
+        recordedLastRun(),
     );
 
     expect($costs->learned())->toEqual([
@@ -339,6 +366,7 @@ it('learns nothing of a unit a shard\'s budget ran out before', function () use 
         $ledgers($store, $plan),
         $run($plan),
         CannotTell::because('It failed.'),
+        recordedLastRun(),
     );
     $timings = LedgerRead::ledger($store->read(Scope::branch('main')))->timings();
 
@@ -354,7 +382,7 @@ it('cannot judge a shard that was handed no map, and writes nothing', function (
     unlink(sprintf('%s/.mutation-gate/coverage/shard-2/map.json.gz', $project));
 
     $written = new Recorded(Flows::adapters($project, [], $store))
-        ->write($plan, $results, $ledgers($store, $plan), $run($plan), CannotTell::because('It failed.'));
+        ->write($plan, $results, $ledgers($store, $plan), $run($plan), CannotTell::because('It failed.'), recordedLastRun());
 
     expect($written)->toEqual(new Handoff(Directory::at($project), HandedMaps::limits())->read(ShardId::of(2)))
         ->and($written)->toBeInstanceOf(CannotJudge::class)
@@ -372,7 +400,7 @@ it('writes nothing where the run may not write its scope', function (
     $results = recordedRan($project, ScriptedRunner::fixture(), $map());
 
     $written = new Recorded(Flows::adapters($project, [], $store))
-        ->write($plan, $results, $read, $run($plan), CannotTell::because('It failed.'));
+        ->write($plan, $results, $read, $run($plan), CannotTell::because('It failed.'), recordedLastRun());
 
     expect($written)->toEqual($read->access()->writes())
         ->and($written)->toBeInstanceOf(ReadsOnly::class)
@@ -413,6 +441,7 @@ it('says why the store did not write', function () use ($map, $run, $ledgers): v
         $ledgers($store, $plan),
         $run($plan),
         CannotTell::because('It failed.'),
+        recordedLastRun(),
     ))->toEqual(NotWritten::because('The bucket is gone.'));
 });
 
@@ -439,6 +468,7 @@ it('records no proof of a unit with no key, and leaves the ledger as it was for 
         $ledgers($store, $plan),
         $run($plan),
         CannotTell::because('It failed.'),
+        recordedLastRun(),
     );
 
     expect(array_map(
@@ -487,6 +517,7 @@ it('learns each killed mutant\'s first killer in its function, and forgets funct
         $ledgers($store, $plan),
         $run($plan),
         CannotTell::because('It failed.'),
+        recordedLastRun(),
     );
     $killers = LedgerRead::ledger($store->read(Scope::branch('main')))->killers();
     $unseen = MutantId::hash(Path::of('src/Money.php'), 'Minus', '@@ @@', 0);
@@ -534,7 +565,7 @@ it('records with each proof its share of the plan\'s digests, with each test fil
     $results = recordedRanOf($plan, $project, ScriptedRunner::fixture()->answering(Mutants::of($killed, $timedOut), 0), $map());
 
     new Recorded(Flows::adapters($project, [], $store))
-        ->write($plan, $results, $ledgers($store, $plan), $run($plan), CannotTell::because('It failed.'));
+        ->write($plan, $results, $ledgers($store, $plan), $run($plan), CannotTell::because('It failed.'), recordedLastRun());
     $ledger = LedgerRead::ledger($store->read(Scope::branch('main')));
     $money = $ledger->proofs()->proofFor(Digest::sha256Of('money'));
     $held = $ledger->proofs()->proofFor(Digest::sha256Of('held'));
@@ -553,7 +584,7 @@ it('records no digests where the plan has none', function () use ($map, $run, $l
     $plan = Planned::twoShards();
 
     new Recorded(Flows::adapters($project, [], $store))
-        ->write($plan, recordedRan($project, ScriptedRunner::fixture(), $map()), $ledgers($store, $plan), $run($plan), CannotTell::because('It failed.'));
+        ->write($plan, recordedRan($project, ScriptedRunner::fixture(), $map()), $ledgers($store, $plan), $run($plan), CannotTell::because('It failed.'), recordedLastRun());
     $money = LedgerRead::ledger($store->read(Scope::branch('main')))->proofs()->proofFor(Digest::sha256Of('money'));
 
     expect($money instanceof Proof ? $money->inputs() : $money)->toEqual(Undigested::proof());
@@ -575,6 +606,7 @@ it('smooths what a shard teaches of a unit over the timing a ledger held of it f
             $ledgers($store, $plan),
             $run($plan),
             CannotTell::because('It failed.'),
+            recordedLastRun(),
         );
 
         foreach (LedgerRead::ledger($store->read(Scope::branch('main')))->timings() as $timing) {
@@ -597,3 +629,70 @@ it('smooths what a shard teaches of a unit over the timing a ledger held of it f
         ->and($seconds($learnt($held('another runner'))))->toEqualWithDelta($first, 1e-9)
         ->and($first)->toBeLessThan(100.0);
 });
+
+it('records the commit it judged as its last run where it judged every unit it considered, keeping what passed', function () use (
+    $map,
+    $run,
+    $ledgers,
+): void {
+    $project = Flows::project();
+    $store = new ProofStoreFake();
+    $plan = Planned::twoShards();
+    $passed = Passed::of(Revision::ref('206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708'), 'mutation-gate', 0);
+    $store->write(Scope::branch('main'), Ledger::empty()->withRuns(ScopeRuns::none()->passing($passed)));
+
+    new Recorded(Flows::adapters($project, [], $store))->write(
+        $plan,
+        recordedRan($project, ScriptedRunner::fixture(), $map()),
+        $ledgers($store, $plan),
+        $run($plan),
+        CannotTell::because('It failed.'),
+        recordedLastRun(),
+    );
+    $runs = LedgerRead::ledger($store->read(Scope::branch('main')))->runs();
+
+    expect($runs->lastRun())->toEqual(recordedLastRun())
+        ->and($runs->passed())->toEqual($passed);
+});
+
+it('clears the last run where it did not judge every unit it considered, so the next run reads its change since the ref', function (string $why) use (
+    $map,
+    $run,
+    $ledgers,
+): void {
+    $project = Flows::project();
+    $store = new ProofStoreFake();
+    $plan = Planned::oneShard();
+    $older = LastRun::of(Revision::ref('206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708'), 'mutation-gate', RunProfile::standard());
+    $store->write(Scope::branch('main'), Ledger::empty()->withRuns(ScopeRuns::none()->lastRunAt($older)));
+    $results = match ($why) {
+        'flaky' => recordedRanOf($plan, $project, ScriptedRunner::fixture()->killingAgain(), $map()),
+        'budget' => recordedRanWith($plan, $project, ScriptedRunner::fixture()->answering(
+            Mutants::of(Judged::mutant('src/Money.php', MutantJudgement::Killed)->mutant()),
+            0,
+        ), $map(), Flows::settings(Budget::of('45s')), new Setup(
+            Absent::setting(),
+            Version::of('nightworksio/mutation-gate', '1.0.0', 'gate'),
+            Digest::sha256Of('installed'),
+            new TickingClock('2026-09-30T12:00:00+00:00', 10),
+            new PeakMemoryFake(NotGiven::value()),
+            DecidingConfig::unread(),
+        )),
+        default => recordedRanMissing($plan, $project, $map()),
+    };
+
+    new Recorded(Flows::adapters($project, [], $store))->write(
+        $plan,
+        $results,
+        $ledgers($store, $plan),
+        $run($plan),
+        CannotTell::because('It failed.'),
+        recordedLastRun(),
+    );
+
+    expect(LedgerRead::ledger($store->read(Scope::branch('main')))->runs()->lastRun())->toBeInstanceOf(CannotTell::class);
+})->with([
+    'a unit flaky, so it left no proof' => ['flaky'],
+    'a budget run out before a unit, every unit it ran judged whole' => ['budget'],
+    'a held unit whose tests miss lines of it' => ['misses'],
+]);
