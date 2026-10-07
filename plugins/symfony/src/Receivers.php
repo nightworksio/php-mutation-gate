@@ -67,7 +67,7 @@ final readonly class Receivers
         $function = Ancestors::nearest($receiver, FunctionLike::class);
         $class = Ancestors::nearest($receiver, Class_::class);
 
-        return $name !== '' && match (true) {
+        return match (true) {
             $receiver instanceof Variable => $function instanceof FunctionLike && self::declares($function, $name),
             default => $class instanceof Class_ && self::holds($class, $name),
         };
