@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
@@ -34,9 +35,10 @@ use Pest\Mutate\Mutators\Number\IncrementInteger;
 
 /**
  * What a patched Pest run of src/Linked.php, judged by this spec, finds of
- * each mutant: its line, its mutator's short name, its status and its reason.
+ * each mutant: its line, its mutator's short name, its status, its reason and
+ * the tests that killed it, so a status that differs says why.
  *
- * @return list<array{int, string, MutantStatus, string}>
+ * @return list<array{int, string, MutantStatus, string, list<string>}>
  */
 function overrideJudged(string $spec): array
 {
@@ -64,6 +66,7 @@ function overrideJudged(string $spec): array
         substr((string) strrchr($mutant->mutation()->mutator(), '\\'), 1),
         $mutant->status(),
         $mutant->reason() instanceof Reason ? $mutant->reason()->text() : '',
+        array_map(static fn(TestId $killer): string => $killer->value(), [...$mutant->killers()]),
     ], $mutants);
     usort($judged, static fn(array $one, array $other): int => [$one[0], $one[1]] <=> [$other[0], $other[1]]);
 
@@ -71,10 +74,10 @@ function overrideJudged(string $spec): array
 }
 
 it('kills and spares the mutants of a file whose tests read alike through the override, as a run with no control would', function (): void {
-    expect(array_map(static fn(array $each): array => array_slice($each, 0, 3), overrideJudged('LinkedSpec.php')))->toBe([
-        [10, 'IncrementInteger', MutantStatus::Survived],
-        [16, 'IncrementInteger', MutantStatus::Killed],
-        [16, 'SmallerToSmallerOrEqual', MutantStatus::Survived],
+    expect(overrideJudged('LinkedSpec.php'))->toBe([
+        [10, 'IncrementInteger', MutantStatus::Survived, '', []],
+        [16, 'IncrementInteger', MutantStatus::Killed, '', ['P\\Tests\\LinkedSpec::__pest_evaluable_it_tells_a_link_for_a_link']],
+        [16, 'SmallerToSmallerOrEqual', MutantStatus::Survived, '', []],
     ]);
 })->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
@@ -87,5 +90,6 @@ it('kills no mutant of a file whose tests fail whenever the override serves a fi
         [16, 'SmallerToSmallerOrEqual', MutantStatus::Unjudged],
     ])
         ->and($judged[0][3])->toStartWith('the selected tests fail on their own (')
-        ->and([$judged[1][3], $judged[2][3]])->each->toBe(Controls::FAILS_UNMUTATED);
+        ->and([$judged[1][3], $judged[2][3]])->each->toBe(Controls::FAILS_UNMUTATED)
+        ->and(array_column($judged, 4))->toBe([[], [], []]);
 })->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');

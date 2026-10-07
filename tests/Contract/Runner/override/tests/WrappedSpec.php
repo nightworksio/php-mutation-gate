@@ -8,7 +8,7 @@ use Library\Linked;
 // through its user-space wrapper, so this test fails whatever the file served
 // holds, as any test does that reads how PHP opened a file.
 it('tells a link for a link, reading a file through PHP\'s own wrapper', function (): void {
-    $directory = sprintf('%s/linked-%s', sys_get_temp_dir(), uniqid());
+    $directory = sprintf('%s/linked-%s', sys_get_temp_dir(), bin2hex(random_bytes(8)));
     mkdir($directory);
     touch(sprintf('%s/there', $directory));
     symlink(sprintf('%s/there', $directory), sprintf('%s/link', $directory));
