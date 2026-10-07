@@ -20,10 +20,13 @@ use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\JUnitLog;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
 use function preg_match;
+use function preg_quote;
 use function sprintf;
 
 /**
@@ -53,6 +56,9 @@ final readonly class Invocation
     public const string JUNIT = JUnitLog::NAME;
 
     private const string INFECTION = 'vendor/bin/infection';
+
+    /** A PHPUnit filter that selects some tests by their ids, and each row of a data set of theirs. */
+    private const string SELECTING = '/^(?:%s)(?: with data set .*)?$/';
 
 
     /** An option with its value, `--name=value`. */
@@ -91,6 +97,30 @@ final readonly class Invocation
             ...$config->extraArguments(),
             ...self::narrowedTo(Filter::nothing()),
             ...[PhpUnitOption::DoNotFailOnEmptyTestSuite->value],
+        );
+    }
+
+    /**
+     * An unmutated control's run (ADR-0008, decision 2): PHPUnit with the
+     * project's PHPUnit, on a config shaped as Infection shapes a mutant's
+     * (see StartUpConfig), whose one suite holds the control's test files,
+     * with the project's extra arguments and a filter that selects its tests
+     * by their ids, a data set's rows with its method.
+     */
+    public static function controlling(
+        Project $project,
+        OwnConfig $config,
+        string $controlConfig,
+        TestIds $tests,
+    ): Command {
+        $ids = array_map(static fn(TestId $test): string => preg_quote($test->value(), '/'), [...$tests]);
+
+        return Command::php(
+            $config->phpunit($project),
+            sprintf('--configuration=%s', $controlConfig),
+            PhpUnitOption::NoColors->value,
+            ...$config->extraArguments(),
+            ...self::narrowedTo(Filter::matching(sprintf(self::SELECTING, implode('|', $ids)))),
         );
     }
 

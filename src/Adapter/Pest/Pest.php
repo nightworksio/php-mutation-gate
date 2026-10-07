@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_values;
-use function basename;
-use function copy;
-use function is_string;
 
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
@@ -16,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Composer\Installed as ComposerInstalled;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Control\ControlRuns;
+use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -50,7 +49,6 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Port\Processes;
 use NightWorksIO\MutationGate\Port\Runner;
 
-use function realpath;
 use function sprintf;
 
 /**
@@ -69,13 +67,6 @@ final readonly class Pest implements Runner
     private const string STALE_MAP = 'An earlier run left %s or its JUnit log, and the gate cannot remove them.';
 
     private const string NO_PROJECT = '%s holds no project Pest can run: Pest is not installed in its %s.';
-
-    /** Where a run of no test finds its unchanged mutant, among the adapter's own files. */
-    private const string START_UP_COPY = 'pest/start-up/%s';
-
-    private const string NOT_COPIED = 'Pest\'s run of no test needs an unchanged copy of %s, and it could not be made.';
-
-    private const string NOT_STARTED = "Pest's run of no test, timing a mutant's start-up, failed. Pest said:\n%s";
 
     /** The project's test files, listed once for every unit the runner is asked about. */
     private TestFiles $tests;
@@ -213,26 +204,19 @@ final readonly class Pest implements Runner
      */
     public function startUp(Path $file, Withheld $withheld): Seconds|CannotJudge
     {
-        $original = realpath($this->project->absolute($file));
-        $copy = $original === false
-            ? CannotJudge::because(sprintf(self::NOT_COPIED, $file->value()))
-            : $this->unchanged($original);
-
-        if ($copy instanceof CannotJudge) {
-            return $copy;
-        }
-
-        $ran = $this->shell->run(
-            Invocation::installedIn($this->project->vendor())->startingUp($withheld, $original, $copy),
-        );
-
-        return $ran->succeeded() ? $ran->timed() : CannotJudge::because(sprintf(self::NOT_STARTED, $ran->output()));
+        return new StartingUp($this->project, $this->shell)->of($file, $withheld);
     }
 
     /** Every mutant of the requested files, where there are any to mutate: Pest's `--path` never names none. */
     public function mutate(MutationRequest $request): MutationResult|CannotJudge
     {
         return $this->run($this->shell)->of($request);
+    }
+
+    /** What each unmutated control finds, its file served through Pest's override (see UnmutatedRuns). */
+    public function controls(MutationRequest $request, Controls $controls): ControlRuns|CannotJudge
+    {
+        return new UnmutatedRuns($this->project, $this->shell, $this->files)->of($request, $controls);
     }
 
     /**
@@ -347,22 +331,6 @@ final readonly class Pest implements Runner
                 $this->bridges,
             )
             : CannotJudge::because(sprintf(self::NO_PROJECT, $package->value(), $project->vendor()->value()));
-    }
-
-    /**
-     * An unchanged copy of a file among the adapter's own files, which a run
-     * of no test serves in its place, copied as the adapter writes its other
-     * files.
-     */
-    private function unchanged(string $original): string|CannotJudge
-    {
-        $copy = $this->project->fresh(sprintf(self::START_UP_COPY, basename($original)));
-
-        if (is_string($copy)) {
-            copy($original, $copy);
-        }
-
-        return $copy;
     }
 
     /** A clean coverage run into a directory, with no earlier run's map or log left there. */

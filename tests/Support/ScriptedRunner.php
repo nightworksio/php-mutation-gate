@@ -10,6 +10,8 @@ use function min;
 
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Control\ControlRuns;
+use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -82,6 +84,12 @@ final class ScriptedRunner implements Runner
     /** How it gives a mutant as an analyser checks it: as the fake does, or always so. */
     private Checkable|CannotJudge|RunnerFake $checking;
 
+    /** What its unmutated controls find: as the fake's do, or always so. */
+    private ControlRuns|CannotJudge|RunnerFake $controlling;
+
+    /** @var list<array{Controls, MutationRequest}> every set of controls it was asked to run, in order */
+    private array $controlled = [];
+
     private function __construct(
         private readonly RunnerFake $fake,
         private readonly Identity|CannotJudge $identity,
@@ -94,6 +102,7 @@ final class ScriptedRunner implements Runner
         $this->startingUp = [$fake->startUp(Path::of('src/Money.php'), Withheld::nothing())];
         $this->checking = $fake;
         $this->judging = $fake;
+        $this->controlling = $fake;
     }
 
     /** The fake runner over the fixture library, whose survivors survive again. */
@@ -241,6 +250,21 @@ final class ScriptedRunner implements Runner
         $scripted->checking = $answer;
 
         return $scripted;
+    }
+
+    /** This runner, its unmutated controls finding this, or unable to run. */
+    public function controlling(ControlRuns|CannotJudge $answer): self
+    {
+        $scripted = clone $this;
+        $scripted->controlling = $answer;
+
+        return $scripted;
+    }
+
+    /** @return list<array{Controls, MutationRequest}> every set of controls it was asked to run, in order */
+    public function controlled(): array
+    {
+        return $this->controlled;
     }
 
     /** This runner, behaving as Pest does without the gate's patch. */
@@ -409,6 +433,15 @@ final class ScriptedRunner implements Runner
         }
 
         return $this->mutating instanceof RunnerFake ? $this->mutating->mutate($request) : $this->mutating;
+    }
+
+    public function controls(MutationRequest $request, Controls $controls): ControlRuns|CannotJudge
+    {
+        $this->controlled[] = [$controls, $request];
+
+        return $this->controlling instanceof RunnerFake
+            ? $this->controlling->controls($request, $controls)
+            : $this->controlling;
     }
 
     public function retry(MutationRequest $request, Mutants $mutants, Seconds $limit): Mutants|CannotJudge

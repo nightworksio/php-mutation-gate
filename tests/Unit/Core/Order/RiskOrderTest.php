@@ -58,12 +58,16 @@ function riskProof(string $unit, MutantStatus $status): Proof
     return riskProofOf($unit, riskMutant($unit, $status));
 }
 
-/** A proof of a unit whose one reported mutant timed out at this limit, its judging tests taking this long. */
+/**
+ * A proof of a unit whose one reported mutant timed out at this limit, its
+ * judging tests taking this long unmutated under it, or never finishing
+ * within it where they take none.
+ */
 function riskTimeout(string $unit, float $limit, float $time): Proof
 {
-    return riskProofOf($unit, riskMutant($unit, MutantStatus::TimedOut)
-        ->withLimit(Seconds::of($limit))
-        ->withUnmutatedNeed(Seconds::of($time)));
+    $timedOut = riskMutant($unit, MutantStatus::TimedOut)->withLimit(Seconds::of($limit));
+
+    return riskProofOf($unit, $time > 0.0 ? $timedOut->withUnmutatedNeed(Seconds::of($time)) : $timedOut);
 }
 
 /** A proof of a unit whose one reported mutant ran out of a cap of this many megabytes, under a suite that held this many. */
@@ -95,7 +99,7 @@ $order = RiskOrder::of(
     Proofs::of(
         riskProof('src/Changed.php', MutantStatus::Survived),
         riskProof('src/Survivor.php', MutantStatus::Survived),
-        riskTimeout('src/TooSlow.php', 10.0, 8.0),
+        riskTimeout('src/TooSlow.php', 10.0, 0.0),
         riskTimeout('src/KilledByTimeout.php', 10.0, 1.0),
         riskHeavy('src/TooHeavy.php', 64, 40),
         riskHeavy('src/KilledByMemoryCap.php', 64, 20),

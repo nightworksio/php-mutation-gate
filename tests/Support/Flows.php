@@ -25,6 +25,8 @@ use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Control\Controls;
+use NightWorksIO\MutationGate\Core\Control\TimeoutControls;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -47,7 +49,6 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
-use NightWorksIO\MutationGate\Core\Verdict\TimeoutTriage;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
@@ -201,15 +202,16 @@ final readonly class Flows
 
     /**
      * The fake runner's mutants of one file of the project, as a shard leaves
-     * them: each whose time ran out timed by the tests covering it.
+     * them: each whose time ran out timed by its unmutated control.
      */
     public static function mutantsOf(string $file): Mutants
     {
-        $mutants = RunnerFake::ofTheFixture()
-            ->mutate(MutationRequest::of(Paths::of(Path::of($file)), WholeSuite::tests()))
-            ->mutants();
+        $runner = RunnerFake::ofTheFixture();
+        $request = MutationRequest::of(Paths::of(Path::of($file)), WholeSuite::tests());
+        $mutants = $runner->mutate($request)->mutants();
+        $controls = TimeoutControls::of($mutants, self::map(), HeldCovered::none());
 
-        return TimeoutTriage::timed($mutants, self::map(), HeldCovered::none());
+        return $controls->applied($mutants, $runner->controls($request, $controls->asked()), Controls::none());
     }
 
     /** The coverage map the fake runner measures of the project. */

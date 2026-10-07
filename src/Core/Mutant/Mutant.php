@@ -78,8 +78,9 @@ final readonly class Mutant
 
     /**
      * This mutant, whose unmutated code needs this much of its limit: the
-     * seconds its judging tests take on their own, as the coverage run
-     * measured them, or the most memory the suite's largest process held.
+     * seconds its judging tests took unmutated under the same limit, as its
+     * control or its trial ran them, or the most memory the suite's largest
+     * process held.
      */
     public function withUnmutatedNeed(Seconds|MemoryCap $need): self
     {

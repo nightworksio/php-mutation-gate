@@ -188,7 +188,7 @@ it('cannot time a run of no test in a project with no PHPUnit config, running no
     $shell = InfectionShellFake::answering(Ran::finished(succeeded: true, output: ''));
 
     expect(new Infection($at, $shell, LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory())->startUp(Path::of('src/Money.php'), Withheld::standard()))
-        ->toEqual(CannotJudge::because(sprintf('The run of no test needs PHPUnit\'s config, and there is none in %s.', $at->root())))
+        ->toEqual(CannotJudge::because(sprintf('A run on Infection\'s config for a mutant needs PHPUnit\'s config, and there is none in %s.', $at->root())))
         ->and($shell->commands())->toBe([]);
 });
 

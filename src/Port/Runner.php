@@ -6,6 +6,8 @@ namespace NightWorksIO\MutationGate\Port;
 
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Control\ControlRuns;
+use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -91,6 +93,17 @@ interface Runner
      * unjudged otherwise (ADR-0014, decision 17).
      */
     public function mutate(MutationRequest $request): MutationResult|CannotJudge;
+
+    /**
+     * What each of these unmutated controls finds (ADR-0008, decision 2):
+     * its tests, in its order, run as the request runs a mutant's, withheld,
+     * capped and in its pool, with its file served unmutated by the means the
+     * runner serves a mutant's file, so a test that fails only while a file is
+     * served so fails there too; each allowed its limit, side by side, all
+     * ending by the request's deadline. A control that passes says how long
+     * its tests took; one the runner cannot run is never run, saying why.
+     */
+    public function controls(MutationRequest $request, Controls $controls): ControlRuns|CannotJudge;
 
     /**
      * A mutant as a static analyser checks it (ADR-0020, decision 9): its

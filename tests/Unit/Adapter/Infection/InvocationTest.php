@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
@@ -88,6 +90,20 @@ it('starts a run of no test on the config that loads none, with the project\'s a
         '--testsuite=unit',
         '--filter=(?!)',
         '--do-not-fail-on-empty-test-suite',
+    ]);
+});
+
+it('runs a control on its config with the project\'s arguments, selecting its tests by their ids and each row of their data sets', function (): void {
+    $config = invoked('{"initialTestsPhpOptions": "-d pcov.directory=app", "testFrameworkExtraArgs": "--testsuite=unit"}');
+    $tests = TestIds::of(TestId::of('Tests\\MoneyTest::testAdds'), TestId::of('Tests\\Tax/Test::testRate with data set #0'));
+
+    expect(Invocation::controlling(invokedIn(), $config, '/project/.gate/infection/controls/0/phpunit.xml', $tests)->arguments())->toBe([
+        PHP_BINARY,
+        '/project/vendor/bin/phpunit',
+        '--configuration=/project/.gate/infection/controls/0/phpunit.xml',
+        '--colors=never',
+        '--testsuite=unit',
+        '--filter=/^(?:Tests\\\\MoneyTest\:\:testAdds|Tests\\\\Tax\/Test\:\:testRate with data set \#0)(?: with data set .*)?$/',
     ]);
 });
 

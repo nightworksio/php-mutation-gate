@@ -19,6 +19,9 @@ enum OutOfTime: string
     /** The mutant survived, and its second run, which would confirm it, did not fit. */
     case BeforeConfirming = 'before-confirming';
 
+    /** The mutant timed out, and the unmutated control of its tests, which would judge it, did not fit. */
+    case BeforeControlling = 'before-controlling';
+
     /** What judges a mutant a budget left unjudged. */
     public const string MORE_TIME = 'vendor/bin/mutation-gate run --budget=<duration>';
 
@@ -46,6 +49,7 @@ enum OutOfTime: string
         return match ($this) {
             self::BeforeMutating => 'this run mutated its unit',
             self::BeforeConfirming => 'its survival could be confirmed',
+            self::BeforeControlling => 'its tests could run unmutated to judge its timeout',
         };
     }
 }

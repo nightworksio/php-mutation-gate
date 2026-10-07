@@ -16,6 +16,10 @@ use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Config\Triage;
+use NightWorksIO\MutationGate\Core\Control\Control;
+use NightWorksIO\MutationGate\Core\Control\ControlRun;
+use NightWorksIO\MutationGate\Core\Control\ControlRuns;
+use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -530,4 +534,13 @@ it('cannot open a shard on the canary group without the planning job\'s map', fu
         'The gate wrote no coverage map at %s/absent/map.json.gz, and reads no runner\'s map another job wrote.',
         $at->root(),
     )));
+});
+
+it('runs each control with its file served unmutated through Pest\'s override', function (): void {
+    $at = PestCases::project();
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: '')->took(Seconds::of(0.4)));
+    $control = Control::of(Path::of('src/Money.php'), TestIds::of(TestId::of('P\Tests\MoneySpec::__pest_evaluable_it_adds')), Seconds::of(5.0));
+    $runs = new Pest($at, $shell, Patching::off(), new CapDirectory(), Triage::standard()->bounds())->controls(PestCases::money(), Controls::of($control));
+
+    expect($runs instanceof ControlRuns ? $runs->of($control) : $runs)->toEqual(ControlRun::passed(Seconds::of(0.4)));
 });

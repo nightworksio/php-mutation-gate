@@ -325,6 +325,7 @@ it('leaves the steps its time went to in its result, the runner\'s own and those
         [Step::Mutation, 4],
         [Step::Equivalence, 1],
         [Step::Survivors, 1],
+        [Step::Controls, 1],
         [Step::StaticCheck, 2],
     ])
         ->and($since)->toBe($ordered);

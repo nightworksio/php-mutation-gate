@@ -44,7 +44,6 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Doom;
 use NightWorksIO\MutationGate\Core\Verdict\Doomed;
 use NightWorksIO\MutationGate\Core\Verdict\MemoryTriage;
-use NightWorksIO\MutationGate\Core\Verdict\TimeoutTriage;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Core\Written;
@@ -206,8 +205,8 @@ final readonly class Running
     }
 
     /**
-     * Every invocation's mutants, timeouts timed by the map the
-     * plan handed the shard, those out of memory weighed by the suite's peak
+     * Every invocation's mutants, each timeout judged by its unmutated
+     * control (see Invoking), those out of memory weighed by the suite's peak
      * the plan measured, with the survivors a second run killed, of each
      * unit but the held ones whose holding tests miss lines of them; or the
      * first cannot judge. A shard handed no map cannot judge at all. Under a
@@ -239,7 +238,15 @@ final readonly class Running
         }
 
         $kept = HeldCoverage::kept($shard, $held->misses());
-        $invoking = new Invoking($this->adapters, $this->settings, $this->setup->clock, $deadline, $stopwatch);
+        $invoking = new Invoking(
+            $this->adapters,
+            $this->settings,
+            $this->setup->clock,
+            $deadline,
+            $stopwatch,
+            $map,
+            $held->covered(),
+        );
         $doom = new Dooming($this->adapters, $this->settings, $this->setup->clock)->of($plan);
         $batched = new Batched($invoking, $this->setup->clock, $deadline, $this->interruption, $doom);
         $batching = Batching::opening($map->suiteDuration());
@@ -274,10 +281,7 @@ final readonly class Running
             $stopwatch->stop(Step::StaticCheck, $from, $survived);
         }
 
-        $mutants = MemoryTriage::weighed(
-            TimeoutTriage::timed($checked->mutants, $map, $held->covered()),
-            $plan->briefing()->peak(),
-        );
+        $mutants = MemoryTriage::weighed($checked->mutants, $plan->briefing()->peak());
 
         return new Mutated(
             MutationResult::of($mutants, $spent->skipped)

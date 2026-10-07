@@ -13,6 +13,7 @@ use function is_writable;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Control\Control;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 
@@ -31,8 +32,6 @@ final readonly class ServedOriginal
     /** Where the copies are written, in the directory of a run's files. */
     private const string COPIES = '%s/originals/%s.php';
 
-    private const string UNREAD = 'The gate cannot read %s to serve it unmutated.';
-
     private const string UNWRITTEN = 'The gate cannot write %s, the unmutated copy of %s.';
 
     private function __construct(private string $original, private string $copy)
@@ -48,7 +47,7 @@ final readonly class ServedOriginal
         $original = $project->absolute($file);
         $text = is_file($original) ? file_get_contents($original) : false;
         $printed = $text === false
-            ? CannotJudge::because(sprintf(self::UNREAD, $file->value()))
+            ? CannotJudge::because(sprintf(Control::UNREAD, $file->value()))
             : Printed::of(Contents::of($text), $file);
 
         if ($printed instanceof CannotJudge) {

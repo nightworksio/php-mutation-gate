@@ -139,7 +139,7 @@ it('cannot serve a copy of a file that is not there', function (): void {
     $project = startingProject();
 
     expect(StartUpConfig::written($project, ownConfigOf($project), Path::of('src/Gone.php')))
-        ->toEqual(CannotJudge::because('Infection\'s run of no test needs an unchanged copy of src/Gone.php, which was not made.'));
+        ->toEqual(CannotJudge::because('A run on Infection\'s config for a mutant needs an unchanged copy of src/Gone.php, which was not made.'));
 });
 
 it('cannot shape a config that is not there, or not XML', function (): void {
@@ -149,7 +149,7 @@ it('cannot shape a config that is not there, or not XML', function (): void {
     $missing = StartUpConfig::written($project, ownConfigOf($project), Path::of('src/Money.php'));
     Scratch::write($root, 'phpunit.xml.dist', 'not <xml');
 
-    expect($missing)->toEqual(CannotJudge::because(sprintf('The run of no test needs PHPUnit\'s config, and there is none in %s.', $root)))
+    expect($missing)->toEqual(CannotJudge::because(sprintf('A run on Infection\'s config for a mutant needs PHPUnit\'s config, and there is none in %s.', $root)))
         ->and(StartUpConfig::written($project, ownConfigOf($project), Path::of('src/Money.php')))
         ->toEqual(CannotJudge::because(sprintf('PHPUnit\'s config %s/phpunit.xml.dist is not XML the gate can read.', $root)));
 });
@@ -166,4 +166,27 @@ it('cannot write the config where an earlier one cannot be removed', function ()
         'The gate cannot remove %s/phpunit.xml, so it cannot tell what this run wrote from what an earlier one did.',
         $directory,
     )));
+});
+
+it('writes a control\'s config in a place of its own, its one suite holding the control\'s test files by their absolute paths', function (): void {
+    $project = startingProject();
+    $file = StartUpConfig::holding(
+        $project,
+        ownConfigOf($project),
+        Path::of('src/Money.php'),
+        Paths::of(Path::of('tests/MoneyTest.php'), Path::of('tests/R&DTest.php')),
+        'controls/3',
+    );
+    $written = new DOMDocument();
+    $written->load(is_string($file) ? $file : '');
+    $xpath = new DOMXPath($written);
+    $root = $project->root();
+
+    expect($file)->toBe(sprintf('%s/.gate/infection/controls/3/phpunit.xml', $root))
+        ->and($xpath->evaluate('string(/phpunit/@bootstrap)'))->toBe(sprintf('%s/.gate/infection/controls/3/interceptor.autoload.php', $root))
+        ->and(file_get_contents(sprintf('%s/.gate/infection/controls/3/Money.php', $root)))->toBe('<?php // money')
+        ->and($xpath->evaluate('string(/phpunit/testsuites/testsuite/@name)'))->toBe(StartUpConfig::SUITE)
+        ->and($xpath->evaluate('string(/phpunit/testsuites/testsuite/file[1])'))->toBe(sprintf('%s/tests/MoneyTest.php', $root))
+        ->and($xpath->evaluate('string(/phpunit/testsuites/testsuite/file[2])'))->toBe(sprintf('%s/tests/R&DTest.php', $root))
+        ->and($xpath->evaluate('count(/phpunit/testsuites/testsuite/file)'))->toEqual(2);
 });

@@ -11,9 +11,7 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  * The seconds a runner allows one mutant's run where it times each mutant
  * by its tests (ADR-0008, decision 2): a start-up, plus a multiple of the
  * covering tests' own time, kept between the bounds. Where the tests' time
- * is not measured, the floor. Timeout triage reads the same multiple: a
- * limit that allowed the covering tests that many times their own time was
- * enough for them, so running out of it means the mutant broke something.
+ * is not measured, the floor.
  */
 final readonly class MutantLimit
 {
@@ -48,11 +46,5 @@ final readonly class MutantLimit
         return $tests instanceof Seconds
             ? $bounds->kept(Seconds::of($this->startUp->seconds() + $this->factor * $tests->seconds()))
             : $bounds->floor();
-    }
-
-    /** Whether a limit allowed covering tests this long their multiple of their own time. */
-    public function allowed(Seconds $tests, Seconds $limit): bool
-    {
-        return $this->factor * $tests->seconds() < $limit->seconds();
     }
 }
