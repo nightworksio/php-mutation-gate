@@ -189,6 +189,8 @@ it('cannot name what it reads where it reads a file by anything but a literal in
     'a static call on a class outside the gate\'s builder' => ["\$yaml = \\Symfony\\Component\\Yaml\\Yaml::parseFile('x.yaml');", '`Symfony\Component\Yaml\Yaml`'],
     'a class outside the gate\'s builder made' => ["\$file = new \\SplFileObject('x');", '`SplFileObject`'],
     'a constant of a class outside it' => ["\$level = \\Acme\\Settings::LEVEL;", '`Acme\Settings`'],
+    'an anonymous class' => ["\$settings = new class {};", '`new class`'],
+    'a class it names as it runs' => ["\$class = 'Acme'; \$settings = new \$class();", 'a call by a name it holds'],
     'a call by a name it holds' => ["\$read = 'file_get_contents'; \$read('x');", 'a call by a name it holds'],
     'a static method it names as it runs' => ["\$name = 'configure'; Gate::\$name();", 'a call by a name it holds'],
     'a method it names as it runs' => ["\$gate = Gate::configure(); \$name = 'with'; \$gate->\$name();", 'a call by a name it holds'],
