@@ -584,6 +584,16 @@ it('tells Infection the bounds of each mutant\'s limit, and that the gate checks
         ->and($pest instanceof Adapters ? $pest->runner : $pest)->not->toBeInstanceOf(Infection::class);
 });
 
+it('tells each built-in runner the mutators whose silence limit has a lower floor, as timeouts.tighter names them', function (Runner $runner, Closure $built): void {
+    $adapters = new Wiring(wiringRegistry(), Variables::of([]), wiringDetected())
+        ->adapters(Flows::settings($runner, StaticCheck::none(), Timeouts::tighter(5, 'Foreach_')), Directory::at(Flows::project()));
+    $options = Configs::options('{"timeout": 10.0, "most": 300.0, "tighterFloor": 5.0, "tighterMutators": ["Foreach_"]}');
+
+    expect($adapters instanceof Adapters ? $adapters->runner : $adapters)->toEqual($built($options));
+})->with([
+    'Infection' => [Runner::infection(), static fn(Options $options): object => Infection::fromOptions($options, new CapDirectory(), new LocalProcesses(new SystemClock()))],
+]);
+
 it('cannot wire an analyser the registry does not have', function (): void {
     $adapters = new Wiring(wiringRegistry(), Variables::of([]), wiringDetected())
         ->adapters(Flows::settings(StaticCheck::uses('nowhere')), Directory::at(Flows::project()));

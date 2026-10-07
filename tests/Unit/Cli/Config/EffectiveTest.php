@@ -31,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -82,7 +83,7 @@ it('finds the preset and the runner of a project with no config', function () us
         'runner' => ['use' => 'pest', 'memory' => '1G'],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app']]],
         'reach' => ['everything' => ['bootstrap/**', 'config/**', 'routes/**', '.env.testing']],
-        'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'most' => 300],
+        'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR]],
     ]);
 });
 
@@ -100,7 +101,7 @@ it('lays the config file over its presets, and the command line over both', func
         'trees' => [['path' => 'src/Domain', 'floor' => 100]],
         'reach' => ['everything' => ['config/**', '.env.test', 'tests/bootstrap.php', 'migrations/**']],
         'budget' => '5m',
-        'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'most' => 300],
+        'timeouts' => ['mode' => 'confirm', 'seconds' => 30, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR]],
         'reports' => [
             ['use' => 'sarif', 'path' => 'build/mutation.sarif'],
             ['use' => 'json', 'path' => 'build/mutation.json'],
@@ -173,10 +174,10 @@ it('gives a library listed after a framework its own timeout and floor', functio
 
     expect($shown($effective($project)->settings($nothing())))->toMatchArray([
         'newCode' => ['floor' => 100],
-        'timeouts' => ['seconds' => 10, 'most' => 300, 'mode' => 'confirm'],
+        'timeouts' => ['seconds' => 10, 'most' => 300, 'mode' => 'confirm', 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR]],
     ])->and($shown($effective($project)->settings($framework)))->toMatchArray([
         'newCode' => ['floor' => 100],
-        'timeouts' => ['seconds' => 30, 'most' => 300, 'mode' => 'confirm'],
+        'timeouts' => ['seconds' => 30, 'most' => 300, 'mode' => 'confirm', 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR]],
     ]);
 });
 
@@ -192,7 +193,7 @@ it('chooses the library preset for a project without composer.json', function ()
         'preset' => 'library',
         'runner' => ['use' => 'infection', 'memory' => '1G'],
         'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => []]],
-        'timeouts' => ['mode' => 'confirm', 'seconds' => 10, 'most' => 300],
+        'timeouts' => ['mode' => 'confirm', 'seconds' => 10, 'most' => 300, 'tighter' => ['mutators' => TighterSilence::MUTATORS, 'floor' => TighterSilence::FLOOR]],
     ]);
 });
 

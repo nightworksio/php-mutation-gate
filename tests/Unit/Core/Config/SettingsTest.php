@@ -31,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
+use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
@@ -128,7 +129,24 @@ const DEFAULTS = <<<'JSON'
         "timeouts": {
             "mode": "confirm",
             "seconds": 10,
-            "most": 300
+            "most": 300,
+            "tighter": {
+                "mutators": [
+                    "RemoveArrayItem",
+                    "DecrementInteger",
+                    "IncrementInteger",
+                    "ForeachEmptyIterable",
+                    "UnwrapArrayValues",
+                    "InstanceOfToTrue",
+                    "InstanceOfToFalse",
+                    "TernaryNegated",
+                    "ArrayItemRemoval",
+                    "Foreach_",
+                    "InstanceOf_",
+                    "Ternary"
+                ],
+                "floor": 7
+            }
         },
         "flaky": {
             "confirmSurvivors": true
@@ -466,7 +484,7 @@ it('serialises the settings that affect results canonically, and only those', fu
         . '"extensions":[],"flaky":{"confirmSurvivors":true},"mutators":{"except":[],"sets":[]},"packages":[],'
         . '"pest":{"canary":"mutation-canary","patch":false},'
         . '"runner":{"memory":"1G","use":"pest"},"staticCheck":{"seconds":60,"tool":"auto"},"tests":{"order":"killers-first"},'
-        . '"timeouts":{"most":300,"seconds":10},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
+        . '"timeouts":{"most":300,"seconds":10,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
     )->and(Configs::settings(EVERYTHING)->canonical())->toBe(
         '{"ci":{"azure":{"definition":"ci/azure.yml"},"bitbucket":{"definition":"ci/bitbucket.yml"},'
         . '"buildkite":{"definition":".buildkite/mutation.yml","step":{"agents":{"queue":"mutation"}}},'
@@ -476,7 +494,7 @@ it('serialises the settings that affect results canonically, and only those', fu
         . '"pest":{"canary":"canary","patch":true},'
         . '"runner":{"memory":"512M","use":"infection","withhold":["DEPLOY_*","COMPOSER_AUTH"],"workers":"fresh"},'
         . '"staticCheck":{"config":"phpstan.dist.neon","seconds":45,"tool":"phpstan"},'
-        . '"tests":{"order":"killers-first"},"timeouts":{"most":120,"seconds":30},'
+        . '"tests":{"order":"killers-first"},"timeouts":{"most":120,"seconds":30,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},'
         . '"treeSource":{"use":"phpunit","with":{"fallback":["app","lib"]}},'
         . '"trees":[{"path":"app/Domain"},{"path":"app/Http"},'
         . '{"path":"app/Generated"},{"path":"app/Legacy"}]}',
@@ -661,7 +679,8 @@ it('refuses a timeouts.most under timeouts.seconds, however the layers lay them'
 it('takes a timeouts.most equal to timeouts.seconds', function (): void {
     $settings = Configs::settings(['runner' => 'pest', 'timeouts' => ['seconds' => 30, 'most' => 30]]);
 
-    expect($settings->triage()->bounds())->toEqual(LimitBounds::between(Seconds::of(30.0), Seconds::of(30.0)));
+    expect($settings->triage()->bounds())
+        ->toEqual(LimitBounds::between(Seconds::of(30.0), Seconds::of(30.0))->tighterFor(TighterSilence::standard()));
 });
 
 it('refuses a config that is not an object', function (string $json, string $problem): void {
@@ -1276,4 +1295,15 @@ it('reads whether a run given no mode considers every unit, changed since last-p
 it('writes run.full from the PHP config\'s builders as the JSON a file writes', function (): void {
     expect(ReachSetting::fullByDefault()->written())->toEqual(Json::at('run.full', value: true))
         ->and(ReachSetting::changedByDefault()->written())->toEqual(Json::at('run.full', value: false));
+});
+
+it('reads timeouts.tighter, each key the standard where it is left out, and refuses a name no runner gives a mutator', function (): void {
+    $floor = Configs::settings(['runner' => 'pest', 'timeouts' => ['tighter' => ['floor' => 5]]])->triage()->tighter();
+    $mutators = Configs::settings(['runner' => 'pest', 'timeouts' => ['tighter' => ['mutators' => ['Foreach_']]]])->triage()->tighter();
+
+    expect([$floor->floor(), [...$floor]])->toEqual([Seconds::of(5.0), TighterSilence::MUTATORS])
+        ->and([$mutators->floor(), [...$mutators]])->toEqual([Seconds::of(7.0), ['Foreach_']])
+        ->and(Configs::settings(['runner' => 'pest'])->triage()->tighter())->toEqual(TighterSilence::standard())
+        ->and(Configs::problems(Configs::validated(['timeouts' => ['tighter' => ['mutators' => ['default/RemoveArrayItem'], 'floor' => 0]]])))
+        ->toHaveCount(2);
 });

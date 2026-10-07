@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\TighterVariables;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
@@ -76,7 +77,7 @@ final readonly class MutationRun
         $prepared = StepTimes::of($read, $laps->lap(Step::Preparing, $from));
         $result = $targets instanceof CannotJudge
             ? $targets
-            : $this->ran($request, $coverage, $targets, $limits, $bounds->floor(), $laps);
+            : $this->ran($request, $coverage, $targets, $limits, $bounds, $laps);
         $result = $result instanceof CannotJudge ? $result : $result->withStepsBefore($prepared);
 
         return $result instanceof CannotJudge || $this->state === PatchState::Applied
@@ -89,7 +90,7 @@ final readonly class MutationRun
         DiskPath $coverage,
         Targets $targets,
         Limits $limits,
-        Seconds $floor,
+        LimitBounds $bounds,
         Laps $laps,
     ): MutationResult|CannotJudge {
         $invoked = Invocation::mutation(
@@ -101,8 +102,9 @@ final readonly class MutationRun
             $targets->paths(),
             $request->narrowing()->suite(),
         )->withholding($request->withheld())->within($request->deadline())->with([
-            ChildVariable::MutantFloor->value => sprintf('%F', $floor->seconds()),
+            ChildVariable::MutantFloor->value => sprintf('%F', $bounds->floor()->seconds()),
             ChildVariable::Results->value => $this->project->own(Invocation::SILENCED),
+            ...TighterVariables::of($bounds->tighter()),
         ]);
         $scan = MemoryScan::in($this->project, $request->memory(), $this->files);
 

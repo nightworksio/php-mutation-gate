@@ -148,6 +148,7 @@ it('writes each built-in CI plan by the builder method of its name, which reads 
 it('writes a layer that reads back into the same layer', function () use ($php): void {
     $config = [
         'runner' => ['withhold' => ['DEPLOY_*']],
+        'timeouts' => ['tighter' => ['mutators' => ['RemoveArrayItem', 'Foreach_'], 'floor' => 5]],
         'flaky' => ['confirmSurvivors' => true],
         'tests' => ['order' => 'killers-first'],
         'equivalence' => ['static' => true],

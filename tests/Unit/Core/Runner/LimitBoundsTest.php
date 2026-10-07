@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Mutant\RunnerMutatorName;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 it('keeps seconds between its floor and its most', function (float $seconds, float $kept): void {
@@ -21,4 +23,18 @@ it('has no floor up to a most, and keeps its floor when a retry raises its most'
     expect([$bounds->floor(), $bounds->most()])->toEqual([Seconds::of(10.0), Seconds::of(600.0)])
         ->and(LimitBounds::upTo(Seconds::of(30.0))->kept(Seconds::of(0.5)))->toEqual(Seconds::of(0.5))
         ->and(LimitBounds::upTo(Seconds::of(30.0))->floor())->toEqual(Seconds::of(0.0));
+});
+
+it('keeps the silence limit of a mutator timeouts.tighter lists above the lower of the two floors, and any other above its own', function (): void {
+    $bounds = LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0))
+        ->tighterFor(TighterSilence::of(Seconds::of(7.0), 'RemoveArrayItem', 'Foreach_'));
+
+    expect($bounds->silenceOf(RunnerMutatorName::of('Runner\Mutators\RemoveArrayItem'))->floor())->toEqual(Seconds::of(7.0))
+        ->and($bounds->silenceOf(RunnerMutatorName::of('default/RemoveArrayItem'))->floor())->toEqual(Seconds::of(7.0))
+        ->and($bounds->silenceOf(RunnerMutatorName::of('Foreach_'))->floor())->toEqual(Seconds::of(7.0))
+        ->and($bounds->silenceOf(RunnerMutatorName::of('default/PlusToMinus'))->floor())->toEqual(Seconds::of(10.0))
+        ->and($bounds->silenceOf(RunnerMutatorName::of('RemoveArrayItem'))->most())->toEqual(Seconds::of(300.0))
+        ->and(LimitBounds::between(Seconds::of(5.0), Seconds::of(300.0))->tighterFor($bounds->tighter())->silenceOf(RunnerMutatorName::of('RemoveArrayItem'))->floor())
+        ->toEqual(Seconds::of(5.0))
+        ->and(LimitBounds::between(Seconds::of(10.0), Seconds::of(300.0))->silenceOf(RunnerMutatorName::of('RemoveArrayItem'))->floor())->toEqual(Seconds::of(10.0));
 });

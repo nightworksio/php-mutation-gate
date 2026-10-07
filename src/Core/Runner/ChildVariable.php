@@ -19,4 +19,10 @@ enum ChildVariable: string
 
     /** The least a patched runner allows one mutant: `timeouts.seconds` (ADR-0008, decision 2). */
     case MutantFloor = 'MUTATION_GATE_MUTANT_FLOOR';
+
+    /** The lower floor of the silence limit of the mutators `timeouts.tighter` lists (see TighterVariables). */
+    case TighterFloor = 'MUTATION_GATE_TIGHTER_FLOOR';
+
+    /** The mutators `timeouts.tighter` lists, by their short names, one after another (see TighterVariables). */
+    case TighterMutators = 'MUTATION_GATE_TIGHTER_MUTATORS';
 }

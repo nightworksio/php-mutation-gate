@@ -227,6 +227,23 @@ presets for Laravel, Symfony and plain libraries.
    slowest covering test class, as Infection times each test by its class
    (ADR-0004).
 
+   The mutators whose mutants hang most keep their silence limit above a
+   lower floor, `timeouts.tighter`: an object of `mutators`, a list of short
+   names, and `floor`, an integer of seconds, 7 by default, which applies
+   only where it is under `timeouts.seconds`. A mutator is matched by its
+   short name, the last part of the name a runner gives it, after its last
+   `\` or `/`, so `RemoveArrayItem` matches Pest's
+   `Pest\Mutate\Mutators\Removal\RemoveArrayItem` and the default set's
+   `default/RemoveArrayItem`. The list by default is the eight the gate's
+   own runs found hang most, `RemoveArrayItem`, `DecrementInteger`,
+   `IncrementInteger`, `ForeachEmptyIterable`, `UnwrapArrayValues`,
+   `InstanceOfToTrue`, `InstanceOfToFalse` and `TernaryNegated`, and
+   Infection's names for the same changes, `ArrayItemRemoval`, `Foreach_`,
+   `InstanceOf_` and `Ternary`. A layer that writes `timeouts.tighter`
+   replaces it whole, each key it leaves out taking its default. The whole
+   limit keeps `timeouts.seconds`, so a mutant of a listed mutator that a
+   test keeps busy is never cut short.
+
    For every timed-out or skipped mutant the gate works out the limit that
    applied to it, and compares its judging tests' own time with it (ADR-0004,
    decision 5). That time comes from the coverage run: Pest's map, or the JUnit

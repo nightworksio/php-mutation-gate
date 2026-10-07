@@ -13,10 +13,12 @@ use function is_numeric;
 use function is_string;
 use function max;
 
+use NightWorksIO\MutationGate\Core\Mutant\RunnerMutatorName;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
+use NightWorksIO\MutationGate\Core\Runner\TighterVariables;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
@@ -43,21 +45,32 @@ final class MutantTime
 
     /**
      * The silence limit of a mutant's run, its covering tests as Infection
-     * located them: the standard limit of the slowest's own time, between the
-     * floor the gate names and Infection's `timeout`. Infection times each
-     * test by its whole class, which a single test never takes longer than.
+     * located them, by its mutator's name: the standard limit of the slowest's
+     * own time, between the floor the gate names, or the lower one
+     * `timeouts.tighter` gives the mutator where it lists it, and Infection's
+     * `timeout`. Infection times each test by its whole class, which a single
+     * test never takes longer than.
      * None where the gate names no floor, or Infection timed not every one of
      * them, as a test of unknown length could be stopped while it runs.
      *
      * @param array<TestLocation> $tests
      */
-    public static function silence(array $tests, float $timeout): Seconds|NotGiven
+    public static function silence(array $tests, float $timeout, string $mutator): Seconds|NotGiven
     {
         $floor = self::floor();
         $slowest = self::slowest($tests);
+        $tighter = TighterVariables::read(
+            getenv(ChildVariable::TighterFloor->value),
+            getenv(ChildVariable::TighterMutators->value),
+        );
 
         return $floor instanceof Seconds && $slowest instanceof Seconds
-            ? MutantLimit::standard()->of($slowest, LimitBounds::between($floor, Seconds::of($timeout)))
+            ? MutantLimit::standard()->of(
+                $slowest,
+                LimitBounds::between($floor, Seconds::of($timeout))
+                    ->tighterFor($tighter)
+                    ->silenceOf(RunnerMutatorName::of($mutator)),
+            )
             : NotGiven::value();
     }
 

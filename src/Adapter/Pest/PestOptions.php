@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Pest as ConfigPest;
 use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Config\TighterOptions;
 use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -65,6 +66,7 @@ final readonly class PestOptions
         $mutators = $options->texts(Key::of(self::MUTATORS));
         $timeout = $options->number(Key::of(self::TIMEOUT));
         $most = $options->number(Key::of(self::MOST));
+        $tighter = TighterOptions::read($options);
 
         return match (true) {
             $patch instanceof Problem => Invalid::because($patch),
@@ -73,6 +75,7 @@ final readonly class PestOptions
             $mutators instanceof Problem => Invalid::because($mutators),
             $timeout instanceof Problem => Invalid::because($timeout),
             $most instanceof Problem => Invalid::because($most),
+            $tighter instanceof Problem => Invalid::because($tighter),
             default => new self(
                 $patch === true
                     ? Patching::on(
@@ -84,7 +87,7 @@ final readonly class PestOptions
                 LimitBounds::between(
                     $timeout instanceof NotGiven ? Triage::standard()->limit() : Seconds::of($timeout),
                     $most instanceof NotGiven ? Triage::standard()->most() : Seconds::of($most),
-                ),
+                )->tighterFor($tighter),
             ),
         };
     }

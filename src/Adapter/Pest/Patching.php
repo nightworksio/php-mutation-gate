@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\TighterVariables;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -37,9 +38,10 @@ final readonly class Patching
     }
 
     /**
-     * What a run is started with to keep each mutant's limit within these
-     * bounds, where the project applies the patch (see MutantTime); nothing
-     * where it does not, as Pest allows each mutant its own limit then.
+     * What a run is started with to keep each mutant's limit, and its silence
+     * limit, within these bounds, where the project applies the patch (see
+     * MutantTime); nothing where it does not, as Pest allows each mutant its
+     * own limit then.
      *
      * @return array<string, string>
      */
@@ -49,6 +51,7 @@ final readonly class Patching
             ? [
                 GateVariable::MutantFloor->value => sprintf('%F', $bounds->floor()->seconds()),
                 GateVariable::MutantCap->value => sprintf('%F', $bounds->most()->seconds()),
+                ...TighterVariables::of($bounds->tighter()),
             ]
             : [];
     }

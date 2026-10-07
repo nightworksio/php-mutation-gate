@@ -44,6 +44,7 @@ use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\StaticCheck;
+use NightWorksIO\MutationGate\Core\Config\TighterOptions;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
@@ -185,16 +186,16 @@ final readonly class Wiring
 
     /**
      * The runner the config chooses: each told the bounds of each mutant's
-     * limit, `timeouts.seconds` and `timeouts.most` (ADR-0008, decision 2);
-     * Infection told that the gate checks its survivors, where an analyser
-     * does, so it runs no static analysis of its own (ADR-0020, decision 13);
-     * and each told the classes of the
-     * registered mutators it makes mutants with (ADR-0021): Pest and
-     * Infection those the config turns on, beside their own, and the PHPUnit
-     * runner the `default` set's and those (ADR-0023, decision 8); and each
-     * told the directories the tests are in, as the PHPUnit config declares
-     * them, so a test outside the conventional `tests` is one the runner
-     * lists.
+     * limit, `timeouts.seconds` and `timeouts.most`, and the mutators whose
+     * silence limit has a lower floor, `timeouts.tighter` (ADR-0008,
+     * decision 2); Infection told that the gate checks its survivors, where
+     * an analyser does, so it runs no static analysis of its own (ADR-0020,
+     * decision 13); and each told the classes of the registered mutators it
+     * makes mutants with (ADR-0021): Pest and Infection those the config
+     * turns on, beside their own, and the PHPUnit runner the `default` set's
+     * and those (ADR-0023, decision 8); and each told the directories the
+     * tests are in, as the PHPUnit config declares them, so a test outside
+     * the conventional `tests` is one the runner lists.
      */
     private function runnerChoice(
         Settings $settings,
@@ -206,12 +207,15 @@ final readonly class Wiring
         $use = $runner->use()->value();
         $seconds = $settings->triage()->limit()->seconds();
         $most = $settings->triage()->most()->seconds();
+        $tighter = $settings->triage()->tighter();
         $beside = Json::items(...$mutators->besideTheRunners()->classes());
         $tests = $this->testsOf($suite);
         $infection = Json::object(
             Member::of(Setup::TESTS, $tests),
             Member::of(Setup::TIMEOUT, $seconds),
             Member::of(Setup::MOST, $most),
+            TighterOptions::floor($tighter),
+            TighterOptions::mutators($tighter),
             Member::of(Setup::MUTATORS, $beside),
             ...$checker instanceof StaticChecker
                 ? [Member::of(Setup::STATIC_ANALYSIS, StaticAnalysis::Gate->value)]
@@ -221,6 +225,8 @@ final readonly class Wiring
             Member::of(PhpUnitOptions::TESTS, $tests),
             Member::of(PhpUnitOptions::TIMEOUT, $seconds),
             Member::of(PhpUnitOptions::MOST, $most),
+            TighterOptions::floor($tighter),
+            TighterOptions::mutators($tighter),
             Member::of(PhpUnitOptions::MUTATORS, Json::items(...$mutators->forTheEngine()->classes())),
         );
 
@@ -233,6 +239,8 @@ final readonly class Wiring
                     Member::of(PestOptions::TESTS, $tests),
                     Member::of(PestOptions::TIMEOUT, $seconds),
                     Member::of(PestOptions::MOST, $most),
+                    TighterOptions::floor($tighter),
+                    TighterOptions::mutators($tighter),
                     Member::of(PestOptions::MUTATORS, $beside),
                 )),
             ),

@@ -142,7 +142,13 @@ final readonly class Patch
 
                 {MARK} a run no test finishes in for its silence limit is stopped (see Silence).
                 if (class_exists(\%1$s::class)) {
-                    \%1$s::watch($process, $covering, $this->mutation->modifiedSourcePath, $filter);
+                    \%1$s::watch(
+                        $process,
+                        $covering,
+                        $this->mutation->modifiedSourcePath,
+                        $filter,
+                        $this->mutation->mutator,
+                    );
                 }
         PHP;
 
