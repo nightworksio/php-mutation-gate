@@ -143,11 +143,10 @@ final readonly class Pest implements Runner
     }
 
     /**
-     * Pest's plugin reads each `#[Holds]` as its test files load. Patched, a
-     * timeout's limit can be raised, and every shard opens on the canary
-     * group, whose test files every key then reads; unpatched, Pest's limit
-     * cannot be raised, and each shard pays a full opening run under
-     * coverage. It runs a mutant per core, and its tests are Pest's closures.
+     * Pest's plugin reads each `#[Holds]` as its test files load. Patched,
+     * every shard opens on the canary group, whose test files every key then
+     * reads; unpatched, each shard pays a full opening run under coverage. It
+     * runs a mutant per core, and its tests are Pest's closures.
      */
     public function behaviour(): RunnerBehaviour
     {
@@ -156,9 +155,8 @@ final readonly class Pest implements Runner
             ->holdingAsLoaded()
             ->runningPerCore()
             ->writingTestsIn(AssertionStyle::Pest);
-        $limited = $this->patching->isOn() ? $pest : $pest->raisingNoLimit();
 
-        return $canary instanceof Group ? $limited->readingInEveryKey($canary) : $limited->openingEachShard();
+        return $canary instanceof Group ? $pest->readingInEveryKey($canary) : $pest->openingEachShard();
     }
 
     /** The groups the suite lists, listed once for each set of variables withheld. */

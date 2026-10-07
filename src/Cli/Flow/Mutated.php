@@ -11,8 +11,8 @@ use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
 /**
- * What a shard's runs came to: every invocation's mutants, timeouts retried
- * and timed, the survivors a second run killed, the held units it did not
+ * What a shard's runs came to: every invocation's mutants, timeouts timed,
+ * the survivors a second run killed, the held units it did not
  * mutate because their holding tests miss lines of them and the tests that
  * run each it did, the units its budget ran out before, and what static analysis's checks of its survivors
  * came to.

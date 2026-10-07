@@ -25,9 +25,9 @@ use function sprintf;
 /**
  * `triage`: one unit run again and again as its runner runs it (ADR-0008,
  * decision 3), to list each mutant whose status varied. Each run is the
- * runner's own, as a shard's invocation is before its retries: no timeout is
- * retried, no survivor confirmed and no survivor checked by an analyser, and
- * nothing is recorded. The unit is judged by its tests, under the mutators
+ * runner's own, as a shard's invocation is before its survivors are
+ * confirmed: no survivor confirmed and no survivor checked by an analyser,
+ * and nothing is recorded. The unit is judged by its tests, under the mutators
  * and the memory cap of a run, and each mutant's tests run in the order
  * asked: with killers first, the history every ledger the run reads learned
  * of the unit's files.

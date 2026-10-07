@@ -1450,7 +1450,7 @@ it('reads holds as it loads them, and patched, raises a limit and has every key 
         ->writingTestsIn(AssertionStyle::Pest);
 
     expect($patched->behaviour())->toEqual($pest->readingInEveryKey($canary))
-        ->and($unpatched->behaviour())->toEqual($pest->raisingNoLimit()->openingEachShard());
+        ->and($unpatched->behaviour())->toEqual($pest->openingEachShard());
 });
 
 it('gives a mutant as an analyser checks it: its diff put onto the file as Pest prints it', function (): void {

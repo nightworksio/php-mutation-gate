@@ -12,8 +12,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 /**
  * What a shard's invocations have come to so far: every mutant, the
  * survivors a second run killed, the mutants skipped without a record, the
- * timeout retries left, the units its budget ran out before, and what the
- * runner warned of.
+ * units its budget ran out before, and what the runner warned of.
  */
 final readonly class Spent
 {
@@ -21,16 +20,15 @@ final readonly class Spent
         public Mutants $mutants,
         public MutantIds $flaky,
         public int $skipped,
-        public int $retries,
         public Units $unjudged,
         public Warnings $warnings,
     ) {
     }
 
-    /** Nothing spent yet, with this many timeout retries to give. */
-    public static function none(int $retries): self
+    /** Nothing spent yet. */
+    public static function none(): self
     {
-        return new self(Mutants::none(), MutantIds::none(), 0, $retries, Units::none(), Warnings::none());
+        return new self(Mutants::none(), MutantIds::none(), 0, Units::none(), Warnings::none());
     }
 
     /** What was spent, and one invocation more. */
@@ -40,7 +38,6 @@ final readonly class Spent
             Mutants::of(...$this->mutants, ...$invoked->result->mutants()),
             $this->flaky->and($invoked->flaky),
             $this->skipped + $invoked->result->skipped(),
-            $this->retries - $invoked->outOfTime,
             $this->unjudged,
             $this->warnings->and($invoked->result->warnings()),
         );
@@ -55,6 +52,6 @@ final readonly class Spent
             $unjudged = $unjudged->with($unit);
         }
 
-        return new self($this->mutants, $this->flaky, $this->skipped, $this->retries, $unjudged, $this->warnings);
+        return new self($this->mutants, $this->flaky, $this->skipped, $unjudged, $this->warnings);
     }
 }

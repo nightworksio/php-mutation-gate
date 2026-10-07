@@ -13,7 +13,6 @@ use NightWorksIO\MutationGate\Config\Budget;
 use NightWorksIO\MutationGate\Config\Equivalence;
 use NightWorksIO\MutationGate\Config\Flaky;
 use NightWorksIO\MutationGate\Config\Runner as ConfiguredRunner;
-use NightWorksIO\MutationGate\Config\Setting;
 use NightWorksIO\MutationGate\Config\Tests;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
@@ -545,52 +544,20 @@ it('keeps with each timed-out mutant the time its covering tests take, from the 
         ->and($timed[0]->unmutatedNeed())->toEqual(Seconds::of(0.2));
 });
 
-it('runs each timeout its most decided once more with the most doubled, up to timeouts.retries', function (
-    Setting $retries,
-    RunnerBehaviour $behaviour,
-    array $retried,
-) use ($statuses, $resultIn): void {
-    $project = Flows::project();
-    $scripted = ScriptedRunner::fixture()->behaving($behaviour);
-    $adapters = Flows::adapters($project, [], $scripted);
-
-    new Running(
-        $adapters,
-        Flows::settings(Timeouts::seconds(1), Timeouts::most(5), $retries, Flaky::notConfirmingSurvivors()),
-        Flows::setup(),
-    )->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
-
-    expect(array_map(
-        static fn(array $retry): array => [
-            array_map(static fn(Mutant $mutant): string => $mutant->nativeId(), [...$retry[0]]),
-            $retry[1],
-        ],
-        $scripted->retries(),
-    ))->toEqual($retried)
-        ->and(array_map(static fn(array $retry): Withheld => $retry[3], $scripted->retries()))
-        ->each->toEqual(Withheld::standard()->and($adapters->withheld))
-        ->and($statuses($resultIn($project, 1)))
-        ->toContain($retried === [] ? 'Decrement-27 timed-out' : 'Decrement-27 survived');
-})->with([
-    'a runner whose most can be raised' => [
-        Timeouts::retries(20),
-        RunnerBehaviour::standard(),
-        [[['Decrement-27'], Seconds::of(10.0)]],
-    ],
-    'no retries left' => [Timeouts::retries(0), RunnerBehaviour::standard(), []],
-    'a runner whose limit cannot be raised' => [Timeouts::retries(20), RunnerBehaviour::standard()->raisingNoLimit(), []],
-]);
-
-it('runs no timeout again whose limit the formula or the floor decided', function (): void {
+it('never runs a timed-out mutant again, whatever decided its limit, and keeps it timed out', function () use (
+    $statuses,
+    $resultIn,
+): void {
     $project = Flows::project();
     $scripted = ScriptedRunner::fixture();
 
-    $settings = Flows::settings(Timeouts::seconds(5), Flaky::notConfirmingSurvivors());
+    $settings = Flows::settings(Timeouts::seconds(1), Timeouts::most(5), Flaky::notConfirmingSurvivors());
 
     new Running(Flows::adapters($project, [], $scripted), $settings, Flows::setup())
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
 
-    expect($scripted->retries())->toBe([]);
+    expect($scripted->retries())->toBe([])
+        ->and($statuses($resultIn($project, 1)))->toContain('Decrement-27 timed-out');
 });
 
 it('mutates no held unit whose holding tests miss lines of it, and leaves why', function () use ($resultIn): void {
@@ -740,28 +707,6 @@ it('weighs each mutant out of memory by the peak its plan measured, and leaves a
     'measured' => [MemoryCap::of(20, MemoryUnit::Megabytes), MemoryCap::of(20, MemoryUnit::Megabytes)],
     'an older plan' => [NotGiven::value(), Unmeasured::duration()],
 ]);
-
-it('spends one timeouts.retries across every invocation of a shard', function (): void {
-    $project = Flows::project();
-    $timedOut = Mutant::of(
-        MutantId::hash(Path::of('src/Money.php'), 'Plus', '@@ @@', 0),
-        'Plus-1',
-        Location::of(Path::of('src/Money.php'), Line::of(1), Line::of(1)),
-        Mutation::of('Plus', MutatorFamily::Arithmetic, '@@ @@'),
-        MutantStatus::TimedOut,
-        Seconds::of(5.0),
-    )->withLimit(Seconds::of(5.0));
-    $scripted = ScriptedRunner::fixture()->answering(Mutants::of($timedOut), 0);
-
-    new Running(
-        Flows::adapters($project, [], $scripted),
-        Flows::settings(Timeouts::seconds(5), Timeouts::most(5), Timeouts::retries(1), Flaky::notConfirmingSurvivors()),
-        Flows::setup(),
-    )->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
-
-    expect($scripted->requests())->toHaveCount(2)
-        ->and($scripted->retries())->toHaveCount(1);
-});
 
 it('runs each mutant\'s likely killers first, by the kill history the plan handed the shard', function () use (
     $orderings,
@@ -1036,29 +981,3 @@ it('leaves a batch unjudged whose runner stopped at the deadline, and cannot jud
     'stopped at the deadline' => [10, ['src/Money.php', 'src/Held.php'], true],
     'failed before it' => [1, [], false],
 ]);
-
-it('runs no timeout again whose doubled cap does not fit the time left, and leaves it unjudged', function () use (
-    $tickingBy,
-    $statuses,
-    $resultIn,
-): void {
-    $project = Flows::project();
-    $timedOut = Mutant::of(
-        MutantId::hash(Path::of('src/Money.php'), 'Plus', '@@ @@', 0),
-        'Plus-1',
-        Location::of(Path::of('src/Money.php'), Line::of(1), Line::of(1)),
-        Mutation::of('Plus', MutatorFamily::Arithmetic, '@@ @@'),
-        MutantStatus::TimedOut,
-        Seconds::of(5.0),
-    )->withLimit(Seconds::of(5.0));
-    $scripted = ScriptedRunner::fixture()->answering(Mutants::of($timedOut), 0);
-
-    new Running(
-        Flows::adapters($project, [], $scripted),
-        Flows::settings(Timeouts::seconds(5), Timeouts::most(5), Timeouts::retries(2), Flaky::notConfirmingSurvivors(), Budget::of('6s')),
-        $tickingBy(1),
-    )->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
-
-    expect($scripted->retries())->toBe([])
-        ->and($statuses($resultIn($project, 1)))->toContain('Plus-1 unjudged');
-});

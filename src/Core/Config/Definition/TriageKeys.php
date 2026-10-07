@@ -26,7 +26,6 @@ final readonly class TriageKeys
         $mode = Field::optional('mode', Enumerated::of(TimeoutMode::cases()), $judges);
         $seconds = Field::optional('seconds', Integer::atLeast(1), $results);
         $atMost = Field::optional('most', Integer::atLeast(1), $results);
-        $retries = Field::optional('retries', Integer::atLeast(0), $results);
 
         return [
             Field::optional(
@@ -40,29 +39,25 @@ final readonly class TriageKeys
             Field::section(
                 'timeouts',
                 Section::of(
-                    static function (Node $timeouts) use ($mode, $seconds, $atMost, $retries): Layer|Invalid {
+                    static function (Node $timeouts) use ($mode, $seconds, $atMost): Layer|Invalid {
                         $timedOut = $mode->read($timeouts);
                         $limit = $seconds->read($timeouts);
                         $upper = $atMost->read($timeouts);
-                        $again = $retries->read($timeouts);
 
                         return Reading::built(
                             static fn(): Layer => Layer::of(Triage::of(
                                 mode: $timedOut->value(),
                                 limit: self::seconds($limit->value()),
                                 most: self::seconds($upper->value()),
-                                retries: $again->value(),
                             )),
                             $timedOut,
                             $limit,
                             $upper,
-                            $again,
                         );
                     },
                     $mode,
                     $seconds,
                     $atMost,
-                    $retries,
                 ),
             ),
             Field::section(

@@ -27,8 +27,8 @@ it('keeps steps in the order they started, those after after, and moves them all
     ])
         ->and(count($first->and($then)))->toBe(2)
         ->and(count(StepTimes::none()))->toBe(0)
-        ->and(stepsAsRead(StepTimes::of(StepTime::counted(StepTime::of(Step::Retry, Seconds::of(1.0), Seconds::of(2.0)), 3))))
-        ->toBe([[Step::Retry, 1.0, 2.0, 3]]);
+        ->and(stepsAsRead(StepTimes::of(StepTime::counted(StepTime::of(Step::Survivors, Seconds::of(1.0), Seconds::of(2.0)), 3))))
+        ->toBe([[Step::Survivors, 1.0, 2.0, 3]]);
 });
 
 it('times each lap from when the run began, on the runner\'s clock, in seconds or nanoseconds', function (): void {

@@ -43,7 +43,7 @@ final readonly class LimitBounds
         return $this->most;
     }
 
-    /** These bounds with another most, as a retry raises it. */
+    /** These bounds with another most, as a run again asks for. */
     public function upToInstead(Seconds $most): self
     {
         return new self($this->floor, $most);

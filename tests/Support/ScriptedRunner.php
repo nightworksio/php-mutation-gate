@@ -246,13 +246,13 @@ final class ScriptedRunner implements Runner
     /** This runner, behaving as Pest does without the gate's patch. */
     public function likePest(): self
     {
-        return $this->behaving(RunnerBehaviour::standard()->holdingAsLoaded()->raisingNoLimit()->openingEachShard());
+        return $this->behaving(RunnerBehaviour::standard()->holdingAsLoaded()->openingEachShard());
     }
 
     /** This runner, behaving as Pest does with the gate's patch, every shard opening on this canary group. */
     public function likePatchedPest(Group $canary): self
     {
-        return $this->behaving(RunnerBehaviour::standard()->holdingAsLoaded()->raisingNoLimit()->readingInEveryKey($canary));
+        return $this->behaving(RunnerBehaviour::standard()->holdingAsLoaded()->readingInEveryKey($canary));
     }
 
     public function behaviour(): RunnerBehaviour

@@ -629,7 +629,6 @@ services:
                 'NightWorksIO\MutationGate\Core\Config\Shards':
                     - MOST # shards
                 'NightWorksIO\MutationGate\Core\Config\Triage':
-                    - RETRIES # retries
                     - TIMEOUT # seconds a mutant may run
                     - MOST # seconds a mutant may run
                 'NightWorksIO\MutationGate\Core\Config\Canonical':
@@ -835,8 +834,6 @@ services:
                     - MEASURED # a field of a shard result
                 'NightWorksIO\MutationGate\Core\Time\Budgets':
                     - PRE_PUSH_MINUTES # a budget, in minutes
-                'NightWorksIO\MutationGate\Cli\Flow\Invoking':
-                    - DOUBLED # a retried timeout's cap, doubled
                 'NightWorksIO\MutationGate\Core\Runner\Headroom':
                     - TIMES # times a suite's peak memory a cap holds
             # Constants still to refer to their value's one home, by the builder whose area holds them.

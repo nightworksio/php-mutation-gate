@@ -957,11 +957,6 @@
                     "type": "integer",
                     "minimum": 1,
                     "default": 300
-                },
-                "retries": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "default": 20
                 }
             },
             "additionalProperties": false

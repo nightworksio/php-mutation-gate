@@ -21,8 +21,8 @@ manual.
   as a slot frees. Infection takes `--threads=<n>`. The idle cores are
   *between* invocations: a shard runs each held unit as an invocation of its
   own (ADR-0006 decision 3), and ADR-0004 decision 8's judging runs, survivor
-  confirmation, Infection's timeout retries and the static-analysis checks
-  of ADR-0020 run one after another.
+  confirmation and the static-analysis checks of ADR-0020 run one after
+  another.
 - **One Pest `--mutate` runs per checkout.** Pest writes its opening
   coverage to a fixed path (ADR-0004 decision 3), and its mutated files
   under its own vendor directory.
@@ -166,7 +166,7 @@ manual.
 5. **A shard runs its work as a pool.**
    - The shard flow queues every piece of its work: each held unit's
      invocation, the invocation for the rest of the shard, judging runs,
-     survivor confirmations, retries and static-analysis checks.
+     survivor confirmations and static-analysis checks.
    - Workers take the next piece as cores free up. Each invocation is given
      a process count, a long one more, and the queue's small pieces fill
      the cores a finishing invocation leaves.

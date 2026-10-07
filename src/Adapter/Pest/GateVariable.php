@@ -25,7 +25,7 @@ enum GateVariable: string
     /** The least a patched run allows one mutant: `timeouts.seconds` (see MutantTime). */
     case MutantFloor = ChildVariable::MutantFloor->value;
 
-    /** The most a patched run allows one mutant: `timeouts.most`, or a retry's raised most (see MutantTime). */
+    /** The most a patched run allows one mutant: `timeouts.most`, or the most a run again asks for (see MutantTime). */
     case MutantCap = 'MUTATION_GATE_MUTANT_CAP';
 
     /** The canary group a patched shard's opening run is. */

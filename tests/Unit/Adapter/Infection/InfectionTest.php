@@ -525,7 +525,7 @@ it('cannot judge a run stopped at its deadline, a failed coverage run, or a conf
         ));
 });
 
-it('runs each mutant again by its unit\'s tests at the higher cap and with no deadline, but a timeout the formula decided', function (): void {
+it('runs each mutant again by its unit\'s tests at the higher cap and with no deadline, whatever decided its limit', function (): void {
     $at = infectionProject();
     $money = sprintf('%s/src/Money.php', $at->root());
     $first = infectionShell($at, [
@@ -551,7 +551,7 @@ it('runs each mutant again by its unit\'s tests at the higher cap and with no de
     $generated = json_decode((string) file_get_contents($at->own('infection.json5')), associative: true);
 
     expect(infectionStatuses($mutants))->toBe([MutantStatus::TimedOut, MutantStatus::Survived, MutantStatus::TimedOut])
-        ->and(infectionStatuses($retried))->toBe([MutantStatus::Killed, MutantStatus::Survived, MutantStatus::TimedOut])
+        ->and(infectionStatuses($retried))->toBe([MutantStatus::Killed, MutantStatus::Survived, MutantStatus::Unjudged])
         ->and(count($again->commands()))->toBe(3)
         ->and(infectionRan($again)[0])->toContain('--group=holds:src/Money.php')
         ->and(infectionRan($again)[1])->toContain('--test-framework-extra-args=--group="holds:src/Money.php"')
@@ -630,7 +630,7 @@ it('ends the runs of a retry, one after another, by the deadline its request set
         ->toEqual([Seconds::of(90.0), Seconds::of(80.0)]);
 });
 
-it('runs nothing again where the formula decided every timeout, and cannot judge a retry whose runs fail', function (): void {
+it('runs nothing again for no mutant, and cannot judge a retry whose runs fail', function (): void {
     $at = infectionProject();
     $result = new Infection($at, infectionShell($at, [
         'timeouted' => [InfectionRun::entry('Plus', sprintf('%s/src/Money.php', $at->root()), 11, '$a + $b', '$a - $b')],
@@ -639,21 +639,21 @@ it('runs nothing again where the formula decided every timeout, and cannot judge
     $idle = infectionShell($at, []);
     $refused = infectionProject('{"testFramework": "phpspec"}');
 
-    $retried = static fn(Project $project, InfectionShellFake $shell, float $cap): Mutants|CannotJudge => new Infection(
+    $retried = static fn(Project $project, InfectionShellFake $shell, Mutants $asked): Mutants|CannotJudge => new Infection(
         $project,
         $shell,
-        LimitBounds::between(Seconds::of($cap), Seconds::of($cap)),
+        LimitBounds::between(Seconds::of(4.0), Seconds::of(4.0)),
         nativeMarkersAllowed: false,
         files: new CapDirectory(),
-    )->retry(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $mutants, Seconds::of($cap * 2));
+    )->retry(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $asked, Seconds::of(8.0));
 
-    expect($retried($at, $idle, 10.0))->toEqual($mutants)
+    expect($retried($at, $idle, Mutants::none()))->toEqual(Mutants::none())
         ->and($idle->commands())->toBe([])
-        ->and($retried($at, infectionShell($at, [], covers: false), 4.0))
+        ->and($retried($at, infectionShell($at, [], covers: false), $mutants))
         ->toEqual(CannotJudge::because("PHPUnit's coverage run failed. PHPUnit said:\nsaid"))
-        ->and($retried($at, infectionShell($at, [], logs: false), 4.0))
+        ->and($retried($at, infectionShell($at, [], logs: false), $mutants))
         ->toEqual(CannotJudge::because("Infection wrote no log, so no mutant it ran has a result. Infection said:\nsaid"))
-        ->and($retried($refused, infectionShell($refused, []), 4.0))
+        ->and($retried($refused, infectionShell($refused, []), $mutants))
         ->toBeInstanceOf(CannotJudge::class);
 });
 

@@ -12,9 +12,8 @@ use NightWorksIO\MutationGate\Core\Test\Groups;
 
 /**
  * How a runner behaves where the flows must know it: whether it reads each
- * `#[Holds]` as its test files load, whether a timeout's limit can be raised
- * for a retry (ADR-0008), which groups' test files every proof key reads
- * (ADR-0007), whether each shard pays a full opening run under coverage
+ * `#[Holds]` as its test files load, which groups' test files every proof
+ * key reads (ADR-0007), whether each shard pays a full opening run under coverage
  * (ADR-0006), whether it can record every test that kills a mutant, for
  * a full kill matrix (ADR-0014), whether it runs a mutant per core, and the
  * style its own tests are written in (ADR-0015). The flows ask the runner,
@@ -24,7 +23,6 @@ final readonly class RunnerBehaviour
 {
     private function __construct(
         private bool $holdsAsLoaded,
-        private bool $raisesLimits,
         private Groups $readByEveryKey,
         private bool $opensEachShard,
         private NotFull $whyNotFull,
@@ -34,15 +32,14 @@ final readonly class RunnerBehaviour
     }
 
     /**
-     * A runner that lists `#[Holds]` as groups, can raise a limit, has no
-     * group every key reads, reuses the map the plan handed each shard, runs
-     * one mutant at a time, and whose tests are PHPUnit classes.
+     * A runner that lists `#[Holds]` as groups, has no group every key
+     * reads, reuses the map the plan handed each shard, runs one mutant at a
+     * time, and whose tests are PHPUnit classes.
      */
     public static function standard(): self
     {
         return new self(
             holdsAsLoaded: false,
-            raisesLimits: true,
             readByEveryKey: Groups::none(),
             opensEachShard: false,
             whyNotFull: NotFull::FirstKillers,
@@ -67,12 +64,6 @@ final readonly class RunnerBehaviour
     public function holdingAsLoaded(): self
     {
         return clone($this, ['holdsAsLoaded' => true]);
-    }
-
-    /** This behaviour, where a timeout's limit cannot be raised, so a timeout is never run again. */
-    public function raisingNoLimit(): self
-    {
-        return clone($this, ['raisesLimits' => false]);
     }
 
     /** This behaviour, where every proof key reads a group's test files, since every shard opens on them. */
@@ -105,11 +96,6 @@ final readonly class RunnerBehaviour
     public function holdsAsLoaded(): bool
     {
         return $this->holdsAsLoaded;
-    }
-
-    public function raisesLimits(): bool
-    {
-        return $this->raisesLimits;
     }
 
     /** The groups whose test files every proof key reads. */

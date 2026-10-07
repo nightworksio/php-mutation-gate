@@ -57,9 +57,8 @@ use function sprintf;
  * units against the whole suite, reading the coverage map the plan handed it. The
  * shard leaves every mutant's record, each unit's key and what it measured,
  * or the runner's cannot judge, for the verdict. Each mutant whose time ran
- * out and whose limit `timeouts.most` decided runs once more with the most
- * doubled, where the runner can raise it, and each keeps the time its judging
- * tests take on their own, from the handed map, for timeout triage. Under
+ * out is never run again, and keeps the time its judging tests take on their
+ * own, from the handed map, for timeout triage. Under
  * `tests.order: killers-first` each mutant's likely killers run first, by the
  * kill history the plan handed the shard beside its map: a shard handed none
  * orders its tests as though no test had killed anything yet, and one whose
@@ -189,7 +188,7 @@ final readonly class Running
     }
 
     /**
-     * Every invocation's mutants, timeouts retried and timed by the map the
+     * Every invocation's mutants, timeouts timed by the map the
      * plan handed the shard, those out of memory weighed by the suite's peak
      * the plan measured, with the survivors a second run killed, of each
      * unit but the held ones whose holding tests miss lines of them; or the
@@ -257,10 +256,10 @@ final readonly class Running
     /** Every invocation the shard plans, one after another. */
     private function spentWhole(Invoking $invoking, Shard $kept, KillSearch $search): Spent|CannotJudge
     {
-        $spent = Spent::none($this->settings->triage()->retries());
+        $spent = Spent::none();
 
         foreach ($kept->invocations() as $units) {
-            $invoked = $invoking->invoked($this->requestFor($units, $kept->id(), $search), $spent->retries);
+            $invoked = $invoking->invoked($this->requestFor($units, $kept->id(), $search));
 
             if ($invoked instanceof CannotJudge) {
                 return $invoked;
@@ -288,13 +287,13 @@ final readonly class Running
     ): Spent|CannotJudge {
         $queue = $this->weighed($kept, $plan);
         $batching = Batching::opening($map->suiteDuration());
-        $spent = Spent::none($this->settings->triage()->retries());
+        $spent = Spent::none();
         $left = $deadline->left($this->setup->clock->now());
         $batch = $this->batchOf($batching, $queue, $left);
 
         while ($batch->count() > 0) {
             $request = $this->requestFor($batch, $kept->id(), $search)->within($left);
-            $invoked = $invoking->invoked($request, $spent->retries);
+            $invoked = $invoking->invoked($request);
             $queue = array_slice($queue, $batch->count());
             $spent = match (true) {
                 ! $invoked instanceof CannotJudge => $spent->after($invoked),

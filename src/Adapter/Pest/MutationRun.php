@@ -97,7 +97,7 @@ final readonly class MutationRun
         return clone($this, ['only' => array_values($nativeIds)]);
     }
 
-    /** This run, in which a patched run allows no mutant more than this long: the raised most of a retry. */
+    /** This run, in which a patched run allows no mutant more than this long: the most a run again asks for. */
     public function upTo(Seconds $most): self
     {
         return clone($this, ['bounds' => $this->bounds->upToInstead($most)]);

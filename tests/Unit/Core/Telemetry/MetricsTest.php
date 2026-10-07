@@ -91,7 +91,7 @@ it('leaves out the score of a set with nothing to mutate', function () use ($byN
 it('sums a step that ran more than once in a shard into one point', function () use ($byName, $points): void {
     $shard = ShardTiming::of(1, Phase::of(Moment::at('2026-09-30T11:51:00Z'), Seconds::of(30.0)), StepTimes::of(
         StepTime::of(Step::Mutation, Seconds::of(0.0), Seconds::of(10.0)),
-        StepTime::of(Step::Retry, Seconds::of(10.0), Seconds::of(5.0)),
+        StepTime::of(Step::Survivors, Seconds::of(10.0), Seconds::of(5.0)),
         StepTime::of(Step::Mutation, Seconds::of(15.0), Seconds::of(12.5)),
     ));
     $timings = RunTimings::of('run', RunTime::estimated(Seconds::of(30.0), Seconds::of(30.0)))->withShard($shard);
@@ -100,6 +100,6 @@ it('sums a step that ran more than once in a shard into one point', function () 
     expect($points($metrics['mutation_gate.duration']))->toBe([
         [30.0, ['mutation_gate.phase' => 'shard', 'mutation_gate.shard' => 1]],
         [22.5, ['mutation_gate.phase' => 'mutation', 'mutation_gate.shard' => 1]],
-        [5.0, ['mutation_gate.phase' => 'retry', 'mutation_gate.shard' => 1]],
+        [5.0, ['mutation_gate.phase' => 'survivors', 'mutation_gate.shard' => 1]],
     ]);
 });
