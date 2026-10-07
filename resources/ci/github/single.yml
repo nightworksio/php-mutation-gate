@@ -18,6 +18,7 @@ on:
     branches: ['%%branch%%']
   schedule:
     - cron: '0 3 * * 1,4'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -37,6 +38,8 @@ jobs:
       - uses: nightworksio/php-mutation-gate@%%pin%%
         with:
           php-version: '%%php%%'
+          # Every unit on a schedule or a manual run, what changed otherwise.
+          mode: ${{ contains(fromJSON('["schedule","workflow_dispatch"]'), github.event_name) && 'full' || 'changed' }}
           runner: '%%runner%%'
 
   deliver:

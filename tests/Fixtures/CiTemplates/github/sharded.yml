@@ -12,6 +12,7 @@ on:
     branches: ['trunk']
   schedule:
     - cron: '0 3 * * 1,4'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -26,4 +27,6 @@ jobs:
       id-token: write # used only by fetch and deliver, for a store that signs in through OIDC
     with:
       php-version: '8.5'
+      # Every unit on a schedule or a manual run, what changed otherwise.
+      mode: ${{ contains(fromJSON('["schedule","workflow_dispatch"]'), github.event_name) && 'full' || 'changed' }}
       runner: 'pest'

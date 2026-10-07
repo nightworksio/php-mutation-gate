@@ -217,7 +217,7 @@ about Laravel, NativePHP or the project's modules, and does not.
      | `php-version` | string | `8.5` |
      | `runner` | `pest`, `infection` or a registered name | none: the config's, or zero-config's |
      | `shard` | shard id | none: the whole gate runs |
-     | `mode` | `auto`, `full` or `changed` | `auto`: change-scoped on pull requests and pushes, full on schedules, manual dispatches, releases and tags (ADR-0005 decision 2) |
+     | `mode` | `changed` or `full` | `changed`: change-scoped whatever the event (ADR-0005 decision 2). No event runs in full unless the mode is `full`: a nightly full run is a `schedule` with `mode: full`, a manual one a `workflow_dispatch` with `mode: full`, and the release workflow runs one before it moves the tag |
      | `changed-since` | a full commit SHA, a fully qualified ref (`refs/heads/…`, `refs/tags/…`), `last-passed` or `last-run`; any other name is refused, so that no tag or branch of the same spelling stands in for it | `last-run` on `pull_request` (the commit the pull request's last run judged, falling back to the default branch), the default branch on any other branch, `last-passed` on a push to the default branch; used only when the mode is change-scoped |
      | `budget` | duration | none |
      | `reports` | `<name>:<path>` lines, each added as `--report` | none |

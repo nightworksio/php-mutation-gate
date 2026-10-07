@@ -41,9 +41,6 @@ TRUSTED = frozenset({"push", "schedule", "workflow_dispatch"})
 # Where a ref names a branch.
 HEADS = "refs/heads/"
 
-# Where a ref names a tag.
-TAGS = "refs/tags/"
-
 # Where every fully qualified ref begins.
 REFS = "refs/"
 
@@ -66,10 +63,9 @@ NOT_IN_A_REF = frozenset(" ~^:?*[\\\x7f")
 
 NOT_IN_A_REF_SEQUENCES = ("..", "@{")
 
-# The events `mode: auto` runs in full on (ADR-0005, decision 2).
-FULL = frozenset({"schedule", "workflow_dispatch", "release"})
-
-MODES = frozenset({"auto", "full", "changed"})
+# What the `mode` input takes: change-scoped, the default, whatever the event,
+# or every unit (ADR-0005, decision 2). No event runs in full unless asked.
+MODES = frozenset({"changed", "full"})
 
 LEDGERS = ".mutation-gate/ledger"
 
@@ -169,31 +165,43 @@ def checked_ref(ref: str, default_branch: str) -> None:
         raise Refused(f"The default branch is named {default_branch!r}, which git does not take as a branch.")
 
 
-def mode_arguments(mode: str, changed_since: str, event: str, ref: str, default_branch: str) -> list[str]:
-    """The options that choose what the gate considers: every unit, or what changed since a ref.
+def mode_arguments(
+    mode: str, changed_since: str, event: str, ref: str, default_branch: str, queue_base: str = ""
+) -> list[str]:
+    """The options that choose what the gate considers: every unit, where the mode is full, or what changed
+    since a ref, whatever the event.
 
     With no base given, a pull request runs from the commit its last run
-    judged, which the gate falls back to the default branch for, another
-    branch from the default branch, by the full name of what the checkout
-    fetched of it, and the default branch from the last commit whose verdict
-    passed (ADR-0005, decision 2). A branch whose default branch is unknown
-    runs in full, since no base it could be narrowed to is known.
+    judged, which the gate falls back to the default branch for, a merge
+    group from the commit its queue is based on (ADR-0022, decision 9),
+    another branch from the default branch, by the full name of what the
+    checkout fetched of it, and the default branch from the last commit whose
+    verdict passed (ADR-0005, decision 2). A branch whose default branch is
+    unknown runs in full, since no base it could be narrowed to is known.
     """
     if mode not in MODES:
-        raise Refused(f"mode is {mode!r}; it is auto, full or changed.")
+        raise Refused(f"mode is {mode!r}; it is changed or full.")
     checked_ref(ref, default_branch)
-    if mode == "full" or (mode == "auto" and (event in FULL or ref.startswith(TAGS))):
+    if mode == "full":
         return ["--full"]
     if changed_since:
         return [f"--changed-since={given_base(changed_since)}"]
     if event == "pull_request":
         return ["--changed-since=last-run"]
+    if event == "merge_group" and is_sha(queue_base):
+        return [f"--changed-since={queue_base}"]
     branch = ref.removeprefix(HEADS) if ref.startswith(HEADS) else ""
     if branch and not default_branch:
         return ["--full"]
     if branch and branch != default_branch:
         return [f"--changed-since={FETCHED}{default_branch}"]
     return ["--changed-since=last-passed"]
+
+
+def queue_base(payload: dict) -> str:
+    """The commit a merge group's queue is based on, as GitHub's event names it; nothing for any other event."""
+    base = (payload.get("merge_group") or {}).get("base_sha")
+    return base if isinstance(base, str) else ""
 
 
 def one_line(options: list[str]) -> list[str]:
@@ -383,7 +391,12 @@ def _resolve() -> dict[str, str]:
         raise Refused(why)
     default_branch = os.environ.get("DEFAULT_BRANCH", "")
     arguments = mode_arguments(
-        os.environ.get("MODE", "auto"), os.environ.get("CHANGED_SINCE", ""), event, ref, default_branch
+        os.environ.get("MODE", "changed"),
+        os.environ.get("CHANGED_SINCE", ""),
+        event,
+        ref,
+        default_branch,
+        queue_base(payload),
     )
     options = one_line(_options())
     kept = ledgers(event, ref, payload, default_branch, os.environ.get("CACHE") == "true")

@@ -48,32 +48,36 @@ class Scope(unittest.TestCase):
         self.assertIsNone(action.scope("pull_request_target", "refs/heads/main", PULL))
 
 
+QUEUE = "refs/heads/gh-readonly-queue/main/pr-12-" + "c" * 40
+
+
 class Mode(unittest.TestCase):
-    def test_auto_is_full_on_schedules_dispatches_releases_and_tags(self):
-        for event in ("schedule", "workflow_dispatch", "release"):
-            self.assertEqual(action.mode_arguments("auto", "", event, "refs/heads/main", "main"), ["--full"])
-        self.assertEqual(action.mode_arguments("auto", "", "push", "refs/tags/v1.0.0", "main"), ["--full"])
+    def test_each_event_is_change_scoped_by_default_and_none_runs_in_full_unasked(self):
+        expected = {
+            ("pull_request", "refs/pull/12/merge"): "--changed-since=last-run",
+            ("push", "refs/heads/main"): "--changed-since=last-passed",
+            ("push", "refs/heads/feature"): "--changed-since=refs/remotes/origin/main",
+            ("push", "refs/tags/v1.0.0"): "--changed-since=last-passed",
+            ("schedule", "refs/heads/main"): "--changed-since=last-passed",
+            ("workflow_dispatch", "refs/heads/main"): "--changed-since=last-passed",
+            ("workflow_dispatch", "refs/heads/feature"): "--changed-since=refs/remotes/origin/main",
+            ("release", "refs/tags/v1.0.0"): "--changed-since=last-passed",
+            ("merge_group", QUEUE): "--changed-since=refs/remotes/origin/main",
+        }
+        for (event, ref), base in expected.items():
+            with self.subTest(event=event, ref=ref):
+                self.assertEqual(action.mode_arguments("changed", "", event, ref, "main"), [base])
 
-    def test_auto_on_a_pull_request_is_what_changed_since_its_last_run(self):
-        self.assertEqual(
-            action.mode_arguments("auto", "", "pull_request", "refs/pull/12/merge", "main"),
-            ["--changed-since=last-run"],
-        )
-
-    def test_auto_on_a_push_to_the_default_branch_is_what_changed_since_the_last_commit_that_passed(self):
-        self.assertEqual(
-            action.mode_arguments("auto", "", "push", "refs/heads/main", "main"), ["--changed-since=last-passed"]
-        )
-
-    def test_a_branch_other_than_the_default_runs_from_the_default_branch(self):
-        self.assertEqual(
-            action.mode_arguments("auto", "", "push", "refs/heads/feature", "main"),
-            ["--changed-since=refs/remotes/origin/main"],
-        )
-        self.assertEqual(
-            action.mode_arguments("changed", "", "workflow_dispatch", "refs/heads/feature", "main"),
-            ["--changed-since=refs/remotes/origin/main"],
-        )
+    def test_full_is_full_on_every_event(self):
+        for event, ref in (
+            ("pull_request", "refs/pull/12/merge"),
+            ("push", "refs/heads/main"),
+            ("schedule", "refs/heads/main"),
+            ("workflow_dispatch", "refs/heads/feature"),
+            ("release", "refs/tags/v1.0.0"),
+        ):
+            with self.subTest(event=event):
+                self.assertEqual(action.mode_arguments("full", "", event, ref, "main"), ["--full"])
 
     def test_changed_since_given_wins_over_the_event(self):
         self.assertEqual(
@@ -86,9 +90,10 @@ class Mode(unittest.TestCase):
             action.mode_arguments("full", "main", "pull_request", "refs/pull/12/merge", "main"), ["--full"]
         )
 
-    def test_refuses_a_mode_it_does_not_know(self):
-        with self.assertRaises(action.Refused):
-            action.mode_arguments("fast", "", "push", "refs/heads/main", "main")
+    def test_refuses_a_mode_it_does_not_know_auto_among_them(self):
+        for mode in ("fast", "auto"):
+            with self.subTest(mode=mode), self.assertRaises(action.Refused):
+                action.mode_arguments(mode, "", "schedule", "refs/heads/main", "main")
 
 
 
@@ -111,7 +116,7 @@ class RefShapes(unittest.TestCase):
         ref = "refs/pull/14/merge"
         kept = action.ledgers("pull_request", ref, FORK_NAMED_MAIN, "main", cache=True)
         self.assertEqual(
-            action.mode_arguments("auto", "", "pull_request", ref, "main"), ["--changed-since=last-run"]
+            action.mode_arguments("changed", "", "pull_request", ref, "main"), ["--changed-since=last-run"]
         )
         self.assertEqual(action.scope("pull_request", ref, FORK_NAMED_MAIN), "refs/pull/14")
         self.assertEqual((kept["own_dir"], kept["save"]), ("", "false"))
@@ -119,25 +124,42 @@ class RefShapes(unittest.TestCase):
 
     def test_a_push_to_the_default_branch_runs_from_the_last_commit_that_passed_under_its_own_scope(self):
         self.assertEqual(
-            action.mode_arguments("auto", "", "push", "refs/heads/main", "main"), ["--changed-since=last-passed"]
+            action.mode_arguments("changed", "", "push", "refs/heads/main", "main"), ["--changed-since=last-passed"]
         )
         self.assertEqual(action.scope("push", "refs/heads/main", {}), "refs/heads/main")
 
     def test_a_push_to_another_branch_runs_from_the_fetched_default_branch_by_its_full_name(self):
         self.assertEqual(
-            action.mode_arguments("auto", "", "push", "refs/heads/origin/main", "main"),
+            action.mode_arguments("changed", "", "push", "refs/heads/origin/main", "main"),
             ["--changed-since=refs/remotes/origin/main"],
         )
 
-    def test_a_tag_named_like_a_branch_runs_in_full_and_is_no_branch_s_scope(self):
-        self.assertEqual(action.mode_arguments("auto", "", "push", "refs/tags/main", "main"), ["--full"])
+    def test_a_tag_named_like_a_branch_is_no_branch_s_scope_and_runs_from_the_last_commit_that_passed(self):
+        self.assertEqual(
+            action.mode_arguments("changed", "", "push", "refs/tags/main", "main"), ["--changed-since=last-passed"]
+        )
         self.assertIsNone(action.scope("push", "refs/tags/main", {}))
         self.assertEqual(action.ledgers("push", "refs/tags/main", {}, "main", cache=True)["save"], "false")
 
-    def test_a_merge_group_runs_from_the_fetched_default_branch_by_its_full_name_and_keeps_no_ledger(self):
+    def test_a_merge_group_runs_from_its_queue_s_base_and_keeps_no_ledger(self):
         ref = "refs/heads/gh-readonly-queue/main/pr-12-" + SHA
+        base = action.queue_base({"merge_group": {"base_sha": "f" * 40, "head_ref": "refs/heads/main"}})
         self.assertEqual(
-            action.mode_arguments("auto", "", "merge_group", ref, "main"),
+            action.mode_arguments("changed", "", "merge_group", ref, "main", base), [f"--changed-since={'f' * 40}"]
+        )
+        self.assertEqual(action.queue_base({}), "")
+        self.assertEqual(action.queue_base({"merge_group": {"base_sha": 7}}), "")
+
+    def test_a_merge_group_whose_base_is_no_full_sha_runs_from_the_fetched_default_branch_by_its_full_name(self):
+        ref = "refs/heads/gh-readonly-queue/main/pr-12-" + SHA
+        for base in ("", "main", "origin/main", "-f", "f" * 39):
+            with self.subTest(base=base):
+                self.assertEqual(
+                    action.mode_arguments("changed", "", "merge_group", ref, "main", base),
+                    ["--changed-since=refs/remotes/origin/main"],
+                )
+        self.assertEqual(
+            action.mode_arguments("changed", "", "push", "refs/heads/feature", "main", "f" * 40),
             ["--changed-since=refs/remotes/origin/main"],
         )
         self.assertIsNone(action.scope("merge_group", ref, {}))
@@ -146,7 +168,7 @@ class RefShapes(unittest.TestCase):
     def test_a_branch_named_like_a_sha_is_a_branch_and_runs_from_the_fetched_default_branch(self):
         ref = "refs/heads/" + SHA
         self.assertEqual(
-            action.mode_arguments("auto", "", "push", ref, "main"), ["--changed-since=refs/remotes/origin/main"]
+            action.mode_arguments("changed", "", "push", ref, "main"), ["--changed-since=refs/remotes/origin/main"]
         )
         self.assertEqual(action.scope("push", ref, {}), ref)
 
@@ -162,15 +184,15 @@ class RefShapes(unittest.TestCase):
             "refs/heads/main.",
         ):
             with self.subTest(ref=ref), self.assertRaises(action.Refused):
-                action.mode_arguments("auto", "", "push", ref, "main")
+                action.mode_arguments("changed", "", "push", ref, "main")
 
     def test_a_default_branch_that_is_no_branch_name_is_refused(self):
         for name in ("-main", "a..b", "main^", "main~1", "a:b", "@", "main.lock", "a b"):
             with self.subTest(name=name), self.assertRaises(action.Refused):
-                action.mode_arguments("auto", "", "push", "refs/heads/feature", name)
+                action.mode_arguments("changed", "", "push", "refs/heads/feature", name)
 
     def test_an_unknown_default_branch_makes_a_branch_run_full(self):
-        self.assertEqual(action.mode_arguments("auto", "", "push", "refs/heads/feature", ""), ["--full"])
+        self.assertEqual(action.mode_arguments("changed", "", "push", "refs/heads/feature", ""), ["--full"])
 
     def test_a_given_base_is_a_full_sha_a_fully_qualified_ref_or_a_keyword(self):
         for given in (SHA, "e" * 64, "refs/tags/v1.2.0", "refs/heads/release/1.x", "last-passed", "last-run"):

@@ -172,8 +172,10 @@ verdict reaches and how.
      exact commit or another commit with the same tree.
 
 9. **The action, the reusable workflow and `init --ci` handle `merge_group`.**
-   - `mode: auto` is change-scoped on `merge_group`, from
-     `merge_group.base_sha` (ADR-0005 decision 2).
+   - `mode: changed`, the default, is change-scoped on `merge_group`, from
+     `merge_group.base_sha` where it is a full commit SHA, and from
+     `refs/remotes/origin/<default branch>` where it is not (ADR-0005
+     decision 2).
    - `init --ci=github` always writes the `merge_group:` trigger, which
      fires only where a queue is on (ADR-0015 decision 16).
    - The required check stays the one `ci.check` names.
@@ -394,7 +396,7 @@ score and code scanning see every mutant as before.
 - [ADR-0001](0001-a-framework-free-core-behind-nine-ports.md): extension discovery, which the PHAR keeps
 - [ADR-0003](0003-a-floor-only-rises.md): carried results, which complete an owner's score
 - [ADR-0004](0004-pest-and-infection-behind-one-runner-port.md): Pest's plugin, which only the Composer package installs
-- [ADR-0005](0005-what-a-change-reaches-is-what-is-mutated.md): `mode: auto`, and the pushed commit a merged pull request proved
+- [ADR-0005](0005-what-a-change-reaches-is-what-is-mutated.md): `mode: changed`, and the pushed commit a merged pull request proved
 - [ADR-0006](0006-shards-are-cut-by-learned-cost-and-planned-once.md): the ref table and runs with no scope
 - [ADR-0007](0007-a-proof-is-keyed-by-everything-its-verdict-reads.md): `passed`, own-scope proofs and the key's gate version
 - [ADR-0009](0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md): the comment, the JSON report, SARIF and annotations

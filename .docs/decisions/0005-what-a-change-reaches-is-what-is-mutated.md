@@ -58,13 +58,13 @@ The same repository has two more needs.
      `--changed-since` is, and the two together are an error (exit code 2).
 
    **The run mode in CI.** The action and the reusable workflow take a `mode`
-   input: `auto`, `full` or `changed`, `auto` by default.
-   - `auto` is change-scoped on `pull_request` and on a push, from the base
-     the bullet above names, and full on `schedule`, `workflow_dispatch`,
-     `release` and a pushed tag.
-   - `full` passes `--full` whatever the event.
-   - `changed` is change-scoped whatever the event. On an event with no base it
-     runs from the base the bullet above names for its branch.
+   input: `changed` or `full`, `changed` by default.
+   - `changed` is change-scoped whatever the event, from the base the bullet
+     above names for its event and branch. No event runs in full unasked.
+   - `full` passes `--full` whatever the event. A nightly full run is a
+     `schedule` with `mode: full`, and a manual one a `workflow_dispatch` with
+     `mode: full`; the workflow `mutation-gate init --ci=github` writes asks
+     for both.
    - The release workflow (ADR-0011) runs the gate with `mode: full` before it
      moves the major tag, so a release is judged over all its code.
 

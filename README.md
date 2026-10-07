@@ -870,6 +870,7 @@ on:
     branches: [main] # your default branch
   schedule:
     - cron: '0 3 * * 1,4'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -889,6 +890,8 @@ jobs:
       - uses: nightworksio/php-mutation-gate@<sha> # v0.1.0
         with:
           php-version: '8.5'
+          # Every unit on a schedule or a manual run, what changed otherwise.
+          mode: ${{ contains(fromJSON('["schedule","workflow_dispatch"]'), github.event_name) && 'full' || 'changed' }}
 
   # Sends what the run left: the pull request comment, and on a trusted run
   # the ledger a store keeps. It checks nothing out and runs none of the
@@ -914,7 +917,7 @@ jobs:
 | `php-version` | `8.5` |
 | `runner` | the config's, or the one installed |
 | `shard` | none: the whole gate runs |
-| `mode` | `auto`: change-scoped on pull requests and pushes, full on schedules, manual runs, releases and tags; or `full`, or `changed` |
+| `mode` | `changed`: change-scoped whatever the event; or `full`, every unit. No event runs in full unless the mode is `full`: a nightly full run is a `schedule` with `mode: full`, a manual one a `workflow_dispatch` with `mode: full`, and the release workflow runs one before it tags |
 | `changed-since` | `last-run` on `pull_request` (the commit the pull request's last run judged, falling back to the default branch), the default branch on any other branch, `last-passed` on a push to the default branch; used when the mode is change-scoped. A value given is a full commit SHA, a fully qualified ref such as `refs/tags/v1.2.0`, `last-passed` or `last-run` |
 | `budget` | none |
 | `reports` | none; `<name>:<path>` lines, such as `sarif:build/mutation.sarif` |
@@ -963,6 +966,7 @@ on:
     branches: [main] # your default branch
   schedule:
     - cron: '0 3 * * 1,4'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -977,6 +981,8 @@ jobs:
       id-token: write        # used only by fetch and deliver, for a store that signs in through OIDC
     with:
       php-version: '8.5'
+      # Every unit on a schedule or a manual run, what changed otherwise.
+      mode: ${{ contains(fromJSON('["schedule","workflow_dispatch"]'), github.event_name) && 'full' || 'changed' }}
 ```
 
 It takes the action's inputs less `shard`. Its outputs are `verdict`, `scores`
