@@ -118,3 +118,57 @@ it('takes as secrets the values of the variables the gate withholds, each long e
         ->and($secrets->screened('true /home/runner/longer-than-eight sevench', cut: false))
         ->toBe('true /home/runner/longer-than-eight sevench');
 });
+
+it('keeps nothing where one value of a withheld value that holds several appears alone', function (string $withheld, string $printed): void {
+    expect(Secrets::of($withheld)->screened(sprintf('printed %s here', $printed), cut: false))->toBeInstanceOf(NotGiven::class);
+})->with([
+    'a string in JSON, as COMPOSER_AUTH holds a token' => ['{"gitlab-token": {"gitlab.example.com": "withheld-json-leaf"}}', 'withheld-json-leaf'],
+    'a string in a list in JSON' => ['{"tokens": ["withheld-list-leaf"]}', 'withheld-list-leaf'],
+    'a value in a list of pairs, as an OpenTelemetry header holds a key' => ['x-honeycomb-team=withheld-pair-value,x-other=short', 'withheld-pair-value'],
+    'a word after a scheme, as an authorization value holds a token' => ['Bearer withheld-bearer-word', 'withheld-bearer-word'],
+    'the password in a URL' => ['https://deploy:withheld-url-password@registry.example.com/simple', 'withheld-url-password'],
+]);
+
+it('keeps nothing where a withheld value appears broken by an escape sequence or by whitespace', function (string $printed): void {
+    expect(Secrets::of('withheld-broken-value')->screened($printed, cut: false))->toBeInstanceOf(NotGiven::class);
+})->with([
+    'coloured in its middle' => ["withheld-\x1b[1;31mbroken\x1b[0m-value"],
+    'linked by a terminal hyperlink' => ["withheld-\x1b]8;;https://example.com\x07broken-value"],
+    'wrapped across lines' => ["withheld-bro\n  ken-value"],
+    'base64 wrapped as MIME wraps it' => [chunk_split(sodium_bin2base64(str_repeat('withheld-broken-value', 4), SODIUM_BASE64_VARIANT_ORIGINAL), 16, "\r\n")],
+]);
+
+it('keeps nothing where a withheld value appears as HTML, SQL or var_export escape it', function (string $printed): void {
+    // No word of it is long enough to be screened for alone.
+    expect(Secrets::of('it\'s <a> "with" & more!')->screened($printed, cut: false))->toBeInstanceOf(NotGiven::class);
+})->with([
+    'HTML 4, its quote a number' => [htmlspecialchars('it\'s <a> "with" & more!', ENT_QUOTES | ENT_HTML401)],
+    'HTML 5, its quote named' => [htmlspecialchars('it\'s <a> "with" & more!', ENT_QUOTES | ENT_HTML5)],
+    'SQL, its quote doubled' => ['\'it\'\'s <a> "with" & more!\''],
+    'var_export' => [var_export('it\'s <a> "with" & more!', return: true)],
+]);
+
+it('compares without whitespace a form that keeps the fewest characters without it', function (): void {
+    expect(Secrets::of('abcd efgh')->screened("wrapped abcd\nefgh here", cut: false))->toBeInstanceOf(NotGiven::class)
+        ->and(Secrets::of('abc def g')->screened("abc\ndef g", cut: false))->toBe("abc\ndef g");
+});
+
+it('screens for no piece of a withheld value too short to be a secret, however long its encoding', function (): void {
+    $secrets = Secrets::of("abcd\nlong-enough-line <a>");
+
+    expect($secrets->screened('hex 61626364 and &lt;a&gt; are fine', cut: false))->toBe('hex 61626364 and &lt;a&gt; are fine');
+});
+
+it('keeps nothing where a withheld value of short words appears in a form only one encoding gives it', function (string $printed): void {
+    // No word of it is long enough to be screened for alone, so only the whole value's forms find it.
+    expect(Secrets::of('ab/c "d" e\'f g+h')->screened(sprintf('printed %s here', $printed), cut: false))->toBeInstanceOf(NotGiven::class);
+})->with([
+    'url-encoded, its spaces %20' => [rawurlencode('ab/c "d" e\'f g+h')],
+    'form-encoded, its spaces +' => [urlencode('ab/c "d" e\'f g+h')],
+    'backslash-escaped' => [addslashes('ab/c "d" e\'f g+h')],
+    'shell-escaped' => [escapeshellarg('ab/c "d" e\'f g+h')],
+]);
+
+it('keeps nothing where one line of a withheld value of many appears alone, though no word of it is long enough', function (): void {
+    expect(Secrets::of("first line\nsecond line here")->screened('printed second line here', cut: false))->toBeInstanceOf(NotGiven::class);
+});

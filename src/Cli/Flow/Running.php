@@ -64,8 +64,9 @@ use function sprintf;
  * history cannot be read does too, and warns of it. A pull request's shard
  * runs in chunks, and stops once a survivor makes its run certain to fail,
  * naming that survivor in its result (ADR-0008, decision 6). Each kill's
- * evidence the runner gave is left beside its mutant, every secret the gate
- * withholds hidden in what a process printed (ADR-0014, decision 16).
+ * evidence the runner gave is left beside its mutant, what a process printed
+ * kept only where it holds no secret the gate withholds (ADR-0014,
+ * decision 16).
  */
 final readonly class Running
 {

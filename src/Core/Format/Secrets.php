@@ -5,17 +5,20 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Format;
 
 use function addslashes;
+use function array_any;
 use function array_filter;
 use function array_map;
 use function array_unique;
 use function array_values;
 use function explode;
+use function htmlspecialchars;
 use function intdiv;
 use function json_encode;
 use function max;
 use function mb_strcut;
 use function mb_stripos;
 use function mb_strlen;
+use function mb_strstr;
 use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\Ci\Variables;
@@ -23,6 +26,9 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 
 use function preg_match;
+use function preg_match_all;
+use function preg_replace;
+use function preg_split;
 use function rawurlencode;
 use function sodium_bin2base64;
 use function sodium_bin2hex;
@@ -32,6 +38,7 @@ use function str_replace;
 use function strtr;
 use function trim;
 use function urlencode;
+use function var_export;
 
 /**
  * Values that must never reach a file or a log, such as the CI's tokens: the
@@ -39,12 +46,18 @@ use function urlencode;
  * enough not to be a word the text holds anyway. Text from a process is
  * screened for them whole, never redacted in part: where any of them, in any
  * form a test prints a value in, or anything shaped like a credential,
- * appears in it, none of it is kept (ADR-0014, decision 16). The forms are
- * the value trimmed, and each of its lines; and each of those
- * URL-encoded, form-encoded, hex-encoded, JSON-escaped, backslash-escaped,
- * shell-escaped, and base64-encoded in the standard and the URL alphabet at
- * each of the three alignments a value takes inside a longer string. They are
- * found whatever their case.
+ * appears in it, none of it is kept (ADR-0014, decision 16).
+ *
+ * A value's pieces are the value trimmed, each of its lines, each string in
+ * it where it is JSON, each of its words and each word's part after an `=`,
+ * and each part of a URL's credentials in it. The forms are each piece as it
+ * is, URL-encoded, form-encoded, hex-encoded, JSON-escaped,
+ * backslash-escaped, shell-escaped, HTML-escaped, SQL-quoted and as
+ * `var_export` writes it, and base64-encoded in the standard and the URL
+ * alphabet at each of the three alignments a value takes inside a longer
+ * string. They are found whatever their case, in the text as it is and with
+ * each terminal escape sequence taken out, and, where a form keeps the
+ * fewest characters without its whitespace, with no whitespace in either.
  */
 final readonly class Secrets
 {
@@ -56,6 +69,28 @@ final readonly class Secrets
 
     /** How many characters base64 writes one group of bytes as. */
     private const int GROUP_CHARACTERS = 4;
+
+    /**
+     * What separates the words of a value, and the pairs of a list of them:
+     * whitespace, commas, semicolons and ampersands.
+     */
+    private const string SEPARATORS = '/[\s,;&]+/';
+
+    /** What separates a pair's name from its value. */
+    private const string PAIR = '=';
+
+    /** What separates a URL's user from its password. */
+    private const string CREDENTIALS = ':';
+
+    /** The credentials a URL carries before its host. */
+    private const string URL_CREDENTIALS = '~://([^/@\s]+)@~';
+
+    /**
+     * A terminal's escape sequence whole: a control sequence, such as a
+     * colour, and an operating system command, such as a hyperlink.
+     */
+    private const string ESCAPES = '/\e\[[0-?]*[ -\/]*[@-~]|\e\][^\a\e]*(?:\a|\e\\\\)/';
+
 
     /**
      * What a credential looks like whoever issued it, withheld or not, such as
@@ -120,31 +155,44 @@ final readonly class Secrets
      */
     public function screened(string $printed, bool $cut): string|NotGiven
     {
-        $text = Printable::text($cut ? $this->afterTheLongest($printed) : $printed);
+        $kept = $cut ? $this->afterTheLongest($printed) : $printed;
+        $text = Printable::text($kept);
+        $unescaped = Printable::text(preg_replace(self::ESCAPES, '', $kept) ?? $kept);
+
+        return $this->holdsOne($text) || $this->holdsOne($unescaped) ? NotGiven::value() : $text;
+    }
+
+    /**
+     * Whether text holds a form of a secret, whatever its case, with no
+     * whitespace in either where the form keeps the fewest characters
+     * without its own, or something shaped like a credential.
+     */
+    private function holdsOne(string $text): bool
+    {
+        $squeezed = $this->squeezed($text);
 
         foreach ($this->forms as $form) {
-            if (mb_stripos($text, $form, 0, 'UTF-8') !== false) {
-                return NotGiven::value();
+            $bare = $this->squeezed($form);
+            [$needle, $haystack] = mb_strlen($bare) >= self::SHORTEST ? [$bare, $squeezed] : [$form, $text];
+
+            if (mb_stripos($haystack, $needle, 0, Printable::UTF8) !== false) {
+                return true;
             }
         }
+        return array_any(self::SHAPES, fn(string $shape): bool => preg_match($shape, $text) === 1);
+    }
 
-        foreach (self::SHAPES as $shape) {
-            if (preg_match($shape, $text) === 1) {
-                return NotGiven::value();
-            }
-        }
-
-        return $text;
+    private function squeezed(string $text): string
+    {
+        return preg_replace(Fit::SPACE, '', $text) ?? $text;
     }
 
     /** @return list<string> */
     private static function formsOf(string $value): array
     {
-        $trimmed = trim($value);
-        $plain = [$trimmed, ...array_map(trim(...), explode("\n", $trimmed))];
         $forms = [];
 
-        foreach (array_unique($plain) as $one) {
+        foreach (self::piecesOf($value) as $one) {
             $forms = [
                 ...$forms,
                 $one,
@@ -153,12 +201,73 @@ final readonly class Secrets
                 sodium_bin2hex($one),
                 addslashes($one),
                 str_replace("'", "'\\''", $one),
+                str_replace("'", "''", $one),
+                htmlspecialchars($one, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML401),
+                htmlspecialchars($one, ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5),
+                mb_substr(var_export($one, return: true), 1, -1),
                 ...self::jsonOf($one),
                 ...self::base64Of($one),
             ];
         }
 
         return $forms;
+    }
+
+    /**
+     * What of a value a test can print alone, each long enough not to be a
+     * word the text holds anyway: the value trimmed, each of its lines, each
+     * string in it where it is JSON, each of its words and each word's part
+     * after an `=`, and the user and the password of each URL in it.
+     *
+     * @return list<string>
+     */
+    private static function piecesOf(string $value): array
+    {
+        $trimmed = trim($value);
+        $pieces = [$trimmed, ...array_map(trim(...), explode("\n", $trimmed))];
+
+        $words = preg_split(self::SEPARATORS, $trimmed);
+
+        foreach ($words === false ? [] : $words as $word) {
+            $paired = mb_strstr($word, self::PAIR, encoding: Printable::UTF8);
+            $pieces = [...$pieces, $word, $paired === false ? '' : mb_substr($paired, 1)];
+        }
+
+        preg_match_all(self::URL_CREDENTIALS, $trimmed, $credentials);
+
+        foreach ($credentials[1] as $both) {
+            $pieces = [...$pieces, ...explode(self::CREDENTIALS, $both, 2)];
+        }
+
+        return array_values(array_unique(array_filter(
+            [...$pieces, ...self::stringsIn(Node::decode($trimmed))],
+            static fn(string $piece): bool => mb_strlen($piece) >= self::SHORTEST,
+        )));
+    }
+
+    /**
+     * Each string a JSON value holds, however deep; none where the value is
+     * not JSON.
+     *
+     * @return list<string>
+     *
+     * @throws NotInShape
+     */
+    private static function stringsIn(Node $node): array
+    {
+        $kind = $node->kind();
+
+        if ($kind === Kind::Text) {
+            return [$node->text()];
+        }
+
+        $strings = [];
+
+        foreach ($kind === Kind::Map || $kind === Kind::List ? $node->entries() : [] as $inner) {
+            $strings = [...$strings, ...self::stringsIn($inner)];
+        }
+
+        return $strings;
     }
 
     /**
@@ -217,10 +326,10 @@ final readonly class Secrets
     {
         $start = $this->longest();
         $most = max(0, Bytes::length($text) - $start);
-        $rest = mb_strcut($text, $start, null, 'UTF-8');
+        $rest = mb_strcut($text, $start, null, Printable::UTF8);
 
         while (Bytes::length($rest) > $most) {
-            $rest = mb_strcut($text, ++$start, null, 'UTF-8');
+            $rest = mb_strcut($text, ++$start, null, Printable::UTF8);
         }
 
         return $rest;

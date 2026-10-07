@@ -321,11 +321,18 @@ running it: why is this mutant here, and has it always been?
         end of a secret the cut split is left. This happens before control
         characters go, which would otherwise draw that end into the tail.
       - A secret is the value of a variable the gate withholds, of eight
-        characters or more. Its forms are the value trimmed, and each of its
-        lines; and each of those URL-encoded, form-encoded, hex-encoded,
-        JSON-escaped four ways, backslash-escaped and shell-escaped, and
-        base64-encoded in both alphabets at each of three alignments. They are
-        found in any case.
+        characters or more. Its pieces are the value trimmed, each of its
+        lines, each string in it where it is JSON, each of its words and each
+        word's part after an `=`, and the user and password of a URL in it.
+        Its forms are each piece as it is, URL-encoded, form-encoded,
+        hex-encoded, JSON-escaped four ways, backslash-escaped,
+        shell-escaped, HTML-escaped two ways, SQL-quoted and as `var_export`
+        writes it, and base64-encoded in both alphabets at each of three
+        alignments. A form of eight characters or more counts.
+      - They are found in any case, in the text as it is and with each
+        terminal escape sequence taken out, and with no whitespace in either
+        where a form keeps eight characters without its own, so a value
+        coloured or wrapped across lines is found too.
       - Anything shaped like a credential, withheld or not, counts too: a
         private key, a GitHub, AWS, Slack or GitLab token, the token
         actions/checkout keeps, an authorization header, and a service

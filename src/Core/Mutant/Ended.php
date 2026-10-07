@@ -28,8 +28,6 @@ final readonly class Ended
     /** How many bytes of what it printed it keeps until it is screened for secrets. */
     private const int KEPT = self::TAIL * 4;
 
-    private const string UTF8 = 'UTF-8';
-
     private function __construct(
         private int|NotGiven $code,
         private bool|NotGiven $signalled,
@@ -93,11 +91,11 @@ final readonly class Ended
     {
         $length = Bytes::length($text);
         $start = max(0, $length - $bytes);
-        $tail = mb_strcut($text, $start, null, self::UTF8);
+        $tail = mb_strcut($text, $start, null, Printable::UTF8);
 
         while (Bytes::length($tail) > $bytes) {
             ++$start;
-            $tail = mb_strcut($text, $start, null, self::UTF8);
+            $tail = mb_strcut($text, $start, null, Printable::UTF8);
         }
 
         return $tail;
