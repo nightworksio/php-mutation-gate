@@ -14,6 +14,8 @@ use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Control\ControlRuns;
+use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Cost\StepTimes;
@@ -75,6 +77,9 @@ final readonly class RunnerFake implements Runner
 {
     private RunnerBehaviour $behaviour;
 
+    /** What its unmutated controls find, where they are told. */
+    private ControlRuns $controlled;
+
     public function __construct(
         private Identity|CannotJudge $identity,
         private Groups|CannotJudge $groups,
@@ -86,6 +91,13 @@ final readonly class RunnerFake implements Runner
         private Paths $packages,
     ) {
         $this->behaviour = RunnerBehaviour::standard();
+        $this->controlled = ControlRuns::none();
+    }
+
+    /** This runner, its unmutated controls finding these, each other one passing. */
+    public function controlling(ControlRuns $runs): self
+    {
+        return clone($this, ['controlled' => $runs]);
     }
 
     /** This runner, behaving so. */
@@ -195,6 +207,12 @@ final readonly class RunnerFake implements Runner
         return MutationResult::of($found, 0)
             ->withSteps(StepTimes::of(StepTime::of(Step::Mutation, Seconds::of(0.0), Seconds::of(0.0), count($found))))
             ->withEvidence($evidence);
+    }
+
+    /** Each control passing, in the time its map gives its tests, but where it is told what a control finds. */
+    public function controls(MutationRequest $request, Controls $controls): ControlRuns
+    {
+        return ControlsFake::passing($controls, $this->map)->and($this->controlled);
     }
 
     public function retry(MutationRequest $request, Mutants $mutants, Seconds $limit): Mutants

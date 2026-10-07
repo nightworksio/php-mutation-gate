@@ -419,13 +419,14 @@ Operating the gate raises four needs its reports do not yet meet.
       steps are one closed set, whichever runner runs: `held coverage`,
       `coverage`, `preparing`, `mutation`, `reading`, `trial coverage`,
       `trials`, `baselines`, `confirmation`, `retry`, `equivalence`,
-      `survivors` and `static check`. A step with nothing to do is not
-      named.
+      `survivors`, `controls` and `static check`. A step with nothing to do
+      is not named.
     - Each runner names the steps of its own run on the `MutationResult` it
       returns, timed on its own clock from when the run began, and the
       runner contract checks that every runner names its `mutation` step
       with every mutant it judged. The flows time the steps around the
-      runner: held coverage, retry, equivalence, survivors and static check.
+      runner: held coverage, retry, equivalence, survivors, controls and
+      static check.
       A runner that names no step has its whole run named `mutation`.
     - The console, JSON, cost and OTLP output all read these same numbers.
 

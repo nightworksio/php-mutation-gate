@@ -51,6 +51,9 @@ enum Step: string
     /** The run again of each survivor, alone, in a fresh process (ADR-0008). */
     case Survivors = 'survivors';
 
+    /** The unmutated control of each timed-out mutant's tests, under its limit (ADR-0008, decision 2). */
+    case Controls = 'controls';
+
     /** Static analysis's checks of the shard's survivors. */
     case StaticCheck = 'static check';
 }

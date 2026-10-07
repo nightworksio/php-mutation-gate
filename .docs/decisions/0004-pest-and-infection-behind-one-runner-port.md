@@ -484,9 +484,9 @@ its parser attributes. Both change when the checkout moves.
      line past the filter limit is *cannot judge* with a message pointing at
      the patch.
    - **Timeouts**, unpatched, are Pest's own and cannot be changed, so timeout
-     triage reruns nothing. Patched, each mutant's limit is the standard one,
-     and a timeout at the cap runs again with the cap raised. Either way,
-     triage compares the judging tests' own time with the limit (ADR-0008).
+     triage reruns nothing. Patched, each mutant's limit is the standard one.
+     Either way, triage weighs each timeout against its unmutated control,
+     the judging tests run on the original under the same limit (ADR-0008).
 
 4. **The Infection adapter** (`infection/infection` ~0.35.0, with PHPUnit 12
    or 13), as [the Infection adapter](0004-pest-and-infection-behind-one-runner-port/infection-adapter.md)

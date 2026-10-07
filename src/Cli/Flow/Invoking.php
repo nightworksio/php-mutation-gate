@@ -12,10 +12,18 @@ use function array_values;
 use Closure;
 
 use function count;
+use function max;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Settings;
+use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
+use NightWorksIO\MutationGate\Core\Control\Control;
+use NightWorksIO\MutationGate\Core\Control\ControlRuns;
+use NightWorksIO\MutationGate\Core\Control\Controls;
+use NightWorksIO\MutationGate\Core\Control\TimeoutControls;
 use NightWorksIO\MutationGate\Core\Cost\Step;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
@@ -34,10 +42,13 @@ use Psr\Clock\ClockInterface;
 /**
  * One runner invocation of a shard, as the shard makes it: each survivor
  * run once more, where `flaky.confirmSurvivors` asks for it (ADR-0008). A
- * mutant whose time ran out is never run again. Under a budget, a survivor
- * whose second run would not fit in the time left, at `timeouts.seconds`,
- * is not run again, and is unjudged. Each step is timed on the shard's
- * stopwatch.
+ * mutant whose time ran out is never run again; its tests run unmutated, as
+ * its control, under the same limit (see TimeoutControls), unless
+ * `timeouts.mode: unjudged` makes every timeout too slow to judge. Under a
+ * budget, a survivor whose second run would not fit in the time left, at
+ * `timeouts.seconds`, is not run again, and a timeout whose control would
+ * not fit, at the longest limit of those controls, has none; each is
+ * unjudged. Each step is timed on the shard's stopwatch.
  */
 final readonly class Invoking
 {
@@ -47,6 +58,8 @@ final readonly class Invoking
         private ClockInterface $clock,
         private Deadline|Unlimited $deadline,
         private Stopwatch $stopwatch,
+        private CoverageMap $map,
+        private HeldCovered $held,
     ) {
     }
 
@@ -55,12 +68,14 @@ final readonly class Invoking
     {
         $result = $this->mutated($request);
         $again = $result instanceof CannotJudge ? $result : $this->confirmed($result->mutants(), $request);
+        $controlled = $again instanceof CannotJudge ? $again : $this->controlled($again->mutants, $request);
 
         return match (true) {
             $result instanceof CannotJudge => $result,
             $again instanceof CannotJudge => $again,
+            $controlled instanceof CannotJudge => $controlled,
             default => new Invoked(
-                MutationResult::of($again->mutants, $result->skipped())
+                MutationResult::of($controlled, $result->skipped())
                     ->withWarnings($result->warnings())
                     ->withEvidence($result->evidence()),
                 $again->flaky,
@@ -158,6 +173,43 @@ final readonly class Invoking
         return $again instanceof CannotJudge
             ? $again
             : new Confirmed($mutants->replacing($left), $this->killed($again));
+    }
+
+    /**
+     * The mutants, each timeout judged by its unmutated control (see
+     * TimeoutControls): those that fit in the time left run side by side, in
+     * the request's pool, and the rest are unjudged.
+     */
+    private function controlled(Mutants $mutants, MutationRequest $request): Mutants|CannotJudge
+    {
+        if ($this->settings->triage()->timeouts() === TimeoutMode::Unjudged) {
+            return $mutants;
+        }
+
+        $controls = TimeoutControls::of($mutants, $this->map, $this->held);
+        $asked = [...$controls->asked()];
+
+        if ($asked === []) {
+            return $mutants;
+        }
+
+        $longest = max(array_map(static fn(Control $control): float => $control->limit()->seconds(), $asked));
+        $fitting = $this->fitting(count($asked), Seconds::of($longest));
+        $from = $this->stopwatch->now();
+        $runs = $fitting === 0
+            ? ControlRuns::none()
+            : $this->adapters->runner->controls(
+                $this->retimed($request),
+                Controls::of(...array_slice($asked, 0, $fitting)),
+            );
+
+        if ($fitting > 0) {
+            $this->stopwatch->stop(Step::Controls, $from, $fitting);
+        }
+
+        return $runs instanceof CannotJudge
+            ? $runs
+            : $controls->applied($mutants, $runs, Controls::of(...array_slice($asked, $fitting)));
     }
 
     /**

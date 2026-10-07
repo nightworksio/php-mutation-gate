@@ -103,7 +103,7 @@ it('explains a mutant of the last run as its verdict judged it: its covering tes
                 Its tests ran far past their usual time with it in place, so the timeout counts as a kill.
                 Covered by:
                     tests/MoneyTest.php::it adds  unknown  0.20s
-                Limit: 5.00s; its judging tests take 0.20s on their own
+                Limit: 5.00s; its judging tests took 0.20s unmutated under it
                 Unit: src/Money.php, run by the last run. Reach:
                     A full run considers every unit.
                 History:

@@ -40,6 +40,10 @@ final readonly class ExplanationText
 
     private const string LIMIT = 'Limit: %s';
 
+    /** A limit of time, with how long its judging tests took unmutated under it. */
+    private const string UNMUTATED = '%s; its judging tests took %s unmutated under it';
+
+    /** A memory cap, with how much its judging tests take on their own. */
     private const string ALONE = '%s; its judging tests take %s on their own';
 
     private const string RUN = 'Unit: %s, run by the last run.';
@@ -162,10 +166,12 @@ final readonly class ExplanationText
         $need = $judged instanceof JudgedMutant ? $judged->mutant()->unmutatedNeed() : Unmeasured::duration();
         $ranOut = $mutant->status()->ranOutOfTime() || $mutant->status() === MutantStatus::OutOfMemory;
 
+        $said = $need instanceof Seconds ? self::UNMUTATED : self::ALONE;
+
         return match (true) {
             ! $ranOut, $limit instanceof Unmeasured => [],
             $need instanceof Unmeasured => [sprintf(self::LIMIT, self::amount($limit))],
-            default => [sprintf(self::LIMIT, sprintf(self::ALONE, self::amount($limit), self::amount($need)))],
+            default => [sprintf(self::LIMIT, sprintf($said, self::amount($limit), self::amount($need)))],
         };
     }
 

@@ -102,8 +102,9 @@ The runner is Infection, and the installed Infection does not carry
 `infection:patch`. Infection then gives each mutant its own limit, 5 s plus
 five times its covering tests' time under `timeouts.most`, with no
 `timeouts.seconds` floor, so a mutant whose tests take a fraction of a second
-can run out of time on a busy runner and count as killed by timeout. Every
-run says so in its report (ADR-0008, decision 2).
+can run out of time on a busy runner, and its kill then rests on an
+unmutated control run under that same short limit. Every run says so in its
+report (ADR-0008, decision 2).
 
 Add `@php vendor/bin/mutation-gate infection:patch` to `post-install-cmd` and
 `post-update-cmd` in `composer.json`, and run `composer install`. The patch

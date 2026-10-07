@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Control\ControlRuns;
+use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -196,6 +198,15 @@ final readonly class PhpUnit implements Runner
         $this->held->forget();
 
         return $this->mutating($this->shell)->result($request, $this->bounds, NotGiven::value());
+    }
+
+    /**
+     * What each unmutated control finds, its file served through the
+     * override as a mutant's is (see Mutating).
+     */
+    public function controls(MutationRequest $request, Controls $controls): ControlRuns|CannotJudge
+    {
+        return $this->mutating($this->shell)->controls($request, $controls);
     }
 
     /**

@@ -37,14 +37,3 @@ it('allows a mutant Infection\'s own 5 s plus five times its tests\' time, up to
     'tests that take a second' => [1.0, 10.0],
     'tests whose limit would pass the cap' => [60.0, 300.0],
 ]);
-
-it('says a limit allowed covering tests their three times only where it is more than three times their time', function (float $tests, float $limit, bool $allowed): void {
-    expect(MutantLimit::standard()->allowed(Seconds::of($tests), Seconds::of($limit)))->toBe($allowed);
-})->with([
-    'a limit the formula decided' => [10.0, 35.0, true],
-    'a limit the floor decided' => [0.1, 10.0, true],
-    'a limit just over three times' => [3.0, 9.01, true],
-    'a limit of exactly three times' => [3.0, 9.0, false],
-    'a limit of twice' => [3.0, 6.0, false],
-    'a limit the most decided under three times' => [150.0, 300.0, false],
-]);

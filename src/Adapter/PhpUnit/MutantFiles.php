@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
+use NightWorksIO\MutationGate\Core\Runner\StartUp;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Mutator\Engine\MadeMutant;
@@ -36,9 +37,6 @@ final readonly class MutantFiles
     private const string GUARD = 'guard.txt';
 
     private const string MUTATED = 'mutant.php';
-
-    /** The directory of a run of no test, among the mutants' own, each named by its id in hex. */
-    private const string START_UP = 'start-up';
 
     private const string UNREAD = 'The gate cannot read %s, which a run of no test serves unchanged as its mutant.';
 
@@ -93,7 +91,7 @@ final readonly class MutantFiles
 
         return $contents === false
             ? CannotJudge::because(sprintf(self::UNREAD, $file->value()))
-            : self::written($project, self::START_UP, $file, Contents::of($contents), Selection::Ids, []);
+            : self::written($project, StartUp::DIRECTORY, $file, Contents::of($contents), Selection::Ids, []);
     }
 
     /** The option that has PHPUnit select the tests from their file. */

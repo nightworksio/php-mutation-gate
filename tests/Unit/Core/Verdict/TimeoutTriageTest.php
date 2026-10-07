@@ -3,27 +3,18 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
-use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Hold\Covered;
-use NightWorksIO\MutationGate\Core\Hold\HeldCovered;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
-use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
-use NightWorksIO\MutationGate\Core\Test\Group;
-use NightWorksIO\MutationGate\Core\Test\TestId;
-use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
-use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\TimeoutTriage;
-use NightWorksIO\MutationGate\Tests\Support\Growth;
 
 /** A mutant of `src/Loop.php` from line 3 to the last, with this status, allowed this limit, whose judging tests take this long. */
 function triagedMutant(MutantStatus $status, float $limit, float $tests, int $last = 3): Mutant
@@ -41,125 +32,26 @@ function triagedMutant(MutantStatus $status, float $limit, float $tests, int $la
     return $tests > 0 ? $limited->withUnmutatedNeed(Seconds::of($tests)) : $limited;
 }
 
-it('kills a timeout whose limit allowed its judging tests three times their own time, the limit\'s own multiple, and no other', function (
+it('kills a timeout whose tests, run unmutated under its limit, finished within it, and no other', function (
     Mutant $mutant,
     MutantJudgement $judged,
 ): void {
     expect(TimeoutTriage::under(TimeoutMode::Confirm)->judged($mutant))->toBe($judged);
 })->with([
-    'a limit the floor decided' => [triagedMutant(MutantStatus::TimedOut, 10.0, 1.0), MutantJudgement::KilledByTimeout],
-    'a limit the formula decided' => [triagedMutant(MutantStatus::TimedOut, 35.0, 10.0), MutantJudgement::KilledByTimeout],
-    'just under a third' => [triagedMutant(MutantStatus::TimedOut, 10.0, 3.33), MutantJudgement::KilledByTimeout],
-    'a third' => [triagedMutant(MutantStatus::TimedOut, 9.0, 3.0), MutantJudgement::TooSlowToJudge],
-    'under half, over a third' => [triagedMutant(MutantStatus::TimedOut, 10.0, 4.0), MutantJudgement::TooSlowToJudge],
-    'a limit the most decided' => [triagedMutant(MutantStatus::TimedOut, 300.0, 150.0), MutantJudgement::TooSlowToJudge],
+    'tests that took a tenth of the limit' => [triagedMutant(MutantStatus::TimedOut, 10.0, 1.0), MutantJudgement::KilledByTimeout],
+    'tests that took most of the limit' => [triagedMutant(MutantStatus::TimedOut, 10.0, 9.5), MutantJudgement::KilledByTimeout],
+    'tests that took the whole limit' => [triagedMutant(MutantStatus::TimedOut, 10.0, 10.0), MutantJudgement::KilledByTimeout],
+    'tests that took longer than the limit' => [triagedMutant(MutantStatus::TimedOut, 10.0, 10.5), MutantJudgement::TooSlowToJudge],
+    'a limit the most decided' => [triagedMutant(MutantStatus::TimedOut, 300.0, 150.0), MutantJudgement::KilledByTimeout],
     'no limit known' => [triagedMutant(MutantStatus::TimedOut, 0.0, 1.0), MutantJudgement::TooSlowToJudge],
-    'no test time known' => [triagedMutant(MutantStatus::TimedOut, 10.0, 0.0), MutantJudgement::TooSlowToJudge],
+    'tests that never finished unmutated' => [triagedMutant(MutantStatus::TimedOut, 10.0, 0.0), MutantJudgement::TooSlowToJudge],
     'a skipped mutant' => [triagedMutant(MutantStatus::Skipped, 10.0, 1.0), MutantJudgement::TooSlowToJudge],
     'a killed mutant' => [triagedMutant(MutantStatus::Killed, 10.0, 1.0), MutantJudgement::Killed],
 ]);
-
-it('times a mutant that spans lines by the tests of every line it spans, each once', function (): void {
-    $map = CoverageMap::empty()
-        ->covered(Path::of('src/Loop.php'), Line::of(3), TestId::of('LoopTest::a'))
-        ->covered(Path::of('src/Loop.php'), Line::of(4), TestId::of('LoopTest::a'))
-        ->covered(Path::of('src/Loop.php'), Line::of(4), TestId::of('LoopTest::b'))
-        ->covered(Path::of('src/Loop.php'), Line::of(5), TestId::of('LoopTest::c'))
-        ->timed(TestId::of('LoopTest::a'), Seconds::of(0.5))
-        ->timed(TestId::of('LoopTest::b'), Seconds::of(1.0))
-        ->timed(TestId::of('LoopTest::c'), Seconds::of(4.0));
-    $timed = [...TimeoutTriage::timed(Mutants::of(triagedMutant(MutantStatus::TimedOut, 10.0, 0.0, last: 4)), $map, HeldCovered::none())];
-
-    expect(array_map(static fn(Mutant $mutant): mixed => $mutant->unmutatedNeed(), $timed))->toEqual([Seconds::of(1.5)]);
-});
-
-it('times mutants in time linear in their number', function (): void {
-    $timing = static function (int $size): Closure {
-        $map = CoverageMap::empty()->covered(Path::of('src/Loop.php'), Line::of(3), TestId::of('LoopTest::a'))
-            ->timed(TestId::of('LoopTest::a'), Seconds::of(0.5));
-        $mutants = Mutants::of(...array_fill(0, $size, triagedMutant(MutantStatus::TimedOut, 10.0, 0.0)));
-
-        return static fn(): int => count(TimeoutTriage::timed($mutants, $map, HeldCovered::none()));
-    };
-
-    expect($timing(10)())->toBe(10)
-        ->and(Growth::of(1000, $timing))->toBeLessThan(Growth::LINEAR);
-});
 
 it('judges every timeout too slow to judge under timeouts.mode unjudged', function (): void {
     expect(TimeoutTriage::under(TimeoutMode::Unjudged)->judged(triagedMutant(MutantStatus::TimedOut, 10.0, 1.0)))
         ->toBe(MutantJudgement::TooSlowToJudge)
         ->and(TimeoutTriage::under(TimeoutMode::Unjudged)->judged(triagedMutant(MutantStatus::Survived, 10.0, 1.0)))
         ->toBe(MutantJudgement::Survived);
-});
-
-it('times each mutant whose time ran out by the tests covering its line, where the map measured them all', function (
-    CoverageMap $map,
-    string $time,
-): void {
-    $timed = [...TimeoutTriage::timed(Mutants::of(
-        triagedMutant(MutantStatus::TimedOut, 10.0, 0.0),
-        triagedMutant(MutantStatus::Survived, 0.0, 0.0),
-    ), $map, HeldCovered::none())];
-
-    expect(array_map(static fn(Mutant $mutant): string => match (true) {
-        $mutant->unmutatedNeed() instanceof Seconds => sprintf('%.1f', $mutant->unmutatedNeed()->seconds()),
-        default => 'unmeasured',
-    }, $timed))->toBe([$time, 'unmeasured']);
-})->with([
-    'two measured tests' => [
-        CoverageMap::empty()
-            ->covered(Path::of('src/Loop.php'), Line::of(3), TestId::of('LoopTest::a'))
-            ->covered(Path::of('src/Loop.php'), Line::of(3), TestId::of('LoopTest::b'))
-            ->timed(TestId::of('LoopTest::a'), Seconds::of(0.5))
-            ->timed(TestId::of('LoopTest::b'), Seconds::of(1.0)),
-        '1.5',
-    ],
-    'a test not measured' => [
-        CoverageMap::empty()
-            ->covered(Path::of('src/Loop.php'), Line::of(3), TestId::of('LoopTest::a'))
-            ->covered(Path::of('src/Loop.php'), Line::of(3), TestId::of('LoopTest::b'))
-            ->timed(TestId::of('LoopTest::a'), Seconds::of(0.5)),
-        'unmeasured',
-    ],
-    'no test covering its line' => [CoverageMap::empty(), 'unmeasured'],
-]);
-
-// A held unit's run selects its holding tests alone, so its limit is of
-// their time, and triage weighs it against theirs: a test that covers the
-// line from outside the group never ran with the mutant in place.
-it('times a mutant of a held unit by the tests covering its line that hold it, and any other by every test covering its line', function (): void {
-    $map = CoverageMap::empty()
-        ->covered(Path::of('src/Loop.php'), Line::of(3), TestId::of('LoopTest::a'))
-        ->covered(Path::of('src/Loop.php'), Line::of(3), TestId::of('SuiteTest::b'))
-        ->covered(Path::of('src/Other.php'), Line::of(3), TestId::of('SuiteTest::b'))
-        ->timed(TestId::of('LoopTest::a'), Seconds::of(0.5))
-        ->timed(TestId::of('SuiteTest::b'), Seconds::of(20.0));
-    $held = HeldCovered::of(Covered::by(
-        Unit::held(Path::of('src/Loop.php'), Group::named('holds:src/Loop.php')),
-        TestIds::of(TestId::of('LoopTest::a'), TestId::of('LoopTest::c')),
-    ));
-    $other = Mutant::of(
-        MutantId::hash(Path::of('src/Other.php'), 'LessThan', '3', 0),
-        '2',
-        Location::of(Path::of('src/Other.php'), Line::of(3), Line::of(3)),
-        Mutation::of('LessThan', MutatorFamily::Boundary, ''),
-        MutantStatus::TimedOut,
-        Unmeasured::duration(),
-    )->withLimit(Seconds::of(10.0));
-    $timed = [...TimeoutTriage::timed(Mutants::of(triagedMutant(MutantStatus::TimedOut, 10.0, 0.0), $other), $map, $held)];
-
-    expect(array_map(static fn(Mutant $mutant): mixed => $mutant->unmutatedNeed(), $timed))
-        ->toEqual([Seconds::of(0.5), Seconds::of(20.0)])
-        ->and(TimeoutTriage::under(TimeoutMode::Confirm)->judged($timed[0]))->toBe(MutantJudgement::KilledByTimeout);
-});
-
-it('keeps the time a mutant\'s own run timed its tests on their own, unmutated, as a trial does, whatever the map says of its lines', function (): void {
-    $map = CoverageMap::empty()
-        ->covered(Path::of('src/Loop.php'), Line::of(3), TestId::of('LoopTest::a'))
-        ->timed(TestId::of('LoopTest::a'), Seconds::of(30.0));
-    $timed = [...TimeoutTriage::timed(Mutants::of(triagedMutant(MutantStatus::TimedOut, 10.0, 0.4)), $map, HeldCovered::none())];
-
-    expect(array_map(static fn(Mutant $mutant): mixed => $mutant->unmutatedNeed(), $timed))->toEqual([Seconds::of(0.4)])
-        ->and(TimeoutTriage::under(TimeoutMode::Confirm)->judged($timed[0]))->toBe(MutantJudgement::KilledByTimeout);
 });

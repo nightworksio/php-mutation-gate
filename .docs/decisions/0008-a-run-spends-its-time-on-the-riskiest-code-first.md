@@ -219,9 +219,8 @@ presets for Laravel, Symfony and plain libraries.
    never ends is stopped there, seconds before the limit of all the covering
    tests. The clock starts when the run starts executing tests, so its start
    is held only to the mutant's own limit. A mutant stopped at its silence
-   limit is timed out with its own limit, which k times its tests always
-   clear, so the triage below reads it as killed by timeout, and its reason
-   names the silence limit. Pest applies it under `pest.patch`, and the
+   limit is timed out with its own limit, so the triage below judges it as
+   any other timeout, and its reason names the silence limit. Pest applies it under `pest.patch`, and the
    PHPUnit runner to a run that selects its tests by their ids, from warm
    workers too (ADR-0023), and Infection under `infection:patch`, of its
    slowest covering test class, as Infection times each test by its class
@@ -244,39 +243,46 @@ presets for Laravel, Symfony and plain libraries.
    limit keeps `timeouts.seconds`, so a mutant of a listed mutator that a
    test keeps busy is never cut short.
 
-   For every timed-out or skipped mutant the gate works out the limit that
-   applied to it, and compares its judging tests' own time with it (ADR-0004,
-   decision 5). That time comes from the coverage run: Pest's map, or the JUnit
-   times of the judging test classes, which Infection sums the same way. A
-   mutant judged by a trial (ADR-0004, decision 8), which no coverage marks,
-   takes it from its trial's run of those tests on their own, unmutated: the
-   sum of each test's time in the JUnit log that run writes.
-   The triage reads the limit's own k, so the two never drift apart:
-   - **Under the limit at k times.** The limit allowed the covering tests k
-     times their own time, the margin the limit itself grants for load. Tests
-     that finish well inside that ran past it with the mutant in place, so the
-     mutant broke something (a loop that never ends, say), and it is **killed
-     by timeout**. It counts as killed and is reported under that name. This
-     holds for every limit the gate's rule or the floor decided, which is at
-     least 5 s more than k times the tests, and for every limit Infection's
-     own formula decided.
-   - **k times the tests reach the limit.** Only `timeouts.most` decides such
-     a limit. It says nothing about this mutant, so it is **too slow to
-     judge**, and counts as not killed. A skipped mutant is always here. The
-     hint points at holding the path with a group (ADR-0005) or raising
-     `timeouts.most`.
+   For every timed-out mutant the gate runs one **unmutated control**: the
+   tests that judge it, those the coverage map says cover its lines and, of
+   a held unit, only those that hold it, run with its file served unmutated
+   by the means the runner serves a mutant's file (Pest's override, the
+   PHPUnit runner's `file://` override, Infection's include interceptor),
+   under the request's memory cap, allowed the limit the mutant's run was.
+   Each runner runs it through `Runner::controls()`, side by side in the
+   request's pool where the runner runs processes so, and two mutants of the
+   same file, tests and limit share one. A mutant judged by a trial (ADR-0004,
+   decision 8), which no coverage marks, has run that control already: the
+   trial's run of its tests on their own, unmutated, under the same limit.
+   The map's time of the tests only sets the limit; the triage weighs the
+   timeout against the control:
+   - **The control finished within the limit.** The tests passed unmutated,
+     served as the mutant was, inside the limit the mutant ran out of, so the
+     mutant broke something (a loop that never ends, say), and it is
+     **killed by timeout**. It counts as killed and is reported under that
+     name, its tests' time the control's.
+   - **The control ran out of the limit too, or never ran.** The limit cannot
+     tell a hang from tests that are slow there, so the mutant is **too slow
+     to judge**, counts as not killed, and its reason says which. A skipped
+     mutant is always here. The hint points at holding the path with a group
+     (ADR-0005) or raising `timeouts.most`.
+   - **The control failed.** The tests fail with the file unmutated as well,
+     so nothing tells the mutant from its original, and it is **unjudged**.
+   - **The budget.** Under a time budget the controls run after the
+     invocation's survivors are confirmed, as many as fit in the time left at
+     the longest of their limits; a timeout whose control did not fit is
+     unjudged, and more time judges it.
    - **No retry.** A timed-out or skipped mutant is never run again, in any
-     runner: the rule above judges it as its run left it. A mutant whose
-     tests finish well inside its limit and that still ran past it is a
-     detected mutant, and a second run spends its limit again to say the
-     same.
+     runner: the control judges it as its run left it. A control is no run of
+     the mutant; it runs the tests on the original.
    - **The mode.** `timeouts.mode` is `confirm` by default, as described above,
      or `unjudged`, which makes every timeout too slow to judge, for projects
-     that want no kill they cannot see.
+     that want no kill they cannot see. It runs no control.
 
-   Triage reads the recorded status and the coverage run's times, so it is
-   applied at verdict time, and a unit whose timeouts are too slow to judge is
-   still recorded (ADR-0007): running it again would give the same answer.
+   The shard result records each timeout's limit and its control's time, so
+   triage is applied at verdict time, and a unit whose timeouts are too slow
+   to judge is still recorded (ADR-0007): running it again would give the
+   same answer.
 
 3. **Flaky triage: the same code giving two answers is reported, not averaged.**
    - **Survivor confirmation.** Each survived mutant is run once more, alone,

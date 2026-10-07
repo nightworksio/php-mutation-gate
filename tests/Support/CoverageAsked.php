@@ -9,6 +9,8 @@ use function array_values;
 
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Control\ControlRuns;
+use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -125,6 +127,11 @@ final class CoverageAsked implements Runner
     public function mutate(MutationRequest $request): MutationResult|CannotJudge
     {
         return $this->runner->mutate($request);
+    }
+
+    public function controls(MutationRequest $request, Controls $controls): ControlRuns|CannotJudge
+    {
+        return $this->runner->controls($request, $controls);
     }
 
     public function retry(MutationRequest $request, Mutants $mutants, Seconds $limit): Mutants|CannotJudge

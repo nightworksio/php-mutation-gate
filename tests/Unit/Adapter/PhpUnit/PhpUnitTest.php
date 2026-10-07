@@ -14,6 +14,10 @@ use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Control\Control;
+use NightWorksIO\MutationGate\Core\Control\ControlEnd;
+use NightWorksIO\MutationGate\Core\Control\ControlRuns;
+use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -342,4 +346,12 @@ it('answers as PHPUnit in a package where Composer installed it there, and canno
         ->and($runner->rootedAt(Path::of('packages/none'), $spec))->toEqual(CannotJudge::because(
             'packages/none holds no project the phpunit runner can run: PHPUnit is not installed in its vendor.',
         ));
+});
+
+it('runs each control as a mutant that changes nothing, its file served through the override', function () use ($request): void {
+    $project = phpUnitRunnerProject();
+    $control = Control::of(Path::of('src/Money.php'), TestIds::of(TestId::of('Tests\MoneyTest::testAdds')), Seconds::of(5.0));
+    $runs = phpUnitRunner($project, phpUnitAnswering($project))->controls($request, Controls::of($control));
+
+    expect($runs instanceof ControlRuns ? $runs->of($control)->end() : $runs)->toBe(ControlEnd::Failed);
 });

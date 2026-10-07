@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Control\ControlRuns;
+use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Cost\Laps;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTimes;
@@ -69,6 +71,9 @@ final readonly class Infection implements Runner
 
     private const string NOT_STARTED = "PHPUnit's run of no test, timing a mutant's start-up, failed. It said:\n%s";
 
+    /** The coverage each run reads, which the adapter writes. */
+    private Covering $covering;
+
     public function __construct(
         private Project $project,
         private Shell $shell,
@@ -80,6 +85,7 @@ final readonly class Infection implements Runner
         private StaticAnalysis $analysis = StaticAnalysis::Infection,
         private Bridges $bridges = new Bridges(),
     ) {
+        $this->covering = new Covering($project, $shell, $held);
     }
 
     /**
@@ -166,7 +172,7 @@ final readonly class Infection implements Runner
         $directory = $this->project->directory($request->directory());
         $covered = $config instanceof CannotJudge
             ? $config
-            : $this->covering()->run($config, $request, $directory);
+            : $this->covering->run($config, $request, $directory);
 
         return $covered instanceof CannotJudge ? $covered : CoverageXml::measured($this->project, $directory);
     }
@@ -209,6 +215,15 @@ final readonly class Infection implements Runner
         };
     }
 
+    /**
+     * What each unmutated control finds, its file served through Infection's
+     * include interceptor (see UnmutatedRuns).
+     */
+    public function controls(MutationRequest $request, Controls $controls): ControlRuns|CannotJudge
+    {
+        return new UnmutatedRuns($this->project, $this->shell, $this->files)->of($request, $controls);
+    }
+
     /** Every mutant of the requested files; none, running nothing, where Infection runs none of the mutators named. */
     public function mutate(MutationRequest $request): MutationResult|CannotJudge
     {
@@ -225,7 +240,7 @@ final readonly class Infection implements Runner
         $this->held->forget();
         $laps = Laps::fromNanoseconds($this->clock->nanoseconds(...));
         $from = $laps->now();
-        $coverage = $this->covering()->of($config, $request);
+        $coverage = $this->covering->of($config, $request);
         $covered = StepTimes::of($laps->lap(Step::Coverage, $from));
         $result = $coverage instanceof CannotJudge
             ? $coverage
@@ -331,7 +346,7 @@ final readonly class Infection implements Runner
     private function rerunning(): Rerunning
     {
         $covered = fn(OwnConfig $config, MutationRequest $request): DiskPath|CannotJudge
-            => $this->covering()->of($config, $request);
+            => $this->covering->of($config, $request);
 
         return new Rerunning(
             $this->project,
@@ -344,12 +359,6 @@ final readonly class Infection implements Runner
             $this->clock,
             $this->bridges,
         );
-    }
-
-    /** The coverage each run reads, which the adapter writes. */
-    private function covering(): Covering
-    {
-        return new Covering($this->project, $this->shell, $this->held);
     }
 
     private function run(OwnConfig $config): MutationRun

@@ -21,7 +21,9 @@ use function ltrim;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\StartUp;
 
 use function preg_match;
 use function realpath;
@@ -31,13 +33,14 @@ use function trim;
 use function var_export;
 
 /**
- * The PHPUnit config a run of no test starts with, shaped by the steps
- * Infection's MutationConfigBuilder takes for a mutant's own config that
- * change what a run loads: every path made absolute from the config's
- * directory, no loggers and no coverage reports, no colours, no printer, no
- * default suite, the test suites replaced by one that holds the covering
- * test files, here none, and its bootstrap replaced by Infection's: one that
- * lowers the process's priority, serves the mutant's file through
+ * The PHPUnit config a run of no test, or an unmutated control, starts
+ * with, shaped by the steps Infection's MutationConfigBuilder takes for a
+ * mutant's own config that change what a run loads: every path made
+ * absolute from the config's directory, no loggers and no coverage reports,
+ * no colours, no printer, no default suite, the test suites replaced by one
+ * that holds the covering test files, none for a run of no test and the
+ * control's for a control, and its bootstrap replaced by Infection's: one
+ * that lowers the process's priority, serves the mutant's file through
  * Infection's include interceptor, here an unchanged copy, and then loads
  * the original bootstrap. The steps that only order, stop or report a run
  * are left out. Infection's builder is in the project's vendor, which the
@@ -45,17 +48,17 @@ use function var_export;
  */
 final readonly class StartUpConfig
 {
-    /** Where the config is written, among the adapter's own files. */
-    public const string FILE = 'start-up/phpunit.xml';
-
-    /** The one suite it keeps, which holds no test file. */
+    /** The one suite it keeps. */
     public const string SUITE = 'mutation-gate start-up';
 
-    /** Where the bootstrap Infection gives a mutant's run is written, among the adapter's own files. */
-    private const string BOOTSTRAP = 'start-up/interceptor.autoload.php';
+    /** Where the config is written, in its place among the adapter's own files. */
+    private const string FILE = '%s/phpunit.xml';
 
-    /** Where the unchanged copy is written, among the adapter's own files. */
-    private const string COPY = 'start-up/%s';
+    /** Where the bootstrap Infection gives a mutant's run is written, in its place. */
+    private const string BOOTSTRAP = '%s/interceptor.autoload.php';
+
+    /** Where the unchanged copy is written, in its place. */
+    private const string COPY = '%s/%s';
 
     /** Infection's include interceptor, where Composer installs it beside Infection. */
     private const string INTERCEPTOR = 'infection/include-interceptor/src/IncludeInterceptor.php';
@@ -86,11 +89,13 @@ final readonly class StartUpConfig
         require_once %s;
         PHP;
 
-    private const string NONE = 'The run of no test needs PHPUnit\'s config, and there is none in %s.';
+    private const string NONE
+        = 'A run on Infection\'s config for a mutant needs PHPUnit\'s config, and there is none in %s.';
 
     private const string UNREADABLE = 'PHPUnit\'s config %s is not XML the gate can read.';
 
-    private const string NOT_COPIED = 'Infection\'s run of no test needs an unchanged copy of %s, which was not made.';
+    private const string NOT_COPIED
+        = 'A run on Infection\'s config for a mutant needs an unchanged copy of %s, which was not made.';
 
     /**
      * The config written among the adapter's own files, from the project's
@@ -99,13 +104,34 @@ final readonly class StartUpConfig
      */
     public static function written(Project $project, OwnConfig $config, Path $file): string|CannotJudge
     {
+        return self::holding($project, $config, $file, Paths::none(), StartUp::DIRECTORY);
+    }
+
+    /**
+     * The config written in a place of its own among the adapter's own files,
+     * its suite holding these test files and its mutant an unchanged copy of
+     * this file, as an unmutated control runs; or why it cannot be.
+     */
+    public static function holding(
+        Project $project,
+        OwnConfig $config,
+        Path $file,
+        Paths $tests,
+        string $place,
+    ): string|CannotJudge {
         $original = self::original($project, $config);
         $read = $original instanceof CannotJudge
             ? $original
             : XmlFile::read($original, CannotJudge::because(sprintf(self::UNREADABLE, $original)));
-        $document = $read instanceof CannotJudge ? $read : self::shaped($read, $config->configDirectory($project));
-        $written = $document instanceof CannotJudge ? $document : $project->fresh($project->own(self::FILE));
-        $bootstrap = $written instanceof CannotJudge ? $written : self::intercepting($project, $file, $document);
+        $document = $read instanceof CannotJudge
+            ? $read
+            : self::shaped($read, $config->configDirectory($project), self::absoluteIn($project, $tests));
+        $written = $document instanceof CannotJudge
+            ? $document
+            : $project->fresh($project->own(sprintf(self::FILE, $place)));
+        $bootstrap = $written instanceof CannotJudge
+            ? $written
+            : self::intercepting($project, $file, $document, $place);
 
         return match (true) {
             $document instanceof CannotJudge => $document,
@@ -131,11 +157,15 @@ final readonly class StartUpConfig
      * file's place, then loads the config's own bootstrap, or the project's
      * autoloader where the config names none.
      */
-    private static function intercepting(Project $project, Path $file, DOMDocument $document): string|CannotJudge
-    {
+    private static function intercepting(
+        Project $project,
+        Path $file,
+        DOMDocument $document,
+        string $place,
+    ): string|CannotJudge {
         $original = realpath($project->absolute($file));
-        $copy = $project->fresh($project->own(sprintf(self::COPY, basename($file->value()))));
-        $bootstrap = $project->fresh($project->own(self::BOOTSTRAP));
+        $copy = $project->fresh($project->own(sprintf(self::COPY, $place, basename($file->value()))));
+        $bootstrap = $project->fresh($project->own(sprintf(self::BOOTSTRAP, $place)));
         $interceptor = $project->absolute(Path::of(sprintf('%s/%s', Manifest::VENDOR, self::INTERCEPTOR)));
 
         return match (true) {
@@ -173,7 +203,24 @@ final readonly class StartUpConfig
         return $document;
     }
 
-    private static function shaped(DOMDocument $document, string $directory): DOMDocument
+    /**
+     * These test files, by their absolute paths.
+     *
+     * @return list<string>
+     */
+    private static function absoluteIn(Project $project, Paths $tests): array
+    {
+        $absolute = [];
+
+        foreach ($tests as $test) {
+            $absolute[] = $project->absolute($test);
+        }
+
+        return $absolute;
+    }
+
+    /** @param list<string> $tests the test files its one suite holds, by their absolute paths */
+    private static function shaped(DOMDocument $document, string $directory, array $tests): DOMDocument
     {
         $xpath = new DOMXPath($document);
 
@@ -198,6 +245,12 @@ final readonly class StartUpConfig
             $root->appendChild($suites);
             $suites->appendChild($suite);
             $suite->setAttribute('name', self::SUITE);
+
+            foreach ($tests as $test) {
+                $listed = new DOMElement('file');
+                $suite->appendChild($listed);
+                $listed->textContent = $test;
+            }
         }
 
         return $document;
