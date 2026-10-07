@@ -15,8 +15,8 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
-// The README's Configuration section shows one config in four formats. Each
-// reads into the same effective config.
+// The configuration reference shows one config in four formats. Each reads
+// into the same effective config.
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -24,9 +24,8 @@ afterEach(function (): void {
 
 /** @return array<string, string> the example of each format, by its format */
 $examples = static function (): array {
-    $readme = (string) file_get_contents(Tree::at('README.md'));
-    $configuration = (string) strstr($readme, '## Configuration');
-    $section = (string) strstr($configuration, '### Configuration reference', before_needle: true);
+    $reference = (string) file_get_contents(Tree::at('.docs/reference/configuration.md'));
+    $section = (string) strstr($reference, '## Every key', before_needle: true);
     preg_match_all('/^```(php|json|yaml|neon)\n(.*?)^```$/ms', $section, $blocks, PREG_SET_ORDER);
     $examples = [];
 

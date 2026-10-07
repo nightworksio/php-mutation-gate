@@ -22,10 +22,10 @@ security fixes for six months.
 
 | Version | Security fixes |
 |---------|----------------|
-| 0.1.x | yes |
+| 1.0.x | yes |
 
-No version is tagged yet. Until 0.1.0 is, a fix lands on `main`, which a
-project requiring `dev-main` installs.
+No version is tagged yet; the first release is 1.0.0. Until it is tagged, a
+fix lands on `main`, which a project requiring `dev-main` installs.
 
 ## Scope
 

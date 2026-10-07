@@ -14,7 +14,7 @@ it('ships the JSON Schema config:schema prints', function (): void {
         ->toBe(sprintf("%s\n", Definition::schema()));
 });
 
-it('writes JSON Schema draft 2020-12, published where the README says', function (): void {
+it('writes JSON Schema draft 2020-12, published where the configuration reference says', function (): void {
     $schema = json_decode(Definition::schema(), associative: true);
 
     expect(is_array($schema) ? [$schema['$schema'], $schema['$id'], $schema['type']] : [])->toBe([
@@ -136,9 +136,8 @@ it('declares every setting as affecting results, as deciding how the gate runs, 
     ]);
 });
 
-it('declares every key of the README\'s configuration reference, or the entries it lists', function (): void {
-    $readme = (string) file_get_contents(Tree::at('README.md'));
-    $from = (string) strstr($readme, '### Configuration reference');
+it('declares every key of the configuration reference, or the entries it lists', function (): void {
+    $from = (string) strstr((string) file_get_contents(Tree::at('.docs/reference/configuration.md')), '## Every key');
     $reference = (string) strstr($from, 'In a `composer.json`', before_needle: true);
     preg_match_all('/^\| `([a-zA-Z$.\[\]]+)`(?: \(`[a-z0-9]+`\))? \|/m', $reference, $keys);
 
@@ -151,11 +150,11 @@ it('declares every key of the README\'s configuration reference, or the entries 
     expect(array_values($undeclared))->toBe([]);
 });
 
-it('states the default budgets the README gives watch and pre-push', function (): void {
-    $readme = (string) file_get_contents(Tree::at('README.md'));
+it('states the default budgets the configuration reference gives watch and pre-push', function (): void {
+    $reference = (string) file_get_contents(Tree::at('.docs/reference/configuration.md'));
     $default = static fn(string $key): string => preg_match(
         sprintf('/^\\| `%s` \\| [^|]+ \\| `([^`]+)` \\|/m', preg_quote($key, '/')),
-        $readme,
+        $reference,
         $row,
     ) === 1 ? $row[1] : sprintf('no row for %s', $key);
 
@@ -163,9 +162,9 @@ it('states the default budgets the README gives watch and pre-push', function ()
         ->toBe([Budgets::standard()->watch()->written(), Budgets::standard()->prePush()->written()]);
 });
 
-it('gives runner.memory the default the README\'s configuration reference names', function (): void {
-    $readme = (string) file_get_contents(Tree::at('README.md'));
-    preg_match('/^\| `runner\.memory` \|.*\| `([^`]+)` \| \[0004\]/m', $readme, $row);
+it('gives runner.memory the default the configuration reference names', function (): void {
+    $reference = (string) file_get_contents(Tree::at('.docs/reference/configuration.md'));
+    preg_match('/^\| `runner\.memory` \|.*\| `([^`]+)` \| \[0004\]/m', $reference, $row);
 
     expect($row[1] ?? null)->toBe(MemoryCap::standard()->written());
 });

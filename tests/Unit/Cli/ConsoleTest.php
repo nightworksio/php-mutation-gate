@@ -36,7 +36,7 @@ it('says which gate Composer installed when asked its version', function () use 
         ));
 });
 
-it('offers every command the README lists', function (string $command) use ($console): void {
+it('offers every command the command-line reference lists', function (string $command) use ($console): void {
     expect($console()->has($command))->toBeTrue();
 })->with([
     'run',

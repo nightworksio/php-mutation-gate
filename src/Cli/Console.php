@@ -52,7 +52,7 @@ use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\HttpClient\HttpClient;
 
-/** The command line: every command the README lists, with `run` when none is named. */
+/** The command line: every command the command-line reference lists, with `run` when none is named. */
 final readonly class Console
 {
     private const string NAME = 'mutation-gate';

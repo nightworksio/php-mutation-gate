@@ -38,7 +38,7 @@ Before each push, run the entries for what you changed:
 | anything | `hygiene/typos` |
 | PHP, `composer.json`, `phpstan.neon`, `rector.php` or `pint.json` | `checks` and `rules`, and the tests of the code you changed: `vendor/bin/pest <test files>` |
 | Markdown | `hygiene/markdown` and `hygiene/links` |
-| `README.md` or `ARCHITECTURE.md` | the Markdown entries, and `composer test`, because tests read both |
+| `ARCHITECTURE.md`, `.docs/reference/`, `.docs/guide/ci/` or `.docs/guide/troubleshooting.md` | the Markdown entries, and `composer test`, because tests read them |
 | a workflow | `hygiene/actionlint` and `hygiene/zizmor` |
 | `.github/scripts` | `scripts` |
 
@@ -140,7 +140,7 @@ A comment whose first line is one of these runs it:
   a plugin, a package of its own under `plugins/<name>`, as `plugins/default`
   is ([ADR-0021](.docs/decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md)).
 
-The README's [Configuration](README.md#configuration) section says how a
+[Writing an adapter](.docs/guide/extending/writing-an-adapter.md) says how a
 config names an adapter, and how an adapter reads its options.
 
 ## Maintainers and decisions
