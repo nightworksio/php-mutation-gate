@@ -2,15 +2,20 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Control;
 use NightWorksIO\MutationGate\Adapter\Pest\NarrowedKills;
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Tests\Support\PestRun;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -67,16 +72,49 @@ it('doubts a kill no test is named for, one only errors made, one with no record
     $asked = [];
 
     $doubted = NarrowedKills::in(MutationResult::of(Mutants::of(...$mutants), 0), $file)->doubted(
-        static function (array $sets) use (&$asked): array {
-            $asked[] = $sets;
+        Group::named('holds:src/Money.php'),
+        static function (array $controls) use (&$asked): array {
+            $asked[] = $controls;
 
-            return array_map(static fn(array $files): bool => $files !== ['/p/tests/CSpec.php'], $sets);
+            return array_map(
+                static fn(Control $control): bool => array_map(static fn(Path $test): string => $test->value(), [...$control->tests()]) !== ['/p/tests/CSpec.php'],
+                $controls,
+            );
         },
     );
 
     expect(array_map(static fn(Mutant $each): string => $each->nativeId(), [...$doubted]))
         ->toEqualCanonicalizing(['native-3', 'native-5', 'native-6', 'native-8'])
-        ->and($asked)->toBe([[['/p/tests/ASpec.php', '/p/tests/BSpec.php'], ['/p/tests/CSpec.php']]]);
+        ->and($asked)->toEqual([[
+            Control::of(Path::of('src/Money.php'), Paths::of(Path::of('/p/tests/ASpec.php'), Path::of('/p/tests/BSpec.php')), Group::named('holds:src/Money.php')),
+            Control::of(Path::of('src/Money.php'), Paths::of(Path::of('/p/tests/CSpec.php')), Group::named('holds:src/Money.php')),
+        ]]);
+});
+
+it('asks for a control of each file a narrowed kill changes, though the runs of several loaded the same files', function () use ($mutant): void {
+    $tax = Verdicts::mutant('src/Tax.php:3', 'Plus', MutatorFamily::Arithmetic, '-3');
+    $taxKill = Mutant::of($tax->id(), 'native-tax', $tax->location(), $tax->mutation(), MutantStatus::Killed, Unmeasured::duration())
+        ->killedBy(TestIds::of(TestId::of('T::t')));
+    $file = narrowedResults(
+        PestRun::planned('native-tax', '/p/src/Tax.php', 3, 'Plus', 'a', 'b'),
+        PestRun::killed('native-1', 'T::a'),
+        PestRun::narrowed('native-1', ['/p/tests/ASpec.php']),
+        PestRun::killed('native-tax', 'T::t'),
+        PestRun::narrowed('native-tax', ['/p/tests/ASpec.php']),
+    );
+    $asked = [];
+
+    $doubted = NarrowedKills::in(MutationResult::of(Mutants::of($mutant(1, MutantStatus::Killed, 'T::a'), $taxKill), 0), $file)->doubted(
+        WholeSuite::tests(),
+        static function (array $controls) use (&$asked): array {
+            $asked = $controls;
+
+            return array_map(static fn(Control $control): bool => $control->source()->value() === 'src/Money.php', $controls);
+        },
+    );
+
+    expect(array_map(static fn(Control $control): string => $control->source()->value(), $asked))->toBe(['src/Money.php', 'src/Tax.php'])
+        ->and(array_map(static fn(Mutant $each): string => $each->nativeId(), [...$doubted]))->toBe(['native-tax']);
 });
 
 it('never doubts a kill of a mutant Pest left uncovered, which the trial judged', function () use ($mutant): void {
@@ -88,7 +126,7 @@ it('never doubts a kill of a mutant Pest left uncovered, which the trial judged'
     $doubted = NarrowedKills::in(
         MutationResult::of(Mutants::of($mutant(1, MutantStatus::Killed), $mutant(2, MutantStatus::Killed)), 0),
         $file,
-    )->doubted(static fn(array $sets): array => array_map(static fn(): bool => true, $sets));
+    )->doubted(WholeSuite::tests(), static fn(array $controls): array => array_map(static fn(): bool => true, $controls));
 
     expect(array_map(static fn(Mutant $each): string => $each->nativeId(), [...$doubted]))->toBe(['native-2']);
 });
@@ -100,10 +138,10 @@ it('doubts every kill, and asks nothing, where the records cannot be read', func
     $doubted = NarrowedKills::in(
         MutationResult::of(Mutants::of($killed, $mutant(2, MutantStatus::Survived)), 0),
         sprintf('%s/missing.jsonl', Scratch::directory()),
-    )->doubted(static function (array $sets) use (&$asked): array {
+    )->doubted(WholeSuite::tests(), static function (array $controls) use (&$asked): array {
         $asked++;
 
-        return array_map(static fn(): bool => true, $sets);
+        return array_map(static fn(): bool => true, $controls);
     });
 
     expect([...$doubted])->toEqual([$killed])
@@ -121,7 +159,7 @@ it('doubts a narrowed kill whose set of files the answer leaves out', function (
     $doubted = NarrowedKills::in(
         MutationResult::of(Mutants::of($mutant(1, MutantStatus::Killed, 'T::a'), $mutant(2, MutantStatus::Killed, 'T::b')), 0),
         $file,
-    )->doubted(static fn(): array => [true]);
+    )->doubted(WholeSuite::tests(), static fn(): array => [true]);
 
     expect(array_map(static fn(Mutant $each): string => $each->nativeId(), [...$doubted]))->toBe(['native-2']);
 });

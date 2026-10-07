@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Ceiling;
 use NightWorksIO\MutationGate\Adapter\Pest\Selection;
+use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
@@ -24,6 +25,13 @@ it('builds the filter pest-plugin-mutate builds, one alternative per test it can
 
     expect($selection->argument())->toBe('--filter="MoneySpec::(.*)it.adds.two.{1,2}numbers|MoneyTest::(.*)testAdds"')
         ->and($selection->count())->toBe(5);
+});
+
+it('gives its filter as pest-plugin-mutate passes it, quotes and all, for a run that selects as a mutant\'s does', function (): void {
+    $selection = Selection::of(coveringTests('P\Tests\MoneySpec::__pest_evaluable_it_adds', 'Tests\MoneyTest::testAdds#1'));
+
+    expect($selection->filter())->toEqual(Filter::matching('"MoneySpec::(.*)it.adds|MoneyTest::(.*)testAdds"'))
+        ->and(sprintf('--filter=%s', $selection->filter()->pattern()))->toBe($selection->argument());
 });
 
 it('names the covering tests the filter does not select', function (): void {

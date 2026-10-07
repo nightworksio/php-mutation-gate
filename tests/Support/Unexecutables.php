@@ -148,9 +148,10 @@ final class Unexecutables
     }
 
     /**
-     * Answers a judging run as Pest would: the tests on their own pass, and a
-     * run of a mutant fails wherever it names a test file that reads a value
-     * the mutant changes, writing a guard that says the mutated copy ran.
+     * Answers a judging run as Pest would: the tests on their own, the file
+     * served unmutated, pass, and a run of a mutant, which alone writes a
+     * guard, fails wherever it names a test file that reads a value the
+     * mutant changes, writing a guard that says the mutated copy ran.
      *
      * @param list<string> $killing the test files, by name, that fail against the mutant
      */
@@ -158,11 +159,11 @@ final class Unexecutables
     {
         $environment = $command->environment();
 
-        if (! array_key_exists('PEST_MUTATION_FILE', $environment) || $environment['PEST_MUTATION_FILE'] === false) {
+        if (! array_key_exists('MUTATION_GATE_GUARD', $environment) || $environment['MUTATION_GATE_GUARD'] === false) {
             return Ran::finished(succeeded: true, output: '');
         }
 
-        file_put_contents((string) $environment['MUTATION_GATE_GUARD'], '{"before":false,"loaded":true,"opcache":false}');
+        file_put_contents($environment['MUTATION_GATE_GUARD'], '{"before":false,"loaded":true,"opcache":false}');
         $fails = false;
 
         foreach ($killing as $file) {

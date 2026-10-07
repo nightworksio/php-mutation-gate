@@ -42,6 +42,7 @@ return RectorConfig::configure()
         __DIR__ . '/tests/Contract/Runner/infection-fixture',
         __DIR__ . '/tests/Contract/Runner/reach',
         __DIR__ . '/tests/Contract/Runner/stall',
+        __DIR__ . '/tests/Contract/Runner/override',
         __DIR__ . '/tests/Contract/Runner/phpunit-fixture',
         // The static checker contract suite's fixture holds mutants, which are wrong on purpose.
         __DIR__ . '/tests/Contract/StaticChecker/fixture',

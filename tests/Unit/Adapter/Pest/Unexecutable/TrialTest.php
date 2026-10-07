@@ -5,11 +5,13 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
 use NightWorksIO\MutationGate\Adapter\Pest\MemoryScan;
+use NightWorksIO\MutationGate\Adapter\Pest\Printed;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Outcome;
 use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Trial;
 use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\TrialRun;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
@@ -30,10 +32,34 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-/** A project in a new directory, where each trial's guard would be written in the directory of its position in the batch. */
+/**
+ * A project in a new directory, holding src/Money.php and src/Tax.php, where each trial's guard would be written in
+ * the directory of its position in the batch.
+ */
 function trialProject(): Project
 {
-    return Project::at((string) realpath(Scratch::directory()), Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'));
+    $root = (string) realpath(Scratch::directory());
+    Scratch::write($root, 'src/Money.php', "<?php\n\nfinal class Money\n{\n}\n");
+    Scratch::write($root, 'src/Tax.php', "<?php\n\nfinal class Tax\n{\n}\n");
+
+    return Project::at($root, Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'));
+}
+
+/** The copy of a file of the project a trial's run of its tests on their own serves unmutated, in its place. */
+function trialUnmutated(Project $at, string $file): string
+{
+    $printed = Printed::of(Contents::of((string) file_get_contents(sprintf('%s/%s', $at->root(), $file))), Path::of($file));
+
+    return sprintf('%s/originals/%s.php', $at->root(), hash('xxh3', $printed instanceof Contents ? $printed->text() : ''));
+}
+
+/** A run of some tests on their own, the file they judge served unmutated through Pest's override. */
+function trialServed(Project $at, Command $judging, string $file = 'src/Money.php'): Command
+{
+    return $judging->with([
+        'PEST_MUTATION_TESTING' => sprintf('%s/%s', $at->root(), $file),
+        'PEST_MUTATION_FILE' => trialUnmutated($at, $file),
+    ]);
 }
 
 /** Answers the tests on their own as passing, and a mutant's run by writing this guard and ending so. */
@@ -84,7 +110,7 @@ it('runs the tests with Pest\'s override serving the mutated copy, and a guard, 
     expect($outcome->status())->toBe(MutantStatus::Killed)
         ->and($outcome->duration())->toBeInstanceOf(Seconds::class)
         ->and($shell->commands())->toEqual([
-            $judging->within(Seconds::of(6.0)),
+            trialServed($at, $judging->within(Seconds::of(6.0))),
             $judging->within(Seconds::of(6.0))->with([
                 'PEST_MUTATION_TESTING' => sprintf('%s/src/Money.php', $at->root()),
                 'PEST_MUTATION_FILE' => '/copies/n1.php',
@@ -222,7 +248,7 @@ it('judges nothing where the tests fail on their own, running them alone once fo
     expect($first)->toEqual(Outcome::unjudged('the selected tests fail on their own (no exit code; ran tests/A.php, tests/B.php)')->within(Seconds::of(6.0)))
         ->and($second)->toEqual($first)
         ->and($shell->commands())->toEqual([
-            trialJudging(sprintf('%s/0', $at->root()), $tests, Group::named('holds:src/Money.php'))->within(Seconds::of(6.0)),
+            trialServed($at, trialJudging(sprintf('%s/0', $at->root()), $tests, Group::named('holds:src/Money.php'))->within(Seconds::of(6.0))),
         ]);
 });
 
@@ -249,7 +275,7 @@ function uncappedScan(Project $at): MemoryScan
     return $scan instanceof MemoryScan ? $scan : throw new LogicException('An uncapped scan writes nothing.');
 }
 
-it('runs each new set of tests on its own, then the trials whose tests pass there, each batch side by side, each run writing in a directory of its own', function (): void {
+it('runs each new set of tests on its own for each file it judges, then the trials whose tests pass there, each batch side by side, each run writing in a directory of its own', function (): void {
     $at = trialProject();
     $shell = new ShellFake(static function (Command $command): Ran {
         $environment = $command->environment();
@@ -275,13 +301,60 @@ it('runs each new set of tests on its own, then the trials whose tests pass ther
     $outcomes = $trial->ofEach(...$runs);
     $guards = array_map(
         static fn(Command $command): string|false => $command->environment()['MUTATION_GATE_GUARD'],
-        array_slice($shell->commands(), 2),
+        array_slice($shell->commands(), 3),
     );
 
     expect(array_map(static fn(Outcome $outcome): MutantStatus => $outcome->status(), $outcomes))
         ->toBe([MutantStatus::Killed, MutantStatus::Unjudged, MutantStatus::Killed])
-        ->and($shell->batches())->toBe([2, 2])
+        ->and($shell->batches())->toBe([3, 2])
         ->and($guards)->toBe([sprintf('%s/0/guard.json', $at->root()), sprintf('%s/1/guard.json', $at->root())])
         ->and($trial->ofEach(...$runs))->toHaveCount(3)
-        ->and($shell->batches())->toBe([2, 2, 2]);
+        ->and($shell->batches())->toBe([3, 2, 2]);
 });
+
+it('judges nothing of a mutant whose tests fail only while Pest\'s override serves a file, as they fail on their own with it served unmutated', function (): void {
+    $at = trialProject();
+    $served = static fn(Command $command): bool => ($command->environment()['PEST_MUTATION_FILE'] ?? false) !== false;
+    $shell = new ShellFake(static fn(Command $command): Ran => Ran::finished(succeeded: ! $served($command), output: 'a dangling link stats as missing'));
+
+    $outcome = trialOf($at, $shell)->of(Paths::of(Path::of('tests/LinkSpec.php')), Path::of('src/Money.php'), '/c', Seconds::of(6.0));
+
+    expect($outcome->status())->toBe(MutantStatus::Unjudged)
+        ->and($outcome->reason())->toEqual(Reason::that(
+            'the selected tests fail on their own (no exit code; last printed a dangling link stats as missing; ran tests/LinkSpec.php)',
+        ))
+        ->and($shell->commands())->toHaveCount(1);
+});
+
+it('runs the same tests on their own again for each file they judge, served unmutated in its place', function (): void {
+    $at = trialProject();
+    $shell = new ShellFake(trialAnswering('{"before":false,"loaded":true,"opcache":false}', Ran::finished(succeeded: false, output: '')));
+    $tests = Paths::of(Path::of('tests/A.php'));
+    $trial = trialOf($at, $shell);
+
+    $trial->ofEach(
+        TrialRun::of($tests, Path::of('src/Money.php'), '/c1', Seconds::of(6.0)),
+        TrialRun::of($tests, Path::of('src/Tax.php'), '/c2', Seconds::of(6.0)),
+    );
+    $alone = array_slice($shell->commands(), 0, 2);
+
+    expect(array_map(static fn(Command $command): string|false => $command->environment()['PEST_MUTATION_FILE'], $alone))
+        ->toBe([trialUnmutated($at, 'src/Money.php'), trialUnmutated($at, 'src/Tax.php')])
+        ->and(file_get_contents(trialUnmutated($at, 'src/Tax.php')))->toBe("<?php\n\nfinal class Tax\n{\n}");
+});
+
+it('judges nothing, and runs nothing, where the file the tests judge cannot be served unmutated', function (string $source, string $why): void {
+    $at = trialProject();
+    Scratch::write($at->root(), 'src/Broken.php', "<?php\n\nfinal class {\n");
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+
+    $outcome = trialOf($at, $shell)->of(Paths::of(Path::of('tests/A.php')), Path::of($source), '/c', Seconds::of(6.0));
+
+    expect($outcome->status())->toBe(MutantStatus::Unjudged)
+        ->and($outcome->reason() instanceof Reason ? $outcome->reason()->text() : '')
+        ->toStartWith(sprintf('the selected tests fail on their own (%s', $why))
+        ->and($shell->commands())->toBe([]);
+})->with([
+    'gone' => ['src/Gone.php', 'The gate cannot read src/Gone.php to serve it unmutated.'],
+    'no longer parsing' => ['src/Broken.php', 'src/Broken.php does not parse'],
+]);

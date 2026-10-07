@@ -6,6 +6,7 @@
         "tests/Contract/Runner/infection-fixture",
         "tests/Contract/Runner/reach",
         "tests/Contract/Runner/stall",
+        "tests/Contract/Runner/override",
         "tests/Contract/StaticChecker/fixture"
     ],
     "rules": {

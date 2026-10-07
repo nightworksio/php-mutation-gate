@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 use function array_key_exists;
 use function array_keys;
 use function array_map;
+use function array_slice;
 
 use Closure;
 
@@ -15,34 +16,42 @@ use function explode;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Test\Filter;
+use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
 /**
  * The kills of a run in which each mutant's own run loaded only the test
  * files its covering tests need, as far as its records can vouch for them. A
  * kill is doubtful where no test is named as the killer, where only tests
  * that errored are, or where the records cannot be read. Any other kill of a
- * narrowed own run stands only where the tests of the files it loaded pass
- * on the unmutated code, loaded alone: a file left out can hold what a test
- * needs without a name, such as a hook `pest()->in()` registers or state its
- * loading sets, and a test that fails for want of it would pass as a killer.
+ * narrowed own run stands only where its control passes: the tests of the
+ * files it loaded, loaded alone, with the file it changes served unmutated
+ * through Pest's override as the mutant's copy was (see Control). A file left
+ * out can hold what a test needs without a name, such as a hook
+ * `pest()->in()` registers or state its loading sets, and a test can fail
+ * only while the override serves a file; either would pass as a killer.
  * Mutants that share Pest's id share their own run, and so its doubt. A
  * kill of a mutant Pest left uncovered is the trial's (ADR-0004, decision 8),
  * which ran no own process of Pest's and first ran its tests alone on the
- * unmutated code, so it is never doubted.
+ * unmutated code, served as its mutant is, so it is never doubted.
  */
 final readonly class NarrowedKills
 {
-    /** Where a narrowed own run's files are joined into the key its kills are kept by. */
+    /** Where the file a narrowed kill changes and the files its run loaded are joined into the key it is kept by. */
     private const string BETWEEN = "\n";
 
     /**
      * @param list<Mutant>                $doubtful
-     * @param array<string, list<Mutant>> $narrowed the kills of narrowed own runs, by the files they loaded, joined
+     * @param array<string, list<Mutant>> $narrowed the kills of narrowed own runs, by the file each changes and the
+     *                                              files its run loaded, joined
      */
     private function __construct(private array $doubtful, private array $narrowed)
     {
@@ -73,39 +82,48 @@ final readonly class NarrowedKills
             }
 
             if ($run->narrowedTo() !== []) {
-                $narrowed[implode(self::BETWEEN, $run->narrowedTo())][] = $mutant;
+                $key = implode(self::BETWEEN, [$mutant->location()->file()->value(), ...$run->narrowedTo()]);
+                $narrowed[$key][] = $mutant;
             }
         }
 
         return new self($doubtful, $narrowed);
     }
 
-    /** How many sets of files the narrowed kills were loaded with, each asked about once. */
+    /** How many controls the narrowed kills ask for: one for each file changed and set of files loaded. */
     public function sets(): int
     {
         return count($this->narrowed);
     }
 
     /**
-     * The doubtful kills, and each narrowed kill whose files' tests do not
-     * pass on the unmutated code, as asked once for every set of files at
-     * once, so the runs that answer can run side by side.
+     * The doubtful kills, and each narrowed kill whose control fails: the
+     * tests of the files its run loaded, judged as the run was, with the file
+     * it changes served unmutated, all asked at once, so the runs that answer
+     * can run side by side.
      *
-     * @param Closure(non-empty-list<list<string>>): list<bool> $pass whether the tests of each set of files, by
-     *                                                         their paths on disk, pass, in the order given
+     * @param Closure(non-empty-list<Control>): list<bool> $pass whether each control passes, in the order given
      */
-    public function doubted(Closure $pass): Mutants
+    public function doubted(WholeSuite|Group|Filter $judgedBy, Closure $pass): Mutants
     {
         $doubted = $this->doubtful;
-        $sets = array_keys($this->narrowed);
-        $passed = $sets === [] ? [] : $pass(array_map(
-            static fn(string $files): array => explode(self::BETWEEN, $files),
-            $sets,
+        $keys = array_keys($this->narrowed);
+        $passed = $keys === [] ? [] : $pass(array_map(
+            static function (string $key) use ($judgedBy): Control {
+                $parts = explode(self::BETWEEN, $key);
+
+                return Control::of(
+                    Path::of($parts[0]),
+                    Paths::of(...array_map(Path::of(...), array_slice($parts, 1))),
+                    $judgedBy,
+                );
+            },
+            $keys,
         ));
 
-        foreach ($sets as $at => $files) {
+        foreach ($keys as $at => $key) {
             $stands = array_key_exists($at, $passed) && $passed[$at];
-            $doubted = $stands ? $doubted : [...$doubted, ...$this->narrowed[$files]];
+            $doubted = $stands ? $doubted : [...$doubted, ...$this->narrowed[$key]];
         }
 
         return Mutants::of(...$doubted);

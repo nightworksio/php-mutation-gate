@@ -46,10 +46,14 @@ final readonly class TrialRun
         return $this->limit;
     }
 
-    /** The set of tests, as one text: trials of the same set share their run on their own. */
+    /**
+     * The set of tests and the file they judge, as one text: trials of the
+     * same set and file share their run on their own, which serves that file
+     * unmutated.
+     */
     public function set(): string
     {
-        $values = [];
+        $values = [$this->original->value()];
 
         foreach ($this->tests as $test) {
             $values[] = $test->value();

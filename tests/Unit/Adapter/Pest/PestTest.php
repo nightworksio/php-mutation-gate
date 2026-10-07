@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Bridges;
 use NightWorksIO\MutationGate\Adapter\Pest\Ceiling;
 use NightWorksIO\MutationGate\Adapter\Pest\Clock;
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
+use NightWorksIO\MutationGate\Adapter\Pest\Controls;
 use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Diff;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
@@ -17,9 +18,11 @@ use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
+use NightWorksIO\MutationGate\Adapter\Pest\Printed;
 use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\Selection;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Cli\SystemClock;
@@ -39,6 +42,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -150,10 +154,11 @@ function adapterInvocation(): Invocation
     return Invocation::installedIn(Path::of('vendor'));
 }
 
-/** A project in a new directory, by its real path, that installs its packages in `vendor` or another directory. */
+/** A project in a new directory, by its real path, holding src/Money.php, that installs its packages in `vendor` or another directory. */
 function adapterProject(string $vendor = 'vendor'): Project
 {
     $root = (string) realpath(Scratch::directory());
+    Scratch::write($root, 'src/Money.php', "<?php\n\nfinal class Money\n{\n}\n");
 
     return Project::at($root, Paths::of(Path::of('tests')), Path::of('.mutation-gate'), Path::of($vendor));
 }
@@ -1498,4 +1503,111 @@ it('cannot judge a run whose options name a class that is not a mutator, and sta
     expect(new Pest(adapterProject(), $shell, Patching::off(), new CapDirectory(), Triage::standard()->bounds(), bridges: Bridges::refusing($why))->mutate(adapterMoney()))
         ->toBe($why)
         ->and($shell->commands())->toBe([]);
+});
+
+/**
+ * A patched run of src/Money.php in which RUN_ADDS kills the mutant of line 11, in its own run narrowed to
+ * tests/MoneySpec.php and again with every test file, naming itself the killer, or naming none; every run of tests
+ * outside a mutation run passes, but one with a file served through Pest's override fails where the tests are
+ * sensitive to it, as a test that stats a dangling link through the override is.
+ */
+function adapterOverrideSensitive(Project $at, bool $sensitive, bool $named = true): ShellFake
+{
+    return new ShellFake(static function (Command $command) use ($at, $sensitive, $named): Ran {
+        $results = sprintf('%s', $command->environment()[GateVariable::Results->value] ?? '');
+
+        if ($results === '') {
+            $served = ($command->environment()[Recorder::MUTATED] ?? false) !== false;
+
+            return Ran::finished(succeeded: !$served || !$sensitive, output: 'the control');
+        }
+
+        $narrowed = ($command->environment()[GateVariable::Narrow->value] ?? false) === '1';
+        CoverageMaps::write(Recorder::coverageBeside($results), sprintf('%s/', $at->root()), ['src/Money.php' => [11 => [0]]], [RUN_ADDS], []);
+        PestRun::write($results, [
+            PestRun::planned('n1', sprintf('%s/src/Money.php', $at->root()), 11, RUN_PLUS, 'return $a + $b;', 'return $a - $b;'),
+            PestRun::made(1),
+            ...($named ? [PestRun::killed('n1', RUN_ADDS)] : []),
+            ...($narrowed ? [PestRun::narrowed('n1', [adapterSpec($at)])] : []),
+            PestRun::finished('n1', PestStatus::Tested, 0.25),
+            PestRun::end(),
+        ]);
+
+        return Ran::finished(succeeded: true, output: '  Mutations: 1 tested');
+    });
+}
+
+/**
+ * The runs of tests a shell ran outside a mutation run: each control.
+ *
+ * @return list<Command>
+ */
+function adapterControls(ShellFake $shell): array
+{
+    return array_values(array_filter(
+        $shell->commands(),
+        static fn(Command $command): bool => ($command->environment()[GateVariable::Results->value] ?? false) === false,
+    ));
+}
+
+it('leaves unjudged a kill whose named killer fails as well with the file unmutated, served through Pest\'s override as the mutant was', function (): void {
+    $at = adapterProject();
+    $shell = adapterOverrideSensitive($at, sensitive: true);
+
+    $result = new Pest($at, $shell, adapterCanary(), new CapDirectory(), Triage::standard()->bounds())->mutate(adapterMoney());
+    $mutants = $result instanceof MutationResult ? [...$result->mutants()] : [];
+
+    expect(adapterStatuses($result))->toBe([MutantStatus::Unjudged])
+        ->and($mutants[0]->reason())->toEqual(Reason::that(Controls::FAILS_UNMUTATED))
+        ->and(adapterControls($shell))->toHaveCount(2);
+});
+
+it('leaves unjudged a kill no test is named for, confirmed again so, whose control fails with the file unmutated', function (): void {
+    $at = adapterProject();
+    $shell = adapterOverrideSensitive($at, sensitive: true, named: false);
+
+    $result = new Pest($at, $shell, adapterCanary(), new CapDirectory(), Triage::standard()->bounds())->mutate(adapterMoney());
+
+    expect(adapterStatuses($result))->toBe([MutantStatus::Unjudged])
+        ->and(adapterControls($shell))->toHaveCount(1);
+});
+
+it('counts a kill confirmed again whose control passes with the file unmutated, served through Pest\'s override', function (bool $named): void {
+    $at = adapterProject();
+    $shell = adapterOverrideSensitive($at, sensitive: false, named: $named);
+
+    $result = new Pest($at, $shell, adapterCanary(), new CapDirectory(), Triage::standard()->bounds())->mutate(adapterMoney());
+
+    expect(adapterStatuses($result))->toBe([MutantStatus::Killed]);
+})->with([
+    'named' => [true],
+    'unnamed' => [false],
+]);
+
+it('runs each control with the file the mutant changes served unmutated, the narrowed files\' tests as the run judged them, then the covering tests as Pest\'s filter selects them from every test file', function (): void {
+    $at = adapterProject();
+    $shell = adapterOverrideSensitive($at, sensitive: true);
+
+    new Pest($at, $shell, adapterCanary(), new CapDirectory(), Triage::standard()->bounds())->mutate(adapterMoney());
+    [$baseline, $confirmation] = adapterControls($shell);
+    $printed = Printed::of(Contents::of((string) file_get_contents(sprintf('%s/src/Money.php', $at->root()))), Path::of('src/Money.php'));
+    $unmutated = sprintf('%s/.mutation-gate/pest/originals/%s.php', $at->root(), hash('xxh3', $printed instanceof Contents ? $printed->text() : ''));
+    $served = [Recorder::MUTANT => sprintf('%s/src/Money.php', $at->root()), Recorder::MUTATED => $unmutated];
+    $judging = Invocation::installedIn(Path::of('vendor'));
+
+    expect($baseline)->toEqual($judging->judging(Paths::of(Path::of(adapterSpec($at))), WholeSuite::tests(), Withheld::standard())->with($served))
+        ->and($confirmation)->toEqual(
+            $judging->judging(Paths::none(), Selection::of(TestIds::of(TestId::of(RUN_ADDS)))->filter(), Withheld::standard())->with($served),
+        )
+        ->and(file_get_contents($unmutated))->toBe($printed instanceof Contents ? $printed->text() : null);
+});
+
+it('runs a held unit\'s narrowed kill\'s control by the group that holds it, as its run was judged', function (): void {
+    $at = adapterProject();
+    $shell = adapterOverrideSensitive($at, sensitive: false);
+
+    new Pest($at, $shell, adapterCanary(), new CapDirectory(), Triage::standard()->bounds())
+        ->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Money.php')));
+
+    expect(adapterControls($shell)[0]->arguments())->toContain('--group=holds:src/Money.php');
 });
