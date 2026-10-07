@@ -56,7 +56,9 @@ final readonly class Waiting
     public function ended(Printed $from, Workplace $workplace): End
     {
         $status = 0;
-        $progress = $this->silence instanceof SilenceLimit ? Progress::under($this->silence) : NotGiven::value();
+        $progress = $this->silence instanceof SilenceLimit
+            ? Progress::under($this->silence->limit())
+            : NotGiven::value();
         $waited = pcntl_waitpid($this->child, $status, WNOHANG);
 
         while ($waited === 0 && $this->seconds() < $this->limit) {
@@ -86,11 +88,11 @@ final readonly class Waiting
     /** The progress as its file stands now; none where the child has no silence limit. */
     private function read(Progress|NotGiven $progress): Progress|NotGiven
     {
-        if (! $progress instanceof Progress) {
+        if (! $this->silence instanceof SilenceLimit || ! $progress instanceof Progress) {
             return $progress;
         }
 
-        $file = $progress->file();
+        $file = $this->silence->progress();
         clearstatcache(clear_realpath_cache: true, filename: $file);
         $size = is_file($file) ? filesize($file) : 0;
 

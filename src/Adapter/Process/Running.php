@@ -41,6 +41,7 @@ final class Running
         private readonly int $place,
         private readonly float $started,
         private readonly float $until,
+        private readonly SilenceLimit|NotGiven $silence,
         private Progress|NotGiven $progress,
     ) {
     }
@@ -72,7 +73,8 @@ final class Running
             $place,
             $now,
             $deadline instanceof Seconds ? $now + $deadline->seconds() : INF,
-            $silence instanceof SilenceLimit ? Progress::under($silence) : NotGiven::value(),
+            $silence,
+            $silence instanceof SilenceLimit ? Progress::under($silence->limit()) : NotGiven::value(),
         );
     }
 
@@ -99,11 +101,11 @@ final class Running
     /** Whether, at this time, it has made no progress for its silence limit; never where it has none. */
     private function hasStalled(float $now): bool
     {
-        if (! $this->progress instanceof Progress) {
+        if (! $this->silence instanceof SilenceLimit || ! $this->progress instanceof Progress) {
             return false;
         }
 
-        $file = $this->progress->file();
+        $file = $this->silence->progress();
         clearstatcache(clear_realpath_cache: true, filename: $file);
         $size = is_file($file) ? filesize($file) : 0;
         $this->progress = $this->progress->read(is_int($size) ? $size : 0, $now);

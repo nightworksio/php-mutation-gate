@@ -6,39 +6,36 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 
 use const INF;
 
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+
 /**
- * A running process's progress under its silence limit, as the size of the
- * file the limit names, read time after time on a clock in seconds: it has
- * stalled once the file has not grown for the limit since it last grew, and
- * never before it first grows.
+ * A running process's progress under its silence limit, as the size of what
+ * shows it, such as the file the limit names or what the process printed,
+ * read time after time on a clock in seconds: it has stalled once that has
+ * not grown for the limit since it last grew, and never before it first
+ * grows.
  */
 final readonly class Progress
 {
-    private function __construct(private SilenceLimit $silence, private int $size, private float $since)
+    private function __construct(private Seconds $limit, private int $size, private float $since)
     {
     }
 
-    /** A process's progress before its file has been read. */
-    public static function under(SilenceLimit $silence): self
+    /** A process's progress under this silence limit, before anything has been read. */
+    public static function under(Seconds $limit): self
     {
-        return new self($silence, 0, INF);
+        return new self($limit, 0, INF);
     }
 
-    /** The file whose growth is the progress. */
-    public function file(): string
-    {
-        return $this->silence->progress();
-    }
-
-    /** This progress, the file read at this size at this time: grown where it is larger than when it last grew. */
+    /** This progress, read at this size at this time: grown where it is larger than when it last grew. */
     public function read(int $size, float $now): self
     {
-        return $size > $this->size ? new self($this->silence, $size, $now) : $this;
+        return $size > $this->size ? new self($this->limit, $size, $now) : $this;
     }
 
-    /** Whether, at this time, the file has not grown for the silence limit since it last grew. */
+    /** Whether, at this time, it has not grown for the silence limit since it last grew. */
     public function hasStalled(float $now): bool
     {
-        return $now - $this->since > $this->silence->limit()->seconds();
+        return $now - $this->since > $this->limit->seconds();
     }
 }
