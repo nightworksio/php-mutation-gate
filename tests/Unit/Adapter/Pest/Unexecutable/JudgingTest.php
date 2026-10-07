@@ -7,11 +7,13 @@ use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Covering;
 use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
 use NightWorksIO\MutationGate\Adapter\Pest\MemoryScan;
+use NightWorksIO\MutationGate\Adapter\Pest\Printed;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Judging;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Triage;
+use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -142,24 +144,28 @@ it('runs the tests that read the value, then the fallback\'s others where the mu
     $results = Unexecutables::run($at, ['internal']);
     $shell = new ShellFake(static fn(Command $command): Ran => Unexecutables::answering($command, ['tests/OtherSpec.php']));
     $log = sprintf('--log-junit=%s/.mutation-gate/pest/trials/0/junit.xml', $at->root());
-    $alone = static fn(string $spec, float $limit): Command => Invocation::installedIn(Path::of('vendor'))
+    $judging = static fn(string $spec, float $limit): Command => Invocation::installedIn(Path::of('vendor'))
         ->judging(Paths::of(Path::of(sprintf('tests/%s.php', $spec))), WholeSuite::tests(), Withheld::standard(), $log)
         ->within(Seconds::of($limit));
-    $copy = Recorder::mutantBeside($results, 'internal');
-    $override = static fn(string $spec, float $limit): Command => $alone($spec, $limit)->with([
+    $printed = Printed::of(Contents::of((string) file_get_contents(sprintf('%s/src/Money.php', $at->root()))), Path::of('src/Money.php'));
+    $unmutated = sprintf('%s/.mutation-gate/pest/trials/originals/%s.php', $at->root(), hash('xxh3', $printed instanceof Contents ? $printed->text() : ''));
+    $served = static fn(string $spec, float $limit, string $copy): Command => $judging($spec, $limit)->with([
         'PEST_MUTATION_TESTING' => sprintf('%s/src/Money.php', $at->root()),
         'PEST_MUTATION_FILE' => $copy,
+    ]);
+    $copy = Recorder::mutantBeside($results, 'internal');
+    $override = static fn(string $spec, float $limit): Command => $served($spec, $limit, $copy)->with([
         'MUTATION_GATE_GUARD' => sprintf('%s/.mutation-gate/pest/trials/0/guard.json', $at->root()),
     ]);
 
     new Judging($at, $shell, new CapDirectory(), Triage::standard()->bounds())->of(judgingResult('internal'), $money, $results, judgingCoverage($results));
 
     expect($shell->commands())->toEqual([
-        $alone('InternalSpec', 10.0),
+        $served('InternalSpec', 10.0, $unmutated),
         $override('InternalSpec', 10.0),
-        $alone('OtherSpec', 10.0),
+        $served('OtherSpec', 10.0, $unmutated),
         $override('OtherSpec', 10.0),
-    ]);
+    ])->and(file_get_contents($unmutated))->toBe($printed instanceof Contents ? $printed->text() : null);
 });
 
 it('lets the tests that read an ambiguous value kill it whatever the fallback holds, and leaves unjudged what they leave alive past ten', function () use (

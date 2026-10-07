@@ -23,9 +23,10 @@ use NightWorksIO\MutationGate\Core\Test\Groups;
  * What one Pest runner learns once for every run it starts in a process: the
  * groups its suite lists, the PHP it starts, whether the vendor is patched,
  * each map another job handed over, the maps it has written again for Pest,
- * and whether the tests of each set of files a mutant's own run was narrowed
- * to pass on the unmutated code. Each is slow to learn, from a process started for it or a map that
- * can reach hundreds of megabytes, and none changes while the gate runs.
+ * and whether each control of a kill passes on the unmutated code, served as
+ * its mutant was (see Control). Each is slow to learn, from a process started
+ * for it or a map that can reach hundreds of megabytes, and none changes
+ * while the gate runs.
  */
 final class Remembered
 {

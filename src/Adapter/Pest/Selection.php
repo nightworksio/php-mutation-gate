@@ -12,7 +12,10 @@ use function count;
 use function explode;
 use function implode;
 use function is_string;
+use function mb_strlen;
+use function mb_substr;
 
+use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
@@ -37,6 +40,9 @@ final readonly class Selection
 
     private const string EVALUABLE = '__pest_evaluable_';
 
+    /** How pest-plugin-mutate's argument opens, before its quoted pattern. */
+    private const string ARGUMENT = '--filter=';
+
     /**
      * @param list<string> $tests
      * @param string       $argument the `--filter` argument the tests make, built once
@@ -51,12 +57,18 @@ final readonly class Selection
         $tests = array_map(static fn(TestId $test): string => $test->value(), [...$covering]);
         $pieces = array_unique(array_filter(array_map(self::pieceOf(...), $tests), is_string(...)));
 
-        return new self($tests, sprintf('--filter="%s"', implode('|', $pieces)));
+        return new self($tests, sprintf('%s"%s"', self::ARGUMENT, implode('|', $pieces)));
     }
 
     public function count(): int
     {
         return count($this->tests);
+    }
+
+    /** The filter, as pest-plugin-mutate passes it, quotes and all, for a run that selects as a mutant's does. */
+    public function filter(): Filter
+    {
+        return Filter::matching(mb_substr($this->argument, mb_strlen(self::ARGUMENT)));
     }
 
     /** The `--filter` argument pest-plugin-mutate starts the mutant's process with. */

@@ -21,7 +21,9 @@ use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
 use NightWorksIO\MutationGate\Adapter\Pest\MemoryScan;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\ServedOriginal;
 use NightWorksIO\MutationGate\Adapter\Pest\Shell;
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Node;
@@ -44,9 +46,11 @@ use function sprintf;
  * Pest's override serving the mutated copy in place of the original, as Pest
  * serves its own mutants, the trials of several mutants side by side, each
  * run told its place and writing in a directory of its own. The tests must
- * pass on their own first, once for each set of them: where they run out of
- * the limit there, the mutant is skipped as too slow to run, and where they
- * fail, it is left unjudged. A run that loaded the
+ * pass on their own first, once for each set of them and file they judge,
+ * with that file served unmutated through the same override, so a test that
+ * fails only while the override serves a file fails there too: where they
+ * run out of the limit there, the mutant is skipped as too slow to run, and
+ * where they fail, it is left unjudged. A run that loaded the
  * original before the override, never loaded it, or ran where opcache could
  * serve a cached original, judges nothing, and the reason says what the run
  * did (see Evidence), from what it printed and the JUnit log it writes beside
@@ -73,7 +77,10 @@ final class Trial
     /** The guard a run writes, in its directory. */
     private const string GUARD = 'guard.json';
 
-    /** @var array<string, Outcome|true> each set of test files' outcome on its own where they fail, by their paths */
+    /**
+     * @var array<string, Outcome|true> each set of test files' outcome on its own for the file they judge, where they
+     *                                  fail, by the file and their paths (see TrialRun::set())
+     */
     private array $alone = [];
 
     /**
@@ -143,9 +150,11 @@ final class Trial
     }
 
     /**
-     * Each set of tests these trials run that has not run on its own, run
-     * side by side, its outcome kept where it fails or runs out of time
-     * there.
+     * Each set of tests these trials run that has not run on its own for the
+     * file they mutate, run side by side with that file served unmutated
+     * through Pest's override, as each mutated copy is served (see
+     * ServedOriginal), its outcome kept where it fails or runs out of time
+     * there, or where the file cannot be served.
      *
      * @param list<TrialRun> $trials
      */
@@ -158,15 +167,25 @@ final class Trial
         }
 
         $commands = [];
+        $running = [];
 
-        foreach (array_values($sets) as $position => $trial) {
-            $this->project->without($this->logOf($position));
-            $commands[] = $this->judging($trial->tests(), $trial->limit(), $position);
+        foreach ($sets as $set => $trial) {
+            $served = ServedOriginal::of($this->project, $this->directory, $trial->original());
+
+            if ($served instanceof CannotJudge) {
+                $this->alone[$set] = Outcome::unjudged(sprintf(self::SAID, self::ALONE, $served->why()));
+
+                continue;
+            }
+
+            $this->project->without($this->logOf(count($running)));
+            $commands[] = $served->onto($this->judging($trial->tests(), $trial->limit(), count($running)));
+            $running[] = $trial;
         }
 
         $ends = $commands === [] ? [] : [...$this->shell->sideBySide($this->slots, Unlimited::time(), ...$commands)];
 
-        foreach (array_values($sets) as $position => $trial) {
+        foreach ($running as $position => $trial) {
             $ran = $ends[$position];
             $this->alone[$trial->set()] = match (true) {
                 $ran->succeeded() => true,

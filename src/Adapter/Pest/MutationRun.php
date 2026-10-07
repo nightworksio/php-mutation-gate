@@ -140,42 +140,60 @@ final readonly class MutationRun
         $result = $shared instanceof CannotJudge ? $shared : $this->ran($request, $results, $shared, $started, $laps);
         $result = $result instanceof CannotJudge ? $result : $result->withStepsBefore($read);
 
-        return $result instanceof CannotJudge || ! $this->narrows()
-            ? $result
-            : $this->vouched($result, $request, $results, $started, $laps);
+        return match (true) {
+            $shared instanceof CannotJudge, $result instanceof CannotJudge, ! $this->narrows() => $result,
+            default => $this->vouched($result, $request, $results, $shared, $started, $laps),
+        };
     }
 
     /**
-     * The result, each narrowed kill its files alone cannot vouch for run
-     * again with every test file (see NarrowedKills), with the time each
-     * took.
+     * The result, each narrowed kill its control cannot vouch for run again
+     * with every test file (see NarrowedKills), with the time each took. The
+     * controls of the kills run again are read off this run's coverage
+     * before the run again replaces it.
      */
     private function vouched(
         MutationResult $result,
         MutationRequest $request,
         string $results,
+        CoverageMap|Unshared $shared,
         float $started,
         Laps $laps,
     ): MutationResult|CannotJudge {
         $kills = NarrowedKills::in($result, $results);
         $from = $laps->now();
-        $doubtful = $this->doubted($kills, $request, $started);
+        $doubtful = $this->doubted($kills, $request, $results, $started);
         $baselines = StepTimes::of($laps->lap(Step::Baselines, $from, $kills->sets()));
+        $controls = Controls::of(
+            $this->project,
+            $doubtful,
+            $request->judgedBy(),
+            fn(): Covering|CannotJudge => $this->coveringOf($shared, $results),
+        );
 
-        return $this->confirmed($result->withSteps($baselines), $request, $started, $doubtful, $laps);
+        return $this->confirmed($result->withSteps($baselines), $request, $results, $started, $controls, $laps);
     }
 
     /** A narrowed run's kills that must run again with every test file before they count. */
-    private function doubted(NarrowedKills $kills, MutationRequest $request, float $started): Mutants
+    private function doubted(NarrowedKills $kills, MutationRequest $request, string $results, float $started): Mutants
     {
         return $kills->doubted(
+            $request->judgedBy(),
             /**
-             * @param  non-empty-list<list<string>> $sets
+             * @param  non-empty-list<Control> $controls
              * @return list<bool>
              */
-            fn(array $sets): array => new AloneRuns($this->project, $this->shell, $this->remembered)
-                ->pass($sets, $request, $this->left($request, $started)),
+            fn(array $controls): array => new AloneRuns($this->project, $this->shell, $this->remembered)
+                ->pass($controls, $request, $this->left($request, $started), $results),
         );
+    }
+
+    /** The coverage this run's mutants were selected by: the map handed over, or the run's own. */
+    private function coveringOf(CoverageMap|Unshared $shared, string $results): Covering|CannotJudge
+    {
+        return $shared instanceof CoverageMap
+            ? new HandedOver($shared, $this->project)
+            : CoverageFile::at(Recorder::coverageBeside($results));
     }
 
     private function ran(
@@ -201,9 +219,7 @@ final readonly class MutationRun
         $ran = $this->shell->run($command->with([...$only, ...$narrow, ...$this->patching->bounding($this->bounds)]));
         $mutation = $laps->lap(Step::Mutation, $from);
         $scan->remove();
-        $coverage = $shared instanceof CoverageMap
-            ? new HandedOver($shared, $this->project)
-            : CoverageFile::at(Recorder::coverageBeside($results));
+        $coverage = $this->coveringOf($shared, $results);
         $opensOn = $this->patching->opensOn($request->judgedBy(), $shared instanceof CoverageMap);
         $left = fn(): Seconds|Unlimited => $this->left($request, $started);
         $opening = OpeningIssues::of($this->shell, $this->project, $request, $opensOn, $left, $results);
@@ -233,15 +249,19 @@ final readonly class MutationRun
 
     /**
      * The result, each doubtful kill run again with every test file, within
-     * the time left since the run began, or unjudged where none is left.
+     * the time left since the run began, or unjudged where none is left; a
+     * kill the run again confirms stands only where its control passes.
      */
     private function confirmed(
         MutationResult $result,
         MutationRequest $request,
+        string $results,
         float $started,
-        Mutants $doubtful,
+        Controls $controls,
         Laps $laps,
     ): MutationResult|CannotJudge {
+        $doubtful = $controls->doubtful();
+
         if (count($doubtful) === 0) {
             return $result;
         }
@@ -251,6 +271,10 @@ final readonly class MutationRun
         $again = $left instanceof Seconds && $left->seconds() <= 0.0
             ? FoundAgain::among($doubtful, Mutants::none(), Reason::that(self::NO_TIME_TO_CONFIRM))
             : $this->whole()->again($doubtful, $left instanceof Seconds ? $request->within($left) : $request);
+        $runs = new AloneRuns($this->project, $this->shell, $this->remembered);
+        $again = $again instanceof CannotJudge
+            ? $again
+            : $controls->applied($again, $runs, $request, $this->left($request, $started), $results);
 
         return $again instanceof CannotJudge ? $again : $result
             ->withMutants(FoundAgain::replacing($result->mutants(), $again))

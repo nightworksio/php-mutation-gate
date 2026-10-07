@@ -430,21 +430,33 @@ its parser attributes. Both change when the checkout moves.
          does not count, as a helper a test calls by a name built at run time
          leaves;
        - any other counts only where every test in the files its run loaded
-         passes on the unmutated code, loaded alone as that run loaded them.
-         That run is made once for each set of files, and kept while the gate
-         runs. The runs a mutation run needs are made side by side, in the
-         places of its pool, each told what its place tells it, as the
-         mutants' own runs were.
+         passes on the unmutated code, loaded alone as that run loaded them,
+         with the file the mutant changes served unmutated through Pest's
+         override, as the mutant's own run served its copy: the file printed
+         as Pest prints its mutants. A test that fails only while the
+         override serves a file, as one that reads how PHP opened a file
+         does, fails there too, so its failure never counts as a kill. That
+         run is made once for each file changed and set of files, and kept
+         while the gate runs. The runs a mutation run needs are made side by
+         side, in the places of its pool, each told what its place tells it,
+         as the mutants' own runs were.
          Only Pest's runs need them: Pest alone narrows a mutant's own run
          to some test files. The PHPUnit runner and Infection load every
          test file in each mutant's run, so a kill there never rests on a
-         file it left out.
+         file it left out, and the gate runs no such run for them.
 
        A kill that does not count runs again with every test file within the
-       time left, or is unjudged. A kill whose records cannot be read does
+       time left, or is unjudged. A kill the run again makes counts only
+       where the tests that cover the mutant pass on the unmutated code,
+       among every test file, served the same way: as Pest's filter selects
+       them, or the tests that judge the run where that filter is too long
+       to pass. Where they fail, the mutant is unjudged: *Killed, but its
+       covering tests fail as well with the file unmutated, served as its
+       mutant was.* Where the coverage they are read off cannot be read, it
+       is unjudged too, saying so. A kill whose records cannot be read does
        not count either. A kill of a mutant Pest left uncovered is the
        trial's (decision 8), which ran its tests alone on the unmutated code
-       first, so it always counts.
+       first, served as its mutant is, so it always counts.
      - What a test's body leaves behind as it runs is not seen: a test that
        writes a global, a static or a file while it runs, which a test in
        another file reads, passes or fails by whether that other test ran
@@ -804,11 +816,17 @@ its parser attributes. Both change when the checkout moves.
      1. The plugin copies each uncovered mutant's mutated file from its
         `Uncovered` event to `.mutation-gate/pest/mutants/<native id>.php`.
         Every run of the adapter starts with none left from an earlier one.
-     2. The selected tests run once as they are, narrowed as in step 3, once
-        for each set of test files, within the mutant's limit. If they fail,
-        the mutant is unjudged: *the selected tests fail on their own*. If
-        they are stopped at the limit, the mutant is skipped, with that
-        limit, since no run of it within the limit can judge it.
+     2. The selected tests run once on the unmutated code, narrowed as in
+        step 3, with the two variables naming the original and a copy of it
+        printed as Pest prints its mutants, written under
+        `.mutation-gate/pest/trials/originals/`, so the override serves the
+        file as it serves the mutant. They run once for each set of test
+        files and file they judge, within the mutant's limit. If they fail,
+        or the original cannot be read, printed or copied, the mutant is
+        unjudged: *the selected tests fail on their own*. A test that fails
+        only while the override serves a file fails here too. If they are
+        stopped at the limit, the mutant is skipped, with that limit, since
+        no run of it within the limit can judge it.
      3. For each mutant, one at a time, the gate runs
         `<vendor>/pestphp/pest/bin/pest --no-tia --bail --colors=never` over
         the selected test files, with `--group=holds:<path>` for a held unit,
