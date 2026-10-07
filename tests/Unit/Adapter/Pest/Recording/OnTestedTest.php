@@ -26,7 +26,7 @@ it('records a mutant a test caught as the event arrives', function (): void {
     expect(Mutations::recorded($results))->toBe([RecordLine::outcome('id-1', PestStatus::Tested)]);
 });
 
-it('records the memory limit a caught mutant\'s own process logged it ran out of, and removes the log', function (): void {
+it('records the memory limit a caught mutant\'s own process logged it ran out of, a fatal error PHP records, and removes the log', function (): void {
     $results = sprintf('%s/results.jsonl', Scratch::directory());
     $log = Recorder::errorsBeside($results, '/m/id-1.php');
     file_put_contents($log, "[30-Sep-2026 21:50:26 UTC] PHP Fatal error:  Allowed memory size of 67108864 bytes exhausted\n");
@@ -37,6 +37,7 @@ it('records the memory limit a caught mutant\'s own process logged it ran out of
     expect(Mutations::recorded($results))->toBe([
         RecordLine::outcome('id-1', PestStatus::Tested),
         RecordLine::exhausted('/m/id-1.php', MemoryCap::of(64, MemoryUnit::Megabytes)),
+        RecordLine::fatal('/m/id-1.php'),
     ])->and(is_file($log))->toBeFalse();
 });
 
@@ -52,5 +53,19 @@ it('records no memory limit for a mutant whose log holds none, or that logged no
     expect(Mutations::recorded($results))->toBe([
         RecordLine::outcome('id-1', PestStatus::Tested),
         RecordLine::outcome('id-2', PestStatus::Tested),
+    ])->and(is_file($log))->toBeFalse();
+});
+
+it('records a fatal error PHP logged in a caught mutant\'s own process, and no memory limit where it names none', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    $log = Recorder::errorsBeside($results, '/m/id-1.php');
+    file_put_contents($log, "[07-Oct-2026 20:15:01 UTC] PHP Fatal error:  Cannot redeclare function helper() in /p/src/helpers.php on line 9\n");
+
+    new OnTested(Mutations::recorder($results, '/c'))
+        ->notify(new Tested(Mutations::test('/p/src/Money.php', 'id-1', MutationTestResult::Tested, '/m/id-1.php')));
+
+    expect(Mutations::recorded($results))->toBe([
+        RecordLine::outcome('id-1', PestStatus::Tested),
+        RecordLine::fatal('/m/id-1.php'),
     ])->and(is_file($log))->toBeFalse();
 });

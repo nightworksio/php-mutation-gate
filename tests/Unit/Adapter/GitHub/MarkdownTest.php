@@ -10,8 +10,15 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
+use NightWorksIO\MutationGate\Core\Mutant\Ended;
+use NightWorksIO\MutationGate\Core\Mutant\Evidence;
+use NightWorksIO\MutationGate\Core\Mutant\Evidences;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Mutant\Unevidenced;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Report\ClusterText;
@@ -24,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -256,6 +264,20 @@ it('lets no reason the config wrote become markup, a mention or a new cell', fun
 
     expect(Markdown::comment(Verdicts::of(Floor::of(80), $ignored), ''))
         ->toContain(sprintf('| <code>src/Log.php:3</code> | Plus | <code>%s</code> | a &#124; b &lt;script&gt; &#64;octocat |', $ignored->mutant()->id()->value()));
+});
+
+it('lets no output of a kill left unjudged for want of evidence become markup, a link, a mention or a new cell', function (): void {
+    $base = Verdicts::mutant('src/Log.php:3', 'Plus', MutatorFamily::None, '');
+    $killed = Mutant::of($base->id(), $base->nativeId(), $base->location(), $base->mutation(), MutantStatus::Killed, Seconds::of(0.1));
+    $ended = Ended::of(1, signalled: false, printed: "<script>alert(1)</script> | [x](https://evil) @octocat\n::error::forged");
+    $unjudged = [...Unevidenced::judged(Mutants::of($killed), Evidences::none()->with($killed->id(), Evidence::none()->withEnded($ended)))][0];
+    $comment = Markdown::comment(Verdicts::of(Floor::of(80), JudgedMutant::of($unjudged, MutantJudgement::Unjudged)), '');
+
+    expect($comment)->not->toContain('<script')
+        ->and($comment)->not->toContain('@octocat')
+        ->and($comment)->not->toContain('[x]')
+        ->and($comment)->not->toContain("\n::error::")
+        ->and($comment)->toContain('&lt;script&gt;');
 });
 
 it('lets nothing the project wrote become markup, a link, a mention or a new cell', function (): void {

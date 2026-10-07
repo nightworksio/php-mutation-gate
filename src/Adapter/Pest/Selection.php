@@ -32,13 +32,13 @@ use function str_replace;
  */
 final readonly class Selection
 {
+    /** What Pest begins the method it makes of a test's description with. */
+    public const string EVALUABLE = '__pest_evaluable_';
     /** pest-plugin-mutate's own pattern for a covering test's id. */
     private const string TEST = '/\\\\([a-zA-Z0-9]*)::(__pest_evaluable_)?([^#]*)"?/';
 
     /** A test's class, by its name within its namespace. */
     private const string CLASS_NAME = '/(?:^|\\\\)([^\\\\]+)::/';
-
-    private const string EVALUABLE = '__pest_evaluable_';
 
     /** How pest-plugin-mutate's argument opens, before its quoted pattern. */
     private const string ARGUMENT = '--filter=';

@@ -227,14 +227,9 @@ final readonly class MutantRun
         }
 
         $prefix = Recorded::in($prepared->files()->results(), $prepared->covering())->prefix();
-        $code = $ran->exitCode();
         $evidence = $prefix instanceof Prefix ? Evidence::none()->withPrefix($prefix) : Evidence::none();
 
-        return count($judged->killers()) > 0 ? $evidence : $evidence->withEnded(Ended::of(
-            $code,
-            $code instanceof NotGiven ? $code : $ran->endedBySignal(),
-            $ran->output(),
-        ));
+        return count($judged->killers()) > 0 ? $evidence : $evidence->withEnded(Ended::ofRun($ran));
     }
 
     /**

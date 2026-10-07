@@ -44,7 +44,7 @@ use function sprintf;
  * a mutant whose own process had loaded its file before the mutant was in
  * place, because its tests ran the original code; and a survivor whose own
  * process said it ran no test, because nothing judged it. Each kill keeps
- * the evidence its own run recorded, which judges nothing.
+ * the evidence its own run recorded (ADR-0014, decision 16).
  */
 final readonly class Interpretation
 {

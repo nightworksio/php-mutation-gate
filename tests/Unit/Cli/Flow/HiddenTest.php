@@ -59,6 +59,14 @@ it('keeps nothing where the tail\'s cut would fall inside a secret', function ()
     expect($ended instanceof Ended ? $ended->tail() : $ended)->toEqual(NotGiven::value());
 });
 
+it('keeps whether PHP recorded a fatal error in a kill\'s process, whatever the screen keeps of what it printed', function () use ($mutants, $first): void {
+    $ended = Ended::of(255, signalled: false, printed: 'key hunter2hunter2 leaked')->withFatal(fatal: true);
+    $evidence = Evidences::none()->with($first->id(), Evidence::none()->withEnded($ended));
+    $screened = Hidden::in($evidence, $mutants, Secrets::of('hunter2hunter2'))->of($first->id())->ended();
+
+    expect($screened instanceof Ended ? [$screened->fatal(), $screened->tail()] : $screened)->toEqual([true, NotGiven::value()]);
+});
+
 it('keeps an ending with nothing printed as it was', function () use ($mutants, $first): void {
     $evidence = Evidences::none()->with($first->id(), Evidence::none()->withEnded(Ended::unprinted(2, signalled: false)));
 

@@ -12,9 +12,18 @@ use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Trial;
 use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\TrialRun;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
+use NightWorksIO\MutationGate\Core\Mutant\Ended;
+use NightWorksIO\MutationGate\Core\Mutant\Evidence;
+use NightWorksIO\MutationGate\Core\Mutant\Location;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\Mutation;
+use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
@@ -22,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -86,7 +96,7 @@ function trialJudging(string $directory, Paths $tests, WholeSuite|Group $judgedB
 }
 
 /** A trial of the whole suite. */
-function trialOf(Project $at, ShellFake $shell, WholeSuite|Group $judgedBy = new WholeSuite()): Trial
+function trialOf(Project $at, ShellFake $shell, WholeSuite|Group $judgedBy = new WholeSuite(), MatrixKind $matrix = MatrixKind::FirstKiller): Trial
 {
     return new Trial(
         $at,
@@ -97,6 +107,7 @@ function trialOf(Project $at, ShellFake $shell, WholeSuite|Group $judgedBy = new
         $at->root(),
         uncappedScan($at),
         WorkerSlots::alone(),
+        $matrix,
     );
 }
 
@@ -166,6 +177,89 @@ it('kills a mutant whose run a signal ended, writing no guard, where its tests p
     'past the last signal' => [193, MutantStatus::Unjudged],
     'PHP\'s fatal error' => [255, MutantStatus::Unjudged],
 ]);
+
+/** Answers the tests on their own as passing, and a mutant's run by writing a guard that saw the copy run, this JUnit log, and ending so. */
+function trialLogging(Project $at, string $log, Ran $mutant): ShellFake
+{
+    return new ShellFake(static function (Command $command) use ($at, $log, $mutant): Ran {
+        $guard = $command->environment()['MUTATION_GATE_GUARD'] ?? false;
+
+        if (! is_string($guard)) {
+            return Ran::finished(succeeded: true, output: '');
+        }
+
+        file_put_contents($guard, '{"before":false,"loaded":true,"opcache":false}');
+        file_put_contents(sprintf('%s/0/junit.xml', $at->root()), $log);
+
+        return $mutant;
+    });
+}
+
+/** A mutant Pest left uncovered on line 9 of src/Money.php, for a trial's outcome to judge. */
+function trialMutant(): Mutant
+{
+    return Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'IncrementInteger', '-1 +2', 0),
+        'n1',
+        Location::of(Path::of('src/Money.php'), Line::of(9), Line::of(9)),
+        Mutation::of('IncrementInteger', MutatorFamily::Arithmetic, '-1 +2'),
+        MutantStatus::Uncovered,
+        Unmeasured::duration(),
+    );
+}
+
+it('names the tests its JUnit log says failed as the killers of the mutant it kills, and so gives no ending', function (): void {
+    $at = trialProject();
+    $shell = trialLogging($at, <<<'XML'
+        <testsuites><testsuite name="T">
+          <testcase name="it adds" file="tests/ASpec.php::it adds" class="Tests\ASpec"/>
+          <testcase name="it subtracts" file="tests/ASpec.php::it subtracts" class="Tests\ASpec"><failure type="F">it subtractsFailed.</failure></testcase>
+        </testsuite></testsuites>
+        XML, Ran::exited(2, ''));
+
+    $outcome = trialOf($at, $shell)->of(Paths::of(Path::of('tests/ASpec.php')), Path::of('src/Money.php'), '/c', Seconds::of(6.0));
+
+    expect(array_map(static fn(TestId $test): string => $test->value(), [...$outcome->judging(trialMutant())->killers()]))
+        ->toBe(['P\Tests\ASpec::__pest_evaluable_it_subtracts'])
+        ->and($outcome->evidence())->toEqual(Evidence::none());
+});
+
+it('names the first test its JUnit log says failed as the killer, and every one where the run records a full kill matrix', function (MatrixKind $matrix, array $killers): void {
+    $at = trialProject();
+    $shell = trialLogging($at, <<<'XML'
+        <testsuites><testsuite name="T">
+          <testcase name="it subtracts" file="tests/ASpec.php::it subtracts" class="Tests\ASpec"><failure type="F">x</failure></testcase>
+          <testcase name="it divides" file="tests/ASpec.php::it divides" class="Tests\ASpec"><error type="E">x</error></testcase>
+        </testsuite></testsuites>
+        XML, Ran::exited(2, ''));
+
+    $outcome = trialOf($at, $shell, matrix: $matrix)->of(Paths::of(Path::of('tests/ASpec.php')), Path::of('src/Money.php'), '/c', Seconds::of(6.0));
+
+    expect(array_map(static fn(TestId $test): string => $test->value(), [...$outcome->judging(trialMutant())->killers()]))->toBe($killers);
+})->with([
+    'first killers' => [MatrixKind::FirstKiller, ['P\Tests\ASpec::__pest_evaluable_it_subtracts']],
+    'a full kill matrix' => [MatrixKind::Full, ['P\Tests\ASpec::__pest_evaluable_it_subtracts', 'P\Tests\ASpec::__pest_evaluable_it_divides']],
+]);
+
+it('gives a kill whose JUnit log names no failure how its run ended, a fatal error PHP printed among it', function (): void {
+    $at = trialProject();
+    $shell = trialLogging($at, '<testsuites><testsuite name="T"/></testsuites>', Ran::exited(255, "PHP Fatal error:  Cannot redeclare function helper()\n"));
+
+    $outcome = trialOf($at, $shell)->of(Paths::of(Path::of('tests/ASpec.php')), Path::of('src/Money.php'), '/c', Seconds::of(6.0));
+    $ended = $outcome->evidence()->ended();
+
+    expect($outcome->status())->toBe(MutantStatus::Killed)
+        ->and([...$outcome->judging(trialMutant())->killers()])->toBe([])
+        ->and($ended instanceof Ended ? [$ended->code(), $ended->signalled(), $ended->fatal()] : $ended)->toBe([255, false, true]);
+});
+
+it('gives a kill a signal ended, which writes no guard, how its run ended', function (): void {
+    $outcome = trialOf(trialProject(), new ShellFake(trialAnswering('', Ran::exited(139, ''))))
+        ->of(Paths::of(Path::of('tests/A.php')), Path::of('src/Money.php'), '/c', Seconds::of(6.0));
+    $ended = $outcome->evidence()->ended();
+
+    expect($ended instanceof Ended ? [$ended->code(), $ended->signalled()] : $ended)->toBe([139, true]);
+});
 
 it('says the first test that failed on its own, from the JUnit log the run wrote, and the files it ran', function (): void {
     $at = trialProject();

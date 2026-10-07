@@ -183,6 +183,7 @@ The first release is tagged when every row says *yes*.
 | | `explain`: a mutant's diff, tests, their outcomes and its history, without running it | yes | [0014](.docs/decisions/0014-every-test-is-judged-by-what-it-kills.md) |
 | **Run control** | A time budget that runs the riskiest code first, and reports anything unjudged instead of passing it | yes | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | | A pull request's shards stop once a survivor of a floor of 100 makes the verdict certain to fail, where no static analysis could clear it, and say so for a CI to cancel the rest | yes | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
+| | A kill counts only with evidence: a test named as its killer, or a signal or a fatal error that ended its process; any other is unjudged, with its exit code and output | yes | [0014](.docs/decisions/0014-every-test-is-judged-by-what-it-kills.md) |
 | | Triage of timeouts and flaky tests | yes | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | | Ignores for equivalent mutants, and by its id for a mutant whose file loads before Pest can put it in place, each with a reason and an optional expiry | yes | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | | Survivors the compiler proves equivalent, left out of the score | yes | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |

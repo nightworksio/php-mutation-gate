@@ -684,7 +684,12 @@ its parser attributes. Both change when the checkout moves.
      4. A failing run kills the mutant, and a passing run leaves it alive for
         the fallback above. A run stopped at the limit times the mutant out.
         A missing mutated file makes it unjudged, *mutated file missing*,
-        never killed.
+        never killed. A kill names as its killers the tests the run's JUnit
+        log says failed or errored, as the coverage map names them: a Pest
+        test by its class with Pest's `P\` and the method Pest makes of its
+        description, a test method by its class and name, each with its data
+        set. Where the log names none, how the run ended is the kill's
+        evidence, which judges it (ADR-0014, decision 17).
    - **Guards.** When `MUTATION_GATE_GUARD` names a file, the plugin writes to
      it whether the original file was loaded before the override started,
      whether it was loaded at all, and the opcache settings. Composer's

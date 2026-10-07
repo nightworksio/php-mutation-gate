@@ -7,7 +7,14 @@ use NightWorksIO\MutationGate\Adapter\Console\InertOutput;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
+use NightWorksIO\MutationGate\Core\Mutant\Ended;
+use NightWorksIO\MutationGate\Core\Mutant\Evidence;
+use NightWorksIO\MutationGate\Core\Mutant\Evidences;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
+use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\Unevidenced;
 use NightWorksIO\MutationGate\Core\Report\ClusterText;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
 use NightWorksIO\MutationGate\Core\Report\SavingsText;
@@ -15,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
@@ -196,6 +204,24 @@ it('prints what each suite alone kills after security, and why each is a lower b
         'Units',
     ]))
         ->and($printed(Verdicts::failing()))->not->toContain('Suites');
+});
+
+it('prints the output of a kill left unjudged for want of evidence so it starts no command in a CI\'s log', function (): void {
+    $base = Verdicts::mutant('src/Log.php:3', 'Plus', MutatorFamily::None, '');
+    $killed = Mutant::of($base->id(), $base->nativeId(), $base->location(), $base->mutation(), MutantStatus::Killed, Seconds::of(0.1));
+    $ended = Ended::of(1, signalled: false, printed: "fails\n::error::forged\n##vso[task.setvariable variable=x]1\n\x1b[2Jcleared");
+    $unjudged = [...Unevidenced::judged(Mutants::of($killed), Evidences::none()->with($killed->id(), Evidence::none()->withEnded($ended)))][0];
+    $output = new InertOutput();
+    $stream = fopen('php://memory', 'w+');
+    new ReflectionProperty(StreamOutput::class, 'stream')->setValue($output, $stream);
+
+    ConsoleReport::to($output)->report(Verdicts::of(Floor::of(80), JudgedMutant::of($unjudged, MutantJudgement::Unjudged)));
+    $said = is_resource($stream) ? (string) stream_get_contents($stream, offset: 0) : '';
+
+    expect($said)->toContain('it exited with code 1. Its output ended:')
+        ->and($said)->not->toMatch('/^\s*::error::/m')
+        ->and($said)->not->toContain('##vso[')
+        ->and($said)->not->toContain("\x1b[2J");
 });
 
 it('prints a hostile suite\'s name as one plain line, with no control character', function () use ($printed): void {

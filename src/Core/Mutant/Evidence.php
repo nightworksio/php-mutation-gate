@@ -7,10 +7,10 @@ namespace NightWorksIO\MutationGate\Core\Mutant;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
- * What a runner says of how it killed a mutant, beside the tests that did,
- * which judges nothing: how far its own run went (Prefix), and, for a kill
- * no test is named for, how its process ended (Ended). A runner that cannot
- * tell either gives none of it.
+ * What a runner says of how it killed a mutant, beside the tests that did:
+ * how far its own run went (Prefix), and, for a kill no test is named for,
+ * how its process ended (Ended), by which that kill stands or is unjudged
+ * (see Unevidenced). A runner that cannot tell either gives none of it.
  */
 final readonly class Evidence
 {

@@ -158,6 +158,18 @@ final readonly class RecordLine
     }
 
     /**
+     * That PHP recorded a fatal error in the own process of the mutant Pest
+     * serves this mutated copy for, as the error log it kept says.
+     */
+    public static function fatal(string $mutated): string
+    {
+        return self::line([
+            RecordField::Event->value => RecordEvent::Fatal->value,
+            RecordField::Mutated->value => $mutated,
+        ]);
+    }
+
+    /**
      * How the own process of the mutant Pest serves this mutated copy for
      * ended, as the parent process saw it: its code and whether a signal
      * ended it, where it could tell, and never what it printed, which this

@@ -378,6 +378,17 @@ it('says a timed-out mutant a patched Infection stopped at its silence limit was
     ]);
 });
 
+it('says PHP recorded a fatal error in a kill that names no killer where its output holds PHP\'s record of one', function (): void {
+    $at = resultsProject();
+    $result = resultsRead($at, [
+        'killed' => [[...resultsMutant($at, 'Plus', 'src/Money.php', 11, 'return $a + $b;', 'return $a - $b;'), 'processOutput' => "PHPUnit 13\n\nFatal error: Cannot redeclare function helper() in /p/src/helpers.php on line 9\n"]],
+    ]);
+    $mutants = $result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false) : [];
+    $ended = $result instanceof MutationResult && $mutants !== [] ? $result->evidence()->of($mutants[0]->id())->ended() : NotGiven::value();
+
+    expect($ended instanceof Ended ? $ended->fatal() : $ended)->toBeTrue();
+});
+
 it('gives a kill that names no killer the output of its process, with no code or signal, which Infection does not log, and no other evidence', function (): void {
     $at = resultsProject();
     $failed = "There was 1 failure:\n\n1) Tests\\MoneySpec::addsTwoAmounts#0 with data (2, 3)\nFailed.";
@@ -396,7 +407,7 @@ it('gives a kill that names no killer the output of its process, with no code or
     expect($evidence)->toEqual([
         Evidence::none(),
         Evidence::none(),
-        Evidence::none()->withEnded(Ended::of(NotGiven::value(), NotGiven::value(), 'Segmentation fault')),
+        Evidence::none()->withEnded(Ended::of(NotGiven::value(), NotGiven::value(), 'Segmentation fault')->withFatal(fatal: false)),
         Evidence::none(),
     ]);
 });

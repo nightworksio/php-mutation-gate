@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Secrets;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\Unevidenced;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Order\Ordering;
@@ -213,8 +214,9 @@ final readonly class Running
      * budget the units run in batches that fit the time left, and those the
      * time ran out before are unjudged. A shard that stops once its run
      * cannot pass runs in chunks, and the units after the chunk that doomed
-     * it are unjudged too. Static analysis then checks the survivors, in the
-     * time left.
+     * it are unjudged too. Each kill with no evidence is unjudged (ADR-0014,
+     * decision 17). Static analysis then checks the survivors, in the time
+     * left.
      */
     private function mutated(
         Plan $plan,
@@ -256,6 +258,8 @@ final readonly class Running
             return $spent;
         }
 
+        $secrets = Secrets::withheldIn($this->adapters->environment, $this->adapters->withheld);
+        $evidence = Hidden::in($spent->evidence, $spent->mutants, $secrets);
         $from = $stopwatch->now();
         $checked = new SurvivorChecking(
             $this->adapters,
@@ -263,7 +267,7 @@ final readonly class Running
             $deadline,
             $this->settings->staticCheck()->seconds(),
         )
-            ->checked($spent->mutants, $spent->flaky);
+            ->checked(Unevidenced::judged($spent->mutants, $evidence), $spent->flaky);
         $survived = $spent->mutants->counting(MutantStatus::Survived);
 
         if ($survived > 0) {
@@ -274,12 +278,11 @@ final readonly class Running
             TimeoutTriage::timed($checked->mutants, $map, $held->covered()),
             $plan->briefing()->peak(),
         );
-        $secrets = Secrets::withheldIn($this->adapters->environment, $this->adapters->withheld);
 
         return new Mutated(
             MutationResult::of($mutants, $spent->skipped)
                 ->withWarnings($spent->warnings)
-                ->withEvidence(Hidden::in($spent->evidence, $mutants, $secrets)),
+                ->withEvidence($evidence),
             $spent->flaky,
             $held,
             $spent->unjudged,
