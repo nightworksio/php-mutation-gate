@@ -14,6 +14,7 @@ enum Package: string
     case Pest = 'pestphp/pest';
     case PestMutate = 'pestphp/pest-plugin-mutate';
     case Infection = 'infection/infection';
+    case IncludeInterceptor = 'infection/include-interceptor';
     case PhpUnit = 'phpunit/phpunit';
     case CodeCoverage = 'phpunit/php-code-coverage';
     case PhpStan = 'phpstan/phpstan';

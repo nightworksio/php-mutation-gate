@@ -30,8 +30,17 @@ use function sprintf;
  * - A mutant's run is also stopped once it has printed nothing for its
  *   silence limit, the standard limit of its slowest covering test (see
  *   Silence).
+ * - While IncludeInterceptor, the stream wrapper infection/include-interceptor
+ *   serves each mutant through, is enabled, a path stats as it does without
+ *   it: a link, dangling or not, by `lstat`, and a file the process cannot
+ *   read as there. The interceptor shipped reports both as missing, so a test
+ *   that stats one fails in every mutant's run whatever the mutant changes.
+ *   It raises no warning of its own; PHP warns of a failed stat where the
+ *   caller did not ask for quiet (`STREAM_URL_STAT_QUIET`), as it does
+ *   without it. A release whose lines have moved fails the command.
  *
- * Run by Infection outside the gate, the patched lines keep Infection's own.
+ * Run by Infection outside the gate, the patched limits keep Infection's own;
+ * the interceptor stats as PHP does either way.
  */
 final readonly class Patch
 {
@@ -51,6 +60,32 @@ final readonly class Patch
     private const string RUNNER = 'Process/Runner/MutationTestingRunner.php';
 
     private const string PARALLEL = 'Process/Runner/ParallelProcessRunner.php';
+
+    /** The file the interceptor's hunk changes, under infection/include-interceptor's source directory. */
+    private const string INTERCEPTOR = 'IncludeInterceptor.php';
+
+    private const string STAT_SHIPS = <<<'PHP'
+                    if (is_readable($path) === false) {
+                        return false;
+                    }
+
+                    if ($flags & STREAM_URL_STAT_LINK) {
+                        return lstat($path);
+                    }
+
+                    return stat($path);
+        PHP;
+
+    private const string STAT_BECOMES = <<<'PHP'
+                    {MARK} a path stats as without the wrapper: a link by lstat, an unreadable file there.
+                    $link = ($flags & STREAM_URL_STAT_LINK) !== 0;
+
+                    if (! file_exists($path) && ! ($link && is_link($path))) {
+                        return false;
+                    }
+
+                    return $link ? lstat($path) : stat($path);
+        PHP;
 
     /** What Infection times a mutant's covering tests by, and what it allows a run to start in. */
     private const string NOMINAL = '$mutant->getMutation()->getNominalTestExecutionTime()';
@@ -122,24 +157,40 @@ final readonly class Patch
                     } catch (ProcessTimedOutException) {
         PHP;
 
-    /** Patch Infection in a vendor directory, where it is a supported release, and say what was done. */
+    /**
+     * Patch Infection and its include-interceptor in a vendor directory,
+     * where Infection is a supported release, and say what was done.
+     */
     public static function applyIn(string $vendor): string|CannotJudge
     {
         $release = self::release($vendor);
 
-        return $release instanceof CannotJudge ? $release : PackageSource::applyIn(self::patch(), $vendor);
+        return $release instanceof CannotJudge
+            ? $release
+            : PackageSource::applyIn($vendor, ...self::patches());
     }
 
-    /** Whether Infection in a vendor directory carries every hunk, and no hunk another version wrote. */
+    /** Whether Infection and its include-interceptor in a vendor directory carry every hunk, none another gate's. */
     public static function isAppliedIn(string $vendor): bool
     {
-        return PackageSource::isAppliedIn(self::patch(), $vendor);
+        return PackageSource::isAppliedIn($vendor, ...self::patches());
     }
 
     /** Whose limit each mutant of the Infection in a vendor directory gets. */
     public static function stateIn(string $vendor): PatchState
     {
         return self::isAppliedIn($vendor) ? PatchState::Applied : PatchState::Missing;
+    }
+
+    /**
+     * The patches the command applies: Infection's own, then its
+     * include-interceptor's.
+     *
+     * @return list<VendorPatch>
+     */
+    public static function patches(): array
+    {
+        return [self::patch(), self::interceptorPatch()];
     }
 
     /** The Infection release installed in a vendor directory, where the patch supports it; or why not. */
@@ -180,6 +231,15 @@ final readonly class Patch
             Hunk::in(self::RUNNER, self::SKIP_SHIPS, sprintf(self::SKIP_BECOMES, MutantTime::class)),
             Hunk::in(self::FACTORY, self::WATCH_SHIPS, sprintf(self::WATCH_BECOMES, Silence::class)),
             Hunk::in(self::PARALLEL, self::SILENCE_SHIPS, sprintf(self::SILENCE_BECOMES, Silence::class)),
+        );
+    }
+
+    private static function interceptorPatch(): VendorPatch
+    {
+        return VendorPatch::of(
+            self::COMMAND,
+            Package::IncludeInterceptor->value,
+            Hunk::in(self::INTERCEPTOR, self::STAT_SHIPS, self::STAT_BECOMES),
         );
     }
 }

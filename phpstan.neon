@@ -35,6 +35,7 @@ parameters:
             - tests/Contract/Runner/reach
             - tests/Contract/Runner/stall
             - tests/Contract/Runner/override
+            - tests/Contract/Runner/interceptor
             - tests/Contract/Runner/phpunit-fixture
             - tests/Contract/StaticChecker/fixture
 

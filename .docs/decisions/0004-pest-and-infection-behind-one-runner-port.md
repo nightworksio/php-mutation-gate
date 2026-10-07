@@ -555,8 +555,9 @@ its parser attributes. Both change when the checkout moves.
        file they record silence stops in.
    - **`infection:patch` gives Infection the gate's mutant limit.** It is
      `@php vendor/bin/mutation-gate infection:patch` in `post-install-cmd`
-     and `post-update-cmd`. It rewrites four places in Infection, each marked
-     with a `// mutation-gate infection:patch:` comment:
+     and `post-update-cmd`. It rewrites four places in Infection and one in
+     its include-interceptor, each marked with a
+     `// mutation-gate infection:patch:` comment:
      - `MutantProcessContainerFactory` allows each mutant the gate's standard
        limit (ADR-0008, decision 2) of Infection's own time for its covering
        tests, between `MUTATION_GATE_MUTANT_FLOOR` and Infection's `timeout`,
@@ -575,15 +576,29 @@ its parser attributes. Both change when the checkout moves.
        in `logs/silenced.jsonl`, which `MUTATION_GATE_RESULTS` names, and the
        mutant is timed out at its own limit, with a reason naming the
        silence limit.
+     - `IncludeInterceptor`, the `file://` wrapper infection/include-interceptor
+       serves each mutant through, stats a path as PHP does without it while
+       it is enabled. As it ships, in every release Infection ~0.35.0 allows
+       (0.2.5 and 1.0.0), it reports a path the process cannot read as
+       missing, so a dangling link is no link and a file without read
+       permission is not there, and a test that stats either fails in every
+       mutant's run whatever the mutant changes. Patched, a link, dangling or
+       not, is stat'd by `lstat` where the caller asks for the link, and any
+       other path that exists by `stat`. It raises no warning of its own: PHP
+       warns of a failed stat where the caller did not ask for quiet
+       (`STREAM_URL_STAT_QUIET`), as it does without the wrapper. A release
+       whose lines have moved fails the command, and every patch is checked
+       before any file is written.
 
-     Each reads the gate's floor, so Infection run outside the gate keeps its
-     own limit and skip, and stops no run for silence. The command patches only the Infection releases the
+     The first three read the gate's floor, so Infection run outside the gate keeps its
+     own limit and skip, and stops no run for silence; the interceptor stats
+     as PHP does either way. The command patches only the Infection releases the
      runner contracts run, listed in `Adapter\Infection\Release`,
      reading the release from Composer's list of what it installed. It
      refuses any other release, a file whose lines have moved, and a file
      another version of the gate patched, and says which, as `pest:patch`
-     does. Each run checks whether the installed Infection carries the
-     patch. Where it does not, each mutant keeps Infection's own limit, the
+     does. Each run checks whether the installed Infection and its
+     include-interceptor carry the patch. Where it does not, each mutant keeps Infection's own limit, the
      gate triages by that limit, and the run's report warns of it, naming
      `infection:patch`; `doctor` advises it too (`infection-unpatched`).
      - `tmpDir` is under `.mutation-gate/`.

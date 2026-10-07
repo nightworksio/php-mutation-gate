@@ -46,6 +46,8 @@ Schema, and the Jenkinsfile, which has no schema, with a snapshot test.
 - **The Infection patch, with Infection as the runner.** Add
   `@php vendor/bin/mutation-gate infection:patch` to `post-install-cmd` and
   `post-update-cmd`, so each mutant gets the gate's limit, with its
-  `timeouts.seconds` floor, and its silence limit. It patches only the
+  `timeouts.seconds` floor, and its silence limit, and a test that stats a
+  dangling link or an unreadable file reads it as PHP does while
+  Infection's include-interceptor serves the mutant. It patches only the
   Infection releases the gate supports. Unpatched, each mutant keeps
   Infection's own limit, and every run says so in its report.
