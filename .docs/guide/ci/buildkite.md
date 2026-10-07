@@ -1,5 +1,9 @@
 # Buildkite
 
+`vendor/bin/mutation-gate init --ci=buildkite` writes the pipeline, to
+`ci.buildkite.definition` (`.buildkite/pipeline.yml` by default). Its plan
+step uploads the rest:
+
 ```yaml
 steps:
   - label: "mutation: plan"
