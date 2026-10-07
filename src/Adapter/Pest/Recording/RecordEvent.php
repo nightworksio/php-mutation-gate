@@ -31,6 +31,9 @@ enum RecordEvent: string
     /** The seconds a patched run allowed a mutant's own run, by its mutated copy (see MutantTime). */
     case Limited = 'limited';
 
+    /** The silence limit a patched run stopped a mutant's own run at, by its mutated copy (see Silence). */
+    case Silent = 'silent';
+
     /** A mutant's own process had loaded the original file before Pest put the mutant in its place. */
     case Preloaded = 'preloaded';
 

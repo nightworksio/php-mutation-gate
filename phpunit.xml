@@ -42,6 +42,7 @@
             <exclude>tests/Contract/Runner/fixture</exclude>
             <exclude>tests/Contract/Runner/infection-fixture</exclude>
             <exclude>tests/Contract/Runner/reach</exclude>
+            <exclude>tests/Contract/Runner/stall</exclude>
             <exclude>tests/Contract/Runner/phpunit-fixture</exclude>
             <exclude>tests/Contract/StaticChecker/fixture</exclude>
         </testsuite>

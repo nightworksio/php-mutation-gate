@@ -20,7 +20,9 @@ use function sprintf;
  *   group alone, and the map is copied in place of the one that run wrote.
  * - Each mutant is allowed the standard mutant limit of its covering tests'
  *   own time, within the bounds the gate names (see MutantTime), not the
- *   time of the whole suite.
+ *   time of the whole suite, and its run is stopped once no test of it has
+ *   finished for its silence limit, the standard limit of its slowest test
+ *   (see Silence).
  * - Given a list of native ids (see OnlyList), a run makes only those mutants.
  * - Where the gate narrows a run, a mutant's own run loads only the test files
  *   its covering tests need (see CoveringFiles), not every test file, and the
@@ -127,6 +129,40 @@ final readonly class Patch
                         : $this->calculateTimeout(),
         PHP;
 
+    private const string WATCH_SHIPS = <<<'PHP'
+                $process->start();
+
+                $this->process = $process;
+        PHP;
+
+    private const string WATCH_BECOMES = <<<'PHP'
+                $process->start();
+
+                $this->process = $process;
+
+                {MARK} a run no test finishes in for its silence limit is stopped (see Silence).
+                if (class_exists(\%1$s::class)) {
+                    \%1$s::watch($process, $covering, $this->mutation->modifiedSourcePath, $filter);
+                }
+        PHP;
+
+    private const string SILENCE_SHIPS = <<<'PHP'
+                        $this->process->checkTimeout();
+
+                        return false;
+        PHP;
+
+    private const string SILENCE_BECOMES = <<<'PHP'
+                        $this->process->checkTimeout();
+
+                        {MARK} stopped where no test finished for its silence limit (see Silence).
+                        if (class_exists(\%1$s::class)) {
+                            \%1$s::check($this->process, microtime(true));
+                        }
+
+                        return false;
+        PHP;
+
     private const string ONLY_SHIPS = <<<'PHP'
                         $mutationSuite->repository->add($mutation);
         PHP;
@@ -211,6 +247,8 @@ final readonly class Patch
             Hunk::in(self::MUTATION_TEST, self::COVERING_SHIPS, self::COVERING_BECOMES),
             Hunk::in(self::MUTATION_TEST, self::PATHS_SHIPS, sprintf(self::PATHS_BECOMES, CoveringFiles::class)),
             Hunk::in(self::MUTATION_TEST, self::LIMIT_SHIPS, sprintf(self::LIMIT_BECOMES, MutantTime::class)),
+            Hunk::in(self::MUTATION_TEST, self::WATCH_SHIPS, sprintf(self::WATCH_BECOMES, Silence::class)),
+            Hunk::in(self::MUTATION_TEST, self::SILENCE_SHIPS, sprintf(self::SILENCE_BECOMES, Silence::class)),
             Hunk::in(
                 self::MUTATE_PLUGIN,
                 self::CANARY_SHIPS,

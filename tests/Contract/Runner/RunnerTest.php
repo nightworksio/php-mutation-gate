@@ -60,6 +60,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
@@ -81,6 +82,7 @@ use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\TestRow;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -814,6 +816,45 @@ it('allows a mutant patched Pest times out the floor its quick tests fall under,
         ->and($limits($timedOut))->toBe([10.0])
         ->and($again instanceof Mutants ? Library::records($again) : [])->toBe($library->expected('drains'))
         ->and($again instanceof Mutants ? $limits($again) : [])->toBe([10.0]);
+})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+
+// Three tests of most of a second each cover the stalled loop: the limit
+// of all three is about 12 seconds, the silence limit of the slowest about
+// 7. The mutant hangs in its first test, so no test finishes, and patched
+// Pest stops its run at the silence limit, seconds before its own limit.
+it('stops a mutant\'s run where no test of it finishes for its silence limit, short of its own limit, with patched Pest', function (): void {
+    $source = Tree::at(sprintf('%s/src/Stall.php', Library::DIRECTORY));
+    $spec = Tree::at(sprintf('%s/tests/StallSpec.php', Library::DIRECTORY));
+    copy(Tree::at('tests/Contract/Runner/stall/src/Stall.php'), $source);
+    copy(Tree::at('tests/Contract/Runner/stall/tests/StallSpec.php'), $spec);
+    Patch::applyIn(Library::vendor());
+    $library = Library::pestWithin(
+        Patching::on(Library::canary()),
+        LimitBounds::between(Seconds::of(1.0), Seconds::of(300.0)),
+        'pest patched under a floor of a second',
+    );
+
+    try {
+        $result = $library->runner()->mutate(MutationRequest::of(Paths::of(Path::of('src/Stall.php')), WholeSuite::tests())
+            ->narrowedTo(Paths::of(Path::of('src/Stall.php')), Narrowing::none()->toMutators($library->mutators('drains'))));
+    } finally {
+        unlink($source);
+        unlink($spec);
+    }
+
+    $mutants = $result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false) : [];
+    $seconds = static fn(Seconds|MemoryCap|Unmeasured $time): float => $time instanceof Seconds ? $time->seconds() : 0.0;
+
+    expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::TimedOut])
+        ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->limit()), $mutants))
+        ->each->toBeGreaterThan(11.0)
+        ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->duration()), $mutants))
+        ->each->toBeGreaterThan(7.0)->toBeLessThan(11.0)
+        ->and(array_map(
+            static fn(Mutant $mutant): string => $mutant->reason() instanceof Reason ? $mutant->reason()->text() : '',
+            $mutants,
+        ))
+        ->each->toStartWith('No test finished for ');
 })->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 // A floor of a millisecond is less than any covering test takes, so a

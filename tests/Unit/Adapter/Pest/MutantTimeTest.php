@@ -5,6 +5,8 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\MutantTime;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -96,4 +98,18 @@ it('forgets the times it kept once it reads another map', function (): void {
     MutantTime::remember(['testResults' => mutantTimeTests(['T::b' => 0.25])]);
 
     expect(MutantTime::of(['T::a'], '/tmp/mutations/abc', 99))->toBe(2.0);
+});
+
+it('holds a mutant\'s run to the standard limit of its slowest covering test\'s own time once its tests begin, and none where one is not timed or no bounds are named', function (): void {
+    mutantTimeBounds('2', '300');
+    MutantTime::remember(['testResults' => mutantTimeTests(['T::a' => 0.25, 'T::b' => 1.5, 'T::never' => 0.0])]);
+
+    expect(MutantTime::silence(['T::a', 'T::b']))->toEqual(Seconds::of(9.5))
+        ->and(MutantTime::silence(['T::a']))->toEqual(Seconds::of(5.75))
+        ->and(MutantTime::silence(['T::a', 'T::never']))->toEqual(NotGiven::value())
+        ->and(MutantTime::silence([]))->toEqual(NotGiven::value());
+
+    putenv(GateVariable::MutantFloor->value);
+
+    expect(MutantTime::silence(['T::a']))->toEqual(NotGiven::value());
 });

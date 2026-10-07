@@ -213,6 +213,17 @@ presets for Laravel, Symfony and plain libraries.
    - **The PHPUnit runner's** is the gate's rule, of the covering tests' own
      time as the coverage map timed them. It skips no mutant.
 
+   A second limit stops a run that has gone quiet. No test of a mutant's run
+   may go its **silence limit** without finishing: the same rule, of its
+   slowest covering test's own time, within the same bounds. A test that
+   never ends is stopped there, seconds before the limit of all the covering
+   tests. The clock starts when the run starts executing tests, so its start
+   is held only to the mutant's own limit. A mutant stopped at its silence
+   limit is timed out with its own limit, which k times its tests always
+   clear, so the triage below reads it as killed by timeout, and its reason
+   names the silence limit. Pest applies it under `pest.patch`; the PHPUnit
+   runner and Infection do not.
+
    For every timed-out or skipped mutant the gate works out the limit that
    applied to it, and compares its judging tests' own time with it (ADR-0004,
    decision 5). That time comes from the coverage run: Pest's map, or the JUnit

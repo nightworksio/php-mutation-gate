@@ -41,6 +41,9 @@ final class OwnRuns
     /** @var array<string, float> the seconds a patched run allowed each own run, by the mutated copy it ran on */
     private array $limited = [];
 
+    /** @var array<string, float> the silence limit each own run was stopped at, by the mutated copy it ran on */
+    private array $silent = [];
+
     /** @var array<string, int> how many tests the own runs on each mutated copy ran, together, by the copy */
     private array $ran = [];
 
@@ -61,6 +64,12 @@ final class OwnRuns
     public function limitOf(string $mutated): Seconds|NotGiven
     {
         return array_key_exists($mutated, $this->limited) ? Seconds::of($this->limited[$mutated]) : NotGiven::value();
+    }
+
+    /** The silence limit the own runs on this mutated copy were stopped at; none where they were not. */
+    public function silenceOf(string $mutated): Seconds|NotGiven
+    {
+        return array_key_exists($mutated, $this->silent) ? Seconds::of($this->silent[$mutated]) : NotGiven::value();
     }
 
     /**
@@ -93,6 +102,12 @@ final class OwnRuns
     }
 
     /** @throws NotInShape */
+    public function silent(Node $record): void
+    {
+        $this->silent[$this->mutatedIn($record)] = $this->secondsIn($record);
+    }
+
+    /** @throws NotInShape */
     public function preloaded(Node $record): void
     {
         $this->preloaded[$this->mutatedIn($record)] = true;
@@ -101,13 +116,7 @@ final class OwnRuns
     /** @throws NotInShape */
     public function limited(Node $record): void
     {
-        $seconds = $record->field(RecordField::Seconds->value);
-
-        if ($seconds->number() <= 0.0) {
-            throw NotInShape::at($seconds->at(), 'a number of seconds above 0');
-        }
-
-        $this->limited[$this->mutatedIn($record)] = $seconds->number();
+        $this->limited[$this->mutatedIn($record)] = $this->secondsIn($record);
     }
 
     /** @throws NotInShape */
@@ -141,5 +150,19 @@ final class OwnRuns
     private function mutatedIn(Node $record): string
     {
         return $record->field(RecordField::Mutated->value)->text();
+    }
+
+    /**
+     * The seconds a record holds, above none.
+     *
+     * @throws NotInShape
+     */
+    private function secondsIn(Node $record): float
+    {
+        $seconds = $record->field(RecordField::Seconds->value);
+
+        return $seconds->number() > 0.0
+            ? $seconds->number()
+            : throw NotInShape::at($seconds->at(), 'a number of seconds above 0');
     }
 }

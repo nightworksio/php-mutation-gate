@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -206,7 +207,10 @@ final readonly class Interpretation
         $status = $mutant->status();
         $limited = match (true) {
             $status === MutantStatus::OutOfMemory => $mutant->withLimit($this->cap),
-            $status === MutantStatus::TimedOut && $limit instanceof Seconds => $mutant->withLimit($limit),
+            $status === MutantStatus::TimedOut && $limit instanceof Seconds => $this->silenced(
+                $mutant->withLimit($limit),
+                $records->silenceOf($planned),
+            ),
             $status === MutantStatus::Killed => $mutant->killedBy($run->killers()),
             default => $mutant,
         };
@@ -218,5 +222,11 @@ final readonly class Interpretation
             $judged => $limited,
             default => $limited->because(Reason::that(sprintf(self::UNSELECTED, implode(', ', $names)))),
         };
+    }
+
+    /** A timed-out mutant, saying its run was stopped at its silence limit where it was. */
+    private function silenced(Mutant $mutant, Seconds|NotGiven $silence): Mutant
+    {
+        return $silence instanceof Seconds ? $mutant->because(Reason::silent($silence)) : $mutant;
     }
 }

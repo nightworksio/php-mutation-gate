@@ -10,6 +10,7 @@ use function file_put_contents;
 use function getenv;
 use function is_numeric;
 use function is_string;
+use function max;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -77,6 +78,25 @@ final class MutantTime
         return $recorded ? $limit : $pest;
     }
 
+    /**
+     * The silence limit of a mutant's own run, its covering tests named by
+     * their ids: the standard limit of the slowest one's own time, within
+     * the bounds the gate names (ADR-0008, decision 2); none where the gate
+     * names no bounds or the map timed not every one of them, as a test of
+     * unknown length could be stopped while it runs.
+     *
+     * @param list<string> $tests
+     */
+    public static function silence(array $tests): Seconds|NotGiven
+    {
+        $bounds = self::bounds();
+        $slowest = self::slowest($tests);
+
+        return $bounds instanceof LimitBounds && $slowest instanceof Seconds
+            ? MutantLimit::standard()->of($slowest, $bounds)
+            : NotGiven::value();
+    }
+
     /** The bounds the gate names, the floor and the most, each a positive number of seconds; or none. */
     private static function bounds(): LimitBounds|NotGiven
     {
@@ -104,5 +124,26 @@ final class MutantTime
         }
 
         return $tests === [] ? Unmeasured::duration() : Seconds::of($total);
+    }
+
+    /**
+     * The own time of the slowest of these tests; unmeasured where the map
+     * timed not every one of them, or there are none.
+     *
+     * @param list<string> $tests
+     */
+    private static function slowest(array $tests): Seconds|Unmeasured
+    {
+        $slowest = 0.0;
+
+        foreach ($tests as $test) {
+            if (! array_key_exists($test, self::$timed)) {
+                return Unmeasured::duration();
+            }
+
+            $slowest = max($slowest, self::$timed[$test]);
+        }
+
+        return $tests === [] ? Unmeasured::duration() : Seconds::of($slowest);
     }
 }

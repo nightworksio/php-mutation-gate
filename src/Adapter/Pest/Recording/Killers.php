@@ -50,16 +50,19 @@ final readonly class Killers
             Facade::instance(),
             getenv(Recorder::MUTANT),
             Loaded::of($loaded),
+            Heartbeat::onErrorOutput(),
         );
     }
 
     /**
-     * Naming killers, and counting the tests the process runs, subscribed to
-     * PHPUnit's events, where a results file and a mutated copy are named and
-     * PHPUnit still takes subscribers. A mutant it cannot name a killer for
-     * is killed by a test nobody knows, and its run writes no count. Where
-     * the process had loaded the original before the override started,
-     * which then cannot put the mutant in its place, it writes that first.
+     * Naming killers, counting the tests the process runs, and beating
+     * through the heartbeat as its tests begin and as each finishes,
+     * subscribed to PHPUnit's events, where a results file and a mutated copy
+     * are named and PHPUnit still takes subscribers. A mutant it cannot name
+     * a killer for is killed by a test nobody knows, and its run writes no
+     * count. Where the process had loaded the original before the override
+     * started, which then cannot put the mutant in its place, it writes that
+     * first.
      */
     public static function listening(
         string|false $results,
@@ -67,6 +70,7 @@ final readonly class Killers
         Facade $events,
         string|false $original,
         Loaded $loaded,
+        Heartbeat $heartbeat,
     ): self|Off {
         if (! is_string($results) || $results === '' || ! is_string($mutated) || $mutated === '') {
             return Off::NamingKillers;
@@ -83,7 +87,8 @@ final readonly class Killers
             $events->registerSubscribers(
                 new OnFailed($killers),
                 new OnErrored($killers),
-                new OnTestFinished($ran),
+                new OnTestFinished($ran, $heartbeat),
+                new OnExecutionStarted($heartbeat),
                 new OnExecutionFinished($ran),
             );
         } catch (EventFacadeIsSealedException|UnknownSubscriberTypeException) {

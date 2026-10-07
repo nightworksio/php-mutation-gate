@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Killers;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Loaded;
+use NightWorksIO\MutationGate\Tests\Support\Beats;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitEvents;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use PHPUnit\Event\Facade;
@@ -18,7 +19,7 @@ afterEach(function (): void {
 it('writes how many tests a mutant\'s own process ran once PHPUnit ends its run, and nothing before', function (): void {
     $results = sprintf('%s/results.jsonl', Scratch::directory());
     $events = new Facade();
-    Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]));
+    Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat());
 
     PhpUnitEvents::finished($events);
     PhpUnitEvents::finished($events);
@@ -32,7 +33,7 @@ it('writes how many tests a mutant\'s own process ran once PHPUnit ends its run,
 it('writes that a run its filter selected no test for ran none', function (): void {
     $results = sprintf('%s/results.jsonl', Scratch::directory());
     $events = new Facade();
-    Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]));
+    Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat());
 
     PhpUnitEvents::executionFinished($events);
 
