@@ -1,0 +1,3 @@
+::error file=tests/Unit/Cli/Flow/JudgingTest.php::tests/Unit/Cli/Flow/JudgingTest.php is 2104 lines, over the cap of 1000. Split it by what it holds; a generated file is split where it is generated.
+::error file=phpstan.neon::phpstan.neon is 1021 lines, over the cap of 1000. Split it by what it holds; a generated file is split where it is generated.
+2 of 3634 tracked file(s) are over 1000 lines.

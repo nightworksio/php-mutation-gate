@@ -35,6 +35,7 @@ final readonly class Rules
     /** The configuration files a rule's identifier can be carried in. */
     private const array CONFIGURATION = [
         'phpstan.neon',
+        'phpstan/layers.neon',
         'phpunit.xml',
         'composer.json',
         'rector.php',
@@ -99,7 +100,7 @@ final readonly class Rules
     {
         return [
             'arch' => self::php('tests/Arch'),
-            'phpstan' => [...self::php('phpstan'), self::text('phpstan.neon')],
+            'phpstan' => [...self::php('phpstan'), self::text('phpstan.neon'), self::text('phpstan/layers.neon')],
         ];
     }
 

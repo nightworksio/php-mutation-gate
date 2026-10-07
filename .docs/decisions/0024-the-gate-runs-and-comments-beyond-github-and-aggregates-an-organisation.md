@@ -192,11 +192,11 @@ documentation, are these.
 
 6. **`init --ci=bitbucket|azure|jenkins` writes a pinned template**, by the
    rules of ADR-0015 decisions 13 to 17. Azure's and Bitbucket's templates
-   are validated against each provider's published schema. Azure's is
-   MIT-licensed, kept in the repository and read offline. Bitbucket's states
-   no licence, so the test fetches it from its URL into the system's
-   temporary directory, holds it to a SHA-256 digest, and fails, never skips,
-   where the fetch fails or the digest differs.
+   are validated against each provider's published schema, which the test
+   fetches from its URL into the system's temporary directory and holds to a
+   SHA-256 digest, failing, never skipping, where the fetch fails or the
+   digest differs. Azure's URL names the commit it is read at; Bitbucket's
+   names no version, so the digest says when it changed.
    Jenkins publishes no schema for a Jenkinsfile, so its template is held by
    its snapshot test alone. This amends ADR-0015 decisions 13 to 17.
    - **Azure DevOps.** `init --ci=azure` writes the gate's jobs as a template,

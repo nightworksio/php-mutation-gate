@@ -348,6 +348,18 @@
         "typo": "A word typos knows as a misspelling. Its correction is proposed, not applied: inside an identifier, the corrected word can be wrong."
       }
     },
+    "hygiene/lines": {
+      "check": "hygiene / lines",
+      "checks": "That no tracked file is over 1,000 lines, by the organisation's canonical check: lockfiles, images and fonts are not counted, and a file scripts/generated.py registers is held to the cap through its sources.",
+      "reproduce": "curl -sSf https://raw.githubusercontent.com/lemonfiber/spec/main/scripts/check_line_cap.py | python3 - --root .",
+      "evidence": [
+        {"step": "lines", "tool": "lines", "raw": "evidence/raw/lines.txt"}
+      ],
+      "rules": {
+        "lines": "The line cap did not run to the end, as where git could not list the tree.",
+        "over-cap": "A tracked file over 1,000 lines. Split it by what it holds; a generated file is split where it is generated, or registered in scripts/generated.py with the sources it is read through."
+      }
+    },
     "hygiene/links": {
       "check": "hygiene / links",
       "checks": "Every link in the Markdown, by lychee.",

@@ -61,9 +61,14 @@ it('keeps every unit test beside the file it tests', function (): void {
 
     foreach ($mirrors as $tests => $sources) {
         foreach (Tree::filesUnder($tests, 'Test.php') as $test) {
-            $source = sprintf('%s%s.php', $sources, mb_substr($test, mb_strlen($tests), -mb_strlen('Test.php')));
+            $subject = mb_substr($test, mb_strlen($tests), -mb_strlen('Test.php'));
+            $source = sprintf('%s%s.php', $sources, $subject);
+            // A test too long for one file is split by concern into a directory named for its subject, where src has
+            // no directory of that name.
+            $parent = sprintf('%s%s', $sources, dirname($subject));
+            $split = dirname($subject) !== '.' && ! is_dir(Tree::at($parent)) && is_file(Tree::at(sprintf('%s.php', $parent)));
 
-            if (! is_file(Tree::at($source))) {
+            if (! is_file(Tree::at($source)) && ! $split) {
                 $orphans[] = sprintf('%s has no %s', $test, $source);
             }
         }

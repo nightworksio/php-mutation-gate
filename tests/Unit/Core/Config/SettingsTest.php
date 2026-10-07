@@ -2,36 +2,23 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Config\Reach as ReachSetting;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Canonical;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\DeclaredTree;
-use NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\IgnoredMutant;
 use NightWorksIO\MutationGate\Core\Config\IgnoredPattern;
 use NightWorksIO\MutationGate\Core\Config\Improvement;
-use NightWorksIO\MutationGate\Core\Config\Key;
-use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\NativeMarkers;
-use NightWorksIO\MutationGate\Core\Config\Options;
-use NightWorksIO\MutationGate\Core\Config\Price;
-use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Config\Report;
-use NightWorksIO\MutationGate\Core\Config\Settings;
-use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Format\Json;
-use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
-use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
-use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
@@ -44,219 +31,12 @@ use NightWorksIO\MutationGate\Core\Time\Day;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
+use NightWorksIO\MutationGate\Tests\Support\SettingsCases;
 
 pest()->group('holds:src/Core/Config/Floors.php', 'holds:src/Core/Config/Shards.php');
 
-/** The effective config of `{"runner": "pest"}`: every other setting at its default. */
-const DEFAULTS = <<<'JSON'
-    {
-        "extensions": [],
-        "runner": {
-            "use": "pest",
-            "memory": "1G"
-        },
-        "mutators": {
-            "sets": [],
-            "except": []
-        },
-        "treeSource": {
-            "use": "phpunit",
-            "with": {
-                "fallback": []
-            }
-        },
-        "newCode": {
-            "floor": 100
-        },
-        "uncovered": "count",
-        "baseline": {
-            "path": "mutation-gate.baseline.json",
-            "improvement": "require"
-        },
-        "packages": [],
-        "reach": {
-            "everything": []
-        },
-        "holds": {
-            "hotPath": 0.8
-        },
-        "run": {
-            "full": false
-        },
-        "shards": {
-            "seconds": 600,
-            "max": 20,
-            "setup": "1m"
-        },
-        "costs": {
-            "secondsPerLine": {
-                "": 0.2
-            }
-        },
-        "ci": {
-            "check": "mutation / verdict",
-            "trustMergedPullRequests": false,
-            "gitlab": {
-                "template": ".gitlab/mutation-gate.yml"
-            },
-            "buildkite": {
-                "step": {},
-                "definition": ".buildkite/pipeline.yml"
-            },
-            "azure": {
-                "definition": "azure-pipelines.yml"
-            },
-            "bitbucket": {
-                "definition": "bitbucket-pipelines.yml"
-            },
-            "jenkins": {
-                "definition": "Jenkinsfile"
-            }
-        },
-        "proofs": {
-            "store": {
-                "use": "directory",
-                "with": {
-                    "path": ".mutation-gate/ledger"
-                }
-            },
-            "ignore": [],
-            "write": "auto"
-        },
-        "coverage": {
-            "incremental": true
-        },
-        "timeouts": {
-            "mode": "confirm",
-            "seconds": 10,
-            "most": 300,
-            "tighter": {
-                "mutators": [
-                    "RemoveArrayItem",
-                    "DecrementInteger",
-                    "IncrementInteger",
-                    "ForeachEmptyIterable",
-                    "UnwrapArrayValues",
-                    "InstanceOfToTrue",
-                    "InstanceOfToFalse",
-                    "TernaryNegated",
-                    "ArrayItemRemoval",
-                    "Foreach_",
-                    "InstanceOf_",
-                    "Ternary"
-                ],
-                "floor": 7
-            }
-        },
-        "flaky": {
-            "confirmSurvivors": true
-        },
-        "tests": {
-            "order": "killers-first"
-        },
-        "survivorsFirst": {
-            "max": 20
-        },
-        "ignores": {
-            "entries": [],
-            "native": "refuse"
-        },
-        "equivalence": {
-            "static": true
-        },
-        "reports": [],
-        "badge": {
-            "colors": {
-                "brightgreen": 90,
-                "green": 80,
-                "yellow": 70,
-                "orange": 60
-            }
-        },
-        "pest": {
-            "patch": false,
-            "canary": "mutation-canary"
-        },
-        "staticCheck": {
-            "tool": "auto",
-            "seconds": 60
-        },
-        "local": {
-            "watchBudget": "1m",
-            "prePushBudget": "5m"
-        }
-    }
-    JSON;
-
-/** A config that sets every setting away from its default. */
-const EVERYTHING = [
-    '$schema' => 'resources/mutation-gate.schema.json',
-    'extensions' => ['Acme\\GateSlack\\SlackExtension'],
-    'preset' => ['laravel', 'acme'],
-    'runner' => ['use' => 'infection', 'with' => [], 'withhold' => ['DEPLOY_*', 'COMPOSER_AUTH'], 'memory' => '512m', 'workers' => 'fresh'],
-    'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app', 'lib']]],
-    'mutators' => ['sets' => ['acme', 'acme-auth'], 'except' => ['acme/RemoveAudit']],
-    'trees' => [
-        ['path' => 'app/Domain', 'floor' => 100],
-        ['path' => 'app/Http', 'floor' => 83.419],
-        ['path' => './app/Generated/', 'floor' => 0, 'reason' => 'Generated on every build'],
-        ['path' => 'app/Legacy'],
-    ],
-    'newCode' => ['floor' => 90],
-    'security' => ['floor' => 97.5],
-    'uncovered' => 'exclude',
-    'baseline' => ['path' => 'build/baseline.json', 'improvement' => 'report'],
-    'packages' => ['packages/*'],
-    'reach' => ['everything' => ['config/**', 'routes/**']],
-    'holds' => ['hotPath' => 1],
-    'shards' => ['seconds' => 900, 'max' => 8],
-    'costs' => ['secondsPerLine' => ['' => 0.25, 'src/Legacy' => 2]],
-    'ci' => [
-        'plan' => 'gitlab',
-        'defaultBranch' => 'trunk',
-        'check' => 'gate / verdict',
-        'trustMergedPullRequests' => true,
-        'gitlab' => ['template' => '.gitlab/gate.yml'],
-        'buildkite' => ['step' => ['agents' => ['queue' => 'mutation']], 'definition' => '.buildkite/mutation.yml'],
-        'azure' => ['definition' => 'ci/azure.yml'],
-        'bitbucket' => ['definition' => 'ci/bitbucket.yml'],
-        'jenkins' => ['definition' => 'ci/Jenkinsfile'],
-    ],
-    'proofs' => [
-        'store' => ['use' => 's3', 'with' => ['bucket' => 'proofs', 'endpoint' => 'https://r2.example.com']],
-        'ignore' => ['docs/**'],
-        'write' => 'never',
-    ],
-    'coverage' => ['incremental' => false],
-    'budget' => '1h30m',
-    'timeouts' => ['mode' => 'unjudged', 'seconds' => 30, 'most' => 120],
-    'flaky' => ['confirmSurvivors' => false],
-    'survivorsFirst' => ['max' => 5],
-    'ignores' => [
-        'entries' => [
-            ['mutant' => '3f9a1c2b7d04', 'reason' => 'Both branches build the same list', 'expires' => '2026-12-29'],
-            [
-                'path' => 'src/Log/**',
-                'mutator' => 'MethodCallRemoval',
-                'reason' => 'Logging is asserted elsewhere',
-                'expires' => '2026-10-01',
-            ],
-        ],
-        'maxDays' => 90,
-        'native' => 'allow',
-    ],
-    'reports' => [
-        ['use' => 'sarif', 'path' => 'build/mutation.sarif'],
-        ['use' => 'Acme\\GateSlack\\SlackReporter', 'with' => ['channel' => '#ci']],
-    ],
-    'badge' => ['colors' => ['green' => 95]],
-    'pest' => ['patch' => true, 'canary' => 'canary'],
-    'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45],
-    'local' => ['watchBudget' => '2m', 'prePushBudget' => '90s'],
-];
-
 it('fills every setting a config leaves out with its default', function (): void {
-    expect(Configs::effective(Configs::settings(['runner' => 'pest'])))->toBe(DEFAULTS);
+    expect(Configs::effective(Configs::settings(['runner' => 'pest'])))->toBe(SettingsCases::DEFAULTS);
 });
 
 it('reads the effective config back into the same settings', function (array|string $config): void {
@@ -264,7 +44,7 @@ it('reads the effective config back into the same settings', function (array|str
 
     expect(Configs::settings(Configs::effective($settings)))->toEqual($settings);
 })->with([
-    'every setting' => [EVERYTHING],
+    'every setting' => [SettingsCases::EVERYTHING],
     'badge colours of its own' => [['runner' => 'pest', 'badge' => ['colors' => ['green' => 95]]]],
     'no badge colours' => [['runner' => 'pest', 'badge' => ['colors' => []]]],
     'a cost per line under one prefix' => [['runner' => 'pest', 'costs' => ['secondsPerLine' => ['src/' => 1]]]],
@@ -336,7 +116,7 @@ it('reads the defaults into their types', function (): void {
 });
 
 it('reads every setting a config writes into its type', function (): void {
-    $settings = Configs::settings(EVERYTHING);
+    $settings = Configs::settings(SettingsCases::EVERYTHING);
     $floors = $settings->floors();
     $trees = $floors->trees();
     $ci = $settings->ci();
@@ -405,7 +185,7 @@ it('reads every setting a config writes into its type', function (): void {
 });
 
 it('reads each ignore as a mutant by its id or a mutator in a glob', function (): void {
-    $entries = [...Configs::settings(EVERYTHING)->ignores()->entries()];
+    $entries = [...Configs::settings(SettingsCases::EVERYTHING)->ignores()->entries()];
     $mutant = $entries[0];
     $pattern = $entries[1];
 
@@ -425,7 +205,7 @@ it('reads each ignore as a mutant by its id or a mutator in a glob', function ()
 });
 
 it('reads each report with its reporter and where it is written', function (): void {
-    $reports = [...Configs::settings(EVERYTHING)->reports()];
+    $reports = [...Configs::settings(SettingsCases::EVERYTHING)->reports()];
 
     expect(array_map(static fn(Report $report): array => [$report->reporter(), $report->path()], $reports))->toEqual([
         [Choice::of('sarif', Configs::options('{}')), Path::of('build/mutation.sarif')],
@@ -441,7 +221,7 @@ it('shows the memory cap beside the runner, and what it withholds only where it 
         ->toBe(['use' => 'pest', 'memory' => '1G'])
         ->and(Configs::shown(Configs::settings(['runner' => ['use' => 'pest', 'memory' => '-1']]), 'runner'))
         ->toBe(['use' => 'pest', 'memory' => '-1'])
-        ->and(Configs::shown(Configs::settings(EVERYTHING), 'runner'))
+        ->and(Configs::shown(Configs::settings(SettingsCases::EVERYTHING), 'runner'))
         ->toBe(['use' => 'infection', 'withhold' => ['DEPLOY_*', 'COMPOSER_AUTH'], 'memory' => '512M', 'workers' => 'fresh']);
 });
 
@@ -485,7 +265,7 @@ it('serialises the settings that affect results canonically, and only those', fu
         . '"pest":{"canary":"mutation-canary","patch":false},'
         . '"runner":{"memory":"1G","use":"pest"},"staticCheck":{"seconds":60,"tool":"auto"},"tests":{"order":"killers-first"},'
         . '"timeouts":{"most":300,"seconds":10,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},"treeSource":{"use":"phpunit","with":{"fallback":[]}}}',
-    )->and(Configs::settings(EVERYTHING)->canonical())->toBe(
+    )->and(Configs::settings(SettingsCases::EVERYTHING)->canonical())->toBe(
         '{"ci":{"azure":{"definition":"ci/azure.yml"},"bitbucket":{"definition":"ci/bitbucket.yml"},'
         . '"buildkite":{"definition":".buildkite/mutation.yml","step":{"agents":{"queue":"mutation"}}},'
         . '"gitlab":{"template":".gitlab/gate.yml"},"jenkins":{"definition":"ci/Jenkinsfile"}},'
@@ -513,7 +293,7 @@ it('keys the memory cap in force, however it is written, and the default as the 
 
 it('keeps the settings that only judge or report out of the canonical form', function (): void {
     $judging = [
-        ...EVERYTHING,
+        ...SettingsCases::EVERYTHING,
         'trees' => [
             ['path' => 'app/Domain', 'floor' => 50],
             ['path' => 'app/Http'],
@@ -527,15 +307,15 @@ it('keeps the settings that only judge or report out of the canonical form', fun
         'proofs' => ['write' => 'auto'],
         'coverage' => ['incremental' => true],
         'reach' => ['everything' => ['bootstrap/**']],
-        'ci' => [...EVERYTHING['ci'], 'check' => 'other', 'trustMergedPullRequests' => false],
+        'ci' => [...SettingsCases::EVERYTHING['ci'], 'check' => 'other', 'trustMergedPullRequests' => false],
     ];
 
-    expect(Configs::settings($judging)->canonical())->toBe(Configs::settings(EVERYTHING)->canonical());
+    expect(Configs::settings($judging)->canonical())->toBe(Configs::settings(SettingsCases::EVERYTHING)->canonical());
 });
 
 it('keeps out of what decides how the gate runs only the settings that judge or report', function (): void {
     $judging = [
-        ...EVERYTHING,
+        ...SettingsCases::EVERYTHING,
         'trees' => [
             ['path' => 'app/Domain', 'floor' => 50],
             ['path' => 'app/Http'],
@@ -548,31 +328,31 @@ it('keeps out of what decides how the gate runs only the settings that judge or 
         'budget' => '5m',
     ];
 
-    expect(Canonical::decidingIn(Configs::settings($judging)))->toBe(Canonical::decidingIn(Configs::settings(EVERYTHING)));
+    expect(Canonical::decidingIn(Configs::settings($judging)))->toBe(Canonical::decidingIn(Configs::settings(SettingsCases::EVERYTHING)));
 });
 
 it('changes what decides how the gate runs, and not the canonical form, with every setting that decides how it runs', function (array $change): void {
-    expect(Canonical::decidingIn(Configs::settings([...EVERYTHING, ...$change])))
-        ->not->toBe(Canonical::decidingIn(Configs::settings(EVERYTHING)))
-        ->and(Configs::settings([...EVERYTHING, ...$change])->canonical())
-        ->toBe(Configs::settings(EVERYTHING)->canonical());
+    expect(Canonical::decidingIn(Configs::settings([...SettingsCases::EVERYTHING, ...$change])))
+        ->not->toBe(Canonical::decidingIn(Configs::settings(SettingsCases::EVERYTHING)))
+        ->and(Configs::settings([...SettingsCases::EVERYTHING, ...$change])->canonical())
+        ->toBe(Configs::settings(SettingsCases::EVERYTHING)->canonical());
 })->with([
     'what reaches everything' => [['reach' => ['everything' => ['bootstrap/**']]]],
-    'the check' => [['ci' => [...EVERYTHING['ci'], 'check' => 'other']]],
-    'the default branch' => [['ci' => [...EVERYTHING['ci'], 'defaultBranch' => 'develop']]],
-    'trusting merged pull requests' => [['ci' => [...EVERYTHING['ci'], 'trustMergedPullRequests' => false]]],
-    'the proof store' => [['proofs' => [...EVERYTHING['proofs'], 'store' => ['use' => 's3', 'with' => ['bucket' => 'forged']]]]],
-    'the paths proofs ignore' => [['proofs' => [...EVERYTHING['proofs'], 'ignore' => ['build/**']]]],
+    'the check' => [['ci' => [...SettingsCases::EVERYTHING['ci'], 'check' => 'other']]],
+    'the default branch' => [['ci' => [...SettingsCases::EVERYTHING['ci'], 'defaultBranch' => 'develop']]],
+    'trusting merged pull requests' => [['ci' => [...SettingsCases::EVERYTHING['ci'], 'trustMergedPullRequests' => false]]],
+    'the proof store' => [['proofs' => [...SettingsCases::EVERYTHING['proofs'], 'store' => ['use' => 's3', 'with' => ['bucket' => 'forged']]]]],
+    'the paths proofs ignore' => [['proofs' => [...SettingsCases::EVERYTHING['proofs'], 'ignore' => ['build/**']]]],
     'kept coverage' => [['coverage' => ['incremental' => true]]],
 ]);
 
 it('changes the canonical form with every setting that affects results', function (array $change): void {
-    expect(Configs::settings([...EVERYTHING, ...$change])->canonical())
-        ->not->toBe(Configs::settings(EVERYTHING)->canonical());
+    expect(Configs::settings([...SettingsCases::EVERYTHING, ...$change])->canonical())
+        ->not->toBe(Configs::settings(SettingsCases::EVERYTHING)->canonical());
 })->with([
     'the runner' => [['runner' => 'pest']],
-    'the memory cap' => [['runner' => [...EVERYTHING['runner'], 'memory' => '-1']]],
-    'how its workers start' => [['runner' => [...EVERYTHING['runner'], 'workers' => 'fork']]],
+    'the memory cap' => [['runner' => [...SettingsCases::EVERYTHING['runner'], 'memory' => '-1']]],
+    'how its workers start' => [['runner' => [...SettingsCases::EVERYTHING['runner'], 'workers' => 'fork']]],
     'its tree source' => [['treeSource' => 'composer']],
     'a tree\'s path' => [['trees' => [['path' => 'app']]]],
     'the packages' => [['packages' => []]],
@@ -584,16 +364,16 @@ it('changes the canonical form with every setting that affects results', functio
     'the static analyser' => [['staticCheck' => ['tool' => 'psalm', 'config' => 'phpstan.dist.neon']]],
     'the static analyser\'s config' => [['staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.neon', 'seconds' => 45]]],
     'the static analyser\'s limit' => [['staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 46]]],
-    'a tree\'s exclude' => [['trees' => [...EVERYTHING['trees'], ['path' => 'lib', 'exclude' => ['lib/Gen/**']]]]],
+    'a tree\'s exclude' => [['trees' => [...SettingsCases::EVERYTHING['trees'], ['path' => 'lib', 'exclude' => ['lib/Gen/**']]]]],
     'the test order' => [['tests' => ['order' => 'runner']]],
     'the tree source\'s fallback' => [['treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['app']]]]],
-    'the Bitbucket pipeline' => [['ci' => [...EVERYTHING['ci'], 'bitbucket' => ['definition' => 'ci/other.yml']]]],
-    'the Jenkinsfile' => [['ci' => [...EVERYTHING['ci'], 'jenkins' => ['definition' => 'ci/Other.Jenkinsfile']]]],
-    'the mutator sets' => [['mutators' => [...EVERYTHING['mutators'], 'sets' => ['acme']]]],
-    'the mutators turned off' => [['mutators' => [...EVERYTHING['mutators'], 'except' => []]]],
+    'the Bitbucket pipeline' => [['ci' => [...SettingsCases::EVERYTHING['ci'], 'bitbucket' => ['definition' => 'ci/other.yml']]]],
+    'the Jenkinsfile' => [['ci' => [...SettingsCases::EVERYTHING['ci'], 'jenkins' => ['definition' => 'ci/Other.Jenkinsfile']]]],
+    'the mutator sets' => [['mutators' => [...SettingsCases::EVERYTHING['mutators'], 'sets' => ['acme']]]],
+    'the mutators turned off' => [['mutators' => [...SettingsCases::EVERYTHING['mutators'], 'except' => []]]],
     'the extensions' => [['extensions' => []]],
-    'what the runner withholds' => [['runner' => [...EVERYTHING['runner'], 'withhold' => []]]],
-    'the Buildkite step' => [['ci' => [...EVERYTHING['ci'], 'buildkite' => ['definition' => '.buildkite/mutation.yml']]]],
+    'what the runner withholds' => [['runner' => [...SettingsCases::EVERYTHING['runner'], 'withhold' => []]]],
+    'the Buildkite step' => [['ci' => [...SettingsCases::EVERYTHING['ci'], 'buildkite' => ['definition' => '.buildkite/mutation.yml']]]],
 ]);
 
 it('changes the canonical form with the options of a runner or a tree source', function (string $setting): void {
@@ -609,701 +389,4 @@ it('keys a tree with no exclude as one with an empty exclude', function (): void
     $tree = static fn(array $tree): string => Configs::settings(['runner' => 'pest', 'trees' => [$tree]])->canonical();
 
     expect($tree(['path' => 'src', 'exclude' => []]))->toBe($tree(['path' => 'src']));
-});
-
-it('reports every problem at once, each at its path with what was expected', function (): void {
-    expect(Configs::problems(Configs::validated([
-        'runner' => 3,
-        'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => 'app', 'extra' => 1]],
-        'trees' => [['path' => 'app', 'floor' => '80'], ['floor' => 0]],
-        'newcode' => ['floor' => 100],
-        'uncovered' => 'all',
-        'holds' => ['hotPath' => 1.5],
-        'shards' => ['seconds' => 0, 'max' => 2.5],
-        'costs' => ['secondsPerLine' => ['src' => -1]],
-        'proofs' => ['store' => 's3'],
-        'budget' => '15 minutes',
-        'ignores' => ['entries' => [
-            ['mutant' => 123456789012, 'reason' => 'Equivalent'],
-            ['mutant' => '3f9a1c2b7d04', 'path' => 'src/**', 'reason' => 'Equivalent'],
-            ['path' => 'src', 'reason' => 'Equivalent', 'expires' => '2027-02-30'],
-        ]],
-        'reports' => [['use' => 'sarif'], ['path' => 'build/report']],
-        'pest' => ['patch' => 'yes'],
-        'staticCheck' => ['tool' => ['use' => 'phpstan', 'with' => ['level' => 9]], 'config' => '', 'seconds' => 0],
-    ])))->toBe([
-        'runner: expected a name, a class, or an object with use and with, got 3',
-        'treeSource.with.fallback: expected a list, got "app"',
-        'treeSource.with.extra: unknown key',
-        'trees[0].floor: expected a number from 0 to 100, got "80"',
-        'trees[1].path: expected a path, got nothing',
-        'uncovered: expected "count" or "exclude", got "all"',
-        'holds.hotPath: expected a number from 0 to 1, got 1.5',
-        'shards.seconds: expected an integer of at least 1, got 0',
-        'shards.max: expected an integer of at least 1, got 2.5',
-        'costs.secondsPerLine["src"]: expected a number of at least 0, got -1',
-        'proofs.store.with.bucket: expected a bucket name, got nothing',
-        'budget: expected a duration such as 90s, 15m or 1h30m, got "15 minutes"',
-        'ignores.entries[0].mutant: expected a mutant id, twelve lowercase hex characters in quotes, got 123456789012',
-        'ignores.entries[1]: expected either mutant, or path and mutator, but not both',
-        'ignores.entries[2].expires: expected a date written YYYY-MM-DD, got "2027-02-30"',
-        'reports[0].path: expected a path, got nothing',
-        'reports[1].use: expected a name or a class, got nothing',
-        'pest.patch: expected true or false, got "yes"',
-        'staticCheck.tool.with.level: unknown key',
-        'staticCheck.config: expected a path, got ""',
-        'staticCheck.seconds: expected an integer of at least 1, got 0',
-        'newcode: unknown key, did you mean newCode?',
-    ]);
-});
-
-it('refuses a config without a runner', function (): void {
-    expect(Configs::problems(Configs::validated([])))
-        ->toBe(['runner: expected a name, a class, or an object with use and with, got nothing']);
-});
-
-it('refuses a timeouts.most under timeouts.seconds, however the layers lay them', function (array $config, string $problem): void {
-    expect(Configs::problems(Configs::validated(['runner' => 'pest', ...$config])))->toBe([$problem]);
-})->with([
-    'both in the config' => [
-        ['timeouts' => ['seconds' => 30, 'most' => 29]],
-        'timeouts.most: expected at least timeouts.seconds, 30, got 29',
-    ],
-    'a most under the standard floor' => [['timeouts' => ['most' => 9]], 'timeouts.most: expected at least timeouts.seconds, 10, got 9'],
-    'a floor over the standard most' => [
-        ['timeouts' => ['seconds' => 301]],
-        'timeouts.most: expected at least timeouts.seconds, 301, got 300',
-    ],
-]);
-
-it('takes a timeouts.most equal to timeouts.seconds', function (): void {
-    $settings = Configs::settings(['runner' => 'pest', 'timeouts' => ['seconds' => 30, 'most' => 30]]);
-
-    expect($settings->triage()->bounds())
-        ->toEqual(LimitBounds::between(Seconds::of(30.0), Seconds::of(30.0))->tighterFor(TighterSilence::standard()));
-});
-
-it('refuses a config that is not an object', function (string $json, string $problem): void {
-    expect(Configs::problems(Configs::validated($json)))->toBe([$problem]);
-})->with([
-    'a list' => ['[{"runner": "pest"}]', ': expected an object, got a list'],
-    'a number' => ['3', ': expected an object, got 3'],
-]);
-
-it('refuses a string where a number belongs, and a fraction where an integer does', function (): void {
-    expect(Configs::problems(Configs::validated(
-        '{"runner": "pest", "newCode": {"floor": "100"}, "timeouts": {"seconds": 10.0, "most": 0}, '
-        . '"flaky": {"confirmSurvivors": 1}, "staticCheck": {"seconds": 2.5}}',
-    )))->toBe([
-        'newCode.floor: expected a number from 0 to 100, got "100"',
-        'timeouts.seconds: expected an integer of at least 1, got 10.0',
-        'timeouts.most: expected an integer of at least 1, got 0',
-        'flaky.confirmSurvivors: expected true or false, got 1',
-        'staticCheck.seconds: expected an integer of at least 1, got 2.5',
-    ]);
-});
-
-it('takes the ends of every range', function (): void {
-    $settings = Configs::settings([
-        'runner' => 'pest',
-        'trees' => [['path' => 'src', 'floor' => 0, 'reason' => 'Generated']],
-        'newCode' => ['floor' => 0],
-        'holds' => ['hotPath' => 0],
-        'costs' => ['secondsPerLine' => ['' => 0]],
-        'badge' => ['colors' => ['green' => 100, 'red' => 0]],
-        'timeouts' => ['seconds' => 1, 'most' => 1],
-        'shards' => ['seconds' => 1, 'max' => 1],
-        'ignores' => ['maxDays' => 1],
-    ]);
-
-    expect($settings->floors()->newCode())->toEqual(Floor::of(0))
-        ->and($settings->reach()->hotPaths()->share())->toBe(0.0)
-        ->and([...$settings->badge()])->toBe(['green' => 100, 'red' => 0])
-        ->and($settings->ignores()->maxDays())->toBe(1);
-});
-
-it('refuses a path or a glob that goes up out of the project, or is absolute', function (): void {
-    expect(Configs::problems(Configs::validated([
-        'runner' => 'pest',
-        'trees' => [['path' => '../../etc'], ['path' => 'src', 'exclude' => ['../gen/**', '/abs/src/Gen/**']], ['path' => '/abs/src']],
-        'packages' => ['/abs/*'],
-        'costs' => ['secondsPerLine' => ['' => 1, '../x' => 1, '/abs' => 1]],
-        'ci' => ['gitlab' => ['template' => '/abs.yml']],
-        'baseline' => ['path' => '../x.json'],
-        'proofs' => ['store' => ['use' => 'directory', 'with' => ['path' => '/var/ledger']], 'ignore' => ['/etc/**']],
-        'reports' => [['use' => 'json', 'path' => '/tmp/x.json']],
-    ])))->toBe([
-        'trees[0].path: expected a path inside the project, got "../../etc"',
-        'trees[1].exclude[0]: expected a path inside the project, got "../gen/**"',
-        'trees[1].exclude[1]: expected a path inside the project, got "/abs/src/Gen/**"',
-        'trees[2].path: expected a path inside the project, got "/abs/src"',
-        'baseline.path: expected a path inside the project, got "../x.json"',
-        'packages[0]: expected a path inside the project, got "/abs/*"',
-        'costs.secondsPerLine["../x"]: expected a path inside the project, got "../x"',
-        'costs.secondsPerLine["/abs"]: expected a path inside the project, got "/abs"',
-        'ci.gitlab.template: expected a path inside the project, got "/abs.yml"',
-        'proofs.store.with.path: expected a path inside the project, got "/var/ledger"',
-        'proofs.ignore[0]: expected a path inside the project, got "/etc/**"',
-        'reports[0].path: expected a path inside the project, got "/tmp/x.json"',
-    ]);
-});
-
-it('keeps an absolute path the command line names, and no path that goes up', function (): void {
-    $line = Definition::layer(
-        Node::config('{"reports": [{"use": "json", "path": "/tmp/x.json"}]}'),
-        ProjectRoot::commandLine(),
-    );
-    $up = Definition::layer(
-        Node::config('{"reports": [{"use": "json", "path": "../x.json"}]}'),
-        ProjectRoot::commandLine(),
-    );
-
-    expect($line instanceof Layer ? Configs::decoded($line) : Configs::problems($line))
-        ->toBe(['reports' => [['use' => 'json', 'path' => '/tmp/x.json']]])
-        ->and(Configs::problems($up))->toBe(['reports[0].path: expected a path inside the project, got "../x.json"']);
-});
-
-it('keeps each path of the tree source\'s fallback once, as the effective config writes it', function (): void {
-    $settings = Configs::settings([
-        'runner' => 'pest',
-        'treeSource' => ['use' => 'phpunit', 'with' => ['fallback' => ['./app/', 'app', 'lib']]],
-    ]);
-
-    expect($settings->treeSource()->options()->written()->line())->toBe('{"fallback":["app","lib"]}')
-        ->and(Configs::settings(Configs::effective($settings))->treeSource())
-        ->toEqual($settings->treeSource());
-});
-
-it('refuses a floor of 0 without the reason it needs', function (): void {
-    expect(Configs::problems(Configs::validated(['runner' => 'pest', 'trees' => [['path' => 'src', 'floor' => 0]]])))
-        ->toBe(['trees[0].reason: expected a reason when floor is 0, got nothing']);
-});
-
-it('refuses a reason beside a floor above 0, or beside none, which it would do nothing for', function (): void {
-    expect(Configs::problems(Configs::validated([
-        'runner' => 'pest',
-        'trees' => [['path' => 'src', 'floor' => 0.01, 'reason' => 'Why'], ['path' => 'lib', 'reason' => 'Why']],
-    ])))->toBe([
-        'trees[0].reason: expected no reason, as only a floor of 0 takes one, got "Why"',
-        'trees[1].reason: expected no reason, as only a floor of 0 takes one, got "Why"',
-    ]);
-});
-
-it('reads an empty list of trees as no tree at all, not as the tree source\'s', function (): void {
-    $trees = Configs::settings(['runner' => 'pest', 'trees' => []])->floors()->trees();
-
-    expect($trees instanceof Absent ? 'absent' : count($trees))->toBe(0);
-});
-
-it('refuses an ignore that is neither a mutant nor a mutator in a glob', function (array $entry): void {
-    expect(Configs::problems(Configs::validated(['runner' => 'pest', 'ignores' => ['entries' => [$entry]]])))
-        ->toBe(['ignores.entries[0]: expected either mutant, or path and mutator, but not both']);
-})->with([
-    'a reason alone' => [['reason' => 'Equivalent']],
-    'a path without a mutator' => [['path' => 'src/**', 'reason' => 'Equivalent']],
-    'a mutator without a path' => [['mutator' => 'Plus', 'reason' => 'Equivalent']],
-    'a mutant and a mutator' => [['mutant' => '3f9a1c2b7d04', 'mutator' => 'Plus', 'reason' => 'Equivalent']],
-    'all three' => [['mutant' => '3f9a1c2b7d04', 'path' => 'src/**', 'mutator' => 'Plus', 'reason' => 'Equivalent']],
-]);
-
-it('refuses an ignore that does not expire within ignores.maxDays of today', function (): void {
-    expect(Configs::problems(Configs::validated([
-        'runner' => 'pest',
-        'ignores' => [
-            'maxDays' => 30,
-            'entries' => [
-                ['mutant' => '3f9a1c2b7d04', 'reason' => 'On the day', 'expires' => '2026-10-30'],
-                ['mutant' => '81d0c9e2aa17', 'reason' => 'A day late', 'expires' => '2026-10-31'],
-                ['path' => 'src/**', 'mutator' => 'Plus', 'reason' => 'Never'],
-            ],
-        ],
-    ])))->toBe([
-        'ignores.entries[1].expires: expected a date by 2026-10-30, within ignores.maxDays of today, got "2026-10-31"',
-        'ignores.entries[2].expires: expected a date by 2026-10-30, within ignores.maxDays of today, got nothing',
-    ]);
-});
-
-it('reports what is wrong in a layer before what only every layer together can say', function (): void {
-    expect(Configs::problems(Configs::validated([
-        'budget' => 'soon',
-        'ignores' => [
-            'maxDays' => 30,
-            'entries' => [['mutant' => '81d0c9e2aa17', 'reason' => 'A day late', 'expires' => '2026-10-31']],
-        ],
-    ])))->toBe(['budget: expected a duration such as 90s, 15m or 1h30m, got "soon"']);
-});
-
-it('judges expiries once every ignore is written as it must be', function (): void {
-    expect(Configs::problems(Configs::validated([
-        'runner' => 'pest',
-        'ignores' => [
-            'maxDays' => 30,
-            'entries' => [
-                ['mutant' => '81d0c9e2aa17', 'reason' => 'A day late', 'expires' => '2026-10-31'],
-                ['mutant' => '3f9a1c2b7d04', 'reason' => 'Not a date', 'expires' => 'soon'],
-            ],
-        ],
-    ])))->toBe(['ignores.entries[1].expires: expected a date written YYYY-MM-DD, got "soon"']);
-});
-
-it('judges no expiry where a config is described rather than read', function (): void {
-    $described = Configs::layer(
-        ['runner' => 'pest', 'ignores' => ['maxDays' => 1, 'entries' => [['mutant' => '81d0c9e2aa17', 'reason' => 'x']]]],
-    );
-
-    expect(Configs::problems($described))->toBe([]);
-});
-
-it('judges no expiry against a maxDays written wrong, or entries that are not a list', function (array $ignores): void {
-    expect(Configs::problems(Configs::validated(['runner' => 'pest', 'ignores' => $ignores])))
-        ->each->not->toStartWith('ignores.entries[0].expires: expected a date by');
-})->with([
-    'maxDays as text' => [['maxDays' => '30', 'entries' => [['mutant' => '81d0c9e2aa17', 'reason' => 'Never']]]],
-    'maxDays of 0' => [['maxDays' => 0, 'entries' => [['mutant' => '81d0c9e2aa17', 'reason' => 'Never']]]],
-    'entries as an object' => [
-        ['maxDays' => 30, 'entries' => ['a' => ['mutant' => '81d0c9e2aa17', 'reason' => 'Never']]],
-    ],
-]);
-
-it('judges expiries against a maxDays of one day', function (): void {
-    expect(Configs::problems(Configs::validated([
-        'runner' => 'pest',
-        'ignores' => ['maxDays' => 1, 'entries' => [['mutant' => '81d0c9e2aa17', 'reason' => 'Never']]],
-    ])))->toBe([
-        'ignores.entries[0].expires: expected a date by 2026-10-01, within ignores.maxDays of today, got nothing',
-    ]);
-});
-
-it('takes any $schema a file names, and leaves it out of the effective config', function (mixed $schema): void {
-    expect(Configs::decoded(Configs::settings(['$schema' => $schema, 'runner' => 'pest'])->effective()))
-        ->not->toHaveKey('$schema');
-})->with([
-    'a path' => ['vendor/nightworksio/mutation-gate/resources/mutation-gate.schema.json'],
-    'an empty string' => [''],
-    'a number' => [3],
-]);
-
-it('applies no preset when a config names none', function (): void {
-    expect([...Configs::settings(['runner' => 'pest'])->presets()])->toBe([]);
-});
-
-it('reads an adapter written as an object, checking a built-in one\'s options strictly', function (): void {
-    expect(Configs::problems(Configs::validated(['runner' => ['use' => 'pest', 'With' => []]])))
-        ->toBe(['runner.With: unknown key, did you mean with?'])
-        ->and(Configs::problems(Configs::validated(['runner' => ['use' => 'pest', 'with' => ['workers' => 4]]])))
-        ->toBe(['runner.with.workers: unknown key'])
-        ->and(Configs::problems(Configs::validated(['runner' => ['with' => []]])))
-        ->toBe(['runner.use: expected a name or a class, got nothing'])
-        ->and(Configs::problems(Configs::validated(['runner' => ''])))
-        ->toBe(['runner: expected a name, a class, or an object with use and with, got ""']);
-});
-
-it('refuses an adapter written as neither a name nor an object', function (string $key, array $config): void {
-    expect(Configs::problems(Configs::validated(['runner' => 'pest', ...$config])))
-        ->toBe([sprintf('%s: expected a name, a class, or an object with use and with, got 5', $key)]);
-})->with([
-    'the tree source' => ['treeSource', ['treeSource' => 5]],
-    'the CI plan' => ['ci.plan', ['ci' => ['plan' => 5]]],
-    'the proof store' => ['proofs.store', ['proofs' => ['store' => 5]]],
-    'the static analyser' => ['staticCheck.tool', ['staticCheck' => ['tool' => 5]]],
-]);
-
-it('leaves the options of a class or another extension\'s adapter to it', function (): void {
-    $settings = Configs::settings([
-        'runner' => ['use' => 'Acme\\Gate\\Runner', 'with' => ['workers' => 4]],
-        'proofs' => ['store' => 'Acme\\Gate\\Store'],
-        'staticCheck' => ['tool' => ['use' => 'Acme\\Gate\\Analyser', 'with' => ['level' => 9]]],
-    ]);
-
-    expect($settings->runner()->choice())->toEqual(Choice::of('Acme\\Gate\\Runner', Configs::options('{"workers":4}')))
-        ->and($settings->proofs()->store())->toEqual(Choice::of('Acme\\Gate\\Store', Configs::options('{}')))
-        ->and($settings->staticCheck()->tool())
-        ->toEqual(Choice::of('Acme\\Gate\\Analyser', Configs::options('{"level":9}')))
-        ->and(Configs::shown($settings, 'runner'))
-        ->toBe(['use' => 'Acme\\Gate\\Runner', 'with' => ['workers' => 4], 'memory' => '1G']);
-});
-
-it('says whether the store keeps its ledgers on this machine', function (string|array $store, bool $kept): void {
-    expect(Configs::settings(['runner' => 'pest', 'proofs' => ['store' => $store]])->proofs()->keptOnDisk())->toBe($kept);
-})->with([
-    'the directory' => ['directory', true],
-    'the directory at a path' => [['use' => 'directory', 'with' => ['path' => 'cache']], true],
-    'a bucket' => [['use' => 's3', 'with' => ['bucket' => 'ledgers']], false],
-    'a class' => ['Acme\\Gate\\Store', false],
-]);
-
-it('reads a path as the repository spells it', function (): void {
-    $settings = Configs::settings(['runner' => 'pest', 'baseline' => ['path' => './build//baseline.json']]);
-
-    expect($settings->floors()->baseline())->toEqual(Path::of('build/baseline.json'))
-        ->and(Configs::shown($settings, 'baseline', 'path'))->toBe('build/baseline.json');
-});
-
-it('takes one preset by its name, or a list of them', function (): void {
-    expect([...Configs::settings(['runner' => 'pest', 'preset' => 'laravel'])->presets()])->toBe(['laravel'])
-        ->and(Configs::problems(Configs::validated(['runner' => 'pest', 'preset' => ['laravel', '']])))
-        ->toBe(['preset: expected a preset name, or a list of them, got a list'])
-        ->and(Configs::problems(Configs::validated(['runner' => 'pest', 'preset' => ['a' => 'laravel']])))
-        ->toBe(['preset: expected a preset name, or a list of them, got an object']);
-});
-
-it('accepts the $schema key and ignores what it says', function (): void {
-    expect(Configs::settings(['$schema' => 'anything', 'runner' => 'pest'])->canonical())
-        ->toBe(Configs::settings(['runner' => 'pest'])->canonical());
-});
-
-it('refuses a map whose keys are settings where a map of numbers belongs', function (): void {
-    expect(Configs::problems(Configs::validated(['runner' => 'pest', 'costs' => ['secondsPerLine' => [0.2]]])))
-        ->toBe(['costs.secondsPerLine: expected an object of numbers, got a list'])
-        ->and(Configs::problems(Configs::validated(['runner' => 'pest', 'ci' => ['buildkite' => ['step' => [1]]]])))
-        ->toBe(['ci.buildkite.step: expected an object, got a list'])
-        ->and(Configs::problems(Configs::validated(['runner' => 'pest', 'shards' => [600]])))
-        ->toBe(['shards: expected an object, got a list']);
-});
-
-it('refuses a badge written outside the project, by its entry or its options', function (
-    array $entry,
-    string $problem,
-): void {
-    expect(Configs::problems(Configs::validated(['runner' => 'pest', 'reports' => [['use' => 'badge', ...$entry]]])))
-        ->toBe([$problem]);
-})->with([
-    'an absolute path' => [['path' => '/tmp/x'], 'reports[0].path: expected a path inside the project, got "/tmp/x"'],
-    'a path up out of the project' => [['path' => '../x'], 'reports[0].path: expected a path inside the project, got "../x"'],
-    'a path among its options' => [['with' => ['path' => '/tmp/x']], 'reports[0].with.path: unknown key'],
-]);
-
-it('takes a path for a report it writes, may for the badge, and takes none for one it prints or sends', function (
-    string $use,
-    array $entry,
-    array $problems,
-): void {
-    expect(Configs::problems(Configs::validated(['runner' => 'pest', 'reports' => [['use' => $use, ...$entry]]])))
-        ->toBe($problems);
-})->with([
-    'a file with none' => ['json', [], ['reports[0].path: expected a path, got nothing']],
-    'the badge with none' => ['badge', [], []],
-    'the badge with one' => ['badge', ['path' => 'publish'], []],
-    'the console with one' => [
-        'console',
-        ['path' => 'out.txt'],
-        ['reports[0].path: expected nothing, as console writes no file, got "out.txt"'],
-    ],
-    'a comment with one' => [
-        'github-comment',
-        ['path' => 'out.md'],
-        ['reports[0].path: expected nothing, as github-comment writes no file, got "out.md"'],
-    ],
-]);
-
-it('reads the problems report\'s only and the comment\'s identity, and refuses what they do not take', function (): void {
-    $problems = static fn(array $with): array => Configs::problems(Configs::validated([
-        'runner' => 'pest',
-        'reports' => [['use' => 'problems', 'with' => $with]],
-    ]));
-
-    expect($problems(['only' => 'changed']))->toBe([])
-        ->and($problems(['only' => 'some']))->toBe(['reports[0].with.only: expected "all" or "changed", got "some"'])
-        ->and(Configs::problems(Configs::validated([
-            'runner' => 'pest',
-            'reports' => [['use' => 'github-comment', 'with' => ['identity' => 7]]],
-        ])))->toBe(['reports[0].with.identity: expected an account name, got 7']);
-});
-
-it('refuses a Buildkite step whose command is not text, or a list of text, at the command', function (): void {
-    expect(Configs::problems(Configs::validated(['runner' => 'pest', 'ci' => ['buildkite' => ['step' => ['command' => 7]]]])))
-        ->toBe(['ci.buildkite.step.command: expected a command, or a list of commands, as text, got 7']);
-});
-
-it('reads tree excludes, the shard target and setup, the price, the test order and the equivalence check', function (
-): void {
-    $settings = Configs::settings([
-        'runner' => 'pest',
-        'trees' => [['path' => 'src', 'exclude' => ['src/Legacy/**', 'src/Generated/*.php']]],
-        'shards' => ['target' => '20m', 'setup' => '3m'],
-        'costs' => ['perRunnerMinute' => ['amount' => 0.008, 'currency' => 'USD']],
-        'proofs' => ['store' => ['use' => 's3', 'with' => [
-            'bucket' => 'proofs',
-            'publicUrl' => 'https://proofs.example.com',
-        ]]],
-        'tests' => ['order' => 'runner'],
-        'equivalence' => ['static' => false],
-    ]);
-    $trees = $settings->floors()->trees();
-    $price = $settings->shards()->perRunnerMinute();
-
-    expect($trees instanceof Absent ? [] : [...[...$trees][0]->exclude()])
-        ->toEqual([Glob::of('src/Legacy/**'), Glob::of('src/Generated/*.php')])
-        ->and($settings->shards()->target())->toEqual(Seconds::of(1200))
-        ->and($settings->shards()->setup())->toEqual(Seconds::of(180))
-        ->and($price instanceof Price ? [$price->amount(), $price->currency()] : [])->toBe([0.008, 'USD'])
-        ->and(Configs::shown($settings, 'proofs', 'store', 'with', 'publicUrl'))->toBe('https://proofs.example.com')
-        ->and($settings->triage()->order())->toBe(TestOrder::Runner)
-        ->and($settings->ignores()->staticEquivalence())->toBeFalse();
-});
-
-it('excludes nothing, cuts by seconds, prices nothing, puts killers first and checks equivalence by default', function (
-): void {
-    $settings = Configs::settings(['runner' => 'pest', 'trees' => [['path' => 'src']]]);
-    $trees = $settings->floors()->trees();
-
-    expect($trees instanceof Absent ? ['no trees'] : [...[...$trees][0]->exclude()])->toBe([])
-        ->and($settings->shards()->target())->toEqual(Absent::setting())
-        ->and($settings->shards()->setup())->toEqual(Seconds::of(60))
-        ->and($settings->shards()->perRunnerMinute())->toEqual(Absent::setting())
-        ->and($settings->triage()->order())->toBe(TestOrder::KillersFirst)
-        ->and($settings->ignores()->staticEquivalence())->toBeTrue();
-});
-
-it('refuses a shard count set two ways, and a price, a public URL, an order or an exclude written wrong', function (
-    array $config,
-    array $problems,
-): void {
-    expect(Configs::problems(Configs::validated(['runner' => 'pest', ...$config])))->toBe($problems);
-})->with([
-    'a shard count set two ways' => [
-        ['shards' => ['seconds' => 600, 'target' => '20m']],
-        ['shards: expected either seconds or target, but not both'],
-    ],
-    'a price without its currency' => [
-        ['costs' => ['perRunnerMinute' => ['amount' => -1]]],
-        [
-            'costs.perRunnerMinute.amount: expected a number of at least 0, got -1',
-            'costs.perRunnerMinute.currency: expected a currency, such as EUR, got nothing',
-        ],
-    ],
-    'a public URL that is not https' => [
-        ['proofs' => ['store' => ['use' => 's3', 'with' => ['bucket' => 'b', 'publicUrl' => 'http://proofs']]]],
-        ['proofs.store.with.publicUrl: expected an https:// URL with no user, query or fragment, got "http://proofs"'],
-    ],
-    'a public URL that names a user' => [
-        ['proofs' => ['store' => ['use' => 's3', 'with' => ['bucket' => 'b', 'publicUrl' => 'https://reader:secret@proofs']]]],
-        ['proofs.store.with.publicUrl: expected an https:// URL with no user, query or fragment, got "https://reader:secret@proofs"'],
-    ],
-    'a public URL with a query' => [
-        ['proofs' => ['store' => ['use' => 's3', 'with' => ['bucket' => 'b', 'publicUrl' => 'https://proofs/ledgers?signed=1']]]],
-        ['proofs.store.with.publicUrl: expected an https:// URL with no user, query or fragment, got "https://proofs/ledgers?signed=1"'],
-    ],
-    'a public URL with a fragment' => [
-        ['proofs' => ['store' => ['use' => 's3', 'with' => ['bucket' => 'b', 'publicUrl' => 'https://proofs/ledgers#main']]]],
-        ['proofs.store.with.publicUrl: expected an https:// URL with no user, query or fragment, got "https://proofs/ledgers#main"'],
-    ],
-    'a test order the gate does not know' => [
-        ['tests' => ['order' => 'random']],
-        ['tests.order: expected "killers-first" or "runner", got "random"'],
-    ],
-    'an exclude that is not a list of globs' => [
-        ['trees' => [['path' => 'src', 'exclude' => 'src/Legacy']]],
-        ['trees[0].exclude: expected a list, got "src/Legacy"'],
-    ],
-]);
-
-it('reads the file reporters, the chat reporters with their variables, and OpenTelemetry', function (): void {
-    $settings = Configs::settings(['runner' => 'pest', 'reports' => [
-        ['use' => 'tests', 'path' => 'build/tests.json'],
-        ['use' => 'kill-matrix', 'path' => 'build/kills.csv'],
-        ['use' => 'gitlab', 'path' => 'gl-code-quality.json'],
-        ['use' => 'slack'],
-        ['use' => 'discord', 'with' => ['urlEnv' => 'TEAM_DISCORD']],
-        ['use' => 'webhook'],
-        ['use' => 'otlp', 'with' => ['endpoint' => 'https://otel.example.com']],
-    ]]);
-
-    expect(Configs::shown($settings, 'reports'))->toBe([
-        ['use' => 'tests', 'path' => 'build/tests.json'],
-        ['use' => 'kill-matrix', 'path' => 'build/kills.csv'],
-        ['use' => 'gitlab', 'path' => 'gl-code-quality.json'],
-        ['use' => 'slack', 'with' => ['urlEnv' => 'MUTATION_GATE_SLACK_URL']],
-        ['use' => 'discord', 'with' => ['urlEnv' => 'TEAM_DISCORD']],
-        [
-            'use' => 'webhook',
-            'with' => ['urlEnv' => 'MUTATION_GATE_WEBHOOK_URL', 'secretEnv' => 'MUTATION_GATE_WEBHOOK_SECRET'],
-        ],
-        ['use' => 'otlp', 'with' => ['endpoint' => 'https://otel.example.com']],
-    ])->and(array_map(static fn(Report $report): string => $report->reporter()->options()->written()->line(), [...$settings->reports()]))
-        ->toBe([
-            '{}',
-            '{}',
-            '{}',
-            '{"urlEnv":"MUTATION_GATE_SLACK_URL"}',
-            '{"urlEnv":"TEAM_DISCORD"}',
-            '{"urlEnv":"MUTATION_GATE_WEBHOOK_URL","secretEnv":"MUTATION_GATE_WEBHOOK_SECRET"}',
-            '{"endpoint":"https://otel.example.com"}',
-        ]);
-});
-
-it('refuses a webhook URL in the config, and a path a reporter cannot take or needs', function (
-    array $report,
-    string $problem,
-): void {
-    expect(Configs::problems(Configs::validated(['runner' => 'pest', 'reports' => [$report]])))->toBe([$problem]);
-})->with([
-    'a webhook URL in the config' => [
-        ['use' => 'slack', 'with' => ['url' => 'https://hooks.slack.com/x']],
-        'reports[0].with.url: expected no url: a webhook URL is a credential; set MUTATION_GATE_SLACK_URL, '
-        . 'or name another variable in urlEnv',
-    ],
-    'a path for a reporter that writes no file' => [
-        ['use' => 'otlp', 'path' => 'build/otlp.json'],
-        'reports[0].path: expected nothing, as otlp writes no file, got "build/otlp.json"',
-    ],
-    'no path for a reporter that writes a file' => [
-        ['use' => 'kill-matrix'],
-        'reports[0].path: expected a path, got nothing',
-    ],
-]);
-
-it('refuses a canary group name with whitespace, and a store endpoint that is not a URL', function (): void {
-    expect(Configs::problems(Configs::validated([
-        'runner' => 'pest',
-        'pest' => ['canary' => 'mutation canary'],
-        'proofs' => ['store' => ['use' => 's3', 'with' => ['bucket' => 'b', 'endpoint' => 'minio.test:9000']]],
-    ])))->toBe([
-        'proofs.store.with.endpoint: expected an http:// or https:// URL, got "minio.test:9000"',
-        'pest.canary: expected a group name, with no whitespace, got "mutation canary"',
-    ])->and(Configs::validated([
-        'runner' => 'pest',
-        'pest' => ['canary' => 'mutation-canary'],
-        'proofs' => ['store' => ['use' => 's3', 'with' => ['bucket' => 'b', 'endpoint' => 'http://minio.test:9000']]],
-    ]))->toBeInstanceOf(Settings::class);
-});
-
-it('reads a key that reads as a number as any other: unknown where nothing declares it, and a name in a map', function (): void {
-    $colors = Configs::validated('{"runner": "pest", "reports": [{"use": "badge", "path": "b.svg", "with": {"colors": {"12": 50}}}]}');
-
-    expect(Configs::problems(Configs::validated('{"runner": "pest", "12": 1}')))->toBe(['12: unknown key'])
-        ->and(Configs::validated('{"runner": "pest", "costs": {"secondsPerLine": {"12": 2}}}'))->toBeInstanceOf(Settings::class)
-        ->and($colors)->toBeInstanceOf(Settings::class);
-});
-
-it('names each CI\'s pipeline file in a config written as PHP', function (): void {
-    expect(Configs::valid(EVERYTHING)->php(ProjectRoot::origin())->code())
-        ->toContain("Pipeline::azureDefinition('ci/azure.yml')")
-        ->toContain("Pipeline::bitbucketDefinition('ci/bitbucket.yml')")
-        ->toContain("Pipeline::jenkinsDefinition('ci/Jenkinsfile')")
-        ->toContain('StaticCheck::seconds(45)')
-        ->toContain('Survivors::firstAtMost(5)');
-});
-
-it('writes how uncovered mutants count and the baseline\'s path and improvement into a config written as PHP', function (array $config, string $with): void {
-    expect(Configs::valid(['runner' => 'pest', ...$config])->php(ProjectRoot::origin())->code())
-        ->toContain(sprintf("    ->with(\n%s\n    )", $with));
-})->with([
-    'excluded, at a path, reported' => [
-        ['uncovered' => 'exclude', 'baseline' => ['path' => 'build/baseline.json', 'improvement' => 'report']],
-        "        Uncovered::excluded(),\n        Baseline::at('build/baseline.json'),\n        Baseline::reportingImprovement(),",
-    ],
-    'counted, required' => [
-        ['uncovered' => 'count', 'baseline' => ['improvement' => 'require']],
-        "        Uncovered::counted(),\n        Baseline::requiringImprovement(),",
-    ],
-]);
-
-it('hands on a name in a map that reads as a number as text, to the cost model and to a config written as PHP', function (): void {
-    $json = '{"runner": "pest", "costs": {"secondsPerLine": {"12": 2}}, "badge": {"colors": {"12": 50}}, '
-        . '"reports": [{"use": "badge", "path": "b.svg", "with": {"colors": {"12": 50}}}]}';
-    $settings = Configs::settings($json);
-    $php = Configs::valid($json)->php(ProjectRoot::origin())->code();
-
-    $options = $settings->shards()->costOptions()->object(Key::of('secondsPerLine'));
-
-    expect($options instanceof Options ? $options->number(Key::of('12')) : $options)->toBe(2.0)
-        ->and($settings->shards()->secondsPerLine()->forPath(Path::of('12/Money.php')))->toEqual(Seconds::of(2.0))
-        ->and($php)->toContain("Shards::secondsPerLine('12', 2)")
-        ->and($php)->toContain("Badge::colour('12', 50)")
-        ->and($php)->toContain("Option::nested('colors', Option::of('12', 50))");
-});
-
-it('reads the gcs and azure stores with their defaults, and refuses names their clouds do not allow, or a key', function (
-    array $store,
-    array $problems,
-): void {
-    expect(Configs::problems(Configs::validated(['runner' => 'pest', 'proofs' => ['store' => $store]])))->toBe($problems);
-})->with([
-    'a bucket' => [['use' => 'gcs', 'with' => ['bucket' => 'acme-ledgers.example', 'publicUrl' => 'https://storage.googleapis.com/acme-ledgers']], []],
-    'a container' => [['use' => 'azure', 'with' => ['account' => 'acme01', 'container' => 'ledgers-1', 'publicContainer' => 'pub']], []],
-    'no bucket' => [['use' => 'gcs'], ['proofs.store.with.bucket: expected a Cloud Storage bucket name, got nothing']],
-    'a bucket that leaves its path' => [
-        ['use' => 'gcs', 'with' => ['bucket' => '../other?x']],
-        ['proofs.store.with.bucket: expected a Cloud Storage bucket name, got "../other?x"'],
-    ],
-    'a region that leaves its host' => [
-        ['use' => 's3', 'with' => ['bucket' => 'ledgers', 'region' => 'us-east-1@evil.example']],
-        ['proofs.store.with.region: expected a region, got "us-east-1@evil.example"'],
-    ],
-    'an account that leaves its host' => [
-        ['use' => 'azure', 'with' => ['account' => 'evil.example/x', 'container' => 'ledgers']],
-        ['proofs.store.with.account: expected a storage account name, got "evil.example/x"'],
-    ],
-    'a container Azure does not allow' => [
-        ['use' => 'azure', 'with' => ['account' => 'acme', 'container' => 'ledgers--', 'publicContainer' => 'A']],
-        [
-            'proofs.store.with.container: expected a container name, got "ledgers--"',
-            'proofs.store.with.publicContainer: expected a container name, got "A"',
-        ],
-    ],
-    'an account key' => [
-        ['use' => 'azure', 'with' => ['account' => 'acme', 'container' => 'ledgers', 'accountKey' => 'abc==']],
-        ['proofs.store.with.accountKey: unknown key, did you mean account?'],
-    ],
-]);
-
-it('defaults the gcs and azure stores\' prefix to the gate\'s name', function (): void {
-    expect(Configs::shown(Configs::settings(['runner' => 'pest', 'proofs' => ['store' => ['use' => 'gcs', 'with' => ['bucket' => 'acme']]]]), 'proofs', 'store', 'with', 'prefix'))
-        ->toBe('mutation-gate')
-        ->and(Configs::shown(Configs::settings(['runner' => 'pest', 'proofs' => ['store' => ['use' => 'azure', 'with' => ['account' => 'acme', 'container' => 'c1c']]]]), 'proofs', 'store', 'with', 'prefix'))
-        ->toBe('mutation-gate');
-});
-
-it('measures again only what moved unless the config says to measure every test, a later layer winning', function (): void {
-    expect(Configs::settings(['runner' => 'pest'])->proofs()->incrementalCoverage())->toBeTrue()
-        ->and(Configs::settings(['runner' => 'pest', 'coverage' => ['incremental' => false]])->proofs()->incrementalCoverage())->toBeFalse()
-        ->and(Configs::settings(['runner' => 'pest', 'coverage' => ['incremental' => true]])->proofs()->incrementalCoverage())->toBeTrue()
-        ->and(Configs::problems(Configs::validated(['runner' => 'pest', 'coverage' => ['incremental' => 'yes']])))
-        ->toBe(['coverage.incremental: expected true or false, got "yes"']);
-});
-
-it('re-checks the comment\'s count of survivors first by default, as many as set, and refuses fewer than none', function (): void {
-    expect(Configs::settings(['runner' => 'pest'])->triage()->survivorsFirst()->most())->toBe(20)
-        ->and(Configs::settings(['runner' => 'pest', 'survivorsFirst' => ['max' => 0]])->triage()->survivorsFirst()->isOff())
-        ->toBeTrue()
-        ->and(Configs::problems(Configs::validated(['runner' => 'pest', 'survivorsFirst' => ['max' => -1]])))
-        ->toBe(['survivorsFirst.max: expected an integer of at least 0, got -1']);
-});
-
-it('reads how the runner\'s workers start, forking where no layer says, and refuses any other word', function (): void {
-    $fresh = Configs::settings(['runner' => ['use' => 'phpunit', 'workers' => 'fresh']]);
-
-    expect($fresh->runner()->workers())->toBe(Workers::Fresh)
-        ->and(Configs::settings(['runner' => 'phpunit'])->runner()->workers())->toBe(Workers::Fork)
-        ->and(Configs::shown($fresh, 'runner'))->toBe(['use' => 'phpunit', 'memory' => '1G', 'workers' => 'fresh'])
-        ->and(Configs::problems(Configs::validated(['runner' => ['use' => 'phpunit', 'workers' => 'warm']])))
-        ->toBe(['runner.workers: expected "fork" or "fresh", got "warm"']);
-});
-
-it('reads whether a run given no mode considers every unit, changed since last-passed by default, and writes it into a config written as PHP', function (array $config, bool $full, string $call): void {
-    $php = Configs::valid(['runner' => 'pest', ...$config])->php(ProjectRoot::origin())->code();
-
-    expect(Configs::settings(['runner' => 'pest', ...$config])->reach()->isFullByDefault())->toBe($full)
-        ->and($call === '' ? ! str_contains($php, 'ByDefault()') : str_contains($php, $call))->toBeTrue();
-})->with([
-    'left out' => [[], false, ''],
-    'every unit' => [['run' => ['full' => true]], true, 'Reach::fullByDefault()'],
-    'what changed' => [['run' => ['full' => false]], false, 'Reach::changedByDefault()'],
-]);
-
-it('writes run.full from the PHP config\'s builders as the JSON a file writes', function (): void {
-    expect(ReachSetting::fullByDefault()->written())->toEqual(Json::at('run.full', value: true))
-        ->and(ReachSetting::changedByDefault()->written())->toEqual(Json::at('run.full', value: false));
-});
-
-it('reads timeouts.tighter, each key the standard where it is left out, and refuses a name no runner gives a mutator', function (): void {
-    $floor = Configs::settings(['runner' => 'pest', 'timeouts' => ['tighter' => ['floor' => 5]]])->triage()->tighter();
-    $mutators = Configs::settings(['runner' => 'pest', 'timeouts' => ['tighter' => ['mutators' => ['Foreach_']]]])->triage()->tighter();
-
-    expect([$floor->floor(), [...$floor]])->toEqual([Seconds::of(5.0), TighterSilence::MUTATORS])
-        ->and([$mutators->floor(), [...$mutators]])->toEqual([Seconds::of(7.0), ['Foreach_']])
-        ->and(Configs::settings(['runner' => 'pest'])->triage()->tighter())->toEqual(TighterSilence::standard())
-        ->and(Configs::problems(Configs::validated(['timeouts' => ['tighter' => ['mutators' => ['default/RemoveArrayItem'], 'floor' => 0]]])))
-        ->toHaveCount(2);
 });

@@ -295,8 +295,9 @@ one of those values the gate can know or check.
 17. **The templates are checked in the package's CI.**
     - The GitHub template runs through `actionlint`, and is the shape the
       package dogfoods (ADR-0011 decision 8).
-    - The GitLab, Buildkite and CircleCI templates are validated offline
-      against each provider's published JSON Schema.
+    - The GitLab, Buildkite and CircleCI templates are validated against
+      each provider's published JSON Schema, fetched at a pinned commit and
+      held to its SHA-256 digest.
     - A snapshot test fixes each rendered file.
     - Syntax is guaranteed for all four, and behaviour for GitHub's. The
       README says so.

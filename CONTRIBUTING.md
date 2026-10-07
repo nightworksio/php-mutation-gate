@@ -35,8 +35,8 @@ Before each push, run the entries for what you changed:
 
 | You changed | Run |
 |-------------|-----|
-| anything | `hygiene/typos` |
-| PHP, `composer.json`, `phpstan.neon`, `rector.php` or `pint.json` | `checks` and `rules`, and the tests of the code you changed: `vendor/bin/pest <test files>` |
+| anything | `hygiene/typos` and `hygiene/lines` |
+| PHP, `composer.json`, `phpstan.neon`, `phpstan/layers.neon`, `rector.php` or `pint.json` | `checks` and `rules`, and the tests of the code you changed: `vendor/bin/pest <test files>` |
 | Markdown | `hygiene/markdown` and `hygiene/links` |
 | `ARCHITECTURE.md`, `.docs/reference/`, `.docs/guide/ci/` or `.docs/guide/troubleshooting.md` | the Markdown entries, and `composer test`, because tests read them |
 | a workflow | `hygiene/actionlint` and `hygiene/zizmor` |
@@ -44,7 +44,9 @@ Before each push, run the entries for what you changed:
 
 `tests/Unit` mirrors `src`, so the tests of `src/Core/Plan/Cut.php` are in
 `tests/Unit/Core/Plan/CutTest.php`, and each plugin's are under
-`plugins/<name>/tests`.
+`plugins/<name>/tests`. Where they would pass the line cap, they are split by
+concern into `tests/Unit/Core/Plan/Cut/`, beside the first file, with what the
+files share in a class of `tests/Support`.
 
 The whole suite runs locally too, more slowly:
 

@@ -126,7 +126,7 @@ Extension, and every core type their public signatures reach (ADR-0001).
 | **H1** | No `Manager`, `Helper`, `Util`, `Service`, `Data` or `Info` suffix | arch |
 | **H2** | No `Interface` suffix and no `Abstract` prefix | arch |
 | **H3** | A class declares at most twenty methods, but for one whose methods a PHP protocol fixes, and nothing is too complex to read | phpstan: own rule, with those files named in `phpstan.neon`, + `cognitive_complexity` |
-| **H4** | A test file mirrors the source file it tests | arch: an orphan test fails, a class without one does not |
+| **H4** | A test file mirrors the source file it tests, or, split by concern under the line cap, sits in a directory named for it | arch: an orphan test fails, a class without one does not |
 | **H5** | A string with a value in it is built with `sprintf`, and a message is one literal | phpstan: own rule, one per node type |
 | **H6** | An exception is named for what happened, not for being an exception | arch |
 | **H7** | A test is named for the behaviour it pins, never with an identifier | arch: every test description |

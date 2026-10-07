@@ -3,27 +3,18 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
-use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
-use NightWorksIO\MutationGate\Cli\Flow\Interruption;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
-use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Budget;
 use NightWorksIO\MutationGate\Config\Equivalence;
 use NightWorksIO\MutationGate\Config\Flaky;
 use NightWorksIO\MutationGate\Config\Runner as ConfiguredRunner;
-use NightWorksIO\MutationGate\Config\Tests;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
-use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Config\Absent;
-use NightWorksIO\MutationGate\Core\Config\Settings;
-use NightWorksIO\MutationGate\Core\Config\TestOrder;
-use NightWorksIO\MutationGate\Core\Cost\Step;
-use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
@@ -31,9 +22,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Hold\NotCovered;
-use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Ended;
 use NightWorksIO\MutationGate\Core\Mutant\Evidence;
 use NightWorksIO\MutationGate\Core\Mutant\Evidences;
@@ -46,23 +35,15 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
-use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\NotGiven;
-use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
-use NightWorksIO\MutationGate\Core\Order\Kills;
-use NightWorksIO\MutationGate\Core\Order\Ordering;
-use NightWorksIO\MutationGate\Core\Order\Ranking;
-use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
-use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
 use NightWorksIO\MutationGate\Core\Plan\Shards;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
-use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
@@ -73,10 +54,8 @@ use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
-use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
-use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -85,84 +64,28 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Tree\Package;
-use NightWorksIO\MutationGate\Core\Tree\Tree;
-use NightWorksIO\MutationGate\Core\Tree\Trees;
-use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
-use NightWorksIO\MutationGate\Core\Verdict\Doomed;
-use NightWorksIO\MutationGate\Core\Verdict\Warning;
-use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Core\Written;
-use NightWorksIO\MutationGate\Tests\Fakes\CostModelFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
-use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
-use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
-use NightWorksIO\MutationGate\Tests\Support\PeakMemoryFake;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
+use NightWorksIO\MutationGate\Tests\Support\RunningCases;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
-use NightWorksIO\MutationGate\Tests\Support\StoppedClock;
-use NightWorksIO\MutationGate\Tests\Support\TickingClock;
 
 afterEach(function (): void {
     Scratch::sweep();
 });
 
-/** A setup whose clock moves on three seconds each time the run reads it. */
-$ticking = static fn(): Setup => new Setup(
-    Absent::setting(),
-    Version::of('nightworksio/mutation-gate', '1.0.0', 'gate'),
-    Digest::sha256Of('installed'),
-    new TickingClock('2026-09-30T12:00:00+00:00', 3),
-    new PeakMemoryFake(NotGiven::value()),
-    DecidingConfig::unread(),
-);
-
-/** A setup whose clock moves on this many seconds each time the run reads it. */
-$tickingBy = static fn(int $step): Setup => new Setup(
-    Absent::setting(),
-    Version::of('nightworksio/mutation-gate', '1.0.0', 'gate'),
-    Digest::sha256Of('installed'),
-    new TickingClock('2026-09-30T12:00:00+00:00', $step),
-    new PeakMemoryFake(NotGiven::value()),
-    DecidingConfig::unread(),
-);
-
-/** @return list<string> the paths of the units a result says its budget ran out before */
-$unjudged = static fn(ShardResult|CannotJudge $result): array => $result instanceof ShardResult
-    ? array_map(static fn(Unit $unit): string => $unit->path()->value(), [...$result->unjudged()])
-    : [];
-
-/** The result a shard left in a project, as the verdict reads it. */
-$resultIn = static function (string $project, int $shard): ShardResult|CannotJudge {
-    $file = sprintf('%s/.mutation-gate/results/%d.json', $project, $shard);
-
-    return ShardResultFile::decode(is_file($file) ? (string) file_get_contents($file) : '');
-};
-
-/** @return list<string> each mutant's native id and status */
-$statuses = static fn(ShardResult|CannotJudge $result): array => $result instanceof ShardResult
-    && $result->outcome() instanceof MutationResult
-    ? array_map(
-        static fn(Mutant $mutant): string => sprintf('%s %s', $mutant->nativeId(), $mutant->status()->value),
-        [...$result->outcome()->mutants()],
-    )
-    : [];
-
-/** @return list<string> the ids flaky in a result */
-$flaky = static fn(ShardResult|CannotJudge $result): array => $result instanceof ShardResult
-    ? array_map(static fn(MutantId $id): string => $id->value(), [...$result->flaky()])
-    : [];
-
-/** @return list<Ordering> the order each invocation asked its tests in */
-$orderings = static fn(ScriptedRunner $runner): array => array_map(
-    static fn(MutationRequest $request): Ordering => $request->search()->ordering(),
-    $runner->requests(),
-);
+$ticking = RunningCases::ticking(...);
+$tickingBy = RunningCases::tickingBy(...);
+$resultIn = RunningCases::resultIn(...);
+$statuses = RunningCases::statuses(...);
+$flaky = RunningCases::flaky(...);
+$asked = RunningCases::asked(...);
 
 it('runs the shard it is named, on the commit its plan was made on, and leaves its result', function () use (
     $ticking,
@@ -729,527 +652,6 @@ it('cannot judge a shard handed no map, and mutates nothing of it, held units an
         ->toEqual(new Handoff(Directory::at($project), HandedMaps::limits())->read(ShardId::of(1)))
         ->and($result instanceof ShardResult ? $result->outcome() : $result)->toBeInstanceOf(CannotJudge::class);
 });
-
-it('weighs each mutant out of memory by the peak its plan measured, and leaves an older plan\'s unknown', function (
-    MemoryCap|NotGiven $peak,
-    MemoryCap|Unmeasured $weighed,
-) use ($resultIn): void {
-    $project = Flows::project();
-    $outOfMemory = Mutant::of(
-        MutantId::hash(Path::of('src/Money.php'), 'Plus', '@@ @@', 0),
-        'Plus-1',
-        Location::of(Path::of('src/Money.php'), Line::of(1), Line::of(1)),
-        Mutation::of('Plus', MutatorFamily::Arithmetic, '@@ @@'),
-        MutantStatus::OutOfMemory,
-        Seconds::of(0.5),
-    )->withLimit(MemoryCap::of(64, MemoryUnit::Megabytes));
-    $scripted = ScriptedRunner::fixture()->answering(Mutants::of($outOfMemory), 0);
-
-    new Running(Flows::adapters($project, [], $scripted), Flows::settings(), Flows::setup())
-        ->run(
-            Planned::handedIn($project, Planned::oneShard()->briefed(Briefing::standard()->weighing($peak))),
-            ShardId::of(1),
-            Workspace::results(),
-        );
-    $result = $resultIn($project, 1);
-    $outcome = $result instanceof ShardResult ? $result->outcome() : $result;
-    $mutants = $outcome instanceof MutationResult ? [...$outcome->mutants()] : [];
-
-    expect($mutants[0]->unmutatedNeed())->toEqual($weighed)
-        ->and($mutants[0]->limit())->toEqual(MemoryCap::of(64, MemoryUnit::Megabytes));
-})->with([
-    'measured' => [MemoryCap::of(20, MemoryUnit::Megabytes), MemoryCap::of(20, MemoryUnit::Megabytes)],
-    'an older plan' => [NotGiven::value(), Unmeasured::duration()],
-]);
-
-it('runs each mutant\'s likely killers first, by the kill history the plan handed the shard', function () use (
-    $orderings,
-): void {
-    $project = Flows::project();
-    $ranked = Ranking::of(Kills::of(TestId::of('MoneyTest::adds'), 2));
-    $history = KillHistory::none()->withFunction(Enclosing::named(Path::of('src/Money.php'), 'add'), $ranked);
-    new Handoff(Directory::at($project), HandedMaps::limits())->write(Planned::oneShard(), Flows::map(), $history, Unplaced::map());
-    $runner = ScriptedRunner::fixture();
-
-    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
-        ->run(Planned::oneShard(), ShardId::of(1), Workspace::results());
-    $handed = $history->onlyIn(Paths::of(Path::of('src/Money.php')));
-
-    $ordered = Ordering::of(TestOrder::KillersFirst, $handed);
-
-    expect($orderings($runner))->toEqual([$ordered, $ordered])
-        ->and($handed)->not->toEqual(KillHistory::none());
-});
-
-it('asks the runner for every killer of each mutant where the plan records a full kill matrix, and the first otherwise', function (): void {
-    $project = Flows::project();
-    $full = ScriptedRunner::fixture();
-    $first = ScriptedRunner::fixture();
-
-    new Running(Flows::adapters($project, [], $full), Flows::settings(), Flows::setup())->run(
-        Planned::handedIn($project, Planned::oneShard()->briefed(Briefing::standard()->recording(MatrixKind::Full))),
-        ShardId::of(1),
-        Workspace::results(),
-    );
-    new Running(Flows::adapters($project, [], $first), Flows::settings(), Flows::setup())
-        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
-    $matrices = static fn(ScriptedRunner $runner): array => array_map(
-        static fn(MutationRequest $request): MatrixKind => $request->search()->matrix(),
-        $runner->requests(),
-    );
-
-    expect($matrices($full))->toBe([MatrixKind::Full, MatrixKind::Full])
-        ->and($matrices($first))->toBe([MatrixKind::FirstKiller, MatrixKind::FirstKiller]);
-});
-
-it('runs the tests in the runner\'s own order where tests.order says so', function () use ($orderings): void {
-    $project = Flows::project();
-    $runner = ScriptedRunner::fixture();
-
-    new Running(Flows::adapters($project, [], $runner), Flows::settings(Tests::inRunnerOrder()), Flows::setup())
-        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
-
-    $own = Ordering::of(TestOrder::Runner, KillHistory::none());
-
-    expect($orderings($runner))->toEqual([$own, $own]);
-});
-
-it('orders a shard handed no kill history as though nothing was killed yet, and warns of nothing', function () use (
-    $resultIn,
-    $orderings,
-): void {
-    $project = Flows::project();
-    $plan = Planned::handedIn($project, Planned::oneShard());
-    unlink(sprintf('%s/.mutation-gate/coverage/shard-1/killers.json', $project));
-    $runner = ScriptedRunner::fixture();
-
-    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
-        ->run($plan, ShardId::of(1), Workspace::results());
-    $result = $resultIn($project, 1);
-
-    $cold = Ordering::of(TestOrder::KillersFirst, KillHistory::none());
-
-    expect($orderings($runner))->toEqual([$cold, $cold])
-        ->and($result instanceof ShardResult ? $result->warnings() : $result)->toEqual(Warnings::none())
-        ->and($result instanceof ShardResult ? $result->outcome() : $result)->toBeInstanceOf(MutationResult::class);
-});
-
-it('judges a shard whose kill history cannot be read without it, and warns of it', function () use (
-    $resultIn,
-    $statuses,
-    $orderings,
-): void {
-    $project = Flows::project();
-    $plan = Planned::handedIn($project, Planned::oneShard());
-    Scratch::write($project, '.mutation-gate/coverage/shard-1/killers.json', '{"format": 1, "tests": 3}');
-    $runner = ScriptedRunner::fixture();
-
-    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
-        ->run($plan, ShardId::of(1), Workspace::results());
-    $result = $resultIn($project, 1);
-    $warnings = $result instanceof ShardResult ? [...$result->warnings()] : [];
-
-    $cold = Ordering::of(TestOrder::KillersFirst, KillHistory::none());
-
-    expect($orderings($runner))->toEqual([$cold, $cold])
-        ->and($statuses($result))->not->toBeEmpty()
-        ->and($warnings)->toHaveCount(1)
-        ->and($warnings[0] ?? null)->toBeInstanceOf(Warning::class)
-        ->and(($warnings[0] ?? null)?->text())
-        ->toStartWith('Shard 1 ran its tests without the kill history the plan handed it. A kill history cannot be read: ');
-});
-
-it('keeps what the runner warned of in each invocation, before the shard\'s own warnings', function () use ($resultIn): void {
-    $project = Flows::project();
-    $plan = Planned::handedIn($project, Planned::oneShard());
-    Scratch::write($project, '.mutation-gate/coverage/shard-1/killers.json', '{"format": 1, "tests": 3}');
-    $warned = static fn(string $text): MutationResult => MutationResult::of(Mutants::none(), 0)
-        ->withWarnings(Warnings::of(Warning::that($text)));
-    $runner = ScriptedRunner::fixture()->answeringInTurn($warned('held'), $warned('rest'));
-
-    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
-        ->run($plan, ShardId::of(1), Workspace::results());
-    $result = $resultIn($project, 1);
-    $texts = array_map(
-        static fn(Warning $warning): string => $warning->text(),
-        $result instanceof ShardResult ? [...$result->warnings()] : [],
-    );
-
-    expect(array_slice($texts, 0, 2))->toBe(['held', 'rest'])
-        ->and($texts)->toHaveCount(3)
-        ->and($texts[2] ?? '')->toStartWith('Shard 1 ran its tests without the kill history');
-});
-
-it('runs every batch that fits a budget with the time left, leaving nothing unjudged', function () use ($resultIn, $unjudged): void {
-    $project = Flows::project();
-    $runner = ScriptedRunner::fixture();
-    $setup = new Setup(
-        Absent::setting(),
-        Version::of('nightworksio/mutation-gate', '1.0.0', 'gate'),
-        Digest::sha256Of('installed'),
-        new StoppedClock('2026-09-30T12:00:00Z'),
-        new PeakMemoryFake(NotGiven::value()),
-        DecidingConfig::unread(),
-    );
-
-    new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('2s')), $setup)
-        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
-
-    expect(array_map(
-        static fn(MutationRequest $request): array => [
-            array_map(static fn(Path $file): string => $file->value(), [...$request->files()]),
-            $request->deadline(),
-        ],
-        $runner->requests(),
-    ))->toEqual([[['src/Money.php'], Seconds::of(2.0)], [['src/Held.php'], Seconds::of(2.0)]])
-        ->and($unjudged($resultIn($project, 1)))->toBe([]);
-});
-
-it('starts nothing a budget has no room for, and leaves every unit unjudged', function () use ($resultIn, $unjudged, $statuses): void {
-    $project = Flows::project();
-    $runner = ScriptedRunner::fixture();
-    $setup = new Setup(
-        Absent::setting(),
-        Version::of('nightworksio/mutation-gate', '1.0.0', 'gate'),
-        Digest::sha256Of('installed'),
-        new StoppedClock('2026-09-30T12:00:00Z'),
-        new PeakMemoryFake(NotGiven::value()),
-        DecidingConfig::unread(),
-    );
-
-    new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('1s')), $setup)
-        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
-    $result = $resultIn($project, 1);
-
-    expect($runner->requests())->toBe([])
-        ->and($unjudged($result))->toBe(['src/Money.php', 'src/Held.php'])
-        ->and($statuses($result))->toBe([]);
-});
-
-it('stops before the batch after the one an interruption arrived in, leaving the units no batch took unjudged', function () use (
-    $resultIn,
-    $unjudged,
-): void {
-    $project = Flows::project();
-    $runner = ScriptedRunner::fixture();
-    $setup = new Setup(
-        Absent::setting(),
-        Version::of('nightworksio/mutation-gate', '1.0.0', 'gate'),
-        Digest::sha256Of('installed'),
-        new StoppedClock('2026-09-30T12:00:00Z'),
-        new PeakMemoryFake(NotGiven::value()),
-        DecidingConfig::unread(),
-    );
-    $looks = 0;
-    $arrived = Interruption::when(static function () use (&$looks): bool {
-        ++$looks;
-
-        return $looks > 1;
-    });
-
-    new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('2s')), $setup)
-        ->interrupted($arrived)
-        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
-
-    expect(array_map(
-        static fn(MutationRequest $request): array => array_map(static fn(Path $file): string => $file->value(), [...$request->files()]),
-        $runner->requests(),
-    ))->toEqual([['src/Money.php']])
-        ->and($unjudged($resultIn($project, 1)))->toBe(['src/Held.php']);
-});
-
-it('leaves the steps its time went to in its result, the runner\'s own and those around it, each from when the shard began', function () use (
-    $ticking,
-    $resultIn,
-): void {
-    $project = Flows::project();
-    $plan = Planned::handedIn($project, Planned::oneShard());
-
-    new Running(Flows::adapters($project, [], ScriptedRunner::fixture()), Flows::settings(), $ticking())
-        ->run($plan, ShardId::of(1), Workspace::results());
-    $result = $resultIn($project, 1);
-    $steps = $result instanceof ShardResult ? array_map(
-        static fn(StepTime $step): array => [$step->step(), $step->count()],
-        [...$result->measured()->steps()],
-    ) : $result;
-    $since = $result instanceof ShardResult ? array_map(
-        static fn(StepTime $step): float => $step->since()->seconds(),
-        [...$result->measured()->steps()],
-    ) : [];
-    $ordered = $since;
-    sort($ordered);
-
-    expect($steps)->toBe([
-        [Step::HeldCoverage, 1],
-        [Step::Mutation, 1],
-        [Step::Equivalence, 1],
-        [Step::Survivors, 1],
-        [Step::Mutation, 4],
-        [Step::Equivalence, 1],
-        [Step::Survivors, 1],
-        [Step::StaticCheck, 2],
-    ])
-        ->and($since)->toBe($ordered);
-});
-
-it('leaves the units no batch took unjudged, and each survivor it had no time to confirm', function () use (
-    $tickingBy,
-    $resultIn,
-    $unjudged,
-): void {
-    $project = Flows::project();
-    $runner = ScriptedRunner::fixture();
-
-    new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('45s')), $tickingBy(10))
-        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
-    $result = $resultIn($project, 1);
-    $outcome = $result instanceof ShardResult ? $result->outcome() : $result;
-    $survivor = array_values(array_filter(
-        $outcome instanceof MutationResult ? [...$outcome->mutants()] : [],
-        static fn(Mutant $mutant): bool => $mutant->nativeId() === 'GreaterThan-16',
-    ));
-
-    expect(count($runner->requests()))->toBe(1)
-        ->and($runner->requests()[0]->deadline())->toEqual(Seconds::of(5.0))
-        ->and($runner->retries())->toBe([])
-        ->and($unjudged($result))->toBe(['src/Held.php'])
-        ->and($survivor[0]->status())->toBe(MutantStatus::Unjudged)
-        ->and($survivor[0]->reason())->toEqual(OutOfTime::BeforeConfirming->reason());
-});
-
-it('leaves a batch unjudged whose runner stopped at the deadline, and cannot judge one that failed before it', function (
-    int $step,
-    array $left,
-    bool $judged,
-) use ($tickingBy, $resultIn, $unjudged): void {
-    $project = Flows::project();
-    $runner = ScriptedRunner::fixture()->refusing('Pest was stopped at its deadline before it had made its mutants.');
-
-    new Running(Flows::adapters($project, [], $runner), Flows::settings(Budget::of('25s')), $tickingBy($step))
-        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
-    $result = $resultIn($project, 1);
-
-    expect($runner->requests())->toHaveCount(1)
-        ->and($unjudged($result))->toBe($left)
-        ->and($result instanceof ShardResult && $result->outcome() instanceof MutationResult)->toBe($judged);
-})->with([
-    'stopped at the deadline' => [5, ['src/Money.php', 'src/Held.php'], true],
-    'failed before it' => [1, [], false],
-]);
-
-/** The plan, as made on a pull request, whose verdict holds its trees and new code to their floors. */
-
-/** Settings under which no static analysis can clear a survivor after its tests, so a pull request's shard can stop. */
-$doomable = static fn(): Settings => Flows::settings(Equivalence::notProvenStatically());
-
-$onPullRequest = static fn(Plan $plan): Plan => $plan->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')));
-
-/** The project's one tree, `src`, held to this floor. */
-$floored = static fn(Floor $floor): TreeSourceFake => new TreeSourceFake(
-    Trees::of(Tree::at(Path::of('src'), $floor, Package::at(Path::root()))),
-);
-
-/** @return list<list<string>> the files each invocation was asked to mutate */
-$asked = static fn(ScriptedRunner $runner): array => array_map(
-    static fn(MutationRequest $request): array => array_map(static fn(Path $file): string => $file->value(), [...$request->files()]),
-    $runner->requests(),
-);
-
-/** @return array{string, string, string, int, string}|string what a result's doom names, or that there is none */
-$doomOf = static fn(ShardResult|CannotJudge $result): array|string => $result instanceof ShardResult && $result->doomed() instanceof Doomed
-    ? [
-        $result->doomed()->unit()->value(),
-        $result->doomed()->mutant()->value(),
-        $result->doomed()->tree()->value(),
-        $result->doomed()->floor()->hundredths(),
-        $result->doomed()->by()->value,
-    ]
-    : 'undoomed';
-
-/** The fixture's survivor of src/Money.php, by the gate's id. */
-$moneySurvivor = static function (): string {
-    foreach (Flows::mutantsOf('src/Money.php') as $mutant) {
-        if ($mutant->status() === MutantStatus::Survived) {
-            return $mutant->id()->value();
-        }
-    }
-
-    return 'none';
-};
-
-it('stops a pull request\'s shard after the chunk whose survivor makes its run certain to fail, leaving the rest unjudged', function () use (
-    $doomable,
-    $resultIn,
-    $unjudged,
-    $onPullRequest,
-    $floored,
-    $asked,
-    $doomOf,
-    $moneySurvivor,
-): void {
-    $project = Flows::project();
-    $runner = ScriptedRunner::fixture();
-
-    new Running(Flows::adapters($project, [], $runner, $floored(Floor::whole())), $doomable(), Flows::setup())
-        ->run(Planned::handedIn($project, $onPullRequest(Planned::oneShard())), ShardId::of(1), Workspace::results());
-    $result = $resultIn($project, 1);
-
-    expect($asked($runner))->toBe([['src/Money.php']])
-        ->and($unjudged($result))->toBe(['src/Held.php'])
-        ->and($doomOf($result))->toBe(['src/Money.php', $moneySurvivor(), 'src', 10_000, 'tree']);
-});
-
-it('runs a pull request\'s shard to its end in chunks, in the plan\'s order, while no survivor makes its run certain to fail', function () use (
-    $doomable,
-    $resultIn,
-    $unjudged,
-    $onPullRequest,
-    $floored,
-    $asked,
-    $doomOf,
-): void {
-    $project = Flows::project();
-    $runner = ScriptedRunner::fixture();
-
-    new Running(Flows::adapters($project, [], $runner, $floored(Floor::of(50))), $doomable(), Flows::setup())
-        ->run(Planned::handedIn($project, $onPullRequest(Planned::oneShard())), ShardId::of(1), Workspace::results());
-    $result = $resultIn($project, 1);
-
-    expect($asked($runner))->toBe([['src/Money.php'], ['src/Held.php']])
-        ->and($unjudged($result))->toBe([])
-        ->and($doomOf($result))->toBe('undoomed');
-});
-
-it('runs a shard off a pull request to its end, whatever its survivors', function () use (
-    $doomable,
-    $resultIn,
-    $unjudged,
-    $floored,
-    $asked,
-    $doomOf,
-): void {
-    $project = Flows::project();
-    $runner = ScriptedRunner::fixture();
-
-    new Running(Flows::adapters($project, [], $runner, $floored(Floor::whole())), $doomable(), Flows::setup())
-        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
-    $result = $resultIn($project, 1);
-
-    expect($asked($runner))->toBe([['src/Held.php'], ['src/Money.php']])
-        ->and($unjudged($result))->toBe([])
-        ->and($doomOf($result))->toBe('undoomed');
-});
-
-it('runs a pull request\'s shard to its end where its survivor proves flaky', function () use (
-    $doomable,
-    $resultIn,
-    $unjudged,
-    $onPullRequest,
-    $floored,
-    $asked,
-    $doomOf,
-): void {
-    $project = Flows::project();
-    $runner = ScriptedRunner::fixture()->killingAgain();
-
-    new Running(Flows::adapters($project, [], $runner, $floored(Floor::whole())), $doomable(), Flows::setup())
-        ->run(Planned::handedIn($project, $onPullRequest(Planned::oneShard())), ShardId::of(1), Workspace::results());
-    $result = $resultIn($project, 1);
-
-    expect($asked($runner))->toBe([['src/Money.php'], ['src/Held.php']])
-        ->and($unjudged($result))->toBe([])
-        ->and($doomOf($result))->toBe('undoomed');
-});
-
-it('runs a pull request\'s shard to its end where its trees cannot be read, or it holds no tree to a floor', function (object $port) use (
-    $doomable,
-    $resultIn,
-    $unjudged,
-    $onPullRequest,
-    $asked,
-    $doomOf,
-): void {
-    $project = Flows::project();
-    $runner = ScriptedRunner::fixture();
-
-    new Running(Flows::adapters($project, [], $runner, $port), $doomable(), Flows::setup())
-        ->run(Planned::handedIn($project, $onPullRequest(Planned::oneShard())), ShardId::of(1), Workspace::results());
-    $result = $resultIn($project, 1);
-
-    expect($asked($runner))->toBe([['src/Held.php'], ['src/Money.php']])
-        ->and($unjudged($result))->toBe([])
-        ->and($doomOf($result))->toBe('undoomed');
-})->with([
-    'unreadable trees' => [new TreeSourceFake(CannotJudge::because('No composer.json.'))],
-    'security mutators alone' => [Narrowing::none()->toMutators(Mutators::named('Plus'))],
-    'one suite\'s tests alone' => [Narrowing::none()->toSuite(SuiteName::of('unit'))],
-]);
-
-it('chunks a pull request\'s shard in about two minutes of the work the cost model expects, each chunk at least one unit', function (float $each, array $chunks) use (
-    $doomable,
-    $onPullRequest,
-    $floored,
-    $asked,
-): void {
-    $project = Flows::project();
-    $runner = ScriptedRunner::fixture();
-    $files = Units::of(Planned::money(), Unit::file(Path::of('src/Second.php')), Unit::file(Path::of('src/Third.php')));
-    $plan = $onPullRequest(Planned::of(Shard::of(ShardId::of(1), Package::at(Path::root()), $files, Seconds::of(3.0), 'files')));
-
-    new Running(
-        Flows::adapters($project, [], $runner, $floored(Floor::of(50)), new CostModelFake(Seconds::of($each))),
-        $doomable(),
-        Flows::setup(),
-    )->run(Planned::handedIn($project, $plan), ShardId::of(1), Workspace::results());
-
-    expect($asked($runner))->toBe($chunks);
-})->with([
-    'each a minute and a half' => [90.0, [['src/Money.php'], ['src/Second.php'], ['src/Third.php']]],
-    'each half a minute' => [30.0, [['src/Money.php', 'src/Second.php', 'src/Third.php']]],
-    'each a minute' => [50.0, [['src/Money.php', 'src/Second.php'], ['src/Third.php']]],
-]);
-
-it('runs no shard of a plan in one process after one that stopped once its run could not pass', function () use (
-    $doomable,
-    $resultIn,
-    $onPullRequest,
-    $floored,
-    $asked,
-): void {
-    $project = Flows::project();
-    $runner = ScriptedRunner::fixture();
-
-    $written = new Running(Flows::adapters($project, [], $runner, $floored(Floor::whole())), $doomable(), Flows::setup())
-        ->runAll(Planned::handedIn($project, $onPullRequest(Planned::twoShards())), Workspace::results());
-
-    expect($written)->toBeInstanceOf(Written::class)
-        ->and($asked($runner))->toBe([['src/Money.php']])
-        ->and($resultIn($project, 1))->toBeInstanceOf(ShardResult::class)
-        ->and(is_file(sprintf('%s/.mutation-gate/results/2.json', $project)))->toBeFalse();
-});
-
-it('runs a pull request\'s shard to its end, whole, where static analysis could still clear its survivor', function (Settings $settings, object ...$ports) use (
-    $resultIn,
-    $unjudged,
-    $onPullRequest,
-    $floored,
-    $asked,
-    $doomOf,
-): void {
-    $project = Flows::project();
-    $runner = ScriptedRunner::fixture();
-
-    new Running(Flows::adapters($project, [], $runner, $floored(Floor::whole()), ...$ports), $settings, Flows::setup())
-        ->run(Planned::handedIn($project, $onPullRequest(Planned::oneShard())), ShardId::of(1), Workspace::results());
-    $result = $resultIn($project, 1);
-
-    expect($asked($runner))->toBe([['src/Held.php'], ['src/Money.php']])
-        ->and($unjudged($result))->toBe([])
-        ->and($doomOf($result))->toBe('undoomed');
-})->with([
-    'equivalence.static' => [Flows::settings()],
-    'a static check' => [Flows::settings(Equivalence::notProvenStatically()), StaticCheckerFake::findingNothing()],
-]);
 
 it('leaves each kill\'s evidence beside its mutant in the shard\'s result, keeping nothing a process printed where a withheld secret is in it', function () use ($resultIn): void {
     $project = Flows::project();
