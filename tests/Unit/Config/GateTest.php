@@ -41,7 +41,7 @@ it('writes nothing for a config with no settings', function (): void {
     expect(Gate::configure()->written()->line())->toBe('{}');
 });
 
-it('writes the README\'s example as the README\'s JSON', function (): void {
+it('writes the configuration reference\'s example as its JSON', function (): void {
     expect(Configs::written(
         Gate::configure()
             ->preset(Preset::laravel())

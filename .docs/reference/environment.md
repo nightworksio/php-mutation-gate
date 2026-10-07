@@ -1,0 +1,56 @@
+# Environment variables
+
+The variables the gate reads. Most are set by your CI; the ones you set
+yourself are credentials, webhook URLs and the store's location for `deliver`
+and `fetch`.
+
+## What the gate reads
+
+| Variable | What it does | Decided in |
+|----------|--------------|------------|
+| `CI`, or Azure Pipelines' `TF_BUILD` | Set: a tree with no floor stops the run, `baseline.improvement` applies, and on the default branch the badge and trend are written. Unset: a full run writes missing floors and raises improved ones | [0003](../decisions/0003-a-floor-only-rises.md), [0009](../decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| `GITHUB_ACTIONS`, `GITLAB_CI`, `BUILDKITE`, `CIRCLECI`, `TF_BUILD`, `BITBUCKET_BUILD_NUMBER`, `BUILD_TAG` | Choose the CI plan, and under GitHub Actions the annotations and step summary | [0006](../decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md), [0024](../decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
+| `SHARD`, `CI_NODE_INDEX`, `CI_NODE_TOTAL`, `BUILDKITE_PARALLEL_JOB`, `BUILDKITE_PARALLEL_JOB_COUNT`, `CIRCLE_NODE_INDEX`, `CIRCLE_NODE_TOTAL`, `BITBUCKET_PARALLEL_STEP`, `BITBUCKET_PARALLEL_STEP_COUNT`, `CI_JOB_NAME`, `PARENT_PIPELINE_ID` | Which shard a job is, and how GitLab's child pipeline finds the plan | [0006](../decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
+| `GITHUB_REF`, `GITHUB_EVENT_NAME`, `GITHUB_EVENT_PATH`, `CI_COMMIT_REF_NAME`, `CI_MERGE_REQUEST_IID`, `CI_DEFAULT_BRANCH`, `BUILDKITE_BRANCH`, `BUILDKITE_PULL_REQUEST`, `BUILDKITE_PIPELINE_DEFAULT_BRANCH`, `CIRCLE_BRANCH`, `CIRCLE_PULL_REQUEST`, `BUILD_SOURCEBRANCH`, `BUILD_REASON`, `SYSTEM_PULLREQUEST_PULLREQUESTNUMBER`, `SYSTEM_PULLREQUEST_PULLREQUESTID`, `BITBUCKET_BRANCH`, `BITBUCKET_PR_ID`, `BITBUCKET_TAG`, `BRANCH_NAME`, `CHANGE_ID`, `TAG_NAME` | The run's ref, whether it is a pull request, and the default branch | [0006](../decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md), [0024](../decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
+| `GITHUB_WORKFLOW_REF`, `CI_CONFIG_PATH` | Which CI definition runs the gate, for reach and the proof key | [0005](../decisions/0005-what-a-change-reaches-is-what-is-mutated.md), [0007](../decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
+| `GITHUB_OUTPUT`, `GITHUB_STEP_SUMMARY` | Where the GitHub plan and the step summary are written | [0006](../decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md), [0009](../decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| `GITHUB_RUN_ID`, `GITHUB_RUN_ATTEMPT`, `CI_PIPELINE_ID`, `BUILDKITE_BUILD_ID`, `CIRCLE_WORKFLOW_ID`, `BUILD_BUILDID`, `BITBUCKET_BUILD_NUMBER`, `BUILD_TAG` | The run a proof names | [0007](../decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md), [0024](../decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
+| `GITHUB_TOKEN` | Lets the sticky PR comment be posted, and the GitHub change source prove which pull request's run passed | [0005](../decisions/0005-what-a-change-reaches-is-what-is-mutated.md), [0009](../decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_ROLE_ARN` | The S3 proof store's credentials, and its only ones: no `~/.aws` file, instance, container or web identity role is read. With `AWS_ROLE_ARN` set, those keys assume that role | [0007](../decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
+| `GOOGLE_APPLICATION_CREDENTIALS` | The external-account credentials file `google-github-actions/auth` writes, which the `gcs` store exchanges the CI's token through, impersonating the service account it names; only its `file` and `url` credential sources are read, and a file holding a service-account key or any other long-lived credential is refused (exit 2) | [0028](../decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
+| `MUTATION_GATE_GCS_TOKEN`, `MUTATION_GATE_AZURE_TOKEN` | A ready bearer token for the `gcs` or `azure` store, which a CI with a federation of its own hands over | [0028](../decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
+| `ACTIONS_ID_TOKEN_REQUEST_URL`, `ACTIONS_ID_TOKEN_REQUEST_TOKEN`, `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` | The `azure` store's federation: GitHub's OIDC token, asked for the audience `api://AzureADTokenExchange`, exchanged at Microsoft Entra ID for the tenant and client `azure/login` reads | [0028](../decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
+| `ACTIONS_ID_TOKEN_REQUEST_URL`, `ACTIONS_ID_TOKEN_REQUEST_TOKEN`, `MUTATION_GATE_GCS_PROVIDER`, `MUTATION_GATE_GCS_SERVICE_ACCOUNT` | The `gcs` store's federation on GitHub Actions: GitHub's OIDC token, asked for the provider's default audience, exchanged at `sts.googleapis.com` through the workload identity provider `projects/<number>/locations/global/workloadIdentityPools/<pool>/providers/<id>`, then for the token of the service account `<name>@<project>.iam.gserviceaccount.com` at `iamcredentials.googleapis.com`; any other provider or service account is refused (exit 2). It goes before `GOOGLE_APPLICATION_CREDENTIALS` where both are set | [0028](../decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |
+| `MUTATION_GATE_SLACK_URL`, `MUTATION_GATE_DISCORD_URL`, `MUTATION_GATE_WEBHOOK_URL` | The webhook URLs of the `slack`, `discord` and `webhook` reporters, unless their `with.urlEnv` names other variables | [0016](../decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
+| `MUTATION_GATE_WEBHOOK_SECRET` | Signs each `webhook` request, with the time it was sent, as `X-Mutation-Gate-Signature`, unless `with.secretEnv` names another variable | [0016](../decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES` | Where and how the `otlp` reporter sends | [0016](../decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
+| `MUTATION_GATE_RESULTS` | Set by the Pest adapter for its own plugin, and by the PHPUnit runner for its extension; not for users | [0004](../decisions/0004-pest-and-infection-behind-one-runner-port.md), [0023](../decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
+| `MUTATION_GATE_MUTATORS` | Set by the Pest adapter for its own plugin: the file of bridges to the registered mutators the config turns on; not for users | [0021](../decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md) |
+| `MUTATION_GATE_MUTANT_FLOOR` | Set by the Infection adapter for every Infection run, for the lines `infection:patch` writes into Infection: the least seconds one mutant may run; not for users | [0004](../decisions/0004-pest-and-infection-behind-one-runner-port.md) |
+| `MUTATION_GATE_MUTANT`, `MUTATION_GATE_MUTATED`, `MUTATION_GATE_GUARD` | Set by the PHPUnit runner for each mutant's run: the file its override serves the mutated file in place of, the mutated file, and where the override and the extension say what they served; not for users | [0023](../decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
+| `MUTATION_GATE_SHARED_COVERAGE`, `MUTATION_GATE_SUITE_SECONDS`, `MUTATION_GATE_MUTANT_FLOOR`, `MUTATION_GATE_MUTANT_CAP`, `MUTATION_GATE_CANARY`, `MUTATION_GATE_ONLY` | Set by the Pest adapter for the lines `pest:patch` writes into pest-plugin-mutate: the planning job's coverage map, its suite's seconds, the least and the most seconds one mutant may run, the canary group, and the file listing the only mutants a run again makes; not for users | [0004](../decisions/0004-pest-and-infection-behind-one-runner-port.md) |
+| `TEST_TOKEN`, `UNIQUE_TEST_TOKEN`, `PARATEST`, `LARAVEL_PARALLEL_TESTING` | Set, as paratest sets them for its workers, for each process the PHPUnit runner judges mutants in and the Pest runner tries its unexecutable mutants in, where the machine has more than one core and they run one per core: the process's place, its place and the run, and `1` for the other two. A suite that shares a database needs one database per token. Laravel creates it, named after its test database with `_test_<token>`, for each test case that refreshes, migrates, truncates or wraps the database in a transaction, so its database user must be allowed to create databases | [0023](../decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
+
+## The store, for `deliver` and `fetch`
+
+[`deliver` and `fetch`](../guide/concepts/proofs-and-trust.md#credentials-in-a-job-of-their-own)
+take the store's whole location from their own environment, never from a
+delivery or a config:
+
+| Variable | What it sets |
+|----------|--------------|
+| `MUTATION_GATE_STORE` | The store: `s3`, `gcs` or `azure` |
+| `MUTATION_GATE_STORE_BUCKET` | `bucket`, for `s3` and `gcs` |
+| `MUTATION_GATE_STORE_PREFIX` | `prefix` (`mutation-gate` by default) |
+| `MUTATION_GATE_STORE_REGION` | `region`, for `s3` (`us-east-1` by default) |
+| `MUTATION_GATE_STORE_ENDPOINT` | `endpoint`, for `s3` alone, and only an `https://` URL |
+| `MUTATION_GATE_STORE_ACCOUNT` | `account`, for `azure` |
+| `MUTATION_GATE_STORE_CONTAINER` | `container`, for `azure` |
+| `MUTATION_GATE_STORE_PUBLIC_CONTAINER` | `publicContainer`, for `azure` |
+| `MUTATION_GATE_DEFAULT_BRANCH` | The default branch, where the event payload names none |
+
+The store's credentials are its usual variables: `AWS_ACCESS_KEY_ID` and
+`AWS_SECRET_ACCESS_KEY` for `s3`, the federation's or
+`MUTATION_GATE_GCS_TOKEN` for `gcs`, and the federation's or
+`MUTATION_GATE_AZURE_TOKEN` for `azure`
+([ADR-0007](../decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md)).

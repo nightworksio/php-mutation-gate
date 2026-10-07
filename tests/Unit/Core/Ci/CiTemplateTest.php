@@ -393,11 +393,11 @@ it('hands Azure\'s keys to the verdict alone, from the variable group, on a push
         ->and($verdict)->toContain(sprintf("        %s\n          env:\n            AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)\n", $trusted));
 });
 
-it('names every variable the bucket store reads in the README, where a fork\'s build drops them on Azure', function (): void {
-    $readme = (string) file_get_contents(Schema::at('README.md'));
+it('names every variable the bucket store reads on Azure DevOps\' page, where a fork\'s build drops them', function (): void {
+    $page = (string) file_get_contents(Schema::at('.docs/guide/ci/azure-devops.md'));
     $named = implode(', ', array_map(static fn(string $variable): string => sprintf('`%s`', $variable), [...BuiltinStore::S3->variables()]));
 
-    expect($readme)->toContain(sprintf('drop every variable the S3 store reads, %s,', $named));
+    expect($page)->toContain(sprintf('drop every variable the S3 store reads, %s,', $named));
 });
 
 it('refuses by Bitbucket\'s schema a deployment on a final step, so a verdict that holds the keys is a step', function (): void {
@@ -472,23 +472,23 @@ it('leaves the store\'s keys in GitLab\'s jobs to the verdict that keeps them al
         ->and(ciTemplateRendered(CiTemplate::GitLabJobs))->toContain(sprintf("    %s: \$CI_PIPELINE_SOURCE\n", GitLabPlan::SOURCE));
 });
 
-it('names in Buildkite\'s pipeline and the README the cluster secrets the verdict fetches, and drops the keys before the plan installs', function (): void {
+it('names in Buildkite\'s pipeline and its page the cluster secrets the verdict fetches, and drops the keys before the plan installs', function (): void {
     $steps = Decoded::at(BuildkitePlan::of(BuildkiteStep::none(), Variables::of([]))->publish(ShardedPlan::of(0))->text(), 'steps', 1, 'command');
     preg_match_all('/secret get (\S+)\)/', implode("\n", array_filter(is_array($steps) ? $steps : [], is_string(...))), $secrets);
     $pipeline = ciTemplateRendered(CiTemplate::BuildkitePipeline);
-    $readme = (string) file_get_contents(Schema::at('README.md'));
+    $page = (string) file_get_contents(Schema::at('.docs/guide/ci/buildkite.md'));
 
     expect($secrets[1])->toHaveCount(2)
         ->and($pipeline)->toContain(sprintf("      - unset %s\n      - composer install", implode(' ', [...BuiltinStore::S3->variables()])));
 
     foreach ($secrets[1] as $secret) {
         expect(str_replace("\n# ", ' ', $pipeline))->toContain($secret)
-            ->and($readme)->toContain(sprintf('`%s`', $secret));
+            ->and($page)->toContain(sprintf('`%s`', $secret));
     }
 });
 
-it('names the deployment environment that holds the keys in the README', function (): void {
-    expect((string) file_get_contents(Schema::at('README.md')))
+it('names the deployment environment that holds the keys on Bitbucket\'s page', function (): void {
+    expect((string) file_get_contents(Schema::at('.docs/guide/ci/bitbucket.md')))
         ->toContain(sprintf('deployment environment `%s`', CiTemplate::keyHolder()));
 });
 
@@ -525,7 +525,7 @@ it('runs Jenkins\' verdict in post, always, and binds the keys there alone, on t
         ));
 });
 
-it('names the credentials that hold the keys on Jenkins in the README', function (): void {
-    expect((string) file_get_contents(Schema::at('README.md')))
+it('names the credentials that hold the keys on Jenkins\' page', function (): void {
+    expect((string) file_get_contents(Schema::at('.docs/guide/ci/jenkins.md')))
         ->toContain(sprintf('the credentials `%s`', CiTemplate::keyHolder()));
 });

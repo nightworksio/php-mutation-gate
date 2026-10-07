@@ -4,5 +4,5 @@ contact_links:
     url: https://github.com/nightworksio/php-mutation-gate/security/advisories/new
     about: Privately, through GitHub's vulnerability reporting, as SECURITY.md says.
   - name: Ask a question
-    url: https://github.com/nightworksio/php-mutation-gate/blob/main/README.md
-    about: The README holds the commands, the configuration and the CI setups, and every message's link leads to its section of the troubleshooting guide.
+    url: https://github.com/nightworksio/php-mutation-gate/blob/main/.docs/guide/README.md
+    about: The guide and the reference hold the commands, the configuration and the CI setups, and every message's link leads to its section of the troubleshooting guide.

@@ -51,13 +51,15 @@ jobs:
           changed="$(git diff --name-only "${BASE}" HEAD)"
           # Anything that is not documentation is code, so a new kind of file
           # runs the gates. ARCHITECTURE.md holds the rule tables the Guards
-          # suite reads, and README.md holds the config reference and examples
-          # the config tests read, so both are code here. Under .github/, only
-          # this file and the scripts it runs start a PHP gate.
+          # suite reads, .docs/reference/ the config reference and examples the
+          # config tests read, .docs/guide/ci/ the CI setups the CI tests read,
+          # and the troubleshooting guide the slugs the Docs suite reads, so
+          # all of them are code here. Under .github/, only this file and the
+          # scripts it runs start a PHP gate.
           code=false
           while IFS= read -r path; do
             case "${path}" in
-            ARCHITECTURE.md | README.md | .github/workflows/ci.yml | .github/scripts/*) code=true ;;
+            ARCHITECTURE.md | .docs/reference/* | .docs/guide/ci/* | .docs/guide/troubleshooting.md | .github/workflows/ci.yml | .github/scripts/*) code=true ;;
             '' | .docs/* | *.md | LICENSE | .github/*) continue ;;
             *) code=true ;;
             esac
