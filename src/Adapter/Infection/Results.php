@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ErrorDisplay;
@@ -32,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\PrematureEnd;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 use function sprintf;
@@ -283,13 +285,21 @@ final readonly class Results
                 Unmeasured::duration(),
             )->killedBy($mutant['killers']);
             $mutants[] = match (true) {
-                in_array($mutant['status'], self::TIMED, strict: true)
-                    => $recorded->withLimit($limits->at($file, $line)),
+                in_array($mutant['status'], self::TIMED, strict: true) => self::silenced(
+                    $recorded->withLimit($limits->at($file, $line)),
+                    $limits->silenceOf($mutant['file'], $mutant['line'], $mutant['mutator'], $mutant['diff']),
+                ),
                 $mutant['limit'] instanceof MemoryCap => $recorded->withLimit($mutant['limit']),
                 default => $recorded,
             };
         }
 
         return Mutants::of(...$mutants);
+    }
+
+    /** A timed-out mutant, saying its run was stopped at its silence limit where it was. */
+    private static function silenced(Mutant $mutant, Seconds|NotGiven $silence): Mutant
+    {
+        return $silence instanceof Seconds ? $mutant->because(Reason::silent($silence)) : $mutant;
     }
 }

@@ -5,8 +5,13 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use function getenv;
+
+use Infection\AbstractTestFramework\Coverage\TestLocation;
+
+use function is_float;
 use function is_numeric;
 use function is_string;
+use function max;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
@@ -36,10 +41,53 @@ final class MutantTime
             : MutantLimit::infections()->of($taking, LimitBounds::upTo($most))->seconds();
     }
 
+    /**
+     * The silence limit of a mutant's run, its covering tests as Infection
+     * located them: the standard limit of the slowest's own time, between the
+     * floor the gate names and Infection's `timeout`. Infection times each
+     * test by its whole class, which a single test never takes longer than.
+     * None where the gate names no floor, or Infection timed not every one of
+     * them, as a test of unknown length could be stopped while it runs.
+     *
+     * @param array<TestLocation> $tests
+     */
+    public static function silence(array $tests, float $timeout): Seconds|NotGiven
+    {
+        $floor = self::floor();
+        $slowest = self::slowest($tests);
+
+        return $floor instanceof Seconds && $slowest instanceof Seconds
+            ? MutantLimit::standard()->of($slowest, LimitBounds::between($floor, Seconds::of($timeout)))
+            : NotGiven::value();
+    }
+
     /** Whether the gate names its bounds, so no mutant is skipped for the time its tests take. */
     public static function bounded(): bool
     {
         return self::floor() instanceof Seconds;
+    }
+
+    /**
+     * The time of the slowest of these tests, as Infection timed it; none where
+     * one is untimed, or there are none.
+     *
+     * @param array<TestLocation> $tests
+     */
+    private static function slowest(array $tests): Seconds|NotGiven
+    {
+        $slowest = 0.0;
+
+        foreach ($tests as $test) {
+            $time = $test->getExecutionTime();
+
+            if (! is_float($time)) {
+                return NotGiven::value();
+            }
+
+            $slowest = max($slowest, $time);
+        }
+
+        return $tests === [] ? NotGiven::value() : Seconds::of($slowest);
     }
 
     /** The floor the gate names, a positive number of seconds; or none. */

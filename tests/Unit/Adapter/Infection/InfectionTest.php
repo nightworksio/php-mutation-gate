@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Infection\Clock;
 use NightWorksIO\MutationGate\Adapter\Infection\Command;
 use NightWorksIO\MutationGate\Adapter\Infection\CoverageXml;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
+use NightWorksIO\MutationGate\Adapter\Infection\Invocation;
 use NightWorksIO\MutationGate\Adapter\Infection\MemoryScan;
 use NightWorksIO\MutationGate\Adapter\Infection\Patch;
 use NightWorksIO\MutationGate\Adapter\Infection\Project;
@@ -884,6 +885,7 @@ it('keeps every PHP process of a capped run to the cap, and not its coverage run
         ['XDEBUG_MODE' => 'coverage'],
         [
             ChildVariable::MutantFloor->value => '6.000000',
+            ChildVariable::Results->value => $at->own(Invocation::SILENCED),
             MemoryCap::SCAN_DIR => MemoryCap::scanning(getenv(MemoryCap::SCAN_DIR), $directory),
         ],
     ])

@@ -933,7 +933,7 @@ it('judges a mutant whose covering class takes longer than timeouts.seconds, ski
 
 /**
  * What this does, with the Infection library's Infection patched by
- * infection:patch, and its two files as they were again once it is done.
+ * infection:patch, and its files as they were again once it is done.
  */
 function withPatchedInfection(Closure $then): mixed
 {
@@ -969,6 +969,44 @@ it('allows a mutant patched Infection times out the floor its quick tests fall u
         ->and($result instanceof MutationResult ? [...$result->warnings()] : ['cannot judge'])->toBe([]);
 })->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 
+// Three test classes of a second each cover the stalled loop: the limit of
+// all three is 14 seconds, the silence limit of the slowest 8. The mutant
+// hangs in its first test, after PHPUnit printed its header, so patched
+// Infection stops its run where it prints nothing for its silence limit.
+it('stops a mutant\'s run where it prints nothing for its silence limit, short of its own limit, with patched Infection', function (): void {
+    $files = ['src/Stall.php' => 'stall/src/Stall.php'];
+
+    foreach (['First', 'Second', 'Third'] as $class) {
+        $files[sprintf('tests/Stall%sSpec.php', $class)] = sprintf('stall/infection/Stall%sSpec.php', $class);
+    }
+
+    foreach ($files as $into => $from) {
+        copy(Tree::at(sprintf('tests/Contract/Runner/%s', $from)), Tree::at(sprintf('%s/%s', Library::INFECTION_DIRECTORY, $into)));
+    }
+
+    $library = Library::infectionWithin(LimitBounds::between(Seconds::of(1.0), Seconds::of(300.0)));
+    $request = MutationRequest::of(Paths::of(Path::of('src/Stall.php')), WholeSuite::tests())
+        ->narrowedTo(Paths::of(Path::of('src/Stall.php')), Narrowing::none()->toMutators($library->mutators('drains')));
+    try {
+        $result = withPatchedInfection(static fn(): MutationResult|CannotJudge => $library->runner()->mutate($request));
+    } finally {
+        foreach (array_keys($files) as $into) {
+            unlink(Tree::at(sprintf('%s/%s', Library::INFECTION_DIRECTORY, $into)));
+        }
+    }
+
+    $mutants = $result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false) : [];
+
+    expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::TimedOut])
+        ->and(array_map(static fn(Mutant $mutant): float => $mutant->limit() instanceof Seconds ? $mutant->limit()->seconds() : 0.0, $mutants))
+        ->each->toBeGreaterThan(13.0)
+        ->and(array_map(
+            static fn(Mutant $mutant): string => $mutant->reason() instanceof Reason ? $mutant->reason()->text() : '',
+            $mutants,
+        ))
+        ->each->toStartWith('No test finished for ');
+})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
+
 it('runs, patched, a mutant Infection skips unpatched at timeouts.most, and times it out at the most', function (): void {
     $library = Library::infectionWithin(LimitBounds::between(Seconds::of(1.0), Seconds::of(1.0)));
     $request = MutationRequest::of(Paths::of(Path::of('src/Slow.php')), WholeSuite::tests())
@@ -991,8 +1029,8 @@ it('patches the Infection library\'s release, whichever its leg installed, into 
     );
 
     expect(Release::tryFrom($release))->toBeInstanceOf(Release::class)
-        ->and(InfectionPatch::applyIn($installed))->toBe('infection:patch patched 2 of the 2 files it changes in infection.')
-        ->and(InfectionPatch::applyIn($pristine))->toBe('infection:patch patched 2 of the 2 files it changes in infection.')
+        ->and(InfectionPatch::applyIn($installed))->toBe('infection:patch patched 3 of the 3 files it changes in infection.')
+        ->and(InfectionPatch::applyIn($pristine))->toBe('infection:patch patched 3 of the 3 files it changes in infection.')
         ->and($read($installed))->toBe($read($pristine));
 })->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 

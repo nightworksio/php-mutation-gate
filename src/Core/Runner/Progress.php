@@ -17,6 +17,13 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  */
 final readonly class Progress
 {
+    /**
+     * A timeout every started process has run past, so cutting a stalled
+     * process's timeout to it stops the process at its next check, as one at
+     * its whole limit is.
+     */
+    public const float RUN_PAST = 0.000_001;
+
     private function __construct(private Seconds $limit, private int $size, private float $since)
     {
     }

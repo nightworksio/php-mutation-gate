@@ -102,6 +102,7 @@ final readonly class MutationRun
             $request->narrowing()->suite(),
         )->withholding($request->withheld())->within($request->deadline())->with([
             ChildVariable::MutantFloor->value => sprintf('%F', $floor->seconds()),
+            ChildVariable::Results->value => $this->project->own(Invocation::SILENCED),
         ]);
         $scan = MemoryScan::in($this->project, $request->memory(), $this->files);
 
@@ -120,7 +121,7 @@ final readonly class MutationRun
                 $this->project,
                 $ran,
                 TextLog::at($this->project->own(Invocation::TEXT)),
-                $limits,
+                $limits->silencedAt(Silenced::in($this->project->own(Invocation::SILENCED))),
                 $request->memory(),
                 ProjectPhpUnit::display($this->project, $this->config),
                 $this->nativeMarkersAllowed,
@@ -158,6 +159,7 @@ final readonly class MutationRun
         $files = [
             $this->project->own(Invocation::JSON),
             $this->project->own(Invocation::TEXT),
+            $this->project->own(Invocation::SILENCED),
             $this->project->own(Invocation::CONFIG),
             ...$bridged ? [$this->project->bridges()] : [],
         ];

@@ -8,8 +8,8 @@ use function array_map;
 use function implode;
 
 /**
- * The Infection releases whose two places `infection:patch` rewrites were
- * checked against, each from its tag: every 0.35 release ships both as the
+ * The Infection releases whose places `infection:patch` rewrites were
+ * checked against, each from its tag: every 0.35 release ships each as the
  * hunks expect. The runner contracts run the lowest and the highest.
  */
 enum Release: string

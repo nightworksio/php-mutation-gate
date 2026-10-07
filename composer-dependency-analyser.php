@@ -84,6 +84,14 @@ return (new Configuration())
     // contract, and load only in Infection's own process, where
     // infection/infection has installed it (ADR-0021).
     ->ignoreErrorsOnPackages(['infection/mutator'], [ErrorType::DEV_DEPENDENCY_IN_PROD])
+    // Infection's own dependencies, installed wherever infection/infection
+    // is: the tests a patched Infection hands the gate's silence limit are its
+    // test framework adapter's, and the diff its mutant holds is deferred,
+    // which the tests build a mutant with.
+    ->ignoreErrorsOnPackages(
+        ['infection/abstract-testframework-adapter', 'sanmai/later'],
+        [ErrorType::SHADOW_DEPENDENCY],
+    )
     ->ignoreErrorsOnExtension('ext-dom', [ErrorType::DEV_DEPENDENCY_IN_PROD])
     // A warm worker forks each mutant only where the PHP the runner starts
     // loads pcntl, and runs each fresh otherwise (ADR-0023, decision 14);
