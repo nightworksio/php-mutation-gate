@@ -8,6 +8,7 @@ use function array_key_exists;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
+use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Format\Json;
@@ -35,6 +36,12 @@ final readonly class ConfigLoaderFake implements ConfigLoader
             '/fixtures/Config/adapter.fake' => '{"proofs": {"store": {"use": "Acme\\\\Store", "with": {"path": "../cache"}}}}',
             '/fixtures/Config/broken.fake' => '{"runner": "pest",',
         ]);
+    }
+
+    /** The fake reads its files as data alone, which names no other file. */
+    public function reads(ConfigFile $file): ConfigReads
+    {
+        return ConfigReads::none();
     }
 
     public function load(ConfigFile $file): Layer|Invalid|CannotJudge

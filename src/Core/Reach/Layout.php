@@ -7,14 +7,17 @@ namespace NightWorksIO\MutationGate\Core\Reach;
 use function array_any;
 use function array_map;
 use function array_values;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
+use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\Config\Format;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Globs;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 
@@ -36,6 +39,7 @@ final readonly class Layout
         private Globs $definitions,
         private array $tests,
         private Paths $modules,
+        private string|NotGiven $unnamed,
     ) {
     }
 
@@ -61,6 +65,7 @@ final readonly class Layout
             Globs::of(),
             [SuiteDirectory::conventional()],
             Paths::none(),
+            NotGiven::value(),
         );
     }
 
@@ -77,7 +82,38 @@ final readonly class Layout
             $this->definitions,
             $this->tests,
             $this->modules,
+            $this->unnamed,
         );
+    }
+
+    /**
+     * This layout, where the config file reads these files beside itself:
+     * each decides how the gate runs as the config does, spelt from the
+     * repository's directory; and where it reads one it cannot name, every
+     * file does, for that reason (ADR-0005, decision 4).
+     */
+    public function readByTheConfig(ConfigReads $reads): self
+    {
+        $layout = $this;
+
+        foreach ($reads->files() as $file) {
+            $layout = $layout->decidedAlsoBy(Glob::of($file->value()));
+        }
+
+        return new self(
+            $layout->decisive,
+            $layout->repository,
+            $layout->definitions,
+            $layout->tests,
+            $layout->modules,
+            $reads->unnamedBecause(),
+        );
+    }
+
+    /** Why every change decides how the gate runs, where the config reads a file it cannot name; nothing otherwise. */
+    public function unnamed(): string|NotGiven
+    {
+        return $this->unnamed;
     }
 
     /** This layout, where a CI definition runs the gate. */
@@ -89,6 +125,7 @@ final readonly class Layout
             $this->definitions->with($definition),
             $this->tests,
             $this->modules,
+            $this->unnamed,
         );
     }
 
@@ -101,6 +138,7 @@ final readonly class Layout
             $this->definitions,
             array_values($directories),
             $this->modules,
+            $this->unnamed,
         );
     }
 
@@ -113,13 +151,16 @@ final readonly class Layout
             $this->definitions,
             $this->tests,
             $this->modules->with($module),
+            $this->unnamed,
         );
     }
 
     /** Whether a file decides how the gate runs in the package at a directory. */
     public function decides(Path $file, Path $package): bool
     {
-        return $this->repository->matches($file) || $this->decisive->matches($file->relativeTo($package));
+        return is_string($this->unnamed)
+            || $this->repository->matches($file)
+            || $this->decisive->matches($file->relativeTo($package));
     }
 
     /** Whether a file is a CI definition that runs the gate. */

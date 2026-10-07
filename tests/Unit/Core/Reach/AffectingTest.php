@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Reach\AffectedTests;
@@ -263,4 +264,18 @@ it('lists every test where a file that decided how the gate runs was renamed awa
 
     expect(Affected::texts(Affected::to(Changes::of($renamed))->everyBecause()))
         ->toBe(['`composer.json` decides how the gate runs, so every test is listed.']);
+});
+
+it('lists every test for a file the config reads beside itself, and for every change where it reads one it cannot name', function () use ($modified): void {
+    $why = 'mutation-gate.php reads what the gate cannot name without running it (`glob()` on line 3), so every change reaches everything.';
+    $named = Affected::whereTheConfigReads(ConfigReads::named(Path::of('settings/shared.php')), Changes::of($modified('settings/shared.php')));
+    $unnamed = Affected::whereTheConfigReads(ConfigReads::unnamed($why), Changes::of($modified('templates/mail.html')));
+    $none = Affected::whereTheConfigReads(ConfigReads::none(), Changes::of($modified('templates/mail.html')));
+
+    expect($named->isEvery())->toBeTrue()
+        ->and(Affected::texts($named->everyBecause()))
+        ->toBe(['`settings/shared.php` decides how the gate runs, so every test is listed.'])
+        ->and($unnamed->isEvery())->toBeTrue()
+        ->and(Affected::texts($unnamed->everyBecause()))->toBe([$why])
+        ->and($none->isEvery())->toBeFalse();
 });

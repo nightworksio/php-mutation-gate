@@ -102,7 +102,12 @@ final readonly class Composition
         return match (true) {
             $adapters instanceof Invalid, $adapters instanceof CannotJudge => $adapters,
             $reporters instanceof Invalid, $reporters instanceof CannotJudge => $reporters,
-            default => new Composed($settings, $adapters, $this->setup($configFile, $given), $reporting),
+            default => new Composed(
+                $settings,
+                $adapters->readingConfig($this->effective->reads($given)),
+                $this->setup($configFile, $given),
+                $reporting,
+            ),
         };
     }
 }

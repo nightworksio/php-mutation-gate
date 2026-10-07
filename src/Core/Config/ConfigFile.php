@@ -54,6 +54,12 @@ final readonly class ConfigFile implements PathOrigin
         return $this->file;
     }
 
+    /** The project the file names its paths from. */
+    public function project(): Path
+    {
+        return $this->project;
+    }
+
     /** The file's extension, which names its format: `json`, `yml`. */
     public function extension(): string
     {

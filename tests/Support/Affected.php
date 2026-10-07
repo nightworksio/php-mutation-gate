@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Tests\Support;
 
 use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\Judges;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -84,19 +85,13 @@ final class Affected
             $sources = $sources->decidingAlike(Path::of($path));
         }
 
-        $layout = Layout::standard(Paths::none())->runBy(Glob::of('.github/workflows/gate.yml'));
-        $trees = self::trees();
-        $users = SupportUsers::in($layout, Packages::of($trees), $sources);
-        $places = self::places();
-        $readers = new ReadingTests($places, self::map(), self::codebase([...$now, ...$unread]), $users, $sources);
+        return self::over(self::layout(), $changes, $sources, [...$now, ...$unread]);
+    }
 
-        return new Affecting(
-            $layout,
-            $trees,
-            Globs::of(Glob::of('templates/**')),
-            new SourceTests($places, self::judges(), self::map(), $readers, $users, $sources),
-            $users,
-        )->of($changes, $sources, $places);
+    /** The tests these changes reach in the fixture's project, where its config file reads these files beside itself. */
+    public static function whereTheConfigReads(ConfigReads $reads, Changes $changes): AffectedTests
+    {
+        return self::over(self::layout()->readByTheConfig($reads), $changes, self::sources(self::FILES, self::FILES), self::FILES);
     }
 
     /** The one tree, `src`. */
@@ -161,6 +156,33 @@ final class Affected
         }
 
         return $tests;
+    }
+
+    /** The fixture's layout: the standard one, where `.github/workflows/gate.yml` runs the gate. */
+    private static function layout(): Layout
+    {
+        return Layout::standard(Paths::none())->runBy(Glob::of('.github/workflows/gate.yml'));
+    }
+
+    /**
+     * The tests these changes reach under a layout, with these sources, over a codebase of these files.
+     *
+     * @param array<string, string> $code
+     */
+    private static function over(Layout $layout, Changes $changes, Sources $sources, array $code): AffectedTests
+    {
+        $trees = self::trees();
+        $users = SupportUsers::in($layout, Packages::of($trees), $sources);
+        $places = self::places();
+        $readers = new ReadingTests($places, self::map(), self::codebase($code), $users, $sources);
+
+        return new Affecting(
+            $layout,
+            $trees,
+            Globs::of(Glob::of('templates/**')),
+            new SourceTests($places, self::judges(), self::map(), $readers, $users, $sources),
+            $users,
+        )->of($changes, $sources, $places);
     }
 
     /** @return array{string, list<string>, list<string>} */

@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -62,18 +63,25 @@ $held = Unit::held(Path::of('src/Held.php'), Group::named('holds:src/Held.php'))
  */
 function reachedSince(Changes $changes, array $now, array $before, object ...$ports): Reached
 {
-    return reachedReading(DecidingConfig::unread(...), $changes, $now, $before, ...$ports);
+    return reachedReading(DecidingConfig::unread(...), ConfigReads::none(), $changes, $now, $before, ...$ports);
 }
 
 /**
- * The same, where the run reads its config file as this reads it, given the project.
+ * The same, where the run reads its config file as this reads it, given the
+ * project, and the config file reads these files beside itself.
  *
  * @param Closure(string): DecidingConfig $config
  * @param array<string, string>           $now
  * @param array<string, string>           $before
  */
-function reachedReading(Closure $config, Changes $changes, array $now, array $before, object ...$ports): Reached
-{
+function reachedReading(
+    Closure $config,
+    ConfigReads $reads,
+    Changes $changes,
+    array $now,
+    array $before,
+    object ...$ports,
+): Reached {
     $checkout = new ChangeSourceFake(Revision::ref('base'), $changes, [
         Revision::workingTree()->name() => [...Flows::FILES, ...$now],
         'base' => [...Flows::FILES, ...$before],
@@ -85,7 +93,7 @@ function reachedReading(Closure $config, Changes $changes, array $now, array $be
     }
 
     $ci = Flows::ci()->runBy(Paths::of(Path::of('.github/workflows/gate.yml')));
-    $adapters = Flows::adapters($project, [], $checkout, $ci, ...$ports);
+    $adapters = Flows::adapters($project, [], $checkout, $ci, $reads, ...$ports);
     $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'));
 
     return Reached::since(
@@ -247,6 +255,7 @@ it('reaches nothing where the config file the run reads changed no setting that 
     );
     $reached = reachedReading(
         $config,
+        ConfigReads::none(),
         Changes::of(Change::modified(Path::of('mutation-gate.json'), Lines::of(Line::of(1)))),
         ['mutation-gate.json' => '{"runner": "pest", "trees": [{"path": "src", "floor": 90}]}'],
         ['mutation-gate.json' => $before],
@@ -258,6 +267,57 @@ it('reaches nothing where the config file the run reads changed no setting that 
     'a floor' => ['{"runner": "pest", "trees": [{"path": "src", "floor": 80}]}', false],
     'the trees' => ['{"runner": "pest", "trees": [{"path": "lib"}]}', true],
 ]);
+
+it('reaches everything where a file the config reads beside itself changed, was added, deleted or renamed', function (Change $change) use ($held): void {
+    $reached = reachedReading(
+        DecidingConfig::unread(...),
+        ConfigReads::named(Path::of('settings/shared.php')),
+        Changes::of($change),
+        ['settings/shared.php' => '<?php', 'settings/moved.php' => '<?php'],
+        ['settings/shared.php' => '<?php // before', 'settings/new.php' => '<?php'],
+    );
+
+    expect($reached->reach()->isEverywhere())->toBeTrue()
+        ->and($reached->reach()->reaches($held))->toBeTrue()
+        ->and(array_map(static fn(Reason $reason): string => $reason->text(), [...$reached->reach()->reasons()]))
+        ->toBe(['`settings/shared.php` decides how the gate runs, so every unit is reached.']);
+})->with([
+    'edited' => [Change::modified(Path::of('settings/shared.php'), Lines::of(Line::of(1)))],
+    'added' => [Change::added(Path::of('settings/shared.php'), Lines::of(Line::of(1)))],
+    'deleted' => [Change::deleted(Path::of('settings/shared.php'))],
+    'renamed away' => [Change::renamed(Path::of('settings/shared.php'), Path::of('settings/moved.php'), Lines::of())],
+    'renamed into its place' => [Change::renamed(Path::of('settings/new.php'), Path::of('settings/shared.php'), Lines::of())],
+]);
+
+it('reaches everything on every change where the config reads a file it cannot name, saying why, and nothing with no change', function () use ($money): void {
+    $why = 'mutation-gate.php reads what the gate cannot name without running it (`file_get_contents()` on line 7), so every change reaches everything.';
+    $reached = reachedReading(
+        DecidingConfig::unread(...),
+        ConfigReads::unnamed($why),
+        Changes::of(Change::modified(Path::of('README.md'), Lines::of(Line::of(1)))),
+        ['README.md' => '# Now'],
+        ['README.md' => '# Then'],
+    );
+    $unchanged = reachedReading(DecidingConfig::unread(...), ConfigReads::unnamed($why), Changes::none(), [], []);
+
+    expect($reached->reach()->isEverywhere())->toBeTrue()
+        ->and($reached->reach()->reaches($money))->toBeTrue()
+        ->and(array_map(static fn(Reason $reason): string => $reason->text(), [...$reached->reach()->reasons()]))->toBe([$why])
+        ->and($unchanged->reach()->isEverywhere())->toBeFalse();
+});
+
+it('reaches nothing for a file beside a config that reads no other file, as a JSON config reads none', function () use ($money): void {
+    $reached = reachedReading(
+        DecidingConfig::unread(...),
+        ConfigReads::none(),
+        Changes::of(Change::modified(Path::of('settings/shared.php'), Lines::of(Line::of(1)))),
+        ['settings/shared.php' => '<?php'],
+        ['settings/shared.php' => '<?php // before'],
+    );
+
+    expect($reached->reach()->isEverywhere())->toBeFalse()
+        ->and($reached->reach()->reaches($money))->toBeFalse();
+});
 
 it('reaches everything where git cannot tell what changed, and says why it keeps no line', function () use ($held): void {
     $checkout = new ChangeSourceFake(

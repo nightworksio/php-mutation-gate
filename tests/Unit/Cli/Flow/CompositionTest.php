@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -174,4 +175,17 @@ it('loads the config\'s own extensions, unless asked for this package\'s alone',
 
     expect($composed instanceof Composed ? $composed->adapters->runner : $composed)->toEqual(RunnerFake::ofTheFixture())
         ->and($alone)->toEqual(CannotJudge::because('No runner is registered as "fake".'));
+});
+
+it('hands the adapters the files the config file reads beside itself, and none for one that reads none', function (): void {
+    $php = compositionOf([
+        'mutation-gate.php' => "<?php\n\nrequire __DIR__ . '/settings/shared.php';\n\nreturn NightWorksIO\\MutationGate\\Config\\Gate::configure()->runner(NightWorksIO\\MutationGate\\Config\\Runner::uses('fake'));\n",
+        'settings/shared.php' => "<?php\n",
+    ], Variables::of([]), fake: true)->compose(compositionInput([]));
+    $json = compositionOf(['mutation-gate.json' => '{"runner": "fake"}'], Variables::of([]), fake: true)
+        ->compose(compositionInput([]));
+
+    expect($php instanceof Composed ? $php->adapters->configReads : $php)
+        ->toEqual(ConfigReads::named(Path::of('settings/shared.php')))
+        ->and($json instanceof Composed ? $json->adapters->configReads : $json)->toEqual(ConfigReads::none());
 });

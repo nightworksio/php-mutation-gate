@@ -14,6 +14,7 @@ use LogicException;
 use NightWorksIO\MutationGate\Config\Gate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
+use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Port\ConfigLoader;
@@ -28,6 +29,16 @@ use function sprintf;
  */
 final readonly class PhpConfig implements ConfigLoader
 {
+    /**
+     * The files the config requires or includes by a literal path, and those
+     * they include in turn, read from its code without running it; or why it
+     * reads one that cannot be named.
+     */
+    public function reads(ConfigFile $file): ConfigReads
+    {
+        return PhpReads::of($file);
+    }
+
     public function load(ConfigFile $file): Layer|Invalid|CannotJudge
     {
         $path = $file->file()->value();

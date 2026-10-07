@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Reach;
 
+use function is_string;
+
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\ChangeKind;
 use NightWorksIO\MutationGate\Core\Change\Changes;
@@ -80,8 +82,10 @@ final readonly class Affecting
         $inPackage = $path->relativeTo($package->path());
         $deciding = $this->decidingIn($change, $packages);
         $definition = $this->layout->definitionIn($change);
+        $unnamed = $this->layout->unnamed();
 
         return match (true) {
+            is_string($unnamed) => $none->all(Reason::that($unnamed)),
             $deciding instanceof Path && $files->decidesAlike($change) => $none->because(
                 $this->why(self::DECIDES_ALIKE, $deciding),
             ),

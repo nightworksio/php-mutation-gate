@@ -104,11 +104,14 @@ final readonly class Reached
     /**
      * Where the repository keeps what the reach rules ask about: the files
      * that decide how the gate runs, among them what `reach.everything` and
-     * the presets name, the CI definitions that run it, and the tests.
+     * the presets name and what the config file reads beside itself, the CI
+     * definitions that run it, and the tests.
      */
     public static function layout(Adapters $adapters, Settings $settings, Suite $suite): Layout
     {
-        $layout = Layout::standard($adapters->runner->definitions())->testedIn(...$suite->directories());
+        $layout = Layout::standard($adapters->runner->definitions())
+            ->testedIn(...$suite->directories())
+            ->readByTheConfig($adapters->configReads);
 
         foreach ($adapters->ci->definitions() as $definition) {
             $layout = $layout->runBy(Glob::of($definition->value()));

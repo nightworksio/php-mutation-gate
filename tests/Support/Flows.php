@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Absent;
+use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -192,6 +193,7 @@ final readonly class Flows
             self::given(NamedMutators::class, NamedMutators::of(), $ports),
             self::given(Narrowing::class, Narrowing::none(), $ports),
             self::given(Prover::class, Prover::of(PHP_BINARY, Root::of($project)->at(Path::of('.mutation-gate/equivalence')), ProcessCount::of(2), disabled: false), $ports),
+            self::given(ConfigReads::class, ConfigReads::none(), $ports),
         );
     }
 
