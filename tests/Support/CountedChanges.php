@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -42,6 +43,16 @@ final class CountedChanges implements ChangeSource
     public function askedFrom(): array
     {
         return $this->asked;
+    }
+
+    public function judged(Revision $commit): JudgedCommit|CannotTell
+    {
+        return $this->changes->judged($commit);
+    }
+
+    public function readable(JudgedCommit $judged): Revision|CannotTell
+    {
+        return $this->changes->readable($judged);
     }
 
     public function fingerprints(): Fingerprints|CannotTell

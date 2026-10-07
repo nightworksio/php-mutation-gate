@@ -45,8 +45,9 @@ use NightWorksIO\MutationGate\Core\Written;
  * analyser's checks of the shards' survivors took, where the verdict
  * passed, the commit it judged, the check-run it reported under and how many
  * proofs of the scope's own ledger it used, and, where the run judged every
- * unit it considered, the commit it judged as the scope's last run, which any
- * other run removes (ADR-0007, decision 3).
+ * unit it considered and git can say what the commit it judged was made of,
+ * that commit as the scope's last run, which any other run removes (ADR-0007,
+ * decision 3).
  */
 final readonly class Recorded
 {
@@ -60,7 +61,7 @@ final readonly class Recorded
         Ledgers $ledgers,
         Run $run,
         Passed|CannotTell $passed,
-        LastRun $lastRun,
+        LastRun|CannotTell $lastRun,
     ): Written|NotWritten|ReadsOnly|CannotJudge {
         $scope = $ledgers->access()->writes();
 
@@ -83,7 +84,9 @@ final readonly class Recorded
         }
 
         $runs = $passed instanceof Passed ? $ledger->runs()->passing($passed) : $ledger->runs();
-        $runs = $this->judgedEvery($results, $recordings) ? $runs->lastRunAt($lastRun) : $runs->cutShort();
+        $runs = $lastRun instanceof LastRun && $this->judgedEvery($results, $recordings)
+            ? $runs->lastRunAt($lastRun)
+            : $runs->cutShort();
 
         return $this->adapters->proofs->write($scope, $ledger->withRuns($runs));
     }

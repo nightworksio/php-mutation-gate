@@ -93,6 +93,7 @@ use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
+use NightWorksIO\MutationGate\Tests\Support\JudgedCommits;
 use NightWorksIO\MutationGate\Tests\Support\LedgerRead;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\PeakMemoryFake;
@@ -105,7 +106,7 @@ use NightWorksIO\MutationGate\Tests\Support\TickingClock;
 /** The last run a verdict hands the ledger it writes. */
 function recordedLastRun(): LastRun
 {
-    return LastRun::of(Revision::ref('5eeca8f0a1b2c3d4e5f60718293a4b5c6d7e8f90'), 'mutation-gate', RunProfile::standard());
+    return LastRun::of(JudgedCommits::of('5eeca8f0a1b2c3d4e5f60718293a4b5c6d7e8f90'), 'mutation-gate', RunProfile::standard());
 }
 
 afterEach(function (): void {
@@ -663,7 +664,7 @@ it('clears the last run where it did not judge every unit it considered, so the 
     $project = Flows::project();
     $store = new ProofStoreFake();
     $plan = Planned::oneShard();
-    $older = LastRun::of(Revision::ref('206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708'), 'mutation-gate', RunProfile::standard());
+    $older = LastRun::of(JudgedCommits::of('206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708'), 'mutation-gate', RunProfile::standard());
     $store->write(Scope::branch('main'), Ledger::empty()->withRuns(ScopeRuns::none()->lastRunAt($older)));
     $results = match ($why) {
         'flaky' => recordedRanOf($plan, $project, ScriptedRunner::fixture()->killingAgain(), $map()),

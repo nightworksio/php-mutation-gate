@@ -55,6 +55,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
 use NightWorksIO\MutationGate\Tests\Support\Gunzipped;
+use NightWorksIO\MutationGate\Tests\Support\JudgedCommits;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 
 $keyA = str_repeat('a', 64);
@@ -646,10 +647,18 @@ it('writes the matrix of a proof whose run recorded every killer, and reads one 
         ->and($firstRead instanceof Proof ? $firstRead->run()->matrix() : $firstRead)->toBe(MatrixKind::FirstKiller);
 });
 
-it('reads back the newest commit whose run judged every unit, of every kind of run', function (RunProfile $kind) use ($ledger): void {
-    $last = LastRun::of(Revision::ref('5eeca8f0a1b2c3d4e5f60718293a4b5c6d7e8f90'), 'mutation / verdict', $kind);
+it('reads back the newest commit whose run judged every unit, with its tree and parents, of every kind of run', function (RunProfile $kind) use ($ledger): void {
+    $merge = JudgedCommits::of(
+        '5eeca8f0a1b2c3d4e5f60718293a4b5c6d7e8f90',
+        '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708',
+        '89abcdef0123456789abcdef0123456789abcdef',
+    );
+    $last = LastRun::of($merge, 'mutation / verdict', $kind);
+    $root = LastRun::of(JudgedCommits::of('5eeca8f0a1b2c3d4e5f60718293a4b5c6d7e8f90'), 'mutation / verdict', $kind);
+    $read = static fn(LastRun $run): LastRun|CannotTell => LedgerFile::decode(LedgerFile::encode($ledger->withRuns(ScopeRuns::none()->lastRunAt($run))))->runs()->lastRun();
 
-    expect(LedgerFile::decode(LedgerFile::encode($ledger->withRuns(ScopeRuns::none()->lastRunAt($last))))->runs()->lastRun())->toEqual($last)
+    expect($read($last))->toEqual($last)
+        ->and($read($root))->toEqual($root)
         ->and(LedgerFile::decode(LedgerFile::encode($ledger))->runs()->lastRun())->toBeInstanceOf(CannotTell::class);
 })->with([
     'first killers, every mutator, every test' => [RunProfile::standard()],
@@ -661,13 +670,37 @@ it('reads a last run that is not well formed as none, and keeps the rest', funct
 
     expect($read->runs()->lastRun())->toBeInstanceOf(CannotTell::class)
         ->and($read->proofs())->toEqual($readBack->proofs());
-})->with([
-    'a bare commit' => ['206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708'],
-    'a commit that is not its full id' => [['commit' => '206b4e0', 'check' => 'mutation-gate', 'kind' => []]],
-    'a commit git would read as an option' => [['commit' => '--output=/tmp/x', 'check' => 'mutation-gate', 'kind' => []]],
-    'a check that is not text' => [['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => null, 'kind' => []]],
-    'no kind' => [['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate']],
-    'a matrix it does not know' => [['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate', 'kind' => ['matrix' => 'some']]],
-    'security that is not true' => [['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate', 'kind' => ['security' => false]]],
-    'an empty suite' => [['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate', 'kind' => ['suite' => '']]],
-]);
+})->with(static function (): iterable {
+    $commit = '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708';
+    $whole = ['commit' => $commit, 'tree' => str_repeat('e', 40), 'parents' => [str_repeat('a', 40)], 'check' => 'mutation-gate', 'kind' => []];
+
+    yield 'a bare commit' => [$commit];
+    yield 'a commit that is not its full id' => [[...$whole, 'commit' => '206b4e0']];
+    yield 'a commit git would read as an option' => [[...$whole, 'commit' => '--output=/tmp/x']];
+    yield 'no tree' => [array_diff_key($whole, ['tree' => true])];
+    yield 'a tree that is not its full id' => [[...$whole, 'tree' => 'eeee']];
+    yield 'no parents' => [array_diff_key($whole, ['parents' => true])];
+    yield 'a parent that is not its full id' => [[...$whole, 'parents' => ['--all']]];
+    yield 'parents that are not a list' => [[...$whole, 'parents' => str_repeat('a', 40)]];
+    yield 'a check that is not text' => [[...$whole, 'check' => null]];
+    yield 'no kind' => [array_diff_key($whole, ['kind' => true])];
+    yield 'a matrix it does not know' => [[...$whole, 'kind' => ['matrix' => 'some']]];
+    yield 'security that is not true' => [[...$whole, 'kind' => ['security' => false]]];
+    yield 'an empty suite' => [[...$whole, 'kind' => ['suite' => '']]];
+});
+
+it('reads a last run that is well formed', function () use ($data, $written): void {
+    $read = LedgerFile::decode($written([...$data(), 'lastRun' => [
+        'commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708',
+        'tree' => str_repeat('e', 40),
+        'parents' => [str_repeat('a', 40), str_repeat('b', 40)],
+        'check' => 'mutation-gate',
+        'kind' => [],
+    ]]))->runs()->lastRun();
+
+    expect($read instanceof LastRun ? [
+        $read->judged()->commit()->name(),
+        $read->judged()->tree()->id(),
+        array_map(static fn(Revision $parent): string => $parent->name(), [...$read->judged()->parents()]),
+    ] : $read)->toBe(['206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', str_repeat('e', 40), [str_repeat('a', 40), str_repeat('b', 40)]]);
+});

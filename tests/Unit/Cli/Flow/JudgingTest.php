@@ -88,10 +88,12 @@ use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
+use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
+use NightWorksIO\MutationGate\Core\Proof\RunProfile;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
@@ -143,6 +145,7 @@ use NightWorksIO\MutationGate\Tests\Support\CountedChanges;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
+use NightWorksIO\MutationGate\Tests\Support\JudgedCommits;
 use NightWorksIO\MutationGate\Tests\Support\LedgerRead;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
@@ -1970,4 +1973,28 @@ it('takes the run\'s own result for a unit that carries its own alone, however n
 })->with([
     'its own result of the code as it is' => ['held now', ''],
     'its own result of other code, as a race leaves it' => ['held before', 'src/Held.php'],
+]);
+
+it('records the commit it judged as its scope\'s last run, with what it was made of, and none where git cannot say', function (bool $known) use (
+    $tree,
+    $reporting,
+): void {
+    $project = Flows::project();
+    $store = new ProofStoreFake();
+    $plan = Planned::of()->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')));
+    $checkout = $known ? Flows::checkout() : Flows::checkout()->notHaving(Revision::ref(Flows::HEAD));
+
+    new Judging(
+        Flows::adapters($project, [], $store, $checkout, $tree(Floor::of(0))),
+        judgingSettings(),
+        Flows::setup(),
+        $reporting(new ReporterFake()),
+    )->verdict($plan, judgingNoResults($project));
+    $lastRun = LedgerRead::ledger($store->read(Scope::pullRequest(7)))->runs()->lastRun();
+
+    expect($known ? $lastRun : $lastRun instanceof CannotTell)
+        ->toEqual($known ? LastRun::of(JudgedCommits::of(Flows::HEAD), 'mutation / verdict', RunProfile::standard()) : true);
+})->with([
+    'a commit git can say what it was made of' => [true],
+    'one it cannot' => [false],
 ]);

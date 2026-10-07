@@ -40,6 +40,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\JudgedCommits;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -367,7 +368,7 @@ it('reaches only what changed since its last run, gives the new code since the r
         'last-run' => Flows::FILES,
     ])->changedFrom(Revision::ref('last-run'), Changes::of(Change::modified(Path::of('src/Held.php'), Lines::of(Line::of(2)))));
 
-    $reached = reachedFrom($checkout, ChangeBase::lastRun(Revision::ref('last-run'), Revision::ref('base')));
+    $reached = reachedFrom($checkout, ChangeBase::lastRun(JudgedCommits::of('last-run'), Revision::ref('base')));
 
     expect($reached->reach()->reaches($held))->toBeTrue()
         ->and($reached->reach()->reaches($money))->toBeFalse()
@@ -382,10 +383,38 @@ it('reads its change since the ref where git cannot read the commit its last run
         'base' => Flows::FILES,
     ]);
 
-    $reached = reachedFrom($checkout, ChangeBase::lastRun(Revision::ref('rewritten'), Revision::ref('base')));
+    $reached = reachedFrom($checkout, ChangeBase::lastRun(JudgedCommits::of('rewritten'), Revision::ref('base')));
 
     expect($reached->reach()->reaches($money))->toBeTrue()
         ->and($reached->reach()->reaches($held))->toBeFalse()
         ->and($reached->changed())->toEqual($sinceRef)
         ->and([...$reached->ownOnly()])->toBe([]);
 });
+
+it('reads its change from the tree a gone last run\'s merge makes again, where that is the tree it held, and since the ref where it is not', function (bool $sameTree, bool $exact) use ($money, $held): void {
+    $sinceRef = Changes::of(
+        Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(3))),
+        Change::modified(Path::of('src/Held.php'), Lines::of(Line::of(2))),
+    );
+    $judged = JudgedCommits::of('gone-merge', 'main-then', 'head-then');
+    $rebuilt = $sameTree ? $judged->tree() : JudgedCommits::treeOf('another merge');
+    $checkout = new ChangeSourceFake(Revision::ref('base'), $sinceRef, [
+        Revision::workingTree()->name() => Flows::FILES,
+        'base' => Flows::FILES,
+        $rebuilt->id() => Flows::FILES,
+    ])->rebuilding(
+        Revision::ref('gone-merge'),
+        $rebuilt,
+        Changes::of(Change::modified(Path::of('src/Held.php'), Lines::of(Line::of(2)))),
+    );
+
+    $reached = reachedFrom($checkout, ChangeBase::lastRun($judged, Revision::ref('base')));
+
+    expect($reached->reach()->reaches($held))->toBeTrue()
+        ->and($reached->reach()->reaches($money))->toBe(! $exact)
+        ->and($reached->changed())->toEqual($sinceRef)
+        ->and(count($reached->ownOnly()))->toBe($exact ? 2 : 0);
+})->with([
+    'the tree it held' => [true, true],
+    'another tree' => [false, false],
+]);

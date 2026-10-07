@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function is_array;
+
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -27,8 +30,8 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
  * change since its base reaches, by the rules of ADR-0005, with the lines
  * each source file's change since the base's ref added or modified; or why
  * those lines are not known, for a full run or where git cannot tell what
- * changed. Where the base is a last run whose commit git can read, the change
- * is read from that commit itself, and the files changed since the ref carry
+ * changed. Where the base is a last run whose commit git can read, or whose
+ * merge git makes again into the tree it held, the change is read from it, and the files changed since the ref carry
  * only the run's own scope's results (ADR-0005, decision 2).
  */
 final readonly class Reached
@@ -57,22 +60,18 @@ final readonly class Reached
         DecidingConfig $config,
     ): self {
         $sinceRef = $adapters->changes->changesSince($base->ref());
-        $commit = $base->lastRunCommit();
-        $fromRun = $commit instanceof Revision && $sinceRef instanceof Changes
-            ? $adapters->changes->changesFrom($commit)
-            : $sinceRef;
-        $exact = $commit instanceof Revision && $fromRun instanceof Changes;
-        $changes = $exact ? $fromRun : $sinceRef;
+        $fromRun = $sinceRef instanceof Changes ? self::fromLastRun($base, $adapters) : $sinceRef;
+        [$changes, $from] = is_array($fromRun) ? $fromRun : [$sinceRef, $base->ref()];
         $reach = new Reaching(self::layout($adapters, $settings, $suite), $trees)->of(
             $changes,
             self::judges($adapters, $map),
-            self::sources($changes, $exact ? $commit : $base->ref(), $adapters, $suite->sources(), $config),
+            self::sources($changes, $from, $adapters, $suite->sources(), $config),
         );
 
         return new self(
             $reach,
             $sinceRef instanceof Changes ? self::withLines($sinceRef) : $sinceRef,
-            $exact && $sinceRef instanceof Changes ? self::pathsOf($sinceRef) : Paths::none(),
+            is_array($fromRun) ? self::pathsOf($sinceRef) : Paths::none(),
         );
     }
 
@@ -145,6 +144,28 @@ final readonly class Reached
         }
 
         return $sources;
+    }
+
+    /**
+     * What changed since a last run, with the revision git read it from: its
+     * commit, or the tree its merge makes again; none where the base is no
+     * last run, or git can read neither.
+     *
+     * @return array{Changes, Revision}|CannotTell
+     */
+    private static function fromLastRun(ChangeBase $base, Adapters $adapters): array|CannotTell
+    {
+        $judged = $base->lastRunCommit();
+        $readable = $judged instanceof JudgedCommit
+            ? $adapters->changes->readable($judged)
+            : CannotTell::because('The change is read since a ref, not a last run.');
+        if ($readable instanceof CannotTell) {
+            return $readable;
+        }
+
+        $changes = $adapters->changes->changesFrom($readable);
+
+        return $changes instanceof Changes ? [$changes, $readable] : $changes;
     }
 
     /** Which test files judge each covered file, as the runner says. */

@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -18,6 +19,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
+use NightWorksIO\MutationGate\Tests\Support\JudgedCommits;
 use NightWorksIO\MutationGate\Tests\Support\Repository;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -180,3 +182,13 @@ function changeSourceWithSide(): Repository
 
     return $repository->write('src/Money.php', "<?php\nreturn 2;\n")->write('src/Limit.php', "<?php\n");
 }
+
+it('says what a commit it has was made of, reads it as itself, and cannot read one it neither has nor can make again', function (ChangeSource $source): void {
+    $judged = $source->judged(Revision::ref('fixture-base'));
+    $gone = JudgedCommits::of(str_repeat('d', 40), str_repeat('a', 40), str_repeat('b', 40));
+
+    expect($judged)->toBeInstanceOf(JudgedCommit::class)
+        ->and($judged instanceof JudgedCommit ? $source->readable($judged) : $judged)
+        ->toEqual($judged instanceof JudgedCommit ? $judged->commit() : $judged)
+        ->and($source->readable($gone))->toBeInstanceOf(CannotTell::class);
+})->with($sources);

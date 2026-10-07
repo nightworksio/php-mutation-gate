@@ -84,7 +84,7 @@ final readonly class Mode
 
         return match (true) {
             ! $base instanceof Revision => $base,
-            $exact => ChangeBase::lastRun($lastRun->commit(), $base),
+            $exact => ChangeBase::lastRun($lastRun->judged(), $base),
             default => ChangeBase::since($base),
         };
     }

@@ -97,6 +97,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
+use NightWorksIO\MutationGate\Tests\Support\JudgedCommits;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\NamesAsked;
@@ -967,7 +968,7 @@ it('carries a pull request\'s own results for what it changed before its last ru
     $store->write(Scope::pullRequest(7), Ledger::empty()
         ->withProof($proof($money, $sourceOf($money), 'pr', '2026-10-01T10:00:00Z'))
         ->withProof($proof($held, $heldAsItWas ? $sourceOf($held) : Digest::sha256Of('before'), 'pr', '2026-10-01T10:00:00Z'))
-        ->withRuns(ScopeRuns::none()->lastRunAt(LastRun::of(Revision::ref('last-run'), Flows::settings()->ci()->check(), RunProfile::standard()))));
+        ->withRuns(ScopeRuns::none()->lastRunAt(LastRun::of(JudgedCommits::of('last-run'), Flows::settings()->ci()->check(), RunProfile::standard()))));
     $sinceRef = Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(2))));
     $checkout = new ChangeSourceFake(Revision::ref(Flows::MAIN), $heldChanged
         ? $sinceRef->with(Change::modified(Path::of('src/Held.php'), Lines::of(Line::of(1))))

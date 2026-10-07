@@ -245,7 +245,8 @@ has to bring its result with it.
            "phpstan": { "checks": 63, "seconds": 31.5, "mutators": { "Plus": [60, 12] } }
        },
        "passed": { "commit": "<commit sha>", "check": "<check-run name>", "ownScopeProofs": 0 },
-       "lastRun": { "commit": "<commit sha>", "check": "<check-run name>", "kind": { "matrix": "full" } }
+       "lastRun": { "commit": "<commit sha>", "tree": "<tree sha>", "parents": ["<commit sha>", "<commit sha>"],
+                    "check": "<check-run name>", "kind": { "matrix": "full" } }
    }
    ```
 
@@ -361,13 +362,16 @@ has to bring its result with it.
      is not such a record, one whose `ownScopeCoverage` is anything but
      `true` among them, reads as none.
    - `lastRun` records the commit this scope's last run judged, the
-     `last-run` base (ADR-0005, decision 2), with the check-run it reported
-     under and `kind`, the kind of run it was: `matrix` `full` where it
+     `last-run` base (ADR-0005, decision 2), with `tree`, the tree it held,
+     and `parents`, the commits it was made from in its order, so a gone
+     merge commit can be made again and checked against the tree it held;
+     the check-run it reported under; and `kind`, the kind of run it was: `matrix` `full` where it
      recorded every killer, `security` `true` where it made mutants with the
      security mutators alone, and `suite` where one suite's tests alone
      judged them, each written only where it holds. A run writes it only
      where it judged every unit it considered: no time budget stopped it, no
-     held unit's tests missed its lines, and every unit it ran left a proof.
+     held unit's tests missed its lines, every unit it ran left a proof, and
+     git can say what the commit it judged was made of.
      Any other run that writes the ledger removes it, so a `lastRun` is
      always of the last run to write the ledger, and no result left since is
      older than it. It says where to read a change from, never whether a
