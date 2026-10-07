@@ -49,16 +49,32 @@ afterEach(function (): void {
 $resultIn = RunningCases::resultIn(...);
 $tickingBy = RunningCases::tickingBy(...);
 
-/** The mutant of a shard's result with this id, as the shard left it. */
-function controlMutantIn(ShardResult|CannotJudge $result, string $nativeId): Mutant
+/** The mutant of a shard's result of this file with this id, as the shard left it. */
+function controlMutantIn(ShardResult|CannotJudge $result, string $nativeId, string $file = 'src/Money.php'): Mutant
 {
     $outcome = $result instanceof ShardResult ? $result->outcome() : $result;
     $found = array_values(array_filter(
         $outcome instanceof MutationResult ? [...$outcome->mutants()] : [],
-        static fn(Mutant $mutant): bool => $mutant->nativeId() === $nativeId,
+        static fn(Mutant $mutant): bool => $mutant->nativeId() === $nativeId && $mutant->location()->file()->value() === $file,
     ));
 
     return $found === [] ? throw new LogicException(sprintf('no mutant %s', $nativeId)) : $found[0];
+}
+
+/**
+ * The key of every control a runner was asked to run, in order.
+ *
+ * @return list<string>
+ */
+function controlKeysAsked(ScriptedRunner $runner): array
+{
+    $keys = [];
+
+    foreach ($runner->controlled() as [$controls]) {
+        $keys = [...$keys, ...array_map(static fn(Control $control): string => $control->key(), [...$controls])];
+    }
+
+    return $keys;
 }
 
 /** The fixture's timed-out mutant's control: its covering test, allowed its limit. */
@@ -79,8 +95,7 @@ it('keeps with each timed-out mutant the time its unmutated control took, its te
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
     $timedOut = controlMutantIn($resultIn($project, 1), 'Decrement-27');
 
-    expect(array_map(static fn(array $asked): array => array_map(static fn(Control $control): string => $control->key(), [...$asked[0]]), $runner->controlled()))
-        ->toBe([[$moneyControl()->key()]])
+    expect(controlKeysAsked($runner))->toContain($moneyControl()->key())
         ->and($timedOut->status())->toBe(MutantStatus::TimedOut)
         ->and($timedOut->unmutatedNeed())->toEqual(Seconds::of(1.5));
 });
@@ -151,17 +166,20 @@ it('controls a held unit\'s timed-out mutant by its holding tests that run it, n
         ),
         $scripted->controlled(),
     ))->toBe([[['src/Held.php', ['HeldTest::a']]]])
-        ->and(controlMutantIn($resultIn($project, 1), 'Plus-11')->status())->toBe(MutantStatus::TimedOut);
+        ->and(controlMutantIn($resultIn($project, 1), 'Plus-11', 'src/Held.php')->status())->toBe(MutantStatus::TimedOut);
 });
 
-it('runs no control under timeouts.mode unjudged, which makes every timeout too slow to judge', function () use ($resultIn): void {
+it('runs no control of a timeout under timeouts.mode unjudged, which makes every timeout too slow to judge', function () use (
+    $resultIn,
+    $moneyControl,
+): void {
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
 
     new Running(Flows::adapters($project, [], $runner), Flows::settings(Timeouts::unjudged()), Flows::setup())
         ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
 
-    expect($runner->controlled())->toBe([])
+    expect(controlKeysAsked($runner))->not->toContain($moneyControl()->key())
         ->and(controlMutantIn($resultIn($project, 1), 'Decrement-27')->unmutatedNeed())->toEqual(Unmeasured::duration());
 });
 
@@ -215,3 +233,19 @@ it('cannot judge a shard whose runner cannot run its controls', function () use 
     expect($result instanceof ShardResult ? $result->outcome() : $result)
         ->toEqual(CannotJudge::because('The runner cannot serve a file unmutated.'));
 });
+
+it('leaves a kill unjudged where the tests that killed it fail unmutated too, and lets it stand where they pass', function (ControlRun $found, MutantStatus $status) use ($resultIn): void {
+    $project = Flows::project();
+    $killControl = Control::of(Path::of('src/Money.php'), TestIds::of(TestId::of('MoneyTest::adds')), Seconds::of(10.0));
+    $runner = ScriptedRunner::fixture()->controlling(ControlRuns::none()->with($killControl, $found));
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $kill = controlMutantIn($resultIn($project, 1), 'Plus-11');
+
+    expect(controlKeysAsked($runner))->toContain($killControl->key())
+        ->and($kill->status())->toBe($status);
+})->with([
+    'tests that pass unmutated' => [ControlRun::passed(Seconds::of(0.2)), MutantStatus::Killed],
+    'tests that fail unmutated' => [ControlRun::failed(), MutantStatus::Unjudged],
+]);

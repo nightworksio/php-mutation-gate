@@ -387,6 +387,26 @@ running it: why is this mutant here, and has it always been?
     - A registered runner that names no killer and gives no ending leaves
       each of its kills unjudged.
 
+18. **A named killer is checked on the original.** A kill a test is named
+    for stands only where its killers pass on the unmutated code, served as
+    its mutant was, so that a test that fails only while the runner serves a
+    file, or fails on its own, is never read as a kill:
+    - Each such kill gets one unmutated control (ADR-0008, decision 2): its
+      killers, run with its file served unmutated by the means the runner
+      serves a mutant's file, under the request's memory cap, allowed the
+      standard mutant limit of their time as the coverage map timed them. Two
+      kills of the same file and killers share it, as does a timeout's
+      control of the same tests and limit.
+    - Every runner is held to it, Pest included: a Pest kill its own run
+      already checked on narrowed test files is checked here too.
+    - The kill stands where its control passes. Where the control fails, runs
+      out of its limit or never runs, the kill is unjudged, and its reason
+      says which. Under a time budget a kill whose control does not fit in
+      the time left is unjudged, and more time judges it.
+    - A kill no test is named for has no control; its evidence judges it
+      (decision 17). Infection names a killer only under `infection:patch`,
+      so an unpatched Infection's kills are judged by their evidence alone.
+
 ## Alternatives considered
 
 | Option | Why it lost |

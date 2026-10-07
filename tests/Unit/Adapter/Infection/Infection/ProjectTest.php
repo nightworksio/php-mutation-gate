@@ -283,8 +283,9 @@ it('cannot judge a capped run whose cap cannot be written', function (): void {
     ))->toEqual(CannotJudge::because(sprintf(MemoryCap::UNWRITTEN, sprintf('%s/%s', MemoryScan::directoryIn($at), MemoryCap::FILE))));
 });
 
-it('runs a shard of the flows on the map the plan handed it, in its own layout', function (): void {
+it('runs a shard of the flows on the map the plan handed it, in its own layout, its kill vouched for by its control', function (): void {
     $at = InfectionCases::project();
+    Scratch::write($at->root(), 'phpunit.xml', '<phpunit/>');
     $plan = Planned::of(
         Shard::of(ShardId::of(1), Package::at(Path::root()), Units::of(Planned::money()), Seconds::of(1.0), 'money'),
     );
@@ -301,8 +302,9 @@ it('runs a shard of the flows on the map the plan handed it, in its own layout',
     $outcome = $result instanceof ShardResult ? $result->outcome() : $result;
 
     expect(InfectionCases::statuses($outcome))->toBe([MutantStatus::Killed])
-        ->and(count($shell->commands()))->toBe(1)
-        ->and(InfectionCases::ran($shell)[0])->toContain(sprintf('--coverage=%s/.gate/infection/coverage', $at->root()));
+        ->and(count($shell->commands()))->toBe(2)
+        ->and(InfectionCases::ran($shell)[0])->toContain(sprintf('--coverage=%s/.gate/infection/coverage', $at->root()))
+        ->and($shell->commands()[1]->arguments())->toContain(sprintf('--configuration=%s/.gate/infection/controls/0/phpunit.xml', $at->root()));
 });
 
 it('behaves as the port expects of a runner, but stops each mutant at its first killer and runs one per core', function (): void {
