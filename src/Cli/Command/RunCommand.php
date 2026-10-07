@@ -126,7 +126,7 @@ final readonly class RunCommand
         $judged = $made instanceof PlanMade
             ? self::judgedAll($composed, $made->plan(), $results, $printing, $output)
             : $made;
-        $local = FlowOptions::isFull($input) && ! $composed->adapters->environment->inCi();
+        $local = FlowOptions::isFull($input, $composed->settings) && ! $composed->adapters->environment->inCi();
 
         return VerdictCommand::printed(
             $judged instanceof Judged && $local ? self::raised($composed, $judged) : $judged,

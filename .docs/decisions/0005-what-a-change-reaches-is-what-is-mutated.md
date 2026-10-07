@@ -42,11 +42,16 @@ The same repository has two more needs.
    unit against that group.
 
 2. **Two modes.**
-   - **Full**: every unit is considered. This is the default for a local run,
-     for `mutation-gate run` with no base, and for scheduled CI runs.
+   - **Full**: every unit is considered, as `--full` asks, and as a run asked
+     for no mode does where `run.full` is `true`.
    - **Change-scoped**: only the units the change reaches are considered.
      - `--changed-since=<ref>`, accepted by `plan` and by `run` without a plan,
-       selects it. `<ref>` is anything git resolves, or `last-passed`.
+       selects it. `<ref>` is anything git resolves, `last-passed` or
+       `last-run`.
+     - A run asked for no mode reads its change since `last-passed`, unless
+       `run.full` is `true` (it is `false` by default). `run.full` decides how
+       the gate runs but no result, so it is compared, not keyed (ADR-0007,
+       decision 2).
      - `last-passed` means the newest commit of this scope whose verdict
        passed, which the ledger records (ADR-0007). With none recorded, the run
        is full.

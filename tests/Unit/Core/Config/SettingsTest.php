@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Config\Reach as ReachSetting;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Canonical;
 use NightWorksIO\MutationGate\Core\Config\Choice;
@@ -23,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
@@ -76,6 +78,9 @@ const DEFAULTS = <<<'JSON'
         },
         "holds": {
             "hotPath": 0.8
+        },
+        "run": {
+            "full": false
         },
         "shards": {
             "seconds": 600,
@@ -1255,4 +1260,20 @@ it('reads how the runner\'s workers start, forking where no layer says, and refu
         ->and(Configs::shown($fresh, 'runner'))->toBe(['use' => 'phpunit', 'memory' => '1G', 'workers' => 'fresh'])
         ->and(Configs::problems(Configs::validated(['runner' => ['use' => 'phpunit', 'workers' => 'warm']])))
         ->toBe(['runner.workers: expected "fork" or "fresh", got "warm"']);
+});
+
+it('reads whether a run given no mode considers every unit, changed since last-passed by default, and writes it into a config written as PHP', function (array $config, bool $full, string $call): void {
+    $php = Configs::valid(['runner' => 'pest', ...$config])->php(ProjectRoot::origin())->code();
+
+    expect(Configs::settings(['runner' => 'pest', ...$config])->reach()->isFullByDefault())->toBe($full)
+        ->and($call === '' ? ! str_contains($php, 'ByDefault()') : str_contains($php, $call))->toBeTrue();
+})->with([
+    'left out' => [[], false, ''],
+    'every unit' => [['run' => ['full' => true]], true, 'Reach::fullByDefault()'],
+    'what changed' => [['run' => ['full' => false]], false, 'Reach::changedByDefault()'],
+]);
+
+it('writes run.full from the PHP config\'s builders as the JSON a file writes', function (): void {
+    expect(ReachSetting::fullByDefault()->written())->toEqual(Json::at('run.full', value: true))
+        ->and(ReachSetting::changedByDefault()->written())->toEqual(Json::at('run.full', value: false));
 });

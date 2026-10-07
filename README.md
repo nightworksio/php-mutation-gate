@@ -176,7 +176,7 @@ run does.
 
 | Command | What it does |
 |---------|--------------|
-| `mutation-gate` or `mutation-gate run` | Plan, run and judge in one process. With `--changed-since=<ref>`, only what the change reaches. With `--budget=<duration>`, the riskiest code first, within that time. |
+| `mutation-gate` or `mutation-gate run` | Plan, run and judge in one process: what changed since the last commit that passed, or everything where none passed yet or `run.full` asks for it. With `--changed-since=<ref>`, only what the change since `<ref>` reaches; with `--full`, everything. With `--budget=<duration>`, the riskiest code first, within that time. |
 | `coverage [--into=<dir>]` | Run the suite under coverage and write the gate's own map, `<dir>/map.json.gz` (`.mutation-gate/coverage` by default), for a later `plan --coverage=<dir>` |
 | `plan` | Work out the reach, drop proved units, cut shards and print the plan for a CI (`--ci=github\|gitlab\|buildkite\|circleci\|azure\|bitbucket\|jenkins\|json`, or `--shards=<n>` for a fixed count; `--coverage=<dir>` reads the map `coverage` wrote instead of running the suite) |
 | `run --plan=<file> [--shard=<id>]` | Mutate one shard: the one `--shard` names, or the one the CI's environment names |
@@ -211,8 +211,8 @@ Options:
 | `--deliver-later` | `plan`, `survivors`, `verdict` | Send nothing that needs a credential and write no store: leave the ledger and the comment, alert and OTLP payloads in `.mutation-gate/delivery/planned`, `.mutation-gate/delivery/survivors` or `.mutation-gate/delivery/verdict`, begun empty, for `deliver`; on a pull request the comment is left whether or not the job holds a token | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) |
 | `--runner=<name>` | every command | Set `runner` | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
 | `--report=<name>:<path>` | every command, repeatable | Add a file report to `reports` | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
-| `--changed-since=<ref>` | `plan`, `run` without a plan, `affected` | Mutate, or list the tests of, only what the change since `<ref>` reaches; `last-passed` is the newest passing commit; `last-run`, for `plan` and `run` off the default branch, reads the change from the commit the scope's last run of the same kind judged, falling back to the fetched default branch | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
-| `--full` | `plan`, `run` without a plan | Mutate everything, whatever the event; an error beside `--changed-since` | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
+| `--changed-since=<ref>` | `plan`, `run` without a plan, `affected` | Mutate, or list the tests of, only what the change since `<ref>` reaches; `last-passed`, the default of `plan` and `run`, is the newest passing commit; `last-run`, for `plan` and `run` off the default branch, reads the change from the commit the scope's last run of the same kind judged, falling back to the fetched default branch | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
+| `--full` | `plan`, `run` without a plan | Mutate everything, whatever the event and `run.full`; an error beside `--changed-since` | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `--budget=<duration>` | `run` | Stop after this long, riskiest code first | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `--coverage=<dir>` | `plan`, `run` without a plan, `affected` | Read the coverage an earlier job wrote instead of running the suite | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `--ci=<name>` | `plan`, `run` | Set `ci.plan`: this CI's format instead of the detected one | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
@@ -470,6 +470,7 @@ and `?` match within one directory, and `**` across any number of them.
 | `packages` | list of globs | `[]` | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `reach.everything` | list of globs, from the repository's root | `[]`, plus the preset's | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `holds.hotPath` | number, 0 to 1 | `0.8` | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
+| `run.full` | boolean: a run given neither `--full` nor `--changed-since` considers every unit, rather than what changed since `last-passed` | `false` | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `shards.seconds` | integer | `600` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `shards.max` | integer | `20` | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `shards.target` | duration; replaces `shards.seconds`, and setting both is an error | none | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
