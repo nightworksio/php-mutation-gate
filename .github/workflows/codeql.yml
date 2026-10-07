@@ -21,7 +21,51 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Whether the change reaches anything the analysis reads. The Actions analysis
+  # reads workflows and action metadata, never documentation, so a change of
+  # Markdown, `.docs/` or `LICENSE` alone skips it. Anything else runs it, and so
+  # does a change with no base to compare against or a scope that did not
+  # succeed. A skipped `analyze` still reports, as skipped.
+  scope:
+    name: what changed
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - id: diff
+        env:
+          # A pull request is measured against its base, and a push to main
+          # against the commit before it. A schedule has neither.
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BASE}" ] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            echo "No usable base commit, so the analysis runs."
+            exit 0
+          fi
+          changed="$(git diff --no-renames --name-only "${BASE}" HEAD)"
+          code=false
+          while IFS= read -r path; do
+            case "${path}" in
+            '' | *.md | .docs/* | LICENSE) ;;
+            *) code=true ;;
+            esac
+          done <<< "${changed}"
+          echo "code=${code}" >> "$GITHUB_OUTPUT"
+          if [ "${code}" = false ]; then
+            echo "Documentation only; the analysis is skipped."
+          fi
+
   analyze:
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
