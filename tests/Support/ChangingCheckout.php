@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -81,6 +82,16 @@ final class ChangingCheckout implements ChangeSource
     public function changesFrom(Revision $commit): Changes|CannotTell
     {
         return $this->now()->changesFrom($commit);
+    }
+
+    public function judged(Revision $commit): JudgedCommit|CannotTell
+    {
+        return $this->now()->judged($commit);
+    }
+
+    public function readable(JudgedCommit $judged): Revision|CannotTell
+    {
+        return $this->now()->readable($judged);
     }
 
     public function fingerprints(): Fingerprints|CannotTell

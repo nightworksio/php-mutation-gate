@@ -32,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Tests\Support\JudgedCommits;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 
 $proof = static fn(string $key, string $unit): Proof => Proof::of(
@@ -201,15 +202,15 @@ it('holds what a run learned of the analysers, and reads its own before another 
 
 it('holds the newest commit whose run judged every unit it considered, and reads another scope\'s beside its own, its own first', function (): void {
     $kind = RunProfile::standard();
-    $ours = Ledger::empty()->withRuns(ScopeRuns::none()->lastRunAt(LastRun::of(Revision::ref('5eeca8f'), 'mutation / verdict', $kind)));
-    $theirs = Ledger::empty()->withRuns(ScopeRuns::none()->lastRunAt(LastRun::of(Revision::ref('206b4e0'), 'mutation / verdict', $kind)));
+    $ours = Ledger::empty()->withRuns(ScopeRuns::none()->lastRunAt(LastRun::of(JudgedCommits::of('5eeca8f'), 'mutation / verdict', $kind)));
+    $theirs = Ledger::empty()->withRuns(ScopeRuns::none()->lastRunAt(LastRun::of(JudgedCommits::of('206b4e0'), 'mutation / verdict', $kind)));
 
     expect(Ledger::empty()->runs()->lastRun())->toEqual(CannotTell::because('No run of this scope has judged every unit it considered yet.'))
-        ->and($ours->runs()->lastRun())->toEqual(LastRun::of(Revision::ref('5eeca8f'), 'mutation / verdict', $kind))
-        ->and($ours->and($theirs)->runs()->lastRun())->toEqual(LastRun::of(Revision::ref('5eeca8f'), 'mutation / verdict', $kind))
+        ->and($ours->runs()->lastRun())->toEqual(LastRun::of(JudgedCommits::of('5eeca8f'), 'mutation / verdict', $kind))
+        ->and($ours->and($theirs)->runs()->lastRun())->toEqual(LastRun::of(JudgedCommits::of('5eeca8f'), 'mutation / verdict', $kind))
         ->and(Ledger::empty()->and($theirs)->runs()->lastRun())->toBeInstanceOf(CannotTell::class)
         ->and($ours->runs()->passing(Passed::of(Revision::ref('206b4e0'), 'mutation / verdict', 0))->lastRun())
-        ->toEqual(LastRun::of(Revision::ref('5eeca8f'), 'mutation / verdict', $kind))
+        ->toEqual(LastRun::of(JudgedCommits::of('5eeca8f'), 'mutation / verdict', $kind))
         ->and($ours->runs()->cutShort()->lastRun())->toBeInstanceOf(CannotTell::class)
         ->and($ours->runs()->cutShort()->passed())->toEqual($ours->runs()->passed());
 });

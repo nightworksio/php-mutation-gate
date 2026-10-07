@@ -718,6 +718,8 @@ services:
                 'NightWorksIO\MutationGate\Core\Proof\RunProfileRecord':
                     - SECURITY # a field of the plan and ledger files, not the config section of the same name
                     - SUITE # a field of the plan and ledger files, not the command-line option of the same name
+                'NightWorksIO\MutationGate\Core\Change\Parents':
+                    - OF_A_MERGE # the parents of a merge commit, not an exit code or an argument's position
                 'NightWorksIO\MutationGate\Core\Proof\LastRunRecord':
                     - COMMIT # the ledger's last run's field, not the commit a plan's digests were taken at
                 'NightWorksIO\MutationGate\Core\Report\SuiteText':

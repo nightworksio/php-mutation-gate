@@ -8,6 +8,7 @@ use function array_key_exists;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Detached;
 use NightWorksIO\MutationGate\Core\File\ByPath;
@@ -89,6 +90,16 @@ final readonly class PassedPullRequests implements ChangeSource, Repository
     public function changesFrom(Revision $commit): Changes|CannotTell
     {
         return $this->source->changesFrom($commit);
+    }
+
+    public function judged(Revision $commit): JudgedCommit|CannotTell
+    {
+        return $this->source->judged($commit);
+    }
+
+    public function readable(JudgedCommit $judged): Revision|CannotTell
+    {
+        return $this->source->readable($judged);
     }
 
     public function fingerprints(): Fingerprints|CannotTell

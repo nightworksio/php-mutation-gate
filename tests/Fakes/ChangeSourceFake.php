@@ -10,7 +10,9 @@ use function in_array;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Change\Tree;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -23,6 +25,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Port\ChangeSource;
+use NightWorksIO\MutationGate\Tests\Support\JudgedCommits;
 
 use function sprintf;
 
@@ -38,6 +41,8 @@ final readonly class ChangeSourceFake implements ChangeSource
      * @param list<string>                         $unchanged the revisions nothing changed since, by name
      * @param list<string>                         $alike     the revisions the same changed since as since the base, by name
      * @param array<string, Changes>               $from      what changed from each of these revisions itself, by name
+     * @param array<string, Tree>                  $rebuilt   each gone commit whose merge makes again a tree, by name
+     * @param list<string>                         $unknown   the commits git cannot say what they were made of, by name
      */
     public function __construct(
         private Revision $base,
@@ -47,7 +52,44 @@ final readonly class ChangeSourceFake implements ChangeSource
         private array $unchanged = [],
         private array $alike = [],
         private array $from = [],
+        private array $rebuilt = [],
+        private array $unknown = [],
     ) {
+    }
+
+    /** This repository, where git cannot say what this commit was made of. */
+    public function notHaving(Revision $commit): self
+    {
+        return new self(
+            $this->base,
+            $this->changes,
+            $this->files,
+            $this->changedAt,
+            $this->unchanged,
+            $this->alike,
+            $this->from,
+            $this->rebuilt,
+            [...$this->unknown, $commit->name()],
+        );
+    }
+
+    /**
+     * This repository, where a commit is gone, and merging its parents again
+     * gives this tree, from which this changed.
+     */
+    public function rebuilding(Revision $commit, Tree $tree, Changes $changes): self
+    {
+        return new self(
+            $this->base,
+            $this->changes,
+            $this->files,
+            $this->changedAt,
+            $this->unchanged,
+            $this->alike,
+            [...$this->from, $tree->id() => $changes],
+            [...$this->rebuilt, $commit->name() => $tree],
+            $this->unknown,
+        );
     }
 
     /** This repository, where this changed from a revision itself, wherever it stands in history. */
@@ -61,19 +103,21 @@ final readonly class ChangeSourceFake implements ChangeSource
             $this->unchanged,
             $this->alike,
             [...$this->from, $commit->name() => $changes],
+            $this->rebuilt,
+            $this->unknown,
         );
     }
 
     /** This repository, where the same changed since this revision as since its base. */
     public function alsoFrom(Revision $revision): self
     {
-        return new self($this->base, $this->changes, $this->files, $this->changedAt, $this->unchanged, [...$this->alike, $revision->name()], $this->from);
+        return new self($this->base, $this->changes, $this->files, $this->changedAt, $this->unchanged, [...$this->alike, $revision->name()], $this->from, $this->rebuilt, $this->unknown);
     }
 
     /** This repository, where nothing changed since this revision, as at the commit HEAD is at. */
     public function unchangedSince(Revision $revision): self
     {
-        return new self($this->base, $this->changes, $this->files, $this->changedAt, [...$this->unchanged, $revision->name()], $this->alike, $this->from);
+        return new self($this->base, $this->changes, $this->files, $this->changedAt, [...$this->unchanged, $revision->name()], $this->alike, $this->from, $this->rebuilt, $this->unknown);
     }
 
     /** The repository of the contract suite's fixture: a base, and a working tree that changed one line and added a file. */
@@ -109,6 +153,30 @@ final readonly class ChangeSourceFake implements ChangeSource
     public function changesFrom(Revision $commit): Changes|CannotTell
     {
         return array_key_exists($commit->name(), $this->from) ? $this->from[$commit->name()] : $this->changesSince($commit);
+    }
+
+    /** A commit as a run judged it: the tree its name gives, and no parents; or none where git cannot say. */
+    public function judged(Revision $commit): JudgedCommit|CannotTell
+    {
+        return in_array($commit->name(), $this->unknown, strict: true)
+            ? CannotTell::because(sprintf('%s is not a revision this repository has.', $commit->name()))
+            : JudgedCommits::of($commit->name());
+    }
+
+    /**
+     * A commit the fake knows what changed from, as itself; else the tree its
+     * merge makes again, where that is the tree the commit held; else none.
+     */
+    public function readable(JudgedCommit $judged): Revision|CannotTell
+    {
+        $name = $judged->commit()->name();
+        $rebuilt = $this->rebuilt[$name] ?? null;
+
+        return match (true) {
+            $this->changesFrom($judged->commit()) instanceof Changes => $judged->commit(),
+            $rebuilt instanceof Tree && $rebuilt->id() === $judged->tree()->id() => Revision::tree($rebuilt),
+            default => CannotTell::because(sprintf('%s is gone, and no merge makes it again.', $name)),
+        };
     }
 
     public function fingerprints(): Fingerprints

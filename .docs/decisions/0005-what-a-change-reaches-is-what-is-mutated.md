@@ -59,7 +59,11 @@ The same repository has two more needs.
        ledger records beside it (ADR-0007, decision 3), for a run off the
        default branch:
        - the change is read from that commit itself, not from a merge base,
-         so a history rewritten since is still diffed file by file;
+         so a history rewritten since is still diffed file by file. Where
+         git no longer has it, as a pull request's merge commit is gone once
+         a newer push replaces it, git 2.38 or newer merges its two recorded
+         parents again (`merge-tree --write-tree`), and the change is read
+         from the tree that gives only where it is the tree the commit held;
        - the fetched default branch still gives the new code, and every file
          changed since it carries only this scope's own result, so a newer
          result of the default branch's code never stands in for the
@@ -70,7 +74,9 @@ The same repository has two more needs.
        - the run falls back to the fetched default branch where the scope
          records no last run, where that run was of another kind (its kill
          matrix, `--security` or `--suite`) or reported under another
-         check, or where git cannot read its commit, as after a force-push.
+         check, or where git can read neither its commit nor a merge of its
+         parents giving the tree it held: after a force-push, a merge that
+         does not come out clean, or with an older git.
        On the default branch `last-run` reads the change since
        `last-passed`.
      - The package's GitHub action and reusable workflow pass the pull

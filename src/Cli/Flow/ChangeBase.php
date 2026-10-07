@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
@@ -16,7 +17,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  */
 final readonly class ChangeBase
 {
-    private function __construct(private Revision $since, private Revision|NotGiven $lastRun)
+    private function __construct(private Revision $since, private JudgedCommit|NotGiven $lastRun)
     {
     }
 
@@ -27,7 +28,7 @@ final readonly class ChangeBase
     }
 
     /** Since the commit a last run judged, with the ref its new code and its own scope's files are read since. */
-    public static function lastRun(Revision $commit, Revision $ref): self
+    public static function lastRun(JudgedCommit $commit, Revision $ref): self
     {
         return new self($ref, $commit);
     }
@@ -39,7 +40,7 @@ final readonly class ChangeBase
     }
 
     /** The commit a last run judged, which the change is read from itself; none where it is read since the ref. */
-    public function lastRunCommit(): Revision|NotGiven
+    public function lastRunCommit(): JudgedCommit|NotGiven
     {
         return $this->lastRun;
     }

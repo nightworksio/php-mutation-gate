@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
+use NightWorksIO\MutationGate\Tests\Support\JudgedCommits;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -83,14 +84,14 @@ function modeStanding(Scope $scope, ScopeRuns $runs): array
 }
 
 $lastRun = static fn(string $check = 'check', ?RunProfile $kind = null): ScopeRuns
-    => ScopeRuns::none()->lastRunAt(LastRun::of(Revision::ref('last-run'), $check, $kind ?? RunProfile::standard()));
+    => ScopeRuns::none()->lastRunAt(LastRun::of(JudgedCommits::of('last-run'), $check, $kind ?? RunProfile::standard()));
 
 it('reads a pull request\'s change from its own last run of the same kind and check, falling back to the default branch it fetched', function () use ($lastRun): void {
     [$ledgers, $standing] = modeStanding(Scope::pullRequest(7), $lastRun());
     $base = Mode::since(Mode::LAST_RUN)->changeBase($ledgers, $standing, RunProfile::standard(), 'check');
 
     expect($base instanceof ChangeBase ? [$base->lastRunCommit(), $base->ref()] : $base)
-        ->toEqual([Revision::ref('last-run'), $standing->fetchedDefaultBranch()]);
+        ->toEqual([JudgedCommits::of('last-run'), $standing->fetchedDefaultBranch()]);
 });
 
 it('reads a change since the ref alone where its scope\'s last run cannot stand for this one', function (Scope $scope, ScopeRuns $runs, RunProfile $kind, string $since): void {

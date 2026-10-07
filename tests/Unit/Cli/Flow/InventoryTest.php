@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Inventory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -94,6 +95,16 @@ it('cannot find the units where anything it asks cannot answer', function (
             public function changesFrom(Revision $commit): Changes
             {
                 return Changes::none();
+            }
+
+            public function judged(Revision $commit): CannotTell
+            {
+                return CannotTell::because('git cat-file failed.');
+            }
+
+            public function readable(JudgedCommit $judged): CannotTell
+            {
+                return CannotTell::because('git merge-tree failed.');
             }
 
             public function fingerprints(): CannotTell

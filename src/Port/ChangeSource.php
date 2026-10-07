@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Port;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -33,6 +34,18 @@ interface ChangeSource
      * history.
      */
     public function changesFrom(Revision $commit): Changes|CannotTell;
+
+    /** A commit as a run judged it: the tree it holds and the commits it was made from; or why git cannot say. */
+    public function judged(Revision $commit): JudgedCommit|CannotTell;
+
+    /**
+     * A revision git can read for a commit a run judged: the commit itself,
+     * or, where it is gone, the tree merging its two parents again gives,
+     * only where that tree is the one the commit held; or why there is none,
+     * so that what changed since it is read from elsewhere (ADR-0005,
+     * decision 2).
+     */
+    public function readable(JudgedCommit $judged): Revision|CannotTell;
 
     /** Every file in the working tree that is not ignored, with the digest of what it holds. */
     public function fingerprints(): Fingerprints|CannotTell;

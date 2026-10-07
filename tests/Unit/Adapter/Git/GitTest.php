@@ -2,10 +2,14 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Git\CommitObject;
 use NightWorksIO\MutationGate\Adapter\Git\Git;
+use NightWorksIO\MutationGate\Adapter\Git\GitVersion;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Change\Tree;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -406,4 +410,144 @@ it('names the URL its origin remote fetches from, and cannot tell without one', 
 
     expect(Git::at($repository->root)->originUrl())->toBe('git@github.com:octo/gate.git')
         ->and($none)->toBeInstanceOf(CannotTell::class);
+});
+
+/**
+ * A repository whose `main` gained a commit after `feature` left it, with the merge of the two GitHub makes for a
+ * pull request at `merge`, and on disk a change on top of it.
+ */
+function gitMerged(): Repository
+{
+    $repository = Repository::empty()
+        ->write('src/Money.php', "<?php\nreturn 1;\n")
+        ->write('src/Rate.php', "<?php\nreturn 1;\n")
+        ->commit('The base.');
+    $repository->git('checkout', '--quiet', '-b', 'feature');
+    $repository->write('src/Money.php', "<?php\nreturn 2;\n")->commit('The feature.');
+    $repository->git('checkout', '--quiet', 'main');
+    $repository->write('src/Rate.php', "<?php\nreturn 2;\n")->commit('Main moves on.');
+    $repository->git('checkout', '--quiet', '--detach');
+    $repository->git('merge', '--quiet', '--no-ff', '--message', 'Merge feature into main', 'feature');
+    $repository->git('tag', 'merge');
+
+    return $repository->write('src/Money.php', "<?php\nreturn 3;\n");
+}
+
+/** The merge commit gone from the repository, as a newer push to the pull request leaves it in a fresh clone. */
+function gitForget(Repository $repository): void
+{
+    $repository->git('checkout', '--quiet', '--force', 'main');
+    $repository->git('tag', '--delete', 'merge');
+    $repository->git('reflog', 'expire', '--expire=now', '--all');
+    $repository->git('gc', '--quiet', '--prune=now');
+    $repository->write('src/Money.php', "<?php\nreturn 3;\n")->write('src/Rate.php', "<?php\nreturn 2;\n");
+}
+
+it('says what a commit holds and what it was made from, and reads it as itself while git has it', function (): void {
+    $repository = gitMerged();
+    $git = Git::at($repository->root);
+    $merge = trim($repository->git('rev-parse', 'merge'));
+    $judged = $git->judged(Revision::ref('merge'));
+
+    expect($judged instanceof JudgedCommit ? [
+        $judged->commit()->name(),
+        $judged->tree()->id(),
+        array_map(static fn(Revision $parent): string => $parent->name(), [...$judged->parents()]),
+    ] : $judged)->toBe([
+        $merge,
+        trim($repository->git('rev-parse', 'merge^{tree}')),
+        [trim($repository->git('rev-parse', 'main')), trim($repository->git('rev-parse', 'feature'))],
+    ])
+        ->and($judged instanceof JudgedCommit ? $git->readable($judged) : $judged)->toEqual(Revision::ref($merge));
+});
+
+it('reads a gone merge commit as the tree merging its parents again gives, and what changed since it as from the commit', function (): void {
+    $repository = gitMerged();
+    $judged = Git::at($repository->root)->judged(Revision::ref('merge'));
+    $fromCommit = changesByPath(Git::at($repository->root)->changesFrom(Revision::ref('merge')));
+    gitForget($repository);
+    $git = Git::at($repository->root);
+    $readable = $judged instanceof JudgedCommit ? $git->readable($judged) : $judged;
+
+    expect($readable instanceof Revision && $readable->isTree())->toBeTrue()
+        ->and($readable instanceof Revision ? $readable->name() : $readable)->toBe($judged instanceof JudgedCommit ? $judged->tree()->id() : '')
+        ->and($readable instanceof Revision ? changesByPath($git->changesFrom($readable)) : $readable)->toBe($fromCommit)
+        ->and($fromCommit)->toBe(['src/Money.php' => ['modified', [2], 'src/Money.php']])
+        ->and($readable instanceof Revision ? $git->fileAt(Path::of('src/Money.php'), $readable) : $readable)
+        ->toEqual(Contents::of("<?php\nreturn 2;\n"));
+});
+
+it('cannot read a gone commit that merging its parents again does not give back', function (string $recorded, string $why): void {
+    $repository = gitMerged();
+    $judged = Git::at($repository->root)->judged(Revision::ref('merge'));
+    gitForget($repository);
+    $other = Tree::parse(str_repeat('e', 40));
+    $changed = $judged instanceof JudgedCommit && $other instanceof Tree ? match ($recorded) {
+        'tree' => JudgedCommit::of($judged->commit(), $other, ...$judged->parents()),
+        'parent' => JudgedCommit::of($judged->commit(), $judged->tree(), [...$judged->parents()][0], Revision::ref(str_repeat('a', 40))),
+        'first' => JudgedCommit::of($judged->commit(), $judged->tree(), Revision::ref(str_repeat('a', 40)), [...$judged->parents()][1]),
+        default => JudgedCommit::of($judged->commit(), $judged->tree(), [...$judged->parents()][0]),
+    } : $judged;
+    $readable = $changed instanceof JudgedCommit ? Git::at($repository->root)->readable($changed) : $changed;
+
+    expect($readable instanceof CannotTell ? $readable->why() : $readable)->toContain($why);
+})->with([
+    'another tree than it held' => ['tree', 'another tree than it held'],
+    'a parent force-pushed away' => ['parent', 'is not a revision this repository has'],
+    'the branch it merged into gone' => ['first', 'is not a revision this repository has'],
+    'no merge, with one parent' => ['single', 'no merge of two commits'],
+]);
+
+it('cannot read a gone merge commit with git older than 2.38, which cannot merge its parents again', function (): void {
+    $repository = gitMerged();
+    $judged = Git::at($repository->root)->judged(Revision::ref('merge'));
+    gitForget($repository);
+    $shims = Scratch::directory();
+    $real = trim((string) shell_exec('command -v git'));
+    Scratch::write($shims, 'git', sprintf(<<<'SHIM'
+        #!/bin/sh
+        for argument in "$@"; do last="$argument"; done
+        if [ "$last" = version ]; then echo 'git version 2.37.4'; exit 0; fi
+        exec %s "$@"
+
+        SHIM, $real));
+    chmod(sprintf('%s/git', $shims), 0o755);
+    $readable = Environment::during(
+        ['PATH' => sprintf('%s:%s', $shims, (string) getenv('PATH'))],
+        static fn(): Revision|CannotTell => $judged instanceof JudgedCommit
+            ? Git::at($repository->root)->readable($judged)
+            : $judged,
+    );
+
+    expect($readable instanceof CannotTell ? $readable->why() : $readable)
+        ->toBe(sprintf('git version 2.37.4 cannot merge again the parents of %s, which is gone; git 2.38 can.', $judged instanceof JudgedCommit ? $judged->commit()->name() : ''));
+});
+
+it('reads the version git prints, and one it cannot read as older than every version', function (string $printed, bool $mergesTrees): void {
+    expect(GitVersion::printed($printed)->isAtLeast(GitVersion::printed('git version 2.38')))->toBe($mergesTrees);
+})->with([
+    'a release' => ['git version 2.38.0', true],
+    'a vendor\'s build' => ['git version 2.50.1 (Apple Git-155)', true],
+    'a later major' => ['git version 3.0.0', true],
+    'one minor short' => ['git version 2.37.9', false],
+    'an earlier major' => ['git version 1.99.0', false],
+    'not a version' => ['hub version 2.40.0', false],
+]);
+
+it('reads a commit\'s tree and parents from its headers alone, never from its message', function (): void {
+    $printed = sprintf(
+        "tree %s\nparent %s\nparent %s\nauthor Gate <gate@example.com> 1 +0000\n\nMerge\n\nparent %s\ntree %s\n",
+        str_repeat('e', 40),
+        str_repeat('a', 40),
+        str_repeat('b', 40),
+        str_repeat('c', 40),
+        str_repeat('f', 40),
+    );
+    $read = CommitObject::read(str_repeat('d', 40), $printed);
+
+    expect($read instanceof JudgedCommit ? [
+        $read->tree()->id(),
+        array_map(static fn(Revision $parent): string => $parent->name(), [...$read->parents()]),
+    ] : $read)->toBe([str_repeat('e', 40), [str_repeat('a', 40), str_repeat('b', 40)]])
+        ->and(CommitObject::read(str_repeat('d', 40), "author Gate\n\ntree x\n"))->toBeInstanceOf(CannotTell::class);
 });

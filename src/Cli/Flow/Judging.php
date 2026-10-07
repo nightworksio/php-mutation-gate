@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
 use NightWorksIO\MutationGate\Core\Baseline\Lowering;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
 use NightWorksIO\MutationGate\Core\Config\Improvement;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Settings;
@@ -538,7 +539,10 @@ final readonly class Judging
                 => Passed::of($plan->commit(), $this->settings->ci()->check(), $ownScopeProofs)->onOwnScopeCoverage(),
             default => Passed::of($plan->commit(), $this->settings->ci()->check(), $ownScopeProofs),
         };
-        $lastRun = LastRun::of($plan->commit(), $this->settings->ci()->check(), $plan->briefing()->profile());
+        $judged = $this->adapters->changes->judged($plan->commit());
+        $lastRun = $judged instanceof JudgedCommit
+            ? LastRun::of($judged, $this->settings->ci()->check(), $plan->briefing()->profile())
+            : $judged;
         $written = new Recorded($this->adapters)->write($plan, $results, $ledgers, $run, $passed, $lastRun);
 
         return match (true) {
