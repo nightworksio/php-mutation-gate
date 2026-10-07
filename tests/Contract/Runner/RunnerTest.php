@@ -1082,8 +1082,8 @@ it('stops a mutant\'s run at the lower floor timeouts.tighter gives its mutator,
 
 // A test that stats a dangling link reads it alike through patched
 // Infection's include-interceptor and without it, so the loop's < made <=,
-// which looks twice and finds the link as before, survives, and the loop's
-// start raised to 1, which never looks, is killed.
+// which looks twice and finds the link as before, survives, and its < made
+// >=, which never looks, is killed.
 it('stats a dangling link through patched Infection\'s interceptor as PHP does, so a test of one kills only a mutant that changes what it finds', function (): void {
     $files = ['src/Linked.php' => 'interceptor/Linked.php', 'tests/LinkedSpec.php' => 'interceptor/LinkedSpec.php'];
 
@@ -1093,7 +1093,7 @@ it('stats a dangling link through patched Infection\'s interceptor as PHP does, 
 
     $library = Library::infectionWithin(Triage::standard()->bounds());
     $request = MutationRequest::of(Paths::of(Path::of('src/Linked.php')), WholeSuite::tests())
-        ->narrowedTo(Paths::of(Path::of('src/Linked.php')), Narrowing::none()->toMutators(Mutators::named('IncrementInteger', 'LessThan')));
+        ->narrowedTo(Paths::of(Path::of('src/Linked.php')), Narrowing::none()->toMutators(Mutators::named('LessThan', 'LessThanNegotiation')));
 
     try {
         $result = withPatchedInfection(static fn(): MutationResult|CannotJudge => $library->runner()->mutate($request));
@@ -1110,7 +1110,7 @@ it('stats a dangling link through patched Infection\'s interceptor as PHP does, 
     $judged = array_map(static fn(Mutant $mutant): array => [$mutant->mutation()->mutator(), $mutant->status()], $loop);
     usort($judged, static fn(array $one, array $other): int => $one[0] <=> $other[0]);
 
-    expect($judged)->toBe([['IncrementInteger', MutantStatus::Killed], ['LessThan', MutantStatus::Survived]]);
+    expect($judged)->toBe([['LessThan', MutantStatus::Survived], ['LessThanNegotiation', MutantStatus::Killed]]);
 })->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 
 it('runs, patched, a mutant Infection skips unpatched at timeouts.most, and times it out at the most', function (): void {
