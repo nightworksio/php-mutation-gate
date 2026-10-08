@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Workspace;
+use NightWorksIO\MutationGate\Core\Plan\DoomedRecord;
+use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
@@ -82,6 +84,14 @@ it('reads the exit infection:patch gives a release it does not patch as the one 
     preg_match('/^UNSUPPORTED_RELEASE = (?<code>\d+)$/mu', actionScript(), $found);
 
     expect(intval($found['code'] ?? '-1'))->toBe(ExitCode::Failed->value);
+});
+
+it('reads a doomed shard\'s survivor where the shard\'s result writes it, and fails its job as a failed verdict does', function (): void {
+    preg_match('/^FAILED = (?<code>\d+)$/mu', actionScript(), $failed);
+
+    expect([scriptText('DOOMED'), scriptText('DOOMED_UNIT'), scriptText('DOOMED_MUTANT'), scriptText('DOOMED_TREE'), scriptText('DOOMED_FLOOR')])
+        ->toBe([DoomedRecord::SECTION, ShardResultFile::UNIT, DoomedRecord::MUTANT, DoomedRecord::TREE, DoomedRecord::FLOOR])
+        ->and(intval($failed['code'] ?? '-1'))->toBe(ExitCode::Failed->value);
 });
 
 it('names the package as Composer does', function (): void {

@@ -340,8 +340,12 @@ jobs:
     timeout-minutes: 360
     permissions:
       contents: read
+    # ADR-0008, decision 6: once a shard's result names a survivor under
+    # `doomed`, its job fails, and fail-fast cancels the other shards. The
+    # verdict reads each shard that left no result beside a doomed one as
+    # stopped too.
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         shard: ${{ fromJSON(needs.plan.outputs.shards) }}
     steps:
@@ -389,6 +393,11 @@ jobs:
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 1
+      # Reads the result alone and runs none of the project's code.
+      - name: Stop the other shards once this one cannot pass
+        env:
+          RESULT: .mutation-gate/results/${{ matrix.shard.id }}.json
+        run: python3 "${GATE_ACTION}/resources/action/gate_action.py" doomed
 
   # On a pull request, the last run's survivors run again beside the shards,
   # for a signal within minutes (ADR-0020, decisions 19 to 21). It runs the

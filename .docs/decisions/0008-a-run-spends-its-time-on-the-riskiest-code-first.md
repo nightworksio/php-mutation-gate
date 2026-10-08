@@ -473,7 +473,10 @@ presets for Laravel, Symfony and plain libraries.
      shard's result names a survivor under `doomed`. The step that cancels
      reads that result alone and runs none of the project's code. The
      permission to cancel therefore never reaches a job that runs a pull
-     request's code. The verdict reads each shard that left no result
+     request's code. The reusable workflow's shard job ends with such a
+     step: it fails the job where the result names a survivor under
+     `doomed`, after the result is uploaded, and the matrix's `fail-fast`
+     cancels the other shards, which needs no permission at all. The verdict reads each shard that left no result
      beside a shard that stopped as stopped too, so its units are unjudged
      as above. Without a doomed shard, a shard that left no result still
      means the verdict cannot judge.

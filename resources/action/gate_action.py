@@ -13,9 +13,13 @@ Usage:
                            in the file SAID: a warning where the release runs
                            unpatched, a refusal where it could not be patched
   gate_action.py outputs   the verdict, scores, report paths and files, and plan
+  gate_action.py doomed    from a shard's result, RESULT: fails, naming the
+                           survivor, where the shard stopped once its run could
+                           not pass, so the matrix stops the other shards
 
 Every subcommand reads GitHub's environment and writes `key=value` lines to
-$GITHUB_OUTPUT, or refuses with exit code 2 and says why.
+$GITHUB_OUTPUT, or refuses with exit code 2 and says why; `doomed` exits 1
+where the shard is doomed.
 
 Two halves: the functions below `main` read the environment and files, and
 the ones above decide from what they read. The deciding half is what
@@ -73,6 +77,16 @@ EXIT_CODES = {0: "passed", 1: "failed", 2: "cannot-judge"}
 # What `infection:patch` exits with where the installed Infection is a release
 # it does not patch, which then runs with its own limit for each mutant.
 UNSUPPORTED_RELEASE = 1
+# The section of a shard's result that names the survivor it stopped on once
+# its run could not pass (ADR-0008, decision 6), and the fields it names it by.
+DOOMED = "doomed"
+DOOMED_UNIT = "unit"
+DOOMED_MUTANT = "mutant"
+DOOMED_TREE = "tree"
+DOOMED_FLOOR = "floor"
+# What a doomed shard's job exits with: the gate's exit code for a failed
+# verdict, which the matrix's fail-fast reads as the job failing.
+FAILED = 1
 
 
 class Refused(Exception):
@@ -229,6 +243,18 @@ def infection_patched(code: int, said: str) -> str | None:
     raise Refused(said or f"infection:patch exited {code}.")
 
 
+def doomed(result: dict) -> str | None:
+    """Why a shard's job fails: the survivor its result names under `doomed`; nothing where none."""
+    found = result.get(DOOMED)
+    if not isinstance(found, dict):
+        return None
+    return (
+        f"Shard stopped: survivor {found.get(DOOMED_MUTANT, '?')} in {found.get(DOOMED_UNIT, '?')} "
+        f"leaves {found.get(DOOMED_TREE, '?')} below its floor of {found.get(DOOMED_FLOOR, '?')}, "
+        "so the run cannot pass and the other shards stop (ADR-0008, decision 6)."
+    )
+
+
 def command_text(text: str) -> str:
     """Text a workflow command carries whole: its percent signs and line breaks escaped."""
     return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
@@ -282,6 +308,8 @@ def output_lines(values: dict[str, str]) -> str:
 
 def main(argv: list[str]) -> int:
     commands = {"guard": _guard, "resolve": _resolve, "config": _config, "infection": _infection, "outputs": _outputs}
+    if len(argv) == 2 and argv[1] == "doomed":
+        return _doomed()
     if len(argv) != 2 or argv[1] not in commands:
         print(__doc__, file=sys.stderr)
         return 2
@@ -340,6 +368,15 @@ def _infection() -> dict[str, str]:
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as file:
             file.write(f"> [!WARNING]\n> {warning}\n\n")
     return {}
+
+
+def _doomed() -> int:
+    path = os.environ.get("RESULT", "")
+    why = doomed(_json_file(path)) if os.path.isfile(path) else None
+    if why is None:
+        return 0
+    print(f"::error title=Shard doomed::{command_text(why)}")
+    return FAILED
 
 
 def _outputs() -> dict[str, str]:

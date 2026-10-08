@@ -395,6 +395,18 @@ class Shards(unittest.TestCase):
         self.assertEqual(2, len(running))
         self.assertFalse(any("GITHUB_TOKEN" in line for found in running for line in found))
 
+    def test_a_doomed_shard_fails_its_job_after_its_result_is_kept_and_the_matrix_stops_the_others(self):
+        lines = job(WORKFLOW, "shard")
+        found = steps(lines)
+        kept = next(at for at, one in enumerate(found) if "actions/upload-artifact@" in one[0])
+        stopping = next(at for at, one in enumerate(found) if one[0].strip() == "- name: Stop the other shards once this one cannot pass")
+
+        self.assertIn("      fail-fast: true", lines)
+        self.assertLess(kept, stopping)
+        self.assertTrue(any("gate_action.py\" doomed" in line for line in found[stopping]))
+        self.assertFalse(any("secrets." in line or "github.token" in line for line in found[stopping]))
+        self.assertFalse(runs_project_code(found[stopping]))
+
     def test_every_job_that_runs_mutants_on_the_plan_has_the_plans_coverage_map(self):
         # Each timeout, kill and mutant out of memory is judged by its
         # unmutated control, timed from the map the plan made, so a job that

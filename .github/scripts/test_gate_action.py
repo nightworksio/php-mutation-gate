@@ -205,6 +205,25 @@ class InfectionPatch(unittest.TestCase):
             action.infection_patched(127, "")
 
 
+class Doomed(unittest.TestCase):
+    def test_names_the_survivor_a_doomed_shard_stopped_on(self):
+        result = {"doomed": {"unit": "src/Money.php", "mutant": "a1b2c3d4e5f6", "tree": "src", "floor": "100%", "why": "tree"}}
+
+        why = action.doomed(result)
+
+        self.assertIsNotNone(why)
+        self.assertIn("a1b2c3d4e5f6", why)
+        self.assertIn("src/Money.php", why)
+        self.assertIn("src below its floor of 100%", why)
+
+    def test_names_nothing_where_the_shard_ran_to_its_end(self):
+        self.assertIsNone(action.doomed({"shard": 1, "mutants": []}))
+        self.assertIsNone(action.doomed({"doomed": "a1b2c3d4e5f6"}))
+
+    def test_fails_the_job_with_the_gates_exit_code_for_a_failed_verdict(self):
+        self.assertEqual(action.EXIT_CODES[action.FAILED], "failed")
+
+
 class WorkflowCommand(unittest.TestCase):
     def test_escapes_what_a_workflow_command_reads_as_its_end(self):
         self.assertEqual(action.command_text("50% done\r\nnext"), "50%25 done%0D%0Anext")
