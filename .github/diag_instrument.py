@@ -7,7 +7,7 @@ hook = r'''        if (null !== $this->timeout && $this->timeout < microtime(tru
                 $pid = $this->getPid();
                 $tree = $pid === null ? '' : (string) shell_exec('ps -o pid,ppid,etimes,pcpu,rss,stat,args --forest -g $(ps -o sid= -p ' . (int) $pid . ') 2>/dev/null | cut -c1-300');
                 $line = sprintf("=== timeout ran %.2fs limit %.2f load %s\n", microtime(true) - $this->starttime, $this->timeout, implode(',', array_map(fn ($l) => sprintf('%.1f', $l), sys_getloadavg() ?: [])));
-                if (! $diagCmd) { $diagCmd = true; $line .= 'CMD ' . substr($this->getCommandLine(), 0, 4000) . "\n"; }
+                $line .= 'CMD ' . substr($this->getCommandLine(), 0, 6000) . "\n";
                 $line .= "TREE\n" . $tree . "OUT\n" . substr($this->getOutput(), -2500) . "\nERR beats=" . substr_count($this->getErrorOutput(), "\x06") . "\n" . substr(str_replace("\x06", '', $this->getErrorOutput()), -1500) . "\n";
                 file_put_contents($diagFile, $line, FILE_APPEND);
             }
