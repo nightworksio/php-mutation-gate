@@ -1,23 +1,28 @@
-import re, sys
-p = 'vendor/pestphp/pest-plugin-mutate/src/MutationTest.php'
+p = 'vendor/symfony/process/Process.php'
 s = open(p).read()
-log = r'''
-    private function diagLog(string $what): void
-    {
-        $file = getenv('DIAG_SHARD_LOG');
-        if (! is_string($file) || $file === '') { return; }
-        static $cmd = false;
-        $p = $this->process;
-        $line = sprintf("=== %s %.2fs limit=%s exit=%s file=%s\n", $what, microtime(true) - (float) $this->start, (string) $p->getTimeout(), var_export($p->isRunning() ? null : $p->getExitCode(), true), $this->mutation->file->getRealPath());
-        if (! $cmd) { $cmd = true; $line .= 'CMD ' . $p->getCommandLine() . "\n"; }
-        if ($what !== 'escaped') { $line .= substr($p->getOutput(), -3000) . "\n--- err\n" . substr(str_replace("\x06", '<B>', $p->getErrorOutput()), -1500) . "\n"; }
-        file_put_contents($file, $line, FILE_APPEND);
-    }
+hook = r'''        if (null !== $this->timeout && $this->timeout < microtime(true) - $this->starttime) {
+            $diagFile = getenv('DIAG_SHARD_LOG');
+            if (is_string($diagFile) && $diagFile !== '') {
+                static $diagCmd = false;
+                $pid = $this->getPid();
+                $tree = $pid === null ? '' : (string) shell_exec('ps -o pid,ppid,etimes,pcpu,rss,stat,args --forest -g $(ps -o sid= -p ' . (int) $pid . ') 2>/dev/null | cut -c1-300');
+                $line = sprintf("=== timeout ran %.2fs limit %.2f load %s\n", microtime(true) - $this->starttime, $this->timeout, implode(',', array_map(fn ($l) => sprintf('%.1f', $l), sys_getloadavg() ?: [])));
+                if (! $diagCmd) { $diagCmd = true; $line .= 'CMD ' . substr($this->getCommandLine(), 0, 4000) . "\n"; }
+                $line .= "TREE\n" . $tree . "OUT\n" . substr($this->getOutput(), -2500) . "\nERR beats=" . substr_count($this->getErrorOutput(), "\x06") . "\n" . substr(str_replace("\x06", '', $this->getErrorOutput()), -1500) . "\n";
+                file_put_contents($diagFile, $line, FILE_APPEND);
+            }
+            $this->stop(0);
+
+            throw new ProcessTimedOutException($this, ProcessTimedOutException::TYPE_GENERAL);
+        }
 '''
-s = s.replace("    private function calculateTimeout(): int", log + "\n    private function calculateTimeout(): int", 1)
-s = s.replace("        } catch (ProcessTimedOutException) {\n", "        } catch (ProcessTimedOutException) {\n            $this->diagLog('timeout');\n", 1)
-s = s.replace("        if ($this->process->isSuccessful()) {\n            $this->updateResult(MutationTestResult::Untested);", "        if ($this->process->isSuccessful()) {\n            $this->diagLog('escaped');\n            $this->updateResult(MutationTestResult::Untested);", 1)
-s = s.replace("        $this->updateResult(MutationTestResult::Tested);", "        $this->diagLog('tested');\n        $this->updateResult(MutationTestResult::Tested);", 1)
-assert s.count('diagLog(') == 4, s.count('diagLog(')
+old = '''        if (null !== $this->timeout && $this->timeout < microtime(true) - $this->starttime) {
+            $this->stop(0);
+
+            throw new ProcessTimedOutException($this, ProcessTimedOutException::TYPE_GENERAL);
+        }
+'''
+assert old in s
+s = s.replace(old, hook, 1)
 open(p, 'w').write(s)
 print('instrumented')

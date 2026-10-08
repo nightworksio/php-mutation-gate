@@ -55,14 +55,13 @@ jobs:
           python3 -c "import json;d=json.load(open('.mutation-gate/results/4.json'));print({k:(len(v) if isinstance(v,(list,dict)) else v) for k,v in d.items()});print(json.dumps(d.get('skipped'))[:3000]);print(json.dumps(d.get('measured'))[:1500])" || true
           test -f /tmp/shard.log || { echo "no log"; exit 0; }
           grep -c '^=== ' /tmp/shard.log || true
-          grep '^=== ' /tmp/shard.log | awk '{print $2}' | sort | uniq -c
-          grep '^=== ' /tmp/shard.log | head -60
+          grep '^=== ' /tmp/shard.log | head -80
           grep -m1 '^CMD ' /tmp/shard.log | cut -c1-3000
           python3 - <<'PY'
           text = open('/tmp/shard.log').read()
           shown = 0
           for block in text.split('=== ')[1:]:
-              if block.startswith('timeout') and shown < 6:
+              if block.startswith('timeout') and shown < 8:
                   shown += 1
                   print('##########', block[:6000])
           PY
