@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Tests\Support;
 
 use function array_values;
+use function file_put_contents;
 
 use PHPUnit\Event\Code\Test;
 use PHPUnit\Event\Facade;
@@ -25,6 +26,9 @@ use PHPUnit\TextUI\CliArguments\Builder;
 use PHPUnit\TextUI\Configuration\Configuration;
 use PHPUnit\TextUI\Configuration\Merger;
 use PHPUnit\TextUI\XmlConfiguration\DefaultConfiguration;
+use PHPUnit\TextUI\XmlConfiguration\Loader;
+
+use function sprintf;
 
 /**
  * PHPUnit's configuration and result as a run ends, built without touching
@@ -38,6 +42,21 @@ final class PhpUnitResults
         $cli = new Builder()->fromParameters(array_values(['--no-configuration', ...$options]));
 
         return new Merger()->merge($cli, DefaultConfiguration::create());
+    }
+
+    /**
+     * The configuration an XML file that sets this attribute of `<phpunit>`
+     * to true gives, with these command line options over it: how a project
+     * turns off on the command line what its file turns on, which PHPUnit
+     * takes without the warning it gives where both are options.
+     */
+    public static function configuredOver(string $attribute, string ...$options): Configuration
+    {
+        $file = sprintf('%s/phpunit.xml', Scratch::directory());
+        file_put_contents($file, sprintf('<?xml version="1.0"?>%s<phpunit %s="true"/>%s', PHP_EOL, $attribute, PHP_EOL));
+        $cli = new Builder()->fromParameters(array_values(['--configuration', $file, ...$options]));
+
+        return new Merger()->merge($cli, new Loader()->load($file));
     }
 
     /**
