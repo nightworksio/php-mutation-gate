@@ -347,7 +347,11 @@ needs remain, and the runners' own behaviour shapes each answer.
 11. **Each mutant is checked where it pays: before its tests, after them, or
     both.**
     - Every survivor that is not flaky is checked after its tests, in its
-      shard, once the shard's invocations are done. The checks count
+      shard, once the shard's invocations are done; in a shard that stops
+      once its run cannot pass, after each chunk's invocation instead, so
+      a survivor its check kills dooms nothing (ADR-0008, decision 6). The
+      analyser runs over the originals once for the shard, and each survivor
+      is checked once. The checks count
       against the time budget (ADR-0008). The run over the originals starts
       only while time is left, and each check only where the time left has
       room for it: as long as the checks so far took on average, or, before

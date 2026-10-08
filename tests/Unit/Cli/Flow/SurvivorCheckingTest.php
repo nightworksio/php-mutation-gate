@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Flow\Checked;
+use NightWorksIO\MutationGate\Cli\Flow\Stopwatch;
 use NightWorksIO\MutationGate\Cli\Flow\SurvivorChecking;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
@@ -16,6 +17,8 @@ use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Cost\Step;
+use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -112,7 +115,21 @@ function checking(
 ): SurvivorChecking {
     $ports = $checker instanceof RecordingChecker ? [$runner, $checker] : [$runner];
 
-    return new SurvivorChecking(Flows::adapters($project, [], ...$ports), $clock, $deadline, Seconds::of((float) $perCheck));
+    return new SurvivorChecking(
+        Flows::adapters($project, [], ...$ports),
+        $clock,
+        $deadline,
+        Seconds::of((float) $perCheck),
+        checkWatch(),
+    );
+}
+
+/** A shard's stopwatch, on a clock of its own, so it reads none of the times a test scripts for the checks. */
+function checkWatch(): Stopwatch
+{
+    $clock = new TickingClock('2026-01-01T00:00:00Z', 1);
+
+    return new Stopwatch($clock, $clock->now());
 }
 
 /** @return list<string> each warning the checks raise */
@@ -130,8 +147,12 @@ it('checks nothing where no analyser is configured, or no survivor is left once 
     $unconfigured = checking($project, NoAnalyser::configured(), ScriptedRunner::fixture(), Unlimited::time())->checked($mutants, MutantIds::none());
     $allFlaky = checking($project, $checker, ScriptedRunner::fixture(), Unlimited::time())->checked($mutants, $flaky);
 
-    expect($unconfigured)->toEqual(new Checked($mutants, SurvivorChecks::none()))
-        ->and($allFlaky)->toEqual(new Checked($mutants, SurvivorChecks::none()))
+    expect($unconfigured)->toEqual(new Checked(
+        $mutants,
+        SurvivorChecks::none(),
+        Mutants::of(checkedSurvivor($mutants, 'src/Money.php'), checkedSurvivor($mutants, 'src/Held.php')),
+    ))
+        ->and($allFlaky)->toEqual(new Checked($mutants, SurvivorChecks::none(), Mutants::none()))
         ->and($checker->warmUps())->toBe([]);
 });
 
@@ -190,11 +211,11 @@ it('lists the files a survivor can break where it changes what its file declares
     $unread = checkedBy($project, []);
     $clock = new TickingClock('2026-01-01T00:00:00Z', 1);
 
-    new SurvivorChecking(Flows::adapters($project, [], ScriptedRunner::fixture(), $bodies, $checkout), $clock, Unlimited::time(), Seconds::of(60.0))
+    new SurvivorChecking(Flows::adapters($project, [], ScriptedRunner::fixture(), $bodies, $checkout), $clock, Unlimited::time(), Seconds::of(60.0), checkWatch())
         ->checked(checkedMutants(), MutantIds::none());
-    new SurvivorChecking(Flows::adapters($project, [], $retyped, $declarations, $checkout), $clock, Unlimited::time(), Seconds::of(60.0))
+    new SurvivorChecking(Flows::adapters($project, [], $retyped, $declarations, $checkout), $clock, Unlimited::time(), Seconds::of(60.0), checkWatch())
         ->checked(checkedMutants(), MutantIds::none());
-    new SurvivorChecking(Flows::adapters($project, [], $retyped, $unread, $checkout), $clock, Unlimited::time(), Seconds::of(60.0))
+    new SurvivorChecking(Flows::adapters($project, [], $retyped, $unread, $checkout), $clock, Unlimited::time(), Seconds::of(60.0), checkWatch())
         ->checked(checkedMutants(), MutantIds::none());
 
     expect($bodies->dependents())->toBe([[], []])
@@ -228,7 +249,7 @@ it('reads what a printed survivor declares against its file printed, not as the 
     ]);
     $checkout = new ChangeSourceFake(Revision::ref('base'), Changes::none(), [Revision::workingTree()->name() => $files]);
 
-    new SurvivorChecking(Flows::adapters($project, [], $printed, $checker, $checkout), new TickingClock('2026-01-01T00:00:00Z', 1), Unlimited::time(), Seconds::of(60.0))
+    new SurvivorChecking(Flows::adapters($project, [], $printed, $checker, $checkout), new TickingClock('2026-01-01T00:00:00Z', 1), Unlimited::time(), Seconds::of(60.0), checkWatch())
         ->checked($mutants, MutantIds::none());
 
     expect($checker->dependents())->toBe([[], []]);
@@ -470,4 +491,41 @@ it('allows each check, of the original as printed and of the mutant, the seconds
     expect($checker->limits())->not->toBeEmpty()
         ->and($checker->limits())->each->toEqual(Seconds::of(45.0))
         ->and(count($checker->limits()))->toBe(count($checker->checks()));
+});
+
+it('warms the analyser up once for every round of checks it makes, and checks no survivor passed over again', function (): void {
+    $project = Scratch::directory();
+    $mutants = checkedMutants();
+    $money = checkedSurvivor($mutants, 'src/Money.php');
+    $held = checkedSurvivor($mutants, 'src/Held.php');
+    $checker = checkedBy($project, [checkedAt($money) => checkedOriginals(), checkedAt($held) => checkedOriginals()]);
+    $checking = checking($project, $checker, ScriptedRunner::fixture(), Unlimited::time());
+
+    $first = $checking->checked(Flows::mutantsOf('src/Money.php'), MutantIds::none());
+    $second = $checking->checked($mutants, $first->examinedIds());
+
+    expect($checker->warmUps())->toEqual([Paths::none()])
+        ->and(array_map(static fn(array $check): string => $check[1], $checker->checks()))->toBe([checkedAt($money), checkedAt($held)])
+        ->and($first->examinedIds())->toEqual(MutantIds::of($money->id()))
+        ->and($second->examined)->toEqual(Mutants::of($held));
+});
+
+it('times each round of checks on the shard\'s stopwatch, as a static check of the survivors it took up, and none that took up none', function (): void {
+    $project = Scratch::directory();
+    $mutants = checkedMutants();
+    $clock = new TickingClock('2026-01-01T00:00:00Z', 1);
+    $stopwatch = new Stopwatch($clock, $clock->now());
+    $checking = new SurvivorChecking(
+        Flows::adapters($project, [], ScriptedRunner::fixture(), checkedBy($project, [])),
+        $clock,
+        Unlimited::time(),
+        Seconds::of(60.0),
+        $stopwatch,
+    );
+
+    $checking->checked($mutants, MutantIds::none());
+    $checking->checked($mutants, MutantIds::of(checkedSurvivor($mutants, 'src/Money.php')->id(), checkedSurvivor($mutants, 'src/Held.php')->id()));
+
+    expect(array_map(static fn(StepTime $step): array => [$step->step(), $step->count()], [...$stopwatch->steps()]))
+        ->toBe([[Step::StaticCheck, 2]]);
 });

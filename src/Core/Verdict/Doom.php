@@ -22,8 +22,9 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * higher of its declared floor and the baseline's; or on a line the change
  * added or modified, where the new-code floor that line is held to, its
  * tree's own or the run's, is 100. A score of whole hundredths below 100 is
- * all one survivor leaves, so either floor fails. It judges only runs no
- * static analysis can clear a survivor of, so it proves none equivalent.
+ * all one survivor leaves, so either floor fails. A survivor static
+ * analysis proved equivalent is no survivor to the verdict, so it dooms
+ * nothing; one static analysis killed is a survivor no more.
  */
 final readonly class Doom
 {
@@ -47,12 +48,15 @@ final readonly class Doom
         return new self($trees, $baseline, $reach, $newCode, $ignoring);
     }
 
-    /** The first of these mutants of these units that makes the run certain to fail, in order; or none. */
-    public function first(Units $units, Mutants $mutants, MutantIds $flaky): Doomed|Undoomed
+    /**
+     * The first of these mutants of these units that makes the run certain
+     * to fail, in order; or none. Those flaky or proven equivalent never do.
+     */
+    public function first(Units $units, Mutants $mutants, MutantIds $flaky, MutantIds $equivalent): Doomed|Undoomed
     {
         foreach ($mutants as $mutant) {
             $unit = $this->unitOf($units, $mutant);
-            $doomed = $unit instanceof Unit && $this->counts($mutant, $flaky)
+            $doomed = $unit instanceof Unit && $this->counts($mutant, $flaky) && ! $equivalent->has($mutant->id())
                 ? $this->doomedIn($unit, $mutant)
                 : Undoomed::run();
 

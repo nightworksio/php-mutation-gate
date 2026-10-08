@@ -427,12 +427,10 @@ presets for Laravel, Symfony and plain libraries.
      runs to its end, since later runs build on what it records.
    - **Doomed.** The run is certain to fail once one of its mutants is a
      survivor the verdict will count. It did not prove flaky when run again
-     (decision 3), no ignore leaves it out (decision 4), and it is not proven
-     equivalent. Static analysis cannot clear it either: the run stops only
-     where `equivalence.static` is false and no static check runs
-     (`staticCheck.tool: none`, ADR-0020), since either could prove a
-     survivor equivalent or kill it after its tests. And one of two floors
-     holds it at 100:
+     (decision 3), no ignore leaves it out (decision 4), and static analysis
+     does not clear it: where `equivalence.static` is true it is not proven
+     equivalent (ADR-0013), and where a static check runs (ADR-0020), its
+     check does not kill it. And one of two floors holds it at 100:
      - its tree's floor, the higher of the declared one and the baseline's;
      - or, for a mutant on a line the change added or modified, the new-code
        floor that line is held to, its tree's own or `newCode.floor`.
@@ -445,10 +443,14 @@ presets for Laravel, Symfony and plain libraries.
      in chunks of about two minutes of the work the cost model expects
      (ADR-0006), opening run included. A held unit runs alone, as in a
      budgeted run, and a chunk always starts with its first unit, however
-     large. After each chunk, its survivors confirmed, the shard looks for a
-     doomed survivor, and it stops at the first. A shard that finds none runs
-     every unit, at the cost of one runner opening per chunk. One code path
-     serves every runner.
+     large. After each chunk, its survivors confirmed and checked by static
+     analysis, the shard looks for a doomed survivor, and it stops at the
+     first. The analyser runs over the original files once for the shard,
+     before the first chunk's survivors are checked, and each survivor is
+     checked once, so the check after the shard's last chunk takes up only
+     the survivors no chunk's check did. A shard that finds none runs every
+     unit, at the cost of one runner opening per chunk. One code path serves
+     every runner.
    - **What it leaves.** The shard's result names the survivor under
      `doomed`, with these fields:
      - `unit`: the unit's path;

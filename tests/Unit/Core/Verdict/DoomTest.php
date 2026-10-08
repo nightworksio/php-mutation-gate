@@ -74,14 +74,14 @@ it('dooms a survivor in a tree whose floor is 100, naming its unit, its mutant, 
     $survivor = $mutant('src/Money.php', 7, MutantStatus::Survived);
     $mutants = Mutants::of($mutant('src/Money.php', 6, MutantStatus::Killed), $survivor);
 
-    expect($named($doom(Floor::of(80))->first($units('src/Money.php'), $mutants, MutantIds::none())))
+    expect($named($doom(Floor::of(80))->first($units('src/Money.php'), $mutants, MutantIds::none(), MutantIds::none())))
         ->toBe(['src/Money.php', $survivor->id()->value(), 'src', 10_000, 'tree']);
 });
 
 it('dooms a survivor in a tree the baseline holds to 100 above the floor it declares', function () use ($doom, $mutant, $units, $named): void {
     $survivor = $mutant('app/Kernel.php', 2, MutantStatus::Survived);
 
-    expect($named($doom(Floor::of(80))->first($units('app/Kernel.php'), Mutants::of($survivor), MutantIds::none())))
+    expect($named($doom(Floor::of(80))->first($units('app/Kernel.php'), Mutants::of($survivor), MutantIds::none(), MutantIds::none())))
         ->toBe(['app/Kernel.php', $survivor->id()->value(), 'app', 10_000, 'tree']);
 });
 
@@ -89,18 +89,18 @@ it('dooms a survivor on a changed line where the new-code floor is 100, below a 
     $changed = $mutant('lib/Changed.php', 3, MutantStatus::Survived);
     $unchanged = $mutant('lib/Changed.php', 4, MutantStatus::Survived);
 
-    expect($named($doom(Floor::whole())->first($units('lib/Changed.php'), Mutants::of($unchanged, $changed), MutantIds::none())))
+    expect($named($doom(Floor::whole())->first($units('lib/Changed.php'), Mutants::of($unchanged, $changed), MutantIds::none(), MutantIds::none())))
         ->toBe(['lib/Changed.php', $changed->id()->value(), 'lib', 10_000, 'newCode'])
-        ->and($named($doom(Floor::of(99.99))->first($units('lib/Changed.php'), Mutants::of($changed), MutantIds::none())))
+        ->and($named($doom(Floor::of(99.99))->first($units('lib/Changed.php'), Mutants::of($changed), MutantIds::none(), MutantIds::none())))
         ->toBe('undoomed')
-        ->and($named($doom(Floor::whole())->first($units('lib/Changed.php'), Mutants::of($unchanged), MutantIds::none())))
+        ->and($named($doom(Floor::whole())->first($units('lib/Changed.php'), Mutants::of($unchanged), MutantIds::none(), MutantIds::none())))
         ->toBe('undoomed');
 });
 
 it('holds a changed line to the new-code floor its tree declares in place of the run\'s', function () use ($doom, $mutant, $units, $named): void {
     $changed = $mutant('billing/Invoice.php', 3, MutantStatus::Survived);
 
-    expect($named($doom(Floor::whole())->first($units('billing/Invoice.php'), Mutants::of($changed), MutantIds::none())))
+    expect($named($doom(Floor::whole())->first($units('billing/Invoice.php'), Mutants::of($changed), MutantIds::none(), MutantIds::none())))
         ->toBe('undoomed');
 });
 
@@ -108,19 +108,19 @@ it('judges a changed line of an exempt tree by the new-code floor, as the verdic
     $changed = $mutant('legacy/Old.php', 3, MutantStatus::Survived);
     $unchanged = $mutant('legacy/Old.php', 4, MutantStatus::Survived);
 
-    expect($named($doom(Floor::whole())->first($units('legacy/Old.php'), Mutants::of($unchanged, $changed), MutantIds::none())))
+    expect($named($doom(Floor::whole())->first($units('legacy/Old.php'), Mutants::of($unchanged, $changed), MutantIds::none(), MutantIds::none())))
         ->toBe(['legacy/Old.php', $changed->id()->value(), 'legacy', 10_000, 'newCode']);
 });
 
 it('names the tree\'s floor before the new code\'s where a survivor fails both', function () use ($doom, $mutant, $units, $named): void {
     $survivor = $mutant('src/Money.php', 3, MutantStatus::Survived);
 
-    expect($named($doom(Floor::whole())->first($units('src/Money.php'), Mutants::of($survivor), MutantIds::none())))
+    expect($named($doom(Floor::whole())->first($units('src/Money.php'), Mutants::of($survivor), MutantIds::none(), MutantIds::none())))
         ->toBe(['src/Money.php', $survivor->id()->value(), 'src', 10_000, 'tree']);
 });
 
 it('dooms nothing but a survivor: not a kill, a timeout, an uncovered, errored or unjudged mutant, nor one out of memory or a marker ignores', function (MutantStatus $status) use ($doom, $mutant, $units, $named): void {
-    expect($named($doom(Floor::whole())->first($units('src/Money.php'), Mutants::of($mutant('src/Money.php', 3, $status)), MutantIds::none())))
+    expect($named($doom(Floor::whole())->first($units('src/Money.php'), Mutants::of($mutant('src/Money.php', 3, $status)), MutantIds::none(), MutantIds::none())))
         ->toBe('undoomed');
 })->with([
     'killed' => [MutantStatus::Killed],
@@ -132,6 +132,17 @@ it('dooms nothing but a survivor: not a kill, a timeout, an uncovered, errored o
     'ignored by marker' => [MutantStatus::IgnoredByMarker],
 ]);
 
+it('dooms no survivor static analysis proved equivalent', function () use ($doom, $mutant, $units, $named): void {
+    $equivalent = $mutant('src/Money.php', 3, MutantStatus::Survived);
+    $survivor = $mutant('src/Tax.php', 7, MutantStatus::Survived);
+    $proven = MutantIds::of($equivalent->id());
+
+    expect($named($doom(Floor::whole())->first($units('src/Money.php'), Mutants::of($equivalent), MutantIds::none(), $proven)))
+        ->toBe('undoomed')
+        ->and($named($doom(Floor::whole())->first($units('src/Money.php', 'src/Tax.php'), Mutants::of($equivalent, $survivor), MutantIds::none(), $proven)))
+        ->toBe(['src/Tax.php', $survivor->id()->value(), 'src', 10_000, 'tree']);
+});
+
 it('dooms no survivor that proved flaky, or that an ignore names', function () use ($trees, $reach, $mutant, $units, $named): void {
     $survivor = $mutant('src/Money.php', 7, MutantStatus::Survived);
     $ignoring = Ignoring::of(
@@ -140,18 +151,18 @@ it('dooms no survivor that proved flaky, or that an ignore names', function () u
     );
     $over = static fn(Ignoring $ignoring): Doom => Doom::over($trees, Baseline::none(), $reach, Floor::whole(), $ignoring);
 
-    expect($named($over(Ignoring::none())->first($units('src/Money.php'), Mutants::of($survivor), MutantIds::of($survivor->id()))))
+    expect($named($over(Ignoring::none())->first($units('src/Money.php'), Mutants::of($survivor), MutantIds::of($survivor->id()), MutantIds::none())))
         ->toBe('undoomed')
-        ->and($named($over($ignoring)->first($units('src/Money.php'), Mutants::of($survivor), MutantIds::none())))
+        ->and($named($over($ignoring)->first($units('src/Money.php'), Mutants::of($survivor), MutantIds::none(), MutantIds::none())))
         ->toBe('undoomed')
-        ->and($named($over(Ignoring::none())->first($units('src/Money.php'), Mutants::of($survivor), MutantIds::none())))
+        ->and($named($over(Ignoring::none())->first($units('src/Money.php'), Mutants::of($survivor), MutantIds::none(), MutantIds::none())))
         ->toBe(['src/Money.php', $survivor->id()->value(), 'src', 10_000, 'tree']);
 });
 
 it('dooms no survivor of a tree below 100 off the changed lines, nor one outside every tree', function () use ($doom, $mutant, $units, $named): void {
     $mutants = Mutants::of($mutant('lib/Loose.php', 4, MutantStatus::Survived), $mutant('vendor/Other.php', 3, MutantStatus::Survived));
 
-    expect($named($doom(Floor::whole())->first($units('lib/Loose.php', 'vendor/Other.php'), $mutants, MutantIds::none())))
+    expect($named($doom(Floor::whole())->first($units('lib/Loose.php', 'vendor/Other.php'), $mutants, MutantIds::none(), MutantIds::none())))
         ->toBe('undoomed');
 });
 
@@ -160,12 +171,12 @@ it('names a held unit by its path, of a survivor in a file inside it, and the fi
     $later = $mutant('src/Money.php', 7, MutantStatus::Survived);
     $units = Units::of(Unit::file(Path::of('src/Money.php')), Unit::held(Path::of('src/Held'), Group::named('holds:src/Held')));
 
-    expect($named($doom(Floor::whole())->first($units, Mutants::of($first, $later), MutantIds::none())))
+    expect($named($doom(Floor::whole())->first($units, Mutants::of($first, $later), MutantIds::none(), MutantIds::none())))
         ->toBe(['src/Held', $first->id()->value(), 'src', 10_000, 'tree']);
 });
 
 it('dooms no survivor of a file outside the units it is given', function () use ($doom, $mutant, $units, $named): void {
-    expect($named($doom(Floor::whole())->first($units('src/Other.php'), Mutants::of($mutant('src/Money.php', 7, MutantStatus::Survived)), MutantIds::none())))
+    expect($named($doom(Floor::whole())->first($units('src/Other.php'), Mutants::of($mutant('src/Money.php', 7, MutantStatus::Survived)), MutantIds::none(), MutantIds::none())))
         ->toBe('undoomed');
 });
 

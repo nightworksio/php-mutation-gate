@@ -43,7 +43,8 @@ use Psr\Clock\ClockInterface;
 
 /**
  * One runner invocation of a shard, as the shard makes it: each survivor
- * run once more, where `flaky.confirmSurvivors` asks for it (ADR-0008). A
+ * proven equivalent where `equivalence.static` asks, and each other run once
+ * more, where `flaky.confirmSurvivors` asks for it (ADR-0008). A
  * mutant whose time ran out is never run again; its tests run unmutated, as
  * its control, under the same limit (see TimeoutControls), unless
  * `timeouts.mode: unjudged` makes every timeout too slow to judge, and so do
@@ -71,7 +72,8 @@ final readonly class Invoking
     public function invoked(MutationRequest $request): Invoked|CannotJudge
     {
         $result = $this->mutated($request);
-        $again = $result instanceof CannotJudge ? $result : $this->confirmed($result->mutants(), $request);
+        $equivalent = $result instanceof CannotJudge ? MutantIds::none() : $this->equivalent($result->mutants());
+        $again = $result instanceof CannotJudge ? $result : $this->confirmed($result->mutants(), $equivalent, $request);
         $controlled = $again instanceof CannotJudge ? $again : $this->controlled($again->mutants, $request);
 
         return match (true) {
@@ -83,8 +85,24 @@ final readonly class Invoking
                     ->withWarnings($result->warnings())
                     ->withEvidence($result->evidence()),
                 $again->flaky,
+                $equivalent,
             ),
         };
+    }
+
+    /**
+     * The survivors proven equivalent, where `equivalence.static` asks
+     * (ADR-0013, decision 10), timed: no test can tell one from its
+     * original, so none runs again, and none dooms the run (see Doom). The
+     * verdict proves the survivors again itself.
+     */
+    private function equivalent(Mutants $mutants): MutantIds
+    {
+        $from = $this->stopwatch->now();
+        $equivalent = new StaticEquivalence($this->adapters, $this->settings)->proven($mutants)->proven;
+        $this->stopwatch->handled(Step::Equivalence, $from, $mutants->counting(MutantStatus::Survived));
+
+        return $equivalent;
     }
 
     /** The runner's run of the request, the steps its time went to kept. */
@@ -132,24 +150,14 @@ final readonly class Invoking
     /**
      * Survivor confirmation (ADR-0008): each survivor run once more, alone,
      * in a fresh process (ADR-0023, decision 14) and by the same tests, where
-     * `flaky.confirmSurvivors` asks for it, unless it is proven equivalent, so
-     * no test can tell it from its original (ADR-0013, decision 10); the
-     * verdict proves the survivors again itself.
+     * `flaky.confirmSurvivors` asks for it, unless it is proven equivalent.
      * Those killed the second time are flaky, and those the time left had no
      * room for are unjudged.
      */
-    private function confirmed(Mutants $mutants, MutationRequest $request): Confirmed|CannotJudge
+    private function confirmed(Mutants $mutants, MutantIds $equivalent, MutationRequest $request): Confirmed|CannotJudge
     {
         if (! $this->settings->triage()->confirmSurvivors()) {
             return new Confirmed($mutants, MutantIds::none());
-        }
-
-        $from = $this->stopwatch->now();
-        $equivalent = new StaticEquivalence($this->adapters, $this->settings)->proven($mutants)->proven;
-        $survived = $mutants->counting(MutantStatus::Survived);
-
-        if ($survived > 0) {
-            $this->stopwatch->stop(Step::Equivalence, $from, $survived);
         }
 
         $survivors = array_values(array_filter(
@@ -214,9 +222,7 @@ final readonly class Invoking
             );
         $left = Controls::of(...array_slice($asked, $fitting));
 
-        if ($fitting > 0) {
-            $this->stopwatch->stop(Step::Controls, $from, $fitting);
-        }
+        $this->stopwatch->handled(Step::Controls, $from, $fitting);
 
         return $runs instanceof CannotJudge
             ? $runs

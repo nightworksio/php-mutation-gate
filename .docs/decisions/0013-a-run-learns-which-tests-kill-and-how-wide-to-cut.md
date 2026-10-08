@@ -256,9 +256,11 @@ decides are accepted for that release too.
     - **Survivors only.** A killed mutant is never checked, so a kill can
       never become a pass. A test that reads source text rather than running
       it, such as a Pest `arch()` test, had its chance before the mutant
-      survived. Each shard proves its own survivors before survivor
-      confirmation (ADR-0008 decision 3), only to leave the proven ones out
-      of it, which is the time it saves; it judges nothing by that.
+      survived. Each shard proves its own survivors after each invocation,
+      before survivor confirmation (ADR-0008 decision 3), only to leave the
+      proven ones out of it, which is the time it saves, and out of the
+      search for a survivor that dooms a pull request's run (ADR-0008
+      decision 6); it judges nothing by that.
     - **Scoring.** A proven mutant is left out of the score as an ignored
       one is (ADR-0003 decision 1). It is listed in every report as
       *equivalent, proven* (ADR-0009).

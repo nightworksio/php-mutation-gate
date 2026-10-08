@@ -10,7 +10,6 @@ use function array_replace;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistory;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
-use NightWorksIO\MutationGate\Core\Analysis\DependentCap;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
 use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
@@ -20,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
 use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
 use NightWorksIO\MutationGate\Core\Analysis\UncheckedSurvivor;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -44,7 +44,8 @@ use Psr\Clock\ClockInterface;
  * for, stays a survivor, and the checks say why. A survivor printed as its
  * runner prints its mutants is judged against its original printed the same
  * way, which must first analyse as the file itself does. The checks record
- * their time alone (ADR-0020, decision 11).
+ * their time alone (ADR-0020, decision 11), and each round of them is timed
+ * on the shard's stopwatch.
  */
 final readonly class SurvivorChecking
 {
@@ -59,27 +60,35 @@ final readonly class SurvivorChecking
         private ClockInterface $clock,
         private Deadline|Unlimited $deadline,
         private Seconds $perCheck,
+        private Stopwatch $stopwatch,
+        private AnalyserWarmUp $warmUp = new AnalyserWarmUp(),
     ) {
     }
 
-    /** These mutants, each survivor the analyser rejects killed by static analysis, with what the checks came to. */
-    public function checked(Mutants $mutants, MutantIds $flaky): Checked
+    /**
+     * These mutants, each survivor the analyser rejects killed by static
+     * analysis, with what the checks came to. A survivor among those passed
+     * over, flaky or already checked, is not checked.
+     */
+    public function checked(Mutants $mutants, MutantIds $passedOver): Checked
     {
         $listed = [];
 
         foreach ($mutants as $mutant) {
-            if ($mutant->status() === MutantStatus::Survived && ! $flaky->has($mutant->id())) {
+            if ($mutant->status() === MutantStatus::Survived && ! $passedOver->has($mutant->id())) {
                 $listed[] = $mutant;
             }
         }
 
         $survivors = Mutants::of(...$listed);
-
         $checker = $this->adapters->checker;
-
-        return $checker instanceof NoAnalyser || $survivors->count() === 0
-            ? new Checked($mutants, SurvivorChecks::none())
+        $from = $this->stopwatch->now();
+        $checked = $checker instanceof NoAnalyser || $survivors->count() === 0
+            ? new Checked($mutants, SurvivorChecks::none(), $survivors)
             : $this->warmedUp($checker, $mutants, $survivors);
+        $this->stopwatch->handled(Step::StaticCheck, $from, $survivors->count());
+
+        return $checked;
     }
 
     /**
@@ -94,33 +103,33 @@ final readonly class SurvivorChecking
             ! $identity instanceof AnalyserIdentity => new Checked(
                 $mutants,
                 $this->leaving($survivors, Unchecked::Unidentified),
+                $survivors,
             ),
             $this->deadline instanceof Deadline && $this->deadline->hasPassed($this->clock->now()) => new Checked(
                 $mutants,
                 $this->leaving($survivors, Unchecked::OutOfTime),
+                $survivors,
             ),
             default => $this->warmed($checker, $identity, $mutants, $survivors),
         };
     }
 
-    /** The analyser's one run over the originals, timed, then each survivor checked; or every one left. */
+    /**
+     * The analyser's one run over the originals, timed, made once for every
+     * check of the shard (see AnalyserWarmUp), then each survivor checked; or
+     * every one left.
+     */
     private function warmed(
         StaticChecker $checker,
         AnalyserIdentity $identity,
         Mutants $mutants,
         Mutants $survivors,
     ): Checked {
-        $started = $this->clock->now();
-        $found = $checker->findings(Paths::none(), $this->adapters->withheld);
-        $took = Seconds::between($started, $this->clock->now());
+        $warm = $this->warmUp->of($checker, $identity, $this->adapters, $this->clock);
 
-        if ($found instanceof CannotJudge) {
-            return new Checked($mutants, $this->leaving($survivors, Unchecked::NoWarmUp));
-        }
-
-        $dependents = new Dependents(new NameGraph($this->adapters), DependentCap::standard());
-
-        return $this->each(new WarmedUp($checker, $identity, $found, $took, $dependents), $mutants, $survivors);
+        return $warm instanceof WarmedUp
+            ? $this->each($warm, $mutants, $survivors)
+            : new Checked($mutants, $this->leaving($survivors, $warm), $survivors);
     }
 
     private function leaving(Mutants $survivors, Unchecked $why): SurvivorChecks
@@ -157,7 +166,7 @@ final readonly class SurvivorChecking
             $rejected = $answer instanceof Mutant ? $rejected->with($answer) : $rejected;
         }
 
-        return new Checked($mutants->replacing($rejected), $checks->timing($history));
+        return new Checked($mutants->replacing($rejected), $checks->timing($history), $survivors);
     }
 
     /**

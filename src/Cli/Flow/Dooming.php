@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
-use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -19,9 +18,8 @@ use Psr\Clock\ClockInterface;
  * decision 6), and by what it judges that: a pull request's run, which the
  * verdict holds to its trees' floors and the new code's, judged over the
  * trees, the committed baseline, the lines the plan's change reached, the
- * new-code floor and the config's ignores, as the verdict judges them. It
- * stops only where no static analysis can clear a survivor after its tests:
- * `equivalence.static` is false and no static check runs. A run of the
+ * new-code floor and the config's ignores, as the verdict judges them. A
+ * survivor static analysis clears dooms nothing (see Batched). A run of the
  * security mutators alone or of one suite's tests alone holds no tree to a
  * floor, so it runs to its end, as any other run does, and as one does whose
  * trees or baseline cannot be read.
@@ -34,7 +32,7 @@ final readonly class Dooming
 
     public function of(Plan $plan): Doom|Undoomed
     {
-        if (! $plan->runOn()->isPullRequest() || ! $this->holdsTrees() || $this->mayClear()) {
+        if (! $plan->runOn()->isPullRequest() || ! $this->holdsTrees()) {
             return Undoomed::run();
         }
 
@@ -54,11 +52,5 @@ final readonly class Dooming
     private function holdsTrees(): bool
     {
         return ! $this->adapters->isSecurityOnly() && ! $this->adapters->isSuiteOnly();
-    }
-
-    /** Whether static analysis may clear a survivor after its tests: proving it equivalent, or killing it. */
-    private function mayClear(): bool
-    {
-        return $this->settings->ignores()->staticEquivalence() || ! $this->adapters->checker instanceof NoAnalyser;
     }
 }
