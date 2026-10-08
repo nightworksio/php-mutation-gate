@@ -41,7 +41,7 @@ jobs:
               body = re.sub(r'\x1b\[[0-9;]*m', '', block)
               killed = ('FAILED' in body or '⨯' in body) and 'TIMEOUT' not in head
               summary = [l.strip() for l in body.split('\n') if 'Tests:' in l]
-              print('---', head, '|', 'named failure' if killed else 'no named failure', '|', summary[-1] if summary else '-')
+              print('---', head, '|', 'named failure' if killed else 'no named failure', '|', summary[-1] if summary else '-', '| beats', body.count('\x06'))
               if not killed:
                   print('###', head, '|', summary[-1] if summary else '-')
                   print('\n'.join(body.strip().split('\n')[-40:]))
