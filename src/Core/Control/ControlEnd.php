@@ -16,6 +16,9 @@ enum ControlEnd: string
     /** Its tests ran out of its limit. */
     case RanOut = 'ran-out';
 
+    /** Its process ran out of the memory cap. */
+    case OutOfMemory = 'out-of-memory';
+
     /** It never ran, for the reason its run gives. */
     case Unrun = 'unrun';
 }

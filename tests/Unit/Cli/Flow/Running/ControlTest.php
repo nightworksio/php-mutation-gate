@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Control\Control;
 use NightWorksIO\MutationGate\Core\Control\ControlRun;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
+use NightWorksIO\MutationGate\Core\Control\MemoryControls;
 use NightWorksIO\MutationGate\Core\Control\TimeoutControls;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
@@ -29,6 +30,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -248,4 +251,36 @@ it('leaves a kill unjudged where the tests that killed it fail unmutated too, an
 })->with([
     'tests that pass unmutated' => [ControlRun::passed(Seconds::of(0.2)), MutantStatus::Killed],
     'tests that fail unmutated' => [ControlRun::failed(), MutantStatus::Unjudged],
+]);
+
+it('weighs a mutant out of memory by the peak of its control under the same cap, and leaves it too heavy where the control runs out too', function (
+    ControlRun $found,
+    MemoryCap|Unmeasured $need,
+    string $reason,
+) use ($resultIn): void {
+    $project = Flows::project();
+    $outOfMemory = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Plus', "-+\n+-", 0),
+        'Grow-11',
+        Location::of(Path::of('src/Money.php'), Line::of(11), Line::of(11)),
+        Mutation::of('Plus', MutatorFamily::Arithmetic, ''),
+        MutantStatus::OutOfMemory,
+        Seconds::of(0.5),
+    )->withLimit(MemoryCap::of(64, MemoryUnit::Megabytes));
+    $control = Control::of(Path::of('src/Money.php'), TestIds::of(TestId::of('MoneyTest::adds')), Seconds::of(10.0));
+    $runner = ScriptedRunner::fixture()
+        ->answering(Mutants::of($outOfMemory), 0)
+        ->controlling(ControlRuns::none()->with($control, $found));
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $weighed = controlMutantIn($resultIn($project, 1), 'Grow-11');
+    $said = $weighed->reason();
+
+    expect(controlKeysAsked($runner))->toContain($control->key())
+        ->and($weighed->unmutatedNeed())->toEqual($need)
+        ->and($said instanceof Reason ? $said->text() : '')->toBe($reason);
+})->with([
+    'a control that held 20M' => [ControlRun::passed(Seconds::of(1.0))->withPeak(MemoryCap::of(20, MemoryUnit::Megabytes)), MemoryCap::of(20, MemoryUnit::Megabytes), ''],
+    'a control out of memory too' => [ControlRun::outOfMemory(), Unmeasured::duration(), MemoryControls::OUT_OF_MEMORY],
 ]);

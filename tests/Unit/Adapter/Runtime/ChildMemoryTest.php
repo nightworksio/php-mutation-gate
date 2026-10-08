@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Runtime\ChildMemory;
+use NightWorksIO\MutationGate\Core\Runner\MaxRss;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use Symfony\Component\Process\Process;
@@ -14,7 +15,7 @@ use Symfony\Component\Process\Process;
 it('counts the memory of a process it waited for, rather than its own', function (): void {
     $margin = 64 * 1024 * 1024;
     $usage = getrusage();
-    $own = ChildMemory::bytes(is_array($usage) && is_int($usage['ru_maxrss']) ? $usage['ru_maxrss'] : 0, PHP_OS_FAMILY);
+    $own = MaxRss::bytes(is_array($usage) && is_int($usage['ru_maxrss']) ? $usage['ru_maxrss'] : 0, PHP_OS_FAMILY);
     $block = 1024 * 1024;
     $blocks = intdiv($own + 2 * $margin, $block) + 1;
     $holding = sprintf('$held = str_repeat(random_bytes(%d), %d);', $block, $blocks);
@@ -24,10 +25,4 @@ it('counts the memory of a process it waited for, rather than its own', function
 
     expect($peak)->toBeInstanceOf(MemoryCap::class)
         ->and($peak instanceof MemoryCap && $cleared->isExceededBy($peak))->toBeTrue();
-});
-
-it('reads ru_maxrss in bytes on macOS, and in kilobytes elsewhere', function (): void {
-    expect(ChildMemory::bytes(2048, 'Darwin'))->toBe(2048)
-        ->and(ChildMemory::bytes(2048, 'Linux'))->toBe(2048 * 1024)
-        ->and(ChildMemory::bytes(2048, 'BSD'))->toBe(2048 * 1024);
 });

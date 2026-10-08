@@ -132,6 +132,7 @@ it('judges each timeout by what its control found', function (ControlRun $found,
     'tests that passed in a time' => [ControlRun::passed(Seconds::of(1.5)), MutantStatus::TimedOut, Seconds::of(1.5), ''],
     'tests that passed, untimed' => [ControlRun::passed(Unmeasured::duration()), MutantStatus::TimedOut, Seconds::of(10.0), ''],
     'tests that failed' => [ControlRun::failed(), MutantStatus::Unjudged, Unmeasured::duration(), TimeoutControls::FAILS_UNMUTATED],
+    'tests out of memory' => [ControlRun::outOfMemory(), MutantStatus::Unjudged, Unmeasured::duration(), TimeoutControls::OUT_OF_MEMORY],
     'tests that ran out' => [ControlRun::ranOut(), MutantStatus::TimedOut, Unmeasured::duration(), TimeoutControls::RAN_OUT],
     'a control never run' => [
         ControlRun::unrun('the file is gone'),

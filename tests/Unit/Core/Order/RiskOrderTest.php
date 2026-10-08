@@ -70,12 +70,16 @@ function riskTimeout(string $unit, float $limit, float $time): Proof
     return riskProofOf($unit, $time > 0.0 ? $timedOut->withUnmutatedNeed(Seconds::of($time)) : $timedOut);
 }
 
-/** A proof of a unit whose one reported mutant ran out of a cap of this many megabytes, under a suite that held this many. */
+/**
+ * A proof of a unit whose one reported mutant ran out of a cap of this many
+ * megabytes, its control holding this many under it, or never finishing
+ * under it where it held none.
+ */
 function riskHeavy(string $unit, int $cap, int $peak): Proof
 {
-    return riskProofOf($unit, riskMutant($unit, MutantStatus::OutOfMemory)
-        ->withLimit(MemoryCap::of($cap, MemoryUnit::Megabytes))
-        ->withUnmutatedNeed(MemoryCap::of($peak, MemoryUnit::Megabytes)));
+    $heavy = riskMutant($unit, MutantStatus::OutOfMemory)->withLimit(MemoryCap::of($cap, MemoryUnit::Megabytes));
+
+    return riskProofOf($unit, $peak > 0 ? $heavy->withUnmutatedNeed(MemoryCap::of($peak, MemoryUnit::Megabytes)) : $heavy);
 }
 
 /** A proof of a unit with this one mutant. */
@@ -101,7 +105,7 @@ $order = RiskOrder::of(
         riskProof('src/Survivor.php', MutantStatus::Survived),
         riskTimeout('src/TooSlow.php', 10.0, 0.0),
         riskTimeout('src/KilledByTimeout.php', 10.0, 1.0),
-        riskHeavy('src/TooHeavy.php', 64, 40),
+        riskHeavy('src/TooHeavy.php', 64, 0),
         riskHeavy('src/KilledByMemoryCap.php', 64, 20),
         riskProof('src/Reached.php', MutantStatus::Killed),
         riskProof('src/Settled.php', MutantStatus::Killed),

@@ -202,11 +202,11 @@ final readonly class PhpUnit implements Runner
 
     /**
      * What each unmutated control finds, its file served through the
-     * override as a mutant's is (see Mutating).
+     * override as a mutant's is (see UnmutatedRuns).
      */
     public function controls(MutationRequest $request, Controls $controls): ControlRuns|CannotJudge
     {
-        return $this->mutating($this->shell)->controls($request, $controls);
+        return new UnmutatedRuns($this->project, $this->shell, $this->tests, $this->files)->of($request, $controls);
     }
 
     /**

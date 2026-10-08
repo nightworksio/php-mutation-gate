@@ -65,6 +65,15 @@ final readonly class Command
         return clone($this, ['deadline' => $deadline]);
     }
 
+    /**
+     * This command, started through the script that writes the most memory
+     * its processes held to this file (see PeakLauncher).
+     */
+    public function launchedBy(string $launcher, string $peak): self
+    {
+        return clone($this, ['arguments' => [$launcher, $peak, PHP_BINARY, ...$this->arguments]]);
+    }
+
     /** This command, also stopped once it has made no progress for its silence limit. */
     public function silencedAfter(SilenceLimit $silence): self
     {

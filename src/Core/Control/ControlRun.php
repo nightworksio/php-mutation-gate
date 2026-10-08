@@ -8,6 +8,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -26,6 +28,7 @@ final readonly class ControlRun
         private ControlEnd $end,
         private Seconds|Unmeasured $took,
         private string|NotGiven $why,
+        private MemoryCap|NotGiven $peak = new NotGiven(),
     ) {
     }
 
@@ -38,6 +41,12 @@ final readonly class ControlRun
     public static function failed(): self
     {
         return new self(ControlEnd::Failed, Unmeasured::duration(), NotGiven::value());
+    }
+
+    /** Its process ran out of the memory cap. */
+    public static function outOfMemory(): self
+    {
+        return new self(ControlEnd::OutOfMemory, Unmeasured::duration(), NotGiven::value());
     }
 
     public static function ranOut(): self
@@ -54,7 +63,8 @@ final readonly class ControlRun
     /**
      * What a control found that a runner ran as a mutant that changes
      * nothing: passed where it survived, failed where its tests failed or
-     * errored or its process ran out of memory, ran out where it timed out,
+     * errored, out of memory where its process ran out of the cap, ran out
+     * where it timed out,
      * and never run, for the reason its run gives, otherwise.
      */
     public static function asMutant(Mutant $unchanged): self
@@ -65,8 +75,8 @@ final readonly class ControlRun
             MutantStatus::Survived => self::passed($unchanged->duration()),
             MutantStatus::Killed,
             MutantStatus::KilledByStaticAnalysis,
-            MutantStatus::Errored,
-            MutantStatus::OutOfMemory => self::failed(),
+            MutantStatus::Errored => self::failed(),
+            MutantStatus::OutOfMemory => self::outOfMemory(),
             MutantStatus::TimedOut,
             MutantStatus::Skipped => self::ranOut(),
             MutantStatus::Uncovered,
@@ -77,16 +87,30 @@ final readonly class ControlRun
 
     /**
      * What a control found that ran as a process of its own, by how the
-     * process ended: ran out where it was stopped at its limit, passed, in
-     * the time it took, where it succeeded, and failed otherwise.
+     * process ended: ran out where it was stopped at its limit, out of memory
+     * where PHP says it ran out of its memory limit, passed, in the time it
+     * took, where it succeeded, and failed otherwise.
      */
     public static function ofProcess(Ran $ran): self
     {
         return match (true) {
             $ran->wasStopped() => self::ranOut(),
+            Exhaustion::in($ran->output()) instanceof MemoryCap => self::outOfMemory(),
             $ran->succeeded() => self::passed($ran->duration()),
             default => self::failed(),
         };
+    }
+
+    /** This run, whose processes held at most this much memory. */
+    public function withPeak(MemoryCap $peak): self
+    {
+        return clone($this, ['peak' => $peak]);
+    }
+
+    /** The most memory its processes held, where the launcher measured it (see PeakLauncher). */
+    public function peak(): MemoryCap|NotGiven
+    {
+        return $this->peak;
     }
 
     public function end(): ControlEnd

@@ -304,7 +304,7 @@ it('runs a shard of the flows on the map the plan handed it, in its own layout, 
     expect(InfectionCases::statuses($outcome))->toBe([MutantStatus::Killed])
         ->and(count($shell->commands()))->toBe(2)
         ->and(InfectionCases::ran($shell)[0])->toContain(sprintf('--coverage=%s/.gate/infection/coverage', $at->root()))
-        ->and($shell->commands()[1]->arguments())->toContain(sprintf('--configuration=%s/.gate/infection/controls/0/phpunit.xml', $at->root()));
+        ->and($shell->commands()[1]->arguments())->toContain(sprintf('--configuration=%s/.gate/infection/unmutated/control-0/phpunit.xml', $at->root()));
 });
 
 it('behaves as the port expects of a runner, but stops each mutant at its first killer and runs one per core', function (): void {

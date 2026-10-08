@@ -35,6 +35,10 @@ final readonly class TimeoutControls implements ControlJudge
     public const string FAILS_UNMUTATED
         = 'Ran out of time, but its tests fail as well with the file unmutated, served as its mutant was.';
 
+    /** Why a timeout is unjudged where its control runs out of the memory cap. */
+    public const string OUT_OF_MEMORY
+        = 'Ran out of time, but its tests run out of the memory cap with the file unmutated too.';
+
     /** Why a timeout is too slow to judge where its control runs out of the limit too. */
     public const string RAN_OUT
         = 'Its tests run out of the same limit with the file unmutated too, so nothing tells a hang from slow tests.';
@@ -96,6 +100,7 @@ final readonly class TimeoutControls implements ControlJudge
         return match ($run->end()) {
             ControlEnd::Passed => $mutant->withUnmutatedNeed($took instanceof Seconds ? $took : $control->limit()),
             ControlEnd::Failed => $mutant->unjudged(Reason::that(self::FAILS_UNMUTATED)),
+            ControlEnd::OutOfMemory => $mutant->unjudged(Reason::that(self::OUT_OF_MEMORY)),
             ControlEnd::RanOut => $mutant->because(Reason::that(self::RAN_OUT)),
             ControlEnd::Unrun => $mutant->because(
                 Reason::that(sprintf(self::UNRUN, $why instanceof NotGiven ? ControlRuns::NOT_RUN : $why)),

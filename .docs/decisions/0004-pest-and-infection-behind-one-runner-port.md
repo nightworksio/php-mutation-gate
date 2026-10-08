@@ -808,15 +808,27 @@ its parser attributes. Both change when the checkout moves.
      visibly hidden, the system's own out-of-memory killer and a crash keep
      the status the runner gave them.
    - Memory triage judges a mutant out of memory the way timeout triage
-     judges a timeout (ADR-0008). Where the plan's peak is at most half the
-     cap, the cap holds at least twice what the suite needs, so the mutant
-     needed far more than its suite and ran away:
-     it is *killed by the memory cap*, and counts as killed, with no killer
-     named. Otherwise, or where the plan measured no peak, it is *too heavy
-     to judge*, and counts as not killed, under the `unjudged` rule. Twice
-     is one policy with doctor's `memory-cap-near`, which advises a cap of
-     twice the peak.
-   - A result records a mutant out of memory with its cap and the plan's
+     judges a timeout (ADR-0008, decision 2), by an **unmutated control**:
+     the tests that judge it (of a held unit, only those that hold it), run
+     with its file served unmutated as its mutant was, under the same cap,
+     allowed the standard mutant limit of their time. Every runner starts
+     the control through one launcher, a PHP script that runs the command
+     and writes the most memory any process under it held, as `getrusage`
+     counts the processes it waited for (`Core\Control\PeakLauncher`), so
+     every runner, an unpatched Infection included, measures alike. Two
+     mutants of the same file and tests share one control.
+     - Where the control finishes under the cap, the mutant needed far more
+       than its own tests and ran away: it is *killed by the memory cap*,
+       counts as killed, with no killer named, and its need is the
+       control's peak.
+     - Where the control runs out of the cap too, runs out of time or never
+       runs, it is *too heavy to judge*, counts as not killed under the
+       `unjudged` rule, and its reason says which. Where the control fails,
+       the tests fail with the file unmutated as well, and the mutant is
+       unjudged.
+     - doctor's `memory-cap-near` still advises a cap of twice the suite's
+       peak, which leaves the controls room.
+   - A result records a mutant out of memory with its cap and its control's
      peak, in bytes. A carried one is unjudged, as a timeout is, since
      triage can count it as a kill; a proved one is judged again under the
      peak it recorded.

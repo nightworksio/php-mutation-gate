@@ -77,6 +77,15 @@ final readonly class Command
         return new self($this->arguments, $this->environment, $deadline);
     }
 
+    /**
+     * This command, started through the script that writes the most memory
+     * its processes held to this file (see PeakLauncher).
+     */
+    public function launchedBy(string $launcher, string $peak): self
+    {
+        return new self([PHP_BINARY, $launcher, $peak, ...$this->arguments], $this->environment, $this->deadline);
+    }
+
     /** @return list<string> */
     public function arguments(): array
     {
