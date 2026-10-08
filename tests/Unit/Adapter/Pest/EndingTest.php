@@ -45,3 +45,40 @@ it('records nothing where the gate names no results file', function (): void {
 
     expect(glob(sprintf('%s/*', $directory)))->toBe([]);
 });
+
+/** What Pest prints where the test with this description, in this file, was given no dataset case. */
+function datasetMissingFor(string $description): string
+{
+    return sprintf('The test [%s] in [%s] expects [1] argument(s) ([int $case]), but no dataset was provided.', $description, __FILE__);
+}
+
+it('records, after how an own run ended, the test whose missing dataset it printed as the killer, placed nowhere', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    putenv(sprintf('%s=%s', GateVariable::Results->value, $results));
+    $printed = datasetMissingFor('it records, after how an own run ended, the test whose missing dataset it printed as the killer, placed nowhere');
+
+    Ending::record(endedRun($printed, '', 1), '/tmp/mutations/abc');
+
+    expect(file($results, FILE_IGNORE_NEW_LINES))->toBe([
+        '{"event":"ended","mutated":"/tmp/mutations/abc","code":1,"signalled":false}',
+        sprintf(
+            '{"event":"killed","mutated":"/tmp/mutations/abc","test":%s,"run":%d}',
+            json_encode('P\Tests\Unit\Adapter\Pest\EndingTest::__pest_evaluable_it_records__after_how_an_own_run_ended__the_test_whose_missing_dataset_it_printed_as_the_killer__placed_nowhere'),
+            getmypid(),
+        ),
+    ]);
+});
+
+it('records nothing of a value the gate withholds that an own run printed as the test whose dataset is missing', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    putenv(sprintf('%s=%s', GateVariable::Results->value, $results));
+    putenv('MUTATION_GATE_TEST_SECRET=ghp1secretTokenFromTheEnvironment9');
+
+    try {
+        Ending::record(endedRun(datasetMissingFor((string) getenv('MUTATION_GATE_TEST_SECRET')), '', 1), '/tmp/mutations/abc');
+    } finally {
+        putenv('MUTATION_GATE_TEST_SECRET');
+    }
+
+    expect(file_get_contents($results))->toBe("{\"event\":\"ended\",\"mutated\":\"/tmp/mutations/abc\",\"code\":1,\"signalled\":false}\n");
+});

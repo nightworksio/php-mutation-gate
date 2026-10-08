@@ -7,15 +7,19 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
 use PHPUnit\Event\TestRunner\ExecutionFinished;
 use PHPUnit\Event\TestRunner\ExecutionFinishedSubscriber;
 
-/** Writes how many tests a mutant's own process ran, once PHPUnit ends its run. */
+/**
+ * Writes, once PHPUnit ends a mutant's own run, the tests whose issues failed
+ * it as its killers, then how many tests it ran.
+ */
 final readonly class OnExecutionFinished implements ExecutionFinishedSubscriber
 {
-    public function __construct(private RanTests $ran)
+    public function __construct(private RanTests $ran, private Killers $killers, private RunIssues $issues)
     {
     }
 
     public function notify(ExecutionFinished $event): void
     {
+        $this->killers->issuedBy(...$this->issues->killers());
         $this->ran->written();
     }
 }

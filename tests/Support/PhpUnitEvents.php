@@ -154,6 +154,13 @@ final readonly class PhpUnitEvents
         self::emitterOf($events)->testRunnerExecutionStarted(new TestSuiteWithName('suite', 0, TestCollection::fromArray([])));
     }
 
+    /** Emits that PHPUnit's runner warned, outside any test. */
+    public static function runnerWarned(Facade $events): void
+    {
+        $events->seal();
+        self::emitterOf($events)->testRunnerTriggeredPhpunitWarning('No tests found in class "Tests\\Empty".');
+    }
+
     /** Emits that the test runner ended its run. */
     public static function executionFinished(Facade $events): void
     {

@@ -378,6 +378,20 @@ running it: why is this mutant here, and has it always been?
     its evidence (decision 16):
     - A kill stands where a test is named as its killer, where a signal ended
       its process, or where PHP recorded a fatal error in it.
+    - A run that fails with no test failing or erroring names as its
+      killers the tests that raised an issue its runner's configuration
+      fails the run on: a warning, notice or deprecation, a risky,
+      incomplete or skipped test, or a warning, notice or deprecation the
+      runner raised of a test, as the runner's own result counts them
+      (`failOnWarning`, `failOnRisky` and the rest). An issue raised
+      outside any test names no test.
+    - A run that fails before any test runs, because collecting the tests
+      failed, names as its killer the test whose dataset it broke, where
+      the failure names that test (Pest's `DatasetMissing`: the test's
+      dataset gave no case). The kill stands only where that test, run
+      unmutated, is collected and passes, as decision 18 checks every
+      named killer, so the unmutated suite collects cleanly where the
+      mutant's does not.
     - Any other kill is unjudged. Its reason says how its process ended: the
       code it exited with, where the runner read one, and the tail of what it
       printed as the screen for secrets kept it, or that none is kept. The
