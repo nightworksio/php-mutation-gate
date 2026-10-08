@@ -38,7 +38,7 @@ final readonly class Reordering
             ...self::without($arguments),
             sprintf('%s=%s', Option::CacheDirectory->value, $seed),
             Option::Record->value,
-            sprintf('%s=defects,duration', Option::OrderBy->value),
+            sprintf('%s=defects,duration-ascending', Option::OrderBy->value),
         ] : $arguments;
     }
 
