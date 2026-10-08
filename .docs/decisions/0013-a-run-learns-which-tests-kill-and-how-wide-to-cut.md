@@ -110,7 +110,9 @@ decides are accepted for that release too.
      name is what a mutant's own process sees, in `PEST_MUTATION_FILE`. In
      that process, the plugin's `HandlesArguments` points PHPUnit at the
      order with `--cache-directory=<that directory> --record-test-run-history
-     --order-by=defects,duration`.
+     --order-by=defects,duration-ascending`. PHPUnit deprecates the bare
+     `duration`, and a project that fails its run on PHPUnit's deprecations
+     would see every mutant run in an order fail.
    - **What an order can say.** Pest keeps PHPUnit's test run history in a
      file of its own, whose `version` is `pest_` and the version
      `Pest\version()` answers, which is not always the version Composer
