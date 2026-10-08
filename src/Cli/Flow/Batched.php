@@ -28,8 +28,10 @@ use Psr\Clock\ClockInterface;
  * where the run has a deadline, and its chunk, where the run stops once it
  * cannot pass. The batches run until the next does not fit, the time is up,
  * the run is interrupted, or a batch's survivor makes the run certain to
- * fail. A batch the runner cannot judge once the time is up is unjudged, as
- * is every unit no batch took.
+ * fail: one static analysis does not clear, neither killing it nor proving
+ * it equivalent (see SurvivorChecking and Invoking). A batch the runner
+ * cannot judge once the time is up is unjudged, as is every unit no batch
+ * took.
  */
 final readonly class Batched
 {
@@ -39,6 +41,7 @@ final readonly class Batched
         private Deadline|Unlimited $deadline,
         private Interruption $interruption,
         private Doom|Undoomed $doom,
+        private SurvivorChecking $checking,
     ) {
     }
 
@@ -59,7 +62,7 @@ final readonly class Batched
             $invoked = $this->invoking->invoked($left instanceof Seconds ? $request->within($left) : $request);
             $queue = array_slice($queue, $batch->count());
             $spent = match (true) {
-                ! $invoked instanceof CannotJudge => $this->doomed($spent->after($invoked), $batch, $invoked),
+                ! $invoked instanceof CannotJudge => $this->doomed($spent, $batch, $invoked),
                 $this->isOver() => $spent->leaving($batch),
                 default => $invoked,
             };
@@ -75,14 +78,28 @@ final readonly class Batched
         return $spent->leaving(Units::of(...array_map(static fn(Weighed $weighed): Unit => $weighed->unit(), $queue)));
     }
 
-    /** What was spent, stopped on the first survivor of this batch that makes the run certain to fail, if one does. */
+    /**
+     * What was spent, and this batch: where the run stops once it cannot
+     * pass, its survivors checked by static analysis first, and stopped on
+     * the first one left that makes the run certain to fail, if one does.
+     */
     private function doomed(Spent $spent, Units $batch, Invoked $invoked): Spent
     {
-        $doomed = $this->doom instanceof Doom
-            ? $this->doom->first($batch, $invoked->result->mutants(), $invoked->flaky)
-            : Undoomed::run();
+        if (! $this->doom instanceof Doom) {
+            return $spent->after($invoked);
+        }
 
-        return $doomed instanceof Doomed ? $spent->doomedBy($doomed) : $spent;
+        $checked = $this->checking->checked($invoked->result->mutants(), $invoked->flaky);
+        $after = $spent
+            ->after(new Invoked(
+                $invoked->result->withMutants($checked->mutants),
+                $invoked->flaky,
+                $invoked->equivalent,
+            ))
+            ->checkedBy($checked);
+        $doomed = $this->doom->first($batch, $checked->mutants, $invoked->flaky, $invoked->equivalent);
+
+        return $doomed instanceof Doomed ? $after->doomedBy($doomed) : $after;
     }
 
     /** The time left before the deadline, or no limit where the run has none. */

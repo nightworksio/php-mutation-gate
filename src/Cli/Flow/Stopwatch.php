@@ -43,6 +43,14 @@ final class Stopwatch
         )));
     }
 
+    /** A step that began then and ends now, having handled this many; no step where it handled none. */
+    public function handled(Step $step, DateTimeImmutable $from, int $count): void
+    {
+        if ($count > 0) {
+            $this->stop($step, $from, $count);
+        }
+    }
+
     /**
      * The steps a runner timed itself in a run that began then, each from
      * when that run began; or, where it timed none, the run whole as its

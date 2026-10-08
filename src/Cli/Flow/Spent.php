@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
 use NightWorksIO\MutationGate\Core\Mutant\Evidences;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
@@ -16,8 +17,10 @@ use NightWorksIO\MutationGate\Core\Verdict\Warnings;
  * What a shard's invocations have come to so far: every mutant, the
  * survivors a second run killed, the mutants skipped without a record, the
  * units its budget ran out before or its doom left, what the runner warned
- * of, the evidence of its kills, and the survivor that made its run certain
- * to fail, where one did.
+ * of, the evidence of its kills, the survivor that made its run certain to
+ * fail, where one did, and what static analysis's checks of the survivors
+ * of its chunks came to, with the survivors they took up (ADR-0008,
+ * decision 6).
  */
 final readonly class Spent
 {
@@ -29,6 +32,8 @@ final readonly class Spent
         public Warnings $warnings,
         public Evidences $evidence,
         public Doomed|Undoomed $doomed,
+        public SurvivorChecks $checks,
+        public MutantIds $checked,
     ) {
     }
 
@@ -43,6 +48,8 @@ final readonly class Spent
             Warnings::none(),
             Evidences::none(),
             Undoomed::run(),
+            SurvivorChecks::none(),
+            MutantIds::none(),
         );
     }
 
@@ -57,6 +64,8 @@ final readonly class Spent
             $this->warnings->and($invoked->result->warnings()),
             $this->evidence->and($invoked->result->evidence()),
             $this->doomed,
+            $this->checks,
+            $this->checked,
         );
     }
 
@@ -77,6 +86,8 @@ final readonly class Spent
             $this->warnings,
             $this->evidence,
             $this->doomed,
+            $this->checks,
+            $this->checked,
         );
     }
 
@@ -91,6 +102,24 @@ final readonly class Spent
             $this->warnings,
             $this->evidence,
             $doomed,
+            $this->checks,
+            $this->checked,
+        );
+    }
+
+    /** What was spent, and what static analysis's checks of a chunk's survivors came to. */
+    public function checkedBy(Checked $checked): self
+    {
+        return new self(
+            $this->mutants,
+            $this->flaky,
+            $this->skipped,
+            $this->unjudged,
+            $this->warnings,
+            $this->evidence,
+            $this->doomed,
+            $this->checks->plus($checked->checks),
+            $this->checked->and($checked->examinedIds()),
         );
     }
 }

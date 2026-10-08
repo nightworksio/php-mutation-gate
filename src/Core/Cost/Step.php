@@ -45,7 +45,7 @@ enum Step: string
     /** The run again, with every test file, of the narrowed kills those files alone cannot vouch for. */
     case Confirmation = 'confirmation';
 
-    /** Proving survivors equivalent to their originals, before they run again (ADR-0013). */
+    /** Proving an invocation's survivors equivalent to their originals, before they run again (ADR-0013). */
     case Equivalence = 'equivalence';
 
     /** The run again of each survivor, alone, in a fresh process (ADR-0008). */

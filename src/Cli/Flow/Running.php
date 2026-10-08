@@ -17,7 +17,6 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Secrets;
-use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Unevidenced;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\KillSearch;
@@ -211,9 +210,11 @@ final readonly class Running
      * budget the units run in batches that fit the time left, and those the
      * time ran out before are unjudged. A shard that stops once its run
      * cannot pass runs in chunks, and the units after the chunk that doomed
-     * it are unjudged too. Each kill with no evidence is unjudged (ADR-0014,
-     * decision 17). Static analysis then checks the survivors, in the time
-     * left.
+     * it are unjudged too, and static analysis checks each chunk's survivors
+     * before its doom is judged. Each kill with no evidence is unjudged
+     * (ADR-0014, decision 17). Static analysis then checks the survivors no
+     * chunk's check took up, in the time left, the analyser warmed up once
+     * for the shard.
      */
     private function mutated(
         Plan $plan,
@@ -225,11 +226,7 @@ final readonly class Running
     ): Mutated|CannotJudge {
         $from = $stopwatch->now();
         $held = new HeldCoverage($this->adapters)->checked($shard, $map);
-        $holding = $shard->units()->held();
-
-        if ($holding > 0) {
-            $stopwatch->stop(Step::HeldCoverage, $from, $holding);
-        }
+        $stopwatch->handled(Step::HeldCoverage, $from, $shard->units()->held());
 
         if ($held instanceof CannotJudge) {
             return $held;
@@ -246,7 +243,14 @@ final readonly class Running
             $held->covered(),
         );
         $doom = new Dooming($this->adapters, $this->settings, $this->setup->clock)->of($plan);
-        $batched = new Batched($invoking, $this->setup->clock, $deadline, $this->interruption, $doom);
+        $checking = new SurvivorChecking(
+            $this->adapters,
+            $this->setup->clock,
+            $deadline,
+            $this->settings->staticCheck()->seconds(),
+            $stopwatch,
+        );
+        $batched = new Batched($invoking, $this->setup->clock, $deadline, $this->interruption, $doom, $checking);
         $batching = Batching::opening($map->suiteDuration());
         $requestFor = fn(Units $units): MutationRequest => $this->requestFor($units, $kept->id(), $search);
         $spent = match (true) {
@@ -265,20 +269,10 @@ final readonly class Running
 
         $secrets = Secrets::withheldIn($this->adapters->environment, $this->adapters->withheld);
         $evidence = Hidden::in($spent->evidence, $spent->mutants, $secrets);
-        $from = $stopwatch->now();
-        $checked = new SurvivorChecking(
-            $this->adapters,
-            $this->setup->clock,
-            $deadline,
-            $this->settings->staticCheck()->seconds(),
-        )
-            ->checked(Unevidenced::judged($spent->mutants, $evidence), $spent->flaky);
-        $survived = $spent->mutants->counting(MutantStatus::Survived);
-
-        if ($survived > 0) {
-            $stopwatch->stop(Step::StaticCheck, $from, $survived);
-        }
-
+        $checked = $checking->checked(
+            Unevidenced::judged($spent->mutants, $evidence),
+            $spent->flaky->and($spent->checked),
+        );
         $mutants = $checked->mutants;
 
         return new Mutated(
@@ -288,7 +282,7 @@ final readonly class Running
             $spent->flaky,
             $held,
             $spent->unjudged,
-            $checked->checks,
+            $spent->checks->plus($checked->checks),
             $spent->doomed,
         );
     }
