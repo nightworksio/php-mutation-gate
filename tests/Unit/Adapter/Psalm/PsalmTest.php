@@ -58,6 +58,17 @@ function psalmKept(string $project, string $file): array
     return explode("\n", trim((string) file_get_contents(sprintf('%s/vendor/bin/%s', $project, $file))));
 }
 
+/**
+ * The project's language server removed, so a server started after this
+ * ends at once, unable to open its script. A test tells a second start by
+ * that, not by a file the server writes, which a server stopped at its
+ * limit may never have written.
+ */
+function psalmServerGone(string $project): void
+{
+    unlink(sprintf('%s/vendor/bin/psalm-language-server', $project));
+}
+
 it('names its version and the digest of the config it reads', function (): void {
     $project = psalmProject();
 
@@ -272,11 +283,10 @@ it('cannot judge where its server ends before it answers, and starts it no secon
     $psalm->findings(Paths::none(), Withheld::standard());
     $check = MutantCheck::of(Path::of('src/Money.php'), Path::of('src/Money.php'));
     $first = $psalm->check($check);
-    unlink(sprintf('%s/vendor/bin/server-argv.txt', $project));
+    psalmServerGone($project);
 
     expect($first)->toEqual(CannotJudge::because($why))
-        ->and($psalm->check($check))->toEqual(CannotJudge::because($why))
-        ->and(file_exists(sprintf('%s/vendor/bin/server-argv.txt', $project)))->toBeFalse();
+        ->and($psalm->check($check))->toEqual(CannotJudge::because($why));
 })->with([
     'at its start' => ['ends', 'Psalm\'s language server ended before it answered (no server here).'],
     'once a file is sent, saying only what it said since its last answer' => [
@@ -316,13 +326,12 @@ it('cannot judge where its server does not answer a check within the limit, and 
     Scratch::write($project, 'vendor/bin/server.mode', 'mute');
     $psalm = psalmIn($project);
     $psalm->findings(Paths::none(), Withheld::standard());
-    $check = MutantCheck::of(Path::of('src/Money.php'), Path::of('src/Money.php'))->within(Seconds::of(1.0));
+    $check = MutantCheck::of(Path::of('src/Money.php'), Path::of('src/Money.php'))->within(Seconds::of(3.0));
     $first = $psalm->check($check);
-    unlink(sprintf('%s/vendor/bin/server-argv.txt', $project));
+    Scratch::write($project, 'vendor/bin/server.mode', '');
 
-    expect($first)->toEqual(CannotJudge::because('Psalm\'s language server did not answer in 1s.'))
-        ->and($psalm->check($check))->toEqual(CannotJudge::because('Psalm\'s language server did not answer in 1s.'))
-        ->and(file_exists(sprintf('%s/vendor/bin/server-argv.txt', $project)))->toBeTrue();
+    expect($first)->toEqual(CannotJudge::because('Psalm\'s language server did not answer in 3s.'))
+        ->and($psalm->check($check))->not->toBeInstanceOf(CannotJudge::class);
 });
 
 it('cannot judge where its server does not answer its start within the limit, and starts it no second time', function (): void {
@@ -332,9 +341,8 @@ it('cannot judge where its server does not answer its start within the limit, an
     $psalm->findings(Paths::none(), Withheld::standard());
     $check = MutantCheck::of(Path::of('src/Money.php'), Path::of('src/Money.php'))->within(Seconds::of(1.0));
     $first = $psalm->check($check);
-    unlink(sprintf('%s/vendor/bin/server-argv.txt', $project));
+    psalmServerGone($project);
 
     expect($first)->toEqual(CannotJudge::because('Psalm\'s language server did not answer in 1s.'))
-        ->and($psalm->check($check))->toEqual(CannotJudge::because('Psalm\'s language server did not answer in 1s.'))
-        ->and(file_exists(sprintf('%s/vendor/bin/server-argv.txt', $project)))->toBeFalse();
+        ->and($psalm->check($check))->toEqual(CannotJudge::because('Psalm\'s language server did not answer in 1s.'));
 });
