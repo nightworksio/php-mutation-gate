@@ -2,7 +2,7 @@
     "$schema": "resources/mutation-gate.schema.json",
     "runner": {
         "use": "pest",
-        "memory": "3G"
+        "memory": "2G"
     },
     "trees": [
         {
