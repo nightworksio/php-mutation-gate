@@ -23,12 +23,19 @@ use RuntimeException;
 use function sprintf;
 
 use Symfony\Component\HttpClient\HttpClient;
+use Symfony\Component\HttpClient\RetryableHttpClient;
 
 use function sys_get_temp_dir;
 
 /** What a JSON Schema says is wrong with a document; nothing where it validates. */
 final class Schema
 {
+    /**
+     * How many times a fetch asks again where the host limits its rate or
+     * fails on its side, after the wait it names or a growing one.
+     */
+    private const int RETRIES = 4;
+
     /** @return list<string> each error, with where it is */
     public static function errors(string $json, string $schema): array
     {
@@ -46,8 +53,8 @@ final class Schema
 
     /**
      * A schema whose publisher states no licence that lets this repository carry it: fetched into the system's
-     * temporary directory, under its digest, and held to that digest. A fetch that fails, or a schema that has
-     * changed, fails the test that reads it.
+     * temporary directory, under its digest, and held to that digest. A fetch that still fails once it has asked
+     * again, or a schema that has changed, fails the test that reads it.
      */
     public static function fetched(string $url, string $sha256): string
     {
@@ -57,7 +64,8 @@ final class Schema
             return $file;
         }
 
-        $text = HttpClient::create()->request('GET', $url, ['timeout' => 30])->getContent();
+        $client = new RetryableHttpClient(HttpClient::create(), maxRetries: self::RETRIES);
+        $text = $client->request('GET', $url, ['timeout' => 30])->getContent();
 
         if (hash('sha256', $text) !== $sha256) {
             throw new RuntimeException(sprintf(
