@@ -9,8 +9,6 @@ use function getenv;
 use Infection\AbstractTestFramework\Coverage\TestLocation;
 
 use function is_float;
-use function is_numeric;
-use function is_string;
 use function max;
 
 use NightWorksIO\MutationGate\Core\Mutant\RunnerMutatorName;
@@ -20,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 use NightWorksIO\MutationGate\Core\Runner\StartUpVariable;
 use NightWorksIO\MutationGate\Core\Runner\TighterVariables;
+use NightWorksIO\MutationGate\Core\Runner\ToldSeconds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -118,10 +117,6 @@ final class MutantTime
     /** The floor the gate names, a positive number of seconds; or none. */
     private static function floor(): Seconds|NotGiven
     {
-        $floor = getenv(ChildVariable::MutantFloor->value);
-
-        return is_string($floor) && is_numeric($floor) && (float) $floor > 0.0
-            ? Seconds::of((float) $floor)
-            : NotGiven::value();
+        return ToldSeconds::read(getenv(ChildVariable::MutantFloor->value));
     }
 }

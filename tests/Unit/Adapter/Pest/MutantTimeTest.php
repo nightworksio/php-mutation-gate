@@ -141,3 +141,13 @@ it('lays a mutant\'s limit, and its silence limit, on three times the start-up t
     expect(MutantTime::of(['T::a', 'T::b'], '/tmp/mutations/abc', 99))->toBe(14.25)
         ->and(MutantTime::silence(['T::a', 'T::b'], PlusToMinus::class))->toEqual(Seconds::of(13.5));
 });
+
+it('records a mutant\'s limit after what the results file holds already, and keeps bounds of under a second', function (): void {
+    $results = mutantTimeResults();
+    file_put_contents($results, "{\"event\":\"made\"}\n");
+    mutantTimeBounds('0.25', '0.5');
+    MutantTime::remember(['testResults' => mutantTimeTests(['T::a' => 0.25])]);
+
+    expect(MutantTime::of(['T::a'], '/tmp/mutations/abc', 99))->toBe(0.5)
+        ->and(file_get_contents($results))->toBe(sprintf("{\"event\":\"made\"}\n%s", RecordLine::limited('/tmp/mutations/abc', 0.5)));
+});

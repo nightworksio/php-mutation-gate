@@ -8,7 +8,6 @@ use function array_key_exists;
 use function array_unique;
 use function file_put_contents;
 use function getenv;
-use function is_numeric;
 use function is_string;
 use function max;
 
@@ -19,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 use NightWorksIO\MutationGate\Core\Runner\StartUpVariable;
 use NightWorksIO\MutationGate\Core\Runner\TighterVariables;
+use NightWorksIO\MutationGate\Core\Runner\ToldSeconds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -109,13 +109,11 @@ final class MutantTime
      */
     private static function bounds(): LimitBounds|NotGiven
     {
-        $floor = getenv(GateVariable::MutantFloor->value);
-        $most = getenv(GateVariable::MutantCap->value);
-        $named = is_string($floor) && is_numeric($floor) && (float) $floor > 0.0
-            && is_string($most) && is_numeric($most) && (float) $most > 0.0;
+        $floor = ToldSeconds::read(getenv(GateVariable::MutantFloor->value));
+        $most = ToldSeconds::read(getenv(GateVariable::MutantCap->value));
 
-        return $named
-            ? LimitBounds::between(Seconds::of((float) $floor), Seconds::of((float) $most))->tighterFor(
+        return $floor instanceof Seconds && $most instanceof Seconds
+            ? LimitBounds::between($floor, $most)->tighterFor(
                 TighterVariables::read(
                     getenv(GateVariable::TighterFloor->value),
                     getenv(GateVariable::TighterMutators->value),
@@ -148,16 +146,16 @@ final class MutantTime
      */
     private static function slowest(array $tests): Seconds|Unmeasured
     {
-        $slowest = 0.0;
+        $times = [];
 
         foreach ($tests as $test) {
             if (! array_key_exists($test, self::$timed)) {
                 return Unmeasured::duration();
             }
 
-            $slowest = max($slowest, self::$timed[$test]);
+            $times[] = self::$timed[$test];
         }
 
-        return $tests === [] ? Unmeasured::duration() : Seconds::of($slowest);
+        return $times === [] ? Unmeasured::duration() : Seconds::of(max($times));
     }
 }
