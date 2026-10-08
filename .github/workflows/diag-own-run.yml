@@ -48,10 +48,11 @@ jobs:
         timeout-minutes: 25
         env:
           DIAG_SHARD_LOG: /tmp/shard.log
-        run: bin/mutation-gate run --plan=.mutation-gate/plan.json --shard=4 --results=.mutation-gate/results
+        run: bin/mutation-gate run --plan=.mutation-gate/plan.json --shard=4 --results=.mutation-gate/results -v
       - name: Show
         if: always()
         run: |
+          python3 -c "import json;d=json.load(open('.mutation-gate/results/4.json'));print({k:(len(v) if isinstance(v,(list,dict)) else v) for k,v in d.items()});print(json.dumps(d.get('skipped'))[:3000]);print(json.dumps(d.get('measured'))[:1500])" || true
           test -f /tmp/shard.log || { echo "no log"; exit 0; }
           grep -c '^=== ' /tmp/shard.log || true
           grep '^=== ' /tmp/shard.log | awk '{print $2}' | sort | uniq -c
