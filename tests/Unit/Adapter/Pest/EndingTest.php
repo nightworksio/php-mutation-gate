@@ -45,3 +45,20 @@ it('records nothing where the gate names no results file', function (): void {
 
     expect(glob(sprintf('%s/*', $directory)))->toBe([]);
 });
+
+it('records, after how an own run ended, the test whose missing dataset it printed as the killer, placed nowhere', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    putenv(sprintf('%s=%s', GateVariable::Results->value, $results));
+    $printed = sprintf('The test [%s] in [%s] expects [1] argument(s) ([int $case]), but no dataset was provided.', 'it is collected here', __FILE__);
+
+    Ending::record(endedRun($printed, '', 1), '/tmp/mutations/abc');
+
+    expect(file($results, FILE_IGNORE_NEW_LINES))->toBe([
+        '{"event":"ended","mutated":"/tmp/mutations/abc","code":1,"signalled":false}',
+        sprintf(
+            '{"event":"killed","mutated":"/tmp/mutations/abc","test":%s,"run":%d}',
+            json_encode('P\\Tests\\Unit\\Adapter\\Pest\\EndingTest::__pest_evaluable_it_is_collected_here'),
+            getmypid(),
+        ),
+    ]);
+});

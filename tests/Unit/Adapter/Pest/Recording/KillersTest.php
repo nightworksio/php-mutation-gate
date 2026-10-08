@@ -5,8 +5,12 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Killers;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Loaded;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Placed;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RunIssues;
 use NightWorksIO\MutationGate\Tests\Support\Beats;
+use NightWorksIO\MutationGate\Tests\Support\PhpUnitEvents;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use PHPUnit\Event\Facade;
 use Symfony\Component\Process\Process;
@@ -135,4 +139,24 @@ it('logs nothing to a mutant\'s log it cannot empty', function (): void {
 
     expect($logged)->not->toBe(Recorder::errorsBeside($results, '/tmp/mutations/abc'))
         ->and(is_file(Recorder::errorsBeside($results, '/tmp/mutations/abc')))->toBeFalse();
+});
+
+it('names as killers, once PHPUnit ends its run, the tests whose issues failed it, before how many tests it ran', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    $events = new Facade();
+    $issues = new class implements RunIssues {
+        public function killers(): array
+        {
+            return ['P\Tests\MoneySpec::__pest_evaluable_it_adds'];
+        }
+    };
+    Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: $issues);
+
+    PhpUnitEvents::executionFinished($events);
+
+    expect(file_get_contents($results))->toBe(sprintf(
+        '%s%s',
+        RecordLine::killed('/tmp/mutations/abc', 'P\Tests\MoneySpec::__pest_evaluable_it_adds', Placed::unplaced((int) getmypid())),
+        RecordLine::ran('/tmp/mutations/abc', 0),
+    ));
 });

@@ -73,6 +73,7 @@ final readonly class Killers
         string|false $original,
         Loaded $loaded,
         Heartbeat $heartbeat,
+        RunIssues $issues = new IssueKillers(),
     ): self|Off {
         if (! is_string($results) || $results === '' || ! is_string($mutated) || $mutated === '') {
             return Off::NamingKillers;
@@ -92,7 +93,7 @@ final readonly class Killers
                 new OnErrored($killers),
                 new OnTestFinished($ran, $heartbeat),
                 new OnExecutionStarted($heartbeat),
-                new OnExecutionFinished($ran),
+                new OnExecutionFinished($ran, $killers, $issues),
             );
         } catch (EventFacadeIsSealedException|UnknownSubscriberTypeException) {
             return Off::NamingKillers;
@@ -108,6 +109,17 @@ final readonly class Killers
     {
         $line = RecordLine::killed($this->mutated, $test, $this->order->placed($test));
         file_put_contents($this->results, $line, FILE_APPEND | LOCK_EX);
+    }
+
+    /**
+     * Writes each test that raised an issue the run fails on, where no test
+     * failed or errored (see IssueKillers), by its id, and where it stood.
+     */
+    public function issuedBy(string ...$tests): void
+    {
+        foreach ($tests as $test) {
+            $this->killedBy($test);
+        }
     }
 
     /** Writes a test that errored, by its id, as the coverage map names it, and where it stood. */
