@@ -395,6 +395,26 @@ class Shards(unittest.TestCase):
         self.assertEqual(2, len(running))
         self.assertFalse(any("GITHUB_TOKEN" in line for found in running for line in found))
 
+    def test_every_job_that_runs_mutants_on_the_plan_has_the_plans_coverage_map(self):
+        # Each timeout, kill and mutant out of memory is judged by its
+        # unmutated control, timed from the map the plan made, so a job that
+        # runs mutants without it cannot judge.
+        for name in ("shard", "survivors"):
+            with self.subTest(job=name):
+                found = steps(job(WORKFLOW, name))
+                coverage = [
+                    at for at, one in enumerate(found)
+                    if "actions/download-artifact@" in one[0] and any("name: mutation-gate-coverage" in line for line in one)
+                ]
+                running = [
+                    at for at, one in enumerate(found)
+                    if any(" --plan=" in line or "uses: ./.mutation-gate/workflow" in line for line in one)
+                ]
+
+                self.assertTrue(coverage)
+                self.assertTrue(running)
+                self.assertLess(coverage[0], running[0])
+
 
 if __name__ == "__main__":
     unittest.main()
