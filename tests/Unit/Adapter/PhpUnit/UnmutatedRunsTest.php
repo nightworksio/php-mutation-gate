@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Control\PeakLauncher;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -165,4 +166,21 @@ it('starts each control through the launcher, and gives it the peak the launcher
     expect(array_slice($arguments, 0, 2))->toBe([PHP_BINARY, PeakLauncher::in($project->own(Control::DIRECTORY))])
         ->and($arguments[3])->toBe(PHP_BINARY)
         ->and($runs->of(phpUnitControl('src/Money.php'))->peak())->toEqual(PeakLauncher::peakIn('20480', PHP_OS_FAMILY));
+});
+
+it('gives a control no peak an earlier run left in its place, where the launcher wrote none', function () use ($whole): void {
+    $project = unmutatedPhpUnitProject();
+    Scratch::write($project->own(Control::DIRECTORY), 'peak-0', '99999');
+    $shell = new PhpUnitShellFake(static function (Command $command): Ran {
+        $test = 'Tests\MoneyTest::testAdds';
+        file_put_contents($command->environment()[Variable::Results->value], sprintf('%s%s', Outcome::Started->line($test), Outcome::Passed->line($test)));
+        file_put_contents($command->environment()[Variable::Guard->value], "served\n");
+
+        return Ran::finished(succeeded: true, output: '');
+    });
+
+    $runs = controlled(unmutated($project, $shell), Controls::of(phpUnitControl('src/Money.php')), $whole);
+
+    expect($shell->commands()[0]->arguments()[2])->toBe(sprintf('%s/peak-0', $project->own(Control::DIRECTORY)))
+        ->and($runs->of(phpUnitControl('src/Money.php'))->peak())->toEqual(NotGiven::value());
 });
