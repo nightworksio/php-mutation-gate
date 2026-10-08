@@ -304,9 +304,9 @@ class Secrets(unittest.TestCase):
         self.assertTrue(any(f"{os.sep}.docs{os.sep}" in path for path in scanned))
         self.assertEqual([], [path for path in scanned if "secrets: inherit" in "\n".join(lines_of(path))])
 
-    def test_the_readme_and_the_template_call_the_workflow_with_no_secrets(self):
-        readme = "\n".join(lines_of(os.path.join(ROOT, "README.md")))
-        examples = [block for block in readme.split("```") if "/.github/workflows/mutation-gate.yml@" in block]
+    def test_the_guide_and_the_template_call_the_workflow_with_no_secrets(self):
+        guide = "\n".join(lines_of(os.path.join(ROOT, ".docs", "guide", "ci", "github-actions.md")))
+        examples = [block for block in guide.split("```") if "/.github/workflows/mutation-gate.yml@" in block]
         template = "\n".join(lines_of(os.path.join(ROOT, "resources", "ci", "github", "sharded.yml")))
 
         self.assertTrue(examples)
