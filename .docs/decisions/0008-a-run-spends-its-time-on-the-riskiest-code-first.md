@@ -195,7 +195,10 @@ presets for Laravel, Symfony and plain libraries.
    cannot run, a shard of no file, and every run that is not a shard's
    (re-checking survivors, `reproduce`) measure none, and their limits keep
    5 s for the start-up. A patched runner's process is told the start-up in
-   `MUTATION_GATE_MUTANT_START_UP`, beside the bounds.
+   `MUTATION_GATE_MUTANT_START_UP`, beside the bounds. Loading fewer test
+   files in each own run, by making more of them inert, is not part of the
+   rule: the measured start-up absorbs what loading them costs, and a change
+   to which files count as inert is a decision of its own (ADR-0004).
 
    k is fitted from runs, not guessed. A mutant that breaks nothing runs its
    covering tests to the end, so its limit must stay above them on the
