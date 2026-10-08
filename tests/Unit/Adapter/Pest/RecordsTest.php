@@ -563,3 +563,22 @@ it('knows a mutant that shares its mutated copy with another, whose own runs can
     expect($records instanceof Records && $records->sharesItsCopy($mutant('a', '/p/src/Money.php', 10)))->toBeTrue()
         ->and($records instanceof Records && $records->sharesItsCopy($mutant('c', '/p/src/Money.php', 30)))->toBeFalse();
 });
+
+it('keeps the arguments a mutant\'s own run started with, none where two runs on its copy recorded theirs, and refuses a replay\'s stop', function () use ($results, $planned, $mutant): void {
+    $one = Records::in($results([
+        $planned('a', '/p/src/A.php', 1),
+        $planned('b', '/p/src/B.php', 1),
+        RecordLine::arguments('/tmp/a', ['vendor/bin/pest', '--bail', '--filter=A']),
+        RecordLine::arguments('/tmp/b', ['vendor/bin/pest']),
+        RecordLine::arguments('/tmp/b', ['vendor/bin/pest', '--bail']),
+    ]));
+    $stopped = Records::in($results([$planned('a', '/p/src/A.php', 1), RecordLine::stopped('/tmp/a', 2, str_repeat('a', 64))]));
+
+    expect($one instanceof Records ? $one->runOf($mutant('a', '/p/src/A.php', 1))->arguments() : null)
+        ->toBe(['vendor/bin/pest', '--bail', '--filter=A'])
+        ->and($one instanceof Records ? $one->runOf($mutant('b', '/p/src/B.php', 1))->arguments() : null)
+        ->toBeInstanceOf(NotGiven::class)
+        ->and($one instanceof Records ? $one->runOf($mutant('c', '/p/src/C.php', 1))->arguments() : null)
+        ->toBeInstanceOf(NotGiven::class)
+        ->and($stopped)->toBeInstanceOf(CannotJudge::class);
+});

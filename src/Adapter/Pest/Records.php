@@ -234,6 +234,8 @@ final class Records
             RecordEvent::Limited => $this->runs->limited($record),
             RecordEvent::Silent => $this->runs->silent($record),
             RecordEvent::Ran => $this->runs->ran($record),
+            RecordEvent::Arguments => $this->runs->startedWith($record),
+            RecordEvent::Stopped => throw NotInShape::at($event->at(), 'an event of a mutation run, not a replay\'s'),
             RecordEvent::Ended => $this->runs->ended($record),
             RecordEvent::End => $this->ended = true,
             null => throw NotInShape::at($event->at(), 'an event the plugin writes'),

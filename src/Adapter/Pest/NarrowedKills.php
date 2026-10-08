@@ -8,12 +8,16 @@ use function array_key_exists;
 use function array_keys;
 use function array_map;
 use function array_slice;
+use function array_values;
 
 use Closure;
 
 use function count;
 use function explode;
 use function implode;
+use function is_array;
+use function is_int;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -21,11 +25,15 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
+use NightWorksIO\MutationGate\Core\Mutant\Prefix;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 /**
  * The kills of a run in which each mutant's own run loaded only the test
@@ -50,20 +58,29 @@ final readonly class NarrowedKills
 
     /**
      * @param list<Mutant>                $doubtful
-     * @param array<string, list<Mutant>> $narrowed the kills of narrowed own runs, by the file each changes and the
-     *                                              files its run loaded, joined
+     * @param array<string, list<Mutant>> $narrowed the kills of narrowed own runs whose order is not known, by the
+     *                                              file each changes and the files its run loaded, joined
+     * @param array<string, PrefixReplay> $replays  the replay of each narrowed own run whose order is known, by the
+     *                                              file its mutant changes and the key of its order, joined
+     * @param array<string, list<Mutant>> $replayed the kills each replay vouches for, by the same key
      */
-    private function __construct(private array $doubtful, private array $narrowed)
-    {
+    private function __construct(
+        private array $doubtful,
+        private array $narrowed,
+        private array $replays = [],
+        private array $replayed = [],
+    ) {
     }
 
-    public static function in(MutationResult $result, string $results): self
+    public static function in(MutationResult $result, string $results, Project $project): self
     {
         $records = Records::in($results);
         $runs = self::runs($records);
         $trial = self::uncovered($records);
         $doubtful = [];
         $narrowed = [];
+        $replays = [];
+        $replayed = [];
 
         foreach ($result->mutants() as $mutant) {
             if ($mutant->status() !== MutantStatus::Killed || array_key_exists($mutant->nativeId(), $trial)) {
@@ -71,9 +88,13 @@ final readonly class NarrowedKills
             }
 
             $recorded = array_key_exists($mutant->nativeId(), $runs);
-            $run = $recorded
+            [$run, $copy, $limit] = $recorded
                 ? $runs[$mutant->nativeId()]
-                : OwnRun::of([], [], [], NotGiven::value(), preloaded: false, tests: NotGiven::value());
+                : [
+                    OwnRun::of([], [], [], NotGiven::value(), preloaded: false, tests: NotGiven::value()),
+                    '',
+                    Unmeasured::duration(),
+                ];
 
             if (! $recorded || count($mutant->killers()) === 0 || $run->killedByErrorsOnly()) {
                 $doubtful[] = $mutant;
@@ -81,19 +102,60 @@ final readonly class NarrowedKills
                 continue;
             }
 
-            if ($run->narrowedTo() !== []) {
-                $key = implode(self::BETWEEN, [$mutant->location()->file()->value(), ...$run->narrowedTo()]);
-                $narrowed[$key][] = $mutant;
+            if ($run->narrowedTo() === []) {
+                continue;
             }
+
+            $replay = self::replayOf($mutant, $run, $copy, $limit, $project);
+
+            if (! $replay instanceof PrefixReplay) {
+                $set = implode(self::BETWEEN, [$mutant->location()->file()->value(), ...$run->narrowedTo()]);
+                $narrowed[$set][] = $mutant;
+
+                continue;
+            }
+
+            $key = implode(self::BETWEEN, [$mutant->location()->file()->value(), $replay->key()]);
+            $replays[$key] = array_key_exists($key, $replays) ? $replays[$key]->alsoFor($limit) : $replay;
+            $replayed[$key][] = $mutant;
         }
 
-        return new self($doubtful, $narrowed);
+        return new self($doubtful, $narrowed, $replays, $replayed);
     }
 
-    /** How many controls the narrowed kills ask for: one for each file changed and set of files loaded. */
+    /**
+     * How many controls the narrowed kills ask for: one for each file changed
+     * and set of files loaded, and one replay for each file changed and order.
+     */
     public function sets(): int
     {
-        return count($this->narrowed);
+        return count($this->narrowed) + count($this->replays);
+    }
+
+    /**
+     * Each narrowed kill whose replay does not let it stand, unjudged with
+     * why (see ReplayVerdict), all the replays asked at once, so they can run
+     * side by side.
+     *
+     * @param Closure(non-empty-list<PrefixReplay>): list<ReplayVerdict> $replay what each replay says, in order
+     */
+    public function unvouched(Closure $replay): Mutants
+    {
+        $keys = array_keys($this->replays);
+        $replays = array_values($this->replays);
+        $said = $replays === [] ? [] : $replay($replays);
+        $unvouched = [];
+
+        foreach ($keys as $at => $key) {
+            $verdict = array_key_exists($at, $said) ? $said[$at] : ReplayVerdict::NoTime;
+            $reason = Reason::that($verdict->reason());
+            $unvouched = $verdict === ReplayVerdict::Stands ? $unvouched : [...$unvouched, ...array_map(
+                static fn(Mutant $mutant): Mutant => Interpretation::unjudged($mutant, $reason),
+                $this->replayed[$key],
+            )];
+        }
+
+        return Mutants::of(...$unvouched);
     }
 
     /**
@@ -147,7 +209,33 @@ final readonly class NarrowedKills
         return $uncovered;
     }
 
-    /** @return array<string, OwnRun> what each mutant's own process recorded, by its native id */
+    /**
+     * The replay of a kill's narrowed own run, where its order is known: the
+     * key of that order, how far it went, and the arguments it started with.
+     */
+    private static function replayOf(
+        Mutant $mutant,
+        OwnRun $run,
+        string $copy,
+        Seconds|Unmeasured $limit,
+        Project $project,
+    ): PrefixReplay|NotGiven {
+        $files = Paths::of(...array_map($project->relative(...), $run->narrowedTo()));
+        $prefix = $run->prefix($files);
+        $key = $prefix instanceof Prefix ? $prefix->key() : NotGiven::value();
+        $reach = $run->reach();
+        $arguments = $run->arguments();
+
+        return is_string($key) && is_int($reach) && $reach > 0 && is_array($arguments) && $arguments !== []
+            ? PrefixReplay::of($mutant->location()->file(), $copy, $arguments, $files, $reach, $key, $limit)
+            : NotGiven::value();
+    }
+
+    /**
+     * @return array<string, array{OwnRun, string, Seconds|Unmeasured}> what each mutant's own run recorded, its
+     *                                                                   copy, and the seconds Pest allowed it, by
+     *                                                                   native id
+     */
     private static function runs(Records|CannotJudge $records): array
     {
         if (! $records instanceof Records) {
@@ -157,7 +245,11 @@ final readonly class NarrowedKills
         $runs = [];
 
         foreach ($records->planned() as $planned) {
-            $runs[$planned->id()] = $records->runOf($planned);
+            $runs[$planned->id()] = [
+                $records->runOf($planned),
+                $planned->mutated()->value(),
+                $records->limitOf($planned),
+            ];
         }
 
         return $runs;

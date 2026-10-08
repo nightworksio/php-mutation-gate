@@ -128,8 +128,10 @@ final readonly class Project
         $this->directory(Path::of(dirname($results)));
         $copies = glob(Recorder::mutantBeside($results, '*'));
         $logs = glob(Recorder::everyErrorLogBeside($results));
+        $replays = glob(PrefixReplays::everyBeside($results));
         $beside = [Recorder::coverageBeside($results), OnlyList::beside($results), OpeningIssues::beside($results)];
         $beside = [...$beside, ...(is_array($copies) ? $copies : []), ...(is_array($logs) ? $logs : [])];
+        $beside = [...$beside, ...(is_array($replays) ? $replays : [])];
 
         return $this->without($results, ...$beside)
             ? $results
@@ -148,16 +150,24 @@ final readonly class Project
         return $this->without($file) ? $file : Leftover::at($file);
     }
 
+    /** The directory the plugin writes each mutant's order to, as a run left it. */
+    public function order(): string
+    {
+        return $this->directory($this->workspace->child(Path::of(self::ORDER)));
+    }
+
     /**
      * The directory the plugin writes each mutant's order to, holding no
      * earlier run's plan or orders, or why an earlier run's are still there.
      */
     public function freshOrder(): string|CannotJudge
     {
-        $order = $this->directory($this->workspace->child(Path::of(self::ORDER)));
+        $order = $this->order();
         $seeds = glob(sprintf('%s/*/%s', $order, Seed::HISTORY));
+        $copies = glob(sprintf('%s/*/*/%s', $order, Seed::HISTORY));
+        $kept = [...(is_array($seeds) ? $seeds : []), ...(is_array($copies) ? $copies : [])];
 
-        return $this->without(Plan::in($order), ...(is_array($seeds) ? $seeds : []))
+        return $this->without(Plan::in($order), ...$kept)
             ? $order
             : CannotJudge::because(sprintf(self::STALE_ORDER, $order));
     }

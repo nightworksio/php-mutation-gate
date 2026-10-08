@@ -3,11 +3,13 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
+use NightWorksIO\MutationGate\Adapter\Pest\Order\Seed;
 use NightWorksIO\MutationGate\Adapter\Pest\Plugin;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Guard;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Naming;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
@@ -70,7 +72,8 @@ it('records, guards, names no killer and no test, and orders nothing until Pest 
         ->and(new Plugin()->guard())->toBe(Off::Guarding)
         ->and(new Plugin()->killers())->toBe(Off::NamingKillers)
         ->and(new Plugin()->naming())->toBe(Off::NamingTests)
-        ->and(new Plugin()->seeder())->toBe(Off::Ordering);
+        ->and(new Plugin()->seeder())->toBe(Off::Ordering)
+        ->and(new Plugin()->stop())->toBe(Off::Stopping);
 });
 
 it('names the tests of a run that lists them for the adapter, writing the names when the run ends', function (): void {
@@ -141,4 +144,24 @@ it('loads the bridges to the registered mutators the adapter wrote, as it boots'
     pluginBootedWith([GateVariable::Mutators->value => $bridges]);
 
     expect(function_exists('pluginLoadedTheBridges'))->toBeTrue();
+});
+
+it('records a mutant\'s own process\'s arguments as Pest gave them, and a replay takes the order of the copy it names', function (): void {
+    $directory = Scratch::directory();
+    $results = sprintf('%s/results.jsonl', $directory);
+    $order = sprintf('%s/order', $directory);
+    Scratch::write(Seed::directoryOf($order, '/tmp/mutations/abc'), Seed::HISTORY, '{}');
+    $arguments = [2 => 'vendor/bin/pest', 5 => '--bail'];
+
+    $replayed = argumentsHandledWith([
+        Recorder::MUTATED => '/tmp/originals/copy.php',
+        GateVariable::Results->value => $results,
+        GateVariable::Order->value => $order,
+        GateVariable::OrderOf->value => '/tmp/mutations/abc',
+    ], $arguments);
+    $own = argumentsHandledWith([Recorder::MUTATED => '/tmp/mutations/other', GateVariable::Order->value => $order], $arguments);
+
+    expect(file_get_contents($results))->toBe(RecordLine::arguments('/tmp/originals/copy.php', ['vendor/bin/pest', '--bail']))
+        ->and($replayed)->toContain(sprintf('--cache-directory=%s/abc/run-%d', $order, getmypid()))
+        ->and($own)->toBe(['vendor/bin/pest', '--bail']);
 });

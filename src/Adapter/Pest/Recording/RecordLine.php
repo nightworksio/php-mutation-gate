@@ -105,6 +105,35 @@ final readonly class RecordLine
         ]);
     }
 
+    /**
+     * The arguments Pest started the own process of the mutant it serves
+     * this mutated copy for with, before the plugin ordered its tests.
+     *
+     * @param list<string> $arguments
+     */
+    public static function arguments(string $mutated, array $arguments): string
+    {
+        return self::line([
+            RecordField::Event->value => RecordEvent::Arguments->value,
+            RecordField::Mutated->value => $mutated,
+            RecordField::Arguments->value => $arguments,
+        ]);
+    }
+
+    /**
+     * That a replay of a kill's own run, serving this copy, stopped after
+     * this many tests, which it took in an order of this digest.
+     */
+    public static function stopped(string $mutated, int $tests, string $order): string
+    {
+        return self::line([
+            RecordField::Event->value => RecordEvent::Stopped->value,
+            RecordField::Mutated->value => $mutated,
+            RecordField::At->value => $tests,
+            RecordField::Order->value => $order,
+        ]);
+    }
+
     /** The seconds a patched run allowed the own process of the mutant Pest serves this mutated copy for. */
     public static function limited(string $mutated, float $seconds): string
     {

@@ -37,6 +37,12 @@ enum RecordEvent: string
     /** A mutant's own process had loaded the original file before Pest put the mutant in its place. */
     case Preloaded = 'preloaded';
 
+    /** The arguments Pest started a mutant's own process with, before the plugin ordered its tests. */
+    case Arguments = 'arguments';
+
+    /** A replay of a kill's own run stopped after as many tests as the run ran, with their order (see ReplayStop). */
+    case Stopped = 'stopped';
+
     /** How many tests a mutant's own process ran. */
     case Ran = 'ran';
 

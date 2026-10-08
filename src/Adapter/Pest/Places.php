@@ -64,6 +64,24 @@ final readonly class Places
         };
     }
 
+    /**
+     * How many tests the run started up to its last killer: where that
+     * killer stood, where every killer's line names one process and it stood
+     * somewhere.
+     */
+    public function reach(): int|NotGiven
+    {
+        $last = array_key_last($this->places);
+
+        if ($last === null || ! $this->ofOneRun()) {
+            return NotGiven::value();
+        }
+
+        [$at] = $this->places[$last];
+
+        return $at;
+    }
+
     /** Whether every killer's line names the same process. */
     private function ofOneRun(): bool
     {

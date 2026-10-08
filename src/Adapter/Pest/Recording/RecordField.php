@@ -49,6 +49,9 @@ enum RecordField: string
     /** The test files a mutant's own run loads, by their paths on disk. */
     case Files = 'files';
 
+    /** The arguments a process was started with, in order. */
+    case Arguments = 'arguments';
+
     /** The seconds a mutant's own run was allowed. */
     case Seconds = 'seconds';
 

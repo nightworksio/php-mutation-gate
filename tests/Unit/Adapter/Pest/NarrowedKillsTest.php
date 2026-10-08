@@ -5,18 +5,27 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\Control;
 use NightWorksIO\MutationGate\Adapter\Pest\NarrowedKills;
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
+use NightWorksIO\MutationGate\Adapter\Pest\PrefixReplay;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Placed;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
+use NightWorksIO\MutationGate\Adapter\Pest\ReplayVerdict;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
+use NightWorksIO\MutationGate\Core\Mutant\Prefix;
+use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+use NightWorksIO\MutationGate\Tests\Support\PestCases;
 use NightWorksIO\MutationGate\Tests\Support\PestRun;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
@@ -71,7 +80,7 @@ it('doubts a kill no test is named for, one only errors made, one with no record
     );
     $asked = [];
 
-    $doubted = NarrowedKills::in(MutationResult::of(Mutants::of(...$mutants), 0), $file)->doubted(
+    $doubted = NarrowedKills::in(MutationResult::of(Mutants::of(...$mutants), 0), $file, PestCases::project())->doubted(
         Group::named('holds:src/Money.php'),
         static function (array $controls) use (&$asked): array {
             $asked[] = $controls;
@@ -104,7 +113,7 @@ it('asks for a control of each file a narrowed kill changes, though the runs of 
     );
     $asked = [];
 
-    $doubted = NarrowedKills::in(MutationResult::of(Mutants::of($mutant(1, MutantStatus::Killed, 'T::a'), $taxKill), 0), $file)->doubted(
+    $doubted = NarrowedKills::in(MutationResult::of(Mutants::of($mutant(1, MutantStatus::Killed, 'T::a'), $taxKill), 0), $file, PestCases::project())->doubted(
         WholeSuite::tests(),
         static function (array $controls) use (&$asked): array {
             $asked = $controls;
@@ -126,6 +135,7 @@ it('never doubts a kill of a mutant Pest left uncovered, which the trial judged'
     $doubted = NarrowedKills::in(
         MutationResult::of(Mutants::of($mutant(1, MutantStatus::Killed), $mutant(2, MutantStatus::Killed)), 0),
         $file,
+        PestCases::project(),
     )->doubted(WholeSuite::tests(), static fn(array $controls): array => array_map(static fn(): bool => true, $controls));
 
     expect(array_map(static fn(Mutant $each): string => $each->nativeId(), [...$doubted]))->toBe(['native-2']);
@@ -138,6 +148,7 @@ it('doubts every kill, and asks nothing, where the records cannot be read', func
     $doubted = NarrowedKills::in(
         MutationResult::of(Mutants::of($killed, $mutant(2, MutantStatus::Survived)), 0),
         sprintf('%s/missing.jsonl', Scratch::directory()),
+        PestCases::project(),
     )->doubted(WholeSuite::tests(), static function (array $controls) use (&$asked): array {
         $asked++;
 
@@ -159,7 +170,68 @@ it('doubts a narrowed kill whose set of files the answer leaves out', function (
     $doubted = NarrowedKills::in(
         MutationResult::of(Mutants::of($mutant(1, MutantStatus::Killed, 'T::a'), $mutant(2, MutantStatus::Killed, 'T::b')), 0),
         $file,
+        PestCases::project(),
     )->doubted(WholeSuite::tests(), static fn(): array => [true]);
 
     expect(array_map(static fn(Mutant $each): string => $each->nativeId(), [...$doubted]))->toBe(['native-2']);
 });
+
+it('replays each narrowed kill whose order is known, once for an order and file within the longer limit of its kills, in place of a control of its files, and leaves unjudged those its replay does not let stand', function (ReplayVerdict $verdict, array $unjudged) use ($mutant): void {
+    $at = PestCases::project();
+    $loaded = sprintf('%s/tests/ASpec.php', $at->root());
+    $order = OrderDigest::of(TestId::of('T::x'), TestId::of('T::a'))->value();
+    $file = narrowedResults(
+        PestRun::killedAt('native-1', 'T::a', Placed::at(2, $order, 9)),
+        PestRun::narrowed('native-1', [$loaded]),
+        rtrim(RecordLine::arguments(PestRun::mutated('native-1'), ['vendor/bin/pest', '--bail', '--filter=ASpec', $loaded])),
+        rtrim(RecordLine::limited(PestRun::mutated('native-1'), 2.0)),
+        PestRun::killed('native-2', 'T::b'),
+        PestRun::narrowed('native-2', [$loaded]),
+        PestRun::killedAt('native-3', 'T::a', Placed::at(2, $order, 9)),
+        PestRun::narrowed('native-3', [$loaded]),
+        rtrim(RecordLine::arguments(PestRun::mutated('native-3'), ['vendor/bin/pest', '--bail', '--filter=ASpec', $loaded])),
+        rtrim(RecordLine::limited(PestRun::mutated('native-3'), 5.0)),
+    );
+    $asked = [];
+    $kills = NarrowedKills::in(
+        MutationResult::of(Mutants::of(
+            $mutant(1, MutantStatus::Killed, 'T::a'),
+            $mutant(2, MutantStatus::Killed, 'T::b'),
+            $mutant(3, MutantStatus::Killed, 'T::a'),
+        ), 0),
+        $file,
+        $at,
+    );
+
+    $unvouched = $kills->unvouched(static function (array $replays) use (&$asked, $verdict): array {
+        $asked = $replays;
+
+        return [$verdict];
+    });
+    $controls = [];
+    $kills->doubted(WholeSuite::tests(), static function (array $asking) use (&$controls): array {
+        $controls = $asking;
+
+        return [true];
+    });
+    $files = Paths::of(Path::of('tests/ASpec.php'));
+
+    expect(array_map(static fn(Mutant $each): array => [$each->nativeId(), $each->status(), $each->reason()], [...$unvouched]))->toEqual($unjudged)
+        ->and($asked)->toEqual([PrefixReplay::of(
+            Path::of('src/Money.php'),
+            PestRun::mutated('native-1'),
+            ['vendor/bin/pest', '--bail', '--filter=ASpec', $loaded],
+            $files,
+            2,
+            Prefix::keyOf($files, $order),
+            Seconds::of(5.0),
+        )])
+        ->and($controls)->toEqual([Control::of(Path::of('src/Money.php'), Paths::of(Path::of($loaded)), WholeSuite::tests())])
+        ->and($kills->sets())->toBe(2);
+})->with([
+    'a replay that lets it stand' => [ReplayVerdict::Stands, []],
+    'a replay that does not' => [ReplayVerdict::OtherOrder, [
+        ['native-1', MutantStatus::Unjudged, Reason::that(ReplayVerdict::OtherOrder->reason())],
+        ['native-3', MutantStatus::Unjudged, Reason::that(ReplayVerdict::OtherOrder->reason())],
+    ]],
+]);

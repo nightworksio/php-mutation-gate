@@ -440,24 +440,49 @@ its parser attributes. Both change when the checkout moves.
        - a kill with no test named as its killer, or only tests that errored,
          does not count, as a helper a test calls by a name built at run time
          leaves;
+       - any other, where the run recorded the arguments Pest started it
+         with, how many tests it took up to its last killer and the key of
+         that order (ADR-0014, decision 16), counts only where a replay of
+         that run vouches for it. The replay starts Pest again with those
+         arguments, in the order the plugin wrote for the mutant, with the
+         file the mutant changes served unmutated through Pest's override,
+         as the mutant's own run served its copy: the file printed as Pest
+         prints its mutants. The plugin, told that number in
+         `MUTATION_GATE_STOP_AFTER`, stops it through PHPUnit's
+         `TestResult\Facade::interrupt()` once as many tests have finished
+         as the run took up to its last killer. It runs within the seconds
+         Pest allowed the mutant, or the longest that any kill it vouches
+         for had, where that is shorter than the time left. The kill counts
+         only where the replay ran exactly that many tests, none of them
+         failed or errored, it ended well, and the order it took them in
+         gives the same key. Anything else leaves the mutant unjudged,
+         naming which: *Killed, but a test of its run fails unmutated too,
+         replayed in its order, served as its mutant was*, another number of
+         tests, a run that failed with no test failing, another order, a
+         replay past its mutant's limit, no time left, or a file the gate
+         cannot serve unmutated. A test that
+         fails only while the override serves a file, as one that reads how
+         PHP opened a file does, fails in the replay too, so its failure
+         never counts as a kill. One replay runs for each file changed and
+         key, and is kept while the gate runs unless no time was left for
+         it;
        - any other counts only where every test in the files its run loaded
          passes on the unmutated code, loaded alone as that run loaded them,
-         with the file the mutant changes served unmutated through Pest's
-         override, as the mutant's own run served its copy: the file printed
-         as Pest prints its mutants. A test that fails only while the
-         override serves a file, as one that reads how PHP opened a file
-         does, fails there too, so its failure never counts as a kill. That
-         run is made once for each file changed and set of files, and kept
-         while the gate runs. The runs a mutation run needs are made side by
-         side, in the places of its pool, each told what its place tells it,
-         as the mutants' own runs were.
-         Only Pest's runs need them: Pest alone narrows a mutant's own run
-         to some test files. The PHPUnit runner and Infection load every
-         test file in each mutant's run, so a kill there never rests on a
-         file it left out, and the gate runs no such run for them.
+         with the file the mutant changes served unmutated in the same way.
+         That run is made once for each file changed and set of files, and
+         kept while the gate runs.
 
-       A kill that does not count runs again with every test file within the
-       time left, or is unjudged. A kill the run again makes counts only
+       The replays and runs a mutation run needs are made side by side, in
+       the places of its pool, each told what its place tells it, as the
+       mutants' own runs were. Only Pest's runs need them: Pest alone narrows
+       a mutant's own run to some test files. The PHPUnit runner and
+       Infection load every test file in each mutant's run, so a kill there
+       never rests on a file it left out, and the gate runs no such run for
+       them.
+
+       A kill a replay does not let stand is unjudged. Any other kill that
+       does not count runs again with every test file within the time left,
+       or is unjudged. A kill the run again makes counts only
        where the tests that cover the mutant pass on the unmutated code,
        among every test file, served the same way: as Pest's filter selects
        them, or the tests that judge the run where that filter is too long

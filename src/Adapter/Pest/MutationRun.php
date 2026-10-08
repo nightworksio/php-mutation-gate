@@ -147,10 +147,12 @@ final readonly class MutationRun
     }
 
     /**
-     * The result, each narrowed kill its control cannot vouch for run again
-     * with every test file (see NarrowedKills), with the time each took. The
-     * controls of the kills run again are read off this run's coverage
-     * before the run again replaces it.
+     * The result, each narrowed kill whose order is known vouched for by a
+     * replay of its run, unmutated (see PrefixReplays), and unjudged where
+     * the replay does not let it stand; each other narrowed kill its control
+     * cannot vouch for run again with every test file (see NarrowedKills),
+     * with the time each took. The controls of the kills run again are read
+     * off this run's coverage before the run again replaces it.
      */
     private function vouched(
         MutationResult $result,
@@ -160,8 +162,9 @@ final readonly class MutationRun
         float $started,
         Laps $laps,
     ): MutationResult|CannotJudge {
-        $kills = NarrowedKills::in($result, $results);
+        $kills = NarrowedKills::in($result, $results, $this->project);
         $from = $laps->now();
+        $unvouched = $this->unvouched($kills, $request, $results, $started);
         $doubtful = $this->doubted($kills, $request, $results, $started);
         $baselines = StepTimes::of($laps->lap(Step::Baselines, $from, $kills->sets()));
         $controls = Controls::of(
@@ -171,7 +174,22 @@ final readonly class MutationRun
             fn(): Covering|CannotJudge => $this->coveringOf($shared, $results),
         );
 
-        return $this->confirmed($result->withSteps($baselines), $request, $results, $started, $controls, $laps);
+        $replayed = $result->withMutants(FoundAgain::replacing($result->mutants(), $unvouched))->withSteps($baselines);
+
+        return $this->confirmed($replayed, $request, $results, $started, $controls, $laps);
+    }
+
+    /** A narrowed run's kills whose replay, unmutated, does not let them stand, unjudged (see PrefixReplays). */
+    private function unvouched(NarrowedKills $kills, MutationRequest $request, string $results, float $started): Mutants
+    {
+        return $kills->unvouched(
+            /**
+             * @param  non-empty-list<PrefixReplay> $replays
+             * @return list<ReplayVerdict>
+             */
+            fn(array $replays): array => new PrefixReplays($this->project, $this->shell, $this->remembered)
+                ->verdicts($replays, $request, $this->left($request, $started), $results),
+        );
     }
 
     /** A narrowed run's kills that must run again with every test file before they count. */

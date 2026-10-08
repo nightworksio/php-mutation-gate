@@ -30,10 +30,21 @@ it('runs a mutant\'s tests in the order written for it, dropping every option th
 
     expect(Reordering::of($arguments, $order, '/tmp/mutations/abc'))->toBe([
         'vendor/bin/pest', '--no-tia', '--bail', '--filter=MoneySpec',
-        sprintf('--cache-directory=%s/abc', $order),
+        sprintf('--cache-directory=%s/abc/run-%d', $order, getmypid()),
         '--record-test-run-history',
         '--order-by=defects,duration-ascending',
     ]);
+});
+
+it('reads the order from a copy of its own, which PHPUnit may write over, so the order written stays for a replay', function (): void {
+    $order = reorderingDirectory();
+    $seed = Seed::directoryOf($order, '/tmp/mutations/abc');
+    Scratch::write($seed, Seed::HISTORY, '{"version":"pest_5","defects":{},"times":{"T::a":0.5}}');
+
+    Reordering::of(['vendor/bin/pest'], $order, '/tmp/mutations/abc');
+    file_put_contents(sprintf('%s/run-%d/%s', $seed, getmypid(), Seed::HISTORY), '{"written":"by PHPUnit"}');
+
+    expect(file_get_contents(sprintf('%s/%s', $seed, Seed::HISTORY)))->toBe('{"version":"pest_5","defects":{},"times":{"T::a":0.5}}');
 });
 
 it('leaves the arguments as they are where no order was written, or this is no mutant\'s process', function (): void {

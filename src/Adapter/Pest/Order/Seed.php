@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Order;
 
 use function basename;
+use function copy;
 use function file_put_contents;
 use function is_dir;
 use function json_encode;
@@ -12,6 +13,7 @@ use function mkdir;
 
 use NightWorksIO\MutationGate\Adapter\Pest\CoverageFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 use function sprintf;
@@ -36,6 +38,25 @@ final readonly class Seed
 
     /** The status it runs next: a failure. */
     private const int NEXT = 7;
+
+    /** Where one process that reads a mutant's order keeps its own copy of it, in that order's directory. */
+    private const string RUN = '%s/run-%d';
+
+    /**
+     * A copy of a mutant's order for the process with this id, which PHPUnit
+     * may write its history over, so the order stays as it was written for
+     * a replay of the run to read (see PrefixReplays); none where it cannot
+     * be copied.
+     */
+    public static function copiedFor(string $seed, int $run): string|NotGiven
+    {
+        $copy = sprintf(self::RUN, $seed, $run);
+        $made = is_dir($copy) || mkdir($copy, recursive: true);
+
+        return $made && copy(sprintf('%s/%s', $seed, self::HISTORY), sprintf('%s/%s', $copy, self::HISTORY))
+            ? $copy
+            : NotGiven::value();
+    }
 
     /** Where a mutant's order is kept in an order directory, by the mutated copy Pest serves it from. */
     public static function directoryOf(string $directory, string $mutated): string

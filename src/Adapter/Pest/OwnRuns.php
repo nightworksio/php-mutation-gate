@@ -64,6 +64,9 @@ final class OwnRuns
     /** @var array<string, true> each mutated copy whose own runs PHP recorded a fatal error in */
     private array $fatal = [];
 
+    /** @var array<string, list<list<string>>> the arguments each own run on a copy was started with, by the copy */
+    private array $arguments = [];
+
     /** What the own runs on this mutated copy recorded. */
     public function of(string $mutated): OwnRun
     {
@@ -77,6 +80,10 @@ final class OwnRuns
         )->withEvidence(
             array_key_exists($mutated, $this->places) ? $this->places[$mutated] : Places::none(),
             $this->endingOf($mutated),
+        )->startedWith(
+            array_key_exists($mutated, $this->arguments) && count($this->arguments[$mutated]) === 1
+                ? $this->arguments[$mutated][0]
+                : NotGiven::value(),
         );
     }
 
@@ -166,6 +173,20 @@ final class OwnRuns
     public function limited(Node $record): void
     {
         $this->limited[$this->mutatedIn($record)] = $this->secondsIn($record);
+    }
+
+    /**
+     * The arguments an own run was started with; of two runs on one copy,
+     * which started how cannot be told, so neither is known.
+     *
+     * @throws NotInShape
+     */
+    public function startedWith(Node $record): void
+    {
+        $this->arguments[$this->mutatedIn($record)][] = array_map(
+            static fn(Node $argument): string => $argument->text(),
+            $record->field(RecordField::Arguments->value)->items(),
+        );
     }
 
     /** @throws NotInShape */

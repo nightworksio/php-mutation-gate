@@ -9,6 +9,7 @@ use function get_declared_classes;
 use function get_included_files;
 use function getenv;
 use function ini_get;
+use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Grouping\HoldsGroups;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Reordering;
@@ -18,10 +19,13 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Killers;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Naming;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\ReplayStop;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\StartedWith;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
 use Pest\Contracts\Plugins\Bootable;
 use Pest\Contracts\Plugins\HandlesArguments;
 use Pest\TestSuite;
+use PHPUnit\Event\Facade;
 
 use function register_shutdown_function;
 
@@ -52,6 +56,8 @@ final class Plugin implements Bootable, HandlesArguments
 
     private Seeder|Off $seeder = Off::Ordering;
 
+    private ReplayStop|Off $stop = Off::Stopping;
+
     /**
      * The guard and the killers read what PHP had loaded when this method
      * starts, before it loads anything itself, as loaded before
@@ -69,6 +75,7 @@ final class Plugin implements Bootable, HandlesArguments
         $this->killers = Killers::fromEnvironment($loaded);
         $this->naming = Naming::fromEnvironment();
         $this->seeder = Seeder::fromEnvironment();
+        $this->stop = ReplayStop::fromEnvironment(Facade::instance());
 
         if ($this->guard instanceof Guard || $this->naming instanceof Naming) {
             register_shutdown_function($this->finish(...));
@@ -117,10 +124,16 @@ final class Plugin implements Bootable, HandlesArguments
         return $this->seeder;
     }
 
+    public function stop(): ReplayStop|Off
+    {
+        return $this->stop;
+    }
+
     /**
-     * A mutant's own process's arguments, running its tests in the order the
-     * plugin wrote for it where it wrote one, and on past a failure under a
-     * full kill matrix; every other process's as they are.
+     * A mutant's own process's arguments, recorded as Pest gave them, then
+     * running its tests in the order the plugin wrote for it, or for the copy
+     * a replay names, where it wrote one, and on past a failure under a full
+     * kill matrix; every other process's as they are.
      *
      * @param  array<int, string> $arguments
      * @return list<string>
@@ -128,7 +141,13 @@ final class Plugin implements Bootable, HandlesArguments
     public function handleArguments(array $arguments): array
     {
         $mutated = getenv(Recorder::MUTATED);
-        $ordered = Reordering::of(array_values($arguments), getenv(GateVariable::Order->value), $mutated);
+        $orderOf = getenv(GateVariable::OrderOf->value);
+        StartedWith::record(getenv(GateVariable::Results->value), $mutated, array_values($arguments));
+        $ordered = Reordering::of(
+            array_values($arguments),
+            getenv(GateVariable::Order->value),
+            is_string($orderOf) && $orderOf !== '' ? $orderOf : $mutated,
+        );
 
         return EveryKiller::of($ordered, getenv(GateVariable::KillMatrix->value), $mutated);
     }

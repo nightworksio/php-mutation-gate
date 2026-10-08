@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Pest\Controls;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
+use NightWorksIO\MutationGate\Adapter\Pest\ReplayVerdict;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -25,8 +25,8 @@ use Pest\Mutate\Mutators\Number\IncrementInteger;
 // mutant changes through the same override as the mutant's own run. Only
 // patched Pest runs them: its trial of a mutant on a line that is not
 // executable runs its tests on their own first, and a narrowed kill stands
-// only where the tests of its files, and then its covering tests among every
-// test file, pass. Infection and phpunit run no such run, so nothing in them
+// only where its own run, replayed unmutated in its order up to its last
+// killer, passes. Infection and phpunit run no such run, so nothing in them
 // stands in for one.
 //
 // Linked.php holds three mutants: LOOKS raised to 2, on a line that is not
@@ -90,6 +90,6 @@ it('kills no mutant of a file whose tests fail whenever the override serves a fi
         [16, 'SmallerToSmallerOrEqual', MutantStatus::Unjudged],
     ])
         ->and($judged[0][3])->toStartWith('the selected tests fail on their own (')
-        ->and([$judged[1][3], $judged[2][3]])->each->toBe(Controls::FAILS_UNMUTATED)
+        ->and([$judged[1][3], $judged[2][3]])->each->toBe(ReplayVerdict::Failed->reason())
         ->and(array_column($judged, 4))->toBe([[], [], []]);
 })->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');

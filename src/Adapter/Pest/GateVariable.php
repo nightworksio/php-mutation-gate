@@ -49,6 +49,15 @@ enum GateVariable: string
     /** The directory the plugin reads each mutant's order from. */
     case Order = 'MUTATION_GATE_ORDER';
 
+    /**
+     * The mutated copy whose order a replay of its own run takes, where the
+     * copy the replay serves is another (see PrefixReplays).
+     */
+    case OrderOf = 'MUTATION_GATE_ORDER_OF';
+
+    /** How many tests a replay of a kill's own run runs before it stops (see ReplayStop). */
+    case StopAfter = 'MUTATION_GATE_STOP_AFTER';
+
     /** The file listing the native ids of the only mutants a patched run again makes (see OnlyList). */
     case Only = 'MUTATION_GATE_ONLY';
 

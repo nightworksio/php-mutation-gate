@@ -31,7 +31,8 @@ final readonly class OwnRun
     /**
      * @param list<string> $killers
      * @param list<string> $errored
-     * @param list<string> $loaded
+     * @param list<string>          $loaded
+     * @param list<string>|NotGiven $arguments
      */
     private function __construct(
         private array $killers,
@@ -42,6 +43,7 @@ final readonly class OwnRun
         private int|NotGiven $tests,
         private Places $places,
         private Ended|NotGiven $ended,
+        private array|NotGiven $arguments,
     ) {
     }
 
@@ -63,7 +65,17 @@ final readonly class OwnRun
     ): self {
         $places = Places::none();
 
-        return new self($killers, $errored, $loaded, $exhaustion, $preloaded, $tests, $places, NotGiven::value());
+        return new self(
+            $killers,
+            $errored,
+            $loaded,
+            $exhaustion,
+            $preloaded,
+            $tests,
+            $places,
+            NotGiven::value(),
+            NotGiven::value(),
+        );
     }
 
     /** This, with where its killers stood in its order, and how it ended where it failed and that is known. */
@@ -78,7 +90,29 @@ final readonly class OwnRun
             $this->tests,
             $places,
             $ended,
+            $this->arguments,
         );
+    }
+
+    /**
+     * This, with the arguments Pest started it with, as the plugin recorded
+     * them, or none where they are not known.
+     *
+     * @param list<string>|NotGiven $arguments
+     */
+    public function startedWith(array|NotGiven $arguments): self
+    {
+        return clone($this, ['arguments' => $arguments]);
+    }
+
+    /**
+     * The arguments Pest started it with, where one run recorded them.
+     *
+     * @return list<string>|NotGiven
+     */
+    public function arguments(): array|NotGiven
+    {
+        return $this->arguments;
     }
 
     /**
@@ -88,6 +122,12 @@ final readonly class OwnRun
     public function prefix(Paths $files): Prefix|NotGiven
     {
         return $this->places->prefix($files);
+    }
+
+    /** How many tests it started up to its last killer, where its killers' lines tell (see Places). */
+    public function reach(): int|NotGiven
+    {
+        return $this->places->reach();
     }
 
     /** How it ended, where it failed and one ending is recorded for its copy. */
