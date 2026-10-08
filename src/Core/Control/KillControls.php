@@ -34,6 +34,10 @@ final readonly class KillControls implements ControlJudge
     public const string FAILS_UNMUTATED
         = 'Killed, but the tests that killed it fail as well with the file unmutated, served as its mutant was.';
 
+    /** Why a kill is unjudged where its control runs out of the memory cap. */
+    public const string OUT_OF_MEMORY
+        = 'Killed, but the tests that killed it run out of the memory cap with the file unmutated too.';
+
     /** Why a kill is unjudged where its control runs out of its limit. */
     public const string RAN_OUT
         = 'Killed, but the tests that killed it run out of their limit with the file unmutated too.';
@@ -89,6 +93,7 @@ final readonly class KillControls implements ControlJudge
         return match ($run->end()) {
             ControlEnd::Passed => $mutant,
             ControlEnd::Failed => $mutant->unjudged(Reason::that(self::FAILS_UNMUTATED)),
+            ControlEnd::OutOfMemory => $mutant->unjudged(Reason::that(self::OUT_OF_MEMORY)),
             ControlEnd::RanOut => $mutant->unjudged(Reason::that(self::RAN_OUT)),
             ControlEnd::Unrun => $mutant->unjudged(
                 Reason::that(sprintf(self::UNRUN, $why instanceof NotGiven ? ControlRuns::NOT_RUN : $why)),

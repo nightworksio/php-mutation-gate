@@ -17,17 +17,12 @@ use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Digest;
-use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
-use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
-use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
-use NightWorksIO\MutationGate\Core\Mutant\Mutation;
-use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
@@ -38,14 +33,11 @@ use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
-use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
-use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
-use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
@@ -67,38 +59,6 @@ $unjudged = RunningCases::unjudged(...);
 $resultIn = RunningCases::resultIn(...);
 $statuses = RunningCases::statuses(...);
 $orderings = RunningCases::orderings(...);
-
-it('weighs each mutant out of memory by the peak its plan measured, and leaves an older plan\'s unknown', function (
-    MemoryCap|NotGiven $peak,
-    MemoryCap|Unmeasured $weighed,
-) use ($resultIn): void {
-    $project = Flows::project();
-    $outOfMemory = Mutant::of(
-        MutantId::hash(Path::of('src/Money.php'), 'Plus', '@@ @@', 0),
-        'Plus-1',
-        Location::of(Path::of('src/Money.php'), Line::of(1), Line::of(1)),
-        Mutation::of('Plus', MutatorFamily::Arithmetic, '@@ @@'),
-        MutantStatus::OutOfMemory,
-        Seconds::of(0.5),
-    )->withLimit(MemoryCap::of(64, MemoryUnit::Megabytes));
-    $scripted = ScriptedRunner::fixture()->answering(Mutants::of($outOfMemory), 0);
-
-    new Running(Flows::adapters($project, [], $scripted), Flows::settings(), Flows::setup())
-        ->run(
-            Planned::handedIn($project, Planned::oneShard()->briefed(Briefing::standard()->weighing($peak))),
-            ShardId::of(1),
-            Workspace::results(),
-        );
-    $result = $resultIn($project, 1);
-    $outcome = $result instanceof ShardResult ? $result->outcome() : $result;
-    $mutants = $outcome instanceof MutationResult ? [...$outcome->mutants()] : [];
-
-    expect($mutants[0]->unmutatedNeed())->toEqual($weighed)
-        ->and($mutants[0]->limit())->toEqual(MemoryCap::of(64, MemoryUnit::Megabytes));
-})->with([
-    'measured' => [MemoryCap::of(20, MemoryUnit::Megabytes), MemoryCap::of(20, MemoryUnit::Megabytes)],
-    'an older plan' => [NotGiven::value(), Unmeasured::duration()],
-]);
 
 it('runs each mutant\'s likely killers first, by the kill history the plan handed the shard', function () use (
     $orderings,

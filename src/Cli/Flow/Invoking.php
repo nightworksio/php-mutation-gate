@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Control\Control;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Control\KillControls;
+use NightWorksIO\MutationGate\Core\Control\MemoryControls;
 use NightWorksIO\MutationGate\Core\Control\TimeoutControls;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -46,7 +47,8 @@ use Psr\Clock\ClockInterface;
  * mutant whose time ran out is never run again; its tests run unmutated, as
  * its control, under the same limit (see TimeoutControls), unless
  * `timeouts.mode: unjudged` makes every timeout too slow to judge, and so do
- * the tests that killed each mutant a test is named for (see KillControls).
+ * the tests that killed each mutant a test is named for (see KillControls),
+ * and those of each mutant out of memory (see MemoryControls).
  * Under a budget, a survivor whose second run would not fit in the time
  * left, at `timeouts.seconds`, is not run again, and a mutant whose control
  * would not fit, at the longest limit of those controls, has none; each is
@@ -178,8 +180,9 @@ final readonly class Invoking
     }
 
     /**
-     * The mutants, each timeout and each kill a test is named for judged by
-     * its unmutated control (see TimeoutControls and KillControls), a control
+     * The mutants, each timeout, each kill a test is named for and each
+     * mutant out of memory judged by its unmutated control (see
+     * TimeoutControls, KillControls and MemoryControls), a control
      * two of them share run once: those that fit in the time left run side
      * by side, in the request's pool, and the rest are unjudged. Under
      * `timeouts.mode: unjudged` no timeout has a control.
@@ -191,8 +194,10 @@ final readonly class Invoking
             $this->map,
             $this->held,
         );
-        $kills = KillControls::of($mutants, $this->map, $this->settings->triage()->bounds());
-        $asked = [...Controls::of(...[...$timeouts->asked(), ...$kills->asked()])];
+        $bounds = $this->settings->triage()->bounds();
+        $kills = KillControls::of($mutants, $this->map, $bounds);
+        $memory = MemoryControls::of($mutants, $this->map, $this->held, $bounds);
+        $asked = [...Controls::of(...[...$timeouts->asked(), ...$kills->asked(), ...$memory->asked()])];
 
         if ($asked === []) {
             return $mutants;
@@ -215,7 +220,7 @@ final readonly class Invoking
 
         return $runs instanceof CannotJudge
             ? $runs
-            : $kills->applied($timeouts->applied($mutants, $runs, $left), $runs, $left);
+            : $memory->applied($kills->applied($timeouts->applied($mutants, $runs, $left), $runs, $left), $runs, $left);
     }
 
     /**

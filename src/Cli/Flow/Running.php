@@ -43,7 +43,6 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Doom;
 use NightWorksIO\MutationGate\Core\Verdict\Doomed;
-use NightWorksIO\MutationGate\Core\Verdict\MemoryTriage;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Core\Written;
@@ -205,9 +204,8 @@ final readonly class Running
     }
 
     /**
-     * Every invocation's mutants, each timeout judged by its unmutated
-     * control (see Invoking), those out of memory weighed by the suite's peak
-     * the plan measured, with the survivors a second run killed, of each
+     * Every invocation's mutants, each timeout, kill and mutant out of memory
+     * judged by its unmutated control (see Invoking), with the survivors a second run killed, of each
      * unit but the held ones whose holding tests miss lines of them; or the
      * first cannot judge. A shard handed no map cannot judge at all. Under a
      * budget the units run in batches that fit the time left, and those the
@@ -281,7 +279,7 @@ final readonly class Running
             $stopwatch->stop(Step::StaticCheck, $from, $survived);
         }
 
-        $mutants = MemoryTriage::weighed($checked->mutants, $plan->briefing()->peak());
+        $mutants = $checked->mutants;
 
         return new Mutated(
             MutationResult::of($mutants, $spent->skipped)

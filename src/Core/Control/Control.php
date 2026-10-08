@@ -20,6 +20,9 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  */
 final readonly class Control
 {
+    /** The directory a runner keeps the files of its controls in, among its own. */
+    public const string DIRECTORY = 'unmutated';
+
     /** Why a control's file cannot be served unmutated: the gate cannot read it. */
     public const string UNREAD = 'The gate cannot read %s to serve it unmutated.';
 

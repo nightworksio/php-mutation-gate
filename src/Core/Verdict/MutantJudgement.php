@@ -20,7 +20,7 @@ enum MutantJudgement: string
     case Errored = 'errored';
     /** It timed out, and timeout triage judged that a kill. */
     case KilledByTimeout = 'killed-by-timeout';
-    /** It ran out of a memory cap of at least twice what the unmutated suite held, so triage judged it a kill. */
+    /** It ran out of the memory cap, and its tests finished unmutated under that cap, so triage judged it a kill. */
     case KilledByMemoryCap = 'killed-by-memory-cap';
     case Survived = 'survived';
     case Uncovered = 'uncovered';

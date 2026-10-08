@@ -10,6 +10,8 @@ use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -21,7 +23,9 @@ use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 // What every runner finds of an unmutated control (ADR-0008, decision 2):
 // Money's test that adds two amounts, run with src/Money.php served unmutated
-// by the means the runner serves a mutant's file, allowed a limit. Each runs
+// by the means the runner serves a mutant's file, allowed a limit, its peak
+// measured by the launcher every runner starts it through (ADR-0004,
+// decision 9). Each runs
 // against the fake (RunnerFake) and every adapter whose library is installed,
 // as the rest of the runner contract does (see RunnerTest).
 
@@ -79,5 +83,12 @@ it('serves the control\'s file through Pest\'s override, as a mutant\'s own run 
 it('says a control ran out where its limit is too short for its tests', function (Library $at, string $test): void {
 
     expect(controlsOf($at, Controls::of(moneyControl($test, 0.01)))->of(moneyControl($test, 0.01))->end())->toBe(ControlEnd::RanOut);
+})->with($processes === [] ? ['none installed' => [fn(): Library => Library::fake(), 'MoneyTest::adds']] : $processes)
+    ->skip($processes === [], 'the runner contracts jobs install the libraries whose runner runs a process');
+
+it('measures the most memory a control\'s processes held, as every runner measures it', function (Library $at, string $test): void {
+    $peak = controlsOf($at, Controls::of(moneyControl($test, 60.0)))->of(moneyControl($test, 60.0))->peak();
+
+    expect($peak instanceof MemoryCap ? $peak->bytes() : 0)->toBeGreaterThan(MemoryCap::of(1, MemoryUnit::Megabytes)->bytes());
 })->with($processes === [] ? ['none installed' => [fn(): Library => Library::fake(), 'MoneyTest::adds']] : $processes)
     ->skip($processes === [], 'the runner contracts jobs install the libraries whose runner runs a process');

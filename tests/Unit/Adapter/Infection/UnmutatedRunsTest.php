@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Control\ControlEnd;
 use NightWorksIO\MutationGate\Core\Control\ControlRun;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
+use NightWorksIO\MutationGate\Core\Control\PeakLauncher;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
@@ -68,12 +69,12 @@ it('runs each control on a config whose suite holds the files of its tests\' cla
 
     $runs = infectionControlled($at, $shell, Controls::of(infectionControl('src/Money.php', 6.0)), $request->withholding(Withheld::of('SECRET')));
     $command = $shell->commands()[0];
-    $config = sprintf('%s/.gate/infection/controls/0/phpunit.xml', $at->root());
+    $config = sprintf('%s/.gate/infection/unmutated/control-0/phpunit.xml', $at->root());
 
     expect($runs->of(infectionControl('src/Money.php', 6.0)))->toEqual(ControlRun::passed(Seconds::of(0.8)))
         ->and($command->arguments())->toContain(sprintf('--configuration=%s', $config))
         ->and(file_get_contents($config))->toContain(sprintf('<file>%s/tests/MoneyTest.php</file>', $at->root()))
-        ->and(file_get_contents(sprintf('%s/.gate/infection/controls/0/interceptor.autoload.php', $at->root())))
+        ->and(file_get_contents(sprintf('%s/.gate/infection/unmutated/control-0/interceptor.autoload.php', $at->root())))
         ->toContain(sprintf("IncludeInterceptor::intercept('%s/src/Money.php'", $at->root()))
         ->and($command->deadline())->toEqual(Seconds::of(6.0))
         ->and($command->withheld())->toEqual(Withheld::standard()->and(Withheld::of('SECRET')));
@@ -97,8 +98,8 @@ it('runs the controls one after another, each in a place of its own, and never o
 
     expect($runs->of(infectionControl('src/Gone.php'))->why())
         ->toBe('A run on Infection\'s config for a mutant needs an unchanged copy of src/Gone.php, which was not made.')
-        ->and(array_map(static fn(Command $command): string => $command->arguments()[2], $shell->commands()))
-        ->toBe([sprintf('--configuration=%s/.gate/infection/controls/1/phpunit.xml', $at->root())]);
+        ->and(array_map(static fn(Command $command): string => $command->arguments()[5], $shell->commands()))
+        ->toBe([sprintf('--configuration=%s/.gate/infection/unmutated/control-1/phpunit.xml', $at->root())]);
 });
 
 it('starts no control once the request\'s deadline has passed', function () use ($request): void {
@@ -156,4 +157,20 @@ it('runs each control through the Infection runner', function () use ($request):
         ->controls($request, Controls::of(infectionControl('src/Money.php')));
 
     expect($runs instanceof ControlRuns ? $runs->of(infectionControl('src/Money.php'))->end() : $runs)->toBe(ControlEnd::Passed);
+});
+
+it('starts each control through the launcher, and gives it the peak the launcher wrote', function () use ($request): void {
+    $at = controlledInfection();
+    $shell = new InfectionShellFake(static function (Command $command): Ran {
+        file_put_contents($command->arguments()[2], '20480');
+
+        return Ran::finished(succeeded: true, output: '');
+    });
+
+    $runs = infectionControlled($at, $shell, Controls::of(infectionControl('src/Money.php')), $request);
+    $arguments = $shell->commands()[0]->arguments();
+
+    expect(array_slice($arguments, 0, 2))->toBe([PHP_BINARY, PeakLauncher::in($at->own(Control::DIRECTORY))])
+        ->and($arguments[3])->toBe(PHP_BINARY)
+        ->and($runs->of(infectionControl('src/Money.php'))->peak())->toEqual(PeakLauncher::peakIn('20480', PHP_OS_FAMILY));
 });

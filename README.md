@@ -186,6 +186,7 @@ The first release is tagged when every row says *yes*.
 | | A kill counts only with evidence: a test named as its killer, or a signal or a fatal error that ended its process; any other is unjudged, with its exit code and output | yes | [0014](.docs/decisions/0014-every-test-is-judged-by-what-it-kills.md) |
 | | A named killer must pass on the unmutated code, served as its mutant was, or the kill is unjudged | yes | [0014](.docs/decisions/0014-every-test-is-judged-by-what-it-kills.md) |
 | | Triage of timeouts and flaky tests: a timeout counts as a kill only where its tests, run unmutated under the same limit, finish within it | yes | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
+| | A mutant out of the memory cap counts as a kill only where its tests, run unmutated under the same cap, finish under it, measured alike for every runner | yes | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | | Ignores for equivalent mutants, and by its id for a mutant whose file loads before Pest can put it in place, each with a reason and an optional expiry | yes | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | | Survivors the compiler proves equivalent, left out of the score | yes | [0013](.docs/decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | | Presets for Laravel, Symfony and plain libraries | yes | [0008](.docs/decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |

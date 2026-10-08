@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\MemoryScan;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
@@ -13,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Control\ControlEnd;
 use NightWorksIO\MutationGate\Core\Control\ControlRun;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
+use NightWorksIO\MutationGate\Core\Control\PeakLauncher;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
@@ -166,4 +168,21 @@ it('cannot run the controls where their memory cap cannot be written', function 
         ->of(unmutatedRequest()->cappedAt(MemoryCap::standard()), Controls::of(pestControl('src/Money.php')));
 
     expect($runs)->toEqual(CannotJudge::because(sprintf(MemoryCap::UNWRITTEN, sprintf('%s/%s', MemoryScan::directoryBeside($beside), MemoryCap::FILE))));
+});
+
+it('starts each control through the launcher, and gives it the peak the launcher wrote', function (): void {
+    $at = unmutatedProject();
+    $shell = new ShellFake(static function (Command $command): Ran {
+        file_put_contents($command->arguments()[2], '20480');
+
+        return Ran::finished(succeeded: true, output: '')->took(Seconds::of(1.0));
+    });
+
+    $runs = unmutatedRuns($at, $shell, Controls::of(pestControl('src/Money.php')), unmutatedRequest());
+    $arguments = $shell->commands()[0]->arguments();
+
+    expect(array_slice($arguments, 0, 2))->toBe([PHP_BINARY, PeakLauncher::in(sprintf('%s/.mutation-gate/pest/controls', $at->root()))])
+        ->and(file_get_contents($arguments[1]))->toBe(PeakLauncher::SCRIPT)
+        ->and($arguments[3])->toBe(PHP_BINARY)
+        ->and($runs->of(pestControl('src/Money.php'))->peak())->toEqual(PeakLauncher::peakIn('20480', PHP_OS_FAMILY));
 });

@@ -5,18 +5,12 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
 use function array_key_exists;
-use function array_map;
 use function array_values;
-use function getmypid;
 use function implode;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Workforce;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Control\Control;
-use NightWorksIO\MutationGate\Core\Control\ControlRun;
-use NightWorksIO\MutationGate\Core\Control\ControlRuns;
-use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Cost\Laps;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTimes;
@@ -36,17 +30,14 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
-use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
-use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 
 use function sprintf;
-use function strval;
 
 /**
  * A run of the gate's own mutants through PHPUnit, as the PHPUnit runner
@@ -142,42 +133,6 @@ final readonly class Mutating
         return $result instanceof CannotJudge ? $result : $this->matched($mutants, $result->mutants());
     }
 
-    /**
-     * What each unmutated control finds (ADR-0008, decision 2): its file as
-     * the project holds it, served through the override as a mutant's is
-     * (see ControlMutant), its tests run as a mutant's are, under the
-     * request's memory cap and stopped at its limit, the runs side by side
-     * in the request's pool, none started once the request's deadline has
-     * passed. A control whose file cannot be read, or whose run is not
-     * started, never runs.
-     */
-    public function controls(MutationRequest $request, Controls $controls): ControlRuns|CannotJudge
-    {
-        $override = Override::writtenFor($this->project);
-        $scan = MemoryScan::in($this->project, $request->memory(), $this->files);
-
-        if (! is_string($override)) {
-            return $override;
-        }
-
-        if ($scan instanceof CannotJudge) {
-            return $scan;
-        }
-
-        $judging = new MutantRun(
-            $this->project,
-            $this->shell,
-            new Invocation($this->project, $override),
-            $this->tests,
-            $scan,
-            $this->project->errorDisplay(),
-        );
-        $runs = $this->controlled($judging, $request, $controls);
-        $scan->remove();
-
-        return $runs;
-    }
-
     /** One mutant run again on its own, the request narrowed to its file and its mutator, with what was printed. */
     public function reproduced(
         Reproducible $mutant,
@@ -261,66 +216,6 @@ final readonly class Mutating
         $scan->remove();
 
         return $result;
-    }
-
-    /** What each control's run found, run as a mutant that changes nothing. */
-    private function controlled(MutantRun $judging, MutationRequest $request, Controls $controls): ControlRuns
-    {
-        $runs = ControlRuns::none();
-        $prepared = [];
-        $asked = [];
-
-        foreach ($controls as $control) {
-            $made = ControlMutant::of($this->project, $control);
-            $run = $made instanceof CannotJudge
-                ? $made
-                : $judging->prepared($made, $control->tests(), $request, $control->limit());
-
-            if ($run instanceof PreparedRun) {
-                $prepared[] = $run;
-                $asked[] = $control;
-
-                continue;
-            }
-
-            $runs = $runs->with(
-                $control,
-                $run instanceof Mutant ? ControlRun::asMutant($run) : ControlRun::unrun($run->why()),
-            );
-        }
-
-        return $prepared === [] ? $runs : $this->ended($judging, $request, $runs, $prepared, $asked);
-    }
-
-    /**
-     * What each prepared control's run found, run side by side, none started
-     * once the request's deadline has passed: ran out where it was stopped
-     * at its limit, served or not, and otherwise as the run judges its mutant.
-     *
-     * @param non-empty-list<PreparedRun> $prepared
-     * @param list<Control>               $asked    each prepared run's control, in their order
-     */
-    private function ended(
-        MutantRun $judging,
-        MutationRequest $request,
-        ControlRuns $runs,
-        array $prepared,
-        array $asked,
-    ): ControlRuns {
-        $slots = WorkerSlots::of($request->pool()->processes(), strval(getmypid()));
-        $commands = array_map(static fn(PreparedRun $run): Command => $run->command(), $prepared);
-
-        foreach ($this->shell->sideBySide($slots, $request->deadline(), ...$commands) as $at => $ran) {
-            $runs = $runs->with($asked[$at], $this->found($judging, $prepared[$at], $ran));
-        }
-
-        return $runs;
-    }
-
-    /** What a control's run that ended so found: ran out where it was stopped at its limit, served or not. */
-    private function found(MutantRun $judging, PreparedRun $prepared, Ran $ran): ControlRun
-    {
-        return $ran->wasStopped() ? ControlRun::ranOut() : ControlRun::asMutant($judging->finished($prepared, $ran));
     }
 
     /** Each mutant as the run made it again, under its id; or unjudged where the run made none with that id. */

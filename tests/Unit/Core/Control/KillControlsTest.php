@@ -103,6 +103,7 @@ it('lets a kill stand where its control passed, and leaves it unjudged, saying w
 })->with([
     'tests that pass unmutated' => [ControlRun::passed(Seconds::of(2.0)), MutantStatus::Killed, ''],
     'tests that fail unmutated' => [ControlRun::failed(), MutantStatus::Unjudged, KillControls::FAILS_UNMUTATED],
+    'tests out of memory unmutated' => [ControlRun::outOfMemory(), MutantStatus::Unjudged, KillControls::OUT_OF_MEMORY],
     'tests that run out unmutated' => [ControlRun::ranOut(), MutantStatus::Unjudged, KillControls::RAN_OUT],
     'a control never run' => [ControlRun::unrun('the file is gone'), MutantStatus::Unjudged, sprintf(KillControls::UNRUN, 'the file is gone')],
 ]);
