@@ -154,3 +154,4 @@ final readonly class Cut
         return array_sum(array_map(static fn(PackageWork $package): float => $package->cost()->seconds(), $packages));
     }
 }
+

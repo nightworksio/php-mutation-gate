@@ -125,3 +125,4 @@ final readonly class Trend
         return $known ? Seconds::of($saved) : NoHistory::yet();
     }
 }
+

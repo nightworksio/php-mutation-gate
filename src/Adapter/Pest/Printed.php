@@ -64,3 +64,4 @@ final readonly class Printed
         return Contents::of(new Standard()->prettyPrintFile($statements ?? []));
     }
 }
+
