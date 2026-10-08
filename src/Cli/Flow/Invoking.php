@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
 use NightWorksIO\MutationGate\Core\Control\Control;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
+use NightWorksIO\MutationGate\Core\Control\KillControls;
 use NightWorksIO\MutationGate\Core\Control\TimeoutControls;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -44,10 +45,11 @@ use Psr\Clock\ClockInterface;
  * run once more, where `flaky.confirmSurvivors` asks for it (ADR-0008). A
  * mutant whose time ran out is never run again; its tests run unmutated, as
  * its control, under the same limit (see TimeoutControls), unless
- * `timeouts.mode: unjudged` makes every timeout too slow to judge. Under a
- * budget, a survivor whose second run would not fit in the time left, at
- * `timeouts.seconds`, is not run again, and a timeout whose control would
- * not fit, at the longest limit of those controls, has none; each is
+ * `timeouts.mode: unjudged` makes every timeout too slow to judge, and so do
+ * the tests that killed each mutant a test is named for (see KillControls).
+ * Under a budget, a survivor whose second run would not fit in the time
+ * left, at `timeouts.seconds`, is not run again, and a mutant whose control
+ * would not fit, at the longest limit of those controls, has none; each is
  * unjudged. Each step is timed on the shard's stopwatch.
  */
 final readonly class Invoking
@@ -176,18 +178,21 @@ final readonly class Invoking
     }
 
     /**
-     * The mutants, each timeout judged by its unmutated control (see
-     * TimeoutControls): those that fit in the time left run side by side, in
-     * the request's pool, and the rest are unjudged.
+     * The mutants, each timeout and each kill a test is named for judged by
+     * its unmutated control (see TimeoutControls and KillControls), a control
+     * two of them share run once: those that fit in the time left run side
+     * by side, in the request's pool, and the rest are unjudged. Under
+     * `timeouts.mode: unjudged` no timeout has a control.
      */
     private function controlled(Mutants $mutants, MutationRequest $request): Mutants|CannotJudge
     {
-        if ($this->settings->triage()->timeouts() === TimeoutMode::Unjudged) {
-            return $mutants;
-        }
-
-        $controls = TimeoutControls::of($mutants, $this->map, $this->held);
-        $asked = [...$controls->asked()];
+        $timeouts = TimeoutControls::of(
+            $this->settings->triage()->timeouts() === TimeoutMode::Unjudged ? Mutants::none() : $mutants,
+            $this->map,
+            $this->held,
+        );
+        $kills = KillControls::of($mutants, $this->map, $this->settings->triage()->bounds());
+        $asked = [...Controls::of(...[...$timeouts->asked(), ...$kills->asked()])];
 
         if ($asked === []) {
             return $mutants;
@@ -202,6 +207,7 @@ final readonly class Invoking
                 $this->retimed($request),
                 Controls::of(...array_slice($asked, 0, $fitting)),
             );
+        $left = Controls::of(...array_slice($asked, $fitting));
 
         if ($fitting > 0) {
             $this->stopwatch->stop(Step::Controls, $from, $fitting);
@@ -209,7 +215,7 @@ final readonly class Invoking
 
         return $runs instanceof CannotJudge
             ? $runs
-            : $controls->applied($mutants, $runs, Controls::of(...array_slice($asked, $fitting)));
+            : $kills->applied($timeouts->applied($mutants, $runs, $left), $runs, $left);
     }
 
     /**
