@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function get_declared_classes;
+use function is_string;
 use function is_subclass_of;
+use function method_exists;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Naming;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -21,10 +23,11 @@ use function sprintf;
  * The test a mutant's own run names as its killer where collecting its tests
  * failed before any ran (ADR-0014, decision 17): Pest's `DatasetMissing`
  * names the test, by its description and its file, whose dataset gave no
- * case. Its id is the class Pest made of that file in this process, which
- * collected the suite unmutated, and its method as Pest names a test's; none
- * where what the run printed names no such test, or no class of that file is
- * loaded here.
+ * case. Its id is a test this process collected unmutated: the class Pest
+ * made of that file here and the method of that class Pest made of that
+ * description. None where what the run printed names no such test, so the
+ * id never carries text the run printed, which can hold what the gate
+ * withholds, but only names this process already had.
  */
 final readonly class CollectionKiller
 {
@@ -44,8 +47,11 @@ final readonly class CollectionKiller
         }
 
         $class = self::classOf($found['file']);
+        $method = Str::evaluable($found['test']);
 
-        return $class instanceof NotGiven ? $class : sprintf('%s::%s', $class, Str::evaluable($found['test']));
+        return is_string($class) && method_exists($class, $method)
+            ? sprintf('%s::%s', $class, $method)
+            : NotGiven::value();
     }
 
     /** The class Pest made of a test file in this process, by the file's path; or none. */
