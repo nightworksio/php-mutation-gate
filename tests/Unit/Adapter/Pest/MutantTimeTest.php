@@ -14,6 +14,7 @@ use Pest\Mutate\Mutators\Removal\RemoveArrayItem;
 afterEach(function (): void {
     putenv(GateVariable::MutantFloor->value);
     putenv(GateVariable::MutantCap->value);
+    putenv(GateVariable::MutantStartUp->value);
     putenv(GateVariable::Results->value);
     MutantTime::remember([]);
     Scratch::sweep();
@@ -129,4 +130,14 @@ it('keeps the silence limit of a mutant of a mutator timeouts.tighter lists abov
         putenv(GateVariable::TighterFloor->value);
         putenv(GateVariable::TighterMutators->value);
     }
+});
+
+it('lays a mutant\'s limit, and its silence limit, on three times the start-up the gate\'s run measured, in place of five seconds', function (): void {
+    mutantTimeResults();
+    mutantTimeBounds('2', '300');
+    putenv(sprintf('%s=4', GateVariable::MutantStartUp->value));
+    MutantTime::remember(['testResults' => mutantTimeTests(['T::a' => 0.25, 'T::b' => 0.5])]);
+
+    expect(MutantTime::of(['T::a', 'T::b'], '/tmp/mutations/abc', 99))->toBe(14.25)
+        ->and(MutantTime::silence(['T::a', 'T::b'], PlusToMinus::class))->toEqual(Seconds::of(13.5));
 });

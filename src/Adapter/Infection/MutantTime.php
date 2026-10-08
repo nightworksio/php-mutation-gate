@@ -18,13 +18,16 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
+use NightWorksIO\MutationGate\Core\Runner\StartUpVariable;
 use NightWorksIO\MutationGate\Core\Runner\TighterVariables;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 /**
  * The seconds a patched Infection allows one mutant, read in Infection's
  * process (see Patch): the standard mutant limit (ADR-0008, decision 2) of
- * its covering tests' own time, as Infection timed them, between the floor
+ * its covering tests' own time, as Infection timed them, laid on the
+ * start-up the gate's run measured, between the floor
  * the gate names and Infection's `timeout`, which the gate sets to
  * `timeouts.most`. Where the gate names no floor, as when Infection runs
  * outside it, Infection's own limit.
@@ -39,7 +42,9 @@ final class MutantTime
         $most = Seconds::of($timeout);
 
         return $floor instanceof Seconds
-            ? MutantLimit::standard()->of($taking, LimitBounds::between($floor, $most))->seconds()
+            ? MutantLimit::standard()
+                ->of($taking, LimitBounds::between($floor, $most)->startingIn(self::startUp()))
+                ->seconds()
             : MutantLimit::infections()->of($taking, LimitBounds::upTo($most))->seconds();
     }
 
@@ -68,6 +73,7 @@ final class MutantTime
             ? MutantLimit::standard()->of(
                 $slowest,
                 LimitBounds::between($floor, Seconds::of($timeout))
+                    ->startingIn(self::startUp())
                     ->tighterFor($tighter)
                     ->silenceOf(RunnerMutatorName::of($mutator)),
             )
@@ -101,6 +107,12 @@ final class MutantTime
         }
 
         return $tests === [] ? NotGiven::value() : Seconds::of($slowest);
+    }
+
+    /** The start-up the gate's run measured, or none. */
+    private static function startUp(): Seconds|Unmeasured
+    {
+        return StartUpVariable::read(getenv(ChildVariable::MutantStartUp->value));
     }
 
     /** The floor the gate names, a positive number of seconds; or none. */

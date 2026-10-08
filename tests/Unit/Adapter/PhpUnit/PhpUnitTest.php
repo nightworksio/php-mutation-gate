@@ -40,6 +40,7 @@ use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
+use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
@@ -255,6 +256,18 @@ it('mutates afresh each time, allowing each mutant its limit within the bounds, 
         ->toBe([$money->id()->value()])
         ->and($last->deadline())->toEqual(Seconds::of(6.5))
         ->and($coverageRuns)->toHaveCount(2);
+});
+
+it('lays each mutant\'s limit on the start-up the request\'s pool measured, a run again too', function () use ($request): void {
+    $project = phpUnitRunnerProject();
+    $shell = phpUnitAnswering($project);
+    $runner = phpUnitRunner($project, $shell);
+    $measured = $request->across(Pool::single()->startingIn(Seconds::of(4.0)));
+    $money = FirstMutant::of($runner->mutate($measured));
+    $runner->retry($measured, Mutants::of($money), Seconds::of(14.0));
+    $last = $shell->commands()[count($shell->commands()) - 1];
+
+    expect($last->deadline())->toEqual(Seconds::of(13.5));
 });
 
 it('names the steps its time went to: readying the coverage, preparing the mutants\' runs, and running them', function () use ($request): void {

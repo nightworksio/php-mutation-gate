@@ -171,9 +171,9 @@ presets for Laravel, Symfony and plain libraries.
 
 2. **Timeout triage tells a detection from the clock running out.** Each
    runner sets a limit per mutant (ADR-0004). The gate's rule,
-   `Core\Runner\MutantLimit`'s standard one, is 5 s for the run to start,
-   plus k times the covering tests' own time, with k = 3, kept between two
-   bounds:
+   `Core\Runner\MutantLimit`'s standard one, is k times the run's measured
+   start-up, plus k times the covering tests' own time, with k = 3, kept
+   between two bounds:
    - **The floor**, `timeouts.seconds`: an integer, 10 by default, and 30 in
      the Laravel and Symfony presets. No mutant is allowed less, and one whose
      covering tests were not all timed is allowed exactly this. It covers the
@@ -183,12 +183,30 @@ presets for Laravel, Symfony and plain libraries.
      less than `timeouts.seconds`, which the config refuses. No mutant is
      allowed more, so one mutant cannot hold a process for long.
 
+   **The start-up is measured.** Before its first mutant, a shard's run
+   times a run of no test, started as the runner starts a mutant's own run
+   of the shard's first file (a unit's own file, or the first file the map
+   knows inside a held unit), its mutant the file unchanged: the fastest of
+   three, as the plan times one (ADR-0006, decision 4), on the machine its
+   mutants run on. Every limit of that run, its controls' too, is laid on
+   it, times the same k: a busy runner stretches what a run spends before
+   its first test as it stretches the tests, and what it spends depends on
+   the project, which loads its test files first. A run of no test that
+   cannot run, a shard of no file, and every run that is not a shard's
+   (re-checking survivors, `reproduce`) measure none, and their limits keep
+   5 s for the start-up. A patched runner's process is told the start-up in
+   `MUTATION_GATE_MUTANT_START_UP`, beside the bounds.
+
    k is fitted from runs, not guessed. A mutant that breaks nothing runs its
    covering tests to the end, so its limit must stay above them on the
    busiest runner the gate meets. Between two self-gate runs of the same code
    the same mutants took 1.34 times as long at the median and 2.09 times at
-   the 99th percentile, so k = 3 clears that with margin, and the 5 s
-   start-up keeps a mutant whose tests take a few seconds clear too.
+   the 99th percentile, so k = 3 clears that with margin, and the start-up
+   keeps a mutant whose tests take a few seconds clear too. A fixed start-up
+   does not: where each mutant's own run loads hundreds of test files that
+   are not inert (ADR-0004) before its first test, on four busy cores, as the
+   gate's own does, every run of a unit whose tests take milliseconds, its
+   control's too, runs out of a 10 s floor before its first test finishes.
    k is fitted again from a measurement run whose limits are
    `max(timeouts.seconds, 10 × T)`, which leaves every run room to finish:
    the 99.5th percentile, over mutants whose covering tests take 3 s or more

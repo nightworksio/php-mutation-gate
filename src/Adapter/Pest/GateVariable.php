@@ -28,6 +28,9 @@ enum GateVariable: string
     /** The most a patched run allows one mutant: `timeouts.most`, or the most a run again asks for (see MutantTime). */
     case MutantCap = 'MUTATION_GATE_MUTANT_CAP';
 
+    /** How long a run of no test took to start on this machine (see MutantTime). */
+    case MutantStartUp = ChildVariable::MutantStartUp->value;
+
     /** The lower floor of the silence limit of the mutators `timeouts.tighter` lists (see TighterVariables). */
     case TighterFloor = ChildVariable::TighterFloor->value;
 

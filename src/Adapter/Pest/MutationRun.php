@@ -215,8 +215,9 @@ final readonly class MutationRun
             GateVariable::Only->value => OnlyList::write(OnlyList::beside($results), ...$this->only),
         ];
         $narrow = $this->narrows() ? [GateVariable::Narrow->value => '1'] : [];
+        $bounds = $request->pool()->bounding($this->bounds);
         $from = $laps->now();
-        $ran = $this->shell->run($command->with([...$only, ...$narrow, ...$this->patching->bounding($this->bounds)]));
+        $ran = $this->shell->run($command->with([...$only, ...$narrow, ...$this->patching->bounding($bounds)]));
         $mutation = $laps->lap(Step::Mutation, $from);
         $scan->remove();
         $coverage = $this->coveringOf($shared, $results);
@@ -231,7 +232,7 @@ final readonly class MutationRun
 
         return $result instanceof CannotJudge || $coverage instanceof CannotJudge
             ? $result
-            : new Trials($this->project, $this->shell, $this->files, $this->bounds, $this->remembered)->of(
+            : new Trials($this->project, $this->shell, $this->files, $bounds, $this->remembered)->of(
                 $result->withSteps(StepTimes::of(StepTime::counted($mutation, count($result->mutants())), $reading)),
                 $request,
                 $results,

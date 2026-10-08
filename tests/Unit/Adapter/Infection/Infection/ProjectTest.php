@@ -50,6 +50,7 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
+use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
@@ -302,9 +303,10 @@ it('runs a shard of the flows on the map the plan handed it, in its own layout, 
     $outcome = $result instanceof ShardResult ? $result->outcome() : $result;
 
     expect(InfectionCases::statuses($outcome))->toBe([MutantStatus::Killed])
-        ->and(count($shell->commands()))->toBe(2)
-        ->and(InfectionCases::ran($shell)[0])->toContain(sprintf('--coverage=%s/.gate/infection/coverage', $at->root()))
-        ->and($shell->commands()[1]->arguments())->toContain(sprintf('--configuration=%s/.gate/infection/unmutated/control-0/phpunit.xml', $at->root()));
+        ->and(count($shell->commands()))->toBe(3)
+        ->and($shell->commands()[0]->arguments())->toContain(sprintf('--configuration=%s/.gate/infection/start-up/phpunit.xml', $at->root()))
+        ->and(InfectionCases::ran($shell)[1])->toContain(sprintf('--coverage=%s/.gate/infection/coverage', $at->root()))
+        ->and($shell->commands()[2]->arguments())->toContain(sprintf('--configuration=%s/.gate/infection/unmutated/control-0/phpunit.xml', $at->root()));
 });
 
 it('behaves as the port expects of a runner, but stops each mutant at its first killer and runs one per core', function (): void {
@@ -477,4 +479,21 @@ it('reads a handed-on map within this process\'s share of its memory', function 
     expect($share)->toBeLessThan(300 * strlen($bomb))
         ->and(ini_get('memory_limit'))->not->toBe($limit)
         ->and($read)->toEqual(CannotJudge::because(sprintf('The coverage map inflates to more than %d bytes.', $share)));
+});
+
+it('tells Infection\'s run the start-up the request\'s pool measured, which each mutant\'s limit is laid on', function (): void {
+    $at = InfectionCases::project();
+    $shell = InfectionCases::shell($at, [
+        'killed' => [InfectionRun::entry('Plus', sprintf('%s/src/Money.php', $at->root()), 11, '$a + $b', '$a - $b')],
+    ]);
+    $pool = Pool::single()->startingIn(Seconds::of(2.5));
+    new Infection($at, $shell, LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory())->mutate(
+        MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->across($pool),
+    );
+
+    expect($shell->commands()[1]->environment())->toBe([
+        ChildVariable::MutantFloor->value => '6.000000',
+        ChildVariable::Results->value => $at->own(Invocation::SILENCED),
+        ChildVariable::MutantStartUp->value => '2.500000',
+    ]);
 });

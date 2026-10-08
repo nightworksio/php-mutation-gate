@@ -212,7 +212,7 @@ it('runs the held path by its group, the rest by the suite, on the shard\'s map,
         ->and($rest->judgedBy())->toEqual(WholeSuite::tests())
         ->and($held->coverage())->toEqual(Handed::maps(Workspace::shardCoverage(ShardId::of(1)), Workspace::coverage()))
         ->and($rest->coverage())->toEqual(Handed::maps(Workspace::shardCoverage(ShardId::of(1)), Workspace::coverage()))
-        ->and($held->pool())->toEqual(Pool::of(ProcessCount::single(), Workers::Fork))
+        ->and($held->pool())->toEqual(Pool::of(ProcessCount::single(), Workers::Fork)->startingIn(Seconds::of(1.5)))
         ->and($held->withheld())->toEqual(Withheld::standard()->and($adapters->withheld))
         ->and($rest->withheld())->toEqual(Withheld::standard()->and($adapters->withheld))
         ->and($runner->identified())->not->toBeEmpty()
@@ -643,3 +643,30 @@ it('leaves a kill no test is named for unjudged in the shard\'s result, saying h
     'a signal' => [Ended::unprinted(139, signalled: true), MutantStatus::Killed, ''],
     'a fatal error' => [Ended::unprinted(255, signalled: false)->withFatal(fatal: true), MutantStatus::Killed, ''],
 ]);
+
+it('times a run of no test once before the first mutant, the fastest of three on the shard\'s first file, and lays every request on it', function (): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture()->startingUpIn(Seconds::of(2.0), Seconds::of(1.2), Seconds::of(1.8));
+    $adapters = Flows::adapters($project, [], $runner);
+
+    new Running($adapters, Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+
+    expect(array_map(static fn(array $run): Path => $run[0], $runner->startedUp()))
+        ->toEqual([Path::of('src/Money.php'), Path::of('src/Money.php'), Path::of('src/Money.php')])
+        ->and(array_map(static fn(MutationRequest $request): Pool => $request->pool(), $runner->requests()))
+        ->each->toEqual(Pool::of(ProcessCount::single(), Workers::Fork)->startingIn(Seconds::of(1.2)));
+});
+
+it('lays each request on no start-up where a run of no test cannot run, so each limit keeps the start-up the rule gives', function (): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture()->startingUpIn(CannotJudge::because('no run of no test'));
+    $adapters = Flows::adapters($project, [], $runner);
+
+    new Running($adapters, Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+
+    expect(count($runner->startedUp()))->toBe(1)
+        ->and(array_map(static fn(MutationRequest $request): Pool => $request->pool(), $runner->requests()))
+        ->each->toEqual(Pool::of(ProcessCount::single(), Workers::Fork));
+});

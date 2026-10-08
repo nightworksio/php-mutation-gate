@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Mutant\RunnerMutatorName;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
+use NightWorksIO\MutationGate\Core\Runner\StartUpVariable;
 use NightWorksIO\MutationGate\Core\Runner\TighterVariables;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
@@ -103,7 +104,8 @@ final class MutantTime
 
     /**
      * The bounds the gate names, the floor and the most, each a positive
-     * number of seconds, with the mutators `timeouts.tighter` lists; or none.
+     * number of seconds, with the mutators `timeouts.tighter` lists and the
+     * start-up the run measured; or none.
      */
     private static function bounds(): LimitBounds|NotGiven
     {
@@ -118,7 +120,7 @@ final class MutantTime
                     getenv(GateVariable::TighterFloor->value),
                     getenv(GateVariable::TighterMutators->value),
                 ),
-            )
+            )->startingIn(StartUpVariable::read(getenv(GateVariable::MutantStartUp->value)))
             : NotGiven::value();
     }
 
