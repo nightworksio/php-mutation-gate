@@ -1,0 +1,48 @@
+# Throwaway diagnostic: why a Pest own run exits 1 while its tests pass.
+name: diag-own-run
+on:
+  push:
+    branches: ['diag/own-run-exit']
+permissions:
+  contents: read
+jobs:
+  own-runs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.5'
+          coverage: pcov
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - name: Patch Pest and log each failed own run's output
+        run: |
+          set -euo pipefail
+          bin/mutation-gate pest:patch
+      - name: Run the gate on the changed files
+        continue-on-error: true
+        env:
+          DIAG_OWN_RUNS: /tmp/own-runs.log
+        run: bin/mutation-gate run --changed-since=HEAD~1
+      - name: Show the failed own runs
+        if: always()
+        run: |
+          test -f /tmp/own-runs.log || { echo "no log"; exit 0; }
+          grep -c '^=== ' /tmp/own-runs.log || true
+          python3 - <<'PY'
+          import re
+          text = open('/tmp/own-runs.log').read()
+          for block in text.split('=== ')[1:]:
+              head = block.split('\n', 1)[0]
+              body = re.sub(r'\x1b\[[0-9;]*m', '', block)
+              killed = ('FAILED' in body or '⨯' in body) and 'TIMEOUT' not in head
+              summary = [l.strip() for l in body.split('\n') if 'Tests:' in l]
+              print('---', head, '|', 'named failure' if killed else 'no named failure', '|', summary[-1] if summary else '-')
+              if not killed:
+                  print('###', head, '|', summary[-1] if summary else '-')
+                  print('\n'.join(body.strip().split('\n')[-40:]))
+          PY

@@ -30,6 +30,9 @@ use Symfony\Component\Process\Process;
  */
 final class Silence
 {
+    /** @var array<int, true> */
+    private static array $diagged = [];
+
     /** What an own run writes on its error output as its tests begin and as each finishes. */
     public const string BEAT = "\x06";
 
@@ -73,6 +76,17 @@ final class Silence
         }
 
         [$limit, $mutated, $beat] = self::$watched[$id];
+        $diag = getenv('DIAG_OWN_RUNS');
+        $timeout = $process->getTimeout();
+        try {
+            $started = $process->getStartTime();
+        } catch (\Throwable) {
+            $started = $now;
+        }
+        if (is_string($diag) && $diag !== '' && $timeout !== null && $now - $started > $timeout - 0.3 && ! isset(self::$diagged[$id])) {
+            self::$diagged[$id] = true;
+            file_put_contents($diag, sprintf("=== %s TIMEOUT near %.1fs (beat %.1fs ago, silence %.1fs)\n%s\n%s\n", $mutated, $timeout, $beat > 0.0 ? $now - $beat : -1.0, $limit, $process->getOutput(), $process->getErrorOutput()), FILE_APPEND);
+        }
         $beat = str_contains($process->getIncrementalErrorOutput(), self::BEAT) ? $now : $beat;
         self::$watched[$id] = [$limit, $mutated, $beat];
 

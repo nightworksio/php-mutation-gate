@@ -33,6 +33,11 @@ final readonly class Ending
             return;
         }
 
+        $diag = getenv('DIAG_OWN_RUNS');
+        if (is_string($diag) && $diag !== '') {
+            file_put_contents($diag, sprintf("=== %s exit %s\n%s\n%s\n", $mutated, (string) $process->getExitCode(), $process->getOutput(), $process->getErrorOutput()), FILE_APPEND);
+        }
+
         $ended = Ended::unprinted($process->getExitCode() ?? NotGiven::value(), $process->hasBeenSignaled());
         file_put_contents($results, RecordLine::ended($mutated, $ended), FILE_APPEND | LOCK_EX);
     }
