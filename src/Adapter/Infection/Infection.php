@@ -244,7 +244,7 @@ final readonly class Infection implements Runner
         $covered = StepTimes::of($laps->lap(Step::Coverage, $from));
         $result = $coverage instanceof CannotJudge
             ? $coverage
-            : $this->run($config)->of($request, $coverage, $this->bounds, $laps);
+            : $this->run($config)->of($request, $coverage, $request->pool()->bounding($this->bounds), $laps);
 
         return $result instanceof CannotJudge ? $result : $result->withStepsBefore($covered);
     }
@@ -260,7 +260,7 @@ final readonly class Infection implements Runner
             Retrial::of(),
             $request,
             $mutants,
-            $this->bounds->upToInstead($most),
+            $request->pool()->bounding($this->bounds)->upToInstead($most),
         );
     }
 
@@ -270,7 +270,9 @@ final readonly class Infection implements Runner
         MutationRequest $request,
         Seconds $most,
     ): Reproduction|CannotJudge {
-        return $this->rerunning()->reproduce($mutant, $request, $this->bounds->upToInstead($most));
+        $bounds = $request->pool()->bounding($this->bounds)->upToInstead($most);
+
+        return $this->rerunning()->reproduce($mutant, $request, $bounds);
     }
 
     /**

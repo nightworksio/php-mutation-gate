@@ -34,8 +34,6 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
-use NightWorksIO\MutationGate\Core\Runner\Pool;
-use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -176,7 +174,7 @@ final readonly class Invoking
             Step::Survivors,
             $fitting,
             fn(): Mutants|CannotJudge => $this->adapters->runner->retry(
-                $this->retimed($request)->across(Pool::of($request->pool()->processes(), Workers::Fresh)),
+                $this->retimed($request)->across($request->pool()->fresh()),
                 Mutants::of(...array_slice($survivors, 0, $fitting)),
                 $this->settings->triage()->most(),
             ),
@@ -202,7 +200,7 @@ final readonly class Invoking
             $this->map,
             $this->held,
         );
-        $bounds = $this->settings->triage()->bounds();
+        $bounds = $request->pool()->bounding($this->settings->triage()->bounds());
         $kills = KillControls::of($mutants, $this->map, $bounds);
         $memory = MemoryControls::of($mutants, $this->map, $this->held, $bounds);
         $asked = [...Controls::of(...[...$timeouts->asked(), ...$kills->asked(), ...$memory->asked()])];

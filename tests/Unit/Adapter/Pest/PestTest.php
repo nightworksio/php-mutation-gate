@@ -49,6 +49,7 @@ use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\PcovReach;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
+use NightWorksIO\MutationGate\Core\Runner\Pool;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Runner\TighterVariables;
@@ -344,6 +345,19 @@ it('mutates against a group without reading a shared map', function (): void {
     expect($shell->commands())->toEqual([
         PestCases::invocation()->mutation($request, $held, PestCases::results($at))->with(['MUTATION_GATE_NARROW' => '1', 'MUTATION_GATE_MUTANT_FLOOR' => '10.000000', 'MUTATION_GATE_MUTANT_CAP' => '300.000000', ...TighterVariables::of(TighterSilence::standard())]),
     ]);
+});
+
+it('tells a patched run the start-up the request\'s pool measured, which each mutant\'s limit is laid on', function (): void {
+    $at = PestCases::project();
+    $shell = new ShellFake(static fn(Command $command): Ran => PestCases::killed($command, $at));
+    $held = Group::named('holds:src/Money.php');
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), $held)
+        ->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')))
+        ->across(Pool::single()->startingIn(Seconds::of(2.5)));
+
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), Triage::standard()->bounds())->mutate($request);
+
+    expect($shell->commands()[0]->environment())->toMatchArray(['MUTATION_GATE_MUTANT_START_UP' => '2.500000']);
 });
 
 it('opens a patched shard on the canary group, with the planning job\'s map written again for its Pest', function (): void {

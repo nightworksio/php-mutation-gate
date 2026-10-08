@@ -197,7 +197,9 @@ final readonly class PhpUnit implements Runner
     {
         $this->held->forget();
 
-        return $this->mutating($this->shell)->result($request, $this->bounds, NotGiven::value());
+        $bounds = $request->pool()->bounding($this->bounds);
+
+        return $this->mutating($this->shell)->result($request, $bounds, NotGiven::value());
     }
 
     /**
@@ -216,7 +218,11 @@ final readonly class PhpUnit implements Runner
      */
     public function retry(MutationRequest $request, Mutants $mutants, Seconds $most): Mutants|CannotJudge
     {
-        return $this->mutating($this->shell)->again($request, $mutants, $this->bounds->upToInstead($most));
+        return $this->mutating($this->shell)->again(
+            $request,
+            $mutants,
+            $request->pool()->bounding($this->bounds)->upToInstead($most),
+        );
     }
 
     /**
@@ -247,7 +253,9 @@ final readonly class PhpUnit implements Runner
     ): Reproduction|CannotJudge {
         $printing = Transcribing::over($this->shell);
 
-        return $this->mutating($printing)->reproduced($mutant, $request, $this->bounds->upToInstead($most), $printing);
+        $bounds = $request->pool()->bounding($this->bounds)->upToInstead($most);
+
+        return $this->mutating($printing)->reproduced($mutant, $request, $bounds, $printing);
     }
 
     /** The gate makes its own mutants, so the runner has no ignore marker of its own: `ignores.entries` is the one. */

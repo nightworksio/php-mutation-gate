@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Ci\WhichShard;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Cost\FirstRun;
+use NightWorksIO\MutationGate\Core\Cost\StartUpSamples;
 use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
@@ -39,6 +40,7 @@ use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Doom;
 use NightWorksIO\MutationGate\Core\Verdict\Doomed;
@@ -203,7 +205,9 @@ final readonly class Running
     }
 
     /**
-     * Every invocation's mutants, each timeout, kill and mutant out of memory
+     * Every invocation's mutants, each limit laid on the start-up the shard
+     * times once before its first mutant (see StartUpTiming), each timeout,
+     * kill and mutant out of memory
      * judged by its unmutated control (see Invoking), with the survivors a second run killed, of each
      * unit but the held ones whose holding tests miss lines of them; or the
      * first cannot judge. A shard handed no map cannot judge at all. Under a
@@ -233,6 +237,7 @@ final readonly class Running
         }
 
         $kept = HeldCoverage::kept($shard, $held->misses());
+        $startUp = new StartUpTiming($this->adapters, StartUpSamples::standard())->of($map, $kept->units());
         $invoking = new Invoking(
             $this->adapters,
             $this->settings,
@@ -252,7 +257,7 @@ final readonly class Running
         );
         $batched = new Batched($invoking, $this->setup->clock, $deadline, $this->interruption, $doom, $checking);
         $batching = Batching::opening($map->suiteDuration());
-        $requestFor = fn(Units $units): MutationRequest => $this->requestFor($units, $kept->id(), $search);
+        $requestFor = fn(Units $units): MutationRequest => $this->requestFor($units, $kept->id(), $search, $startUp);
         $spent = match (true) {
             $doom instanceof Doom => $batched->spent(
                 $this->weighed($kept, $plan),
@@ -260,7 +265,7 @@ final readonly class Running
                 $requestFor,
             ),
             $deadline instanceof Deadline => $batched->spent($this->weighed($kept, $plan), $batching, $requestFor),
-            default => $this->spentWhole($invoking, $kept, $search),
+            default => $this->spentWhole($invoking, $kept, $search, $startUp),
         };
 
         if ($spent instanceof CannotJudge) {
@@ -288,12 +293,16 @@ final readonly class Running
     }
 
     /** Every invocation the shard plans, one after another. */
-    private function spentWhole(Invoking $invoking, Shard $kept, KillSearch $search): Spent|CannotJudge
-    {
+    private function spentWhole(
+        Invoking $invoking,
+        Shard $kept,
+        KillSearch $search,
+        Seconds|Unmeasured $startUp,
+    ): Spent|CannotJudge {
         $spent = Spent::none();
 
         foreach ($kept->invocations() as $units) {
-            $invoked = $invoking->invoked($this->requestFor($units, $kept->id(), $search));
+            $invoked = $invoking->invoked($this->requestFor($units, $kept->id(), $search, $startUp));
 
             if ($invoked instanceof CannotJudge) {
                 return $invoked;
@@ -330,8 +339,12 @@ final readonly class Running
      * by the whole suite, reading the maps the plan handed the shard, each
      * mutant's killers looked for as asked.
      */
-    private function requestFor(Units $units, ShardId $shard, KillSearch $search): MutationRequest
-    {
+    private function requestFor(
+        Units $units,
+        ShardId $shard,
+        KillSearch $search,
+        Seconds|Unmeasured $startUp,
+    ): MutationRequest {
         $files = Paths::none();
         $judgedBy = WholeSuite::tests();
 
@@ -341,7 +354,7 @@ final readonly class Running
         }
 
         return RunRequest::of($this->adapters, $this->settings, $files, $judgedBy)
-            ->across(Pool::of($this->adapters->processes(), $this->settings->runner()->workers()))
+            ->across(Pool::of($this->adapters->processes(), $this->settings->runner()->workers())->startingIn($startUp))
             ->reusingCoverage(Handed::maps(Workspace::shardCoverage($shard), Workspace::coverage()))
             ->searching($search);
     }

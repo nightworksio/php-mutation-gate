@@ -13,7 +13,6 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 
@@ -38,7 +37,7 @@ final readonly class FirstRuns
         $engine = $this->adapters->engine;
         $sites = $engine instanceof NotGiven
             ? MutantSites::none()
-            : $this->sites($engine, $this->filesOf($map, $units));
+            : $this->sites($engine, StartUpTiming::filesOf($map, $units));
         $first = $sites->first();
 
         return $first instanceof Path ? $this->measuredWith($map, $sites, $first) : FirstRun::unmeasured();
@@ -46,43 +45,11 @@ final readonly class FirstRuns
 
     private function measuredWith(CoverageMap $map, MutantSites $sites, Path $file): FirstRun
     {
-        $startUp = $this->startUp($file);
+        $startUp = new StartUpTiming($this->adapters, $this->samples)->fastest($file);
 
         return $startUp instanceof CannotJudge
             ? FirstRun::unmeasured()
             : FirstRun::of($map, $sites, $startUp, $this->adapters->processes());
-    }
-
-    /** The fastest of the runs of no test, each serving this file unchanged, or why one could not run. */
-    private function startUp(Path $file): Seconds|CannotJudge
-    {
-        $fastest = $this->adapters->runner->startUp($file, $this->adapters->withheld);
-
-        for ($run = 1; $run < $this->samples->runs() && $fastest instanceof Seconds; $run++) {
-            $again = $this->adapters->runner->startUp($file, $this->adapters->withheld);
-            $faster = $again instanceof Seconds && $again->microseconds() < $fastest->microseconds();
-            $fastest = $faster || $again instanceof CannotJudge ? $again : $fastest;
-        }
-
-        return $fastest;
-    }
-
-    /** Each unit's own path, and every file of the map a held unit's path holds. */
-    private function filesOf(CoverageMap $map, Units $units): Paths
-    {
-        $files = [];
-
-        foreach ($units as $unit) {
-            $files[] = $unit->path();
-
-            foreach ($unit->isHeld() ? $map->files() : [] as $file) {
-                if ($file->within($unit->path())) {
-                    $files[] = $file;
-                }
-            }
-        }
-
-        return Paths::of(...$files);
     }
 
     /** Where the engine makes the mutants of each of these files it can read and parse. */

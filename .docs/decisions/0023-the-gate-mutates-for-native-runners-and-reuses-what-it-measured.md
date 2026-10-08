@@ -289,7 +289,8 @@ manual.
      it unjudged, and so does a run whose every test was skipped or marked
      incomplete, with what PHPUnit said where it failed the run.
    - The gate enforces the timeout on the process: a mutant's run is allowed
-     the standard mutant limit, 5 s plus three times its covering tests' own
+     the standard mutant limit (ADR-0008, decision 2), three times the
+     shard's measured start-up plus three times its covering tests' own
      time, as the coverage map timed them, kept between `timeouts.seconds`
      and `timeouts.most`, which the flows hand the runner;
      `timeouts.seconds` alone where a covering test is untimed. A run again

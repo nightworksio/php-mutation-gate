@@ -391,8 +391,9 @@ its parser attributes. Both change when the checkout moves.
        caller did not ask for quiet (`STREAM_URL_STAT_QUIET`), as it does
        without the override.
      - Each mutant is allowed the standard mutant limit (ADR-0008, decision
-       2): 5 s plus three times its covering tests' own time, as the map
-       Pest loaded timed them, never less than `timeouts.seconds` and never
+       2): three times the shard's measured start-up, told it in
+       `MUTATION_GATE_MUTANT_START_UP`, plus three times its covering tests'
+       own time, as the map Pest loaded timed them, never less than `timeouts.seconds` and never
        more than `timeouts.most`, which the gate names. The patched plugin
        records each mutant's limit in the results file.
      - A mutant's run is also stopped where no test of it finishes for its

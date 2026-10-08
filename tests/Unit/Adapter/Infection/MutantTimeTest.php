@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Tests\Support\InfectionMutant;
 
 afterEach(function (): void {
     putenv(ChildVariable::MutantFloor->value);
+    putenv(ChildVariable::MutantStartUp->value);
 });
 
 it('allows a mutant the gate\'s 5 s and three times its tests\' time, between the floor it names and Infection\'s timeout', function (float $tests, float $limit): void {
@@ -56,4 +57,14 @@ it('keeps the silence limit of a mutant of a mutator timeouts.tighter lists abov
         putenv(ChildVariable::TighterFloor->value);
         putenv(ChildVariable::TighterMutators->value);
     }
+});
+
+it('lays a mutant\'s limit, and its silence limit, on three times the start-up the gate\'s run measured, and Infection\'s own on 5 s still', function (): void {
+    putenv(sprintf('%s=4', ChildVariable::MutantStartUp->value));
+    $own = MutantTime::of(1.0, 300.0);
+    putenv(sprintf('%s=1', ChildVariable::MutantFloor->value));
+
+    expect(MutantTime::of(1.0, 300.0))->toBe(15.0)
+        ->and(MutantTime::silence([InfectionMutant::test('T::a', 1.0)], 300.0, 'Plus'))->toEqual(Seconds::of(15.0))
+        ->and($own)->toBe(10.0);
 });

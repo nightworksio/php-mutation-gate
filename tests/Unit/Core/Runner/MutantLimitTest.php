@@ -37,3 +37,19 @@ it('allows a mutant Infection\'s own 5 s plus five times its tests\' time, up to
     'tests that take a second' => [1.0, 10.0],
     'tests whose limit would pass the cap' => [60.0, 300.0],
 ]);
+
+it('allows a mutant three times the start-up its run measured, in place of 5 s, plus three times its tests\' own time', function (float $startUp, float $tests, float $limit): void {
+    expect(MutantLimit::standard()->of(Seconds::of($tests), standardBounds()->startingIn(Seconds::of($startUp))))
+        ->toEqual(Seconds::of($limit));
+})->with([
+    'a start-up whose limit is under the floor gets the floor' => [1.0, 1.0, 10.0],
+    'a slow start-up raises the limit past the floor' => [4.0, 0.5, 13.5],
+    'a fast start-up lowers it below 5 s plus the tests' => [1.0, 4.0, 15.0],
+    'a start-up whose limit would pass the most gets the most' => [101.0, 0.0, 300.0],
+]);
+
+it('keeps Infection\'s own 5 s, whatever start-up the run measured', function (): void {
+    $bounds = LimitBounds::upTo(Seconds::of(300.0))->startingIn(Seconds::of(4.0));
+
+    expect(MutantLimit::infections()->of(Seconds::of(1.0), $bounds))->toEqual(Seconds::of(10.0));
+});

@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\StartUpVariable;
 use NightWorksIO\MutationGate\Core\Runner\TighterVariables;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
@@ -105,6 +106,7 @@ final readonly class MutationRun
             ChildVariable::MutantFloor->value => sprintf('%F', $bounds->floor()->seconds()),
             ChildVariable::Results->value => $this->project->own(Invocation::SILENCED),
             ...TighterVariables::of($bounds->tighter()),
+            ...StartUpVariable::of($bounds),
         ]);
         $scan = MemoryScan::in($this->project, $request->memory(), $this->files);
 

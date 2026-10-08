@@ -284,3 +284,19 @@ it('weighs a mutant out of memory by the peak of its control under the same cap,
     'a control that held 20M' => [ControlRun::passed(Seconds::of(1.0))->withPeak(MemoryCap::of(20, MemoryUnit::Megabytes)), MemoryCap::of(20, MemoryUnit::Megabytes), ''],
     'a control out of memory too' => [ControlRun::outOfMemory(), Unmeasured::duration(), MemoryControls::OUT_OF_MEMORY],
 ]);
+
+it('allows a kill\'s control the limit laid on the start-up the shard measured', function (): void {
+    $project = Flows::project();
+    $runner = ScriptedRunner::fixture()->startingUpIn(Seconds::of(4.0));
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $limits = [];
+
+    foreach ($runner->controlled() as [$controls]) {
+        $limits = [...$limits, ...array_map(static fn(Control $control): float => $control->limit()->seconds(), [...$controls])];
+    }
+
+    // A timeout's control keeps the limit its mutant ran out of; a kill's is laid anew, past the floor of 10 s.
+    expect(max([0.0, ...$limits]))->toBeGreaterThanOrEqual(12.0);
+});
