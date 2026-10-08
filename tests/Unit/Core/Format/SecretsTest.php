@@ -172,3 +172,10 @@ it('keeps nothing where a withheld value of short words appears in a form only o
 it('keeps nothing where one line of a withheld value of many appears alone, though no word of it is long enough', function (): void {
     expect(Secrets::of("first line\nsecond line here")->screened('printed second line here', cut: false))->toBeInstanceOf(NotGiven::class);
 });
+
+/** Twelve bytes are four whole groups of three; these share the first three groups with `abcdefghijkl` and not the fourth. */
+$sharingGroups = sprintf('header %s', sodium_bin2base64('abcdefghiXYZ', SODIUM_BASE64_VARIANT_ORIGINAL));
+
+it('keeps what a process printed where only the first base64 groups of a withheld value appear, and its last group differs', function () use ($sharingGroups): void {
+    expect(Secrets::of('abcdefghijkl')->screened($sharingGroups, cut: false))->toBe($sharingGroups);
+});
