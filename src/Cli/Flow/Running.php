@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use Closure;
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistory;
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
+use NightWorksIO\MutationGate\Core\Analysis\PreCheck;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
@@ -240,6 +243,17 @@ final readonly class Running
 
         $kept = HeldCoverage::kept($shard, $held->misses());
         $startUp = new StartUpTiming($this->adapters, StartUpSamples::standard())->of($map, $kept->units());
+        $warmUp = new AnalyserWarmUp();
+        $preChecking = new PreChecking(
+            $this->adapters,
+            $this->setup->clock,
+            $deadline,
+            $this->settings->staticCheck()->seconds(),
+            $this->known($plan),
+            $warmUp,
+            $stopwatch,
+            PreCheck::standard(),
+        );
         $invoking = new Invoking(
             $this->adapters,
             $this->settings,
@@ -248,6 +262,7 @@ final readonly class Running
             $stopwatch,
             $map,
             $held->covered(),
+            $preChecking,
         );
         $doom = new Dooming($this->adapters, $this->settings, $this->setup->clock)->of($plan);
         $checking = new SurvivorChecking(
@@ -256,6 +271,7 @@ final readonly class Running
             $deadline,
             $this->settings->staticCheck()->seconds(),
             $stopwatch,
+            $warmUp,
         );
         $batched = new Batched($invoking, $this->setup->clock, $deadline, $this->interruption, $doom, $checking);
         $batching = Batching::opening($map->suiteDuration());
@@ -296,7 +312,7 @@ final readonly class Running
             $spent->flaky,
             $held,
             $spent->unjudged,
-            $spent->checks->plus($checked->checks),
+            $spent->checks->plus($checked->checks)->plus($preChecking->checks()),
             $spent->doomed,
         );
     }
@@ -321,6 +337,24 @@ final readonly class Running
         }
 
         return $spent;
+    }
+
+    /**
+     * What the ledgers the plan reads learned of the shard's analyser: its
+     * own scope's first, then the default branch's (ADR-0020, decision 11);
+     * nothing where no analyser is wired.
+     */
+    private function known(Plan $plan): AnalyserHistory
+    {
+        $identity = $this->adapters->analyser;
+
+        if (! $identity instanceof AnalyserIdentity) {
+            return AnalyserHistory::of('');
+        }
+
+        $ledgers = Ledgers::read($this->adapters->proofs, Standing::planned($plan), Writing::Never);
+
+        return $ledgers->own()->analysers()->of($identity)->and($ledgers->defaultBranch()->analysers()->of($identity));
     }
 
     /**

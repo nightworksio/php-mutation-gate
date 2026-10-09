@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
 use NightWorksIO\MutationGate\Core\Mutant\Prefix;
@@ -48,6 +49,7 @@ use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinusAlso;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveEcho;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitScan;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitShellFake;
+use NightWorksIO\MutationGate\Tests\Support\PreCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -137,6 +139,32 @@ it('runs one of the mutants that leave a file alike, and judges the rest as it, 
         ->and($result instanceof MutationResult ? $result->skipped() : -1)->toBe(0)
         ->and($twins)->toEqual([Seconds::of(0.0), Seconds::of(0.0)])
         ->and($shell->commands())->toHaveCount(2);
+});
+
+it('kills a covered mutant static analysis rejects before its tests, and its twins, with no run, and offers no uncovered one', function () use ($covered): void {
+    [$run, $shell] = killingRun(library(), new PlusToMinus(), new PlusToMinusAlso(), new RemoveEcho());
+    $checker = new PreCheckerFake(['acme/PlusToMinus']);
+    $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())
+        ->across(Pool::of(ProcessCount::of(3), Workers::Fresh));
+    $result = $run->of($request, $covered, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)), $checker);
+    $rejected = $result instanceof MutationResult ? array_values(array_filter(
+        [...$result->mutants()],
+        static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::KilledByStaticAnalysis,
+    )) : [];
+
+    expect(judgedMutants($result))->toBe([
+        ['src/Money.php', 'acme/PlusToMinus', 'killed-by-static-analysis'],
+        ['src/Money.php', 'acme/PlusToMinusAlso', 'killed-by-static-analysis'],
+        ['src/Money.php', 'acme/RemoveEcho', 'killed'],
+        ['src/Tax.php', 'acme/PlusToMinus', 'uncovered'],
+        ['src/Tax.php', 'acme/PlusToMinusAlso', 'uncovered'],
+    ])
+        ->and(array_map(static fn(Mutant $mutant): mixed => $mutant->reason(), $rejected))
+        ->toEqual(array_fill(0, 2, PreCheckerFake::rejection(Path::of('src/Money.php'))))
+        ->and(array_map(static fn(string $offered): string => strtok($offered, ' '), $checker->offered()))
+        ->toBe(['acme/RemoveEcho', 'acme/PlusToMinus'])
+        ->and($checker->sides())->toBe([3])
+        ->and($shell->commands())->toHaveCount(1);
 });
 
 it('allows each mutant 5 s plus three times its covering tests\' own time within the bounds, and the floor where one is untimed', function () use ($covered): void {

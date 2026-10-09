@@ -10,6 +10,8 @@ use function getenv;
 use function is_file;
 
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
+use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
+use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed as ComposerInstalled;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
@@ -225,8 +227,10 @@ final readonly class Infection implements Runner
     }
 
     /** Every mutant of the requested files; none, running nothing, where Infection runs none of the mutators named. */
-    public function mutate(MutationRequest $request): MutationResult|CannotJudge
-    {
+    public function mutate(
+        MutationRequest $request,
+        PreChecker $preChecker = new NoPreCheck(),
+    ): MutationResult|CannotJudge {
         $config = OwnConfig::in($this->project);
 
         if ($config instanceof CannotJudge) {

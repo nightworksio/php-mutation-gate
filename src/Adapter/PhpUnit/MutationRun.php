@@ -15,6 +15,8 @@ use function iterator_to_array;
 
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Forked;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Workforce;
+use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
+use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\Laps;
 use NightWorksIO\MutationGate\Core\Cost\Step;
@@ -85,18 +87,26 @@ final readonly class MutationRun
         return new self($this->project, $this->engine, $this->run, $this->workforce, $this->laps, $ids);
     }
 
-    /** Each mutant, each of its runs stopped at its limit within these bounds. */
-    public function of(MutationRequest $request, CoverageMap $map, LimitBounds $bounds): MutationResult|CannotJudge
-    {
+    /**
+     * Each mutant, each of its runs stopped at its limit within these bounds;
+     * one static analysis rejects before its tests, killed without a run.
+     */
+    public function of(
+        MutationRequest $request,
+        CoverageMap $map,
+        LimitBounds $bounds,
+        PreChecker $preChecker = new NoPreCheck(),
+    ): MutationResult|CannotJudge {
         $end = $this->endOf($request->deadline());
         $from = $this->laps->now();
         $made = $this->made($request);
         $twins = Twins::of(is_array($made) ? $made : []);
-        $queue = $made instanceof CannotJudge ? $made : $this->queued($twins->first(), $request, $map, $bounds, $end);
+        $checked = PreChecked::of($twins->first(), $map, $preChecker, $request->pool()->processes());
+        $queue = $made instanceof CannotJudge ? $made : $this->queued($checked->left, $request, $map, $bounds, $end);
         $preparing = $this->laps->lap(Step::Preparing, $from, is_array($made) ? count($made) : 0);
         $from = $this->laps->now();
         $judged = $queue instanceof CannotJudge ? $queue : $this->judgedAll($queue, $request, $end);
-        $mutants = $judged instanceof CannotJudge ? [] : $twins->joined($judged->mutants());
+        $mutants = $judged instanceof CannotJudge ? [] : $twins->joined([...$checked->rejected, ...$judged->mutants()]);
 
         return match (true) {
             $judged instanceof CannotJudge => $judged,
