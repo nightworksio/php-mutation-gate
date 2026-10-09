@@ -51,8 +51,22 @@ final readonly class Commands
      */
     public static function run(string $project, string $command, array $input = []): self
     {
+        return self::answering($project, $command, $input, []);
+    }
+
+    /**
+     * One command run in a project, as a person at a terminal runs it, giving
+     * these answers to its questions in turn; with none, as a command that
+     * takes no answers runs.
+     *
+     * @param array<mixed> $input
+     * @param list<string> $answers
+     */
+    public static function answering(string $project, string $command, array $input, array $answers): self
+    {
         $tester = new CommandTester(self::console($project)->find($command));
-        $code = $tester->execute($input, ['capture_stderr_separately' => true]);
+        $tester->setInputs($answers);
+        $code = $tester->execute($input, ['capture_stderr_separately' => true, 'interactive' => $answers !== []]);
         $output = $tester->getOutput();
 
         return new self(

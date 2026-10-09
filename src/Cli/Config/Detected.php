@@ -107,6 +107,16 @@ final readonly class Detected
         };
     }
 
+    /** Whether Composer installed both Pest's mutation plugin and Infection, so a person must choose the runner. */
+    public function bothRunners(): bool
+    {
+        $installed = $this->installed();
+
+        return $installed instanceof Installed
+            && $installed->has(Package::PestMutate->value)
+            && $installed->has(Package::Infection->value);
+    }
+
     private function runnerIn(Installed $installed): BuiltinRunner|CannotJudge
     {
         $pest = $installed->has(Package::PestMutate->value);

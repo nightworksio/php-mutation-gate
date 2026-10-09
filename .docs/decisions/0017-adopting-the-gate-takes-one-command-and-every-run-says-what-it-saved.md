@@ -71,17 +71,28 @@ would have cost without them.
    - It detects and prints, with the evidence for each: the runner, the
      preset, the trees, the PHPUnit config, the CI, an Infection config, and
      native markers.
-   - It asks, and only when the answer is not settled:
+   - Where no config is here, it asks, in this order, and only when the
+     answer is not settled, each question offering what detection found as
+     its default:
      - the runner, when both are installed (`--runner`);
-     - the CI, when none or several are detected (`--ci=<provider>`).
-       Detection looks for `.github/workflows/`, `.gitlab-ci.yml`,
-       `.buildkite/` and `.circleci/config.yml`. `--ci` with no value takes
-       the detected CI;
+     - the CI, when none or several are detected (`--ci=<provider>`), from
+       the CIs it writes a definition for, or none. Detection looks for each
+       CI's own files, such as `.github/workflows/` and `.gitlab-ci.yml`.
+       `--ci` with no value takes the detected CI;
      - whether to import an `infection.json5` it found (`--from`,
        ADR-0016);
      - what to do with native markers it found (`--native=allow|refuse`,
        decision 7);
-     - whether to install the pre-push hook (`--hook`, `--no-hook`).
+     - where to set the pre-push hook up
+       (`--hook[=git|captainhook|grumphp|pre-commit|none]`, `--no-hook`): a
+       hook framework whose config the project holds is offered first, then
+       git's own hooks, which `--hook` alone names (ADR-0024 decision 12);
+     - whether to add `composer mutate` (ADR-0024 decision 11), last, and
+       only of a person at a terminal: a yes prints the two Composer
+       commands that add the plugin and the root script that needs none,
+       and changes no file.
+   - With a config already here, it asks nothing, and makes only what the
+     command line asks for.
    - With `--no-interaction`, with no terminal, or with `CI` set, it asks
      nothing. The runner is the detected one, or exit 2 when both are
      installed and `--runner` is absent. The CI is the detected one, or none
@@ -90,9 +101,11 @@ would have cost without them.
    - It writes the config (decision 2), the CI definition (ADR-0015
      decisions 13–16), `.gitignore`'s line, the hook when asked, and VS Code's
      files with `--editor` (ADR-0015). It never overwrites a file.
-   - `--dry-run` prints every file instead of writing it.
+   - `--dry-run`, or its other name `--stdout` (ADR-0015), prints every
+     file instead of writing it, the config and the `.gitignore` line among
+     them.
    - It ends with the estimate of decision 4 and the next three commands to
-     run.
+     run: `doctor`, the first run, and `git add` of the files it wrote.
 
 2. **`init` writes only what should stay fixed.** The config it writes holds:
    - `runner` and `preset`, so a second runner installed later does not

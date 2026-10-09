@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGateComposer;
 
+use function array_slice;
+
 use Composer\Command\BaseCommand;
 use Composer\Package\PackageInterface;
 use Composer\Util\ProcessExecutor;
 
+use function explode;
+use function implode;
 use function is_string;
-use function preg_replace;
 use function sprintf;
 
 use Symfony\Component\Console\Input\InputArgument;
@@ -41,8 +44,8 @@ final class MutateCommand extends BaseCommand
 
     private const string BIN_DIR = 'bin-dir';
 
-    /** The command's own name, which the command line holds before what it hands on. */
-    private const string OWN_NAME = '{^\S+ ?}';
+    /** What parts the words of the command line, the first of which is the command's own name. */
+    private const string WORD = ' ';
 
     private const string CALL = '%s %s';
 
@@ -77,7 +80,7 @@ final class MutateCommand extends BaseCommand
             return self::CANNOT_RUN;
         }
 
-        $handed = (string) preg_replace(self::OWN_NAME, '', (string) $input, 1);
+        $handed = implode(self::WORD, array_slice(explode(self::WORD, (string) $input), 1));
         ProcessExecutor::setTimeout(0);
 
         return new ProcessExecutor($this->getIO())

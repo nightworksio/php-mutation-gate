@@ -102,7 +102,7 @@ final readonly class EditorFiles
         string $addition,
     ): string|CannotJudge {
         if ($output === Output::Printed) {
-            return sprintf("%s:\n\n%s", $file->value(), $whole);
+            return sprintf(Output::FILE, $file->value(), $whole);
         }
 
         $there = $project->read($file);
