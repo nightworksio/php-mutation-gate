@@ -390,7 +390,15 @@ would have cost without them.
       - plain: `pest --mutate --parallel`, or `infection --threads=max`
         with the project's own config;
       - the gate in one job;
-      - the gate sharded at `shards.seconds`, as a matrix.
+      - the gate sharded at `shards.seconds`, as a matrix;
+      - where the project's runner is Infection, the gate in one job with
+        its own engine and forked PHPUnit workers (ADR-0023). Its mutants
+        are its own, so it is compared by count per file, never reconciled
+        one by one.
+    - The plain arm runs in a copy of the project the gate's
+      `infection:patch` never touched, with a JSON log added to the
+      project's own config, since Infection writes one only where its config
+      names it.
     - **The scenarios:**
       - *cold full*: an empty ledger and no timings;
       - *warm full*: a full run a week of the project's real commits after

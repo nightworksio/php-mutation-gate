@@ -6,6 +6,7 @@
 # The archive Composer installs is what a user needs to run the gate, and
 # nothing that develops it.
 /.docs export-ignore
+/bench export-ignore
 /.editorconfig export-ignore
 /.gitattributes export-ignore
 /.githooks export-ignore
