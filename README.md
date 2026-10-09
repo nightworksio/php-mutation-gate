@@ -144,7 +144,7 @@ The first release is tagged when every row says *yes*.
 | | Floors that only rise: a committed baseline, which fails on regression and rises on improvement | yes | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
 | | Pull-request mode: changed lines and what the change reaches, with a stricter floor for new code | yes | [0003](.docs/decisions/0003-a-floor-only-rises.md), [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | | Monorepos: a floor per package and module, with reach that follows the dependencies | yes | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
-| | `migrate`: a config and a baseline moved to the current format, in any of the four formats | not yet | [0026](.docs/decisions/0026-configs-and-baselines-move-forward-with-one-command.md) |
+| | `migrate`: a config and a baseline moved to the current format, in any of the four formats | yes | [0026](.docs/decisions/0026-configs-and-baselines-move-forward-with-one-command.md) |
 | | A signed PHAR and a multi-arch container image beside the Composer package | not yet | [0022](.docs/decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md) |
 | | `composer mutate`, and recipes for CaptainHook, GrumPHP and the pre-commit framework | not yet | [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 | **CI and speed** | A cost model that learns how long each file takes from earlier shards | yes | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |

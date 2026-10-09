@@ -31,6 +31,7 @@ the design decision behind each option.
 | `doctor [--measure] [--online] [--format=text\|json]` | Report what would fail, run slowly or deserves attention, each with its fix, reading only files and earlier runs; exits 1 when something would fail |
 | `stub <id> [--style=pest\|phpunit] [--write]` | Print a failing Pest or PHPUnit test for a survivor or an uncovered mutant, or one for a cluster, in the style of its nearest covering test, found as `explain` finds the mutant; with `--write`, add it to that file, or create one, never overwriting. Exits 2 where there is nothing to stub, with the next step where there is one |
 | `config:show [--format=…]` / `config:schema` | Print the effective config (JSON by default), or the JSON Schema |
+| `migrate [--write]` | Show the diff that moves the config and the baseline to the current release, and with `--write`, write it. A PHP config keeps its comments and layout, and only the builder calls a release retired change. A JSON config and the baseline change key by key. A YAML or NEON config is written again, and its comments are not kept. The baseline is the one the config names, or `mutation-gate.baseline.json` while the config does not read. A change migrate cannot make is listed for a hand edit. Exits 0 where every file is current or written, 1 where a change is pending without `--write` or left for a hand edit, and 2 where a file cannot be read |
 | `pest:patch` | Apply the optional Pest patches ([ADR-0004](../decisions/0004-pest-and-infection-behind-one-runner-port.md)) |
 | `infection:patch` | Give Infection the gate's mutant limit ([ADR-0004](../decisions/0004-pest-and-infection-behind-one-runner-port.md)) |
 
@@ -57,6 +58,7 @@ the design decision behind each option.
 | `--output=problems` | `run`, `watch`, `pre-push` | Print one `<path>:<line>:<col>: <severity>: <message> [<rule>] <id>` line per result, for editors | [0015](../decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
 | `--only=changed` | `run`, `watch`, `pre-push` with `--output=problems` | Print only the mutants on changed lines | [0015](../decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
 | `--write` | `stub` | Append the stub to its nearest covering test file, or create one; never overwrite | [0015](../decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
+| `--write` | `migrate` | Write the migrated config and baseline | [0026](../decisions/0026-configs-and-baselines-move-forward-with-one-command.md) |
 | `--style=pest\|phpunit` | `stub` | The stub's style, instead of the nearest covering test's | [0015](../decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
 | `--stdout` | `init` with `--ci` or `--editor` | Print the files instead of writing them | [0015](../decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
 | `--sharded`, `--single` | `init --ci=github` | The reusable workflow or the one-step action, instead of the one the estimated cost picks | [0015](../decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |

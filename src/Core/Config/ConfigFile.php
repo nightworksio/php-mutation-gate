@@ -8,7 +8,7 @@ use function dirname;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
-use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Migration\Migrations;
 
 use function pathinfo;
 
@@ -73,7 +73,7 @@ final readonly class ConfigFile implements PathOrigin
      */
     public function read(Json $config): Layer|Invalid
     {
-        return Definition::layer(Node::config($config->line()), $this);
+        return Definition::file($config, $this, Migrations::config());
     }
 
     public function reachesOutside(): bool

@@ -209,6 +209,10 @@ services:
         arguments:
             # Constants whose value only coincides with another's, meaning something else.
             coincidences:
+                'NightWorksIO\MutationGate\Core\Migration\UnifiedDiff':
+                    - CONTEXT # unchanged lines shown around a change, not letters per edit
+                'NightWorksIO\MutationGate\Core\Format\JsonIndent':
+                    - STANDARD # a JSON file's level when it shows none, not a report's indent
                 'NightWorksIO\MutationGate\Core\Config\Pruning':
                     - WINDOW # judged mutants a mutator's window holds, not trend entries kept
                     - AUDIT_DAYS # days a pruned result may be carried, not a run status

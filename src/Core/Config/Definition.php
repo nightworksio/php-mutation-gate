@@ -23,8 +23,11 @@ use NightWorksIO\MutationGate\Core\Config\Definition\ShardsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\StaticCheckKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\TriageKeys;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Format\JsonDocument;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Migration\Migrations;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 
 /**
@@ -36,10 +39,9 @@ use NightWorksIO\MutationGate\Core\ThisPackage;
  */
 final readonly class Definition
 {
-    private const string SCHEMA = 'https://json-schema.org/draft/2020-12/schema';
-
-    private const string PUBLISHED
+    public const string PUBLISHED
         = 'https://raw.githubusercontent.com/nightworksio/php-mutation-gate/v1/resources/mutation-gate.schema.json';
+    private const string SCHEMA = 'https://json-schema.org/draft/2020-12/schema';
 
     private const string DESCRIPTION
         = 'The config of nightworksio/mutation-gate: mutation-gate.json, .yaml, .yml or .neon.';
@@ -94,6 +96,19 @@ final readonly class Definition
         $layer = $reading->value();
 
         return $layer instanceof Layer ? $layer : Invalid::because(...$reading->problems());
+    }
+
+    /**
+     * A config file's layer, read as `layer()` reads it; or, where it still
+     * writes what a release retired, each such key, with what changed and
+     * the command that changes it (ADR-0026, decision 1).
+     */
+    public static function file(Json $config, PathOrigin $origin, Migrations $migrations): Layer|Invalid
+    {
+        $document = JsonDocument::parse($config->pretty());
+        $retired = $document instanceof JsonDocument ? $migrations->pending($document) : NotGiven::value();
+
+        return $retired instanceof Invalid ? $retired : self::layer(Node::config($config->line()), $origin);
     }
 
     /**

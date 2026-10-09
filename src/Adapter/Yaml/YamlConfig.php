@@ -16,6 +16,9 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Parsed;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Migration\Migrated;
+use NightWorksIO\MutationGate\Core\Migration\Migrating;
+use NightWorksIO\MutationGate\Core\Migration\Migrations;
 use NightWorksIO\MutationGate\Port\ConfigLoader;
 
 use function sprintf;
@@ -49,15 +52,23 @@ final readonly class YamlConfig implements ConfigLoader
             return CannotJudge::because(sprintf('%s could not be read.', $path));
         }
 
-        try {
-            $tree = Yaml::parse($text, Yaml::PARSE_DATETIME | Yaml::PARSE_EXCEPTION_ON_INVALID_TYPE);
-        } catch (ParseException $exception) {
-            return CannotJudge::because(sprintf('%s is not YAML: %s', $path, $exception->getMessage()));
-        }
-
-        $json = Parsed::json($tree, $path);
+        $json = $this->form($text, $path);
 
         return $json instanceof Json ? $file->read($json) : $json;
+    }
+
+    /**
+     * A YAML config as `migrate` would write it, written again from its
+     * migrated form, which keeps none of its comments (ADR-0026, decision 3);
+     * or why it cannot be read.
+     */
+    public function migrated(string $shown, string $text, Migrations $migrations): Migrated|CannotJudge
+    {
+        $json = $this->form($text, $shown);
+
+        return $json instanceof Json
+            ? Migrating::rewritten($shown, $text, $json, $migrations, $this->render(...))
+            : $json;
     }
 
     /** A config written as YAML, as `init` and `config:show` write it. */
@@ -69,5 +80,17 @@ final readonly class YamlConfig implements ConfigLoader
             self::INDENT,
             Yaml::DUMP_EMPTY_ARRAY_AS_SEQUENCE,
         );
+    }
+
+    /** The JSON form a YAML text reads into, or why it holds no config. */
+    private function form(string $text, string $path): Json|CannotJudge
+    {
+        try {
+            $tree = Yaml::parse($text, Yaml::PARSE_DATETIME | Yaml::PARSE_EXCEPTION_ON_INVALID_TYPE);
+        } catch (ParseException $exception) {
+            return CannotJudge::because(sprintf('%s is not YAML: %s', $path, $exception->getMessage()));
+        }
+
+        return Parsed::json($tree, $path);
     }
 }

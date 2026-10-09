@@ -14,7 +14,7 @@ use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\PathOrigin;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
-use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Migration\Migrations;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
@@ -136,7 +136,7 @@ final readonly class Gate
     /** The layer of config this writes, read as every other format is, its paths named from this origin. */
     public function layer(PathOrigin $origin): Layer|Invalid
     {
-        return Definition::layer(Node::config($this->config->line()), $origin);
+        return Definition::file($this->config, $origin, Migrations::config());
     }
 
     private function set(string $key, Json|string $value): self

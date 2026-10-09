@@ -9,6 +9,10 @@ use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Migration\Migrated;
+use NightWorksIO\MutationGate\Core\Migration\Migration;
+use NightWorksIO\MutationGate\Core\Migration\Migrations;
+use NightWorksIO\MutationGate\Core\Migration\Rename;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -89,4 +93,17 @@ it('refuses includes, so a config reads no other file', function () use ($read, 
 
     expect($read("includes:\n    - shared.neon\nrunner:\n    use: pest\n"))->toBe(['includes: unknown key'])
         ->and(new NeonConfig()->reads($file(sprintf('%s/mutation-gate.neon', $project))))->toEqual(ConfigReads::none());
+});
+
+it('writes a NEON config again from its migrated form where a change applies, saying its comments are not kept, and leaves a current one as it is', function (): void {
+    $migrations = Migrations::of(Migration::in('2.0.0', Rename::of('runnr', 'runner')));
+    $changed = new NeonConfig()->migrated('mutation-gate.neon', "# the runner\nrunnr: pest\n", $migrations);
+    $current = new NeonConfig()->migrated('mutation-gate.neon', "# the runner\nrunner: pest\n", $migrations);
+
+    expect($changed instanceof Migrated ? [$changed->after(), $changed->note()] : $changed)->toBe([
+        "runner: pest\n",
+        'mutation-gate.neon is written again from its migrated form, so its comments are not kept.',
+    ])
+        ->and($current instanceof Migrated ? [$current->changes(), $current->note()] : $current)->toBe([false, ''])
+        ->and(new NeonConfig()->migrated('mutation-gate.neon', "runner: [\n", $migrations))->toBeInstanceOf(CannotJudge::class);
 });

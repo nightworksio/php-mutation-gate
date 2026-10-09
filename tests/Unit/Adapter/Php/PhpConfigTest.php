@@ -10,6 +10,10 @@ use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Migration\Migration;
+use NightWorksIO\MutationGate\Core\Migration\Migrations;
+use NightWorksIO\MutationGate\Core\Migration\Rename;
+use NightWorksIO\MutationGate\Core\Migration\Spelling;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -71,6 +75,28 @@ it('cannot judge a file that fails as it runs, saying why', function () use ($co
         ->and($loaded instanceof CannotJudge ? $loaded->why() : '')
         ->toStartWith(sprintf('%s could not be read: ', $file))
         ->and($loaded instanceof CannotJudge ? $loaded->why() : '')->toContain('must be of type string, int given');
+});
+
+it('names the change and migrate where a call a release retired keeps a file from loading, and else what PHP said', function () use ($configFile): void {
+    $project = Scratch::directory();
+    $file = sprintf('%s/mutation-gate.php', $project);
+    Scratch::write($project, 'mutation-gate.php', <<<'PHP'
+        <?php
+
+        use NightWorksIO\MutationGate\Config\Gate;
+        use NightWorksIO\MutationGate\Config\Runner;
+
+        return Gate::configure()
+            ->runnr(Runner::pest());
+        PHP);
+    $migrations = Migrations::of(Migration::in('2.0.0', Rename::of('runnr', 'runner')->spelt(Spelling::replacing('Gate::runnr', 'Gate::runner'))));
+
+    expect(new PhpConfig($migrations)->load($configFile($file)))
+        ->toEqual(CannotJudge::because(sprintf('%s line 7: `runnr` became `runner` in 2.0.0: run `mutation-gate migrate`', $file)))
+        ->and(new PhpConfig()->load($configFile($file)))->toEqual(CannotJudge::because(sprintf(
+            '%s could not be read: Call to undefined method NightWorksIO\MutationGate\Config\Gate::runnr()',
+            $file,
+        )));
 });
 
 it('cannot judge a file that throws, saying why', function () use ($configFile): void {
