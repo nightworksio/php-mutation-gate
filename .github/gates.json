@@ -202,7 +202,7 @@
     },
     "hook-managers": {
       "check": "hook managers",
-      "checks": "The gate set up by init --hook in real CaptainHook, GrumPHP and pre-commit framework repositories, from this checkout's gate and its .pre-commit-hooks.yaml: a commit through each manager's pre-commit hook passes, and through CaptainHook and the pre-commit framework a push whose new code is killed passes while one whose new code no test covers is refused with the gate's failed verdict (ADR-0024, decisions 12 and 13).",
+      "checks": "composer mutate through this checkout's Composer plugin runs the gate with the arguments given and exits as it does, and a project that does not allow the plugin installs without it; and the gate set up by init --hook in real CaptainHook, GrumPHP and pre-commit framework repositories, from this checkout's gate and its .pre-commit-hooks.yaml: a commit through each manager's pre-commit hook passes, and through CaptainHook and the pre-commit framework a push whose new code is killed passes while one whose new code no test covers is refused with the gate's failed verdict (ADR-0024, decisions 11 to 13).",
       "reproduce": "python3 .github/scripts/hook_managers.py . <an empty directory> <pre-commit's zipapp> --findings <file>, with Composer, PHP with pcov and git on the PATH",
       "evidence": [
         {"step": "managers", "tool": "hooks", "raw": "evidence/raw/hook-managers.json"}
