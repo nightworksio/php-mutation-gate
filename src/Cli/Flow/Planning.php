@@ -187,6 +187,8 @@ final readonly class Planning
         $carriedOwn = $this->unitsOf($considering->carried())->within($ownOnly);
         $keys = $keying->keysOf($considering->considered());
         $proving = $ledgers->proving($considering->considered(), $keys, $keying->base(), $matrix);
+        $pruned = new PrunedUnits($this->adapters, $this->settings, $this->setup)
+            ->of($base, $ledgers, $proving->toRun(), $keying);
         $opening = $map->suiteDuration();
         $firstRun = new FirstRuns($this->adapters, StartUpSamples::standard())
             ->measured($map, $ledgers->untimed($proving->toRun()));
@@ -219,7 +221,8 @@ final readonly class Planning
                             ->untesting(Untested::of($changed, $map))
                             ->proving($this->unitsOf($proving->proved()))
                             ->carrying($this->unitsOf($considering->carried()))
-                            ->carryingOwn($carriedOwn),
+                            ->carryingOwn($carriedOwn)
+                            ->pruning($pruned),
                     )
                     ->naming($this->adapters->runner->names($map->tests(), $this->adapters->withheld)),
                 $map,

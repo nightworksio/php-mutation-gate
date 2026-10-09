@@ -37,6 +37,7 @@ use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\ReadsOnly;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
+use NightWorksIO\MutationGate\Core\Pruning\PrunedCarry;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Removal\Removals;
@@ -279,14 +280,14 @@ final readonly class Judging
             $ignoring,
         );
         $judge = $this->adapters->isSecurityOnly() ? $judge->onlyMadeBy($this->adapters->security) : $judge;
-        $fresh = Agreement::checked(
+        $newest = $ledgers->newest();
+        $fresh = PrunedCarry::of($plan->considered()->pruned(), $newest, $plan->digests())->into(Agreement::checked(
             $results->units(),
             $plan->keys(),
             $ledgers->defaultBranch()->proofs(),
             $ledgers->own()->proofs(),
-        );
+        ));
         $map = new Handoff($this->adapters->project, Handoff::limits())->forVerdict();
-        $newest = $ledgers->newest();
         $stop = $results->stopped();
         $commits = ChangesSince::commitsOf($results->unjudged()->and($stop->units()), $newest, $plan->base());
         $since = new Since($this->adapters, $this->settings)->of(...$commits);
@@ -535,7 +536,8 @@ final readonly class Judging
         $lastRun = $judged instanceof JudgedCommit
             ? LastRun::of($judged, $this->settings->ci()->check(), $plan->briefing()->profile())
             : $judged;
-        $written = new Recorded($this->adapters)->write($plan, $results, $ledgers, $run, $passed, $lastRun);
+        $written = new Recorded($this->adapters, $this->settings)
+            ->write($plan, $results, $ledgers, $run, $passed, $lastRun);
 
         return match (true) {
             $written instanceof Written => $written->said(),

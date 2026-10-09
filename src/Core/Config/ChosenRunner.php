@@ -34,6 +34,14 @@ final readonly class ChosenRunner
         return $this->choice;
     }
 
+    /** The runner's name as the config chooses it: a registered name, or the class an extension's runner has. */
+    public function name(): Name
+    {
+        $use = $this->choice->use();
+
+        return $use instanceof Name ? $use : Name::of($use->value());
+    }
+
     /**
      * `runner.withhold`: the environment variables, by name or glob, a project adds to those the runner never
      * hands its tests (ADR-0004). They only ever add to the ones every run withholds.
