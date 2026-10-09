@@ -17,11 +17,11 @@ use function mkdir;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Seed;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
-use NightWorksIO\MutationGate\Adapter\Runtime\PrunedList;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
+use NightWorksIO\MutationGate\Core\Pruning\PrunedList;
 use NightWorksIO\MutationGate\Core\Runner\Leftover;
 
 use function realpath;

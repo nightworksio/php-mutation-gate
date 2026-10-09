@@ -8,7 +8,6 @@ use function array_map;
 use function count;
 use function file_put_contents;
 
-use NightWorksIO\MutationGate\Adapter\Runtime\PrunedList;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\Laps;
 use NightWorksIO\MutationGate\Core\Cost\Step;
@@ -16,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Cost\StepTimes;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
+use NightWorksIO\MutationGate\Core\Pruning\PrunedList;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
@@ -96,7 +96,7 @@ final readonly class MutationRun
      */
     private function pruning(Pruned $pruned): array
     {
-        return $pruned->isNone() ? [] : [ChildVariable::Pruned->value => PrunedList::write(
+        return $pruned->isNone() ? [] : [ChildVariable::Pruned->value => PrunedFile::write(
             PrunedList::beside($this->project->own(Invocation::SILENCED)),
             $pruned,
             $this->project->root(),

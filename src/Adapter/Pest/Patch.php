@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
-use NightWorksIO\MutationGate\Adapter\Runtime\PrunedList;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Hunk;
 use NightWorksIO\MutationGate\Core\Composer\Package;
@@ -337,11 +336,11 @@ final readonly class Patch
                     self::LISTED_BECOMES,
                     OnlyList::class,
                     GateVariable::Only->value,
-                    PrunedList::class,
+                    PrunedFile::class,
                     GateVariable::Pruned->value,
                 ),
             ),
-            Hunk::in(self::TEST_RUNNER, self::ONLY_SHIPS, sprintf(self::ONLY_BECOMES, PrunedList::class)),
+            Hunk::in(self::TEST_RUNNER, self::ONLY_SHIPS, sprintf(self::ONLY_BECOMES, PrunedFile::class)),
             Hunk::in(self::STREAM_WRAPPER, self::STAT_SHIPS, self::STAT_BECOMES),
         ];
     }

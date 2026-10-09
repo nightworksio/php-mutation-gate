@@ -6,9 +6,9 @@ use NightWorksIO\MutationGate\Adapter\Infection\MutantTime;
 use NightWorksIO\MutationGate\Adapter\Infection\PackageSource;
 use NightWorksIO\MutationGate\Adapter\Infection\Patch;
 use NightWorksIO\MutationGate\Adapter\Infection\PatchState;
+use NightWorksIO\MutationGate\Adapter\Infection\PrunedFile;
 use NightWorksIO\MutationGate\Adapter\Infection\Release;
 use NightWorksIO\MutationGate\Adapter\Infection\Silence;
-use NightWorksIO\MutationGate\Adapter\Runtime\PrunedList;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Tests\Support\FileModes;
 use NightWorksIO\MutationGate\Tests\Support\InfectionSource;
@@ -40,7 +40,7 @@ it('patches the limit, the skip, the pruned mutators and the silence limit of ev
         ->and($source($at, 'Process/Runner/MutationTestingRunner.php'))
         ->toContain('// mutation-gate infection:patch: within the gate\'s bounds')
         ->and($source($at, 'Process/Runner/MutationTestingRunner.php'))
-        ->toContain(sprintf("&& \\%s::leavesOut(\n", PrunedList::class))
+        ->toContain(sprintf("&& \\%s::leavesOut(\n", PrunedFile::class))
         ->and($source($at, 'Process/Runner/MutationTestingRunner.php'))
         ->toContain("(string) getenv('MUTATION_GATE_PRUNED'),\n")
         ->and($source($at, 'Process/Factory/MutantProcessContainerFactory.php'))

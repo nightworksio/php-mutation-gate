@@ -30,7 +30,7 @@ final readonly class Reach implements Part
         private Listed|Absent $everything,
         private int|float|Absent $hotPath,
         private bool|Absent $full,
-        private Pruning|Absent $pruning,
+        private Pruning $pruning,
     ) {
     }
 
@@ -45,7 +45,9 @@ final readonly class Reach implements Part
         bool|Absent $full = new Absent(),
         Pruning|Absent $pruning = new Absent(),
     ): self {
-        return new self($packages, $everything, $hotPath, $full, $pruning);
+        $set = $pruning instanceof Pruning ? $pruning : Pruning::of();
+
+        return new self($packages, $everything, $hotPath, $full, $set);
     }
 
     public static function none(): self
@@ -76,7 +78,7 @@ final readonly class Reach implements Part
                 $this->joined($this->everything, $later->everything),
                 $later->hotPath instanceof Absent ? $this->hotPath : $later->hotPath,
                 $later->full instanceof Absent ? $this->full : $later->full,
-                $this->laidPruning($later->pruning),
+                $this->pruning->over($later->pruning),
             )
             : $this;
     }
@@ -111,7 +113,7 @@ final readonly class Reach implements Part
     /** `pruning`: which mutators a reached unit whose content is unchanged leaves out (ADR-0025). */
     public function pruning(): Pruning
     {
-        return $this->pruning instanceof Pruning ? $this->pruning : Pruning::of();
+        return $this->pruning;
     }
 
     public function written(PathOrigin $origin): Json
@@ -134,7 +136,7 @@ final readonly class Reach implements Part
             ),
             Member::unlessEmpty('holds', Json::object(Member::of('hotPath', $this->hotPath))),
             Member::unlessEmpty('run', Json::object(Member::of('full', $this->full))),
-            $this->pruning instanceof Pruning ? $this->pruning->written() : Member::of('pruning', $this->pruning),
+            $this->pruning->written(),
         );
     }
 
@@ -161,17 +163,7 @@ final readonly class Reach implements Part
 
         $calls = PhpCalls::inWith(...$packages, ...$everything, ...$hotPath, ...$full);
 
-        return $this->pruning instanceof Pruning ? $calls->and($this->pruning->php()) : $calls;
-    }
-
-    /** The pruning keys a later layer sets, laid over this one's, key by key. */
-    private function laidPruning(Pruning|Absent $later): Pruning|Absent
-    {
-        return match (true) {
-            $later instanceof Absent => $this->pruning,
-            $this->pruning instanceof Absent => $later,
-            default => $this->pruning->over($later),
-        };
+        return $calls->and($this->pruning->php());
     }
 
     /**

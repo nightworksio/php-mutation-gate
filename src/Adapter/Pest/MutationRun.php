@@ -13,7 +13,6 @@ use function dirname;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
-use NightWorksIO\MutationGate\Adapter\Runtime\PrunedList;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\Laps;
 use NightWorksIO\MutationGate\Core\Cost\Step;
@@ -26,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
+use NightWorksIO\MutationGate\Core\Pruning\PrunedList;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
@@ -220,7 +220,7 @@ final readonly class MutationRun
         $list = PrunedList::beside($results);
 
         return $pruned->isNone() ? [] : [
-            GateVariable::Pruned->value => PrunedList::write($list, $pruned, $this->project->root()),
+            GateVariable::Pruned->value => PrunedFile::write($list, $pruned, $this->project->root()),
         ];
     }
 

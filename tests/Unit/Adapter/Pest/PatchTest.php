@@ -6,7 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Ending;
 use NightWorksIO\MutationGate\Adapter\Pest\MutantTime;
 use NightWorksIO\MutationGate\Adapter\Pest\OnlyList;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
-use NightWorksIO\MutationGate\Adapter\Runtime\PrunedList;
+use NightWorksIO\MutationGate\Adapter\Pest\PrunedFile;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Tests\Support\FileModes;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
@@ -48,11 +48,11 @@ it('patches the four files, leaving each one PHP', function () use ($vendor, $so
         ->and($source($at, 'Tester/MutationTestRunner.php'))
         ->toContain("if (\$only !== [] && ! isset(\$only[\$mutation->id])) {\n")
         ->and($source($at, 'Tester/MutationTestRunner.php'))
-        ->toContain(sprintf("\$pruned = class_exists(\\%s::class) ? (string) getenv('MUTATION_GATE_PRUNED') : '';\n", PrunedList::class))
+        ->toContain(sprintf("\$pruned = class_exists(\\%s::class) ? (string) getenv('MUTATION_GATE_PRUNED') : '';\n", PrunedFile::class))
         ->and($source($at, 'Tester/MutationTestRunner.php'))
         ->toContain(sprintf(
             "&& \\%s::leavesOut(\$pruned, (string) \$mutation->file->getRealPath(), \$mutation->mutator)\n",
-            PrunedList::class,
+            PrunedFile::class,
         ))
         ->and($source($at, 'Tester/MutationTestRunner.php'))
         ->toContain(sprintf("\\%s::remember(\$loadedCoverage);\n", MutantTime::class))

@@ -12,8 +12,8 @@ use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
+use NightWorksIO\MutationGate\Adapter\Pest\PrunedFile;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
-use NightWorksIO\MutationGate\Adapter\Runtime\PrunedList;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Config\Triage;
@@ -337,7 +337,7 @@ it('hands the patched plugin the mutators the request leaves out of its unchange
 
     expect($shell->commands())->toEqual([
         PestCases::invocation()->mutation($request, WholeSuite::tests(), PestCases::results($at))->with([GateVariable::Pruned->value => $list]),
-    ])->and(PrunedList::leavesOut($list, sprintf('%s/src/Money.php', $at->root()), PestCases::RUN_PLUS))->toBeTrue();
+    ])->and(PrunedFile::leavesOut($list, sprintf('%s/src/Money.php', $at->root()), PestCases::RUN_PLUS))->toBeTrue();
 });
 
 it('cannot judge where an earlier run\'s orders cannot be removed', function (): void {

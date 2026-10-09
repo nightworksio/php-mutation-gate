@@ -8,10 +8,10 @@ use NightWorksIO\MutationGate\Adapter\Infection\Command;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Infection\Invocation;
 use NightWorksIO\MutationGate\Adapter\Infection\MemoryScan;
+use NightWorksIO\MutationGate\Adapter\Infection\PrunedFile;
 use NightWorksIO\MutationGate\Adapter\Infection\StaticAnalysis;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
-use NightWorksIO\MutationGate\Adapter\Runtime\PrunedList;
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
@@ -495,7 +495,7 @@ it('tells a mutation run the mutators it leaves out of its unchanged files, in a
         ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->pruning($pruned)));
     $list = $shell->commands()[1]->environment()[ChildVariable::Pruned->value] ?? '';
 
-    expect(PrunedList::leavesOut($list, sprintf('%s/src/Money.php', $at->root()), 'Minus'))->toBeTrue()
+    expect(PrunedFile::leavesOut($list, sprintf('%s/src/Money.php', $at->root()), 'Minus'))->toBeTrue()
         ->and($list)->toEndWith('.pruned');
 
     $adapter->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));

@@ -7,7 +7,6 @@ namespace NightWorksIO\MutationGate\Adapter\Infection;
 use function file_get_contents;
 use function is_file;
 
-use NightWorksIO\MutationGate\Adapter\Runtime\PrunedList;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Hunk;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
@@ -264,7 +263,7 @@ final readonly class Patch
             Hunk::in(
                 self::RUNNER,
                 self::PRUNED_SHIPS,
-                sprintf(self::PRUNED_BECOMES, PrunedList::class, ChildVariable::Pruned->value),
+                sprintf(self::PRUNED_BECOMES, PrunedFile::class, ChildVariable::Pruned->value),
             ),
             Hunk::in(self::FACTORY, self::WATCH_SHIPS, sprintf(self::WATCH_BECOMES, Silence::class)),
             Hunk::in(self::PARALLEL, self::SILENCE_SHIPS, sprintf(self::SILENCE_BECOMES, Silence::class)),
