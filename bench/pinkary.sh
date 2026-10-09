@@ -8,6 +8,9 @@ source "${GITHUB_WORKSPACE}/bench/gate.sh"
 repository=$(jq -cn --arg url "${GITHUB_WORKSPACE}" '{type: "path", url: $url, options: {symlink: true}}')
 composer config repositories.gate "${repository}"
 composer install --no-interaction --no-progress
+# laravel/vet refuses a package it cannot fetch over https, as the gate from
+# this checkout is; the harness turns it off before requiring the gate.
+composer config allow-plugins.laravel/vet false
 composer require --dev --no-interaction --no-progress 'nightworksio/mutation-gate:@dev'
 composer show | grep -E '^(pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit|nightworksio/mutation-gate) '
 npm install --no-audit --no-fund

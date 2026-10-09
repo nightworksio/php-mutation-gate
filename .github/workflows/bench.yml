@@ -8,6 +8,11 @@ on:
   schedule:
     - cron: "0 5 1 * *"
   workflow_dispatch:
+    inputs:
+      project:
+        description: "One job to run: jwt, pinkary or pest-start-up; every one where empty"
+        type: string
+        default: ""
 
 permissions: {}
 
@@ -25,6 +30,7 @@ jobs:
   # the gate mutating with its own engine and forked PHPUnit workers. The
   # first two make the same mutants, so they are reconciled one by one.
   jwt:
+    if: ${{ inputs.project == '' || inputs.project == 'jwt' }}
     name: lcobucci/jwt
     runs-on: ubuntu-latest
     permissions:
@@ -73,6 +79,7 @@ jobs:
   # against the gate mutating with that Pest, over app/Actions, on the MySQL
   # its own CI tests against.
   pinkary:
+    if: ${{ inputs.project == '' || inputs.project == 'pinkary' }}
     name: pinkary.com
     runs-on: ubuntu-latest
     permissions:
@@ -126,6 +133,7 @@ jobs:
   # started ten times with a filter no test matches. Each of the gate's own
   # mutants under Pest pays it once, so it is the floor of a mutant's time.
   pest-start-up:
+    if: ${{ inputs.project == '' || inputs.project == 'pest-start-up' }}
     name: Pest start-up
     runs-on: ubuntu-latest
     permissions:
