@@ -71,8 +71,7 @@ vendor/bin/mutation-gate
 ```
 
 `init` detects your runner, preset (Laravel, Symfony or a plain library) and
-CI, writes a config, adds `.mutation-gate/` to `.gitignore`, and estimates
-how long the first run takes. The config is
+CI, writes a config, and adds `.mutation-gate/` to `.gitignore`. The config is
 optional: with none, the gate takes its trees from the `<source>` of
 `phpunit.xml` (or `phpunit.dist.xml`, or `phpunit.xml.dist`), one per
 directory it names.
@@ -136,8 +135,8 @@ The first release is tagged when every row says *yes*.
 | | Feature | Built | Decided in |
 |---|---------|-------|------------|
 | **Adoption** | Zero-config start: trees from `phpunit.xml`'s `<source>`, and an optional config file | yes | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
-| | `init`: it detects the runner, preset and CI, writes the config and the CI, and estimates the first run from one coverage run | yes | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
-| | `init`'s questions: the runner, the CI, an Infection config's import, native markers and the pre-push hook, asked where detection cannot settle them, with `--native`, `--no-measure` and `--dry-run` | not yet | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
+| | `init`: it detects the runner, preset and CI, and writes the config and the CI | yes | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
+| | `init`'s questions: the runner, the CI, an Infection config's import, native markers and the pre-push hook, asked where detection cannot settle them, with `--native`, `--no-measure` and `--dry-run`; the first run's estimate from one coverage run; and the trees written as a comment | not yet | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 | | `doctor`: what would fail or run slowly, and the fix, before a run finds out | yes | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 | | A first CI run with no baseline measures, then hands over the baseline to commit | yes | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 | | `init --from=infection.json5`: a config taken over from Infection's | yes | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
