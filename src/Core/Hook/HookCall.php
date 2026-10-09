@@ -6,10 +6,9 @@ namespace NightWorksIO\MutationGate\Core\Hook;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Fit;
+use NightWorksIO\MutationGate\Core\Format\ShellWord;
 
-use function preg_match;
 use function sprintf;
-use function str_replace;
 
 /**
  * How a hook calls the gate. Git runs a hook at the top of the working tree,
@@ -18,9 +17,6 @@ use function str_replace;
  */
 final readonly class HookCall
 {
-    /** A path the shell reads as it is written, with nothing to quote. */
-    private const string PLAIN = '#^[A-Za-z0-9_./-]+$#';
-
     /** The gate's command for a hook, with git's arguments passed on. */
     private const string COMMAND = '%s "$@"';
 
@@ -82,11 +78,9 @@ final readonly class HookCall
         return sprintf(self::COMMAND, $this->called($hook));
     }
 
-    /** A path as the shell reads it: as it is where that is safe, and otherwise in single quotes. */
+    /** A path as the shell reads it. */
     private function quoted(Path $path): string
     {
-        return preg_match(self::PLAIN, $path->value()) === 1
-            ? $path->value()
-            : sprintf("'%s'", str_replace("'", "'\\''", $path->value()));
+        return ShellWord::of($path->value());
     }
 }

@@ -211,6 +211,8 @@ services:
         arguments:
             # Constants whose value only coincides with another's, meaning something else.
             coincidences:
+                'NightWorksIO\MutationGate\Cli\Init\InitQuestions':
+                    - NONE # init's answer of no CI, not a hook setup's or a status
                 'NightWorksIO\MutationGate\Core\Hook\HookRecipe':
                     - ACTION # a key of CaptainHook's config, not hook's argument
                 'NightWorksIO\MutationGate\Core\Push\PreCommitPush':

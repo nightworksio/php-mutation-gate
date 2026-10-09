@@ -22,13 +22,10 @@ final readonly class IgnoredWorkspace
     {
         $gitignore = $project->read(Path::of(GitIgnore::FILE));
         $text = $gitignore instanceof Contents ? $gitignore->text() : '';
+        $needed = self::needed($project);
 
-        if ($gitignore instanceof CannotJudge) {
-            return $gitignore;
-        }
-
-        if (GitIgnore::of($text)->names(Workspace::root())) {
-            return false;
+        if ($needed !== true) {
+            return $needed;
         }
 
         $added = $project->write(
@@ -44,6 +41,18 @@ final readonly class IgnoredWorkspace
         );
 
         return $added instanceof CannotJudge ? $added : true;
+    }
+
+    /** Whether `.gitignore` lacks the gate's own directory, which `init` adds; or why it cannot be read. */
+    public static function needed(Directory $project): bool|CannotJudge
+    {
+        $gitignore = $project->read(Path::of(GitIgnore::FILE));
+
+        return match (true) {
+            $gitignore instanceof CannotJudge => $gitignore,
+            $gitignore instanceof Contents => ! GitIgnore::of($gitignore->text())->names(Workspace::root()),
+            default => true,
+        };
     }
 
     /** The gate's own directory, as `init` adds it to `.gitignore`. */

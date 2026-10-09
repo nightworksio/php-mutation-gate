@@ -8,22 +8,24 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\GatePin;
 use NightWorksIO\MutationGate\Core\Editor\Editor;
 use NightWorksIO\MutationGate\Core\Hook\HookFramework;
+use NightWorksIO\MutationGate\Core\Hook\HookSetup;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 
 /**
- * What `init` makes beside the config (ADR-0015 decisions 7 and 13, ADR-0024
- * decision 12): the CI definition `--ci` asks for, the editor files
- * `--editor` names and the hook manager's config `--hook` names, written, or
- * printed with `--stdout`.
+ * What `init` makes beside the config (ADR-0015 decisions 7 and 13, ADR-0017
+ * decision 1, ADR-0024 decision 12): the CI definition `--ci` asks for, the
+ * editor files `--editor` names and the hooks `--hook` sets up, as the
+ * command line or the answers to `init`'s questions settle them; written,
+ * or printed with `--dry-run`.
  */
 final readonly class Additions
 {
     private function __construct(
         private CiRequest|NotGiven $ci,
         private Editor|NotGiven $editor,
-        private HookFramework|NotGiven $hook,
+        private HookSetup|NotGiven $hook,
         private Output $output,
     ) {
     }
@@ -59,7 +61,7 @@ final readonly class Additions
     {
         return $this->ci instanceof CiRequest
             || $this->editor instanceof Editor
-            || $this->hook instanceof HookFramework;
+            || ($this->hook instanceof HookSetup && $this->hook !== HookSetup::None);
     }
 
     public function ci(): CiRequest|NotGiven
@@ -73,11 +75,39 @@ final readonly class Additions
         return $this->editor instanceof Editor ? EditorFiles::made($project, $this->output) : '';
     }
 
-    /** The hook manager's config in this project, said; nothing where no manager is named; or why it could not be. */
+    /**
+     * These, with the CI definition and the hooks the answers settle where
+     * the command line settled none.
+     */
+    public function answered(CiRequest|NotGiven $ci, HookSetup|NotGiven $hook): self
+    {
+        return new self(
+            $this->ci instanceof CiRequest ? $this->ci : $ci,
+            $this->editor,
+            $this->hook instanceof HookSetup ? $this->hook : $hook,
+            $this->output,
+        );
+    }
+
+    public function hook(): HookSetup|NotGiven
+    {
+        return $this->hook;
+    }
+
+    public function output(): Output
+    {
+        return $this->output;
+    }
+
+    /** The hooks set up in this project, said; nothing where none are; or why they could not be. */
     public function hookMade(string $project, GatePin $gate): string|CannotJudge
     {
-        return $this->hook instanceof HookFramework
-            ? HookFrameworkFiles::made($project, $this->hook, $gate, $this->output)
-            : '';
+        $framework = $this->hook instanceof HookSetup ? $this->hook->framework() : NotGiven::value();
+
+        return match (true) {
+            $framework instanceof HookFramework => HookFrameworkFiles::made($project, $framework, $gate, $this->output),
+            $this->hook === HookSetup::Git => GitHooks::made($project, $this->output),
+            default => '',
+        };
     }
 }

@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Hook\HookCall;
 use NightWorksIO\MutationGate\Core\Hook\HookFramework;
 use NightWorksIO\MutationGate\Core\Hook\HookRecipe;
+use NightWorksIO\MutationGate\Core\Hook\HookSetup;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Written;
@@ -35,9 +36,12 @@ final readonly class HookFrameworkFiles
 {
     private const string HOOK = 'hook';
 
-    private const string UNKNOWN = '%s is no hook manager init --hook sets up. Name one of %s.';
+    private const string NO_HOOK = 'no-hook';
 
-    private const string PRINTED = "%s:\n\n%s";
+    private const string UNKNOWN = '%s is nowhere init --hook sets hooks up. Name one of %s.';
+
+    private const string BOTH = '--hook and --no-hook each answer the hook question; pass one of them.';
+
 
     private const string HERE = "%s is here, so init leaves it as it is. %s";
 
@@ -49,23 +53,34 @@ final readonly class HookFrameworkFiles
 
     public static function option(Command $command): Command
     {
-        return $command->addOption(
-            self::HOOK,
-            mode: InputOption::VALUE_REQUIRED,
-            description: sprintf('Set the gate up in this hook manager: %s', HookFramework::names()),
-        );
+        return $command
+            ->addOption(
+                self::HOOK,
+                mode: InputOption::VALUE_OPTIONAL,
+                description: sprintf('Set the hooks up: %s; git\'s own where none is named', HookSetup::names()),
+                default: false,
+            )
+            ->addOption(self::NO_HOOK, mode: InputOption::VALUE_NONE, description: 'Set no hooks up');
     }
 
-    /** The manager `--hook` names; none where it names none; why not, where it names one `init` does not know. */
-    public static function asked(InputInterface $input): HookFramework|NotGiven|CannotJudge
+    /**
+     * Where `--hook` sets the hooks up, git's own where it names nowhere, and
+     * nowhere with `--no-hook`; none where neither is passed; why not, where
+     * it names somewhere `init` does not know, or both are passed.
+     */
+    public static function asked(InputInterface $input): HookSetup|NotGiven|CannotJudge
     {
         $named = $input->getOption(self::HOOK);
-        $manager = HookFramework::tryFrom(is_string($named) ? $named : '');
+        $declined = $input->getOption(self::NO_HOOK) === true;
+        $setup = HookSetup::tryFrom(is_string($named) ? $named : '');
 
         return match (true) {
-            ! is_string($named) => NotGiven::value(),
-            $manager instanceof HookFramework => $manager,
-            default => CannotJudge::because(sprintf(self::UNKNOWN, $named, HookFramework::names())),
+            $declined && $named !== false => CannotJudge::because(self::BOTH),
+            $declined => HookSetup::None,
+            $named === false => NotGiven::value(),
+            ! is_string($named) => HookSetup::Git,
+            $setup instanceof HookSetup => $setup,
+            default => CannotJudge::because(sprintf(self::UNKNOWN, $named, HookSetup::names())),
         };
     }
 
@@ -80,7 +95,7 @@ final readonly class HookFrameworkFiles
         $recipe = HookRecipe::of(HookCall::of(Path::root(), $binaries->child(Path::of(ThisPackage::NAME))), $gate);
 
         if ($output === Output::Printed) {
-            return sprintf(self::PRINTED, $manager->file(), $recipe->whole($manager));
+            return sprintf(Output::FILE, $manager->file(), $recipe->whole($manager));
         }
 
         $directory = Directory::at($project);

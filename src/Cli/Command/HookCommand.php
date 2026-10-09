@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Command;
 
+use function implode;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Git\Command as Git;
@@ -16,6 +17,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Hook\Hook;
 use NightWorksIO\MutationGate\Core\Hook\Occupant;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 
 use function sprintf;
@@ -85,6 +87,38 @@ final readonly class HookCommand
             });
     }
 
+    /**
+     * These hooks written into the directory git runs hooks from, each where
+     * the gate may write it, and otherwise the line that calls the gate from
+     * it, said; or, after what was said, why one could not be written.
+     *
+     * @param list<Hook> $chosen
+     */
+    public static function installed(Hooks $hooks, string $project, array $chosen): string|CannotJudge
+    {
+        $call = $hooks->call(ComposerVendor::binaries($project)->child(Path::of(ThisPackage::NAME)));
+        $said = [];
+
+        foreach ($chosen as $hook) {
+            $left = match (true) {
+                $hooks->isShared() => sprintf(Fit::JOINED, self::SHARED_WHERE, self::SHARED_LINE),
+                $hook->occupant($hooks->read($hook)) === Occupant::Someone => self::FOREIGN,
+                default => '',
+            };
+            $written = $left === '' ? $hooks->write($hook, $hook->script($call)) : NotGiven::value();
+
+            if ($written instanceof CannotJudge) {
+                return CannotJudge::because(implode("\n", [...$said, $written->why()]));
+            }
+
+            $said[] = $written instanceof NotGiven
+                ? sprintf($left, $hooks->where($hook), $call->line($hook))
+                : $written->said();
+        }
+
+        return implode("\n", $said);
+    }
+
     /** @return list<Hook> */
     private static function chosen(InputInterface $input): array
     {
@@ -94,29 +128,13 @@ final readonly class HookCommand
     /** @param list<Hook> $chosen */
     private static function install(OutputInterface $output, Hooks $hooks, string $project, array $chosen): int
     {
-        $call = $hooks->call(ComposerVendor::binaries($project)->child(Path::of(ThisPackage::NAME)));
+        $said = self::installed($hooks, $project, $chosen);
 
-        foreach ($chosen as $hook) {
-            $left = match (true) {
-                $hooks->isShared() => sprintf(Fit::JOINED, self::SHARED_WHERE, self::SHARED_LINE),
-                $hook->occupant($hooks->read($hook)) === Occupant::Someone => self::FOREIGN,
-                default => '',
-            };
-
-            if ($left !== '') {
-                $output->writeln(sprintf($left, $hooks->where($hook), $call->line($hook)), OutputInterface::OUTPUT_RAW);
-
-                continue;
-            }
-
-            $written = $hooks->write($hook, $hook->script($call));
-
-            if ($written instanceof CannotJudge) {
-                return Failed::because($output, $written);
-            }
-
-            $output->writeln($written->said(), OutputInterface::OUTPUT_RAW);
+        if ($said instanceof CannotJudge) {
+            return Failed::because($output, $said);
         }
+
+        $output->writeln($said, OutputInterface::OUTPUT_RAW);
 
         return ExitCode::Passed->value;
     }

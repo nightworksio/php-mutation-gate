@@ -44,7 +44,7 @@ it('writes a mutation-gate.php holding what zero-config found, and keeps .mutati
 
     expect([$ran->code, $ran->output, $ran->errors])->toBe([
         0,
-        "Wrote mutation-gate.php with what zero-config found, and added .mutation-gate/ to .gitignore.\n",
+        sprintf("Wrote mutation-gate.php with what zero-config found, and added .mutation-gate/ to .gitignore.\n%s", INIT_NEXT),
         '',
     ])->and($file($project, 'mutation-gate.php'))->toBe(<<<'PHP'
         <?php
@@ -70,7 +70,7 @@ it('writes a mutation-gate.json that names its JSON Schema', function () use ($i
     $ran = $init($project, ['--format' => 'json']);
 
     expect([$ran->code, $ran->output, $ran->errors])
-        ->toBe([0, "Wrote mutation-gate.json with what zero-config found.\n", ''])
+        ->toBe([0, sprintf("Wrote mutation-gate.json with what zero-config found.\n%s", INIT_NEXT), ''])
         ->and($file($project, 'mutation-gate.json'))->toBe(<<<'JSON'
             {
                 "$schema": "vendor/nightworksio/mutation-gate/resources/mutation-gate.schema.json",
@@ -227,7 +227,7 @@ it('writes the file --config names, in the format its extension names, its paths
 
     expect([$ran->code, $ran->output, $ran->errors])->toBe([
         0,
-        "Wrote ci/gate.json with what zero-config found, and added .mutation-gate/ to .gitignore.\n",
+        sprintf("Wrote ci/gate.json with what zero-config found, and added .mutation-gate/ to .gitignore.\n%s", INIT_NEXT),
         '',
     ])->and($file($project, 'ci/gate.json'))->toBe(<<<'JSON'
         {
@@ -299,7 +299,8 @@ it('starts the config from an Infection config with --from, and says what became
             'infection.json5\'s source.directories names src, which phpunit.xml\'s <source> does not.',
             'Delete these keys from infection.json5, since the gate no longer reads them there: source.directories, minMsi.',
             'Run mutation-gate locally once.',
-            "It writes the baseline at what the gate measures, and says if a tree is below the imported floor.\n",
+            'It writes the baseline at what the gate measures, and says if a tree is below the imported floor.',
+            INIT_NEXT,
         ]))
         ->and(json_decode($file($project, 'mutation-gate.json'), associative: true))->toMatchArray([
             'runner' => 'infection',
@@ -393,6 +394,9 @@ const INIT_CI_MONEY = <<<'PHP'
 
 const INIT_CI_WROTE = "Wrote mutation-gate.php with what zero-config found, and added .mutation-gate/ to .gitignore.\n";
 
+/** What init says to run next, outside a repository, where git adds nothing. */
+const INIT_NEXT = "Next:\n  vendor/bin/mutation-gate doctor\n  vendor/bin/mutation-gate\n";
+
 const INIT_CI_UNPINNED
     = 'Composer did not install the gate here, so the definition names <the commit of a release>: pin the commit of a release.';
 
@@ -400,12 +404,12 @@ it('writes the GitHub one-step action --single asks for, and says which check to
     [$project, $ran] = initCi(['--ci' => 'github', '--single' => true]);
     $workflow = initCiFile($project, '.github/workflows/mutation.yml');
 
-    expect([$ran->code, $ran->output, $ran->errors])->toBe([0, sprintf("%s%s\n", INIT_CI_WROTE, implode("\n", [
+    expect([$ran->code, $ran->output, $ran->errors])->toBe([0, sprintf("%s%s\n%s", INIT_CI_WROTE, implode("\n", [
         'Wrote .github/workflows/mutation.yml.',
         'It is the one-step action, as --single asks.',
         'Require the check `mutation / verdict` in the protection of main.',
         INIT_CI_UNPINNED,
-    ])), ''])
+    ]), INIT_NEXT), ''])
         ->and($workflow)->toContain("branches: ['main']")
         ->and($workflow)->toContain("php-version: '8.5'")
         ->and($workflow)->toContain("runner: 'pest'")
@@ -480,9 +484,10 @@ it('writes Azure\'s template, names it and the default branch in the config, and
     $config = json_decode(initCiFile($project, 'mutation-gate.json'), associative: true);
 
     expect($ran->code)->toBe(0)
-        ->and($ran->output)->toEndWith(
-            "Wrote .azure/mutation-gate.yml.\nAdd this to azure-pipelines.yml:\n\njobs:\n  - template: '.azure/mutation-gate.yml'\n\n",
-        )
+        ->and($ran->output)->toEndWith(sprintf(
+            "Wrote .azure/mutation-gate.yml.\nAdd this to azure-pipelines.yml:\n\njobs:\n  - template: '.azure/mutation-gate.yml'\n\n%s",
+            INIT_NEXT,
+        ))
         ->and(initCiFile($project, '.azure/mutation-gate.yml'))->toContain("  - job: mutation_plan\n")
         ->and(is_array($config) ? $config['ci'] : null)
         ->toBe(['defaultBranch' => 'main', 'azure' => ['definition' => '.azure/mutation-gate.yml']]);
@@ -557,13 +562,19 @@ it('writes for Jenkins where the project holds a Jenkinsfile, and prints for the
         ->and($named->output)->toContain('Add this to ci/Jenkinsfile:');
 });
 
-it('prints the definition with --stdout, and writes it nowhere', function (): void {
-    [$project, $ran] = initCi(['--ci' => 'github', '--single' => true, '--stdout' => true]);
+it('prints every file with --dry-run, or --stdout, the config and the .gitignore line among them, and writes none', function (
+    string $option,
+): void {
+    [$project, $ran] = initCi(['--ci' => 'github', '--single' => true, $option => true]);
 
     expect($ran->code)->toBe(0)
-        ->and($ran->output)->toStartWith(sprintf("%s.github/workflows/mutation.yml:\n\n# Written by `mutation-gate init --ci=github`", INIT_CI_WROTE))
-        ->and(initCiFile($project, '.github/workflows/mutation.yml'))->toBe('');
-});
+        ->and($ran->output)->toStartWith("mutation-gate.php:\n\n<?php\n")
+        ->and($ran->output)->toContain(".gitignore gains the line .mutation-gate/\n.github/workflows/mutation.yml:\n\n# Written by `mutation-gate init --ci=github`")
+        ->and($ran->output)->not->toContain('Next:')
+        ->and(initCiFile($project, '.github/workflows/mutation.yml'))->toBe('')
+        ->and(initCiFile($project, 'mutation-gate.php'))->toBe('')
+        ->and(initCiFile($project, '.gitignore'))->toBe('');
+})->with(['--dry-run', '--stdout']);
 
 it('writes for the one CI the project\'s files show, where --ci names none', function (): void {
     [$project, $ran] = initCi(['--ci' => null], ['.gitlab-ci.yml' => "stages: [test]\n"]);
@@ -619,7 +630,7 @@ it('sets VS Code up with --editor=vscode beside the config, and beside one alrea
     ]);
 
     expect([$ran->code, $ran->output, $ran->errors])
-        ->toBe([0, sprintf("%sWrote .vscode/tasks.json.\nWrote .vscode/extensions.json.\n", INIT_CI_WROTE), ''])
+        ->toBe([0, sprintf("%sWrote .vscode/tasks.json.\nWrote .vscode/extensions.json.\n%s", INIT_CI_WROTE, INIT_NEXT), ''])
         ->and(initCiFile($project, '.vscode/tasks.json'))->toContain('"label": "mutation-gate: watch"')
         ->and($kept->output)->toBe(sprintf(
             "%s is already here, so init makes only what --ci, --editor and --hook ask for.\n%s",
@@ -651,7 +662,7 @@ it('sets a hook manager up with --hook beside the config, and beside one already
 
     expect([$ran->code, $ran->output, $ran->errors])->toBe([
         0,
-        sprintf("%sWrote .pre-commit-config.yaml.\nThen install its hooks: pre-commit install\n", INIT_CI_WROTE),
+        sprintf("%sWrote .pre-commit-config.yaml.\nThen install its hooks: pre-commit install\n%s", INIT_CI_WROTE, INIT_NEXT),
         '',
     ])
         ->and(initCiFile($project, '.pre-commit-config.yaml'))->toContain('- id: mutation-gate-pre-push')
@@ -676,7 +687,7 @@ it('writes nothing for a hook manager it does not set up', function (): void {
     expect(initCiRefused(['--hook' => 'husky']))->toBe([
         2,
         '',
-        "husky is no hook manager init --hook sets up. Name one of captainhook|grumphp|pre-commit.\n",
+        "husky is nowhere init --hook sets hooks up. Name one of git|captainhook|grumphp|pre-commit|none.\n",
         '',
     ]);
 });

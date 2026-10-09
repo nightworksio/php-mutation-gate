@@ -33,6 +33,9 @@ final readonly class ConfigWriting
 
     private const string AND_ZERO_CONFIG = '%s and what zero-config found';
 
+
+    private const string PRINTED_IGNORING = "%s:\n\n%s\n.gitignore gains the line %s";
+
     /** What was written, said as a sentence, and what became of each imported key, or why nothing was. */
     public static function written(
         Setting $setting,
@@ -40,6 +43,7 @@ final readonly class ConfigWriting
         Destination $destination,
         Path|NotGiven $from,
         Layer $more,
+        Output $output,
     ): string|Invalid|CannotJudge {
         $import = self::seeded($setting, $settings, $from, $more);
         $text = $import instanceof Import
@@ -55,7 +59,9 @@ final readonly class ConfigWriting
         }
 
         $source = $from instanceof Path ? sprintf(self::AND_ZERO_CONFIG, $from->value()) : self::ZERO_CONFIG;
-        $said = self::write($setting->project, $destination, $text, $source);
+        $said = $output === Output::Printed
+            ? self::printed($setting->project, $destination, $text)
+            : self::write($setting->project, $destination, $text, $source);
 
         return is_string($said) && $from instanceof Path
             ? sprintf("%s\n%s", $said, $import->report($from->value()))
@@ -80,6 +86,18 @@ final readonly class ConfigWriting
         return $from instanceof Path
             ? Imported::from($setting->project, $from, $found, $setting->now)
             : Import::of($found);
+    }
+
+    /** The config printed whole, and the line `.gitignore` would gain, where it would gain one. */
+    private static function printed(string $project, Destination $destination, string $text): string|CannotJudge
+    {
+        $needed = IgnoredWorkspace::needed(Directory::at($project));
+
+        return match (true) {
+            $needed instanceof CannotJudge => $needed,
+            $needed => sprintf(self::PRINTED_IGNORING, $destination->shown(), $text, IgnoredWorkspace::line()),
+            default => sprintf(Output::FILE, $destination->shown(), $text),
+        };
     }
 
     /** The config written, said as a sentence, with where what it holds came from. */

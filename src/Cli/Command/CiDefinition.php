@@ -185,7 +185,7 @@ final readonly class CiDefinition
 
         return match (true) {
             $destination instanceof Printed => sprintf("Add this to %s:\n\n%s", $destination->file(), $text),
-            $output === Output::Printed => sprintf("%s:\n\n%s", $destination->value(), $text),
+            $output === Output::Printed => sprintf(Output::FILE, $destination->value(), $text),
             default => $this->written($destination, $text),
         };
     }

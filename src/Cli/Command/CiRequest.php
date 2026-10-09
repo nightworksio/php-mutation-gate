@@ -108,6 +108,40 @@ final readonly class CiRequest
         return $this->output;
     }
 
+    /**
+     * Each CI `init` writes a definition for.
+     *
+     * @return list<BuiltinCiPlan>
+     */
+    public static function written(): array
+    {
+        $written = [];
+
+        foreach (BuiltinCiPlan::cases() as $plan) {
+            $written = self::named($plan->value) instanceof BuiltinCiPlan ? [...$written, $plan] : $written;
+        }
+
+        return $written;
+    }
+
+    /**
+     * Each CI the project's files show.
+     *
+     * @return list<BuiltinCiPlan>
+     */
+    public static function shown(string $project): array
+    {
+        $shown = [];
+
+        foreach (BuiltinCiPlan::cases() as $plan) {
+            $place = Definitions::shownBy($plan);
+            $there = is_string($place) && file_exists(Root::of($project)->at(Path::of($place))->value());
+            $shown = $there ? [...$shown, $plan] : $shown;
+        }
+
+        return $shown;
+    }
+
     /** The CI a name names, where `init --ci` writes a definition for it; why not, where not. */
     private static function named(string $named): BuiltinCiPlan|CannotJudge
     {
@@ -136,13 +170,7 @@ final readonly class CiRequest
     /** The one CI the project's files show, or why there is none to write for. */
     private static function detected(string $project): BuiltinCiPlan|CannotJudge
     {
-        $shown = [];
-
-        foreach (BuiltinCiPlan::cases() as $plan) {
-            $place = Definitions::shownBy($plan);
-            $there = is_string($place) && file_exists(Root::of($project)->at(Path::of($place))->value());
-            $shown = $there ? [...$shown, $plan] : $shown;
-        }
+        $shown = self::shown($project);
 
         return match (count($shown)) {
             0 => CannotJudge::because(self::NONE_SHOWN),
