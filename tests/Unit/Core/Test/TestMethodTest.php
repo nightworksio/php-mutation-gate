@@ -33,6 +33,16 @@ it('reads a coverage id\'s class and method, and names the test or the row it ru
     'a row across lines' => ["Tests\\MoneyTest::testAdds#one\ntwo", 'Tests\MoneyTest', 'testAdds', "\"one\ntwo\""],
 ]);
 
+it('names the test as PHPUnit names it for a filter, a row with its data set', function (string $id, string $named): void {
+    $test = TestMethod::of(TestId::of($id));
+
+    expect($test instanceof TestMethod ? $test->named() : $test)->toBe($named);
+})->with([
+    'a test method' => ['Tests\MoneyTest::testAdds', 'Tests\MoneyTest::testAdds'],
+    'a numbered row' => ['Tests\MoneyTest::testAdds#12', 'Tests\MoneyTest::testAdds with data set #12'],
+    'a named row' => ['Tests\MoneyTest::testAdds#384 bits', 'Tests\MoneyTest::testAdds with data set "384 bits"'],
+]);
+
 it('reads an id of another shape as no test method, in a class of its whole id', function (string $id): void {
     expect(TestMethod::of(TestId::of($id)))->toEqual(TestId::of($id))
         ->and(TestMethod::classOf(TestId::of($id)))->toBe($id);
