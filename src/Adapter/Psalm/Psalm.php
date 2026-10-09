@@ -11,9 +11,11 @@ use function is_string;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserSettings;
+use NightWorksIO\MutationGate\Core\Analysis\CheckAnswers;
 use NightWorksIO\MutationGate\Core\Analysis\FindingFiles;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
+use NightWorksIO\MutationGate\Core\Analysis\MutantChecks;
 use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
@@ -30,6 +32,7 @@ use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ChildProcess;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Withholding;
 use NightWorksIO\MutationGate\Port\StaticChecker;
@@ -194,6 +197,18 @@ final class Psalm implements StaticChecker
             ! $originals instanceof Findings => CannotJudge::because(self::NO_WARM_UP),
             default => $this->checked($check, $originals, $xml),
         };
+    }
+
+    /** These mutants, checked in turn over the one language server, which holds one file's text at a time. */
+    public function checks(MutantChecks $checks, ProcessCount $side): CheckAnswers
+    {
+        $answers = [];
+
+        foreach ($checks as $check) {
+            $answers[] = $this->check($check);
+        }
+
+        return CheckAnswers::of(...$answers);
     }
 
     /**

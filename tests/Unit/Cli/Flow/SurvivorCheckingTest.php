@@ -169,11 +169,11 @@ it('kills a survivor whose check finds an error its original does not have, by t
 
     $checked = checking($project, $checker, ScriptedRunner::fixture(), Unlimited::time())->checked($mutants, MutantIds::none());
     $statuses = array_map(static fn(Mutant $mutant): string => $mutant->status()->value, [...$checked->mutants]);
-    $texts = array_map(static fn(array $check): string => $check[2], $checker->checks());
+    $texts = array_map(static fn(array $check): string => $check[2], $checker->asked());
 
     expect($checked->mutants)->toEqual($mutants->replacing(Mutants::of($money->rejected(Rejection::by('fake', $new)))))
         ->and($statuses)->toBe(['killed', 'killed-by-static-analysis', 'uncovered', 'timed-out', 'survived'])
-        ->and(array_map(static fn(array $check): array => [$check[0], $check[1]], $checker->checks()))->toBe([
+        ->and(array_map(static fn(array $check): array => [$check[0], $check[1]], $checker->asked()))->toBe([
             ['src/Money.php', checkedAt($money)],
             ['src/Held.php', checkedAt($held)],
         ])
@@ -263,7 +263,7 @@ it('leaves a flaky survivor to its second answer, unchecked', function (): void 
 
     checking($project, $checker, ScriptedRunner::fixture(), Unlimited::time())->checked($mutants, MutantIds::of($held->id()));
 
-    expect(array_map(static fn(array $check): string => $check[0], $checker->checks()))->toBe(['src/Money.php']);
+    expect(array_map(static fn(array $check): string => $check[0], $checker->asked()))->toBe(['src/Money.php']);
 });
 
 it('leaves every survivor unchecked where the analyser cannot say who it is, or cannot run over the originals', function (): void {
@@ -282,7 +282,7 @@ it('leaves every survivor unchecked where the analyser cannot say who it is, or 
         ->and(checkedWarnings($unwarmed))->toBe([
             'Static analysis left 2 survivors unchecked, as the analyser\'s run over the original files failed: src/Held.php, src/Money.php.',
         ])
-        ->and($cold->checks())->toBe([])
+        ->and($cold->asked())->toBe([])
         ->and([$unidentified->mutants, $unwarmed->mutants])->toEqual([$mutants, $mutants]);
 });
 
@@ -333,7 +333,7 @@ it('judges a printed survivor against its original printed the same way, analyse
 
     $checked = checking($project, $checker, $printed, Unlimited::time())->checked($mutants->with($again), MutantIds::none());
 
-    expect($checker->checks())->toBe([
+    expect($checker->asked())->toBe([
         ['src/Money.php', Workspace::checkedOriginal($money->id())->value(), '<?php // printed'],
         ['src/Money.php', checkedAt($money), '<?php // mutant'],
         ['src/Held.php', Workspace::checkedOriginal($held->id())->value(), '<?php // printed'],
@@ -356,7 +356,7 @@ it('runs nothing where the time budget has already run out, and leaves every sur
         'Static analysis left 2 survivors unchecked, as the time budget ran out before their checks: src/Held.php, src/Money.php.',
     ])
         ->and($checker->warmUps())->toBe([])
-        ->and($checker->checks())->toBe([]);
+        ->and($checker->asked())->toBe([]);
 });
 
 it('starts a check only where the time left has room for it, as long as the run over the originals took before any check is timed, and the checks\' mean after', function (
@@ -380,7 +380,7 @@ it('starts a check only where the time left has room for it, as long as the run 
     $deadline = Deadline::after(new DateTimeImmutable('2026-01-01T00:00:00Z'), Seconds::of(10.0));
     checking($project, $checker, $runner, $deadline, $clock)->checked($mutants, MutantIds::none());
 
-    expect(array_map(static fn(array $check): string => $check[1], $checker->checks()))->toBe(array_map(
+    expect(array_map(static fn(array $check): string => $check[1], $checker->asked()))->toBe(array_map(
         static fn(string $file): string => $file === 'money' ? checkedAt($money) : checkedAt($held),
         $checked === '' ? [] : explode(' ', $checked),
     ));
@@ -423,7 +423,7 @@ it('checks a printed file\'s first survivor where the time left has room for exa
 
     checking($project, $checker, $printed, $deadline, $clock)->checked($mutants, MutantIds::none());
 
-    expect(array_map(static fn(array $check): string => $check[1], $checker->checks()))->toBe([
+    expect(array_map(static fn(array $check): string => $check[1], $checker->asked()))->toBe([
         Workspace::checkedOriginal($money->id())->value(),
         checkedAt($money),
     ]);
@@ -455,7 +455,7 @@ it('needs room for one check alone for a printed file\'s later survivors, whose 
 
     checking($project, $checker, $printed, $deadline, $clock)->checked($mutants->with($again), MutantIds::none());
 
-    expect(array_map(static fn(array $check): string => $check[1], $checker->checks()))->toBe([
+    expect(array_map(static fn(array $check): string => $check[1], $checker->asked()))->toBe([
         Workspace::checkedOriginal($money->id())->value(),
         checkedAt($money),
         checkedAt($again),
@@ -478,7 +478,7 @@ it('leaves a survivor unchecked where its code cannot be written for its check',
     $checked = checking($project, $checker, ScriptedRunner::fixture(), Unlimited::time())->checked($mutants, MutantIds::none());
 
     expect(checkedWarnings($checked))->toBe([$unwritten('src/Money.php'), $unwritten('src/Held.php')])
-        ->and($checker->checks())->toBe([]);
+        ->and($checker->asked())->toBe([]);
 });
 
 it('allows each check, of the original as printed and of the mutant, the seconds staticCheck.seconds sets', function (): void {
@@ -490,7 +490,7 @@ it('allows each check, of the original as printed and of the mutant, the seconds
 
     expect($checker->limits())->not->toBeEmpty()
         ->and($checker->limits())->each->toEqual(Seconds::of(45.0))
-        ->and(count($checker->limits()))->toBe(count($checker->checks()));
+        ->and(count($checker->limits()))->toBe(count($checker->asked()));
 });
 
 it('warms the analyser up once for every round of checks it makes, and checks no survivor passed over again', function (): void {
@@ -505,7 +505,7 @@ it('warms the analyser up once for every round of checks it makes, and checks no
     $second = $checking->checked($mutants, $first->examinedIds());
 
     expect($checker->warmUps())->toEqual([Paths::none()])
-        ->and(array_map(static fn(array $check): string => $check[1], $checker->checks()))->toBe([checkedAt($money), checkedAt($held)])
+        ->and(array_map(static fn(array $check): string => $check[1], $checker->asked()))->toBe([checkedAt($money), checkedAt($held)])
         ->and($first->examinedIds())->toEqual(MutantIds::of($money->id()))
         ->and($second->examined)->toEqual(Mutants::of($held));
 });

@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\Runner\Environment;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
+use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
@@ -36,6 +37,8 @@ function processesProgram(ProcessCommand $command): Ran
         $arguments[0] === 'sleep' => processesSlept((float) $arguments[1], $deadline),
         $arguments[0] !== PHP_BINARY => Ran::finished(succeeded: false, output: 'The program cannot be started.'),
         $verb === 'say' => Ran::exited((int) (count($arguments) > 4 ? $arguments[4] : '0'), $first),
+        $verb === 'both' => Ran::exited(0, sprintf('%s%s', $first, $arguments[4] ?? ''), $first),
+        $verb === 'await' => Ran::exited(0, is_file($first) ? (string) file_get_contents($first) : ''),
         $verb === 'tell' => Ran::exited(0, array_key_exists($first, $told) ? (string) $told[$first] : ''),
         $verb === 'stall' => $command->silence() instanceof SilenceLimit ? Ran::silenced('') : processesSlept(30.0, $deadline),
         default => Ran::exited(0, (string) realpath($command->directory())),
@@ -148,4 +151,37 @@ it('starts no command once the time to start them in has run out', function (Pro
 
     expect(count($processes->sideBySide(WorkerSlots::of(ProcessCount::of(2), 'run'), Seconds::of(0.0), $said, $said)))->toBe(0)
         ->and(processesSaid($processes->sideBySide(WorkerSlots::alone(), Seconds::of(60.0), $said)))->toBe(['started']);
+})->with($implementations);
+
+it('watches a running program, so the gate can answer what it waits on while it runs', function (Processes $processes): void {
+    $directory = (string) realpath(Scratch::directory());
+    $answer = sprintf('%s/answer', $directory);
+    $watch = new class ($answer) implements ProcessWatch {
+        public private(set) int $looks = 0;
+
+        public function __construct(private readonly string $answer)
+        {
+        }
+
+        public function look(): void
+        {
+            ++$this->looks;
+
+            if (! is_file($this->answer)) {
+                file_put_contents($this->answer, 'answered');
+            }
+        }
+    };
+
+    $ran = $processes->run(processesCommand($directory, 'await', $answer), $watch);
+
+    expect([$ran->succeeded(), $ran->output()])->toBe([true, 'answered'])
+        ->and($watch->looks)->toBeGreaterThanOrEqual(1)
+        ->and($processes->run(processesCommand($directory, 'say', 'unwatched'))->output())->toBe('unwatched');
+})->with($implementations);
+
+it('keeps what a program printed on its standard output apart from its errors, after them in its output', function (Processes $processes): void {
+    $ran = $processes->run(processesCommand((string) realpath(Scratch::directory()), 'both', '{"report":1}', 'a warning'));
+
+    expect([$ran->printed(), $ran->output()])->toBe(['{"report":1}', '{"report":1}a warning']);
 })->with($implementations);

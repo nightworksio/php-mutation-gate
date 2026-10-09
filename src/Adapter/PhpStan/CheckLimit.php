@@ -17,18 +17,9 @@ final readonly class CheckLimit
     /** Why a check stopped at its limit cannot judge. */
     private const string UNFINISHED = 'PHPStan did not finish a check in %s.';
 
-    /** What Symfony's Process reads as no limit. */
-    private const float NONE = 0.0;
-
     /** This limit, or none where none is given. */
     public function __construct(private Seconds|Unlimited $limit = new Unlimited())
     {
-    }
-
-    /** The limit as Symfony's Process takes it: seconds, or 0, which it reads as none. */
-    public function timeout(): float
-    {
-        return $this->limit instanceof Seconds ? $this->limit->seconds() : self::NONE;
     }
 
     /** A run, or why it cannot judge where it did not run, or was stopped at the limit. */

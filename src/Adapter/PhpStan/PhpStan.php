@@ -17,9 +17,12 @@ use function mkdir;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserSettings;
+use NightWorksIO\MutationGate\Core\Analysis\CheckAnswers;
+use NightWorksIO\MutationGate\Core\Analysis\CheckBatch;
 use NightWorksIO\MutationGate\Core\Analysis\FindingFiles;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
+use NightWorksIO\MutationGate\Core\Analysis\MutantChecks;
 use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
@@ -33,23 +36,23 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\File\Workspace;
-use NightWorksIO\MutationGate\Core\Format\Lenient;
-use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ChildProcess;
+use NightWorksIO\MutationGate\Core\Runner\EnvironmentRead;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Withholding;
+use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
+use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Port\Processes;
 use NightWorksIO\MutationGate\Port\StaticChecker;
 
 use const PHP_BINARY;
 
 use function preg_match;
 use function sprintf;
-
-use Symfony\Component\Process\Exception\ProcessTimedOutException;
-use Symfony\Component\Process\Exception\RuntimeException;
-use Symfony\Component\Process\Process;
-
 use function unlink;
 
 /**
@@ -98,36 +101,31 @@ final readonly class PhpStan implements StaticChecker
 
     private const string NO_SCOPE = 'PHPStan\'s run over the originals has not said which files it analyses.';
 
+    private const string UNANSWERED = 'PHPStan gave no answer to the check.';
+
     private const string UNRESOLVED = 'PHPStan could not say the configuration it runs with (%s).';
 
-    /** The members of PHPStan's resolved parameters that differ between machines and runs, not what it judges. */
-    private const array MACHINE = ['env', 'tmpDir', 'sysGetTempDir', 'resultCachePath', 'pro'];
-
-    /**
-     * The members of PHPStan's resolved parameters that name what it reads
-     * besides the code it analyses: every config file, its includes and a
-     * baseline among them, and the bootstrap, stub and scanned files.
-     */
-    private const array REFERENCES = ['allConfigFiles', 'bootstrapFiles', 'stubFiles', 'scanFiles', 'scanDirectories'];
-
-    private function __construct(private Root $root, private Path|Absent $config)
+    private function __construct(private Root $root, private Path|Absent $config, private Processes $processes)
     {
     }
 
-    /** PHPStan in the project's root, reading the config the gate hands it as `config`, or the one it finds. */
-    public static function fromOptions(Options $options, string $root): self|Invalid
+    /**
+     * PHPStan in the project's root, reading the config the gate hands it as
+     * `config`, or the one it finds, run through these processes.
+     */
+    public static function fromOptions(Options $options, string $root, Processes $processes): self|Invalid
     {
         $config = $options->path(Key::of('config'));
 
         return $config instanceof Problem
             ? Invalid::because($config)
-            : new self(Root::of($root), $config instanceof NotGiven ? Absent::setting() : $config);
+            : new self(Root::of($root), $config instanceof NotGiven ? Absent::setting() : $config, $processes);
     }
 
     public function identity(Withheld $withheld): AnalyserIdentity|CannotJudge
     {
         $config = $this->config();
-        $version = $this->ran($withheld, [PHP_BINARY, self::SCRIPT, '--version']);
+        $version = $this->ran($withheld, ['--version']);
         $contents = $config instanceof Path && is_file($this->absolute($config))
             ? file_get_contents($this->absolute($config))
             : false;
@@ -151,8 +149,6 @@ final readonly class PhpStan implements StaticChecker
     {
         $config = $this->config();
         $dumped = $config instanceof Path ? $this->ran($withheld, [
-            PHP_BINARY,
-            self::SCRIPT,
             'dump-parameters',
             '--json',
             sprintf('--configuration=%s', $this->absolute($config)),
@@ -161,7 +157,7 @@ final readonly class PhpStan implements StaticChecker
         return match (true) {
             $dumped instanceof CannotJudge => $dumped,
             ! $dumped->succeeded() => CannotJudge::because(sprintf(self::UNRESOLVED, $dumped->said())),
-            default => $this->settings($dumped->output()),
+            default => Parameters::settings($dumped->output(), $this->root),
         };
     }
 
@@ -175,7 +171,7 @@ final readonly class PhpStan implements StaticChecker
         $scope = $this->keptScope($withheld);
         $findingFiles = FindingFiles::under($this->root);
 
-        return $scope instanceof CannotJudge ? $scope : $this->analysed($withheld, $findingFiles, []);
+        return $scope instanceof CannotJudge ? $scope : $this->analysed($withheld, $findingFiles);
     }
 
     /** None: PHPStan analyses again the files whose view of the mutant changed, which it finds itself. */
@@ -187,36 +183,77 @@ final readonly class PhpStan implements StaticChecker
     /** A mutant, where PHPStan analyses its original, as its warm-up said; out of scope where it does not. */
     public function check(MutantCheck $check): Findings|OutOfScope|CannotJudge
     {
+        foreach ($this->checks(MutantChecks::of($check), ProcessCount::single()) as $answer) {
+            return $answer;
+        }
+
+        return CannotJudge::because(self::UNANSWERED);
+    }
+
+    /**
+     * The mutants PHPStan analyses the originals of, as its warm-up said, each
+     * analysed in a process of its own, side by side up to this many, from
+     * the result cache the warm-up saved, which no check writes; the rest out
+     * of scope.
+     */
+    public function checks(MutantChecks $checks, ProcessCount $side): CheckAnswers
+    {
         $kept = is_file($this->scopeFile()) ? file_get_contents($this->scopeFile()) : false;
         $scope = is_string($kept) ? Scope::dumped($kept) : CannotJudge::because(self::NO_SCOPE);
+        $config = $this->checkConfig();
+        $prepared = [];
+
+        foreach ($checks as $check) {
+            $prepared[] = $this->prepared($check, $scope, $config);
+        }
+
+        $batch = CheckBatch::of(...$prepared);
+        $all = [...$checks];
+
+        return $batch->answered(
+            $this->processes->sideBySide(
+                WorkerSlots::of($side, BuiltinAnalyser::PhpStan->value),
+                Unlimited::time(),
+                ...$batch->commands(),
+            ),
+            fn(Ran $ran, int $at): Findings|CannotJudge => $this->answered($ran, $all[$at]),
+        );
+    }
+
+    /**
+     * The command that analyses a mutant in place of its original, within
+     * its check's limit; out of scope where PHPStan does not analyse the
+     * original, or why it cannot run.
+     */
+    private function prepared(
+        MutantCheck $check,
+        Scope|CannotJudge $scope,
+        string|CannotJudge $config,
+    ): ProcessCommand|OutOfScope|CannotJudge {
         $original = $this->absolute($check->original());
 
         return match (true) {
             $scope instanceof CannotJudge => $scope,
+            $config instanceof CannotJudge => $config,
             ! $scope->holds($original) => OutOfScope::of($check->original()),
-            default => $this->analysed($check->withheld(), FindingFiles::under($this->root)->substituting($check), [
-                sprintf('--tmp-file=%s', $this->absolute($check->mutant())),
-                sprintf('--instead-of=%s', $original),
-            ], new CheckLimit($check->limit())),
+            default => $this->command(
+                $check->withheld(),
+                $this->analysing($config, [
+                    sprintf('--tmp-file=%s', $this->absolute($check->mutant())),
+                    sprintf('--instead-of=%s', $original),
+                ]),
+            )->within($check->limit()),
         };
     }
 
-    /** PHPStan's resolved parameters, as every machine writes them, with the files they name. */
-    private function settings(string $dumped): AnalyserSettings|CannotJudge
+    /** What PHPStan reported of a check's analysis, or why it cannot judge: stopped at its limit, or no report. */
+    private function answered(Ran $ran, MutantCheck $check): Findings|CannotJudge
     {
-        $parameters = Node::decode($dumped, Scope::PARAMETERS);
-        $settings = AnalyserSettings::resolved($dumped, $this->root->value(), ...self::MACHINE);
-        $named = [];
+        $judged = new CheckLimit($check->limit())->judged(ChildProcess::of($ran));
 
-        foreach (self::REFERENCES as $member) {
-            foreach (Lenient::items($parameters->field($member)) as $file) {
-                $named[] = Lenient::text($file);
-            }
-        }
-
-        return $settings instanceof AnalyserSettings
-            ? $settings->referencing(AnalyserSettings::filesNamed($this->root->value(), ...$named))
-            : $settings;
+        return $judged instanceof CannotJudge
+            ? $judged
+            : Report::of($judged, FindingFiles::under($this->root)->substituting($check));
     }
 
     /** The files PHPStan analyses, as its parameters say them, kept where each check reads them. */
@@ -235,8 +272,6 @@ final readonly class PhpStan implements StaticChecker
         }
 
         $dumped = $this->ran($withheld, [
-            PHP_BINARY,
-            self::SCRIPT,
             'dump-parameters',
             '--json',
             sprintf('--configuration=%s', $check),
@@ -257,50 +292,56 @@ final readonly class PhpStan implements StaticChecker
     }
 
     /**
-     * What PHPStan reports, each finding in the file it sits in, given
-     * these editing arguments; a run stopped at this limit cannot judge.
-     *
-     * @param list<string> $editing
+     * What PHPStan reports of every file the config names, each finding in
+     * the file it sits in.
      */
-    private function analysed(
-        Withheld $withheld,
-        FindingFiles $files,
-        array $editing,
-        CheckLimit $limit = new CheckLimit(),
-    ): Findings|CannotJudge {
-        $check = $this->checkConfig();
-        $ran = $check instanceof CannotJudge ? $check : $this->ran($withheld, [
-            PHP_BINARY,
-            self::SCRIPT,
-            'analyse',
-            sprintf('--configuration=%s', $check),
-            '--error-format=json',
-            '--no-progress',
-            ...$editing,
-        ], $limit);
-        $judged = $limit->judged($ran);
+    private function analysed(Withheld $withheld, FindingFiles $files): Findings|CannotJudge
+    {
+        $config = $this->checkConfig();
+        $judged = $config instanceof CannotJudge
+            ? $config
+            : new CheckLimit()->judged($this->ran($withheld, $this->analysing($config, [])));
 
         return $judged instanceof CannotJudge ? $judged : Report::of($judged, $files);
     }
 
     /**
-     * A command, run to its end in the project's root without what is
-     * withheld, or stopped at this limit.
+     * PHPStan's analysis, reading the gate's config, in JSON, given these editing arguments.
+     *
+     * @param  list<string> $editing
+     * @return list<string>
+     */
+    private function analysing(string $config, array $editing): array
+    {
+        return [
+            'analyse',
+            sprintf('--configuration=%s', $config),
+            '--error-format=json',
+            '--no-progress',
+            ...$editing,
+        ];
+    }
+
+    /**
+     * PHPStan, given these arguments, as the Processes port runs it in the
+     * project's root, without what is withheld.
      *
      * @param list<string> $arguments
      */
-    private function ran(Withheld $withheld, array $arguments, CheckLimit $limit = new CheckLimit()): ChildProcess
+    private function command(Withheld $withheld, array $arguments): ProcessCommand
     {
-        $environment = Withholding::of($withheld, getenv());
-        $process = new Process($arguments, $this->root->value(), $environment, timeout: $limit->timeout());
+        return ProcessCommand::of($this->root->value(), PHP_BINARY, self::SCRIPT, ...$arguments)
+            ->with(EnvironmentRead::of(Withholding::of($withheld, getenv())));
+    }
 
-        try {
-            return ChildProcess::exited($process->run(), $process->getOutput(), $process->getErrorOutput());
-        } catch (ProcessTimedOutException) {
-            return ChildProcess::stopped($process->getOutput(), $process->getErrorOutput());
-        } catch (RuntimeException $failure) {
-            return ChildProcess::neverStarted($failure->getMessage());
-        }
+    /**
+     * PHPStan, given these arguments, run to its end.
+     *
+     * @param list<string> $arguments
+     */
+    private function ran(Withheld $withheld, array $arguments): ChildProcess
+    {
+        return ChildProcess::of($this->processes->run($this->command($withheld, $arguments)));
     }
 
     /** The gate's own config, written where it is not there as it should be, including the project's. */

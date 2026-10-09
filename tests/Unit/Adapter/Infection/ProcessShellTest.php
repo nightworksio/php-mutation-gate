@@ -34,7 +34,7 @@ it('runs a script in its directory, and keeps both of its outputs', function ():
     $directory = (string) realpath(Scratch::directory());
     $ran = new ProcessShell(new LocalProcesses(new SystemClock()), $directory, ['PATH' => '/usr/bin'])->run(Command::php('-r', 'echo getcwd(); fwrite(STDERR, "!");'));
 
-    expect($ran)->toEqual(Ran::exited(0, sprintf('%s!', $directory))->took(Measured::of($ran)));
+    expect($ran)->toEqual(Ran::exited(0, sprintf('%s!', $directory), $directory)->took(Measured::of($ran)));
 });
 
 it('runs a script in another directory once moved there, on the PATH it had', function (): void {
@@ -42,10 +42,9 @@ it('runs a script in another directory once moved there, on the PATH it had', fu
     $ran = new ProcessShell(new LocalProcesses(new SystemClock()), '/', ['PATH' => '/usr/bin'])->in($directory)
         ->run(Command::php('-r', 'echo getcwd(), " ", getenv("PATH");'));
 
-    expect($ran)->toEqual(Ran::exited(
-        0,
-        sprintf('%s %s%s/usr/bin', $directory, dirname(PHP_BINARY), PATH_SEPARATOR),
-    )->took(Measured::of($ran)));
+    $printed = sprintf('%s %s%s/usr/bin', $directory, dirname(PHP_BINARY), PATH_SEPARATOR);
+
+    expect($ran)->toEqual(Ran::exited(0, $printed, $printed)->took(Measured::of($ran)));
 });
 
 it('puts the running PHP first on the PATH, so every PHP it starts is the same', function (): void {
@@ -86,7 +85,7 @@ it('withholds every variable the command withholds', function (): void {
 it('says a script that exits with a failure did not succeed, and its exit code', function (): void {
     $ran = new ProcessShell(new LocalProcesses(new SystemClock()), Scratch::directory(), [])->run(Command::php('-r', 'echo "no"; exit(3);'));
 
-    expect($ran)->toEqual(Ran::exited(3, 'no')->took(Measured::of($ran)));
+    expect($ran)->toEqual(Ran::exited(3, 'no', 'no')->took(Measured::of($ran)));
 });
 
 it('answers a process that cannot start as a failure, with the reason', function (): void {

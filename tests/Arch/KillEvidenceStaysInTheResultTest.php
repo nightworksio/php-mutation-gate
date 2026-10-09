@@ -33,6 +33,7 @@ const EVIDENCE_HOLDERS = [
     'src/Adapter/PhpUnit/MutantRun.php',
     'src/Adapter/PhpUnit/MutationRun.php',
     'src/Adapter/PhpUnit/PreparedBatch.php',
+    'src/Adapter/PhpUnit/Twins.php',
     'src/Adapter/PhpUnit/Warm/Forked.php',
     'src/Adapter/PhpUnit/Warm/Workforce.php',
     'src/Cli/Flow/Hidden.php',

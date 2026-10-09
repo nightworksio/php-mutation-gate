@@ -48,13 +48,13 @@ it('runs a program in its directory, with its environment, and keeps both of its
         ->with(Environment::telling('GATE', 'on'));
     $ran = new LocalProcesses(new SystemClock())->run($command);
 
-    expect($ran)->toEqual(Ran::exited(0, sprintf('%s on!', $directory))->took(Measured::of($ran)));
+    expect($ran)->toEqual(Ran::exited(0, sprintf('%s on!', $directory), sprintf('%s on', $directory))->took(Measured::of($ran)));
 });
 
 it('says a program that exits with a failure did not succeed, and its exit code', function (): void {
     $ran = new LocalProcesses(new SystemClock())->run(ProcessCommand::of(Scratch::directory(), PHP_BINARY, '-r', 'echo "no"; exit(3);'));
 
-    expect($ran)->toEqual(Ran::exited(3, 'no')->took(Measured::of($ran)));
+    expect($ran)->toEqual(Ran::exited(3, 'no', 'no')->took(Measured::of($ran)));
 });
 
 it('stops a program at its deadline with every process it started, keeping what it printed', function (): void {
@@ -96,7 +96,7 @@ it('measures a deadline on its clock', function (): void {
 
     $ran = new LocalProcesses(new SystemClock())->run($command);
 
-    expect($ran)->toEqual(Ran::stopped('')->took(Measured::of($ran)));
+    expect($ran)->toEqual(Ran::stopped('', '')->took(Measured::of($ran)));
 });
 
 it('measures how long a program ran on its clock, from its start to its end', function (): void {

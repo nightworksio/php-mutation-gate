@@ -115,16 +115,17 @@ final class Running
 
     private function exited(float $now): Ran
     {
-        return Ran::exited($this->process->getExitCode() ?? NotGiven::value(), $this->output())
-            ->took($this->since($now));
+        $code = $this->process->getExitCode() ?? NotGiven::value();
+
+        return Ran::exited($code, $this->output(), $this->process->getOutput())->took($this->since($now));
     }
 
-    /** @param Closure(string): Ran $ended how it ended, by what it printed */
+    /** @param Closure(string, string): Ran $ended how it ended, by what it printed on both streams and on its output */
     private function stopped(Closure $ended, float $now): Ran
     {
         ProcessTree::of($this->process)->stop();
 
-        return $ended($this->output())->took($this->since($now));
+        return $ended($this->output(), $this->process->getOutput())->took($this->since($now));
     }
 
     private function since(float $now): Seconds

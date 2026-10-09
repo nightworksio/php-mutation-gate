@@ -166,6 +166,12 @@ needs remain, and the runners' own behaviour shapes each answer.
      against the mutant (decision 10). An original outside the paths the
      analyser analyses is `OutOfScope`. A check that is out of scope or
      cannot run leaves the mutant to its tests. It never kills it.
+   - `checks(MutantChecks, ProcessCount): CheckAnswers` checks several
+     mutants in one go, each answered in its check's place as `check()`
+     answers it. Mago and PHPStan run each check as a process of its own
+     through the `Processes` port, side by side up to the count; Psalm checks
+     them in turn over its one language server. Every process Mago and
+     PHPStan start goes through that port.
    - The runner gives each mutant as the analyser reads it:
      `Runner::checkable(Mutant): Checkable|CannotJudge` holds the mutant's
      text and the original it is judged against (decision 9). The runner

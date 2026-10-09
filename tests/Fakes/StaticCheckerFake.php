@@ -9,13 +9,16 @@ use function getenv;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserSettings;
+use NightWorksIO\MutationGate\Core\Analysis\CheckAnswers;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
+use NightWorksIO\MutationGate\Core\Analysis\MutantChecks;
 use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Port\StaticChecker;
 
@@ -92,6 +95,17 @@ final readonly class StaticCheckerFake implements StaticChecker
         return $this->unlessLeaked($check->withheld(), array_key_exists($mutant, $this->mutants)
             ? $this->mutants[$mutant]
             : CannotJudge::because(sprintf('%s is no mutant the fake was told about.', $mutant)));
+    }
+
+    public function checks(MutantChecks $checks, ProcessCount $side): CheckAnswers
+    {
+        $answers = [];
+
+        foreach ($checks as $check) {
+            $answers[] = $this->check($check);
+        }
+
+        return CheckAnswers::of(...$answers);
     }
 
     /**

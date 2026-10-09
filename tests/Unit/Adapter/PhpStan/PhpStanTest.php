@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
+use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
+use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserSettings;
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
@@ -29,7 +31,7 @@ afterEach(function (): void {
 /** PHPStan in a project, reading the config the gate hands it, if any. */
 function phpstanIn(string $project, string $options = '{}'): PhpStan
 {
-    $phpstan = PhpStan::fromOptions(Configs::options($options), $project);
+    $phpstan = PhpStan::fromOptions(Configs::options($options), $project, new LocalProcesses(new SystemClock()));
 
     return $phpstan instanceof PhpStan ? $phpstan : throw new LogicException('No PHPStan.');
 }
@@ -109,7 +111,7 @@ it('cannot say the configuration where it cannot dump its parameters, dumps no o
 });
 
 it('refuses a config option that is no path', function (): void {
-    expect(PhpStan::fromOptions(Configs::options('{"config": 5}'), Scratch::directory()))
+    expect(PhpStan::fromOptions(Configs::options('{"config": 5}'), Scratch::directory(), new LocalProcesses(new SystemClock())))
         ->toEqual(Invalid::because(Problem::at('config', 'expected a path, got 5')));
 });
 
@@ -273,7 +275,7 @@ it('cannot judge where it cannot write its own config', function (): void {
 });
 
 it('cannot judge in a root that is not there, where its process never starts', function (): void {
-    $gone = PhpStan::fromOptions(Configs::options('{}'), sprintf('%s/gone', Scratch::directory()));
+    $gone = PhpStan::fromOptions(Configs::options('{}'), sprintf('%s/gone', Scratch::directory()), new LocalProcesses(new SystemClock()));
 
     expect($gone instanceof PhpStan ? $gone->identity(Withheld::standard()) : $gone)
         ->toEqual(CannotJudge::because('PHPStan has no config to read: add a phpstan.neon, or name one in staticCheck.config.'));

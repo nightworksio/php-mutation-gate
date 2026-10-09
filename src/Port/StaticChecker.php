@@ -6,11 +6,14 @@ namespace NightWorksIO\MutationGate\Port;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserSettings;
+use NightWorksIO\MutationGate\Core\Analysis\CheckAnswers;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
+use NightWorksIO\MutationGate\Core\Analysis\MutantChecks;
 use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 
 /**
@@ -57,4 +60,12 @@ interface StaticChecker
      * and the mutant is left unchecked.
      */
     public function check(MutantCheck $check): Findings|OutOfScope|CannotJudge;
+
+    /**
+     * These mutants, each checked as check() checks one, side by side up to
+     * this many at once where the analyser can run checks apart, and in turn
+     * where it cannot: each answer in the place of its check (ADR-0020,
+     * decision 12).
+     */
+    public function checks(MutantChecks $checks, ProcessCount $side): CheckAnswers;
 }

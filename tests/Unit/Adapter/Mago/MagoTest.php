@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Mago\Mago;
+use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
+use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserSettings;
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
@@ -28,7 +30,12 @@ afterEach(function (): void {
 /** Mago in a project, reading the config the gate hands it, if any. */
 function magoIn(string $project, string $options = '{}', string $vendor = ''): Mago
 {
-    $mago = Mago::fromOptions(Configs::options($options), $project, $vendor === '' ? sprintf('%s/vendor', $project) : $vendor);
+    $mago = Mago::fromOptions(
+        Configs::options($options),
+        $project,
+        $vendor === '' ? sprintf('%s/vendor', $project) : $vendor,
+        new LocalProcesses(new SystemClock()),
+    );
 
     return $mago instanceof Mago ? $mago : throw new LogicException('No Mago.');
 }
@@ -135,7 +142,7 @@ it('names no config file among what it reads where it reads none', function (): 
 });
 
 it('refuses a config option that is no path', function (): void {
-    expect(Mago::fromOptions(Configs::options('{"config": 5}'), Scratch::directory(), 'vendor'))
+    expect(Mago::fromOptions(Configs::options('{"config": 5}'), Scratch::directory(), 'vendor', new LocalProcesses(new SystemClock())))
         ->toEqual(Invalid::because(Problem::at('config', 'expected a path, got 5')));
 });
 
@@ -163,7 +170,7 @@ it('reads no dependents a check lists, analysing the whole workspace', function 
     expect(magoIn(FakeAnalyser::mago('1.50.0', "src/Money.php\0"))->readsDependents())->toBeFalse();
 });
 
-it('cannot judge a check whose listing and analysis together take longer than its limit, stopping it there', function (
+it('cannot judge a check whose listing or analysis takes longer than its limit, stopping it there', function (
     string $listing,
     string $analysis,
 ): void {
@@ -180,5 +187,4 @@ it('cannot judge a check whose listing and analysis together take longer than it
 })->with([
     'a listing past the limit' => ['30', '0'],
     'an analysis past the limit' => ['0', '30'],
-    'each within the limit, but not both' => ['1.2', '1.2'],
 ]);

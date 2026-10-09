@@ -10,12 +10,15 @@ use function is_file;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserSettings;
+use NightWorksIO\MutationGate\Core\Analysis\CheckAnswers;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
+use NightWorksIO\MutationGate\Core\Analysis\MutantChecks;
 use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -83,6 +86,17 @@ final class RecordingChecker implements StaticChecker
         return $this->answers->check($check);
     }
 
+    public function checks(MutantChecks $checks, ProcessCount $side): CheckAnswers
+    {
+        $answers = [];
+
+        foreach ($checks as $check) {
+            $answers[] = $this->check($check);
+        }
+
+        return CheckAnswers::of(...$answers);
+    }
+
     /** @return list<Paths> */
     public function warmUps(): array
     {
@@ -90,7 +104,7 @@ final class RecordingChecker implements StaticChecker
     }
 
     /** @return list<array{string, string, string}> */
-    public function checks(): array
+    public function asked(): array
     {
         return $this->checks;
     }
