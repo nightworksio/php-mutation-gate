@@ -24,6 +24,12 @@ final readonly class RunnerMutatorName
         return new self($name);
     }
 
+    /** The name as the runner gives it. */
+    public function value(): string
+    {
+        return $this->name;
+    }
+
     /** The last part of the name, after its last `\` or `/`: the same for every runner's name of one change. */
     public function short(): string
     {

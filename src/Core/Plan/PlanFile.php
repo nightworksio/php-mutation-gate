@@ -68,6 +68,8 @@ use stdClass;
  *
  * @phpstan-type RunOnWritten array{ref?: string, defaultBranch?: string}
  * @phpstan-type ShardWritten array<string, int|string|float|list<UnitWritten>>
+ * @phpstan-import-type Written from PrunedRecord as PrunedWritten
+ *
  * @phpstan-type ConsideredWritten array{
  *     proved?: list<UnitWritten>,
  *     carried?: list<UnitWritten>,
@@ -89,6 +91,7 @@ use stdClass;
  *     proved?: list<UnitWritten>,
  *     carried?: list<UnitWritten>,
  *     carriedOwn?: list<UnitWritten>,
+ *     pruned?: PrunedWritten,
  *     changed?: array<string, list<int>>,
  *     untested?: array<string, list<int>>,
  *     reach?: list<string>,
@@ -167,6 +170,7 @@ final readonly class PlanFile
             'keys' => KeysRecord::of($plan->keys()),
             'shards' => array_map(self::shard(...), [...$plan]),
             ...self::considered($plan->considered()),
+            ...PrunedRecord::field($plan->considered()->pruned()),
             ...self::change($plan->considered()),
             ...self::digests($plan->digests()),
             ...BriefingRecord::of($plan->briefing()),
@@ -287,7 +291,8 @@ final readonly class PlanFile
                     ->untesting(self::changesIn($file->field(self::UNTESTED)))
                     ->proving(self::unitsIn($file->field(self::PROVED)))
                     ->carrying(self::unitsIn($file->field(self::CARRIED)))
-                    ->carryingOwn(self::unitsIn($file->field(self::CARRIED_OWN))),
+                    ->carryingOwn(self::unitsIn($file->field(self::CARRIED_OWN)))
+                    ->pruning(PrunedRecord::read($file->field(PrunedRecord::FIELD))),
             );
         $digests = $file->field(self::DIGESTS);
         $plan = $digests->isPresent() ? $plan->digesting(DigestsRecord::readRun($digests)) : $plan;

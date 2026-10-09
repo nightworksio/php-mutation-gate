@@ -14,6 +14,8 @@ use Closure;
 use function count;
 use function max;
 
+use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
+use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
@@ -51,7 +53,9 @@ use Psr\Clock\ClockInterface;
  * Under a budget, a survivor whose second run would not fit in the time
  * left, at `timeouts.seconds`, is not run again, and a mutant whose control
  * would not fit, at the longest limit of those controls, has none; each is
- * unjudged. Each step is timed on the shard's stopwatch.
+ * unjudged. The runner checks its mutants with static analysis before their
+ * tests where it can and that pays (see PreChecking). Each step is timed on
+ * the shard's stopwatch.
  */
 final readonly class Invoking
 {
@@ -63,6 +67,7 @@ final readonly class Invoking
         private Stopwatch $stopwatch,
         private CoverageMap $map,
         private HeldCovered $held,
+        private PreChecker $preChecker = new NoPreCheck(),
     ) {
     }
 
@@ -107,7 +112,7 @@ final readonly class Invoking
     private function mutated(MutationRequest $request): MutationResult|CannotJudge
     {
         $from = $this->stopwatch->now();
-        $result = $this->adapters->runner->mutate($request);
+        $result = $this->adapters->runner->mutate($request, $this->preChecker);
 
         if (! $result instanceof CannotJudge) {
             $this->stopwatch->ran($result->steps(), $from);

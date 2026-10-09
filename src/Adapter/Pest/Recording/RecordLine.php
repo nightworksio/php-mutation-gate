@@ -25,10 +25,14 @@ final readonly class RecordLine
     /** How a line is written: a duration of whole seconds stays a float, so the adapter reads it as one. */
     public const int FLAGS = JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_PRESERVE_ZERO_FRACTION;
 
-    public static function planned(PlannedMutant $mutant): string
+    /**
+     * A mutant Pest made; or, as a twin, one the patched generation loop kept
+     * out of Pest's run, since it leaves its file as one made before it does.
+     */
+    public static function planned(PlannedMutant $mutant, RecordEvent $event = RecordEvent::Planned): string
     {
         return self::line([
-            RecordField::Event->value => RecordEvent::Planned->value,
+            RecordField::Event->value => $event->value,
             RecordField::Id->value => $mutant->id(),
             RecordField::File->value => $mutant->file()->value(),
             RecordField::Start->value => $mutant->start()->number(),
@@ -102,6 +106,35 @@ final readonly class RecordLine
             RecordField::Event->value => RecordEvent::Narrowed->value,
             RecordField::Mutated->value => $mutated,
             RecordField::Files->value => $files,
+        ]);
+    }
+
+    /**
+     * The arguments Pest started the own process of the mutant it serves
+     * this mutated copy for with, before the plugin ordered its tests.
+     *
+     * @param list<string> $arguments
+     */
+    public static function arguments(string $mutated, array $arguments): string
+    {
+        return self::line([
+            RecordField::Event->value => RecordEvent::Arguments->value,
+            RecordField::Mutated->value => $mutated,
+            RecordField::Arguments->value => $arguments,
+        ]);
+    }
+
+    /**
+     * That a replay of a kill's own run, serving this copy, stopped after
+     * this many tests, which it took in an order of this digest.
+     */
+    public static function stopped(string $mutated, int $tests, string $order): string
+    {
+        return self::line([
+            RecordField::Event->value => RecordEvent::Stopped->value,
+            RecordField::Mutated->value => $mutated,
+            RecordField::At->value => $tests,
+            RecordField::Order->value => $order,
         ]);
     }
 

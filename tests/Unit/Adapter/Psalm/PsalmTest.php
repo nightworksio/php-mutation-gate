@@ -8,12 +8,14 @@ use NightWorksIO\MutationGate\Core\Analysis\AnalyserSettings;
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
+use NightWorksIO\MutationGate\Core\Analysis\MutantChecks;
 use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
@@ -223,7 +225,7 @@ it('checks a mutant in its original\'s place, and each dependent it analyses, th
         ]);
 });
 
-it('leaves a mutant out of its scope where its config, or the server reading it, does not analyse the original', function (): void {
+it('leaves a mutant out of its scope where its config, or the server reading it, does not analyse the original, one check or several', function (): void {
     $project = psalmProject();
     Scratch::write($project, 'psalm.xml', '<psalm><projectFiles><directory name="src"/><directory name="lib"/></projectFiles></psalm>');
     Scratch::write($project, 'lib/Rate.php', "<?php\n");
@@ -233,7 +235,12 @@ it('leaves a mutant out of its scope where its config, or the server reading it,
     expect($psalm->check(MutantCheck::of(Path::of('outside/Other.php'), Path::of('src/Money.php'))))
         ->toEqual(OutOfScope::of(Path::of('outside/Other.php')))
         ->and($psalm->check(MutantCheck::of(Path::of('lib/Rate.php'), Path::of('src/Money.php'))))
-        ->toEqual(OutOfScope::of(Path::of('lib/Rate.php')));
+        ->toEqual(OutOfScope::of(Path::of('lib/Rate.php')))
+        ->and([...$psalm->checks(MutantChecks::of(
+            MutantCheck::of(Path::of('outside/Other.php'), Path::of('src/Money.php')),
+            MutantCheck::of(Path::of('lib/Rate.php'), Path::of('src/Money.php')),
+        ), ProcessCount::of(2))])
+        ->toEqual([OutOfScope::of(Path::of('outside/Other.php')), OutOfScope::of(Path::of('lib/Rate.php'))]);
 });
 
 it('keeps what the run over the originals found of a file it sent that the server published nothing for', function (): void {

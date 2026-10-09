@@ -8,6 +8,8 @@ use function array_filter;
 use function array_values;
 
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
+use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
+use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
@@ -124,8 +126,10 @@ final class CoverageAsked implements Runner
         return $this->runner->startUp($file, $withheld);
     }
 
-    public function mutate(MutationRequest $request): MutationResult|CannotJudge
-    {
+    public function mutate(
+        MutationRequest $request,
+        PreChecker $preChecker = new NoPreCheck(),
+    ): MutationResult|CannotJudge {
         return $this->runner->mutate($request);
     }
 

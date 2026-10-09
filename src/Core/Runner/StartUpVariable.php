@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
-use function is_numeric;
-use function is_string;
-
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
@@ -39,8 +36,8 @@ final readonly class StartUpVariable
      */
     public static function read(string|false $startUp): Seconds|Unmeasured
     {
-        return is_string($startUp) && is_numeric($startUp) && (float) $startUp > 0.0
-            ? Seconds::of((float) $startUp)
-            : Unmeasured::duration();
+        $seconds = ToldSeconds::read($startUp);
+
+        return $seconds instanceof Seconds ? $seconds : Unmeasured::duration();
     }
 }

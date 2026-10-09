@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Adapter\Pest\Records;
+use NightWorksIO\MutationGate\Adapter\Pest\ReplayRecord;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Package;
@@ -20,8 +21,10 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -223,6 +226,30 @@ it('hands each mutant\'s own run the test files its covering tests need as paths
     expect($result instanceof MutationResult ? Library::records($result->mutants()) : $result)
         ->toBe($library->expected('large'))
         ->and($paths)->toBe([Library::acting('tests/MoneySpec.php')]);
+})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+
+it('vouches for a narrowed kill by its own run, replayed unmutated in the order it took, stopped after its last killer', function (): void {
+    Patch::applyIn(Library::vendor());
+    $library = Library::pest(Patching::on(Library::canary()));
+    $map = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/replayed')));
+    file_put_contents(
+        Tree::at(sprintf('%s/%s', Library::DIRECTORY, CoverageMapFile::in(Path::of('.mutation-gate/replayed'))->value())),
+        CoverageMapFile::encode($map instanceof CoverageMap ? $map : CoverageMap::empty(), Unplaced::map()),
+    );
+    $result = $library->runner()->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('adds')))
+        ->reusingCoverage(Handed::maps(Path::of('.mutation-gate/replayed'), Path::of('.mutation-gate/replayed'))));
+    $killed = $result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false) : [];
+    $prefix = $result instanceof MutationResult && $killed !== [] ? $result->evidence()->of($killed[0]->id())->prefix() : NotGiven::value();
+    $replays = glob(Tree::at(sprintf('%s/.mutation-gate/pest/results.jsonl.replay-????????????????', Library::DIRECTORY)));
+    $replay = ReplayRecord::in(is_array($replays) && $replays !== [] ? $replays[0] : '');
+
+    expect($result instanceof MutationResult ? Library::records($result->mutants()) : $result)
+        ->toBe($library->expected('adds'))
+        ->and($replays)->toHaveCount(1)
+        ->and($replay->failed())->toBeFalse()
+        ->and($replay->ran())->toBe($prefix instanceof Prefix ? $prefix->position() : -1)
+        ->and($replay->order())->toBeString();
 })->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('runs again, patched, only the mutants the file it hands over names, on the map the invocation read', function (): void {

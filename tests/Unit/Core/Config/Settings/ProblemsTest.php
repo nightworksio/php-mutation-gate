@@ -47,7 +47,7 @@ it('reports every problem at once, each at its path with what was expected', fun
         'shards.max: expected an integer of at least 1, got 2.5',
         'costs.secondsPerLine["src"]: expected a number of at least 0, got -1',
         'proofs.store.with.bucket: expected a bucket name, got nothing',
-        'budget: expected a duration such as 90s, 15m or 1h30m, got "15 minutes"',
+        'budget: expected a duration such as 90s, 15m, 1h30m or 7d, got "15 minutes"',
         'ignores.entries[0].mutant: expected a mutant id, twelve lowercase hex characters in quotes, got 123456789012',
         'ignores.entries[1]: expected either mutant, or path and mutator, but not both',
         'ignores.entries[2].expires: expected a date written YYYY-MM-DD, got "2027-02-30"',
@@ -234,7 +234,7 @@ it('reports what is wrong in a layer before what only every layer together can s
             'maxDays' => 30,
             'entries' => [['mutant' => '81d0c9e2aa17', 'reason' => 'A day late', 'expires' => '2026-10-31']],
         ],
-    ])))->toBe(['budget: expected a duration such as 90s, 15m or 1h30m, got "soon"']);
+    ])))->toBe(['budget: expected a duration such as 90s, 15m, 1h30m or 7d, got "soon"']);
 });
 
 it('judges expiries once every ignore is written as it must be', function (): void {

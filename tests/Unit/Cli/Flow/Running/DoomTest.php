@@ -245,7 +245,7 @@ it('stops a pull request\'s shard after a chunk whose survivor static analysis d
     expect($asked($runner))->toBe([['src/Money.php']])
         ->and($unjudged($result))->toBe(['src/Held.php'])
         ->and($doomOf($result))->toBe(['src/Money.php', $moneySurvivor(), 'src', 10_000, 'tree'])
-        ->and(array_map(static fn(array $check): string => $check[0], $checker->checks()))->toBe(['src/Money.php'])
+        ->and(array_map(static fn(array $check): string => $check[0], $checker->asked()))->toBe(['src/Money.php'])
         ->and($checker->warmUps())->toHaveCount(1);
 });
 
@@ -271,7 +271,7 @@ it('runs a pull request\'s shard on past each survivor static analysis kills, ch
         ->and($unjudged($result))->toBe([])
         ->and($doomOf($result))->toBe('undoomed')
         ->and(RunningCases::statuses($result))->toContain(sprintf('%s killed-by-static-analysis', doomSurvivor('src/Money.php')->nativeId()))
-        ->and(array_map(static fn(array $check): string => $check[0], $checker->checks()))->toBe(['src/Money.php', 'src/Held.php'])
+        ->and(array_map(static fn(array $check): string => $check[0], $checker->asked()))->toBe(['src/Money.php', 'src/Held.php'])
         ->and($checker->warmUps())->toHaveCount(1);
 });
 

@@ -8,6 +8,7 @@ use function array_map;
 use function count;
 use function implode;
 
+use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
@@ -19,7 +20,6 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
-use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -69,6 +69,7 @@ final readonly class Interpretation
         private MemoryCap $cap,
         private Bridges $bridges = new Bridges(),
         private OpeningIssues|NoRerun $opening = NoRerun::Opening,
+        private HandOff|NotGiven $handOff = new NotGiven(),
     ) {
     }
 
@@ -163,7 +164,7 @@ final readonly class Interpretation
                 ));
             }
 
-            $judged = $this->mutant($ids[$at], $mutant, $records, $selection);
+            $judged = $this->rejected($this->mutant($ids[$at], $mutant, $records, $selection), $mutant);
             $mutants[] = $judged;
             $evidence = $evidence->with($judged->id(), $this->evidenceOf($judged, $mutant, $records));
         }
@@ -227,12 +228,7 @@ final readonly class Interpretation
             $gate,
             $planned->id(),
             Location::of($file, $planned->start(), $planned->end()),
-            Mutation::of(
-                $planned->mutator(),
-                $this->bridges->familyOf($planned->mutator()),
-                Diff::fromPest($planned->diff()),
-                $this->bridges->hintOf($planned->mutator()),
-            ),
+            $planned->mutation($this->bridges),
             $judged ? $this->statusOf($planned, $records) : MutantStatus::Unjudged,
             $records->durationOf($planned),
         );
@@ -256,6 +252,18 @@ final readonly class Interpretation
             $judged => $limited,
             default => $limited->because(Reason::that(sprintf(self::UNSELECTED, implode(', ', $names)))),
         };
+    }
+
+    /**
+     * A mutant whose mutated copy static analysis rejected before its tests,
+     * killed by it (ADR-0020, decision 12), whether Pest ran it or not; as it
+     * was otherwise.
+     */
+    private function rejected(Mutant $mutant, PlannedMutant $planned): Mutant
+    {
+        $rejection = $this->handOff instanceof HandOff ? $this->handOff->rejectionOf($planned) : NotGiven::value();
+
+        return $rejection instanceof Rejection ? $mutant->rejected($rejection) : $mutant;
     }
 
     /** A timed-out mutant, saying its run was stopped at its silence limit where it was. */

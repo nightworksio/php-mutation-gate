@@ -40,6 +40,7 @@ final readonly class BuilderClasses
         'Pipeline' => self::BUILDER,
         'Preset' => self::BUILDER,
         'Proofs' => self::BUILDER,
+        'Pruning' => self::BUILDER,
         'Reach' => self::BUILDER,
         'Report' => self::BUILDER,
         'Runner' => self::BUILDER,

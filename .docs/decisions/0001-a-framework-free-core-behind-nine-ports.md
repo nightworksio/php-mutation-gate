@@ -85,7 +85,7 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
    | `Repository` | Where the checkout stands: the commit it is at, whether the working tree holds anything that commit does not, the branch it is on or that its `HEAD` is detached, and the branch the remote calls its default | git (ADR-0006) |
    | `ConfigLoader` | One config file read into its typed layer of config, through the definition ADR-0002 validates every layer with | PHP, JSON, YAML, NEON (ADR-0002) |
    | `StaticChecker` | A static analyser's identity, the configuration it runs with, the findings of the original files, whether it reads the dependents a check lists, and the findings of one mutant analysed in place of its original (ADR-0020) | Mago, PHPStan, Psalm (ADR-0020) |
-   | `Processes` | How a program ran as a process: one run to its end, or several run side by side, each in a free place, with the ends in the order given and the commands not started in time left out (ADR-0023) | Local processes, through `symfony/process` (ADR-0023) |
+   | `Processes` | How a program ran as a process: one run to its end, watched each time it is looked at while it runs, or several run side by side, each in a free place, with the ends in the order given and the commands not started in time left out (ADR-0023) | Local processes, through `symfony/process` (ADR-0023) |
 
    Time is read through PSR-20's `Psr\Clock\ClockInterface`, a standard
    interface rather than a port of its own. `Psr\Clock` is the only package
@@ -96,7 +96,12 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
    list of ports.
 
    `Processes` is decided in ADR-0023. `Cli` builds its one adapter and hands
-   it to the first-party runners; an extension registers none.
+   it to the first-party runners; an extension registers none. A run of one
+   process takes an optional `ProcessWatch`, looked at each time the adapter
+   looks at the running process and never after it ends, so a runner can
+   answer a hand-off its process waits on, as Pest waits for the static
+   checks before its mutants run (ADR-0020, decision 12). The port's contract
+   suite runs a program that waits on a file only its watch writes.
 
 3. **The seed's seams map onto the ports, and do not survive as names.**
 

@@ -14,6 +14,8 @@ use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Cost\StepTimes;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
+use NightWorksIO\MutationGate\Core\Pruning\Pruned;
+use NightWorksIO\MutationGate\Core\Pruning\PrunedList;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
@@ -86,6 +88,21 @@ final readonly class MutationRun
             : $result->withWarnings(Warnings::of(Warning::that(self::UNPATCHED)));
     }
 
+    /**
+     * The list of the mutators the run leaves out of its unchanged files,
+     * for the patched Infection; none where it leaves none out.
+     *
+     * @return array<string, string>
+     */
+    private function pruning(Pruned $pruned): array
+    {
+        return $pruned->isNone() ? [] : [ChildVariable::Pruned->value => PrunedFile::write(
+            PrunedList::beside($this->project->own(Invocation::SILENCED)),
+            $pruned,
+            $this->project->root(),
+        )];
+    }
+
     private function ran(
         MutationRequest $request,
         DiskPath $coverage,
@@ -107,6 +124,7 @@ final readonly class MutationRun
             ChildVariable::Results->value => $this->project->own(Invocation::SILENCED),
             ...TighterVariables::of($bounds->tighter()),
             ...StartUpVariable::of($bounds),
+            ...$this->pruning($request->narrowing()->pruned()),
         ]);
         $scan = MemoryScan::in($this->project, $request->memory(), $this->files);
 

@@ -9,10 +9,14 @@ use NightWorksIO\MutationGate\Adapter\Pest\Diff;
 use NightWorksIO\MutationGate\Adapter\Pest\Interpretation;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
+use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Placed;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -171,6 +175,43 @@ it('reads a finished run by file and line, with a killer and a timeout\'s limit'
             $mutant('n3', 'src/Money.php:40', 'ab', MutantStatus::Survived, 0.5, 1),
             $mutant('n4', 'src/Money.php:50', 'cd', MutantStatus::TimedOut, 5.0)->withLimit(Seconds::of(6.0)),
             $mutant('n6', 'src/Money.php:60', 'ef', MutantStatus::Unjudged),
+        ), 0));
+});
+
+it('judges a twin Pest kept out of its run as the mutant whose mutated copy it shares, in no time', function () use ($mutant, $plan, $read): void {
+    [$project, $results, $root] = interpretedRun([11 => [0]], []);
+    $twin = PlannedMutant::of(
+        't1',
+        DiskPath::of(sprintf('%s/src/Money.php', $root)),
+        Line::of(11),
+        Line::of(11),
+        INTERPRETED_MINUS,
+        PestRun::mutant('n1', 'src/Money.php', 11, INTERPRETED_PLUS, 'return $a + $b;', 'return $a - $b;')->diff(),
+        DiskPath::of(PestRun::mutated('n1')),
+    );
+    PestRun::write($results, [
+        $plan($root, 'n1', 'src/Money.php:11', 'ab'),
+        rtrim(RecordLine::planned($twin, RecordEvent::Twin), "\n"),
+        PestRun::made(1),
+        PestRun::killed('n1', INTERPRETED_TESTS[0]),
+        PestRun::finished('n1', PestStatus::Tested, 0.25),
+        PestRun::end(),
+    ]);
+    $killers = TestIds::of(TestId::of(INTERPRETED_TESTS[0]));
+    $original = $mutant('n1', 'src/Money.php:11', 'ab', MutantStatus::Killed, 0.25)->killedBy($killers);
+    $diff = $original->mutation()->diff();
+
+    expect($read($project, Ran::finished(succeeded: true, output: "\n  Mutations: 1 tested\n"), $results))
+        ->toEqual(MutationResult::of(Mutants::of(
+            $original,
+            Mutant::of(
+                MutantId::hash(Path::of('src/Money.php'), INTERPRETED_MINUS, $diff, 0),
+                't1',
+                $original->location(),
+                Mutation::of(INTERPRETED_MINUS, MutatorFamily::Arithmetic, $diff),
+                MutantStatus::Killed,
+                Seconds::of(0.0),
+            )->killedBy($killers),
         ), 0));
 });
 

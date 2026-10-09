@@ -152,6 +152,17 @@ final readonly class Invocation
     }
 
     /**
+     * A kill's own run started again with the arguments Pest started it
+     * with, after its script, as a replay of it runs (see PrefixReplays).
+     *
+     * @param list<string> $options
+     */
+    public function replaying(array $options, Withheld $withheld): Command
+    {
+        return Command::pest($this->script, $withheld, ...$options);
+    }
+
+    /**
      * A run of no test, started as pest-plugin-mutate starts a mutant's own
      * run (MutationTest::start): Pest with `--bail` and a filter, which loads
      * every test file and then runs none, in the environment it gives a

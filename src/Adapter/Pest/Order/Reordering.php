@@ -4,13 +4,18 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest\Order;
 
+use function getmypid;
 use function is_file;
 use function is_string;
+
+use NightWorksIO\MutationGate\Core\NotGiven;
+
 use function sprintf;
 
 /**
  * A mutant's own process's arguments, rewritten to run its tests in the order
- * the plugin wrote for it: the likely killers first, the rest fastest first.
+ * the plugin wrote for it: the likely killers first, the rest fastest first,
+ * read from a copy of its own, as PHPUnit writes its history back.
  * Where no order was written, or the process is no mutant's, they are as
  * they were, so the tests run in Pest's own order.
  *
@@ -33,10 +38,13 @@ final readonly class Reordering
         }
 
         $seed = Seed::directoryOf($directory, $mutated);
+        $copy = is_file(sprintf('%s/%s', $seed, Seed::HISTORY))
+            ? Seed::copiedFor($seed, (int) getmypid())
+            : NotGiven::value();
 
-        return is_file(sprintf('%s/%s', $seed, Seed::HISTORY)) ? [
+        return is_string($copy) ? [
             ...self::without($arguments),
-            sprintf('%s=%s', Option::CacheDirectory->value, $seed),
+            sprintf('%s=%s', Option::CacheDirectory->value, $copy),
             Option::Record->value,
             sprintf('%s=defects,duration-ascending', Option::OrderBy->value),
         ] : $arguments;

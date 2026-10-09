@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
+use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\Unwatched;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -13,7 +15,8 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
 /** What runs Pest for the adapter: a process in the project's root, or a fake in a test. */
 interface Shell
 {
-    public function run(Command $command): Ran;
+    /** A command run to its end, watched each time its process is looked at while it runs. */
+    public function run(Command $command, ProcessWatch $watch = new Unwatched()): Ran;
 
     /**
      * Commands run side by side, one in each place at a time, none started

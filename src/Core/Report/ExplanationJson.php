@@ -20,7 +20,7 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
  * `tests`. Public API (ADR-0011, decision 7), described by
  * `resources/explain.schema.json`.
  *
- * @phpstan-import-type MutantEntry from JsonReport
+ * @phpstan-import-type MutantEntry from MutantJson
  *
  * @phpstan-type CoveringEntry array{
  *     id: string,
@@ -87,7 +87,7 @@ final readonly class ExplanationJson
         }
 
         return [
-            'mutant' => JsonReport::mutant($judged, $matrix, $table),
+            'mutant' => MutantJson::of($judged, $matrix, $table),
             ...$need instanceof Seconds ? ['judgingSeconds' => $need->seconds()] : [],
             'tests' => $tests,
             'unit' => self::unit($explanation),

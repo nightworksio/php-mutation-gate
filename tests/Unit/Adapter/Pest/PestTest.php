@@ -12,7 +12,10 @@ use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
+use NightWorksIO\MutationGate\Adapter\Pest\PrunedFile;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
+use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
+use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Config\Triage;
@@ -40,6 +43,8 @@ use NightWorksIO\MutationGate\Core\Order\Kills;
 use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Order\Ordering;
 use NightWorksIO\MutationGate\Core\Order\Ranking;
+use NightWorksIO\MutationGate\Core\Pruning\MutatorNames;
+use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -47,6 +52,7 @@ use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\PcovReach;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
@@ -67,6 +73,7 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Tests\Support\Described;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
 use NightWorksIO\MutationGate\Tests\Support\PestCases;
+use NightWorksIO\MutationGate\Tests\Support\PreCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShellFake;
 use NightWorksIO\MutationGate\Tests\Support\Unexecutables;
@@ -320,6 +327,39 @@ it('puts the likely killers first where the request asks, handing the plugin the
         PestCases::invocation()->mutation($request, WholeSuite::tests(), PestCases::results($at))->with([GateVariable::Order->value => $order]),
     ])->and(Plan::read($order))->toEqual($history)
         ->and(is_file(sprintf('%s/m1/test-run-history', $order)))->toBeFalse();
+});
+
+it('hands the patched plugin the mutators the request leaves out of its unchanged files, in a list beside the results', function (): void {
+    $at = PestCases::project();
+    $shell = new ShellFake(static fn(Command $command): Ran => PestCases::killed($command, $at));
+    $pruned = Pruned::of(MutatorNames::of(PestCases::RUN_PLUS), Paths::of(Path::of('src/Money.php')));
+    $request = PestCases::money()->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->pruning($pruned));
+    $list = sprintf('%s.pruned', PestCases::results($at));
+
+    new Pest($at, $shell, Patching::off(), new CapDirectory(), Triage::standard()->bounds())->mutate($request);
+
+    expect($shell->commands())->toEqual([
+        PestCases::invocation()->mutation($request, WholeSuite::tests(), PestCases::results($at))->with([GateVariable::Pruned->value => $list]),
+    ])->and(PrunedFile::leavesOut($list, sprintf('%s/src/Money.php', $at->root()), PestCases::RUN_PLUS))->toBeTrue();
+});
+
+it('hands a patched plugin\'s mutants to static analysis before their tests, where the gate checks them so, and never an unpatched one\'s', function (): void {
+    $told = static function (Patching $patching, PreChecker $checker): array {
+        $at = PestCases::project();
+        $shell = new ShellFake(static fn(Command $command): Ran => PestCases::killed($command, $at));
+        new Pest($at, $shell, $patching, new CapDirectory(), Triage::standard()->bounds())->mutate(PestCases::money(), $checker);
+
+        return array_map(
+            static fn(Command $command): string => (string) ($command->environment()[GateVariable::Verdicts->value] ?? ''),
+            $shell->commands(),
+        );
+    };
+    $on = Patching::on(Group::named('mutation-canary'));
+    $patched = $told($on, new PreCheckerFake([]));
+
+    expect($patched[0])->toEndWith('/results.jsonl.verdicts')
+        ->and($told($on, new NoPreCheck()))->toBe(array_fill(0, count($patched), ''))
+        ->and($told(Patching::off(), new PreCheckerFake([]))[0])->toBe('');
 });
 
 it('cannot judge where an earlier run\'s orders cannot be removed', function (): void {

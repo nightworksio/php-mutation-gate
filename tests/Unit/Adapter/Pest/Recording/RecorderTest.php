@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Bridged;
+use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
@@ -14,7 +15,10 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\OnTimeout;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\OnUncovered;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\OnUntested;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Twins;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Verdicts;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -30,7 +34,6 @@ use Pest\Mutate\Event\Events\TestSuite\StartMutationGenerationSubscriber;
 use Pest\Mutate\Event\Events\TestSuite\StartMutationSuiteSubscriber;
 use Pest\Mutate\Event\Facade;
 use Pest\Mutate\Mutation;
-use Pest\Mutate\MutationTest;
 use Pest\Mutate\Mutators\String\UnwrapWordwrap;
 use Pest\Mutate\Support\MutationTestResult;
 use Pest\Mutate\Support\MutatorMap;
@@ -172,6 +175,39 @@ it('records every planned mutant with its file, lines, mutator class, diff and m
     ]);
 });
 
+it('records each mutant kept out as a twin after those Pest planned, before how many Pest made', function (): void {
+    $root = (string) realpath(Scratch::directory());
+    Scratch::write($root, 'src/Money.php', '<?php');
+    $results = sprintf('%s/twinned.jsonl', $root);
+    $file = sprintf('%s/src/Money.php', $root);
+    Twins::isTwin(Mutations::mutation($file, 'id-1', 11), $results);
+    Twins::isTwin(Mutations::mutation($file, 'twin', 11), $results);
+    Mutations::recorder($results, '/c')->planned(Mutations::suite($file, MutationTestResult::None));
+
+    expect(Mutations::recorded($results))->toBe([
+        RecordLine::planned(Recorder::madeOf(Mutations::mutation($file, 'id-1', 11))),
+        RecordLine::planned(Recorder::madeOf(Mutations::mutation($file, 'twin', 11)), RecordEvent::Twin),
+        RecordLine::made(1, Seconds::of(1.5)),
+    ]);
+});
+
+it('waits for the gate\'s verdicts once every planned mutant is written, where the gate checks before the tests', function (): void {
+    $root = (string) realpath(Scratch::directory());
+    Scratch::write($root, 'src/Money.php', '<?php');
+    $results = sprintf('%s/verdicted.jsonl', $root);
+    $verdicts = Verdicts::write(Verdicts::beside($results), '/nowhere/rejected');
+    putenv(sprintf('%s=%s', GateVariable::Verdicts->value, $verdicts));
+
+    try {
+        Mutations::recorder($results, '/c')->planned(Mutations::suite(sprintf('%s/src/Money.php', $root), MutationTestResult::None));
+    } finally {
+        putenv(GateVariable::Verdicts->value);
+    }
+
+    expect(Verdicts::rejects('/nowhere/rejected'))->toBeTrue()
+        ->and(Mutations::recorded($results))->toHaveCount(2);
+});
+
 it('records each outcome as it arrives, one line of JSON with its slashes as they are', function (): void {
     $root = Scratch::directory();
     $results = sprintf('%s/results.jsonl', $root);
@@ -218,8 +254,8 @@ it('names a planned mutant\'s bridged mutator by its own name, and any other by 
     try {
         Bridged::register(UnwrapWordwrap::class, 'acme/UnwrapWordwrap', []);
 
-        expect(Recorder::plannedOf(new MutationTest($bridged))->mutator())->toBe('acme/UnwrapWordwrap')
-            ->and(Recorder::plannedOf(Mutations::test('/p/src/Money.php', 'id-2', MutationTestResult::None))->mutator())
+        expect(Recorder::madeOf($bridged)->mutator())->toBe('acme/UnwrapWordwrap')
+            ->and(Recorder::madeOf(Mutations::test('/p/src/Money.php', 'id-2', MutationTestResult::None)->mutation)->mutator())
             ->toBe(Mutations::PLUS);
     } finally {
         MutatorMap::$map = null;

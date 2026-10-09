@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
+use function implode;
+
 use NightWorksIO\MutationGate\Core\Cost\NoHistory;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
 use NightWorksIO\MutationGate\Core\Cost\Savings;
 use NightWorksIO\MutationGate\Core\Cost\Untimed;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 
@@ -28,7 +31,9 @@ final readonly class SavingsText
 
     private const string ESTIMATED = ' (estimated)';
 
-    private const string FULL_RUN = 'A full one-job run: %s (%d%% measured). Reach saved %s, proofs %s%s';
+    private const string FULL_RUN = 'A full one-job run: %s (%d%% measured). Reach saved %s, proofs %s%s%s';
+
+    private const string PRUNING = ', pruning %s';
 
     private const string SHARDING = '; sharding cut the wait by %s and cost %s of setup.';
 
@@ -36,8 +41,11 @@ final readonly class SavingsText
 
     private const string LATELY = 'In the last %d days the gate saved %s of runner time.';
 
-    public static function headline(RunTimings $timings, Savings|NoHistory $savings): string
-    {
+    public static function headline(
+        RunTimings $timings,
+        Savings|NoHistory $savings,
+        Seconds|NotGiven $pruned = new NotGiven(),
+    ): string {
         $spent = $timings->spent();
         $judged = sprintf(
             self::JUDGED,
@@ -46,30 +54,38 @@ final readonly class SavingsText
             $spent->isMeasured() ? '' : self::ESTIMATED,
         );
 
-        return sprintf('%s %s', $judged, $savings instanceof Savings ? self::saved($savings) : self::NO_HISTORY);
+        $saved = $savings instanceof Savings ? self::saved($savings, $pruned) : self::NO_HISTORY;
+
+        return sprintf('%s %s', $judged, $saved);
     }
 
     /**
      * The headline of a verdict whose run was timed, and under it what the
-     * default branch saved lately where that is known; nothing for an untimed
-     * run.
+     * default branch saved lately where that is known, and what pruning did
+     * where it pruned anything; nothing for an untimed run that pruned
+     * nothing.
      */
     public static function of(Verdict $verdict, Seconds|NoHistory $lately): string
     {
         $timings = $verdict->account()->timings();
-
-        return match (true) {
+        $pruning = $verdict->account()->pruning();
+        $pruned = PruningText::of($pruning);
+        $headline = match (true) {
             $timings instanceof Untimed => '',
-            $lately instanceof NoHistory => self::headline($timings, $verdict->account()->savings()),
-            default => sprintf(
-                "%s\n%s",
-                self::headline($timings, $verdict->account()->savings()),
-                sprintf(self::LATELY, self::DAYS, $lately->text()),
-            ),
+            default => self::headline($timings, $verdict->account()->savings(), $pruning->saved()),
         };
+        $lines = [
+            ...$headline === '' ? [] : [$headline],
+            ...$headline !== '' && $lately instanceof Seconds
+                ? [sprintf(self::LATELY, self::DAYS, $lately->text())]
+                : [],
+            ...$pruned === '' ? [] : [$pruned],
+        ];
+
+        return implode("\n", $lines);
     }
 
-    private static function saved(Savings $savings): string
+    private static function saved(Savings $savings, Seconds|NotGiven $pruned): string
     {
         return sprintf(
             self::FULL_RUN,
@@ -77,6 +93,7 @@ final readonly class SavingsText
             $savings->measured()->wholePercent(),
             $savings->reach()->text(),
             $savings->proofs()->text(),
+            $pruned instanceof Seconds && $pruned->seconds() > 0.0 ? sprintf(self::PRUNING, $pruned->text()) : '',
             $savings->isSharded()
                 ? sprintf(self::SHARDING, $savings->waitSaved()->text(), $savings->shardingSetup()->text())
                 : '.',

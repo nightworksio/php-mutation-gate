@@ -10,12 +10,15 @@ use function is_file;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserSettings;
+use NightWorksIO\MutationGate\Core\Analysis\CheckAnswers;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
+use NightWorksIO\MutationGate\Core\Analysis\MutantChecks;
 use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -42,6 +45,9 @@ final class RecordingChecker implements StaticChecker
 
     /** @var list<Seconds|Unlimited> */
     private array $limits = [];
+
+    /** @var list<string> the pattern of what each check ran without */
+    private array $withheld = [];
 
     public function __construct(private readonly StaticCheckerFake $answers, private readonly string $project)
     {
@@ -79,8 +85,20 @@ final class RecordingChecker implements StaticChecker
         ];
         $this->dependents[] = array_map(static fn(Path $dependent): string => $dependent->value(), [...$check->dependents()]);
         $this->limits[] = $check->limit();
+        $this->withheld[] = $check->withheld()->pattern();
 
         return $this->answers->check($check);
+    }
+
+    public function checks(MutantChecks $checks, ProcessCount $side): CheckAnswers
+    {
+        $answers = [];
+
+        foreach ($checks as $check) {
+            $answers[] = $this->check($check);
+        }
+
+        return CheckAnswers::of(...$answers);
     }
 
     /** @return list<Paths> */
@@ -90,7 +108,7 @@ final class RecordingChecker implements StaticChecker
     }
 
     /** @return list<array{string, string, string}> */
-    public function checks(): array
+    public function asked(): array
     {
         return $this->checks;
     }
@@ -105,5 +123,11 @@ final class RecordingChecker implements StaticChecker
     public function limits(): array
     {
         return $this->limits;
+    }
+
+    /** @return list<string> the pattern of what each check ran without, in order */
+    public function withheld(): array
+    {
+        return $this->withheld;
     }
 }

@@ -10,6 +10,8 @@ use function implode;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Workforce;
+use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
+use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\Laps;
 use NightWorksIO\MutationGate\Core\Cost\Step;
@@ -74,11 +76,16 @@ final readonly class Mutating
     ) {
     }
 
-    /** Every mutant the request asks for, or only those with these ids, each stopped at its limit in these bounds. */
+    /**
+     * Every mutant the request asks for, or only those with these ids, each
+     * stopped at its limit in these bounds, those static analysis rejects
+     * before their tests killed without a run.
+     */
     public function result(
         MutationRequest $request,
         LimitBounds $bounds,
         MutantIds|NotGiven $only,
+        PreChecker $preChecker = new NoPreCheck(),
     ): MutationResult|CannotJudge {
         $engine = $this->engine;
 
@@ -95,7 +102,7 @@ final readonly class Mutating
         $result = match (true) {
             ! $invocation instanceof Invocation => $invocation,
             $map instanceof CannotJudge => $map,
-            default => $this->capped($engine, $invocation, $map, $request, $bounds, $only, $laps),
+            default => $this->capped($engine, $invocation, $map, $request, $bounds, $only, $laps, $preChecker),
         };
 
         return $result instanceof CannotJudge ? $result : $result->withStepsBefore($coverage);
@@ -195,6 +202,7 @@ final readonly class Mutating
         LimitBounds $bounds,
         MutantIds|NotGiven $only,
         Laps $laps,
+        PreChecker $preChecker,
     ): MutationResult|CannotJudge {
         $scan = MemoryScan::in($this->project, $request->memory(), $this->files);
 
@@ -212,7 +220,8 @@ final readonly class Mutating
         );
         $workforce = new Workforce($this->project, $this->shell, $invocation, $scan, $judging);
         $run = new MutationRun($this->project, $engine, $judging, $workforce, $laps);
-        $result = ($only instanceof MutantIds ? $run->makingOnly($only) : $run)->of($request, $map, $bounds);
+        $making = $only instanceof MutantIds ? $run->makingOnly($only) : $run;
+        $result = $making->of($request, $map, $bounds, $preChecker);
         $scan->remove();
 
         return $result;

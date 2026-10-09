@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Plan;
 
 use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
@@ -15,9 +16,10 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * added or modified, which the new-code floor judges, those of them no test
  * runs, why it reached what it did, the units a proof whose key still
  * matches holds, the units whose newest result is carried because the
- * change does not reach them, and those of them that carry only the run's
- * own scope's newest result, since only it judged them as they are
- * (ADR-0005, decision 2).
+ * change does not reach them, those of them that carry only the run's own
+ * scope's newest result, since only it judged them as they are (ADR-0005,
+ * decision 2), and the mutators the run leaves out of the units it runs
+ * whose code is as their newest result recorded it (ADR-0025, decision 1).
  */
 final readonly class Considered
 {
@@ -28,13 +30,22 @@ final readonly class Considered
         private Units $carried,
         private Changes $untested,
         private Units $carriedOwn,
+        private Pruned $pruned,
     ) {
     }
 
     /** A full run's: no change, no reason, nothing proved or carried. */
     public static function everything(): self
     {
-        return new self(Changes::none(), Reasons::of(), Units::none(), Units::none(), Changes::none(), Units::none());
+        return new self(
+            Changes::none(),
+            Reasons::of(),
+            Units::none(),
+            Units::none(),
+            Changes::none(),
+            Units::none(),
+            Pruned::none(),
+        );
     }
 
     /** This, for a change: the lines it added or modified in each source file, and why it reached what it did. */
@@ -62,6 +73,18 @@ final readonly class Considered
     public function carrying(Units $carried): self
     {
         return clone($this, ['carried' => $carried]);
+    }
+
+    /** This, leaving these mutators out of these units it runs. */
+    public function pruning(Pruned $pruned): self
+    {
+        return clone($this, ['pruned' => $pruned]);
+    }
+
+    /** The mutators the run leaves out of the units it runs whose code is unchanged; none for a full run. */
+    public function pruned(): Pruned
+    {
+        return $this->pruned;
     }
 
     /** The lines the change added or modified in each source file; none for a full run. */

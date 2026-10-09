@@ -7,7 +7,9 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 use NightWorksIO\MutationGate\Core\Runner\EnvironmentRead;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
+use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\Unwatched;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -29,9 +31,9 @@ final readonly class ProcessShell implements Shell
         return new self($this->processes, $directory);
     }
 
-    public function run(Command $command): Ran
+    public function run(Command $command, ProcessWatch $watch = new Unwatched()): Ran
     {
-        return $this->processes->run($this->processCommandOf($command));
+        return $this->processes->run($this->processCommandOf($command), $watch);
     }
 
     public function sideBySide(

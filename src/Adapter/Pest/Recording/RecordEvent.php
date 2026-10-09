@@ -10,6 +10,13 @@ enum RecordEvent: string
     /** A mutant Pest made, with its file, lines, mutator, diff and mutated copy. */
     case Planned = 'planned';
 
+    /**
+     * A mutant Pest made that leaves its file as one made before it does, which
+     * the patched generation loop keeps out of Pest's run, with the fields of a
+     * planned one (ADR-0025, decision 13).
+     */
+    case Twin = 'twin';
+
     /** How many mutants Pest made, and the opening run's seconds. */
     case Made = 'made';
 
@@ -36,6 +43,12 @@ enum RecordEvent: string
 
     /** A mutant's own process had loaded the original file before Pest put the mutant in its place. */
     case Preloaded = 'preloaded';
+
+    /** The arguments Pest started a mutant's own process with, before the plugin ordered its tests. */
+    case Arguments = 'arguments';
+
+    /** A replay of a kill's own run stopped after as many tests as the run ran, with their order (see ReplayStop). */
+    case Stopped = 'stopped';
 
     /** How many tests a mutant's own process ran. */
     case Ran = 'ran';

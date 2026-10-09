@@ -268,9 +268,9 @@ it('reports what is wrong in a layer before what the presets or every layer toge
     Scratch::write($project, 'mutation-gate.json', '{"preset": "acme", "budget": "soon"}');
 
     expect(Configs::problems($effective($project)->settings($nothing())))
-        ->toBe(['budget: expected a duration such as 90s, 15m or 1h30m, got "soon"'])
+        ->toBe(['budget: expected a duration such as 90s, 15m, 1h30m or 7d, got "soon"'])
         ->and(Configs::problems($effective($project)->settings(CommandLine::nothing()->withRunner('pest')->withBudget('soon'))))
-        ->toBe(['budget: expected a duration such as 90s, 15m or 1h30m, got "soon"']);
+        ->toBe(['budget: expected a duration such as 90s, 15m, 1h30m or 7d, got "soon"']);
 });
 
 it('reports a preset nothing registered where the rest of the config is valid', function () use (

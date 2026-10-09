@@ -13,6 +13,8 @@ use function dirname;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
+use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\Laps;
 use NightWorksIO\MutationGate\Core\Cost\Step;
@@ -24,10 +26,12 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Unwatched;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -84,7 +88,17 @@ final readonly class MutationRun
         private Clock $clock = new WallClock(),
         private bool $whole = false,
         private Bridges $bridges = new Bridges(),
+        private PreChecker $preChecker = new NoPreCheck(),
     ) {
+    }
+
+    /**
+     * This run, its mutants checked by static analysis before their tests
+     * where pest-plugin-mutate is patched (see HandOff).
+     */
+    public function checkingWith(PreChecker $preChecker): self
+    {
+        return clone($this, ['preChecker' => $preChecker]);
     }
 
     /**
@@ -147,10 +161,12 @@ final readonly class MutationRun
     }
 
     /**
-     * The result, each narrowed kill its control cannot vouch for run again
-     * with every test file (see NarrowedKills), with the time each took. The
-     * controls of the kills run again are read off this run's coverage
-     * before the run again replaces it.
+     * The result, each narrowed kill whose order is known vouched for by a
+     * replay of its run, unmutated (see PrefixReplays), and unjudged where
+     * the replay does not let it stand; each other narrowed kill its control
+     * cannot vouch for run again with every test file (see NarrowedKills),
+     * with the time each took. The controls of the kills run again are read
+     * off this run's coverage before the run again replaces it.
      */
     private function vouched(
         MutationResult $result,
@@ -160,8 +176,9 @@ final readonly class MutationRun
         float $started,
         Laps $laps,
     ): MutationResult|CannotJudge {
-        $kills = NarrowedKills::in($result, $results);
+        $kills = NarrowedKills::in($result, $results, $this->project);
         $from = $laps->now();
+        $unvouched = $this->unvouched($kills, $request, $results, $started);
         $doubtful = $this->doubted($kills, $request, $results, $started);
         $baselines = StepTimes::of($laps->lap(Step::Baselines, $from, $kills->sets()));
         $controls = Controls::of(
@@ -171,7 +188,22 @@ final readonly class MutationRun
             fn(): Covering|CannotJudge => $this->coveringOf($shared, $results),
         );
 
-        return $this->confirmed($result->withSteps($baselines), $request, $results, $started, $controls, $laps);
+        $replayed = $result->withMutants(FoundAgain::replacing($result->mutants(), $unvouched))->withSteps($baselines);
+
+        return $this->confirmed($replayed, $request, $results, $started, $controls, $laps);
+    }
+
+    /** A narrowed run's kills whose replay, unmutated, does not let them stand, unjudged (see PrefixReplays). */
+    private function unvouched(NarrowedKills $kills, MutationRequest $request, string $results, float $started): Mutants
+    {
+        return $kills->unvouched(
+            /**
+             * @param  non-empty-list<PrefixReplay> $replays
+             * @return list<ReplayVerdict>
+             */
+            fn(array $replays): array => new PrefixReplays($this->project, $this->shell, $this->remembered)
+                ->verdicts($replays, $request, $this->left($request, $started), $results),
+        );
     }
 
     /** A narrowed run's kills that must run again with every test file before they count. */
@@ -211,13 +243,12 @@ final readonly class MutationRun
         }
 
         $command = $scan->onto($command);
-        $only = $this->only === [] ? [] : [
-            GateVariable::Only->value => OnlyList::write(OnlyList::beside($results), ...$this->only),
-        ];
-        $narrow = $this->narrows() ? [GateVariable::Narrow->value => '1'] : [];
         $bounds = $request->pool()->bounding($this->bounds);
         $from = $laps->now();
-        $ran = $this->shell->run($command->with([...$only, ...$narrow, ...$this->patching->bounding($bounds)]));
+        $handOff = $this->handOff($request, $results, $shared);
+        $told = new Told($this->project, $this->patching, $this->only, $this->narrows())
+            ->of($request, $results, $handOff instanceof HandOff, $bounds);
+        $ran = $this->shell->run($command->with($told), $handOff instanceof HandOff ? $handOff : new Unwatched());
         $mutation = $laps->lap(Step::Mutation, $from);
         $scan->remove();
         $coverage = $this->coveringOf($shared, $results);
@@ -225,7 +256,14 @@ final readonly class MutationRun
         $left = fn(): Seconds|Unlimited => $this->left($request, $started);
         $opening = OpeningIssues::of($this->shell, $this->project, $request, $opensOn, $left, $results);
         $memory = $request->memory();
-        $interpretation = new Interpretation($this->project, $this->patching, $memory, $this->bridges, $opening);
+        $interpretation = new Interpretation(
+            $this->project,
+            $this->patching,
+            $memory,
+            $this->bridges,
+            $opening,
+            $handOff,
+        );
         $from = $laps->now();
         $result = $interpretation->of($ran, $results, $coverage);
         $reading = $laps->lap(Step::Reading, $from);
@@ -240,6 +278,23 @@ final readonly class MutationRun
                 $shared,
                 $laps,
             );
+    }
+
+    /**
+     * The hand-off of the run's mutants to static analysis before their
+     * tests, where pest-plugin-mutate is patched and a pre-checker is given;
+     * none otherwise, and Pest runs every mutant.
+     */
+    private function handOff(MutationRequest $request, string $results, CoverageMap|Unshared $shared): HandOff|NotGiven
+    {
+        return $this->patching->isOn() && ! $this->preChecker instanceof NoPreCheck ? new HandOff(
+            $this->project,
+            $results,
+            $this->preChecker,
+            $request->pool()->processes(),
+            fn(): Covering|CannotJudge => $this->coveringOf($shared, $results),
+            $this->bridges,
+        ) : NotGiven::value();
     }
 
     /** Whether each mutant's own run loads only the test files its covering tests need. */

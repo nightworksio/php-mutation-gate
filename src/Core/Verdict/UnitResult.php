@@ -28,6 +28,7 @@ final readonly class UnitResult
         private MutantIds $flaky,
         private Run|ThisRun $run,
         private TestIds $judging,
+        private MutantIds $carriedPruned,
     ) {
     }
 
@@ -42,6 +43,7 @@ final readonly class UnitResult
             MutantIds::none(),
             ThisRun::result(),
             TestIds::none(),
+            MutantIds::none(),
         );
     }
 
@@ -52,7 +54,7 @@ final readonly class UnitResult
      */
     public static function held(Unit $unit, Origin $origin, Mutants $mutants, ProvedKills $kills, Run $run): self
     {
-        return new self($unit, $origin, $mutants, $kills, MutantIds::none(), $run, TestIds::none());
+        return new self($unit, $origin, $mutants, $kills, MutantIds::none(), $run, TestIds::none(), MutantIds::none());
     }
 
     /** A unit's result as a proof holds it, every mutant, kill and judging test as the proof keeps it. */
@@ -72,6 +74,36 @@ final readonly class UnitResult
     public function judgedBy(TestIds $judging): self
     {
         return clone($this, ['judging' => $judging]);
+    }
+
+    /**
+     * This result of a run that left some mutators out of its unit, with the
+     * last result's mutants and kills of those mutators carried in (ADR-0025,
+     * decision 1).
+     */
+    public function carryingPruned(Mutants $mutants, ProvedKills $kills): self
+    {
+        $ids = [];
+
+        foreach ($mutants as $mutant) {
+            $ids[] = $mutant->id();
+        }
+
+        foreach ($kills as $kill) {
+            $ids[] = $kill->id();
+        }
+
+        return clone($this, [
+            'mutants' => Mutants::of(...$this->mutants, ...$mutants),
+            'kills' => ProvedKills::of(...$this->kills, ...$kills),
+            'carriedPruned' => MutantIds::of(...$ids),
+        ]);
+    }
+
+    /** The mutants and kills it carries from the last result for a mutator the run left out; none where it ran all. */
+    public function carriedPruned(): MutantIds
+    {
+        return $this->carriedPruned;
     }
 
     public function unit(): Unit

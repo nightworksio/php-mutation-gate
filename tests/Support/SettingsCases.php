@@ -43,6 +43,11 @@ final readonly class SettingsCases
         "run": {
             "full": false
         },
+        "pruning": {
+            "enabled": true,
+            "window": 500,
+            "audit": "7d"
+        },
         "shards": {
             "seconds": 600,
             "max": 20,
@@ -212,6 +217,7 @@ final readonly class SettingsCases
         'badge' => ['colors' => ['green' => 95]],
         'pest' => ['patch' => true, 'canary' => 'canary'],
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45],
+        'pruning' => ['enabled' => false, 'window' => 200, 'audit' => '3d'],
         'local' => ['watchBudget' => '2m', 'prePushBudget' => '90s'],
     ];
 }

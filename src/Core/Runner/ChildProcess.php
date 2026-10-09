@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use function is_int;
+use function mb_strlen;
+use function mb_substr;
+
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function sprintf;
@@ -30,6 +34,24 @@ final readonly class ChildProcess
         private string $errors,
         private bool $stopped,
     ) {
+    }
+
+    /**
+     * What a process the Processes port ran left behind: exited with its
+     * code, stopped at its limit, or never started; its report on its
+     * standard output, and the rest on its errors.
+     */
+    public static function of(Ran $ran): self
+    {
+        $printed = $ran->printed();
+        $errors = mb_substr($ran->output(), mb_strlen($printed));
+        $code = $ran->exitCode();
+
+        return match (true) {
+            $ran->wasStopped() => self::stopped($printed, $errors),
+            is_int($code) => self::exited($code, $printed, $errors),
+            default => self::neverStarted($ran->output()),
+        };
     }
 
     public static function exited(int $exit, string $output, string $errors): self

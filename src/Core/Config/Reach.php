@@ -14,8 +14,10 @@ use function sprintf;
 /**
  * What a change reaches (ADR-0005): `packages`, `reach.everything`, the
  * share of the suite past which code nothing holds is warned about,
- * `holds.hotPath`, and whether a run given no mode considers every unit,
- * `run.full`, rather than what changed since its last passing commit.
+ * `holds.hotPath`, whether a run given no mode considers every unit,
+ * `run.full`, rather than what changed since its last passing commit, and
+ * which mutators a reached unit whose content is unchanged leaves out,
+ * `pruning`.
  */
 final readonly class Reach implements Part
 {
@@ -28,6 +30,7 @@ final readonly class Reach implements Part
         private Listed|Absent $everything,
         private int|float|Absent $hotPath,
         private bool|Absent $full,
+        private Pruning $pruning,
     ) {
     }
 
@@ -40,8 +43,11 @@ final readonly class Reach implements Part
         Listed|Absent $everything = new Absent(),
         int|float|Absent $hotPath = new Absent(),
         bool|Absent $full = new Absent(),
+        Pruning|Absent $pruning = new Absent(),
     ): self {
-        return new self($packages, $everything, $hotPath, $full);
+        $set = $pruning instanceof Pruning ? $pruning : Pruning::of();
+
+        return new self($packages, $everything, $hotPath, $full, $set);
     }
 
     public static function none(): self
@@ -53,7 +59,15 @@ final readonly class Reach implements Part
     {
         $none = self::none();
 
-        return self::of($none->packages(), $none->everything(), $none->hotPaths()->share(), $none->isFullByDefault());
+        $pruning = $none->pruning();
+
+        return self::of(
+            $none->packages(),
+            $none->everything(),
+            $none->hotPaths()->share(),
+            $none->isFullByDefault(),
+            Pruning::of($pruning->enabled(), $pruning->window()->mutants(), $pruning->audit()),
+        );
     }
 
     public function over(Part $later): self
@@ -64,6 +78,7 @@ final readonly class Reach implements Part
                 $this->joined($this->everything, $later->everything),
                 $later->hotPath instanceof Absent ? $this->hotPath : $later->hotPath,
                 $later->full instanceof Absent ? $this->full : $later->full,
+                $this->pruning->over($later->pruning),
             )
             : $this;
     }
@@ -95,6 +110,12 @@ final readonly class Reach implements Part
         return $this->full === true;
     }
 
+    /** `pruning`: which mutators a reached unit whose content is unchanged leaves out (ADR-0025). */
+    public function pruning(): Pruning
+    {
+        return $this->pruning;
+    }
+
     public function written(PathOrigin $origin): Json
     {
         return Json::object(
@@ -115,6 +136,7 @@ final readonly class Reach implements Part
             ),
             Member::unlessEmpty('holds', Json::object(Member::of('hotPath', $this->hotPath))),
             Member::unlessEmpty('run', Json::object(Member::of('full', $this->full))),
+            $this->pruning->written(),
         );
     }
 
@@ -139,7 +161,9 @@ final readonly class Reach implements Part
             default => [],
         };
 
-        return PhpCalls::inWith(...$packages, ...$everything, ...$hotPath, ...$full);
+        $calls = PhpCalls::inWith(...$packages, ...$everything, ...$hotPath, ...$full);
+
+        return $calls->and($this->pruning->php());
     }
 
     /**

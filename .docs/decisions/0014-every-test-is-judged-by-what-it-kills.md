@@ -350,7 +350,11 @@ running it: why is this mutant here, and has it always been?
         start, and how the process ended where no test is named, a fatal
         error PHP printed among it.
       - Pest's plugin counts and digests the tests each mutant's own process
-        starts, and writes the position and digest with each failing test.
+        starts, and writes the position and digest with each failing test,
+        and the arguments that process started with. Pest's adapter replays
+        a narrowed run by them, stopped after its last failing test, and
+        lets its kill stand only where the replay's order gives the same
+        `key` (ADR-0004, decision 3).
         With `pest.patch` on, Pest's parent writes how a failed own process
         ended: its code and signal, never what it printed. That process does
         not hold the withheld values to screen with, and its results file sits

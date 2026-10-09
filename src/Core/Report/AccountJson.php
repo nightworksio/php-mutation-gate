@@ -12,7 +12,10 @@ use NightWorksIO\MutationGate\Core\Cost\RunTime;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
 use NightWorksIO\MutationGate\Core\Cost\Savings;
 use NightWorksIO\MutationGate\Core\Cost\Unpriced;
+use NightWorksIO\MutationGate\Core\Mutant\RunnerMutatorName;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\StepsRecord;
+use NightWorksIO\MutationGate\Core\Pruning\PruningAccount;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
@@ -20,9 +23,11 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use stdClass;
 
 /**
- * The JSON report's `run`, `cost` and `savings`: the run's timings, what it
- * cost, and what it saved, each left out where the flows gave the verdict no
- * timings (ADR-0016, decisions 8 and 18, and ADR-0017, decision 13).
+ * The JSON report's `run`, `cost`, `savings` and `pruning`: the run's
+ * timings, what it cost, and what it saved, each left out where the flows gave
+ * the verdict no timings (ADR-0016, decisions 8 and 18, and ADR-0017, decision
+ * 13); and what pruning left out, left out where it left nothing out
+ * (ADR-0025, decision 4).
  *
  * @phpstan-type Timed array{start: string, seconds: float}
  * @phpstan-type Shard array{
@@ -55,16 +60,32 @@ use stdClass;
  *     saved: array{reachSeconds: float, proofsSeconds: float},
  *     sharding?: array{waitSavedSeconds: float, setupSeconds: float},
  * }
+ * @phpstan-type PrunedMutator array{name: string, window: int, lastSurvivor?: string}
+ * @phpstan-type PruningEntry array{
+ *     mutators: list<PrunedMutator>,
+ *     units: int,
+ *     carried: int,
+ *     auditSeconds: float,
+ *     savedSeconds: float,
+ * }
  */
 final readonly class AccountJson
 {
-    /** @return array{run?: Run, cost?: CostEntry, savings?: Saved|array{noHistory: true}} */
+    /**
+     * @return array{
+     *     run?: Run,
+     *     cost?: CostEntry,
+     *     savings?: Saved|array{noHistory: true},
+     *     pruning?: PruningEntry,
+     * }
+     */
     public static function of(Verdict $verdict): array
     {
         $account = $verdict->account();
         $timings = $account->timings();
         $cost = $account->cost();
         $savings = $account->savings();
+        $pruning = $account->pruning();
 
         return [
             ...$timings instanceof RunTimings ? ['run' => self::run($verdict, $timings)] : [],
@@ -72,6 +93,30 @@ final readonly class AccountJson
             ...$timings instanceof RunTimings
                 ? ['savings' => $savings instanceof Savings ? self::savings($savings) : ['noHistory' => true]]
                 : [],
+            ...$pruning->isNone() ? [] : ['pruning' => self::pruning($pruning)],
+        ];
+    }
+
+    /** @return PruningEntry */
+    private static function pruning(PruningAccount $pruning): array
+    {
+        $mutators = [];
+
+        foreach ($pruning->mutators() as $name) {
+            $last = $pruning->lastOf(RunnerMutatorName::of($name));
+            $mutators[] = [
+                'name' => $name,
+                'window' => $pruning->window()->mutants(),
+                ...$last instanceof NotGiven ? [] : ['lastSurvivor' => $last],
+            ];
+        }
+
+        return [
+            'mutators' => $mutators,
+            'units' => $pruning->units(),
+            'carried' => $pruning->carried(),
+            'auditSeconds' => $pruning->audit()->seconds(),
+            'savedSeconds' => $pruning->saved()->seconds(),
         ];
     }
 

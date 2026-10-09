@@ -9,29 +9,23 @@ use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Paths;
-use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Order\Lesson;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Proof\Agreement;
-use NightWorksIO\MutationGate\Core\Proof\Digests;
-use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\NotRecorded;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\ReadsOnly;
-use NightWorksIO\MutationGate\Core\Proof\Recording;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
-use NightWorksIO\MutationGate\Core\Proof\Undigested;
-use NightWorksIO\MutationGate\Core\Test\TestIds;
-use NightWorksIO\MutationGate\Core\Test\TestName;
-use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\Pruning\Outcomes;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
 use NightWorksIO\MutationGate\Core\Written;
@@ -51,7 +45,7 @@ use NightWorksIO\MutationGate\Core\Written;
  */
 final readonly class Recorded
 {
-    public function __construct(private Adapters $adapters)
+    public function __construct(private Adapters $adapters, private Settings $settings)
     {
     }
 
@@ -71,11 +65,11 @@ final readonly class Recorded
 
         $fresh = $this->checked($plan, $results, $ledgers);
         $written = $ledgers->written()->atBase($plan->base());
-        $written = $written->withAnalysers($written->analysers()->plus($results->checks()->histories()));
-        $recordings = $this->recordings($plan, $fresh, $run);
+        $written = $written->withLearned($written->analysers()->plus($results->checks()->histories()));
+        $recordings = Recordings::of($plan, $fresh, $run);
         $proved = $this->proved($written, $plan, $recordings);
         $learned = $this->adapters->narrowing->isNone()
-            ? $this->learned($proved, $results, $ledgers->timings())
+            ? $this->learned($this->survived($proved, $fresh), $results, $ledgers->timings(), $plan)
             : $proved;
         $ledger = $this->taught($learned, $fresh);
 
@@ -84,7 +78,7 @@ final readonly class Recorded
         }
 
         $runs = $passed instanceof Passed ? $ledger->runs()->passing($passed) : $ledger->runs();
-        $runs = $lastRun instanceof LastRun && $this->judgedEvery($results, $recordings)
+        $runs = $lastRun instanceof LastRun && $this->judgedEvery($results, $recordings, $plan)
             ? $runs->lastRunAt($lastRun)
             : $runs->cutShort();
 
@@ -94,42 +88,35 @@ final readonly class Recorded
     /**
      * Whether the run judged every unit it considered: no shard's budget
      * stopped it, no held unit's tests missed its lines, and every unit it ran
-     * left a proof (ADR-0005, decision 2).
+     * left a proof, or carries its pruned mutators' last results (ADR-0005,
+     * decision 2; ADR-0025, decision 1).
      *
      * @param list<array{UnitResult, Proof|NotRecorded}> $recordings
      */
-    private function judgedEvery(Results $results, array $recordings): bool
+    private function judgedEvery(Results $results, array $recordings, Plan $plan): bool
     {
+        $pruned = $plan->considered()->pruned()->files();
+
         return ! $results->wereCutShort()
             && count($results->misses()) === 0
-            && array_all($recordings, static fn(array $recording): bool => $recording[1] instanceof Proof);
+            && array_all(
+                $recordings,
+                static fn(array $recording): bool => $recording[1] instanceof Proof
+                    || $pruned->has($recording[0]->unit()->path()),
+            );
     }
 
     /**
-     * Each unit the shards ran, with the proof it leaves under its key, or why it leaves none.
-     *
-     * @return list<array{UnitResult, Proof|NotRecorded}>
+     * The ledger, having learned what each mutant the run judged itself came
+     * to, by its runner and mutator, which decides what later runs prune
+     * (ADR-0025, decision 2).
      */
-    private function recordings(Plan $plan, UnitResults $fresh, Run $run): array
+    private function survived(Ledger $ledger, UnitResults $fresh): Ledger
     {
-        $recordings = [];
+        $window = $this->settings->reach()->pruning()->window();
+        $runner = $this->settings->runner()->name();
 
-        foreach ($fresh as $result) {
-            $path = $result->unit()->path();
-            $recordings[] = [
-                $result,
-                Recording::of(
-                    $plan->keys()->keyOf($path),
-                    $path,
-                    $result->mutants(),
-                    $result->flaky(),
-                    $run,
-                    $this->inputsOf($plan, $result),
-                ),
-            ];
-        }
-
-        return $recordings;
+        return $ledger->withLearned($ledger->survival()->after($runner, $window, ...Outcomes::of($fresh)));
     }
 
     /** Each unit the shards ran, with the mutants a proof under its key in either ledger disagrees on flaky. */
@@ -162,38 +149,6 @@ final readonly class Recorded
         }
 
         return $ledger;
-    }
-
-    /**
-     * What a proof of a unit records of its inputs: its share of the plan's
-     * digests, with each test file that killed one of its mutants, where the
-     * plan names the test.
-     */
-    private function inputsOf(Plan $plan, UnitResult $result): Inputs|Undigested
-    {
-        $digests = $plan->digests();
-        $killers = [];
-
-        foreach ($result->mutants() as $mutant) {
-            $killers = $mutant->status() === MutantStatus::Killed ? [...$killers, ...$mutant->killers()] : $killers;
-        }
-
-        $files = $this->filesOf(TestIds::of(...$killers), $plan->names());
-
-        return $digests instanceof Digests ? $digests->inputsOf($result->unit()->path(), $files) : $digests;
-    }
-
-    /** The test files these tests are in, where their names say. */
-    private function filesOf(TestIds $tests, TestNames|CannotJudge $names): Paths
-    {
-        $files = Paths::none();
-
-        foreach ($tests as $test) {
-            $named = $names instanceof TestNames ? $names->testOf($test) : $test;
-            $files = $named instanceof TestName ? $files->with($named->file()) : $files;
-        }
-
-        return $files;
     }
 
     /**
@@ -235,7 +190,7 @@ final readonly class Recorded
         }
 
         return $ledger
-            ->withKillers($ledger->killers()->learnedFrom(...$lessons))
+            ->withLearned($ledger->killers()->learnedFrom(...$lessons))
             ->keepingKillersIn($functions->files());
     }
 
@@ -245,8 +200,9 @@ final readonly class Recorded
      * ledger read held of it: a unit its budget ran out before took none of
      * its time.
      */
-    private function learned(Ledger $ledger, Results $results, Timings $held): Ledger|CannotJudge
+    private function learned(Ledger $ledger, Results $results, Timings $held, Plan $plan): Ledger|CannotJudge
     {
+        $pruned = $plan->considered()->pruned()->files();
         $handoff = new Handoff($this->adapters->project, Handoff::limits());
 
         foreach ($results->shards() as [$shard, $result, $mutated]) {
@@ -256,8 +212,9 @@ final readonly class Recorded
                 return $map;
             }
 
+            $ran = $shard->units()->except($result->unjudged());
             $ledger = $ledger->withTimings($this->adapters->costs->learn(
-                $shard->units()->except($result->unjudged()),
+                $ran->except($ran->within($pruned)),
                 $mutated->mutants(),
                 $map,
                 $result->measured(),

@@ -253,11 +253,16 @@ final readonly class FirstParty implements Extension
                     $options,
                     self::root(),
                     ComposerVendor::on(self::root()),
+                    $processes,
                 ),
             )
             ->withStaticChecker(
                 BuiltinAnalyser::PhpStan->named(),
-                static fn(Options $options): PhpStan|Invalid => PhpStan::fromOptions($options, self::root()),
+                static fn(Options $options): PhpStan|Invalid => PhpStan::fromOptions(
+                    $options,
+                    self::root(),
+                    $processes,
+                ),
             )
             ->withStaticChecker(
                 BuiltinAnalyser::Psalm->named(),

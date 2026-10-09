@@ -15,7 +15,9 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
+use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\Unwatched;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlot;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -27,8 +29,8 @@ use function usleep;
 
 /**
  * Runs programs as processes on this machine, side by side where there are
- * several places, looking at each running one about a hundred times a second
- * and timing each on a clock.
+ * several places, looking at each running one about a hundred times a second,
+ * and at a watched one's watch as often, and timing each on a clock.
  */
 final readonly class LocalProcesses implements Processes
 {
@@ -36,14 +38,24 @@ final readonly class LocalProcesses implements Processes
     {
     }
 
-    public function run(ProcessCommand $command): Ran
+    public function run(ProcessCommand $command, ProcessWatch $watch = new Unwatched()): Ran
     {
-        $ends = [...$this->sideBySide(WorkerSlots::alone(), Unlimited::time(), $command)];
+        $ends = [...$this->watched($watch, WorkerSlots::alone(), Unlimited::time(), $command)];
 
         return $ends[0];
     }
 
     public function sideBySide(
+        WorkerSlots $slots,
+        Seconds|Unlimited $startingWithin,
+        ProcessCommand ...$commands,
+    ): ProcessEnds {
+        return $this->watched(new Unwatched(), $slots, $startingWithin, ...$commands);
+    }
+
+    /** The commands run side by side, watched each time the running ones are looked at. */
+    private function watched(
+        ProcessWatch $watch,
         WorkerSlots $slots,
         Seconds|Unlimited $startingWithin,
         ProcessCommand ...$commands,
@@ -62,6 +74,7 @@ final readonly class LocalProcesses implements Processes
             $ends += $ended;
 
             if ($ended === [] && $running !== []) {
+                $watch->look();
                 usleep(Polling::interval()->microseconds());
             }
         }

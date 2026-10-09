@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Infection\MutantTime;
 use NightWorksIO\MutationGate\Adapter\Infection\PackageSource;
 use NightWorksIO\MutationGate\Adapter\Infection\Patch;
 use NightWorksIO\MutationGate\Adapter\Infection\PatchState;
+use NightWorksIO\MutationGate\Adapter\Infection\PrunedFile;
 use NightWorksIO\MutationGate\Adapter\Infection\Release;
 use NightWorksIO\MutationGate\Adapter\Infection\Silence;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -23,7 +24,7 @@ $source = static fn(string $vendor, string $file): string => (string) file_get_c
     sprintf('%s/infection/infection/src/%s', $vendor, $file),
 );
 
-it('patches the limit, the skip and the silence limit of every supported release, leaving each file PHP', function (Release $release) use ($source): void {
+it('patches the limit, the skip, the pruned mutators and the silence limit of every supported release, leaving each file PHP', function (Release $release) use ($source): void {
     $at = InfectionSource::pristine($release->value)->vendor();
 
     expect(Patch::stateIn($at))->toBe(PatchState::Missing)
@@ -38,6 +39,10 @@ it('patches the limit, the skip and the silence limit of every supported release
         ->toContain(sprintf("if (class_exists(\\%1\$s::class) && \\%1\$s::bounded()) {\n", MutantTime::class))
         ->and($source($at, 'Process/Runner/MutationTestingRunner.php'))
         ->toContain('// mutation-gate infection:patch: within the gate\'s bounds')
+        ->and($source($at, 'Process/Runner/MutationTestingRunner.php'))
+        ->toContain(sprintf("&& \\%s::leavesOut(\n", PrunedFile::class))
+        ->and($source($at, 'Process/Runner/MutationTestingRunner.php'))
+        ->toContain("(string) getenv('MUTATION_GATE_PRUNED'),\n")
         ->and($source($at, 'Process/Factory/MutantProcessContainerFactory.php'))
         ->toContain(sprintf("\\%s::watch(\$process, \$mutant, \$this->timeout);\n", Silence::class))
         ->and($source($at, 'Process/Runner/ParallelProcessRunner.php'))

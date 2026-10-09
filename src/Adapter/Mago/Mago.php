@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Mago;
 
-use function array_filter;
-use function array_map;
-use function explode;
 use function file_get_contents;
 use function getenv;
 use function is_file;
@@ -14,9 +11,12 @@ use function is_string;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserSettings;
+use NightWorksIO\MutationGate\Core\Analysis\CheckAnswers;
+use NightWorksIO\MutationGate\Core\Analysis\CheckBatch;
 use NightWorksIO\MutationGate\Core\Analysis\FindingFiles;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
+use NightWorksIO\MutationGate\Core\Analysis\MutantChecks;
 use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Absent;
@@ -31,18 +31,21 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ChildProcess;
+use NightWorksIO\MutationGate\Core\Runner\Environment;
+use NightWorksIO\MutationGate\Core\Runner\EnvironmentRead;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Withholding;
+use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Port\Processes;
 use NightWorksIO\MutationGate\Port\StaticChecker;
 
 use function preg_match;
 use function sprintf;
-
-use Symfony\Component\Process\Exception\ProcessTimedOutException;
-use Symfony\Component\Process\Exception\RuntimeException;
-use Symfony\Component\Process\Process;
 
 /**
  * Mago, asked about a mutant with `--substitute`, the option its authors
@@ -61,17 +64,25 @@ final readonly class Mago implements StaticChecker
 
     private const string OUTSIDE = '%s is outside the paths Mago analyses, so Mago leaves it unchecked.';
 
-    private const string UNLISTED = 'Mago could not list the files it analyses (%s).';
-
     private const string UNREAD = 'Mago\'s config %s cannot be read.';
 
-    private function __construct(private Root $root, private string|CannotJudge $binary, private Path|Absent $config)
-    {
+
+
+    private function __construct(
+        private Root $root,
+        private string|CannotJudge $binary,
+        private Path|Absent $config,
+        private Processes $processes,
+    ) {
     }
 
     /** Mago in the project's root, reading the config the gate hands it as `config`, or the one it finds. */
-    public static function fromOptions(Options $options, string $root, string $vendor): self|Invalid
-    {
+    public static function fromOptions(
+        Options $options,
+        string $root,
+        string $vendor,
+        Processes $processes,
+    ): self|Invalid {
         $config = $options->path(Key::of('config'));
 
         return $config instanceof Problem
@@ -80,6 +91,7 @@ final readonly class Mago implements StaticChecker
                 Root::of($root),
                 Binary::in($vendor),
                 $config instanceof NotGiven ? Absent::setting() : $config,
+                $processes,
             );
     }
 
@@ -135,32 +147,105 @@ final readonly class Mago implements StaticChecker
 
     /**
      * A mutant, where Mago analyses its original; out of scope where it does
-     * not. The listing and the analysis together take at most the check's
-     * limit, and a check stopped there cannot judge.
+     * not. The listing and the analysis each take at most the check's limit,
+     * and a check stopped there cannot judge.
      */
     public function check(MutantCheck $check): Findings|OutOfScope|CannotJudge
     {
-        $limit = $check->limit();
-        $bound = $limit instanceof Seconds ? CheckLimit::from($limit) : $limit;
-        $outside = $this->withinScope(Paths::of($check->original()), $check->withheld(), $bound);
-        $files = FindingFiles::under($this->root)->substituting($check);
+        return $this->checks(MutantChecks::of($check), ProcessCount::single())->first();
+    }
 
-        return $outside instanceof Paths ? $this->analysed($check->withheld(), $files, [
+    /**
+     * The mutants Mago analyses the originals of, each analysed in a process
+     * of its own, side by side up to this many, within its check's limit;
+     * the rest out of scope. Mago lists the files it analyses once for them
+     * all, within the first check's limit.
+     */
+    public function checks(MutantChecks $checks, ProcessCount $side): CheckAnswers
+    {
+        $listed = [];
+        $prepared = [];
+
+        foreach ($checks as $check) {
+            $listed = $listed === [] ? [$this->analysedFiles($check->withheld(), $check->limit())] : $listed;
+            $prepared[] = $this->prepared($check, $listed[0]);
+        }
+
+        $batch = CheckBatch::of(...$prepared);
+        $all = [...$checks];
+
+        $slots = WorkerSlots::of($side, BuiltinAnalyser::Mago->value);
+
+        return $batch->answered(
+            $this->processes->sideBySide($slots, Unlimited::time(), ...$batch->commands()),
+            fn(Ran $ran, int $at): Findings|CannotJudge => $this->answered($ran, $all[$at]),
+        );
+    }
+
+    /**
+     * The command that analyses a mutant in place of its original, within
+     * its check's limit; out of scope where Mago does not analyse the
+     * original, or why it cannot say.
+     */
+    private function prepared(MutantCheck $check, Paths|CannotJudge $analysed): ProcessCommand|OutOfScope|CannotJudge
+    {
+        if ($analysed instanceof CannotJudge) {
+            return $analysed;
+        }
+
+        $original = $check->original();
+        $command = $this->command($check->withheld(), [
+            '--threads=1',
+            'analyze',
+            '--reporting-format=json',
             '--substitute',
-            sprintf('%s=%s', $this->absolute($check->original()), $this->absolute($check->mutant())),
-        ], $bound) : $outside;
+            sprintf('%s=%s', $this->absolute($original), $this->absolute($check->mutant())),
+        ]);
+
+        return match (true) {
+            ! $analysed->has($this->root->relative($this->absolute($original))) => OutOfScope::of($original),
+            $command instanceof CannotJudge => $command,
+            default => $command->within($check->limit()),
+        };
+    }
+
+    /** What Mago reported of a check's analysis, or why it cannot judge: stopped at its limit, or no report. */
+    private function answered(Ran $ran, MutantCheck $check): Findings|CannotJudge
+    {
+        $limit = $check->limit();
+
+        return $ran->wasStopped() && $limit instanceof Seconds
+            ? CheckLimit::from($limit)->unfinished()
+            : Report::of(ChildProcess::of($ran), FindingFiles::under($this->root)->substituting($check));
+    }
+
+    /**
+     * Mago in the workspace, with its config and no colours, given these
+     * arguments, as the Processes port runs it, without what is withheld.
+     *
+     * @param list<string> $arguments
+     */
+    private function command(Withheld $withheld, array $arguments): ProcessCommand|CannotJudge
+    {
+        $binary = $this->binary;
+        $config = $this->config();
+
+        $configured = $config instanceof Path ? [sprintf('--config=%s', $this->absolute($config))] : [];
+
+        return is_string($binary) ? ProcessCommand::of(
+            $this->root->value(),
+            ...[$binary, sprintf('--workspace=%s', $this->root->value()), ...$configured],
+            ...['--colors=never', ...$arguments],
+        )->with($this->withholding($withheld)) : $binary;
     }
 
     /**
      * These files, where Mago analyses every one of them; the first it does
      * not, or why it cannot say.
      */
-    private function withinScope(
-        Paths $files,
-        Withheld $withheld,
-        CheckLimit|Unlimited $limit = new Unlimited(),
-    ): Paths|OutOfScope|CannotJudge {
-        $analysed = $this->analysedFiles($withheld, $limit);
+    private function withinScope(Paths $files, Withheld $withheld): Paths|OutOfScope|CannotJudge
+    {
+        $analysed = $this->analysedFiles($withheld);
 
         if ($analysed instanceof CannotJudge) {
             return $analysed;
@@ -175,30 +260,25 @@ final readonly class Mago implements StaticChecker
         return $files;
     }
 
-    /** Every file Mago analyses, as it lists them, or why it cannot say. */
-    private function analysedFiles(Withheld $withheld, CheckLimit|Unlimited $limit): Paths|CannotJudge
+    /**
+     * Every file Mago analyses, as it lists them, or why it cannot say: one
+     * listing stopped at a check's limit does not finish the check.
+     */
+    private function analysedFiles(Withheld $withheld, Seconds|Unlimited $limit = new Unlimited()): Paths|CannotJudge
     {
-        $listed = $this->mago($withheld, ['list-files', '-0'], $limit);
+        $command = $this->command($withheld, ['list-files', '-0']);
+        $listed = $command instanceof CannotJudge ? $command : $this->ran($command->within($limit));
 
-        return match (true) {
-            $listed instanceof ChildProcess && $listed->wasStopped() && $limit instanceof CheckLimit
-                => $limit->unfinished(),
-            $listed instanceof CannotJudge || $listed->exit() !== 0 => CannotJudge::because(sprintf(
-                self::UNLISTED,
-                $listed instanceof CannotJudge ? $listed->why() : $listed->said(),
-            )),
-            default => Paths::of(...array_map(
-                Path::of(...),
-                array_filter(explode("\0", $listed->output()), static fn(string $file): bool => $file !== ''),
-            )),
-        };
+        return FileList::read($listed, $limit);
     }
 
     /** Mago's name and version, as its binary says them, with the digest of the config it reads. */
     private function identified(Withheld $withheld, Digest $config): AnalyserIdentity|CannotJudge
     {
         $binary = $this->binary;
-        $version = is_string($binary) ? $this->ran($withheld, [$binary, '--version']) : $binary;
+        $version = is_string($binary) ? $this->ran(
+            ProcessCommand::of($this->root->value(), $binary, '--version')->with($this->withholding($withheld)),
+        ) : $binary;
 
         return match (true) {
             $version instanceof CannotJudge => $version,
@@ -215,68 +295,35 @@ final readonly class Mago implements StaticChecker
      *
      * @param list<string> $arguments
      */
-    private function analysed(
-        Withheld $withheld,
-        FindingFiles $files,
-        array $arguments,
-        CheckLimit|Unlimited $limit = new Unlimited(),
-    ): Findings|CannotJudge {
-        $ran = $this->mago($withheld, ['--threads=1', 'analyze', '--reporting-format=json', ...$arguments], $limit);
+    private function analysed(Withheld $withheld, FindingFiles $files, array $arguments): Findings|CannotJudge
+    {
+        $ran = $this->mago($withheld, ['--threads=1', 'analyze', '--reporting-format=json', ...$arguments]);
 
-        return match (true) {
-            $ran instanceof CannotJudge => $ran,
-            $ran->wasStopped() && $limit instanceof CheckLimit => $limit->unfinished(),
-            default => Report::of($ran, $files),
-        };
+        return $ran instanceof CannotJudge ? $ran : Report::of($ran, $files);
     }
 
     /**
-     * Mago in the workspace, with its config and no colours, given these arguments.
+     * Mago in the workspace, with its config and no colours, given these arguments, run to its end.
      *
      * @param list<string> $arguments
      */
-    private function mago(
-        Withheld $withheld,
-        array $arguments,
-        CheckLimit|Unlimited $limit = new Unlimited(),
-    ): ChildProcess|CannotJudge {
-        $binary = $this->binary;
-        $config = $this->config();
+    private function mago(Withheld $withheld, array $arguments): ChildProcess|CannotJudge
+    {
+        $command = $this->command($withheld, $arguments);
 
-        return is_string($binary) ? $this->ran($withheld, [
-            $binary,
-            sprintf('--workspace=%s', $this->root->value()),
-            ...$config instanceof Path ? [sprintf('--config=%s', $this->absolute($config))] : [],
-            '--colors=never',
-            ...$arguments,
-        ], $limit) : $binary;
+        return $command instanceof CannotJudge ? $command : $this->ran($command);
     }
 
-    /**
-     * A command, run to its end in the project's root without what is
-     * withheld, or stopped once what is left of a check's limit has passed.
-     *
-     * @param list<string> $arguments
-     */
-    private function ran(
-        Withheld $withheld,
-        array $arguments,
-        CheckLimit|Unlimited $limit = new Unlimited(),
-    ): ChildProcess {
-        $process = new Process(
-            $arguments,
-            $this->root->value(),
-            Withholding::of($withheld, getenv()),
-            timeout: $limit instanceof CheckLimit ? $limit->left()->seconds() : null,
-        );
+    /** A command, run by the Processes port to its end in the project's root. */
+    private function ran(ProcessCommand $command): ChildProcess
+    {
+        return ChildProcess::of($this->processes->run($command));
+    }
 
-        try {
-            return ChildProcess::exited($process->run(), $process->getOutput(), $process->getErrorOutput());
-        } catch (ProcessTimedOutException) {
-            return ChildProcess::stopped($process->getOutput(), $process->getErrorOutput());
-        } catch (RuntimeException $failure) {
-            return ChildProcess::neverStarted($failure->getMessage());
-        }
+    /** The environment Mago runs in: the gate's, without what is withheld. */
+    private function withholding(Withheld $withheld): Environment
+    {
+        return EnvironmentRead::of(Withholding::of($withheld, getenv()));
     }
 
     /** The config staticCheck.config names, or else the first Mago finds at the root, or none, for Mago's defaults. */

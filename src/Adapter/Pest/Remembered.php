@@ -23,8 +23,9 @@ use NightWorksIO\MutationGate\Core\Test\Groups;
  * What one Pest runner learns once for every run it starts in a process: the
  * groups its suite lists, the PHP it starts, whether the vendor is patched,
  * each map another job handed over, the maps it has written again for Pest,
- * and whether each control of a kill passes on the unmutated code, served as
- * its mutant was (see Control). Each is slow to learn, from a process started
+ * whether each control of a kill passes on the unmutated code, served as
+ * its mutant was (see Control), and what each replay of a kill's own run
+ * said (see PrefixReplays). Each is slow to learn, from a process started
  * for it or a map that can reach hundreds of megabytes, and none changes
  * while the gate runs.
  */
@@ -47,6 +48,9 @@ final class Remembered
 
     /** @var array<string, bool> whether each set of test files passes on the unmutated code, loaded alone */
     private array $baselines = [];
+
+    /** @var array<string, ReplayVerdict> what each replay of a kill's own run, unmutated, said, by its key */
+    private array $replays = [];
 
     /** @param Closure(): (Groups|CannotJudge) $listing */
     public function groups(Withheld $withheld, Closure $listing): Groups|CannotJudge
@@ -132,6 +136,35 @@ final class Remembered
 
         return array_map(
             fn(string $key): bool => array_key_exists($key, $this->baselines) && $this->baselines[$key],
+            $keys,
+        );
+    }
+
+    /**
+     * What each replay of a kill's own run said, by its key, in the order
+     * given: the keys not yet kept run once each, all in one call; a replay
+     * that had no time says nothing of the kill, and is not kept.
+     *
+     * @param  list<string>                                         $keys
+     * @param  Closure(non-empty-list<string>): list<ReplayVerdict> $running what these keys' replays said, in order
+     * @return list<ReplayVerdict>
+     */
+    public function replays(array $keys, Closure $running): array
+    {
+        $unknown = array_values(array_unique(array_filter(
+            $keys,
+            fn(string $key): bool => ! array_key_exists($key, $this->replays),
+        )));
+        $said = $unknown === [] ? [] : $running($unknown);
+
+        foreach ($said as $at => $verdict) {
+            $this->replays += $verdict === ReplayVerdict::NoTime ? [] : [$unknown[$at] => $verdict];
+        }
+
+        return array_map(
+            fn(string $key): ReplayVerdict => array_key_exists($key, $this->replays)
+                ? $this->replays[$key]
+                : ReplayVerdict::NoTime,
             $keys,
         );
     }

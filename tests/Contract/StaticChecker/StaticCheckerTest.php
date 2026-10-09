@@ -4,18 +4,22 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Mago\Mago;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
+use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Psalm\Psalm;
+use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserSettings;
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
+use NightWorksIO\MutationGate\Core\Analysis\MutantChecks;
 use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Port\StaticChecker;
 use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
@@ -77,7 +81,7 @@ $loading = [
         fakeSettings($root)->referencing(Paths::of(Path::of('phpstan.neon'))),
     ),
     ...getenv('ANALYSER_CONTRACTS') === '1' ? [
-        'PHPStan' => fn(): StaticChecker => built(PhpStan::fromOptions(Configs::options('{}'), $root)),
+        'PHPStan' => fn(): StaticChecker => built(PhpStan::fromOptions(Configs::options('{}'), $root, new LocalProcesses(new SystemClock()))),
         'Psalm' => fn(): StaticChecker => built(Psalm::fromOptions(Configs::options('{}'), $root)),
     ] : [],
 ];
@@ -85,7 +89,7 @@ $loading = [
 $checkers = [
     ...$loading,
     ...getenv('ANALYSER_CONTRACTS') === '1' ? [
-        'Mago' => fn(): StaticChecker => built(Mago::fromOptions(Configs::options('{}'), $root, sprintf('%s/vendor', $root))),
+        'Mago' => fn(): StaticChecker => built(Mago::fromOptions(Configs::options('{}'), $root, sprintf('%s/vendor', $root), new LocalProcesses(new SystemClock()))),
     ] : [],
 ];
 
@@ -150,6 +154,29 @@ it('leaves a mutant of a file outside the paths it analyses, or one its config e
     expect($original)->toBeInstanceOf(Findings::class)
         ->and($outside)->toEqual(OutOfScope::of($fixture('outside/Other.php')))
         ->and($excluded)->toEqual(OutOfScope::of($fixture('src/Excluded.php')));
+})->with($checkers);
+
+it('checks several mutants in one go, side by side where it can, each answered in its check\'s place as one check answers it', function (
+    StaticChecker $checker,
+) use ($fixture): void {
+    $original = $checker->findings(Paths::of($fixture('src/Money.php')), Withheld::standard());
+    $checks = [
+        MutantCheck::of($fixture('src/Money.php'), $fixture('mutants/Money.invalid.php')),
+        MutantCheck::of($fixture('outside/Other.php'), $fixture('mutants/Other.invalid.php')),
+        MutantCheck::of($fixture('src/Money.php'), $fixture('mutants/Money.valid.php')),
+        MutantCheck::of($fixture('src/Money.php'), $fixture('mutants/Money.missing.php')),
+    ];
+    $read = static fn(Findings|OutOfScope|CannotJudge $answer): string => match (true) {
+        $answer instanceof Findings => $original instanceof Findings && $answer->rejects($original) ? 'rejected' : 'passed',
+        $answer instanceof OutOfScope => 'out of scope',
+        default => 'cannot judge',
+    };
+
+    expect(array_map($read, [...$checker->checks(MutantChecks::of(...$checks), ProcessCount::of(2))]))
+        ->toBe(['rejected', 'out of scope', 'passed', 'cannot judge'])
+        ->and(array_map($read, array_map($checker->check(...), $checks)))
+        ->toBe(['rejected', 'out of scope', 'passed', 'cannot judge'])
+        ->and(count($checker->checks(MutantChecks::of(), ProcessCount::of(2))))->toBe(0);
 })->with($checkers);
 
 it('cannot judge a mutant it cannot analyse, so the mutant goes to its tests', function (StaticChecker $checker) use ($fixture): void {

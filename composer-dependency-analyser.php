@@ -38,6 +38,7 @@ return (new Configuration())
     ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/stall')
     ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/override')
     ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/interceptor')
+    ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/twins')
     ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/phpunit-fixture')
     ->addPathToExclude(__DIR__ . '/tests/Contract/StaticChecker/fixture')
     ->ignoreErrorsOnPackages(

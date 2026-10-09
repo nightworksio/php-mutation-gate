@@ -719,6 +719,9 @@
                     "changedLine": {
                         "type": "boolean"
                     },
+                    "carriedPruned": {
+                        "const": true
+                    },
                     "coveredBy": {
                         "type": "array",
                         "items": {
@@ -1224,6 +1227,58 @@
                     "additionalProperties": false
                 }
             ]
+        },
+        "pruning": {
+            "type": "object",
+            "properties": {
+                "mutators": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "window": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "lastSurvivor": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "name",
+                            "window"
+                        ],
+                        "additionalProperties": false
+                    }
+                },
+                "units": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "carried": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "auditSeconds": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "savedSeconds": {
+                    "type": "number",
+                    "minimum": 0
+                }
+            },
+            "required": [
+                "mutators",
+                "units",
+                "carried",
+                "auditSeconds",
+                "savedSeconds"
+            ],
+            "additionalProperties": false
         }
     },
     "required": [

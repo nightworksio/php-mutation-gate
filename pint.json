@@ -9,6 +9,7 @@
         "tests/Contract/Runner/stall",
         "tests/Contract/Runner/override",
         "tests/Contract/Runner/interceptor",
+        "tests/Contract/Runner/twins",
         "tests/Contract/StaticChecker/fixture"
     ],
     "rules": {

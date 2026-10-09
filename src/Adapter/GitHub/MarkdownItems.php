@@ -52,7 +52,7 @@ final readonly class MarkdownItems
                     '<details><summary>%s %s, %s</summary>',
                     self::place($item),
                     Escape::text(Mutator::short($item->mutant()->mutator())),
-                    Label::of($item->judgement()),
+                    MutantText::label($item),
                 ),
                 self::diff($item),
                 Escape::text(self::cut($item->hint()->text())),
@@ -158,7 +158,7 @@ final readonly class MarkdownItems
             '| %s | %s | %s | %s | %s |',
             self::place($judged),
             Escape::text(Mutator::short($mutant->mutator())),
-            Label::of($judged->judgement()),
+            MutantText::label($judged),
             Escape::text(self::cut(MutantText::hinted($judged))),
             Escape::code($judged->reproduce()),
         );

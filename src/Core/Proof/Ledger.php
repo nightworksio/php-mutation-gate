@@ -8,12 +8,14 @@ use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistories;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
+use NightWorksIO\MutationGate\Core\Pruning\Survival;
 
 /**
  * What one scope has proved: its proofs, how long each unit took, the bases
  * the runs that wrote it keyed their units at, the most recent first, what it
  * holds of its runs ({@see ScopeRuns}), which tests killed its mutants first,
- * and what it learned of each static analyser.
+ * what it learned of each static analyser, and what each mutator's newest
+ * mutants came to.
  */
 final readonly class Ledger
 {
@@ -24,6 +26,7 @@ final readonly class Ledger
         private ScopeRuns $runs,
         private KillHistory $killers,
         private AnalyserHistories $analysers,
+        private Survival $survival,
     ) {
     }
 
@@ -36,6 +39,7 @@ final readonly class Ledger
             ScopeRuns::none(),
             KillHistory::none(),
             AnalyserHistories::none(),
+            Survival::none(),
         );
     }
 
@@ -83,10 +87,18 @@ final readonly class Ledger
         return clone($this, ['runs' => $runs]);
     }
 
-    /** This ledger, with the kill history a run learned, replacing the one held. */
-    public function withKillers(KillHistory $killers): self
+    /**
+     * This ledger, with what a run learned, replacing what it held of that
+     * kind: the kill history, what the static analysers came to, or what each
+     * mutator's newest mutants came to.
+     */
+    public function withLearned(KillHistory|AnalyserHistories|Survival $learned): self
     {
-        return clone($this, ['killers' => $killers]);
+        return match (true) {
+            $learned instanceof KillHistory => clone($this, ['killers' => $learned]),
+            $learned instanceof AnalyserHistories => clone($this, ['analysers' => $learned]),
+            default => clone($this, ['survival' => $learned]),
+        };
     }
 
     /**
@@ -94,7 +106,8 @@ final readonly class Ledger
      * so a key both prove keeps this one's, each unit's newest timing, this
      * one's bases before the other's, what this one holds of its runs, and
      * where both know who killed a mutant or a function's mutants, this
-     * one's, and where both learned of an analyser, this one's.
+     * one's, and where both learned of an analyser or of a runner's mutator,
+     * this one's.
      */
     public function and(self $other): self
     {
@@ -105,13 +118,8 @@ final readonly class Ledger
             $this->runs,
             $this->killers->and($other->killers),
             $this->analysers->and($other->analysers),
+            $this->survival->and($other->survival),
         );
-    }
-
-    /** This ledger, with what a run learned of the static analysers, replacing what it held. */
-    public function withAnalysers(AnalyserHistories $analysers): self
-    {
-        return clone($this, ['analysers' => $analysers]);
     }
 
     /** This ledger with timings only for these units, which are the ones that still exist. */
@@ -158,5 +166,11 @@ final readonly class Ledger
     public function analysers(): AnalyserHistories
     {
         return $this->analysers;
+    }
+
+    /** What each mutator's newest judged mutants in this scope came to, by runner, which decides pruning. */
+    public function survival(): Survival
+    {
+        return $this->survival;
     }
 }

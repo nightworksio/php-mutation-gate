@@ -188,7 +188,18 @@ final readonly class ReportSchema
                     ], ['sharding']),
                     self::object(['noHistory' => self::PRESENT], []),
                 ]],
-            ], ['score', 'suitesUnscored', 'run', 'cost', 'savings']),
+                'pruning' => self::object([
+                    'mutators' => self::listOfObjects(self::object([
+                        'name' => self::TEXT,
+                        'window' => self::WHOLE,
+                        'lastSurvivor' => self::TEXT,
+                    ], ['lastSurvivor'])),
+                    'units' => self::WHOLE,
+                    'carried' => self::WHOLE,
+                    'auditSeconds' => self::SECONDS,
+                    'savedSeconds' => self::SECONDS,
+                ], []),
+            ], ['score', 'suitesUnscored', 'run', 'cost', 'savings', 'pruning']),
         ]);
     }
 
@@ -381,6 +392,7 @@ final readonly class ReportSchema
                 MutantRecord::MESSAGE => self::TEXT,
             ], []),
             'changedLine' => self::FLAG,
+            'carriedPruned' => self::PRESENT,
             'coveredBy' => self::listOf(self::WHOLE),
             'judgedBy' => self::listOf(self::WHOLE),
             'killedBy' => self::listOf(self::WHOLE),
@@ -397,6 +409,7 @@ final readonly class ReportSchema
             'diff',
             'reason',
             MutantRecord::REJECTION,
+            'carriedPruned',
             'judgedBy',
             'seconds',
             'limit',

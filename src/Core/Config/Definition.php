@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Config\Definition\LocalKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\MutatorsKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\PestKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\ProofsKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\PruningKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\ReachKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\Reading;
 use NightWorksIO\MutationGate\Core\Config\Definition\ReportsKeys;
@@ -63,6 +64,7 @@ final readonly class Definition
             ...BadgeKeys::fields(),
             ...PestKeys::fields(),
             ...StaticCheckKeys::fields($origin),
+            ...PruningKeys::fields(),
             ...MutatorsKeys::fields(),
             ...LocalKeys::fields(),
             ...CoverageKeys::fields(),

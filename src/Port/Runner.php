@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Port;
 
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
+use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
+use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
@@ -90,9 +92,16 @@ interface Runner
      * `MutationResult::withEvidence()`, leaving out what it cannot tell
      * (ADR-0014, decision 16). A kill that names no killer stands only where
      * its ending says a signal or a fatal error PHP recorded ended it, and is
-     * unjudged otherwise (ADR-0014, decision 17).
+     * unjudged otherwise (ADR-0014, decision 17). A runner that can keep a
+     * mutant from its run asks the pre-checker once, before any mutant runs,
+     * and runs none it rejects: each is killed by static analysis, with its
+     * rejection (ADR-0020, decisions 11 and 12). One that cannot leaves every
+     * check until after the tests (decision 13).
      */
-    public function mutate(MutationRequest $request): MutationResult|CannotJudge;
+    public function mutate(
+        MutationRequest $request,
+        PreChecker $preChecker = new NoPreCheck(),
+    ): MutationResult|CannotJudge;
 
     /**
      * What each of these unmutated controls finds (ADR-0008, decision 2):

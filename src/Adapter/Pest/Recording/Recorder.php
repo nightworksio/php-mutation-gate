@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use Pest\Mutate\Event\Facade;
+use Pest\Mutate\Mutation;
 use Pest\Mutate\MutationSuite;
 use Pest\Mutate\MutationTest;
 use Pest\Mutate\Repositories\TelemetryRepository;
@@ -181,9 +182,12 @@ final readonly class Recorder
     }
 
     /**
-     * Every mutant Pest made, and then how many there are, with the opening
-     * run's seconds, from which each mutant's limit follows. A run stopped
-     * before that last line lost some of its mutants.
+     * Every mutant Pest made, each it kept out of its run as a twin of one
+     * made before it, and then how many Pest made, with the opening run's
+     * seconds, from which each mutant's limit follows. A run stopped before
+     * that last line lost some of its mutants. Where the gate checks mutants
+     * before their tests, it then waits for the gate's verdicts on them, an
+     * hour at most, which the gate's deadline ends long before.
      */
     public function planned(MutationSuite $suite): void
     {
@@ -191,9 +195,13 @@ final readonly class Recorder
 
         foreach ($suite->repository->all() as $collection) {
             foreach ($collection->tests() as $test) {
-                $this->write(RecordLine::planned(self::plannedOf($test)));
+                $this->write(RecordLine::planned(self::madeOf($test->mutation)));
                 $made++;
             }
+        }
+
+        foreach (Twins::of($this->results) as $twin) {
+            $this->write(RecordLine::planned($twin, RecordEvent::Twin));
         }
 
         $telemetry = $this->telemetry;
@@ -201,19 +209,25 @@ final readonly class Recorder
             ? Seconds::of($telemetry->getInitialTestSuiteDuration())
             : Unmeasured::duration();
         $this->write(RecordLine::made($made, $opening));
+
+        $verdicts = getenv(GateVariable::Verdicts->value);
+
+        if (is_string($verdicts) && $verdicts !== '') {
+            Verdicts::await($verdicts, Seconds::of((float) Seconds::PER_HOUR));
+        }
     }
 
     /** A mutant Pest made, as the plugin records it. */
-    public static function plannedOf(MutationTest $test): PlannedMutant
+    public static function madeOf(Mutation $mutation): PlannedMutant
     {
         return PlannedMutant::of(
-            $test->getId(),
-            DiskPath::of(sprintf('%s', $test->mutation->file->getRealPath())),
-            Line::of($test->mutation->startLine),
-            Line::of($test->mutation->endLine),
-            Bridged::nameOf($test->mutation->mutator),
-            $test->mutation->diff,
-            DiskPath::of($test->mutation->modifiedSourcePath),
+            $mutation->id,
+            DiskPath::of(sprintf('%s', $mutation->file->getRealPath())),
+            Line::of($mutation->startLine),
+            Line::of($mutation->endLine),
+            Bridged::nameOf($mutation->mutator),
+            $mutation->diff,
+            DiskPath::of($mutation->modifiedSourcePath),
         );
     }
 

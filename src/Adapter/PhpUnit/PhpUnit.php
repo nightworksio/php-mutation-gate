@@ -11,6 +11,8 @@ use function is_file;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
+use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
+use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -193,13 +195,15 @@ final readonly class PhpUnit implements Runner
     }
 
     /** Every mutant of the requested files, each run allowed its limit within `timeouts.seconds` and `.most`. */
-    public function mutate(MutationRequest $request): MutationResult|CannotJudge
-    {
+    public function mutate(
+        MutationRequest $request,
+        PreChecker $preChecker = new NoPreCheck(),
+    ): MutationResult|CannotJudge {
         $this->held->forget();
 
         $bounds = $request->pool()->bounding($this->bounds);
 
-        return $this->mutating($this->shell)->result($request, $bounds, NotGiven::value());
+        return $this->mutating($this->shell)->result($request, $bounds, NotGiven::value(), $preChecker);
     }
 
     /**

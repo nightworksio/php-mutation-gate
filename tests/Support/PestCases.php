@@ -21,7 +21,9 @@ use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Placed;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
@@ -37,6 +39,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -48,6 +51,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
 
 use function realpath;
+use function rtrim;
 use function sprintf;
 
 /** Projects, runs and shells the tests of the Pest adapter set up. */
@@ -321,6 +325,45 @@ final readonly class PestCases
                 PestRun::made(1),
                 ...($named ? [PestRun::killed('n1', self::RUN_ADDS)] : []),
                 ...($narrowed ? [PestRun::narrowed('n1', [self::spec($at)])] : []),
+                PestRun::finished('n1', PestStatus::Tested, 0.25),
+                PestRun::end(),
+            ]);
+
+            return Ran::finished(succeeded: true, output: '  Mutations: 1 tested');
+        });
+    }
+
+    /**
+     * A shell whose narrowed run kills the one mutant of src/Money.php with the
+     * run's first test, its order and arguments recorded, and whose replay of
+     * that run, unmutated, runs that test in the same order or another.
+     */
+    public static function replayed(Project $at, bool $sameOrder): ShellFake
+    {
+        $order = OrderDigest::of(TestId::of(self::RUN_ADDS))->value();
+
+        return new ShellFake(static function (Command $command) use ($at, $sameOrder, $order): Ran {
+            $environment = $command->environment();
+            $results = sprintf('%s', $environment[GateVariable::Results->value] ?? '');
+
+            if (($environment[GateVariable::StopAfter->value] ?? false) !== false) {
+                $copy = sprintf('%s', $environment[Recorder::MUTATED] ?? '');
+                file_put_contents($results, sprintf(
+                    '%s%s',
+                    RecordLine::ran($copy, 1),
+                    RecordLine::stopped($copy, 1, $sameOrder ? $order : OrderDigest::of(TestId::of('T::other'))->value()),
+                ));
+
+                return Ran::finished(succeeded: true, output: 'the replay');
+            }
+
+            CoverageMaps::write(Recorder::coverageBeside($results), sprintf('%s/', $at->root()), ['src/Money.php' => [11 => [0]]], [self::RUN_ADDS], []);
+            PestRun::write($results, [
+                PestRun::planned('n1', sprintf('%s/src/Money.php', $at->root()), 11, self::RUN_PLUS, 'return $a + $b;', 'return $a - $b;'),
+                PestRun::made(1),
+                PestRun::killedAt('n1', self::RUN_ADDS, Placed::at(1, $order, PestRun::RUN)),
+                PestRun::narrowed('n1', [self::spec($at)]),
+                rtrim(RecordLine::arguments(PestRun::mutated('n1'), ['vendor/bin/pest', '--bail', self::spec($at)])),
                 PestRun::finished('n1', PestStatus::Tested, 0.25),
                 PestRun::end(),
             ]);

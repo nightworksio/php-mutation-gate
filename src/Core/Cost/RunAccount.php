@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Cost;
 
 use function max;
 
+use NightWorksIO\MutationGate\Core\Pruning\PruningAccount;
 use NightWorksIO\MutationGate\Core\Report\NoTrend;
 use NightWorksIO\MutationGate\Core\Report\Trend;
 use NightWorksIO\MutationGate\Core\Time\Instant;
@@ -13,8 +14,9 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
  * The account of a run beside its verdict: when each part began and how
- * long it took, what it cost, what it saved, and the runs `trend.json` held
- * from before it (ADR-0016, decisions 6 and 19, and ADR-0017, decision 11).
+ * long it took, what it cost, what it saved, the runs `trend.json` held
+ * from before it (ADR-0016, decisions 6 and 19, and ADR-0017, decision 11),
+ * and what pruning did (ADR-0025, decision 4).
  * A run the flows gave no timings says nothing of its cost.
  */
 final readonly class RunAccount
@@ -24,13 +26,20 @@ final readonly class RunAccount
         private Cost|Untimed $cost,
         private Savings|NoHistory $savings,
         private Trend|NoTrend $previous,
+        private PruningAccount $pruning,
     ) {
     }
 
     /** No timings, no cost, no history, and no trend, as off the default branch. */
     public static function none(): self
     {
-        return new self(Untimed::run(), Untimed::run(), NoHistory::yet(), NoTrend::offTheDefaultBranch());
+        return new self(
+            Untimed::run(),
+            Untimed::run(),
+            NoHistory::yet(),
+            NoTrend::offTheDefaultBranch(),
+            PruningAccount::none(),
+        );
     }
 
     public function withTimings(RunTimings $timings): self
@@ -46,6 +55,18 @@ final readonly class RunAccount
     public function withSavings(Savings $savings): self
     {
         return clone($this, ['savings' => $savings]);
+    }
+
+    /** This account, with what pruning did in the run (ADR-0025, decision 4). */
+    public function withPruning(PruningAccount $pruning): self
+    {
+        return clone($this, ['pruning' => $pruning]);
+    }
+
+    /** What pruning did in the run; nothing where it pruned nothing. */
+    public function pruning(): PruningAccount
+    {
+        return $this->pruning;
     }
 
     /** This account, after the runs `trend.json` held before it, which the flows read once on the default branch. */

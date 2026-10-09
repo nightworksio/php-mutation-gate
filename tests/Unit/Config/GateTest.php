@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Config\Pest;
 use NightWorksIO\MutationGate\Config\Pipeline;
 use NightWorksIO\MutationGate\Config\Preset;
 use NightWorksIO\MutationGate\Config\Proofs;
+use NightWorksIO\MutationGate\Config\Pruning;
 use NightWorksIO\MutationGate\Config\Reach;
 use NightWorksIO\MutationGate\Config\Report;
 use NightWorksIO\MutationGate\Config\Runner;
@@ -140,6 +141,9 @@ it('writes every setting of the configuration reference', function (): void {
                 StaticCheck::seconds(45),
                 Mutators::sets('acme', 'acme-auth'),
                 Mutators::except('acme/RemoveAudit'),
+                Pruning::off(),
+                Pruning::window(200),
+                Pruning::auditEvery('3d'),
                 Local::watchBudget('2m'),
                 Local::prePushBudget('10m'),
             ),
@@ -210,8 +214,13 @@ it('writes every setting of the configuration reference', function (): void {
         'pest' => ['patch' => true, 'canary' => 'canary'],
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45],
         'mutators' => ['sets' => ['acme', 'acme-auth'], 'except' => ['acme/RemoveAudit']],
+        'pruning' => ['enabled' => false, 'window' => 200, 'audit' => '3d'],
         'local' => ['watchBudget' => '2m', 'prePushBudget' => '10m'],
     ]);
+});
+
+it('writes pruning turned on', function (): void {
+    expect(Configs::written(Gate::configure()->with(Pruning::on())))->toBe(['pruning' => ['enabled' => true]]);
 });
 
 it('writes the memory cap beside the runner it chooses, and alone where a later layer chooses one', function (): void {

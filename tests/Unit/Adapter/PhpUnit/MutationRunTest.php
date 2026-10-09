@@ -20,10 +20,13 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
+use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
 use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Pruning\MutatorNames;
+use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -38,11 +41,15 @@ use NightWorksIO\MutationGate\Core\Runner\WorkerSlot;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
+use NightWorksIO\MutationGate\Mutator\Mutator;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
+use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinusAlso;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveEcho;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitScan;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitShellFake;
+use NightWorksIO\MutationGate\Tests\Support\PreCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -61,12 +68,12 @@ function library(): string
 }
 
 /**
- * The mutation run over a library, whose PHPUnit serves each mutant and fails every test it runs, and the shell it
- * runs PHPUnit in.
+ * The mutation run over a library with these mutators, or two of its own, whose PHPUnit serves each mutant and fails
+ * every test it runs, and the shell it runs PHPUnit in.
  *
  * @return array{MutationRun, PhpUnitShellFake}
  */
-function killingRun(string $root): array
+function killingRun(string $root, Mutator ...$mutators): array
 {
     $project = Project::at($root, Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'));
     $shell = new PhpUnitShellFake(static function (Command $command): Ran {
@@ -79,7 +86,7 @@ function killingRun(string $root): array
     $judging = new MutantRun($project, $shell, $invocation, new TestFiles($project), PhpUnitScan::uncapped($project), NotGiven::value());
     $run = new MutationRun(
         $project,
-        Engine::with(new PlusToMinus(), new RemoveEcho()),
+        $mutators === [] ? Engine::with(new PlusToMinus(), new RemoveEcho()) : Engine::with(...$mutators),
         $judging,
         new Workforce($project, $shell, $invocation, PhpUnitScan::uncapped($project), $judging),
         Laps::from(new WallClock()->seconds(...)),
@@ -112,6 +119,54 @@ it('makes every mutant of every PHP file a directory holds, judging each by its 
     ])
         ->and($result instanceof MutationResult ? $result->skipped() : -1)->toBe(0)
         ->and($shell->commands())->toHaveCount(2);
+});
+
+it('runs one of the mutants that leave a file alike, and judges the rest as it, in no time', function () use ($covered): void {
+    [$run, $shell] = killingRun(library(), new PlusToMinus(), new PlusToMinusAlso(), new RemoveEcho());
+    $result = $run->of(MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests()), $covered, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
+    $twins = $result instanceof MutationResult ? array_values(array_map(
+        static fn(Mutant $mutant): Seconds|Unmeasured => $mutant->duration(),
+        array_filter([...$result->mutants()], static fn(Mutant $mutant): bool => $mutant->mutator() === 'acme/PlusToMinusAlso'),
+    )) : [];
+
+    expect(judgedMutants($result))->toBe([
+        ['src/Money.php', 'acme/RemoveEcho', 'killed'],
+        ['src/Money.php', 'acme/PlusToMinus', 'killed'],
+        ['src/Money.php', 'acme/PlusToMinusAlso', 'killed'],
+        ['src/Tax.php', 'acme/PlusToMinus', 'uncovered'],
+        ['src/Tax.php', 'acme/PlusToMinusAlso', 'uncovered'],
+    ])
+        ->and($result instanceof MutationResult ? $result->skipped() : -1)->toBe(0)
+        ->and($twins)->toEqual([Seconds::of(0.0), Seconds::of(0.0)])
+        ->and($shell->commands())->toHaveCount(2);
+});
+
+it('kills a covered mutant static analysis rejects before its tests, and its twins, with no run, offering each behind its covering tests\' own time, none where untimed, and no uncovered one', function () use ($covered): void {
+    [$run, $shell] = killingRun(library(), new PlusToMinus(), new PlusToMinusAlso(), new RemoveEcho());
+    $checker = new PreCheckerFake(['acme/PlusToMinus']);
+    $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())
+        ->across(Pool::of(ProcessCount::of(3), Workers::Fresh));
+    $timed = $covered->timed(TestId::of('Tests\\MoneySpec::adds'), Seconds::of(1.5));
+    $result = $run->of($request, $timed, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)), $checker);
+    $rejected = $result instanceof MutationResult ? array_values(array_filter(
+        [...$result->mutants()],
+        static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::KilledByStaticAnalysis,
+    )) : [];
+
+    expect(judgedMutants($result))->toBe([
+        ['src/Money.php', 'acme/PlusToMinus', 'killed-by-static-analysis'],
+        ['src/Money.php', 'acme/PlusToMinusAlso', 'killed-by-static-analysis'],
+        ['src/Money.php', 'acme/RemoveEcho', 'killed'],
+        ['src/Tax.php', 'acme/PlusToMinus', 'uncovered'],
+        ['src/Tax.php', 'acme/PlusToMinusAlso', 'uncovered'],
+    ])
+        ->and(array_map(static fn(Mutant $mutant): mixed => $mutant->reason(), $rejected))
+        ->toEqual(array_fill(0, 2, PreCheckerFake::rejection(Path::of('src/Money.php'))))
+        ->and(array_map(static fn(string $offered): string => explode(' ', $offered)[0], $checker->offered()))
+        ->toBe(['acme/RemoveEcho', 'acme/PlusToMinus'])
+        ->and($checker->sides())->toBe([3])
+        ->and($checker->tests())->toBe([0.0, 1.5])
+        ->and($shell->commands())->toHaveCount(1);
 });
 
 it('allows each mutant 5 s plus three times its covering tests\' own time within the bounds, and the floor where one is untimed', function () use ($covered): void {
@@ -186,6 +241,16 @@ it('makes only the mutators asked for, of the files not left out', function () u
         ->leavingOut(Paths::of(Path::of('src/Tax.php')));
 
     expect(judgedMutants($run->of($request, $covered, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)))))->toBe([['src/Money.php', 'acme/PlusToMinus', 'killed']]);
+});
+
+it('makes no mutant of a mutator its request leaves out of a file, and every other', function () use ($covered): void {
+    [$run] = killingRun(library());
+    $pruned = Pruned::of(MutatorNames::of('acme/PlusToMinus'), Paths::of(Path::of('src/Money.php')));
+    $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())
+        ->narrowedTo(Paths::of(Path::of('src')), Narrowing::none()->pruning($pruned));
+
+    expect(judgedMutants($run->of($request, $covered, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)))))
+        ->toBe([['src/Money.php', 'acme/RemoveEcho', 'killed'], ['src/Tax.php', 'acme/PlusToMinus', 'uncovered']]);
 });
 
 it('skips with no record every mutant past the request\'s deadline', function () use ($covered): void {
@@ -311,7 +376,7 @@ it('judges no mutant after a batch whose runs could not all start by the deadlin
         ->and($result instanceof MutationResult ? [count($result->mutants()), $result->skipped()] : [])->toBe([3, 14]);
 });
 
-it('gives each kill a fresh run made how far its run went, from the test its results file says started', function () use ($covered): void {
+it('gives each kill a fresh run made how far its run went, from the test its results file says started, and a twin its first\'s', function () use ($covered): void {
     $root = library();
     $project = Project::at($root, Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'));
     $shell = new PhpUnitShellFake(static function (Command $command): Ran {
@@ -324,7 +389,7 @@ it('gives each kill a fresh run made how far its run went, from the test its res
     $judging = new MutantRun($project, $shell, $invocation, new TestFiles($project), PhpUnitScan::uncapped($project), NotGiven::value());
     $run = new MutationRun(
         $project,
-        Engine::with(new PlusToMinus(), new RemoveEcho()),
+        Engine::with(new PlusToMinus(), new PlusToMinusAlso(), new RemoveEcho()),
         $judging,
         new Workforce($project, $shell, $invocation, PhpUnitScan::uncapped($project), $judging),
         Laps::from(new WallClock()->seconds(...)),
@@ -336,6 +401,10 @@ it('gives each kill a fresh run made how far its run went, from the test its res
         : [];
     $expected = Prefix::keyedAt(1, Prefix::keyOf(Paths::none(), OrderDigest::of(TestId::of('Tests\MoneySpec::adds'))->value()));
 
-    expect(judgedMutants($result))->toBe([['src/Money.php', 'acme/RemoveEcho', 'killed'], ['src/Money.php', 'acme/PlusToMinus', 'killed']])
-        ->and($prefixes)->toEqual([$expected, $expected]);
+    expect(judgedMutants($result))->toBe([
+        ['src/Money.php', 'acme/RemoveEcho', 'killed'],
+        ['src/Money.php', 'acme/PlusToMinus', 'killed'],
+        ['src/Money.php', 'acme/PlusToMinusAlso', 'killed'],
+    ])
+        ->and($prefixes)->toEqual([$expected, $expected, $expected]);
 });

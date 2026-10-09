@@ -12,7 +12,9 @@ use function count;
 
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
+use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\Unwatched;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -23,7 +25,7 @@ use NightWorksIO\MutationGate\Port\Processes;
  * written in PHP says, told what its place tells it. Side by side, the
  * commands take the places in turn, the first in the first place, and all
  * start within any time but none. Each is kept, as it ran, in the order it
- * was given.
+ * was given. A watched one is looked at once, before it ends.
  */
 final class ProcessesFake implements Processes
 {
@@ -35,9 +37,10 @@ final class ProcessesFake implements Processes
     {
     }
 
-    public function run(ProcessCommand $command): Ran
+    public function run(ProcessCommand $command, ProcessWatch $watch = new Unwatched()): Ran
     {
         $this->ran[] = $command;
+        $watch->look();
 
         return ($this->program)($command);
     }

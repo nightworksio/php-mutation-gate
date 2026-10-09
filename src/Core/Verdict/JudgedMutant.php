@@ -38,10 +38,15 @@ final readonly class JudgedMutant
         private Hint|Missing $hint,
         private Membership|Unclustered $cluster,
         private WeaklyAsserted|Removable|NoFinding $finding,
+        private bool $carriedPruned,
     ) {
     }
 
-    public static function of(Mutant $mutant, MutantJudgement $judgement): self
+    /**
+     * A mutant as judged; carried where its unit's last result gave it
+     * because the plan pruned its mutator (ADR-0025, decision 1).
+     */
+    public static function of(Mutant $mutant, MutantJudgement $judgement, bool $carriedPruned = false): self
     {
         return new self(
             $mutant,
@@ -51,6 +56,7 @@ final readonly class JudgedMutant
             hint: Missing::at($mutant->location()->file()),
             cluster: Unclustered::mutant(),
             finding: NoFinding::survivor(),
+            carriedPruned: $carriedPruned,
         );
     }
 
@@ -113,6 +119,12 @@ final readonly class JudgedMutant
                 'judgement' => MutantJudgement::Ignored,
             ])
             : $this;
+    }
+
+    /** Whether it was carried from its unit's last result because the plan pruned its mutator. */
+    public function isCarriedPruned(): bool
+    {
+        return $this->carriedPruned;
     }
 
     public function mutant(): Mutant

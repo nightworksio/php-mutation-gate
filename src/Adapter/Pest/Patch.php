@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Twins;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Verdicts;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Hunk;
 use NightWorksIO\MutationGate\Core\Composer\Package;
@@ -24,6 +26,13 @@ use function sprintf;
  *   finished for its silence limit, the standard limit of its slowest test
  *   (see Silence).
  * - Given a list of native ids (see OnlyList), a run makes only those mutants.
+ * - Given a list of pruned mutators (see PrunedFile), a run makes none of their
+ *   mutants in the files it names.
+ * - Where the gate records the run, a mutant that leaves its file as one made
+ *   before it does is kept out of the run, and recorded as that one's twin
+ *   (see Twins).
+ * - Where the gate checks mutants before their tests, a mutant it rejected is
+ *   tested without a run (see Verdicts).
  * - Where the gate narrows a run, a mutant's own run loads only the test files
  *   its covering tests need (see CoveringFiles), not every test file, and the
  *   files it loads are recorded by the mutant's mutated copy.
@@ -216,6 +225,22 @@ final readonly class Patch
                 $this->updateResult(MutationTestResult::Tested);
         PHP;
 
+    private const string START_SHIPS = <<<'PHP'
+                // TODO: we should pass the tests to run in another way, maybe via cache, mutation or env variable
+        PHP;
+
+    private const string START_BECOMES = <<<'PHP'
+                {MARK} a mutant the gate's static analysis rejected is tested without a run (see Verdicts).
+                if (class_exists(\%1$s::class) && \%1$s::rejects($this->mutation->modifiedSourcePath)) {
+                    $this->updateResult(result: MutationTestResult::Tested);
+                    Facade::instance()->emitter()->mutationTested($this);
+
+                    return false;
+                }
+
+                // TODO: we should pass the tests to run in another way, maybe via cache, mutation or env variable
+        PHP;
+
     private const string ONLY_SHIPS = <<<'PHP'
                         $mutationSuite->repository->add($mutation);
         PHP;
@@ -223,6 +248,19 @@ final readonly class Patch
     private const string ONLY_BECOMES = <<<'PHP'
                         {MARK} a run again makes only the mutants it names.
                         if ($only !== [] && ! isset($only[$mutation->id])) {
+                            continue;
+                        }
+
+                        {MARK} no mutant of a mutator the gate prunes in a file it prunes it in.
+                        if (
+                            $pruned !== ''
+                            && \%1$s::leavesOut($pruned, (string) $mutation->file->getRealPath(), $mutation->mutator)
+                        ) {
+                            continue;
+                        }
+
+                        {MARK} one run for mutants that leave their file alike, the first's verdict each one's.
+                        if ($recorded !== '' && \%2$s::isTwin($mutation, $recorded)) {
                             continue;
                         }
 
@@ -237,6 +275,12 @@ final readonly class Patch
     private const string LISTED_BECOMES = <<<'PHP'
                 {MARK} the mutants a run again makes, read once; none for every mutant.
                 $only = class_exists(\%1$s::class) ? \%1$s::in((string) getenv('%2$s')) : [];
+
+                {MARK} the list of mutators pruned in unchanged files; none for every mutant.
+                $pruned = class_exists(\%3$s::class) ? (string) getenv('%4$s') : '';
+
+                {MARK} the file the gate records the run in; none where it records nothing.
+                $recorded = class_exists(\%5$s::class) ? (string) getenv('%6$s') : '';
 
                 foreach ($files as $file) {
                     $linesToMutate = [];
@@ -297,6 +341,7 @@ final readonly class Patch
     {
         return [
             Hunk::in(self::MUTATION_TEST, self::FILTER_SHIPS, sprintf(self::FILTER_BECOMES, Ceiling::BYTES)),
+            Hunk::in(self::MUTATION_TEST, self::START_SHIPS, sprintf(self::START_BECOMES, Verdicts::class)),
             Hunk::in(self::MUTATION_TEST, self::COVERING_SHIPS, self::COVERING_BECOMES),
             Hunk::in(self::MUTATION_TEST, self::PATHS_SHIPS, sprintf(self::PATHS_BECOMES, CoveringFiles::class)),
             Hunk::in(self::MUTATION_TEST, self::LIMIT_SHIPS, sprintf(self::LIMIT_BECOMES, MutantTime::class)),
@@ -321,9 +366,17 @@ final readonly class Patch
             Hunk::in(
                 self::TEST_RUNNER,
                 self::LISTED_SHIPS,
-                sprintf(self::LISTED_BECOMES, OnlyList::class, GateVariable::Only->value),
+                sprintf(
+                    self::LISTED_BECOMES,
+                    OnlyList::class,
+                    GateVariable::Only->value,
+                    PrunedFile::class,
+                    GateVariable::Pruned->value,
+                    Twins::class,
+                    GateVariable::Results->value,
+                ),
             ),
-            Hunk::in(self::TEST_RUNNER, self::ONLY_SHIPS, self::ONLY_BECOMES),
+            Hunk::in(self::TEST_RUNNER, self::ONLY_SHIPS, sprintf(self::ONLY_BECOMES, PrunedFile::class, Twins::class)),
             Hunk::in(self::STREAM_WRAPPER, self::STAT_SHIPS, self::STAT_BECOMES),
         ];
     }

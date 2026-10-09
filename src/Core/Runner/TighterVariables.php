@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 
 use function explode;
 use function implode;
-use function is_numeric;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -44,11 +43,10 @@ final readonly class TighterVariables
      */
     public static function read(string|false $floor, string|false $mutators): TighterSilence
     {
-        $named = is_string($floor) && is_numeric($floor) && (float) $floor > 0.0
-            && is_string($mutators) && $mutators !== '';
+        $seconds = ToldSeconds::read($floor);
 
-        return $named
-            ? TighterSilence::of(Seconds::of((float) $floor), ...explode(self::BETWEEN, $mutators))
+        return $seconds instanceof Seconds && is_string($mutators) && $mutators !== ''
+            ? TighterSilence::of($seconds, ...explode(self::BETWEEN, $mutators))
             : TighterSilence::none();
     }
 }

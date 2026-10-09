@@ -175,17 +175,20 @@ final readonly class Judge
      * Each mutant of a unit's result as its status reports it after triage,
      * or flaky where it gave two answers, then left out where an ignore names
      * it, with the tests that judged it, and proven equivalent where it
-     * survived and is; and each kill a ledger proved.
+     * survived and is; and each kill a ledger proved; each marked where it
+     * was carried for a pruned mutator.
      */
     private function judged(UnitResult $result): JudgedMutants
     {
         $flaky = $result->flaky();
+        $carried = $result->carriedPruned();
         $judged = [];
 
         foreach ($result->mutants() as $mutant) {
             $one = $this->ignoring->judged(JudgedMutant::of(
                 $mutant,
                 $flaky->has($mutant->id()) ? MutantJudgement::Flaky : $this->triage->judged($mutant),
+                carriedPruned: $carried->has($mutant->id()),
             ));
             $judged[] = $one->judgedBy($this->judgingTests($result, $one));
         }
@@ -193,7 +196,7 @@ final readonly class Judge
         $proved = [];
 
         foreach ($result->kills() as $kill) {
-            $proved[] = JudgedKill::of($kill);
+            $proved[] = JudgedKill::of($kill, carriedPruned: $carried->has($kill->id()));
         }
 
         $mutants = JudgedMutants::of(...$judged)

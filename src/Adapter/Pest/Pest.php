@@ -7,6 +7,8 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 use function array_values;
 
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
+use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
+use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed as ComposerInstalled;
@@ -208,9 +210,11 @@ final readonly class Pest implements Runner
     }
 
     /** Every mutant of the requested files, where there are any to mutate: Pest's `--path` never names none. */
-    public function mutate(MutationRequest $request): MutationResult|CannotJudge
-    {
-        return $this->run($this->shell)->of($request);
+    public function mutate(
+        MutationRequest $request,
+        PreChecker $preChecker = new NoPreCheck(),
+    ): MutationResult|CannotJudge {
+        return $this->run($this->shell)->checkingWith($preChecker)->of($request);
     }
 
     /** What each unmutated control finds, its file served through Pest's override (see UnmutatedRuns). */

@@ -484,7 +484,7 @@ function wiredAnalyserIn(string $project): AnalyserIdentity|NoAnalyser|CannotJud
 {
     $registry = wiringRegistry()->withStaticChecker(
         Name::of('stand-in'),
-        static fn(Options $options): PhpStan|Invalid => PhpStan::fromOptions($options, $project),
+        static fn(Options $options): PhpStan|Invalid => PhpStan::fromOptions($options, $project, new LocalProcesses(new SystemClock())),
     );
     $adapters = new Wiring($registry, Variables::of([]), wiringDetected())
         ->adapters(Flows::settings(StaticCheck::uses('stand-in')), Directory::at($project));

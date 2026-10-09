@@ -114,7 +114,7 @@ final readonly class Seeder
 
         foreach ($suite->repository->all() as $collection) {
             foreach ($collection->tests() as $test) {
-                $planned[] = Recorder::plannedOf($test);
+                $planned[] = Recorder::madeOf($test->mutation);
             }
         }
 
