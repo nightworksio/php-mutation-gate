@@ -10,6 +10,10 @@ use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Migration\Migrated;
+use NightWorksIO\MutationGate\Core\Migration\Migration;
+use NightWorksIO\MutationGate\Core\Migration\Migrations;
+use NightWorksIO\MutationGate\Core\Migration\Rename;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -101,4 +105,17 @@ it('reads no other file, as the gate\'s YAML names none', function () use ($file
     Scratch::write($project, 'mutation-gate.yaml', "runner: pest\n");
 
     expect(new YamlConfig()->reads($file(sprintf('%s/mutation-gate.yaml', $project))))->toEqual(ConfigReads::none());
+});
+
+it('writes a YAML config again from its migrated form where a change applies, saying its comments are not kept, and leaves a current one as it is', function (): void {
+    $migrations = Migrations::of(Migration::in('2.0.0', Rename::of('runnr', 'runner')));
+    $changed = new YamlConfig()->migrated('mutation-gate.yaml', "# the runner\nrunnr: pest\n", $migrations);
+    $current = new YamlConfig()->migrated('mutation-gate.yaml', "# the runner\nrunner: pest\n", $migrations);
+
+    expect($changed instanceof Migrated ? [$changed->after(), $changed->note()] : $changed)->toBe([
+        "runner: pest\n",
+        'mutation-gate.yaml is written again from its migrated form, so its comments are not kept.',
+    ])
+        ->and($current instanceof Migrated ? [$current->changes(), $current->note()] : $current)->toBe([false, ''])
+        ->and(new YamlConfig()->migrated('mutation-gate.yaml', "runner: [\n", $migrations))->toBeInstanceOf(CannotJudge::class);
 });

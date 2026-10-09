@@ -18,6 +18,9 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Parsed;
 use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Migration\Migrated;
+use NightWorksIO\MutationGate\Core\Migration\Migrating;
+use NightWorksIO\MutationGate\Core\Migration\Migrations;
 use NightWorksIO\MutationGate\Port\ConfigLoader;
 
 use function sprintf;
@@ -45,13 +48,23 @@ final readonly class NeonConfig implements ConfigLoader
             return CannotJudge::because(sprintf('%s could not be read.', $path));
         }
 
-        try {
-            $json = Parsed::json(Neon::decode($text), $path);
-        } catch (Exception $exception) {
-            return CannotJudge::because(sprintf('%s is not NEON: %s', $path, $exception->getMessage()));
-        }
+        $json = $this->form($text, $path);
 
         return $json instanceof Json ? $file->read($json) : $json;
+    }
+
+    /**
+     * A NEON config as `migrate` would write it, written again from its
+     * migrated form, which keeps none of its comments (ADR-0026, decision 3);
+     * or why it cannot be read.
+     */
+    public function migrated(string $shown, string $text, Migrations $migrations): Migrated|CannotJudge
+    {
+        $json = $this->form($text, $shown);
+
+        return $json instanceof Json
+            ? Migrating::rewritten($shown, $text, $json, $migrations, $this->render(...))
+            : $json;
     }
 
     /** A config written as NEON, as `init` and `config:show` write it. */
@@ -62,5 +75,15 @@ final readonly class NeonConfig implements ConfigLoader
             blockMode: true,
             indentation: self::INDENT,
         );
+    }
+
+    /** The JSON form a NEON text reads into, or why it holds no config. */
+    private function form(string $text, string $path): Json|CannotJudge
+    {
+        try {
+            return Parsed::json(Neon::decode($text), $path);
+        } catch (Exception $exception) {
+            return CannotJudge::because(sprintf('%s is not NEON: %s', $path, $exception->getMessage()));
+        }
     }
 }

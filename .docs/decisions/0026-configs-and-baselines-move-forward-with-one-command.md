@@ -46,25 +46,51 @@ What exists to build on:
 
 2. **A migration is data: typed steps in `Core`.**
    - The steps are `Rename(from, to)`, `Move(from, to)`, `MapValue(key, old,
-     new)`, `Split` and `Remove(key, because)`, each tied to the version that
-     made it.
-   - They apply to the JSON form every format reads into (ADR-0002
-     decision 1), before the definition reads it, so one step serves all four
-     formats.
+     new)`, `Split(from, {part => to})` and `Remove(key, because)`, each tied
+     to the version that made it.
+     - `Rename` gives a key another name under the same parent, where it
+       stands. `Move` takes a key and its value anywhere else.
+     - `Split` moves each named part of the object at `from` to a key of its
+       own. A part it does not name stays under `from`. A scalar cannot be
+       split, so a `from` that holds one is left for a hand edit.
+   - Each step may also name the builder spelling it retires and, for a
+     rename or a move, the one that replaces it, such as `Reach::everything`
+     becoming `Reach::all` with the same arguments. A PHP config is changed
+     through these spellings alone (decision 3).
+   - The steps apply to the JSON form every format reads into (ADR-0002
+     decision 1), before the definition reads it, so one step serves the JSON,
+     YAML and NEON formats.
+   - A step that still applies once every step has run, such as a rename
+     whose new key is already written, is left for a hand edit.
    - Each step has a fixture per format, and a test that the migrated file
      reads with no problem.
 
 3. **The file is written back keeping what its format can keep.**
    - **PHP:** php-parser's format-preserving printer edits only the builder
      calls a step touches, and keeps every comment and the layout.
-   - **JSON:** each step is a key-level text edit, since JSON holds no
-     comments.
-   - **YAML and NEON:** the file is written again from its migrated form,
-     and the output says, before anything is written, that its comments are
-     not kept.
+     - It finds a step's calls by the spelling the step retires, anywhere
+       in the file, so a call held in a variable is found too. A rename or a move gives the call
+       the new spelling and keeps its arguments. A removal takes the call out
+       of the chain, or out of `with()`.
+     - A call it cannot rewrite is never guessed at, and is listed with its
+       line for a hand edit. Such calls are a `MapValue` call whose argument
+       is not a literal, a `Split` call, and, wherever a step names a
+       spelling, a `with()` argument that is not a builder call, since
+       nothing short of running it says which keys it writes.
+   - **JSON:** each step is a key-level text edit, through a JSON tokenizer
+     in `Core` that keeps the file's whitespace and key order. JSON holds no
+     comments. A `$schema` that names this package's published schema of
+     another major is rewritten to the current major's, on every JSON
+     migration. A `$schema` that names a local path, such as the one `init`
+     writes into `vendor`, is left as it is.
+   - **YAML and NEON:** the file is written again from its migrated form.
+     The diff says that its comments are not kept, and `--write` says so
+     again, and then writes it.
 
    The PHP config is parsed, never included, so migrating it runs none of it.
-   This needs `nikic/php-parser` in `require`, as ADR-0021 puts it.
+   This needs `nikic/php-parser` in `require`, as ADR-0021 puts it. A PHP
+   config that cannot load because it calls a spelling a step retired fails
+   with that step's error from decision 1.
 
 4. **The baseline migrates too.** A change of the baseline's `format` is
    migrated by the same command and the same kind of step. The ledger is not
@@ -76,7 +102,8 @@ What exists to build on:
      with `--write`, as `baseline --write` does (ADR-0003 decision 6).
    - Exit 0 when every file is current or has been written.
    - Exit 1 when a migration is pending and `--write` was not given, so CI
-     can check that nothing is behind.
+     can check that nothing is behind, and when a hand edit is left, with
+     `--write` or without it.
    - Exit 2 when the named file is not a config the gate can read.
    - It writes only the config and the baseline, and nothing else.
 

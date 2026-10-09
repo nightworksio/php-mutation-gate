@@ -4,6 +4,14 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Config\Definition;
 use NightWorksIO\MutationGate\Core\Config\Effect;
+use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Layer;
+use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
+use NightWorksIO\MutationGate\Core\Format\Json;
+use NightWorksIO\MutationGate\Core\Migration\Migration;
+use NightWorksIO\MutationGate\Core\Migration\Migrations;
+use NightWorksIO\MutationGate\Core\Migration\Rename;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Time\Budgets;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
@@ -170,4 +178,15 @@ it('gives runner.memory the default the configuration reference names', function
     preg_match('/^\| `runner\.memory` \|.*\| `([^`]+)` \| \[0004\]/m', $reference, $row);
 
     expect($row[1] ?? null)->toBe(MemoryCap::standard()->written());
+});
+
+it('reads a config file that writes what a release retired as that release\'s file, naming the change and migrate', function (): void {
+    $migrations = Migrations::of(Migration::in('2.0.0', Rename::of('runnr', 'runner')));
+    $old = Json::parse('{"runnr": "pest"}');
+    $current = Json::parse('{"runner": "pest"}');
+
+    expect($old instanceof Json ? Definition::file($old, ProjectRoot::origin(), $migrations) : $old)
+        ->toEqual(Invalid::because(Problem::at('runnr', '`runnr` became `runner` in 2.0.0: run `mutation-gate migrate`')))
+        ->and($current instanceof Json ? Definition::file($current, ProjectRoot::origin(), $migrations) : $current)
+        ->toBeInstanceOf(Layer::class);
 });

@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Cli\Command\Doctor;
 use NightWorksIO\MutationGate\Cli\Command\ExplainCommand;
 use NightWorksIO\MutationGate\Cli\Command\HookCommand;
 use NightWorksIO\MutationGate\Cli\Command\Init;
+use NightWorksIO\MutationGate\Cli\Command\MigrateCommand;
 use NightWorksIO\MutationGate\Cli\Command\PlanCommand;
 use NightWorksIO\MutationGate\Cli\Command\PreCommitCommand;
 use NightWorksIO\MutationGate\Cli\Command\PrePushCommand;
@@ -36,6 +37,7 @@ use NightWorksIO\MutationGate\Cli\Command\WatchCommand;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Config\Effective;
 use NightWorksIO\MutationGate\Cli\Config\Formats;
+use NightWorksIO\MutationGate\Cli\Config\MigrationFiles;
 use NightWorksIO\MutationGate\Cli\Doctor\Measure;
 use NightWorksIO\MutationGate\Cli\Doctor\Observed;
 use NightWorksIO\MutationGate\Cli\Doctor\Online;
@@ -44,6 +46,7 @@ use NightWorksIO\MutationGate\Core\Ci\GatePin;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
+use NightWorksIO\MutationGate\Core\Migration\Migrations;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
 use NightWorksIO\MutationGate\Core\Watch\Poll;
 use NightWorksIO\MutationGate\Extension\Extensions;
@@ -139,6 +142,11 @@ final readonly class Console
         $application->addCommand(Init::import($project, $extensions, $effective, $formats, $now, $gate));
         $application->addCommand(ConfigShow::command($effective, $formats));
         $application->addCommand(ConfigSchema::command());
+        $application->addCommand(MigrateCommand::command(
+            new MigrationFiles($project, class_exists(...)),
+            Migrations::config(),
+            Migrations::baseline(),
+        ));
         $probe = PhpProbe::of(PHP_BINARY, getenv());
         $application->addCommand(Doctor::command(
             new Observed(

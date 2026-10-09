@@ -4,6 +4,8 @@ A config file is optional: with none, the gate takes its trees from
 `phpunit.xml`, its runner from what is installed and its preset from
 `composer.json`. `vendor/bin/mutation-gate init` writes one for you, and
 `vendor/bin/mutation-gate config:show` prints the config a run would use.
+After a major release, `vendor/bin/mutation-gate migrate` shows how the
+config and the baseline move to it, and `migrate --write` writes them.
 
 ## One config, four formats
 
