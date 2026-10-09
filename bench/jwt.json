@@ -18,7 +18,8 @@
                 "--threads=max",
                 "--no-progress",
                 "--no-interaction",
-                "--log-verbosity=all"
+                "--log-verbosity=all",
+                "-vvv"
             ],
             "log": "bench-infection-log.json",
             "directory": "../jwt-plain"

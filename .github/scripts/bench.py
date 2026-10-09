@@ -10,7 +10,7 @@ Run by `bench.yml` once the project is prepared at its pinned commit
 (ADR-0017, decisions 14 to 17). `run` runs every arm of the project once a
 round, in turn, so no arm has the machine to itself at a quieter time, each
 from a cold start: what an arm leaves is removed before it runs. It keeps each
-arm's report and wall time in the out directory, taking the report from the
+arm's report, wall time and what it printed in the out directory, taking the report from the
 file an arm's `log` names where the tool writes it to a path of its config.
 An arm whose `stdout` is set has what it printed kept as its report, as plain
 Pest's is. An arm runs in the project directory, or in the copy its
@@ -34,6 +34,7 @@ time with the range, as `Pest start-up` measures what starting Pest costs.
 Two halves: `outcome`, `tally`, `pairs` and `summary` decide from the
 reports, and `main` runs the arms and reads and writes the files.
 """
+import contextlib
 import json
 import os
 import platform
@@ -84,7 +85,7 @@ def changed(diff: str) -> tuple[str, ...]:
     return tuple(
         f"{line[0]}{line[1:].strip()}"
         for line in diff.splitlines()
-        if line[:1] in "+-" and not line.startswith(("+++", "---"))
+        if line[:1] in ("+", "-") and not line.startswith(("+++", "---"))
     )
 
 
@@ -229,8 +230,9 @@ def summary(project: dict, arms: dict[str, dict], differences: list[dict], machi
         "",
         f"{machine['cpu']}, {machine['cores']} cores, {machine['memory']}; PHP {machine['php']}.",
         "",
-        "| arm | wall time, median (range) | generated | " + " | ".join(OUTCOMES) + " | exit codes |",
-        "|---|---:|---:|" + "---:|" * len(OUTCOMES) + "---|",
+        "| arm | wall time, median (range) | generated | " + " | ".join(OUTCOMES)
+        + " | exit codes | generated / escaped, each round |",
+        "|---|---:|---:|" + "---:|" * len(OUTCOMES) + "---|---|",
     ]
     for name in names:
         arm = arms[name]
@@ -239,7 +241,9 @@ def summary(project: dict, arms: dict[str, dict], differences: list[dict], machi
         lines.append(
             f"| {name} | {wall['median']:.1f} s ({wall['min']:.1f}–{wall['max']:.1f}) | {total['generated']} | "
             + " | ".join(str(total[each]) for each in OUTCOMES)
-            + f" | {', '.join(str(code) for code in arm['exits'])} |"
+            + f" | {', '.join(str(code) for code in arm['exits'])} | "
+            + ", ".join(f"{each.get('generated', 0)} / {each.get('escaped', 0)}" for each in arm.get("rounds", []))
+            + " |"
         )
     order = ", ".join(OUTCOMES)
     lines += ["", f"Each arm's mutants per file, from its first round (generated, then {order}):", ""]
@@ -324,16 +328,28 @@ def run(project: dict, directory: Path, out: Path, rounds: int) -> None:
                 shutil.copyfile(place / source, place / to)
             started = time.monotonic()
             command = [fill(part, report) for part in arm["command"]]
-            if arm.get("stdout"):
-                with open(report, "w", encoding="utf-8") as printed:
-                    done = subprocess.run(command, cwd=place, env=environment, check=False, stdout=printed)
-            else:
-                done = subprocess.run(command, cwd=place, env=environment, check=False)
+            with (
+                open(out / f"{name}-{at}.log", "w", encoding="utf-8") as log,
+                open(report, "w", encoding="utf-8") if arm.get("stdout") else contextlib.nullcontext(log) as printed,
+            ):
+                done = subprocess.run(command, cwd=place, env=environment, check=False, stdout=printed, stderr=log)
             seconds = time.monotonic() - started
             if arm.get("log") and (place / arm["log"]).exists():
                 shutil.move(place / arm["log"], report)
             (out / f"{name}-{at}.time").write_text(json.dumps({"seconds": seconds, "exit": done.returncode}))
             print(f"{name}, round {at}: {seconds:.1f} s, exit {done.returncode}", flush=True)
+
+
+def read(report: Path, kind: str, root: str) -> tuple[list[dict], dict[str, int] | None]:
+    """A round's mutants, and the totals the tool counted where it names only some; none where it wrote nothing."""
+    if not report.exists():
+        return [], None
+    if kind == "pest":
+        return pest(report.read_text(encoding="utf-8", errors="replace"))
+    try:
+        return outcome(json.loads(report.read_text(encoding="utf-8")), kind, root), None
+    except json.JSONDecodeError:
+        return [], None
 
 
 def reconcile(project: dict, out: Path, result: Path, root: str) -> int:
@@ -343,20 +359,15 @@ def reconcile(project: dict, out: Path, result: Path, root: str) -> int:
     for name, arm in project["arms"].items():
         times = sorted(out.glob(f"{name}-*.time"), key=lambda path: int(path.stem.rsplit("-", 1)[1]))
         runs = [json.loads(path.read_text()) for path in times]
-        report = report_of(out, name, arm, 1)
         place = str((Path(root) / arm.get("directory", ".")).resolve())
-        totals = None
-        if not report.exists():
-            first[name] = []
-        elif arm["report"] == "pest":
-            first[name], totals = pest(report.read_text(encoding="utf-8", errors="replace"))
-        else:
-            first[name] = outcome(json.loads(report.read_text()), arm["report"], place)
+        rounds = [read(report_of(out, name, arm, at), arm["report"], place) for at in range(1, len(runs) + 1)]
+        first[name] = rounds[0][0] if rounds else []
         arms[name] = {
             "said": arm["said"],
             "wall": spread([each["seconds"] for each in runs]),
             "exits": [each["exit"] for each in runs],
-            "files": tally(first[name], totals),
+            "files": tally(*rounds[0]) if rounds else {},
+            "rounds": [tally(*each).get("total", {}) for each in rounds],
         }
     same = project.get("same", [])
     named_only = any(project["arms"][name]["report"] == "pest" for name in same)

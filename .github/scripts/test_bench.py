@@ -142,12 +142,13 @@ class Summary(unittest.TestCase):
     def test_tabulates_each_arm_and_names_each_difference(self):
         project = {"project": "lcobucci/jwt", "version": "5.6.0", "commit": "bb3e9f21e4196e8a", "same": ["a", "b"]}
         counts = bench.tally(bench.outcome({"killed": [infection_entry(3)]}, "infection", ROOT))
-        arms = {name: {"wall": bench.spread([2.0]), "exits": [0], "files": counts} for name in ("a", "b")}
+        arms = {name: {"wall": bench.spread([2.0]), "exits": [0], "files": counts, "rounds": [counts["total"]]}
+                for name in ("a", "b")}
         machine = {"cpu": "AMD EPYC", "cores": 4, "memory": "15.6 GiB", "php": "8.5.0"}
         differences = [{"file": "src/Money.php", "line": 3, "mutator": "Plus", "plain": "killed", "gate": "absent",
                         "explained": False}]
         text = bench.summary(project, arms, differences, machine)
-        self.assertIn("| a | 2.0 s (2.0–2.0) | 1 | 1 | 0 | 0 | 0 | 0 | 0 |", text)
+        self.assertIn("| a | 2.0 s (2.0–2.0) | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 1 / 0 |", text)
         self.assertIn("| src/Money.php | 1 / 1 / 0 / 0 / 0 / 0 | 1 / 1 / 0 / 0 / 0 / 0 |", text)
         self.assertIn("Mutants they judge otherwise or one lacks: 1, of which unexplained: 1.", text)
         self.assertIn("| src/Money.php | 3 | Plus | killed | absent | no |", text)
