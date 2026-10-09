@@ -12,4 +12,7 @@ final readonly class ThisPackage
 
     /** Its short name: its command, its config file, and its key under a manifest's `extra`. */
     public const string NAME = 'mutation-gate';
+
+    /** Its repository, which the pre-commit framework clones its hooks from. */
+    public const string REPOSITORY = 'https://github.com/nightworksio/php-mutation-gate';
 }

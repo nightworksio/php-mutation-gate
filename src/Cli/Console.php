@@ -126,7 +126,7 @@ final readonly class Console
         $application->addCommand(BaselineCommand::command($composition));
         $application->addCommand(CoverageCommand::command($composition));
         $application->addCommand(PreCommitCommand::command($composition));
-        $application->addCommand(PrePushCommand::command($composition));
+        $application->addCommand(PrePushCommand::command($composition, $environment));
         $application->addCommand(WatchCommand::command($composition, Waiting::every(Poll::interval())));
         $application->addCommand(ReproduceCommand::command($composition));
         $application->addCommand(SurvivorsCommand::command($composition));

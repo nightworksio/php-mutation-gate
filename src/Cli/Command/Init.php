@@ -43,7 +43,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  */
 final readonly class Init
 {
-    private const string KEPT = '%s is already here, so init makes only what --ci and --editor ask for.';
+    private const string KEPT = '%s is already here, so init makes only what --ci, --editor and --hook ask for.';
 
     public static function command(
         string $project,
@@ -55,7 +55,7 @@ final readonly class Init
     ): Command {
         return Additions::options(self::formatted(new Command('init')))
             ->setDescription(
-                'Write a config holding what zero-config found, the CI with --ci and the editor with --editor',
+                'Write a config of what zero-config found; --ci, --editor and --hook set up the CI, editor and hooks',
             )
             ->addOption(
                 'from',
@@ -199,7 +199,14 @@ final readonly class Init
 
         $made = $prepared instanceof PreparedCi ? $definition->made($prepared, $settings->ci()) : '';
 
-        return self::said($config, $made, is_string($made) ? $additions->editorMade($setting->project) : '');
+        $editor = is_string($made) ? $additions->editorMade($setting->project) : '';
+
+        return self::said(
+            $config,
+            $made,
+            $editor,
+            is_string($editor) ? $additions->hookMade($setting->project, $setting->gate) : '',
+        );
     }
 
     /** What was made, said in order; or, after what was, why the first that could not be made was not. */

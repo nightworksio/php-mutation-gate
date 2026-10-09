@@ -28,3 +28,10 @@ it('quotes a path the shell would read otherwise', function (): void {
         "cd 'my app'\\''s dir' || exit 1\nexec '\$HOME/vendor/bin/mutation-gate' pre-commit \"\$@\"\n",
     );
 });
+
+it('gives the bare command a hook manager runs, quoted as the shell reads it', function (): void {
+    expect(HookCall::of(Path::root(), Path::of('vendor/bin/mutation-gate'))->called(Hook::PrePush))
+        ->toBe('vendor/bin/mutation-gate pre-push')
+        ->and(HookCall::of(Path::of('packages/app'), Path::of('my bin/mutation-gate'))->called(Hook::PreCommit))
+        ->toBe("'my bin/mutation-gate' pre-commit");
+});

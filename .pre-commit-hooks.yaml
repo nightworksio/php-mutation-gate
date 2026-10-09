@@ -1,0 +1,18 @@
+- id: mutation-gate-pre-push
+  name: mutation-gate-pre-push
+  description: Judges the commits being pushed, as CI will, and blocks a push that fails.
+  entry: vendor/bin/mutation-gate pre-push
+  language: unsupported
+  stages: [pre-push]
+  pass_filenames: false
+  always_run: true
+  minimum_pre_commit_version: '4.4.0'
+- id: mutation-gate-pre-commit
+  name: mutation-gate-pre-commit
+  description: Shows the score change of each tree the commit reaches, and never blocks.
+  entry: vendor/bin/mutation-gate pre-commit
+  language: unsupported
+  stages: [pre-commit]
+  pass_filenames: false
+  always_run: true
+  minimum_pre_commit_version: '4.4.0'

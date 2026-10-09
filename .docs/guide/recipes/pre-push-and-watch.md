@@ -15,6 +15,34 @@ nothing and never blocks a commit: it prints each reached tree's score change
 from the local ledger. To see survivors in your editor, see
 [editors](editors.md).
 
+## Hook managers
+
+A project that runs its hooks through CaptainHook, GrumPHP or the
+pre-commit framework calls the gate from that manager's config instead:
+
+```sh
+vendor/bin/mutation-gate init --hook=captainhook   # captainhook.json: pre-push and pre-commit actions
+vendor/bin/mutation-gate init --hook=grumphp       # grumphp.yml: a shell task running pre-commit
+vendor/bin/mutation-gate init --hook=pre-commit    # .pre-commit-config.yaml: this repository's hooks
+```
+
+`init` writes the file where the manager reads none, and otherwise prints
+what to add to it, then the command that installs the manager's hooks.
+`--stdout` prints the file instead.
+
+- **CaptainHook** hands git's lines to the gate as
+  `pre-push --stdin={$STDIN}`.
+- **GrumPHP** runs only `pre-commit`, which never blocks, and has no
+  pre-push hook: `vendor/bin/mutation-gate hook install` adds the gate's
+  beside it.
+- **The pre-commit framework** takes the hooks `mutation-gate-pre-push` and
+  `mutation-gate-pre-commit` from this repository's
+  `.pre-commit-hooks.yaml`, pinned to the gate's commit, and needs
+  pre-commit 4.4.0 or later. Each runs `vendor/bin/mutation-gate` from the
+  top of the working tree; where Composer links it elsewhere, `init` sets
+  each hook's `entry`. The framework hands the pre-push hook the first ref
+  that sends commits.
+
 ## What a budgeted run counts
 
 A run under a budget, as `watch` and `pre-push` are, counts each unit it

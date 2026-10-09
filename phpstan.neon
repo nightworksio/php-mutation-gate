@@ -209,6 +209,10 @@ services:
         arguments:
             # Constants whose value only coincides with another's, meaning something else.
             coincidences:
+                'NightWorksIO\MutationGate\Core\Hook\HookRecipe':
+                    - ACTION # a key of CaptainHook's config, not hook's argument
+                'NightWorksIO\MutationGate\Core\Push\PreCommitPush':
+                    - LINE # git's four fields of a pushed ref, not a proof's run
                 'NightWorksIO\MutationGate\Core\Migration\UnifiedDiff':
                     - CONTEXT # unchanged lines shown around a change, not letters per edit
                 'NightWorksIO\MutationGate\Core\Format\JsonIndent':

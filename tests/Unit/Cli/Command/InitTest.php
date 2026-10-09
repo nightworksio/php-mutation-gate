@@ -427,7 +427,7 @@ it('picks the GitHub definition a full run\'s estimate fits, where neither is as
     ]);
 
     expect($ran->code)->toBe(0)
-        ->and($ran->output)->toStartWith("mutation-gate.json is already here, so init makes only what --ci and --editor ask for.\n")
+        ->and($ran->output)->toStartWith("mutation-gate.json is already here, so init makes only what --ci, --editor and --hook ask for.\n")
         ->and($ran->output)->toContain($picked)
         ->and($ran->output)->toContain(sprintf('Require the check `%s` in the protection of main.', $check))
         ->and(initCiFile($project, '.github/workflows/mutation.yml'))->not->toBe('');
@@ -622,7 +622,7 @@ it('sets VS Code up with --editor=vscode beside the config, and beside one alrea
         ->toBe([0, sprintf("%sWrote .vscode/tasks.json.\nWrote .vscode/extensions.json.\n", INIT_CI_WROTE), ''])
         ->and(initCiFile($project, '.vscode/tasks.json'))->toContain('"label": "mutation-gate: watch"')
         ->and($kept->output)->toBe(sprintf(
-            "%s is already here, so init makes only what --ci and --editor ask for.\n%s",
+            "%s is already here, so init makes only what --ci, --editor and --hook ask for.\n%s",
             'mutation-gate.json',
             "Wrote .vscode/tasks.json.\nWrote .vscode/extensions.json.\n",
         ))
@@ -641,6 +641,58 @@ it('makes the CI definition and the editor\'s files in one init', function (): v
 it('writes nothing for an editor it does not set up', function (): void {
     expect(initCiRefused(['--editor' => 'phpstorm']))
         ->toBe([2, '', "phpstorm is no editor init --editor sets up. Name vscode.\n", '']);
+});
+
+it('sets a hook manager up with --hook beside the config, and beside one already here', function (): void {
+    [$project, $ran] = initCi(['--hook' => 'pre-commit']);
+    [$configured, $kept] = initCi(['--hook' => 'captainhook'], [
+        'mutation-gate.json' => '{"runner": "pest", "trees": [{"path": "app"}]}',
+    ]);
+
+    expect([$ran->code, $ran->output, $ran->errors])->toBe([
+        0,
+        sprintf("%sWrote .pre-commit-config.yaml.\nThen install its hooks: pre-commit install\n", INIT_CI_WROTE),
+        '',
+    ])
+        ->and(initCiFile($project, '.pre-commit-config.yaml'))->toContain('- id: mutation-gate-pre-push')
+        ->and($kept->output)->toBe(sprintf(
+            "%s is already here, so init makes only what --ci, --editor and --hook ask for.\n%s",
+            'mutation-gate.json',
+            "Wrote captainhook.json.\nThen install its hooks: vendor/bin/captainhook install\n",
+        ))
+        ->and(initCiFile($configured, 'captainhook.json'))->toContain('pre-push --stdin={$STDIN}');
+});
+
+it('makes the editor\'s files and the hook manager\'s config in one init, printed with --stdout', function (): void {
+    [$project, $ran] = initCi(['--editor' => 'vscode', '--hook' => 'grumphp', '--stdout' => true]);
+
+    expect($ran->code)->toBe(0)
+        ->and($ran->output)->toContain(".vscode/tasks.json:\n\n")
+        ->and($ran->output)->toContain("grumphp.yml:\n\ngrumphp:\n")
+        ->and(initCiFile($project, 'grumphp.yml'))->toBe('');
+});
+
+it('writes nothing for a hook manager it does not set up', function (): void {
+    expect(initCiRefused(['--hook' => 'husky']))->toBe([
+        2,
+        '',
+        "husky is no hook manager init --hook sets up. Name one of captainhook|grumphp|pre-commit.\n",
+        '',
+    ]);
+});
+
+it('sets no hook manager up after the editor\'s files could not be', function (): void {
+    [$project, $ran] = initCi(['--editor' => 'vscode', '--hook' => 'captainhook'], ['.vscode/tasks.json/inside' => '']);
+
+    expect($ran->code)->toBe(2)
+        ->and(initCiFile($project, 'captainhook.json'))->toBe('');
+});
+
+it('says what it wrote before a hook manager\'s config it could not read', function (): void {
+    [$project, $ran] = initCi(['--hook' => 'captainhook'], ['captainhook.json/inside' => '']);
+
+    expect($ran->code)->toBe(2)
+        ->and($ran->errors)->toBe(sprintf("%s%s/captainhook.json could not be read.\n", INIT_CI_WROTE, $project));
 });
 
 it('writes nothing for a CI where the default branch would run as code', function (string $ci): void {

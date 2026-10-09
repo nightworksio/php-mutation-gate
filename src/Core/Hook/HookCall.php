@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Hook;
 
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Fit;
 
 use function preg_match;
 use function sprintf;
@@ -21,7 +22,7 @@ final readonly class HookCall
     private const string PLAIN = '#^[A-Za-z0-9_./-]+$#';
 
     /** The gate's command for a hook, with git's arguments passed on. */
-    private const string COMMAND = '%s %s "$@"';
+    private const string COMMAND = '%s "$@"';
 
     /** A hook the gate writes enters the project, or stops. */
     private const string ENTER = "cd %s || exit 1\nexec %s\n";
@@ -65,6 +66,12 @@ final readonly class HookCall
             : sprintf(self::SUBSHELL, $this->quoted($this->project), $this->command($hook));
     }
 
+    /** The gate's command for a hook, as the shell reads it, with no arguments: what a hook manager runs. */
+    public function called(Hook $hook): string
+    {
+        return sprintf(Fit::JOINED, $this->quoted($this->binary), $hook->value);
+    }
+
     private function atTheTop(): bool
     {
         return $this->project->equals(Path::root());
@@ -72,7 +79,7 @@ final readonly class HookCall
 
     private function command(Hook $hook): string
     {
-        return sprintf(self::COMMAND, $this->quoted($this->binary), $hook->value);
+        return sprintf(self::COMMAND, $this->called($hook));
     }
 
     /** A path as the shell reads it: as it is where that is safe, and otherwise in single quotes. */

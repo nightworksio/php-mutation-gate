@@ -90,6 +90,9 @@ final readonly class Flows
     /** The commit the checkout is at. */
     public const string HEAD = '5eeca8f2d0b1c4e7a9f3b6d8e0c2a4f6b8d0e2c4';
 
+    /** The commit a remote holds, which a push is read since. */
+    public const string REMOTE = 'ba5eba11d0b1c4e7a9f3b6d8e0c2a4f6b8d0e2c4';
+
     /** The default branch, as a checkout that fetched it holds it. */
     public const string MAIN = 'refs/remotes/origin/main';
 
