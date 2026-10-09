@@ -231,7 +231,8 @@ final readonly class ConsoleReport implements Configurable, Reporter
     }
 
     /**
-     * What the run took and saved, last, after a blank line; nothing for an untimed run.
+     * What the run took and saved, and what pruning left out, last, after a
+     * blank line; nothing for an untimed run that pruned nothing.
      *
      * @return list<string>
      */

@@ -51,6 +51,7 @@ use NightWorksIO\MutationGate\Core\Pruning\MutatorNames;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
+use NightWorksIO\MutationGate\Core\Report\JsonReport;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -65,6 +66,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
+use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
 use NightWorksIO\MutationGate\Tests\Support\JudgingRuns;
@@ -671,9 +673,24 @@ it('carries the last result\'s mutants of a mutator the plan pruned into the uni
         [...$judged->trees()->mutants()],
     );
 
+    $pruned = static fn(Verdict $judged): array => array_values(array_map(
+        static fn(JudgedMutant|JudgedKill $mutant): string => $mutant->mutant()->id()->value(),
+        array_filter([...$judged->trees()->mutants()], static fn(JudgedMutant|JudgedKill $mutant): bool => $mutant->isCarriedPruned()),
+    ));
+
     expect($ids)->toContain($carried->value())
         ->and($made($unpruned))->toContain('src/Money.php Plus')
         ->and(array_count_values($made($verdict))['src/Money.php Plus'] ?? 0)->toBe(1)
         ->and(count($verdict->trees()->mutants()))->toBe(count($unpruned->trees()->mutants()))
-        ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->proofs()->has(Digest::sha256Of('money')))->toBeFalse();
+        ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->proofs()->has(Digest::sha256Of('money')))->toBeFalse()
+        ->and([...$verdict->account()->pruning()->mutators()])->toBe(['Plus'])
+        ->and($verdict->account()->pruning()->carried())->toBe(1)
+        ->and($verdict->account()->pruning()->window()->mutants())->toBe(500)
+        ->and($unpruned->account()->pruning()->isNone())->toBeTrue()
+        ->and($pruned($verdict))->toBe([$carried->value()])
+        ->and($pruned($unpruned))->toBe([])
+        ->and(array_values(array_intersect_key(
+            Decoded::column(JsonReport::encode($verdict), 'id', 'mutants'),
+            array_filter(Decoded::column(JsonReport::encode($verdict), 'carriedPruned', 'mutants'), static fn(mixed $mark): bool => $mark === true),
+        )))->toBe([$carried->value()]);
 });

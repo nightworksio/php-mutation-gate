@@ -45,6 +45,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Tests\Support\Clustered;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Killings;
+use NightWorksIO\MutationGate\Tests\Support\PruningCases;
 use NightWorksIO\MutationGate\Tests\Support\Removing;
 use NightWorksIO\MutationGate\Tests\Support\Schema;
 use NightWorksIO\MutationGate\Tests\Support\Secured;
@@ -296,6 +297,23 @@ it('prices each cost where the team gives a rate, and says a timed run with no h
         ->and(Decoded::at($bare, 'savings'))->toBe(['noHistory' => true])
         ->and(Decoded::at($bare))->not->toHaveKey('cost')
         ->and(Decoded::at(JsonReport::encode(Verdicts::failing())))->not->toHaveKeys(['run', 'cost', 'savings']);
+});
+
+it('writes each mutator pruning left out, with its window and the last mutant it let through, and nothing where it pruned nothing', function (): void {
+    $report = JsonReport::encode(Verdicts::failing()->withAccount(Verdicts::account()->withPruning(PruningCases::account())));
+
+    expect(Schema::errors($report, Schema::at('resources/report.schema.json')))->toBe([])
+        ->and(Decoded::at($report, 'pruning'))->toBe([
+            'mutators' => [
+                ['name' => 'Minus', 'window' => 2],
+                ['name' => 'Plus', 'window' => 2, 'lastSurvivor' => 'Plus-9'],
+            ],
+            'units' => 1,
+            'carried' => 3,
+            'auditSeconds' => 604_800.0,
+            'savedSeconds' => 120.0,
+        ])
+        ->and(Decoded::at(JsonReport::encode(Verdicts::named('accounted'))))->not->toHaveKey('pruning');
 });
 
 it('leaves out the phases no one timed, and the sharding of an unsharded run', function (): void {

@@ -24,9 +24,9 @@ final readonly class Seconds
     /** Seconds in a minute. */
     public const int PER_MINUTE = 60;
 
-    private const int PER_HOUR = 3600;
+    public const int PER_DAY = 86_400;
 
-    private const int PER_DAY = 86_400;
+    private const int PER_HOUR = 3600;
 
     private const int MICROSECONDS = 1_000_000;
 

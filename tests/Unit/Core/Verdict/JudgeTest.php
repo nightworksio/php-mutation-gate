@@ -62,6 +62,7 @@ use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
+use NightWorksIO\MutationGate\Tests\Support\PruningCases;
 
 $mutant = static fn(string $file, int $line, MutantStatus $status): Mutant => Mutant::of(
     MutantId::hash(Path::of($file), 'LessThan', sprintf('%d', $line), 0),
@@ -303,4 +304,19 @@ it('judges each mutant by the tests the kill matrix says cover it, a held unit\'
     expect($tested($judge->judging($matrix), $results))->toBe([[], ['KernelTest::boots'], [], [], []])
         ->and($tested($judge->judging($matrix), $held))->toBe([['AuthTest::checks']])
         ->and($tested($judge, $results))->toBe([[], [], [], [], []]);
+});
+
+it('marks each mutant and kill its unit\'s result carries for a pruned mutator, and no other', function () use ($trees, $reach): void {
+    $run = PruningCases::mutant('app/Kernel.php', 'Minus', 1);
+    $carried = PruningCases::mutant('app/Kernel.php', 'Plus', 2, MutantStatus::Survived);
+    $kill = ProvedKill::of(MutantId::hash(Path::of('app/Kernel.php'), 'Plus', '-3', 0), Path::of('app/Kernel.php'), Line::of(3), 'Plus', TestIds::none());
+    $result = UnitResult::of(Unit::file(Path::of('app/Kernel.php')), Origin::Run, Mutants::of($run))
+        ->carryingPruned(Mutants::of($carried), ProvedKills::of($kill));
+    $judge = Judge::of($trees, Baseline::none(), $reach, Uncovered::Count, TimeoutMode::Confirm, Ignoring::none());
+    [$app] = [...$judge->trees(UnitResults::of($result))];
+
+    expect(array_map(
+        static fn(JudgedMutant|JudgedKill $judged): string => sprintf('%s %s', $judged->mutant()->location()->start()->number(), $judged->isCarriedPruned() ? 'pruned' : 'run'),
+        [...$app->mutants()],
+    ))->toBe(['1 run', '2 pruned', '3 pruned']);
 });

@@ -44,6 +44,7 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Tests\Support\Clustered;
 use NightWorksIO\MutationGate\Tests\Support\Killings;
+use NightWorksIO\MutationGate\Tests\Support\PruningCases;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 $run = 'https://github.com/octo/gate/actions/runs/7';
@@ -312,6 +313,14 @@ it('says what the run took and saved under the verdict, and folds what it cost i
         ->and(Markdown::comment(Verdicts::failing(), $run))->not->toContain('What this run cost');
 });
 
+it('says under the verdict what pruning left out, in the comment and the step summary alike', function () use ($run): void {
+    $verdict = Verdicts::failing()->withAccount(Verdicts::account()->withPruning(PruningCases::account()));
+    $pruned = "\nPruned: 2 mutators on 1 unit; 3 mutants carried from runs of the last 7 days.\n\nThe project scores 44.44%.";
+
+    expect(Markdown::comment($verdict, $run))->toContain($pruned)
+        ->and(Markdown::summary($verdict, $run, Verdicts::monthAgo()))->toContain($pruned);
+});
+
 it('adds to the step summary what the default branch saved lately', function () use ($run): void {
     $verdict = Verdicts::failing()->withAccount(Verdicts::account()->after(Trend::decode(
         '{"format": 1, "runs": [{"commit": "a", "time": "2026-09-10T00:00:00Z", "trees": {}, "runnerSeconds": 60, "fullRunSeconds": 3660}]}',
@@ -494,4 +503,11 @@ it('keeps a comment of exactly what GitHub takes whole, and cuts one a character
         ->and($whole)->toContain(str_repeat('é', $fits))
         ->and($comment($fits + 1))->not->toContain(str_repeat('é', $fits + 1))
         ->and($comment($fits + 1))->toContain('And 1 more; the JSON report lists every one.');
+});
+
+it('marks a survivor its unit\'s last result gave because the plan pruned its mutator, in a table row and a details summary', function (): void {
+    $carried = JudgedMutant::of(Verdicts::survivor()->mutant(), MutantJudgement::Survived, carriedPruned: true);
+
+    expect(implode("\n", MarkdownItems::table([$carried], 1)))->toContain('| LessToLessOrEqual | survived, carried (pruned) |')
+        ->and(implode("\n", MarkdownItems::details([$carried], 1)))->toContain('LessToLessOrEqual, survived, carried (pruned)</summary>');
 });

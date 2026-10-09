@@ -149,6 +149,9 @@
                             "changedLine": {
                                 "type": "boolean"
                             },
+                            "carriedPruned": {
+                                "const": true
+                            },
                             "coveredBy": {
                                 "type": "array",
                                 "items": {

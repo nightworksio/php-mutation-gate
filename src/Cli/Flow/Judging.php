@@ -38,6 +38,7 @@ use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\ReadsOnly;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Pruning\PrunedCarry;
+use NightWorksIO\MutationGate\Core\Pruning\PruningAccount;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Removal\Removals;
@@ -333,6 +334,16 @@ final readonly class Judging
             $map,
             $matrix,
         );
+
+        $pruning = $this->settings->reach()->pruning();
+        $verdict = $verdict->withAccount($verdict->account()->withPruning(PruningAccount::of(
+            $plan->considered()->pruned(),
+            $ledgers->own()->and($ledgers->defaultBranch())->survival(),
+            $this->settings->runner()->name(),
+            $pruning->window(),
+            $pruning->audit(),
+            $fresh,
+        )));
 
         return new Assessed(
             $results->wereCutShort() ? $verdict->cutShort() : $verdict,

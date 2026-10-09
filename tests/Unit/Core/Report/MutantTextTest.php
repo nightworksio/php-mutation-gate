@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
+use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
 use NightWorksIO\MutationGate\Core\Report\Overview;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
@@ -23,6 +28,18 @@ it('heads a mutant with where it is, its mutator, its judgement and its id', fun
         'src/Money.php:7  LessToLessOrEqual  survived, on a changed line  %s',
         $survivor->mutant()->id()->value(),
     ));
+});
+
+it('marks a mutant or kill its unit\'s last result gave because the plan pruned its mutator, and no other', function (): void {
+    $mutant = Verdicts::survivor()->mutant();
+    $kill = ProvedKill::of(MutantId::hash(Path::of('src/Money.php'), 'Plus', '-2', 0), Path::of('src/Money.php'), Line::of(2), 'Plus', TestIds::none());
+    $carried = JudgedMutant::of($mutant, MutantJudgement::Killed, carriedPruned: true);
+
+    expect(MutantText::heading($carried))->toBe(sprintf('src/Money.php:7  LessToLessOrEqual  killed, carried (pruned)  %s', $mutant->id()->value()))
+        ->and(MutantText::message($carried))->toStartWith('Mutant killed, carried (pruned): LessToLessOrEqual. ')
+        ->and(MutantText::label(JudgedKill::of($kill, carriedPruned: true)))->toBe('killed, carried (pruned)')
+        ->and(MutantText::label(JudgedKill::of($kill)))->toBe('killed')
+        ->and(MutantText::label(JudgedMutant::of($mutant, MutantJudgement::Killed)))->toBe('killed');
 });
 
 it('writes a mutant with its diff, judging tests, hint, and reproduce and explain commands', function (): void {

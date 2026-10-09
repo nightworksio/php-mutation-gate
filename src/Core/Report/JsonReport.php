@@ -6,22 +6,13 @@ namespace NightWorksIO\MutationGate\Core\Report;
 
 use function count;
 
-use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
-use NightWorksIO\MutationGate\Core\Cluster\Membership;
-use NightWorksIO\MutationGate\Core\Cluster\Unclustered;
-use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Matrix\SuiteScore;
 use NightWorksIO\MutationGate\Core\Matrix\SuiteScores;
-use NightWorksIO\MutationGate\Core\Mutant\Mutant;
-use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
-use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
-use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reason as Cause;
-use NightWorksIO\MutationGate\Core\Removal\Removable;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
@@ -40,7 +31,6 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnit;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
-use NightWorksIO\MutationGate\Core\Verdict\NoFinding;
 use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
@@ -51,7 +41,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  * program reads. `resources/report.schema.json` describes it, and it is
  * public API (ADR-0009, decision 2).
  *
- * @phpstan-import-type RejectionWritten from MutantRecord
+ * @phpstan-import-type MutantEntry from MutantJson
  *
  * @phpstan-type Numbers array<string, int>
  * @phpstan-type TestEntry array{id: string, name: string, file?: string, row?: string, seconds?: float}
@@ -91,30 +81,6 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *     mutants: list<string>,
  * }
  * @phpstan-type SuiteEntry array{name: string, covered: int, killed: int, score?: float, exact: bool}
- * @phpstan-type MutantEntry array{
- *     id: string,
- *     file: string,
- *     line: int,
- *     end?: int,
- *     mutator: string,
- *     family?: string,
- *     diff?: string,
- *     status: string,
- *     judgement: string,
- *     reason?: string,
- *     rejection?: RejectionWritten,
- *     changedLine: bool,
- *     coveredBy: list<int>,
- *     judgedBy?: list<int>,
- *     killedBy: list<int>,
- *     hint: string,
- *     reproduce: string,
- *     explain: string,
- *     seconds?: float,
- *     limit?: float,
- *     cluster?: string,
- *     removable?: true,
- * }
  * @phpstan-type ClusterEntry array{id: string, kind: string, members: list<string>, representative: string}
  */
 final readonly class JsonReport
@@ -145,7 +111,7 @@ final readonly class JsonReport
             ),
             'mutants' => self::each(
                 $verdict->trees()->mutants(),
-                static fn(JudgedMutant|JudgedKill $judged): array => self::mutant($judged, $verdict->matrix(), $table),
+                static fn(JudgedMutant|JudgedKill $one): array => MutantJson::of($one, $verdict->matrix(), $table),
             ),
             'clusters' => self::each($verdict->trees()->clusters(), self::cluster(...)),
             'reach' => self::texts($verdict->reach(), static fn(Cause $reason): string => $reason->text()),
@@ -166,41 +132,6 @@ final readonly class JsonReport
             ...$judgedBy instanceof Group ? ['group' => $judgedBy->name()] : [],
             ...$judgedBy instanceof Filter ? ['filter' => $judgedBy->pattern()] : [],
             'origin' => $unit->origin()->value,
-        ];
-    }
-
-    /**
-     * One mutant, with its tests by their places in the table (ADR-0014, decision 9).
-     *
-     * @return MutantEntry
-     */
-    public static function mutant(JudgedMutant|JudgedKill $judged, KillMatrix $matrix, TestTable $table): array
-    {
-        $mutant = $judged->mutant();
-        $end = $mutant->location()->end();
-        $covering = $matrix->coveredBy($judged);
-        $judgedBy = $table->placesJudging($judged->tests(), $covering);
-
-        return [
-            'id' => $mutant->id()->value(),
-            'file' => $mutant->location()->file()->value(),
-            'line' => $mutant->location()->start()->number(),
-            ...$end instanceof Line ? ['end' => $end->number()] : [],
-            'mutator' => $mutant->mutator(),
-            ...$mutant instanceof Mutant
-                ? ['family' => $mutant->mutation()->family()->value, 'diff' => $mutant->mutation()->diff()]
-                : [],
-            'status' => $mutant->status()->value,
-            'judgement' => $judged->judgement()->value,
-            ...self::why($mutant),
-            'changedLine' => $judged->isOnChangedLine(),
-            'coveredBy' => $table->placesOf($covering),
-            ...$judgedBy === [] ? [] : ['judgedBy' => $judgedBy],
-            'killedBy' => $table->placesOf($judged->mutant()->killers()),
-            'hint' => $judged->hint()->text(),
-            'reproduce' => $judged->reproduce(),
-            'explain' => $judged->explain(),
-            ...self::optional($judged),
         ];
     }
 
@@ -319,45 +250,6 @@ final readonly class JsonReport
             'counts' => self::counts($set->counts()),
             'mutants' => self::ids($set->mutants()),
         ];
-    }
-
-    /**
-     * What a mutant's entry holds only where it applies: how long it ran,
-     * the limit it ran under, its cluster, and whether its callee may be
-     * deleted.
-     *
-     * @return array{seconds?: float, limit?: float, cluster?: string, removable?: true}
-     */
-    private static function optional(JudgedMutant|JudgedKill $judged): array
-    {
-        $duration = $judged->mutant()->duration();
-        $limit = $judged->mutant()->limit();
-        $cluster = $judged instanceof JudgedMutant ? $judged->cluster() : Unclustered::mutant();
-        $finding = $judged instanceof JudgedMutant ? $judged->finding() : NoFinding::survivor();
-
-        return [
-            ...$duration instanceof Seconds ? ['seconds' => $duration->seconds()] : [],
-            ...$limit instanceof Seconds ? ['limit' => $limit->seconds()] : [],
-            ...$cluster instanceof Membership ? ['cluster' => $cluster->id()->value()] : [],
-            ...$finding instanceof Removable ? ['removable' => true] : [],
-        ];
-    }
-
-    /**
-     * Why the mutant stands as it does, where its record says: the reason
-     * its runner gave, and the rejection of the analyser that killed it.
-     *
-     * @return array{reason?: string, rejection?: RejectionWritten}
-     */
-    private static function why(Mutant|ProvedKill $mutant): array
-    {
-        $reason = $mutant->reason();
-
-        return match (true) {
-            $reason instanceof Reason => ['reason' => $reason->text()],
-            $reason instanceof Rejection => [MutantRecord::REJECTION => MutantRecord::rejection($reason)],
-            default => [],
-        };
     }
 
     /** @return Numbers */

@@ -46,6 +46,9 @@ final readonly class MutantText
 
     private const string CHANGED = ', on a changed line';
 
+    /** The mark of a result its unit's last result gave because the plan pruned its mutator (ADR-0025, decision 1). */
+    private const string PRUNED = ', carried (pruned)';
+
     private const string MESSAGE = 'Mutant %s: %s. %s Reproduce: %s';
 
     /**
@@ -71,10 +74,16 @@ final readonly class MutantText
             $mutant->location()->file()->value(),
             $mutant->location()->start()->number(),
             Mutator::short($mutant->mutator()),
-            Label::of($judged->judgement()),
+            self::label($judged),
             $judged->isOnChangedLine() ? self::CHANGED : '',
             $mutant->id()->value(),
         );
+    }
+
+    /** How it was judged, marked where it was carried for a pruned mutator. */
+    public static function label(JudgedMutant|JudgedKill $judged): string
+    {
+        return sprintf('%s%s', Label::of($judged->judgement()), $judged->isCarriedPruned() ? self::PRUNED : '');
     }
 
     /** Why an ignored mutant is left out: the reason its ignore gives, or, where it gives none, how it was ignored. */
@@ -93,7 +102,7 @@ final readonly class MutantText
     {
         return sprintf(
             self::MESSAGE,
-            Label::of($judged->judgement()),
+            self::label($judged),
             Mutator::short($judged->mutant()->mutator()),
             $judged->hint()->text(),
             $judged->reproduce(),

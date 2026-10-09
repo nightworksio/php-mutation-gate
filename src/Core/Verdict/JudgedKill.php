@@ -20,13 +20,17 @@ use function sprintf;
  */
 final readonly class JudgedKill
 {
-    private function __construct(private ProvedKill $kill, private bool $onChangedLine)
+    private function __construct(private ProvedKill $kill, private bool $onChangedLine, private bool $carriedPruned)
     {
     }
 
-    public static function of(ProvedKill $kill): self
+    /**
+     * A kill a ledger proved; carried where its unit's last result gave it
+     * because the plan pruned its mutator (ADR-0025, decision 1).
+     */
+    public static function of(ProvedKill $kill, bool $carriedPruned = false): self
     {
-        return new self($kill, onChangedLine: false);
+        return new self($kill, onChangedLine: false, carriedPruned: $carriedPruned);
     }
 
     /** This kill, marked on a changed line when the line it starts on is one the reach holds for its file. */
@@ -34,7 +38,13 @@ final readonly class JudgedKill
     {
         $location = $this->kill->location();
 
-        return new self($this->kill, $reach->changedLines($location->file())->has($location->start()));
+        return clone($this, ['onChangedLine' => $reach->changedLines($location->file())->has($location->start())]);
+    }
+
+    /** Whether it was carried from its unit's last result because the plan pruned its mutator. */
+    public function isCarriedPruned(): bool
+    {
+        return $this->carriedPruned;
     }
 
     public function mutant(): ProvedKill

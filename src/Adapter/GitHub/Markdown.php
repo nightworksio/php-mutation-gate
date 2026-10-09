@@ -187,7 +187,7 @@ final readonly class Markdown
     }
 
     /**
-     * The verdict, what the run took and saved, and the project's score.
+     * The verdict, what the run took and saved and what pruning left out, and the project's score.
      *
      * @return list<string>
      */
