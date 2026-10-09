@@ -124,16 +124,22 @@ final readonly class PlanEstimates
             }
         }
 
+        return [...$lines, $this->total()];
+    }
+
+    /** What the run is expected to take, in wall time and runner time, and what that rests on. */
+    public function total(): string
+    {
         $run = $this->runTime();
 
-        return [...$lines, sprintf(
+        return sprintf(
             self::TOTAL,
             $run->wall()->text(),
             $run->runner()->text(),
             $this->share(CostBasis::Learned)->wholePercent(),
             $this->share(CostBasis::Measured)->wholePercent(),
             $this->share(CostBasis::Guessed)->wholePercent(),
-        )];
+        );
     }
 
     /**

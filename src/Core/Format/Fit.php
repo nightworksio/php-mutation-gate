@@ -12,6 +12,7 @@ use function mb_strlen;
 use function mb_substr;
 use function preg_replace;
 use function sprintf;
+use function str_replace;
 use function trim;
 
 /**
@@ -45,10 +46,16 @@ final readonly class Fit
     private const string CUT = '…';
 
     /**
-     * A control or format character: an escape, a bell, a carriage return, a
-     * bidirectional override, a zero-width space and the like.
+     * A control or format character, or a line or paragraph separator: an
+     * escape, a bell, a carriage return, a bidirectional override, a
+     * zero-width space and the like.
      */
-    private const string CONTROL = '/[\p{Cc}\p{Cf}]/u';
+    private const string CONTROL = '/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u';
+
+    /** What ends a single-line comment in PHP besides the line, written so it does not. */
+    private const string CLOSE_TAG = '?>';
+
+    private const string OPEN_CLOSE_TAG = '? >';
 
     /**
      * As many of these lines, one to a line, as fit in this many characters with a line saying how many are left out.
@@ -93,11 +100,22 @@ final readonly class Fit
     /**
      * One line of text from outside as it is written, its spaces kept:
      * invalid UTF-8 replaced, and every control and format character, a tab
-     * and a carriage return among them, dropped.
+     * and a carriage return among them, and every line and paragraph
+     * separator dropped.
      */
     public static function verbatim(string $line): string
     {
         return preg_replace(self::CONTROL, '', mb_scrub($line, 'UTF-8')) ?? '';
+    }
+
+    /**
+     * One line of text from outside, written so it stays inside a
+     * single-line comment of PHP, YAML or NEON: as `verbatim()` writes it,
+     * so no line ends early, with no close tag, which ends PHP's mode.
+     */
+    public static function commentLine(string $line): string
+    {
+        return str_replace(self::CLOSE_TAG, self::OPEN_CLOSE_TAG, self::verbatim($line));
     }
 
     /**

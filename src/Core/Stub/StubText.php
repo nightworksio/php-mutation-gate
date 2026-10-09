@@ -59,11 +59,6 @@ final readonly class StubText
 
     private const string IGNORE = 'Where no test can kill it, leave it out in ignores.entries instead, with a reason:';
 
-    /** What ends a single-line comment in PHP besides the line, written so it does not. */
-    private const string CLOSE_TAG = '?>';
-
-    private const string OPEN_CLOSE_TAG = '? >';
-
     /** An attribute on a test method, by its class's name and its one argument. */
     private const string ATTRIBUTE = "#[\\%s(%s)]\n";
 
@@ -189,7 +184,7 @@ final readonly class StubText
         return array_map(
             static fn(string $line): string => rtrim(sprintf(
                 self::COMMENT,
-                str_replace(self::CLOSE_TAG, self::OPEN_CLOSE_TAG, Fit::verbatim($line)),
+                Fit::commentLine($line),
             )),
             $lines,
         );

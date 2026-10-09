@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\Config\InfectionFile;
 use NightWorksIO\MutationGate\Cli\Config\NoConfigFile;
 use NightWorksIO\MutationGate\Cli\Init\FoundMarkers;
+use NightWorksIO\MutationGate\Cli\Init\FullRunEstimate;
 use NightWorksIO\MutationGate\Cli\Init\InitAnswers;
 use NightWorksIO\MutationGate\Cli\Init\InitQuestions;
 use NightWorksIO\MutationGate\Cli\Init\NextSteps;
@@ -31,8 +32,9 @@ use Symfony\Component\Console\Input\InputInterface;
  * One `init`: where no config is here, the questions detection leaves open,
  * asked in their order; then the config, the CI definition, the editor's
  * files and the hooks, each made where it is asked for and not there; then
- * what to run next (ADR-0017, decision 1). With a config here, it makes only
- * what the command line asks for, and asks nothing.
+ * what a full run takes (ADR-0017, decision 4), and what to run next
+ * (decision 1). With a config here, it makes only what the command line
+ * asks for, and asks nothing.
  */
 final readonly class InitRun
 {
@@ -47,6 +49,7 @@ final readonly class InitRun
         private Setting $setting,
         private Additions $additions,
         private InitQuestions|NotGiven $questions,
+        private FullRunEstimate $estimate,
     ) {
     }
 
@@ -150,19 +153,35 @@ final readonly class InitRun
             ),
         };
 
-        if (! is_string($config) || ! $settings instanceof Settings) {
-            return $config;
-        }
+        return is_string($config) && $settings instanceof Settings
+            ? $this->then(
+                $config,
+                $settings,
+                $additions,
+                $prepared instanceof PreparedCi ? $definition->made($prepared, $settings->ci()) : '',
+                $existing instanceof NoConfigFile,
+            )
+            : $config;
+    }
 
-        $made = $prepared instanceof PreparedCi ? $definition->made($prepared, $settings->ci()) : '';
-        $editor = is_string($made) ? $additions->editorMade($setting->project) : '';
+    /**
+     * What was made after the config, said in order: the CI definition, the
+     * editor's files and the hooks; then, where the config is new, what a
+     * full run takes.
+     */
+    private function then(
+        string $config,
+        Settings $settings,
+        Additions $additions,
+        string|CannotJudge $made,
+        bool $fresh,
+    ): string|CannotJudge {
+        $local = is_string($made) ? $additions->localMade($this->setting->project, $this->setting->gate) : '';
+        $estimate = is_string($local)
+            ? $this->estimate->said($this->input, $settings, $additions->output(), $fresh)
+            : '';
 
-        return Said::joined(
-            $config,
-            $made,
-            $editor,
-            is_string($editor) ? $additions->hookMade($setting->project, $setting->gate) : '',
-        );
+        return Said::joined($config, $made, $local, $estimate);
     }
 
     /**

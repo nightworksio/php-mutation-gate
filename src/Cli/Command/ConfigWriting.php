@@ -6,11 +6,13 @@ namespace NightWorksIO\MutationGate\Cli\Command;
 
 use function basename;
 use function dirname;
+use function implode;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Config\Imported;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
@@ -19,6 +21,9 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Import\Import;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Tree\FoundTrees;
+use NightWorksIO\MutationGate\Core\Tree\Trees;
 
 use function sprintf;
 
@@ -33,10 +38,13 @@ final readonly class ConfigWriting
 
     private const string AND_ZERO_CONFIG = '%s and what zero-config found';
 
-
     private const string PRINTED_IGNORING = "%s:\n\n%s\n.gitignore gains the line %s";
 
-    /** What was written, said as a sentence, and what became of each imported key, or why nothing was. */
+    /**
+     * What was written, said as a sentence, with the trees zero-config found
+     * where the config names none, and what became of each imported key; or
+     * why nothing was.
+     */
     public static function written(
         Setting $setting,
         Settings $settings,
@@ -45,47 +53,63 @@ final readonly class ConfigWriting
         Layer $more,
         Output $output,
     ): string|Invalid|CannotJudge {
-        $import = self::seeded($setting, $settings, $from, $more);
-        $text = $import instanceof Import
-            ? $setting->formats->file(
-                $import->layer(),
-                $destination->format(),
-                ConfigFile::at($destination->file(), Path::of($setting->project)),
-            )
+        $found = ZeroConfig::found($setting->extensions, $settings);
+        $import = $found instanceof ZeroConfig ? self::seeded($setting, $found, $more, $from) : $found;
+
+        $trees = $found instanceof ZeroConfig ? $found->trees() : FoundTrees::of(Trees::none());
+
+        return $import instanceof Import
+            ? self::told($setting, $destination, $from, $output, $import, $trees)
             : $import;
+    }
+
+    /**
+     * The config written, or printed, with the trees listed where it names
+     * none, said as a sentence.
+     */
+    private static function told(
+        Setting $setting,
+        Destination $destination,
+        Path|NotGiven $from,
+        Output $output,
+        Import $import,
+        FoundTrees $trees,
+    ): string|CannotJudge {
+        $file = ConfigFile::at($destination->file(), Path::of($setting->project));
+        $text = $setting->formats->file($import->layer(), $destination->format(), $file);
 
         if (! is_string($text)) {
             return $text;
         }
 
+        $comment = $import->layer()->floors()->trees() instanceof Absent
+            ? $destination->format()->commented($trees->lines($file))
+            : '';
+        $text = sprintf('%s%s', $text, is_string($comment) ? $comment : '');
         $source = $from instanceof Path ? sprintf(self::AND_ZERO_CONFIG, $from->value()) : self::ZERO_CONFIG;
         $said = $output === Output::Printed
             ? self::printed($setting->project, $destination, $text)
             : self::write($setting->project, $destination, $text, $source);
+        $more = [
+            ...$comment instanceof NotWritten ? [$trees->said()] : [],
+            ...$from instanceof Path ? [$import->report($from->value())] : [],
+        ];
 
-        return is_string($said) && $from instanceof Path
-            ? sprintf("%s\n%s", $said, $import->report($from->value()))
-            : $said;
+        return is_string($said) ? implode("\n", [$said, ...$more]) : $said;
     }
 
     /** What zero-config found, with the Infection config imported over it where one is named. */
     private static function seeded(
         Setting $setting,
-        Settings $settings,
-        Path|NotGiven $from,
+        ZeroConfig $found,
         Layer $more,
-    ): Import|Invalid|CannotJudge {
-        $zeroConfig = ZeroConfig::layer($setting->extensions, $settings);
-
-        if (! $zeroConfig instanceof Layer) {
-            return $zeroConfig;
-        }
-
-        $found = $zeroConfig->over($more);
+        Path|NotGiven $from,
+    ): Import|CannotJudge {
+        $layer = $found->layer()->over($more);
 
         return $from instanceof Path
-            ? Imported::from($setting->project, $from, $found, $setting->now)
-            : Import::of($found);
+            ? Imported::from($setting->project, $from, $layer, $found->declared(), $setting->now)
+            : Import::of($layer);
     }
 
     /** The config printed whole, and the line `.gitignore` would gain, where it would gain one. */

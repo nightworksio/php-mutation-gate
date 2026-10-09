@@ -34,7 +34,6 @@ final readonly class HotPath
 
     private const string WHY = 'Each of its mutants runs most of the suite, which costs time and never a verdict.';
 
-    private const string FIX = 'Hold it with the tests that assert what it does: #[Holds(\'%s\')] on them.';
 
     public static function in(Observations $observed): Findings
     {
@@ -63,7 +62,7 @@ final readonly class HotPath
                 Severity::Slow,
                 sprintf(self::FOUND, $file->value(), count($map->testsCoveringFile($file)), count($map->tests())),
                 self::WHY,
-                sprintf(self::FIX, $file->value()),
+                HotPaths::holding($file),
             )->costing(self::atStake($file, $map, $measured))));
         }
 

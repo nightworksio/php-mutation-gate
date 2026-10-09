@@ -33,6 +33,9 @@ final readonly class HotPaths
         `%s` is run by %d of %d tests and nothing holds it; each of its mutants runs most of the suite.
         SAID;
 
+    /** How a hot path stops being one. */
+    private const string HOLD = 'Hold it with the tests that assert what it does: #[Holds(\'%s\')] on them.';
+
     private function __construct(private float $share)
     {
     }
@@ -57,15 +60,25 @@ final readonly class HotPaths
     /** A warning for each file the suite's map says this share of its tests run, where no held unit holds it. */
     public function in(CoverageMap $suite, Units $held): Warnings
     {
-        $tests = count($suite->tests());
         $warnings = [];
 
         foreach ($this->hot($suite, $held) as $file) {
-            $running = count($suite->testsCoveringFile($file));
-            $warnings[] = Warning::that(sprintf(self::SAID, $file->value(), $running, $tests));
+            $warnings[] = Warning::that(self::said($suite, $file));
         }
 
         return Warnings::of(...$warnings);
+    }
+
+    /** What a hot file costs: how many of the suite's tests run it. */
+    public static function said(CoverageMap $suite, Path $file): string
+    {
+        return sprintf(self::SAID, $file->value(), count($suite->testsCoveringFile($file)), count($suite->tests()));
+    }
+
+    /** The `#[Holds]` that stops a file being hot. */
+    public static function holding(Path $file): string
+    {
+        return sprintf(self::HOLD, $file->value());
     }
 
     /** The files the suite's map says this share of its tests run, where no held unit holds them. */

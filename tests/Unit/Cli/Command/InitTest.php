@@ -27,7 +27,7 @@ afterEach(function () use ($here): void {
 $init = static function (string $project, array $input = []): Commands {
     chdir($project);
 
-    return Commands::run($project, 'init', $input);
+    return Commands::run($project, 'init', ['--no-measure' => true, ...$input]);
 };
 
 /** A file of a project, or '' when it is not there. */
@@ -35,7 +35,7 @@ $file = static fn(string $project, string $path): string => is_file(sprintf('%s/
     ? (string) file_get_contents(sprintf('%s/%s', $project, $path))
     : '';
 
-it('writes a mutation-gate.php holding what zero-config found, and keeps .mutation-gate/ out of git', function () use (
+it('writes a mutation-gate.php holding the preset and runner zero-config found, lists the trees, and keeps .mutation-gate/ out of git', function () use (
     $init,
     $file,
 ): void {
@@ -54,43 +54,42 @@ it('writes a mutation-gate.php holding what zero-config found, and keeps .mutati
         use NightWorksIO\MutationGate\Config\Gate;
         use NightWorksIO\MutationGate\Config\Preset;
         use NightWorksIO\MutationGate\Config\Runner;
-        use NightWorksIO\MutationGate\Config\Tree;
 
         return Gate::configure()
             ->preset(Preset::laravel())
-            ->runner(Runner::pest())
-            ->trees(Tree::at('app'));
+            ->runner(Runner::pest());
+
+        // Zero-config finds these trees, so this file names none:
+        //   app
 
         PHP)->and($file($project, '.gitignore'))->toBe(".mutation-gate/\n");
 });
 
-it('writes a mutation-gate.json that names its JSON Schema', function () use ($init, $file): void {
+it('writes a mutation-gate.json that names its JSON Schema, and says the trees it holds no comment of', function () use ($init, $file): void {
     $project = Scratch::copy('tests/Fixtures/Projects/Library');
     Scratch::write($project, '.gitignore', "/vendor/\n.mutation-gate/\n");
     $ran = $init($project, ['--format' => 'json']);
 
     expect([$ran->code, $ran->output, $ran->errors])
-        ->toBe([0, sprintf("Wrote mutation-gate.json with what zero-config found.\n%s", INIT_NEXT), ''])
+        ->toBe([0, sprintf(
+            "Wrote mutation-gate.json with what zero-config found.\nZero-config finds the trees src, so the config names none.\n%s",
+            INIT_NEXT,
+        ), ''])
         ->and($file($project, 'mutation-gate.json'))->toBe(<<<'JSON'
             {
                 "$schema": "vendor/nightworksio/mutation-gate/resources/mutation-gate.schema.json",
                 "preset": "library",
-                "runner": "infection",
-                "trees": [
-                    {
-                        "path": "src"
-                    }
-                ]
+                "runner": "infection"
             }
 
             JSON)
         ->and($file($project, '.gitignore'))->toBe("/vendor/\n.mutation-gate/\n");
 });
 
-it('writes a YAML or NEON config that reads back into what zero-config found', function (
+it('writes a YAML or NEON config that reads back into the preset and runner, the trees in a comment', function (
     string $format,
     ConfigLoader $loader,
-) use ($init): void {
+) use ($init, $file): void {
     $project = Scratch::copy('tests/Fixtures/Projects/Laravel');
     $init($project, ['--format' => $format]);
     $layer = $loader->load(
@@ -98,13 +97,15 @@ it('writes a YAML or NEON config that reads back into what zero-config found', f
     );
 
     expect($layer instanceof Layer ? Configs::decoded($layer) : Configs::problems($layer))
-        ->toBe(['preset' => 'laravel', 'runner' => 'pest', 'trees' => [['path' => 'app']]]);
+        ->toBe(['preset' => 'laravel', 'runner' => 'pest'])
+        ->and($file($project, sprintf('mutation-gate.%s', $format)))
+        ->toEndWith("\n\n# Zero-config finds these trees, so this file names none:\n#   app\n");
 })->with([
     'yaml' => ['yaml', fn(): ConfigLoader => new YamlConfig()],
     'neon' => ['neon', fn(): ConfigLoader => new NeonConfig()],
 ]);
 
-it('writes a tree phpunit.xml excludes from its source with a floor of 0 and the reason', function () use (
+it('lists a tree phpunit.xml excludes from its source with the reason it is exempt', function () use (
     $init,
     $file,
 ): void {
@@ -115,12 +116,11 @@ it('writes a tree phpunit.xml excludes from its source with a floor of 0 and the
         '<phpunit><source><include><directory>app</directory></include>'
         . '<exclude><directory>app/Generated</directory></exclude></source></phpunit>',
     );
-    $init($project, ['--format' => 'json']);
+    $init($project, ['--format' => 'yaml']);
 
-    expect(json_decode($file($project, 'mutation-gate.json'), associative: true))->toMatchArray(['trees' => [
-        ['path' => 'app'],
-        ['path' => 'app/Generated', 'floor' => 0, 'reason' => 'phpunit.xml excludes it from <source>'],
-    ]]);
+    expect($file($project, 'mutation-gate.yaml'))->toEndWith(
+        "#   app\n#   app/Generated (exempt: phpunit.xml excludes it from <source>)\n",
+    );
 });
 
 it('adds .mutation-gate/ to a .gitignore on a line of its own', function (string $before, string $after) use (
@@ -197,7 +197,11 @@ it('takes the runner --runner names over the ones installed', function () use ($
     $init($project, ['--runner' => 'pest', '--format' => 'json']);
 
     expect(json_decode($file($project, 'mutation-gate.json'), associative: true))
-        ->toMatchArray(['preset' => 'library', 'runner' => 'pest', 'trees' => [['path' => 'src']]]);
+        ->toBe([
+            '$schema' => 'vendor/nightworksio/mutation-gate/resources/mutation-gate.schema.json',
+            'preset' => 'library',
+            'runner' => 'pest',
+        ]);
 });
 
 it('writes nothing in a format it does not know', function () use ($init, $file): void {
@@ -224,35 +228,40 @@ it('writes the file --config names, in the format its extension names, its paths
 ): void {
     $project = Scratch::copy('tests/Fixtures/Projects/Laravel');
     $ran = $init($project, ['--config' => 'ci/gate.json', '--format' => 'php']);
+    $other = Scratch::copy('tests/Fixtures/Projects/Laravel');
+    $yaml = $init($other, ['--config' => 'ci/gate.yaml']);
 
     expect([$ran->code, $ran->output, $ran->errors])->toBe([
         0,
-        sprintf("Wrote ci/gate.json with what zero-config found, and added .mutation-gate/ to .gitignore.\n%s", INIT_NEXT),
+        sprintf(
+            "Wrote ci/gate.json with what zero-config found, and added .mutation-gate/ to .gitignore.\n"
+            . "Zero-config finds the trees app, so the config names none.\n%s",
+            INIT_NEXT,
+        ),
         '',
     ])->and($file($project, 'ci/gate.json'))->toBe(<<<'JSON'
         {
             "$schema": "../vendor/nightworksio/mutation-gate/resources/mutation-gate.schema.json",
             "preset": "laravel",
-            "runner": "pest",
-            "trees": [
-                {
-                    "path": "../app"
-                }
-            ]
+            "runner": "pest"
         }
 
         JSON)
+        ->and($file($other, 'ci/gate.yaml'))->toEndWith("#   ../app\n")
+        ->and($yaml->code)->toBe(0)
         ->and($file($project, 'mutation-gate.php'))->toBe('')
         ->and($file($project, '.gitignore'))->toBe(".mutation-gate/\n");
 });
 
-it('reads the config it wrote at --config back into what zero-config found', function () use ($init): void {
+it('reads the config it wrote at --config back into the preset and runner, the trees left to the tree source', function () use ($init): void {
     $project = Scratch::copy('tests/Fixtures/Projects/Laravel');
     $init($project, ['--config' => 'ci/gate.yml']);
     $shown = Commands::run($project, 'config:show', ['--config' => 'ci/gate.yml']);
 
-    expect(json_decode($shown->output, associative: true))
-        ->toMatchArray(['preset' => 'laravel', 'runner' => ['use' => 'pest', 'memory' => '1G'], 'trees' => [['path' => 'app']]]);
+    $effective = json_decode($shown->output, associative: true);
+
+    expect($effective)->toMatchArray(['preset' => 'laravel', 'runner' => ['use' => 'pest', 'memory' => '1G']])
+        ->and(is_array($effective) && array_key_exists('trees', $effective))->toBeFalse();
 });
 
 it('writes nothing where the file --config names is in no format it writes', function () use ($init, $file): void {
@@ -308,6 +317,16 @@ it('starts the config from an Infection config with --from, and says what became
         ]);
 });
 
+it('gives the trees zero-config found the floor an Infection config imports, and writes them, listing none', function () use ($init, $file): void {
+    $project = Scratch::copy('tests/Fixtures/Projects/Laravel');
+    Scratch::write($project, 'infection.json5', '{minMsi: 80}');
+    $ran = $init($project, ['--from' => null, '--format' => 'yaml']);
+
+    expect($ran->code)->toBe(0)
+        ->and($file($project, 'mutation-gate.yaml'))->toContain("    path: app\n    floor: 80\n")
+        ->and($file($project, 'mutation-gate.yaml'))->not->toContain('Zero-config finds');
+});
+
 it('imports the file import names, as init --from does', function () use ($file): void {
     $project = Scratch::copy('tests/Fixtures/Projects/Library');
     Scratch::write($project, 'ci/infection.json', '{"timeout": 9}');
@@ -351,7 +370,7 @@ function initCi(array $input, array $files = []): array
     }
 
     chdir($project);
-    $ran = Commands::run($project, 'init', $input);
+    $ran = Commands::run($project, 'init', ['--no-measure' => true, ...$input]);
 
     return [$project, $ran];
 }
@@ -394,8 +413,19 @@ const INIT_CI_MONEY = <<<'PHP'
 
 const INIT_CI_WROTE = "Wrote mutation-gate.php with what zero-config found, and added .mutation-gate/ to .gitignore.\n";
 
-/** What init says to run next, outside a repository, where git adds nothing. */
-const INIT_NEXT = "Next:\n  vendor/bin/mutation-gate doctor\n  vendor/bin/mutation-gate\n";
+/**
+ * What init says last, outside a repository: a fixture's full run estimated
+ * from its few lines of code, as --no-measure asks, and what to run next,
+ * where git adds nothing.
+ */
+const INIT_NEXT = <<<'SAID'
+    A full run is estimated at about 0s in one job, from its lines of code. A coverage run of the suite,
+    which init runs without --no-measure, measures it.
+    Next:
+      vendor/bin/mutation-gate doctor
+      vendor/bin/mutation-gate
+
+    SAID;
 
 const INIT_CI_UNPINNED
     = 'Composer did not install the gate here, so the definition names <the commit of a release>: pin the commit of a release.';
