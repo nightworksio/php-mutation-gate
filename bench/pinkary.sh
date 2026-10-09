@@ -11,7 +11,10 @@ composer install --no-interaction --no-progress
 # laravel/vet refuses a package it cannot fetch over https, as the gate from
 # this checkout is; the harness turns it off before requiring the gate.
 composer config allow-plugins.laravel/vet false
-composer require --dev --no-interaction --no-progress 'nightworksio/mutation-gate:@dev'
+# The app's post-update-cmd scripts update its AI tooling, which a benchmark
+# needs none of; Laravel's package discovery is the one it does need.
+composer require --dev --no-interaction --no-progress --no-scripts 'nightworksio/mutation-gate:@dev'
+php artisan package:discover
 composer show | grep -E '^(pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit|nightworksio/mutation-gate) '
 npm install --no-audit --no-fund
 npm run build
