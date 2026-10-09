@@ -80,6 +80,19 @@ it('serves the control\'s file through Pest\'s override, as a mutant\'s own run 
     }))->toBe(['loaded' => true, 'wrapped' => true, 'ran' => true]);
 })->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
+it('runs a control of one named row of a data set, by the id the coverage map gives it, and that row alone', function (): void {
+    $test = 'Tests\RowsSpec::marksItsNamedRow#384 bits';
+    $ends = [];
+
+    $marks = RunnerContracts::marks(static function () use ($test, &$ends): void {
+        $ends[] = controlsOf(Library::infection(Seconds::of(10.0)), Controls::of(moneyControl($test, 60.0)))
+            ->of(moneyControl($test, 60.0))
+            ->end();
+    });
+
+    expect($ends)->toBe([ControlEnd::Passed])->and($marks['ran'])->toBeTrue();
+})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
+
 it('says a control ran out where its limit is too short for its tests', function (Library $at, string $test): void {
 
     expect(controlsOf($at, Controls::of(moneyControl($test, 0.01)))->of(moneyControl($test, 0.01))->end())->toBe(ControlEnd::RanOut);

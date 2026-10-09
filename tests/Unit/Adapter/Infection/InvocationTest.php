@@ -93,9 +93,14 @@ it('starts a run of no test on the config that loads none, with the project\'s a
     ]);
 });
 
-it('runs a control on its config with the project\'s arguments, selecting its tests by their ids and each row of their data sets', function (): void {
+it('runs a control on its config with the project\'s arguments, selecting its tests by the names PHPUnit gives them', function (): void {
     $config = invoked('{"initialTestsPhpOptions": "-d pcov.directory=app", "testFrameworkExtraArgs": "--testsuite=unit"}');
-    $tests = TestIds::of(TestId::of('Tests\\MoneyTest::testAdds'), TestId::of('Tests\\Tax/Test::testRate with data set #0'));
+    $tests = TestIds::of(
+        TestId::of('Tests\\MoneyTest::testAdds'),
+        TestId::of('Tests\\Tax/Test::testRate#0'),
+        TestId::of('Tests\\TaxTest::testRate#384 bits'),
+        TestId::of('tests/money.phpt'),
+    );
 
     expect(Invocation::controlling(invokedIn(), $config, '/project/.gate/infection/controls/0/phpunit.xml', $tests)->arguments())->toBe([
         PHP_BINARY,
@@ -103,7 +108,8 @@ it('runs a control on its config with the project\'s arguments, selecting its te
         '--configuration=/project/.gate/infection/controls/0/phpunit.xml',
         '--colors=never',
         '--testsuite=unit',
-        '--filter=/^(?:Tests\\\\MoneyTest\:\:testAdds|Tests\\\\Tax\/Test\:\:testRate with data set \#0)(?: with data set .*)?$/',
+        '--filter=/^(?:Tests\\\\MoneyTest\:\:testAdds|Tests\\\\Tax\/Test\:\:testRate with data set \#0'
+            . '|Tests\\\\TaxTest\:\:testRate with data set "384 bits"|tests\/money\.phpt)(?: with data set .*)?$/',
     ]);
 });
 

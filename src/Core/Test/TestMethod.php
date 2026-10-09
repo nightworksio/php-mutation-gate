@@ -80,6 +80,18 @@ final readonly class TestMethod
     }
 
     /**
+     * The test as PHPUnit names it where a `--filter` reads it:
+     * `<class>::<method>`, and a row's as `… with data set #0` or
+     * `… with data set "one"`.
+     */
+    public function named(): string
+    {
+        $test = sprintf('%s%s%s', $this->class, self::SEPARATOR, $this->method);
+
+        return $this->row === '' ? $test : sprintf(TestRow::NAMED, $test, $this->row);
+    }
+
+    /**
      * The test in a file, as described there, or the row of it this id runs:
      * `with data set #0` or `with data set "one"`, as PHPUnit logs it.
      */

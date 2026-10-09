@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Test\JUnitLog;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestMethod;
 use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
@@ -105,7 +106,8 @@ final readonly class Invocation
      * project's PHPUnit, on a config shaped as Infection shapes a mutant's
      * (see StartUpConfig), whose one suite holds the control's test files,
      * with the project's extra arguments and a filter that selects its tests
-     * by their ids, a data set's rows with its method.
+     * by the names PHPUnit gives them: a row an id names alone, and every
+     * row of a method it names whole.
      */
     public static function controlling(
         Project $project,
@@ -113,7 +115,7 @@ final readonly class Invocation
         string $controlConfig,
         TestIds $tests,
     ): Command {
-        $ids = array_map(static fn(TestId $test): string => preg_quote($test->value(), '/'), [...$tests]);
+        $ids = array_map(static fn(TestId $test): string => preg_quote(self::named($test), '/'), [...$tests]);
 
         return Command::php(
             $config->phpunit($project),
@@ -188,6 +190,14 @@ final readonly class Invocation
             ...($judgedBy instanceof Filter ? ['--only-covering-test-cases'] : []),
             ...$paths,
         );
+    }
+
+    /** A test as PHPUnit names it for a filter; an id that names no test method, such as a `.phpt` file's, as it is. */
+    private static function named(TestId $test): string
+    {
+        $method = TestMethod::of($test);
+
+        return $method instanceof TestMethod ? $method->named() : $method->value();
     }
 
     /** The option that writes the Clover report of the lines no test ran into a coverage directory. */
