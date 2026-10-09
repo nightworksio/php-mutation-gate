@@ -13,6 +13,10 @@ on:
         description: "One job to run: jwt, pinkary or pest-start-up; every one where empty"
         type: string
         default: ""
+      rounds:
+        description: "How many times each arm runs, interleaved"
+        type: number
+        default: 3
 
 permissions: {}
 
@@ -57,9 +61,11 @@ jobs:
         working-directory: ${{ runner.temp }}/${{ env.PROJECT }}
         run: '"${GITHUB_WORKSPACE}/bench/${PROJECT}.sh"'
       - name: run every arm, interleaved, three times
+        env:
+          ROUNDS: ${{ inputs.rounds || 3 }}
         run: |
           python3 .github/scripts/bench.py run "bench/${PROJECT}.json" "${RUNNER_TEMP}/${PROJECT}" \
-            "${RUNNER_TEMP}/bench" --rounds 3
+            "${RUNNER_TEMP}/bench" --rounds "${ROUNDS}"
       - name: reconcile the arms
         if: ${{ !cancelled() }}
         run: |
@@ -111,9 +117,11 @@ jobs:
         working-directory: ${{ runner.temp }}/${{ env.PROJECT }}
         run: '"${GITHUB_WORKSPACE}/bench/${PROJECT}.sh"'
       - name: run every arm, interleaved, three times
+        env:
+          ROUNDS: ${{ inputs.rounds || 3 }}
         run: |
           python3 .github/scripts/bench.py run "bench/${PROJECT}.json" "${RUNNER_TEMP}/${PROJECT}" \
-            "${RUNNER_TEMP}/bench" --rounds 3
+            "${RUNNER_TEMP}/bench" --rounds "${ROUNDS}"
       - name: reconcile the arms
         if: ${{ !cancelled() }}
         run: |
