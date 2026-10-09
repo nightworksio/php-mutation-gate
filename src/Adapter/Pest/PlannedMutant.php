@@ -29,6 +29,7 @@ final readonly class PlannedMutant
         private string $diff,
         private DiskPath $mutated,
         private int $occurrence = 0,
+        private bool $twin = false,
     ) {
     }
 
@@ -42,6 +43,42 @@ final readonly class PlannedMutant
         DiskPath $mutated,
     ): self {
         return new self($id, $file, $start, $end, $mutator, $diff, $mutated);
+    }
+
+    /**
+     * This mutant, kept out of Pest's run as the twin of one made before it
+     * that leaves its file as it does (ADR-0025, decision 13).
+     */
+    public function asTwin(): self
+    {
+        return clone($this, ['twin' => true]);
+    }
+
+    /** Whether it was kept out of Pest's run as another's twin, whose run judges it. */
+    public function isTwin(): bool
+    {
+        return $this->twin;
+    }
+
+    /**
+     * The mutant whose run judges this one: the first of these that Pest
+     * ran on this one's mutated copy of its file, where this one is a twin;
+     * this one otherwise, or where none is there.
+     *
+     * @param list<self> $planned numbered, as numbered() numbers them
+     */
+    public function judgedBy(array $planned): self
+    {
+        foreach ($this->twin ? $planned : [] as $mutant) {
+            $alike = $mutant->file->value() === $this->file->value()
+                && $mutant->mutated->value() === $this->mutated->value();
+
+            if (! $mutant->twin && $alike) {
+                return $mutant;
+            }
+        }
+
+        return $this;
     }
 
     /**

@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\MutantTime;
 use NightWorksIO\MutationGate\Adapter\Pest\OnlyList;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\PrunedFile;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Twins;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Tests\Support\FileModes;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
@@ -54,6 +55,10 @@ it('patches the four files, leaving each one PHP', function () use ($vendor, $so
             "&& \\%s::leavesOut(\$pruned, (string) \$mutation->file->getRealPath(), \$mutation->mutator)\n",
             PrunedFile::class,
         ))
+        ->and($source($at, 'Tester/MutationTestRunner.php'))
+        ->toContain(sprintf("\$recorded = class_exists(\\%s::class) ? (string) getenv('MUTATION_GATE_RESULTS') : '';\n", Twins::class))
+        ->and($source($at, 'Tester/MutationTestRunner.php'))
+        ->toContain(sprintf("if (\$recorded !== '' && \\%s::isTwin(\$mutation, \$recorded)) {\n", Twins::class))
         ->and($source($at, 'Tester/MutationTestRunner.php'))
         ->toContain(sprintf("\\%s::remember(\$loadedCoverage);\n", MutantTime::class))
         ->and($source($at, 'MutationTest.php'))
@@ -198,7 +203,7 @@ it('marks every hunk it writes, one mark to a hunk, so another version\'s are fo
         MutatePlugin::FILES,
     ));
 
-    expect($marks)->toBe(15);
+    expect($marks)->toBe(17);
 });
 
 /**

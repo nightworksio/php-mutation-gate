@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Twins;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Hunk;
 use NightWorksIO\MutationGate\Core\Composer\Package;
@@ -24,6 +25,11 @@ use function sprintf;
  *   finished for its silence limit, the standard limit of its slowest test
  *   (see Silence).
  * - Given a list of native ids (see OnlyList), a run makes only those mutants.
+ * - Given a list of pruned mutators (see PrunedFile), a run makes none of their
+ *   mutants in the files it names.
+ * - Where the gate records the run, a mutant that leaves its file as one made
+ *   before it does is kept out of the run, and recorded as that one's twin
+ *   (see Twins).
  * - Where the gate narrows a run, a mutant's own run loads only the test files
  *   its covering tests need (see CoveringFiles), not every test file, and the
  *   files it loads are recorded by the mutant's mutated copy.
@@ -234,6 +240,11 @@ final readonly class Patch
                             continue;
                         }
 
+                        {MARK} one run for mutants that leave their file alike, the first's verdict each one's.
+                        if ($recorded !== '' && \%2$s::isTwin($mutation, $recorded)) {
+                            continue;
+                        }
+
                         $mutationSuite->repository->add($mutation);
         PHP;
 
@@ -248,6 +259,9 @@ final readonly class Patch
 
                 {MARK} the list of mutators pruned in unchanged files; none for every mutant.
                 $pruned = class_exists(\%3$s::class) ? (string) getenv('%4$s') : '';
+
+                {MARK} the file the gate records the run in; none where it records nothing.
+                $recorded = class_exists(\%5$s::class) ? (string) getenv('%6$s') : '';
 
                 foreach ($files as $file) {
                     $linesToMutate = [];
@@ -338,9 +352,11 @@ final readonly class Patch
                     GateVariable::Only->value,
                     PrunedFile::class,
                     GateVariable::Pruned->value,
+                    Twins::class,
+                    GateVariable::Results->value,
                 ),
             ),
-            Hunk::in(self::TEST_RUNNER, self::ONLY_SHIPS, sprintf(self::ONLY_BECOMES, PrunedFile::class)),
+            Hunk::in(self::TEST_RUNNER, self::ONLY_SHIPS, sprintf(self::ONLY_BECOMES, PrunedFile::class, Twins::class)),
             Hunk::in(self::STREAM_WRAPPER, self::STAT_SHIPS, self::STAT_BECOMES),
         ];
     }

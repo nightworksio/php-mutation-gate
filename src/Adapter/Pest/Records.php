@@ -57,6 +57,9 @@ final class Records
     /** @var list<PlannedMutant> in the order the plugin wrote them, which is the order it writes them finished */
     private array $planned = [];
 
+    /** @var list<PlannedMutant> those kept out of Pest's run, each a planned one's twin, in the order Pest made them */
+    private array $twins = [];
+
     /** @var array<string, list<PestStatus>> each status Pest decided, by native id, in the order it decided them */
     private array $outcomes = [];
 
@@ -103,30 +106,41 @@ final class Records
     }
 
     /**
-     * Every planned mutant, ordered by file and then by the line it starts on.
+     * Every planned mutant and every twin, ordered by file and then by the
+     * line it starts on.
      *
      * @return list<PlannedMutant>
      */
     public function planned(): array
     {
-        return PlannedMutant::inOrder(PlannedMutant::numbered($this->planned));
+        return PlannedMutant::inOrder(PlannedMutant::numbered([...$this->planned, ...$this->twins]));
     }
 
     /**
      * The status a mutant ended with, as Pest names it, or the last it
-     * reported while it ran; none for one Pest never ran.
+     * reported while it ran; none for one Pest never ran. A twin's is the
+     * status of the mutant whose run judges it.
      */
     public function statusOf(PlannedMutant $mutant): PestStatus
     {
-        return $this->nth($this->finished, $mutant, $this->nth($this->outcomes, $mutant, PestStatus::None));
+        $judged = $mutant->isTwin() ? $mutant->judgedBy(PlannedMutant::numbered($this->planned)) : $mutant;
+
+        return $this->nth($this->finished, $judged, $this->nth($this->outcomes, $judged, PestStatus::None));
     }
 
-    /** How long a mutant ran; one Pest never started ran for no time it measured. */
+    /**
+     * How long a mutant ran; one Pest never started ran for no time it
+     * measured, and a twin, which no run ran, for none.
+     */
     public function durationOf(PlannedMutant $mutant): Seconds|Unmeasured
     {
         $seconds = $this->nth($this->durations, $mutant, 0.0);
 
-        return $seconds > 0.0 ? Seconds::of($seconds) : Unmeasured::duration();
+        return match (true) {
+            $mutant->isTwin() => Seconds::of(0.0),
+            $seconds > 0.0 => Seconds::of($seconds),
+            default => Unmeasured::duration(),
+        };
     }
 
     /** What the plugin recorded of a mutant's own process. */
@@ -221,7 +235,7 @@ final class Records
         $event = $record->field(RecordField::Event->value);
 
         match (RecordEvent::tryFrom($event->text())) {
-            RecordEvent::Planned => $this->withPlanned($record),
+            RecordEvent::Planned, RecordEvent::Twin => $this->withPlanned($record),
             RecordEvent::Made => $this->withMade($record),
             RecordEvent::Outcome => $this->withOutcome($record),
             RecordEvent::Finished => $this->withFinished($record),
@@ -257,7 +271,7 @@ final class Records
             throw NotInShape::at($end->at(), 'a line at or after the one the mutant starts on');
         }
 
-        $this->planned[] = PlannedMutant::of(
+        $planned = PlannedMutant::of(
             $id,
             DiskPath::of($record->field(RecordField::File->value)->text()),
             Line::of($start->integer()),
@@ -266,6 +280,14 @@ final class Records
             $record->field(RecordField::Diff->value)->text(),
             DiskPath::of($record->field(RecordField::Mutated->value)->text()),
         );
+
+        if ($record->field(RecordField::Event->value)->text() === RecordEvent::Twin->value) {
+            $this->twins[] = $planned->asTwin();
+
+            return;
+        }
+
+        $this->planned[] = $planned;
     }
 
     /**

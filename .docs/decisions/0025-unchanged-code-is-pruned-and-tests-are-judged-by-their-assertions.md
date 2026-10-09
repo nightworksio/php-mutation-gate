@@ -323,6 +323,29 @@ decision 3). The kill matrix knows which tests cover and which kill
       - Its text block, which the console and the JUnit report print,
         holds a line `Removable: save()` after the hint.
 
+### Identical mutants
+
+13. **Mutants that leave their file alike run once, and share one verdict.**
+    Two mutants of one file whose mutated files hold the same bytes are one
+    program, whichever mutators made them, so one run judges both.
+    - **Pest.** Pest names each mutated copy by a digest of its whole source.
+      Where the gate records the run and `pest.patch` is on, the patched
+      generation loop keeps a mutant whose file and copy an earlier mutant
+      has out of Pest's run, after the run-again list and pruning have had
+      their say. The plugin records it as a *twin* beside the mutants Pest
+      planned, and the adapter judges it by its copy's run: its status,
+      killers, limit, reason and evidence are the first's.
+    - **The PHPUnit runner.** The gate makes every mutant itself, and runs
+      only the first of those whose file and mutated text are alike.
+    - **Infection.** Infection makes, runs and counts every mutant, twins
+      included: it logs only the mutants it ran, so a mutant it skipped would
+      leave the verdict without a record of it.
+    - **Every mutant stays.** A twin keeps its own id, mutator and place in
+      every report, counts in the score as its first does, and is judged in
+      no time, so it teaches the cost model nothing. No mutator is dropped.
+    This amends ADR-0013's context, by which a runner cannot skip a mutant
+    before it runs: a patched runner can.
+
 ## Alternatives considered
 
 | Option | Why it lost |
@@ -340,6 +363,8 @@ decision 3). The kill matrix knows which tests cover and which kill
 | **Any surviving removal suggesting deletion** | It would suggest deleting half of every untested codebase. |
 | **Never suggesting deletion** | Hides the dead code a pseudo-tested callee points at. |
 | **A report of removable code of its own** | A second report beside `tests`, for what one sentence of a hint says. |
+| **Dropping a mutator whose mutants another mutator also makes** | Two mutators alike on one node differ on others, so the mutants only one of them makes would go too. |
+| **Leaving a twin out of the verdict** | The score's denominator would move with which mutators happen to agree. |
 
 ## Consequences
 
@@ -354,6 +379,9 @@ matrix exists and as a stated lower bound elsewhere.
 
 **Dead code can be told from a missing test** where the gate's own records
 say so, and nowhere else.
+
+**Mutators that agree cost one run,** under Pest and the PHPUnit runner, with
+every mutant still in every report.
 
 ## Related
 

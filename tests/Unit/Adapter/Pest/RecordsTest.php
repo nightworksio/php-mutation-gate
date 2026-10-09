@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Placed;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Adapter\Pest\Records;
 use NightWorksIO\MutationGate\Adapter\Pest\Summary;
@@ -551,6 +552,43 @@ it('reads an ending with no code or signal as one whose code and signal are not 
     expect($records instanceof Records ? $records->runOf($mutant('a', '/p/src/Money.php', 10))->ended() : null)
         ->toEqual(Ended::unprinted(NotGiven::value(), NotGiven::value()))
         ->and($refused instanceof CannotJudge ? $refused->why() : '')->toContain('the record.signalled is not');
+});
+
+it('judges a twin by the run of the mutant whose mutated copy it shares, which ran for it in no time', function () use ($results, $planned): void {
+    $twin = PlannedMutant::of('t', DiskPath::of('/p/src/Money.php'), Line::of(10), Line::of(11), 'Twin', 'diff of t', DiskPath::of('/tmp/a'));
+    $records = Records::in($results([
+        $planned('a', '/p/src/Money.php', 10),
+        $planned('c', '/p/src/Money.php', 30),
+        RecordLine::planned($twin, RecordEvent::Twin),
+        RecordLine::finished('a', PestStatus::Tested, 0.5),
+        RecordLine::finished('c', PestStatus::Untested, 0.25),
+        RecordLine::end(),
+    ]));
+    $read = $records instanceof Records ? $records->planned() : [];
+    $of = static fn(PlannedMutant $each): array => $records instanceof Records
+        ? [$each->id(), $each->isTwin(), $records->statusOf($each), $records->durationOf($each)]
+        : [];
+    $summary = Summary::in('Mutations: 1 untested, 1 tested');
+
+    expect(array_map($of, $read))->toEqual([
+        ['a', false, PestStatus::Tested, Seconds::of(0.5)],
+        ['t', true, PestStatus::Tested, Seconds::of(0.0)],
+        ['c', false, PestStatus::Untested, Seconds::of(0.25)],
+    ])
+        ->and($records instanceof Records && $summary instanceof Summary && $records->addUpTo($summary))->toBeTrue()
+        ->and($records instanceof Records && $records->sharesItsCopy($read[0]))->toBeFalse()
+        ->and($records instanceof Records && $records->sharesItsCopy($read[1]))->toBeFalse();
+});
+
+it('leaves a twin no mutant planned on its copy ran for without a status, and keeps apart a twin of another file', function () use ($results, $planned): void {
+    $alone = PlannedMutant::of('t', DiskPath::of('/p/src/Tax.php'), Line::of(10), Line::of(11), 'Twin', 'diff of t', DiskPath::of('/tmp/a'));
+    $records = Records::in($results([
+        $planned('a', '/p/src/Money.php', 10),
+        RecordLine::planned($alone, RecordEvent::Twin),
+        RecordLine::finished('a', PestStatus::Tested, 0.5),
+    ]));
+
+    expect($records instanceof Records ? $records->statusOf($alone->asTwin()) : PestStatus::Tested)->toBe(PestStatus::None);
 });
 
 it('knows a mutant that shares its mutated copy with another, whose own runs cannot be told apart', function () use ($results, $planned, $mutant): void {

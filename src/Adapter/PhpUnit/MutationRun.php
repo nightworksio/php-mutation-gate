@@ -56,7 +56,8 @@ use function strval;
  * process otherwise (ADR-0023, decisions 12 to 14). A mutant no test covers
  * is uncovered, without a run. A mutant whose run has not started by the
  * request's deadline is skipped with no record. A run again makes only the
- * mutants it names.
+ * mutants it names. A mutant that leaves its file as one made before it does
+ * is not run, and takes that one's verdict (see Twins).
  */
 final readonly class MutationRun
 {
@@ -90,16 +91,18 @@ final readonly class MutationRun
         $end = $this->endOf($request->deadline());
         $from = $this->laps->now();
         $made = $this->made($request);
-        $queue = $made instanceof CannotJudge ? $made : $this->queued($made, $request, $map, $bounds, $end);
+        $twins = Twins::of(is_array($made) ? $made : []);
+        $queue = $made instanceof CannotJudge ? $made : $this->queued($twins->first(), $request, $map, $bounds, $end);
         $preparing = $this->laps->lap(Step::Preparing, $from, is_array($made) ? count($made) : 0);
         $from = $this->laps->now();
         $judged = $queue instanceof CannotJudge ? $queue : $this->judgedAll($queue, $request, $end);
+        $mutants = $judged instanceof CannotJudge ? [] : $twins->joined($judged->mutants());
 
         return match (true) {
             $judged instanceof CannotJudge => $judged,
-            default => MutationResult::of(Mutants::of(...$judged->mutants()), count($made) - count($judged->mutants()))
+            default => MutationResult::of(Mutants::of(...$mutants), count($made) - count($mutants))
                 ->withWarnings($judged->warnings())
-                ->withEvidence($judged->evidence())
+                ->withEvidence($twins->evidence($judged->evidence()))
                 ->withSteps(StepTimes::of($preparing, $this->laps->lap(Step::Mutation, $from, count($queue)))),
         };
     }

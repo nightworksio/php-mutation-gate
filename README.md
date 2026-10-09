@@ -160,6 +160,7 @@ The first release is tagged when every row says *yes*.
 | | Coverage re-measured only for the tests whose inputs moved | yes | [0023](.docs/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
 | | Every core of a shard's runner busy, and one warm worker per core for native runners | yes | [0023](.docs/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
 | | Mutators that never let a mutant through are pruned on unchanged code, and audited weekly | yes | [0025](.docs/decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md) |
+| | Mutants that leave their file alike run once and share one verdict, under Pest and the PHPUnit runner | yes | [0025](.docs/decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md) |
 | | Merge queues: a `merge_group` run judges what will land, trusting no pull request's own proofs | not yet | [0022](.docs/decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md) |
 | **Reporting** | JSON, JUnit and SARIF, and line annotations on GitHub | yes | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | | A useless-test report: tests that cover code and kill none of it | yes | [0014](.docs/decisions/0014-every-test-is-judged-by-what-it-kills.md) |

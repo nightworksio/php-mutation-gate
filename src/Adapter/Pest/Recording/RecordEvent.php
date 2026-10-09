@@ -10,6 +10,13 @@ enum RecordEvent: string
     /** A mutant Pest made, with its file, lines, mutator, diff and mutated copy. */
     case Planned = 'planned';
 
+    /**
+     * A mutant Pest made that leaves its file as one made before it does, which
+     * the patched generation loop keeps out of Pest's run, with the fields of a
+     * planned one (ADR-0025, decision 13).
+     */
+    case Twin = 'twin';
+
     /** How many mutants Pest made, and the opening run's seconds. */
     case Made = 'made';
 
