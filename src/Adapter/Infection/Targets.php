@@ -20,8 +20,9 @@ use function str_starts_with;
 
 /**
  * What a run mutates, as Infection is told it: the paths it is given, and
- * the source directories they are in. Where a run leaves paths out, it is
- * given the PHP files left, one by one.
+ * the source directories they are in, none inside another, since Infection
+ * finds a file once for each source directory that holds it. Where a run
+ * leaves paths out, it is given the PHP files left, one by one.
  */
 final readonly class Targets
 {
@@ -47,7 +48,7 @@ final readonly class Targets
             ),
         ));
 
-        return new self($paths, array_values(array_unique($directories)));
+        return new self($paths, self::outermost(array_values(array_unique($directories))));
     }
 
     /** @return list<string> */
@@ -60,6 +61,23 @@ final readonly class Targets
     public function directories(): array
     {
         return $this->directories;
+    }
+
+    /**
+     * The directories, less each inside another of them.
+     *
+     * @param  list<string> $directories
+     * @return list<string>
+     */
+    private static function outermost(array $directories): array
+    {
+        return array_values(array_filter(
+            $directories,
+            static fn(string $directory): bool => ! array_any(
+                $directories,
+                static fn(string $other): bool => $other !== $directory && self::inside($directory, $other),
+            ),
+        ));
     }
 
     private static function inside(string $file, string $path): bool
