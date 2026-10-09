@@ -5,7 +5,7 @@ Usage: hook_managers.py <gate checkout> <work directory> <pre-commit zipapp> --f
 
 Run by `hook managers` (ADR-0024, decisions 12 and 13). It builds one small
 PHPUnit project that requires this checkout's gate through a path repository,
-with CaptainHook and GrumPHP installed and their Composer plugins off, and
+with CaptainHook and GrumPHP installed and GrumPHP's Composer plugin off, and
 copies it into a repository of its own for each manager. In each, it runs
 `init --hook=<manager>`, installs the manager's hooks as `init` says to, and
 then commits and pushes through them:
@@ -183,13 +183,13 @@ def manifest(gate: Path, phpunit: str) -> dict:
         "require-dev": {
             "nightworksio/mutation-gate": "@dev",
             "phpunit/phpunit": phpunit,
-            "captainhook/captainhook-phar": CAPTAINHOOK,
+            "captainhook/captainhook": CAPTAINHOOK,
             "phpro/grumphp-shim": GRUMPHP,
         },
         "repositories": [{"type": "path", "url": str(gate), "options": {"symlink": True}}],
         "minimum-stability": "dev",
         "prefer-stable": True,
-        "config": {"allow-plugins": {"captainhook/captainhook-phar": False, "phpro/grumphp-shim": False}},
+        "config": {"allow-plugins": {"phpro/grumphp-shim": False}},
     }
 
 
