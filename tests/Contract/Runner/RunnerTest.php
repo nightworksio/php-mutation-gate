@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
+use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
+use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Cli\Flow\KeptCoverage;
 use NightWorksIO\MutationGate\Cli\Flow\KeptFrom;
 use NightWorksIO\MutationGate\Core\Analysis\AsWritten;
@@ -46,6 +48,8 @@ use NightWorksIO\MutationGate\Core\Proof\Recording;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
+use NightWorksIO\MutationGate\Core\Pruning\MutatorNames;
+use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
@@ -171,6 +175,26 @@ it('reports a killed, a survived, an uncovered and a timed-out mutant', function
         ->toEqualCanonicalizing($library->expected('adds', 'large', 'unused', 'drains'))
         ->and($result instanceof MutationResult ? array_map(static fn(Warning $warning): string => $warning->text(), [...$result->warnings()]) : ['cannot judge'])
         ->toBe($library->runner() instanceof Infection ? [RunnerContracts::INFECTION_UNPATCHED] : []);
+})->with($libraries);
+
+it('makes no mutant of a mutator a request prunes in a file, and every other, where its runner is patched to leave them out', function (Library $library): void {
+    if ($library->runner() instanceof Pest) {
+        Patch::applyIn(Library::vendor());
+    }
+
+    $mutators = $library->mutators('adds', 'large', 'unused', 'drains');
+    $adds = [...$library->mutators('adds')];
+    $pruned = Pruned::of(MutatorNames::of(...$adds), Paths::of(Path::of('src/Money.php')));
+    $result = $library->mutate('pruned', MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($mutators)->pruning($pruned)));
+
+    // The Infection library runs unpatched here, and an unpatched runner makes every mutant; the verdict then carries
+    // nothing over them.
+    expect($result instanceof MutationResult ? Library::records($result->mutants()) : [])->toEqualCanonicalizing(
+        $library->runner() instanceof Infection
+            ? $library->expected('adds', 'large', 'unused', 'drains')
+            : $library->expected('large', 'unused', 'drains'),
+    );
 })->with($libraries);
 
 it('leaves a proof of what it judged, which a last-run change carries while its source reads as it did then, and reaches once it does not', function (Library $library) use ($money): void {

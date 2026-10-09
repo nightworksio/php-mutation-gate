@@ -11,12 +11,14 @@ use NightWorksIO\MutationGate\Cli\Flow\Planning;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Ignores;
+use NightWorksIO\MutationGate\Config\Pruning;
 use NightWorksIO\MutationGate\Config\Runner as ConfiguredRunner;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
+use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Cost\CostBasis;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
@@ -47,6 +49,7 @@ use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\PlanFile;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
@@ -63,6 +66,11 @@ use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Uncommitted;
 use NightWorksIO\MutationGate\Core\Proof\Undigested;
+use NightWorksIO\MutationGate\Core\Pruning\MutatorNames;
+use NightWorksIO\MutationGate\Core\Pruning\Outcome;
+use NightWorksIO\MutationGate\Core\Pruning\Pruned;
+use NightWorksIO\MutationGate\Core\Pruning\Survival;
+use NightWorksIO\MutationGate\Core\Pruning\Window;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
@@ -991,3 +999,42 @@ it('carries a pull request\'s own results for what it changed before its last ru
     'one changed since its own result, as a race leaves it' => [false, true, [Unit::held(Path::of('src/Held.php'), Group::named('holds:src/Held.php'))], [Unit::file(Path::of('src/Money.php'))]],
     'one unchanged since the ref, which carries the newest result of either' => [false, false, [], [Unit::file(Path::of('src/Money.php'))]],
 ]);
+
+it('prunes the clean mutators of a run with a base in each unit whose newest result is of its code, and none in a full run', function (): void {
+    $project = Flows::project();
+    $settings = Flows::settings(Pruning::window(2));
+    $planWith = static fn(Mode $mode, object ...$ports): Plan|CannotJudge => Planned::from(new Planning(
+        Flows::adapters($project, [], ...$ports),
+        $settings,
+        Flows::setup(),
+    )->plan($mode, CoverageRun::of(WholeSuite::tests(), Workspace::coverage()), Cut::exactly(1), MatrixKind::FirstKiller));
+    $full = $planWith(Mode::full());
+    $digests = $full instanceof Plan ? $full->digests() : Undigested::proof();
+    $proof = Proof::of(
+        Digest::of('an older key'),
+        Path::of('src/Money.php'),
+        Mutants::none(),
+        Run::of('main', Moment::at('2026-09-29T12:00:00Z'), Digest::of(str_repeat('b', 64))),
+    )->withInputs($digests instanceof Digests ? $digests->inputsOf(Path::of('src/Money.php'), Paths::none()) : $digests);
+    $store = new ProofStoreFake();
+    $store->write(Scope::branch('main'), Ledger::empty()->withProof($proof)->withLearned(Survival::none()->after(
+        Name::of('fake'),
+        Window::of(2),
+        Outcome::killed('Plus', 'a'),
+        Outcome::killed('Plus', 'b'),
+        Outcome::killed('Minus', 'c'),
+        Outcome::through('Minus', 'd'),
+    )));
+    $checkout = new ChangeSourceFake(
+        Revision::ref('base'),
+        Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(2)))),
+        [Revision::workingTree()->name() => Flows::FILES, 'base' => Flows::FILES],
+    );
+    $scoped = $planWith(Mode::since('base'), $store, $checkout);
+    $everything = $planWith(Mode::full(), $store, $checkout);
+
+    expect($scoped instanceof Plan ? $scoped->considered()->pruned() : $scoped)
+        ->toEqual(Pruned::of(MutatorNames::of('Plus'), Paths::of(Path::of('src/Money.php'))))
+        ->and($everything instanceof Plan ? $everything->considered()->pruned() : $everything)->toEqual(Pruned::none())
+        ->and($scoped instanceof Plan ? PlanFile::decode(PlanFile::encode($scoped)) : $scoped)->toEqual($scoped);
+});

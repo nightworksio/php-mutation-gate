@@ -42,22 +42,32 @@ decision 3). The kill matrix knows which tests cover and which kill
 
 1. **A pruned mutant's result is its last one, carried by mutant id.**
    - It comes from the unit's newest full result for the same unit content:
-     the unit's own file digest must match. Its key may differ, because
-     pruning serves units whose key moved through another file (ADR-0007
-     decision 2.6).
+     the unit's own file digest and the digest of what decides its mutant set
+     must match. Its key may differ, because pruning serves units whose key
+     moved through another file (ADR-0007 decision 2.6).
+   - The plan names the pruned mutators and the units it prunes them in.
+     Each shard asks its runner to make none of their mutants there: the
+     PHPUnit runner leaves them out itself, and Pest and Infection through a
+     list beside their results that `pest:patch` and `infection:patch` teach
+     them to read. A runner that is not patched makes them all, and the
+     verdict never carries a result over a mutant the run made.
    - A unit whose own content changed runs every mutator.
    - A carried pruned mutant is marked *carried (pruned)* in every report.
    - A unit result that holds carried pruned mutants is never written as a
-     proof, as a budget-cut unit's is not (ADR-0007 decision 1).
+     proof, as a budget-cut unit's is not (ADR-0007 decision 1), and teaches
+     the cost model no time. It still counts as judged, so the run can be the
+     scope's last run.
 
    This extends the carried results of ADR-0003 decision 4 to the grain of a
    mutant, and amends ADR-0003 decision 4 and ADR-0007 decision 1.
 
 2. **A mutator is pruned when it has let no mutant through lately.**
-   - Per project and runner, a mutator with no survivor, flaky or unjudged
-     mutant among its last `pruning.window` judged mutants (an integer, `500`
-     by default), counted from full results in the ledger. *Killed by static
-     analysis* (ADR-0020) counts as killed.
+   - Per project and runner, a mutator with no survivor, flaky, unjudged or
+     uncovered mutant among its last `pruning.window` judged mutants (an
+     integer, `500` by default), counted from what each run judged itself,
+     in the order of the mutants' ids. *Killed by static analysis*
+     (ADR-0020), by a timeout or by the memory cap counts as killed. A run
+     narrowed by `--security` or `--suite` teaches nothing.
    - Only units whose content is unchanged are pruned (decision 1).
    - **Never pruned:** new code; changed units; units a sampled run samples
      (ADR-0020), so the estimate stays unbiased; and mutators tagged
@@ -73,10 +83,12 @@ decision 3). The kill matrix knows which tests cover and which kill
      **affect results**: they decide which mutants run and which are
      carried, so both are in key item 3 (ADR-0007 decision 2.3).
      `pruning.audit` judges only.
-   - The ledger gains a `survival` section: per runner, each mutator's counts
-     of judged mutants and of those not killed, over its window. It is
-     disposable like `killers`, and losing it disables pruning, never a
-     verdict. The ledger's `mutators` list of names is unchanged. This
+   - The ledger gains a `survival` section: per runner, each mutator's newest
+     judged mutants, up to its window, as a `0` for each killed and a `1` for
+     each let through, oldest first, and the id of the last let through. It
+     is disposable like `killers`, and losing it disables pruning, never a
+     verdict. A run reads its own scope's window of a mutator before the
+     default branch's. The ledger's `mutators` list of names is unchanged. This
      amends ADR-0007 decision 3.
    - The console, the step summary, the PR comment and the JSON report say
      *pruned: 4 mutators on 212 units; 3,180 mutants carried from runs of the

@@ -37,6 +37,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Mutant\RunnerMutatorName;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -197,7 +198,9 @@ final readonly class RunnerFake implements Runner
 
             $asked = $this->within($file, $request->files()) && ! $this->within($file, $request->leftOut());
 
-            if ($asked && $this->applies($request->narrowing()->mutators(), $mutant)) {
+            $pruned = $request->narrowing()->pruned()->leavesOut($file, RunnerMutatorName::of($mutant->mutator()));
+
+            if ($asked && ! $pruned && $this->applies($request->narrowing()->mutators(), $mutant)) {
                 $judged = $this->judged($mutant, $request->judgedBy());
                 $found = $found->with($judged);
                 $evidence = $evidence->with($judged->id(), FakeKill::evidenceOf($judged));

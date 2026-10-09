@@ -129,7 +129,7 @@ path: `--report json:/tmp/mutation.json`.
 ## Every key
 
 Every key, with its type, its default and the design decision that sets it. Durations
-are written `90s`, `15m` or `1h30m`, and dates `YYYY-MM-DD`. A key that
+are written `90s`, `15m`, `1h30m` or `7d`, and dates `YYYY-MM-DD`. A key that
 chooses an adapter takes a registered name or `{"use": <name or class>,
 "with": <options>}`. A glob of paths is matched against the whole path: `*`
 and `?` match within one directory, and `**` across any number of them.
@@ -215,6 +215,9 @@ options.
 | `staticCheck.tool` | adapter: `mago`, `phpstan`, `psalm`; or `auto`, the first installed and configured, or `none` | `auto` | [0020](../decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
 | `staticCheck.config` | path | the analyser's own | [0020](../decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
 | `staticCheck.seconds` | integer | `60` | [0020](../decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
+| `pruning.enabled` | boolean: whether a run with a base leaves out, on a unit whose code is as its newest full result recorded it, the mutators that let no mutant through lately, carrying their last results | `true` | [0025](../decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md) |
+| `pruning.window` | integer, at least 1: how many of a mutator's newest judged mutants must all be killed before it is pruned | `500` | [0025](../decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md) |
+| `pruning.audit` | duration: how old a unit's newest full result may be for a pruned mutator's results to be carried from it | `7d` | [0025](../decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md) |
 | `mutators.sets` | list of mutator set names, never `default`, which is always on | `[]`, plus the preset's | [0021](../decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md) |
 | `mutators.except` | list of mutator names, `<set>/<Name>`, each held by a set in `mutators.sets` or by the default set; under Pest or Infection, by a set in `mutators.sets` | `[]` | [0021](../decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md) |
 | `local.watchBudget` | duration | `1m` | [0010](../decisions/0010-the-gate-runs-while-you-work-and-before-you-push.md) |

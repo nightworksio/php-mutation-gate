@@ -35,6 +35,8 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Plan\Considered;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -45,11 +47,15 @@ use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Proof\UnreadReason;
+use NightWorksIO\MutationGate\Core\Pruning\MutatorNames;
+use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Unit\Units;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
@@ -643,4 +649,31 @@ it('takes a planned proof from the run\'s own scope where it has moved there fro
     expect($judgement instanceof Judged ? count($judgement->verdict->trees()->units()) : $judgement)->toBe(1)
         ->and(LedgerRead::ledger($store->read(Scope::pullRequest(7)))->runs()->passed())
         ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 1));
+});
+
+it('carries the last result\'s mutants of a mutator the plan pruned into the unit, and writes no proof of it', function () use ($tree, $reporting, $judged): void {
+    $project = Flows::project();
+    $store = JudgingRuns::proven('money', 'money test');
+    $digested = JudgingRuns::digested('money', 'money test');
+    $plan = $digested->considering(
+        $digested->considered()->pruning(Pruned::of(MutatorNames::of('Plus'), Paths::of(Path::of('src/Money.php')))),
+    );
+    $unpruned = JudgingRuns::verdictOf($judged($digested, Flows::adapters($project, [], JudgingRuns::proven('money', 'money test'), $tree(Floor::of(50))), JudgingRuns::settings(), $reporting(new ReporterFake())));
+    Scratch::sweep();
+    $project = Flows::project();
+
+    $verdict = JudgingRuns::verdictOf($judged($plan, Flows::adapters($project, [], $store, $tree(Floor::of(50))), JudgingRuns::settings(), $reporting(new ReporterFake())));
+    $carried = MutantId::hash(Path::of('src/Money.php'), 'Plus', 'carried kill', 0);
+    $ids = array_map(static fn(JudgedMutant|JudgedKill $judged): string => $judged->mutant()->id()->value(), [...$verdict->trees()->mutants()]);
+
+    $made = static fn(Verdict $judged): array => array_map(
+        static fn(JudgedMutant|JudgedKill $mutant): string => sprintf('%s %s', $mutant->mutant()->location()->file()->value(), $mutant->mutant()->mutator()),
+        [...$judged->trees()->mutants()],
+    );
+
+    expect($ids)->toContain($carried->value())
+        ->and($made($unpruned))->toContain('src/Money.php Plus')
+        ->and(array_count_values($made($verdict))['src/Money.php Plus'] ?? 0)->toBe(1)
+        ->and(count($verdict->trees()->mutants()))->toBe(count($unpruned->trees()->mutants()))
+        ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->proofs()->has(Digest::sha256Of('money')))->toBeFalse();
 });

@@ -246,8 +246,8 @@ cannot.
    strict, so a string is not a number. An unknown key is an error and suggests
    the nearest known one (`newcode` → `newCode`), because a misspelt key that is
    silently ignored is a setting that silently does nothing. Durations are
-   written `90s`, `15m` or `1h30m`, and written back in the largest units
-   that hold them: `90s` is `1m30s`. Dates are `YYYY-MM-DD`. Paths are
+   written `90s`, `15m`, `1h30m` or `7d`, and written back in the largest
+   units that hold them: `90s` is `1m30s`. Dates are `YYYY-MM-DD`. Paths are
    relative to the config file, or to the working directory when there is
    none, and a config the gate writes, such as `init`'s, names them from its
    own directory. So are globs, the `phpunit` tree source's `fallback`, the

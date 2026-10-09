@@ -72,6 +72,9 @@ use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Undigested;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
+use NightWorksIO\MutationGate\Core\Pruning\MutatorNames;
+use NightWorksIO\MutationGate\Core\Pruning\Pruned;
+use NightWorksIO\MutationGate\Core\Pruning\Survival;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
@@ -198,7 +201,7 @@ it('writes a proof of every unit that ran to the end, at the plan\'s base, and w
         ->and($ledger->runs()->passed())->toBeInstanceOf(CannotTell::class);
 });
 
-it('writes the proofs of a narrowed run, and teaches the cost model nothing from it', function (Narrowing $narrowing) use (
+it('writes the proofs of a narrowed run, and teaches the cost model and pruning nothing from it', function (Narrowing $narrowing) use (
     $map,
     $run,
     $ledgers,
@@ -213,7 +216,8 @@ it('writes the proofs of a narrowed run, and teaches the cost model nothing from
     $ledger = LedgerRead::ledger($store->read(Scope::branch('main')));
 
     expect(count($ledger->proofs()))->toBe(2)
-        ->and(count($ledger->timings()))->toBe(0);
+        ->and(count($ledger->timings()))->toBe(0)
+        ->and($ledger->survival())->toEqual(Survival::none());
 })->with([
     'to the security mutators' => [Narrowing::none()->toMutators(Mutators::named('Plus'))],
     'to one suite' => [Narrowing::none()->toSuite(SuiteName::of('unit'))],
@@ -697,3 +701,34 @@ it('clears the last run where it did not judge every unit it considered, so the 
     'a budget run out before a unit, every unit it ran judged whole' => ['budget'],
     'a held unit whose tests miss lines of it' => ['misses'],
 ]);
+
+it('leaves no proof of a unit the run pruned mutators in, nor its time, yet counts it judged, and learns what every mutant it ran came to', function () use (
+    $map,
+    $run,
+    $ledgers,
+): void {
+    $project = Flows::project();
+    $store = new ProofStoreFake();
+    $twoShards = Planned::twoShards();
+    $plan = $twoShards->considering(
+        $twoShards->considered()->pruning(Pruned::of(MutatorNames::of('Plus'), Paths::of(Path::of('src/Money.php')))),
+    );
+    $results = recordedRanOf($plan, $project, ScriptedRunner::fixture(), $map());
+
+    new Recorded(settings: Flows::settings(), adapters: Flows::adapters($project, [], $store))
+        ->write($plan, $results, $ledgers($store, $plan), $run($plan), CannotTell::because('It failed.'), recordedLastRun());
+    $ledger = LedgerRead::ledger($store->read(Scope::branch('main')));
+    $learned = [];
+
+    foreach ($ledger->survival() as $runner => $windows) {
+        foreach ($windows as $mutator => $window) {
+            $learned[$runner][$mutator] = $window->outcomes();
+        }
+    }
+
+    expect($ledger->proofs()->has(Digest::sha256Of('money')))->toBeFalse()
+        ->and($ledger->proofs()->has(Digest::sha256Of('held')))->toBeTrue()
+        ->and(count($ledger->timings()))->toBe(1)
+        ->and($ledger->runs()->lastRun())->toEqual(recordedLastRun())
+        ->and($learned)->toBe(['fake' => ['Decrement' => '0', 'GreaterThan' => '1', 'Minus' => '1', 'Plus' => '1']]);
+});
