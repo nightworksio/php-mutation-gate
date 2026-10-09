@@ -9,11 +9,11 @@ use function min;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistory;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
-use NightWorksIO\MutationGate\Core\Analysis\CheckAnswers;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
 use NightWorksIO\MutationGate\Core\Analysis\MutantChecks;
 use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
+use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
 use NightWorksIO\MutationGate\Core\Analysis\PreCheck;
 use NightWorksIO\MutationGate\Core\Analysis\PreCheckable;
 use NightWorksIO\MutationGate\Core\Analysis\PreCheckables;
@@ -131,7 +131,8 @@ final class PreChecking implements PreChecker
         }
 
         $started = $this->clock->now();
-        $answers = $warm->checker->checks(MutantChecks::of(...$checks), $side);
+        $batch = MutantChecks::of(...$checks);
+        $answers = [...$warm->checker->checks($batch, $side)->padded($batch)];
         $took = Seconds::between($started, $this->clock->now());
         $each = Seconds::of(
             count($checks) === 0 ? 0.0 : $took->seconds() * min($side->count(), count($checks)) / count($checks),
@@ -172,14 +173,15 @@ final class PreChecking implements PreChecker
      * check taught; one whose check could not run, or was out of scope,
      * teaches only the time it took.
      *
-     * @param list<array{PreCheckable, Findings}> $judged
+     * @param list<array{PreCheckable, Findings}>   $judged
+     * @param list<Findings|OutOfScope|CannotJudge> $answers one in the place of each judged mutant's check
      */
-    private function answered(WarmedUp $warm, array $judged, CheckAnswers $answers, Seconds $each): Rejections
+    private function answered(WarmedUp $warm, array $judged, array $answers, Seconds $each): Rejections
     {
         $rejections = Rejections::none();
 
         foreach ($judged as $at => [$mutant, $baseline]) {
-            $answer = $answers->at($at);
+            $answer = $answers[$at];
             $mutation = $mutant->mutant()->mutation();
             $errors = $answer instanceof Findings ? [...$answer->newErrors($baseline)] : [];
             $this->learned = match (true) {
