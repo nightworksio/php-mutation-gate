@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
+use NightWorksIO\MutationGate\Adapter\Runtime\PrunedList;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Config\Triage;
@@ -40,6 +41,8 @@ use NightWorksIO\MutationGate\Core\Order\Kills;
 use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Order\Ordering;
 use NightWorksIO\MutationGate\Core\Order\Ranking;
+use NightWorksIO\MutationGate\Core\Pruning\MutatorNames;
+use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -47,6 +50,7 @@ use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\PcovReach;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Pool;
@@ -320,6 +324,20 @@ it('puts the likely killers first where the request asks, handing the plugin the
         PestCases::invocation()->mutation($request, WholeSuite::tests(), PestCases::results($at))->with([GateVariable::Order->value => $order]),
     ])->and(Plan::read($order))->toEqual($history)
         ->and(is_file(sprintf('%s/m1/test-run-history', $order)))->toBeFalse();
+});
+
+it('hands the patched plugin the mutators the request leaves out of its unchanged files, in a list beside the results', function (): void {
+    $at = PestCases::project();
+    $shell = new ShellFake(static fn(Command $command): Ran => PestCases::killed($command, $at));
+    $pruned = Pruned::of(MutatorNames::of(PestCases::RUN_PLUS), Paths::of(Path::of('src/Money.php')));
+    $request = PestCases::money()->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->pruning($pruned));
+    $list = sprintf('%s.pruned', PestCases::results($at));
+
+    new Pest($at, $shell, Patching::off(), new CapDirectory(), Triage::standard()->bounds())->mutate($request);
+
+    expect($shell->commands())->toEqual([
+        PestCases::invocation()->mutation($request, WholeSuite::tests(), PestCases::results($at))->with([GateVariable::Pruned->value => $list]),
+    ])->and(PrunedList::leavesOut($list, sprintf('%s/src/Money.php', $at->root()), PestCases::RUN_PLUS))->toBeTrue();
 });
 
 it('cannot judge where an earlier run\'s orders cannot be removed', function (): void {

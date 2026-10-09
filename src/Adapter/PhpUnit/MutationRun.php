@@ -246,15 +246,20 @@ final readonly class MutationRun
 
     /**
      * Whether the run asks for the mutant: the request asks for every mutator
-     * or names its own, and the run names the mutant where it names any.
+     * or names its own, does not leave its mutator out of its file, and the
+     * run names the mutant where it names any.
      */
     private function isAsked(MutationRequest $request, MadeMutant $mutant): bool
     {
         $mutators = $request->narrowing()->mutators();
         $named = iterator_to_array($mutators, preserve_keys: false);
         $mutator = $mutators->isAll() || in_array($mutant->mutation()->mutator(), $named, strict: true);
+        $pruned = $request->narrowing()->pruned()->leavesOut(
+            $mutant->location()->file(),
+            RunnerMutatorName::of($mutant->mutation()->mutator()),
+        );
 
-        return $mutator && ($this->only instanceof NotGiven || $this->only->has($mutant->id()));
+        return $mutator && ! $pruned && ($this->only instanceof NotGiven || $this->only->has($mutant->id()));
     }
 
     /** Every test that covers a line the mutant changes. */

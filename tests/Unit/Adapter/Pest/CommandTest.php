@@ -57,6 +57,7 @@ it('hands Pest none of the variables the gate sets for its plugin, even where th
         'MUTATION_GATE_RESULTS' => false,
         'MUTATION_GATE_GUARD' => false,
         'MUTATION_GATE_ONLY' => false,
+        'MUTATION_GATE_PRUNED' => false,
         'PEST_MUTATION_TESTING' => false,
         'PEST_MUTATION_FILE' => false,
         'PARATEST' => false,

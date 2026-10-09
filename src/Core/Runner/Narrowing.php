@@ -6,23 +6,29 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 
 /**
  * What a run is narrowed to: the mutators it makes mutants with, every one
- * or those `--security` names (ADR-0021, decision 20), and the one suite
- * whose tests alone judge them, as `--suite` names it (ADR-0025, decision 9).
+ * or those `--security` names (ADR-0021, decision 20), the one suite whose
+ * tests alone judge them, as `--suite` names it (ADR-0025, decision 9), and
+ * the mutators it leaves out of the files whose content is unchanged
+ * (ADR-0025, decision 1).
  */
 final readonly class Narrowing
 {
-    private function __construct(private Mutators $mutators, private SuiteName|NotGiven $suite)
-    {
+    private function __construct(
+        private Mutators $mutators,
+        private SuiteName|NotGiven $suite,
+        private Pruned $pruned,
+    ) {
     }
 
-    /** Every mutator, judged by every test. */
+    /** Every mutator, judged by every test, on every file. */
     public static function none(): self
     {
-        return new self(Mutators::all(), NotGiven::value());
+        return new self(Mutators::all(), NotGiven::value(), Pruned::none());
     }
 
     /** This narrowing, making mutants with these mutators alone. */
@@ -37,6 +43,12 @@ final readonly class Narrowing
         return clone($this, ['suite' => $suite]);
     }
 
+    /** This narrowing, leaving these mutators out of these files. */
+    public function pruning(Pruned $pruned): self
+    {
+        return clone($this, ['pruned' => $pruned]);
+    }
+
     public function mutators(): Mutators
     {
         return $this->mutators;
@@ -47,7 +59,13 @@ final readonly class Narrowing
         return $this->suite;
     }
 
-    /** Whether it narrows nothing: every mutator, and every test. */
+    /** The mutators it leaves out of the files whose content is unchanged. */
+    public function pruned(): Pruned
+    {
+        return $this->pruned;
+    }
+
+    /** Whether it narrows nothing the CLI asks for: every mutator, and every test. */
     public function isNone(): bool
     {
         return $this->mutators->isAll() && ! $this->suite instanceof SuiteName;

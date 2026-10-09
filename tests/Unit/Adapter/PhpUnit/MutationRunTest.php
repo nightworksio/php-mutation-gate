@@ -24,6 +24,8 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
 use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Pruning\MutatorNames;
+use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -186,6 +188,16 @@ it('makes only the mutators asked for, of the files not left out', function () u
         ->leavingOut(Paths::of(Path::of('src/Tax.php')));
 
     expect(judgedMutants($run->of($request, $covered, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)))))->toBe([['src/Money.php', 'acme/PlusToMinus', 'killed']]);
+});
+
+it('makes no mutant of a mutator its request leaves out of a file, and every other', function () use ($covered): void {
+    [$run] = killingRun(library());
+    $pruned = Pruned::of(MutatorNames::of('acme/PlusToMinus'), Paths::of(Path::of('src/Money.php')));
+    $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())
+        ->narrowedTo(Paths::of(Path::of('src')), Narrowing::none()->pruning($pruned));
+
+    expect(judgedMutants($run->of($request, $covered, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)))))
+        ->toBe([['src/Money.php', 'acme/RemoveEcho', 'killed'], ['src/Tax.php', 'acme/PlusToMinus', 'uncovered']]);
 });
 
 it('skips with no record every mutant past the request\'s deadline', function () use ($covered): void {

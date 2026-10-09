@@ -61,6 +61,9 @@ enum GateVariable: string
     /** The file listing the native ids of the only mutants a patched run again makes (see OnlyList). */
     case Only = 'MUTATION_GATE_ONLY';
 
+    /** The file listing the mutators a patched run leaves out of the files it prunes them in (see PrunedList). */
+    case Pruned = ChildVariable::Pruned->value;
+
     /** Set where a patched run loads only the test files each mutant's covering tests need (see CoveringFiles). */
     case Narrow = 'MUTATION_GATE_NARROW';
 

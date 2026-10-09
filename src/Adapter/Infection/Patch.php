@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\Infection;
 use function file_get_contents;
 use function is_file;
 
+use NightWorksIO\MutationGate\Adapter\Runtime\PrunedList;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Hunk;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
@@ -14,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Composer\Package;
 use NightWorksIO\MutationGate\Core\Composer\VendorPatch;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 
 use function sprintf;
@@ -27,6 +29,8 @@ use function sprintf;
  *   Infection's own five times their time under its `timeout`.
  * - Where the gate names its bounds, no mutant is skipped for the time its
  *   covering tests take.
+ * - No mutant is made of a mutator the gate prunes, in a file it prunes it
+ *   in (see PrunedList).
  * - A mutant's run is also stopped once it has printed nothing for its
  *   silence limit, the standard limit of its slowest covering test (see
  *   Silence).
@@ -119,6 +123,34 @@ final readonly class Patch
                 }
 
                 if ($mutant->getMutation()->getNominalTestExecutionTime() < $this->timeout) {
+                    return true;
+                }
+        PHP;
+
+    private const string PRUNED_SHIPS = <<<'PHP'
+            private function ignoredByMutantId(Mutation $mutation): bool
+            {
+                if ($this->mutantId === null) {
+                    return true;
+                }
+        PHP;
+
+    private const string PRUNED_BECOMES = <<<'PHP'
+            private function ignoredByMutantId(Mutation $mutation): bool
+            {
+                {MARK} no mutant of a mutator the gate prunes in a file it prunes it in (see PrunedList).
+                if (
+                    class_exists(\%1$s::class)
+                    && \%1$s::leavesOut(
+                        (string) getenv('%2$s'),
+                        $mutation->getOriginalFilePath(),
+                        $mutation->getMutatorName(),
+                    )
+                ) {
+                    return false;
+                }
+
+                if ($this->mutantId === null) {
                     return true;
                 }
         PHP;
@@ -229,6 +261,11 @@ final readonly class Patch
                 sprintf(self::LIMIT_BECOMES, self::NOMINAL, MutantTime::class, self::BOOTSTRAP),
             ),
             Hunk::in(self::RUNNER, self::SKIP_SHIPS, sprintf(self::SKIP_BECOMES, MutantTime::class)),
+            Hunk::in(
+                self::RUNNER,
+                self::PRUNED_SHIPS,
+                sprintf(self::PRUNED_BECOMES, PrunedList::class, ChildVariable::Pruned->value),
+            ),
             Hunk::in(self::FACTORY, self::WATCH_SHIPS, sprintf(self::WATCH_BECOMES, Silence::class)),
             Hunk::in(self::PARALLEL, self::SILENCE_SHIPS, sprintf(self::SILENCE_BECOMES, Silence::class)),
         );

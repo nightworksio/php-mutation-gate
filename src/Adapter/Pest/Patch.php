@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
+use NightWorksIO\MutationGate\Adapter\Runtime\PrunedList;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Hunk;
 use NightWorksIO\MutationGate\Core\Composer\Package;
@@ -226,6 +227,14 @@ final readonly class Patch
                             continue;
                         }
 
+                        {MARK} no mutant of a mutator the gate prunes in a file it prunes it in.
+                        if (
+                            $pruned !== ''
+                            && \%1$s::leavesOut($pruned, (string) $mutation->file->getRealPath(), $mutation->mutator)
+                        ) {
+                            continue;
+                        }
+
                         $mutationSuite->repository->add($mutation);
         PHP;
 
@@ -237,6 +246,9 @@ final readonly class Patch
     private const string LISTED_BECOMES = <<<'PHP'
                 {MARK} the mutants a run again makes, read once; none for every mutant.
                 $only = class_exists(\%1$s::class) ? \%1$s::in((string) getenv('%2$s')) : [];
+
+                {MARK} the list of mutators pruned in unchanged files; none for every mutant.
+                $pruned = class_exists(\%3$s::class) ? (string) getenv('%4$s') : '';
 
                 foreach ($files as $file) {
                     $linesToMutate = [];
@@ -321,9 +333,15 @@ final readonly class Patch
             Hunk::in(
                 self::TEST_RUNNER,
                 self::LISTED_SHIPS,
-                sprintf(self::LISTED_BECOMES, OnlyList::class, GateVariable::Only->value),
+                sprintf(
+                    self::LISTED_BECOMES,
+                    OnlyList::class,
+                    GateVariable::Only->value,
+                    PrunedList::class,
+                    GateVariable::Pruned->value,
+                ),
             ),
-            Hunk::in(self::TEST_RUNNER, self::ONLY_SHIPS, self::ONLY_BECOMES),
+            Hunk::in(self::TEST_RUNNER, self::ONLY_SHIPS, sprintf(self::ONLY_BECOMES, PrunedList::class)),
             Hunk::in(self::STREAM_WRAPPER, self::STAT_SHIPS, self::STAT_BECOMES),
         ];
     }

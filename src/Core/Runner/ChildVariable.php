@@ -26,6 +26,9 @@ enum ChildVariable: string
      */
     case MutantStartUp = 'MUTATION_GATE_MUTANT_START_UP';
 
+    /** The file listing the mutators a patched runner leaves out of the files it prunes them in (ADR-0025). */
+    case Pruned = 'MUTATION_GATE_PRUNED';
+
     /** The lower floor of the silence limit of the mutators `timeouts.tighter` lists (see TighterVariables). */
     case TighterFloor = 'MUTATION_GATE_TIGHTER_FLOOR';
 

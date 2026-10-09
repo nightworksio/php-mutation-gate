@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Adapter\Infection\MemoryScan;
 use NightWorksIO\MutationGate\Adapter\Infection\StaticAnalysis;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
+use NightWorksIO\MutationGate\Adapter\Runtime\PrunedList;
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
@@ -42,6 +43,8 @@ use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
+use NightWorksIO\MutationGate\Core\Pruning\MutatorNames;
+use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Runner\ChildVariable;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
@@ -479,6 +482,25 @@ it('reads a handed-on map within this process\'s share of its memory', function 
     expect($share)->toBeLessThan(300 * strlen($bomb))
         ->and(ini_get('memory_limit'))->not->toBe($limit)
         ->and($read)->toEqual(CannotJudge::because(sprintf('The coverage map inflates to more than %d bytes.', $share)));
+});
+
+it('tells a mutation run the mutators it leaves out of its unchanged files, in a list a patched Infection reads, and nothing where it leaves none out', function (): void {
+    $at = InfectionCases::project();
+    $shell = InfectionCases::shell($at, [
+        'killed' => [InfectionRun::entry('Plus', sprintf('%s/src/Money.php', $at->root()), 11, '$a + $b', '$a - $b')],
+    ]);
+    $pruned = Pruned::of(MutatorNames::of('Minus'), Paths::of(Path::of('src/Money.php')));
+    $adapter = new Infection($at, $shell, LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory());
+    $adapter->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->pruning($pruned)));
+    $list = $shell->commands()[1]->environment()[ChildVariable::Pruned->value] ?? '';
+
+    expect(PrunedList::leavesOut($list, sprintf('%s/src/Money.php', $at->root()), 'Minus'))->toBeTrue()
+        ->and($list)->toEndWith('.pruned');
+
+    $adapter->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()));
+
+    expect($shell->commands()[3]->environment())->not->toHaveKey(ChildVariable::Pruned->value);
 });
 
 it('tells Infection\'s run the start-up the request\'s pool measured, which each mutant\'s limit is laid on', function (): void {

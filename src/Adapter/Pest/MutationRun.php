@@ -13,6 +13,7 @@ use function dirname;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Runtime\PrunedList;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\Laps;
 use NightWorksIO\MutationGate\Core\Cost\Step;
@@ -24,6 +25,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
@@ -206,6 +208,22 @@ final readonly class MutationRun
         );
     }
 
+    /**
+     * The list of the mutators the run leaves out of its unchanged files,
+     * beside its results, for the patched plugin; none where it leaves none
+     * out.
+     *
+     * @return array<string, string>
+     */
+    private function pruning(Pruned $pruned, string $results): array
+    {
+        $list = PrunedList::beside($results);
+
+        return $pruned->isNone() ? [] : [
+            GateVariable::Pruned->value => PrunedList::write($list, $pruned, $this->project->root()),
+        ];
+    }
+
     /** The coverage this run's mutants were selected by: the map handed over, or the run's own. */
     private function coveringOf(CoverageMap|Unshared $shared, string $results): Covering|CannotJudge
     {
@@ -232,10 +250,12 @@ final readonly class MutationRun
         $only = $this->only === [] ? [] : [
             GateVariable::Only->value => OnlyList::write(OnlyList::beside($results), ...$this->only),
         ];
+        $pruned = $this->pruning($request->narrowing()->pruned(), $results);
         $narrow = $this->narrows() ? [GateVariable::Narrow->value => '1'] : [];
         $bounds = $request->pool()->bounding($this->bounds);
         $from = $laps->now();
-        $ran = $this->shell->run($command->with([...$only, ...$narrow, ...$this->patching->bounding($bounds)]));
+        $told = [...$only, ...$pruned, ...$narrow, ...$this->patching->bounding($bounds)];
+        $ran = $this->shell->run($command->with($told));
         $mutation = $laps->lap(Step::Mutation, $from);
         $scan->remove();
         $coverage = $this->coveringOf($shared, $results);

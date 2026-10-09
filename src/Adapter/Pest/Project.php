@@ -17,6 +17,7 @@ use function mkdir;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Seed;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Runtime\PrunedList;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -129,7 +130,12 @@ final readonly class Project
         $copies = glob(Recorder::mutantBeside($results, '*'));
         $logs = glob(Recorder::everyErrorLogBeside($results));
         $replays = glob(PrefixReplays::everyBeside($results));
-        $beside = [Recorder::coverageBeside($results), OnlyList::beside($results), OpeningIssues::beside($results)];
+        $beside = [
+            Recorder::coverageBeside($results),
+            OnlyList::beside($results),
+            PrunedList::beside($results),
+            OpeningIssues::beside($results),
+        ];
         $beside = [...$beside, ...(is_array($copies) ? $copies : []), ...(is_array($logs) ? $logs : [])];
         $beside = [...$beside, ...(is_array($replays) ? $replays : [])];
 
