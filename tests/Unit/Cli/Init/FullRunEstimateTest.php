@@ -70,6 +70,17 @@ it('measures a full run by one coverage run of the suite, cut as the config asks
         ->and($runner->asked())->toHaveCount(1);
 });
 
+it('says where shards.max stops a full run meeting shards.target', function (): void {
+    $project = FlowCommands::project('"shards": {"target": "30s", "max": 1}');
+    $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
+
+    expect(fullRunEstimateIn($project, $runner)
+        ->said(fullRunEstimateInput(), fullRunEstimateSettings(), Output::Written, fresh: true))->toEndWith(<<<'SAID'
+            shards.target is 30s, and at shards.max of 1 shards the longest is expected to take 1m.
+            Raise shards.max, or shards.target, to meet it.
+            SAID);
+});
+
 it('names each file most of the suite runs through that nothing holds, with the #[Holds] that cuts it', function (): void {
     $map = CoverageMap::empty();
 
