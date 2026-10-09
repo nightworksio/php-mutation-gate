@@ -52,7 +52,8 @@ final readonly class InitQuestions
 
     private const string IMPORT = 'Import %s into the config?';
 
-    private const string MARKERS = 'Native markers that hide mutants with no reason: %d. Allow them for now, or refuse them?';
+    private const string MARKERS
+        = 'Native markers that hide mutants with no reason: %d. Allow them for now, or refuse them?';
 
     private const string NATIVE_UNKNOWN = '--native takes allow or refuse, not "%s".';
 
