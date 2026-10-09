@@ -101,7 +101,6 @@ final readonly class PhpStan implements StaticChecker
 
     private const string NO_SCOPE = 'PHPStan\'s run over the originals has not said which files it analyses.';
 
-    private const string UNANSWERED = 'PHPStan gave no answer to the check.';
 
     private const string UNRESOLVED = 'PHPStan could not say the configuration it runs with (%s).';
 
@@ -168,10 +167,12 @@ final readonly class PhpStan implements StaticChecker
      */
     public function findings(Paths $files, Withheld $withheld): Findings|CannotJudge
     {
-        $scope = $this->keptScope($withheld);
-        $findingFiles = FindingFiles::under($this->root);
+        $check = $this->checkConfig();
+        $scope = $check instanceof CannotJudge ? $check : $this->keptScope($withheld, $check);
 
-        return $scope instanceof CannotJudge ? $scope : $this->analysed($withheld, $findingFiles);
+        return $scope instanceof CannotJudge
+            ? $scope
+            : $this->analysed($withheld, FindingFiles::under($this->root), $check);
     }
 
     /** None: PHPStan analyses again the files whose view of the mutant changed, which it finds itself. */
@@ -183,11 +184,7 @@ final readonly class PhpStan implements StaticChecker
     /** A mutant, where PHPStan analyses its original, as its warm-up said; out of scope where it does not. */
     public function check(MutantCheck $check): Findings|OutOfScope|CannotJudge
     {
-        foreach ($this->checks(MutantChecks::of($check), ProcessCount::single()) as $answer) {
-            return $answer;
-        }
-
-        return CannotJudge::because(self::UNANSWERED);
+        return $this->checks(MutantChecks::of($check), ProcessCount::single())->first();
     }
 
     /**
@@ -256,15 +253,9 @@ final readonly class PhpStan implements StaticChecker
             : Report::of($judged, FindingFiles::under($this->root)->substituting($check));
     }
 
-    /** The files PHPStan analyses, as its parameters say them, kept where each check reads them. */
-    private function keptScope(Withheld $withheld): Scope|CannotJudge
+    /** The files PHPStan analyses, as this config's parameters say them, kept where each check reads them. */
+    private function keptScope(Withheld $withheld, string $check): Scope|CannotJudge
     {
-        $check = $this->checkConfig();
-
-        if ($check instanceof CannotJudge) {
-            return $check;
-        }
-
         $file = $this->scopeFile();
 
         if (is_file($file) && (! is_writable(dirname($file)) || ! unlink($file))) {
@@ -292,15 +283,12 @@ final readonly class PhpStan implements StaticChecker
     }
 
     /**
-     * What PHPStan reports of every file the config names, each finding in
-     * the file it sits in.
+     * What PHPStan reports of every file this config of the gate's names,
+     * each finding in the file it sits in.
      */
-    private function analysed(Withheld $withheld, FindingFiles $files): Findings|CannotJudge
+    private function analysed(Withheld $withheld, FindingFiles $files, string $config): Findings|CannotJudge
     {
-        $config = $this->checkConfig();
-        $judged = $config instanceof CannotJudge
-            ? $config
-            : new CheckLimit()->judged($this->ran($withheld, $this->analysing($config, [])));
+        $judged = new CheckLimit()->judged($this->ran($withheld, $this->analysing($config, [])));
 
         return $judged instanceof CannotJudge ? $judged : Report::of($judged, $files);
     }

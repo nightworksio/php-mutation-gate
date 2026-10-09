@@ -46,6 +46,9 @@ final class RecordingChecker implements StaticChecker
     /** @var list<Seconds|Unlimited> */
     private array $limits = [];
 
+    /** @var list<string> the pattern of what each check ran without */
+    private array $withheld = [];
+
     public function __construct(private readonly StaticCheckerFake $answers, private readonly string $project)
     {
     }
@@ -82,6 +85,7 @@ final class RecordingChecker implements StaticChecker
         ];
         $this->dependents[] = array_map(static fn(Path $dependent): string => $dependent->value(), [...$check->dependents()]);
         $this->limits[] = $check->limit();
+        $this->withheld[] = $check->withheld()->pattern();
 
         return $this->answers->check($check);
     }
@@ -119,5 +123,11 @@ final class RecordingChecker implements StaticChecker
     public function limits(): array
     {
         return $this->limits;
+    }
+
+    /** @return list<string> the pattern of what each check ran without, in order */
+    public function withheld(): array
+    {
+        return $this->withheld;
     }
 }

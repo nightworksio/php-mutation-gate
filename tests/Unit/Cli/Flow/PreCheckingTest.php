@@ -20,6 +20,8 @@ use NightWorksIO\MutationGate\Core\Analysis\PreCheckables;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\Analysis\RejectionRate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -29,12 +31,14 @@ use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\RecordingChecker;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 use NightWorksIO\MutationGate\Tests\Support\TickingClock;
+use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -192,5 +196,74 @@ it('judges a printed mutant against its file\'s print, checked once, where it an
             Workspace::checkedOriginal($held->id())->value(),
             Workspace::checkedMutant($first->id())->value(),
             Workspace::checkedMutant($second->id())->value(),
-        ]);
+        ])
+        ->and(is_file(sprintf('%s/%s', $project, Workspace::checkedOriginal($first->id())->value())))->toBeFalse();
+});
+
+it('chooses by what this run has learned too: a mutator whose checks have now passed fifty times is checked no more', function (): void {
+    $project = Scratch::directory();
+    [$first] = preOffered();
+    $known = AnalyserHistory::of('fake')->withRate(RejectionRate::of($first->mutator(), 49, 0));
+    $checker = preCheckedBy($project, [Workspace::checkedMutant($first->id())->value() => preOriginals()]);
+    $checking = preChecking($project, $checker, $known);
+
+    $checking->rejected(PreCheckables::of(preOffer($first)), ProcessCount::single());
+    $checking->rejected(PreCheckables::of(preOffer($first)), ProcessCount::single());
+
+    expect($checker->asked())->toHaveCount(1);
+});
+
+it('learns the time of a check that gave no findings, and no rate; each check\'s share of checks run one at a time', function (): void {
+    $project = Scratch::directory();
+    [$first, $second] = preOffered();
+    $checker = preCheckedBy($project, [
+        Workspace::checkedMutant($first->id())->value() => OutOfScope::of(Path::of('src/Money.php')),
+        Workspace::checkedMutant($second->id())->value() => preOriginals(),
+    ]);
+    $checking = preChecking($project, $checker, AnalyserHistory::of('fake'));
+
+    $checking->rejected(PreCheckables::of(preOffer($first), preOffer($second)), ProcessCount::single());
+    $learned = $checking->checks()->histories()->of(preIdentity());
+
+    expect($learned->time()->checks())->toBe(2)
+        ->and($learned->time()->seconds())->toEqual(Seconds::of(1.0))
+        ->and($learned->rateOf($first->mutation())->checks())->toBe(0)
+        ->and($learned->rateOf($second->mutation())->checks())->toBe(1);
+});
+
+it('runs each check without what the gate withholds, and lists the files a mutant that changes what its file declares can break', function (): void {
+    $library = 'tests/Contract/Runner/phpunit-fixture/library/src';
+    $files = [
+        'src/Money.php' => (string) file_get_contents(Tree::at(sprintf('%s/Money.php', $library))),
+        'src/Wallet.php' => "<?php\n\nnamespace Library;\n\nfinal class Wallet\n{\n    public function large(Money \$money): bool { return \$money->isLarge(1); }\n}\n",
+    ];
+    $project = Scratch::directory();
+
+    foreach ($files as $path => $contents) {
+        Scratch::write($project, $path, $contents);
+    }
+
+    [$first] = preOffered();
+    $checkout = new ChangeSourceFake(Revision::ref('base'), Changes::none(), [Revision::workingTree()->name() => $files]);
+    $checker = new RecordingChecker(new StaticCheckerFake(preIdentity(), preOriginals(), [], dependents: true), $project);
+    $clock = new TickingClock('2026-01-01T00:00:00Z', 1);
+    $retyped = PreCheckable::of(
+        $first,
+        Checkable::inPlace(Contents::of(str_replace('public function isLarge', 'protected function isLarge', $files['src/Money.php']))),
+        Seconds::of(10.0),
+    );
+
+    new PreChecking(
+        Flows::adapters($project, [], ScriptedRunner::fixture(), $checker, $checkout),
+        $clock,
+        Unlimited::time(),
+        Seconds::of(60.0),
+        AnalyserHistory::of('fake'),
+        new AnalyserWarmUp(),
+        new Stopwatch($clock, $clock->now()),
+        PreCheck::standard(),
+    )->rejected(PreCheckables::of($retyped), ProcessCount::single());
+
+    expect($checker->dependents())->toBe([['src/Wallet.php']])
+        ->and(preg_match($checker->withheld()[0], 'FAKE_CI_TOKEN'))->toBe(1);
 });

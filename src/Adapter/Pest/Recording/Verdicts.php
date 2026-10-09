@@ -59,13 +59,12 @@ final class Verdicts
     }
 
     /**
-     * Waits for the gate's verdicts in this file, an hour at most, which the
-     * gate's deadline ends long before; then keeps the copies it rejected,
-     * none where it never wrote the file.
+     * Waits for the gate's verdicts in this file, this long at most; then
+     * keeps the copies it rejected, none where it never wrote the file.
      */
-    public static function await(string $file): void
+    public static function await(string $file, Seconds $within): void
     {
-        $until = hrtime(as_number: true) + Seconds::PER_HOUR * Seconds::NANOSECONDS;
+        $until = hrtime(as_number: true) + $within->nanoseconds();
 
         while (! is_file($file) && hrtime(as_number: true) < $until) {
             usleep(Polling::interval()->microseconds());

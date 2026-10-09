@@ -6,6 +6,9 @@ use NightWorksIO\MutationGate\Adapter\Pest\Bridges;
 use NightWorksIO\MutationGate\Adapter\Pest\Covering;
 use NightWorksIO\MutationGate\Adapter\Pest\HandedOver;
 use NightWorksIO\MutationGate\Adapter\Pest\HandOff;
+use NightWorksIO\MutationGate\Adapter\Pest\Interpretation;
+use NightWorksIO\MutationGate\Adapter\Pest\Patching;
+use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
@@ -18,10 +21,15 @@ use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
+use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Tests\Support\PestCases;
 use NightWorksIO\MutationGate\Tests\Support\PreCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Pest\Mutate\Mutators\Arithmetic\MinusToPlus;
@@ -129,4 +137,33 @@ it('writes no rejection, so Pest runs every mutant, where the run\'s covering te
 
     expect(file_get_contents(Verdicts::beside($results)))->toBe('')
         ->and($checker->offered())->toBe([]);
+});
+
+it('reads each mutant static analysis rejected, and its twin, as killed by it, with the rejection, and every other as Pest recorded it', function (): void {
+    [$project, $results, $planned] = handedProject();
+    $handOff = handOff($project, $results, new PreCheckerFake([PlusToMinus::class]));
+    handedRecords($results, $planned, made: true);
+    $handOff->look();
+    file_put_contents($results, implode('', [
+        RecordLine::finished('plus', PestStatus::Tested, 0.0),
+        RecordLine::ran($planned[2]->mutated()->value(), 1),
+        RecordLine::finished('minus', PestStatus::Untested, 0.25),
+        RecordLine::finished('uncovered', PestStatus::Uncovered, 0.0),
+        RecordLine::end(),
+    ]), FILE_APPEND);
+    $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(5), TestId::of(PestCases::RUN_ADDS));
+
+    $result = new Interpretation($project, Patching::off(), MemoryCap::standard(), handOff: $handOff)
+        ->of(Ran::finished(succeeded: true, output: "\n  Mutations: 1 untested, 1 uncovered, 1 tested\n"), $results, new HandedOver($map, $project));
+
+    expect($result instanceof MutationResult ? array_map(
+        static fn(Mutant $mutant): array => [$mutant->nativeId(), $mutant->status()->value],
+        [...$result->mutants()],
+    ) : $result)->toBe([
+        ['plus', 'killed-by-static-analysis'],
+        ['minus', 'survived'],
+        ['twin', 'killed-by-static-analysis'],
+        ['uncovered', 'uncovered'],
+    ])->and($result instanceof MutationResult ? [...$result->mutants()][0]->reason() : null)
+        ->toEqual(PreCheckerFake::rejection(Path::of('src/Money.php')));
 });

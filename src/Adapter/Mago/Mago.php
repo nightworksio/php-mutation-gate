@@ -66,7 +66,6 @@ final readonly class Mago implements StaticChecker
 
     private const string UNREAD = 'Mago\'s config %s cannot be read.';
 
-    private const string UNANSWERED = 'Mago gave no answer to the check.';
 
 
     private function __construct(
@@ -153,11 +152,7 @@ final readonly class Mago implements StaticChecker
      */
     public function check(MutantCheck $check): Findings|OutOfScope|CannotJudge
     {
-        foreach ($this->checks(MutantChecks::of($check), ProcessCount::single()) as $answer) {
-            return $answer;
-        }
-
-        return CannotJudge::because(self::UNANSWERED);
+        return $this->checks(MutantChecks::of($check), ProcessCount::single())->first();
     }
 
     /**

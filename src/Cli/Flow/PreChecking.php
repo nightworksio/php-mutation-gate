@@ -4,17 +4,16 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
-use function array_key_exists;
 use function count;
 use function min;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistory;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
+use NightWorksIO\MutationGate\Core\Analysis\CheckAnswers;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
 use NightWorksIO\MutationGate\Core\Analysis\MutantChecks;
 use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
-use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
 use NightWorksIO\MutationGate\Core\Analysis\PreCheck;
 use NightWorksIO\MutationGate\Core\Analysis\PreCheckable;
 use NightWorksIO\MutationGate\Core\Analysis\PreCheckables;
@@ -44,8 +43,6 @@ use Psr\Clock\ClockInterface;
  */
 final class PreChecking implements PreChecker
 {
-    private const string UNANSWERED = 'The analyser gave no answer to the check.';
-
     /** What this shard's checks before the tests have taught. */
     private AnalyserHistory $learned;
 
@@ -134,7 +131,7 @@ final class PreChecking implements PreChecker
         }
 
         $started = $this->clock->now();
-        $answers = [...$warm->checker->checks(MutantChecks::of(...$checks), $side)];
+        $answers = $warm->checker->checks(MutantChecks::of(...$checks), $side);
         $took = Seconds::between($started, $this->clock->now());
         $each = Seconds::of(
             count($checks) === 0 ? 0.0 : $took->seconds() * min($side->count(), count($checks)) / count($checks),
@@ -175,15 +172,14 @@ final class PreChecking implements PreChecker
      * check taught; one whose check could not run, or was out of scope,
      * teaches only the time it took.
      *
-     * @param list<array{PreCheckable, Findings}>                $judged
-     * @param list<Findings|OutOfScope|CannotJudge>              $answers
+     * @param list<array{PreCheckable, Findings}> $judged
      */
-    private function answered(WarmedUp $warm, array $judged, array $answers, Seconds $each): Rejections
+    private function answered(WarmedUp $warm, array $judged, CheckAnswers $answers, Seconds $each): Rejections
     {
         $rejections = Rejections::none();
 
         foreach ($judged as $at => [$mutant, $baseline]) {
-            $answer = array_key_exists($at, $answers) ? $answers[$at] : CannotJudge::because(self::UNANSWERED);
+            $answer = $answers->at($at);
             $mutation = $mutant->mutant()->mutation();
             $errors = $answer instanceof Findings ? [...$answer->newErrors($baseline)] : [];
             $this->learned = match (true) {

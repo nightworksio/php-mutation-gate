@@ -141,12 +141,13 @@ it('runs one of the mutants that leave a file alike, and judges the rest as it, 
         ->and($shell->commands())->toHaveCount(2);
 });
 
-it('kills a covered mutant static analysis rejects before its tests, and its twins, with no run, and offers no uncovered one', function () use ($covered): void {
+it('kills a covered mutant static analysis rejects before its tests, and its twins, with no run, offering each behind its covering tests\' own time, none where untimed, and no uncovered one', function () use ($covered): void {
     [$run, $shell] = killingRun(library(), new PlusToMinus(), new PlusToMinusAlso(), new RemoveEcho());
     $checker = new PreCheckerFake(['acme/PlusToMinus']);
     $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())
         ->across(Pool::of(ProcessCount::of(3), Workers::Fresh));
-    $result = $run->of($request, $covered, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)), $checker);
+    $timed = $covered->timed(TestId::of('Tests\\MoneySpec::adds'), Seconds::of(1.5));
+    $result = $run->of($request, $timed, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)), $checker);
     $rejected = $result instanceof MutationResult ? array_values(array_filter(
         [...$result->mutants()],
         static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::KilledByStaticAnalysis,
@@ -164,6 +165,7 @@ it('kills a covered mutant static analysis rejects before its tests, and its twi
         ->and(array_map(static fn(string $offered): string => explode(' ', $offered)[0], $checker->offered()))
         ->toBe(['acme/RemoveEcho', 'acme/PlusToMinus'])
         ->and($checker->sides())->toBe([3])
+        ->and($checker->tests())->toBe([0.0, 1.5])
         ->and($shell->commands())->toHaveCount(1);
 });
 

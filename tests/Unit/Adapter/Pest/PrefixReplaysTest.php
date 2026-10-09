@@ -153,6 +153,23 @@ it('starts the run again as Pest started it, its file served unmutated, its reco
         ->and(dirname(sprintf('%s', $command->environment()[GateVariable::Results->value])))->toBe(dirname(PestCases::results($at)));
 });
 
+it('starts a replay with no earlier replay\'s records of the same run left where it writes its own', function (): void {
+    $at = PestCases::project();
+    $found = [];
+    $shell = new ShellFake(static function (Command $command) use (&$found): Ran {
+        $records = sprintf('%s', $command->environment()[GateVariable::Results->value]);
+        $found[] = is_file($records);
+        file_put_contents($records, RecordLine::ran('/r/copy.php', 2), FILE_APPEND);
+
+        return Ran::finished(succeeded: true, output: '');
+    });
+
+    replayVerdicts($at, $shell);
+    replayVerdicts($at, $shell);
+
+    expect($found)->toBe([false, false]);
+});
+
 it('runs one replay for two kills of one run, keeps what it said, and runs none where no time is left', function (): void {
     $at = PestCases::project();
     $shell = replaying(Ran::finished(succeeded: true, output: ''), RecordLine::ran('/r/copy.php', 2), RecordLine::stopped('/r/copy.php', 2, replayedOrder()));

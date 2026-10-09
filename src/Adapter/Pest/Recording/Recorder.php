@@ -186,7 +186,8 @@ final readonly class Recorder
      * made before it, and then how many Pest made, with the opening run's
      * seconds, from which each mutant's limit follows. A run stopped before
      * that last line lost some of its mutants. Where the gate checks mutants
-     * before their tests, it then waits for the gate's verdicts on them.
+     * before their tests, it then waits for the gate's verdicts on them, an
+     * hour at most, which the gate's deadline ends long before.
      */
     public function planned(MutationSuite $suite): void
     {
@@ -212,7 +213,7 @@ final readonly class Recorder
         $verdicts = getenv(GateVariable::Verdicts->value);
 
         if (is_string($verdicts) && $verdicts !== '') {
-            Verdicts::await($verdicts);
+            Verdicts::await($verdicts, Seconds::of((float) Seconds::PER_HOUR));
         }
     }
 

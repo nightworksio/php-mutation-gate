@@ -63,6 +63,7 @@ use NightWorksIO\MutationGate\Tests\Support\Described;
 use NightWorksIO\MutationGate\Tests\Support\FirstMutant;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitShellFake;
+use NightWorksIO\MutationGate\Tests\Support\PreCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -256,6 +257,15 @@ it('mutates afresh each time, allowing each mutant its limit within the bounds, 
         ->toBe([$money->id()->value()])
         ->and($last->deadline())->toEqual(Seconds::of(6.5))
         ->and($coverageRuns)->toHaveCount(2);
+});
+
+it('offers its covered mutants to the gate\'s static analysis before their tests', function () use ($request): void {
+    $project = phpUnitRunnerProject();
+    $checker = new PreCheckerFake([]);
+
+    phpUnitRunner($project, phpUnitAnswering($project))->mutate($request, $checker);
+
+    expect($checker->offered())->not->toBe([]);
 });
 
 it('lays each mutant\'s limit on the start-up the request\'s pool measured, a run again too', function () use ($request): void {

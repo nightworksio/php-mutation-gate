@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Analysis\AnalyserSettings;
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\Analysis\MutantCheck;
+use NightWorksIO\MutationGate\Core\Analysis\MutantChecks;
 use NightWorksIO\MutationGate\Core\Analysis\OutOfScope;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -17,8 +18,17 @@ use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
+use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
+use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
+use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\Unwatched;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Port\Processes;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\FakeAnalyser;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -27,14 +37,14 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-/** Mago in a project, reading the config the gate hands it, if any. */
-function magoIn(string $project, string $options = '{}', string $vendor = ''): Mago
+/** Mago in a project, reading the config the gate hands it, if any, starting its processes through these. */
+function magoIn(string $project, string $options = '{}', string $vendor = '', Processes $processes = new LocalProcesses(new SystemClock())): Mago
 {
     $mago = Mago::fromOptions(
         Configs::options($options),
         $project,
         $vendor === '' ? sprintf('%s/vendor', $project) : $vendor,
-        new LocalProcesses(new SystemClock()),
+        $processes,
     );
 
     return $mago instanceof Mago ? $mago : throw new LogicException('No Mago.');
@@ -188,3 +198,41 @@ it('cannot judge a check whose listing or analysis takes longer than its limit, 
     'a listing past the limit' => ['30', '0'],
     'an analysis past the limit' => ['0', '30'],
 ]);
+
+it('lists its files once for a batch of checks, and analyses each mutant side by side', function (): void {
+    $project = FakeAnalyser::mago('1.50.0', "src/Money.php\0");
+    magoAnswers($project, '{"issues": []}', 0);
+    $processes = new class implements Processes {
+        /** @var list<string> the first word Mago was told after its options, in each command */
+        public private(set) array $told = [];
+
+        private readonly LocalProcesses $local;
+
+        public function __construct()
+        {
+            $this->local = new LocalProcesses(new SystemClock());
+        }
+
+        public function run(ProcessCommand $command, ProcessWatch $watch = new Unwatched()): Ran
+        {
+            $this->told[] = in_array('list-files', [...$command->arguments()], strict: true) ? 'list-files' : 'other';
+
+            return $this->local->run($command, $watch);
+        }
+
+        public function sideBySide(WorkerSlots $slots, Seconds|Unlimited $startingWithin, ProcessCommand ...$commands): ProcessEnds
+        {
+            foreach ($commands as $command) {
+                $this->told[] = in_array('analyze', [...$command->arguments()], strict: true) ? 'analyze' : 'other';
+            }
+
+            return $this->local->sideBySide($slots, $startingWithin, ...$commands);
+        }
+    };
+    $check = static fn(string $mutant): MutantCheck => MutantCheck::of(Path::of('src/Money.php'), Path::of($mutant));
+
+    $answers = magoIn($project, processes: $processes)->checks(MutantChecks::of($check('/tmp/a.php'), $check('/tmp/b.php')), ProcessCount::of(2));
+
+    expect([...$answers])->toEqual([Findings::none(), Findings::none()])
+        ->and($processes->told)->toBe(['list-files', 'analyze', 'analyze']);
+});

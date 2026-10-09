@@ -25,6 +25,9 @@ final class PreCheckerFake implements PreChecker
     /** @var list<int> how many checks it was allowed to run side by side, each time it was asked */
     private array $sides = [];
 
+    /** @var list<float> the seconds each offered mutant's tests take, in the order offered */
+    private array $tests = [];
+
     /** @param list<string> $rejecting the mutators whose mutants it rejects */
     public function __construct(private readonly array $rejecting)
     {
@@ -44,6 +47,7 @@ final class PreCheckerFake implements PreChecker
         foreach ($mutants as $offered) {
             $mutant = $offered->mutant();
             $this->offered[] = sprintf('%s %s', $mutant->mutator(), $offered->checkable()->mutant()->text());
+            $this->tests[] = $offered->tests()->seconds();
             $rejections = in_array($mutant->mutator(), $this->rejecting, strict: true)
                 ? $rejections->with($mutant->id(), self::rejection($mutant->location()->file()))
                 : $rejections;
@@ -62,5 +66,11 @@ final class PreCheckerFake implements PreChecker
     public function sides(): array
     {
         return $this->sides;
+    }
+
+    /** @return list<float> */
+    public function tests(): array
+    {
+        return $this->tests;
     }
 }

@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Analysis;
 
 use function array_values;
-use function count;
 
-use Countable;
 use IteratorAggregate;
 use Traversable;
 
@@ -17,7 +15,7 @@ use Traversable;
  *
  * @implements IteratorAggregate<int, PreCheckable>
  */
-final readonly class PreCheckables implements Countable, IteratorAggregate
+final readonly class PreCheckables implements IteratorAggregate
 {
     /** @param list<PreCheckable> $mutants */
     private function __construct(private array $mutants)
@@ -27,11 +25,6 @@ final readonly class PreCheckables implements Countable, IteratorAggregate
     public static function of(PreCheckable ...$mutants): self
     {
         return new self(array_values($mutants));
-    }
-
-    public function count(): int
-    {
-        return count($this->mutants);
     }
 
     /** @return Traversable<int, PreCheckable> */
