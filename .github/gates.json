@@ -200,6 +200,19 @@
         "verdict": "Every forked run gave a mutant one verdict, and every fresh run another."
       }
     },
+    "hook-managers": {
+      "check": "hook managers",
+      "checks": "The gate set up by init --hook in real CaptainHook, GrumPHP and pre-commit framework repositories, from this checkout's gate and its .pre-commit-hooks.yaml: a commit through each manager's pre-commit hook passes, and through CaptainHook and the pre-commit framework a push whose new code is killed passes while one whose new code no test covers is refused with the gate's failed verdict (ADR-0024, decisions 12 and 13).",
+      "reproduce": "python3 .github/scripts/hook_managers.py . <an empty directory> <pre-commit's zipapp> --findings <file>, with Composer, PHP with pcov and git on the PATH",
+      "evidence": [
+        {"step": "managers", "tool": "hooks", "raw": "evidence/raw/hook-managers.json"}
+      ],
+      "rules": {
+        "hooks": "The run stopped before it judged anything: the project, a manager or its hooks could not be set up. The step's log says which command failed.",
+        "unexpected": "A commit or push through a manager did other than the recipe promises: the finding names the step, what it exited with and what its output lacked, with the end of that output.",
+        "not-run": "A step never ran, because a command before it failed: the step's log says which."
+      }
+    },
     "runner-canary": {
       "check": "runner canary",
       "checks": "Every day, ADR-0004's Runner contract suite and ADR-0020's StaticChecker contract suite against the newest releases of Pest, Infection, PHPUnit, Mago and PHPStan, the pinned pest-plugin-mutate and Infection freed from the package's pin; then that composer.json takes each pinned release that passed (ADR-0017, decision 8). It is not required: a new release reds it alone.",

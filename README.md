@@ -71,8 +71,8 @@ vendor/bin/mutation-gate
 ```
 
 `init` detects your runner, preset (Laravel, Symfony or a plain library) and
-CI, asks only what it cannot tell, writes a config, adds `.mutation-gate/` to
-`.gitignore`, and estimates how long the first run takes. The config is
+CI, writes a config, adds `.mutation-gate/` to `.gitignore`, and estimates
+how long the first run takes. The config is
 optional: with none, the gate takes its trees from the `<source>` of
 `phpunit.xml` (or `phpunit.dist.xml`, or `phpunit.xml.dist`), one per
 directory it names.
@@ -136,7 +136,8 @@ The first release is tagged when every row says *yes*.
 | | Feature | Built | Decided in |
 |---|---------|-------|------------|
 | **Adoption** | Zero-config start: trees from `phpunit.xml`'s `<source>`, and an optional config file | yes | [0002](.docs/decisions/0002-one-typed-config-from-several-formats.md) |
-| | A guided `init`: it detects the runner, preset and CI, asks only what it cannot tell, writes the config and the CI, and estimates the first run from one coverage run | yes | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
+| | `init`: it detects the runner, preset and CI, writes the config and the CI, and estimates the first run from one coverage run | yes | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
+| | `init`'s questions: the runner, the CI, an Infection config's import, native markers and the pre-push hook, asked where detection cannot settle them, with `--native`, `--no-measure` and `--dry-run` | not yet | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 | | `doctor`: what would fail or run slowly, and the fix, before a run finds out | yes | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 | | A first CI run with no baseline measures, then hands over the baseline to commit | yes | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 | | `init --from=infection.json5`: a config taken over from Infection's | yes | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
@@ -146,7 +147,8 @@ The first release is tagged when every row says *yes*.
 | | Monorepos: a floor per package and module, with reach that follows the dependencies | yes | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | | `migrate`: a config and a baseline moved to the current format, in any of the four formats | yes | [0026](.docs/decisions/0026-configs-and-baselines-move-forward-with-one-command.md) |
 | | A signed PHAR and a multi-arch container image beside the Composer package | not yet | [0022](.docs/decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md) |
-| | `composer mutate`, and recipes for CaptainHook, GrumPHP and the pre-commit framework | not yet | [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
+| | `init --hook`: the gate in CaptainHook, GrumPHP and the pre-commit framework | yes | [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
+| | `composer mutate`, from an optional Composer plugin | not yet | [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 | **CI and speed** | A cost model that learns how long each file takes from earlier shards | yes | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | | Sharding on any CI: GitHub Actions, GitLab, Buildkite, CircleCI, Azure DevOps, Bitbucket Pipelines, Jenkins, or a JSON plan | yes | [0006](.docs/decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md), [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 | | A proof cache keyed by content, stored in the GitHub cache, a directory, S3/R2, Google Cloud Storage or Azure Blob, with OIDC and a public read path for forks | yes | [0007](.docs/decisions/0007-a-proof-is-keyed-by-everything-its-verdict-reads.md), [0028](.docs/decisions/0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) |

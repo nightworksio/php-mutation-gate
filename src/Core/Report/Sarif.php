@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Report;
 use NightWorksIO\MutationGate\Core\Cluster\Membership;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
@@ -52,7 +53,6 @@ final readonly class Sarif
 
     private const string VERSION = '2.1.0';
 
-    private const string HOME = 'https://github.com/nightworksio/php-mutation-gate';
 
     private const string ROOT = '%SRCROOT%';
 
@@ -79,7 +79,11 @@ final readonly class Sarif
         $results = [];
 
         foreach (ResultRule::cases() as $rule) {
-            $rules[] = ['id' => $rule->value, 'shortDescription' => ['text' => $rule->text()], 'helpUri' => self::HOME];
+            $rules[] = [
+                'id' => $rule->value,
+                'shortDescription' => ['text' => $rule->text()],
+                'helpUri' => ThisPackage::REPOSITORY,
+            ];
         }
 
         foreach ($overview->survivors() as $mutant) {
@@ -98,7 +102,11 @@ final readonly class Sarif
             '$schema' => self::SCHEMA,
             'version' => self::VERSION,
             'runs' => [[
-                'tool' => ['driver' => ['name' => 'mutation-gate', 'informationUri' => self::HOME, 'rules' => $rules]],
+                'tool' => ['driver' => [
+                    'name' => 'mutation-gate',
+                    'informationUri' => ThisPackage::REPOSITORY,
+                    'rules' => $rules,
+                ]],
                 'originalUriBaseIds' => [self::ROOT => [...$root, 'description' => ['text' => 'The repository root']]],
                 'results' => $results,
             ]],

@@ -299,17 +299,28 @@ documentation, are these.
       the hooks `mutation-gate-pre-push` (`stages: [pre-push]`, `language:
       unsupported`, `entry: vendor/bin/mutation-gate pre-push`,
       `pass_filenames: false`, `always_run: true`) and
-      `mutation-gate-pre-commit`.
+      `mutation-gate-pre-commit`. Each needs pre-commit 4.4.0, the first
+      release with `language: unsupported`. The config `init` writes pins
+      the repository to the gate's commit, as a CI definition pins it
+      (ADR-0015 decision 14), installs both hook types through
+      `default_install_hook_types`, and sets a hook's `entry` where Composer
+      links the gate elsewhere.
     - No code of the gate depends on any hook manager's classes.
-    - `init --hook=captainhook|grumphp|pre-commit` prints the block to add,
-      and writes a file only where none exists (ADR-0010 decision 3).
+    - `init --hook=captainhook|grumphp|pre-commit` writes the manager's
+      config where the manager reads none, and otherwise prints the block to
+      add (ADR-0010 decision 3); for GrumPHP, any of the six files it looks
+      for counts. It then names the command that installs the manager's
+      hooks.
 
     This amends ADR-0010 decision 3 and ADR-0017 decision 1.
 
 13. **`pre-push` reads its refs from three places.** Git's hook input on stdin
     (ADR-0010 decision 2), `--stdin=<text>` for CaptainHook's placeholder,
     and, where there is neither, `PRE_COMMIT_FROM_REF` and
-    `PRE_COMMIT_TO_REF`. Each is parsed into the same refs. Each line must
+    `PRE_COMMIT_TO_REF`. Each is parsed into the same refs. Where the remote
+    holds none of a ref's history, the framework sets only
+    `PRE_COMMIT_LOCAL_BRANCH` and `PRE_COMMIT_REMOTE_BRANCH`, and the push is
+    read as a new ref at the commit the working tree is at. Each line must
     be a local ref, a local SHA, a remote ref and a remote SHA, the SHAs in
     hex, and anything else is refused. The `.pre-commit-hooks.yaml` hook ids
     are public API. This amends ADR-0010 decision 2 and ADR-0011 decision 7.

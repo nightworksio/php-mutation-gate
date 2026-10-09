@@ -745,6 +745,56 @@ jobs:
         if: failure()
         run: python3 .github/scripts/gate_summary.py warm-workers
 
+  # ADR-0024, decisions 12 and 13: init --hook's recipes, run by the real
+  # hook managers, committing and pushing through each.
+  hook-managers:
+    name: hook managers
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PRE_COMMIT_VERSION: "4.6.2"
+      PRE_COMMIT_SHA256: "43c09a73d82af8efff09900e60d76d67a2c3d990613c3c770b2b5c4418a16c4b"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+          extensions: pcntl, sodium
+      - name: the pre-commit framework, at its pinned release
+        run: |
+          set -euo pipefail
+          url="https://github.com/pre-commit/pre-commit/releases/download/v${PRE_COMMIT_VERSION}/pre-commit-${PRE_COMMIT_VERSION}.pyz"
+          curl -sSfL --proto '=https' --tlsv1.2 --retry 3 --retry-delay 2 --retry-all-errors \
+            -o "${RUNNER_TEMP}/pre-commit.pyz" "$url"
+          sha256sum --check --strict <<<"${PRE_COMMIT_SHA256}  ${RUNNER_TEMP}/pre-commit.pyz"
+      - id: managers
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/hooks"
+          python3 .github/scripts/hook_managers.py . "${RUNNER_TEMP}/hooks" "${RUNNER_TEMP}/pre-commit.pyz" \
+            --findings evidence/raw/hook-managers.json
+      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py hook-managers
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-hook-managers
+          path: evidence/hook-managers*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py hook-managers
+
   # G8 — every mutant of src is killed. The package holds its own code to a
   # floor of 100 through its own gate: the reusable workflow and the action in
   # this repository, run from the same commit. Until the gate can run itself
@@ -830,7 +880,7 @@ jobs:
   # left none.
   evidence:
     name: evidence
-    needs: [scope, scripts, hygiene, security, rules, guards, checks, tests, lowest, runner-contract, runner-contracts, warm-workers, sonar, gate]
+    needs: [scope, scripts, hygiene, security, rules, guards, checks, tests, lowest, runner-contract, runner-contracts, warm-workers, hook-managers, sonar, gate]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

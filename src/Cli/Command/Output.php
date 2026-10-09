@@ -8,7 +8,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 
-/** Whether `init` writes the CI and editor files it makes, or prints them with `--stdout` (ADR-0015). */
+/** Whether `init` writes the CI, editor and hook manager files it makes, or prints them with `--stdout` (ADR-0015). */
 enum Output
 {
     case Written;
@@ -22,7 +22,7 @@ enum Output
         return $command->addOption(
             self::STDOUT,
             mode: InputOption::VALUE_NONE,
-            description: 'Print the CI and editor files, not write them',
+            description: 'Print the CI, editor and hook manager files, not write them',
         );
     }
 

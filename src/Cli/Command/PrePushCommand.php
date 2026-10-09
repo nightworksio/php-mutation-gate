@@ -22,11 +22,13 @@ use NightWorksIO\MutationGate\Cli\Flow\Standing;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Hook\Hook;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Push\PreCommitPush;
 use NightWorksIO\MutationGate\Core\Push\Pushes;
 use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -38,12 +40,18 @@ use function stream_get_contents;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\StreamableInputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
+use function trim;
+
 /**
  * `mutation-gate pre-push`, which the pre-push hook calls with git's
- * arguments and the refs git is about to push on standard input. For each
+ * arguments and the refs git is about to push on standard input; a hook
+ * manager that reads them itself hands them on through `--stdin`, as
+ * CaptainHook does, or in the variables the pre-commit framework sets
+ * (ADR-0024, decision 13). For each
  * base a pushed ref is read since, the commit the remote holds or, for a new
  * ref, the merge base with the default branch, it runs change-scoped under
  * `local.prePushBudget`, prints each reached tree's score change, then the
@@ -56,6 +64,8 @@ final readonly class PrePushCommand
 
     private const string URL = 'url';
 
+    private const string STDIN = 'stdin';
+
     private const string NOTHING = 'Nothing is pushed, so there is nothing to judge.';
 
     private const string MORE_TIME = <<<'SAID'
@@ -67,10 +77,11 @@ final readonly class PrePushCommand
         private InputInterface $input,
         private Printing $printing,
         private OutputInterface $output,
+        private Variables $environment,
     ) {
     }
 
-    public static function command(Composition $composition): Command
+    public static function command(Composition $composition, Variables $environment): Command
     {
         return FlowOptions::editing(new Command(Hook::PrePush->value))
             ->setDescription(
@@ -78,28 +89,44 @@ final readonly class PrePushCommand
             )
             ->addArgument(self::REMOTE, InputArgument::OPTIONAL, 'The remote pushed to, as git hands it to the hook')
             ->addArgument(self::URL, InputArgument::OPTIONAL, 'The remote\'s URL, as git hands it to the hook')
-            ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
-                $pushes = Pushes::read(self::handed($input));
+            ->addOption(
+                self::STDIN,
+                mode: InputOption::VALUE_REQUIRED,
+                description: 'The lines git handed the hook, from a manager that read them, as CaptainHook\'s {$STDIN}',
+            )
+            ->setCode(static function (InputInterface $input, OutputInterface $output) use (
+                $composition,
+                $environment,
+            ): int {
                 $printing = FlowOptions::printing($input);
                 $composed = $composition->compose($input);
                 $composed = $composed instanceof Composed ? self::budgeted($composed, $input) : $composed;
 
                 return match (true) {
-                    $pushes instanceof CannotJudge => Failed::because($output, $pushes),
                     $printing instanceof CannotJudge => Failed::because($output, $printing),
                     ! $composed instanceof Composed => Failed::because($output, $composed),
-                    default => new self($composed, $input, $printing, $output)->judged($pushes),
+                    default => new self($composed, $input, $printing, $output, $environment)->judged(),
                 };
             });
     }
 
-    /** What git hands the hook on standard input. */
-    private static function handed(InputInterface $input): string
+    /**
+     * The lines `--stdin` hands on, or else git's on standard input; or, where
+     * neither holds one, git's line for the push the pre-commit framework names.
+     */
+    private function handed(Revision $head): string
     {
-        $stream = $input instanceof StreamableInputInterface ? $input->getStream() : null;
-        $handed = stream_get_contents($stream ?? STDIN);
+        $given = $this->input->getOption(self::STDIN);
 
-        return is_string($handed) ? $handed : '';
+        if (is_string($given)) {
+            return $given;
+        }
+
+        $stream = $this->input instanceof StreamableInputInterface ? $this->input->getStream() : null;
+        $read = stream_get_contents($stream ?? STDIN);
+        $handed = is_string($read) ? $read : '';
+
+        return trim($handed) === '' ? PreCommitPush::line($this->environment, $head) : $handed;
     }
 
     /** The composition with `local.prePushBudget` as the run's budget, unless `--budget` sets one for this run. */
@@ -110,15 +137,21 @@ final readonly class PrePushCommand
             : $composed;
     }
 
-    private function judged(Pushes $pushes): int
+    private function judged(): int
     {
         $adapters = $this->composed->adapters;
         $defaultBranch = $this->composed->settings->ci()->defaultBranch();
         $standing = Standing::of($adapters->ci, $adapters->repository, $defaultBranch);
 
-        return $standing instanceof Standing
+        if (! $standing instanceof Standing) {
+            return Failed::because($this->output, $standing);
+        }
+
+        $pushes = Pushes::read($this->handed($standing->head()));
+
+        return $pushes instanceof Pushes
             ? $this->judgedAt($standing, $pushes)
-            : Failed::because($this->output, $standing);
+            : Failed::because($this->output, $pushes);
     }
 
     private function judgedAt(Standing $standing, Pushes $pushes): int
