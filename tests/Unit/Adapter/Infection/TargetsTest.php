@@ -53,3 +53,14 @@ it('leaves out every file under a directory left out', function () use ($project
         sprintf('%s/src/Money.php', $at->root()),
     ]);
 });
+
+it('names no source directory inside another, as Infection would find each file in it once for each', function () use ($project): void {
+    $at = $project();
+    $targets = Targets::of(
+        $at,
+        Paths::of(Path::of('src/Heldover/Rest.php'), Path::of('src/Money.php'), Path::of('lib/Tax.php')),
+        Paths::none(),
+    );
+
+    expect($targets->directories())->toBe([sprintf('%s/src', $at->root()), sprintf('%s/lib', $at->root())]);
+});
