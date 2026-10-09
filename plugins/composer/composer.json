@@ -1,0 +1,44 @@
+{
+    "name": "nightworksio/mutation-gate-composer",
+    "description": "composer mutate: NightWorksIO's mutation gate as a Composer command, with no time limit.",
+    "license": "MIT",
+    "type": "composer-plugin",
+    "keywords": [
+        "mutation testing",
+        "composer-plugin"
+    ],
+    "authors": [
+        {
+            "name": "NightWorksIO",
+            "homepage": "https://nightworks.io"
+        },
+        {
+            "name": "Wessel Verheij",
+            "email": "info@nightworks.io"
+        }
+    ],
+    "homepage": "https://github.com/nightworksio/php-mutation-gate",
+    "require": {
+        "php": "^8.5",
+        "composer-plugin-api": "^2.3",
+        "nightworksio/mutation-gate": "^0.1"
+    },
+    "require-dev": {
+        "composer/composer": "^2.9",
+        "pestphp/pest": "^5.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "NightWorksIO\\MutationGateComposer\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "NightWorksIO\\MutationGateComposer\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "class": "NightWorksIO\\MutationGateComposer\\MutatePlugin",
+        "plugin-optional": true
+    }
+}

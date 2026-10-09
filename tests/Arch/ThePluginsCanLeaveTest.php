@@ -13,7 +13,10 @@ use NightWorksIO\MutationGate\Tests\Support\Source;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 // A6–A8, over each plugin under plugins/: a first-party set that is a package
-// in all but publication, and leaves by moving its directory (ADR-0021).
+// in all but publication, and leaves by moving its directory (ADR-0021); and
+// the Composer plugin, a package of its own published from its directory
+// (ADR-0024, decision 11), which names Composer's plugin API in place of the
+// mutator SDK, and registers no extension.
 
 /** The package this repository's own code is. */
 const THE_GATE = 'nightworksio/mutation-gate';
@@ -48,6 +51,15 @@ function pluginNamespaces(): array
 function startsWithAny(string $name, array $prefixes): bool
 {
     return array_any($prefixes, static fn(string $prefix): bool => str_starts_with($name, $prefix));
+}
+
+/** The packages Composer provides a plugin it loads: its plugin API, and the console that API is built on. */
+const COMPOSER_PROVIDES = ['composer/composer', 'symfony/console'];
+
+/** Whether a plugin is a Composer plugin rather than a mutator set. */
+function isComposerPlugin(string $plugin): bool
+{
+    return Decoded::at((string) file_get_contents(Tree::at(sprintf('%s/composer.json', $plugin))), 'type') === 'composer-plugin';
 }
 
 /** The package a plugin's composer.json names. */
@@ -113,11 +125,15 @@ it('lets a plugin name only PHP, php-parser, the mutator SDK, the extension API 
     $offenders = [];
 
     foreach (pluginNamespaces() as $plugin => $own) {
+        $sdk = isComposerPlugin($plugin)
+            ? ['Composer\\', 'Symfony\\Component\\Console\\']
+            : ['PhpParser\\', sprintf('%s\\', Layer::Mutator->namespace())];
+
         foreach ([...Source::under(sprintf('%s/src', $plugin)), ...Source::under(sprintf('%s/tests', $plugin))] as $source) {
             foreach ($source->names() as $name) {
                 $fine = ! str_contains($name, '\\')
-                    || startsWithAny($name, [...$own, 'PhpParser\\', sprintf('%s\\', Layer::Mutator->namespace())])
-                    || in_array($name, $allowed, strict: true);
+                    || startsWithAny($name, [...$own, ...$sdk])
+                    || (! isComposerPlugin($plugin) && in_array($name, $allowed, strict: true));
 
                 if (! $fine) {
                     $offenders[] = sprintf('%s names %s', $source->path, $name);
@@ -147,11 +163,13 @@ it('gives each plugin a manifest of its own that requires every package its code
             $offenders[] = sprintf('%s/composer.json is not named %s-%s', $plugin, THE_GATE, basename($plugin));
         }
 
-        if (! FirstPartyPackage::tryFrom($name) instanceof FirstPartyPackage) {
+        $composer = isComposerPlugin($plugin);
+
+        if (! $composer && ! FirstPartyPackage::tryFrom($name) instanceof FirstPartyPackage) {
             $offenders[] = sprintf('%s is not listed in %s, so --no-extensions would leave it out', $name, FirstPartyPackage::class);
         }
 
-        foreach ([THE_GATE, THE_PARSER] as $package) {
+        foreach ($composer ? [THE_GATE, 'composer-plugin-api'] : [THE_GATE, THE_PARSER] as $package) {
             if (! in_array($package, $required, strict: true)) {
                 $offenders[] = sprintf('%s/composer.json does not require %s', $plugin, $package);
             }
@@ -169,7 +187,13 @@ it('gives each plugin a manifest of its own that requires every package its code
         $extensions = Decoded::at($manifest, 'extra', 'mutation-gate', 'extensions');
         $listed = Decoded::at($root, 'extra', 'mutation-gate', 'extensions');
 
-        foreach (is_array($extensions) && $extensions !== [] ? $extensions : [null] as $extension) {
+        $listing = match (true) {
+            is_array($extensions) && $extensions !== [] => $extensions,
+            $composer => [],
+            default => [null],
+        };
+
+        foreach ($listing as $extension) {
             if (! is_string($extension) || ! is_array($listed) || ! in_array($extension, $listed, strict: true)) {
                 $offenders[] = sprintf('%s lists no extension the root composer.json lists too', $plugin);
             }
@@ -179,7 +203,9 @@ it('gives each plugin a manifest of its own that requires every package its code
             foreach ($source->names() as $named) {
                 $package = packageOf($named);
 
-                if ($package !== '' && $package !== $name && ! in_array($package, $required, strict: true)) {
+                $provided = $composer && in_array($package, COMPOSER_PROVIDES, strict: true);
+
+                if ($package !== '' && $package !== $name && ! $provided && ! in_array($package, $required, strict: true)) {
                     $offenders[] = sprintf('%s names %s, from %s, which %s/composer.json does not require', $source->path, $named, $package, $plugin);
                 }
             }

@@ -24,6 +24,10 @@ return (new Configuration())
     ->addPathToScan(__DIR__ . '/plugins/symfony/src', isDev: false)
     ->addPathToScan(__DIR__ . '/plugins/security/src', isDev: false)
     ->addPathToScan(__DIR__ . '/tests', isDev: true)
+    // The Composer plugin ships as a package of its own, which Composer loads
+    // with its own classes; here its code is development code like its tests.
+    ->addPathToScan(__DIR__ . '/plugins/composer/src', isDev: true)
+    ->addPathToScan(__DIR__ . '/plugins/composer/tests', isDev: true)
     ->addPathToScan(__DIR__ . '/plugins/default/tests', isDev: true)
     ->addPathToScan(__DIR__ . '/plugins/laravel/tests', isDev: true)
     ->addPathToScan(__DIR__ . '/plugins/symfony/tests', isDev: true)

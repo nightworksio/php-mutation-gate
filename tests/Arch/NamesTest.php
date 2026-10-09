@@ -61,7 +61,11 @@ it('seals every class, and keeps every value readonly', function (): void {
             static fn(Layer $layer): bool => $layer->holds($class->getName()),
         );
 
-        if ($immutable && ! $class->isReadOnly() && ! $class->implementsInterface(Throwable::class)) {
+        // PHP lets no class be readonly whose parent is not, as the Composer plugin's command's is not.
+        $parent = $class->getParentClass();
+        $canBe = ! $parent instanceof ReflectionClass || $parent->isReadOnly();
+
+        if ($immutable && $canBe && ! $class->isReadOnly() && ! $class->implementsInterface(Throwable::class)) {
             $offenders[] = sprintf('%s is not readonly', $class->getName());
         }
     }
