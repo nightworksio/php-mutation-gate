@@ -1,0 +1,44 @@
+{
+    "project": "pinkary-project/pinkary.com",
+    "version": "main",
+    "repository": "https://github.com/pinkary-project/pinkary.com.git",
+    "commit": "3bf5ad0aad01f026965cef95140e7ca7bc9dbafa",
+    "tree": "b33917628419b61ad32c8b284cbe67a944d68c6b69e2acb50ee6aea3bb57319c",
+    "arms": {
+        "pest": {
+            "said": "plain Pest, unpatched, pest --mutate --parallel --path=app/Actions, as Pest itself shows it",
+            "report": "pest",
+            "stdout": true,
+            "directory": "../pinkary-plain",
+            "command": [
+                "vendor/bin/pest",
+                "--mutate",
+                "--parallel",
+                "--no-cache",
+                "--path=app/Actions",
+                "--colors=never"
+            ]
+        },
+        "gate-pest": {
+            "said": "the gate in one job, mutating app/Actions with that Pest under pest:patch",
+            "report": "gate",
+            "clean": [
+                ".mutation-gate"
+            ],
+            "copy": {
+                "mutation-gate.baseline.json": "bench-baseline.json"
+            },
+            "command": [
+                "vendor/bin/mutation-gate",
+                "run",
+                "--no-interaction",
+                "--config=bench-pest.json",
+                "--report=json:{report}"
+            ]
+        }
+    },
+    "same": [
+        "pest",
+        "gate-pest"
+    ]
+}

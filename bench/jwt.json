@@ -1,0 +1,65 @@
+{
+    "project": "lcobucci/jwt",
+    "version": "5.6.0",
+    "repository": "https://github.com/lcobucci/jwt.git",
+    "commit": "bb3e9f21e4196e8afc41def81ef649c164bca25e",
+    "tree": "6d867830ac3b1c80d34e831f25afc8237887a63c1d89940eccbb7d547fa7b0a6",
+    "arms": {
+        "infection": {
+            "said": "plain Infection, unpatched, --threads=max, with the project's own infection.json.dist, a JSON log added",
+            "report": "infection",
+            "clean": [
+                "infection.txt",
+                "bench-infection-log.json"
+            ],
+            "command": [
+                "vendor/bin/infection",
+                "--configuration=bench-plain-infection.json",
+                "--threads=max",
+                "--no-progress",
+                "--no-interaction",
+                "--log-verbosity=all"
+            ],
+            "log": "bench-infection-log.json",
+            "directory": "../jwt-plain"
+        },
+        "gate-infection": {
+            "said": "the gate in one job, mutating with Infection under infection:patch and the project's own mutators",
+            "report": "gate",
+            "clean": [
+                ".mutation-gate"
+            ],
+            "command": [
+                "vendor/bin/mutation-gate",
+                "run",
+                "--no-interaction",
+                "--config=bench-infection.json",
+                "--report=json:{report}"
+            ],
+            "copy": {
+                "mutation-gate.baseline.json": "bench-baseline.json"
+            }
+        },
+        "gate-phpunit": {
+            "said": "the gate in one job, mutating with its own engine and forked PHPUnit workers",
+            "report": "gate",
+            "clean": [
+                ".mutation-gate"
+            ],
+            "command": [
+                "vendor/bin/mutation-gate",
+                "run",
+                "--no-interaction",
+                "--config=bench-phpunit.json",
+                "--report=json:{report}"
+            ],
+            "copy": {
+                "mutation-gate.baseline.json": "bench-baseline.json"
+            }
+        }
+    },
+    "same": [
+        "infection",
+        "gate-infection"
+    ]
+}

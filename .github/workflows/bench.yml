@@ -1,0 +1,153 @@
+# The benchmark (ADR-0017, decisions 14 to 17): each pinned project, prepared
+# here and never changed upstream, run by every arm on one GitHub-hosted
+# machine, interleaved, three times; each arm's mutants reconciled per file
+# and status. On demand and monthly, never on pull requests.
+name: bench
+
+on:
+  schedule:
+    - cron: "0 5 1 * *"
+  workflow_dispatch:
+
+permissions: {}
+
+# One benchmark at a time, so no two share the account's runners.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+env:
+  PHP_VERSION: '8.5'
+
+jobs:
+  # lcobucci/jwt, the small library: plain Infection with the project's own
+  # config, the gate mutating with that Infection and those mutators, and
+  # the gate mutating with its own engine and forked PHPUnit workers. The
+  # first two make the same mutants, so they are reconciled one by one.
+  jwt:
+    name: lcobucci/jwt
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 300
+    env:
+      PROJECT: jwt
+      # The library's archive holds no version for Composer to read.
+      COMPOSER_ROOT_VERSION: "5.6.0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+          extensions: pcntl, sodium
+          # jwt's tests expect assertions to run, as a development PHP has them.
+          ini-values: zend.assertions=1
+      - name: the project at its pinned commit and tree
+        run: bench/fetch.sh "bench/${PROJECT}.json" "${RUNNER_TEMP}/${PROJECT}"
+      - name: prepare it
+        working-directory: ${{ runner.temp }}/${{ env.PROJECT }}
+        run: '"${GITHUB_WORKSPACE}/bench/${PROJECT}.sh"'
+      - name: run every arm, interleaved, three times
+        run: |
+          python3 .github/scripts/bench.py run "bench/${PROJECT}.json" "${RUNNER_TEMP}/${PROJECT}" \
+            "${RUNNER_TEMP}/bench" --rounds 3
+      - name: reconcile the arms
+        if: ${{ !cancelled() }}
+        run: |
+          python3 .github/scripts/bench.py reconcile "bench/${PROJECT}.json" "${RUNNER_TEMP}/${PROJECT}" \
+            "${RUNNER_TEMP}/bench" "bench/results/${PROJECT}.json"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: bench-${{ env.PROJECT }}
+          path: |
+            bench/results/${{ env.PROJECT }}.json
+            ${{ runner.temp }}/bench
+          if-no-files-found: error
+          retention-days: 90
+
+  # pinkary.com, the Laravel app on Pest: plain `pest --mutate --parallel`
+  # against the gate mutating with that Pest, over app/Actions, on the MySQL
+  # its own CI tests against.
+  pinkary:
+    name: pinkary.com
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 300
+    env:
+      PROJECT: pinkary
+    services:
+      mysql:
+        image: mysql:8.4@sha256:6ea90827b1100f8f2ae306a539f86d2c264a26ed435a2a9f75551dd5c3aeb242
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+          MYSQL_DATABASE: testing
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+          extensions: pcntl, sodium, pdo_mysql
+      - name: the project at its pinned commit and tree
+        run: bench/fetch.sh "bench/${PROJECT}.json" "${RUNNER_TEMP}/${PROJECT}"
+      - name: prepare it
+        working-directory: ${{ runner.temp }}/${{ env.PROJECT }}
+        run: '"${GITHUB_WORKSPACE}/bench/${PROJECT}.sh"'
+      - name: run every arm, interleaved, three times
+        run: |
+          python3 .github/scripts/bench.py run "bench/${PROJECT}.json" "${RUNNER_TEMP}/${PROJECT}" \
+            "${RUNNER_TEMP}/bench" --rounds 3
+      - name: reconcile the arms
+        if: ${{ !cancelled() }}
+        run: |
+          python3 .github/scripts/bench.py reconcile "bench/${PROJECT}.json" "${RUNNER_TEMP}/${PROJECT}" \
+            "${RUNNER_TEMP}/bench" "bench/results/${PROJECT}.json"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: bench-${{ env.PROJECT }}
+          path: |
+            bench/results/${{ env.PROJECT }}.json
+            ${{ runner.temp }}/bench
+          if-no-files-found: error
+          retention-days: 90
+
+  # What starting Pest costs on this machine class: the gate's own suite
+  # started ten times with a filter no test matches. Each of the gate's own
+  # mutants under Pest pays it once, so it is the floor of a mutant's time.
+  pest-start-up:
+    name: Pest start-up
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - name: start Pest ten times with no test to run
+        run: |
+          python3 .github/scripts/bench.py time 10 bench/results/pest-start-up.json -- \
+            php vendor/pestphp/pest/bin/pest --filter=NoTestIsNamedThis --no-coverage
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: bench-pest-start-up
+          path: bench/results/pest-start-up.json
+          if-no-files-found: error
+          retention-days: 90
