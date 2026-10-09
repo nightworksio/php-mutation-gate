@@ -285,7 +285,15 @@ documentation, are these.
       cannot ship inside the root package. Its code lives in
       `plugins/composer/`, under the boundary rules ADR-0021 sets for
       first-party plugins, and the release workflow publishes that directory
-      to a read-only repository of its own by a subtree split.
+      to a read-only repository of its own by a subtree split. The root
+      package's archive leaves the directory out.
+    - The rules read for it as a Composer plugin: it names only PHP,
+      Composer and the Symfony Console Composer's command API is built on,
+      and nothing of the gate (A7); its manifest requires the gate and
+      `composer-plugin-api`, and lists no extension (A8). The package's own
+      gate holds `plugins/composer/src` at 100, as it holds every tree.
+    - Where the project has not installed the gate, `composer mutate` names
+      the package to install and exits 2.
 
 12. **Hook managers call the CLI, and the pre-commit framework reads one file
     the repository carries.**

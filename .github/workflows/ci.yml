@@ -745,8 +745,9 @@ jobs:
         if: failure()
         run: python3 .github/scripts/gate_summary.py warm-workers
 
-  # ADR-0024, decisions 12 and 13: init --hook's recipes, run by the real
-  # hook managers, committing and pushing through each.
+  # ADR-0024, decisions 11 to 13: composer mutate through the plugin, and
+  # init --hook's recipes, run by the real hook managers, committing and
+  # pushing through each.
   hook-managers:
     name: hook managers
     needs: scope

@@ -49,6 +49,7 @@
         "async-aws/core": "^1.30",
         "async-aws/s3": "^3",
         "colinodell/json5": "^3.0",
+        "composer/composer": "^2.9",
         "ergebnis/composer-normalize": "^2.54",
         "ergebnis/phpstan-rules": "^2.13",
         "infection/infection": "~0.35.0",
@@ -103,6 +104,8 @@
     },
     "autoload-dev": {
         "psr-4": {
+            "NightWorksIO\\MutationGateComposer\\": "plugins/composer/src/",
+            "NightWorksIO\\MutationGateComposer\\Tests\\": "plugins/composer/tests/",
             "NightWorksIO\\MutationGateDefault\\Tests\\": "plugins/default/tests/",
             "NightWorksIO\\MutationGateLaravel\\Tests\\": "plugins/laravel/tests/",
             "NightWorksIO\\MutationGateSecurity\\Tests\\": "plugins/security/tests/",

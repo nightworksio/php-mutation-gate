@@ -24,6 +24,10 @@
         {
             "path": "plugins/security/src",
             "floor": 100
+        },
+        {
+            "path": "plugins/composer/src",
+            "floor": 100
         }
     ],
     "pest": {

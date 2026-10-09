@@ -23,6 +23,8 @@
 /phpstan.neon export-ignore
 /phpunit.xml export-ignore
 /plugins/*/tests export-ignore
+# The Composer plugin is a package of its own, published from its directory.
+/plugins/composer export-ignore
 /pint.json export-ignore
 /rector.php export-ignore
 /scripts export-ignore

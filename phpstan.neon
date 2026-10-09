@@ -113,6 +113,8 @@ parameters:
                 # php-parser's own base of a visitor, which the mutation engine
                 # extends to put a change in place, as a bridge does.
                 - PhpParser\NodeVisitorAbstract
+                # Composer's base of a command, which a plugin's command must extend.
+                - Composer\Command\BaseCommand
                 # Symfony's console streams, whose doWrite every line passes
                 # through once formatted: the one place a line can be made
                 # inert for a CI runner's log (Adapter\Console\InertOutput).
@@ -213,6 +215,11 @@ services:
                     - ACTION # a key of CaptainHook's config, not hook's argument
                 'NightWorksIO\MutationGate\Core\Push\PreCommitPush':
                     - LINE # git's four fields of a pushed ref, not a proof's run
+                'NightWorksIO\MutationGateComposer\MutateCommand':
+                    - PACKAGE # the Composer plugin names nothing of the gate (A7), not ThisPackage's
+                    - GATE # the Composer plugin names nothing of the gate (A7), not ThisPackage's
+                    - CALL # a command and its arguments, not two joined phrases
+                    - CANNOT_RUN # the plugin's own exit code, as the gate's is, from outside it
                 'NightWorksIO\MutationGate\Core\Migration\UnifiedDiff':
                     - CONTEXT # unchanged lines shown around a change, not letters per edit
                 'NightWorksIO\MutationGate\Core\Format\JsonIndent':
