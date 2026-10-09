@@ -19,6 +19,7 @@ use function is_string;
 use NightWorksIO\MutationGate\Core\Runner\Polling;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
+use function rename;
 use function sprintf;
 use function usleep;
 
@@ -43,10 +44,16 @@ final class Verdicts
         return sprintf('%s.verdicts', $results);
     }
 
-    /** Writes the mutated copies the gate rejected to the file, and names the file. */
+    /**
+     * Writes the mutated copies the gate rejected to the file, and names the
+     * file. It is written whole beside, then moved in, so the plugin, which
+     * reads it once it is there, never reads part of it.
+     */
     public static function write(string $file, string ...$mutated): string
     {
-        file_put_contents($file, implode(self::LINE, $mutated));
+        $part = sprintf('%s.part', $file);
+        file_put_contents($part, implode(self::LINE, $mutated));
+        rename($part, $file);
 
         return $file;
     }

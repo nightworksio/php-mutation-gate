@@ -15,6 +15,7 @@ it('names the mutated copies the gate rejected beside the results, and keeps the
     Verdicts::await($file);
 
     expect($file)->toEndWith('/results.jsonl.verdicts')
+        ->and(is_file(sprintf('%s.part', $file)))->toBeFalse()
         ->and([Verdicts::rejects('/tmp/a'), Verdicts::rejects('/tmp/b'), Verdicts::rejects('/tmp/c')])->toBe([true, true, false]);
 });
 
