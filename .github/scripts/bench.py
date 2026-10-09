@@ -10,10 +10,11 @@ Run by `bench.yml` once the project is prepared at its pinned commit
 (ADR-0017, decisions 14 to 17). `run` runs every arm of the project once a
 round, in turn, so no arm has the machine to itself at a quieter time, each
 from a cold start: what an arm leaves is removed before it runs. It keeps each
-arm's report, wall time and what it printed in the out directory, taking the report from the
-file an arm's `log` names where the tool writes it to a path of its config.
-An arm whose `keep` names a directory has it copied beside its report, as
-plain Infection's `--debug` leaves the coverage it read. An arm whose `stdout` is set has what it printed kept as its report, as plain
+arm's report, wall time and what it printed in the out directory, taking the
+report from the file an arm's `log` names where the tool writes it to a path
+of its config. An arm whose `keep` names a directory has it copied beside its
+report, as plain Infection's `--debug` leaves the coverage it read. An arm
+whose `stdout` is set has what it printed kept as its report, as plain
 Pest's is. An arm runs in the project directory, or in the copy its
 `directory` names, as a plain arm runs in a copy the gate's `infection:patch`
 or `pest:patch` never touched.
