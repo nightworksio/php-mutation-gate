@@ -65,11 +65,13 @@ final class MutateCommand extends BaseCommand
     {
         $composer = $this->requireComposer();
         $bin = $composer->getConfig()->get(self::BIN_DIR);
-        $gate = sprintf('%s/%s', is_string($bin) ? $bin : '', self::GATE);
-
         $installed = $composer->getRepositoryManager()->getLocalRepository()->findPackage(self::PACKAGE, self::ANY);
+        $gate = match (true) {
+            ! $installed instanceof PackageInterface, ! is_string($bin) => '',
+            default => sprintf('%s/%s', $bin, self::GATE),
+        };
 
-        if (! $installed instanceof PackageInterface) {
+        if ($gate === '') {
             $this->getIO()->writeError(sprintf(self::MISSING, self::PACKAGE));
 
             return self::CANNOT_RUN;
