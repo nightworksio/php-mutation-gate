@@ -19,10 +19,11 @@
                 "--no-progress",
                 "--no-interaction",
                 "--log-verbosity=all",
-                "-vvv"
+                "--debug"
             ],
             "log": "bench-infection-log.json",
-            "directory": "../jwt-plain"
+            "directory": "../jwt-plain",
+            "keep": "/tmp/infection"
         },
         "gate-infection": {
             "said": "the gate in one job, mutating with Infection under infection:patch and the project's own mutators",

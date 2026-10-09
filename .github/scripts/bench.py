@@ -12,7 +12,8 @@ round, in turn, so no arm has the machine to itself at a quieter time, each
 from a cold start: what an arm leaves is removed before it runs. It keeps each
 arm's report, wall time and what it printed in the out directory, taking the report from the
 file an arm's `log` names where the tool writes it to a path of its config.
-An arm whose `stdout` is set has what it printed kept as its report, as plain
+An arm whose `keep` names a directory has it copied beside its report, as
+plain Infection's `--debug` leaves the coverage it read. An arm whose `stdout` is set has what it printed kept as its report, as plain
 Pest's is. An arm runs in the project directory, or in the copy its
 `directory` names, as a plain arm runs in a copy the gate's `infection:patch`
 or `pest:patch` never touched.
@@ -336,6 +337,8 @@ def run(project: dict, directory: Path, out: Path, rounds: int) -> None:
             seconds = time.monotonic() - started
             if arm.get("log") and (place / arm["log"]).exists():
                 shutil.move(place / arm["log"], report)
+            if arm.get("keep") and Path(arm["keep"]).is_dir():
+                shutil.copytree(arm["keep"], out / f"{name}-{at}.kept", dirs_exist_ok=True)
             (out / f"{name}-{at}.time").write_text(json.dumps({"seconds": seconds, "exit": done.returncode}))
             print(f"{name}, round {at}: {seconds:.1f} s, exit {done.returncode}", flush=True)
 
