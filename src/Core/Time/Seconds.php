@@ -26,10 +26,12 @@ final readonly class Seconds
 
     private const int PER_HOUR = 3600;
 
+    private const int PER_DAY = 86_400;
+
     private const int MICROSECONDS = 1_000_000;
 
-    /** Hours, minutes and seconds, each optional and in that order: `90s`, `15m`, `1h30m`. */
-    private const string DURATION = '/^(?:(?<h>\d+)h)?(?:(?<m>\d+)m)?(?:(?<s>\d+)s)?$/D';
+    /** Days, hours, minutes and seconds, each optional and in that order: `90s`, `15m`, `1h30m`, `7d`. */
+    private const string DURATION = '/^(?:(?<d>\d+)d)?(?:(?<h>\d+)h)?(?:(?<m>\d+)m)?(?:(?<s>\d+)s)?$/D';
 
     private function __construct(private float $seconds)
     {
@@ -46,22 +48,30 @@ final readonly class Seconds
         return new self((float) $end->format('U.u') - (float) $start->format('U.u'));
     }
 
+    public static function days(int $days): self
+    {
+        return new self($days * self::PER_DAY);
+    }
+
     public static function minutes(int $minutes): self
     {
         return new self($minutes * self::PER_MINUTE);
     }
 
-    /** A duration as a config or an option writes it: `90s`, `15m` or `1h30m`. */
+    /** A duration as a config or an option writes it: `90s`, `15m`, `1h30m` or `7d`. */
     public static function parse(string $duration): self|CannotJudge
     {
         if ($duration === '' || preg_match(self::DURATION, $duration, $parts, PREG_UNMATCHED_AS_NULL) !== 1) {
-            return CannotJudge::because(sprintf('"%s" is not a duration. Write it as 90s, 15m or 1h30m.', $duration));
+            return CannotJudge::because(
+                sprintf('"%s" is not a duration. Write it as 90s, 15m, 1h30m or 7d.', $duration),
+            );
         }
 
+        $days = intval($parts['d']) * self::PER_DAY;
         $hours = intval($parts['h']) * self::PER_HOUR;
         $minutes = intval($parts['m']) * self::PER_MINUTE;
 
-        return new self($hours + $minutes + intval($parts['s']));
+        return new self($days + $hours + $minutes + intval($parts['s']));
     }
 
     /** The duration in whole microseconds, as `usleep` takes it. */
@@ -114,11 +124,13 @@ final readonly class Seconds
     public function written(): string
     {
         $whole = intval($this->seconds);
-        $hours = intdiv($whole, self::PER_HOUR);
+        $days = intdiv($whole, self::PER_DAY);
+        $hours = intdiv($whole % self::PER_DAY, self::PER_HOUR);
         $minutes = intdiv($whole % self::PER_HOUR, self::PER_MINUTE);
         $seconds = $whole % self::PER_MINUTE;
         $written = sprintf(
-            '%s%s%s',
+            '%s%s%s%s',
+            $days > 0 ? sprintf('%dd', $days) : '',
             $hours > 0 ? sprintf('%dh', $hours) : '',
             $minutes > 0 ? sprintf('%dm', $minutes) : '',
             $seconds > 0 ? sprintf('%ds', $seconds) : '',

@@ -155,8 +155,9 @@ final readonly class LedgerFile
             ->withRuns($lastRun instanceof LastRun ? $runs->lastRunAt($lastRun) : $runs)
             ->withBases(self::basesIn($file))
             ->withTimings(Timings::of(...array_merge(...$timings)))
-            ->withKillers(KillersRecord::read($file->field(KillersRecord::SECTION), self::namesIn($file, self::TESTS)))
-            ->withAnalysers(AnalysersRecord::read($file->field(AnalysersRecord::SECTION)));
+            ->withLearned(KillersRecord::read($file->field(KillersRecord::SECTION), self::namesIn($file, self::TESTS)))
+            ->withLearned(AnalysersRecord::read($file->field(AnalysersRecord::SECTION)))
+            ->withLearned(SurvivalRecord::read($file->field(SurvivalRecord::SECTION)));
     }
 
     private static function isReadable(Node $file): bool

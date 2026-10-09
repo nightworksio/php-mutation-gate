@@ -9,12 +9,14 @@ use NightWorksIO\MutationGate\Core\Analysis\CheckTime;
 use NightWorksIO\MutationGate\Core\Analysis\RejectionRate;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Mutant\RunnerMutatorName;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\Kills;
@@ -30,10 +32,12 @@ use NightWorksIO\MutationGate\Core\Proof\RunProfile;
 use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
+use NightWorksIO\MutationGate\Core\Pruning\Survival;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\JudgedCommits;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
+use NightWorksIO\MutationGate\Tests\Support\PruningCases;
 
 $proof = static fn(string $key, string $unit): Proof => Proof::of(
     Digest::of($key),
@@ -177,12 +181,23 @@ it('holds the kill history a run learned, reads its own before another scope\'s,
     $default = KillHistory::none()
         ->withFunction($add, Ranking::of(Kills::of(TestId::of('default'), 3)))
         ->withFunction($total, Ranking::of(Kills::of(TestId::of('default'), 1)));
-    $read = Ledger::empty()->withKillers($mine)->and(Ledger::empty()->withKillers($default));
+    $read = Ledger::empty()->withLearned($mine)->and(Ledger::empty()->withLearned($default));
 
     expect(Ledger::empty()->killers())->toEqual(KillHistory::none())
         ->and($read->killers())->toEqual($mine->and($default))
         ->and($read->keepingKillersIn(Paths::of(Path::of('src/Money.php')))->killers())
         ->toEqual($mine->and($default)->onlyIn(Paths::of(Path::of('src/Money.php'))));
+});
+
+it('holds what each mutator\'s newest mutants came to, and reads its own before another scope\'s', function (): void {
+    $own = Survival::none()->with(Name::of('pest'), PruningCases::window('Plus', '1', 'mine'));
+    $other = Survival::none()->with(Name::of('pest'), PruningCases::window('Plus', '0'))
+        ->with(Name::of('pest'), PruningCases::window('Minus', '0'));
+    $read = Ledger::empty()->withLearned($own)->and(Ledger::empty()->withLearned($other));
+
+    expect(Ledger::empty()->survival())->toEqual(Survival::none())
+        ->and($read->survival()->of(Name::of('pest'), RunnerMutatorName::of('Plus'))->last())->toBe('mine')
+        ->and($read->survival()->of(Name::of('pest'), RunnerMutatorName::of('Minus'))->outcomes())->toBe('0');
 });
 
 it('holds what a run learned of the analysers, and reads its own before another scope\'s', function (): void {
@@ -192,10 +207,10 @@ it('holds what a run learned of the analysers, and reads its own before another 
     $other = AnalyserHistories::none()->with(AnalyserHistory::of('phpstan')
         ->withRate(RejectionRate::of('Plus', 90, 0))
         ->withTime(CheckTime::of(90, Seconds::of(45.0))));
-    $read = Ledger::empty()->withAnalysers($own)->and(Ledger::empty()->withAnalysers($other));
+    $read = Ledger::empty()->withLearned($own)->and(Ledger::empty()->withLearned($other));
 
     expect(Ledger::empty()->analysers())->toEqual(AnalyserHistories::none())
-        ->and(Ledger::empty()->withAnalysers($own)->analysers())->toBe($own)
+        ->and(Ledger::empty()->withLearned($own)->analysers())->toBe($own)
         ->and($read->analysers()->of($phpstan)->rateOf($plus))->toEqual(RejectionRate::of('Plus', 3, 1))
         ->and($read->analysers()->of($phpstan)->time())->toEqual(CheckTime::of(90, Seconds::of(45.0)));
 });

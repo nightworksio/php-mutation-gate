@@ -424,11 +424,11 @@
                 },
                 "target": {
                     "type": "string",
-                    "pattern": "^(?=.)(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
                 },
                 "setup": {
                     "type": "string",
-                    "pattern": "^(?=.)(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
                     "default": "1m"
                 }
             },
@@ -946,7 +946,7 @@
         },
         "budget": {
             "type": "string",
-            "pattern": "^(?=.)(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
+            "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$"
         },
         "timeouts": {
             "type": "object",
@@ -1730,6 +1730,26 @@
             },
             "additionalProperties": false
         },
+        "pruning": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "window": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 500
+                },
+                "audit": {
+                    "type": "string",
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                    "default": "7d"
+                }
+            },
+            "additionalProperties": false
+        },
         "mutators": {
             "type": "object",
             "properties": {
@@ -1762,12 +1782,12 @@
             "properties": {
                 "watchBudget": {
                     "type": "string",
-                    "pattern": "^(?=.)(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
                     "default": "1m"
                 },
                 "prePushBudget": {
                     "type": "string",
-                    "pattern": "^(?=.)(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
+                    "pattern": "^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$",
                     "default": "5m"
                 }
             },

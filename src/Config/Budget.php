@@ -13,7 +13,7 @@ final readonly class Budget implements Setting
     {
     }
 
-    /** A duration, `90s`, `15m` or `1h30m`. */
+    /** A duration, `90s`, `15m`, `1h30m` or `7d`. */
     public static function of(string $duration): self
     {
         return new self(Json::at('budget', $duration));

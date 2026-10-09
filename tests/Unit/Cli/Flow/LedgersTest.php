@@ -242,8 +242,8 @@ it('reads the kill history of every ledger, its own scope\'s where both know a m
     $main = KillHistory::none()->withMutant($mutant, $killedBy('main'))->withFunction($add, $killedBy('main'));
     $own = KillHistory::none()->withMutant($mutant, $killedBy('own'));
     $store = new ProofStoreFake();
-    $store->write(Scope::branch('main'), $ledger('src/A.php', 'a', 'now', 'main-passed')->withKillers($main));
-    $store->write(Scope::pullRequest(7), $ledger('src/B.php', 'b', 'now', 'pr-passed')->withKillers($own));
+    $store->write(Scope::branch('main'), $ledger('src/A.php', 'a', 'now', 'main-passed')->withLearned($main));
+    $store->write(Scope::pullRequest(7), $ledger('src/B.php', 'b', 'now', 'pr-passed')->withLearned($own));
     $killers = ledgersOn(RunOn::at(Scope::pullRequest(7), Scope::branch('main')), Writing::Auto, $store)->killers();
 
     expect($killers)->toEqual($own->and($main))

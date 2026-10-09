@@ -306,7 +306,7 @@ it('hands each shard the kill history the ledgers learned, which enters no key a
         ->withFunction(Enclosing::named(Path::of('src/Money.php'), 'add'), $ranked)
         ->withFunction(Enclosing::named(Path::of('src/Held.php'), 'doubles'), $ranked);
     $store = new ProofStoreFake();
-    $store->write(Scope::branch('main'), Ledger::empty()->withKillers($history));
+    $store->write(Scope::branch('main'), Ledger::empty()->withLearned($history));
     $project = Flows::project();
     $learned = $plan($project, Mode::full(), Cut::exactly(2), $store);
     $cold = $plan(Flows::project(), Mode::full(), Cut::exactly(2), new ProofStoreFake());

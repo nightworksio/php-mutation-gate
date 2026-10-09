@@ -71,7 +71,7 @@ final readonly class Recorded
 
         $fresh = $this->checked($plan, $results, $ledgers);
         $written = $ledgers->written()->atBase($plan->base());
-        $written = $written->withAnalysers($written->analysers()->plus($results->checks()->histories()));
+        $written = $written->withLearned($written->analysers()->plus($results->checks()->histories()));
         $recordings = $this->recordings($plan, $fresh, $run);
         $proved = $this->proved($written, $plan, $recordings);
         $learned = $this->adapters->narrowing->isNone()
@@ -235,7 +235,7 @@ final readonly class Recorded
         }
 
         return $ledger
-            ->withKillers($ledger->killers()->learnedFrom(...$lessons))
+            ->withLearned($ledger->killers()->learnedFrom(...$lessons))
             ->keepingKillersIn($functions->files());
     }
 

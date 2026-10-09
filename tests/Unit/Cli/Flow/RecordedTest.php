@@ -229,7 +229,7 @@ it('adds the time each analyser\'s checks of the shards\' survivors took to what
     $plan = Planned::twoShards();
     $identity = AnalyserIdentity::of('fake', '1.0.0', Digest::sha256Of('{}'));
     $held = AnalyserHistory::of('fake')->withTime(CheckTime::of(3, Seconds::of(1.5)));
-    $store->write(Scope::branch('main'), Ledger::empty()->withAnalysers(AnalyserHistories::none()->with($held)));
+    $store->write(Scope::branch('main'), Ledger::empty()->withLearned(AnalyserHistories::none()->with($held)));
     $checker = new RecordingChecker(new StaticCheckerFake($identity, Findings::none(), []), $project);
     $results = recordedRanWith($plan, $project, ScriptedRunner::fixture(), $map(), Flows::settings(), Flows::setup(), $checker);
 
@@ -499,7 +499,7 @@ it('learns each killed mutant\'s first killer in its function, and forgets funct
     $store = new ProofStoreFake();
     $plan = Planned::twoShards();
     $gone = Enclosing::named(Path::of('src/Gone.php'), 'old');
-    $store->write(Scope::branch('main'), Ledger::empty()->withKillers(
+    $store->write(Scope::branch('main'), Ledger::empty()->withLearned(
         KillHistory::none()->withFunction($gone, Ranking::none()->killedBy(TestId::of('GoneTest::old'))),
     ));
     $killed = Mutant::of(

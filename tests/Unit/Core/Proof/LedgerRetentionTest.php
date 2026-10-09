@@ -105,7 +105,7 @@ it('keeps the kill history of the mutants its kept proofs hold, and of its funct
             Run::of('local', Moment::at('2026-09-29T20:00:00Z'), $base(1)),
         ))
         ->atBase($base(1))
-        ->withKillers(KillHistory::none()->withMutant($held, $ranking)->withMutant($gone, $ranking)->withFunction($function, $ranking));
+        ->withLearned(KillHistory::none()->withMutant($held, $ranking)->withMutant($gone, $ranking)->withFunction($function, $ranking));
 
     expect(LedgerRetention::standard()->killersOf($ledger))
         ->toEqual(KillHistory::none()->withMutant($held, $ranking)->withFunction($function, $ranking));
@@ -143,7 +143,7 @@ it('keeps the killers of at most the twenty thousand mutants and five thousand f
             Run::of('local', Moment::at('2026-09-29T20:00:00Z'), $base(1)),
         ))
         ->atBase($base(1))
-        ->withKillers(learnedInTurn(0, 20_000, static fn(int $made): KillHistory => KillHistory::none()->withMutant($id($made), $ranking))
+        ->withLearned(learnedInTurn(0, 20_000, static fn(int $made): KillHistory => KillHistory::none()->withMutant($id($made), $ranking))
             ->and(learnedInTurn(0, 5_000, static fn(int $made): KillHistory => KillHistory::none()
                 ->withFunction(Enclosing::named(Path::of('src/A.php'), sprintf('f%d', $made)), $ranking))));
     $kept = LedgerRetention::standard()->killersOf($ledger);

@@ -51,7 +51,7 @@ $history = static function (): KillHistory {
 /** A store whose default branch's ledger holds that kill history. */
 $store = static function () use ($history): ProofStoreFake {
     $store = new ProofStoreFake();
-    $store->write(Scope::branch('main'), Ledger::empty()->withKillers($history()));
+    $store->write(Scope::branch('main'), Ledger::empty()->withLearned($history()));
 
     return $store;
 };

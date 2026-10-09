@@ -11,7 +11,7 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
- * A duration written `90s`, `15m` or `1h30m`.
+ * A duration written `90s`, `15m`, `1h30m` or `7d`.
  *
  * @implements Shape<Seconds>
  */
@@ -33,14 +33,14 @@ final readonly class Duration implements Shape
 
     public function expected(): string
     {
-        return 'a duration such as 90s, 15m or 1h30m';
+        return 'a duration such as 90s, 15m, 1h30m or 7d';
     }
 
     public function schema(): Json
     {
         return Json::object()
             ->with(Member::of('type', 'string'))
-            ->with(Member::of('pattern', '^(?=.)(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$'));
+            ->with(Member::of('pattern', '^(?=.)(?:[0-9]+d)?(?:[0-9]+h)?(?:[0-9]+m)?(?:[0-9]+s)?$'));
     }
 
     public function effects(): array

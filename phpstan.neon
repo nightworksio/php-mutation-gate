@@ -208,6 +208,9 @@ services:
         arguments:
             # Constants whose value only coincides with another's, meaning something else.
             coincidences:
+                'NightWorksIO\MutationGate\Core\Config\Pruning':
+                    - WINDOW # judged mutants a mutator's window holds, not trend entries kept
+                    - AUDIT_DAYS # days a pruned result may be carried, not a run status
                 'NightWorksIO\MutationGate\Core\Delivery\DeliveryFile':
                     - LEDGER_KEY # a key of the delivery, not the workspace's directory
                     - OTLP # a key of the delivery, not the reporter's name

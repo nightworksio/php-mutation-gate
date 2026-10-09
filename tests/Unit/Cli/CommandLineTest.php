@@ -86,7 +86,7 @@ it('reads what the command line sets as a layer, each problem at the setting it 
     expect($valid instanceof Layer ? Configs::decoded($valid) : Configs::problems($valid))
         ->toBe(['runner' => 'pest', 'budget' => '15m'])
         ->and(Configs::problems($invalid))->toBe([
-            'budget: expected a duration such as 90s, 15m or 1h30m, got "soon"',
+            'budget: expected a duration such as 90s, 15m, 1h30m or 7d, got "soon"',
             'reports[0].path: expected a path, got nothing',
         ]);
 });
