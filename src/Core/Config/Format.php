@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Config;
 
 use function array_map;
+use function is_string;
 use function mb_strtoupper;
 
+use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Format\Series;
+use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 
 use function sprintf;
@@ -29,6 +32,13 @@ enum Format: string
 
     /** The other extension a YAML file is written with. */
     private const string YML = 'yml';
+
+    /** A comment, set off from what comes before it by a blank line. */
+    private const string COMMENT = "\n%s";
+
+    private const string LINE = "%s%s %s\n";
+
+    private const string NO_COMMENTS = 'JSON holds no comments.';
 
     /** The package whose own code reads PHP and JSON. */
     private const string THIS_PACKAGE = ThisPackage::COMPOSER;
@@ -79,10 +89,43 @@ enum Format: string
         };
     }
 
+    /**
+     * These lines as a comment in a file of this format, set off by a blank
+     * line; none in JSON, which holds no comments.
+     *
+     * @param list<string> $lines
+     */
+    public function commented(array $lines): string|NotWritten
+    {
+        $marker = match ($this) {
+            self::Php => '//',
+            self::Yaml, self::Neon => '#',
+            self::Json => NotWritten::because(self::NO_COMMENTS),
+        };
+
+        return is_string($marker) ? self::comment($marker, $lines) : $marker;
+    }
+
     /** Whether it is read by a library a project installs only to write its config this way. */
     public function isSuggested(): bool
     {
         return $this->package() !== self::THIS_PACKAGE;
+    }
+
+    /**
+     * These lines, each opened by this marker, set off by a blank line.
+     *
+     * @param list<string> $lines
+     */
+    private static function comment(string $marker, array $lines): string
+    {
+        $commented = '';
+
+        foreach ($lines as $line) {
+            $commented = sprintf(self::LINE, $commented, $marker, Fit::commentLine($line));
+        }
+
+        return sprintf(self::COMMENT, $commented);
     }
 
     /** @return list<string> the names a config file in this format has */
