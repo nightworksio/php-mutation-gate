@@ -12,8 +12,14 @@ round, in turn, so no arm has the machine to itself at a quieter time, each
 from a cold start: what an arm leaves is removed before it runs. It keeps each
 arm's report and wall time in the out directory, taking the report from the
 file an arm's `log` names where the tool writes it to a path of its config.
-An arm runs in the project directory, or in the copy its `directory` names,
-as plain Infection runs in a copy the gate's `infection:patch` never touched. `reconcile` writes the result
+An arm whose `stdout` is set has what it printed kept as its report, as plain
+Pest's is. An arm runs in the project directory, or in the copy its
+`directory` names, as a plain arm runs in a copy the gate's `infection:patch`
+or `pest:patch` never touched.
+
+Plain Pest, run in parallel, names only its untested and uncovered mutants,
+and counts the rest: its killed and timed-out mutants come to the totals
+alone, and its mutants are matched with the gate's by file, line and mutator. `reconcile` writes the result
 file and the step summary:
 
 - each arm's wall time, as the median of the rounds with their range;
@@ -31,6 +37,7 @@ reports, and `main` runs the arms and reads and writes the files.
 import json
 import os
 import platform
+import re
 import shutil
 import statistics
 import subprocess
@@ -87,6 +94,38 @@ def relative(path: str, root: str) -> str:
     return path[len(prefix):] if path.startswith(prefix) else path
 
 
+# Plain Pest's lines: a mutant it names, and its counts of what it ran.
+PEST_NAMED = re.compile(r"^\s*(UNTESTED|UNCOVERED)\s+(\S+)\s+>\s+Line (\d+): (\S+) - ID: (\S+)")
+PEST_COUNTS = re.compile(r"^\s*Mutations:\s+(.*)$")
+PEST_COUNTED = {"untested": "escaped", "uncovered": "uncovered", "timeout": "timed out", "tested": "killed",
+                "pending": "other"}
+
+
+def pest(printed: str) -> tuple[list[dict], dict[str, int]]:
+    """The mutants plain Pest names, each with the diff it prints after it, and its counts by outcome."""
+    found: list[dict] = []
+    counts = dict.fromkeys(OUTCOMES, 0)
+    diff: list[str] = []
+    for line in printed.splitlines():
+        named = PEST_NAMED.match(line)
+        totals = PEST_COUNTS.match(line)
+        if named or totals:
+            if found:
+                found[-1]["diff"] = changed("\n".join(diff))
+            diff = []
+        if named:
+            label, file, at, mutator, _ = named.groups()
+            status = label.lower()
+            found.append({"file": file, "line": int(at), "mutator": mutator, "diff": (), "status": status,
+                          "outcome": PEST_COUNTED["untested" if status == "untested" else "uncovered"]})
+        elif totals:
+            for number, word in re.findall(r"(\d+) (\w+)", totals.group(1)):
+                counts[PEST_COUNTED.get(word, "other")] += int(number)
+        elif found:
+            diff.append(line)
+    return found, counts
+
+
 def outcome(report: dict, kind: str, root: str) -> list[dict]:
     """Every mutant of a report: where it is, its mutator and diff, its status and what that comes to."""
     found = []
@@ -117,28 +156,38 @@ def outcome(report: dict, kind: str, root: str) -> list[dict]:
     return found
 
 
-def tally(mutants: list[dict]) -> dict[str, dict[str, int]]:
-    """Each file's mutants by outcome, with the whole run under `total`."""
+def tally(mutants: list[dict], totals: dict[str, int] | None = None) -> dict[str, dict[str, int]]:
+    """Each file's mutants by outcome, with the whole run under `total`, or the totals the tool counted."""
     counts: dict[str, dict[str, int]] = {}
     for mutant in mutants:
         for key in (mutant["file"], "total"):
             row = counts.setdefault(key, dict.fromkeys(("generated", *OUTCOMES), 0))
             row["generated"] += 1
             row[mutant["outcome"]] += 1
+    if totals is not None:
+        counts["total"] = {"generated": sum(totals.values()), **totals}
     return counts
 
 
-def key(mutant: dict) -> tuple:
-    return (mutant["file"], mutant["line"], mutant["mutator"], mutant["diff"])
+def key(mutant: dict, by_diff: bool) -> tuple:
+    return (mutant["file"], mutant["line"], mutant["mutator"], mutant["diff"] if by_diff else ())
 
 
-def pairs(plain: list[dict], gate: list[dict]) -> list[dict]:
-    """Each mutant two arms of the same tool judge otherwise, or one lacks, and whether the gate explains it."""
+def pairs(plain: list[dict], gate: list[dict], named_only: bool = False) -> list[dict]:
+    """
+    Each mutant two arms of the same tool judge otherwise, or one lacks, and
+    whether the gate explains it. Where the plain arm names only its escaped
+    and uncovered mutants, as plain Pest does, the gate's are matched with
+    those by file, line and mutator, and a gate mutant it does not name is
+    one it killed or timed out.
+    """
+    if named_only:
+        gate = [mutant for mutant in gate if mutant["outcome"] in ("escaped", "uncovered")]
     left: dict[tuple, list[dict]] = {}
     right: dict[tuple, list[dict]] = {}
     for mutants, by in ((plain, left), (gate, right)):
         for mutant in mutants:
-            by.setdefault(key(mutant), []).append(mutant)
+            by.setdefault(key(mutant, by_diff=not named_only), []).append(mutant)
     found = []
     for each in sorted(set(left) | set(right), key=lambda k: (k[0], k[1], k[2], k[3])):
         ours, theirs = left.get(each, []), right.get(each, [])
@@ -155,7 +204,7 @@ def pairs(plain: list[dict], gate: list[dict]) -> list[dict]:
                 "file": each[0],
                 "line": each[1],
                 "mutator": each[2],
-                "plain": one["status"] if one else "absent",
+                "plain": one["status"] if one else ("killed or timed out" if named_only else "absent"),
                 "gate": other["status"] if other else "absent",
                 "explained": explained,
             })
@@ -234,6 +283,11 @@ def machine() -> dict:
     return {"cpu": cpu, "cores": os.cpu_count() or 0, "memory": memory, "php": php or "unknown"}
 
 
+def report_of(out: Path, name: str, arm: dict, at: int) -> Path:
+    """Where an arm's report of a round is kept: what it printed as text, else its own JSON."""
+    return out / f"{name}-{at}.{'txt' if arm.get('stdout') else 'json'}"
+
+
 def fill(text: str, report: Path) -> str:
     return text.replace("{report}", str(report))
 
@@ -260,7 +314,7 @@ def run(project: dict, directory: Path, out: Path, rounds: int) -> None:
     environment = {name: value for name, value in os.environ.items() if name not in ("CI", "GITHUB_ACTIONS")}
     for at in range(1, rounds + 1):
         for name, arm in project["arms"].items():
-            report = out / f"{name}-{at}.json"
+            report = report_of(out, name, arm, at)
             place = (directory / arm.get("directory", ".")).resolve()
             # Infection keeps what it made in a run under the system's temporary directory.
             removed(Path(tempfile.gettempdir()) / "infection")
@@ -270,7 +324,11 @@ def run(project: dict, directory: Path, out: Path, rounds: int) -> None:
                 shutil.copyfile(place / source, place / to)
             started = time.monotonic()
             command = [fill(part, report) for part in arm["command"]]
-            done = subprocess.run(command, cwd=place, env=environment, check=False)
+            if arm.get("stdout"):
+                with open(report, "w", encoding="utf-8") as printed:
+                    done = subprocess.run(command, cwd=place, env=environment, check=False, stdout=printed)
+            else:
+                done = subprocess.run(command, cwd=place, env=environment, check=False)
             seconds = time.monotonic() - started
             if arm.get("log") and (place / arm["log"]).exists():
                 shutil.move(place / arm["log"], report)
@@ -285,17 +343,24 @@ def reconcile(project: dict, out: Path, result: Path, root: str) -> int:
     for name, arm in project["arms"].items():
         times = sorted(out.glob(f"{name}-*.time"), key=lambda path: int(path.stem.rsplit("-", 1)[1]))
         runs = [json.loads(path.read_text()) for path in times]
-        report = out / f"{name}-1.json"
+        report = report_of(out, name, arm, 1)
         place = str((Path(root) / arm.get("directory", ".")).resolve())
-        first[name] = outcome(json.loads(report.read_text()), arm["report"], place) if report.exists() else []
+        totals = None
+        if not report.exists():
+            first[name] = []
+        elif arm["report"] == "pest":
+            first[name], totals = pest(report.read_text(encoding="utf-8", errors="replace"))
+        else:
+            first[name] = outcome(json.loads(report.read_text()), arm["report"], place)
         arms[name] = {
             "said": arm["said"],
             "wall": spread([each["seconds"] for each in runs]),
             "exits": [each["exit"] for each in runs],
-            "files": tally(first[name]),
+            "files": tally(first[name], totals),
         }
     same = project.get("same", [])
-    differences = pairs(first[same[0]], first[same[1]]) if len(same) == 2 else []
+    named_only = any(project["arms"][name]["report"] == "pest" for name in same)
+    differences = pairs(first[same[0]], first[same[1]], named_only) if len(same) == 2 else []
     found = machine()
     result.parent.mkdir(parents=True, exist_ok=True)
     result.write_text(json.dumps({

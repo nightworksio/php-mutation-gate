@@ -1,6 +1,7 @@
 {
     "project": "lcobucci/jwt",
     "version": "5.6.0",
+    "repository": "https://github.com/lcobucci/jwt.git",
     "commit": "bb3e9f21e4196e8afc41def81ef649c164bca25e",
     "tree": "6d867830ac3b1c80d34e831f25afc8237887a63c1d89940eccbb7d547fa7b0a6",
     "arms": {

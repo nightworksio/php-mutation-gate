@@ -78,6 +78,58 @@ class Pairs(unittest.TestCase):
         self.assertEqual([(each["plain"], each["gate"]) for each in bench.pairs(plain, gate)], [("killed", "absent")])
 
 
+PEST_PRINTED = """
+  ..x.-t
+
+  ------------------------------------------------------------------------
+  UNTESTED  app/Actions/Follow.php  > Line 12: RemoveMethodCall - ID: abc1
+  @@ @@
+-        $user->notify();
++
+  ------------------------------------------------------------------------
+  UNCOVERED  app/Actions/Unfollow.php  > Line 7: AlwaysReturnNull - ID: abc2
+  @@ @@
+-        return $user;
++        return null;
+
+  Mutations: 1 untested, 1 uncovered, 1 timeout, 3 tested
+  Score:     60.00%
+"""
+
+
+class Pest(unittest.TestCase):
+    def test_reads_each_mutant_plain_pest_names_with_its_diff_and_its_counts(self):
+        found, counts = bench.pest(PEST_PRINTED)
+        self.assertEqual(
+            [(each["file"], each["line"], each["mutator"], each["outcome"], each["diff"]) for each in found],
+            [("app/Actions/Follow.php", 12, "RemoveMethodCall", "escaped", ("-$user->notify();", "+")),
+             ("app/Actions/Unfollow.php", 7, "AlwaysReturnNull", "uncovered",
+              ("-return $user;", "+return null;"))],
+        )
+        self.assertEqual(counts, {"killed": 3, "escaped": 1, "timed out": 1, "uncovered": 1, "other": 0})
+
+    def test_takes_the_counts_for_the_whole_run(self):
+        found, counts = bench.pest(PEST_PRINTED)
+        self.assertEqual(bench.tally(found, counts)["total"]["generated"], 6)
+
+    def test_matches_the_gate_s_escaped_mutants_with_those_pest_names_and_takes_the_rest_as_killed(self):
+        found, _ = bench.pest(PEST_PRINTED)
+        gate = [
+            {"file": "app/Actions/Follow.php", "line": 12, "mutator": "RemoveMethodCall", "diff": ("-x",),
+             "status": "survived", "outcome": "escaped"},
+            {"file": "app/Actions/Unfollow.php", "line": 7, "mutator": "AlwaysReturnNull", "diff": (),
+             "status": "uncovered", "outcome": "uncovered"},
+            {"file": "app/Actions/Block.php", "line": 3, "mutator": "RemoveMethodCall", "diff": (),
+             "status": "survived", "outcome": "escaped"},
+            {"file": "app/Actions/Block.php", "line": 4, "mutator": "RemoveMethodCall", "diff": (),
+             "status": "killed", "outcome": "killed"},
+        ]
+        self.assertEqual(
+            [(each["file"], each["plain"], each["gate"]) for each in bench.pairs(found, gate, named_only=True)],
+            [("app/Actions/Block.php", "killed or timed out", "survived")],
+        )
+
+
 class Spread(unittest.TestCase):
     def test_gives_the_median_and_range_of_the_rounds(self):
         self.assertEqual(

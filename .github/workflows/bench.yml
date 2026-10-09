@@ -31,7 +31,7 @@ jobs:
       contents: read
     timeout-minutes: 300
     env:
-      PROJECT: bench/jwt.json
+      PROJECT: jwt
       # The library's archive holds no version for Composer to read.
       COMPOSER_ROOT_VERSION: "5.6.0"
     steps:
@@ -45,77 +45,79 @@ jobs:
           extensions: pcntl, sodium
           # jwt's tests expect assertions to run, as a development PHP has them.
           ini-values: zend.assertions=1
-      - name: lcobucci/jwt, at its pinned tag, commit and tree
-        run: |
-          set -euo pipefail
-          version=$(jq -r .version "${PROJECT}")
-          commit=$(jq -r .commit "${PROJECT}")
-          tree=$(jq -r .tree "${PROJECT}")
-          src="${RUNNER_TEMP}/jwt-src"
-          git clone --quiet --depth 1 --branch "${version}" https://github.com/lcobucci/jwt.git "${src}"
-          test "$(git -C "${src}" rev-parse HEAD)" = "${commit}"
-          # A repository's info/attributes is read before its tree's own.
-          printf '* -export-ignore -export-subst\n' > "${src}/.git/info/attributes"
-          git -C "${src}" archive --format=tar HEAD > "${RUNNER_TEMP}/jwt.tar"
-          sha256sum --check --strict <<<"${tree}  ${RUNNER_TEMP}/jwt.tar"
-          mkdir "${RUNNER_TEMP}/jwt"
-          tar xf "${RUNNER_TEMP}/jwt.tar" -C "${RUNNER_TEMP}/jwt"
-      # The gate from this checkout, and the Infection and PHPUnit its lock
-      # holds, so both arms that mutate with Infection run the same release.
-      - name: install the gate, Infection and PHPUnit as this checkout locks them
-        working-directory: ${{ runner.temp }}/jwt
-        run: |
-          set -euo pipefail
-          locked() {
-            jq -r --arg name "$1" '(.packages + ."packages-dev")[] | select(.name == $name) | .version' \
-              "${GITHUB_WORKSPACE}/composer.lock"
-          }
-          jq --arg gate "${GITHUB_WORKSPACE}" --arg phpunit "$(locked phpunit/phpunit)" \
-            --arg infection "$(locked infection/infection)" '
-            .["require-dev"] = {
-              "lcobucci/clock": .["require-dev"]["lcobucci/clock"],
-              "phpunit/phpunit": $phpunit,
-              "infection/infection": $infection,
-              "nightworksio/mutation-gate": "@dev"
-            }
-            | del(.config.platform)
-            | .config["allow-plugins"] = {"infection/extension-installer": false}
-            | .repositories = [{"type": "path", "url": $gate, "options": {"symlink": true}}]
-            | .["minimum-stability"] = "dev"
-            | .["prefer-stable"] = true' composer.json > composer.json.new
-          mv composer.json.new composer.json
-          composer update --no-interaction --no-progress
-          composer show | grep -E '^(phpunit/phpunit|infection/infection|nightworksio/mutation-gate) '
-          # jwt's own PHPUnit is 11; PHPUnit 13 warns of its repeated
-          # `#[Uses]` attributes and refuses `beStrictAboutTodoAnnotatedTests`.
-          sed -e 's/failOnRisky="true"/failOnRisky="true" failOnPhpunitWarning="false" failOnPhpunitDeprecation="false"/' \
-            -e 's/ *beStrictAboutTodoAnnotatedTests="true"//' phpunit.xml.dist > phpunit.xml
-          printf 'vendor/\n.mutation-gate/\nbench-*.json\ninfection.txt\n' > .gitignore
-          # The gate's arms start from floors of 0, so a score never fails them.
-          printf '{"format": 1, "trees": {"src": {"floor": 0}}, "security": {".": {"floor": 0}}}\n' > bench-baseline.json
-          printf '{"runner": {"use": "infection"}, "trees": [{"path": "src"}]}\n' > bench-infection.json
-          # Plain Infection writes its JSON log only where its config names one.
-          jq '.logs.json = "bench-infection-log.json"' infection.json.dist > bench-plain-infection.json
-          printf '{"runner": {"use": "phpunit", "workers": "fork"}, "trees": [{"path": "src"}]}\n' > bench-phpunit.json
-          git init --quiet
-          git add --all
-          git -c user.name=bench -c user.email=bench@localhost commit --quiet --message "lcobucci/jwt"
-          # Plain Infection runs in a copy made before the gate patches its own.
-          cp -a "${RUNNER_TEMP}/jwt" "${RUNNER_TEMP}/jwt-plain"
-          vendor/bin/mutation-gate infection:patch
+      - name: the project at its pinned commit and tree
+        run: bench/fetch.sh "bench/${PROJECT}.json" "${RUNNER_TEMP}/${PROJECT}"
+      - name: prepare it
+        working-directory: ${{ runner.temp }}/${{ env.PROJECT }}
+        run: '"${GITHUB_WORKSPACE}/bench/${PROJECT}.sh"'
       - name: run every arm, interleaved, three times
-        run: python3 .github/scripts/bench.py run "${PROJECT}" "${RUNNER_TEMP}/jwt" "${RUNNER_TEMP}/bench" --rounds 3
+        run: |
+          python3 .github/scripts/bench.py run "bench/${PROJECT}.json" "${RUNNER_TEMP}/${PROJECT}" \
+            "${RUNNER_TEMP}/bench" --rounds 3
       - name: reconcile the arms
         if: ${{ !cancelled() }}
         run: |
-          python3 .github/scripts/bench.py reconcile "${PROJECT}" "${RUNNER_TEMP}/jwt" "${RUNNER_TEMP}/bench" \
-            bench/results/jwt.json
+          python3 .github/scripts/bench.py reconcile "bench/${PROJECT}.json" "${RUNNER_TEMP}/${PROJECT}" \
+            "${RUNNER_TEMP}/bench" "bench/results/${PROJECT}.json"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ !cancelled() }}
         with:
-          name: bench-jwt
+          name: bench-${{ env.PROJECT }}
           path: |
-            bench/results/jwt.json
+            bench/results/${{ env.PROJECT }}.json
+            ${{ runner.temp }}/bench
+          if-no-files-found: error
+          retention-days: 90
+
+  # pinkary.com, the Laravel app on Pest: plain `pest --mutate --parallel`
+  # against the gate mutating with that Pest, over app/Actions, on the MySQL
+  # its own CI tests against.
+  pinkary:
+    name: pinkary.com
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 300
+    env:
+      PROJECT: pinkary
+    services:
+      mysql:
+        image: mysql:8.4@sha256:6ea90827b1100f8f2ae306a539f86d2c264a26ed435a2a9f75551dd5c3aeb242
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+          MYSQL_DATABASE: testing
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+          extensions: pcntl, sodium, pdo_mysql
+      - name: the project at its pinned commit and tree
+        run: bench/fetch.sh "bench/${PROJECT}.json" "${RUNNER_TEMP}/${PROJECT}"
+      - name: prepare it
+        working-directory: ${{ runner.temp }}/${{ env.PROJECT }}
+        run: '"${GITHUB_WORKSPACE}/bench/${PROJECT}.sh"'
+      - name: run every arm, interleaved, three times
+        run: |
+          python3 .github/scripts/bench.py run "bench/${PROJECT}.json" "${RUNNER_TEMP}/${PROJECT}" \
+            "${RUNNER_TEMP}/bench" --rounds 3
+      - name: reconcile the arms
+        if: ${{ !cancelled() }}
+        run: |
+          python3 .github/scripts/bench.py reconcile "bench/${PROJECT}.json" "${RUNNER_TEMP}/${PROJECT}" \
+            "${RUNNER_TEMP}/bench" "bench/results/${PROJECT}.json"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: bench-${{ env.PROJECT }}
+          path: |
+            bench/results/${{ env.PROJECT }}.json
             ${{ runner.temp }}/bench
           if-no-files-found: error
           retention-days: 90
