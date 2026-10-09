@@ -24,6 +24,15 @@ composer show | grep -E '^(phpunit/phpunit|infection/infection|nightworksio/muta
 # attributes and refuses `beStrictAboutTodoAnnotatedTests`.
 sed -e 's/failOnRisky="true"/failOnRisky="true" failOnPhpunitWarning="false" failOnPhpunitDeprecation="false"/' \
   -e 's/ *beStrictAboutTodoAnnotatedTests="true"//' phpunit.xml.dist > phpunit.xml
+# SignedWithUntilDateTest names InMemory twice in #[UsesClass], which PHPUnit
+# 12 and 13 warn of. Infection's initial run stops at the first defect, in a
+# random order, so the warning cut that run short at a different test each
+# time and Infection mutated whatever it had covered by then. The copy keeps
+# each attribute once, which changes no test.
+for test in $(grep -rl 'UsesClass(' tests); do
+  awk '!(/^#\[PHPUnit\\UsesClass\(/ && seen[$0]++)' "${test}" > "${test}.once"
+  mv "${test}.once" "${test}"
+done
 printf 'vendor/\n.mutation-gate/\nbench-*.json\ninfection.txt\n' > .gitignore
 bench_baselines src
 # jwt's infection.json.dist ignores mutants by method with no reason, which
