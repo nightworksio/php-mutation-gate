@@ -558,6 +558,18 @@ it('measures a test file again, names the tests it holds, and the merged map is 
         ->toBe($full instanceof CoverageMap ? RunnerContracts::lines($full) : $full);
 })->with($libraries);
 
+it('measures the same map across two processes as in one', function (Library $library): void {
+    $runner = $library->runner();
+    $one = $runner->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));
+    $two = $runner->coverage(
+        CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/across'))->across(ProcessCount::of(2)),
+    );
+
+    expect($two instanceof CoverageMap ? RunnerContracts::lines($two) : $two)
+        ->toBe($one instanceof CoverageMap ? RunnerContracts::lines($one) : $one)
+        ->and($two instanceof CoverageMap ? $two->tests() : $two)->toEqual($one instanceof CoverageMap ? $one->tests() : $one);
+})->with($libraries);
+
 it('places every test of a full run\'s map in the test files that hold them, so a kept map can be measured by file', function (Library $library): void {
     $runner = $library->runner();
     $full = $runner->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));

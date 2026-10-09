@@ -13,6 +13,8 @@ use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Briefing;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
+use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -142,9 +144,10 @@ it('narrows its runs to one declared suite\'s tests, the coverage run\'s among t
         ->and($after instanceof Composed ? $after->adapters->briefing(Briefing::standard()) : $after)
         ->toEqual(Briefing::standard()->inSuite(SuiteName::of('unit')))
         ->and($after instanceof Composed ? $after->adapters->covering($run) : $after)
-        ->toEqual($run->withholding($before->adapters->withheld)->inSuite(SuiteName::of('unit')))
+        ->toEqual($run->across($before->adapters->processes())->withholding($before->adapters->withheld)->inSuite(SuiteName::of('unit')))
         ->and($before->adapters->isSuiteOnly())->toBeFalse()
-        ->and($before->adapters->covering($run))->toEqual($run->withholding($before->adapters->withheld))
+        ->and($before->adapters->covering($run))->toEqual($run->across($before->adapters->processes())->withholding($before->adapters->withheld))
+        ->and($before->adapters->covering($run)->processes())->toEqual($before->adapters->processes())
         ->and($before->adapters->covering($run)->withheld())->not->toEqual(Withheld::standard())
         ->and($before->adapters->covering($run)->suite())->toEqual(NotGiven::value())
         ->and($after instanceof Composed ? [$after->settings, $after->setup, $after->reporting] : $after)
@@ -197,4 +200,12 @@ it('follows a plan made with --suite, beside --security or alone', function (): 
         ))->toBeInstanceOf(CannotJudge::class)
         ->and($composed->following(Planned::oneShard()->briefed(Briefing::standard()->inSuite(SuiteName::of('e2e')))))
         ->toBeInstanceOf(CannotJudge::class);
+});
+
+it('measures coverage across as many processes as its runner runs mutants at once', function (): void {
+    $runner = ScriptedRunner::fixture()->behaving(RunnerBehaviour::standard()->runningPerCore());
+    $run = CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'));
+
+    expect(Flows::adapters(Scratch::directory(), [], $runner)->covering($run)->processes())->toEqual(ProcessCount::of(2))
+        ->and(Flows::adapters(Scratch::directory())->covering($run)->processes())->toEqual(ProcessCount::single());
 });
