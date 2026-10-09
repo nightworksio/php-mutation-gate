@@ -160,11 +160,15 @@ final readonly class Adapters
         return ! $this->narrowing->mutators()->isAll();
     }
 
-    /** A coverage run, withholding what every process withholds, of the run's suite alone where it names one. */
+    /**
+     * A coverage run across as many processes as the runner runs mutants at
+     * once, withholding what every process withholds, of the run's suite
+     * alone where it names one.
+     */
     public function covering(CoverageRun $run): CoverageRun
     {
         $suite = $this->narrowing->suite();
-        $withheld = $run->withholding($this->withheld);
+        $withheld = $run->across($this->processes())->withholding($this->withheld);
 
         return $suite instanceof SuiteName ? $withheld->inSuite($suite) : $withheld;
     }
