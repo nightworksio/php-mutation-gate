@@ -8,11 +8,9 @@ use function implode;
 use function in_array;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
-use NightWorksIO\MutationGate\Adapter\Filesystem\MeasuredCosts;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Resources;
 use NightWorksIO\MutationGate\Adapter\Filesystem\Shipped;
 use NightWorksIO\MutationGate\Adapter\Git\Git;
-use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\CiTemplate;
 use NightWorksIO\MutationGate\Core\Ci\DefaultBranch;
@@ -25,21 +23,15 @@ use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
 use NightWorksIO\MutationGate\Core\Config\Ci;
-use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Settings;
-use NightWorksIO\MutationGate\Core\Cost\FirstRun;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\NotGiven;
-use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
-use NightWorksIO\MutationGate\Core\Tree\Trees;
-use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Extension\Extensions;
 
 use function sprintf;
@@ -108,7 +100,7 @@ final readonly class CiDefinition
         $plan = $request->plan();
         $shard = $settings->shards()->seconds();
         $estimate = $plan === BuiltinCiPlan::GitHub && ! $request->workflow() instanceof GitHubWorkflow
-            ? $this->estimate($settings)
+            ? LineCountEstimate::of($this->extensions, $this->project, $settings)
             : CannotJudge::because('it is not estimated');
         $workflow = $this->workflow($request->workflow(), $estimate, $shard);
         $templates = CiTemplate::for($plan, $workflow);
@@ -336,31 +328,6 @@ final readonly class CiDefinition
             ),
             default => sprintf(self::NOT_ESTIMATED, $workflow->said(), $estimate->why()),
         };
-    }
-
-    /** What a full run is estimated to take, from each tree's lines of code, or why it cannot be. */
-    private function estimate(Settings $settings): Seconds|CannotJudge
-    {
-        $source = new Chosen($this->extensions)->treeSource($settings->treeSource());
-        $trees = match (true) {
-            $source instanceof Invalid => CannotJudge::because('the tree source cannot be built from its options'),
-            $source instanceof CannotJudge => $source,
-            default => $source->trees(),
-        };
-
-        if (! $trees instanceof Trees) {
-            return $trees;
-        }
-
-        $costs = MeasuredCosts::at(Root::of($this->project), $settings->shards()->secondsPerLine());
-        $seconds = 0.0;
-
-        foreach ($trees as $tree) {
-            $estimated = $costs->cost(Unit::file($tree->path()), Timings::none(), FirstRun::unmeasured());
-            $seconds += $estimated->seconds()->seconds();
-        }
-
-        return Seconds::of($seconds);
     }
 
     private function defaultBranch(Settings $settings): string

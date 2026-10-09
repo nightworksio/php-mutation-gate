@@ -126,22 +126,22 @@ would have cost without them.
    names the three.
 
 4. **The first-run estimate comes from one coverage run.**
-   - `init` runs the suite once under coverage. For each covered line, it
-     takes a number of mutants per line (a constant per runner, fitted from
-     the benchmark of decisions 14–17 and shipped with the package) times the
-     summed time of that line's covering tests, capped at the runner's limit
-     (ADR-0008 decision 2). An uncovered line adds its mutants and no test
-     time.
+   - `init` runs the suite once under coverage and plans a full run from
+     that map, as `plan` does, each unit costed by the cost model's cold
+     start below.
    - It prints:
-     - a range for a full run in one job, whose width is the error the
-       benchmark measured between estimate and result;
-     - the wall time at `shards.seconds`, or at `shards.target` (ADR-0013);
+     - the wall time of a full run cut as `shards.seconds` or
+       `shards.target` asks (ADR-0013), its runner time, and what the
+       estimate rests on;
      - the hot paths that dominate the estimate (ADR-0005 decision 11),
        each with the `#[Holds]` that would cut it.
+   - The estimate is one figure. A range needs the error between estimate
+     and result that the benchmark of decisions 14–17 measures.
    - The same run proves the suite passes under coverage and that a driver
      works. A failure is reported then, with its fix, rather than as a first
      *cannot judge*.
-   - `--no-measure` skips the run and estimates from lines of code.
+   - `--no-measure` skips the run and estimates from lines of code, as
+     `--dry-run`, which runs nothing, does.
    - The cost model's cold start is ADR-0006 decision 4's measured first
      run: the mutants the gate's own engine counts on each covered line,
      each costing a mutant's run starting and its covering tests' time,

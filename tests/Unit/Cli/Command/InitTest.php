@@ -27,7 +27,7 @@ afterEach(function () use ($here): void {
 $init = static function (string $project, array $input = []): Commands {
     chdir($project);
 
-    return Commands::run($project, 'init', $input);
+    return Commands::run($project, 'init', ['--no-measure' => true, ...$input]);
 };
 
 /** A file of a project, or '' when it is not there. */
@@ -370,7 +370,7 @@ function initCi(array $input, array $files = []): array
     }
 
     chdir($project);
-    $ran = Commands::run($project, 'init', $input);
+    $ran = Commands::run($project, 'init', ['--no-measure' => true, ...$input]);
 
     return [$project, $ran];
 }
@@ -413,8 +413,19 @@ const INIT_CI_MONEY = <<<'PHP'
 
 const INIT_CI_WROTE = "Wrote mutation-gate.php with what zero-config found, and added .mutation-gate/ to .gitignore.\n";
 
-/** What init says to run next, outside a repository, where git adds nothing. */
-const INIT_NEXT = "Next:\n  vendor/bin/mutation-gate doctor\n  vendor/bin/mutation-gate\n";
+/**
+ * What init says last, outside a repository: a fixture's full run estimated
+ * from its few lines of code, as --no-measure asks, and what to run next,
+ * where git adds nothing.
+ */
+const INIT_NEXT = <<<'SAID'
+    A full run is estimated at about 0s in one job, from its lines of code. A coverage run of the suite,
+    which init runs without --no-measure, measures it.
+    Next:
+      vendor/bin/mutation-gate doctor
+      vendor/bin/mutation-gate
+
+    SAID;
 
 const INIT_CI_UNPINNED
     = 'Composer did not install the gate here, so the definition names <the commit of a release>: pin the commit of a release.';

@@ -139,9 +139,19 @@ final readonly class Console
         $installed = $detected->installed();
         $gate = $installed instanceof Installed ? GatePin::in($installed) : GatePin::unknown();
         $application->addCommand(
-            Init::command($project, $extensions, $effective, $formats, $now, $gate, $detected, $environment),
+            Init::command(
+                $project,
+                $extensions,
+                $effective,
+                $formats,
+                $now,
+                $gate,
+                $detected,
+                $environment,
+                $composition,
+            ),
         );
-        $application->addCommand(Init::import($project, $extensions, $effective, $formats, $now, $gate));
+        $application->addCommand(Init::import($project, $extensions, $effective, $formats, $now, $gate, $composition));
         $application->addCommand(ConfigShow::command($effective, $formats));
         $application->addCommand(ConfigSchema::command());
         $application->addCommand(MigrateCommand::command(
