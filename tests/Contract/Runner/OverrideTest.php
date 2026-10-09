@@ -75,9 +75,9 @@ function overrideJudged(string $spec): array
 
 it('kills and spares the mutants of a file whose tests read alike through the override, as a run with no control would', function (): void {
     expect(overrideJudged('LinkedSpec.php'))->toBe([
-        [12, 'IncrementInteger', MutantStatus::Survived, '', []],
-        [18, 'IncrementInteger', MutantStatus::Killed, '', ['P\\Tests\\LinkedSpec::__pest_evaluable_it_tells_a_link_for_a_link']],
-        [18, 'SmallerToSmallerOrEqual', MutantStatus::Survived, '', []],
+        [10, 'IncrementInteger', MutantStatus::Survived, '', []],
+        [16, 'IncrementInteger', MutantStatus::Killed, '', ['P\\Tests\\LinkedSpec::__pest_evaluable_it_tells_a_link_for_a_link']],
+        [16, 'SmallerToSmallerOrEqual', MutantStatus::Survived, '', []],
     ]);
 })->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
@@ -85,9 +85,9 @@ it('kills no mutant of a file whose tests fail whenever the override serves a fi
     $judged = overrideJudged('WrappedSpec.php');
 
     expect(array_map(static fn(array $each): array => array_slice($each, 0, 3), $judged))->toBe([
-        [12, 'IncrementInteger', MutantStatus::Unjudged],
-        [18, 'IncrementInteger', MutantStatus::Unjudged],
-        [18, 'SmallerToSmallerOrEqual', MutantStatus::Unjudged],
+        [10, 'IncrementInteger', MutantStatus::Unjudged],
+        [16, 'IncrementInteger', MutantStatus::Unjudged],
+        [16, 'SmallerToSmallerOrEqual', MutantStatus::Unjudged],
     ])
         ->and($judged[0][3])->toStartWith('the selected tests fail on their own (')
         ->and([$judged[1][3], $judged[2][3]])->each->toBe(ReplayVerdict::Failed->reason())
