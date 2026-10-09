@@ -161,7 +161,7 @@ it('kills a covered mutant static analysis rejects before its tests, and its twi
     ])
         ->and(array_map(static fn(Mutant $mutant): mixed => $mutant->reason(), $rejected))
         ->toEqual(array_fill(0, 2, PreCheckerFake::rejection(Path::of('src/Money.php'))))
-        ->and(array_map(static fn(string $offered): string => strtok($offered, ' '), $checker->offered()))
+        ->and(array_map(static fn(string $offered): string => explode(' ', $offered)[0], $checker->offered()))
         ->toBe(['acme/RemoveEcho', 'acme/PlusToMinus'])
         ->and($checker->sides())->toBe([3])
         ->and($shell->commands())->toHaveCount(1);
