@@ -214,7 +214,7 @@ final readonly class Pest implements Runner
         MutationRequest $request,
         PreChecker $preChecker = new NoPreCheck(),
     ): MutationResult|CannotJudge {
-        return $this->run($this->shell)->of($request);
+        return $this->run($this->shell)->checkingWith($preChecker)->of($request);
     }
 
     /** What each unmutated control finds, its file served through Pest's override (see UnmutatedRuns). */

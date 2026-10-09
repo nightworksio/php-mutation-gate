@@ -8,6 +8,7 @@ use function array_key_exists;
 
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 
 use function usort;
 
@@ -163,6 +164,17 @@ final readonly class PlannedMutant
     public function diff(): string
     {
         return $this->diff;
+    }
+
+    /** The change, as the gate names it: its mutator, the mutator's family and hint, and the diff. */
+    public function mutation(Bridges $bridges): Mutation
+    {
+        return Mutation::of(
+            $this->mutator,
+            $bridges->familyOf($this->mutator),
+            Diff::fromPest($this->diff),
+            $bridges->hintOf($this->mutator),
+        );
     }
 
     /** The mutated copy Pest serves in the original's place in the mutant's own process. */

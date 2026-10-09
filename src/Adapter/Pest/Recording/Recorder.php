@@ -185,7 +185,8 @@ final readonly class Recorder
      * Every mutant Pest made, each it kept out of its run as a twin of one
      * made before it, and then how many Pest made, with the opening run's
      * seconds, from which each mutant's limit follows. A run stopped before
-     * that last line lost some of its mutants.
+     * that last line lost some of its mutants. Where the gate checks mutants
+     * before their tests, it then waits for the gate's verdicts on them.
      */
     public function planned(MutationSuite $suite): void
     {
@@ -207,6 +208,12 @@ final readonly class Recorder
             ? Seconds::of($telemetry->getInitialTestSuiteDuration())
             : Unmeasured::duration();
         $this->write(RecordLine::made($made, $opening));
+
+        $verdicts = getenv(GateVariable::Verdicts->value);
+
+        if (is_string($verdicts) && $verdicts !== '') {
+            Verdicts::await($verdicts);
+        }
     }
 
     /** A mutant Pest made, as the plugin records it. */

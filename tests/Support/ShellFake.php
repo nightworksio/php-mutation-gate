@@ -11,7 +11,9 @@ use function count;
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\Shell;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
+use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\Unwatched;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -44,10 +46,11 @@ final class ShellFake implements Shell
         return new self(static fn(): Ran => $ran);
     }
 
-    public function run(Command $command): Ran
+    public function run(Command $command, ProcessWatch $watch = new Unwatched()): Ran
     {
         $before = count($this->commands);
         $this->commands[] = $command;
+        $watch->look();
 
         return ($this->answer)($command, $before);
     }

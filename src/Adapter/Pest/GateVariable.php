@@ -70,6 +70,13 @@ enum GateVariable: string
     /** How much of the kill matrix a mutation run records: every killer where it is `full` (see EveryKiller). */
     case KillMatrix = 'MUTATION_GATE_KILL_MATRIX';
 
+    /**
+     * The file in which the gate names the mutants static analysis rejected,
+     * which the plugin waits for once every planned mutant is written (see
+     * Verdicts); unset where the gate checks none before their tests.
+     */
+    case Verdicts = 'MUTATION_GATE_VERDICTS';
+
     /** The file of bridges the plugin loads, through which Pest makes registered mutators' mutants (see Bridges). */
     case Mutators = 'MUTATION_GATE_MUTATORS';
 }

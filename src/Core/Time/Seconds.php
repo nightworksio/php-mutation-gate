@@ -26,7 +26,8 @@ final readonly class Seconds
 
     public const int PER_DAY = 86_400;
 
-    private const int PER_HOUR = 3600;
+    /** Seconds in an hour. */
+    public const int PER_HOUR = 3600;
 
     private const int MICROSECONDS = 1_000_000;
 

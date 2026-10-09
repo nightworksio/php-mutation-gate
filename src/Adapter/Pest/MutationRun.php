@@ -13,6 +13,8 @@ use function dirname;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
+use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\Laps;
 use NightWorksIO\MutationGate\Core\Cost\Step;
@@ -24,12 +26,12 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
-use NightWorksIO\MutationGate\Core\Pruning\Pruned;
-use NightWorksIO\MutationGate\Core\Pruning\PrunedList;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\Unwatched;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -86,7 +88,17 @@ final readonly class MutationRun
         private Clock $clock = new WallClock(),
         private bool $whole = false,
         private Bridges $bridges = new Bridges(),
+        private PreChecker $preChecker = new NoPreCheck(),
     ) {
+    }
+
+    /**
+     * This run, its mutants checked by static analysis before their tests
+     * where pest-plugin-mutate is patched (see HandOff).
+     */
+    public function checkingWith(PreChecker $preChecker): self
+    {
+        return clone($this, ['preChecker' => $preChecker]);
     }
 
     /**
@@ -208,22 +220,6 @@ final readonly class MutationRun
         );
     }
 
-    /**
-     * The list of the mutators the run leaves out of its unchanged files,
-     * beside its results, for the patched plugin; none where it leaves none
-     * out.
-     *
-     * @return array<string, string>
-     */
-    private function pruning(Pruned $pruned, string $results): array
-    {
-        $list = PrunedList::beside($results);
-
-        return $pruned->isNone() ? [] : [
-            GateVariable::Pruned->value => PrunedFile::write($list, $pruned, $this->project->root()),
-        ];
-    }
-
     /** The coverage this run's mutants were selected by: the map handed over, or the run's own. */
     private function coveringOf(CoverageMap|Unshared $shared, string $results): Covering|CannotJudge
     {
@@ -247,15 +243,12 @@ final readonly class MutationRun
         }
 
         $command = $scan->onto($command);
-        $only = $this->only === [] ? [] : [
-            GateVariable::Only->value => OnlyList::write(OnlyList::beside($results), ...$this->only),
-        ];
-        $pruned = $this->pruning($request->narrowing()->pruned(), $results);
-        $narrow = $this->narrows() ? [GateVariable::Narrow->value => '1'] : [];
         $bounds = $request->pool()->bounding($this->bounds);
         $from = $laps->now();
-        $told = [...$only, ...$pruned, ...$narrow, ...$this->patching->bounding($bounds)];
-        $ran = $this->shell->run($command->with($told));
+        $handOff = $this->handOff($request, $results, $shared);
+        $told = new Told($this->project, $this->patching, $this->only, $this->narrows())
+            ->of($request, $results, $handOff instanceof HandOff, $bounds);
+        $ran = $this->shell->run($command->with($told), $handOff instanceof HandOff ? $handOff : new Unwatched());
         $mutation = $laps->lap(Step::Mutation, $from);
         $scan->remove();
         $coverage = $this->coveringOf($shared, $results);
@@ -263,7 +256,14 @@ final readonly class MutationRun
         $left = fn(): Seconds|Unlimited => $this->left($request, $started);
         $opening = OpeningIssues::of($this->shell, $this->project, $request, $opensOn, $left, $results);
         $memory = $request->memory();
-        $interpretation = new Interpretation($this->project, $this->patching, $memory, $this->bridges, $opening);
+        $interpretation = new Interpretation(
+            $this->project,
+            $this->patching,
+            $memory,
+            $this->bridges,
+            $opening,
+            $handOff,
+        );
         $from = $laps->now();
         $result = $interpretation->of($ran, $results, $coverage);
         $reading = $laps->lap(Step::Reading, $from);
@@ -278,6 +278,23 @@ final readonly class MutationRun
                 $shared,
                 $laps,
             );
+    }
+
+    /**
+     * The hand-off of the run's mutants to static analysis before their
+     * tests, where pest-plugin-mutate is patched and a pre-checker is given;
+     * none otherwise, and Pest runs every mutant.
+     */
+    private function handOff(MutationRequest $request, string $results, CoverageMap|Unshared $shared): HandOff|NotGiven
+    {
+        return $this->patching->isOn() && ! $this->preChecker instanceof NoPreCheck ? new HandOff(
+            $this->project,
+            $results,
+            $this->preChecker,
+            $request->pool()->processes(),
+            fn(): Covering|CannotJudge => $this->coveringOf($shared, $results),
+            $this->bridges,
+        ) : NotGiven::value();
     }
 
     /** Whether each mutant's own run loads only the test files its covering tests need. */

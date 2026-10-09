@@ -409,21 +409,34 @@ needs remain, and the runners' own behaviour shapes each answer.
       agreement rule reads the two statuses as one.
 
 12. **Pest hands its generated mutants to the gate before the first one
-    runs.**
-    - At `FinishMutationGeneration` the package's plugin writes each mutant's
-      original and mutated paths to
-      `.mutation-gate/staticcheck/generated.jsonl`, and waits for
-      `.mutation-gate/staticcheck/verdicts.jsonl`.
-    - The Pest adapter, handed the `StaticChecker` by the Cli, writes that
-      file after running the selected checks in parallel, up to Pest's
-      process count. The analysers' editor modes save no shared cache, so
-      checks do not race.
-    - In a mutant's child, a mutant the file lists as rejected makes the
-      plugin record *killed by static analysis* in the results file, and end
-      the child with a failure before any test runs. Pest counts it `tested`,
-      and the adapter reads the plugin's record.
-    - The first step of the build proves that the plugin can end a child
-      before Pest selects its tests.
+    runs, and the PHPUnit runner checks them before it forks.**
+    - **Pest.** With `pest.patch` on, the plugin writes every mutant Pest
+      planned, and its twins (ADR-0025, decision 13), to the results file as
+      it does without a check, after the retry sort and before the first
+      mutant runs. Where the gate checks mutants before their tests, it names
+      a verdicts file beside the results, `results.jsonl.verdicts`, and the
+      plugin then waits for that file, an hour at most.
+    - The Pest adapter starts Pest with a watch on its process (ADR-0001,
+      decision 2). Once the results file holds every planned mutant, the
+      watch offers each covered mutant that is no twin to the pre-check, as
+      Pest prints it, with its covering tests' own time, and writes the
+      verdicts file: the mutated copy of each mutant the check rejected, one
+      to a line. It writes the file however the checks end, so Pest never
+      waits on a check that failed.
+    - The patched `MutationTest::start()` marks a mutant whose copy the file
+      names tested and returns before it builds a filter or starts a child,
+      so a rejected mutant costs no process. Pest counts it `tested`. The
+      gate reads it, and every twin that shares its copy, as *killed by
+      static analysis*, with the rejection the gate's own check found.
+    - Unpatched, the gate hands nothing off, and every check comes after the
+      tests, as under Infection.
+    - **The PHPUnit runner.** The gate makes its mutants itself, so it offers
+      each covered one to the pre-check before any run forks. A rejected
+      mutant, and its twins, are killed by static analysis in no time and
+      never run.
+    - The checks run side by side, up to the request's process count, through
+      `StaticChecker::checks()` (decision 6). They are timed together, and
+      each is learned as an equal share of that time.
     - This amends ADR-0004 decision 3: the plugin gains the hand-off.
 
 13. **Under Infection, the gate checks survivors itself.**

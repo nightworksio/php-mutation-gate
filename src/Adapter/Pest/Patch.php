@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Twins;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Verdicts;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Hunk;
 use NightWorksIO\MutationGate\Core\Composer\Package;
@@ -30,6 +31,8 @@ use function sprintf;
  * - Where the gate records the run, a mutant that leaves its file as one made
  *   before it does is kept out of the run, and recorded as that one's twin
  *   (see Twins).
+ * - Where the gate checks mutants before their tests, a mutant it rejected is
+ *   tested without a run (see Verdicts).
  * - Where the gate narrows a run, a mutant's own run loads only the test files
  *   its covering tests need (see CoveringFiles), not every test file, and the
  *   files it loads are recorded by the mutant's mutated copy.
@@ -222,6 +225,22 @@ final readonly class Patch
                 $this->updateResult(MutationTestResult::Tested);
         PHP;
 
+    private const string START_SHIPS = <<<'PHP'
+                // TODO: we should pass the tests to run in another way, maybe via cache, mutation or env variable
+        PHP;
+
+    private const string START_BECOMES = <<<'PHP'
+                {MARK} a mutant the gate's static analysis rejected is tested without a run (see Verdicts).
+                if (class_exists(\%1$s::class) && \%1$s::rejects($this->mutation->modifiedSourcePath)) {
+                    $this->updateResult(result: MutationTestResult::Tested);
+                    Facade::instance()->emitter()->mutationTested($this);
+
+                    return false;
+                }
+
+                // TODO: we should pass the tests to run in another way, maybe via cache, mutation or env variable
+        PHP;
+
     private const string ONLY_SHIPS = <<<'PHP'
                         $mutationSuite->repository->add($mutation);
         PHP;
@@ -322,6 +341,7 @@ final readonly class Patch
     {
         return [
             Hunk::in(self::MUTATION_TEST, self::FILTER_SHIPS, sprintf(self::FILTER_BECOMES, Ceiling::BYTES)),
+            Hunk::in(self::MUTATION_TEST, self::START_SHIPS, sprintf(self::START_BECOMES, Verdicts::class)),
             Hunk::in(self::MUTATION_TEST, self::COVERING_SHIPS, self::COVERING_BECOMES),
             Hunk::in(self::MUTATION_TEST, self::PATHS_SHIPS, sprintf(self::PATHS_BECOMES, CoveringFiles::class)),
             Hunk::in(self::MUTATION_TEST, self::LIMIT_SHIPS, sprintf(self::LIMIT_BECOMES, MutantTime::class)),

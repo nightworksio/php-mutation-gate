@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Bridged;
+use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
@@ -17,6 +18,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Twins;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\Verdicts;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -187,6 +189,23 @@ it('records each mutant kept out as a twin after those Pest planned, before how 
         RecordLine::planned(Recorder::madeOf(Mutations::mutation($file, 'twin', 11)), RecordEvent::Twin),
         RecordLine::made(1, Seconds::of(1.5)),
     ]);
+});
+
+it('waits for the gate\'s verdicts once every planned mutant is written, where the gate checks before the tests', function (): void {
+    $root = (string) realpath(Scratch::directory());
+    Scratch::write($root, 'src/Money.php', '<?php');
+    $results = sprintf('%s/verdicted.jsonl', $root);
+    $verdicts = Verdicts::write(Verdicts::beside($results), '/nowhere/rejected');
+    putenv(sprintf('%s=%s', GateVariable::Verdicts->value, $verdicts));
+
+    try {
+        Mutations::recorder($results, '/c')->planned(Mutations::suite(sprintf('%s/src/Money.php', $root), MutationTestResult::None));
+    } finally {
+        putenv(GateVariable::Verdicts->value);
+    }
+
+    expect(Verdicts::rejects('/nowhere/rejected'))->toBeTrue()
+        ->and(Mutations::recorded($results))->toHaveCount(2);
 });
 
 it('records each outcome as it arrives, one line of JSON with its slashes as they are', function (): void {
