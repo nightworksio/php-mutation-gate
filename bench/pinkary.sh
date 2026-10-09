@@ -5,7 +5,9 @@
 # service the job starts.
 set -euo pipefail
 source "${GITHUB_WORKSPACE}/bench/gate.sh"
-repository=$(jq -cn --arg url "${GITHUB_WORKSPACE}" '{type: "path", url: $url, options: {symlink: true}}')
+# A copy, not a link: Pest's arch presets read a linked package's files at
+# their real path, outside vendor/, as the app's own, and fail on them.
+repository=$(jq -cn --arg url "${GITHUB_WORKSPACE}" '{type: "path", url: $url, options: {symlink: false}}')
 composer config repositories.gate "${repository}"
 composer install --no-interaction --no-progress
 # laravel/vet refuses a package it cannot fetch over https, as the gate from
