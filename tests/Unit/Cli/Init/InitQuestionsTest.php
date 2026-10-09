@@ -122,7 +122,7 @@ it('asks what to do with native markers where it finds them, and writes ignores.
     $allowed = Commands::answering($project, 'init', ['--format' => 'json'], ['none', 'allow', 'none', 'no']);
     $unasked = Commands::run($refused, 'init', ['--format' => 'json']);
 
-    expect($allowed->errors)->toContain('1 native markers hide mutants with no reason. Allow them for now, or refuse them?')
+    expect($allowed->errors)->toContain('Native markers that hide mutants with no reason: 1. Allow them for now, or refuse them?')
         ->and(json_decode(questionedFile($project, 'mutation-gate.json'), associative: true))->toMatchArray(['ignores' => ['native' => 'allow']])
         ->and(questionedFile($refused, 'mutation-gate.json'))->not->toContain('"native"');
 });
