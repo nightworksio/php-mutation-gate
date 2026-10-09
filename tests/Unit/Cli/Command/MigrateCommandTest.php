@@ -4,12 +4,9 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Command\MigrateCommand;
 use NightWorksIO\MutationGate\Cli\Config\MigrationFiles;
-use NightWorksIO\MutationGate\Cli\Config\Registered;
 use NightWorksIO\MutationGate\Core\Migration\Migration;
 use NightWorksIO\MutationGate\Core\Migration\Migrations;
 use NightWorksIO\MutationGate\Core\Migration\Rename;
-use NightWorksIO\MutationGate\Core\Registry\Origin;
-use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Symfony\Component\Console\Tester\CommandTester;
 
@@ -26,9 +23,8 @@ afterEach(function (): void {
  */
 function migrateCommandIn(string $project, array $input = []): array
 {
-    $extensions = Registered::config(new Extensions(Origin::of('nightworksio/mutation-gate')), static fn(): bool => true);
     $tester = new CommandTester(MigrateCommand::command(
-        new MigrationFiles($project, $extensions, static fn(): bool => true),
+        new MigrationFiles($project, static fn(): bool => true),
         Migrations::of(Migration::in('2.0.0', Rename::of('runnr', 'runner'))),
         Migrations::of(Migration::in('2.0.0', Rename::of('floors', 'trees'))),
     ));

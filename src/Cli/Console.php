@@ -143,7 +143,7 @@ final readonly class Console
         $application->addCommand(ConfigShow::command($effective, $formats));
         $application->addCommand(ConfigSchema::command());
         $application->addCommand(MigrateCommand::command(
-            new MigrationFiles($project, $extensions, class_exists(...)),
+            new MigrationFiles($project, class_exists(...)),
             Migrations::config(),
             Migrations::baseline(),
         ));

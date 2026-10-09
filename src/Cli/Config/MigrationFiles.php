@@ -11,7 +11,9 @@ use function is_file;
 use function is_string;
 
 use Nette\Neon\Neon;
+use NightWorksIO\MutationGate\Adapter\Json\JsonConfig;
 use NightWorksIO\MutationGate\Adapter\Neon\NeonConfig;
+use NightWorksIO\MutationGate\Adapter\Php\BaselineCall;
 use NightWorksIO\MutationGate\Adapter\Php\PhpMigration;
 use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
 use NightWorksIO\MutationGate\Cli\CommandLine;
@@ -20,7 +22,6 @@ use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
 use NightWorksIO\MutationGate\Core\Config\Floors;
 use NightWorksIO\MutationGate\Core\Config\Format;
-use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Root;
@@ -28,7 +29,6 @@ use NightWorksIO\MutationGate\Core\Migration\Migrated;
 use NightWorksIO\MutationGate\Core\Migration\Migrating;
 use NightWorksIO\MutationGate\Core\Migration\Migrations;
 use NightWorksIO\MutationGate\Core\NotGiven;
-use NightWorksIO\MutationGate\Extension\Extensions;
 
 use function pathinfo;
 use function sprintf;
@@ -39,7 +39,9 @@ use Symfony\Component\Yaml\Yaml;
  * The files `migrate` moves forward (ADR-0026, decisions 4 and 5): the
  * config, in the format its extension names, and the baseline the config
  * names, or the one at its standard path while the config does not read.
- * It reads the config's layer alone, so it needs no runner installed.
+ * It runs nothing of the project's: a PHP config is parsed, never
+ * included, and a data format is read by the gate's own loader, so no
+ * extension's loader runs either.
  */
 final readonly class MigrationFiles
 {
@@ -51,7 +53,7 @@ final readonly class MigrationFiles
     private const string NEEDS = '%s is %s, which needs %s to be migrated. Install it: composer require --dev %s';
 
     /** @param Closure(class-string): bool $installed whether a library's class can be loaded */
-    public function __construct(private string $project, private Extensions $extensions, private Closure $installed)
+    public function __construct(private string $project, private Closure $installed)
     {
     }
 
@@ -74,8 +76,7 @@ final readonly class MigrationFiles
     public function baseline(CommandLine $given, Migrations $migrations): Migrated|NotGiven|CannotJudge
     {
         $config = ConfigLocation::in($this->project, $given->config);
-        $layer = $config instanceof Path ? $this->layerOf($config) : NotGiven::value();
-        $path = $layer instanceof Layer ? $layer->floors()->baseline() : Floors::standard()->baseline();
+        $path = $config instanceof Path ? $this->baselineOf($config) : Floors::standard()->baseline();
 
         if (! is_file(Root::of($this->project)->at($path)->value())) {
             return NotGiven::value();
@@ -92,13 +93,30 @@ final readonly class MigrationFiles
         return Root::of($this->project)->at(Path::of($migrated->file()))->value();
     }
 
-    /** The layer the config writes, read by its format's loader; or why it does not read, as a pending change. */
-    private function layerOf(Path $config): Layer|Invalid|CannotJudge
+    /**
+     * The baseline a config names, read without running anything: a data
+     * format's layer, read by the gate's own loader, or the literal path a
+     * PHP config gives `Baseline::at()`; the standard one where it names none
+     * or does not read.
+     */
+    private function baselineOf(Path $config): Path
     {
         $file = ConfigFile::at($config, Path::of($this->project));
-        $loader = Formats::loader($this->extensions, $file);
+        $text = $this->read($config);
+        $format = Format::fromExtension(pathinfo($config->value(), PATHINFO_EXTENSION));
+        $named = $format === Format::Php && is_string($text) ? BaselineCall::in($text) : NotGiven::value();
+        $layer = match (true) {
+            $format === Format::Json => new JsonConfig()->load($file),
+            $format === Format::Yaml && ($this->installed)(Yaml::class) => new YamlConfig()->load($file),
+            $format === Format::Neon && ($this->installed)(Neon::class) => new NeonConfig()->load($file),
+            default => NotGiven::value(),
+        };
 
-        return $loader instanceof CannotJudge ? $loader : $loader->load($file);
+        return match (true) {
+            is_string($named) => $file->path(Path::of($named)),
+            $layer instanceof Layer => $layer->floors()->baseline(),
+            default => Floors::standard()->baseline(),
+        };
     }
 
     private function migrated(string $shown, string $text, Migrations $migrations): Migrated|CannotJudge

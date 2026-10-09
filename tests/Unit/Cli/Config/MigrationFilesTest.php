@@ -9,7 +9,6 @@ use NightWorksIO\MutationGate\Adapter\Yaml\YamlConfig;
 use NightWorksIO\MutationGate\Cli\CommandLine;
 use NightWorksIO\MutationGate\Cli\Config\MigrationFiles;
 use NightWorksIO\MutationGate\Cli\Config\NoConfigFile;
-use NightWorksIO\MutationGate\Cli\Config\Registered;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\ConfigFile;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -27,8 +26,6 @@ use NightWorksIO\MutationGate\Core\Migration\Spelling;
 use NightWorksIO\MutationGate\Core\Migration\Split;
 use NightWorksIO\MutationGate\Core\Migration\SplitPart;
 use NightWorksIO\MutationGate\Core\NotGiven;
-use NightWorksIO\MutationGate\Core\Registry\Origin;
-use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -55,9 +52,7 @@ function migrationEverySteps(): Migrations
 /** The files of a project, with YAML and NEON installed or not. */
 function migrationFilesIn(string $project, bool $installed = true): MigrationFiles
 {
-    $extensions = Registered::config(new Extensions(Origin::of('nightworksio/mutation-gate')), static fn(): bool => $installed);
-
-    return new MigrationFiles($project, $extensions, static fn(): bool => $installed);
+    return new MigrationFiles($project, static fn(): bool => $installed);
 }
 
 const MIGRATION_BUILDER = "<?php\n\nuse NightWorksIO\\MutationGate\\Config\\Gate;\nuse NightWorksIO\\MutationGate\\Config\\Reach;\nuse NightWorksIO\\MutationGate\\Config\\Runner;\nuse NightWorksIO\\MutationGate\\Config\\Shards;\nuse NightWorksIO\\MutationGate\\Config\\Timeouts;\n\nreturn Gate::configure()\n%s;\n";
@@ -150,4 +145,39 @@ it('finds no config where the project has none, and cannot migrate one it cannot
         ->and($config('mutation-gate.neon', installed: false))->toEqual(CannotJudge::because(
             'mutation-gate.neon is NEON, which needs nette/neon to be migrated. Install it: composer require --dev nette/neon',
         ));
+});
+
+it('runs nothing of a PHP config it migrates, or reads the baseline of, however its top level would act', function (): void {
+    $project = Scratch::directory();
+    $marker = sprintf('%s/ran', $project);
+    Scratch::write($project, 'mutation-gate.php', sprintf(<<<'PHP'
+        <?php
+
+        use NightWorksIO\MutationGate\Config\Baseline;
+        use NightWorksIO\MutationGate\Config\Gate;
+
+        file_put_contents(%s, 'the config ran');
+
+        throw new RuntimeException('the config ran');
+
+        return Gate::configure()->runnr()->with(Baseline::at('kept/baseline.json'));
+        PHP, var_export($marker, return: true)));
+    Scratch::write($project, 'kept/baseline.json', '{"format": 1, "floors": {}}');
+    $files = migrationFilesIn($project);
+    $config = $files->config(CommandLine::nothing(), migrationEverySteps());
+    $baseline = $files->baseline(CommandLine::nothing(), Migrations::of(Migration::in('2.0.0', Rename::of('floors', 'trees'))));
+
+    expect(is_file($marker))->toBeFalse()
+        ->and($config instanceof Migrated ? $config->after() : $config)->toContain('->runner()')
+        ->and($baseline instanceof Migrated ? [$baseline->file(), $baseline->after()] : $baseline)
+        ->toBe(['kept/baseline.json', '{"format": 1, "trees": {}}']);
+});
+
+it('reads a PHP config\'s baseline from a literal Baseline::at() alone, and the standard one where none is written so', function (): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'mutation-gate.baseline.json', '{"format": 1, "floors": {}}');
+    Scratch::write($project, 'mutation-gate.php', "<?php\n\nuse NightWorksIO\\MutationGate\\Config\\Baseline;\nuse NightWorksIO\\MutationGate\\Config\\Gate;\n\nreturn Gate::configure()->with(Baseline::at(\$elsewhere), Baseline::requiringImprovement(), Other::at('x'));\n");
+    $baseline = migrationFilesIn($project)->baseline(CommandLine::nothing(), Migrations::of(Migration::in('2.0.0', Rename::of('floors', 'trees'))));
+
+    expect($baseline instanceof Migrated ? $baseline->file() : $baseline)->toBe('mutation-gate.baseline.json');
 });
