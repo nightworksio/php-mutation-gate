@@ -179,6 +179,7 @@ final readonly class Mago implements StaticChecker
         return $batch->answered(
             $this->processes->sideBySide($slots, Unlimited::time(), ...$batch->commands()),
             fn(Ran $ran, int $at): Findings|CannotJudge => $this->answered($ran, $all[$at]),
+            $this->processes->run(...),
         );
     }
 

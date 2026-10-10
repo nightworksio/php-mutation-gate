@@ -214,6 +214,7 @@ final readonly class PhpStan implements StaticChecker
                 ...$batch->commands(),
             ),
             fn(Ran $ran, int $at): Findings|CannotJudge => $this->answered($ran, $all[$at]),
+            $this->processes->run(...),
         );
     }
 

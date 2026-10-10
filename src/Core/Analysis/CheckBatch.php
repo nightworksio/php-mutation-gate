@@ -57,28 +57,63 @@ final readonly class CheckBatch
     /**
      * Each check's answer: what its command's end answers, read by its place
      * among the checks, or the answer it had. A command that never started
-     * cannot judge.
+     * cannot judge. A check whose process ended on its own with no answer, as
+     * a crash leaves it, is run once more, alone, and answered by that run; one
+     * stopped at its limit is not, as it would only run out again.
      *
      * @param Closure(Ran, int): (Findings|CannotJudge) $answer what an end answers, given its check's place
+     * @param Closure(ProcessCommand): Ran             $again  a command run once more, alone
      */
-    public function answered(ProcessEnds $ends, Closure $answer): CheckAnswers
+    public function answered(ProcessEnds $ends, Closure $answer, Closure $again): CheckAnswers
     {
         $ran = [...$ends];
-        $places = array_keys(array_filter(
-            $this->prepared,
-            static fn(object $prepared): bool => $prepared instanceof ProcessCommand,
-        ));
-        $answers = $this->prepared;
+        $answers = $this->answers($ends, $answer);
 
-        foreach ($places as $position => $at) {
-            $answers[$at] = array_key_exists($position, $ran)
-                ? $answer($ran[$position], $at)
-                : CannotJudge::because(self::UNSTARTED);
+        foreach ($this->places() as $position => $at) {
+            $crashed = $answers[$at] instanceof CannotJudge
+                && array_key_exists($position, $ran)
+                && ! $ran[$position]->wasStopped();
+            $command = $this->prepared[$at];
+            $answers[$at] = $crashed && $command instanceof ProcessCommand
+                ? $answer($again($command), $at)
+                : $answers[$at];
         }
 
-        return CheckAnswers::of(...array_filter(
-            $answers,
-            static fn(object $answered): bool => ! $answered instanceof ProcessCommand,
+        return CheckAnswers::of(...$answers);
+    }
+
+    /**
+     * Each check's answer, by its place.
+     *
+     * @param  Closure(Ran, int): (Findings|CannotJudge)  $answer
+     * @return list<Findings|OutOfScope|CannotJudge>
+     */
+    private function answers(ProcessEnds $ends, Closure $answer): array
+    {
+        $ran = [...$ends];
+        $answers = [];
+
+        foreach ($this->prepared as $prepared) {
+            $answers[] = $prepared instanceof ProcessCommand ? CannotJudge::because(self::UNSTARTED) : $prepared;
+        }
+
+        foreach ($this->places() as $position => $at) {
+            $answers[$at] = array_key_exists($position, $ran) ? $answer($ran[$position], $at) : $answers[$at];
+        }
+
+        return array_values($answers);
+    }
+
+    /**
+     * Where each command stands among the checks, by its position among the commands.
+     *
+     * @return list<int>
+     */
+    private function places(): array
+    {
+        return array_keys(array_filter(
+            $this->prepared,
+            static fn(object $prepared): bool => $prepared instanceof ProcessCommand,
         ));
     }
 }

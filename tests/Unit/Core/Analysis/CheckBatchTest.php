@@ -19,6 +19,7 @@ it('runs the checks that need a command, answers each by its place among the che
     $answers = $batch->answered(
         ProcessEnds::of(Ran::finished(succeeded: true, output: 'one'), Ran::finished(succeeded: true, output: 'two')),
         $answer,
+        static fn(): Ran => Ran::finished(succeeded: false, output: 'never run again'),
     );
 
     expect(array_map(static fn(ProcessCommand $command): array => [...$command->arguments()], $batch->commands()))
@@ -36,7 +37,33 @@ it('cannot judge a check whose command never started', function (): void {
     $answers = $batch->answered(
         ProcessEnds::of(Ran::finished(succeeded: true, output: 'one')),
         static fn(): Findings => Findings::none(),
+        static fn(): Ran => Ran::finished(succeeded: false, output: 'never run again'),
     );
 
     expect([...$answers])->toEqual([Findings::none(), CannotJudge::because('The analyser did not start the check.')]);
+});
+
+it('runs a check that ended on its own with no answer once more, alone, and keeps one stopped at its limit as it is', function (): void {
+    $batch = CheckBatch::of(
+        ProcessCommand::of('/project', 'crashed'),
+        ProcessCommand::of('/project', 'stopped'),
+        ProcessCommand::of('/project', 'answered'),
+    );
+    $again = [];
+    $answer = static fn(Ran $ran): Findings|CannotJudge => $ran->output() === 'report'
+        ? Findings::none()
+        : CannotJudge::because(sprintf('No report: %s.', $ran->output()));
+
+    $answers = $batch->answered(
+        ProcessEnds::of(Ran::finished(succeeded: false, output: 'crash'), Ran::stopped('slow'), Ran::finished(succeeded: true, output: 'report')),
+        $answer,
+        static function (ProcessCommand $command) use (&$again): Ran {
+            $again[] = [...$command->arguments()];
+
+            return Ran::finished(succeeded: true, output: 'report');
+        },
+    );
+
+    expect([...$answers])->toEqual([Findings::none(), CannotJudge::because('No report: slow.'), Findings::none()])
+        ->and($again)->toBe([['crashed']]);
 });
