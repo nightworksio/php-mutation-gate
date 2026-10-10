@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function array_map;
 use function implode;
 use function in_array;
 
@@ -24,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
@@ -63,6 +65,12 @@ final readonly class Adapters
     private const string NO_SUITE = '--suite=%s names no test suite. The PHPUnit config declares: %s.';
 
     private const string NO_SUITES = '--suite=%s names no test suite: the PHPUnit config declares none by name.';
+
+    private const string NOT_LISTED
+        = 'tests.suites lists %s, which names no test suite. The PHPUnit config declares: %s.';
+
+    private const string NONE_LISTED
+        = 'tests.suites lists %s, which names no test suite: the PHPUnit config declares none by name.';
 
     public function __construct(
         public Runner $runner,
@@ -121,18 +129,10 @@ final readonly class Adapters
      */
     public function inSuite(SuiteName $suite): self|CannotJudge
     {
-        $configured = Suite::configured($this->project);
+        $declared = $this->declared();
 
-        if ($configured instanceof CannotJudge) {
-            return $configured;
-        }
-
-        $declared = [];
-        $shown = [];
-
-        foreach ($configured->suites() as $each) {
-            $declared[] = $each->name();
-            $shown[] = Fit::plain($each->name());
+        if ($declared instanceof CannotJudge) {
+            return $declared;
         }
 
         $asked = Fit::plain($suite->value());
@@ -141,8 +141,32 @@ final readonly class Adapters
             in_array($suite->value(), $declared, strict: true)
                 => clone($this, ['narrowing' => $this->narrowing->toSuite($suite)]),
             $declared === [] => CannotJudge::because(sprintf(self::NO_SUITES, $asked)),
-            default => CannotJudge::because(sprintf(self::NO_SUITE, $asked, implode(', ', $shown))),
+            default => CannotJudge::because(sprintf(self::NO_SUITE, $asked, $this->shown($declared))),
         };
+    }
+
+    /**
+     * The same, its runs' mutants judged by these suites' tests, as
+     * `tests.suites` lists them (ADR-0002); or why one of them cannot judge
+     * them: the PHPUnit config declares no suite of its name.
+     */
+    public function judgedAmong(Suites $suites): self|CannotJudge
+    {
+        $declared = $suites->isAll() ? [] : $this->declared();
+
+        if ($declared instanceof CannotJudge) {
+            return $declared;
+        }
+
+        foreach ($suites as $suite) {
+            if (! in_array($suite->value(), $declared, strict: true)) {
+                return CannotJudge::because($declared === []
+                    ? sprintf(self::NONE_LISTED, Fit::plain($suite->value()))
+                    : sprintf(self::NOT_LISTED, Fit::plain($suite->value()), $this->shown($declared)));
+            }
+        }
+
+        return clone($this, ['narrowing' => $this->narrowing->amongSuites($suites)]);
     }
 
     /** A plan's briefing, saying what its runs are narrowed to: the security mutators, one suite's tests, or both. */
@@ -167,10 +191,9 @@ final readonly class Adapters
      */
     public function covering(CoverageRun $run): CoverageRun
     {
-        $suite = $this->narrowing->suite();
-        $withheld = $run->across($this->processes())->withholding($this->withheld);
-
-        return $suite instanceof SuiteName ? $withheld->inSuite($suite) : $withheld;
+        return $run->across($this->processes())
+            ->withholding($this->withheld)
+            ->amongSuites($this->narrowing->selected());
     }
 
     /** Whether one suite's tests alone judge its runs' mutants. */
@@ -183,5 +206,33 @@ final readonly class Adapters
     public function processes(): ProcessCount
     {
         return $this->runner->behaviour()->parallelism()->processes($this->cores);
+    }
+
+    /**
+     * The name of each suite the PHPUnit config declares; or why the config cannot be read.
+     *
+     * @return list<string>|CannotJudge
+     */
+    private function declared(): array|CannotJudge
+    {
+        $configured = Suite::configured($this->project);
+
+        if ($configured instanceof CannotJudge) {
+            return $configured;
+        }
+
+        $declared = [];
+
+        foreach ($configured->suites() as $each) {
+            $declared[] = $each->name();
+        }
+
+        return $declared;
+    }
+
+    /** @param list<string> $declared */
+    private function shown(array $declared): string
+    {
+        return implode(', ', array_map(Fit::plain(...), $declared));
     }
 }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Runner;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
-use NightWorksIO\MutationGate\Core\Test\SuiteName;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 
 use function sprintf;
 use function str_contains;
@@ -91,14 +91,15 @@ enum PhpUnitOption: string
     private const string HISTORY_SINCE = '13.3.0';
 
     /**
-     * The option that keeps a run to one suite's tests, as `--suite` asks
-     * (ADR-0025, decision 9); none where the run is narrowed to no suite.
+     * The option that keeps a run to these suites' tests, as `tests.suites`
+     * lists them (ADR-0002) or `--suite` names one (ADR-0025, decision 9);
+     * none where the run runs every suite.
      *
      * @return list<string>
      */
-    public static function inSuite(SuiteName|NotGiven $suite): array
+    public static function inSuites(Suites $suites): array
     {
-        return $suite instanceof SuiteName ? [sprintf('%s=%s', self::TestSuite->value, $suite->value())] : [];
+        return $suites->isAll() ? [] : [sprintf('%s=%s', self::TestSuite->value, $suites->joined())];
     }
 
     /**

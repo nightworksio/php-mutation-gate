@@ -12,14 +12,13 @@ use function is_file;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\PcovReach;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\JUnitLog;
-use NightWorksIO\MutationGate\Core\Test\SuiteName;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestMethod;
@@ -137,7 +136,7 @@ final readonly class Invocation
         OwnConfig $config,
         WholeSuite|Group|Filter|TestPaths $tests,
         DiskPath $directory,
-        SuiteName|NotGiven $suite,
+        Suites $suites,
         CoverageFor $use,
     ): Command {
         return Command::php(
@@ -152,7 +151,7 @@ final readonly class Invocation
                 PhpUnitOption::NoColors->value,
                 ...$config->extraArguments(),
                 ...($tests instanceof TestPaths ? self::filesOf($project, $tests) : self::narrowedTo($tests)),
-                ...PhpUnitOption::inSuite($suite),
+                ...PhpUnitOption::inSuites($suites),
             ],
         )->with(['XDEBUG_MODE' => 'coverage']);
     }
@@ -172,9 +171,9 @@ final readonly class Invocation
         DiskPath $coverage,
         ProcessCount $processes,
         array $paths,
-        SuiteName|NotGiven $suite,
+        Suites $suites,
     ): Command {
-        $extra = [...$config->extraArguments(), ...self::narrowedTo($judgedBy), ...PhpUnitOption::inSuite($suite)];
+        $extra = [...$config->extraArguments(), ...self::narrowedTo($judgedBy), ...PhpUnitOption::inSuites($suites)];
 
         return Command::php(
             $project->absolute(Path::of(self::INFECTION)),

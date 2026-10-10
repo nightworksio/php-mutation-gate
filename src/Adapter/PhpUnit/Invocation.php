@@ -68,7 +68,7 @@ final readonly class Invocation
     {
         $options = [
             ...$this->judgedBy($request->judgedBy()),
-            ...PhpUnitOption::inSuite($request->narrowing()->suite()),
+            ...PhpUnitOption::inSuites($request->narrowing()->selected()),
         ];
 
         return $this->mutant($files, $request->search()->matrix(), ...$options)
@@ -130,7 +130,7 @@ final readonly class Invocation
                 $this->history->value,
                 PhpUnitOption::NoProgress->value,
                 ...$this->covering($request->tests()),
-                ...PhpUnitOption::inSuite($request->suite()),
+                ...PhpUnitOption::inSuites($request->suites()),
             ],
         )
             ->withholding($request->withheld());

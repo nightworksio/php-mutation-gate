@@ -49,7 +49,7 @@ final readonly class Covering
             $config,
             $request->judgedBy(),
             $own,
-            $request->narrowing()->suite(),
+            $request->narrowing()->selected(),
             CoverageFor::Mutation,
         )->withholding($request->withheld());
 
@@ -70,7 +70,7 @@ final readonly class Covering
                 $config,
                 $request->tests(),
                 $directory,
-                $request->suite(),
+                $request->suites(),
                 CoverageFor::Map,
             )->withholding($request->withheld()),
             $directory,
