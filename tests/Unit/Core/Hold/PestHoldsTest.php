@@ -23,7 +23,7 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
-$kernel = HeldPath::literal('src/Kernel.php');
+$makeKernel = static fn(): HeldPath => HeldPath::literal('src/Kernel.php');
 
 $held = static fn(HoldsAttribute ...$attributes): HoldsAttributes => array_reduce(
     $attributes,
@@ -38,7 +38,9 @@ $refusal = static function (string $file, HoldsAttribute ...$attributes) use ($h
     return $read instanceof CannotJudge ? $read->why() : 'read';
 };
 
-it('reads every #[Holds] from which a group follows, file by file', function () use ($kernel, $held): void {
+it('reads every #[Holds] from which a group follows, file by file', function () use ($makeKernel, $held): void {
+    $kernel = $makeKernel();
+
     $read = PestHolds::none()
         ->read(Path::of('tests/Feature/KernelTest.php'), $held(
             HoldsAttribute::at(Standing::TestClosure, $kernel, 5),
@@ -69,7 +71,9 @@ it('reads every #[Holds] from which a group follows, file by file', function () 
         ->and(PestHolds::none()->read(Path::of('tests/Pest.php'), HoldsAttributes::none()))->toEqual(PestHolds::none());
 });
 
-it('refuses any #[Holds] in the file Pest loads before its plugins', function (string $file) use ($kernel, $refusal): void {
+it('refuses any #[Holds] in the file Pest loads before its plugins', function (string $file) use ($makeKernel, $refusal): void {
+    $kernel = $makeKernel();
+
     expect($refusal($file, HoldsAttribute::at(Standing::TestClosure, $kernel, 7)))->toBe(sprintf(<<<'SAID'
         %1$s:7: #[Holds('src/Kernel.php')] stands in %1$s, which Pest loads before it starts any plugin, so its tests
         register before the filter that turns #[Holds] into a group exists.
@@ -77,11 +81,15 @@ it('refuses any #[Holds] in the file Pest loads before its plugins', function (s
         SAID, $file));
 })->with(['tests/Pest.php', 'packages/billing/tests/Pest.php']);
 
-it('reads a file whose name only resembles the one Pest loads first', function (string $file) use ($kernel, $refusal): void {
+it('reads a file whose name only resembles the one Pest loads first', function (string $file) use ($makeKernel, $refusal): void {
+    $kernel = $makeKernel();
+
     expect($refusal($file, HoldsAttribute::at(Standing::TestClosure, $kernel, 7)))->toBe('read');
 })->with(['mytests/Pest.php', 'tests/Pest.php/KernelTest.php', 'tests/Unit/PestTest.php', 'other/tests/Pest.php']);
 
-it('reads tests/Pest.php as any other file where the runner does not say Pest loads it first', function () use ($kernel, $held): void {
+it('reads tests/Pest.php as any other file where the runner does not say Pest loads it first', function () use ($makeKernel, $held): void {
+    $kernel = $makeKernel();
+
     $read = PestHolds::none()->read(Path::of('tests/Pest.php'), $held(HoldsAttribute::at(Standing::TestClosure, $kernel, 7)));
 
     expect($read)->toBeInstanceOf(PestHolds::class);
@@ -94,20 +102,22 @@ it('refuses a #[Holds] Pest never passes to its filter', function (HoldsAttribut
         SAID, $attribute->written(), $on, $attribute->path()->group(), $attribute->path()->group()));
 })->with([
     'a hook' => [
-        HoldsAttribute::at(Standing::HookClosure, HeldPath::literal('src/Kernel.php'), 4),
+        fn(): HoldsAttribute => HoldsAttribute::at(Standing::HookClosure, HeldPath::literal('src/Kernel.php'), 4),
         'a beforeEach, afterEach, beforeAll or afterAll closure',
     ],
     'a dataset' => [
-        HoldsAttribute::at(Standing::DatasetClosure, HeldPath::expression('self::KERNEL'), 4),
+        fn(): HoldsAttribute => HoldsAttribute::at(Standing::DatasetClosure, HeldPath::expression('self::KERNEL'), 4),
         'a dataset closure',
     ],
     'a named function' => [
-        HoldsAttribute::onFunction(HeldPath::literal('src/Kernel.php'), 4, 'Tests\kernel'),
+        fn(): HoldsAttribute => HoldsAttribute::onFunction(HeldPath::literal('src/Kernel.php'), 4, 'Tests\kernel'),
         'a named function',
     ],
 ]);
 
-it('refuses a #[Holds] on a closure kept in a variable', function () use ($kernel, $refusal): void {
+it('refuses a #[Holds] on a closure kept in a variable', function () use ($makeKernel, $refusal): void {
+    $kernel = $makeKernel();
+
     expect($refusal('tests/Feature/KernelTest.php', HoldsAttribute::at(Standing::KeptClosure, $kernel, 3)))->toBe(<<<'SAID'
         tests/Feature/KernelTest.php:3: #[Holds('src/Kernel.php')] stands on a closure kept in a variable, and tokens cannot tell which test that closure
         becomes, so the gate cannot check it against the groups Pest lists.
@@ -132,7 +142,9 @@ it('refuses a #[Holds] on a PHPUnit class or method whose path is not one string
             SAID);
 });
 
-it('refuses a #[Holds] on a PHPUnit class or method without its group, printing the line to add', function () use ($kernel, $refusal): void {
+it('refuses a #[Holds] on a PHPUnit class or method without its group, printing the line to add', function () use ($makeKernel, $refusal): void {
+    $kernel = $makeKernel();
+
     expect($refusal('tests/Unit/KernelTest.php', HoldsAttribute::onClass($kernel, 8, 'Tests\KernelTest', grouped: false)))
         ->toBe(<<<'SAID'
             tests/Unit/KernelTest.php:8: #[Holds('src/Kernel.php')] stands on the PHPUnit class Tests\KernelTest, which Pest loads without its filter,
@@ -149,7 +161,9 @@ it('refuses a #[Holds] on a PHPUnit class or method without its group, printing 
             SAID);
 });
 
-it('refuses the first #[Holds] from which no group follows', function () use ($kernel, $refusal): void {
+it('refuses the first #[Holds] from which no group follows', function () use ($makeKernel, $refusal): void {
+    $kernel = $makeKernel();
+
     $why = $refusal(
         'tests/Feature/KernelTest.php',
         HoldsAttribute::at(Standing::TestClosure, $kernel, 3),
@@ -160,7 +174,9 @@ it('refuses the first #[Holds] from which no group follows', function () use ($k
     expect($why)->toStartWith('tests/Feature/KernelTest.php:6: #[Holds(\'src/Kernel.php\')] stands on a closure kept in a variable');
 });
 
-it('answers the groups Pest lists once every literal path read is among them', function () use ($kernel, $held): void {
+it('answers the groups Pest lists once every literal path read is among them', function () use ($makeKernel, $held): void {
+    $kernel = $makeKernel();
+
     $read = PestHolds::none()->read(Path::of('tests/Unit/KernelTest.php'), $held(
         HoldsAttribute::onClass($kernel, 8, 'Tests\KernelTest', grouped: true),
         HoldsAttribute::at(Standing::TestClosure, HeldPath::expression('self::HTTP'), 12),
@@ -181,7 +197,9 @@ it('answers the groups Pest lists once every literal path read is among them', f
         ->and(PestHolds::none()->listedIn(Groups::none()))->toEqual(Holdings::none());
 });
 
-it('says the plugin is not loaded when Pest lists no group for a literal path read', function () use ($kernel, $held): void {
+it('says the plugin is not loaded when Pest lists no group for a literal path read', function () use ($makeKernel, $held): void {
+    $kernel = $makeKernel();
+
     $read = PestHolds::none()->read(Path::of('tests/Feature/KernelTest.php'), $held(
         HoldsAttribute::at(Standing::TestClosure, $kernel, 5),
     ));

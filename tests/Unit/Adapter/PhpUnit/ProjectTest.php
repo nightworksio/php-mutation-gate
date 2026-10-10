@@ -51,7 +51,7 @@ it('reads where the PHPUnit config PHPUnit reads has PHP print errors', function
 })->with([
     'phpunit.xml, hiding them' => ['phpunit.xml', '<phpunit><php><ini name="display_errors" value="0"/></php></phpunit>', ErrorDisplay::Nowhere],
     'phpunit.xml.dist, on standard error' => ['phpunit.xml.dist', '<phpunit><php><ini name="display_errors" value="stderr"/></php></phpunit>', ErrorDisplay::Stderr],
-    'a config that sets none' => ['phpunit.dist.xml', '<phpunit/>', NotGiven::value()],
+    'a config that sets none' => ['phpunit.dist.xml', '<phpunit/>', fn(): NotGiven => NotGiven::value()],
 ]);
 
 it('reads the first of PHPUnit\'s names, and none where the project has no config', function () use ($at): void {

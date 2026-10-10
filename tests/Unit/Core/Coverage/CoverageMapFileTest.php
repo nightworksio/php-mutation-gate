@@ -40,7 +40,7 @@ $map = static fn(): CoverageMap => CoverageMap::empty()
     ->timed(TestId::of('IdleTest::waits'), Seconds::of(1.5))
     ->executing(Path::of('src/Money.php'), ExecutedMethod::of('add', 10, 13), ExecutedMethod::of('list', 15, 15));
 
-$unreadable = CannotJudge::because('The coverage map is not one this gate writes, so no line of it can be read.');
+$makeUnreadable = static fn(): CannotJudge => CannotJudge::because('The coverage map is not one this gate writes, so no line of it can be read.');
 
 // A map's file as data, to change one entry of and write back.
 $written = static fn(array $file): string => Gzip::pack(JsonText::compact($file));
@@ -99,14 +99,16 @@ it('writes a shard\'s map: only its files, and every test with its seconds', fun
         ->and($shard instanceof CoverageMap ? $shard->durationOf(TestId::of('IdleTest::waits')) : null)->toEqual(Seconds::of(1.5));
 });
 
-it('cannot judge by a file that is not a map it writes', function (string $bytes) use ($unreadable): void {
+it('cannot judge by a file that is not a map it writes', function (string $bytes) use ($makeUnreadable): void {
+    $unreadable = $makeUnreadable();
+
     expect(CoverageMapFile::decode($bytes, HandedMaps::limits()))->toEqual($unreadable);
 })->with([
-    'a map of another format' => [Gzip::pack('{"format": 2, "tests": [], "files": {}}')],
-    'a format written as text' => [Gzip::pack('{"format": "1", "tests": [], "files": {}}')],
+    'a map of another format' => [fn(): string => Gzip::pack('{"format": 2, "tests": [], "files": {}}')],
+    'a format written as text' => [fn(): string => Gzip::pack('{"format": "1", "tests": [], "files": {}}')],
     'the map not gzipped' => ['{"format": 1, "tests": [], "files": {}}'],
-    'text that is not JSON' => [Gzip::pack('{"format": 1, "tests": ')],
-    'a gzip stream cut short' => [substr(Gzip::pack('{"format": 1, "tests": [], "files": {}}'), 0, 20)],
+    'text that is not JSON' => [fn(): string => Gzip::pack('{"format": 1, "tests": ')],
+    'a gzip stream cut short' => [fn(): string => substr(Gzip::pack('{"format": 1, "tests": [], "files": {}}'), 0, 20)],
     'nothing' => [''],
 ]);
 
@@ -259,7 +261,9 @@ it('reads a kept map\'s keys that are no path and digest as none, and a map with
         ->toEqual(EntryKeys::none()->with(Path::of('0'), Digest::of(str_repeat('e', 64))));
 });
 
-it('keeps no map past either of a store\'s limits, and reads none that inflates past it, is no gzip, or is not this format', function () use ($map, $file, $written, $unreadable): void {
+it('keeps no map past either of a store\'s limits, and reads none that inflates past it, is no gzip, or is not this format', function () use ($map, $file, $written, $makeUnreadable): void {
+    $unreadable = $makeUnreadable();
+
     $kept = KeptMap::of($map(), Unplaced::map(), EntryKeys::none());
     $bytes = CoverageMapFile::keeping($kept, MapLimits::standard());
     $packed = is_string($bytes) ? strlen($bytes) : 0;

@@ -129,16 +129,16 @@ it('judges each timeout by what its control found', function (ControlRun $found,
         ->toEqual([$status, $need, $reason])
         ->and($applied[1])->toEqual([...$mutants][1]);
 })->with([
-    'tests that passed in a time' => [ControlRun::passed(Seconds::of(1.5)), MutantStatus::TimedOut, Seconds::of(1.5), ''],
-    'tests that passed, untimed' => [ControlRun::passed(Unmeasured::duration()), MutantStatus::TimedOut, Seconds::of(10.0), ''],
-    'tests that failed' => [ControlRun::failed(), MutantStatus::Unjudged, Unmeasured::duration(), TimeoutControls::FAILS_UNMUTATED],
-    'tests out of memory' => [ControlRun::outOfMemory(), MutantStatus::Unjudged, Unmeasured::duration(), TimeoutControls::OUT_OF_MEMORY],
-    'tests that ran out' => [ControlRun::ranOut(), MutantStatus::TimedOut, Unmeasured::duration(), TimeoutControls::RAN_OUT],
+    'tests that passed in a time' => [fn(): ControlRun => ControlRun::passed(Seconds::of(1.5)), MutantStatus::TimedOut, fn(): Seconds => Seconds::of(1.5), ''],
+    'tests that passed, untimed' => [fn(): ControlRun => ControlRun::passed(Unmeasured::duration()), MutantStatus::TimedOut, fn(): Seconds => Seconds::of(10.0), ''],
+    'tests that failed' => [fn(): ControlRun => ControlRun::failed(), MutantStatus::Unjudged, fn(): Unmeasured => Unmeasured::duration(), TimeoutControls::FAILS_UNMUTATED],
+    'tests out of memory' => [fn(): ControlRun => ControlRun::outOfMemory(), MutantStatus::Unjudged, fn(): Unmeasured => Unmeasured::duration(), TimeoutControls::OUT_OF_MEMORY],
+    'tests that ran out' => [fn(): ControlRun => ControlRun::ranOut(), MutantStatus::TimedOut, fn(): Unmeasured => Unmeasured::duration(), TimeoutControls::RAN_OUT],
     'a control never run' => [
-        ControlRun::unrun('the file is gone'),
+        fn(): ControlRun => ControlRun::unrun('the file is gone'),
         MutantStatus::TimedOut,
-        Unmeasured::duration(),
-        sprintf(TimeoutControls::UNRUN, 'the file is gone'),
+        fn(): Unmeasured => Unmeasured::duration(),
+        fn(): string => sprintf(TimeoutControls::UNRUN, 'the file is gone'),
     ],
 ]);
 

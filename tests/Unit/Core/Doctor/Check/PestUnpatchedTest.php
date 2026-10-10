@@ -36,10 +36,10 @@ it('fails a run where pest.patch is on and the installed plugin does not carry p
 it('finds nothing where the plugin carries the patch, is not installed, pest.patch is off, or Pest is not the runner', function (Settings $settings, Patched $patch): void {
     expect(pestUnpatchedIn($settings, $patch))->toEqual(Findings::none());
 })->with([
-    'patched' => [Configs::settings(['runner' => 'pest', 'pest' => ['patch' => true]]), Patched::Applied],
-    'not installed' => [Configs::settings(['runner' => 'pest', 'pest' => ['patch' => true]]), Patched::NotInstalled],
-    'pest.patch off' => [Configs::settings(['runner' => 'pest']), Patched::Missing],
-    'another runner' => [Configs::settings(['runner' => 'infection', 'pest' => ['patch' => true]]), Patched::Missing],
+    'patched' => [fn(): Settings => Configs::settings(['runner' => 'pest', 'pest' => ['patch' => true]]), Patched::Applied],
+    'not installed' => [fn(): Settings => Configs::settings(['runner' => 'pest', 'pest' => ['patch' => true]]), Patched::NotInstalled],
+    'pest.patch off' => [fn(): Settings => Configs::settings(['runner' => 'pest']), Patched::Missing],
+    'another runner' => [fn(): Settings => Configs::settings(['runner' => 'infection', 'pest' => ['patch' => true]]), Patched::Missing],
 ]);
 
 it('finds nothing where nothing was read', function (): void {

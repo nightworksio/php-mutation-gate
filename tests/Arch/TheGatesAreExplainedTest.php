@@ -206,6 +206,6 @@ it('holds the generated rule tables to what the locked tools say of their rules'
         $tool,
     ));
 })->with(['pint', 'rector'])->skip(
-    ! writtenForTheInstalled('pint', 'laravel/pint') || ! writtenForTheInstalled('rector', 'rector/rector'),
+    fn(): bool => ! writtenForTheInstalled('pint', 'laravel/pint') || ! writtenForTheInstalled('rector', 'rector/rector'),
     'The lowest dependencies install other releases than the tables were written from.',
 );

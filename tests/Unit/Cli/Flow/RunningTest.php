@@ -86,18 +86,20 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-$ticking = RunningCases::ticking(...);
-$tickingBy = RunningCases::tickingBy(...);
-$resultIn = RunningCases::resultIn(...);
-$statuses = RunningCases::statuses(...);
-$flaky = RunningCases::flaky(...);
-$asked = RunningCases::asked(...);
-
+$makeTicking = static fn(): Closure => RunningCases::ticking(...);
+$makeTickingBy = static fn(): Closure => RunningCases::tickingBy(...);
+$makeResultIn = static fn(): Closure => RunningCases::resultIn(...);
+$makeStatuses = static fn(): Closure => RunningCases::statuses(...);
+$makeFlaky = static fn(): Closure => RunningCases::flaky(...);
 it('runs the shard it is named, on the commit its plan was made on, and leaves its result', function () use (
-    $ticking,
-    $resultIn,
-    $statuses,
+    $makeTicking,
+    $makeResultIn,
+    $makeStatuses,
 ): void {
+    $ticking = $makeTicking();
+    $resultIn = $makeResultIn();
+    $statuses = $makeStatuses();
+
     $project = Flows::project();
     $plan = Planned::handedIn($project, Planned::twoShards());
     $written = new Running(Flows::adapters($project, [], ScriptedRunner::fixture()), Flows::settings(), $ticking())
@@ -119,7 +121,9 @@ it('runs the shard it is named, on the commit its plan was made on, and leaves i
         ->and(is_file(sprintf('%s/.mutation-gate/results/2.json', $project)))->toBeFalse();
 });
 
-it('runs the shard the environment names where none is named', function () use ($resultIn): void {
+it('runs the shard the environment names where none is named', function () use ($makeResultIn): void {
+    $resultIn = $makeResultIn();
+
     $project = Flows::project();
     new Running(Flows::adapters($project, ['SHARD' => '2']), Flows::settings(), Flows::setup())
         ->run(Planned::handedIn($project, Planned::twoShards()), Absent::setting(), Workspace::results());
@@ -169,7 +173,9 @@ it('refuses to run where the commit HEAD is at cannot be read', function (): voi
     ));
 });
 
-it('runs every shard of a plan one after another, each leaving its result', function () use ($resultIn): void {
+it('runs every shard of a plan one after another, each leaving its result', function () use ($makeResultIn): void {
+    $resultIn = $makeResultIn();
+
     $project = Flows::project();
 
     $written = new Running(Flows::adapters($project), Flows::settings(), Flows::setup())
@@ -279,8 +285,10 @@ it('starts each mutant as runner.workers says, and confirms each survivor in a f
 });
 
 it('leaves every invocation\'s mutants in one result, with what each skipped added up', function () use (
-    $resultIn,
+    $makeResultIn,
 ): void {
+    $resultIn = $makeResultIn();
+
     $project = Flows::project();
     $killed = Mutant::of(
         MutantId::hash(Path::of('src/Money.php'), 'Plus', '@@ @@', 0),
@@ -302,7 +310,10 @@ it('leaves every invocation\'s mutants in one result, with what each skipped add
         ->and($runner->retries())->toBe([]);
 });
 
-it('runs each survivor once more and keeps those killed then as flaky', function (MutantStatus $killed) use ($resultIn, $flaky): void {
+it('runs each survivor once more and keeps those killed then as flaky', function (MutantStatus $killed) use ($makeResultIn, $makeFlaky): void {
+    $resultIn = $makeResultIn();
+    $flaky = $makeFlaky();
+
     $project = Flows::project();
     $runner = ScriptedRunner::fixture()->killingAgain($killed);
     $adapters = Flows::adapters($project, [], $runner);
@@ -332,7 +343,10 @@ it('runs each survivor once more and keeps those killed then as flaky', function
         ));
 })->with(['by a test' => [MutantStatus::Killed], 'by a static analyser' => [MutantStatus::KilledByStaticAnalysis]]);
 
-it('keeps no survivor as flaky that survives again', function () use ($resultIn, $flaky): void {
+it('keeps no survivor as flaky that survives again', function () use ($makeResultIn, $makeFlaky): void {
+    $resultIn = $makeResultIn();
+    $flaky = $makeFlaky();
+
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
 
@@ -356,11 +370,14 @@ it('runs no survivor proven equivalent again, unless equivalence.static is false
 
     expect($asked)->toBe($retried);
 })->with([
-    'proven equivalent' => [Equivalence::provenStatically(), [['Plus-11']]],
-    'not proven' => [Equivalence::notProvenStatically(), [['Plus-11'], ['GreaterThan-16']]],
+    'proven equivalent' => [fn(): Equivalence => Equivalence::provenStatically(), [['Plus-11']]],
+    'not proven' => [fn(): Equivalence => Equivalence::notProvenStatically(), [['Plus-11'], ['GreaterThan-16']]],
 ]);
 
-it('runs no survivor again where flaky.confirmSurvivors is false', function () use ($resultIn, $flaky): void {
+it('runs no survivor again where flaky.confirmSurvivors is false', function () use ($makeResultIn, $makeFlaky): void {
+    $resultIn = $makeResultIn();
+    $flaky = $makeFlaky();
+
     $project = Flows::project();
     $runner = ScriptedRunner::fixture()->killingAgain();
 
@@ -373,7 +390,9 @@ it('runs no survivor again where flaky.confirmSurvivors is false', function () u
         ->and($flaky($resultIn($project, 1)))->toBe([]);
 });
 
-it('runs survivors again within what the budget has left, not what the invocation started with', function () use ($tickingBy): void {
+it('runs survivors again within what the budget has left, not what the invocation started with', function () use ($makeTickingBy): void {
+    $tickingBy = $makeTickingBy();
+
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
     $unbudgeted = ScriptedRunner::fixture();
@@ -408,7 +427,10 @@ it('runs survivors again with the most the config sets', function (): void {
 
 it('leaves the runner\'s cannot judge as the shard\'s result, with nothing flaky', function (
     string $how,
-) use ($resultIn, $flaky): void {
+) use ($makeResultIn, $makeFlaky): void {
+    $resultIn = $makeResultIn();
+    $flaky = $makeFlaky();
+
     $project = Flows::project();
     $runner = $how === 'mutate'
         ? ScriptedRunner::fixture()->refusing('The suite failed without mutants.')
@@ -425,7 +447,9 @@ it('leaves the runner\'s cannot judge as the shard\'s result, with nothing flaky
         ->and(count($runner->requests()))->toBe(1);
 })->with(['mutate', 'retry']);
 
-it('names no runner in what it measured where the runner cannot name itself', function () use ($resultIn): void {
+it('names no runner in what it measured where the runner cannot name itself', function () use ($makeResultIn): void {
+    $resultIn = $makeResultIn();
+
     $project = Flows::project();
     $runner = ScriptedRunner::fixture()->unnamed('No runner is installed.');
 
@@ -436,7 +460,9 @@ it('names no runner in what it measured where the runner cannot name itself', fu
     expect($result instanceof ShardResult ? $result->measured()->runner() : $result)->toBe('');
 });
 
-it('leaves a unit the plan did not key as one with no key', function () use ($resultIn): void {
+it('leaves a unit the plan did not key as one with no key', function () use ($makeResultIn): void {
+    $resultIn = $makeResultIn();
+
     $project = Flows::project();
     $root = Package::at(Path::root());
     $money = Shard::of(ShardId::of(1), $root, Units::of(Planned::money()), Seconds::of(2.0), 'money');
@@ -452,7 +478,9 @@ it('leaves a unit the plan did not key as one with no key', function () use ($re
     ));
 });
 
-it('names no flaky mutant it did not run again', function () use ($resultIn): void {
+it('names no flaky mutant it did not run again', function () use ($makeResultIn): void {
+    $resultIn = $makeResultIn();
+
     $project = Flows::project();
 
     new Running(Flows::adapters($project), Flows::settings(), Flows::setup())
@@ -463,9 +491,12 @@ it('names no flaky mutant it did not run again', function () use ($resultIn): vo
 });
 
 it('never runs a timed-out mutant again, whatever decided its limit, and keeps it timed out', function () use (
-    $statuses,
-    $resultIn,
+    $makeStatuses,
+    $makeResultIn,
 ): void {
+    $statuses = $makeStatuses();
+    $resultIn = $makeResultIn();
+
     $project = Flows::project();
     $scripted = ScriptedRunner::fixture();
 
@@ -478,7 +509,9 @@ it('never runs a timed-out mutant again, whatever decided its limit, and keeps i
         ->and($statuses($resultIn($project, 1)))->toContain('Decrement-27 timed-out');
 });
 
-it('mutates no held unit whose holding tests miss lines of it, and leaves why', function () use ($resultIn): void {
+it('mutates no held unit whose holding tests miss lines of it, and leaves why', function () use ($makeResultIn): void {
+    $resultIn = $makeResultIn();
+
     $project = Flows::project();
     new Handoff(Directory::at($project), HandedMaps::limits())->write(Planned::oneShard(), Flows::map(), KillHistory::none(), Unplaced::map());
     $scripted = ScriptedRunner::fixture();
@@ -524,8 +557,10 @@ it('runs a held unit\'s holding tests under coverage of the one suite a narrowed
 });
 
 it('mutates a unit the whole suite judges, though the map reaches none of it, and runs no holding tests for it', function () use (
-    $resultIn,
+    $makeResultIn,
 ): void {
+    $resultIn = $makeResultIn();
+
     $project = Flows::project();
     new Handoff(Directory::at($project), HandedMaps::limits())->write(Planned::oneShard(), CoverageMap::empty(), KillHistory::none(), Unplaced::map());
     $scripted = ScriptedRunner::fixture();
@@ -548,7 +583,9 @@ it('mutates a unit the whole suite judges, though the map reaches none of it, an
 it('mutates each held unit its holding tests cover, and cannot judge a shard whose held tests fail alone', function (
     CoverageMap|CannotJudge $answer,
     string $outcome,
-) use ($resultIn): void {
+) use ($makeResultIn): void {
+    $resultIn = $makeResultIn();
+
     $project = Flows::project();
     new Handoff(Directory::at($project), HandedMaps::limits())->write(Planned::oneShard(), Flows::map(), KillHistory::none(), Unplaced::map());
 
@@ -563,10 +600,10 @@ it('mutates each held unit its holding tests cover, and cannot judge a shard who
     expect($said instanceof CannotJudge ? $said->why() : $said::class)->toBe($outcome)
         ->and($result instanceof ShardResult ? count($result->held()->misses()) : $result)->toBe(0);
 })->with([
-    'tests that cover what they hold' => [Flows::map(), MutationResult::class],
+    'tests that cover what they hold' => [fn(): CoverageMap => Flows::map(), MutationResult::class],
     'tests that fail on their own' => [
-        CannotJudge::because('The group failed.'),
-        sprintf(
+        fn(): CannotJudge => CannotJudge::because('The group failed.'),
+        fn(): string => sprintf(
             '%s %s',
             'The tests that hold src/Held.php cannot run on their own under coverage, so they cannot judge it.',
             'The group failed.',
@@ -575,8 +612,10 @@ it('mutates each held unit its holding tests cover, and cannot judge a shard who
 ]);
 
 it('cannot judge a shard handed no map, and mutates nothing of it, held units and all', function () use (
-    $resultIn,
+    $makeResultIn,
 ): void {
+    $resultIn = $makeResultIn();
+
     $project = Flows::project();
     $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
     $plain = ScriptedRunner::fixture();
@@ -594,7 +633,9 @@ it('cannot judge a shard handed no map, and mutates nothing of it, held units an
         ->and($result instanceof ShardResult ? $result->outcome() : $result)->toBeInstanceOf(CannotJudge::class);
 });
 
-it('leaves each kill\'s evidence beside its mutant in the shard\'s result, keeping nothing a process printed where a withheld secret is in it', function () use ($resultIn): void {
+it('leaves each kill\'s evidence beside its mutant in the shard\'s result, keeping nothing a process printed where a withheld secret is in it', function () use ($makeResultIn): void {
+    $resultIn = $makeResultIn();
+
     $project = Flows::project();
     $mutants = Flows::mutantsOf('src/Money.php');
     $killed = [...array_filter([...$mutants], static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Killed)][0];
@@ -618,7 +659,9 @@ it('leaves each kill\'s evidence beside its mutant in the shard\'s result, keepi
         ->toEqual([255, false, NotGiven::value()]);
 });
 
-it('leaves a kill no test is named for unjudged in the shard\'s result, saying how its process ended, unless a signal or a fatal error ended it', function (Ended $ended, MutantStatus $status, string $reason) use ($resultIn): void {
+it('leaves a kill no test is named for unjudged in the shard\'s result, saying how its process ended, unless a signal or a fatal error ended it', function (Ended $ended, MutantStatus $status, string $reason) use ($makeResultIn): void {
+    $resultIn = $makeResultIn();
+
     $project = Flows::project();
     $mutants = Flows::mutantsOf('src/Money.php');
     $named = [...array_filter([...$mutants], static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Killed)][0];
@@ -644,12 +687,12 @@ it('leaves a kill no test is named for unjudged in the shard\'s result, saying h
         ->and($outcome instanceof MutationResult ? $outcome->evidence()->of($unnamed->id())->ended() : null)->toBeInstanceOf(Ended::class);
 })->with([
     'an exit code and what it printed' => [
-        Ended::of(1, signalled: false, printed: "boom\n")->withFatal(fatal: false),
+        fn(): Ended => Ended::of(1, signalled: false, printed: "boom\n")->withFatal(fatal: false),
         MutantStatus::Unjudged,
         "No test is named as its killer, and no signal or fatal error PHP recorded ended its process: it exited with code 1. Its output ended:\nboom\n",
     ],
-    'a signal' => [Ended::unprinted(139, signalled: true), MutantStatus::Killed, ''],
-    'a fatal error' => [Ended::unprinted(255, signalled: false)->withFatal(fatal: true), MutantStatus::Killed, ''],
+    'a signal' => [fn(): Ended => Ended::unprinted(139, signalled: true), MutantStatus::Killed, ''],
+    'a fatal error' => [fn(): Ended => Ended::unprinted(255, signalled: false)->withFatal(fatal: true), MutantStatus::Killed, ''],
 ]);
 
 it('times a run of no test once before the first mutant, the fastest of three on the shard\'s first file, and lays every request on it', function (): void {
@@ -680,8 +723,10 @@ it('lays each request on no start-up where a run of no test cannot run, so each 
 });
 
 it('checks mutants before their tests only where staticCheck.before asks, and otherwise leaves the analyser to the survivors', function () use (
-    $ticking,
+    $makeTicking,
 ): void {
+    $ticking = $makeTicking();
+
     $project = Flows::project();
     $plan = Planned::handedIn($project, Planned::twoShards());
     $after = ScriptedRunner::fixture();

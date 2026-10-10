@@ -191,7 +191,7 @@ function contentKeyPaths(array $paths): Paths
     return $read;
 }
 
-$keyOf = contentKeyOf(...);
+$makeKeyOf = static fn(): Closure => contentKeyOf(...);
 
 /** Fields, each written with its length in bytes before it. */
 $frame = static fn(string ...$fields): string => implode('', array_map(
@@ -202,7 +202,9 @@ $frame = static fn(string ...$fields): string => implode('', array_map(
 /** The SHA-256 of fields, each written with its length in bytes before it. */
 $framed = static fn(string ...$fields): Digest => Digest::of(hash('sha256', $frame(...$fields)));
 
-it('hashes everything a result could depend on, in order, from finished digests', function () use ($keyOf, $frame, $framed): void {
+it('hashes everything a result could depend on, in order, from finished digests', function () use ($makeKeyOf, $frame, $framed): void {
+    $keyOf = $makeKeyOf();
+
     $base = $framed(
         'mutation-gate proof 5',
         'gate',
@@ -275,7 +277,9 @@ it('hashes everything a result could depend on, in order, from finished digests'
         ));
 });
 
-it('changes with the analyser that checks the mutants, its version and its config', function (string $analyser, string $version, string $config) use ($keyOf): void {
+it('changes with the analyser that checks the mutants, its version and its config', function (string $analyser, string $version, string $config) use ($makeKeyOf): void {
+    $keyOf = $makeKeyOf();
+
     expect($keyOf(analyser: [$analyser, $version, $config]))->not->toEqual($keyOf(analyser: ['phpstan', '2.1.30', 'config']));
 })->with([
     'another analyser' => ['mago', '2.1.30', 'config'],
@@ -283,70 +287,82 @@ it('changes with the analyser that checks the mutants, its version and its confi
     'another config' => ['phpstan', '2.1.30', 'config changed'],
 ]);
 
-it('changes with every input a result could depend on', function (Closure $changed) use ($keyOf): void {
+it('changes with every input a result could depend on', function (Closure $changed) use ($makeKeyOf): void {
+    $keyOf = $makeKeyOf();
+
     expect($changed())->not->toEqual($keyOf());
 })->with([
-    'the gate\'s version' => [fn(): Digest|Unkeyed => $keyOf(gateVersion: '1.0.1')],
-    'the gate\'s reference' => [fn(): Digest|Unkeyed => $keyOf(gateReference: 'abc124')],
-    'the config' => [fn(): Digest|Unkeyed => $keyOf(config: '{"runner":"infection"}')],
-    'the runner' => [fn(): Digest|Unkeyed => $keyOf(runner: 'infection')],
-    'a version the runner drives' => [fn(): Digest|Unkeyed => $keyOf(versions: [['pestphp/pest-plugin-mutate', '5.0.1', 'r2'], ['pestphp/pest', '5.2.1', 'r1']])],
-    'the platform' => [fn(): Digest|Unkeyed => $keyOf(platform: 'another platform')],
-    'a static analyser that checks the mutants' => [fn(): Digest|Unkeyed => $keyOf(analyser: ['phpstan', '2.1.30', 'config'])],
-    'what is installed' => [fn(): Digest|Unkeyed => $keyOf(installed: 'installed differently')],
-    'a source file' => [fn(): Digest|Unkeyed => $keyOf(source: [...CONTENT_KEY_SOURCE, 'src/A.php' => 'a2'])],
-    'the CI definition' => [fn(): Digest|Unkeyed => $keyOf(ci: "name: mutation\n  - run: vendor/bin/pest\n")],
-    'the commit an action is pinned at' => [fn(): Digest|Unkeyed => $keyOf(ci: sprintf("name: mutation\n# The gate.\nsteps:\n  - uses: actions/checkout@%s # v7\n", str_repeat('4e', 20)))],
-    'a blank line in the CI definition' => [fn(): Digest|Unkeyed => $keyOf(ci: sprintf("name: mutation\n\nsteps:\n  - uses: actions/checkout@%s # v7\n", str_repeat('3d', 20)))],
-    'a second CI definition that runs the gate' => [fn(): Digest|Unkeyed => $keyOf(template: 'stages: [mutation]')],
-    'a judging test' => [fn(): Digest|Unkeyed => $keyOf(cases: [...CONTENT_KEY_CASES, 'tests/Unit/MoneyTest.php' => ['m2', "<?php\nit('adds', fn() => new Helper());\n"]])],
-    'the support a judging test names' => [fn(): Digest|Unkeyed => $keyOf(others: [...CONTENT_KEY_OTHERS, 'tests/Support/Helper.php' => ['h2', "<?php\nfinal class Helper {}\n"]])],
-    'a file that runs when it is loaded' => [fn(): Digest|Unkeyed => $keyOf(others: [...CONTENT_KEY_OTHERS, 'tests/Pest.php' => ['p2', "<?php\nuses(Base::class);\n"]])],
-    'the support such a file names' => [fn(): Digest|Unkeyed => $keyOf(others: [...CONTENT_KEY_OTHERS, 'tests/Support/Base.php' => ['b3', "<?php\nabstract class Base {}\n"]])],
-    'a test file the coverage map does not know' => [fn(): Digest|Unkeyed => $keyOf(cases: [...CONTENT_KEY_CASES, 'tests/Unit/UnknownTest.php' => ['u2', "<?php\nit('works');\n"]])],
-    'a canary' => [fn(): Digest|Unkeyed => $keyOf(cases: [...CONTENT_KEY_CASES, 'tests/Unit/CanaryTest.php' => ['k2', "<?php\nit('sings');\n"]])],
-    'the tests the runner says can judge the unit' => [fn(): Digest|Unkeyed => $keyOf(judges: ['tests/Unit/MoneyTest.php'])],
-    'a test covering a line' => [fn(): Digest|Unkeyed => $keyOf(covered: [[3, 'b::t'], [3, 'a::t'], [1, 'c::t'], [1, 'd::t']])],
-    'the lines covered' => [fn(): Digest|Unkeyed => $keyOf(covered: [[3, 'b::t'], [3, 'a::t'], [2, 'c::t']])],
-    'the unit' => [fn(): Digest|Unkeyed => $keyOf(unit: 'src/B.php')],
-    'a group holding the unit' => [fn(): Digest|Unkeyed => $keyOf(group: 'holds')],
-    'a filter holding the unit' => [fn(): Digest|Unkeyed => $keyOf(filter: 'holds')],
+    'the gate\'s version' => [fn(): Digest|Unkeyed => $makeKeyOf()(gateVersion: '1.0.1')],
+    'the gate\'s reference' => [fn(): Digest|Unkeyed => $makeKeyOf()(gateReference: 'abc124')],
+    'the config' => [fn(): Digest|Unkeyed => $makeKeyOf()(config: '{"runner":"infection"}')],
+    'the runner' => [fn(): Digest|Unkeyed => $makeKeyOf()(runner: 'infection')],
+    'a version the runner drives' => [fn(): Digest|Unkeyed => $makeKeyOf()(versions: [['pestphp/pest-plugin-mutate', '5.0.1', 'r2'], ['pestphp/pest', '5.2.1', 'r1']])],
+    'the platform' => [fn(): Digest|Unkeyed => $makeKeyOf()(platform: 'another platform')],
+    'a static analyser that checks the mutants' => [fn(): Digest|Unkeyed => $makeKeyOf()(analyser: ['phpstan', '2.1.30', 'config'])],
+    'what is installed' => [fn(): Digest|Unkeyed => $makeKeyOf()(installed: 'installed differently')],
+    'a source file' => [fn(): Digest|Unkeyed => $makeKeyOf()(source: [...CONTENT_KEY_SOURCE, 'src/A.php' => 'a2'])],
+    'the CI definition' => [fn(): Digest|Unkeyed => $makeKeyOf()(ci: "name: mutation\n  - run: vendor/bin/pest\n")],
+    'the commit an action is pinned at' => [fn(): Digest|Unkeyed => $makeKeyOf()(ci: sprintf("name: mutation\n# The gate.\nsteps:\n  - uses: actions/checkout@%s # v7\n", str_repeat('4e', 20)))],
+    'a blank line in the CI definition' => [fn(): Digest|Unkeyed => $makeKeyOf()(ci: sprintf("name: mutation\n\nsteps:\n  - uses: actions/checkout@%s # v7\n", str_repeat('3d', 20)))],
+    'a second CI definition that runs the gate' => [fn(): Digest|Unkeyed => $makeKeyOf()(template: 'stages: [mutation]')],
+    'a judging test' => [fn(): Digest|Unkeyed => $makeKeyOf()(cases: [...CONTENT_KEY_CASES, 'tests/Unit/MoneyTest.php' => ['m2', "<?php\nit('adds', fn() => new Helper());\n"]])],
+    'the support a judging test names' => [fn(): Digest|Unkeyed => $makeKeyOf()(others: [...CONTENT_KEY_OTHERS, 'tests/Support/Helper.php' => ['h2', "<?php\nfinal class Helper {}\n"]])],
+    'a file that runs when it is loaded' => [fn(): Digest|Unkeyed => $makeKeyOf()(others: [...CONTENT_KEY_OTHERS, 'tests/Pest.php' => ['p2', "<?php\nuses(Base::class);\n"]])],
+    'the support such a file names' => [fn(): Digest|Unkeyed => $makeKeyOf()(others: [...CONTENT_KEY_OTHERS, 'tests/Support/Base.php' => ['b3', "<?php\nabstract class Base {}\n"]])],
+    'a test file the coverage map does not know' => [fn(): Digest|Unkeyed => $makeKeyOf()(cases: [...CONTENT_KEY_CASES, 'tests/Unit/UnknownTest.php' => ['u2', "<?php\nit('works');\n"]])],
+    'a canary' => [fn(): Digest|Unkeyed => $makeKeyOf()(cases: [...CONTENT_KEY_CASES, 'tests/Unit/CanaryTest.php' => ['k2', "<?php\nit('sings');\n"]])],
+    'the tests the runner says can judge the unit' => [fn(): Digest|Unkeyed => $makeKeyOf()(judges: ['tests/Unit/MoneyTest.php'])],
+    'a test covering a line' => [fn(): Digest|Unkeyed => $makeKeyOf()(covered: [[3, 'b::t'], [3, 'a::t'], [1, 'c::t'], [1, 'd::t']])],
+    'the lines covered' => [fn(): Digest|Unkeyed => $makeKeyOf()(covered: [[3, 'b::t'], [3, 'a::t'], [2, 'c::t']])],
+    'the unit' => [fn(): Digest|Unkeyed => $makeKeyOf()(unit: 'src/B.php')],
+    'a group holding the unit' => [fn(): Digest|Unkeyed => $makeKeyOf()(group: 'holds')],
+    'a filter holding the unit' => [fn(): Digest|Unkeyed => $makeKeyOf()(filter: 'holds')],
 ]);
 
-it('stays the same for what no result depends on', function (Closure $unchanged) use ($keyOf): void {
+it('stays the same for what no result depends on', function (Closure $unchanged) use ($makeKeyOf): void {
+    $keyOf = $makeKeyOf();
+
     expect($unchanged())->toEqual($keyOf());
 })->with([
-    'the config file' => [fn(): Digest|Unkeyed => $keyOf(source: [...CONTENT_KEY_SOURCE, 'mutation-gate.json' => 'g2'])],
-    'the baseline' => [fn(): Digest|Unkeyed => $keyOf(source: [...CONTENT_KEY_SOURCE, 'mutation-gate-baseline.json' => 'l2'])],
-    'what proofs.ignore matches' => [fn(): Digest|Unkeyed => $keyOf(source: [...CONTENT_KEY_SOURCE, 'docs/index.md' => 'd2'])],
-    'another CI definition' => [fn(): Digest|Unkeyed => $keyOf(source: [...CONTENT_KEY_SOURCE, '.github/workflows/ci.yml' => 'w2'])],
-    'the ledger' => [fn(): Digest|Unkeyed => $keyOf(source: [...CONTENT_KEY_SOURCE, '.mutation-gate/ledger/refs/heads/main/ledger.json' => 'l2'])],
-    'the CI definition\'s own digest' => [fn(): Digest|Unkeyed => $keyOf(source: [...CONTENT_KEY_SOURCE, '.github/workflows/mutation.yml' => 'm2'])],
-    'a comment line in the CI definition' => [fn(): Digest|Unkeyed => $keyOf(ci: sprintf("name: mutation\n# Another comment.\nsteps:\n  # And one more.\n  - uses: actions/checkout@%s # v7\n", str_repeat('3d', 20)))],
-    'a test the map knows and that cannot judge the unit' => [fn(): Digest|Unkeyed => $keyOf(cases: [...CONTENT_KEY_CASES, 'tests/Unit/OtherTest.php' => ['o2', "<?php\nit('other', fn() => new Unused());\n"]])],
-    'support nothing names' => [fn(): Digest|Unkeyed => $keyOf(others: [...CONTENT_KEY_OTHERS, 'tests/Support/Unused.php' => ['x2', "<?php\nfinal class Unused {}\n"]])],
-    'the order the runner lists the packages it drives in' => [fn(): Digest|Unkeyed => $keyOf(versions: array_reverse(CONTENT_KEY_VERSIONS))],
-    'the order the files are listed in' => [fn(): Digest|Unkeyed => $keyOf(source: array_reverse(CONTENT_KEY_SOURCE))],
+    'the config file' => [fn(): Digest|Unkeyed => $makeKeyOf()(source: [...CONTENT_KEY_SOURCE, 'mutation-gate.json' => 'g2'])],
+    'the baseline' => [fn(): Digest|Unkeyed => $makeKeyOf()(source: [...CONTENT_KEY_SOURCE, 'mutation-gate-baseline.json' => 'l2'])],
+    'what proofs.ignore matches' => [fn(): Digest|Unkeyed => $makeKeyOf()(source: [...CONTENT_KEY_SOURCE, 'docs/index.md' => 'd2'])],
+    'another CI definition' => [fn(): Digest|Unkeyed => $makeKeyOf()(source: [...CONTENT_KEY_SOURCE, '.github/workflows/ci.yml' => 'w2'])],
+    'the ledger' => [fn(): Digest|Unkeyed => $makeKeyOf()(source: [...CONTENT_KEY_SOURCE, '.mutation-gate/ledger/refs/heads/main/ledger.json' => 'l2'])],
+    'the CI definition\'s own digest' => [fn(): Digest|Unkeyed => $makeKeyOf()(source: [...CONTENT_KEY_SOURCE, '.github/workflows/mutation.yml' => 'm2'])],
+    'a comment line in the CI definition' => [fn(): Digest|Unkeyed => $makeKeyOf()(ci: sprintf("name: mutation\n# Another comment.\nsteps:\n  # And one more.\n  - uses: actions/checkout@%s # v7\n", str_repeat('3d', 20)))],
+    'a test the map knows and that cannot judge the unit' => [fn(): Digest|Unkeyed => $makeKeyOf()(cases: [...CONTENT_KEY_CASES, 'tests/Unit/OtherTest.php' => ['o2', "<?php\nit('other', fn() => new Unused());\n"]])],
+    'support nothing names' => [fn(): Digest|Unkeyed => $makeKeyOf()(others: [...CONTENT_KEY_OTHERS, 'tests/Support/Unused.php' => ['x2', "<?php\nfinal class Unused {}\n"]])],
+    'the order the runner lists the packages it drives in' => [fn(): Digest|Unkeyed => $makeKeyOf()(versions: array_reverse(CONTENT_KEY_VERSIONS))],
+    'the order the files are listed in' => [fn(): Digest|Unkeyed => $makeKeyOf()(source: array_reverse(CONTENT_KEY_SOURCE))],
 ]);
 
-it('reads no canary where there is none', function () use ($keyOf): void {
+it('reads no canary where there is none', function () use ($makeKeyOf): void {
+    $keyOf = $makeKeyOf();
+
     $cases = [...CONTENT_KEY_CASES, 'tests/Unit/CanaryTest.php' => ['k2', "<?php\nit('sings');\n"]];
 
     expect($keyOf(canaries: [], cases: $cases))->toEqual($keyOf(canaries: []));
 });
 
-it('reads every test case for a held unit, whatever the runner says', function () use ($keyOf): void {
+it('reads every test case for a held unit, whatever the runner says', function () use ($makeKeyOf): void {
+    $keyOf = $makeKeyOf();
+
     $other = [...CONTENT_KEY_CASES, 'tests/Unit/OtherTest.php' => ['o2', "<?php\nit('other', fn() => new Unused());\n"]];
 
     expect($keyOf(group: 'holds', judges: []))->toEqual($keyOf(group: 'holds'))
         ->and($keyOf(group: 'holds', cases: $other))->not->toEqual($keyOf(group: 'holds'));
 });
 
-it('writes what holds a unit into its key', function () use ($keyOf): void {
+it('writes what holds a unit into its key', function () use ($makeKeyOf): void {
+    $keyOf = $makeKeyOf();
+
     expect($keyOf(group: 'holds'))->not->toEqual($keyOf(filter: 'holds'));
 });
 
-it('keys no unit whose judging tests the runner cannot name', function () use ($keyOf): void {
+it('keys no unit whose judging tests the runner cannot name', function () use ($makeKeyOf): void {
+    $keyOf = $makeKeyOf();
+
     expect($keyOf(judges: CannotJudge::because('A covering test does not fit the filter.')))
         ->toEqual(Unkeyed::because('A covering test does not fit the filter.'));
 });
@@ -374,9 +390,9 @@ it('writes what holds a unit, by its name', function (Unit $unit, string $heldBy
         '0',
     ));
 })->with([
-    'the whole suite' => [Unit::file(Path::of('src/A.php')), 'the whole suite'],
-    'a group' => [Unit::held(Path::of('src/A.php'), Group::named('holds')), 'the group holds'],
-    'a filter' => [Unit::held(Path::of('src/A.php'), Filter::matching('Money')), 'the filter Money'],
+    'the whole suite' => [fn(): Unit => Unit::file(Path::of('src/A.php')), 'the whole suite'],
+    'a group' => [fn(): Unit => Unit::held(Path::of('src/A.php'), Group::named('holds')), 'the group holds'],
+    'a filter' => [fn(): Unit => Unit::held(Path::of('src/A.php'), Filter::matching('Money')), 'the filter Money'],
 ]);
 
 it('keys one unit after another alike', function () use ($bare): void {
@@ -442,12 +458,12 @@ it('keys each unit of a fixture with the bytes its format gives it, whatever ord
     expect($keys->keyOf($unit, $judges, $coverage))->toEqual(Digest::of($key))
         ->and($keys->keyOf($unit, Paths::of(...array_reverse([...$judges])), $coverage))->toEqual(Digest::of($key));
 })->with([
-    'a unit judged by one test file' => [Unit::file(Path::of('src/A.php')), Paths::of(Path::of('tests/Unit/MoneyTest.php')), 'bc82a56be408e8113dd265d32abd2e4d806380bd9c61bf78d0792b3b0104eabd'],
-    'a unit judged by test files named by digits' => [Unit::file(Path::of('src/A.php')), Paths::of(Path::of('tests/10'), Path::of('tests/9'), Path::of('tests/Unit/LedgerTest.php')), '1fac46477f49f7eca10a18a5661d0ecd4d7081a865a3f1f93658c32af5b56f3b'],
-    'a unit judged by a test file the key does not hold' => [Unit::file(Path::of('src/B.php')), Paths::of(Path::of('tests/Unit/GoneTest.php'), Path::of('tests/Unit/MoneyTest.php')), 'ef0a5abb7a29730b7813e353657fe2209f51d579851c7d2566129e7bda02cdd7'],
-    'a unit nothing judges' => [Unit::file(Path::of('src/C.php')), Paths::none(), 'b097a191a8ec4b35cc27125d4e1913f17ad10e5d2ee600e83cd318a9762e4009'],
-    'a unit a group holds' => [Unit::held(Path::of('src/A.php'), Group::named('holds:src/A.php')), Paths::none(), '75f67169e937beef59a002bafeceaf342fb870432566ca02dbdad941df585ce1'],
-    'a unit a filter holds' => [Unit::held(Path::of('src/B.php'), Filter::matching('Money')), Paths::of(Path::of('tests/Unit/MoneyTest.php')), '21607a846b51514bdc9664148db55cd0ce3d1167868da184957af2a5d7e0bd5b'],
+    'a unit judged by one test file' => [fn(): Unit => Unit::file(Path::of('src/A.php')), fn(): Paths => Paths::of(Path::of('tests/Unit/MoneyTest.php')), 'bc82a56be408e8113dd265d32abd2e4d806380bd9c61bf78d0792b3b0104eabd'],
+    'a unit judged by test files named by digits' => [fn(): Unit => Unit::file(Path::of('src/A.php')), fn(): Paths => Paths::of(Path::of('tests/10'), Path::of('tests/9'), Path::of('tests/Unit/LedgerTest.php')), '1fac46477f49f7eca10a18a5661d0ecd4d7081a865a3f1f93658c32af5b56f3b'],
+    'a unit judged by a test file the key does not hold' => [fn(): Unit => Unit::file(Path::of('src/B.php')), fn(): Paths => Paths::of(Path::of('tests/Unit/GoneTest.php'), Path::of('tests/Unit/MoneyTest.php')), 'ef0a5abb7a29730b7813e353657fe2209f51d579851c7d2566129e7bda02cdd7'],
+    'a unit nothing judges' => [fn(): Unit => Unit::file(Path::of('src/C.php')), fn(): Paths => Paths::none(), 'b097a191a8ec4b35cc27125d4e1913f17ad10e5d2ee600e83cd318a9762e4009'],
+    'a unit a group holds' => [fn(): Unit => Unit::held(Path::of('src/A.php'), Group::named('holds:src/A.php')), fn(): Paths => Paths::none(), '75f67169e937beef59a002bafeceaf342fb870432566ca02dbdad941df585ce1'],
+    'a unit a filter holds' => [fn(): Unit => Unit::held(Path::of('src/B.php'), Filter::matching('Money')), fn(): Paths => Paths::of(Path::of('tests/Unit/MoneyTest.php')), '21607a846b51514bdc9664148db55cd0ce3d1167868da184957af2a5d7e0bd5b'],
 ]);
 
 it('keys many units at once as it keys each alone, reading a set of judging files once', function (): void {

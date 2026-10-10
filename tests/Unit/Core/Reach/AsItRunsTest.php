@@ -5,8 +5,8 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Reach\AsItRuns;
 
-$one = str_repeat('a', 40);
-$two = str_repeat('b', 40);
+$makeOne = static fn(): string => str_repeat('a', 40);
+$makeTwo = static fn(): string => str_repeat('b', 40);
 
 it('runs alike where nothing changed', function (): void {
     $same = Contents::of("jobs:\n  gate:\n    steps:\n      - run: composer test\n");
@@ -21,7 +21,10 @@ it('runs otherwise where another line changed', function (): void {
     ))->toBeFalse();
 });
 
-it('runs otherwise where the commit an action is pinned at moved, whichever action it is', function (string $action) use ($one, $two): void {
+it('runs otherwise where the commit an action is pinned at moved, whichever action it is', function (string $action) use ($makeOne, $makeTwo): void {
+    $one = $makeOne();
+    $two = $makeTwo();
+
     expect(AsItRuns::alike(
         Contents::of(sprintf("steps:\n  - uses: %s@%s # v1.0.0\n", $action, $one)),
         Contents::of(sprintf("steps:\n  - uses: %s@%s # v1.0.0\n", $action, $two)),
@@ -113,8 +116,8 @@ it('runs otherwise where a line it would leave out elsewhere is part of a value'
         "on:\n  push:\n    branches: [main,\n\n      \"release\"]\n",
     ],
     'a pin in a block' => [
-        sprintf("steps:\n  - run: |\n      cat > step.yml <<EOF\n      uses: a/b@%s\n      EOF\n", str_repeat('a', 40)),
-        sprintf("steps:\n  - run: |\n      cat > step.yml <<EOF\n      uses: a/b@%s\n      EOF\n", str_repeat('b', 40)),
+        fn(): string => sprintf("steps:\n  - run: |\n      cat > step.yml <<EOF\n      uses: a/b@%s\n      EOF\n", str_repeat('a', 40)),
+        fn(): string => sprintf("steps:\n  - run: |\n      cat > step.yml <<EOF\n      uses: a/b@%s\n      EOF\n", str_repeat('b', 40)),
     ],
 ]);
 

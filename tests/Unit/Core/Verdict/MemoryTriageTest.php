@@ -41,13 +41,13 @@ it('kills a mutant out of memory only where its tests, run unmutated under the s
 ): void {
     expect(MemoryTriage::standard()->judged($mutant))->toBe($judged);
 })->with([
-    'a control that held a fifth of the cap' => [weighedMutant(MutantStatus::OutOfMemory, 512, 100), MutantJudgement::KilledByMemoryCap],
-    'a control that held most of the cap' => [weighedMutant(MutantStatus::OutOfMemory, 512, 500), MutantJudgement::KilledByMemoryCap],
-    'a control that held the whole cap' => [weighedMutant(MutantStatus::OutOfMemory, 512, 512), MutantJudgement::KilledByMemoryCap],
-    'a peak over the cap' => [weighedMutant(MutantStatus::OutOfMemory, 512, 513), MutantJudgement::TooHeavyToJudge],
-    'no control finished' => [weighedMutant(MutantStatus::OutOfMemory, 512, 0), MutantJudgement::TooHeavyToJudge],
-    'no cap recorded' => [weighedMutant(MutantStatus::OutOfMemory, 0, 100), MutantJudgement::TooHeavyToJudge],
-    'a killed mutant' => [weighedMutant(MutantStatus::Killed, 512, 100), MutantJudgement::Killed],
+    'a control that held a fifth of the cap' => [fn(): Mutant => weighedMutant(MutantStatus::OutOfMemory, 512, 100), MutantJudgement::KilledByMemoryCap],
+    'a control that held most of the cap' => [fn(): Mutant => weighedMutant(MutantStatus::OutOfMemory, 512, 500), MutantJudgement::KilledByMemoryCap],
+    'a control that held the whole cap' => [fn(): Mutant => weighedMutant(MutantStatus::OutOfMemory, 512, 512), MutantJudgement::KilledByMemoryCap],
+    'a peak over the cap' => [fn(): Mutant => weighedMutant(MutantStatus::OutOfMemory, 512, 513), MutantJudgement::TooHeavyToJudge],
+    'no control finished' => [fn(): Mutant => weighedMutant(MutantStatus::OutOfMemory, 512, 0), MutantJudgement::TooHeavyToJudge],
+    'no cap recorded' => [fn(): Mutant => weighedMutant(MutantStatus::OutOfMemory, 0, 100), MutantJudgement::TooHeavyToJudge],
+    'a killed mutant' => [fn(): Mutant => weighedMutant(MutantStatus::Killed, 512, 100), MutantJudgement::Killed],
 ]);
 
 it('triages a mutant out of memory by memory, and a timeout by time', function (): void {

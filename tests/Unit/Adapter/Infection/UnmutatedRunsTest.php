@@ -64,9 +64,11 @@ function infectionControlled(Project $at, InfectionShellFake $shell, Controls $c
     return $runs instanceof ControlRuns ? $runs : throw new LogicException($runs->why());
 }
 
-$request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
+$makeRequest = static fn(): MutationRequest => MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
 
-it('runs each control on a config whose suite holds the files of its tests\' classes, serving its file through Infection\'s interceptor, allowed its limit', function () use ($request): void {
+it('runs each control on a config whose suite holds the files of its tests\' classes, serving its file through Infection\'s interceptor, allowed its limit', function () use ($makeRequest): void {
+    $request = $makeRequest();
+
     $at = controlledInfection();
     $shell = InfectionShellFake::answering(Ran::finished(succeeded: true, output: '')->took(Seconds::of(0.8)));
 
@@ -83,17 +85,21 @@ it('runs each control on a config whose suite holds the files of its tests\' cla
         ->and($command->withheld())->toEqual(Withheld::standard()->and(Withheld::of('SECRET')));
 });
 
-it('reads how each control ended: passed, failed, or ran out of its limit', function (Ran $ran, ControlEnd $end) use ($request): void {
+it('reads how each control ended: passed, failed, or ran out of its limit', function (Ran $ran, ControlEnd $end) use ($makeRequest): void {
+    $request = $makeRequest();
+
     $runs = infectionControlled(controlledInfection(), InfectionShellFake::answering($ran), Controls::of(infectionControl('src/Money.php')), $request);
 
     expect($runs->of(infectionControl('src/Money.php'))->end())->toBe($end);
 })->with([
-    'passed' => [Ran::finished(succeeded: true, output: ''), ControlEnd::Passed],
-    'failed' => [Ran::finished(succeeded: false, output: 'FAILURES!'), ControlEnd::Failed],
-    'stopped at its limit' => [Ran::stopped(''), ControlEnd::RanOut],
+    'passed' => [fn(): Ran => Ran::finished(succeeded: true, output: ''), ControlEnd::Passed],
+    'failed' => [fn(): Ran => Ran::finished(succeeded: false, output: 'FAILURES!'), ControlEnd::Failed],
+    'stopped at its limit' => [fn(): Ran => Ran::stopped(''), ControlEnd::RanOut],
 ]);
 
-it('runs the controls side by side in the request\'s pool, each in a place of its own, and never one whose file is gone, saying why', function () use ($request): void {
+it('runs the controls side by side in the request\'s pool, each in a place of its own, and never one whose file is gone, saying why', function () use ($makeRequest): void {
+    $request = $makeRequest();
+
     $at = controlledInfection();
     $shell = InfectionShellFake::answering(Ran::finished(succeeded: true, output: ''));
     $controls = Controls::of(infectionControl('src/Gone.php'), infectionControl('src/Money.php'), infectionControl('src/Money.php', 9.0));
@@ -111,7 +117,9 @@ it('runs the controls side by side in the request\'s pool, each in a place of it
         ->and($shell->sides())->toBe([[2, 4]]);
 });
 
-it('starts no control once the request\'s deadline has passed', function () use ($request): void {
+it('starts no control once the request\'s deadline has passed', function () use ($makeRequest): void {
+    $request = $makeRequest();
+
     $at = controlledInfection();
     $shell = InfectionShellFake::answering(Ran::finished(succeeded: true, output: ''));
 
@@ -121,7 +129,9 @@ it('starts no control once the request\'s deadline has passed', function () use 
         ->and($runs->of(infectionControl('src/Money.php'))->why())->toBe(ControlRuns::NOT_RUN);
 });
 
-it('caps each control\'s process at the request\'s memory cap, as a mutant\'s run is', function () use ($request): void {
+it('caps each control\'s process at the request\'s memory cap, as a mutant\'s run is', function () use ($makeRequest): void {
+    $request = $makeRequest();
+
     $at = controlledInfection();
     $shell = InfectionShellFake::answering(Ran::finished(succeeded: true, output: ''));
 
@@ -130,7 +140,9 @@ it('caps each control\'s process at the request\'s memory cap, as a mutant\'s ru
     expect($shell->commands()[0]->environment())->toHaveKey(MemoryCap::SCAN_DIR);
 });
 
-it('never runs a control of a project with no PHPUnit config, saying why', function () use ($request): void {
+it('never runs a control of a project with no PHPUnit config, saying why', function () use ($makeRequest): void {
+    $request = $makeRequest();
+
     $root = (string) realpath(Scratch::directory());
     Scratch::write($root, 'src/Money.php', '<?php // money');
     $at = Project::at(Root::of($root), Paths::of(Path::of('tests')), Path::of('.gate'));
@@ -143,7 +155,9 @@ it('never runs a control of a project with no PHPUnit config, saying why', funct
         ->and($shell->commands())->toBe([]);
 });
 
-it('cannot run the controls of a project whose Infection config it cannot read, nor where their memory cap cannot be written', function (string $broken) use ($request): void {
+it('cannot run the controls of a project whose Infection config it cannot read, nor where their memory cap cannot be written', function (string $broken) use ($makeRequest): void {
+    $request = $makeRequest();
+
     $at = controlledInfection();
     $capped = $request->cappedAt(MemoryCap::standard());
 
@@ -159,7 +173,9 @@ it('cannot run the controls of a project whose Infection config it cannot read, 
         ->toBeInstanceOf(CannotJudge::class);
 })->with(['config', 'cap']);
 
-it('runs each control through the Infection runner', function () use ($request): void {
+it('runs each control through the Infection runner', function () use ($makeRequest): void {
+    $request = $makeRequest();
+
     $at = controlledInfection();
     $shell = InfectionShellFake::answering(Ran::finished(succeeded: true, output: ''));
     $runs = new Infection($at, $shell, LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory())
@@ -168,7 +184,9 @@ it('runs each control through the Infection runner', function () use ($request):
     expect($runs instanceof ControlRuns ? $runs->of(infectionControl('src/Money.php'))->end() : $runs)->toBe(ControlEnd::Passed);
 });
 
-it('starts each control through the launcher, and gives it the peak the launcher wrote', function () use ($request): void {
+it('starts each control through the launcher, and gives it the peak the launcher wrote', function () use ($makeRequest): void {
+    $request = $makeRequest();
+
     $at = controlledInfection();
     $shell = new InfectionShellFake(static function (Command $command): Ran {
         file_put_contents($command->arguments()[2], '20480');

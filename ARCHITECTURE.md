@@ -177,6 +177,7 @@ osv-scanner, which read the repository rather than the code.
 | **G7** | Every line of `src` and of each plugin's `src` is covered | ci: `pest --coverage --min=100` |
 | **G8** | Every mutant of `src` is killed | planned: the package's own gate at a floor of 100, through its reusable workflow and action (`ci.yml` holds the place) |
 | **G9** | A diagnostic fails the run, and no setting exempts one | arch: the settings, read out of `phpunit.xml` |
+| **G10** | Every test file is inert: loading it runs nothing, so a mutant's narrowed run need not load it (ADR-0004, decision 9) | arch: every test file, read as the Pest adapter reads it |
 
 ## V — CI and the bot
 

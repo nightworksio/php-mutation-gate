@@ -53,8 +53,8 @@ it('finds a PHPUnit config that lifts the cap, to more or to none', function (Me
         'Take <ini name="memory_limit"> out of phpunit.xml.dist, or set it no higher than 512M; raise runner.memory to give more.',
     )));
 })->with([
-    'more' => [MemoryCap::of(1, MemoryUnit::Gigabytes), '1G'],
-    'none' => [MemoryCap::none(), '-1'],
+    'more' => [fn(): MemoryCap => MemoryCap::of(1, MemoryUnit::Gigabytes), '1G'],
+    'none' => [fn(): MemoryCap => MemoryCap::none(), '-1'],
 ]);
 
 it('finds nothing where the PHPUnit config keeps to the cap, or sets no limit of its own', function () use (

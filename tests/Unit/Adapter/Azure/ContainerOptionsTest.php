@@ -25,11 +25,11 @@ it('reads the account, the containers, the prefix and the public URL', function 
 it('says why options that miss what it needs, or give what is no text, open none', function (string $options, Problem $problem): void {
     expect(ContainerOptions::read(Configs::options($options)))->toEqual(Invalid::because($problem));
 })->with([
-    'no account' => ['{"container": "ledgers", "prefix": "p"}', Problem::at('account', 'expected the account, got nothing')],
-    'no container' => ['{"account": "acme", "prefix": "p"}', Problem::at('container', 'expected the container, got nothing')],
-    'no prefix' => ['{"account": "acme", "container": "ledgers"}', Problem::at('prefix', 'expected the prefix, got nothing')],
-    'a public container that is no text' => ['{"account": "acme", "container": "ledgers", "prefix": "p", "publicContainer": 1}', Problem::at('publicContainer', 'expected text, got 1')],
-    'a public URL that is no text' => ['{"account": "acme", "container": "ledgers", "prefix": "p", "publicUrl": 1}', Problem::at('publicUrl', 'expected text, got 1')],
+    'no account' => ['{"container": "ledgers", "prefix": "p"}', fn(): Problem => Problem::at('account', 'expected the account, got nothing')],
+    'no container' => ['{"account": "acme", "prefix": "p"}', fn(): Problem => Problem::at('container', 'expected the container, got nothing')],
+    'no prefix' => ['{"account": "acme", "container": "ledgers"}', fn(): Problem => Problem::at('prefix', 'expected the prefix, got nothing')],
+    'a public container that is no text' => ['{"account": "acme", "container": "ledgers", "prefix": "p", "publicContainer": 1}', fn(): Problem => Problem::at('publicContainer', 'expected text, got 1')],
+    'a public URL that is no text' => ['{"account": "acme", "container": "ledgers", "prefix": "p", "publicUrl": 1}', fn(): Problem => Problem::at('publicUrl', 'expected text, got 1')],
 ]);
 
 it('refuses an account its host cannot hold, or a container its path cannot, so the token reaches only Azure', function (string $field, string $name): void {

@@ -31,11 +31,11 @@ it('tells the gate\'s own cap, to the byte, from a limit a project set itself', 
 ): void {
     expect(Exhaustion::isOf($limit, $cap))->toBe($isOf);
 })->with([
-    'the cap' => [MemoryCap::of(67108864, MemoryUnit::Bytes), MemoryCap::of(64, MemoryUnit::Megabytes), true],
-    'a byte more' => [MemoryCap::of(67108865, MemoryUnit::Bytes), MemoryCap::of(64, MemoryUnit::Megabytes), false],
-    'a project\'s own' => [MemoryCap::of(128, MemoryUnit::Megabytes), MemoryCap::of(64, MemoryUnit::Megabytes), false],
-    'no limit read' => [NotGiven::value(), MemoryCap::of(64, MemoryUnit::Megabytes), false],
-    'no cap' => [MemoryCap::of(1, MemoryUnit::Bytes), MemoryCap::none(), false],
+    'the cap' => [fn(): MemoryCap => MemoryCap::of(67108864, MemoryUnit::Bytes), fn(): MemoryCap => MemoryCap::of(64, MemoryUnit::Megabytes), true],
+    'a byte more' => [fn(): MemoryCap => MemoryCap::of(67108865, MemoryUnit::Bytes), fn(): MemoryCap => MemoryCap::of(64, MemoryUnit::Megabytes), false],
+    'a project\'s own' => [fn(): MemoryCap => MemoryCap::of(128, MemoryUnit::Megabytes), fn(): MemoryCap => MemoryCap::of(64, MemoryUnit::Megabytes), false],
+    'no limit read' => [fn(): NotGiven => NotGiven::value(), fn(): MemoryCap => MemoryCap::of(64, MemoryUnit::Megabytes), false],
+    'no cap' => [fn(): MemoryCap => MemoryCap::of(1, MemoryUnit::Bytes), fn(): MemoryCap => MemoryCap::none(), false],
 ]);
 
 it('says what to do where the suite does not fit under the cap', function (): void {

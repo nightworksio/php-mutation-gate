@@ -42,7 +42,7 @@ afterEach(function (): void {
 });
 
 /** A plan of two shards: one file, and one held directory. */
-$plan = Plan::of(Revision::ref('head'), Digest::sha256Of('base'), Keys::none(), Shards::of(
+$makePlan = static fn(): Plan => Plan::of(Revision::ref('head'), Digest::sha256Of('base'), Keys::none(), Shards::of(
     Shard::of(
         ShardId::of(1),
         Package::at(Path::root()),
@@ -60,7 +60,7 @@ $plan = Plan::of(Revision::ref('head'), Digest::sha256Of('base'), Keys::none(), 
 ));
 
 /** A map of the files of both shards, and of two no shard mutates. */
-$map = CoverageMap::empty()
+$makeMap = static fn(): CoverageMap => CoverageMap::empty()
     ->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'))
     ->covered(Path::of('src/Held/A.php'), Line::of(4), TestId::of('HeldTest::a'))
     ->covered(Path::of('src/Held/B.php'), Line::of(5), TestId::of('HeldTest::b'))
@@ -69,9 +69,12 @@ $map = CoverageMap::empty()
     ->timed(TestId::of('MoneyTest::adds'), Seconds::of(0.5));
 
 it('hands each shard the lines of its own files alone, with every test and its time', function () use (
-    $plan,
-    $map,
+    $makePlan,
+    $makeMap,
 ): void {
+    $plan = $makePlan();
+    $map = $makeMap();
+
     $handoff = new Handoff(Directory::at(Scratch::directory()), HandedMaps::limits());
 
     $handed = static fn(Paths $files): CoverageMap|CannotJudge => CoverageMapFile::decode(
@@ -90,7 +93,10 @@ it('hands each shard the lines of its own files alone, with every test and its t
         ->toEqual(Seconds::of(0.5));
 });
 
-it('writes each map where run reads it, as the gate\'s own format', function () use ($plan, $map): void {
+it('writes each map where run reads it, as the gate\'s own format', function () use ($makePlan, $makeMap): void {
+    $plan = $makePlan();
+    $map = $makeMap();
+
     $project = Scratch::directory();
     new Handoff(Directory::at($project), HandedMaps::limits())->write($plan, $map, KillHistory::none(), Unplaced::map());
 
@@ -98,7 +104,10 @@ it('writes each map where run reads it, as the gate\'s own format', function () 
         ->and(file_exists(sprintf('%s/.mutation-gate/coverage/shard-2/map.json.gz', $project)))->toBeTrue();
 });
 
-it('cannot hand a shard a map it cannot write', function () use ($plan, $map): void {
+it('cannot hand a shard a map it cannot write', function () use ($makePlan, $makeMap): void {
+    $plan = $makePlan();
+    $map = $makeMap();
+
     $project = Scratch::directory();
     Scratch::write($project, '.mutation-gate/coverage/shard-2/map.json.gz/blocked', '');
 
@@ -109,9 +118,12 @@ it('cannot hand a shard a map it cannot write', function () use ($plan, $map): v
 });
 
 it('hands every shard the plan\'s whole map, beside the maps of each shard\'s own files', function () use (
-    $plan,
-    $map,
+    $makePlan,
+    $makeMap,
 ): void {
+    $plan = $makePlan();
+    $map = $makeMap();
+
     $project = Scratch::directory();
     new Handoff(Directory::at($project), HandedMaps::limits())->write($plan, $map, KillHistory::none(), Unplaced::map());
 
@@ -119,7 +131,10 @@ it('hands every shard the plan\'s whole map, beside the maps of each shard\'s ow
         ->toBe(CoverageMapFile::encode($map, Unplaced::map()));
 });
 
-it('cannot hand the shards a whole map it cannot write', function () use ($plan, $map): void {
+it('cannot hand the shards a whole map it cannot write', function () use ($makePlan, $makeMap): void {
+    $plan = $makePlan();
+    $map = $makeMap();
+
     $project = Scratch::directory();
     Scratch::write($project, '.mutation-gate/coverage/map.json.gz/blocked', '');
 
@@ -150,9 +165,12 @@ it('cannot read a map that is not a file, or not a map', function (): void {
 });
 
 it('hands each shard the kill history of its own files\' functions, beside its map', function () use (
-    $plan,
-    $map,
+    $makePlan,
+    $makeMap,
 ): void {
+    $plan = $makePlan();
+    $map = $makeMap();
+
     $project = Scratch::directory();
     $mutant = MutantId::hash(Path::of('src/Money.php'), 'Plus', '@@ @@', 0);
     $ranked = Ranking::of(Kills::of(TestId::of('MoneyTest::adds'), 2));
@@ -188,7 +206,10 @@ it('cannot read a kill history that is not one, or not a file', function (): voi
         ));
 });
 
-it('cannot hand a shard a kill history it cannot write', function () use ($plan, $map): void {
+it('cannot hand a shard a kill history it cannot write', function () use ($makePlan, $makeMap): void {
+    $plan = $makePlan();
+    $map = $makeMap();
+
     $project = Scratch::directory();
     Scratch::write($project, '.mutation-gate/coverage/shard-1/killers.json/blocked', '');
 
@@ -199,9 +220,12 @@ it('cannot hand a shard a kill history it cannot write', function () use ($plan,
 });
 
 it('hands the verdict the lines of every unit the plan considered, run, proved or carried', function () use (
-    $plan,
-    $map,
+    $makePlan,
+    $makeMap,
 ): void {
+    $plan = $makePlan();
+    $map = $makeMap();
+
     $considered = $plan->considering(
         Considered::everything()
             ->proving(Units::of(Unit::file(Path::of('src/HeldToo.php'))))
@@ -234,7 +258,10 @@ it('says the verdict was handed no map where there is none, and cannot read one 
         ->and($handoff->forVerdict())->toBeInstanceOf(CannotJudge::class);
 });
 
-it('cannot hand the verdict a map it cannot write', function () use ($plan, $map): void {
+it('cannot hand the verdict a map it cannot write', function () use ($makePlan, $makeMap): void {
+    $plan = $makePlan();
+    $map = $makeMap();
+
     $project = Scratch::directory();
     Scratch::write($project, '.mutation-gate/coverage/verdict/map.json.gz/blocked', '');
 

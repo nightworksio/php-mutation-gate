@@ -56,10 +56,10 @@ it('credits a stopped run\'s kill to the selected tests that failed or errored, 
 it('says every test that ran was skipped only where none passed, failed or died', function (string $lines, bool $skipped): void {
     expect(recordedFrom($lines, TestId::of('T::a'), TestId::of('T::b'))->skippedEach())->toBe($skipped);
 })->with([
-    'every one skipped' => [implode('', [Outcome::Started->line('T::a'), Outcome::Neither->line('T::a')]), true],
-    'one passed' => [implode('', [Outcome::Neither->line('T::a'), Outcome::Passed->line('T::b')]), false],
-    'one skipped before it was prepared' => [implode('', [Outcome::Started->line('T::a'), Outcome::Neither->line('T::a')]), true],
-    'one died' => [implode('', [Outcome::Neither->line('T::a'), Outcome::Started->line('T::b')]), false],
+    'every one skipped' => [fn(): string => implode('', [Outcome::Started->line('T::a'), Outcome::Neither->line('T::a')]), true],
+    'one passed' => [fn(): string => implode('', [Outcome::Neither->line('T::a'), Outcome::Passed->line('T::b')]), false],
+    'one skipped before it was prepared' => [fn(): string => implode('', [Outcome::Started->line('T::a'), Outcome::Neither->line('T::a')]), true],
+    'one died' => [fn(): string => implode('', [Outcome::Neither->line('T::a'), Outcome::Started->line('T::b')]), false],
     'none ran' => ['', false],
 ]);
 
@@ -116,7 +116,7 @@ it('says where its first killer stood in the order its tests started, keyed by t
 it('gives no prefix where no killer started, as one whose class failed before it, or none killed', function (string $lines): void {
     expect(recordedFrom($lines, TestId::of('C::selected'))->prefix())->toEqual(NotGiven::value());
 })->with([
-    'a class that failed before its tests' => [Outcome::ClassFailed->line('C')],
-    'every test passed' => [implode('', [Outcome::Started->line('T::passes'), Outcome::Passed->line('T::passes')])],
+    'a class that failed before its tests' => [fn(): string => Outcome::ClassFailed->line('C')],
+    'every test passed' => [fn(): string => implode('', [Outcome::Started->line('T::passes'), Outcome::Passed->line('T::passes')])],
     'no line' => [''],
 ]);

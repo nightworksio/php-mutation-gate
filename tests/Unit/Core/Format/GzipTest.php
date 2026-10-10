@@ -52,10 +52,10 @@ it('cannot unpack within a limit what is not a whole gzip stream', function (str
 })->with([
     'text' => ['{"format": 2}'],
     'nothing' => [''],
-    'a stream cut short' => [substr(Gzip::pack(str_repeat('a', 1000)), 0, 12)],
-    'a stream cut short past a step' => [substr(Gzip::pack(gzipNoise()), 0, 10_000)],
+    'a stream cut short' => [fn(): string => substr(Gzip::pack(str_repeat('a', 1000)), 0, 12)],
+    'a stream cut short past a step' => [fn(): string => substr(Gzip::pack(gzipNoise()), 0, 10_000)],
     'the magic alone' => ["\x1f\x8b"],
-    'a stream with a broken body' => [substr_replace(Gzip::pack(str_repeat('abc', 20_000)), str_repeat("\xff", 64), 20, 64)],
+    'a stream with a broken body' => [fn(): string => substr_replace(Gzip::pack(str_repeat('abc', 20_000)), str_repeat("\xff", 64), 20, 64)],
 ]);
 
 it('leaves what follows a stream unread, wherever the stream ends', function (string $after): void {
@@ -76,5 +76,5 @@ it('leaves what follows a stream unread, wherever the stream ends', function (st
         ->and($unpacked)->toBe($expected);
 })->with([
     'bytes that are not gzip' => ['xyz'],
-    'a second stream' => [Gzip::pack('more')],
+    'a second stream' => [fn(): string => Gzip::pack('more')],
 ]);

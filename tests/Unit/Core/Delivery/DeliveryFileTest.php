@@ -102,7 +102,7 @@ it('refuses a scope that is none, and a channel that sends no alert', function (
     'a scope with a backslash' => ['{"format": 1, "ledger": {"scope": "refs/heads/main\\\\..\\\\x"}}', 'delivery.ledger.scope is not a scope.'],
     'a scope that is no text' => ['{"format": 1, "ledger": {"scope": 7}}', 'delivery.ledger.scope is not text.'],
     'more alerts to one channel than a verdict sends' => [
-        sprintf('{"format": 1, "alerts": [%s]}', implode(', ', array_fill(0, 5, '{"channel": "slack", "body": "{}"}'))),
+        fn(): string => sprintf('{"format": 1, "alerts": [%s]}', implode(', ', array_fill(0, 5, '{"channel": "slack", "body": "{}"}'))),
         'delivery.alerts[4] is not within the alerts a verdict sends to one channel.',
     ],
     'a reporter that sends no alert' => ['{"format": 1, "alerts": [{"channel": "otlp", "body": "{}"}]}', 'delivery.alerts[0].channel is not an alert channel.'],

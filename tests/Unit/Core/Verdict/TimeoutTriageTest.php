@@ -38,15 +38,15 @@ it('kills a timeout whose tests, run unmutated under its limit, finished within 
 ): void {
     expect(TimeoutTriage::under(TimeoutMode::Confirm)->judged($mutant))->toBe($judged);
 })->with([
-    'tests that took a tenth of the limit' => [triagedMutant(MutantStatus::TimedOut, 10.0, 1.0), MutantJudgement::KilledByTimeout],
-    'tests that took most of the limit' => [triagedMutant(MutantStatus::TimedOut, 10.0, 9.5), MutantJudgement::KilledByTimeout],
-    'tests that took the whole limit' => [triagedMutant(MutantStatus::TimedOut, 10.0, 10.0), MutantJudgement::KilledByTimeout],
-    'tests that took longer than the limit' => [triagedMutant(MutantStatus::TimedOut, 10.0, 10.5), MutantJudgement::TooSlowToJudge],
-    'a limit the most decided' => [triagedMutant(MutantStatus::TimedOut, 300.0, 150.0), MutantJudgement::KilledByTimeout],
-    'no limit known' => [triagedMutant(MutantStatus::TimedOut, 0.0, 1.0), MutantJudgement::TooSlowToJudge],
-    'tests that never finished unmutated' => [triagedMutant(MutantStatus::TimedOut, 10.0, 0.0), MutantJudgement::TooSlowToJudge],
-    'a skipped mutant' => [triagedMutant(MutantStatus::Skipped, 10.0, 1.0), MutantJudgement::TooSlowToJudge],
-    'a killed mutant' => [triagedMutant(MutantStatus::Killed, 10.0, 1.0), MutantJudgement::Killed],
+    'tests that took a tenth of the limit' => [fn(): Mutant => triagedMutant(MutantStatus::TimedOut, 10.0, 1.0), MutantJudgement::KilledByTimeout],
+    'tests that took most of the limit' => [fn(): Mutant => triagedMutant(MutantStatus::TimedOut, 10.0, 9.5), MutantJudgement::KilledByTimeout],
+    'tests that took the whole limit' => [fn(): Mutant => triagedMutant(MutantStatus::TimedOut, 10.0, 10.0), MutantJudgement::KilledByTimeout],
+    'tests that took longer than the limit' => [fn(): Mutant => triagedMutant(MutantStatus::TimedOut, 10.0, 10.5), MutantJudgement::TooSlowToJudge],
+    'a limit the most decided' => [fn(): Mutant => triagedMutant(MutantStatus::TimedOut, 300.0, 150.0), MutantJudgement::KilledByTimeout],
+    'no limit known' => [fn(): Mutant => triagedMutant(MutantStatus::TimedOut, 0.0, 1.0), MutantJudgement::TooSlowToJudge],
+    'tests that never finished unmutated' => [fn(): Mutant => triagedMutant(MutantStatus::TimedOut, 10.0, 0.0), MutantJudgement::TooSlowToJudge],
+    'a skipped mutant' => [fn(): Mutant => triagedMutant(MutantStatus::Skipped, 10.0, 1.0), MutantJudgement::TooSlowToJudge],
+    'a killed mutant' => [fn(): Mutant => triagedMutant(MutantStatus::Killed, 10.0, 1.0), MutantJudgement::Killed],
 ]);
 
 it('judges every timeout too slow to judge under timeouts.mode unjudged', function (): void {

@@ -82,11 +82,15 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-$tree = JudgingRuns::tree(...);
-$reporting = JudgingRuns::reporting(...);
-$judged = JudgingRuns::judged(...);
+$makeTree = static fn(): Closure => JudgingRuns::tree(...);
+$makeReporting = static fn(): Closure => JudgingRuns::reporting(...);
+$makeJudged = static fn(): Closure => JudgingRuns::judged(...);
 
-it('carries a kill from another commit where nothing changed since reaches its unit or its test by name', function () use ($tree, $reporting, $judged): void {
+it('carries a kill from another commit where nothing changed since reaches its unit or its test by name', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $commit = Revision::ref(str_repeat('c1', 20));
     [$project, $checkout] = JudgingRuns::across('src/Tax.php', $commit);
     $store = JudgingRuns::provenAcross($commit, $commit);
@@ -104,7 +108,11 @@ it('carries a kill from another commit where nothing changed since reaches its u
         ->and($trees[0]->counts()->number(MutantJudgement::Unjudged))->toBe(0);
 });
 
-it('leaves a kill from another commit unjudged where what changed since reaches its unit by a name it uses', function () use ($tree, $reporting, $judged): void {
+it('leaves a kill from another commit unjudged where what changed since reaches its unit by a name it uses', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $commit = Revision::ref(str_repeat('c1', 20));
     [$project, $checkout] = JudgingRuns::across('src/Equals.php', $commit);
 
@@ -122,7 +130,11 @@ it('leaves a kill from another commit unjudged where what changed since reaches 
         ]);
 });
 
-it('carries no kill from a commit git cannot read, and warns why', function () use ($tree, $reporting, $judged): void {
+it('carries no kill from a commit git cannot read, and warns why', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $commit = Revision::ref(str_repeat('c1', 20));
     [$project, $checkout] = JudgingRuns::across('src/Tax.php', Revision::ref(str_repeat('c2', 20)));
 
@@ -141,7 +153,11 @@ it('carries no kill from a commit git cannot read, and warns why', function () u
         ));
 });
 
-it('reads what changed since each commit once, however many results share it', function (Revision $money, Revision $held, array $asked) use ($tree, $reporting, $judged): void {
+it('reads what changed since each commit once, however many results share it', function (Revision $money, Revision $held, array $asked) use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     [$project, $checkout] = JudgingRuns::across('src/Tax.php', $money, $held);
     $counted = new CountedChanges($checkout);
 
@@ -154,15 +170,19 @@ it('reads what changed since each commit once, however many results share it', f
 
     expect($counted->askedFrom())->toBe($asked);
 })->with([
-    'one commit' => [Revision::ref(str_repeat('c1', 20)), Revision::ref(str_repeat('c1', 20)), [str_repeat('c1', 20)]],
-    'two commits' => [Revision::ref(str_repeat('c1', 20)), Revision::ref(str_repeat('c2', 20)), [str_repeat('c1', 20), str_repeat('c2', 20)]],
+    'one commit' => [fn(): Revision => Revision::ref(str_repeat('c1', 20)), fn(): Revision => Revision::ref(str_repeat('c1', 20)), fn(): array => [str_repeat('c1', 20)]],
+    'two commits' => [fn(): Revision => Revision::ref(str_repeat('c1', 20)), fn(): Revision => Revision::ref(str_repeat('c2', 20)), fn(): array => [str_repeat('c1', 20), str_repeat('c2', 20)]],
 ]);
 
 it('never passes new code in a unit the budget never started, whose newest result is of the code before', function () use (
-    $tree,
-    $reporting,
-    $judged,
+    $makeTree,
+    $makeReporting,
+    $makeJudged,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $store = JudgingRuns::proven('money before', 'money test');
     $plan = JudgingRuns::digested('money now', 'money test')
         ->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')))
@@ -188,7 +208,11 @@ it('never passes new code in a unit the budget never started, whose newest resul
         ->and(LedgerRead::ledger($store->read(Scope::pullRequest(7)))->runs()->passed())->toBeInstanceOf(CannotTell::class);
 });
 
-it('never records a pass for a run whose budget left a mutant unjudged', function () use ($tree, $reporting, $judged): void {
+it('never records a pass for a run whose budget left a mutant unjudged', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $store = JudgingRuns::proven('money', 'money test before');
 
     $judgement = $judged(
@@ -211,7 +235,11 @@ it('never records a pass for a run whose budget left a mutant unjudged', functio
         ->and(count(LedgerRead::ledger($store->read(Scope::branch('main')))->proofs()))->toBe(2);
 });
 
-it('passes a run whose budget left units whose newest results all stand, and records it', function () use ($tree, $reporting, $judged): void {
+it('passes a run whose budget left units whose newest results all stand, and records it', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $store = JudgingRuns::proven('money', 'money test');
 
     $verdict = JudgingRuns::verdictOf($judged(
@@ -230,10 +258,14 @@ it('passes a run whose budget left units whose newest results all stand, and rec
 });
 
 it('fails on an ignore that names nothing where every unit the budget left has a result that stands', function () use (
-    $tree,
-    $reporting,
-    $judged,
+    $makeTree,
+    $makeReporting,
+    $makeJudged,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $verdict = JudgingRuns::verdictOf($judged(
         JudgingRuns::digested('money', 'money test'),
         Flows::adapters(Flows::project(), [], JudgingRuns::proven('money', 'money test'), $tree(Floor::of(0))),
@@ -248,10 +280,14 @@ it('fails on an ignore that names nothing where every unit the budget left has a
 });
 
 it('fails on no ignore that names nothing where the budget left a unit with no result that stands', function () use (
-    $tree,
-    $reporting,
-    $judged,
+    $makeTree,
+    $makeReporting,
+    $makeJudged,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $verdict = JudgingRuns::verdictOf($judged(
         JudgingRuns::digested('money', 'money test'),
         Flows::adapters(Flows::project(), [], new ProofStoreFake(), $tree(Floor::of(0))),
@@ -267,7 +303,10 @@ it('fails on no ignore that names nothing where the budget left a unit with no r
     ]);
 });
 
-it('fails on no ignore that names nothing where a held unit did not run', function () use ($tree, $reporting): void {
+it('fails on no ignore that names nothing where a held unit did not run', function () use ($makeTree, $makeReporting): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+
     $project = Flows::project();
     $plan = Planned::oneShard();
     $settings = JudgingRuns::settings(Ignore::mutator('arithmetic', 'src/Held.php', 'Both sums are the same'));
@@ -292,10 +331,14 @@ it('fails on no ignore that names nothing where a held unit did not run', functi
 });
 
 it('counts no unit the budget never started by a result of an earlier ledger format, nor one no ledger holds', function () use (
-    $tree,
-    $reporting,
-    $judged,
+    $makeTree,
+    $makeReporting,
+    $makeJudged,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $store = new ProofStoreFake();
     $store->write(Scope::branch('main'), Ledger::empty()->withProof(Proof::of(
         Digest::sha256Of('money before'),
@@ -323,7 +366,11 @@ it('counts no unit the budget never started by a result of an earlier ledger for
         ->and(count(LedgerRead::ledger($store->read(Scope::branch('main')))->proofs()))->toBe(1);
 });
 
-it('records no pass for a verdict that passed with a mutant the runner left unjudged', function () use ($tree, $reporting, $judged): void {
+it('records no pass for a verdict that passed with a mutant the runner left unjudged', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $store = new ProofStoreFake();
     $unjudged = Mutant::of(
         MutantId::hash(Path::of('src/Money.php'), 'Plus', 'unjudged', 0),
@@ -346,10 +393,14 @@ it('records no pass for a verdict that passed with a mutant the runner left unju
 });
 
 it('keeps the last commit that passed where a budget left a kill unjudged, so the next run from it judges the unit again', function () use (
-    $tree,
-    $reporting,
-    $judged,
+    $makeTree,
+    $makeReporting,
+    $makeJudged,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $passed = Revision::ref(str_repeat('a1', 20));
     $store = JudgingRuns::proven('money', 'money test before');
     $store->write(Scope::branch('main'), LedgerRead::ledger($store->read(Scope::branch('main')))->withRuns(ScopeRuns::none()->passing(Passed::of($passed, 'mutation-gate', 0))));
@@ -388,7 +439,11 @@ it('keeps the last commit that passed where a budget left a kill unjudged, so th
         ->and($planned)->toBe(['src/Money.php']);
 });
 
-it('finds the weak tests that let a survivor through from the test files the plan names, before it reports', function () use ($tree, $reporting, $judged): void {
+it('finds the weak tests that let a survivor through from the test files the plan names, before it reports', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $project = Flows::project();
     Scratch::write($project, 'src/Money.php', Verdicts::MONEY);
     Scratch::write($project, 'tests/MoneyTest.php', "<?php\n\nit('adds', function () {\n    expect(fits(1, 2))->toBeBool();\n});\n");
@@ -411,7 +466,11 @@ it('finds the weak tests that let a survivor through from the test files the pla
         ->and($recorded->reported)->toBe([$verdict]);
 });
 
-it('reads the helpers the files that define the runner declare, and names no test that calls one weak', function () use ($tree, $reporting, $judged): void {
+it('reads the helpers the files that define the runner declare, and names no test that calls one weak', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $project = Flows::project();
     Scratch::write($project, 'src/Money.php', Verdicts::MONEY);
     Scratch::write($project, 'tests/Pest.php', implode("\n", ['<?php', 'function fitsExactly(bool $fits): void { expect($fits)->toBe(false); }', '']));
@@ -429,7 +488,11 @@ it('reads the helpers the files that define the runner declare, and names no tes
     expect($survivors[0]->finding())->toEqual(NoFinding::survivor());
 });
 
-it('suggests deleting the callee of a surviving removal whose body the tests leave unchecked, before it reports', function () use ($tree, $reporting, $judged): void {
+it('suggests deleting the callee of a surviving removal whose body the tests leave unchecked, before it reports', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $project = Flows::project();
     $lines = array_fill(0, 30, '');
     $lines[0] = '<?php';

@@ -82,11 +82,11 @@ it('proves no mutant whose literal reads as the name it gives the program\'s own
     ],
     'its file, as it is named' => [
         "<?php\n\nfunction ownFile(): string\n{\n    return __FILE__;\n}\n",
-        sprintf("<?php\n\nfunction ownFile(): string\n{\n    return \"%s\";\n}\n", addcslashes(Opcodes::FILE, "\0..\37")),
+        fn(): string => sprintf("<?php\n\nfunction ownFile(): string\n{\n    return \"%s\";\n}\n", addcslashes(Opcodes::FILE, "\0..\37")),
     ],
     'its directory, as it is named' => [
         "<?php\n\nfunction ownDirectory(): string\n{\n    return __DIR__;\n}\n",
-        sprintf("<?php\n\nfunction ownDirectory(): string\n{\n    return \"%s\";\n}\n", addcslashes(Opcodes::DIRECTORY, "\0..\37")),
+        fn(): string => sprintf("<?php\n\nfunction ownDirectory(): string\n{\n    return \"%s\";\n}\n", addcslashes(Opcodes::DIRECTORY, "\0..\37")),
     ],
 ]);
 
@@ -100,7 +100,7 @@ it('proves no mutant whose code stands on other lines than its original\'s, sinc
 })->with([
     'a method that ends a line later, as what it throws does' => [
         PROVED,
-        str_replace('return $a * 2;', "return \$a\n            * 2;", PROVED),
+        fn(): string => str_replace('return $a * 2;', "return \$a\n            * 2;", PROVED),
     ],
     'a closure a line further down, whose name holds its line' => [
         "<?php\n\nfunction made(): Closure\n{\n    \$made = fn (): int => 1;\n\n    return \$made;\n}\n",

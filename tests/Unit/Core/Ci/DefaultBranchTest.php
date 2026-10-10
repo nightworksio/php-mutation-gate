@@ -22,4 +22,4 @@ it('takes main where nothing names a branch, or the config names one that is not
     string|Absent $configured,
 ): void {
     expect(DefaultBranch::of($configured, CannotTell::because('No origin/HEAD.')))->toEqual(Scope::branch('main'));
-})->with(['nothing named' => [new Absent()], 'no branch named' => ['a..b']]);
+})->with(['nothing named' => [fn(): Absent => new Absent()], 'no branch named' => ['a..b']]);

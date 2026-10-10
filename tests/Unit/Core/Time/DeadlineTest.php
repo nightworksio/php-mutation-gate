@@ -5,9 +5,11 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Time\Deadline;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
-$started = new DateTimeImmutable('2026-09-30T10:00:00.250000Z');
+$makeStarted = static fn(): DateTimeImmutable => new DateTimeImmutable('2026-09-30T10:00:00.250000Z');
 
-it('leaves the budget less what has passed, and nothing once it has passed', function () use ($started): void {
+it('leaves the budget less what has passed, and nothing once it has passed', function () use ($makeStarted): void {
+    $started = $makeStarted();
+
     $deadline = Deadline::after($started, Seconds::of(90.0));
 
     expect($deadline->left($started))->toEqual(Seconds::of(90.0))
@@ -15,7 +17,9 @@ it('leaves the budget less what has passed, and nothing once it has passed', fun
         ->and($deadline->left(new DateTimeImmutable('2026-09-30T10:05:00Z')))->toEqual(Seconds::of(0.0));
 });
 
-it('says whether it has passed', function () use ($started): void {
+it('says whether it has passed', function () use ($makeStarted): void {
+    $started = $makeStarted();
+
     $deadline = Deadline::after($started, Seconds::of(90.0));
 
     expect($deadline->hasPassed(new DateTimeImmutable('2026-09-30T10:01:30.000000Z')))->toBeFalse()
@@ -23,7 +27,9 @@ it('says whether it has passed', function () use ($started): void {
         ->and($deadline->hasPassed(new DateTimeImmutable('2026-09-30T10:02:00Z')))->toBeTrue();
 });
 
-it('fits as many runs as their whole length allows in the time left, every one that takes no time, and none once it has passed', function () use ($started): void {
+it('fits as many runs as their whole length allows in the time left, every one that takes no time, and none once it has passed', function () use ($makeStarted): void {
+    $started = $makeStarted();
+
     $deadline = Deadline::after($started, Seconds::of(90.0));
 
     expect($deadline->fitting(5, Seconds::of(20.0), $started))->toBe(4)

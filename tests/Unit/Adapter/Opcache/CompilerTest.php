@@ -117,7 +117,7 @@ it('says each program failed where its child cannot start or is given no time', 
     expect($compiler->compiled(['one' => Contents::of(COMPILED_PROGRAM), 'two' => Contents::of(COMPILED_PROGRAM)]))
         ->toBe(['one' => Uncompiled::Failed, 'two' => Uncompiled::Failed]);
 })->with([
-    'no PHP there' => [sprintf('%s/no-such-php', __DIR__), 30.0],
+    'no PHP there' => [fn(): string => sprintf('%s/no-such-php', __DIR__), 30.0],
     'no time at all' => [PHP_BINARY, -1.0],
 ]);
 
@@ -176,13 +176,13 @@ it('says each program failed where its child\'s dump does not read back whole, r
     expect($compiler->compiled(['one' => Contents::of(COMPILED_PROGRAM), 'two' => Contents::of(COMPILED_PROGRAM)]))
         ->toBe(['one' => Uncompiled::Failed, 'two' => Uncompiled::Failed]);
 })->with([
-    'a child that exits with an error' => [dumpSections("\n\$_main:\n0000 RETURN int(1)\n", "\n\$_main:\n0000 RETURN int(1)\n"), 1],
+    'a child that exits with an error' => [fn(): string => dumpSections("\n\$_main:\n0000 RETURN int(1)\n", "\n\$_main:\n0000 RETURN int(1)\n"), 1],
     'more sections than programs' => [
-        dumpSections("\n\$_main:\n0000 RETURN int(1)\n", "\n\$_main:\n0000 RETURN int(1)\n", "\n\$_main:\n0000 RETURN int(2)\n"),
+        fn(): string => dumpSections("\n\$_main:\n0000 RETURN int(1)\n", "\n\$_main:\n0000 RETURN int(1)\n", "\n\$_main:\n0000 RETURN int(2)\n"),
         0,
     ],
-    'fewer sections than programs' => [dumpSections("\n\$_main:\n0000 RETURN int(1)\n"), 0],
-    'sections that are not dumps' => [dumpSections("Opcache cannot allocate shared memory\n", "Opcache cannot allocate shared memory\n"), 0],
+    'fewer sections than programs' => [fn(): string => dumpSections("\n\$_main:\n0000 RETURN int(1)\n"), 0],
+    'sections that are not dumps' => [fn(): string => dumpSections("Opcache cannot allocate shared memory\n", "Opcache cannot allocate shared memory\n"), 0],
 ]);
 
 it('reads each program of a child that ends well and dumps one section for each', function (): void {

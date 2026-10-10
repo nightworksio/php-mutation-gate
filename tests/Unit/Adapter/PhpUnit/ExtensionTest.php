@@ -29,4 +29,4 @@ it('says nothing in the guard file where opcache is off on the command line', fu
     new Extension()->bootstrap(Registry::get(), new ExtensionFacade(), ParameterCollection::fromArray([]));
 
     expect(is_file($guard))->toBeFalse();
-})->skip((bool) ini_get('opcache.enable_cli'), 'only a PHP with opcache off on the command line');
+})->skip(fn(): bool => (bool) ini_get('opcache.enable_cli'), 'only a PHP with opcache off on the command line');

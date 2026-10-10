@@ -107,8 +107,8 @@ afterEach(function (): void {
 
 $coverage = static fn(): CoverageRun => CoverageRun::of(WholeSuite::tests(), Workspace::coverage());
 
-$money = Unit::file(Path::of('src/Money.php'));
-$held = Unit::held(Path::of('src/Held.php'), Group::named('holds:src/Held.php'));
+$makeMoney = static fn(): Unit => Unit::file(Path::of('src/Money.php'));
+$makeHeld = static fn(): Unit => Unit::held(Path::of('src/Held.php'), Group::named('holds:src/Held.php'));
 
 /** The units each shard of a plan runs, by the shard's number. */
 $shards = static function (Plan|CannotJudge $plan): array {
@@ -138,9 +138,12 @@ $recordingPlan = (static fn(string $project, Mode $mode, MatrixKind $matrix, obj
 it('plans every unit of a full run into shards, on the commit HEAD is at', function () use (
     $plan,
     $shards,
-    $money,
-    $held,
+    $makeMoney,
+    $makeHeld,
 ): void {
+    $money = $makeMoney();
+    $held = $makeHeld();
+
     $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(2));
 
     expect($shards($planned))->toEqual([1 => [$held], 2 => [$money]])
@@ -200,8 +203,8 @@ it('plans where the suite held no more than the cap, or the system did not count
 ) use ($cappedPlan): void {
     expect($cappedPlan($peak))->toBeInstanceOf(Plan::class);
 })->with([
-    'at the cap' => [MemoryCap::of(512, MemoryUnit::Megabytes)],
-    'not counted' => [NotGiven::value()],
+    'at the cap' => [fn(): MemoryCap => MemoryCap::of(512, MemoryUnit::Megabytes)],
+    'not counted' => [fn(): NotGiven => NotGiven::value()],
 ]);
 
 it('plans where the project\'s own memory_limit lifts the cap over the suite, or none binds it', function (
@@ -505,9 +508,12 @@ it('asks for coverage withholding what every process that runs the project\'s co
 it('weighs each unit by what the cost model expects of it, with what the ledgers learned', function () use (
     $plan,
     $shards,
-    $money,
-    $held,
+    $makeMoney,
+    $makeHeld,
 ): void {
+    $money = $makeMoney();
+    $held = $makeHeld();
+
     $store = new ProofStoreFake();
     $store->write(
         Scope::branch('main'),
@@ -528,9 +534,12 @@ it('weighs each unit by what the cost model expects of it, with what the ledgers
 it('drops every unit a proof with a matching key covers, and carries what the change does not reach', function () use (
     $plan,
     $shards,
-    $money,
-    $held,
+    $makeMoney,
+    $makeHeld,
 ): void {
+    $money = $makeMoney();
+    $held = $makeHeld();
+
     $project = Flows::project();
     $full = $plan($project, Mode::full(), Cut::exactly(1));
     $key = $full instanceof Plan ? $full->keys()->keyOf(Path::of('src/Money.php')) : $full;
@@ -566,9 +575,12 @@ it('proves and carries a run that records every killer only from proofs whose ru
     $plan,
     $recordingPlan,
     $shards,
-    $money,
-    $held,
+    $makeMoney,
+    $makeHeld,
 ): void {
+    $money = $makeMoney();
+    $held = $makeHeld();
+
     $project = Flows::project();
     $full = $plan($project, Mode::full(), Cut::exactly(1));
     $key = $full instanceof Plan ? $full->keys()->keyOf(Path::of('src/Money.php')) : $full;
@@ -618,15 +630,15 @@ it('cannot plan where the units cannot be found, the coverage taken or the run k
     expect($plan(Flows::project(), Mode::full(), Cut::exactly(1), $port))->toEqual(CannotJudge::because($why));
 })->with([
     'the units' => [
-        new TreeSourceFake(CannotJudge::because('No tree is declared.')),
+        fn(): TreeSourceFake => new TreeSourceFake(CannotJudge::because('No tree is declared.')),
         'No tree is declared.',
     ],
     'the coverage' => [
-        new CoverageAsked(RunnerFake::ofTheFixture(), CannotJudge::because('The suite failed.')),
+        fn(): CoverageAsked => new CoverageAsked(RunnerFake::ofTheFixture(), CannotJudge::because('The suite failed.')),
         'The suite failed.',
     ],
     'the keys' => [
-        new RunnerFake(
+        fn(): RunnerFake => new RunnerFake(
             CannotJudge::because('The runner is not installed.'),
             Groups::of(),
             CoverageMap::empty(),
@@ -763,10 +775,10 @@ it('plans with the runner\'s own markers where ignores.native allows them, or wi
 
     expect($planned)->toBeInstanceOf(Plan::class);
 })->with([
-    'markers allowed' => [ScriptedRunner::fixture()->marking(Markers::of(
+    'markers allowed' => [fn(): ScriptedRunner => ScriptedRunner::fixture()->marking(Markers::of(
         Marker::inSource(Path::of('src/Money.php'), Line::of(9), 'x', Nameless::code()),
     ))],
-    'no markers' => [ScriptedRunner::fixture()->marking(Markers::none())],
+    'no markers' => [fn(): ScriptedRunner => ScriptedRunner::fixture()->marking(Markers::none())],
 ]);
 
 it('cannot plan where the runner cannot look for its own ignore markers', function () use ($plan): void {
@@ -817,9 +829,12 @@ it('lists each shard\'s units the riskiest first, a unit never mutated before a 
     $plan,
     $shards,
     $settled,
-    $money,
-    $held,
+    $makeMoney,
+    $makeHeld,
 ): void {
+    $money = $makeMoney();
+    $held = $makeHeld();
+
     $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $settled('src/Held.php'));
 
     expect($shards($planned))->toEqual([1 => [$money, $held]]);
@@ -829,7 +844,10 @@ it('lists the least risky units the most recently changed first, by what git say
     string $moneyChanged,
     string $heldChanged,
     bool $moneyFirst,
-) use ($plan, $shards, $settled, $money, $held): void {
+) use ($plan, $shards, $settled, $makeMoney, $makeHeld): void {
+    $money = $makeMoney();
+    $held = $makeHeld();
+
     $checkout = new ChangeSourceFake(
         Revision::ref('base'),
         Changes::none(),
@@ -847,9 +865,12 @@ it('lists the least risky units the most recently changed first, by what git say
 it('lists a unit whose lines the change touched first, before one never mutated', function () use (
     $plan,
     $shards,
-    $money,
-    $held,
+    $makeMoney,
+    $makeHeld,
 ): void {
+    $money = $makeMoney();
+    $held = $makeHeld();
+
     $checkout = new ChangeSourceFake(
         Revision::ref('base'),
         Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(2)))),

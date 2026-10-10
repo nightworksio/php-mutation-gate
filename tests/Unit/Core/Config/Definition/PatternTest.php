@@ -30,7 +30,7 @@ it('refuses a glob that goes up out of the project, or is absolute, wherever it 
     expect(Pattern::glob($origin)->read(Node::config($written))->problems())
         ->toEqual([Problem::at('', sprintf('expected a path inside the project, got %s', $written))]);
 })->with([
-    'up, in a file' => [ConfigFile::at(Path::of('/project/ci/gate.json'), Path::of('/project')), '"../../src/**"'],
-    'absolute, in a file' => [ConfigFile::at(Path::of('/project/ci/gate.json'), Path::of('/project')), '"/src/**"'],
-    'absolute, on the command line' => [ProjectRoot::commandLine(), '"/src/**"'],
+    'up, in a file' => [fn(): ConfigFile => ConfigFile::at(Path::of('/project/ci/gate.json'), Path::of('/project')), '"../../src/**"'],
+    'absolute, in a file' => [fn(): ConfigFile => ConfigFile::at(Path::of('/project/ci/gate.json'), Path::of('/project')), '"/src/**"'],
+    'absolute, on the command line' => [fn(): ProjectRoot => ProjectRoot::commandLine(), '"/src/**"'],
 ]);

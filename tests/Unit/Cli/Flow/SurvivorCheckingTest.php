@@ -387,22 +387,22 @@ it('starts a check only where the time left has room for it, as long as the run 
 })->with([
     // read before the warm-up, its start and end, then before each check, its start and end
     'a warm-up of 9s leaves 1s, too little for a first check' => [
-        new ScriptedClock('2026-01-01T00:00:00Z', 0, 0, 9, 9),
+        fn(): ScriptedClock => new ScriptedClock('2026-01-01T00:00:00Z', 0, 0, 9, 9),
         false,
         '',
     ],
     'a warm-up of 1s leaves room for the first check, whose 6s leave too little for another' => [
-        new ScriptedClock('2026-01-01T00:00:00Z', 0, 0, 1, 1, 1, 7, 7),
+        fn(): ScriptedClock => new ScriptedClock('2026-01-01T00:00:00Z', 0, 0, 1, 1, 1, 7, 7),
         false,
         'money',
     ],
     'every check fits where each takes as long as the warm-up' => [
-        new ScriptedClock('2026-01-01T00:00:00Z', 0, 0, 1, 1, 1, 2, 2, 2, 3),
+        fn(): ScriptedClock => new ScriptedClock('2026-01-01T00:00:00Z', 0, 0, 1, 1, 1, 2, 2, 2, 3),
         false,
         'money held',
     ],
     'a printed file\'s first survivor needs room for its print and its mutant' => [
-        new ScriptedClock('2026-01-01T00:00:00Z', 0, 0, 1, 9),
+        fn(): ScriptedClock => new ScriptedClock('2026-01-01T00:00:00Z', 0, 0, 1, 9),
         true,
         '',
     ],

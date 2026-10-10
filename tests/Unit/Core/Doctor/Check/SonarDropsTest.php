@@ -18,7 +18,7 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
-$trees = Trees::of(
+$makeTrees = static fn(): Trees => Trees::of(
     Tree::at(Path::of('src'), Floor::of(80), Package::at(Path::root())),
     Tree::at(Path::of('app/Legacy'), Floor::of(50), Package::at(Path::root())),
     Tree::at(Path::of('lib'), Floor::of(50), Package::at(Path::root())),
@@ -28,7 +28,7 @@ $reporting = static fn(string ...$reporters): Observations => Observations::none
         static fn(string $use): array => ['use' => $use, 'path' => sprintf('build/%s.json', $use)],
         $reporters,
     )]))
-    ->withTrees($trees)
+    ->withTrees($makeTrees())
     ->withFiles(ProjectFiles::none()->withSonarSources(SonarSources::of(Path::of('src'))));
 $finding = static fn(string $tree): Finding => Finding::of(
     Slug::OutsideSonarSources,
@@ -42,7 +42,9 @@ it('advises of each tree outside sonar.sources where a sonar report is written',
     expect(SonarDrops::in($reporting('json', 'sonar')))->toEqual(Findings::of($finding('app/Legacy'), $finding('lib')));
 });
 
-it('finds nothing where no sonar report is written, every tree is inside, or nothing was observed', function () use ($reporting, $trees): void {
+it('finds nothing where no sonar report is written, every tree is inside, or nothing was observed', function () use ($reporting, $makeTrees): void {
+    $trees = $makeTrees();
+
     $inside = $reporting('sonar')->withFiles(ProjectFiles::none()->withSonarSources(SonarSources::of(Path::of('src'), Path::of('app'), Path::of('lib'))));
 
     expect(SonarDrops::in($reporting('json', 'sarif')))->toEqual(Findings::none())

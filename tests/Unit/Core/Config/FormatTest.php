@@ -16,8 +16,8 @@ it('names the format of a config file by its extension', function (string $exten
     ['yaml', Format::Yaml],
     ['yml', Format::Yaml],
     ['neon', Format::Neon],
-    ['toml', Absent::setting()],
-    ['', Absent::setting()],
+    ['toml', fn(): Absent => Absent::setting()],
+    ['', fn(): Absent => Absent::setting()],
 ]);
 
 it('looks for a config file by every name it has, in the order the formats are listed', function (): void {
@@ -81,7 +81,7 @@ function formatCommentLeavesPhp(string $comment): bool
     );
 }
 
-it('keeps every line of a comment inside it, whatever a path in it holds', function (Format $format, Closure $leaves): void {
+it('keeps every line of a comment inside it, whatever a path in it holds', function (Format $format, callable $leaves): void {
     $hostile = "app'\"*/ \$x\n?><?php echo 'out'; // \r\u{2028}x: 1\u{85}y\u{202E}z";
     $commented = $format->commented(['Trees:', $hostile]);
     $text = is_string($commented) ? $commented : '';
@@ -91,7 +91,7 @@ it('keeps every line of a comment inside it, whatever a path in it holds', funct
         ->and($text)->toContain("app'\"*/ \$x? ><?php echo 'out'; // x: 1yz")
         ->and($leaves($text))->toBeTrue();
 })->with([
-    'php' => [Format::Php, formatCommentLeavesPhp(...)],
-    'yaml' => [Format::Yaml, formatCommentLeavesYaml(...)],
-    'neon' => [Format::Neon, formatCommentLeavesNeon(...)],
+    'php' => [Format::Php, 'formatCommentLeavesPhp'],
+    'yaml' => [Format::Yaml, 'formatCommentLeavesYaml'],
+    'neon' => [Format::Neon, 'formatCommentLeavesNeon'],
 ]);

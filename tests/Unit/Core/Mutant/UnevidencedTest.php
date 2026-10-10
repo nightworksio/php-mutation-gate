@@ -54,22 +54,22 @@ it('says where the runner read no exit code and kept none of the output', functi
         'No test is named as its killer, and no signal or fatal error PHP recorded ended its process: the runner read no exit code. None of its output is kept.',
     ]);
 })->with([
-    'no evidence' => [Evidence::none()],
-    'an ending with nothing known' => [Evidence::none()->withEnded(Ended::unprinted(NotGiven::value(), NotGiven::value()))],
-    'an ending that printed nothing' => [Evidence::none()->withEnded(Ended::of(NotGiven::value(), NotGiven::value(), ''))],
+    'no evidence' => [fn(): Evidence => Evidence::none()],
+    'an ending with nothing known' => [fn(): Evidence => Evidence::none()->withEnded(Ended::unprinted(NotGiven::value(), NotGiven::value()))],
+    'an ending that printed nothing' => [fn(): Evidence => Evidence::none()->withEnded(Ended::of(NotGiven::value(), NotGiven::value(), ''))],
 ]);
 
 it('lets a kill stand that a test is named for, or that a signal or a fatal error PHP recorded ended', function (Mutant $killed, Evidence $evidence) use ($judged): void {
     expect($judged($killed, $evidence))->toBe([MutantStatus::Killed, null]);
 })->with([
     'a killer named' => [
-        $mutant(10, MutantStatus::Killed)->killedBy(TestIds::of(TestId::of('Tests\MoneyTest::adds'))),
-        Evidence::none(),
+        fn(): Mutant => $mutant(10, MutantStatus::Killed)->killedBy(TestIds::of(TestId::of('Tests\MoneyTest::adds'))),
+        fn(): Evidence => Evidence::none(),
     ],
-    'ended by a signal' => [$mutant(10, MutantStatus::Killed), Evidence::none()->withEnded(Ended::unprinted(137, signalled: true))],
+    'ended by a signal' => [fn(): Mutant => $mutant(10, MutantStatus::Killed), fn(): Evidence => Evidence::none()->withEnded(Ended::unprinted(137, signalled: true))],
     'ended by a fatal error' => [
-        $mutant(10, MutantStatus::Killed),
-        Evidence::none()->withEnded(Ended::unprinted(255, signalled: false)->withFatal(fatal: true)),
+        fn(): Mutant => $mutant(10, MutantStatus::Killed),
+        fn(): Evidence => Evidence::none()->withEnded(Ended::unprinted(255, signalled: false)->withFatal(fatal: true)),
     ],
 ]);
 

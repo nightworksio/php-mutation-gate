@@ -33,13 +33,16 @@ $proof = static fn(string $key, string $unit, string $run): Proof => Proof::of(
     Run::of($run, Moment::at('2026-09-29T10:00:00Z'), Digest::of(str_repeat('b', 64))),
 );
 $paths = static fn(Units $units): array => array_map(static fn(Unit $unit): string => $unit->path()->value(), [...$units]);
-$units = Units::of(Unit::file(Path::of('src/A.php')), Unit::file(Path::of('src/B.php')), Unit::file(Path::of('src/C.php')));
-$keys = Keys::none()
+$makeUnits = static fn(): Units => Units::of(Unit::file(Path::of('src/A.php')), Unit::file(Path::of('src/B.php')), Unit::file(Path::of('src/C.php')));
+$makeKeys = static fn(): Keys => Keys::none()
     ->with(Path::of('src/A.php'), Digest::of('a'))
     ->with(Path::of('src/B.php'), Digest::of('b'))
     ->with(Path::of('src/C.php'), Unkeyed::because('The runner cannot name its tests.'));
 
-it('takes the proof whose key still matches, and runs the rest, a unit with no key always', function () use ($units, $keys, $proof, $paths): void {
+it('takes the proof whose key still matches, and runs the rest, a unit with no key always', function () use ($makeUnits, $makeKeys, $proof, $paths): void {
+    $units = $makeUnits();
+    $keys = $makeKeys();
+
     $proving = Proving::of(
         $units,
         $keys,
@@ -55,7 +58,10 @@ it('takes the proof whose key still matches, and runs the rest, a unit with no k
         ->and($proving->ownScopeProofs())->toBe(0);
 });
 
-it('takes the default branch\'s proof before the run\'s own, and says when it took its own', function () use ($units, $keys, $proof): void {
+it('takes the default branch\'s proof before the run\'s own, and says when it took its own', function () use ($makeUnits, $makeKeys, $proof): void {
+    $units = $makeUnits();
+    $keys = $makeKeys();
+
     $proving = Proving::of(
         $units,
         $keys,
@@ -70,13 +76,19 @@ it('takes the default branch\'s proof before the run\'s own, and says when it to
         ->and($proving->ownScopeProofs())->toBe(1);
 });
 
-it('says it took nothing of its own where the default branch proved all it took', function () use ($units, $keys, $proof): void {
+it('says it took nothing of its own where the default branch proved all it took', function () use ($makeUnits, $makeKeys, $proof): void {
+    $units = $makeUnits();
+    $keys = $makeKeys();
+
     $proving = Proving::of($units, $keys, Proofs::of($proof('a', 'src/A.php', 'main')), Proofs::of($proof('a', 'src/A.php', 'pr')));
 
     expect($proving->ownScopeProofs())->toBe(0);
 });
 
-it('counts every proof it took from the run\'s own scope', function () use ($units, $keys, $proof, $paths): void {
+it('counts every proof it took from the run\'s own scope', function () use ($makeUnits, $makeKeys, $proof, $paths): void {
+    $units = $makeUnits();
+    $keys = $makeKeys();
+
     $own = Proofs::of($proof('a', 'src/A.php', 'pr'), $proof('b', 'src/B.php', 'pr'));
     $proving = Proving::of($units, $keys, Proofs::none(), $own);
 
@@ -85,7 +97,10 @@ it('counts every proof it took from the run\'s own scope', function () use ($uni
         ->and($paths($proving->toRun()))->toBe(['src/C.php']);
 });
 
-it('runs a unit whose default branch and own proofs under its key disagree', function () use ($units, $keys, $paths): void {
+it('runs a unit whose default branch and own proofs under its key disagree', function () use ($makeUnits, $makeKeys, $paths): void {
+    $units = $makeUnits();
+    $keys = $makeKeys();
+
     $proofWith = static fn(MutantStatus $status): Proof => Proof::of(
         Digest::of('a'),
         Path::of('src/A.php'),

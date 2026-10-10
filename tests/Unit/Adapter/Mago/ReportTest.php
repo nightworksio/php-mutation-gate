@@ -15,9 +15,9 @@ it('cannot judge from an exit that is no finished analysis, output that is no re
     expect(Report::of($mago, FindingFiles::under(Root::of('/p'))))
         ->toEqual(CannotJudge::because(sprintf('Mago wrote no report (%s).', $mago->said())));
 })->with([
-    'a usage error' => [ChildProcess::exited(2, '{"issues": []}', 'ERROR --substitute: no such file')],
-    'no report' => [ChildProcess::exited(1, 'Mago panicked', '')],
-    'never ran' => [ChildProcess::neverStarted('No such directory.')],
+    'a usage error' => [fn(): ChildProcess => ChildProcess::exited(2, '{"issues": []}', 'ERROR --substitute: no such file')],
+    'no report' => [fn(): ChildProcess => ChildProcess::exited(1, 'Mago panicked', '')],
+    'never ran' => [fn(): ChildProcess => ChildProcess::neverStarted('No such directory.')],
 ]);
 
 it('places an issue in the file of its primary annotation, whatever annotation comes first', function (): void {

@@ -34,7 +34,6 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
 use NightWorksIO\MutationGate\Tests\Support\InfectionSource;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
-use NightWorksIO\MutationGate\Tests\Support\RunnerContracts;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
@@ -61,8 +60,6 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-$files = RunnerContracts::files(...);
-
 it('patches the Infection library\'s release and its include-interceptor, whichever its leg installed, into the files the pristine fixtures of those releases patch into', function (): void {
     $release = InfectionSource::installedRelease();
     $interceptor = InfectionSource::installedRelease(Package::IncludeInterceptor);
@@ -81,7 +78,7 @@ it('patches the Infection library\'s release and its include-interceptor, whiche
         ->and(InfectionPatch::applyIn($installed))->toBe('infection:patch patched 3 of the 3 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.')
         ->and(InfectionPatch::applyIn($pristine))->toBe('infection:patch patched 3 of the 3 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.')
         ->and($read($installed))->toBe($read($pristine));
-})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
+})->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 
 it('leaves a mutant unjudged, naming the test, when Pest\'s filter cannot select a covering test', function (): void {
     $library = Library::pest(Patching::off());
@@ -97,7 +94,7 @@ it('leaves a mutant unjudged, naming the test, when Pest\'s filter cannot select
         ->and($reasons)->toEqual([Reason::that(
             "Pest's --filter cannot select LegacySpec::decrements, so Pest cannot run it against this mutant.",
         )]);
-})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('opens a patched shard on the canary group and reads the map the planning job handed over', function (): void {
     $patched = Patch::applyIn(Library::vendor());
@@ -119,7 +116,7 @@ it('opens a patched shard on the canary group and reads the map the planning job
         ->and($map)->toBeInstanceOf(CoverageMap::class)
         ->and($result instanceof MutationResult ? Library::records($result->mutants()) : $result)
         ->toEqualCanonicalizing($library->expected('adds', 'large'));
-})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 // A test that needs a test file beside its own works where that file is
 // loaded first: here it sorts first, holds a test of its own, which Pest's
@@ -191,7 +188,7 @@ it('narrows a mutant\'s own run over a test that needs another test file, loaded
     'a value a hook sets, which the test falls back from' => [true, 'ReachADefaultSpec.php', 'ReachZDefaultedSpec.php'],
     'a global a describe body sets, which the test falls back from' => [true, 'ReachADescribeSpec.php', 'ReachZDescribedSpec.php'],
     'a global a dataset closure sets, which the test falls back from' => [true, 'ReachADatasetSpec.php', 'ReachZDatasetSpec.php'],
-])->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+])->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('hands each mutant\'s own run the test files its covering tests need as paths, and no other', function (): void {
     Patch::applyIn(Library::vendor());
@@ -226,7 +223,7 @@ it('hands each mutant\'s own run the test files its covering tests need as paths
     expect($result instanceof MutationResult ? Library::records($result->mutants()) : $result)
         ->toBe($library->expected('large'))
         ->and($paths)->toBe([Library::acting('tests/MoneySpec.php')]);
-})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('vouches for a narrowed kill by its own run, replayed unmutated in the order it took, stopped after its last killer', function (): void {
     Patch::applyIn(Library::vendor());
@@ -250,7 +247,7 @@ it('vouches for a narrowed kill by its own run, replayed unmutated in the order 
         ->and($replay->failed())->toBeFalse()
         ->and($replay->ran())->toBe($prefix instanceof Prefix ? $prefix->position() : -1)
         ->and($replay->order())->toBeString();
-})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('runs again, patched, only the mutants the file it hands over names, on the map the invocation read', function (): void {
     Patch::applyIn(Library::vendor());
@@ -282,7 +279,7 @@ it('runs again, patched, only the mutants the file it hands over names, on the m
         ->and($again instanceof Mutants ? Library::records($again) : $again)->toBe(Library::records($survivors))
         ->and(array_map(static fn(Mutant $mutant): bool => str_contains($recorded, $mutant->nativeId()), [...$survivors, ...$killed]))
         ->toBe([true, false]);
-})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 // composer.json allows pest-plugin-mutate 5.0.2 alone. 5.0.1 reads each line's
 // covering tests from php-code-coverage 14.3's map as hit counts rather than test
@@ -302,7 +299,7 @@ it('holds the library to the pest-plugin-mutate the package allows', function ()
             'phpunit/phpunit' => '<12.5.8 || >=12.5.21 <12.5.22 || >=13.1.5 <13.1.6',
             'symfony/yaml' => '<7.4.12 || >=8.0 <8.0.12',
         ]);
-})->skip(getenv('RUNNER_CANARY') === '1', 'the runner canary frees the library from the pin');
+})->skip(fn(): bool => getenv('RUNNER_CANARY') === '1', 'the runner canary frees the library from the pin');
 
 // The lowest resolution of the Infection library installs the lowest PHPUnit the
 // package allows, 12.5.8, not the lowest its own constraint would.
@@ -338,7 +335,7 @@ it('installs the Infection library with PHPUnit 12 as with PHPUnit 13', function
         ->and($unprefixed($field($twelve, 'autoload')))->toBe($unprefixed($field($thirteen, 'autoload')))
         ->and($unprefixed($field($twelve, 'autoload-dev')))->toBe($unprefixed($field($thirteen, 'autoload-dev')))
         ->and($field($twelve, 'config')['vendor-dir'] ?? '')->toBe('../vendor');
-})->skip(getenv('RUNNER_CANARY') === '1', 'the runner canary frees the library from the pin');
+})->skip(fn(): bool => getenv('RUNNER_CANARY') === '1', 'the runner canary frees the library from the pin');
 
 // The unit suite patches pest-plugin-mutate's files as the allowed version ships
 // them, from tests/Fixtures. Patching the installed plugin, which this
@@ -368,12 +365,12 @@ it('reads coverage in the serialization format the library writes it in', functi
 
     expect((string) file_get_contents($serializer))
         ->toContain(sprintf('SERIALIZATION_FORMAT = %d;', Serializer::SERIALIZATION_FORMAT));
-})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('has the library installed wherever the runner contracts run', function (): void {
     expect(Library::isInstalled())->toBeTrue();
-})->skip(getenv('RUNNER_CONTRACTS') !== 'pest', 'only the runner contracts job installs the fixture library');
+})->skip(fn(): bool => getenv('RUNNER_CONTRACTS') !== 'pest', 'only the runner contracts job installs the fixture library');
 
 it('has the Infection library installed wherever the Infection runner contracts run', function (): void {
     expect(Library::isInfectionInstalled())->toBeTrue();
-})->skip(getenv('RUNNER_CONTRACTS') !== 'infection', 'only the Infection runner contracts job installs its library');
+})->skip(fn(): bool => getenv('RUNNER_CONTRACTS') !== 'infection', 'only the Infection runner contracts job installs its library');

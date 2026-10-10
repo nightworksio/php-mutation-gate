@@ -142,11 +142,11 @@ it('runs a round after each change, measuring again only the test files whose en
 })->with([
     'a source a test executed' => [
         'src/Money.php',
-        [sprintf('%s tests/MoneyTest.php', TestPaths::class), CoverageRead::class],
+        fn(): array => [sprintf('%s tests/MoneyTest.php', TestPaths::class), CoverageRead::class],
     ],
     'a test' => [
         'tests/MoneyTest.php',
-        [sprintf('%s tests/MoneyTest.php', TestPaths::class), CoverageRead::class],
+        fn(): array => [sprintf('%s tests/MoneyTest.php', TestPaths::class), CoverageRead::class],
     ],
     'support no test uses' => ['tests/Support/Clock.php', [CoverageRead::class]],
     'a file that defines the runner' => ['tests/Pest.php', [CoverageRun::class]],

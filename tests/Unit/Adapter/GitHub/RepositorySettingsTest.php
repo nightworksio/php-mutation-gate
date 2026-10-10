@@ -37,9 +37,9 @@ function settingsRead(array $answers): GitHubSettings|CannotTell
         : CannotTell::because('No repository.');
 }
 
-$read = settingsRead(...);
+$makeRead = static fn(): Closure => settingsRead(...);
 
-$everything = [
+$makeEverything = static fn(): array => [
     '/repos/octo/gate' => new JsonMockResponse(['default_branch' => 'trunk']),
     '/repos/octo/gate/rules/branches/trunk' => new JsonMockResponse([
         ['type' => 'deletion'],
@@ -56,7 +56,10 @@ $everything = [
     '/repos/octo/gate/actions/workflows/9/runs?event=schedule&per_page=1' => new JsonMockResponse(['workflow_runs' => [['created_at' => '2026-09-28T03:00:00Z']]]),
 ];
 
-it('reads the required checks, the fork approval policy and the gate\'s scheduled runs', function () use ($read, $everything): void {
+it('reads the required checks, the fork approval policy and the gate\'s scheduled runs', function () use ($makeRead, $makeEverything): void {
+    $read = $makeRead();
+    $everything = $makeEverything();
+
     expect($read($everything))->toEqual(GitHubSettings::of(
         'octo/gate',
         'trunk',
@@ -70,7 +73,10 @@ it('reads the required checks, the fork approval policy and the gate\'s schedule
     ));
 });
 
-it('takes the latest scheduled run whichever workflow made it', function () use ($read, $everything): void {
+it('takes the latest scheduled run whichever workflow made it', function () use ($makeRead, $makeEverything): void {
+    $read = $makeRead();
+    $everything = $makeEverything();
+
     $settings = $read([
         ...$everything,
         '/repos/octo/gate/actions/workflows/7/runs?event=schedule&per_page=1' => new JsonMockResponse(['workflow_runs' => [['created_at' => '2026-09-29T03:00:00Z']]]),
@@ -81,7 +87,10 @@ it('takes the latest scheduled run whichever workflow made it', function () use 
         ->toEqual(Instant::at(new DateTimeImmutable('2026-09-29T03:00:00Z')));
 });
 
-it('reads no scheduled run where none was made, or GitHub dated it in a way it does not read', function () use ($read, $everything): void {
+it('reads no scheduled run where none was made, or GitHub dated it in a way it does not read', function () use ($makeRead, $makeEverything): void {
+    $read = $makeRead();
+    $everything = $makeEverything();
+
     $settings = $read([
         ...$everything,
         '/repos/octo/gate/actions/workflows/7/runs?event=schedule&per_page=1' => new JsonMockResponse(['workflow_runs' => []]),
@@ -92,7 +101,10 @@ it('reads no scheduled run where none was made, or GitHub dated it in a way it d
     expect($schedule instanceof Schedule ? $schedule->lastRun() : null)->toEqual(NotGiven::value());
 });
 
-it('takes the checks branch protection requires where the rules require none', function () use ($read, $everything): void {
+it('takes the checks branch protection requires where the rules require none', function () use ($makeRead, $makeEverything): void {
+    $read = $makeRead();
+    $everything = $makeEverything();
+
     $settings = $read([...$everything, '/repos/octo/gate/rules/branches/trunk' => new JsonMockResponse([])]);
 
     $required = $settings instanceof GitHubSettings ? $settings->required() : null;
@@ -100,7 +112,10 @@ it('takes the checks branch protection requires where the rules require none', f
     expect($required instanceof Listed ? [...$required] : [])->toBe(['build']);
 });
 
-it('says why of each setting GitHub would not show, and still reads the others', function () use ($read, $everything): void {
+it('says why of each setting GitHub would not show, and still reads the others', function () use ($makeRead, $makeEverything): void {
+    $read = $makeRead();
+    $everything = $makeEverything();
+
     $settings = $read(['/repos/octo/gate' => new JsonMockResponse(['default_branch' => 'trunk'])]);
 
     expect($settings instanceof GitHubSettings ? [$settings->required(), $settings->forkApproval(), $settings->schedule()] : [])
@@ -108,7 +123,10 @@ it('says why of each setting GitHub would not show, and still reads the others',
         ->and($read([...$everything, '/repos/octo/gate/branches/trunk' => new JsonMockResponse([])]))->toBeInstanceOf(GitHubSettings::class);
 });
 
-it('cannot tell a policy it does not know', function () use ($read, $everything): void {
+it('cannot tell a policy it does not know', function () use ($makeRead, $makeEverything): void {
+    $read = $makeRead();
+    $everything = $makeEverything();
+
     $settings = $read([
         ...$everything,
         '/repos/octo/gate/actions/permissions/fork-pr-contributor-approval' => new JsonMockResponse(['approval_policy' => 'everyone']),
@@ -118,6 +136,8 @@ it('cannot tell a policy it does not know', function () use ($read, $everything)
         ->toEqual(CannotTell::because('GitHub answered the approval policy everyone, which the gate does not know.'));
 });
 
-it('cannot tell anything of a repository GitHub does not show', function () use ($read): void {
+it('cannot tell anything of a repository GitHub does not show', function () use ($makeRead): void {
+    $read = $makeRead();
+
     expect($read([]))->toBeInstanceOf(CannotTell::class);
 });

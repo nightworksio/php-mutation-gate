@@ -258,9 +258,9 @@ it('says a run was cut short where its budget ran out before a unit or left a mu
     expect($results instanceof Results ? $results->wereCutShort() : $results)->toBe($cut)
         ->and($outOfTime)->toBe($left);
 })->with([
-    'no budget' => [Flows::settings(Timeouts::seconds(5)), 1, false, []],
-    'a survivor it had no time to confirm' => [Flows::settings(Timeouts::seconds(5), Budget::of('20s')), 1, true, ['Plus-1']],
-    'a budget no unit fits' => [Flows::settings(Budget::of('1s')), 1, true, []],
+    'no budget' => [fn(): Settings => Flows::settings(Timeouts::seconds(5)), 1, false, []],
+    'a survivor it had no time to confirm' => [fn(): Settings => Flows::settings(Timeouts::seconds(5), Budget::of('20s')), 1, true, ['Plus-1']],
+    'a budget no unit fits' => [fn(): Settings => Flows::settings(Budget::of('1s')), 1, true, []],
 ]);
 
 /** A shard's result of a plan, written where the verdict reads it: its units, the units it left, and its doom. */
@@ -274,16 +274,18 @@ $left = static function (string $project, Plan $plan, int $shard, Units $left, D
     )->withUnjudged($left)->withDoomed($doomed);
     Scratch::write($project, sprintf('.mutation-gate/results/%d.json', $shard), ShardResultFile::encode($result));
 };
-$doomed = Doomed::of(Path::of('src/Money.php'), MutantId::hash(Path::of('src/Money.php'), 'Plus', '1', 0), Path::of('src'), Floor::whole(), DoomedBy::Tree);
+$makeDoomed = static fn(): Doomed => Doomed::of(Path::of('src/Money.php'), MutantId::hash(Path::of('src/Money.php'), 'Plus', '1', 0), Path::of('src'), Floor::whole(), DoomedBy::Tree);
 
 /** @return list<string> the paths of these units */
 $paths = static fn(Units $units): array => array_map(static fn(Unit $unit): string => $unit->path()->value(), [...$units]);
 
 it('reads a shard that left no result as stopped, where another stopped once the run could not pass, and names that one\'s survivor', function () use (
     $left,
-    $doomed,
+    $makeDoomed,
     $paths,
 ): void {
+    $doomed = $makeDoomed();
+
     $project = Flows::project();
     $plan = Planned::twoShards();
     $left($project, $plan, 1, Units::none(), $doomed);
@@ -300,9 +302,11 @@ it('reads a shard that left no result as stopped, where another stopped once the
 
 it('takes the units a doomed shard left as stopped, and those a budget left in another shard as unjudged', function () use (
     $left,
-    $doomed,
+    $makeDoomed,
     $paths,
 ): void {
+    $doomed = $makeDoomed();
+
     $project = Flows::project();
     $plan = Planned::twoShards();
     $left($project, $plan, 1, Units::of(Planned::money()), $doomed);
@@ -314,7 +318,9 @@ it('takes the units a doomed shard left as stopped, and those a budget left in a
         ->and($results instanceof Results ? [...$results->units()] : $results)->toBe([]);
 });
 
-it('names every doomed shard\'s survivor, and the first shard\'s doom as the run\'s', function () use ($left, $doomed): void {
+it('names every doomed shard\'s survivor, and the first shard\'s doom as the run\'s', function () use ($left, $makeDoomed): void {
+    $doomed = $makeDoomed();
+
     $project = Flows::project();
     $plan = Planned::twoShards();
     $later = Doomed::of(Path::of('src/Held.php'), MutantId::hash(Path::of('src/Held.php'), 'Plus', '2', 0), Path::of('src'), Floor::whole(), DoomedBy::NewCode);
@@ -336,7 +342,9 @@ it('stops nothing and dooms nothing where no shard stopped once the run could no
         ->and($results instanceof Results ? $results->wereCutShort() : $results)->toBeFalse();
 });
 
-it('still cannot judge a result that cannot be read, beside a doomed shard', function () use ($left, $doomed): void {
+it('still cannot judge a result that cannot be read, beside a doomed shard', function () use ($left, $makeDoomed): void {
+    $doomed = $makeDoomed();
+
     $project = Flows::project();
     $plan = Planned::twoShards();
     $left($project, $plan, 1, Units::none(), $doomed);

@@ -44,22 +44,22 @@ $mutant = static fn(string $file, int $line, MutantStatus $status): Mutant => Mu
     $status,
     Unmeasured::duration(),
 );
-$root = Package::at(Path::root());
-$whole = Tree::at(Path::of('src'), Floor::whole(), $root);
-$half = Tree::at(Path::of('lib'), Floor::of(50), $root);
-$raised = Tree::at(Path::of('app'), Floor::of(50), $root);
-$exempt = Tree::at(Path::of('legacy'), Exempt::because('Not judged yet'), $root);
-$own = Tree::at(Path::of('billing'), Floor::of(50), $root)->withNewCodeFloor(Floor::of(80));
-$trees = Trees::of($whole, $half, $raised, $exempt, $own);
-$reach = Reach::nothing(Packages::of($trees))
+$root = static fn(): Package => Package::at(Path::root());
+$whole = static fn(): Tree => Tree::at(Path::of('src'), Floor::whole(), $root());
+$half = static fn(): Tree => Tree::at(Path::of('lib'), Floor::of(50), $root());
+$raised = static fn(): Tree => Tree::at(Path::of('app'), Floor::of(50), $root());
+$exempt = static fn(): Tree => Tree::at(Path::of('legacy'), Exempt::because('Not judged yet'), $root());
+$own = static fn(): Tree => Tree::at(Path::of('billing'), Floor::of(50), $root())->withNewCodeFloor(Floor::of(80));
+$makeTrees = static fn(): Trees => Trees::of($whole(), $half(), $raised(), $exempt(), $own());
+$makeReach = static fn(): Reach => Reach::nothing(Packages::of($makeTrees()))
     ->withLines(Path::of('lib/Changed.php'), Lines::of(Line::of(3)))
     ->withLines(Path::of('src/Money.php'), Lines::of(Line::of(3)))
     ->withLines(Path::of('legacy/Old.php'), Lines::of(Line::of(3)))
     ->withLines(Path::of('billing/Invoice.php'), Lines::of(Line::of(3)));
 $doom = static fn(Floor $newCode): Doom => Doom::over(
-    $trees,
+    $makeTrees(),
     Baseline::of(Entry::of(Path::of('app'), Floor::whole())),
-    $reach,
+    $makeReach(),
     $newCode,
     Ignoring::none(),
 );
@@ -143,7 +143,10 @@ it('dooms no survivor static analysis proved equivalent', function () use ($doom
         ->toBe(['src/Tax.php', $survivor->id()->value(), 'src', 10_000, 'tree']);
 });
 
-it('dooms no survivor that proved flaky, or that an ignore names', function () use ($trees, $reach, $mutant, $units, $named): void {
+it('dooms no survivor that proved flaky, or that an ignore names', function () use ($makeTrees, $makeReach, $mutant, $units, $named): void {
+    $trees = $makeTrees();
+    $reach = $makeReach();
+
     $survivor = $mutant('src/Money.php', 7, MutantStatus::Survived);
     $ignoring = Ignoring::of(
         Listed::of(IgnoredMutant::of($survivor->id(), 'Both branches build the same list', Absent::setting())),

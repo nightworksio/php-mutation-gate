@@ -2,9 +2,12 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Registration;
+use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\Php\PhpFile;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
-// H4, H7, G1, G5 and G6, over the text of every test file. Read rather than
+// H4, H7, G1, G5, G6 and G10, over the text of every test file. Read rather than
 // run, because a committed `->only()` narrows the run that would report it.
 
 /** The files that name what they refuse in order to refuse it. */
@@ -130,6 +133,19 @@ it('commits no focused test and no unexplained skip', function (): void {
     // G6
     expect($offenders)->toBe([], sprintf(
         "These tests narrow the run or skip without a reason:\n  %s\n\nA committed only() runs one test and reports green for the rest; a skip without its reason is a test nobody will turn back on (G6).",
+        implode("\n  ", $offenders),
+    ));
+});
+
+it('keeps every test file inert as it loads', function (): void {
+    $offenders = array_keys(array_filter(
+        testFiles(),
+        static fn(string $text): bool => ! Registration::inert(PhpFile::read(Contents::of($text))),
+    ));
+
+    // G10
+    expect($offenders)->toBe([], sprintf(
+        "These test files run code as they load:\n  %s\n\nA mutant's narrowed run loads every test file that is not inert, so each one slows the run of every mutant. Keep the top to declarations, imports, Pest's registrations and variables assigned what runs nothing: make a value that calls a closure the tests call, and loop inside the test over what a call lists (G10, ADR-0004 decision 9).",
         implode("\n  ", $offenders),
     ));
 });

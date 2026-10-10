@@ -108,17 +108,21 @@ function judgedAs(Mutant|CannotJudge $mutant): array
         : [$mutant->why()];
 }
 
-$adds = TestId::of('Tests\MoneySpec::addsTwoAmounts');
-$request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
+$makeAdds = static fn(): TestId => TestId::of('Tests\MoneySpec::addsTwoAmounts');
+$makeRequest = static fn(): MutationRequest => MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
 
-$judged = static function (PhpUnitShellFake $shell, TestIds $covering) use ($request): Mutant|CannotJudge {
+$judged = static function (PhpUnitShellFake $shell, TestIds $covering) use ($makeRequest): Mutant|CannotJudge {
+    $request = $makeRequest();
+
     $project = phpUnitProject();
     $run = new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project), PhpUnitScan::uncapped($project), NotGiven::value());
 
     return $run->judged(moneyMutant($project), $covering, $request, Seconds::of(3.0));
 };
 
-it('starts PHPUnit with opcache off, the override, the extension and the covering tests\' ids, stopped at the limit', function () use ($adds, $judged): void {
+it('starts PHPUnit with opcache off, the override, the extension and the covering tests\' ids, stopped at the limit', function () use ($makeAdds, $judged): void {
+    $adds = $makeAdds();
+
     $shell = recording(Outcome::Passed->line($adds->value()), Ran::finished(succeeded: true, output: '')->took(Seconds::of(0.5)));
     $judged($shell, TestIds::of($adds));
     $command = $shell->commands()[0];
@@ -153,7 +157,10 @@ it('starts PHPUnit with opcache off, the override, the extension and the coverin
         ->and($command->withheld())->toEqual(Withheld::standard());
 });
 
-it('runs every covering test of a mutant under a full kill matrix, stopping at none that fails', function () use ($adds, $request): void {
+it('runs every covering test of a mutant under a full kill matrix, stopping at none that fails', function () use ($makeAdds, $makeRequest): void {
+    $adds = $makeAdds();
+    $request = $makeRequest();
+
     $project = phpUnitProject();
     $shell = recording(Outcome::Passed->line($adds->value()), Ran::finished(succeeded: true, output: '')->took(Seconds::of(0.5)));
     $run = new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project), PhpUnitScan::uncapped($project), NotGiven::value());
@@ -167,74 +174,76 @@ it('runs every covering test of a mutant under a full kill matrix, stopping at n
     ]);
 });
 
-it('judges a mutant by what its run recorded, ended as and served', function (string $lines, Ran $ran, string $guard, array $verdict) use ($adds, $judged): void {
+it('judges a mutant by what its run recorded, ended as and served', function (string $lines, Ran $ran, string $guard, array $verdict) use ($makeAdds, $judged): void {
+    $adds = $makeAdds();
+
     $selected = TestIds::of($adds, TestId::of('T::fails'), TestId::of('T::errs'), TestId::of('T::dies'));
 
     expect(judgedAs($judged(recording($lines, $ran, $guard), $selected)))->toBe($verdict);
 })->with([
     'killed by the tests that failed or errored' => [
-        records(Outcome::Started->line($adds->value()), Outcome::Passed->line($adds->value()), Outcome::Started->line('T::fails'), Outcome::Failed->line('T::fails'), Outcome::Started->line('T::errs'), Outcome::Errored->line('T::errs')),
-        Ran::finished(succeeded: false, output: ''),
+        fn(): string => records(Outcome::Started->line($makeAdds()->value()), Outcome::Passed->line($makeAdds()->value()), Outcome::Started->line('T::fails'), Outcome::Failed->line('T::fails'), Outcome::Started->line('T::errs'), Outcome::Errored->line('T::errs')),
+        fn(): Ran => Ran::finished(succeeded: false, output: ''),
         "served\n",
         [MutantStatus::Killed, ['T::fails', 'T::errs'], ''],
     ],
     'killed by a test the run did not select, credited to none' => [
-        records(Outcome::Started->line($adds->value()), Outcome::Passed->line($adds->value()), Outcome::Started->line('U::beside'), Outcome::Failed->line('U::beside')),
-        Ran::finished(succeeded: false, output: ''),
+        fn(): string => records(Outcome::Started->line($makeAdds()->value()), Outcome::Passed->line($makeAdds()->value()), Outcome::Started->line('U::beside'), Outcome::Failed->line('U::beside')),
+        fn(): Ran => Ran::finished(succeeded: false, output: ''),
         "served\n",
         [MutantStatus::Killed, [], ''],
     ],
     'killed by a test whose process died as it ran' => [
-        records(Outcome::Started->line($adds->value()), Outcome::Passed->line($adds->value()), Outcome::Started->line('T::dies')),
-        Ran::finished(succeeded: false, output: 'Fatal error'),
+        fn(): string => records(Outcome::Started->line($makeAdds()->value()), Outcome::Passed->line($makeAdds()->value()), Outcome::Started->line('T::dies')),
+        fn(): Ran => Ran::finished(succeeded: false, output: 'Fatal error'),
         "served\n",
         [MutantStatus::Killed, ['T::dies'], ''],
     ],
     'survived every test passing' => [
-        records(Outcome::Started->line($adds->value()), Outcome::Passed->line($adds->value())),
-        Ran::finished(succeeded: true, output: ''),
+        fn(): string => records(Outcome::Started->line($makeAdds()->value()), Outcome::Passed->line($makeAdds()->value())),
+        fn(): Ran => Ran::finished(succeeded: true, output: ''),
         "served\n",
         [MutantStatus::Survived, [], ''],
     ],
     'timed out at its limit' => [
-        Outcome::Started->line('T::loops'),
-        Ran::stopped(''),
+        fn(): string => Outcome::Started->line('T::loops'),
+        fn(): Ran => Ran::stopped(''),
         "served\n",
         [MutantStatus::TimedOut, [], ''],
     ],
     'killed by the tests that failed, where stopped at its limit after them, crediting none it stopped' => [
-        records(Outcome::Started->line('T::fails'), Outcome::Failed->line('T::fails'), Outcome::Started->line('T::dies')),
-        Ran::stopped(''),
+        fn(): string => records(Outcome::Started->line('T::fails'), Outcome::Failed->line('T::fails'), Outcome::Started->line('T::dies')),
+        fn(): Ran => Ran::stopped(''),
         "served\n",
         [MutantStatus::Killed, ['T::fails'], ''],
     ],
     'errored where PHPUnit failed before any test started' => [
         '',
-        Ran::finished(succeeded: false, output: 'Fatal error'),
+        fn(): Ran => Ran::finished(succeeded: false, output: 'Fatal error'),
         "served\n",
         [MutantStatus::Errored, [], ''],
     ],
     'unjudged where PHPUnit failed a run with no test failing' => [
-        records(Outcome::Started->line($adds->value()), Outcome::Passed->line($adds->value())),
-        Ran::finished(succeeded: false, output: 'There was 1 warning'),
+        fn(): string => records(Outcome::Started->line($makeAdds()->value()), Outcome::Passed->line($makeAdds()->value())),
+        fn(): Ran => Ran::finished(succeeded: false, output: 'There was 1 warning'),
         "served\n",
         [MutantStatus::Unjudged, [], "PHPUnit failed the run, though no test that ran failed. PHPUnit said:\nThere was 1 warning"],
     ],
     'unjudged where no test ran' => [
         '',
-        Ran::finished(succeeded: true, output: ''),
+        fn(): Ran => Ran::finished(succeeded: true, output: ''),
         '',
         [MutantStatus::Unjudged, [], 'PHPUnit ran none of the 4 tests that cover it: the selection matched no test.'],
     ],
     'unjudged where every test was skipped' => [
-        records(Outcome::Started->line('T::skips'), Outcome::Neither->line('T::skips')),
-        Ran::finished(succeeded: true, output: ''),
+        fn(): string => records(Outcome::Started->line('T::skips'), Outcome::Neither->line('T::skips')),
+        fn(): Ran => Ran::finished(succeeded: true, output: ''),
         "served\n",
         [MutantStatus::Unjudged, [], 'PHPUnit skipped, or marked incomplete, every test that covers it.'],
     ],
     'unjudged where every test was set aside, even where PHPUnit fails the run' => [
-        records(Outcome::Started->line('T::skips'), Outcome::Neither->line('T::skips')),
-        Ran::finished(succeeded: false, output: 'failOnSkipped'),
+        fn(): string => records(Outcome::Started->line('T::skips'), Outcome::Neither->line('T::skips')),
+        fn(): Ran => Ran::finished(succeeded: false, output: 'failOnSkipped'),
         "served\n",
         [
             MutantStatus::Unjudged,
@@ -243,38 +252,38 @@ it('judges a mutant by what its run recorded, ended as and served', function (st
         ],
     ],
     'timed out at its limit, though every test it recorded was set aside' => [
-        records(Outcome::Started->line('T::skips'), Outcome::Neither->line('T::skips')),
-        Ran::stopped(''),
+        fn(): string => records(Outcome::Started->line('T::skips'), Outcome::Neither->line('T::skips')),
+        fn(): Ran => Ran::stopped(''),
         "served\n",
         [MutantStatus::TimedOut, [], ''],
     ],
     'unjudged, where stopped at its limit before the mutated file ran' => [
         '',
-        Ran::stopped(''),
+        fn(): Ran => Ran::stopped(''),
         '',
         [MutantStatus::Unjudged, [], 'PHPUnit was stopped at the limit, and the mutated file never ran in its place.'],
     ],
     'unjudged, saying PHPUnit said nothing, where it failed before any test started and said nothing' => [
         '',
-        Ran::finished(succeeded: false, output: "  \n"),
+        fn(): Ran => Ran::finished(succeeded: false, output: "  \n"),
         '',
         [MutantStatus::Unjudged, [], 'PHPUnit failed the run, though no test that ran failed. PHPUnit said nothing.'],
     ],
     'killed by each selected test of a class whose setUpBeforeClass failed' => [
-        Outcome::ClassFailed->line(TestMethod::classOf(TestId::of('Tests\\MoneySpec::addsTwoAmounts'))),
-        Ran::finished(succeeded: false, output: ''),
+        fn(): string => Outcome::ClassFailed->line(TestMethod::classOf(TestId::of('Tests\\MoneySpec::addsTwoAmounts'))),
+        fn(): Ran => Ran::finished(succeeded: false, output: ''),
         "served\n",
         [MutantStatus::Killed, ['Tests\\MoneySpec::addsTwoAmounts'], ''],
     ],
     'unjudged, with what PHPUnit said, where it failed before any test started or the mutated file ran' => [
         '',
-        Ran::finished(succeeded: false, output: 'No such configuration'),
+        fn(): Ran => Ran::finished(succeeded: false, output: 'No such configuration'),
         '',
         [MutantStatus::Unjudged, [], "PHPUnit failed the run, though no test that ran failed. PHPUnit said:\nNo such configuration"],
     ],
     'unjudged where the mutated file never ran, whatever the tests did' => [
-        records(Outcome::Started->line('T::fails'), Outcome::Failed->line('T::fails')),
-        Ran::finished(succeeded: false, output: ''),
+        fn(): string => records(Outcome::Started->line('T::fails'), Outcome::Failed->line('T::fails')),
+        fn(): Ran => Ran::finished(succeeded: false, output: ''),
         '',
         [
             MutantStatus::Unjudged,
@@ -283,14 +292,16 @@ it('judges a mutant by what its run recorded, ended as and served', function (st
         ],
     ],
     'unjudged where opcache could have run a cached original' => [
-        records(Outcome::Started->line('T::fails'), Outcome::Failed->line('T::fails')),
-        Ran::finished(succeeded: false, output: ''),
+        fn(): string => records(Outcome::Started->line('T::fails'), Outcome::Failed->line('T::fails')),
+        fn(): Ran => Ran::finished(succeeded: false, output: ''),
         "cached\nserved\n",
         [MutantStatus::Unjudged, [], 'Opcache ran on the command line, so a cached original could have run in its place.'],
     ],
 ]);
 
-it('says how long the run took, and the limit of one that timed out', function () use ($adds, $judged): void {
+it('says how long the run took, and the limit of one that timed out', function () use ($makeAdds, $judged): void {
+    $adds = $makeAdds();
+
     $done = $judged(recording(Outcome::Passed->line($adds->value()), Ran::finished(succeeded: true, output: '')->took(Seconds::of(0.5))), TestIds::of($adds));
     $stopped = $judged(recording('', Ran::stopped('')->took(Seconds::of(3.0))), TestIds::of($adds));
 
@@ -298,7 +309,10 @@ it('says how long the run took, and the limit of one that timed out', function (
         ->and($stopped instanceof Mutant ? [$stopped->duration(), $stopped->limit()] : [])->toEqual([Seconds::of(3.0), Seconds::of(3.0)]);
 });
 
-it('stops a run that selects its tests by their ids at its silence limit too, on its results file, and says so of a mutant it stopped there', function () use ($adds, $request): void {
+it('stops a run that selects its tests by their ids at its silence limit too, on its results file, and says so of a mutant it stopped there', function () use ($makeAdds, $makeRequest): void {
+    $adds = $makeAdds();
+    $request = $makeRequest();
+
     $project = phpUnitProject();
     $silenced = recording('', Ran::silenced('')->took(Seconds::of(2.0)));
     $stopped = recording('', Ran::stopped('')->took(Seconds::of(3.0)));
@@ -314,7 +328,10 @@ it('stops a run that selects its tests by their ids at its silence limit too, on
         ->and($late instanceof Mutant ? [$late->status(), $late->reason()] : [])->toEqual([MutantStatus::TimedOut, Unreported::reason()]);
 });
 
-it('gives a run that selects its tests by their files no silence limit, as it runs other tests too', function () use ($adds, $request): void {
+it('gives a run that selects its tests by their files no silence limit, as it runs other tests too', function () use ($makeAdds, $makeRequest): void {
+    $adds = $makeAdds();
+    $request = $makeRequest();
+
     $project = phpUnitProject();
     Scratch::write($project->root(), 'tests/MoneySpec.php', "<?php\nnamespace Tests;\nfinal class MoneySpec {}\n");
     $shell = recording('', Ran::finished(succeeded: true, output: ''));
@@ -325,7 +342,9 @@ it('gives a run that selects its tests by their files no silence limit, as it ru
         ->and($shell->commands()[0]->silence())->toEqual(NotGiven::value());
 });
 
-it('selects the covering tests by their files where an id has a line break or ends in a carriage return', function (string $id) use ($adds): void {
+it('selects the covering tests by their files where an id has a line break or ends in a carriage return', function (string $id) use ($makeAdds): void {
+    $adds = $makeAdds();
+
     $project = phpUnitProject();
     Scratch::write($project->root(), 'tests/MoneySpec.php', "<?php\nnamespace Tests;\nfinal class MoneySpec {}\n");
     Scratch::write($project->root(), 'tests/PriceSpec.php', "<?php\nnamespace Tests;\nfinal class PriceSpec {}\n");
@@ -344,7 +363,9 @@ it('selects the covering tests by their files where an id has a line break or en
     'a carriage return at the end' => ["Tests\\MoneySpec::adds#ends\r"],
 ]);
 
-it('selects the covering tests by their ids where a carriage return is inside one', function () use ($adds): void {
+it('selects the covering tests by their ids where a carriage return is inside one', function () use ($makeAdds): void {
+    $adds = $makeAdds();
+
     $project = phpUnitProject();
     $shell = recording('', Ran::finished(succeeded: true, output: ''));
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
@@ -354,7 +375,9 @@ it('selects the covering tests by their ids where a carriage return is inside on
     expect($shell->commands()[0]->arguments()[8])->toStartWith('--test-id-filter-file=');
 });
 
-it('leaves unjudged, without a run, a mutant whose tests go by their files and one is in no file found', function () use ($adds, $judged): void {
+it('leaves unjudged, without a run, a mutant whose tests go by their files and one is in no file found', function () use ($makeAdds, $judged): void {
+    $adds = $makeAdds();
+
     $shell = recording('', Ran::finished(succeeded: true, output: ''));
     $mutant = $judged($shell, TestIds::of($adds, TestId::of("Tests\\MoneySpec::adds#with\nbreak")));
 
@@ -365,7 +388,9 @@ it('leaves unjudged, without a run, a mutant whose tests go by their files and o
     ])->and($shell->commands())->toBe([]);
 });
 
-it('keeps the run to the unit\'s group', function () use ($adds): void {
+it('keeps the run to the unit\'s group', function () use ($makeAdds): void {
+    $adds = $makeAdds();
+
     $project = phpUnitProject();
     $shell = recording('', Ran::finished(succeeded: true, output: ''));
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Money.php'));
@@ -375,7 +400,9 @@ it('keeps the run to the unit\'s group', function () use ($adds): void {
     expect(array_slice($shell->commands()[0]->arguments(), -2))->toBe(['--group', 'holds:src/Money.php']);
 });
 
-it('starts each run with no earlier run\'s records or guard', function () use ($adds): void {
+it('starts each run with no earlier run\'s records or guard', function () use ($makeAdds): void {
+    $adds = $makeAdds();
+
     $project = phpUnitProject();
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
     $run = new MutantRun($project, recording(Outcome::Failed->line('T::fails'), Ran::finished(succeeded: false, output: '')), new Invocation($project, '/gate/override.php'), new TestFiles($project), PhpUnitScan::uncapped($project), NotGiven::value());
@@ -386,7 +413,10 @@ it('starts each run with no earlier run\'s records or guard', function () use ($
     expect(judgedAs($again))->toBe([MutantStatus::Unjudged, [], 'PHPUnit ran none of the 1 tests that cover it: the selection matched no test.']);
 });
 
-it('cannot judge a mutant whose files it cannot write', function () use ($adds, $request): void {
+it('cannot judge a mutant whose files it cannot write', function () use ($makeAdds, $makeRequest): void {
+    $adds = $makeAdds();
+    $request = $makeRequest();
+
     $project = phpUnitProject();
     Scratch::write($project->root(), '.mutation-gate/phpunit', 'a file where the directory goes');
     $shell = recording('', Ran::finished(succeeded: true, output: ''));
@@ -409,7 +439,9 @@ it('cannot judge a mutant whose files it cannot write', function () use ($adds, 
  *
  * @return list<mixed>
  */
-$weighed = static function (string $lines, Ran $ran, MemoryCap $cap, ErrorDisplay|NotGiven $display) use ($adds): array {
+$weighed = static function (string $lines, Ran $ran, MemoryCap $cap, ErrorDisplay|NotGiven $display) use ($makeAdds): array {
+    $adds = $makeAdds();
+
     $project = phpUnitProject();
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->cappedAt($cap);
     $run = new MutantRun($project, recording($lines, $ran), new Invocation($project, '/gate/override.php'), new TestFiles($project), PhpUnitScan::uncapped($project), $display);
@@ -420,7 +452,7 @@ $weighed = static function (string $lines, Ran $ran, MemoryCap $cap, ErrorDispla
         : [$mutant->why()];
 };
 
-$died = records(Outcome::Started->line('T::dies'));
+$makeDied = static fn(): string => records(Outcome::Started->line('T::dies'));
 $exhausted = 'PHP Fatal error:  Allowed memory size of 67108864 bytes exhausted (tried to allocate 4096 bytes)';
 $hidden = "Fatal error: Premature end of PHPUnit's PHP process. Use display_errors=On to see the error message.";
 $ended = 'Fatal error: Premature end of PHP process when running Tests\MoneySpec::dies.';
@@ -434,19 +466,21 @@ it('reads a mutant whose process ran out of exactly the cap as out of memory, wi
     expect($weighed($lines, Ran::finished(succeeded: false, output: sprintf('%s%s', $output, $exhausted)), $cap, NotGiven::value()))
         ->toEqual([MutantStatus::OutOfMemory, $cap, []]);
 })->with([
-    'as a test ran' => [records(Outcome::Started->line('T::dies')), ''],
+    'as a test ran' => [fn(): string => records(Outcome::Started->line('T::dies')), ''],
     'before any test started' => ['', 'PHPUnit 13.3.4 by Sebastian Bergmann and contributors.'],
 ]);
 
 it('reads a mutant as out of memory, with no limit known, where PHPUnit says its process ended with errors visibly hidden under a cap', function (
     string $output,
     ErrorDisplay|NotGiven $display,
-) use ($weighed, $died): void {
+) use ($weighed, $makeDied): void {
+    $died = $makeDied();
+
     expect($weighed($died, Ran::finished(succeeded: false, output: $output), MemoryCap::of(64, MemoryUnit::Megabytes), $display))
         ->toEqual([MutantStatus::OutOfMemory, Unmeasured::duration(), []]);
 })->with([
-    'as PHPUnit says it hid them' => [$hidden, NotGiven::value()],
-    'where the project\'s config shows them nowhere' => [$ended, ErrorDisplay::Nowhere],
+    'as PHPUnit says it hid them' => [fn(): string => $hidden, fn(): NotGiven => NotGiven::value()],
+    'where the project\'s config shows them nowhere' => [fn(): string => $ended, ErrorDisplay::Nowhere],
 ]);
 
 it('keeps the status a run gave a mutant the cap did not stop', function (
@@ -459,36 +493,39 @@ it('keeps the status a run gave a mutant the cap did not stop', function (
     expect($weighed($lines, $ran, $cap, $display)[0])->toBe($status);
 })->with([
     'out of a limit the project set itself' => [
-        records(Outcome::Started->line('T::dies')),
-        Ran::finished(succeeded: false, output: 'Allowed memory size of 50331648 bytes exhausted'),
-        MemoryCap::of(64, MemoryUnit::Megabytes),
-        NotGiven::value(),
+        fn(): string => records(Outcome::Started->line('T::dies')),
+        fn(): Ran => Ran::finished(succeeded: false, output: 'Allowed memory size of 50331648 bytes exhausted'),
+        fn(): MemoryCap => MemoryCap::of(64, MemoryUnit::Megabytes),
+        fn(): NotGiven => NotGiven::value(),
         MutantStatus::Killed,
     ],
     'ended mid-test where the config shows errors on standard error, which the gate reads' => [
-        records(Outcome::Started->line('T::dies')),
-        Ran::finished(succeeded: false, output: 'Fatal error: Premature end of PHP process when running T::dies.'),
-        MemoryCap::of(64, MemoryUnit::Megabytes),
+        fn(): string => records(Outcome::Started->line('T::dies')),
+        fn(): Ran => Ran::finished(succeeded: false, output: 'Fatal error: Premature end of PHP process when running T::dies.'),
+        fn(): MemoryCap => MemoryCap::of(64, MemoryUnit::Megabytes),
         ErrorDisplay::Stderr,
         MutantStatus::Killed,
     ],
     'ended mid-test with errors hidden, and no cap' => [
-        records(Outcome::Started->line('T::dies')),
-        Ran::finished(succeeded: false, output: "Fatal error: Premature end of PHPUnit's PHP process. Use display_errors=On to see the error message."),
-        MemoryCap::none(),
+        fn(): string => records(Outcome::Started->line('T::dies')),
+        fn(): Ran => Ran::finished(succeeded: false, output: "Fatal error: Premature end of PHPUnit's PHP process. Use display_errors=On to see the error message."),
+        fn(): MemoryCap => MemoryCap::none(),
         ErrorDisplay::Nowhere,
         MutantStatus::Killed,
     ],
     'survived, whatever it printed' => [
-        records(Outcome::Started->line('T::dies'), Outcome::Passed->line('T::dies')),
-        Ran::finished(succeeded: true, output: 'Allowed memory size of 67108864 bytes exhausted'),
-        MemoryCap::of(64, MemoryUnit::Megabytes),
-        NotGiven::value(),
+        fn(): string => records(Outcome::Started->line('T::dies'), Outcome::Passed->line('T::dies')),
+        fn(): Ran => Ran::finished(succeeded: true, output: 'Allowed memory size of 67108864 bytes exhausted'),
+        fn(): MemoryCap => MemoryCap::of(64, MemoryUnit::Megabytes),
+        fn(): NotGiven => NotGiven::value(),
         MutantStatus::Survived,
     ],
 ]);
 
-it('runs a mutant\'s PHPUnit under the memory cap the run wrote, with its errors shown on the standard output', function () use ($adds, $request): void {
+it('runs a mutant\'s PHPUnit under the memory cap the run wrote, with its errors shown on the standard output', function () use ($makeAdds, $makeRequest): void {
+    $adds = $makeAdds();
+    $request = $makeRequest();
+
     $project = phpUnitProject();
     $scan = MemoryScan::in($project, MemoryCap::of(64, MemoryUnit::Megabytes), new CapDirectory());
     $seen = [];
@@ -504,7 +541,10 @@ it('runs a mutant\'s PHPUnit under the memory cap the run wrote, with its errors
     expect($seen)->toBe(["memory_limit=64M\ndisplay_errors=stdout\n"]);
 });
 
-it('prepares a mutant\'s run without starting it, and judges it once it ends as a whole run would', function () use ($adds, $request): void {
+it('prepares a mutant\'s run without starting it, and judges it once it ends as a whole run would', function () use ($makeAdds, $makeRequest): void {
+    $adds = $makeAdds();
+    $request = $makeRequest();
+
     $project = phpUnitProject();
     $ran = Ran::finished(succeeded: true, output: '')->took(Seconds::of(0.5));
     $shell = recording(Outcome::Passed->line($adds->value()), $ran);
@@ -519,7 +559,9 @@ it('prepares a mutant\'s run without starting it, and judges it once it ends as 
         ->and($shell->commands()[0])->toEqual($shell->commands()[1]);
 });
 
-it('prepares no run for a mutant whose tests are in no file found, and leaves it unjudged', function () use ($request): void {
+it('prepares no run for a mutant whose tests are in no file found, and leaves it unjudged', function () use ($makeRequest): void {
+    $request = $makeRequest();
+
     $project = phpUnitProject();
     $shell = recording('', Ran::finished(succeeded: true, output: ''));
     $run = new MutantRun($project, $shell, new Invocation($project, '/gate/override.php'), new TestFiles($project), PhpUnitScan::uncapped($project), NotGiven::value());
@@ -549,7 +591,9 @@ function evidencedBy(string $lines, Ran $ran, TestIds $covering): Evidence
     return $run->evidenced($prepared, $ended, $run->finished($prepared, $ended));
 }
 
-it('gives a kill by named tests the prefix its run recorded, and how its process ended to none', function () use ($adds): void {
+it('gives a kill by named tests the prefix its run recorded, and how its process ended to none', function () use ($makeAdds): void {
+    $adds = $makeAdds();
+
     $lines = records(Outcome::Started->line($adds->value()), Outcome::Passed->line($adds->value()), Outcome::Started->line('T::fails'), Outcome::Failed->line('T::fails'));
     $evidence = evidencedBy($lines, Ran::exited(1, 'FAILURES!'), TestIds::of($adds, TestId::of('T::fails')));
 
@@ -557,7 +601,9 @@ it('gives a kill by named tests the prefix its run recorded, and how its process
         ->and($evidence->ended())->toEqual(NotGiven::value());
 });
 
-it('gives a kill no selected test is credited with how its process ended: its code, no signal, and what it printed', function () use ($adds): void {
+it('gives a kill no selected test is credited with how its process ended: its code, no signal, and what it printed', function () use ($makeAdds): void {
+    $adds = $makeAdds();
+
     $lines = records(Outcome::Started->line($adds->value()), Outcome::Passed->line($adds->value()), Outcome::Started->line('U::beside'), Outcome::Failed->line('U::beside'));
     $evidence = evidencedBy($lines, Ran::exited(1, "There was 1 failure:\nU::beside"), TestIds::of($adds));
     $ended = $evidence->ended();
@@ -567,7 +613,9 @@ it('gives a kill no selected test is credited with how its process ended: its co
         ->and($evidence->prefix())->toEqual(Prefix::keyedAt(2, Prefix::keyOf(Paths::none(), OrderDigest::of($adds, TestId::of('U::beside'))->value())));
 });
 
-it('says PHP recorded a fatal error in a kill\'s process where what it printed holds PHP\'s record of one', function (string $printed, bool $fatal) use ($adds): void {
+it('says PHP recorded a fatal error in a kill\'s process where what it printed holds PHP\'s record of one', function (string $printed, bool $fatal) use ($makeAdds): void {
+    $adds = $makeAdds();
+
     $lines = records(Outcome::Started->line($adds->value()), Outcome::Passed->line($adds->value()), Outcome::Started->line('U::beside'), Outcome::Failed->line('U::beside'));
     $ended = evidencedBy($lines, Ran::exited(255, $printed), TestIds::of($adds))->ended();
 
@@ -577,14 +625,18 @@ it('says PHP recorded a fatal error in a kill\'s process where what it printed h
     'PHPUnit\'s word for a process that ended mid-test' => ["Fatal error: Premature end of PHP process when running T::adds.\n", false],
 ]);
 
-it('says a signal ended a kill\'s process where its code says so', function () use ($adds): void {
+it('says a signal ended a kill\'s process where its code says so', function () use ($makeAdds): void {
+    $adds = $makeAdds();
+
     $lines = records(Outcome::Started->line('U::dies'));
     $ended = evidencedBy($lines, Ran::signalled(9, 'Killed'), TestIds::of($adds))->ended();
 
     expect($ended instanceof Ended ? [$ended->code(), $ended->signalled()] : $ended)->toBe([137, true]);
 });
 
-it('gives a kill whose code was never read no code and no signal, only what its process printed', function () use ($adds): void {
+it('gives a kill whose code was never read no code and no signal, only what its process printed', function () use ($makeAdds): void {
+    $adds = $makeAdds();
+
     $lines = records(Outcome::Started->line('U::dies'));
     $ended = evidencedBy($lines, Ran::finished(succeeded: false, output: 'gone'), TestIds::of($adds))->ended();
 
@@ -592,9 +644,11 @@ it('gives a kill whose code was never read no code and no signal, only what its 
         ->toEqual([NotGiven::value(), NotGiven::value(), 'gone']);
 });
 
-it('gives no evidence of a mutant its run did not kill', function (string $lines, Ran $ran) use ($adds): void {
+it('gives no evidence of a mutant its run did not kill', function (string $lines, Ran $ran) use ($makeAdds): void {
+    $adds = $makeAdds();
+
     expect(evidencedBy($lines, $ran, TestIds::of($adds)))->toEqual(Evidence::none());
 })->with([
-    'survived' => [records(Outcome::Started->line('Tests\MoneySpec::addsTwoAmounts'), Outcome::Passed->line('Tests\MoneySpec::addsTwoAmounts')), Ran::finished(succeeded: true, output: '')],
-    'timed out' => [records(Outcome::Started->line('Tests\MoneySpec::addsTwoAmounts')), Ran::stopped('')],
+    'survived' => [fn(): string => records(Outcome::Started->line('Tests\MoneySpec::addsTwoAmounts'), Outcome::Passed->line('Tests\MoneySpec::addsTwoAmounts')), fn(): Ran => Ran::finished(succeeded: true, output: '')],
+    'timed out' => [fn(): string => records(Outcome::Started->line('Tests\MoneySpec::addsTwoAmounts')), fn(): Ran => Ran::stopped('')],
 ]);

@@ -28,9 +28,9 @@ it('takes the same SHA-256 of a content fed in parts as of the whole', function 
 it('knows a SHA-256 by its spelling: 64 lowercase hex digits', function (string $text, bool $isSha256): void {
     expect(Digest::isSha256($text))->toBe($isSha256);
 })->with([
-    'a SHA-256' => [str_repeat('a1', 32), true],
-    'uppercase' => [str_repeat('A1', 32), false],
-    'too short' => [str_repeat('a1', 31), false],
+    'a SHA-256' => [fn(): string => str_repeat('a1', 32), true],
+    'uppercase' => [fn(): string => str_repeat('A1', 32), false],
+    'too short' => [fn(): string => str_repeat('a1', 31), false],
     'a git blob id' => ['5eeca8f', false],
-    'a newline after it' => [sprintf("%s\n", str_repeat('a1', 32)), false],
+    'a newline after it' => [fn(): string => sprintf("%s\n", str_repeat('a1', 32)), false],
 ]);

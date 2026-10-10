@@ -15,160 +15,160 @@ use NightWorksIO\MutationGate\Core\Php\PhpFile;
 use NightWorksIO\MutationGate\Core\Php\TopLevel;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
 
-pest()->group('holds:src/Core/Php/PhpFile.php');
-
-$support = <<<'PHP'
-    <?php
-
-    declare(strict_types=1);
-
-    namespace Tests\Fakes;
-
-    use App\Clock;
-
-    final class ClockFake implements Clock
-    {
-        public function now(): \DateTimeImmutable
-        {
-            return new \DateTimeImmutable(namespace\Epoch::START);
-        }
-    }
-
-    function aClock(): ClockFake
-    {
-        return new ClockFake();
-    }
-    PHP;
-
-it('names every class and function it declares, fully qualified', function () use ($support): void {
-    $file = PhpFile::read(Contents::of($support));
-
-    expect($file->declares()->meet(Names::of('Tests\Fakes\ClockFake')))->toBeTrue()
-        ->and($file->declares()->meet(Names::of('Tests\Fakes\aClock')))->toBeTrue()
-        ->and($file->declares()->meet(Names::of('App\Clock', 'ClockFake', 'Tests\Fakes\Clock')))->toBeFalse();
-});
-
-it('mentions every name it writes, resolved, and nothing else', function () use ($support): void {
-    $file = PhpFile::read(Contents::of($support));
-
-    expect($file->mentions(Names::of('App\Clock')))->toBeTrue()
-        ->and($file->mentions(Names::of('DateTimeImmutable')))->toBeTrue()
-        ->and($file->mentions(Names::of('Tests\Fakes\Epoch')))->toBeTrue()
-        ->and($file->mentions(Names::of('Tests\Fakes\ClockFake')))->toBeTrue()
-        ->and($file->mentions(Names::of('App\Money', 'Tests\Fakes\Clock', 'Epoch')))->toBeFalse();
-});
-
-it('lists every name it mentions', function (): void {
-    expect(PhpFile::read(Contents::of("<?php\nnamespace App;\nnew Money(new \\Clock());\nnew Money();\n"))->mentioned()->all())
-        ->toBe(['app\\app', 'app', 'app\\money', 'money', 'clock']);
-});
-
-it('reads a file in time linear in the names it mentions', function (): void {
-    $read = static function (int $size): Closure {
-        $source = Contents::of(sprintf("<?php\nnamespace App;\nfunction f() {\n%s}\n", implode('', array_map(static fn(int $at): string => sprintf("new C%d();\n", $at), range(1, $size)))));
-
-        return static fn(): PhpFile => PhpFile::read($source);
-    };
-
-    expect($read(10)()->mentioned()->all())->toHaveCount(24)
-        ->and(Growth::of(2500, $read))->toBeLessThan(Growth::LINEAR);
-});
-
-it('only declares when loading it runs nothing, a closing tag at its end among it', function () use ($support): void {
-    expect(PhpFile::read(Contents::of($support))->onlyDeclares())->toBeTrue()
-        ->and(PhpFile::read(Contents::of("<?php\n\nclass Money {}\n?>\n"))->onlyDeclares())->toBeTrue()
-        ->and(PhpFile::read(Contents::of("<?php\n\nit('ticks', fn () => true);\n"))->onlyDeclares())->toBeFalse();
-});
-
-it('keeps each statement at its top that runs when it is loaded, and no declaration', function (): void {
-    $running = PhpFile::read(Contents::of("<?php\n\nclass Money {}\nit('ticks', fn () => true);\necho 1;\n"))->running();
-
-    expect(array_map(static fn(array $statement): string => TopLevel::spelt(...$statement), $running))
-        ->toBe(["it ( 'ticks' , fn ( ) => true ) ;", 'echo 1 ;']);
-});
-
-it('reads the paths its #[Holds] declare held', function (): void {
-    $test = <<<'PHP'
+describe('PhpFile', function (): void {
+    $support = <<<'PHP'
         <?php
 
-        namespace Tests;
-
-        use NightWorksIO\MutationGate\Attribute\Holds;
-
-        #[Holds('src/Kernel.php')]
-        final class KernelTest {}
-        PHP;
-
-    expect(PhpFile::read(Contents::of($test))->holdings())->toEqual(
-        Holdings::none()->with(Holding::byAttribute('src/Kernel.php', Holder::of('Tests\KernelTest'))),
-    )
-        ->and(PhpFile::read(Contents::of("<?php\n\nfinal class Money {}\n"))->holdings())->toEqual(Holdings::none());
-});
-
-it('reads every #[Holds] it writes, on closures as well as on classes and methods', function (): void {
-    $test = <<<'PHP'
-        <?php
-
-        use NightWorksIO\MutationGate\Attribute\Holds;
-
-        $test = #[Holds('src/Kernel.php')] fn () => true;
-
-        it('boots', #[Holds('src/Boot.php')] #[Holds('src/Http')] fn () => true);
-        PHP;
-
-    expect(PhpFile::read(Contents::of($test))->holds())->toEqual(HoldsAttributes::none()
-        ->with(HoldsAttribute::at(Standing::KeptClosure, HeldPath::literal('src/Kernel.php'), 5))
-        ->with(HoldsAttribute::at(Standing::TestClosure, HeldPath::literal('src/Boot.php'), 7))
-        ->with(HoldsAttribute::at(Standing::TestClosure, HeldPath::literal('src/Http'), 7)))
-        ->and(PhpFile::read(Contents::of($test))->holdings())->toEqual(Holdings::none());
-});
-
-it('reads no #[Holds] from a file that never spells the name, and reads one written in another case', function (): void {
-    $upper = "<?php\n\nuse NightWorksIO\\MutationGate\\Attribute\\HOLDS;\n\n#[HOLDS('src/Kernel.php')]\nfinal class KernelTest {}\n";
-
-    expect(PhpFile::read(Contents::of("<?php\n\n#[Group('fast')]\nfinal class KernelTest {}\n"))->holds())->toEqual(HoldsAttributes::none())
-        ->and(PhpFile::read(Contents::of($upper))->holds())->not->toEqual(HoldsAttributes::none());
-});
-
-it('names every fully qualified name a quoted string spells, as a class-string does', function (): void {
-    $file = PhpFile::read(Contents::of(<<<'PHP'
-        <?php
-        $fake = 'Tests\\Fakes\\Clock';
-        $made = "\\App\\Money";
-        $word = 'plain';
-        $single = 'Tests\Fakes\Ledger';
-        PHP));
-
-    expect($file->quoted()->all())->toBe(['tests\fakes\clock', 'app\money', 'tests\fakes\ledger'])
-        ->and($file->mentioned()->all())->not->toContain('tests\fakes\clock');
-});
-
-it('names the last segment of every constant it declares, with const or the global define(), called by any spelling', function (): void {
-    $file = PhpFile::read(Contents::of(<<<'PHP'
-        <?php
         declare(strict_types=1);
-        namespace Tests\Reach;
-        const REACH_AMOUNT = 5, REACH_OTHER = 6;
-        define('REACH_DEFINED', 7);
-        define('Tests\Reach\REACH_QUALIFIED', 8);
-        \define('REACH_ROOTED', 9);
-        Other\define('REACH_ELSEWHERE', 10);
-        final class Holder { public const int HELD = 1; }
-        $sum = REACH_AMOUNT + 1;
-        PHP));
 
-    expect($file->constants()->all())->toBe(['reach_amount', 'reach_other', 'reach_defined', 'reach_qualified', 'reach_rooted', 'held']);
-});
+        namespace Tests\Fakes;
 
-it('mentions every name a class and a function imported under one alias stand for', function (): void {
-    $file = PhpFile::read(Contents::of("<?php\nnamespace Billing;\n\nuse App\\{Equals};\nuse function Lib\\equals;\n\nfinal class Money\n{\n    use Equals;\n}\n"));
+        use App\Clock;
 
-    expect($file->mentions(Names::of('App\Equals')))->toBeTrue()
-        ->and($file->mentions(Names::of('Lib\equals')))->toBeTrue();
-});
+        final class ClockFake implements Clock
+        {
+            public function now(): \DateTimeImmutable
+            {
+                return new \DateTimeImmutable(namespace\Epoch::START);
+            }
+        }
 
-it('reads the words its strings and its text outside PHP spell', function (): void {
-    $file = PhpFile::read(Contents::of("<h1>Exchange-Rates</h1>\n<?php\n\$path = 'fixtures/rates.json';\n\$name = \"money{\$kind}tax\";\n// a comment's words\n"));
+        function aClock(): ClockFake
+        {
+            return new ClockFake();
+        }
+        PHP;
 
-    expect($file->words()->all())->toBe(['h1', 'exchangerates', 'exchange', 'rates', 'fixtures', 'json', 'money', 'tax']);
-});
+    it('names every class and function it declares, fully qualified', function () use ($support): void {
+        $file = PhpFile::read(Contents::of($support));
+
+        expect($file->declares()->meet(Names::of('Tests\Fakes\ClockFake')))->toBeTrue()
+            ->and($file->declares()->meet(Names::of('Tests\Fakes\aClock')))->toBeTrue()
+            ->and($file->declares()->meet(Names::of('App\Clock', 'ClockFake', 'Tests\Fakes\Clock')))->toBeFalse();
+    });
+
+    it('mentions every name it writes, resolved, and nothing else', function () use ($support): void {
+        $file = PhpFile::read(Contents::of($support));
+
+        expect($file->mentions(Names::of('App\Clock')))->toBeTrue()
+            ->and($file->mentions(Names::of('DateTimeImmutable')))->toBeTrue()
+            ->and($file->mentions(Names::of('Tests\Fakes\Epoch')))->toBeTrue()
+            ->and($file->mentions(Names::of('Tests\Fakes\ClockFake')))->toBeTrue()
+            ->and($file->mentions(Names::of('App\Money', 'Tests\Fakes\Clock', 'Epoch')))->toBeFalse();
+    });
+
+    it('lists every name it mentions', function (): void {
+        expect(PhpFile::read(Contents::of("<?php\nnamespace App;\nnew Money(new \\Clock());\nnew Money();\n"))->mentioned()->all())
+            ->toBe(['app\\app', 'app', 'app\\money', 'money', 'clock']);
+    });
+
+    it('reads a file in time linear in the names it mentions', function (): void {
+        $read = static function (int $size): Closure {
+            $source = Contents::of(sprintf("<?php\nnamespace App;\nfunction f() {\n%s}\n", implode('', array_map(static fn(int $at): string => sprintf("new C%d();\n", $at), range(1, $size)))));
+
+            return static fn(): PhpFile => PhpFile::read($source);
+        };
+
+        expect($read(10)()->mentioned()->all())->toHaveCount(24)
+            ->and(Growth::of(2500, $read))->toBeLessThan(Growth::LINEAR);
+    });
+
+    it('only declares when loading it runs nothing, a closing tag at its end among it', function () use ($support): void {
+        expect(PhpFile::read(Contents::of($support))->onlyDeclares())->toBeTrue()
+            ->and(PhpFile::read(Contents::of("<?php\n\nclass Money {}\n?>\n"))->onlyDeclares())->toBeTrue()
+            ->and(PhpFile::read(Contents::of("<?php\n\nit('ticks', fn () => true);\n"))->onlyDeclares())->toBeFalse();
+    });
+
+    it('keeps each statement at its top that runs when it is loaded, and no declaration', function (): void {
+        $running = PhpFile::read(Contents::of("<?php\n\nclass Money {}\nit('ticks', fn () => true);\necho 1;\n"))->running();
+
+        expect(array_map(static fn(array $statement): string => TopLevel::spelt(...$statement), $running))
+            ->toBe(["it ( 'ticks' , fn ( ) => true ) ;", 'echo 1 ;']);
+    });
+
+    it('reads the paths its #[Holds] declare held', function (): void {
+        $test = <<<'PHP'
+            <?php
+
+            namespace Tests;
+
+            use NightWorksIO\MutationGate\Attribute\Holds;
+
+            #[Holds('src/Kernel.php')]
+            final class KernelTest {}
+            PHP;
+
+        expect(PhpFile::read(Contents::of($test))->holdings())->toEqual(
+            Holdings::none()->with(Holding::byAttribute('src/Kernel.php', Holder::of('Tests\KernelTest'))),
+        )
+            ->and(PhpFile::read(Contents::of("<?php\n\nfinal class Money {}\n"))->holdings())->toEqual(Holdings::none());
+    });
+
+    it('reads every #[Holds] it writes, on closures as well as on classes and methods', function (): void {
+        $test = <<<'PHP'
+            <?php
+
+            use NightWorksIO\MutationGate\Attribute\Holds;
+
+            $test = #[Holds('src/Kernel.php')] fn () => true;
+
+            it('boots', #[Holds('src/Boot.php')] #[Holds('src/Http')] fn () => true);
+            PHP;
+
+        expect(PhpFile::read(Contents::of($test))->holds())->toEqual(HoldsAttributes::none()
+            ->with(HoldsAttribute::at(Standing::KeptClosure, HeldPath::literal('src/Kernel.php'), 5))
+            ->with(HoldsAttribute::at(Standing::TestClosure, HeldPath::literal('src/Boot.php'), 7))
+            ->with(HoldsAttribute::at(Standing::TestClosure, HeldPath::literal('src/Http'), 7)))
+            ->and(PhpFile::read(Contents::of($test))->holdings())->toEqual(Holdings::none());
+    });
+
+    it('reads no #[Holds] from a file that never spells the name, and reads one written in another case', function (): void {
+        $upper = "<?php\n\nuse NightWorksIO\\MutationGate\\Attribute\\HOLDS;\n\n#[HOLDS('src/Kernel.php')]\nfinal class KernelTest {}\n";
+
+        expect(PhpFile::read(Contents::of("<?php\n\n#[Group('fast')]\nfinal class KernelTest {}\n"))->holds())->toEqual(HoldsAttributes::none())
+            ->and(PhpFile::read(Contents::of($upper))->holds())->not->toEqual(HoldsAttributes::none());
+    });
+
+    it('names every fully qualified name a quoted string spells, as a class-string does', function (): void {
+        $file = PhpFile::read(Contents::of(<<<'PHP'
+            <?php
+            $fake = 'Tests\\Fakes\\Clock';
+            $made = "\\App\\Money";
+            $word = 'plain';
+            $single = 'Tests\Fakes\Ledger';
+            PHP));
+
+        expect($file->quoted()->all())->toBe(['tests\fakes\clock', 'app\money', 'tests\fakes\ledger'])
+            ->and($file->mentioned()->all())->not->toContain('tests\fakes\clock');
+    });
+
+    it('names the last segment of every constant it declares, with const or the global define(), called by any spelling', function (): void {
+        $file = PhpFile::read(Contents::of(<<<'PHP'
+            <?php
+            declare(strict_types=1);
+            namespace Tests\Reach;
+            const REACH_AMOUNT = 5, REACH_OTHER = 6;
+            define('REACH_DEFINED', 7);
+            define('Tests\Reach\REACH_QUALIFIED', 8);
+            \define('REACH_ROOTED', 9);
+            Other\define('REACH_ELSEWHERE', 10);
+            final class Holder { public const int HELD = 1; }
+            $sum = REACH_AMOUNT + 1;
+            PHP));
+
+        expect($file->constants()->all())->toBe(['reach_amount', 'reach_other', 'reach_defined', 'reach_qualified', 'reach_rooted', 'held']);
+    });
+
+    it('mentions every name a class and a function imported under one alias stand for', function (): void {
+        $file = PhpFile::read(Contents::of("<?php\nnamespace Billing;\n\nuse App\\{Equals};\nuse function Lib\\equals;\n\nfinal class Money\n{\n    use Equals;\n}\n"));
+
+        expect($file->mentions(Names::of('App\Equals')))->toBeTrue()
+            ->and($file->mentions(Names::of('Lib\equals')))->toBeTrue();
+    });
+
+    it('reads the words its strings and its text outside PHP spell', function (): void {
+        $file = PhpFile::read(Contents::of("<h1>Exchange-Rates</h1>\n<?php\n\$path = 'fixtures/rates.json';\n\$name = \"money{\$kind}tax\";\n// a comment's words\n"));
+
+        expect($file->words()->all())->toBe(['h1', 'exchangerates', 'exchange', 'rates', 'fixtures', 'json', 'money', 'tax']);
+    });
+})->group('holds:src/Core/Php/PhpFile.php');

@@ -17,7 +17,7 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
 
-$app = TreeVerdict::judged(
+$makeApp = static fn(): TreeVerdict => TreeVerdict::judged(
     Tree::at(Path::of('app'), Floor::of(50), Package::at(Path::root())),
     Unrecorded::floor(),
     JudgedUnits::none(),
@@ -25,14 +25,18 @@ $app = TreeVerdict::judged(
     Uncovered::Count,
 )->comparedWith(Score::ofHundredths(4_000));
 
-it('says each reached tree\'s score against its floor and the base, and each not measured yet', function () use ($app): void {
+it('says each reached tree\'s score against its floor and the base, and each not measured yet', function () use ($makeApp): void {
+    $app = $makeApp();
+
     expect(ScoreChangeText::of(TreeVerdicts::of($app), Paths::of(Path::of('lib')), 0, 0))->toBe(
         "app scores 50.00% against its floor of 50.00%. That is +10.00 against the base.\n"
         . 'lib is not measured yet: a unit of it has no result.',
     );
 });
 
-it('counts the reached units with no local result and the files with unstaged changes', function (int $unjudged, int $unstaged, string $counted) use ($app): void {
+it('counts the reached units with no local result and the files with unstaged changes', function (int $unjudged, int $unstaged, string $counted) use ($makeApp): void {
+    $app = $makeApp();
+
     expect(ScoreChangeText::of(TreeVerdicts::of($app), Paths::none(), $unjudged, $unstaged))->toBe(sprintf(
         "app scores 50.00%% against its floor of 50.00%%. That is +10.00 against the base.\n%s",
         $counted,

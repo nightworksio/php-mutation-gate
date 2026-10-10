@@ -50,7 +50,7 @@ it('refuses a date with a time of day', function (DateTimeImmutable $date, strin
             $shown,
         )));
 })->with([
-    'an hour' => [new DateTimeImmutable('2027-03-31T10:00:00+00:00'), '2027-03-31T10:00:00+00:00'],
-    'a second' => [new DateTimeImmutable('2027-03-31T00:00:01+00:00'), '2027-03-31T00:00:01+00:00'],
-    'a fraction of a second' => [new DateTimeImmutable('2027-03-31T00:00:00.5+00:00'), '2027-03-31T00:00:00+00:00'],
+    'an hour' => [fn(): DateTimeImmutable => new DateTimeImmutable('2027-03-31T10:00:00+00:00'), '2027-03-31T10:00:00+00:00'],
+    'a second' => [fn(): DateTimeImmutable => new DateTimeImmutable('2027-03-31T00:00:01+00:00'), '2027-03-31T00:00:01+00:00'],
+    'a fraction of a second' => [fn(): DateTimeImmutable => new DateTimeImmutable('2027-03-31T00:00:00.5+00:00'), '2027-03-31T00:00:00+00:00'],
 ]);

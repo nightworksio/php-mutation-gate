@@ -129,28 +129,31 @@ function carryChanged(string $file): ChangeReach
     );
 }
 
-$since = ChangesSince::none()
+$makeSince = static fn(): ChangesSince => ChangesSince::none()
     ->with(carryCommit('unrelated'), carryChanged('src/Tax.php'))
     ->with(carryCommit('callee'), carryChanged('src/Equals.php'))
     ->with(carryCommit('shallow'), CannotTell::because('The clone is shallow.'));
-$recorded = Inputs::of(carryDigest('source'), carryDigest('mutation'))
+$makeRecorded = static fn(): Inputs => Inputs::of(carryDigest('source'), carryDigest('mutation'))
     ->withTest(Path::of('tests/MoneyTest.php'), carryDigest('money test'))
     ->withTest(Path::of('tests/TaxTest.php'), carryDigest('tax test'))
     ->withTest(Path::of('tests/RateTest.php'), carryDigest('rate test'));
-$now = Digests::of(carryDigest('mutation'))
+$makeNow = static fn(): Digests => Digests::of(carryDigest('mutation'))
     ->withSource(Path::of('src/Money.php'), carryDigest('source'))
     ->withTest(Path::of('tests/MoneyTest.php'), carryDigest('money test'))
     ->withTest(Path::of('tests/TaxTest.php'), carryDigest('tax test changed'))
     ->withTest(Path::of('tests/NewTest.php'), carryDigest('new test'));
-$names = TestNames::none()
+$makeNames = static fn(): TestNames => TestNames::none()
     ->with(TestId::of('MoneyTest::adds'), TestName::in(Path::of('tests/MoneyTest.php'), 'adds'))
     ->with(TestId::of('TaxTest::rounds'), TestName::in(Path::of('tests/TaxTest.php'), 'rounds'))
     ->with(TestId::of('NewTest::adds'), TestName::in(Path::of('tests/NewTest.php'), 'adds'))
     ->with(TestId::of('RateTest::rates'), TestName::in(Path::of('tests/RateTest.php'), 'rates'));
-$map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(7), TestId::of('MoneyTest::adds'));
-$carrying = Carrying::against($now, carryDigest('base'), $names, $map, $since);
+$makeMap = static fn(): CoverageMap => CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(7), TestId::of('MoneyTest::adds'));
+$makeCarrying = static fn(): Carrying => Carrying::against($makeNow(), carryDigest('base'), $makeNames(), $makeMap(), $makeSince());
 
-it('counts a unit by its newest result where its source and mutant set are unchanged', function () use ($carrying, $recorded): void {
+it('counts a unit by its newest result where its source and mutant set are unchanged', function () use ($makeCarrying, $makeRecorded): void {
+    $carrying = $makeCarrying();
+    $recorded = $makeRecorded();
+
     $proof = carryProof('base', $recorded);
 
     expect($carrying->counted($proof))->toBe($proof);
@@ -160,25 +163,29 @@ it('counts no unit by a result that cannot stand for the code on disk, and says 
     Proof|NeverProved $newest,
     Digests|Undigested $now,
     Uncounted $why,
-) use ($names, $map, $since): void {
+) use ($makeNames, $makeMap, $makeSince): void {
+    $names = $makeNames();
+    $map = $makeMap();
+    $since = $makeSince();
+
     expect(Carrying::against($now, carryDigest('base'), $names, $map, $since)->counted($newest))->toBe($why);
 })->with([
-    'no result anywhere' => [NeverProved::unit(Path::of('src/Money.php')), Digests::of(carryDigest('mutation')), Uncounted::NoResult],
-    'a result of an earlier ledger format' => [carryProof('base', Undigested::proof()), Digests::of(carryDigest('mutation')), Uncounted::NoDigests],
-    'a run with no digests' => [carryProof('base', Inputs::of(carryDigest('source'), carryDigest('mutation'))), Undigested::proof(), Uncounted::NoDigests],
+    'no result anywhere' => [fn(): NeverProved => NeverProved::unit(Path::of('src/Money.php')), fn(): Digests => Digests::of(carryDigest('mutation')), Uncounted::NoResult],
+    'a result of an earlier ledger format' => [fn(): Proof => carryProof('base', Undigested::proof()), fn(): Digests => Digests::of(carryDigest('mutation')), Uncounted::NoDigests],
+    'a run with no digests' => [fn(): Proof => carryProof('base', Inputs::of(carryDigest('source'), carryDigest('mutation'))), fn(): Undigested => Undigested::proof(), Uncounted::NoDigests],
     'new code, the result of the code before' => [
-        carryProof('base', Inputs::of(carryDigest('source before'), carryDigest('mutation'))),
-        Digests::of(carryDigest('mutation'))->withSource(Path::of('src/Money.php'), carryDigest('source')),
+        fn(): Proof => carryProof('base', Inputs::of(carryDigest('source before'), carryDigest('mutation'))),
+        fn(): Digests => Digests::of(carryDigest('mutation'))->withSource(Path::of('src/Money.php'), carryDigest('source')),
         Uncounted::SourceChanged,
     ],
     'a source the run has no digest of' => [
-        carryProof('base', Inputs::of(carryDigest('source'), carryDigest('mutation'))),
-        Digests::of(carryDigest('mutation')),
+        fn(): Proof => carryProof('base', Inputs::of(carryDigest('source'), carryDigest('mutation'))),
+        fn(): Digests => Digests::of(carryDigest('mutation')),
         Uncounted::SourceChanged,
     ],
     'a changed mutator config' => [
-        carryProof('base', Inputs::of(carryDigest('source'), carryDigest('mutators before'))),
-        Digests::of(carryDigest('mutation'))->withSource(Path::of('src/Money.php'), carryDigest('source')),
+        fn(): Proof => carryProof('base', Inputs::of(carryDigest('source'), carryDigest('mutators before'))),
+        fn(): Digests => Digests::of(carryDigest('mutation'))->withSource(Path::of('src/Money.php'), carryDigest('source')),
         Uncounted::MutationChanged,
     ],
 ]);
@@ -187,82 +194,95 @@ it('carries each mutant of a counted result as it stands, or unjudged, and says 
     string $base,
     Mutant|ProvedKill $mutant,
     Carry $carry,
-) use ($carrying, $recorded): void {
+) use ($makeCarrying, $makeRecorded): void {
+    $carrying = $makeCarrying();
+    $recorded = $makeRecorded();
+
     expect($carrying->carry(carryProof($base, $recorded), $mutant))->toBe($carry);
 })->with([
-    'a kill at the same base by a test unchanged' => ['base', carryKill(3, TestId::of('MoneyTest::adds')), Carry::Stands],
-    'a kill a run reported, by a test unchanged' => ['base', carryMutant(3, MutantStatus::Killed)->killedBy(TestIds::of(TestId::of('MoneyTest::adds'))), Carry::Stands],
-    'a kill by a test that changed' => ['base', carryKill(3, TestId::of('TaxTest::rounds')), Carry::KillerChanged],
-    'a kill by one test unchanged and one changed' => ['base', carryKill(3, TestId::of('MoneyTest::adds'), TestId::of('TaxTest::rounds')), Carry::KillerChanged],
-    'a kill by one test changed and one unchanged' => ['base', carryKill(3, TestId::of('TaxTest::rounds'), TestId::of('MoneyTest::adds')), Carry::KillerChanged],
-    'a kill by one test unknown and one changed' => ['base', carryKill(3, TestId::of('GoneTest::adds'), TestId::of('TaxTest::rounds')), Carry::KillerUnknown],
-    'a kill by a test its result recorded no digest of' => ['base', carryKill(3, TestId::of('NewTest::adds')), Carry::KillerChanged],
-    'a kill by a test file the run no longer has' => ['base', carryKill(3, TestId::of('RateTest::rates')), Carry::KillerChanged],
-    'a kill by a deleted test the run cannot name' => ['base', carryKill(3, TestId::of('GoneTest::adds')), Carry::KillerUnknown],
-    'a kill no test is known for' => ['base', carryKill(3), Carry::KillerUnknown],
-    'a kill by static analysis at the same base' => ['base', carryRejected(3), Carry::Stands],
-    'a kill by static analysis in another file, at the same base' => ['base', carryRejected(3, 'src/Wallet.php'), Carry::Stands],
-    'a kill by static analysis that records no finding, as Infection reports one' => ['base', carryMutant(3, MutantStatus::KilledByStaticAnalysis), Carry::RejectionUnknown],
-    'a kill by static analysis in a file outside the repository' => ['base', carryRejected(3, '/elsewhere/Lib.php'), Carry::FindingOutside],
-    'a kill by static analysis in a file above the repository' => ['base', carryRejected(3, '../lib/Lib.php'), Carry::FindingOutside],
-    'a timeout, which triage may count a kill' => ['base', carryMutant(3, MutantStatus::TimedOut), Carry::KillerUnknown],
-    'out of memory, which triage may count a kill' => ['base', carryMutant(3, MutantStatus::OutOfMemory), Carry::KillerUnknown],
-    'a crash, which counts a kill' => ['base', carryMutant(3, MutantStatus::Errored), Carry::KillerUnknown],
-    'a survivor, at another base' => ['other base', carryMutant(3, MutantStatus::Survived), Carry::Stands],
-    'an uncovered mutant no test covers now' => ['base', carryMutant(3, MutantStatus::Uncovered), Carry::Stands],
-    'an uncovered mutant a test covers now' => ['base', carryMutant(7, MutantStatus::Uncovered), Carry::NowCovered],
-    'an uncovered mutant a test covers a later line of now' => ['base', carryMutant(5, MutantStatus::Uncovered, last: 7), Carry::NowCovered],
-    'an uncovered mutant that ends before the line a test covers now' => ['base', carryMutant(5, MutantStatus::Uncovered, last: 6), Carry::Stands],
-    'a mutant marked ignored' => ['base', carryMutant(3, MutantStatus::IgnoredByMarker), Carry::Stands],
-    'a mutant skipped' => ['base', carryMutant(3, MutantStatus::Skipped), Carry::Stands],
-    'a mutant unjudged' => ['base', carryMutant(3, MutantStatus::Unjudged), Carry::Stands],
+    'a kill at the same base by a test unchanged' => ['base', fn(): ProvedKill => carryKill(3, TestId::of('MoneyTest::adds')), Carry::Stands],
+    'a kill a run reported, by a test unchanged' => ['base', fn(): Mutant => carryMutant(3, MutantStatus::Killed)->killedBy(TestIds::of(TestId::of('MoneyTest::adds'))), Carry::Stands],
+    'a kill by a test that changed' => ['base', fn(): ProvedKill => carryKill(3, TestId::of('TaxTest::rounds')), Carry::KillerChanged],
+    'a kill by one test unchanged and one changed' => ['base', fn(): ProvedKill => carryKill(3, TestId::of('MoneyTest::adds'), TestId::of('TaxTest::rounds')), Carry::KillerChanged],
+    'a kill by one test changed and one unchanged' => ['base', fn(): ProvedKill => carryKill(3, TestId::of('TaxTest::rounds'), TestId::of('MoneyTest::adds')), Carry::KillerChanged],
+    'a kill by one test unknown and one changed' => ['base', fn(): ProvedKill => carryKill(3, TestId::of('GoneTest::adds'), TestId::of('TaxTest::rounds')), Carry::KillerUnknown],
+    'a kill by a test its result recorded no digest of' => ['base', fn(): ProvedKill => carryKill(3, TestId::of('NewTest::adds')), Carry::KillerChanged],
+    'a kill by a test file the run no longer has' => ['base', fn(): ProvedKill => carryKill(3, TestId::of('RateTest::rates')), Carry::KillerChanged],
+    'a kill by a deleted test the run cannot name' => ['base', fn(): ProvedKill => carryKill(3, TestId::of('GoneTest::adds')), Carry::KillerUnknown],
+    'a kill no test is known for' => ['base', fn(): ProvedKill => carryKill(3), Carry::KillerUnknown],
+    'a kill by static analysis at the same base' => ['base', fn(): Mutant => carryRejected(3), Carry::Stands],
+    'a kill by static analysis in another file, at the same base' => ['base', fn(): Mutant => carryRejected(3, 'src/Wallet.php'), Carry::Stands],
+    'a kill by static analysis that records no finding, as Infection reports one' => ['base', fn(): Mutant => carryMutant(3, MutantStatus::KilledByStaticAnalysis), Carry::RejectionUnknown],
+    'a kill by static analysis in a file outside the repository' => ['base', fn(): Mutant => carryRejected(3, '/elsewhere/Lib.php'), Carry::FindingOutside],
+    'a kill by static analysis in a file above the repository' => ['base', fn(): Mutant => carryRejected(3, '../lib/Lib.php'), Carry::FindingOutside],
+    'a timeout, which triage may count a kill' => ['base', fn(): Mutant => carryMutant(3, MutantStatus::TimedOut), Carry::KillerUnknown],
+    'out of memory, which triage may count a kill' => ['base', fn(): Mutant => carryMutant(3, MutantStatus::OutOfMemory), Carry::KillerUnknown],
+    'a crash, which counts a kill' => ['base', fn(): Mutant => carryMutant(3, MutantStatus::Errored), Carry::KillerUnknown],
+    'a survivor, at another base' => ['other base', fn(): Mutant => carryMutant(3, MutantStatus::Survived), Carry::Stands],
+    'an uncovered mutant no test covers now' => ['base', fn(): Mutant => carryMutant(3, MutantStatus::Uncovered), Carry::Stands],
+    'an uncovered mutant a test covers now' => ['base', fn(): Mutant => carryMutant(7, MutantStatus::Uncovered), Carry::NowCovered],
+    'an uncovered mutant a test covers a later line of now' => ['base', fn(): Mutant => carryMutant(5, MutantStatus::Uncovered, last: 7), Carry::NowCovered],
+    'an uncovered mutant that ends before the line a test covers now' => ['base', fn(): Mutant => carryMutant(5, MutantStatus::Uncovered, last: 6), Carry::Stands],
+    'a mutant marked ignored' => ['base', fn(): Mutant => carryMutant(3, MutantStatus::IgnoredByMarker), Carry::Stands],
+    'a mutant skipped' => ['base', fn(): Mutant => carryMutant(3, MutantStatus::Skipped), Carry::Stands],
+    'a mutant unjudged' => ['base', fn(): Mutant => carryMutant(3, MutantStatus::Unjudged), Carry::Stands],
 ]);
 
 it('carries a kill from another base only where nothing changed since its commit reaches its unit or its tests by name', function (
     Inputs $inputs,
     Mutant|ProvedKill $kill,
     Carry $carry,
-) use ($carrying): void {
+) use ($makeCarrying): void {
+    $carrying = $makeCarrying();
+
     expect($carrying->carry(carryProof('other base', $inputs), $kill))->toBe($carry);
 })->with([
-    'an unrelated class changed' => [$recorded->takenAt(carryCommit('unrelated')), carryKill(3, TestId::of('MoneyTest::adds')), Carry::Stands],
+    'an unrelated class changed' => [fn(): Inputs => $makeRecorded()->takenAt(carryCommit('unrelated')), fn(): ProvedKill => carryKill(3, TestId::of('MoneyTest::adds')), Carry::Stands],
     'a kill a run reported, an unrelated class changed' => [
-        $recorded->takenAt(carryCommit('unrelated')),
-        carryMutant(3, MutantStatus::Killed)->killedBy(TestIds::of(TestId::of('MoneyTest::adds'))),
+        fn(): Inputs => $makeRecorded()->takenAt(carryCommit('unrelated')),
+        fn(): Mutant => carryMutant(3, MutantStatus::Killed)->killedBy(TestIds::of(TestId::of('MoneyTest::adds'))),
         Carry::Stands,
     ],
-    'the trait its unit uses changed' => [$recorded->takenAt(carryCommit('callee')), carryKill(3, TestId::of('MoneyTest::adds')), Carry::Reached],
-    'git cannot say what changed since' => [$recorded->takenAt(carryCommit('shallow')), carryKill(3, TestId::of('MoneyTest::adds')), Carry::ChangeUnknown],
-    'a commit the verdict did not read' => [$recorded->takenAt(carryCommit('unread')), carryKill(3, TestId::of('MoneyTest::adds')), Carry::ChangeUnknown],
-    'a result from a changed working tree, which records no commit' => [$recorded, carryKill(3, TestId::of('MoneyTest::adds')), Carry::NoCommit],
-    'a killing test that changed, whatever changed since' => [$recorded->takenAt(carryCommit('unrelated')), carryKill(3, TestId::of('TaxTest::rounds')), Carry::KillerChanged],
-    'a killing test unknown, whatever changed since' => [$recorded->takenAt(carryCommit('unrelated')), carryKill(3), Carry::KillerUnknown],
+    'the trait its unit uses changed' => [fn(): Inputs => $makeRecorded()->takenAt(carryCommit('callee')), fn(): ProvedKill => carryKill(3, TestId::of('MoneyTest::adds')), Carry::Reached],
+    'git cannot say what changed since' => [fn(): Inputs => $makeRecorded()->takenAt(carryCommit('shallow')), fn(): ProvedKill => carryKill(3, TestId::of('MoneyTest::adds')), Carry::ChangeUnknown],
+    'a commit the verdict did not read' => [fn(): Inputs => $makeRecorded()->takenAt(carryCommit('unread')), fn(): ProvedKill => carryKill(3, TestId::of('MoneyTest::adds')), Carry::ChangeUnknown],
+    'a result from a changed working tree, which records no commit' => [fn(): Inputs => $makeRecorded(), fn(): ProvedKill => carryKill(3, TestId::of('MoneyTest::adds')), Carry::NoCommit],
+    'a killing test that changed, whatever changed since' => [fn(): Inputs => $makeRecorded()->takenAt(carryCommit('unrelated')), fn(): ProvedKill => carryKill(3, TestId::of('TaxTest::rounds')), Carry::KillerChanged],
+    'a killing test unknown, whatever changed since' => [fn(): Inputs => $makeRecorded()->takenAt(carryCommit('unrelated')), fn(): ProvedKill => carryKill(3), Carry::KillerUnknown],
 ]);
 
 it('carries a kill by static analysis from another base only where nothing changed since reaches its unit or the file its finding sits in', function (
     Inputs $inputs,
     Mutant $rejected,
     Carry $carry,
-) use ($carrying): void {
+) use ($makeCarrying): void {
+    $carrying = $makeCarrying();
+
     expect($carrying->carry(carryProof('other base', $inputs), $rejected))->toBe($carry);
 })->with([
-    'an unrelated class changed' => [$recorded->takenAt(carryCommit('unrelated')), carryRejected(3), Carry::Stands],
-    'the trait its unit uses changed' => [$recorded->takenAt(carryCommit('callee')), carryRejected(3), Carry::Reached],
+    'an unrelated class changed' => [fn(): Inputs => $makeRecorded()->takenAt(carryCommit('unrelated')), fn(): Mutant => carryRejected(3), Carry::Stands],
+    'the trait its unit uses changed' => [fn(): Inputs => $makeRecorded()->takenAt(carryCommit('callee')), fn(): Mutant => carryRejected(3), Carry::Reached],
     'the file its finding sits in changed, which nothing of its unit names' => [
-        $recorded->takenAt(carryCommit('unrelated')),
-        carryRejected(3, 'src/Tax.php'),
+        fn(): Inputs => $makeRecorded()->takenAt(carryCommit('unrelated')),
+        fn(): Mutant => carryRejected(3, 'src/Tax.php'),
         Carry::Reached,
     ],
-    'git cannot say what changed since' => [$recorded->takenAt(carryCommit('shallow')), carryRejected(3), Carry::ChangeUnknown],
-    'a result from a changed working tree, which records no commit' => [$recorded, carryRejected(3), Carry::NoCommit],
+    'git cannot say what changed since' => [fn(): Inputs => $makeRecorded()->takenAt(carryCommit('shallow')), fn(): Mutant => carryRejected(3), Carry::ChangeUnknown],
+    'a result from a changed working tree, which records no commit' => [fn(): Inputs => $makeRecorded(), fn(): Mutant => carryRejected(3), Carry::NoCommit],
     'a finding outside the repository, whatever changed since' => [
-        $recorded->takenAt(carryCommit('unrelated')),
-        carryRejected(3, '/elsewhere/Lib.php'),
+        fn(): Inputs => $makeRecorded()->takenAt(carryCommit('unrelated')),
+        fn(): Mutant => carryRejected(3, '/elsewhere/Lib.php'),
         Carry::FindingOutside,
     ],
 ]);
 
-it('carries no kill where the run cannot name its tests, nor a proof without digests', function () use ($now, $map, $recorded, $names, $since): void {
+it('carries no kill where the run cannot name its tests, nor a proof without digests', function () use ($makeNow, $makeMap, $makeRecorded, $makeNames, $makeSince): void {
+    $now = $makeNow();
+    $map = $makeMap();
+    $recorded = $makeRecorded();
+    $names = $makeNames();
+    $since = $makeSince();
+
     $kill = carryKill(3, TestId::of('MoneyTest::adds'));
 
     expect(Carrying::against($now, carryDigest('base'), CannotJudge::because('Unnamed.'), $map, $since)->carry(carryProof('base', $recorded), $kill))
@@ -273,7 +293,12 @@ it('carries no kill where the run cannot name its tests, nor a proof without dig
         ->toBe(Carry::KillerChanged);
 });
 
-it('carries no uncovered mutant where the run has no coverage map', function () use ($now, $names, $recorded, $since): void {
+it('carries no uncovered mutant where the run has no coverage map', function () use ($makeNow, $makeNames, $makeRecorded, $makeSince): void {
+    $now = $makeNow();
+    $names = $makeNames();
+    $recorded = $makeRecorded();
+    $since = $makeSince();
+
     expect(Carrying::against($now, carryDigest('base'), $names, CannotJudge::because('No map.'), $since)->carry(carryProof('base', $recorded), carryMutant(3, MutantStatus::Uncovered)))
         ->toBe(Carry::CoverageUnknown);
 });

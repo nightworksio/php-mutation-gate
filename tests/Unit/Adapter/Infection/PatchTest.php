@@ -24,37 +24,39 @@ $source = static fn(string $vendor, string $file): string => (string) file_get_c
     sprintf('%s/infection/infection/src/%s', $vendor, $file),
 );
 
-it('patches the limit, the skip, the pruned mutators and the silence limit of every supported release, leaving each file PHP', function (Release $release) use ($source): void {
-    $at = InfectionSource::pristine($release->value)->vendor();
+it('patches the limit, the skip, the pruned mutators and the silence limit of every supported release, leaving each file PHP', function () use ($source): void {
+    foreach (Release::cases() as $release) {
+        $at = InfectionSource::pristine($release->value)->vendor();
 
-    expect(Patch::stateIn($at))->toBe(PatchState::Missing)
-        ->and(Patch::applyIn($at))->toBe('infection:patch patched 3 of the 3 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.')
-        ->and(Patch::stateIn($at))->toBe(PatchState::Applied)
-        ->and($source($at, 'Process/Factory/MutantProcessContainerFactory.php'))
-        ->toContain(sprintf(
-            "? \\%s::of(\$mutant->getMutation()->getNominalTestExecutionTime(), \$this->timeout)\n",
-            MutantTime::class,
-        ))
-        ->and($source($at, 'Process/Runner/MutationTestingRunner.php'))
-        ->toContain(sprintf("if (class_exists(\\%1\$s::class) && \\%1\$s::bounded()) {\n", MutantTime::class))
-        ->and($source($at, 'Process/Runner/MutationTestingRunner.php'))
-        ->toContain('// mutation-gate infection:patch: within the gate\'s bounds')
-        ->and($source($at, 'Process/Runner/MutationTestingRunner.php'))
-        ->toContain(sprintf("&& \\%s::leavesOut(\n", PrunedFile::class))
-        ->and($source($at, 'Process/Runner/MutationTestingRunner.php'))
-        ->toContain("(string) getenv('MUTATION_GATE_PRUNED'),\n")
-        ->and($source($at, 'Process/Factory/MutantProcessContainerFactory.php'))
-        ->toContain(sprintf("\\%s::watch(\$process, \$mutant, \$this->timeout);\n", Silence::class))
-        ->and($source($at, 'Process/Runner/ParallelProcessRunner.php'))
-        ->toContain(sprintf("\\%s::check(\$process, microtime(true));\n", Silence::class));
+        expect(Patch::stateIn($at))->toBe(PatchState::Missing)
+            ->and(Patch::applyIn($at))->toBe('infection:patch patched 3 of the 3 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.')
+            ->and(Patch::stateIn($at))->toBe(PatchState::Applied)
+            ->and($source($at, 'Process/Factory/MutantProcessContainerFactory.php'))
+            ->toContain(sprintf(
+                "? \\%s::of(\$mutant->getMutation()->getNominalTestExecutionTime(), \$this->timeout)\n",
+                MutantTime::class,
+            ))
+            ->and($source($at, 'Process/Runner/MutationTestingRunner.php'))
+            ->toContain(sprintf("if (class_exists(\\%1\$s::class) && \\%1\$s::bounded()) {\n", MutantTime::class))
+            ->and($source($at, 'Process/Runner/MutationTestingRunner.php'))
+            ->toContain('// mutation-gate infection:patch: within the gate\'s bounds')
+            ->and($source($at, 'Process/Runner/MutationTestingRunner.php'))
+            ->toContain(sprintf("&& \\%s::leavesOut(\n", PrunedFile::class))
+            ->and($source($at, 'Process/Runner/MutationTestingRunner.php'))
+            ->toContain("(string) getenv('MUTATION_GATE_PRUNED'),\n")
+            ->and($source($at, 'Process/Factory/MutantProcessContainerFactory.php'))
+            ->toContain(sprintf("\\%s::watch(\$process, \$mutant, \$this->timeout);\n", Silence::class))
+            ->and($source($at, 'Process/Runner/ParallelProcessRunner.php'))
+            ->toContain(sprintf("\\%s::check(\$process, microtime(true));\n", Silence::class));
 
-    foreach (InfectionSource::FILES as $file) {
-        $lint = new Process([PHP_BINARY, '-l', sprintf('%s/infection/infection/src/%s', $at, $file)]);
-        $lint->run();
+        foreach (InfectionSource::FILES as $file) {
+            $lint = new Process([PHP_BINARY, '-l', sprintf('%s/infection/infection/src/%s', $at, $file)]);
+            $lint->run();
 
-        expect($lint->isSuccessful())->toBeTrue();
+            expect($lint->isSuccessful())->toBeTrue();
+        }
     }
-})->with(Release::cases());
+});
 
 it('finds the patch in place and changes nothing when patching again', function () use ($source): void {
     $at = InfectionSource::pristine()->vendor();
@@ -121,21 +123,23 @@ function interceptorIn(string $vendor): string
     return (string) file_get_contents(sprintf('%s/infection/include-interceptor/src/IncludeInterceptor.php', $vendor));
 }
 
-it('patches the interceptor\'s stat of every include-interceptor release Infection allows, leaving it PHP', function (string $interceptor): void {
-    $at = InfectionSource::pristine('0.35.6', $interceptor)->vendor();
+it('patches the interceptor\'s stat of every include-interceptor release Infection allows, leaving it PHP', function (): void {
+    foreach (array_keys(InfectionSource::INTERCEPTOR_SHIPS_AS) as $interceptor) {
+        $at = InfectionSource::pristine('0.35.6', $interceptor)->vendor();
 
-    expect(Patch::applyIn($at))->toBe(
-        'infection:patch patched 3 of the 3 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.',
-    )
-        ->and(interceptorIn($at))->toContain("if (! file_exists(\$path) && ! (\$link && is_link(\$path))) {\n")
-        ->and(interceptorIn($at))->toContain('// mutation-gate infection:patch: a path stats as without the wrapper')
-        ->and(interceptorIn($at))->not->toContain('is_readable($path) === false');
+        expect(Patch::applyIn($at))->toBe(
+            'infection:patch patched 3 of the 3 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.',
+        )
+            ->and(interceptorIn($at))->toContain("if (! file_exists(\$path) && ! (\$link && is_link(\$path))) {\n")
+            ->and(interceptorIn($at))->toContain('// mutation-gate infection:patch: a path stats as without the wrapper')
+            ->and(interceptorIn($at))->not->toContain('is_readable($path) === false');
 
-    $lint = new Process([PHP_BINARY, '-l', sprintf('%s/infection/include-interceptor/src/IncludeInterceptor.php', $at)]);
-    $lint->run();
+        $lint = new Process([PHP_BINARY, '-l', sprintf('%s/infection/include-interceptor/src/IncludeInterceptor.php', $at)]);
+        $lint->run();
 
-    expect($lint->isSuccessful())->toBeTrue();
-})->with(array_keys(InfectionSource::INTERCEPTOR_SHIPS_AS));
+        expect($lint->isSuccessful())->toBeTrue();
+    }
+});
 
 it('patches nothing, in Infection either, where a line it rewrites in the interceptor has moved, and counts it unpatched', function (): void {
     $at = InfectionSource::pristine()->vendor();
@@ -242,14 +246,14 @@ it('stats a dangling link as a link, and a file it cannot read as there, while t
             'stat(missing)' => [false, 1],
             'file_exists(missing)' => [false, 0],
         ]);
-})->skip(! FileModes::areEnforced(), 'root reads a file whatever its mode');
+})->skip(fn(): bool => ! FileModes::areEnforced(), 'root reads a file whatever its mode');
 
 it('stats a dangling link and a file it cannot read as missing while the shipped interceptor serves a file', function (): void {
     expect(interceptedStats(InfectionSource::pristine()->vendor()))->toMatchArray([
         'is_link(dangling)' => [false, 0],
         'file_exists(unreadable)' => [false, 0],
     ]);
-})->skip(! FileModes::areEnforced(), 'root reads a file whatever its mode');
+})->skip(fn(): bool => ! FileModes::areEnforced(), 'root reads a file whatever its mode');
 
 it('says it could not write a package whose changed file would not be written, though Infection\'s were', function (): void {
     $at = InfectionSource::pristine()->vendor();

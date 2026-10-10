@@ -38,9 +38,15 @@ it('records a test as it starts, and as it finishes how it ended: failed, errore
 
     expect(recordedLines($results))->toBe(['started <test>', sprintf('%s <test>', $recorded)]);
 })->with([
-    'a failure' => [PhpUnitEvents::failed(...), 'failed'],
-    'an error' => [PhpUnitEvents::errored(...), 'errored'],
-    'a pass' => [PhpUnitEvents::passed(...), 'passed'],
+    'a failure' => [static function (Facade $events): void {
+        PhpUnitEvents::failed($events);
+    }, 'failed'],
+    'an error' => [static function (Facade $events): void {
+        PhpUnitEvents::errored($events);
+    }, 'errored'],
+    'a pass' => [static function (Facade $events): void {
+        PhpUnitEvents::passed($events);
+    }, 'passed'],
     'a skip' => [static fn(Facade $events): Facade => $events, 'neither'],
 ]);
 
@@ -54,8 +60,12 @@ it('records a test skipped or marked incomplete as ended, whether or not it fini
 
     expect(recordedLines($results))->toBe(['started <test>', 'neither <test>']);
 })->with([
-    'a skip' => [PhpUnitEvents::skipped(...)],
-    'an incomplete' => [PhpUnitEvents::incomplete(...)],
+    'a skip' => [static function (Facade $events): void {
+        PhpUnitEvents::skipped($events);
+    }],
+    'an incomplete' => [static function (Facade $events): void {
+        PhpUnitEvents::incomplete($events);
+    }],
 ]);
 
 it('records every test of a suite skipped whole as ended, though none of them started', function (): void {
@@ -74,12 +84,16 @@ it('records a class whose setUpBeforeClass errored or failed', function (Closure
     $events = new Facade();
     Recorder::listening($results, $events);
 
-    $ended($events, TestCase::class);
+    $ended($events);
 
     expect(file($results, FILE_IGNORE_NEW_LINES))->toBe(['class-failed PHPUnit%5CFramework%5CTestCase']);
 })->with([
-    'errored' => [PhpUnitEvents::beforeClassErrored(...)],
-    'failed' => [PhpUnitEvents::beforeClassFailed(...)],
+    'errored' => [static function (Facade $events): void {
+        PhpUnitEvents::beforeClassErrored($events, TestCase::class);
+    }],
+    'failed' => [static function (Facade $events): void {
+        PhpUnitEvents::beforeClassFailed($events, TestCase::class);
+    }],
 ]);
 
 it('writes no test\'s outcome against the next test to start', function (): void {

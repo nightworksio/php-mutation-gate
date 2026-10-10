@@ -200,8 +200,8 @@ it('fails, and writes nothing, where the ledger beside the delivery cannot be re
         ->and($sent->said())->toBe(['The ledger is not written, since it cannot be read: past the limit'])
         ->and($sent->exit())->toBe(ExitCode::CannotJudge);
 })->with([
-    'unreadable' => [CannotJudge::because('past the limit')],
-    'too large' => [TooLarge::because('past the limit')],
+    'unreadable' => [fn(): CannotJudge => CannotJudge::because('past the limit')],
+    'too large' => [fn(): TooLarge => TooLarge::because('past the limit')],
 ]);
 
 it('reads no ledger beside the delivery where its own environment locates no store', function (): void {
@@ -315,18 +315,18 @@ it('writes a comment left over the planned state only over it, so a verdict alre
     expect($sent->said())->toBe([$said]);
 })->with([
     'over the planned state' => [
-        PlannedMarkdown::comment(ShardedPlan::planned(2), ''),
-        Delivery::none()->withCommentOverPlanned('## Re-checked'),
+        fn(): string => PlannedMarkdown::comment(ShardedPlan::planned(2), ''),
+        fn(): Delivery => Delivery::none()->withCommentOverPlanned('## Re-checked'),
         'Wrote https://github.com/octo/gate/pull/7#issuecomment-5.',
     ],
     'over a verdict' => [
-        Markdown::comment(Verdicts::failing(), ''),
-        Delivery::none()->withCommentOverPlanned('## Re-checked'),
+        fn(): string => Markdown::comment(Verdicts::failing(), ''),
+        fn(): Delivery => Delivery::none()->withCommentOverPlanned('## Re-checked'),
         'The pull request comment is no longer in its planned state, so the re-checked survivors leave it as it is.',
     ],
     'a verdict over a verdict' => [
-        Markdown::comment(Verdicts::failing(), ''),
-        Delivery::none()->withComment('## Passed'),
+        fn(): string => Markdown::comment(Verdicts::failing(), ''),
+        fn(): Delivery => Delivery::none()->withComment('## Passed'),
         'Wrote https://github.com/octo/gate/pull/7#issuecomment-5.',
     ],
 ]);
@@ -392,9 +392,9 @@ it('fails, and keeps nothing, for another scope than its own run\'s, or an objec
         ->and($sent->said())->toBe(['Wrote memory:refs/heads/main.', $why])
         ->and($sent->exit())->toBe(ExitCode::CannotJudge);
 })->with([
-    'another scope' => [Scope::pullRequest(7), Contents::of('map'), 'The coverage map is not kept: the delivery holds refs/pull/7\'s, and this run writes refs/heads/main\'s alone.'],
-    'unreadable' => [Scope::branch('main'), CannotJudge::because('coverage.json.gz is missing.'), 'The coverage map is not kept, since it cannot be read: coverage.json.gz is missing.'],
-    'too large' => [Scope::branch('main'), TooLarge::because('past the limit'), 'The coverage map is not kept, since it cannot be read: past the limit'],
+    'another scope' => [fn(): Scope => Scope::pullRequest(7), fn(): Contents => Contents::of('map'), 'The coverage map is not kept: the delivery holds refs/pull/7\'s, and this run writes refs/heads/main\'s alone.'],
+    'unreadable' => [fn(): Scope => Scope::branch('main'), fn(): CannotJudge => CannotJudge::because('coverage.json.gz is missing.'), 'The coverage map is not kept, since it cannot be read: coverage.json.gz is missing.'],
+    'too large' => [fn(): Scope => Scope::branch('main'), fn(): TooLarge => TooLarge::because('past the limit'), 'The coverage map is not kept, since it cannot be read: past the limit'],
 ]);
 
 it('fails, and keeps nothing, where its own environment locates no store for the coverage map', function (): void {

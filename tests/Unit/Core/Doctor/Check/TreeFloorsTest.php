@@ -21,20 +21,22 @@ use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
-$trees = Trees::of(
+$makeTrees = static fn(): Trees => Trees::of(
     Tree::at(Path::of('src'), Undeclared::floor(), Package::at(Path::root())),
     Tree::at(Path::of('lib'), Undeclared::floor(), Package::at(Path::root())),
     Tree::at(Path::of('app'), Floor::of(80), Package::at(Path::root())),
     Tree::at(Path::of('legacy'), Exempt::because('generated'), Package::at(Path::root())),
 );
-$baseline = Baseline::of(Entry::of(Path::of('lib'), Floor::of(70)));
+$makeBaseline = static fn(): Baseline => Baseline::of(Entry::of(Path::of('lib'), Floor::of(70)));
 $observed = static fn(Paths $running, Baseline|CannotJudge $baseline): Observations => Observations::none()
-    ->withTrees($trees)
+    ->withTrees($makeTrees())
     ->withFiles(ProjectFiles::none()->withRunningTheGate($running)->withBaseline($baseline));
 $found = 'Neither the config nor the baseline gives a floor to src.';
 $fix = 'Declare a floor for each, as trees: [{path: src, floor: 80}], or commit the baseline a CI run measures.';
 
-it('fails a run where a CI definition runs the gate over a tree with no floor and no baseline', function () use ($observed, $baseline, $found, $fix): void {
+it('fails a run where a CI definition runs the gate over a tree with no floor and no baseline', function () use ($observed, $makeBaseline, $found, $fix): void {
+    $baseline = $makeBaseline();
+
     $running = Paths::of(Path::of('.github/workflows/mutation.yml'), Path::of('.gitlab-ci.yml'));
 
     expect(TreeFloors::in($observed($running, $baseline)))->toEqual(Findings::of(Finding::of(
@@ -46,7 +48,10 @@ it('fails a run where a CI definition runs the gate over a tree with no floor an
     )));
 });
 
-it('advises where no CI definition runs the gate, or none was read', function () use ($observed, $trees, $baseline, $found, $fix): void {
+it('advises where no CI definition runs the gate, or none was read', function () use ($observed, $makeTrees, $makeBaseline, $found, $fix): void {
+    $trees = $makeTrees();
+    $baseline = $makeBaseline();
+
     expect(TreeFloors::in($observed(Paths::none(), $baseline)))->toEqual(Findings::of(Finding::of(
         Slug::TreeWithoutFloor,
         Severity::Advice,

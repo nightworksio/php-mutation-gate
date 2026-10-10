@@ -12,12 +12,14 @@ use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\Uncommitted;
 use NightWorksIO\MutationGate\Core\Proof\Undigested;
 
-$digests = Digests::of(Digest::sha256Of('mutation'))
+$makeDigests = static fn(): Digests => Digests::of(Digest::sha256Of('mutation'))
     ->withSource(Path::of('src/Money.php'), Digest::sha256Of('money'))
     ->withTest(Path::of('tests/MoneyTest.php'), Digest::sha256Of('money test'))
     ->withTest(Path::of('tests/TaxTest.php'), Digest::sha256Of('tax test'));
 
-it('holds a run\'s digests: what decides every mutant set, each unit\'s source, and each test file', function () use ($digests): void {
+it('holds a run\'s digests: what decides every mutant set, each unit\'s source, and each test file', function () use ($makeDigests): void {
+    $digests = $makeDigests();
+
     expect($digests->mutation())->toEqual(Digest::sha256Of('mutation'))
         ->and($digests->sourceOf(Path::of('src/Money.php')))->toEqual(Digest::sha256Of('money'))
         ->and($digests->sourceOf(Path::of('src/Tax.php')))->toEqual(Missing::at(Path::of('src/Tax.php')))
@@ -27,16 +29,22 @@ it('holds a run\'s digests: what decides every mutant set, each unit\'s source, 
         ->and($digests->tests())->toHaveCount(2);
 });
 
-it('gives a proof of a unit its share, with each killing test file it has a digest of', function () use ($digests): void {
+it('gives a proof of a unit its share, with each killing test file it has a digest of', function () use ($makeDigests): void {
+    $digests = $makeDigests();
+
     expect($digests->inputsOf(Path::of('src/Money.php'), Paths::of(Path::of('tests/MoneyTest.php'), Path::of('tests/GoneTest.php'))))
         ->toEqual(Inputs::of(Digest::sha256Of('money'), Digest::sha256Of('mutation'))->withTest(Path::of('tests/MoneyTest.php'), Digest::sha256Of('money test')));
 });
 
-it('gives no inputs to a proof of a unit whose source it has no digest of', function () use ($digests): void {
+it('gives no inputs to a proof of a unit whose source it has no digest of', function () use ($makeDigests): void {
+    $digests = $makeDigests();
+
     expect($digests->inputsOf(Path::of('src/Tax.php'), Paths::none()))->toEqual(Undigested::proof());
 });
 
-it('stands for no commit until it is taken at one, and gives every proof that commit', function () use ($digests): void {
+it('stands for no commit until it is taken at one, and gives every proof that commit', function () use ($makeDigests): void {
+    $digests = $makeDigests();
+
     $commit = Revision::ref(str_repeat('c0', 20));
     $taken = $digests->takenAt($commit);
 

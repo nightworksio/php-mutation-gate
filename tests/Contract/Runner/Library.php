@@ -61,6 +61,7 @@ use Pest\Mutate\Mutators\Arithmetic\MinusToPlus;
 use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
 use Pest\Mutate\Mutators\Arithmetic\PostDecrementToPostIncrement;
 use Pest\Mutate\Mutators\Equality\GreaterToGreaterOrEqual;
+use PHPUnit\Framework\Assert;
 
 use function realpath;
 
@@ -361,6 +362,21 @@ final class Library
             Triage::standard()->bounds(),
             sprintf('pest %s', $patching->isOn() ? 'patched' : 'unpatched'),
         );
+    }
+
+    /**
+     * The library a runner contract runs by the name its dataset gives it, the
+     * way every contract runs it, or its test skipped where no job installed it.
+     */
+    public static function installed(string $runner): self
+    {
+        return match (true) {
+            $runner === 'pest' && self::isInstalled() => self::pest(Patching::off()),
+            $runner === 'pest patched' && self::isInstalled() => self::pest(Patching::on(self::canary())),
+            $runner === 'infection' && self::isInfectionInstalled() => self::infection(Seconds::of(10.0)),
+            $runner === 'phpunit' && self::isPhpUnitInstalled() => self::phpunit(),
+            default => Assert::markTestSkipped(sprintf('the runner contracts job for %s installs its library', $runner)),
+        };
     }
 
     public static function isInstalled(): bool

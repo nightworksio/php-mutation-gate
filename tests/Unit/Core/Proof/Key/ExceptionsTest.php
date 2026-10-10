@@ -10,9 +10,11 @@ use NightWorksIO\MutationGate\Core\Proof\Key\Ignored;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
-$exceptions = Exceptions::of(Path::of('mutation-gate.json'), Path::of('mutation-gate-baseline.json'), Ignored::globs('docs/**'), Paths::none());
+$makeExceptions = static fn(): Exceptions => Exceptions::of(Path::of('mutation-gate.json'), Path::of('mutation-gate-baseline.json'), Ignored::globs('docs/**'), Paths::none());
 
-it('leaves out the config file, the baseline, what proofs.ignore matches, every CI definition and the gate\'s own directory', function (string $path) use ($exceptions): void {
+it('leaves out the config file, the baseline, what proofs.ignore matches, every CI definition and the gate\'s own directory', function (string $path) use ($makeExceptions): void {
+    $exceptions = $makeExceptions();
+
     expect($exceptions->leaveOut(Path::of($path)))->toBeTrue();
 })->with([
     'mutation-gate.json',
@@ -26,7 +28,9 @@ it('leaves out the config file, the baseline, what proofs.ignore matches, every 
     '.mutation-gate/pipeline.yml',
 ]);
 
-it('leaves out what the gate writes wherever it was told to write it', function (string $path) use ($exceptions): void {
+it('leaves out what the gate writes wherever it was told to write it', function (string $path) use ($makeExceptions): void {
+    $exceptions = $makeExceptions();
+
     $written = $exceptions->andWritten(Path::of('build/ledger'))->andWritten(Path::of('reports/mutation.json'));
 
     expect($written->leaveOut(Path::of($path)))->toBeTrue()
@@ -37,7 +41,9 @@ it('leaves out what the gate writes wherever it was told to write it', function 
     'reports/mutation.json',
 ]);
 
-it('keeps what only starts like a path the gate writes', function () use ($exceptions): void {
+it('keeps what only starts like a path the gate writes', function () use ($makeExceptions): void {
+    $exceptions = $makeExceptions();
+
     $written = $exceptions->andWritten(Path::of('build/ledger'));
 
     expect($written->leaveOut(Path::of('build/ledgers.php')))->toBeFalse()
@@ -45,7 +51,9 @@ it('keeps what only starts like a path the gate writes', function () use ($excep
         ->and($written->leaveOut(Path::of('mutation-gate.json')))->toBeTrue();
 });
 
-it('keeps every other file', function (string $path) use ($exceptions): void {
+it('keeps every other file', function (string $path) use ($makeExceptions): void {
+    $exceptions = $makeExceptions();
+
     expect($exceptions->leaveOut(Path::of($path)))->toBeFalse();
 })->with([
     'src/Money.php',

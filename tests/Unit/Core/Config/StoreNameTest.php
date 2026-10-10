@@ -19,27 +19,25 @@ it('reads each name its service allows', function (StoreName $name, string $text
     'R2\'s region' => [StoreName::S3Region, 'auto'],
 ]);
 
-it('refuses a name that would carry a request elsewhere, or that its service does not allow', function (StoreName $name, string $text): void {
-    expect($name->text()->admits($text))->toBeFalse();
-})->with(function (): iterable {
-    $hostile = ['evil.com/', 'x?sig=', 'a#', '..', 'acme@evil.example', 'acme:443', 'acme%2fx', "acme\n", 'ac me'];
-
+it('refuses a name that would carry a request elsewhere, whatever its service', function (string $text): void {
     foreach (StoreName::cases() as $name) {
-        foreach ($hostile as $text) {
-            yield sprintf('%s %s', $name->name, json_encode($text)) => [$name, $text];
-        }
+        expect($name->text()->admits($text))->toBeFalse();
     }
+})->with(['evil.com/', 'x?sig=', 'a#', '..', 'acme@evil.example', 'acme:443', 'acme%2fx', "acme\n", 'ac me']);
 
-    yield 'an uppercase bucket' => [StoreName::GcsBucket, 'Acme-Ledgers'];
-    yield 'an uppercase account' => [StoreName::AzureAccount, 'AcmeLedgers'];
-    yield 'an uppercase container' => [StoreName::AzureContainer, 'Ledgers'];
-    yield 'an uppercase region' => [StoreName::S3Region, 'US-EAST-1'];
-    yield 'a dot in an account' => [StoreName::AzureAccount, 'acme.evil'];
-    yield 'a slash in a region' => [StoreName::S3Region, 'eu-west-1/x'];
-    yield 'a dot in a region' => [StoreName::S3Region, 'eu-west-1.evil'];
-    yield 'a doubled hyphen in a container' => [StoreName::AzureContainer, 'mutation--ledgers'];
-    yield 'a short account' => [StoreName::AzureAccount, 'ab'];
-});
+it('refuses a name its service does not allow', function (StoreName $name, string $text): void {
+    expect($name->text()->admits($text))->toBeFalse();
+})->with([
+    'an uppercase bucket' => [StoreName::GcsBucket, 'Acme-Ledgers'],
+    'an uppercase account' => [StoreName::AzureAccount, 'AcmeLedgers'],
+    'an uppercase container' => [StoreName::AzureContainer, 'Ledgers'],
+    'an uppercase region' => [StoreName::S3Region, 'US-EAST-1'],
+    'a dot in an account' => [StoreName::AzureAccount, 'acme.evil'],
+    'a slash in a region' => [StoreName::S3Region, 'eu-west-1/x'],
+    'a dot in a region' => [StoreName::S3Region, 'eu-west-1.evil'],
+    'a doubled hyphen in a container' => [StoreName::AzureContainer, 'mutation--ledgers'],
+    'a short account' => [StoreName::AzureAccount, 'ab'],
+]);
 
 it('names each name as a refusal reads it, and writes its pattern into the schema', function (StoreName $name, string $what): void {
     expect($name->text()->expected())->toBe($what)

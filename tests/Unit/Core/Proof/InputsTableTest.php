@@ -22,16 +22,18 @@ $proof = static fn(string $unit, Inputs|Undigested $inputs): Proof => Proof::of(
     Mutants::none(),
     Run::of('run', Moment::at('2026-09-29T10:00:00Z'), Digest::sha256Of('base')),
 )->withInputs($inputs);
-$commit = Revision::ref(str_repeat('c0', 20));
-$money = Inputs::of(Digest::sha256Of('money'), Digest::sha256Of('mutation'))
+$makeCommit = static fn(): Revision => Revision::ref(str_repeat('c0', 20));
+$money = static fn(): Inputs => Inputs::of(Digest::sha256Of('money'), Digest::sha256Of('mutation'))
     ->withTest(Path::of('tests/MoneyTest.php'), Digest::sha256Of('money test'))
-    ->takenAt($commit);
-$tax = Inputs::of(Digest::sha256Of('tax'), Digest::sha256Of('mutation'))
+    ->takenAt($makeCommit());
+$tax = static fn(): Inputs => Inputs::of(Digest::sha256Of('tax'), Digest::sha256Of('mutation'))
     ->withTest(Path::of('tests/TaxTest.php'), Digest::sha256Of('tax test'))
     ->withTest(Path::of('tests/MoneyTest.php'), Digest::sha256Of('money test'));
-$table = InputsTable::of($proof('src/Money.php', $money), $proof('src/Held.php', Undigested::proof()), $proof('src/Tax.php', $tax));
+$makeTable = static fn(): InputsTable => InputsTable::of($proof('src/Money.php', $money()), $proof('src/Held.php', Undigested::proof()), $proof('src/Tax.php', $tax()));
 
-it('writes what the proofs\' digests share once each, in the order they first record it', function () use ($table): void {
+it('writes what the proofs\' digests share once each, in the order they first record it', function () use ($makeTable): void {
+    $table = $makeTable();
+
     expect($table->written())->toBe([
         'mutation' => [Digest::sha256Of('mutation')->value()],
         'tests' => [
@@ -42,7 +44,10 @@ it('writes what the proofs\' digests share once each, in the order they first re
     ]);
 });
 
-it('gives each shared digest its index, and reads each index back as the digest', function () use ($table, $commit): void {
+it('gives each shared digest its index, and reads each index back as the digest', function () use ($makeTable, $makeCommit): void {
+    $table = $makeTable();
+    $commit = $makeCommit();
+
     $read = InputsTable::read(Node::config(JsonText::encode($table->written())));
 
     expect($table->mutation(Digest::sha256Of('mutation')))->toBe(0)
@@ -53,7 +58,9 @@ it('gives each shared digest its index, and reads each index back as the digest'
         ->and($read->commitAt(Node::config('0')))->toEqual($commit);
 });
 
-it('refuses an index past the end of its list', function (Closure $at) use ($table): void {
+it('refuses an index past the end of its list', function (Closure $at) use ($makeTable): void {
+    $table = $makeTable();
+
     $read = InputsTable::read(Node::config(JsonText::encode($table->written())));
 
     expect(fn(): mixed => $at($read))->toThrow(NotInShape::class);
@@ -64,7 +71,9 @@ it('refuses an index past the end of its list', function (Closure $at) use ($tab
     'an index that is not a number' => [static fn(InputsTable $read): Revision => $read->commitAt(Node::config('"0"'))],
 ]);
 
-it('reads no list with an entry that is not well formed, and every other as it is', function (string $list, array $entries, Closure $at) use ($table): void {
+it('reads no list with an entry that is not well formed, and every other as it is', function (string $list, array $entries, Closure $at) use ($makeTable): void {
+    $table = $makeTable();
+
     $read = InputsTable::read(Node::config(JsonText::encode([...$table->written(), $list => $entries])));
 
     expect(fn(): mixed => $at($read))->toThrow(NotInShape::class)
@@ -73,7 +82,7 @@ it('reads no list with an entry that is not well formed, and every other as it i
     'a mutation digest that is not a SHA-256' => ['mutation', ['abc'], static fn(InputsTable $read): Digest => $read->mutationAt(Node::config('0'))],
     'a test file with no digest' => ['tests', [['tests/MoneyTest.php']], static fn(InputsTable $read): array => $read->testAt(Node::config('0'))],
     'a test file whose digest is not text' => ['tests', [['tests/MoneyTest.php', 7]], static fn(InputsTable $read): array => $read->testAt(Node::config('0'))],
-    'a test file with more than its digest' => ['tests', [['tests/MoneyTest.php', str_repeat('3', 64), 'more']], static fn(InputsTable $read): array => $read->testAt(Node::config('0'))],
+    'a test file with more than its digest' => ['tests', fn(): array => [['tests/MoneyTest.php', str_repeat('3', 64), 'more']], static fn(InputsTable $read): array => $read->testAt(Node::config('0'))],
     'a commit that is not a full commit id' => ['commits', ['HEAD'], static fn(InputsTable $read): Revision => $read->commitAt(Node::config('0'))],
 ]);
 

@@ -34,7 +34,7 @@ $verdict = static fn(string $path, Floor|Exempt|Undeclared $declared, Floor|Unre
     Uncovered::Count,
 );
 // Three killed of four: 75%.
-$threeOfFour = Judged::mutants(MutantJudgement::Killed, MutantJudgement::Killed, MutantJudgement::Killed, MutantJudgement::Survived);
+$makeThreeOfFour = static fn(): JudgedMutants => Judged::mutants(MutantJudgement::Killed, MutantJudgement::Killed, MutantJudgement::Killed, MutantJudgement::Survived);
 
 it('holds nothing to begin with', function (): void {
     expect(Baseline::none())->toHaveCount(0);
@@ -68,7 +68,9 @@ it('adds an entry without changing the baseline it came from', function () use (
         ->and($baseline)->toHaveCount(1);
 });
 
-it('raises each floor a verdict raised to its score, dropping its lowered, and keeps the rest', function () use ($trees, $verdict, $threeOfFour): void {
+it('raises each floor a verdict raised to its score, dropping its lowered, and keeps the rest', function () use ($trees, $verdict, $makeThreeOfFour): void {
+    $threeOfFour = $makeThreeOfFour();
+
     $baseline = Baseline::of(
         Entry::of(Path::of('app/Legacy'), Floor::of(61.2))->lowered(Lowered::from(Floor::of(64.5), 'Removed together.')),
         Entry::of(Path::of('app/Http'), Floor::of(90)),

@@ -35,8 +35,8 @@ $survivor = static fn(string $added = 'return $amount <= $limit;'): JudgedMutant
 );
 
 /** `Cart.php` as the whole suite judges it, and as a group of tests holds it. */
-$whole = Unit::file(Path::of('src/Cart.php'));
-$held = Unit::held(Path::of('src/Cart.php'), Group::holding('src/Cart.php'));
+$makeWhole = static fn(): Unit => Unit::file(Path::of('src/Cart.php'));
+$makeHeld = static fn(): Unit => Unit::held(Path::of('src/Cart.php'), Group::holding('src/Cart.php'));
 
 /** The function `fits()` of `Cart`. */
 $fits = static fn(): Enclosing|Nameless => Enclosing::in(Contents::of(<<<'PHP'
@@ -51,7 +51,9 @@ $fits = static fn(): Enclosing|Nameless => Enclosing::in(Contents::of(<<<'PHP'
     }
     PHP), Line::of(7));
 
-it('writes a Pest test that holds the mutant, its hint, the call and the scaffold, fails, and offers the ignore', function () use ($survivor, $fits, $whole): void {
+it('writes a Pest test that holds the mutant, its hint, the call and the scaffold, fails, and offers the ignore', function () use ($survivor, $fits, $makeWhole): void {
+    $whole = $makeWhole();
+
     $mutant = $survivor();
     $id = $mutant->mutant()->id()->value();
 
@@ -73,7 +75,9 @@ it('writes a Pest test that holds the mutant, its hint, the call and the scaffol
         PHP, $id, $mutant->hint()->text(), str_replace("'", "\\'", $mutant->hint()->text())));
 });
 
-it('writes a Pest test that runs the code and reads its file in place of the scaffold, where the mutator is pinned by source', function () use ($fits, $whole): void {
+it('writes a Pest test that runs the code and reads its file in place of the scaffold, where the mutator is pinned by source', function () use ($fits, $makeWhole): void {
+    $whole = $makeWhole();
+
     $mutant = JudgedMutant::of(
         Verdicts::mutant('src/Cart.php:7', 'security/HashEqualsToIdentical', MutatorFamily::Condition, Verdicts::diff('return \\hash_equals($a, $b);', 'return $a === $b;')),
         MutantJudgement::Survived,
@@ -92,7 +96,9 @@ it('writes a Pest test that runs the code and reads its file in place of the sca
         ->and(Subject::of($mutant, $fits(), $whole)->pin())->toEqual(NotGiven::value());
 });
 
-it('writes a PHPUnit method that holds the unit, and offers the ignore as a PHP config writes it', function () use ($survivor, $held): void {
+it('writes a PHPUnit method that holds the unit, and offers the ignore as a PHP config writes it', function () use ($survivor, $makeHeld): void {
+    $held = $makeHeld();
+
     $mutant = $survivor();
     $id = $mutant->mutant()->id()->value();
     $text = StubText::of(Subject::of($mutant, Nameless::code(), $held), AssertionStyle::PhpUnit, Format::Php, RunnerBehaviour::standard());
@@ -103,13 +109,18 @@ it('writes a PHPUnit method that holds the unit, and offers the ignore as a PHP 
         ->and($text)->not->toContain('$cart->');
 });
 
-it('puts a PHPUnit method in the holding group beside its #[Holds] where the runner reads #[Holds] as its files load', function () use ($survivor, $held): void {
+it('puts a PHPUnit method in the holding group beside its #[Holds] where the runner reads #[Holds] as its files load', function () use ($survivor, $makeHeld): void {
+    $held = $makeHeld();
+
     $text = StubText::of(Subject::of($survivor(), Nameless::code(), $held), AssertionStyle::PhpUnit, Format::Php, RunnerBehaviour::standard()->holdingAsLoaded());
 
     expect($text)->toStartWith("#[\\NightWorksIO\\MutationGate\\Attribute\\Holds('src/Cart.php')]\n#[\\PHPUnit\\Framework\\Attributes\\Group('holds:src/Cart.php')]\npublic function testKillsMutant");
 });
 
-it('joins the holding group in Pest, and no group where the whole suite judges the unit', function () use ($survivor, $held, $whole): void {
+it('joins the holding group in Pest, and no group where the whole suite judges the unit', function () use ($survivor, $makeHeld, $makeWhole): void {
+    $held = $makeHeld();
+    $whole = $makeWhole();
+
     expect(StubText::of(Subject::of($survivor(), Nameless::code(), $held), AssertionStyle::Pest, Format::Yaml, RunnerBehaviour::standard()->holdingAsLoaded()))
         ->toEndWith("\n})->group('holds:src/Cart.php');")
         ->and(StubText::of(Subject::of($survivor(), Nameless::code(), $whole), AssertionStyle::Pest, Format::Yaml, RunnerBehaviour::standard()))
@@ -118,7 +129,9 @@ it('joins the holding group in Pest, and no group where the whole suite judges t
         ->toStartWith('public function testKillsMutant');
 });
 
-it('writes one test for a cluster: every member\'s diff, one scaffold for each family, and an ignore for each', function () use ($whole): void {
+it('writes one test for a cluster: every member\'s diff, one scaffold for each family, and an ignore for each', function () use ($makeWhole): void {
+    $whole = $makeWhole();
+
     $clusters = iterator_to_array(Clustered::verdict()->trees()->clusters(), preserve_keys: false);
     $text = '';
 
@@ -136,7 +149,9 @@ it('writes one test for a cluster: every member\'s diff, one scaffold for each f
         ->and($text)->toContain(sprintf("expect(true)->toBeFalse('Cluster %s, survived: ", $clusters[0]->id()->value()));
 });
 
-it('offers the assertion of value a weak test that let the mutant through could make, in that test\'s style', function () use ($survivor, $whole): void {
+it('offers the assertion of value a weak test that let the mutant through could make, in that test\'s style', function () use ($survivor, $makeWhole): void {
+    $whole = $makeWhole();
+
     $weak = WeakTest::of(
         TestId::of('CartTest::fits'),
         TestName::in(Path::of('tests/CartTest.php'), 'it fits'),
@@ -148,7 +163,9 @@ it('offers the assertion of value a weak test that let the mutant through could 
         ->toContain("\n    // Or make tests/CartTest.php::it fits assert a value, not only an existence or a shape:\n    // expect(fits(…))->toBe(<expected>);\n");
 });
 
-it('writes each comment so no character in the diff ends it early', function () use ($survivor, $whole): void {
+it('writes each comment so no character in the diff ends it early', function () use ($survivor, $makeWhole): void {
+    $whole = $makeWhole();
+
     $text = StubText::of(Subject::of($survivor("return '?>' . \"\e[31m\";"), Nameless::code(), $whole), AssertionStyle::Pest, Format::Json, RunnerBehaviour::standard());
 
     expect($text)->toContain("//     +        return '? >' . \"[31m\";\n")

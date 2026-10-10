@@ -37,7 +37,7 @@ return RectorConfig::configure()
         ],
         // Pest binds a closure in a dataset to the test case before calling it,
         // and the closure of a static method cannot be bound.
-        ArrowFunctionDelegatingCallToFirstClassCallableRector::class => [__DIR__ . '/tests/Contract'],
+        ArrowFunctionDelegatingCallToFirstClassCallableRector::class => [__DIR__ . '/tests'],
         // The runner contract suite's fixture is a project of its own, written as a user's library is.
         __DIR__ . '/tests/Contract/Runner/fixture',
         __DIR__ . '/tests/Contract/Runner/infection-fixture',

@@ -107,13 +107,13 @@ it('reads a change since the ref alone where its scope\'s last run cannot stand 
     expect($base instanceof ChangeBase ? [$base->lastRunCommit(), $base->ref()->name()] : $base)
         ->toEqual([NotGiven::value(), $since === '' ? $standing->fetchedDefaultBranch()->name() : $since]);
 })->with([
-    'no run on record' => [fn(): Scope => Scope::pullRequest(7), ScopeRuns::none(), RunProfile::standard(), ''],
-    'a run cut short since' => [fn(): Scope => Scope::pullRequest(7), fn(): ScopeRuns => $lastRun()->cutShort(), RunProfile::standard(), ''],
+    'no run on record' => [fn(): Scope => Scope::pullRequest(7), fn(): ScopeRuns => ScopeRuns::none(), fn(): RunProfile => RunProfile::standard(), ''],
+    'a run cut short since' => [fn(): Scope => Scope::pullRequest(7), fn(): ScopeRuns => $lastRun()->cutShort(), fn(): RunProfile => RunProfile::standard(), ''],
     'a run of another kind' => [fn(): Scope => Scope::pullRequest(7), fn(): ScopeRuns => $lastRun(), fn(): RunProfile => RunProfile::standard()->securityOnly(), ''],
     'a run that recorded every killer' => [fn(): Scope => Scope::pullRequest(7), fn(): ScopeRuns => $lastRun(), fn(): RunProfile => RunProfile::standard()->recording(MatrixKind::Full), ''],
     'a run of one suite' => [fn(): Scope => Scope::pullRequest(7), fn(): ScopeRuns => $lastRun(), fn(): RunProfile => RunProfile::standard()->inSuite(SuiteName::of('unit')), ''],
-    'a run under another check' => [fn(): Scope => Scope::pullRequest(7), fn(): ScopeRuns => $lastRun('lint'), RunProfile::standard(), ''],
-    'the default branch, since its last commit that passed' => [fn(): Scope => Scope::branch('main'), fn(): ScopeRuns => $lastRun()->passing(Passed::of(Revision::ref('main-passed'), 'check', 0)), RunProfile::standard(), 'main-passed'],
+    'a run under another check' => [fn(): Scope => Scope::pullRequest(7), fn(): ScopeRuns => $lastRun('lint'), fn(): RunProfile => RunProfile::standard(), ''],
+    'the default branch, since its last commit that passed' => [fn(): Scope => Scope::branch('main'), fn(): ScopeRuns => $lastRun()->passing(Passed::of(Revision::ref('main-passed'), 'check', 0)), fn(): RunProfile => RunProfile::standard(), 'main-passed'],
 ]);
 
 it('cannot name the commit a run judged for a command that only lists what a change reaches', function (): void {

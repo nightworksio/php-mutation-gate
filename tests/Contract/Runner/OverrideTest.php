@@ -79,7 +79,7 @@ it('kills and spares the mutants of a file whose tests read alike through the ov
         [16, 'IncrementInteger', MutantStatus::Killed, '', ['P\\Tests\\LinkedSpec::__pest_evaluable_it_tells_a_link_for_a_link']],
         [16, 'SmallerToSmallerOrEqual', MutantStatus::Survived, '', []],
     ]);
-})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('kills no mutant of a file whose tests fail whenever the override serves a file, leaving each unjudged, with Pest', function (): void {
     $judged = overrideJudged('WrappedSpec.php');
@@ -92,4 +92,4 @@ it('kills no mutant of a file whose tests fail whenever the override serves a fi
         ->and($judged[0][3])->toStartWith('the selected tests fail on their own (')
         ->and([$judged[1][3], $judged[2][3]])->each->toBe(ReplayVerdict::Failed->reason())
         ->and(array_column($judged, 4))->toBe([[], [], []]);
-})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');

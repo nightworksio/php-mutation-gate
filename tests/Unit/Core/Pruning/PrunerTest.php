@@ -47,14 +47,16 @@ $pruner = static fn(Pruning|Absent $settings = new Absent()): Pruner => Pruner::
     MutatorNames::of('Secure'),
     Moment::at('2026-10-01T00:00:00Z'),
 );
-$proofs = Proofs::of(
+$makeProofs = static fn(): Proofs => Proofs::of(
     PruningCases::proof('src/A.php', '2026-10-05T00:00:00Z', 'a', Mutants::none()),
     PruningCases::proof('src/B.php', '2026-10-05T00:00:00Z', 'b then', Mutants::none()),
     PruningCases::proof('src/C.php', '2026-09-20T00:00:00Z', 'c', Mutants::none()),
     PruningCases::proof('src/D.php', '2026-10-05T00:00:00Z', 'd', Mutants::none()),
 );
 
-it('prunes the clean mutators, less those never pruned, in each unit whose newest result is of its code and recent', function () use ($pruner, $proofs): void {
+it('prunes the clean mutators, less those never pruned, in each unit whose newest result is of its code and recent', function () use ($pruner, $makeProofs): void {
+    $proofs = $makeProofs();
+
     expect(prunedOver($pruner(), $proofs))->toBe([['src/A.php'], ['Plus']]);
 });
 
@@ -70,12 +72,14 @@ it('carries a result made at the audit\'s very start', function () use ($pruner)
     expect(prunedOver($pruner(), $proofs))->toBe([['src/A.php'], ['Plus']]);
 });
 
-it('prunes nothing where pruning is off, no mutator is clean, or the code on disk has no digests', function (Pruning $settings, bool $digested) use ($pruner, $proofs): void {
+it('prunes nothing where pruning is off, no mutator is clean, or the code on disk has no digests', function (Pruning $settings, bool $digested) use ($pruner, $makeProofs): void {
+    $proofs = $makeProofs();
+
     expect(prunedOver($pruner($settings), $proofs, $digested))->toBe([[], []]);
 })->with([
-    'off' => [Pruning::of(enabled: false, window: 2), true],
-    'a window wider than every mutator learned' => [Pruning::of(window: 3), true],
-    'no digests' => [Pruning::of(window: 2), false],
+    'off' => [fn(): Pruning => Pruning::of(enabled: false, window: 2), true],
+    'a window wider than every mutator learned' => [fn(): Pruning => Pruning::of(window: 3), true],
+    'no digests' => [fn(): Pruning => Pruning::of(window: 2), false],
 ]);
 
 it('says nothing is pruned where it prunes no mutator or no file', function (): void {

@@ -10,9 +10,11 @@ use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Node;
 
-$ci = ConfigFile::at(Path::of('/project/ci/gate.json'), Path::of('/project'));
+$makeCi = static fn(): ConfigFile => ConfigFile::at(Path::of('/project/ci/gate.json'), Path::of('/project'));
 
-it('names a path from where the layer that writes it is', function () use ($ci): void {
+it('names a path from where the layer that writes it is', function () use ($makeCi): void {
+    $ci = $makeCi();
+
     expect(Location::path($ci)->read(Node::config('"../src"'))->value())->toEqual(Path::of('src'))
         ->and(Location::path(ProjectRoot::origin())->read(Node::config('"./src/"'))->value())->toEqual(Path::of('src'));
 });
@@ -29,8 +31,8 @@ it('refuses a path that goes up out of the project, or is absolute where the com
     expect(Location::path($origin)->read(Node::config($written))->problems())
         ->toEqual([Problem::at('', sprintf('expected a path inside the project, got %s', $written))]);
 })->with([
-    'up, in a file' => [$ci, '"../../x"'],
-    'absolute, in a file' => [$ci, '"/tmp/x.json"'],
-    'absolute, in a preset' => [ProjectRoot::origin(), '"/tmp/x.json"'],
-    'up, on the command line' => [ProjectRoot::commandLine(), '"../x.json"'],
+    'up, in a file' => [fn(): ConfigFile => $makeCi(), '"../../x"'],
+    'absolute, in a file' => [fn(): ConfigFile => $makeCi(), '"/tmp/x.json"'],
+    'absolute, in a preset' => [fn(): ProjectRoot => ProjectRoot::origin(), '"/tmp/x.json"'],
+    'up, on the command line' => [fn(): ProjectRoot => ProjectRoot::commandLine(), '"../x.json"'],
 ]);

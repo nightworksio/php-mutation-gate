@@ -52,12 +52,12 @@ $ledgers = static function (string ...$files) use ($proofOf): ProofStoreFake {
     return $store;
 };
 
-$root = Package::at(Path::root());
+$root = static fn(): Package => Package::at(Path::root());
 
 /** `src/Money.php`, which scores 50 and is held to this floor, and `src/Held.php`, which scores 0. */
 $trees = static fn(float $floor): Trees => Trees::of(
-    Tree::at(Path::of('src/Money.php'), Floor::of($floor), $root),
-    Tree::at(Path::of('src/Held.php'), Floor::of(0.5), $root),
+    Tree::at(Path::of('src/Money.php'), Floor::of($floor), $root()),
+    Tree::at(Path::of('src/Held.php'), Floor::of(0.5), $root()),
 );
 
 /**

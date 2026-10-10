@@ -67,7 +67,7 @@ it('names what the original calls where it changed', function (string $removed, 
     'a function unwrapped' => ['return array_values($xs);', 'return $xs;', 'array_values'],
     'a qualified function' => ['return \\App\\total($xs);', 'return $xs;', 'total'],
     'a static call removed' => ['Log::write($line);', '', 'write'],
-    'no call at all' => ['return 3;', 'return 4;', Nameless::code()],
+    'no call at all' => ['return 3;', 'return 4;', fn(): Nameless => Nameless::code()],
 ]);
 
 it('takes a diff without a header whole, and one that only removes', function (): void {

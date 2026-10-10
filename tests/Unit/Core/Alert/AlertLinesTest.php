@@ -26,9 +26,11 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
-$was = TrendEntry::none()->withScore(Path::of('src'), Score::ofHundredths(8_100))->withFloor(Path::of('src'), Floor::of(90));
+$makeWas = static fn(): TrendEntry => TrendEntry::none()->withScore(Path::of('src'), Score::ofHundredths(8_100))->withFloor(Path::of('src'), Floor::of(90));
 
-it('says of a failure each tree below its floor, the failures no floor decides, and the first survivors', function () use ($was): void {
+it('says of a failure each tree below its floor, the failures no floor decides, and the first survivors', function () use ($makeWas): void {
+    $was = $makeWas();
+
     expect(AlertLines::of(Alert::of(AlertEvent::Failed, Verdicts::failing(), $was), Chat::Slack))->toBe([
         ['Below the floor', ['`src`: 44.44%, below its floor of 80.00%; it was 81.00%.']],
         ['Failures', ['The ignore of 3f9a1c2b7d04 matched no mutant. Remove it.']],
@@ -66,7 +68,9 @@ it('says why the run cannot judge', function (): void {
         ->toBe([['Why', ['Shard 2 wrote no result, so &lt;its&gt; units are unjudged.']]]);
 });
 
-it('says of a recovery each passing tree against its floor', function () use ($was): void {
+it('says of a recovery each passing tree against its floor', function () use ($makeWas): void {
+    $was = $makeWas();
+
     expect(AlertLines::of(Alert::of(AlertEvent::Recovered, Verdicts::passing(), $was), Chat::Slack))
         ->toBe([['Trees', ['`src`: 100.00% against its floor of 80.00%; it was 81.00%.']]]);
 });
@@ -91,7 +95,9 @@ it('says of each lowered floor where it went, and why, where the baseline says',
     ]]]);
 });
 
-it('names each security set below its floor when a run fails', function () use ($was): void {
+it('names each security set below its floor when a run fails', function () use ($makeWas): void {
+    $was = $makeWas();
+
     $groups = AlertLines::of(Alert::of(AlertEvent::Failed, Verdicts::secured(), $was), Chat::Slack);
 
     expect($groups[1] ?? null)->toBe(['Security below its floor', ['Security: 0.00%, below its floor of 100.00%.']]);

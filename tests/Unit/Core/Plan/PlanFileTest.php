@@ -235,8 +235,8 @@ it('reads back a plan for a detached HEAD, with or without a default branch', fu
 
     expect(PlanFile::decode(PlanFile::encode($plan)))->toEqual($plan);
 })->with([
-    'a default branch' => [RunOn::detached(Scope::branch('main'))],
-    'none' => [RunOn::detached(CannotTell::because('The plan names no default branch.'))],
+    'a default branch' => [fn(): RunOn => RunOn::detached(Scope::branch('main'))],
+    'none' => [fn(): RunOn => RunOn::detached(CannotTell::because('The plan names no default branch.'))],
 ]);
 
 it('reads a plan that names no default branch as one that cannot tell it', function (): void {
@@ -333,28 +333,28 @@ it('refuses what is not a plan, saying where it went wrong', function (string $j
     ],
     'no commit' => ['{"format": 1, "shards": []}', 'the file.commit is missing.'],
     'a ref that is not a scope' => [
-        planFileWith('"base": "b", "ref": "main", "keys": {}, "shards": []'),
+        fn(): string => planFileWith('"base": "b", "ref": "main", "keys": {}, "shards": []'),
         'the file.ref is not a scope.',
     ],
     'a default branch that is not a scope' => [
-        planFileWith('"base": "b", "defaultBranch": "main", "keys": {}, "shards": []'),
+        fn(): string => planFileWith('"base": "b", "defaultBranch": "main", "keys": {}, "shards": []'),
         'the file.defaultBranch is not a scope.',
     ],
     'a changed line before the first' => [
-        planFileWith('"base": "b", "keys": {}, "shards": [], "changed": {"a.php": [0]}, "reach": []'),
+        fn(): string => planFileWith('"base": "b", "keys": {}, "shards": [], "changed": {"a.php": [0]}, "reach": []'),
         'the file.changed.a.php[0] is not a line.',
     ],
     'a reason that is not text' => [
-        planFileWith('"base": "b", "keys": {}, "shards": [], "changed": {}, "reach": [3]'),
+        fn(): string => planFileWith('"base": "b", "keys": {}, "shards": [], "changed": {}, "reach": [3]'),
         'the file.reach[0] is not text.',
     ],
     'a commit that is not a full id' => [
         '{"format": 1, "commit": "5eeca8f", "base": "b", "keys": {}, "shards": []}',
         'the file.commit is not a commit.',
     ],
-    'no base' => [planFileWith('"keys": {}, "shards": []'), 'the file.base is missing.'],
+    'no base' => [fn(): string => planFileWith('"keys": {}, "shards": []'), 'the file.base is missing.'],
     'no digest' => [
-        planFileWith('"base": "b", "keys": {}, "shards": []'),
+        fn(): string => planFileWith('"base": "b", "keys": {}, "shards": []'),
         'the file.digest is missing.',
     ],
 ]);

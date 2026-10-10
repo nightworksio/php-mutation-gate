@@ -40,11 +40,11 @@ it('finds nothing of a survivor no weak test judges, one a value may not see, or
     expect(Weakness::findings(Weakly::trees($survivor), Weakly::matrix(...$tests), Weakly::sources(), Weakly::testFiles())->of($survivor->mutant()->id()))
         ->toEqual(NoFinding::survivor());
 })->with([
-    'judged by a strong test alone' => [Weakly::literal(), Weakly::strongTest()],
-    'judged by a test with no file named' => [Weakly::literal(), Weakly::unnamedTest()],
-    'judged by no test' => [Weakly::survivor(3, 'FalseValue', MutatorFamily::Literal, Verdicts::diff('return false;', 'return true;'))],
-    'a Boundary' => [Weakly::boundary()],
-    'an uncovered Literal' => [Weakly::survivor(11, 'FalseValue', MutatorFamily::Literal, Verdicts::diff('return false;', 'return true;'), MutantJudgement::Uncovered)],
+    'judged by a strong test alone' => [fn(): JudgedMutant => Weakly::literal(), fn(): TestId => Weakly::strongTest()],
+    'judged by a test with no file named' => [fn(): JudgedMutant => Weakly::literal(), fn(): TestId => Weakly::unnamedTest()],
+    'judged by no test' => [fn(): JudgedMutant => Weakly::survivor(3, 'FalseValue', MutatorFamily::Literal, Verdicts::diff('return false;', 'return true;'))],
+    'a Boundary' => [fn(): JudgedMutant => Weakly::boundary()],
+    'an uncovered Literal' => [fn(): JudgedMutant => Weakly::survivor(11, 'FalseValue', MutatorFamily::Literal, Verdicts::diff('return false;', 'return true;'), MutantJudgement::Uncovered)],
 ]);
 
 it('names no function where the survivor\'s own file is not read, and finds nothing where the test file is not', function (): void {

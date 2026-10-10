@@ -61,7 +61,7 @@ it('writes a null base and map where there is no ref and no map that says where 
     $json = AffectedJson::of(AffectedTests::every(Affected::places(), Reason::that('All.')), NotGiven::value(), $map);
 
     expect([Decoded::at($json, 'base'), Decoded::at($json, 'map')])->toBe([null, null]);
-})->with([[Unplaced::map()], [NotGiven::value()]]);
+})->with([[fn(): Unplaced => Unplaced::map()], [fn(): NotGiven => NotGiven::value()]]);
 
 it('writes a # inertly, so a CI log reads no command in it', function (): void {
     $tests = AffectedTests::none(Affected::places())->wholly(Path::of('tests/RateTest.php'), Reason::that('##[error] it'));

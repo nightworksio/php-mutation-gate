@@ -26,9 +26,9 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
 
-$root = Package::at(Path::root());
-$core = Package::at(Path::of('packages/core'));
-$money = Package::at(Path::of('packages/money'))->dependingOn(Path::of('packages/core'));
+$makeRoot = static fn(): Package => Package::at(Path::root());
+$makeCore = static fn(): Package => Package::at(Path::of('packages/core'));
+$makeMoney = static fn(): Package => Package::at(Path::of('packages/money'))->dependingOn(Path::of('packages/core'));
 
 $reaching = static fn(): Reaching => new Reaching(
     Layout::standard(Paths::of(Path::of('tests/Pest.php')))
@@ -36,11 +36,11 @@ $reaching = static fn(): Reaching => new Reaching(
         ->testedIn(SuiteDirectory::conventional(), SuiteDirectory::of(Path::of('app-modules/billing/tests'), ''))
         ->withModule(Path::of('app-modules/billing')),
     Trees::of(
-        Tree::at(Path::of('src'), Undeclared::floor(), $root),
-        Tree::at(Path::of('app-modules/billing/src'), Undeclared::floor(), $root),
-        Tree::at(Path::of('app-modules/billing/lib'), Undeclared::floor(), $root),
-        Tree::at(Path::of('packages/core/src'), Undeclared::floor(), $core),
-        Tree::at(Path::of('packages/money/src'), Undeclared::floor(), $money),
+        Tree::at(Path::of('src'), Undeclared::floor(), $makeRoot()),
+        Tree::at(Path::of('app-modules/billing/src'), Undeclared::floor(), $makeRoot()),
+        Tree::at(Path::of('app-modules/billing/lib'), Undeclared::floor(), $makeRoot()),
+        Tree::at(Path::of('packages/core/src'), Undeclared::floor(), $makeCore()),
+        Tree::at(Path::of('packages/money/src'), Undeclared::floor(), $makeMoney()),
     ),
 );
 
@@ -89,7 +89,11 @@ it('reaches everything where a root file decides how the gate runs, even where i
     ],
 ]);
 
-it('reaches a package whole, and every package that depends on it, where a file of its decides how the gate runs', function () use ($reaching, $judges, $said, $core, $money, $root): void {
+it('reaches a package whole, and every package that depends on it, where a file of its decides how the gate runs', function () use ($reaching, $judges, $said, $makeCore, $makeMoney, $makeRoot): void {
+    $core = $makeCore();
+    $money = $makeMoney();
+    $root = $makeRoot();
+
     $reach = $reaching()->of(Changes::of(Change::modified(Path::of('packages/core/composer.json'), Lines::of(Line::of(2)))), $judges(), Sources::none());
 
     expect($reach->isEverywhere())->toBeFalse()
@@ -102,7 +106,11 @@ it('reaches a package whole, and every package that depends on it, where a file 
         ]);
 });
 
-it('matches reach.everything against the path from the repository, not from the package that holds it', function () use ($judges, $said, $core, $money, $root): void {
+it('matches reach.everything against the path from the repository, not from the package that holds it', function () use ($judges, $said, $makeCore, $makeMoney, $makeRoot): void {
+    $core = $makeCore();
+    $money = $makeMoney();
+    $root = $makeRoot();
+
     $reaching = new Reaching(
         Layout::standard(Paths::none())->decidedAlsoBy(Glob::of('config/**'))->decidedAlsoBy(Glob::of('packages/core/routes/**')),
         Trees::of(
@@ -263,7 +271,10 @@ it('reaches every tree of the module a changed test is in', function () use ($re
         ]);
 });
 
-it('reaches every unit of its package where a test was deleted, or no map says what it runs', function (Change $change, Judges|NoMap $coverage, string $said) use ($reaching, $root, $money): void {
+it('reaches every unit of its package where a test was deleted, or no map says what it runs', function (Change $change, Judges|NoMap $coverage, string $said) use ($reaching, $makeRoot, $makeMoney): void {
+    $root = $makeRoot();
+    $money = $makeMoney();
+
     $reach = $reaching()->of(Changes::of($change), $coverage, Sources::none());
 
     expect($reach->isEverywhere())->toBeFalse()
@@ -272,17 +283,17 @@ it('reaches every unit of its package where a test was deleted, or no map says w
 })->with([
     'deleted' => [
         fn(): Change => Change::deleted(Path::of('tests/Unit/MoneyTest.php')),
-        Judges::none(),
+        fn(): Judges => Judges::none(),
         '`tests/Unit/MoneyTest.php` was deleted, so every unit of the project is reached.',
     ],
     'deleted in a package' => [
         fn(): Change => Change::deleted(Path::of('packages/money/tests/MoneyTest.php')),
-        Judges::none(),
+        fn(): Judges => Judges::none(),
         '`packages/money/tests/MoneyTest.php` was deleted, so every unit of packages/money is reached.',
     ],
     'no map' => [
         fn(): Change => Change::modified(Path::of('tests/Unit/MoneyTest.php'), Lines::of(Line::of(9))),
-        NoMap::toRead(),
+        fn(): NoMap => NoMap::toRead(),
         'No coverage map says what `tests/Unit/MoneyTest.php` runs, so every unit of the project is reached.',
     ],
 ]);
@@ -336,17 +347,17 @@ it('reaches every unit of its package where changed support cannot be followed',
 })->with([
     'it runs code' => [
         fn(): Sources => Sources::none()->withNow(Path::of('tests/Fakes/ClockFake.php'), Contents::of("<?php\n\nboot();\n")),
-        Judges::none(),
+        fn(): Judges => Judges::none(),
         '`tests/Fakes/ClockFake.php` runs code when it is loaded, so every unit of the project is reached.',
     ],
     'no map' => [
         fn(): Sources => Sources::none()->withNow(Path::of('tests/Fakes/ClockFake.php'), Contents::of("<?php\n\nfinal class ClockFake {}\n")),
-        NoMap::toRead(),
+        fn(): NoMap => NoMap::toRead(),
         'No coverage map says what `tests/Fakes/ClockFake.php` runs, so every unit of the project is reached.',
     ],
     'no version of it can be read' => [
-        Sources::none(),
-        Judges::none(),
+        fn(): Sources => Sources::none(),
+        fn(): Judges => Judges::none(),
         '`tests/Fakes/ClockFake.php` cannot be read, so what it declares is not known, and every unit of the project is reached.',
     ],
 ]);

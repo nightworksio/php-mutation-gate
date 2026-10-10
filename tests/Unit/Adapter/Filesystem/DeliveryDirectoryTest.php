@@ -102,8 +102,8 @@ it('adds nothing to a delivery it cannot read, and says why', function (string $
     'not a delivery' => ['{"format": 2}', 'The delivery cannot be read, so deliver sends nothing: delivery.format is not format 1.'],
     'a directory' => ['', '%s/.mutation-gate/delivery/verdict/delivery.json could not be read.'],
     'past the limit' => [
-        str_repeat(' ', LedgerLimits::standard()->packed() + 1),
-        sprintf('%%s/.mutation-gate/delivery/verdict/delivery.json is past %d bytes, so it is not read.', LedgerLimits::standard()->packed()),
+        fn(): string => str_repeat(' ', LedgerLimits::standard()->packed() + 1),
+        fn(): string => sprintf('%%s/.mutation-gate/delivery/verdict/delivery.json is past %d bytes, so it is not read.', LedgerLimits::standard()->packed()),
     ],
 ]);
 

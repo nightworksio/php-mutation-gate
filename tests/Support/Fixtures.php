@@ -555,6 +555,17 @@ final readonly class Fixtures
                 PHP, 'Core/Planted/Uncovered'),
             Fixture::notDrivable('G8', 'Planting a survivor means running mutation testing over a copy, which runs in CI only, never in this suite.'),
             Fixture::edit('G9', 'phpunit.xml', 'failOnWarning="true"', 'failOnWarning="false"', 'fails the run on every diagnostic', 'failOnWarning is not'),
+            Fixture::suite('G10', 'tests/Unit/Core/PlantedLoadTest.php', <<<'PHP'
+                <?php
+
+                declare(strict_types=1);
+
+                $started = microtime(true);
+
+                it('reads a value made as the file loads', function () use ($started): void {
+                    expect($started)->toBeFloat();
+                });
+                PHP, 'keeps every test file inert as it loads'),
         ];
     }
 

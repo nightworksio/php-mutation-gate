@@ -112,7 +112,7 @@ it('runs under local.prePushBudget, over the config\'s budget, and says what jud
 })->with([
     'the config\'s budget, which pre-push does not take' => ['"budget": "1s"', '', Flows::REMOTE, ''],
     'too little for the push' => ['"local": {"prePushBudget": "1s"}', '', Flows::REMOTE, Flows::REMOTE],
-    'too little for a new branch' => ['"local": {"prePushBudget": "1s"}', '', str_repeat('0', 40), Flows::MAIN],
+    'too little for a new branch' => ['"local": {"prePushBudget": "1s"}', '', fn(): string => str_repeat('0', 40), Flows::MAIN],
     'too little, as --budget sets it' => ['', '--budget=1s', Flows::REMOTE, Flows::REMOTE],
     'enough, as --budget sets it' => ['"local": {"prePushBudget": "1s"}', '--budget=5m', Flows::REMOTE, ''],
 ]);
@@ -185,7 +185,7 @@ it('judges nothing where nothing is pushed, or the push only deletes, and says s
         ->and([$problems->code, $problems->output])->toBe([0, '']);
 })->with([
     'nothing' => [''],
-    'a deletion' => [sprintf('(delete) %s refs/heads/gone %s', str_repeat('0', 40), Flows::REMOTE)],
+    'a deletion' => [fn(): string => sprintf('(delete) %s refs/heads/gone %s', str_repeat('0', 40), Flows::REMOTE)],
 ]);
 
 it('cannot judge a push it cannot read, a commit other than the checkout\'s, or a checkout git cannot place', function (
@@ -212,9 +212,9 @@ it('cannot judge a push it cannot read, a commit other than the checkout\'s, or 
         ->and($ran->errors)->toContain($why);
 })->with([
     'an unreadable line' => ['refs/heads/main', 'The pre-push hook was handed a line that is not a local ref, its commit, a remote ref and its commit: "refs/heads/main".', false],
-    'a commit not named in hex' => [sprintf('refs/heads/main %s refs/heads/main base', Flows::HEAD), 'its commit: "refs/heads/main', false],
-    'another commit' => [sprintf('refs/heads/other %s refs/heads/other %s', str_repeat('4', 40), Flows::REMOTE), sprintf('refs/heads/other is pushed at %s', str_repeat('4', 40)), false],
-    'no head' => [sprintf('refs/heads/main %s refs/heads/main %s', Flows::HEAD, Flows::REMOTE), 'git is gone.', true],
+    'a commit not named in hex' => [fn(): string => sprintf('refs/heads/main %s refs/heads/main base', Flows::HEAD), 'its commit: "refs/heads/main', false],
+    'another commit' => [fn(): string => sprintf('refs/heads/other %s refs/heads/other %s', str_repeat('4', 40), Flows::REMOTE), fn(): string => sprintf('refs/heads/other is pushed at %s', str_repeat('4', 40)), false],
+    'no head' => [fn(): string => sprintf('refs/heads/main %s refs/heads/main %s', Flows::HEAD, Flows::REMOTE), 'git is gone.', true],
 ]);
 
 it('cannot judge with an output it cannot print, a config it cannot read, or a run it cannot plan', function (
@@ -312,7 +312,7 @@ it('judges the push the pre-commit framework names where standard input holds no
         ->and($output)->toEndWith(sprintf(MORE_TIME_SINCE, $since));
 })->with([
     'the commits it names' => [
-        Variables::of([
+        fn(): Variables => Variables::of([
             'PRE_COMMIT_FROM_REF' => Flows::REMOTE,
             'PRE_COMMIT_TO_REF' => Flows::HEAD,
             'PRE_COMMIT_LOCAL_BRANCH' => 'refs/heads/main',
@@ -321,13 +321,13 @@ it('judges the push the pre-commit framework names where standard input holds no
         Flows::REMOTE,
     ],
     'a history the remote holds none of' => [
-        Variables::of(['PRE_COMMIT_LOCAL_BRANCH' => 'refs/heads/main', 'PRE_COMMIT_REMOTE_BRANCH' => 'refs/heads/main']),
+        fn(): Variables => Variables::of(['PRE_COMMIT_LOCAL_BRANCH' => 'refs/heads/main', 'PRE_COMMIT_REMOTE_BRANCH' => 'refs/heads/main']),
         "\n",
         Flows::MAIN,
     ],
     'git\'s lines over the variables' => [
-        Variables::of(['PRE_COMMIT_FROM_REF' => 'not a commit', 'PRE_COMMIT_TO_REF' => Flows::HEAD]),
-        sprintf('refs/heads/main %s refs/heads/main %s', Flows::HEAD, Flows::REMOTE),
+        fn(): Variables => Variables::of(['PRE_COMMIT_FROM_REF' => 'not a commit', 'PRE_COMMIT_TO_REF' => Flows::HEAD]),
+        fn(): string => sprintf('refs/heads/main %s refs/heads/main %s', Flows::HEAD, Flows::REMOTE),
         Flows::REMOTE,
     ],
 ]);

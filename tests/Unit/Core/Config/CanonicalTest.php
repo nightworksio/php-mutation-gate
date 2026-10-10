@@ -80,18 +80,17 @@ $writing = static function (string $path, string $value): Json {
     return $written;
 };
 
-it('keeps a setting in the comparison of what decides how the gate runs unless it only judges or reports, and in the key only where it affects results', function (string $setting, Effect $effect) use ($writing): void {
+it('keeps a setting in the comparison of what decides how the gate runs unless it only judges or reports, and in the key only where it affects results', function () use ($writing): void {
     $effects = Definition::effects();
     $none = Json::object();
-    $written = $writing($setting, 'changed');
 
-    expect(Canonical::deciding($written, $effects) !== Canonical::deciding($none, $effects))
-        ->toBe($effect !== Effect::JudgesOrReportsOnly)
-        ->and(Canonical::of($written, $effects) !== Canonical::of($none, $effects))
-        ->toBe($effect === Effect::AffectsResults);
-})->with(static function (): iterable {
-    foreach (Definition::effects() as $setting => $effect) {
-        yield $setting => [$setting, $effect];
+    foreach ($effects as $setting => $effect) {
+        $written = $writing($setting, 'changed');
+
+        expect(Canonical::deciding($written, $effects) !== Canonical::deciding($none, $effects))
+            ->toBe($effect !== Effect::JudgesOrReportsOnly)
+            ->and(Canonical::of($written, $effects) !== Canonical::of($none, $effects))
+            ->toBe($effect === Effect::AffectsResults);
     }
 });
 

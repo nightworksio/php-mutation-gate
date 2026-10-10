@@ -86,15 +86,17 @@ $every = static fn(Selected|CannotJudge $selected): array => $selected instanceo
     ? [...array_column(Affected::listed($selected->tests), 0), ...Affected::texts($selected->tests->everyBecause())]
     : [$selected->why()];
 
-$money = Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(11)));
+$makeMoney = static fn(): Change => Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(11)));
 
 it('lists the tests the change since the map\'s commit reaches, by the runner\'s own selection', function () use (
     $project,
     $checkout,
     $select,
     $map,
-    $money,
+    $makeMoney,
 ): void {
+    $money = $makeMoney();
+
     $at = MeasuredAt::of(Revision::ref(SELECTED_AT), dirty: false);
     $selected = $select($project(CoverageMapFile::encode($map(), $at)), $checkout($money));
 
@@ -109,8 +111,10 @@ it('reads the change since a ref besides, a path changed since both taken once',
     $checkout,
     $select,
     $map,
-    $money,
+    $makeMoney,
 ): void {
+    $money = $makeMoney();
+
     $at = MeasuredAt::of(Revision::ref(SELECTED_AT), dirty: false);
     $selected = $select(
         $project(CoverageMapFile::encode($map(), $at)),
@@ -135,40 +139,40 @@ it('lists every test, saying why, where the map cannot say what the change reach
 
     expect($listed)->toBe(['tests/MoneyTest.php', $why]);
 })->with([
-    'no map' => [false, selectingCheckout(), '', 'No coverage map is at .mutation-gate/coverage/map.json.gz, and the default branch keeps none, so every test is listed.'],
+    'no map' => [false, fn(): ChangeSourceFake => selectingCheckout(), '', 'No coverage map is at .mutation-gate/coverage/map.json.gz, and the default branch keeps none, so every test is listed.'],
     'a map that is not one' => [
         'not a map',
-        selectingCheckout(),
+        fn(): ChangeSourceFake => selectingCheckout(),
         '',
         'The coverage map is not one this gate writes, so no line of it can be read. So every test is listed.',
     ],
     'a map that does not say where it was measured' => [
-        CoverageMapFile::encode(CoverageMap::empty(), Unplaced::map()),
-        selectingCheckout(),
+        fn(): string => CoverageMapFile::encode(CoverageMap::empty(), Unplaced::map()),
+        fn(): ChangeSourceFake => selectingCheckout(),
         '',
         'The coverage map does not say where it was measured, so every test is listed.',
     ],
     'a map measured in a dirty tree' => [
-        CoverageMapFile::encode(CoverageMap::empty(), MeasuredAt::of(Revision::ref(SELECTED_AT), dirty: true)),
-        selectingCheckout(),
+        fn(): string => CoverageMapFile::encode(CoverageMap::empty(), MeasuredAt::of(Revision::ref(SELECTED_AT), dirty: true)),
+        fn(): ChangeSourceFake => selectingCheckout(),
         '',
         'The coverage map was measured in a dirty working tree, so every test is listed.',
     ],
     'a map whose commit the checkout does not have' => [
-        CoverageMapFile::encode(CoverageMap::empty(), MeasuredAt::of(Revision::ref('89abcdef0123456789abcdef0123456789abcdef'), dirty: false)),
-        selectingCheckout(),
+        fn(): string => CoverageMapFile::encode(CoverageMap::empty(), MeasuredAt::of(Revision::ref('89abcdef0123456789abcdef0123456789abcdef'), dirty: false)),
+        fn(): ChangeSourceFake => selectingCheckout(),
         '',
         'What changed since 89abcdef0123456789abcdef0123456789abcdef, where the coverage map was measured, cannot be told. 89abcdef0123456789abcdef0123456789abcdef is not a revision this repository has. So every test is listed.',
     ],
     'no commit of the scope passed' => [
         false,
-        selectingCheckout(),
+        fn(): ChangeSourceFake => selectingCheckout(),
         'last-passed',
         'No commit of this scope has passed yet, so every test is listed.',
     ],
     'the commit a run judged, which only a run reads' => [
         false,
-        selectingCheckout(),
+        fn(): ChangeSourceFake => selectingCheckout(),
         'last-run',
         '`last-run` names the commit a run of the gate judged, so only `run` reads it. So every test is listed.',
     ],
@@ -186,8 +190,10 @@ it('lists every test where the runner cannot say which tests judge a changed fil
     $select,
     $every,
     $map,
-    $money,
+    $makeMoney,
 ): void {
+    $money = $makeMoney();
+
     $at = MeasuredAt::of(Revision::ref(SELECTED_AT), dirty: false);
     $runner = ScriptedRunner::fixture()->refusingJudges('The runner cannot read its suite.');
 
@@ -206,7 +212,9 @@ it('cannot select where the units cannot be found', function () use ($project, $
 it('reads the map the default branch keeps where none is in the directory, and says why one it cannot read is no map', function (
     string $kept,
     array $listed,
-) use ($project, $checkout, $map, $money): void {
+) use ($project, $checkout, $map, $makeMoney): void {
+    $money = $makeMoney();
+
     $store = new ProofStoreFake();
     $store->keep(Scope::branch('main'), Companion::Coverage, Contents::of(sprintf($kept, CoverageMapFile::encode(
         $map(),

@@ -40,25 +40,34 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-$unjudged = RunningCases::unjudged(...);
-$resultIn = RunningCases::resultIn(...);
-$doomable = RunningCases::doomable(...);
-$onPullRequest = RunningCases::onPullRequest(...);
-$floored = RunningCases::floored(...);
-$asked = RunningCases::asked(...);
-$doomOf = RunningCases::doomOf(...);
-$moneySurvivor = RunningCases::moneySurvivor(...);
+$makeUnjudged = static fn(): Closure => RunningCases::unjudged(...);
+$makeResultIn = static fn(): Closure => RunningCases::resultIn(...);
+$makeDoomable = static fn(): Closure => RunningCases::doomable(...);
+$makeOnPullRequest = static fn(): Closure => RunningCases::onPullRequest(...);
+$makeFloored = static fn(): Closure => RunningCases::floored(...);
+$makeAsked = static fn(): Closure => RunningCases::asked(...);
+$makeDoomOf = static fn(): Closure => RunningCases::doomOf(...);
+$makeMoneySurvivor = static fn(): Closure => RunningCases::moneySurvivor(...);
 
 it('stops a pull request\'s shard after the chunk whose survivor makes its run certain to fail, leaving the rest unjudged', function () use (
-    $doomable,
-    $resultIn,
-    $unjudged,
-    $onPullRequest,
-    $floored,
-    $asked,
-    $doomOf,
-    $moneySurvivor,
+    $makeDoomable,
+    $makeResultIn,
+    $makeUnjudged,
+    $makeOnPullRequest,
+    $makeFloored,
+    $makeAsked,
+    $makeDoomOf,
+    $makeMoneySurvivor,
 ): void {
+    $doomable = $makeDoomable();
+    $resultIn = $makeResultIn();
+    $unjudged = $makeUnjudged();
+    $onPullRequest = $makeOnPullRequest();
+    $floored = $makeFloored();
+    $asked = $makeAsked();
+    $doomOf = $makeDoomOf();
+    $moneySurvivor = $makeMoneySurvivor();
+
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
 
@@ -72,14 +81,22 @@ it('stops a pull request\'s shard after the chunk whose survivor makes its run c
 });
 
 it('runs a pull request\'s shard to its end in chunks, in the plan\'s order, while no survivor makes its run certain to fail', function () use (
-    $doomable,
-    $resultIn,
-    $unjudged,
-    $onPullRequest,
-    $floored,
-    $asked,
-    $doomOf,
+    $makeDoomable,
+    $makeResultIn,
+    $makeUnjudged,
+    $makeOnPullRequest,
+    $makeFloored,
+    $makeAsked,
+    $makeDoomOf,
 ): void {
+    $doomable = $makeDoomable();
+    $resultIn = $makeResultIn();
+    $unjudged = $makeUnjudged();
+    $onPullRequest = $makeOnPullRequest();
+    $floored = $makeFloored();
+    $asked = $makeAsked();
+    $doomOf = $makeDoomOf();
+
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
 
@@ -93,13 +110,20 @@ it('runs a pull request\'s shard to its end in chunks, in the plan\'s order, whi
 });
 
 it('runs a shard off a pull request to its end, whatever its survivors', function () use (
-    $doomable,
-    $resultIn,
-    $unjudged,
-    $floored,
-    $asked,
-    $doomOf,
+    $makeDoomable,
+    $makeResultIn,
+    $makeUnjudged,
+    $makeFloored,
+    $makeAsked,
+    $makeDoomOf,
 ): void {
+    $doomable = $makeDoomable();
+    $resultIn = $makeResultIn();
+    $unjudged = $makeUnjudged();
+    $floored = $makeFloored();
+    $asked = $makeAsked();
+    $doomOf = $makeDoomOf();
+
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
 
@@ -113,14 +137,22 @@ it('runs a shard off a pull request to its end, whatever its survivors', functio
 });
 
 it('runs a pull request\'s shard to its end where its survivor proves flaky', function () use (
-    $doomable,
-    $resultIn,
-    $unjudged,
-    $onPullRequest,
-    $floored,
-    $asked,
-    $doomOf,
+    $makeDoomable,
+    $makeResultIn,
+    $makeUnjudged,
+    $makeOnPullRequest,
+    $makeFloored,
+    $makeAsked,
+    $makeDoomOf,
 ): void {
+    $doomable = $makeDoomable();
+    $resultIn = $makeResultIn();
+    $unjudged = $makeUnjudged();
+    $onPullRequest = $makeOnPullRequest();
+    $floored = $makeFloored();
+    $asked = $makeAsked();
+    $doomOf = $makeDoomOf();
+
     $project = Flows::project();
     $runner = ScriptedRunner::fixture()->killingAgain();
 
@@ -134,13 +166,20 @@ it('runs a pull request\'s shard to its end where its survivor proves flaky', fu
 });
 
 it('runs a pull request\'s shard to its end where its trees cannot be read, or it holds no tree to a floor', function (object $port) use (
-    $doomable,
-    $resultIn,
-    $unjudged,
-    $onPullRequest,
-    $asked,
-    $doomOf,
+    $makeDoomable,
+    $makeResultIn,
+    $makeUnjudged,
+    $makeOnPullRequest,
+    $makeAsked,
+    $makeDoomOf,
 ): void {
+    $doomable = $makeDoomable();
+    $resultIn = $makeResultIn();
+    $unjudged = $makeUnjudged();
+    $onPullRequest = $makeOnPullRequest();
+    $asked = $makeAsked();
+    $doomOf = $makeDoomOf();
+
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
 
@@ -152,17 +191,22 @@ it('runs a pull request\'s shard to its end where its trees cannot be read, or i
         ->and($unjudged($result))->toBe([])
         ->and($doomOf($result))->toBe('undoomed');
 })->with([
-    'unreadable trees' => [new TreeSourceFake(CannotJudge::because('No composer.json.'))],
-    'security mutators alone' => [Narrowing::none()->toMutators(Mutators::named('Plus'))],
-    'one suite\'s tests alone' => [Narrowing::none()->toSuite(SuiteName::of('unit'))],
+    'unreadable trees' => [fn(): TreeSourceFake => new TreeSourceFake(CannotJudge::because('No composer.json.'))],
+    'security mutators alone' => [fn(): Narrowing => Narrowing::none()->toMutators(Mutators::named('Plus'))],
+    'one suite\'s tests alone' => [fn(): Narrowing => Narrowing::none()->toSuite(SuiteName::of('unit'))],
 ]);
 
 it('chunks a pull request\'s shard in about two minutes of the work the cost model expects, each chunk at least one unit', function (float $each, array $chunks) use (
-    $doomable,
-    $onPullRequest,
-    $floored,
-    $asked,
+    $makeDoomable,
+    $makeOnPullRequest,
+    $makeFloored,
+    $makeAsked,
 ): void {
+    $doomable = $makeDoomable();
+    $onPullRequest = $makeOnPullRequest();
+    $floored = $makeFloored();
+    $asked = $makeAsked();
+
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
     $files = Units::of(Planned::money(), Unit::file(Path::of('src/Second.php')), Unit::file(Path::of('src/Third.php')));
@@ -182,12 +226,18 @@ it('chunks a pull request\'s shard in about two minutes of the work the cost mod
 ]);
 
 it('runs no shard of a plan in one process after one that stopped once its run could not pass', function () use (
-    $doomable,
-    $resultIn,
-    $onPullRequest,
-    $floored,
-    $asked,
+    $makeDoomable,
+    $makeResultIn,
+    $makeOnPullRequest,
+    $makeFloored,
+    $makeAsked,
 ): void {
+    $doomable = $makeDoomable();
+    $resultIn = $makeResultIn();
+    $onPullRequest = $makeOnPullRequest();
+    $floored = $makeFloored();
+    $asked = $makeAsked();
+
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
 
@@ -225,15 +275,24 @@ function doomChecker(string $project, Findings ...$found): RecordingChecker
 }
 
 it('stops a pull request\'s shard after a chunk whose survivor static analysis does not clear, checking each survivor once', function () use (
-    $doomable,
-    $resultIn,
-    $unjudged,
-    $onPullRequest,
-    $floored,
-    $asked,
-    $doomOf,
-    $moneySurvivor,
+    $makeDoomable,
+    $makeResultIn,
+    $makeUnjudged,
+    $makeOnPullRequest,
+    $makeFloored,
+    $makeAsked,
+    $makeDoomOf,
+    $makeMoneySurvivor,
 ): void {
+    $doomable = $makeDoomable();
+    $resultIn = $makeResultIn();
+    $unjudged = $makeUnjudged();
+    $onPullRequest = $makeOnPullRequest();
+    $floored = $makeFloored();
+    $asked = $makeAsked();
+    $doomOf = $makeDoomOf();
+    $moneySurvivor = $makeMoneySurvivor();
+
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
     $checker = doomChecker($project);
@@ -250,14 +309,22 @@ it('stops a pull request\'s shard after a chunk whose survivor static analysis d
 });
 
 it('runs a pull request\'s shard on past each survivor static analysis kills, checking each once and the analyser warmed up once', function () use (
-    $doomable,
-    $resultIn,
-    $unjudged,
-    $onPullRequest,
-    $floored,
-    $asked,
-    $doomOf,
+    $makeDoomable,
+    $makeResultIn,
+    $makeUnjudged,
+    $makeOnPullRequest,
+    $makeFloored,
+    $makeAsked,
+    $makeDoomOf,
 ): void {
+    $doomable = $makeDoomable();
+    $resultIn = $makeResultIn();
+    $unjudged = $makeUnjudged();
+    $onPullRequest = $makeOnPullRequest();
+    $floored = $makeFloored();
+    $asked = $makeAsked();
+    $doomOf = $makeDoomOf();
+
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
     $error = static fn(string $file): Findings => Findings::of(Finding::error(Path::of($file), 'return.type', 'It returns no bool.'));
@@ -276,13 +343,20 @@ it('runs a pull request\'s shard on past each survivor static analysis kills, ch
 });
 
 it('runs a pull request\'s shard on past a survivor proven equivalent, to the chunk whose survivor is not', function () use (
-    $resultIn,
-    $unjudged,
-    $onPullRequest,
-    $floored,
-    $asked,
-    $doomOf,
+    $makeResultIn,
+    $makeUnjudged,
+    $makeOnPullRequest,
+    $makeFloored,
+    $makeAsked,
+    $makeDoomOf,
 ): void {
+    $resultIn = $makeResultIn();
+    $unjudged = $makeUnjudged();
+    $onPullRequest = $makeOnPullRequest();
+    $floored = $makeFloored();
+    $asked = $makeAsked();
+    $doomOf = $makeDoomOf();
+
     $project = Flows::project();
     $runner = ScriptedRunner::fixture()->checking(Checkable::inPlace(Contents::of("<?php\n\nfinal  class Money\n{\n}\n")));
 

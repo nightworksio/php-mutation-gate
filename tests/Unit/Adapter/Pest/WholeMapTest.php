@@ -24,9 +24,9 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-$own = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'));
-$whole = $own->covered(Path::of('src/Ledger.php'), Line::of(9), TestId::of('LedgerTest::sums'));
-$handed = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+$makeOwn = static fn(): CoverageMap => CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('MoneyTest::adds'));
+$makeWhole = static fn(): CoverageMap => $makeOwn()->covered(Path::of('src/Ledger.php'), Line::of(9), TestId::of('LedgerTest::sums'));
+$makeHanded = static fn(): MutationRequest => MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
     ->reusingCoverage(Handed::maps(Path::of('own'), Path::of('whole')));
 $project = static fn(string $root): Project => Project::at(
     $root,
@@ -36,11 +36,15 @@ $project = static fn(string $root): Project => Project::at(
 );
 
 it('finds the tests that read a value in the plan\'s whole map, where the run opened on its shard\'s own', function () use (
-    $own,
-    $whole,
-    $handed,
+    $makeOwn,
+    $makeWhole,
+    $makeHanded,
     $project,
 ): void {
+    $own = $makeOwn();
+    $whole = $makeWhole();
+    $handed = $makeHanded();
+
     $root = Scratch::directory();
     Scratch::write($root, 'whole/map.json.gz', CoverageMapFile::encode($whole, Unplaced::map()));
     $covering = new WholeMap($project($root), new Remembered())
@@ -51,7 +55,11 @@ it('finds the tests that read a value in the plan\'s whole map, where the run op
         ->toEqual(CoverageMapFile::decode(CoverageMapFile::encode($whole, Unplaced::map()), HandedMaps::limits()));
 });
 
-it('reads the whole map once for each directory', function () use ($own, $whole, $handed, $project): void {
+it('reads the whole map once for each directory', function () use ($makeOwn, $makeWhole, $makeHanded, $project): void {
+    $own = $makeOwn();
+    $whole = $makeWhole();
+    $handed = $makeHanded();
+
     $root = Scratch::directory();
     Scratch::write($root, 'whole/map.json.gz', CoverageMapFile::encode($whole, Unplaced::map()));
     $wholeMap = new WholeMap($project($root), new Remembered());
@@ -63,10 +71,13 @@ it('reads the whole map once for each directory', function () use ($own, $whole,
 });
 
 it('keeps the run\'s own map where the run opened on its own suite, or was handed no maps', function () use (
-    $own,
-    $handed,
+    $makeOwn,
+    $makeHanded,
     $project,
 ): void {
+    $own = $makeOwn();
+    $handed = $makeHanded();
+
     $ownRun = new HandedOver($own, $project('/p'));
     $wholeMap = new WholeMap($project('/p'), new Remembered());
     $fresh = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
@@ -76,10 +87,13 @@ it('keeps the run\'s own map where the run opened on its own suite, or was hande
 });
 
 it('cannot find the tests that read a value where the shard was handed no whole map', function () use (
-    $own,
-    $handed,
+    $makeOwn,
+    $makeHanded,
     $project,
 ): void {
+    $own = $makeOwn();
+    $handed = $makeHanded();
+
     $at = $project(Scratch::directory());
 
     expect(new WholeMap($at, new Remembered())->covering($handed, new HandedOver($own, $at), $own))

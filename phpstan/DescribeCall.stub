@@ -1,0 +1,14 @@
+<?php
+
+namespace Pest\PendingCalls;
+
+/**
+ * Pest hands every method chained on a `describe()` through `__call()` to each
+ * test registered inside it. `phpstan-strict-rules` reports a call only a magic
+ * method answers, so the methods this suite chains on a `describe()` are named
+ * here. A stub replaces a declaration wholesale, so this is all PHPStan sees of
+ * the class.
+ *
+ * @method self group(string ...$groups)
+ */
+final class DescribeCall {}

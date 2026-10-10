@@ -174,14 +174,14 @@ it('reads no other file where it only builds the gate, as the gate writes a conf
 it('names a file it requires or includes by a literal path, where PHP finds it', function (string $statement, Paths $named) use ($readsOf, $configThat): void {
     expect($readsOf($configThat($statement), 'config/mutation-gate.php')->files())->toEqual($named);
 })->with([
-    'require of a path from its directory' => ["require __DIR__ . '/shared.php';", Paths::of(Path::of('config/shared.php'))],
-    'require_once of one' => ["require_once __DIR__ . '/shared.php';", Paths::of(Path::of('config/shared.php'))],
-    'include of one' => ["include __DIR__ . '/shared.php';", Paths::of(Path::of('config/shared.php'))],
-    'include_once of one' => ["include_once __DIR__ . '/shared.php';", Paths::of(Path::of('config/shared.php'))],
-    'require of a plain path, from the working directory or its own' => ["require 'shared.php';", Paths::of(Path::of('shared.php'), Path::of('config/shared.php'))],
-    'require of a path through a dot' => ["require __DIR__ . '/./shared.php';", Paths::of(Path::of('config/shared.php'))],
-    'require of a path from the working directory' => ["require './settings/shared.php';", Paths::of(Path::of('settings/shared.php'))],
-    'require of an absolute path in the project' => ["require '__PROJECT__/settings/shared.php';", Paths::of(Path::of('settings/shared.php'))],
+    'require of a path from its directory' => ["require __DIR__ . '/shared.php';", fn(): Paths => Paths::of(Path::of('config/shared.php'))],
+    'require_once of one' => ["require_once __DIR__ . '/shared.php';", fn(): Paths => Paths::of(Path::of('config/shared.php'))],
+    'include of one' => ["include __DIR__ . '/shared.php';", fn(): Paths => Paths::of(Path::of('config/shared.php'))],
+    'include_once of one' => ["include_once __DIR__ . '/shared.php';", fn(): Paths => Paths::of(Path::of('config/shared.php'))],
+    'require of a plain path, from the working directory or its own' => ["require 'shared.php';", fn(): Paths => Paths::of(Path::of('shared.php'), Path::of('config/shared.php'))],
+    'require of a path through a dot' => ["require __DIR__ . '/./shared.php';", fn(): Paths => Paths::of(Path::of('config/shared.php'))],
+    'require of a path from the working directory' => ["require './settings/shared.php';", fn(): Paths => Paths::of(Path::of('settings/shared.php'))],
+    'require of an absolute path in the project' => ["require '__PROJECT__/settings/shared.php';", fn(): Paths => Paths::of(Path::of('settings/shared.php'))],
 ]);
 
 it('names the files the files it requires require in turn, once, however they loop', function () use ($configThat): void {

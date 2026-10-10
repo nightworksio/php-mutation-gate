@@ -213,19 +213,19 @@ it('cannot judge what the project leaves undecided', function (string $project, 
 })->with([
     'two config files' => [
         'TwoConfigs',
-        CommandLine::nothing(),
+        fn(): CommandLine => CommandLine::nothing(),
         'More than one config file is here: mutation-gate.json, mutation-gate.yaml. '
         . 'Keep one, or name one with --config.',
     ],
     'two runners' => [
         'TwoRunners',
-        CommandLine::nothing(),
+        fn(): CommandLine => CommandLine::nothing(),
         'Both pestphp/pest-plugin-mutate and infection/infection are installed. '
         . 'Choose one: set runner in the config, or pass --runner.',
     ],
     'a YAML config without its library' => [
         'TwoConfigs',
-        CommandLine::nothing()->withConfig('mutation-gate.yaml'),
+        fn(): CommandLine => CommandLine::nothing()->withConfig('mutation-gate.yaml'),
         '%s/mutation-gate.yaml is YAML, which needs symfony/yaml to be read. '
         . 'Install it: composer require --dev symfony/yaml',
     ],

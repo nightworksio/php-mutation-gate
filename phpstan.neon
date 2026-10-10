@@ -44,6 +44,7 @@ parameters:
 
     # Pest's own annotation, corrected. See the stub.
     stubFiles:
+        - phpstan/DescribeCall.stub
         - phpstan/TestCall.stub
 
     # There is no `ignoreErrors` and no baseline. A rule that is wrong somewhere

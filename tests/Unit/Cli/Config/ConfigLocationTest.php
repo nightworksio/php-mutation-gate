@@ -19,12 +19,14 @@ it('reads the file --config names, relative to the project or not', function ():
         ->and(ConfigLocation::in('/project', '/etc/gate.json'))->toEqual(Path::of('/etc/gate.json'));
 });
 
-it('finds the one config file in the project', function (string $name): void {
-    $project = Scratch::directory();
-    Scratch::write($project, $name, '');
+it('finds the one config file in the project', function (): void {
+    foreach (Format::fileNames() as $name) {
+        $project = Scratch::directory();
+        Scratch::write($project, $name, '');
 
-    expect(ConfigLocation::in($project, NotGiven::value()))->toEqual(Path::of(sprintf('%s/%s', $project, $name)));
-})->with(Format::fileNames());
+        expect(ConfigLocation::in($project, NotGiven::value()))->toEqual(Path::of(sprintf('%s/%s', $project, $name)));
+    }
+});
 
 it('is zero-config where there is none', function (): void {
     $project = Scratch::directory();

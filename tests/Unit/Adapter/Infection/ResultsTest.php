@@ -202,6 +202,12 @@ it('reads a kill or an error whose output ran out of exactly the gate\'s cap as 
     ]);
 });
 
+$capped = fn(): MemoryCap => MemoryCap::of(64, MemoryUnit::Megabytes);
+$uncapped = fn(): MemoryCap => MemoryCap::none();
+$silent = fn(): NotGiven => NotGiven::value();
+$prematureEnd = "....Fatal error: Premature end of PHP process when running Tests\\MoneySpec::addsTwoAmounts.\n";
+$prematureHint = "....Fatal error: Premature end of PHPUnit's PHP process. Use display_errors=On to see the error message.\n";
+
 it('reads a mutant as out of memory with no limit where PHPUnit says its process ended mid-test with errors visibly hidden, and as it was otherwise', function (
     string $end,
     ErrorDisplay|NotGiven $display,
@@ -221,27 +227,22 @@ it('reads a mutant as out of memory with no limit where PHPUnit says its process
     expect($mutant?->status())->toBe($status)
         ->and($mutant?->limit())->toEqual(Unmeasured::duration())
         ->and(count($mutant?->killers() ?? TestIds::none()))->toBe($killers);
-})->with(static function (): iterable {
-    $capped = MemoryCap::of(64, MemoryUnit::Megabytes);
-    $ended = "....Fatal error: Premature end of PHP process when running Tests\\MoneySpec::addsTwoAmounts.\n";
-    $hint = "....Fatal error: Premature end of PHPUnit's PHP process. Use display_errors=On to see the error message.\n";
-    $failed = "There was 1 failure:\n\n1) Tests\\MoneySpec::addsTwoAmounts\nFailed.\n";
-
-    yield 'ended where the config hides errors' => [$ended, ErrorDisplay::Nowhere, $capped, MutantStatus::OutOfMemory, 0];
-    yield 'ended where the config prints errors on standard error' => [$ended, ErrorDisplay::Stderr, $capped, MutantStatus::OutOfMemory, 0];
-    yield 'PHPUnit 12.5\'s hint, the config silent' => [$hint, NotGiven::value(), $capped, MutantStatus::OutOfMemory, 0];
-    yield 'ended by exit, the config silent' => [$ended, NotGiven::value(), $capped, MutantStatus::Killed, 0];
-    yield 'ended by exit, the config showing errors' => [$ended, ErrorDisplay::Stdout, $capped, MutantStatus::Killed, 0];
-    yield 'a test that prints the words, then fails, where the config hides errors' => [
-        sprintf("Premature end of the world\n%s", $failed),
+})->with([
+    'ended where the config hides errors' => [$prematureEnd, ErrorDisplay::Nowhere, $capped, MutantStatus::OutOfMemory, 0],
+    'ended where the config prints errors on standard error' => [$prematureEnd, ErrorDisplay::Stderr, $capped, MutantStatus::OutOfMemory, 0],
+    'PHPUnit 12.5\'s hint, the config silent' => [$prematureHint, $silent, $capped, MutantStatus::OutOfMemory, 0],
+    'ended by exit, the config silent' => [$prematureEnd, $silent, $capped, MutantStatus::Killed, 0],
+    'ended by exit, the config showing errors' => [$prematureEnd, ErrorDisplay::Stdout, $capped, MutantStatus::Killed, 0],
+    'a test that prints the words, then fails, where the config hides errors' => [
+        "Premature end of the world\nThere was 1 failure:\n\n1) Tests\\MoneySpec::addsTwoAmounts\nFailed.\n",
         ErrorDisplay::Nowhere,
         $capped,
         MutantStatus::Killed,
         1,
-    ];
-    yield 'ended where the config hides errors, with no cap' => [$ended, ErrorDisplay::Nowhere, MemoryCap::none(), MutantStatus::Killed, 0];
-    yield 'PHPUnit 12.5\'s hint, with no cap' => [$hint, NotGiven::value(), MemoryCap::none(), MutantStatus::Killed, 0];
-});
+    ],
+    'ended where the config hides errors, with no cap' => [$prematureEnd, ErrorDisplay::Nowhere, $uncapped, MutantStatus::Killed, 0],
+    'PHPUnit 12.5\'s hint, with no cap' => [$prematureHint, $silent, $uncapped, MutantStatus::Killed, 0],
+]);
 
 it('counts mutants that share a file, a mutator and a change, so each has an id of its own', function (): void {
     $at = resultsProject();

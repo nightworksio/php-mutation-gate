@@ -69,11 +69,13 @@ it('says a registered mutator\'s own sentence about its survivor, in place of it
         ->toBe('No test checks that the action is refused.');
 });
 
-it('has a sentence for every family', function (MutatorFamily $family) use ($source): void {
-    $mutant = Verdicts::mutant('src/Money.php:9', 'Mutator', $family, Verdicts::diff('return true;', 'return false;'));
+it('has a sentence for every family', function () use ($source): void {
+    foreach (MutatorFamily::cases() as $family) {
+        $mutant = Verdicts::mutant('src/Money.php:9', 'Mutator', $family, Verdicts::diff('return true;', 'return false;'));
 
-    expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), NoFinding::survivor())->text())->not->toBe('');
-})->with(MutatorFamily::cases());
+        expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), NoFinding::survivor())->text())->not->toBe('');
+    }
+});
 
 it('says so where there is no function around the mutant, or no file to read', function (MutatorFamily $family, string $hint) use ($missing): void {
     $mutant = Verdicts::mutant('src/Money.php:9', 'Mutator', $family, Verdicts::diff('return true;', 'return false;'));

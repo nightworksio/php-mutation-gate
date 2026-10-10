@@ -59,7 +59,7 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-$money = RunnerContracts::money(...);
+$makeMoney = static fn(): Closure => RunnerContracts::money(...);
 
 it('times a run of no test that loads every test file through the mutant\'s wrapper and runs none, with Pest', function (): void {
     $marks = RunnerContracts::marks(static function (): void {
@@ -67,7 +67,7 @@ it('times a run of no test that loads every test file through the mutant\'s wrap
     });
 
     expect($marks)->toBe(['loaded' => true, 'wrapped' => true, 'ran' => false]);
-})->skip(! Library::isInstalled(), 'the runner contracts job installs the library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the library');
 
 it('times a run of no test that loads no test file, through the mutant\'s wrapper, where a filtered run loads them all, with Infection', function (): void {
     $library = Library::infection(Seconds::of(10.0));
@@ -80,7 +80,7 @@ it('times a run of no test that loads no test file, through the mutant\'s wrappe
 
     expect($startUp)->toBe(['loaded' => false, 'wrapped' => true, 'ran' => false])
         ->and($filtered)->toBe(['loaded' => true, 'wrapped' => false, 'ran' => false]);
-})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
+})->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 
 it('judges a held path by the tests its #[Holds] filter names, with Infection', function (): void {
     $library = Library::infection(Seconds::of(10.0));
@@ -90,9 +90,11 @@ it('judges a held path by the tests its #[Holds] filter names, with Infection', 
 
     expect($result instanceof MutationResult ? Library::records($result->mutants()) : $result)
         ->toBe($library->expected('held'));
-})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
+})->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 
-it('names the test that killed a mutant, as the coverage map names it, with Infection', function () use ($money): void {
+it('names the test that killed a mutant, as the coverage map names it, with Infection', function () use ($makeMoney): void {
+    $money = $makeMoney();
+
     $library = Library::infection(Seconds::of(10.0));
     $result = $money($library);
     $killers = [];
@@ -105,7 +107,7 @@ it('names the test that killed a mutant, as the coverage map names it, with Infe
     }
 
     expect($killers)->toBe([11 => ['Tests\\MoneySpec::addsTwoAmounts'], 16 => [], 21 => [], 27 => []]);
-})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
+})->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 
 it('judges a mutant on a method\'s signature by the map the planning job handed over as by its own coverage, with Infection', function (): void {
     $library = Library::infection(Seconds::of(10.0));
@@ -130,9 +132,11 @@ it('judges a mutant on a method\'s signature by the map the planning job handed 
     expect($reused instanceof MutationResult ? Library::records($reused->mutants()) : $reused)
         ->toEqualCanonicalizing($own instanceof MutationResult ? Library::records($own->mutants()) : $own)
         ->and($killed)->toContain(9);
-})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
+})->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 
-it('names the test that killed a mutant, as the coverage map names it, with Pest', function () use ($money): void {
+it('names the test that killed a mutant, as the coverage map names it, with Pest', function () use ($makeMoney): void {
+    $money = $makeMoney();
+
     $library = Library::pest(Patching::off());
     $result = $money($library);
     $killers = [];
@@ -145,7 +149,7 @@ it('names the test that killed a mutant, as the coverage map names it, with Pest
     }
 
     expect($killers)->toBe([11 => ['P\\Tests\\MoneySpec::__pest_evaluable_it_adds_two_amounts'], 16 => [], 21 => [], 27 => []]);
-})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('gives a kill how far its run went, keyed by the test files it loaded, with patched Pest', function (): void {
     Patch::applyIn(Library::vendor());
@@ -158,7 +162,7 @@ it('gives a kill how far its run went, keyed by the test files it loaded, with p
     expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::Killed])
         ->and($prefix instanceof Prefix && $prefix->position() >= 1)->toBeTrue()
         ->and($prefix instanceof Prefix ? $prefix->key() : '')->toMatch('/^[0-9a-f]{12}$/');
-})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 // A mutant that ends its process before any test fails is killed with no
 // killer named, where the runner cannot tell which test it ended in. A
@@ -174,7 +178,7 @@ it('gives a kill that names no killer how its process ended, with patched Pest',
     expect(array_map(static fn(Mutant $mutant): array => [$mutant->status(), count($mutant->killers())], $mutants))->toBe([[MutantStatus::Killed, 0]])
         ->and($ended instanceof Ended ? [is_int($ended->code()) && $ended->code() !== 0, $ended->signalled(), $ended->fatal()] : [])->toEqual([true, false, NotGiven::value()])
         ->and($mutants === [] ? null : $evidence->of($mutants[0]->id())->prefix())->toBeInstanceOf(NotGiven::class);
-})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('names the test a mutant ended the process in as its killer, and so gives no ending, with PHPUnit', function (Workers $workers): void {
     $library = Library::phpunit();
@@ -189,7 +193,7 @@ it('names the test a mutant ended the process in as its killer, and so gives no 
 })->with([
     'in a fresh process' => [Workers::Fresh],
     'forked from a warm worker' => [Workers::Fork],
-])->skip(! Library::isPhpUnitInstalled() || ! function_exists('pcntl_fork'), 'the runner contracts job installs the PHPUnit library, on a PHP that forks');
+])->skip(fn(): bool => ! Library::isPhpUnitInstalled() || ! function_exists('pcntl_fork'), 'the runner contracts job installs the PHPUnit library, on a PHP that forks');
 
 it('gives a kill that names no killer what its process printed, and no code or signal, which Infection does not log', function (): void {
     $library = Library::infection(Seconds::of(10.0));
@@ -198,7 +202,7 @@ it('gives a kill that names no killer what its process printed, and no code or s
 
     expect(array_map(static fn(Mutant $mutant): array => [$mutant->status(), count($mutant->killers())], $mutants))->toBe([[MutantStatus::Killed, 0]])
         ->and($ended instanceof Ended ? [$ended->code(), $ended->signalled(), $ended->fatal()] : [])->toEqual([NotGiven::value(), NotGiven::value(), false]);
-})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
+})->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 
 // The same, with PHPUnit, in a fresh process and forked from a warm worker:
 // its run is stopped where no test of it starts or ends for its silence
@@ -235,4 +239,4 @@ it('stops a mutant\'s run where no test of it starts or ends for its silence lim
 })->with([
     'in a fresh process' => [Workers::Fresh],
     'forked from a warm worker' => [Workers::Fork],
-])->skip(! Library::isPhpUnitInstalled() || ! function_exists('pcntl_fork'), 'the runner contracts job installs the PHPUnit library, on a PHP that forks');
+])->skip(fn(): bool => ! Library::isPhpUnitInstalled() || ! function_exists('pcntl_fork'), 'the runner contracts job installs the PHPUnit library, on a PHP that forks');

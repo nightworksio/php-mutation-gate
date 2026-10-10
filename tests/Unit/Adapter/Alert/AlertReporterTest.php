@@ -124,33 +124,33 @@ it('sends nothing, and says why, where there is nothing to send or nowhere to se
     expect($reported(alertReporter(Channel::Slack, $environment, []), $verdict))->toEqual(NotWritten::because($why));
 })->with([
     'no URL' => [
-        Variables::of(['CI' => 'true', 'GITHUB_ACTIONS' => 'true']),
-        Verdicts::failing()->withAccount(Previous::run('passed')),
+        fn(): Variables => Variables::of(['CI' => 'true', 'GITHUB_ACTIONS' => 'true']),
+        fn(): Verdict => Verdicts::failing()->withAccount(Previous::run('passed')),
         'MUTATION_GATE_SLACK_URL is not set, so no alert goes to Slack.',
     ],
     'outside CI' => [
-        Variables::of(['MUTATION_GATE_SLACK_URL' => 'https://hooks.example/slack']),
-        Verdicts::failing()->withAccount(Previous::run('passed')),
+        fn(): Variables => Variables::of(['MUTATION_GATE_SLACK_URL' => 'https://hooks.example/slack']),
+        fn(): Verdict => Verdicts::failing()->withAccount(Previous::run('passed')),
         'Alerts are sent from CI only.',
     ],
     'a CI the gate cannot name a run of' => [
-        Variables::of(['CI' => 'true', 'MUTATION_GATE_SLACK_URL' => 'https://hooks.example/slack']),
-        Verdicts::failing()->withAccount(Previous::run('passed')),
+        fn(): Variables => Variables::of(['CI' => 'true', 'MUTATION_GATE_SLACK_URL' => 'https://hooks.example/slack']),
+        fn(): Verdict => Verdicts::failing()->withAccount(Previous::run('passed')),
         'The gate names a run on GitHub, GitLab, Buildkite, CircleCI, Azure DevOps, Bitbucket or Jenkins, and not on this CI.',
     ],
     'off the default branch' => [
-        Variables::of(['CI' => 'true', 'GITHUB_ACTIONS' => 'true', 'MUTATION_GATE_SLACK_URL' => 'https://hooks.example/slack']),
-        Verdicts::failing(),
+        fn(): Variables => Variables::of(['CI' => 'true', 'GITHUB_ACTIONS' => 'true', 'MUTATION_GATE_SLACK_URL' => 'https://hooks.example/slack']),
+        fn(): Verdict => Verdicts::failing(),
         'This run is not on the default branch, so it alerts nothing.',
     ],
     'cut short' => [
-        Variables::of(['CI' => 'true', 'GITHUB_ACTIONS' => 'true', 'MUTATION_GATE_SLACK_URL' => 'https://hooks.example/slack']),
-        Verdicts::failing()->withAccount(Previous::run('passed'))->cutShort(),
+        fn(): Variables => Variables::of(['CI' => 'true', 'GITHUB_ACTIONS' => 'true', 'MUTATION_GATE_SLACK_URL' => 'https://hooks.example/slack']),
+        fn(): Verdict => Verdicts::failing()->withAccount(Previous::run('passed'))->cutShort(),
         'The run\'s budget cut it short, so it alerts nothing.',
     ],
     'no change' => [
-        Variables::of(['CI' => 'true', 'GITHUB_ACTIONS' => 'true', 'MUTATION_GATE_SLACK_URL' => 'https://hooks.example/slack']),
-        Verdicts::failing()->withAccount(Previous::run('failed')),
+        fn(): Variables => Variables::of(['CI' => 'true', 'GITHUB_ACTIONS' => 'true', 'MUTATION_GATE_SLACK_URL' => 'https://hooks.example/slack']),
+        fn(): Verdict => Verdicts::failing()->withAccount(Previous::run('failed')),
         'The default branch did not change state, so there is nothing to alert.',
     ],
 ]);
@@ -158,8 +158,8 @@ it('sends nothing, and says why, where there is nothing to send or nowhere to se
 it('refuses a variable that is not named in text', function (string $options, Invalid $invalid): void {
     expect(alertReporter(Channel::Discord, Variables::of([]), [], $options))->toEqual($invalid);
 })->with([
-    'a URL variable as a number' => ['{"urlEnv": 3}', Invalid::because(Problem::at('urlEnv', 'expected text, got 3'))],
-    'a secret variable as a list' => ['{"secretEnv": []}', Invalid::because(Problem::at('secretEnv', 'expected text, got a list'))],
+    'a URL variable as a number' => ['{"urlEnv": 3}', fn(): Invalid => Invalid::because(Problem::at('urlEnv', 'expected text, got 3'))],
+    'a secret variable as a list' => ['{"secretEnv": []}', fn(): Invalid => Invalid::because(Problem::at('secretEnv', 'expected text, got a list'))],
 ]);
 
 it('reads its own environment and posts over the network', function (): void {

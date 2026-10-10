@@ -377,10 +377,10 @@ it('measures every test where the moved test files cannot be measured, or the ma
 
     expect($measured)->toEqual(CoverageMeasured::of(KeptCoverage::built(), sprintf($said, $project)));
 })->with([
-    'the run fails' => [false, CannotJudge::because('1 test failed.'), 'Coverage: 1 test failed. So every test was measured.'],
+    'the run fails' => [false, fn(): CannotJudge => CannotJudge::because('1 test failed.'), 'Coverage: 1 test failed. So every test was measured.'],
     'the map cannot be written' => [
         true,
-        remeasuredMoney(),
+        fn(): CoverageMap => remeasuredMoney(),
         'Coverage: %s/.mutation-gate/coverage/map.json.gz could not be written. So every test was measured.',
     ],
 ]);
@@ -421,7 +421,7 @@ it('reads the map the default branch\'s runs keep from a store, where the run\'s
 })->with([
     'the default branch' => [fn(): Scope => Scope::branch('main')],
     'a pull request' => [fn(): Scope => Scope::pullRequest(7)],
-    'a detached HEAD' => [Detached::head()],
+    'a detached HEAD' => [fn(): Detached => Detached::head()],
 ]);
 
 it('reads the map its own scope keeps first, and the default branch\'s where its own cannot be read', function (): void {
@@ -523,22 +523,22 @@ it('keys each test file\'s entries over a map, and none where coverage.increment
 })->with([
     'keyed' => [
         fn(): CoverageAsked => new CoverageAsked(ScriptedRunner::fixture(), Flows::map()),
-        Coverage::incremental(),
+        fn(): Coverage => Coverage::incremental(),
         ['tests/HeldTest.php', 'tests/MoneyTest.php'],
     ],
     'coverage.incremental is false' => [
         fn(): CoverageAsked => new CoverageAsked(ScriptedRunner::fixture(), Flows::map()),
-        Coverage::full(),
+        fn(): Coverage => Coverage::full(),
         NotGiven::class,
     ],
     'the runner cannot name itself' => [
         fn(): CoverageAsked => new CoverageAsked(ScriptedRunner::fixture()->unnamed('No name.'), Flows::map()),
-        Coverage::incremental(),
+        fn(): Coverage => Coverage::incremental(),
         NotGiven::class,
     ],
     'the runner cannot tell a file\'s tests' => [
         fn(): CoverageAsked => new CoverageAsked(ScriptedRunner::fixture(), Flows::map())->unplacing('No tests.'),
-        Coverage::incremental(),
+        fn(): Coverage => Coverage::incremental(),
         NotGiven::class,
     ],
 ]);
@@ -596,25 +596,25 @@ it('keeps no map where it is not to be kept, saying why', function (
     'coverage.incremental is false' => [
         fn(): string => CoverageMapFile::encode(Flows::map(), keptAt()),
         fn(): Scope => Scope::branch('main'),
-        Coverage::full(),
+        fn(): Coverage => Coverage::full(),
         fn(): ReadsOnly => ReadsOnly::because('coverage.incremental is false, so no coverage map is kept.'),
     ],
     'no map handed on' => [
-        NotGiven::value(),
+        fn(): NotGiven => NotGiven::value(),
         fn(): Scope => Scope::branch('main'),
-        Coverage::incremental(),
+        fn(): Coverage => Coverage::incremental(),
         fn(): NotWritten => NotWritten::because('The plan handed on no coverage map at .mutation-gate/coverage, so none is kept.'),
     ],
     'a map that is no map' => [
         'not a map',
         fn(): Scope => Scope::branch('main'),
-        Coverage::incremental(),
+        fn(): Coverage => Coverage::incremental(),
         fn(): NotWritten => NotWritten::because('The coverage map is not a whole gzip stream.'),
     ],
     'a map measured in a dirty tree' => [
         fn(): string => CoverageMapFile::encode(Flows::map(), MeasuredAt::of(Revision::ref(Flows::HEAD), dirty: true)),
         fn(): Scope => Scope::branch('main'),
-        Coverage::incremental(),
+        fn(): Coverage => Coverage::incremental(),
         fn(): ReadsOnly => ReadsOnly::because('The coverage map was measured in a dirty working tree, so it is not kept.'),
     ],
 ]);
@@ -629,11 +629,11 @@ it('measures every test where it is given no entries or entries that cannot be t
         ->toEqual(CoverageMeasured::of(KeptCoverage::built(), $said));
 })->with([
     'none, as coverage.incremental false gives' => [
-        NotGiven::value(),
+        fn(): NotGiven => NotGiven::value(),
         'Coverage: coverage.incremental is false, so every test was measured.',
     ],
     'entries that cannot be told' => [
-        CannotJudge::because('No name.'),
+        fn(): CannotJudge => CannotJudge::because('No name.'),
         'Coverage: No name. So every test was measured.',
     ],
 ]);

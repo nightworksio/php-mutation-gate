@@ -17,11 +17,11 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
 
-$money = Package::at(Path::of('packages/money'));
+$makeMoney = static fn(): Package => Package::at(Path::of('packages/money'));
 
 $nothing = static fn(): Reach => Reach::nothing(Packages::of(Trees::of(
     Tree::at(Path::of('src'), Undeclared::floor(), Package::at(Path::root())),
-    Tree::at(Path::of('packages/money/src'), Undeclared::floor(), $money),
+    Tree::at(Path::of('packages/money/src'), Undeclared::floor(), $makeMoney()),
 )));
 
 $said = static fn(Reach $reach): array => array_map(
@@ -29,7 +29,9 @@ $said = static fn(Reach $reach): array => array_map(
     iterator_to_array($reach->reasons(), preserve_keys: true),
 );
 
-it('reaches nothing to begin with', function () use ($nothing, $said, $money): void {
+it('reaches nothing to begin with', function () use ($nothing, $said, $makeMoney): void {
+    $money = $makeMoney();
+
     $reach = $nothing();
 
     expect($reach->reaches(Unit::file(Path::of('src/Money.php'))))->toBeFalse()
@@ -40,7 +42,9 @@ it('reaches nothing to begin with', function () use ($nothing, $said, $money): v
         ->and($said($reach))->toBe([]);
 });
 
-it('reaches every unit of every package everywhere', function () use ($nothing, $said, $money): void {
+it('reaches every unit of every package everywhere', function () use ($nothing, $said, $makeMoney): void {
+    $money = $makeMoney();
+
     $reach = $nothing()->everywhere(Reason::that('everything'));
 
     expect($reach->reaches(Unit::file(Path::of('src/Money.php'))))->toBeTrue()
@@ -50,7 +54,9 @@ it('reaches every unit of every package everywhere', function () use ($nothing, 
         ->and($said($reach))->toBe(['everything']);
 });
 
-it('reaches every unit of the packages it reaches whole, and nothing else', function () use ($nothing, $said, $money): void {
+it('reaches every unit of the packages it reaches whole, and nothing else', function () use ($nothing, $said, $makeMoney): void {
+    $money = $makeMoney();
+
     $reach = $nothing()->wholly(Paths::of(Path::of('packages/money')), Reason::that('money'));
 
     expect($reach->reaches(Unit::file(Path::of('packages/money/src/Money.php'))))->toBeTrue()
@@ -61,7 +67,9 @@ it('reaches every unit of the packages it reaches whole, and nothing else', func
         ->and($said($reach))->toBe(['money']);
 });
 
-it('reaches the unit of each file it reaches, and a held unit around it', function () use ($nothing, $said, $money): void {
+it('reaches the unit of each file it reaches, and a held unit around it', function () use ($nothing, $said, $makeMoney): void {
+    $money = $makeMoney();
+
     $reach = $nothing()
         ->files(Paths::of(Path::of('src/Money.php')), Reason::that('money'))
         ->files(Paths::of(Path::of('src/Http/Kernel.php'), Path::of('src/Clock.php')), Reason::that('kernel'));
@@ -75,7 +83,9 @@ it('reaches the unit of each file it reaches, and a held unit around it', functi
         ->and($said($reach))->toBe(['money', 'kernel']);
 });
 
-it('reaches every unit of each tree it reaches', function () use ($nothing, $said, $money): void {
+it('reaches every unit of each tree it reaches', function () use ($nothing, $said, $makeMoney): void {
+    $money = $makeMoney();
+
     $reach = $nothing()->trees(Paths::of(Path::of('packages/money/src'), Path::of('packages/money/lib')), Reason::that('module'));
 
     expect($reach->reaches(Unit::file(Path::of('packages/money/src/Money.php'))))->toBeTrue()
@@ -106,7 +116,9 @@ it('knows the lines a change added or modified in each source file', function ()
         ->and($said($reach))->toBe(['first']);
 });
 
-it('keeps what it reached as it reaches more', function () use ($nothing, $said, $money): void {
+it('keeps what it reached as it reaches more', function () use ($nothing, $said, $makeMoney): void {
+    $money = $makeMoney();
+
     $reach = $nothing()
         ->withLines(Path::of('src/Money.php'), Lines::of(Line::of(3)))
         ->files(Paths::of(Path::of('src/Money.php')), Reason::that('file'))

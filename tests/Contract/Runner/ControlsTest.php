@@ -33,28 +33,20 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-$libraries = ['the fake' => [fn(): Library => Library::fake(), 'MoneyTest::adds']];
-
-if (Library::isInstalled()) {
-    $libraries['pest'] = [fn(): Library => Library::pest(Patching::off()), 'P\Tests\MoneySpec::__pest_evaluable_it_adds_two_amounts'];
-}
-
-if (Library::isInfectionInstalled()) {
-    $libraries['infection'] = [fn(): Library => Library::infection(Seconds::of(10.0)), 'Tests\MoneySpec::addsTwoAmounts'];
-}
-
-if (Library::isPhpUnitInstalled()) {
-    $libraries['phpunit'] = [fn(): Library => Library::phpunit(), 'Tests\MoneySpec::addsTwoAmounts'];
-}
-
 /** The libraries whose tests PHPUnit runs, as the PHPUnit and Infection runners do. */
-$dependents = array_map(
-    static fn(array $library): array => [$library[0]],
-    array_intersect_key($libraries, ['infection' => true, 'phpunit' => true]),
-);
+$dependents = [
+    'infection' => [fn(): Library => Library::installed('infection')],
+    'phpunit' => [fn(): Library => Library::installed('phpunit')],
+];
 
 /** The libraries whose runner runs a process: every one but the fake. */
-$processes = array_diff_key($libraries, ['the fake' => true]);
+$processes = [
+    'pest' => [fn(): Library => Library::installed('pest'), 'P\Tests\MoneySpec::__pest_evaluable_it_adds_two_amounts'],
+    'infection' => [fn(): Library => Library::installed('infection'), 'Tests\MoneySpec::addsTwoAmounts'],
+    'phpunit' => [fn(): Library => Library::installed('phpunit'), 'Tests\MoneySpec::addsTwoAmounts'],
+];
+
+$libraries = ['the fake' => [fn(): Library => Library::fake(), 'MoneyTest::adds'], ...$processes];
 
 /** A control of src/Money.php by one test, allowed this long. */
 function moneyControl(string $test, float $limit): Control
@@ -84,7 +76,7 @@ it('serves the control\'s file through Pest\'s override, as a mutant\'s own run 
     expect(RunnerContracts::marks(static function () use ($test): void {
         controlsOf(Library::pest(Patching::off()), Controls::of(moneyControl($test, 60.0)));
     }))->toBe(['loaded' => true, 'wrapped' => true, 'ran' => true]);
-})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('runs a control of one named row of a data set, by the id the coverage map gives it, and that row alone', function (): void {
     $test = 'Tests\RowsSpec::marksItsNamedRow#384 bits';
@@ -97,7 +89,7 @@ it('runs a control of one named row of a data set, by the id the coverage map gi
     });
 
     expect($ends)->toBe([ControlEnd::Passed])->and($marks['ran'])->toBeTrue();
-})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
+})->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
 
 it('runs a control of a test that depends on another with the test it depends on', function (Library $at): void {
     $test = 'Tests\\DependsSpec::marksWhenItRunsWithIt';
@@ -108,18 +100,15 @@ it('runs a control of a test that depends on another with the test it depends on
     });
 
     expect($ends)->toBe([ControlEnd::Passed])->and($marks['ran'])->toBeTrue();
-})->with($dependents === [] ? ['none installed' => [fn(): Library => Library::fake()]] : $dependents)
-    ->skip($dependents === [], 'the runner contracts jobs install the libraries whose tests PHPUnit runs');
+})->with($dependents);
 
 it('says a control ran out where its limit is too short for its tests', function (Library $at, string $test): void {
 
     expect(controlsOf($at, Controls::of(moneyControl($test, 0.01)))->of(moneyControl($test, 0.01))->end())->toBe(ControlEnd::RanOut);
-})->with($processes === [] ? ['none installed' => [fn(): Library => Library::fake(), 'MoneyTest::adds']] : $processes)
-    ->skip($processes === [], 'the runner contracts jobs install the libraries whose runner runs a process');
+})->with($processes);
 
 it('measures the most memory a control\'s processes held, as every runner measures it', function (Library $at, string $test): void {
     $peak = controlsOf($at, Controls::of(moneyControl($test, 60.0)))->of(moneyControl($test, 60.0))->peak();
 
     expect($peak instanceof MemoryCap ? $peak->bytes() : 0)->toBeGreaterThan(MemoryCap::of(1, MemoryUnit::Megabytes)->bytes());
-})->with($processes === [] ? ['none installed' => [fn(): Library => Library::fake(), 'MoneyTest::adds']] : $processes)
-    ->skip($processes === [], 'the runner contracts jobs install the libraries whose runner runs a process');
+})->with($processes);

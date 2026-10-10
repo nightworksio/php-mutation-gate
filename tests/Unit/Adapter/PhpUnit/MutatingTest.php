@@ -119,9 +119,11 @@ function statusesOf(MutationResult|Mutants|CannotJudge $result): array
         : [[$result instanceof CannotJudge ? $result->why() : '', '']];
 }
 
-$whole = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests());
+$makeWhole = static fn(): MutationRequest => MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests());
 
-it('runs the tests that judge the request under coverage, then each covered mutant under the request\'s memory cap, removed once done', function () use ($whole): void {
+it('runs the tests that judge the request under coverage, then each covered mutant under the request\'s memory cap, removed once done', function () use ($makeWhole): void {
+    $whole = $makeWhole();
+
     $project = mutatingProject();
     $caps = new ArrayObject();
     $shell = mutatingPhpUnit($project, $caps);
@@ -139,7 +141,9 @@ it('runs the tests that judge the request under coverage, then each covered muta
         ->and(is_dir($project->own(sprintf('php/%d', getmypid()))))->toBeFalse();
 });
 
-it('runs the coverage run and each mutant\'s tests of the suite the request names alone', function () use ($whole): void {
+it('runs the coverage run and each mutant\'s tests of the suite the request names alone', function () use ($makeWhole): void {
+    $whole = $makeWhole();
+
     $project = mutatingProject();
     $shell = mutatingPhpUnit($project, new ArrayObject());
     $request = $whole->narrowedTo($whole->files(), Narrowing::none()->toSuite(SuiteName::of('unit')));
@@ -160,7 +164,9 @@ it('runs a held unit\'s coverage by its group, where the request reuses a map of
     expect(array_slice($shell->commands()[0]->arguments(), -2))->toBe(['--group', 'holds:src/Money.php']);
 });
 
-it('reads the map another job handed on, for a request judged by the whole suite, and runs no suite under coverage', function () use ($whole): void {
+it('reads the map another job handed on, for a request judged by the whole suite, and runs no suite under coverage', function () use ($makeWhole): void {
+    $whole = $makeWhole();
+
     $project = mutatingProject();
     $adds = TestId::of('Tests\MoneyTest::testAdds');
     $map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(5), $adds)->timed($adds, Seconds::of(0.5));
@@ -172,7 +178,9 @@ it('reads the map another job handed on, for a request judged by the whole suite
         ->and($shell->commands())->toHaveCount(1);
 });
 
-it('reads one map for every run of the same, and runs the suite under coverage once', function () use ($whole): void {
+it('reads one map for every run of the same, and runs the suite under coverage once', function () use ($makeWhole): void {
+    $whole = $makeWhole();
+
     $project = mutatingProject();
     $shell = mutatingPhpUnit($project);
     $held = new HeldCoverage();
@@ -187,7 +195,9 @@ it('reads one map for every run of the same, and runs the suite under coverage o
     expect($coverageRuns)->toHaveCount(1);
 });
 
-it('cannot judge a request without a mutator, an override, a map or a cap to run it with', function (string $broken) use ($whole): void {
+it('cannot judge a request without a mutator, an override, a map or a cap to run it with', function (string $broken) use ($makeWhole): void {
+    $whole = $makeWhole();
+
     $project = mutatingProject();
     $shell = mutatingPhpUnit($project, coverageFails: $broken === 'coverage');
     $engine = $broken === 'mutators' ? CannotJudge::because('No mutators.') : Engine::with(new PlusToMinus());
@@ -211,7 +221,9 @@ it('cannot judge a request without a mutator, an override, a map or a cap to run
         ->and(count($shell->commands()))->toBe($broken === 'coverage' || $broken === 'cap' ? 1 : 0);
 })->with(['mutators', 'override', 'coverage', 'cap']);
 
-it('runs mutants again over their files and mutators, making only them, and leaves one it no longer makes unjudged', function () use ($whole): void {
+it('runs mutants again over their files and mutators, making only them, and leaves one it no longer makes unjudged', function () use ($makeWhole): void {
+    $whole = $makeWhole();
+
     $project = mutatingProject();
     $shell = mutatingPhpUnit($project);
     $held = new HeldCoverage();
@@ -236,7 +248,9 @@ it('runs mutants again over their files and mutators, making only them, and leav
         ->and($shell->commands())->toHaveCount(3);
 });
 
-it('runs nothing again where it is asked for no mutant, and cannot judge a run again that cannot run', function () use ($whole): void {
+it('runs nothing again where it is asked for no mutant, and cannot judge a run again that cannot run', function () use ($makeWhole): void {
+    $whole = $makeWhole();
+
     $project = mutatingProject();
     $shell = mutatingPhpUnit($project, coverageFails: true);
     $mutant = Mutant::of(
@@ -253,7 +267,9 @@ it('runs nothing again where it is asked for no mutant, and cannot judge a run a
         ->and(mutating($project, $shell)->again($whole, Mutants::of($mutant), LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0))))->toBeInstanceOf(CannotJudge::class);
 });
 
-it('reproduces one mutant on its own, with what was printed, and says the run made none where it no longer makes it', function () use ($whole): void {
+it('reproduces one mutant on its own, with what was printed, and says the run made none where it no longer makes it', function () use ($makeWhole): void {
+    $whole = $makeWhole();
+
     $project = mutatingProject();
     $shell = mutatingPhpUnit($project);
     $first = mutating($project, $shell)->result($whole, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)), NotGiven::value());

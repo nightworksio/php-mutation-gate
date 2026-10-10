@@ -80,9 +80,9 @@ it('leaves standard output to the plan a CI reads from it, and says what it wrot
         ->and(json_validate($stdout))->toBeTrue()
         ->and($planned->errors)->toStartWith("Coverage: there is no kept map, so every test was measured.\nWrote .mutation-gate/plan.json, with 2 shards.\n");
 })->with([
-    'json' => [JsonPlan::in(Variables::of([]))],
-    'circleci' => [CircleCiPlan::in(Variables::of([]))],
-    'buildkite' => [BuildkitePlan::of(BuildkiteStep::none(), Variables::of([]))],
+    'json' => [fn(): JsonPlan => JsonPlan::in(Variables::of([]))],
+    'circleci' => [fn(): CircleCiPlan => CircleCiPlan::in(Variables::of([]))],
+    'buildkite' => [fn(): BuildkitePlan => BuildkitePlan::of(BuildkiteStep::none(), Variables::of([]))],
 ]);
 
 it('cuts shards by the config\'s size where no count is asked for', function () use ($plan): void {
@@ -189,9 +189,9 @@ it('says nothing of the patch where the plan has one shard, or no shard pays its
     expect($planned->errors)->toStartWith(sprintf("Coverage: there is no kept map, so every test was measured.\nWrote .mutation-gate/plan.json, with %s shards.\n", $shards))
         ->and($planned->errors)->not->toContain('opening run under coverage');
 })->with([
-    'Pest with the patch' => ['2', ScriptedRunner::fixture()->likePatchedPest(Group::named('mutation-canary'))],
-    'one shard' => ['1', ScriptedRunner::fixture()->likePest()],
-    'another runner' => ['2', ScriptedRunner::fixture()],
+    'Pest with the patch' => ['2', fn(): ScriptedRunner => ScriptedRunner::fixture()->likePatchedPest(Group::named('mutation-canary'))],
+    'one shard' => ['1', fn(): ScriptedRunner => ScriptedRunner::fixture()->likePest()],
+    'another runner' => ['2', fn(): ScriptedRunner => ScriptedRunner::fixture()],
 ]);
 
 it('asks the runner who it is withholding every CI\'s tokens', function () use ($plan): void {

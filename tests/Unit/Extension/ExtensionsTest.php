@@ -26,60 +26,74 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\Registering;
 
-it('builds what was registered under a name from the options a config gives it', function (ExtensionPoint $point): void {
-    $adapter = Registering::adapter($point);
-    $given = new ArrayObject();
-    $registry = Registering::register($point, new Extensions(Origin::of('acme/a')), static function (Options $options) use ($given, $adapter): object {
-        $given->append($options->written()->line());
+it('builds what was registered under a name from the options a config gives it', function (): void {
+    foreach (Registering::adapterPoints() as $point) {
+        $adapter = Registering::adapter($point);
+        $given = new ArrayObject();
+        $registry = Registering::register($point, new Extensions(Origin::of('acme/a')), static function (Options $options) use ($given, $adapter): object {
+            $given->append($options->written()->line());
 
-        return $adapter;
-    });
+            return $adapter;
+        });
 
-    expect(Registering::lookUp($point, $registry, Configs::options('{"channel": "#ci"}')))->toBe($adapter)
-        ->and($given->getArrayCopy())->toBe(['{"channel":"#ci"}']);
-})->with(Registering::adapterPoints());
+        expect(Registering::lookUp($point, $registry, Configs::options('{"channel": "#ci"}')))->toBe($adapter)
+            ->and($given->getArrayCopy())->toBe(['{"channel":"#ci"}']);
+    }
+});
 
-it('passes on the problems an adapter finds in its options', function (ExtensionPoint $point): void {
-    $invalid = Invalid::because(Problem::at('channel', 'expected a channel name'));
-    $registry = Registering::register($point, new Extensions(Origin::of('acme/a')), static fn(): Invalid => $invalid);
+it('passes on the problems an adapter finds in its options', function (): void {
+    foreach (Registering::adapterPoints() as $point) {
+        $invalid = Invalid::because(Problem::at('channel', 'expected a channel name'));
+        $registry = Registering::register($point, new Extensions(Origin::of('acme/a')), static fn(): Invalid => $invalid);
 
-    expect(Registering::lookUp($point, $registry, Options::none()))->toBe($invalid);
-})->with(Registering::adapterPoints());
+        expect(Registering::lookUp($point, $registry, Options::none()))->toBe($invalid);
+    }
+});
 
-it('cannot judge with a name nothing registered', function (ExtensionPoint $point): void {
-    expect(Registering::lookUp($point, new Extensions(Origin::of('acme/a')), Options::none()))->toEqual(CannotJudge::because(sprintf('No %s is registered as "it".', $point->value)));
-})->with(ExtensionPoint::cases());
+it('cannot judge with a name nothing registered', function (): void {
+    foreach (ExtensionPoint::cases() as $point) {
+        expect(Registering::lookUp($point, new Extensions(Origin::of('acme/a')), Options::none()))->toEqual(CannotJudge::because(sprintf('No %s is registered as "it".', $point->value)));
+    }
+});
 
-it('leaves the registry it came from as it was', function (ExtensionPoint $point): void {
-    $adapter = Registering::adapter($point);
-    $registry = new Extensions(Origin::of('acme/a'));
-    Registering::register($point, $registry, static fn(): object => $adapter);
+it('leaves the registry it came from as it was', function (): void {
+    foreach (Registering::adapterPoints() as $point) {
+        $adapter = Registering::adapter($point);
+        $registry = new Extensions(Origin::of('acme/a'));
+        Registering::register($point, $registry, static fn(): object => $adapter);
 
-    expect(Registering::lookUp($point, $registry, Options::none()))->toBeInstanceOf(CannotJudge::class);
-})->with(Registering::adapterPoints());
+        expect(Registering::lookUp($point, $registry, Options::none()))->toBeInstanceOf(CannotJudge::class);
+    }
+});
 
-it('takes in what another package registered', function (ExtensionPoint $point): void {
-    $adapter = Registering::adapter($point);
-    $merged = new Extensions(Origin::of('acme/a'))->merge(Registering::register($point, new Extensions(Origin::of('acme/b')), static fn(): object => $adapter));
+it('takes in what another package registered', function (): void {
+    foreach (Registering::adapterPoints() as $point) {
+        $adapter = Registering::adapter($point);
+        $merged = new Extensions(Origin::of('acme/a'))->merge(Registering::register($point, new Extensions(Origin::of('acme/b')), static fn(): object => $adapter));
 
-    expect($merged instanceof Extensions ? Registering::lookUp($point, $merged, Options::none()) : $merged)->toBe($adapter);
-})->with(Registering::adapterPoints());
+        expect($merged instanceof Extensions ? Registering::lookUp($point, $merged, Options::none()) : $merged)->toBe($adapter);
+    }
+});
 
-it('refuses two packages registering one name, naming both', function (ExtensionPoint $point): void {
-    $adapter = Registering::adapter($point);
-    $ours = Registering::register($point, new Extensions(Origin::of('acme/a')), static fn(): object => $adapter);
-    $theirs = Registering::register($point, new Extensions(Origin::of('acme/b')), static fn(): object => $adapter);
+it('refuses two packages registering one name, naming both', function (): void {
+    foreach (Registering::adapterPoints() as $point) {
+        $adapter = Registering::adapter($point);
+        $ours = Registering::register($point, new Extensions(Origin::of('acme/a')), static fn(): object => $adapter);
+        $theirs = Registering::register($point, new Extensions(Origin::of('acme/b')), static fn(): object => $adapter);
 
-    expect($ours->merge($theirs))->toEqual(CannotJudge::because(sprintf('Two packages register a %s named "it": acme/a and acme/b. Remove one of the packages, or run with --no-extensions.', $point->value)));
-})->with(Registering::adapterPoints());
+        expect($ours->merge($theirs))->toEqual(CannotJudge::because(sprintf('Two packages register a %s named "it": acme/a and acme/b. Remove one of the packages, or run with --no-extensions.', $point->value)));
+    }
+});
 
-it('refuses a name registered twice under the same package, which a package cannot prove it is', function (ExtensionPoint $point): void {
-    $adapter = Registering::adapter($point);
-    $ours = Registering::register($point, new Extensions(Origin::of('nightworksio/mutation-gate')), static fn(): object => $adapter);
-    $claimed = Registering::register($point, new Extensions(Origin::of('nightworksio/mutation-gate')), static fn(): object => $adapter);
+it('refuses a name registered twice under the same package, which a package cannot prove it is', function (): void {
+    foreach (Registering::adapterPoints() as $point) {
+        $adapter = Registering::adapter($point);
+        $ours = Registering::register($point, new Extensions(Origin::of('nightworksio/mutation-gate')), static fn(): object => $adapter);
+        $claimed = Registering::register($point, new Extensions(Origin::of('nightworksio/mutation-gate')), static fn(): object => $adapter);
 
-    expect($ours->merge($claimed))->toEqual(CannotJudge::because(sprintf('Two packages register a %s named "it": nightworksio/mutation-gate and nightworksio/mutation-gate. Remove one of the packages, or run with --no-extensions.', $point->value)));
-})->with(Registering::adapterPoints());
+        expect($ours->merge($claimed))->toEqual(CannotJudge::because(sprintf('Two packages register a %s named "it": nightworksio/mutation-gate and nightworksio/mutation-gate. Remove one of the packages, or run with --no-extensions.', $point->value)));
+    }
+});
 
 it('names every name two packages both register', function (): void {
     $runner = static fn(): RunnerFake => RunnerFake::ofTheFixture();
@@ -130,13 +144,15 @@ it('takes in the sets of mutators another package registered, and refuses one re
         ));
 });
 
-it('names what is registered at an extension point, and nothing at any other', function (ExtensionPoint $point): void {
-    $registry = Registering::register($point, new Extensions(Origin::of('acme/a')), static fn(): object => Registering::adapter($point));
-    $other = $point === ExtensionPoint::Runner ? ExtensionPoint::Reporter : ExtensionPoint::Runner;
+it('names what is registered at an extension point, and nothing at any other', function (): void {
+    foreach (Registering::adapterPoints() as $point) {
+        $registry = Registering::register($point, new Extensions(Origin::of('acme/a')), static fn(): object => Registering::adapter($point));
+        $other = $point === ExtensionPoint::Runner ? ExtensionPoint::Reporter : ExtensionPoint::Runner;
 
-    expect($registry->names($point))->toEqual(Listed::of(Name::of('it')))
-        ->and($registry->names($other))->toEqual(Listed::of());
-})->with(Registering::adapterPoints());
+        expect($registry->names($point))->toEqual(Listed::of(Name::of('it')))
+            ->and($registry->names($other))->toEqual(Listed::of());
+    }
+});
 
 it('holds what each CI plan declares withheld as it registers, and takes in another package\'s', function (): void {
     $plan = static fn(string $package, string $name, string $variable): Extensions => new Extensions(Origin::of($package))

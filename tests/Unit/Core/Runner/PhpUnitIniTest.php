@@ -39,8 +39,8 @@ it('reads where a PHPUnit config has PHP print errors: the last display_errors i
     'hidden' => ['<ini name="display_errors" value="0"/>', ErrorDisplay::Nowhere],
     'shown again, last' => ['<ini name="display_errors" value="Off"/><ini name="display_errors" value="On"/>', ErrorDisplay::Stdout],
     'on standard error' => ['<ini name="display_errors" value="stderr"/>', ErrorDisplay::Stderr],
-    'another setting' => ['<ini name="memory_limit" value="0"/>', NotGiven::value()],
-    'no config' => ['', NotGiven::value()],
+    'another setting' => ['<ini name="memory_limit" value="0"/>', fn(): NotGiven => NotGiven::value()],
+    'no config' => ['', fn(): NotGiven => NotGiven::value()],
 ]);
 
 it('reads no display_errors set outside the php section', function (): void {

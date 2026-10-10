@@ -42,11 +42,11 @@ it('names a data set\'s test by its data set, numbered or named, as the coverage
 it('names no test from any other list, or from a run that printed none', function (string $output): void {
     expect(KillingTests::in($output))->toEqual(TestIds::none());
 })->with([
-    'a risky test' => [phpunitPrinted("There was 1 risky test:\n\n1) Tests\\MoneySpec::adds\nThis test did not perform any assertions\n")],
-    'a warning after a failure' => [phpunitPrinted("There was 1 PHPUnit warning:\n\n1) Tests\\MoneySpec::adds\nwarned\n")],
+    'a risky test' => [fn(): string => phpunitPrinted("There was 1 risky test:\n\n1) Tests\\MoneySpec::adds\nThis test did not perform any assertions\n")],
+    'a warning after a failure' => [fn(): string => phpunitPrinted("There was 1 PHPUnit warning:\n\n1) Tests\\MoneySpec::adds\nwarned\n")],
     'a crash' => ['PHP Fatal error:  Allowed memory size exhausted'],
     'a passing run' => ['OK (1 test, 1 assertion)'],
-    'an error before any test' => [phpunitPrinted("There was 1 error:\n\n1) Tests\\MoneySpec\nError in setUpBeforeClass\n")],
+    'an error before any test' => [fn(): string => phpunitPrinted("There was 1 error:\n\n1) Tests\\MoneySpec\nError in setUpBeforeClass\n")],
 ]);
 
 it('stops naming tests once a list of another kind begins', function (): void {

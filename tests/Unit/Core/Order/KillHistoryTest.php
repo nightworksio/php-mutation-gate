@@ -65,9 +65,11 @@ function historyNames(TestIds $tests): array
     return array_map(static fn(TestId $test): string => $test->value(), [...$tests]);
 }
 
-$add = Enclosing::named(Path::of('src/Money.php'), 'add');
+$makeAdd = static fn(): Enclosing => Enclosing::named(Path::of('src/Money.php'), 'add');
 
-it('learns the first killer of each killed mutant, and of its function\'s mutants', function () use ($add): void {
+it('learns the first killer of each killed mutant, and of its function\'s mutants', function () use ($makeAdd): void {
+    $add = $makeAdd();
+
     $one = historyMutant('-+ one', MutantStatus::Killed, 'MoneyTest::adds', 'MoneyTest::sums');
     $two = historyMutant('-+ two', MutantStatus::Killed, 'CartTest::totals');
     $history = KillHistory::none()
@@ -83,7 +85,9 @@ it('learns the first killer of each killed mutant, and of its function\'s mutant
         ->and(historyMutants($history))->toBe([$one->id()->value(), $two->id()->value(), historyMutant('-+ three', MutantStatus::Killed)->id()->value()]);
 });
 
-it('keeps each mutant and function in the order it last learned something, the newest last', function () use ($add): void {
+it('keeps each mutant and function in the order it last learned something, the newest last', function () use ($makeAdd): void {
+    $add = $makeAdd();
+
     $one = historyMutant('-+ one', MutantStatus::Killed, 'MoneyTest::adds');
     $two = historyMutant('-+ two', MutantStatus::Killed, 'MoneyTest::adds');
     $cart = Enclosing::named(Path::of('src/Cart.php'), 'total');
@@ -96,7 +100,9 @@ it('keeps each mutant and function in the order it last learned something, the n
         ->and(historyFunctions($given))->toBe(['total', 'add']);
 });
 
-it('learns nothing from a mutant that survived, or was killed by a test nobody knows', function () use ($add): void {
+it('learns nothing from a mutant that survived, or was killed by a test nobody knows', function () use ($makeAdd): void {
+    $add = $makeAdd();
+
     $history = KillHistory::none()->learnedFrom(
         Lesson::of(historyMutant('-+ one', MutantStatus::Survived, 'MoneyTest::adds'), $add),
         Lesson::of(historyMutant('-+ two', MutantStatus::Killed), $add),
@@ -105,7 +111,9 @@ it('learns nothing from a mutant that survived, or was killed by a test nobody k
     expect($history)->toEqual(KillHistory::none());
 });
 
-it('reads two scopes\' histories together, this one\'s where both know a mutant or a function, and newest', function () use ($add): void {
+it('reads two scopes\' histories together, this one\'s where both know a mutant or a function, and newest', function () use ($makeAdd): void {
+    $add = $makeAdd();
+
     $mutant = historyMutant('-+ one', MutantStatus::Killed)->id();
     $other = historyMutant('-+ two', MutantStatus::Killed)->id();
     $cart = Enclosing::named(Path::of('src/Cart.php'), 'total');
@@ -126,7 +134,9 @@ it('reads two scopes\' histories together, this one\'s where both know a mutant 
         ->and(historyNames([...$read->functions()][1]->ranking()->tests()))->toBe(['mine']);
 });
 
-it('keeps the newest so many of the mutants held and of the functions, and the functions of files that still exist', function () use ($add): void {
+it('keeps the newest so many of the mutants held and of the functions, and the functions of files that still exist', function () use ($makeAdd): void {
+    $add = $makeAdd();
+
     $mutants = array_map(
         static fn(string $diff): Mutant => historyMutant(sprintf("-x\n+%s", $diff), MutantStatus::Killed),
         ['a', 'b', 'c'],
@@ -158,7 +168,9 @@ it('keeps a mutant whose id reads as a number under that id, so learning of it a
     expect(historyMutants($kept->withMutant($numeric, $ranking)))->toBe(['abcdefabcdef', '123456789012']);
 });
 
-it('learns from a run in time linear in its mutants and in what the history already holds', function () use ($add): void {
+it('learns from a run in time linear in its mutants and in what the history already holds', function () use ($makeAdd): void {
+    $add = $makeAdd();
+
     $learned = static function (int $size) use ($add): Closure {
         $lessons = array_map(
             static fn(int $at): Lesson => Lesson::of(historyMutant(sprintf("-a\n+%d", $at), MutantStatus::Killed, 'MoneyTest::adds'), $add),
@@ -176,7 +188,9 @@ it('learns from a run in time linear in its mutants and in what the history alre
         ->and(Growth::of(2500, $learned))->toBeLessThan(Growth::LINEAR);
 });
 
-it('learns and keeps the killer of a mutant whose id is digits alone', function () use ($add): void {
+it('learns and keeps the killer of a mutant whose id is digits alone', function () use ($makeAdd): void {
+    $add = $makeAdd();
+
     $digits = historyId('123456789012');
     $history = KillHistory::none()->withMutant($digits, Ranking::of(Kills::of(TestId::of('MoneyTest::adds'), 1)));
 

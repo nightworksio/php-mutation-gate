@@ -93,7 +93,7 @@ it('runs a mutant\'s likely killer first, by its own history or its function\'s,
         Enclosing::named(Path::of('src/Money.php'), 'add'),
         Ranking::of(Kills::of(TestId::of(ORDER_TWICE), 1)),
     ),
-])->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+])->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('judges every mutant as the runner\'s own order does, with no history at all', function (): void {
     $cold = orderJudged(orderRun(Ordering::of(TestOrder::KillersFirst, KillHistory::none())));
@@ -101,7 +101,7 @@ it('judges every mutant as the runner\'s own order does, with no history at all'
 
     expect(array_map(static fn(array $judged): string => $judged[0], $cold))->toBe([11 => 'killed', 16 => 'survived'])
         ->and($own)->toBe([11 => ['killed', [ORDER_FIRST]], 16 => ['survived', []]]);
-})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('records every test that kills a mutant under a full kill matrix, whatever order runs them', function (Ordering $ordering): void {
     $judged = orderJudged(orderRun($ordering, MatrixKind::Full));
@@ -115,7 +115,7 @@ it('records every test that kills a mutant under a full kill matrix, whatever or
         TestOrder::KillersFirst,
         KillHistory::none()->withMutant(orderAdds(), Ranking::of(Kills::of(TestId::of(ORDER_TWICE), 3))),
     ),
-])->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+])->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 /**
  * Runs the fixture's MoneySpec as a mutant's own process does, on a mutated
@@ -193,4 +193,4 @@ it('keeps a survivor a survivor and a kill a kill, first by the likely killer, w
     'no cached results' => ['--do-not-cache-result'],
     'no recorded history' => ['--do-not-record-test-run-history'],
     'a random order' => ['--order-by=random'],
-])->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+])->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');

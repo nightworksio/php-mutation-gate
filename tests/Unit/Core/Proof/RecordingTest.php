@@ -31,9 +31,11 @@ $mutant = static fn(int $line, MutantStatus $status): Mutant => Mutant::of(
     $status,
     Unmeasured::duration(),
 );
-$run = Run::of('github:5813/1', Instant::at(new DateTimeImmutable('2026-09-29T20:48:17Z')), Digest::of(str_repeat('b', 64)));
+$makeRun = static fn(): Run => Run::of('github:5813/1', Instant::at(new DateTimeImmutable('2026-09-29T20:48:17Z')), Digest::of(str_repeat('b', 64)));
 
-it('records a unit that ran to the end, survivors, timeouts and all', function () use ($mutant, $run): void {
+it('records a unit that ran to the end, survivors, timeouts and all', function () use ($mutant, $makeRun): void {
+    $run = $makeRun();
+
     $mutants = Mutants::of($mutant(1, MutantStatus::Killed), $mutant(2, MutantStatus::Survived), $mutant(3, MutantStatus::TimedOut));
 
     $inputs = Inputs::of(Digest::sha256Of('source'), Digest::sha256Of('mutation'));
@@ -42,21 +44,27 @@ it('records a unit that ran to the end, survivors, timeouts and all', function (
         ->toEqual(Proof::of(Digest::of('9c1e'), Path::of('src/Money.php'), $mutants, $run)->withInputs($inputs));
 });
 
-it('records nothing of a unit with no key', function () use ($mutant, $run): void {
+it('records nothing of a unit with no key', function () use ($mutant, $makeRun): void {
+    $run = $makeRun();
+
     $mutants = Mutants::of($mutant(1, MutantStatus::Killed));
 
     expect(Recording::of(Unkeyed::because('There is no git.'), Path::of('src/Money.php'), $mutants, MutantIds::none(), $run, Undigested::proof()))
         ->toEqual(NotRecorded::because('There is no git.'));
 });
 
-it('records nothing of a unit with a mutant left unjudged', function () use ($mutant, $run): void {
+it('records nothing of a unit with a mutant left unjudged', function () use ($mutant, $makeRun): void {
+    $run = $makeRun();
+
     $mutants = Mutants::of($mutant(1, MutantStatus::Killed), $mutant(2, MutantStatus::Unjudged));
 
     expect(Recording::of(Digest::of('9c1e'), Path::of('src/Money.php'), $mutants, MutantIds::none(), $run, Undigested::proof()))
         ->toEqual(NotRecorded::because('src/Money.php did not run to the end: 1 of its mutants are unjudged or flaky.'));
 });
 
-it('records nothing of a unit with a flaky mutant, counting each unfinished mutant once', function () use ($mutant, $run): void {
+it('records nothing of a unit with a flaky mutant, counting each unfinished mutant once', function () use ($mutant, $makeRun): void {
+    $run = $makeRun();
+
     $flaky = $mutant(2, MutantStatus::Survived);
     $unjudged = $mutant(3, MutantStatus::Unjudged);
     $mutants = Mutants::of($mutant(1, MutantStatus::Killed), $flaky, $unjudged);

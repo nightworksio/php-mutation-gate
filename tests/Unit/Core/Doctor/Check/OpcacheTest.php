@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\Doctor\RunnerPhp;
 use NightWorksIO\MutationGate\Core\Doctor\Severity;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
-$cached = Findings::of(Finding::of(
+$makeCached = static fn(): Findings => Findings::of(Finding::of(
     Slug::OpcacheOnTheCommandLine,
     Severity::WillFail,
     'The PHP the runner runs its tests on, /usr/bin/php, has opcache.enable_cli on or keeps an opcache.file_cache.',
@@ -18,7 +18,9 @@ $cached = Findings::of(Finding::of(
     'Set opcache.enable_cli=0 and opcache.file_cache= in the php.ini this PHP loads.',
 ));
 
-it('finds OPcache that could serve an original in place of its mutant', function (string $cli, string $fileCache) use ($cached): void {
+it('finds OPcache that could serve an original in place of its mutant', function (string $cli, string $fileCache) use ($makeCached): void {
+    $cached = $makeCached();
+
     $php = RunnerPhp::at('/usr/bin/php')->setting('opcache.enable_cli', $cli)->setting('opcache.file_cache', $fileCache);
 
     expect(Opcache::in(Observations::none()->withPhp($php)))->toEqual($cached);

@@ -135,15 +135,15 @@ it('writes a config that reads back into the same effective config', function (a
     ]],
 ]);
 
-it('writes each built-in CI plan by the builder method of its name, which reads back as that plan', function (
-    BuiltinCiPlan $plan,
-) use ($php, $roundTrip): void {
-    $config = ['runner' => 'pest', 'ci' => ['plan' => $plan->value]];
-    $settings = Configs::settings($config);
+it('writes each built-in CI plan by the builder method of its name, which reads back as that plan', function () use ($php, $roundTrip): void {
+    foreach (BuiltinCiPlan::cases() as $plan) {
+        $config = ['runner' => 'pest', 'ci' => ['plan' => $plan->value]];
+        $settings = Configs::settings($config);
 
-    expect($php($config))->toContain(sprintf('Ci::%s()', $plan->value))
-        ->and($roundTrip($settings))->toBe(Configs::effective($settings));
-})->with(BuiltinCiPlan::cases());
+        expect($php($config))->toContain(sprintf('Ci::%s()', $plan->value))
+            ->and($roundTrip($settings))->toBe(Configs::effective($settings));
+    }
+});
 
 it('writes a layer that reads back into the same layer', function () use ($php): void {
     $config = [

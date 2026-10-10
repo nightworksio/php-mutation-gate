@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Port\StaticChecker;
 use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
+use PHPUnit\Framework\Assert;
 
 // What every static analyser answers over the fixture in this directory: who
 // it is, the configuration it runs with, written alike wherever the fixture
@@ -46,12 +47,25 @@ afterEach(function (): void {
     putenv(StaticCheckerFake::LEAK);
 });
 
-$root = Tree::at('tests/Contract/StaticChecker/fixture');
+$makeRoot = static fn(): string => Tree::at('tests/Contract/StaticChecker/fixture');
 
 /** An analyser as the gate builds it over the fixture, which is never refused. */
 function built(StaticChecker|Invalid $analyser): StaticChecker
 {
     return $analyser instanceof StaticChecker ? $analyser : throw new LogicException('The fixture\'s options are refused.');
+}
+
+/**
+ * An analyser the contracts job installs into the fixture, as the gate builds it, or its test
+ * skipped where that job did not run.
+ *
+ * @param Closure(): (StaticChecker|Invalid) $analyser
+ */
+function installedAnalyser(Closure $analyser): StaticChecker
+{
+    return getenv('ANALYSER_CONTRACTS') === '1'
+        ? built($analyser())
+        : Assert::markTestSkipped('the analyser contracts job installs the analysers into the fixture');
 }
 
 /** The configuration the fake says it runs with, under the fixture's root. */
@@ -78,19 +92,15 @@ $loading = [
             $fixture('mutants/Other.invalid.php')->value() => OutOfScope::of($fixture('outside/Other.php')),
             $fixture('mutants/Excluded.invalid.php')->value() => OutOfScope::of($fixture('src/Excluded.php')),
         ],
-        fakeSettings($root)->referencing(Paths::of(Path::of('phpstan.neon'))),
+        fakeSettings($makeRoot())->referencing(Paths::of(Path::of('phpstan.neon'))),
     ),
-    ...getenv('ANALYSER_CONTRACTS') === '1' ? [
-        'PHPStan' => fn(): StaticChecker => built(PhpStan::fromOptions(Configs::options('{}'), $root, new LocalProcesses(new SystemClock()))),
-        'Psalm' => fn(): StaticChecker => built(Psalm::fromOptions(Configs::options('{}'), $root)),
-    ] : [],
+    'PHPStan' => fn(): StaticChecker => installedAnalyser(static fn(): StaticChecker|Invalid => PhpStan::fromOptions(Configs::options('{}'), $makeRoot(), new LocalProcesses(new SystemClock()))),
+    'Psalm' => fn(): StaticChecker => installedAnalyser(static fn(): StaticChecker|Invalid => Psalm::fromOptions(Configs::options('{}'), $makeRoot())),
 ];
 
 $checkers = [
     ...$loading,
-    ...getenv('ANALYSER_CONTRACTS') === '1' ? [
-        'Mago' => fn(): StaticChecker => built(Mago::fromOptions(Configs::options('{}'), $root, sprintf('%s/vendor', $root), new LocalProcesses(new SystemClock()))),
-    ] : [],
+    'Mago' => fn(): StaticChecker => installedAnalyser(static fn(): StaticChecker|Invalid => Mago::fromOptions(Configs::options('{}'), $makeRoot(), sprintf('%s/vendor', $makeRoot()), new LocalProcesses(new SystemClock()))),
 ];
 
 it('names the analyser and its exact version', function (StaticChecker $checker): void {
@@ -100,7 +110,9 @@ it('names the analyser and its exact version', function (StaticChecker $checker)
         ->and($identity instanceof AnalyserIdentity ? [$identity->analyser(), $identity->version()] : [])->not->toContain('');
 })->with($checkers);
 
-it('says the configuration it runs with, under the fixture\'s root, with its config file among the files it reads', function (StaticChecker $checker) use ($root): void {
+it('says the configuration it runs with, under the fixture\'s root, with its config file among the files it reads', function (StaticChecker $checker) use ($makeRoot): void {
+    $root = $makeRoot();
+
     $settings = $checker->configuration(Withheld::standard());
     $references = $settings instanceof AnalyserSettings ? [...$settings->references()] : [];
 

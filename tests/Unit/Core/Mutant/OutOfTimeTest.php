@@ -27,26 +27,24 @@ it('says what the budget ran out before, and the command that judges it', functi
     'confirming' => [OutOfTime::BeforeConfirming, 'its survival could be confirmed'],
 ]);
 
+$mutant = static fn(MutantStatus $status): Mutant => Mutant::of(
+    MutantId::hash(Path::of('src/Money.php'), 'Plus', '1', 0),
+    '1',
+    Location::of(Path::of('src/Money.php'), Line::of(1), Line::of(1)),
+    Mutation::of('Plus', MutatorFamily::Arithmetic, ''),
+    $status,
+    Unmeasured::duration(),
+);
+$kill = static fn(): ProvedKill => ProvedKill::of(MutantId::hash(Path::of('src/Money.php'), 'Plus', '2', 0), Path::of('src/Money.php'), Line::of(2), 'Plus', TestIds::none());
+
 it('knows a mutant or a kill a time budget left unjudged by what its reason records, and no other', function (Mutant|ProvedKill $mutant, bool $left): void {
     expect(OutOfTime::left($mutant))->toBe($left);
-})->with(function (): array {
-    $mutant = static fn(MutantStatus $status): Mutant => Mutant::of(
-        MutantId::hash(Path::of('src/Money.php'), 'Plus', '1', 0),
-        '1',
-        Location::of(Path::of('src/Money.php'), Line::of(1), Line::of(1)),
-        Mutation::of('Plus', MutatorFamily::Arithmetic, ''),
-        $status,
-        Unmeasured::duration(),
-    );
-    $kill = ProvedKill::of(MutantId::hash(Path::of('src/Money.php'), 'Plus', '2', 0), Path::of('src/Money.php'), Line::of(2), 'Plus', TestIds::none());
-
-    return [
-        'a survivor it had no time to confirm' => [$mutant(MutantStatus::Survived)->unjudged(OutOfTime::BeforeConfirming), true],
-        'a kill that no longer stands' => [$kill->unjudged(OutOfTime::BeforeMutating), true],
-        'a kill' => [$kill, false],
-        'a mutant the runner left unjudged for its own reason' => [$mutant(MutantStatus::Unjudged)->because(Reason::that('No test could be named.')), false],
-        'a mutant unjudged with no reason' => [$mutant(MutantStatus::Unjudged), false],
-        'a survivor whose reason is the budget\'s' => [$mutant(MutantStatus::Survived)->because(OutOfTime::BeforeConfirming->reason()), false],
-        'a mutant the runner left unjudged in the budget\'s words' => [$mutant(MutantStatus::Unjudged)->because(Reason::that(OutOfTime::BeforeConfirming->reason()->text())), false],
-    ];
-});
+})->with([
+    'a survivor it had no time to confirm' => [fn(): Mutant => $mutant(MutantStatus::Survived)->unjudged(OutOfTime::BeforeConfirming), true],
+    'a kill that no longer stands' => [fn(): ProvedKill => $kill()->unjudged(OutOfTime::BeforeMutating), true],
+    'a kill' => [fn(): ProvedKill => $kill(), false],
+    'a mutant the runner left unjudged for its own reason' => [fn(): Mutant => $mutant(MutantStatus::Unjudged)->because(Reason::that('No test could be named.')), false],
+    'a mutant unjudged with no reason' => [fn(): Mutant => $mutant(MutantStatus::Unjudged), false],
+    'a survivor whose reason is the budget\'s' => [fn(): Mutant => $mutant(MutantStatus::Survived)->because(OutOfTime::BeforeConfirming->reason()), false],
+    'a mutant the runner left unjudged in the budget\'s words' => [fn(): Mutant => $mutant(MutantStatus::Unjudged)->because(Reason::that(OutOfTime::BeforeConfirming->reason()->text())), false],
+]);

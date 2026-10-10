@@ -85,16 +85,16 @@ it('takes the default branch from the config, then the CI, then git, then main',
     expect($at->defaultBranch())->toEqual($default)
         ->and($at->runOn()->defaultBranch())->toEqual($default);
 })->with([
-    'the config' => ['trunk', Scope::branch('ci'), Scope::branch('git'), Scope::branch('trunk')],
-    'the CI' => [Absent::setting(), Scope::branch('ci'), Scope::branch('git'), Scope::branch('ci')],
-    'git' => [Absent::setting(), CannotTell::because('unnamed'), Scope::branch('git'), Scope::branch('git')],
+    'the config' => ['trunk', fn(): Scope => Scope::branch('ci'), fn(): Scope => Scope::branch('git'), fn(): Scope => Scope::branch('trunk')],
+    'the CI' => [fn(): Absent => Absent::setting(), fn(): Scope => Scope::branch('ci'), fn(): Scope => Scope::branch('git'), fn(): Scope => Scope::branch('ci')],
+    'git' => [fn(): Absent => Absent::setting(), fn(): CannotTell => CannotTell::because('unnamed'), fn(): Scope => Scope::branch('git'), fn(): Scope => Scope::branch('git')],
     'main' => [
-        Absent::setting(),
-        CannotTell::because('unnamed'),
-        CannotTell::because('unnamed'),
-        Scope::branch('main'),
+        fn(): Absent => Absent::setting(),
+        fn(): CannotTell => CannotTell::because('unnamed'),
+        fn(): CannotTell => CannotTell::because('unnamed'),
+        fn(): Scope => Scope::branch('main'),
     ],
-    'a config that names no branch' => ['..', Scope::branch('ci'), Scope::branch('git'), Scope::branch('ci')],
+    'a config that names no branch' => ['..', fn(): Scope => Scope::branch('ci'), fn(): Scope => Scope::branch('git'), fn(): Scope => Scope::branch('ci')],
 ]);
 
 it('stands where a plan says it was made', function (): void {

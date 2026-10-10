@@ -12,11 +12,13 @@ use NightWorksIO\MutationGate\Core\Proof\KeysRecord;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
 
-$keys = Keys::none()
+$makeKeys = static fn(): Keys => Keys::none()
     ->with(Path::of('src/A.php'), Digest::of('9c1e'))
     ->with(Path::of('src/B.php'), Unkeyed::because('There is no coverage map.'));
 
-it('writes each unit\'s key, and why a unit has none', function () use ($keys): void {
+it('writes each unit\'s key, and why a unit has none', function () use ($makeKeys): void {
+    $keys = $makeKeys();
+
     expect(JsonText::encode(['keys' => KeysRecord::of($keys)]))->toBe(<<<'JSON'
         {
             "keys": {
@@ -33,7 +35,9 @@ it('writes no keys as an empty map', function (): void {
     expect(JsonText::encode(['keys' => KeysRecord::of(Keys::none())]))->toBe("{\n    \"keys\": {}\n}");
 });
 
-it('reads back the keys it wrote', function () use ($keys): void {
+it('reads back the keys it wrote', function () use ($makeKeys): void {
+    $keys = $makeKeys();
+
     $read = KeysRecord::read(Node::decode(JsonText::encode(['keys' => KeysRecord::of($keys)]))->field('keys'));
 
     expect($read)->toEqual($keys);

@@ -49,9 +49,9 @@ it('advises where no workflow running the gate ran on a schedule in the last 8 d
         'Run the gate on a schedule, such as on: schedule: [{cron: \'0 3 * * 1\'}] in its workflow.',
     )));
 })->with([
-    'nine days ago' => [Online::ranAt('2026-09-21T12:00:00Z')],
-    'just over 8 days ago' => [Online::ranAt('2026-09-22T11:59:59Z')],
-    'never' => [Schedule::of(Paths::of(Path::of('.github/workflows/mutation.yml')), Paths::none(), NotGiven::value())],
+    'nine days ago' => [fn(): Schedule => Online::ranAt('2026-09-21T12:00:00Z')],
+    'just over 8 days ago' => [fn(): Schedule => Online::ranAt('2026-09-22T11:59:59Z')],
+    'never' => [fn(): Schedule => Schedule::of(Paths::of(Path::of('.github/workflows/mutation.yml')), Paths::none(), NotGiven::value())],
 ]);
 
 it('finds nothing where the gate ran on a schedule within 8 days, no GitHub workflow runs it, or nothing was read', function () use ($scheduled): void {

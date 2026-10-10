@@ -180,22 +180,24 @@ function perLine(MutantSites $sites, Path $file): array
     return $counts;
 }
 
-it('counts, line by line, the mutants the engine makes of every file of the corpus', function (string $file): void {
-    $path = Path::of(basename($file));
-    $code = Contents::of((string) file_get_contents($file));
-    $engine = defaultEngine();
-    $sites = $engine->sitesOf($path, $code);
-    $made = $engine->mutantsOf($path, $code);
-    $starts = array_map(
-        static fn(MadeMutant $mutant): Line => $mutant->location()->start(),
-        $made instanceof MadeMutants ? iterator_to_array($made, preserve_keys: false) : [],
-    );
+it('counts, line by line, the mutants the engine makes of every file of the corpus', function (): void {
+    foreach (corpus() as $file) {
+        $path = Path::of(basename($file));
+        $code = Contents::of((string) file_get_contents($file));
+        $engine = defaultEngine();
+        $sites = $engine->sitesOf($path, $code);
+        $made = $engine->mutantsOf($path, $code);
+        $starts = array_map(
+            static fn(MadeMutant $mutant): Line => $mutant->location()->start(),
+            $made instanceof MadeMutants ? iterator_to_array($made, preserve_keys: false) : [],
+        );
 
-    // No mutator of the default set prints the same code anywhere in the corpus, so the two agree exactly.
-    expect($made)->toBeInstanceOf(MadeMutants::class)
-        ->and($sites instanceof MutantSites ? perLine($sites, $path) : [])
-        ->toBe(perLine(MutantSites::inFile($path, ...$starts), $path));
-})->with(corpus());
+        // No mutator of the default set prints the same code anywhere in the corpus, so the two agree exactly.
+        expect($made)->toBeInstanceOf(MadeMutants::class)
+            ->and($sites instanceof MutantSites ? perLine($sites, $path) : [])
+            ->toBe(perLine(MutantSites::inFile($path, ...$starts), $path));
+    }
+});
 
 it('has a corpus to agree over', function (): void {
     expect(count(corpus()))->toBeGreaterThan(20);

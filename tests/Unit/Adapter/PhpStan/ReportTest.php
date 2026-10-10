@@ -22,9 +22,9 @@ it('cannot judge from output that is no report, an exit that is no finished anal
     expect(Report::of($phpstan, FindingFiles::under(Root::of('/p'))))
         ->toEqual(CannotJudge::because(sprintf('PHPStan wrote no report (%s).', $phpstan->said())));
 })->with([
-    'no report' => [ChildProcess::exited(1, 'File passed to --tmp-file option does not exist', '')],
-    'a crash' => [ChildProcess::exited(255, '{"totals": {}, "files": {}, "errors": []}', 'Fatal error')],
-    'never ran' => [ChildProcess::neverStarted('No such directory.')],
+    'no report' => [fn(): ChildProcess => ChildProcess::exited(1, 'File passed to --tmp-file option does not exist', '')],
+    'a crash' => [fn(): ChildProcess => ChildProcess::exited(255, '{"totals": {}, "files": {}, "errors": []}', 'Fatal error')],
+    'never ran' => [fn(): ChildProcess => ChildProcess::neverStarted('No such directory.')],
 ]);
 
 it('places an error in a trait in the trait\'s file, not the class it was analysed in the context of', function (): void {

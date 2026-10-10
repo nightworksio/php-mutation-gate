@@ -56,26 +56,29 @@ function coverageXmlOfUnits(string $root, string $units): string
     return sprintf('%s/coverage', $root);
 }
 
-it('reads the methods of a file\'s classes some test ran, as Infection reads them', function (string $units, ExecutedMethod ...$expected): void {
+it('reads the methods of a file\'s classes some test ran, as Infection reads them', function (string $units, ExecutedMethods $expected): void {
     $root = (string) realpath(Scratch::directory());
     $map = CoverageXml::read(Project::at(Root::of($root), Paths::none(), Path::of('.gate')), DiskPath::of(coverageXmlOfUnits($root, $units)));
 
-    expect($map instanceof CoverageMap ? $map->methods()->at(Path::of('A.php'), ExecutedMethods::none()) : $map)->toEqual(ExecutedMethods::of(...$expected));
+    expect($map instanceof CoverageMap ? $map->methods()->at(Path::of('A.php'), ExecutedMethods::none()) : $map)->toEqual($expected);
 })->with([
     'a class\'s methods, less one under one percent' => [
         '<class name="A"><method name="add" start="3" end="5" coverage="100"/><method name="few" start="6" end="9" coverage="0.5"/>'
         . '<method name="none" start="10" end="12" coverage="0"/><method name="half" start="13" end="20" coverage="50.00"/></class>',
-        ExecutedMethod::of('add', 3, 5),
-        ExecutedMethod::of('half', 13, 20),
+        fn(): ExecutedMethods => ExecutedMethods::of(ExecutedMethod::of('add', 3, 5), ExecutedMethod::of('half', 13, 20)),
     ],
     'a trait\'s, where the classes have no method' => [
         '<class name="A"/><trait name="T"><method name="use" start="2" end="4" coverage="100"/></trait>',
-        ExecutedMethod::of('use', 2, 4),
+        fn(): ExecutedMethods => ExecutedMethods::of(ExecutedMethod::of('use', 2, 4)),
     ],
     'no trait\'s, where a class has a method no test ran' => [
         '<class name="A"><method name="none" start="10" end="12" coverage="0"/></class><trait name="T"><method name="use" start="2" end="4" coverage="100"/></trait>',
+        fn(): ExecutedMethods => ExecutedMethods::none(),
     ],
-    'none outside a class or trait' => ['<function name="f" start="1" end="2" coverage="100"/><method name="loose" start="1" end="2" coverage="100"/>'],
+    'none outside a class or trait' => [
+        '<function name="f" start="1" end="2" coverage="100"/><method name="loose" start="1" end="2" coverage="100"/>',
+        fn(): ExecutedMethods => ExecutedMethods::none(),
+    ],
 ]);
 
 it('cannot judge coverage whose index names a file report that is not there', function (): void {

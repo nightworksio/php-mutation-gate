@@ -57,15 +57,19 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-$tree = JudgingRuns::tree(...);
-$reporting = JudgingRuns::reporting(...);
-$judged = JudgingRuns::judged(...);
+$makeTree = static fn(): Closure => JudgingRuns::tree(...);
+$makeReporting = static fn(): Closure => JudgingRuns::reporting(...);
+$makeJudged = static fn(): Closure => JudgingRuns::judged(...);
 
 it('leaves the survivors the config ignores out of the score, and names an ignore that ends soon or has ended', function () use (
-    $tree,
-    $reporting,
-    $judged,
+    $makeTree,
+    $makeReporting,
+    $makeJudged,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $verdict = JudgingRuns::verdictOf($judged(
         Planned::twoShards(),
         Flows::adapters(Flows::project(), [], $tree(Floor::of(50))),
@@ -87,10 +91,14 @@ it('leaves the survivors the config ignores out of the score, and names an ignor
 });
 
 it('fails a run that judged every unit on an ignore that names no mutant it leaves out', function () use (
-    $tree,
-    $reporting,
-    $judged,
+    $makeTree,
+    $makeReporting,
+    $makeJudged,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $judgement = $judged(
         Planned::twoShards(),
         Flows::adapters(Flows::project(), [], $tree(Floor::of(0))),
@@ -104,7 +112,11 @@ it('fails a run that judged every unit on an ignore that names no mutant it leav
         ->and($judgement instanceof Judged ? $judgement->exitCode() : $judgement)->toBe(ExitCode::Failed);
 });
 
-it('stops a CI run on a security set held to no floor, and hands over its measured floor', function () use ($tree, $reporting, $judged): void {
+it('stops a CI run on a security set held to no floor, and hands over its measured floor', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $judgement = $judged(
         Planned::twoShards(),
         Flows::adapters(Flows::project(), ['CI' => 'true'], $tree(Floor::of(10)), NamedMutators::of('Plus')),
@@ -133,10 +145,14 @@ it('stops a CI run on a security set held to no floor, and hands over its measur
 });
 
 it('holds only the security sets in a run of the security mutators alone, exempting each tree and recording no pass', function () use (
-    $tree,
-    $reporting,
-    $judged,
+    $makeTree,
+    $makeReporting,
+    $makeJudged,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $store = new ProofStoreFake();
     $settings = Configs::built(Gate::configure()
         ->runner(ConfiguredRunner::uses('fake'))
@@ -160,10 +176,14 @@ it('holds only the security sets in a run of the security mutators alone, exempt
 });
 
 it('holds no floor in a run of one suite\'s tests alone, exempting each tree and security set and recording no pass', function () use (
-    $tree,
-    $reporting,
-    $judged,
+    $makeTree,
+    $makeReporting,
+    $makeJudged,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $store = new ProofStoreFake();
     $settings = Configs::built(Gate::configure()
         ->runner(ConfiguredRunner::uses('fake'))
@@ -189,10 +209,14 @@ it('holds no floor in a run of one suite\'s tests alone, exempting each tree and
 });
 
 it('holds the security sets in a run of one suite\'s tests and the security mutators alone', function () use (
-    $tree,
-    $reporting,
-    $judged,
+    $makeTree,
+    $makeReporting,
+    $makeJudged,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $settings = Configs::built(Gate::configure()
         ->runner(ConfiguredRunner::uses('fake'))
         ->reporting(Report::uses('recorded'))
@@ -212,7 +236,11 @@ it('holds the security sets in a run of one suite\'s tests and the security muta
         ->and($sets[0]->judgement())->toBe(Judgement::Failed);
 });
 
-it('warns of a security set held to no floor outside CI', function () use ($tree, $reporting, $judged): void {
+it('warns of a security set held to no floor outside CI', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $verdict = JudgingRuns::verdictOf($judged(
         Planned::twoShards(),
         Flows::adapters(Flows::project(), [], $tree(Floor::of(10)), NamedMutators::of('Plus')),
@@ -224,7 +252,11 @@ it('warns of a security set held to no floor outside CI', function () use ($tree
         ->toContain('The security set of . has no floor yet. Run mutation-gate baseline --write and commit mutation-gate.baseline.json.');
 });
 
-it('fails a security set below the floor security.floor declares, though its tree passes', function () use ($tree, $reporting, $judged): void {
+it('fails a security set below the floor security.floor declares, though its tree passes', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $settings = Configs::built(Gate::configure()
         ->runner(ConfiguredRunner::uses('fake'))
         ->reporting(Report::uses('recorded'))
@@ -245,7 +277,11 @@ it('fails a security set below the floor security.floor declares, though its tre
         );
 });
 
-it('fails a pull request until a raised security floor is committed with it', function () use ($tree, $reporting, $judged): void {
+it('fails a pull request until a raised security floor is committed with it', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $project = Flows::project();
     $committed = Baseline::of(Entry::of(Path::of('src'), Floor::of(40)))->withSecurity(Entry::of(Path::root(), Floor::of(40)));
     Scratch::write($project, 'mutation-gate.baseline.json', BaselineFile::encode($committed));
@@ -268,10 +304,14 @@ it('fails a pull request until a raised security floor is committed with it', fu
 });
 
 it('groups the verdict\'s tests into the suites the PHPUnit config declares, and into none without one', function () use (
-    $tree,
-    $reporting,
-    $judged,
+    $makeTree,
+    $makeReporting,
+    $makeJudged,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $project = Flows::project();
     Scratch::write($project, 'phpunit.xml', <<<'XML'
         <?xml version="1.0"?>
@@ -297,10 +337,14 @@ it('groups the verdict\'s tests into the suites the PHPUnit config declares, and
 });
 
 it('checks, in a run of the security mutators alone, only the ignores of the mutators it made mutants with', function () use (
-    $tree,
-    $reporting,
-    $judged,
+    $makeTree,
+    $makeReporting,
+    $makeJudged,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $failures = static fn(Ignore $ignore): array => JudgingRuns::texts(JudgingRuns::verdictOf($judged(
         Planned::twoShards(),
         Flows::adapters(Flows::project(), [], $tree(Floor::of(0)), NamedMutators::of('Plus'), Narrowing::none()->toMutators(Mutators::named('Plus'))),
@@ -315,9 +359,12 @@ it('checks, in a run of the security mutators alone, only the ignores of the mut
 });
 
 it('takes the run\'s own result for a unit that carries its own alone, however newer the default branch\'s, and cannot judge it where that result is no longer of the code', function (string $source, string $vanished) use (
-    $tree,
-    $reporting,
+    $makeTree,
+    $makeReporting,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+
     $project = Flows::project();
     $store = new ProofStoreFake();
     $mutation = Digest::sha256Of('mutation');

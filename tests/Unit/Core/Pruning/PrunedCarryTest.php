@@ -56,9 +56,11 @@ $last = static fn(string $source = 'a'): Proofs => Proofs::of(PruningCases::proo
         PruningCases::mutant('src/A.php', 'Plus', 7),
     ),
 ));
-$pruned = Pruned::of(MutatorNames::of('Plus'), Paths::of(Path::of('src/A.php')));
+$makePruned = static fn(): Pruned => Pruned::of(MutatorNames::of('Plus'), Paths::of(Path::of('src/A.php')));
 
-it('carries the last result\'s mutants of a pruned mutator into a pruned unit, and nothing into another', function () use ($fresh, $last, $pruned): void {
+it('carries the last result\'s mutants of a pruned mutator into a pruned unit, and nothing into another', function () use ($fresh, $last, $makePruned): void {
+    $pruned = $makePruned();
+
     $results = PrunedCarry::of($pruned, $last()->newest(), PruningCases::now(...['src/A.php' => 'a', 'src/B.php' => 'b']))->into($fresh());
 
     expect(carriedIn($results))->toBe([
@@ -67,14 +69,18 @@ it('carries the last result\'s mutants of a pruned mutator into a pruned unit, a
     ]);
 });
 
-it('carries nothing into a unit the plan does not prune, though its last result stands and holds a pruned mutator\'s mutant', function () use ($fresh, $pruned): void {
+it('carries nothing into a unit the plan does not prune, though its last result stands and holds a pruned mutator\'s mutant', function () use ($fresh, $makePruned): void {
+    $pruned = $makePruned();
+
     $last = Proofs::of(PruningCases::proof('src/B.php', '2026-10-05T00:00:00Z', 'b', Mutants::of(PruningCases::mutant('src/B.php', 'Plus', 1))));
 
     expect(carriedIn(PrunedCarry::of($pruned, $last->newest(), PruningCases::now(...['src/A.php' => 'a', 'src/B.php' => 'b']))->into($fresh()))[1])
         ->toBe([['Minus-3'], [], 0]);
 });
 
-it('carries nothing over a mutant of a pruned mutator the run made itself, as an unpatched runner does', function () use ($last, $pruned): void {
+it('carries nothing over a mutant of a pruned mutator the run made itself, as an unpatched runner does', function () use ($last, $makePruned): void {
+    $pruned = $makePruned();
+
     $ran = UnitResults::of(UnitResult::of(Unit::file(Path::of('src/A.php')), Origin::Run, Mutants::of(
         PruningCases::mutant('src/A.php', 'Plus', 1),
         PruningCases::mutant('src/A.php', 'Plus', 7),
@@ -90,12 +96,14 @@ it('carries nothing where the last result is of other code, nothing is pruned, o
     expect(carriedIn(PrunedCarry::of($pruning, $last($source)->newest(), $now)->into($fresh())))
         ->toBe([[['Minus-3'], [], 0], [['Minus-3'], [], 0]]);
 })->with([
-    'other code' => [Pruned::of(MutatorNames::of('Plus'), Paths::of(Path::of('src/A.php'))), 'a then', true],
-    'nothing pruned' => [Pruned::none(), 'a', true],
-    'no digests' => [Pruned::of(MutatorNames::of('Plus'), Paths::of(Path::of('src/A.php'))), 'a', false],
+    'other code' => [fn(): Pruned => Pruned::of(MutatorNames::of('Plus'), Paths::of(Path::of('src/A.php'))), 'a then', true],
+    'nothing pruned' => [fn(): Pruned => Pruned::none(), 'a', true],
+    'no digests' => [fn(): Pruned => Pruned::of(MutatorNames::of('Plus'), Paths::of(Path::of('src/A.php'))), 'a', false],
 ]);
 
-it('carries the kills a ledger proved of a pruned mutator, as it holds them, and no other kill', function () use ($fresh, $pruned): void {
+it('carries the kills a ledger proved of a pruned mutator, as it holds them, and no other kill', function () use ($fresh, $makePruned): void {
+    $pruned = $makePruned();
+
     $plus = ProvedKill::of(MutantId::hash(Path::of('src/A.php'), 'Plus', '-2', 0), Path::of('src/A.php'), Line::of(2), 'Plus', TestIds::none());
     $minus = ProvedKill::of(MutantId::hash(Path::of('src/A.php'), 'Minus', '-4', 0), Path::of('src/A.php'), Line::of(4), 'Minus', TestIds::none());
     $held = Proof::held(

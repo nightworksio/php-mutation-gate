@@ -31,8 +31,8 @@ it('finds no driver in a PHP that loads neither pcov nor Xdebug, and says how to
 it('finds nothing in a PHP with a driver, or one it could not read', function (Observations $observations): void {
     expect(CoverageDriver::in($observations))->toEqual(Findings::none());
 })->with([
-    'pcov' => [Observations::none()->withPhp(RunnerPhp::at('php')->loading('pcov'))],
-    'Xdebug' => [Observations::none()->withPhp(RunnerPhp::at('php')->loading('xdebug'))],
-    'unread' => [Observations::none()->withPhp(CannotJudge::because('no PHP'))],
-    'not observed' => [Observations::none()],
+    'pcov' => [fn(): Observations => Observations::none()->withPhp(RunnerPhp::at('php')->loading('pcov'))],
+    'Xdebug' => [fn(): Observations => Observations::none()->withPhp(RunnerPhp::at('php')->loading('xdebug'))],
+    'unread' => [fn(): Observations => Observations::none()->withPhp(CannotJudge::because('no PHP'))],
+    'not observed' => [fn(): Observations => Observations::none()],
 ]);

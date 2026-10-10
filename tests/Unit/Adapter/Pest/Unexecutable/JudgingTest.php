@@ -72,7 +72,7 @@ function judgingResult(string ...$ids): MutationResult
     return MutationResult::of(Mutants::of(...array_map(Unexecutables::mutant(...), $ids)), 2);
 }
 
-$money = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
+$makeMoney = static fn(): MutationRequest => MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
 
 /** The opening map a run of the fixture left beside its results. */
 function judgingCoverage(string $results): Covering
@@ -83,8 +83,10 @@ function judgingCoverage(string $results): Covering
 }
 
 it('judges each uncovered mutant on a line that is not executable by the tests that read its value, giving none that did not time out a limit', function () use (
-    $money,
+    $makeMoney,
 ): void {
+    $money = $makeMoney();
+
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, ['rate', 'unread', 'internal', 'other']);
     $shell = new ShellFake(static fn(Command $command): Ran => Unexecutables::answering($command, ['tests/OtherSpec.php', 'tests/MoneySpec.php']));
@@ -101,8 +103,10 @@ it('judges each uncovered mutant on a line that is not executable by the tests t
 });
 
 it('leaves beside each kill a trial made with no killer named how its run ended, and nothing beside the rest', function () use (
-    $money,
+    $makeMoney,
 ): void {
+    $money = $makeMoney();
+
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, ['rate', 'unread', 'internal', 'other']);
     $shell = new ShellFake(static fn(Command $command): Ran => Unexecutables::answering($command, ['tests/OtherSpec.php', 'tests/MoneySpec.php']));
@@ -124,8 +128,10 @@ it('leaves beside each kill a trial made with no killer named how its run ended,
 });
 
 it('runs every judging of a mutant by reference under the run\'s memory cap, and removes it once done', function () use (
-    $money,
+    $makeMoney,
 ): void {
+    $money = $makeMoney();
+
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, ['internal']);
     $read = [];
@@ -150,7 +156,9 @@ it('runs every judging of a mutant by reference under the run\'s memory cap, and
         ->and(is_dir(MemoryScan::directoryBeside($results)))->toBeFalse();
 });
 
-it('cannot judge a mutant by reference where the memory cap cannot be written', function () use ($money): void {
+it('cannot judge a mutant by reference where the memory cap cannot be written', function () use ($makeMoney): void {
+    $money = $makeMoney();
+
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, ['internal']);
     mkdir(sprintf('%s/%s', MemoryScan::directoryBeside($results), MemoryCap::FILE), recursive: true);
@@ -164,8 +172,10 @@ it('cannot judge a mutant by reference where the memory cap cannot be written', 
 });
 
 it('runs the tests that read the value, then the fallback\'s others where the mutant came through, each within its own tests\' limit', function () use (
-    $money,
+    $makeMoney,
 ): void {
+    $money = $makeMoney();
+
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, ['internal']);
     $shell = new ShellFake(static fn(Command $command): Ran => Unexecutables::answering($command, ['tests/OtherSpec.php']));
@@ -195,8 +205,10 @@ it('runs the tests that read the value, then the fallback\'s others where the mu
 });
 
 it('lets the tests that read an ambiguous value kill it whatever the fallback holds, and leaves unjudged what they leave alive past ten', function () use (
-    $money,
+    $makeMoney,
 ): void {
+    $money = $makeMoney();
+
     $at = Unexecutables::project();
     Scratch::write($at->root(), 'src/Dynamic.php', "<?php\nnamespace App;\nfinal class Dynamic { public function rate(string \$class): int { return \$class::RATE; } }\n");
     $results = Unexecutables::run($at, ['rate']);
@@ -249,7 +261,9 @@ it('judges a mutant of a statement\'s first line by the tests that run its other
         ->toBe(['head' => 'survived', 'arm' => 'uncovered', 'flat' => 'uncovered', 'inner' => 'survived']);
 });
 
-it('gives a mutant that timed out the limit its run was allowed: five seconds and three times its tests\' own time, within the bounds', function () use ($money): void {
+it('gives a mutant that timed out the limit its run was allowed: five seconds and three times its tests\' own time, within the bounds', function () use ($makeMoney): void {
+    $money = $makeMoney();
+
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, ['rate']);
     $limits = static function (LimitBounds $bounds) use ($at, $money, $results): array {
@@ -267,7 +281,9 @@ it('gives a mutant that timed out the limit its run was allowed: five seconds an
         ->and($limits(LimitBounds::between(Seconds::of(1.0), Seconds::of(5.2))))->toEqual([[MutantStatus::TimedOut, Seconds::of(5.2)]]);
 });
 
-it('skips a mutant whose tests on their own run out of its limit, giving it that limit', function () use ($money): void {
+it('skips a mutant whose tests on their own run out of its limit, giving it that limit', function () use ($makeMoney): void {
+    $money = $makeMoney();
+
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, ['rate']);
     $shell = new ShellFake(static fn(): Ran => Ran::stopped('')->took(Seconds::of(10.1)));
@@ -279,7 +295,9 @@ it('skips a mutant whose tests on their own run out of its limit, giving it that
         ->and($shell->commands())->toHaveCount(1);
 });
 
-it('judges only the uncovered mutants of a run, and keeps each mutant Pest judged as Pest judged it', function () use ($money): void {
+it('judges only the uncovered mutants of a run, and keeps each mutant Pest judged as Pest judged it', function () use ($makeMoney): void {
+    $money = $makeMoney();
+
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, ['rate', 'internal']);
     $shell = new ShellFake(static fn(Command $command): Ran => Unexecutables::answering($command, ['tests/OtherSpec.php', 'tests/MoneySpec.php']));
@@ -298,7 +316,9 @@ it('judges only the uncovered mutants of a run, and keeps each mutant Pest judge
         ->toBe(['internal' => 'survived', 'rate' => 'killed']);
 });
 
-it('judges nothing without the mutated copy, and leaves the rest of a run as it was', function () use ($money): void {
+it('judges nothing without the mutated copy, and leaves the rest of a run as it was', function () use ($makeMoney): void {
+    $money = $makeMoney();
+
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, ['rate'], uncopied: ['rate']);
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
@@ -313,7 +333,9 @@ it('judges nothing without the mutated copy, and leaves the rest of a run as it 
         ->and($shell->commands())->toBe([]);
 });
 
-it('judges nothing of a mutant whose original file is gone', function () use ($money): void {
+it('judges nothing of a mutant whose original file is gone', function () use ($makeMoney): void {
+    $money = $makeMoney();
+
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, ['rate']);
     unlink(sprintf('%s/src/Money.php', $at->root()));
@@ -324,7 +346,9 @@ it('judges nothing of a mutant whose original file is gone', function () use ($m
         ->and($shell->commands())->toBe([]);
 });
 
-it('leaves unjudged a mutant of a file that no longer parses, so cannot be printed as Pest prints it', function () use ($money): void {
+it('leaves unjudged a mutant of a file that no longer parses, so cannot be printed as Pest prints it', function () use ($makeMoney): void {
+    $money = $makeMoney();
+
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, ['rate']);
     Scratch::write($at->root(), 'src/Money.php', "<?php\nfinal class Money {\n");
@@ -335,7 +359,9 @@ it('leaves unjudged a mutant of a file that no longer parses, so cannot be print
         ->and($shell->commands())->toBe([]);
 });
 
-it('gives a mutant that timed out the time its tests took on their own, unmutated, as the JUnit log of that run says', function () use ($money): void {
+it('gives a mutant that timed out the time its tests took on their own, unmutated, as the JUnit log of that run says', function () use ($makeMoney): void {
+    $money = $makeMoney();
+
     $at = Unexecutables::project();
     $results = Unexecutables::run($at, ['rate']);
     $shell = new ShellFake(static function (Command $command, int $before): Ran {

@@ -47,15 +47,15 @@ it('cannot read a line that is not a ref, its commit, a ref and its commit', fun
         trim($line),
     )));
 })->with([
-    'three fields' => [sprintf('refs/heads/a %s refs/heads/a', pushedCommit('1'))],
-    'five fields' => [sprintf('refs/heads/a %s refs/heads/a %s extra', pushedCommit('1'), pushedCommit('2'))],
-    'two spaces' => [sprintf('refs/heads/a  %s refs/heads/a %s', pushedCommit('1'), pushedCommit('2'))],
-    'a ref for a commit' => [sprintf('refs/heads/a HEAD refs/heads/a %s', pushedCommit('2'))],
-    'a remote commit not in hex' => [sprintf('refs/heads/a %s refs/heads/a base', pushedCommit('1'))],
-    'a short commit' => [sprintf('refs/heads/a 111 refs/heads/a %s', pushedCommit('2'))],
-    'upper-case hex' => [sprintf('refs/heads/a %s refs/heads/a %s', pushedCommit('A'), pushedCommit('2'))],
-    'a commit of 41 digits' => [sprintf('refs/heads/a %s1 refs/heads/a %s', pushedCommit('1'), pushedCommit('2'))],
-    'a quoted line' => [sprintf("'refs/heads/a %s refs/heads/a %s'", pushedCommit('1'), pushedCommit('2'))],
+    'three fields' => [fn(): string => sprintf('refs/heads/a %s refs/heads/a', pushedCommit('1'))],
+    'five fields' => [fn(): string => sprintf('refs/heads/a %s refs/heads/a %s extra', pushedCommit('1'), pushedCommit('2'))],
+    'two spaces' => [fn(): string => sprintf('refs/heads/a  %s refs/heads/a %s', pushedCommit('1'), pushedCommit('2'))],
+    'a ref for a commit' => [fn(): string => sprintf('refs/heads/a HEAD refs/heads/a %s', pushedCommit('2'))],
+    'a remote commit not in hex' => [fn(): string => sprintf('refs/heads/a %s refs/heads/a base', pushedCommit('1'))],
+    'a short commit' => [fn(): string => sprintf('refs/heads/a 111 refs/heads/a %s', pushedCommit('2'))],
+    'upper-case hex' => [fn(): string => sprintf('refs/heads/a %s refs/heads/a %s', pushedCommit('A'), pushedCommit('2'))],
+    'a commit of 41 digits' => [fn(): string => sprintf('refs/heads/a %s1 refs/heads/a %s', pushedCommit('1'), pushedCommit('2'))],
+    'a quoted line' => [fn(): string => sprintf("'refs/heads/a %s refs/heads/a %s'", pushedCommit('1'), pushedCommit('2'))],
 ]);
 
 it('judges each ref that sends the commit the working tree is at, once for each base, leaving deletions out', function (): void {

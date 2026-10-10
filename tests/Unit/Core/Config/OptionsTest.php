@@ -46,9 +46,11 @@ $asks = [
     'object' => static fn(Options $options, Key $key): object => $options->object($key),
 ];
 
-it('answers not given for an option left out', function (string $ask) use ($options, $asks): void {
-    expect($asks[$ask]($options(), Key::of('missing')))->toEqual(NotGiven::value());
-})->with(array_keys($asks));
+it('answers not given for an option left out', function () use ($options, $asks): void {
+    foreach (array_keys($asks) as $ask) {
+        expect($asks[$ask]($options(), Key::of('missing')))->toEqual(NotGiven::value());
+    }
+});
 
 it('answers the problem at its path for an option that holds something else', function (
     string $ask,
@@ -110,21 +112,21 @@ it('refuses a path that lands outside the project, but one the command line name
         ));
 })->with([
     'up, from a file' => [
-        ConfigFile::at(Path::of('/project/ci/gate.json'), Path::of('/project')),
+        fn(): ConfigFile => ConfigFile::at(Path::of('/project/ci/gate.json'), Path::of('/project')),
         '"../../x"',
-        Problem::at('cache', 'expected a path inside the project, got "../../x"'),
+        fn(): Problem => Problem::at('cache', 'expected a path inside the project, got "../../x"'),
     ],
     'absolute, from a file' => [
-        ConfigFile::at(Path::of('/project/ci/gate.json'), Path::of('/project')),
+        fn(): ConfigFile => ConfigFile::at(Path::of('/project/ci/gate.json'), Path::of('/project')),
         '"/tmp/x"',
-        Problem::at('cache', 'expected a path inside the project, got "/tmp/x"'),
+        fn(): Problem => Problem::at('cache', 'expected a path inside the project, got "/tmp/x"'),
     ],
     'absolute, from a preset' => [
-        ProjectRoot::origin(),
+        fn(): ProjectRoot => ProjectRoot::origin(),
         '"/tmp/x"',
-        Problem::at('cache', 'expected a path inside the project, got "/tmp/x"'),
+        fn(): Problem => Problem::at('cache', 'expected a path inside the project, got "/tmp/x"'),
     ],
-    'absolute, from the command line' => [ProjectRoot::commandLine(), '"/tmp/x"', Path::of('/tmp/x')],
+    'absolute, from the command line' => [fn(): ProjectRoot => ProjectRoot::commandLine(), '"/tmp/x"', fn(): Path => Path::of('/tmp/x')],
 ]);
 
 it('lays options beneath its own, keeping where they are written', function (): void {

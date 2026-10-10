@@ -79,4 +79,4 @@ it('names the history\'s own option where it cannot read which PHPUnit is instal
 
     expect(Installed::historyIn(sprintf('%s/installed.json', $root)))->toBe(PhpUnitOption::DoNotRecordTestRunHistory)
         ->and(Installed::historyIn(sprintf('%s/none.json', $root)))->toBe(PhpUnitOption::DoNotRecordTestRunHistory);
-})->with(['not JSON' => ['{'], 'no PHPUnit' => [(string) json_encode(['packages' => []])]]);
+})->with(['not JSON' => ['{'], 'no PHPUnit' => [fn(): string => (string) json_encode(['packages' => []])]]);

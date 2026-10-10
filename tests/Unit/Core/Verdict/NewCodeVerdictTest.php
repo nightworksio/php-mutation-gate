@@ -38,10 +38,10 @@ it('scores and judges its mutants against the floor for new code', function (
     expect($verdict->score())->toEqual($score)
         ->and($verdict->judgement())->toBe($judgement);
 })->with([
-    'every mutant killed' => [Floor::of(100), Uncovered::Count, Judged::mutants(MutantJudgement::Killed), Score::ofHundredths(10_000), Judgement::Passed],
-    'one survivor' => [Floor::of(100), Uncovered::Count, Judged::mutants(MutantJudgement::Killed, MutantJudgement::Survived), Score::ofHundredths(5_000), Judgement::Failed],
-    'uncovered left out' => [Floor::of(100), Uncovered::Exclude, Judged::mutants(MutantJudgement::Killed, MutantJudgement::Uncovered), Score::ofHundredths(10_000), Judgement::Passed],
-    'no mutable line' => [Floor::of(100), Uncovered::Count, JudgedMutants::none(), NothingToMutate::found(), Judgement::NothingToMutate],
+    'every mutant killed' => [fn(): Floor => Floor::of(100), Uncovered::Count, fn(): JudgedMutants => Judged::mutants(MutantJudgement::Killed), fn(): Score => Score::ofHundredths(10_000), Judgement::Passed],
+    'one survivor' => [fn(): Floor => Floor::of(100), Uncovered::Count, fn(): JudgedMutants => Judged::mutants(MutantJudgement::Killed, MutantJudgement::Survived), fn(): Score => Score::ofHundredths(5_000), Judgement::Failed],
+    'uncovered left out' => [fn(): Floor => Floor::of(100), Uncovered::Exclude, fn(): JudgedMutants => Judged::mutants(MutantJudgement::Killed, MutantJudgement::Uncovered), fn(): Score => Score::ofHundredths(10_000), Judgement::Passed],
+    'no mutable line' => [fn(): Floor => Floor::of(100), Uncovered::Count, fn(): JudgedMutants => JudgedMutants::none(), fn(): NothingToMutate => NothingToMutate::found(), Judgement::NothingToMutate],
 ]);
 
 it('lists its survivors, counting uncovered ones as it was told', function (): void {

@@ -7,9 +7,11 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinStore;
 use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Proof\Credentials;
 
-it('names each built-in proof store by the name a config chooses it by', function (BuiltinStore $builtin): void {
-    expect($builtin->named())->toEqual(Name::of($builtin->value));
-})->with(BuiltinStore::cases());
+it('names each built-in proof store by the name a config chooses it by', function (): void {
+    foreach (BuiltinStore::cases() as $builtin) {
+        expect($builtin->named())->toEqual(Name::of($builtin->value));
+    }
+});
 
 it('needs no credentials to write a directory, and the access key\'s id and secret to write a bucket', function (): void {
     $keys = Variables::of(['AWS_ACCESS_KEY_ID' => 'AKIA', 'AWS_SECRET_ACCESS_KEY' => 'secret']);

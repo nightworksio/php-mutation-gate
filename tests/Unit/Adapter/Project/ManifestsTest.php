@@ -81,8 +81,8 @@ it('reads the ends of the range as floors', function (int|float $floor, Floor $r
         ? array_map(static fn(Tree $tree): mixed => $tree->declared(), [...$trees])
         : $trees)->toEqual([$read]);
 })->with([
-    'the top' => [100, Floor::of(100)],
-    'just above none' => [0.01, Floor::ofHundredths(1)],
+    'the top' => [100, fn(): Floor => Floor::of(100)],
+    'just above none' => [0.01, fn(): Floor => Floor::ofHundredths(1)],
 ]);
 
 it('cannot judge a floor a manifest declares wrongly', function (string $settings, string $why): void {
