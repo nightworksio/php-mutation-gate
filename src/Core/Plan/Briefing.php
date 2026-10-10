@@ -15,8 +15,10 @@ use NightWorksIO\MutationGate\Core\Test\SuiteName;
  * about how they ran: the most memory the unmutated suite's largest process
  * held in the coverage run the plan was made from, which every shard's memory
  * triage weighs its mutants against (ADR-0004, decision 9), the kind of run
- * it is ({@see RunProfile}), and whether its coverage map was measured against
- * the map its own scope keeps (ADR-0023, decision 2).
+ * it is ({@see RunProfile}), whether its coverage map was measured against
+ * the map its own scope keeps (ADR-0023, decision 2), and, for a plan that
+ * runs nothing because nothing the gate judges changed, the commit whose
+ * verdict stands ({@see Unchanged}).
  */
 final readonly class Briefing
 {
@@ -24,6 +26,7 @@ final readonly class Briefing
         private MemoryCap|NotGiven $peak,
         private RunProfile $kind,
         private bool $ownScopeCoverage,
+        private Unchanged|NotGiven $unchanged,
     ) {
     }
 
@@ -33,7 +36,12 @@ final readonly class Briefing
      */
     public static function standard(): self
     {
-        return new self(NotGiven::value(), RunProfile::standard(), ownScopeCoverage: false);
+        return new self(
+            NotGiven::value(),
+            RunProfile::standard(),
+            ownScopeCoverage: false,
+            unchanged: NotGiven::value(),
+        );
     }
 
     /** This briefing, with the most memory the unmutated suite's largest process held, or none measured. */
@@ -74,6 +82,18 @@ final readonly class Briefing
     public function onOwnScopeCoverage(): self
     {
         return clone($this, ['ownScopeCoverage' => true]);
+    }
+
+    /** This briefing, for a plan that runs nothing because the verdict of a commit that passed stands. */
+    public function unchangedSince(Unchanged $unchanged): self
+    {
+        return clone($this, ['unchanged' => $unchanged]);
+    }
+
+    /** The commit whose verdict stands for a plan that runs nothing; none where the plan runs what it plans. */
+    public function unchanged(): Unchanged|NotGiven
+    {
+        return $this->unchanged;
     }
 
     /** Whether the run's coverage map was measured against the map its own scope keeps. */

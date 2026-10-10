@@ -198,9 +198,13 @@ final readonly class Layout
     /** Whether a file, spelt from its package's directory, is test support: PHP under the tests, not of test cases. */
     public function isSupport(Path $inPackage): bool
     {
-        return array_any($this->tests, static fn(SuiteDirectory $tests): bool => $tests->holds($inPackage))
-            && $inPackage->isPhp()
-            && ! $this->isTest($inPackage);
+        return $this->isInTests($inPackage) && $inPackage->isPhp() && ! $this->isTest($inPackage);
+    }
+
+    /** Whether a file, spelt from its package's directory, is inside a directory of tests, whatever it holds. */
+    public function isInTests(Path $inPackage): bool
+    {
+        return array_any($this->tests, static fn(SuiteDirectory $tests): bool => $tests->holds($inPackage));
     }
 
     /** The modules a file is inside. */

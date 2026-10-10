@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Otlp;
 
 use DateTimeImmutable;
-use DateTimeZone;
 
 use function is_int;
 
@@ -130,7 +129,7 @@ final readonly class OtlpJson
 
     private static function nanos(Instant $instant): int
     {
-        $moment = DateTimeImmutable::createFromFormat(Instant::FORMAT, $instant->value(), new DateTimeZone('UTC'));
+        $moment = $instant->moment();
 
         return $moment instanceof DateTimeImmutable ? $moment->getTimestamp() * Seconds::NANOSECONDS : 0;
     }

@@ -10,7 +10,6 @@ use function array_merge;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\Change\Commit;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Node;
@@ -69,9 +68,6 @@ final readonly class LedgerFile
     public const string MUTATORS = 'mutators';
 
     public const string PASSED = 'passed';
-
-    /** The field of `passed` that says its coverage map was measured against the map its own scope keeps. */
-    public const string OWN_SCOPE_COVERAGE = 'ownScopeCoverage';
 
     public const string PROOFS = 'proofs';
 
@@ -177,23 +173,7 @@ final readonly class LedgerFile
     private static function passedIn(Node $file): ScopeRuns
     {
         try {
-            $passed = $file->field(self::PASSED);
-            $own = $passed->field('ownScopeProofs')->integer();
-            $commit = Commit::parse($passed->field('commit')->text());
-            $at = $passed->field('commit')->at();
-
-            $read = Passed::of(
-                $commit instanceof Commit ? $commit->revision() : throw NotInShape::at($at, 'a commit'),
-                $passed->field('check')->text(),
-                $own >= 0 ? $own : throw NotInShape::at($passed->field('ownScopeProofs')->at(), 'a count'),
-            );
-            $coverage = $passed->field(self::OWN_SCOPE_COVERAGE);
-
-            return ScopeRuns::none()->passing(match (true) {
-                ! $coverage->isPresent() => $read,
-                $coverage->boolean() => $read->onOwnScopeCoverage(),
-                default => throw NotInShape::at($coverage->at(), 'true'),
-            });
+            return ScopeRuns::none()->passing(PassedRecord::read($file->field(self::PASSED)));
         } catch (NotInShape) {
             return ScopeRuns::none();
         }

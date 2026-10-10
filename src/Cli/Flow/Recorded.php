@@ -86,6 +86,22 @@ final readonly class Recorded
     }
 
     /**
+     * The ledger of the scope the run writes, holding this commit as the
+     * newest that passed, for a run that judged nothing because the verdict
+     * of the commit that passed before it stands: no proof, no lesson and no
+     * last run, which any other run removes.
+     */
+    public function passing(Ledgers $ledgers, Passed $passed): Written|NotWritten|ReadsOnly
+    {
+        $scope = $ledgers->access()->writes();
+        $ledger = $ledgers->written();
+
+        return $scope instanceof Scope
+            ? $this->adapters->proofs->write($scope, $ledger->withRuns($ledger->runs()->passing($passed)->cutShort()))
+            : $scope;
+    }
+
+    /**
      * Whether the run judged every unit it considered: no shard's budget
      * stopped it, no held unit's tests missed its lines, and every unit it ran
      * left a proof, or carries its pruned mutators' last results (ADR-0005,

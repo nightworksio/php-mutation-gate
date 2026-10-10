@@ -47,6 +47,16 @@ final readonly class Instant
         return $this->value;
     }
 
+    /** The moment, in UTC, as a clock would have read it; or why it is no moment of the calendar. */
+    public function moment(): DateTimeImmutable|CannotJudge
+    {
+        $moment = DateTimeImmutable::createFromFormat(self::FORMAT, $this->value, new DateTimeZone(self::UTC));
+
+        return $moment instanceof DateTimeImmutable && $moment->format(self::FORMAT) === $this->value
+            ? $moment
+            : CannotJudge::because(sprintf('"%s" is no moment of the calendar.', $this->value));
+    }
+
     /** Whether this came after another; written in one zone and to the second, instants order as their text does. */
     public function isAfter(self $other): bool
     {

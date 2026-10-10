@@ -87,12 +87,7 @@ final readonly class LedgerJson
         }
 
         if ($passed instanceof Passed) {
-            yield LedgerFile::PASSED => JsonText::compact([
-                'commit' => $passed->commit()->name(),
-                'check' => $passed->check(),
-                'ownScopeProofs' => $passed->ownScopeProofs(),
-                ...$passed->measuredOnOwnScope() ? [LedgerFile::OWN_SCOPE_COVERAGE => true] : [],
-            ]);
+            yield LedgerFile::PASSED => JsonText::compact(PassedRecord::of($passed));
         }
 
         if ($lastRun instanceof LastRun) {

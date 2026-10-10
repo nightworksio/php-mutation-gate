@@ -240,6 +240,9 @@ services:
                     - ERRORS # the standard error stream's file number, not an argument's place or an exit code
                 'NightWorksIO\MutationGate\Core\Runner\Polling':
                     - MOMENT # seconds a closing process is given to be seen to end, not a check's least limit
+                'NightWorksIO\MutationGate\Core\Proof\PassedRecord':
+                    - COMMIT # a field of a passed commit's record, not of a proof's digests
+                    - CHECK # a field of a passed commit's record, not of the last run's
                 'NightWorksIO\MutationGate\Adapter\PhpUnit\Command':
                     - WRITING # the shell's flag that takes its script, not git's flag that takes a setting
                 'NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\BootCheck':

@@ -281,6 +281,8 @@ parameters:
                 - src/Adapter/*
                 - src/Cli/*
                 - tests/*
+                # builds the moment a written instant names, and never reads the clock
+                - src/Core/Time/Instant.php
 
         # --- B4: Symfony Process runs a program ----------------------------------
         -

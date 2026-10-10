@@ -166,7 +166,7 @@ final readonly class Judging
 
         $judged = new Judged(
             $verdict,
-            [$recorded, ...$this->kept($assessed->ledgers), ...$this->reported($verdict, $reporters)],
+            [$recorded, ...$this->kept($assessed->ledgers), ...Reported::by($verdict, $reporters)],
             $assessed->baseline,
         );
 
@@ -508,22 +508,6 @@ final readonly class Judging
         return $names instanceof TestNames ? $matrix->named($names) : $matrix;
     }
 
-    /**
-     * @param  list<Reporter> $reporters
-     * @return list<string>   where each reporter wrote, or why it could not
-     */
-    private function reported(Verdict $verdict, array $reporters): array
-    {
-        $said = [];
-
-        foreach ($reporters as $reporter) {
-            $written = $reporter->report($verdict);
-            $said[] = $written instanceof Written ? $written->said() : $written->why();
-        }
-
-        return $said;
-    }
-
     private function recorded(
         Plan $plan,
         Results $results,
@@ -531,8 +515,8 @@ final readonly class Judging
         Verdict $verdict,
         int $ownScopeProofs,
     ): string|CannotJudge {
-        $run = RunName::of($this->adapters->environment, Instant::at($this->setup->clock->now()), $plan->base())
-            ->recording($plan->briefing()->matrix());
+        $at = Instant::at($this->setup->clock->now());
+        $run = RunName::of($this->adapters->environment, $at, $plan->base())->recording($plan->briefing()->matrix());
         $unjudged = $verdict->trees()->mutants()->counts()->number(MutantJudgement::Unjudged);
         $passed = match (true) {
             $verdict->judgement() !== Judgement::Passed => CannotTell::because(self::FAILED),
@@ -540,8 +524,10 @@ final readonly class Judging
             $this->adapters->isSecurityOnly() => CannotTell::because(self::SECURITY_ONLY),
             $this->adapters->isSuiteOnly() => CannotTell::because(self::SUITE_ONLY),
             $plan->briefing()->isOnOwnScopeCoverage()
-                => Passed::of($plan->commit(), $this->settings->ci()->check(), $ownScopeProofs)->onOwnScopeCoverage(),
-            default => Passed::of($plan->commit(), $this->settings->ci()->check(), $ownScopeProofs),
+                => Passed::of($plan->commit(), $this->settings->ci()->check(), $ownScopeProofs)
+                    ->passedAt($at)
+                    ->onOwnScopeCoverage(),
+            default => Passed::of($plan->commit(), $this->settings->ci()->check(), $ownScopeProofs)->passedAt($at),
         };
         $judged = $this->adapters->changes->judged($plan->commit());
         $lastRun = $judged instanceof JudgedCommit

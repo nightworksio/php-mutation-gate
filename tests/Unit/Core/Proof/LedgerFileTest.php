@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Order\Enclosing;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\Kills;
@@ -470,7 +471,18 @@ it('reads a passing record that is not well formed as none', function (array|int
     'a count below none' => [['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate', 'ownScopeProofs' => -1]],
     'a count that is not whole' => [['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate', 'ownScopeProofs' => 1.5]],
     'own-scope coverage that is not true' => [['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate', 'ownScopeProofs' => 0, 'ownScopeCoverage' => false]],
+    'an instant that is not one' => [['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate', 'ownScopeProofs' => 0, 'at' => '2026-10-10']],
+    'an instant that is not text' => [['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate', 'ownScopeProofs' => 0, 'at' => 20261010]],
 ]);
+
+it('reads back when a passing verdict passed, and one without the field as one that does not say', function () use ($ledger, $data, $written): void {
+    $passed = Passed::of(Revision::ref('5eeca8f0a1b2c3d4e5f60718293a4b5c6d7e8f90'), 'mutation / verdict', 0)
+        ->passedAt(Instant::at(new DateTimeImmutable('2026-10-10T07:30:00Z')));
+    $plain = LedgerFile::decode($written([...$data(), 'passed' => ['commit' => '206b4e0c1f2a3b4c5d6e7f8091a2b3c4d5e6f708', 'check' => 'mutation-gate', 'ownScopeProofs' => 0]]))->runs()->passed();
+
+    expect(LedgerFile::decode(LedgerFile::encode($ledger->withRuns(ScopeRuns::none()->passing($passed))))->runs()->passed())->toEqual($passed)
+        ->and($plain instanceof Passed ? $plain->at() : $plain)->toEqual(NotGiven::value());
+});
 
 it('reads back a passing verdict measured against its own scope\'s coverage map as one, and one without the field as one that was not', function () use ($ledger, $data, $written): void {
     $passed = Passed::of(Revision::ref('5eeca8f0a1b2c3d4e5f60718293a4b5c6d7e8f90'), 'mutation / verdict', 0)->onOwnScopeCoverage();

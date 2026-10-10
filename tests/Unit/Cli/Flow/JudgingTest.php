@@ -54,6 +54,7 @@ use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Report\JsonReport;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
+use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
@@ -66,6 +67,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ReporterFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
@@ -221,7 +223,7 @@ it('records a pass under the check the config names', function () use ($tree, $r
 
     expect($verdict->judgement())->toBe(Judgement::Passed)
         ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->runs()->passed())
-        ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'gate / verdict', 0));
+        ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'gate / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW))));
 });
 
 it('records a pass measured against its own scope\'s coverage map as one that used its own scope, which the default branch never trusts', function () use ($tree, $reporting, $judged): void {
@@ -237,7 +239,7 @@ it('records a pass measured against its own scope\'s coverage map as one that us
     ));
     $passed = LedgerRead::ledger($store->read(Scope::branch('main')))->runs()->passed();
 
-    expect($passed)->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 0)->onOwnScopeCoverage())
+    expect($passed)->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW)))->onOwnScopeCoverage())
         ->and($passed instanceof Passed && $passed->usedOwnScope())->toBeTrue();
 });
 
@@ -570,7 +572,7 @@ it('counts the proofs and the results of its own scope it took, and records how 
     $passed = LedgerRead::ledger($store->read(Scope::pullRequest(7)))->runs()->passed();
 
     expect($judgement instanceof Judged ? $judgement->verdict->judgement() : $judgement)->toBe(Judgement::Passed)
-        ->and($passed)->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 2));
+        ->and($passed)->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 2)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW))));
 });
 
 it('uses none of its own scope where the default branch proved what it took', function () use (
@@ -596,7 +598,7 @@ it('uses none of its own scope where the default branch proved what it took', fu
     )->verdict($plan, JudgingRuns::noResults($project));
 
     expect(LedgerRead::ledger($store->read(Scope::pullRequest(7)))->runs()->passed())
-        ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 0));
+        ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW))));
 });
 
 it('cannot judge where a unit the plan proved or carried has lost its proof', function () use (
@@ -650,7 +652,7 @@ it('takes a planned proof from the run\'s own scope where it has moved there fro
 
     expect($judgement instanceof Judged ? count($judgement->verdict->trees()->units()) : $judgement)->toBe(1)
         ->and(LedgerRead::ledger($store->read(Scope::pullRequest(7)))->runs()->passed())
-        ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 1));
+        ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 1)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW))));
 });
 
 it('carries the last result\'s mutants of a mutator the plan pruned into the unit, and writes no proof of it', function () use ($tree, $reporting, $judged): void {

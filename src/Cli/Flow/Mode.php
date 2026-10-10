@@ -47,6 +47,12 @@ final readonly class Mode
         return new self($ref);
     }
 
+    /** Whether the change is read since the newest commit of the run's scope whose verdict passed, as by default. */
+    public function isSinceLastPassed(): bool
+    {
+        return $this->since === self::LAST_PASSED;
+    }
+
     /** Whether every unit is considered, as `--full` asks. */
     public function isFull(): bool
     {

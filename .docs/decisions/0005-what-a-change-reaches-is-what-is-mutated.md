@@ -405,6 +405,34 @@ The same repository has two more needs.
     files of the units the run considered. It is a warning, not a failure,
     because the verdict stays correct and only its cost is at stake.
 
+12. **A change nothing the gate judges touches plans nothing.** A standard
+    run (no `--security`, no `--suite`, first killers) that reads its change
+    since `last-passed` runs no coverage, keys nothing and cuts no shard,
+    and its verdict passes saying the earlier verdict stands, when all of
+    these hold:
+    - the newest commit of the scope whose verdict passed was judged under
+      the run's own `ci.check`, and its record says when it passed
+      (ADR-0007, `passed.at`);
+    - every path the change since that commit touched, as it is and, for a
+      rename, as it was, is no PHP file and lies outside every directory of
+      tests;
+    - no such path decides how the gate runs (rule 1: the config and every
+      file it reads, `composer.json`, `composer.lock`,
+      `vendor/composer/installed.json`, the runner's definitions, the CI
+      definitions that run the gate, and `reach.everything` with its
+      presets), and none is the baseline;
+    - no ignore that applied when that commit passed has expired since,
+      judged on the days of the clock that reads now. The verdict checks
+      this again, and cannot judge where one expired after the plan.
+
+    The plan still writes `plan.json`, with no shard and the commit whose
+    verdict stands, so every CI's chain runs the verdict as ever. The verdict
+    reports, and records the commit the plan was made on as passed at its
+    own instant, with the earlier commit's `ownScopeProofs` and
+    `ownScopeCoverage`. It writes no proof and no lesson, and drops the
+    scope's `lastRun`, as any other run does. Anything else, and the plan
+    runs as ever.
+
 ## Alternatives considered
 
 | Option | Why it lost |
@@ -420,6 +448,8 @@ The same repository has two more needs.
 | **Reading `#[Holds]` by reflection** | Loads test classes, which can run code at load time. Tokens are enough to read an attribute's argument. The Pest plugin reads it by reflection only inside Pest's own runs, which load the test files anyway. |
 | **`#[Holds]` refused under Pest, with groups as the only Pest form** | One attribute would then mean different things per runner. The plugin can add the group at the point Pest adds its own, so the attribute works with both. |
 | **Translating `#[Holds]` on a PHPUnit class run by Pest** | PHPUnit takes groups only from its own `Group` attribute, which is final, and the only other hook is PHPUnit's `@internal` metadata registry. Asking for the `#[Group]` beside it costs one line and patches nothing. |
+| **Working out the reach before any coverage run, for every change** | A reach worked out on an empty map records other digests than the map's test files give, which risks carrying results it should not. The kept map (ADR-0023) already runs no coverage for a change that moves no test entry. |
+| **Skipping wherever the change reaches nothing, by rule 5 alone** | The verdict also reads the ignores' days, the baseline and the reports' config, which no reach rule counts. Only a change that touches none of those, and no PHP, leaves a verdict standing. |
 | **Failing, not warning, on an unheld hot path** | The verdict is still right, only slow. A failure would make adopting the gate on a framework app mean restructuring tests first. |
 
 ## Consequences

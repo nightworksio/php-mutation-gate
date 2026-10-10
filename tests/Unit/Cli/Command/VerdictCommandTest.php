@@ -10,8 +10,12 @@ use NightWorksIO\MutationGate\Cli\Command\VerdictCommand;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
 use NightWorksIO\MutationGate\Cli\Flow\Judged;
+use NightWorksIO\MutationGate\Cli\Flow\LastRun;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Change\Change;
+use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Problem;
@@ -19,20 +23,30 @@ use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Delivery\DeliveryFile;
 use NightWorksIO\MutationGate\Core\Delivery\KeptPost;
 use NightWorksIO\MutationGate\Core\Delivery\LedgerPost;
+use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
+use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
 use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Verdict\HeldTo;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
+use NightWorksIO\MutationGate\Core\Verdict\Verdict;
+use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
+use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\LedgerRead;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
@@ -250,4 +264,43 @@ it('offers to leave what needs a credential for deliver', function () use ($comp
     $definition = VerdictCommand::command($composed(FlowCommands::project(), 40))->getDefinition();
 
     expect($definition->getOption('deliver-later')->acceptValue())->toBeFalse();
+});
+
+it('plans nothing and passes, recording the commit, where only files that do not matter to the gate changed since the last that passed', function (): void {
+    $project = FlowCommands::project();
+    $proofs = new ProofStoreFake();
+    $base = '5eeca8f0a1b2c3d4e5f60718293a4b5c6d7e8f90';
+    $proofs->write(Scope::branch('main'), Ledger::empty()->withRuns(ScopeRuns::none()->passing(
+        Passed::of(Revision::ref($base), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable('2026-09-29T08:00:00Z'))),
+    )));
+    $composition = FlowCommands::reading(
+        Trees::of(Tree::at(Path::of('src'), Floor::of(90.0), Package::at(Path::root()))),
+        $project,
+        ScriptedRunner::fixture(),
+        $proofs,
+        Flows::ci(),
+        Variables::of([]),
+        RepositoryFake::onMain(Revision::ref(Flows::HEAD)),
+        new ChangeSourceFake(
+            Revision::ref($base),
+            Changes::of(Change::modified(Path::of('README.md'), Lines::none())),
+            [Revision::workingTree()->name() => Flows::FILES, $base => Flows::FILES, Flows::MAIN => Flows::FILES],
+        ),
+    );
+    $reason = sprintf('Nothing the gate judges changed since %s, whose verdict passed at 2026-09-29T08:00:00Z, so its verdict stands.', $base);
+
+    $plan = FlowCommands::run(PlanCommand::command($composition));
+    $verdict = FlowCommands::run(VerdictCommand::command($composition));
+    $flow = $composition->compose(new ArrayInput([]));
+    $again = $flow instanceof Composed ? LastRun::verdict($flow) : $flow;
+
+    expect($plan->code)->toBe(0)
+        ->and($plan->errors)->toContain(sprintf('Measured no coverage: %s', $reason))
+        ->and($plan->errors)->toContain('Wrote .mutation-gate/plan.json, with 0 shards.')
+        ->and($verdict->code)->toBe(0)
+        ->and($verdict->output)->toStartWith("Wrote memory:refs/heads/main.\nmutation-gate: passed\n")
+        ->and($verdict->output)->toContain($reason)
+        ->and($again instanceof Verdict ? [$again->judgement(), count($again->trees())] : $again)->toBe([Judgement::Passed, 0])
+        ->and(LedgerRead::ledger($proofs->read(Scope::branch('main')))->runs()->passed())
+        ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW))));
 });
