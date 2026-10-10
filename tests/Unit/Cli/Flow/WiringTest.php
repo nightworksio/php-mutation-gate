@@ -769,7 +769,9 @@ it('judges by the suites tests.suites lists where the PHPUnit config declares ea
     $wiring = new Wiring(wiringRegistry(), Variables::of([]), wiringDetected());
     $listed = $wiring->adapters(Flows::settings(Runner::pest(), TestsSetting::suites('Unit')), Directory::at($project));
 
-    expect($listed instanceof Adapters ? $listed->narrowing->selected() : $listed)->toEqual(Suites::named(SuiteName::of('Unit')))
+    expect($listed instanceof Adapters ? $listed->narrowing->suitesFor(WholeSuite::tests()) : $listed)->toEqual(Suites::named(SuiteName::of('Unit')))
         ->and($wiring->adapters(Flows::settings(Runner::pest(), TestsSetting::suites('Unit', 'e2e')), Directory::at($project)))
-        ->toEqual(CannotJudge::because('tests.suites lists e2e, which names no test suite. The PHPUnit config declares: Unit, Process.'));
+        ->toEqual(CannotJudge::because('tests.suites lists e2e, which names no test suite. The PHPUnit config declares: Unit, Process.'))
+        ->and($wiring->adapters(Flows::settings(Runner::pest(), TestsSetting::holding('Proc')), Directory::at($project)))
+        ->toEqual(CannotJudge::because('tests.holding lists Proc, which names no test suite. The PHPUnit config declares: Unit, Process.'));
 });

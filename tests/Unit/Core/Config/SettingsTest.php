@@ -273,7 +273,7 @@ describe('Settings', function (): void {
             . '"pest":{"canary":"canary","patch":true},"pruning":{"enabled":false,"window":200},'
             . '"runner":{"memory":"512M","use":"infection","withhold":["DEPLOY_*","COMPOSER_AUTH"],"workers":"fresh"},'
             . '"staticCheck":{"config":"phpstan.dist.neon","seconds":45,"tool":"phpstan"},'
-            . '"tests":{"order":"killers-first","suites":["Unit","Plugins"]},"timeouts":{"most":120,"seconds":30,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},'
+            . '"tests":{"holding":["Process"],"order":"killers-first","suites":["Unit","Plugins"]},"timeouts":{"most":120,"seconds":30,"tighter":{"floor":7,"mutators":["RemoveArrayItem","DecrementInteger","IncrementInteger","ForeachEmptyIterable","UnwrapArrayValues","InstanceOfToTrue","InstanceOfToFalse","TernaryNegated","ArrayItemRemoval","Foreach_","InstanceOf_","Ternary"]}},'
             . '"treeSource":{"use":"phpunit","with":{"fallback":["app","lib"]}},'
             . '"trees":[{"path":"app/Domain"},{"path":"app/Http"},'
             . '{"path":"app/Generated"},{"path":"app/Legacy"}]}',

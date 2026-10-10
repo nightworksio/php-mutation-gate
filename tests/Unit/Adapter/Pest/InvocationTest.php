@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestPaths;
@@ -315,4 +316,15 @@ it('keeps the coverage run and the mutation run to one suite where the run names
         ->and(array_slice(invocation()->coverage($run->amongSuites(Suites::named(SuiteName::of('unit'))), '/p/cov', reach())->arguments(), -1))
         ->toBe(['--testsuite=unit'])
         ->and(invocation()->coverage($run, '/p/cov', reach())->arguments())->not->toContain('--testsuite=unit');
+});
+
+it('runs the holding suites too where the tests that hold a unit judge it, and never for the whole suite', function (): void {
+    $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests());
+    $listed = $request->narrowedTo($request->files(), Narrowing::none()->amongSuites(JudgingSuites::holding(Suites::listed('Unit'), Suites::listed('Process'))));
+    $held = Group::named('holds:src/Shell.php');
+
+    expect(invocation()->mutation($listed, WholeSuite::tests(), '/p/results.jsonl')->arguments())->toContain('--testsuite=Unit')
+        ->and(invocation()->mutation($listed, $held, '/p/results.jsonl')->arguments())->toContain('--testsuite=Unit,Process')
+        ->and(invocation()->opening($listed, WholeSuite::tests(), '/p/events.txt')->arguments())->toContain('--testsuite=Unit')
+        ->and(invocation()->opening($listed, $held, '/p/events.txt')->arguments())->toContain('--testsuite=Unit,Process');
 });

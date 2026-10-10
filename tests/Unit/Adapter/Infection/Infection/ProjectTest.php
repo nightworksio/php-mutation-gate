@@ -60,6 +60,7 @@ use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Runner\TighterVariables;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -428,6 +429,22 @@ it('keeps the coverage run and every mutant\'s tests to the suite the request na
         ->and($ran[0])->toContain('--testsuite=unit')
         ->and($ran[1])->toContain('--test-framework-extra-args=--group="holds:src/Money.php" --testsuite="unit"')
         ->and($ran[2])->toContain('--testsuite=unit');
+});
+
+it('runs the holding suites too for a held unit\'s coverage and mutants, and never for a unit the whole suite judges', function (): void {
+    $at = InfectionCases::project();
+    $shell = InfectionCases::shell($at, [
+        'killed' => [InfectionRun::entry('Plus', sprintf('%s/src/Money.php', $at->root()), 11, '$a + $b', '$a - $b')],
+    ]);
+    $suites = Narrowing::none()->amongSuites(JudgingSuites::holding(Suites::listed('Unit'), Suites::listed('Process')));
+    $infection = new Infection($at, $shell, LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory());
+    $held = MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Money.php'));
+    $infection->mutate($held->narrowedTo($held->files(), $suites));
+    $ran = InfectionCases::ran($shell);
+
+    expect($ran)->toHaveCount(2)
+        ->and($ran[0])->toContain('--testsuite=Unit,Process')
+        ->and($ran[1])->toContain('--test-framework-extra-args=--group="holds:src/Money.php" --testsuite="Unit,Process"');
 });
 
 it('reads the lines no test ran from the report beside the XML coverage, which leaves them out', function (): void {

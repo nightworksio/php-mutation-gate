@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -179,18 +181,30 @@ it('refuses a suite the PHPUnit config does not declare, naming those it does', 
 it('judges its runs by the suites tests.suites lists where the PHPUnit config declares each, narrowing nothing', function (): void {
     $listed = Suites::named(SuiteName::of('unit'), SuiteName::of('feature'));
     $adapters = composedInSuites('<testsuite name="unit"/><testsuite name="feature"/><testsuite name="e2e"/>')->adapters;
-    $judged = $adapters->judgedAmong($listed);
+    $judged = $adapters->judgedAmong(JudgingSuites::judging($listed));
 
-    expect($judged instanceof Adapters ? $judged->narrowing->selected() : $judged)->toEqual($listed)
+    expect($judged instanceof Adapters ? $judged->narrowing->suitesFor(WholeSuite::tests()) : $judged)->toEqual($listed)
         ->and($judged instanceof Adapters && $judged->isSuiteOnly())->toBeFalse()
         ->and($judged instanceof Adapters ? $judged->briefing(Briefing::standard()) : $judged)->toEqual(Briefing::standard())
-        ->and($adapters->judgedAmong(Suites::all()))->toEqual($adapters);
+        ->and($adapters->judgedAmong(JudgingSuites::every()))->toEqual($adapters);
+});
+
+it('judges a held unit by the holding suites too, and has every other declared suite judge every unit where none is listed to', function (): void {
+    $adapters = composedInSuites('<testsuite name="Unit"/><testsuite name="Process"/><testsuite name="Contract"/>')->adapters;
+    $judged = $adapters->judgedAmong(JudgingSuites::holding(Suites::all(), Suites::listed('Process')));
+    $whole = CoverageRun::of(WholeSuite::tests(), Path::of('cov'));
+    $held = CoverageRun::of(Group::named('holds:src/Shell.php'), Path::of('held'));
+
+    expect($judged instanceof Adapters ? $judged->covering($whole)->suites() : $judged)->toEqual(Suites::listed('Unit', 'Contract'))
+        ->and($judged instanceof Adapters ? $judged->covering($held)->suites() : $judged)->toEqual(Suites::listed('Unit', 'Contract', 'Process'))
+        ->and($adapters->judgedAmong(JudgingSuites::holding(Suites::all(), Suites::listed('Unit', 'Process', 'Contract'))))
+        ->toBeInstanceOf(CannotJudge::class);
 });
 
 it('refuses a suite tests.suites lists that the PHPUnit config does not declare, naming those it does', function (): void {
-    expect(composedInSuites('<testsuite name="unit"/><testsuite name="feature"/>')->adapters->judgedAmong(Suites::named(SuiteName::of('unit'), SuiteName::of("e2e\e[31m"))))
+    expect(composedInSuites('<testsuite name="unit"/><testsuite name="feature"/>')->adapters->judgedAmong(JudgingSuites::judging(Suites::named(SuiteName::of('unit'), SuiteName::of("e2e\e[31m")))))
         ->toEqual(CannotJudge::because('tests.suites lists e2e[31m, which names no test suite. The PHPUnit config declares: unit, feature.'))
-        ->and(composedInSuites('')->adapters->judgedAmong(Suites::named(SuiteName::of('unit'))))
+        ->and(composedInSuites('')->adapters->judgedAmong(JudgingSuites::judging(Suites::named(SuiteName::of('unit')))))
         ->toEqual(CannotJudge::because('tests.suites lists unit, which names no test suite: the PHPUnit config declares none by name.'));
 });
 
@@ -199,8 +213,8 @@ it('lists every suite without reading the PHPUnit config, and refuses listing an
     mkdir(sprintf('%s/phpunit.xml', $project));
     $unread = Flows::adapters($project);
 
-    expect($unread->judgedAmong(Suites::all()))->toEqual($unread)
-        ->and($unread->judgedAmong(Suites::named(SuiteName::of('unit'))))->toBeInstanceOf(CannotJudge::class);
+    expect($unread->judgedAmong(JudgingSuites::every()))->toEqual($unread)
+        ->and($unread->judgedAmong(JudgingSuites::judging(Suites::named(SuiteName::of('unit')))))->toBeInstanceOf(CannotJudge::class);
 });
 
 it('refuses any suite where the PHPUnit config cannot be read', function (): void {

@@ -197,7 +197,7 @@ final readonly class SettingsCases
         'budget' => '1h30m',
         'timeouts' => ['mode' => 'unjudged', 'seconds' => 30, 'most' => 120],
         'flaky' => ['confirmSurvivors' => false],
-        'tests' => ['suites' => ['Unit', 'Plugins', 'Unit']],
+        'tests' => ['suites' => ['Unit', 'Plugins', 'Unit'], 'holding' => ['Process']],
         'survivorsFirst' => ['max' => 5],
         'ignores' => [
             'entries' => [

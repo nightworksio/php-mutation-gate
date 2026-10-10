@@ -40,6 +40,24 @@ final readonly class Suites implements IteratorAggregate
         return new self([$first, ...array_values($more)]);
     }
 
+    /** These suites, then those, each once; every suite where either is every suite. */
+    public function and(self $more): self
+    {
+        $names = [];
+
+        foreach ([...$this->names, ...$more->names] as $name) {
+            $names[$name->value()] = $name;
+        }
+
+        return $this->isAll() || $more->isAll() ? self::all() : new self(array_values($names));
+    }
+
+    /** The suites of these names; every suite where none is named, as a config that lists none means. */
+    public static function listed(string ...$names): self
+    {
+        return new self(array_values(array_map(SuiteName::of(...), $names)));
+    }
+
     /** Whether it runs every suite, naming none. */
     public function isAll(): bool
     {

@@ -206,6 +206,7 @@ options.
 | `flaky.confirmSurvivors` | boolean | `true` | [0008](../decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `tests.order` | `killers-first` or `runner` | `killers-first` | [0013](../decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | `tests.suites` | list of `<testsuite>` names of the PHPUnit config, at least one: the suites whose tests judge | every suite | [0002](../decisions/0002-one-typed-config-from-several-formats.md) |
+| `tests.holding` | list of `<testsuite>` names, at least one and none in `tests.suites`: the suites whose tests judge only the units they hold with `#[Holds]` | none | [0002](../decisions/0002-one-typed-config-from-several-formats.md) |
 | `survivorsFirst.max` | whole number, at least 0: how many of the last run's survivors a pull request's run re-checks before its shards, those on changed lines first; `0` re-checks none | `20` | [0020](../decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
 | `ignores.entries` | list of `{mutant, reason, expires}` or `{path, mutator, reason, expires}` | `[]` | [0008](../decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `ignores.maxDays` | integer | none | [0008](../decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |

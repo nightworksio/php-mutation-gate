@@ -68,7 +68,7 @@ final readonly class Invocation
     {
         $options = [
             ...$this->judgedBy($request->judgedBy()),
-            ...PhpUnitOption::inSuites($request->narrowing()->selected()),
+            ...PhpUnitOption::inSuites($request->narrowing()->suitesFor($request->judgedBy())),
         ];
 
         return $this->mutant($files, $request->search()->matrix(), ...$options)
