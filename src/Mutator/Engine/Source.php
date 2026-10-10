@@ -7,10 +7,7 @@ namespace NightWorksIO\MutationGate\Mutator\Engine;
 use function array_key_exists;
 use function array_keys;
 use function array_values;
-use function class_implements;
-use function class_parents;
-use function count;
-use function ksort;
+use function iterator_to_array;
 
 use NightWorksIO\MutationGate\Core\Cost\MutantSites;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -24,12 +21,9 @@ use PhpParser\Node\Stmt;
 use PhpParser\Node\Stmt\ClassMethod;
 use PhpParser\NodeFinder;
 use PhpParser\NodeTraverser;
-use PhpParser\NodeVisitor;
 use PhpParser\NodeVisitor\CloningVisitor;
-use PhpParser\NodeVisitor\FindingVisitor;
 use PhpParser\NodeVisitor\NameResolver;
 use PhpParser\NodeVisitor\ParentConnectingVisitor;
-use PhpParser\NodeVisitorAbstract;
 use PhpParser\Parser;
 use PhpParser\ParserFactory;
 use PhpParser\PrettyPrinter\Standard;
@@ -69,22 +63,42 @@ final readonly class Source
     public function edits(Mutator $mutator, Offered $offered): Edits
     {
         $edits = [];
-        $offers = count($this->offered($this->fresh(), $mutator, $offered));
 
-        for ($at = 0; $at < $offers; $at++) {
-            $tree = $this->fresh();
-            $node = $this->offered($tree, $mutator, $offered)[$at];
-            $change = $mutator->mutate($node);
-
-            if (! $change instanceof Unchanged) {
-                $mutated = new NodeTraverser($this->replacing($node, $change, $offered))->traverse($tree);
-                $printed = new Standard()->printFormatPreserving($mutated, $this->statements, $this->tokens);
-                $start = Line::of($node->getStartLine());
-                $edits[] = Edit::of($start, Line::of($node->getEndLine()), $this->code, $printed);
-            }
+        foreach ($this->changes($offered, $mutator) as $change) {
+            $edits[] = $change->edit();
         }
 
         return Edits::of(...$edits);
+    }
+
+    /**
+     * Every change these mutators make to a node each is offered, mutator by
+     * mutator, each one's in the order the nodes stand. The code is read into
+     * one tree, every mutator's nodes are found in one walk of it, and each
+     * change is printed in a copy of its node's ancestors, so the tree every
+     * change is made to is the code as it was.
+     */
+    public function changes(Offered $offered, Mutator ...$mutators): Changes
+    {
+        $tree = $this->fresh();
+        $offers = $this->offers($tree, $offered, ...$mutators);
+        $printer = new Standard();
+        $changes = [];
+
+        foreach (array_values($mutators) as $at => $mutator) {
+            foreach (array_key_exists($at, $offers) ? $offers[$at] : [] as $node) {
+                $change = $mutator->mutate($node);
+
+                if (! $change instanceof Unchanged) {
+                    $printed = $this->printedWith($tree, $node, $change, $offered, $printer);
+                    $start = Line::of($node->getStartLine());
+                    $edit = Edit::of($start, Line::of($node->getEndLine()), $this->code, $printed);
+                    $changes[] = Change::of($mutator, $edit);
+                }
+            }
+        }
+
+        return Changes::of(...$changes);
     }
 
     /**
@@ -97,7 +111,7 @@ final readonly class Source
      */
     public function sites(Path $file, Mutator ...$mutators): MutantSites
     {
-        $byClass = $this->byClass(...$mutators);
+        $handlers = Handlers::of(...$mutators);
         $handling = [];
         $starts = [];
 
@@ -105,7 +119,7 @@ final readonly class Source
             $class = $node::class;
 
             if (! array_key_exists($class, $handling)) {
-                $handling[$class] = $this->handling($byClass, $class);
+                $handling[$class] = iterator_to_array($handlers->handling($node), preserve_keys: true);
             }
 
             foreach ($handling[$class] as $mutator) {
@@ -116,54 +130,6 @@ final readonly class Source
         }
 
         return MutantSites::inFile($file, ...$starts);
-    }
-
-    /**
-     * Each mutator, by its place, under each node class it handles, read once
-     * per file, so the mutators that handle a node are found by its class.
-     *
-     * @return array<string, array<int, Mutator>>
-     */
-    private function byClass(Mutator ...$mutators): array
-    {
-        $byClass = [];
-
-        foreach (array_values($mutators) as $place => $mutator) {
-            foreach ($mutator->handles() as $class) {
-                $byClass[$class][$place] = $mutator;
-            }
-        }
-
-        return $byClass;
-    }
-
-    /**
-     * The mutators that handle nodes of a class: those filed under it, a
-     * class it extends or an interface it implements, each once, in the
-     * order they were given.
-     *
-     * @param  array<string, array<int, Mutator>> $byClass
-     * @param  class-string<Node>                 $class
-     * @return list<Mutator>
-     */
-    private function handling(array $byClass, string $class): array
-    {
-        $handling = [];
-        $parents = class_parents($class);
-        $interfaces = class_implements($class);
-        $kinds = [
-            $class,
-            ...array_keys($parents === false ? [] : $parents),
-            ...array_keys($interfaces === false ? [] : $interfaces),
-        ];
-
-        foreach ($kinds as $kind) {
-            $handling += array_key_exists($kind, $byClass) ? $byClass[$kind] : [];
-        }
-
-        ksort($handling);
-
-        return array_values($handling);
     }
 
     /**
@@ -182,48 +148,67 @@ final readonly class Source
     }
 
     /**
-     * The nodes a mutator is offered in a tree, in the order they stand.
+     * The nodes each mutator is offered in a tree, by the mutator's position,
+     * in the order they stand: each node is offered to the mutators that
+     * handle its class, found once for the class.
      *
-     * @param  list<Node> $tree
-     * @return list<Node>
+     * @param  list<Node>             $tree
+     * @return array<int, list<Node>>
      */
-    private function offered(array $tree, Mutator $mutator, Offered $offered): array
+    private function offers(array $tree, Offered $offered, Mutator ...$mutators): array
     {
-        $finding = new FindingVisitor(fn(Node $node): bool => $mutator->handles()->has($node)
-            && ($offered === Offered::Everywhere || $this->inClassMethod($node)));
-        new NodeTraverser($finding)->traverse($tree);
+        $handlers = Handlers::of(...$mutators);
+        $handling = [];
+        $offers = [];
 
-        return $finding->getFoundNodes();
-    }
+        foreach (new NodeFinder()->findInstanceOf($tree, Node::class) as $node) {
+            $class = $node::class;
 
-    private function inClassMethod(Node $node): bool
-    {
-        $at = $node;
+            if (! array_key_exists($class, $handling)) {
+                $handling[$class] = array_keys(iterator_to_array($handlers->handling($node), preserve_keys: true));
+            }
 
-        while ($at instanceof Node && ! $at instanceof ClassMethod) {
-            $parent = $at->getAttribute(Mutator::PARENT);
-            $at = $parent instanceof Node ? $parent : false;
+            if ($offered === Offered::Everywhere || $this->inClassMethod($node)) {
+                foreach ($handling[$class] as $at) {
+                    $offers[$at][] = $node;
+                }
+            }
         }
 
-        return $at instanceof ClassMethod;
+        return $offers;
     }
 
-    /** A visitor that puts a change in the place of the node it was made for, as the runner would. */
-    private function replacing(Node $target, Node|Removal $change, Offered $offered): NodeVisitor
+    /** Whether a node is a class's method or stands inside one. */
+    private function inClassMethod(Node $node): bool
     {
-        return new class ($target, $change, $offered) extends NodeVisitorAbstract {
-            public function __construct(
-                private readonly Node $target,
-                private readonly Node|Removal $change,
-                private readonly Offered $offered,
-            ) {
-            }
+        $parent = $node->getAttribute(Mutator::PARENT);
 
-            public function leaveNode(Node $node): Node|int
-            {
-                return $node === $this->target ? $this->offered->replacing($node, $this->change) : $node;
-            }
-        };
+        return $node instanceof ClassMethod || ($parent instanceof Node && $this->inClassMethod($parent));
+    }
+
+    /**
+     * The code printed with a change in the place of the node it was made
+     * for, as the runner would put it; the change's own attributes are as
+     * they were once it is printed.
+     *
+     * @param list<Node> $tree
+     */
+    private function printedWith(
+        array $tree,
+        Node $node,
+        Node|Removal $change,
+        Offered $offered,
+        Standard $printer,
+    ): string {
+        $attributes = $change instanceof Node ? $change->getAttributes() : [];
+        $replaced = [...Replaced::in($node, $offered->replacing($node, $change), ...$tree)];
+        $printed = $printer->printFormatPreserving($replaced, $this->statements, $this->tokens);
+
+        if ($change instanceof Node) {
+            $change->setAttributes($attributes);
+        }
+
+        return $printed;
     }
 
     private static function parser(): Parser
