@@ -118,7 +118,7 @@ final readonly class MutationRun
             $coverage,
             $request->pool()->processes(),
             $targets->paths(),
-            $request->narrowing()->selected(),
+            $request->narrowing()->suitesFor($request->judgedBy()),
         )->withholding($request->withheld())->within($request->deadline())->with([
             ChildVariable::MutantFloor->value => sprintf('%F', $bounds->floor()->seconds()),
             ChildVariable::Results->value => $this->project->own(Invocation::SILENCED),

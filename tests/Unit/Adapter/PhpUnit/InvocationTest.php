@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Test\Filter;
+use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -138,6 +140,23 @@ it('keeps the coverage run and each mutant\'s run to one suite where the run nam
         ->and(array_slice($invocation->coverage($run->amongSuites(Suites::named(SuiteName::of('unit'))), '/map.php')->arguments(), -1))
         ->toBe(['--testsuite=unit'])
         ->and($invocation->coverage($run, '/map.php')->arguments())->not->toContain('--testsuite=unit');
+});
+
+it('runs the holding suites too in a mutant\'s run its unit\'s holding tests judge, and never in one the whole suite judges', function () use ($project): void {
+    $at = $project();
+    $files = MutantFiles::startingUp($at, Path::of('src/Money.php'));
+    $invocation = new Invocation($at, '/gate/override.php');
+    $suites = Narrowing::none()->amongSuites(JudgingSuites::holding(Suites::listed('Unit'), Suites::listed('Process')));
+    $mutant = static function (WholeSuite|Filter $judgedBy) use ($files, $invocation, $suites): array {
+        $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), $judgedBy);
+
+        return $files instanceof MutantFiles
+            ? $invocation->of($files, $request->narrowedTo($request->files(), $suites), Seconds::of(10.0))->arguments()
+            : [];
+    };
+
+    expect($mutant(WholeSuite::tests()))->toContain('--testsuite=Unit')
+        ->and($mutant(Filter::matching('MoneyTest')))->toContain('--testsuite=Unit,Process');
 });
 
 it('starts a warm worker as a mutant\'s own run starts PHP, on the worker\'s script, the autoloader and its place, writing its output to its files', function () use ($project): void {

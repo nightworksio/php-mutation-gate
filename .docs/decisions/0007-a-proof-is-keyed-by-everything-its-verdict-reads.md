@@ -79,8 +79,8 @@ has to bring its result with it.
         `runner.workers` (ADR-0023, decision 14),
         `pest.patch`, `pest.canary`,
         `timeouts.seconds`, `timeouts.most`, `flaky.confirmSurvivors`,
-        `tests.order` (ADR-0013, decision 4), `tests.suites` (ADR-0002,
-        decision 8), `mutators.sets` and
+        `tests.order` (ADR-0013, decision 4), `tests.suites` and
+        `tests.holding` (ADR-0002, decision 8), `mutators.sets` and
         `mutators.except` (ADR-0021), `extensions`, the Buildkite step template
         (`ci.buildkite.step`) and the CI files the gate is told of
         (`ci.*.definition`, `ci.gitlab.template`), and what decides the trees and packages (`trees[].path`, `trees[].exclude` (ADR-0016), `treeSource`,

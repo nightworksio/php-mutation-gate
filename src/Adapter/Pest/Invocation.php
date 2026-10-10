@@ -142,7 +142,7 @@ final readonly class Invocation
             sprintf('--path=%s', PathList::of($request->files())->joined(',')),
             sprintf('--ignore=%s', $this->ignored($request->leftOut())),
             ...$this->narrowedTo($judgedBy),
-            ...PhpUnitOption::inSuites($request->narrowing()->selected()),
+            ...PhpUnitOption::inSuites($request->narrowing()->suitesFor($judgedBy)),
             ...$this->applying($request->narrowing()->mutators(), $bridges),
         )->with([
             GateVariable::Results->value => $results,
@@ -202,7 +202,7 @@ final readonly class Invocation
             PhpUnitOption::NoColors->value,
             sprintf('%s=%s', PhpUnitOption::LogEventsText->value, $events),
             ...$this->narrowedTo($opensOn),
-            ...PhpUnitOption::inSuites($request->narrowing()->selected()),
+            ...PhpUnitOption::inSuites($request->narrowing()->suitesFor($opensOn)),
         );
     }
 

@@ -49,7 +49,7 @@ final readonly class Covering
             $config,
             $request->judgedBy(),
             $own,
-            $request->narrowing()->selected(),
+            $request->narrowing()->suitesFor($request->judgedBy()),
             CoverageFor::Mutation,
         )->withholding($request->withheld());
 

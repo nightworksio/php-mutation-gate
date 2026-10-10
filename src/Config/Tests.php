@@ -9,7 +9,8 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 
 /**
  * The order each mutant's covering tests run in (ADR-0008), `tests.order`,
- * and the suites whose tests judge them (ADR-0002), `tests.suites`.
+ * and the suites whose tests judge them (ADR-0002), `tests.suites` and
+ * `tests.holding`.
  */
 final readonly class Tests implements Setting
 {
@@ -33,6 +34,15 @@ final readonly class Tests implements Setting
     public static function suites(string $first, string ...$more): self
     {
         return new self(Json::at('tests.suites', Json::items($first, ...$more)));
+    }
+
+    /**
+     * The `<testsuite>`s whose tests judge only the units they hold with
+     * `#[Holds]`, by name, such as a suite of tests that start real processes.
+     */
+    public static function holding(string $first, string ...$more): self
+    {
+        return new self(Json::at('tests.holding', Json::items($first, ...$more)));
     }
 
     public function written(): Json

@@ -42,7 +42,9 @@ use NightWorksIO\MutationGate\Core\Runner\Uncapped;
 use NightWorksIO\MutationGate\Core\Runner\Unmade;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -152,6 +154,18 @@ it('runs the coverage run and each mutant\'s tests of the suite the request name
     expect($shell->commands())->toHaveCount(2)
         ->and($shell->commands()[0]->arguments())->toContain('--testsuite=unit')
         ->and($shell->commands()[1]->arguments())->toContain('--testsuite=unit');
+});
+
+it('runs the holding suites too for a held unit\'s coverage and each of its mutants\' tests', function (): void {
+    $project = mutatingProject();
+    $shell = mutatingPhpUnit($project, new ArrayObject());
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Money.php'));
+    $listed = $request->narrowedTo($request->files(), Narrowing::none()->amongSuites(JudgingSuites::holding(Suites::listed('Unit'), Suites::listed('Process'))));
+    mutating($project, $shell)->result($listed, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)), NotGiven::value());
+
+    expect($shell->commands())->toHaveCount(2)
+        ->and($shell->commands()[0]->arguments())->toContain('--testsuite=Unit,Process')
+        ->and($shell->commands()[1]->arguments())->toContain('--testsuite=Unit,Process');
 });
 
 it('runs a held unit\'s coverage by its group, where the request reuses a map of the whole suite', function (): void {

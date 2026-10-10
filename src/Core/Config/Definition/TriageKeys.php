@@ -4,11 +4,16 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config\Definition;
 
+use function array_intersect;
+use function array_values;
+
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Effect;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Layer;
 use NightWorksIO\MutationGate\Core\Config\Listed;
+use NightWorksIO\MutationGate\Core\Config\Problem;
+use NightWorksIO\MutationGate\Core\Config\SuiteLists;
 use NightWorksIO\MutationGate\Core\Config\SurvivorsFirst;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\Config\TimeoutMode;
@@ -24,6 +29,9 @@ use function sprintf;
 final readonly class TriageKeys
 {
     private const string SHORT = "a mutator's short name, the last part of the name a runner gives it";
+
+    private const string IN_BOTH
+        = '%s is in tests.suites too: a suite\'s tests judge every unit, or only the units they hold';
 
     /** @return list<Field<Layer>> */
     public static function fields(): array
@@ -93,34 +101,59 @@ final readonly class TriageKeys
     }
 
     /**
-     * `tests`: the order each mutant's covering tests run in, and the suites
-     * whose tests judge, each once and at least one where the key is written.
+     * `tests`: the order each mutant's covering tests run in, the suites
+     * whose tests judge every unit, and those whose tests judge only the
+     * units they hold, each list once a name and at least one where it is
+     * written, and no suite in both (ADR-0002, decision 8).
      *
      * @return Section<Layer>
      */
     private static function tests(Effect $results): Section
     {
         $order = Field::optional('order', Enumerated::of(TestOrder::cases()), $results);
-        $suites = Field::optional(
-            'suites',
-            Items::distinctAtLeastOne(Text::of('a test suite\'s name'), static fn(string $name): string => $name),
-            $results,
-        );
+        $names = Items::distinctAtLeastOne(Text::of('a test suite\'s name'), static fn(string $name): string => $name);
+        $suites = Field::optional('suites', $names, $results);
+        $holding = Field::optional('holding', $names, $results);
 
         return Section::of(
-            static function (Node $tests) use ($order, $suites): Layer|Invalid {
+            static function (Node $tests) use ($order, $suites, $holding): Layer|Invalid {
                 $ordered = $order->read($tests);
-                $listed = $suites->read($tests);
+                $judging = $suites->read($tests);
+                $held = $holding->read($tests);
+                $both = self::inBoth($judging->value(), $held->value());
 
-                return Reading::built(
-                    static fn(): Layer => Layer::of(Triage::of(order: $ordered->value(), suites: $listed->value())),
+                return $both instanceof Invalid ? $both : Reading::built(
+                    static fn(): Layer => Layer::of(Triage::of(
+                        order: $ordered->value(),
+                        lists: SuiteLists::of($judging->value(), $held->value()),
+                    )),
                     $ordered,
-                    $listed,
+                    $judging,
+                    $held,
                 );
             },
             $order,
             $suites,
+            $holding,
         );
+    }
+
+    /**
+     * Why a suite cannot be in both lists, naming the first that is; nothing where none is.
+     *
+     * @param Listed<string>|Absent $judging
+     * @param Listed<string>|Absent $holding
+     */
+    private static function inBoth(Listed|Absent $judging, Listed|Absent $holding): Invalid|Absent
+    {
+        $both = array_values(array_intersect(
+            $holding instanceof Listed ? [...$holding] : [],
+            $judging instanceof Listed ? [...$judging] : [],
+        ));
+
+        return $both === []
+            ? Absent::setting()
+            : Invalid::because(Problem::at('tests.holding', sprintf(self::IN_BOTH, $both[0])));
     }
 
     /**

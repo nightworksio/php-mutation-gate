@@ -5,8 +5,11 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
+use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\Suites;
+use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
 it('narrows nothing by default: every mutator, judged by every test', function (): void {
     $none = Narrowing::none();
@@ -34,12 +37,14 @@ it('narrows to one suite, leaving the mutators as they were', function (): void 
         ->and(SuiteName::of('unit')->value())->toBe('unit');
 });
 
-it('judges by every suite by default, by the suites the config lists, and by the one --suite names over them, without narrowing for the config', function (): void {
-    $listed = Narrowing::none()->amongSuites(Suites::named(SuiteName::of('unit'), SuiteName::of('contract')));
+it('judges by every suite by default, by the suites the config lists for the tests a run runs, and by the one --suite names over them, without narrowing for the config', function (): void {
+    $unit = Suites::named(SuiteName::of('unit'));
+    $listed = Narrowing::none()->amongSuites(JudgingSuites::holding($unit, Suites::named(SuiteName::of('process'))));
 
-    expect(Narrowing::none()->selected())->toEqual(Suites::all())
-        ->and($listed->selected())->toEqual(Suites::named(SuiteName::of('unit'), SuiteName::of('contract')))
-        ->and($listed->toSuite(SuiteName::of('e2e'))->selected())->toEqual(Suites::named(SuiteName::of('e2e')))
+    expect(Narrowing::none()->suitesFor(WholeSuite::tests()))->toEqual(Suites::all())
+        ->and($listed->suitesFor(WholeSuite::tests()))->toEqual($unit)
+        ->and($listed->suitesFor(Group::named('holds:src/Shell.php')))->toEqual(Suites::named(SuiteName::of('unit'), SuiteName::of('process')))
+        ->and($listed->toSuite(SuiteName::of('e2e'))->suitesFor(Group::named('holds:src/Shell.php')))->toEqual(Suites::named(SuiteName::of('e2e')))
         ->and($listed->isNone())->toBeTrue()
         ->and($listed->suite())->toEqual(NotGiven::value());
 });

@@ -10,6 +10,7 @@ use function in_array;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Opcache\Prover;
+use NightWorksIO\MutationGate\Adapter\Project\PhpUnitSuite;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -24,8 +25,8 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
-use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
@@ -66,11 +67,6 @@ final readonly class Adapters
 
     private const string NO_SUITES = '--suite=%s names no test suite: the PHPUnit config declares none by name.';
 
-    private const string NOT_LISTED
-        = 'tests.suites lists %s, which names no test suite. The PHPUnit config declares: %s.';
-
-    private const string NONE_LISTED
-        = 'tests.suites lists %s, which names no test suite: the PHPUnit config declares none by name.';
 
     public function __construct(
         public Runner $runner,
@@ -146,27 +142,19 @@ final readonly class Adapters
     }
 
     /**
-     * The same, its runs' mutants judged by these suites' tests, as
-     * `tests.suites` lists them (ADR-0002); or why one of them cannot judge
-     * them: the PHPUnit config declares no suite of its name.
+     * The same, its runs' mutants judged by the suites `tests.suites` and
+     * `tests.holding` list (ADR-0002, decision 8), as the PHPUnit config
+     * declares them; or why they cannot judge them. It reads the config only
+     * where a list names a suite.
      */
-    public function judgedAmong(Suites $suites): self|CannotJudge
+    public function judgedAmong(JudgingSuites $listed): self|CannotJudge
     {
-        $declared = $suites->isAll() ? [] : $this->declared();
+        $configured = $listed->namesAny() ? Suite::configured($this->project) : $listed;
+        $resolved = $configured instanceof PhpUnitSuite ? $configured->suites()->listing($listed) : $configured;
 
-        if ($declared instanceof CannotJudge) {
-            return $declared;
-        }
-
-        foreach ($suites as $suite) {
-            if (! in_array($suite->value(), $declared, strict: true)) {
-                return CannotJudge::because($declared === []
-                    ? sprintf(self::NONE_LISTED, Fit::plain($suite->value()))
-                    : sprintf(self::NOT_LISTED, Fit::plain($suite->value()), $this->shown($declared)));
-            }
-        }
-
-        return clone($this, ['narrowing' => $this->narrowing->amongSuites($suites)]);
+        return $resolved instanceof JudgingSuites
+            ? clone($this, ['narrowing' => $this->narrowing->amongSuites($resolved)])
+            : $resolved;
     }
 
     /** A plan's briefing, saying what its runs are narrowed to: the security mutators, one suite's tests, or both. */
@@ -193,7 +181,7 @@ final readonly class Adapters
     {
         return $run->across($this->processes())
             ->withholding($this->withheld)
-            ->amongSuites($this->narrowing->selected());
+            ->amongSuites($this->narrowing->suitesFor($run->tests()));
     }
 
     /** Whether one suite's tests alone judge its runs' mutants. */

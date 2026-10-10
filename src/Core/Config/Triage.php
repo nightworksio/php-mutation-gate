@@ -4,15 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
-use function array_map;
 use function intval;
 
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
-use NightWorksIO\MutationGate\Core\Test\SuiteName;
-use NightWorksIO\MutationGate\Core\Test\Suites;
+use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
 use NightWorksIO\MutationGate\Core\Time\Budgets;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -33,7 +31,6 @@ final readonly class Triage implements Part
 
     private const string UNDER_THE_FLOOR = 'expected at least timeouts.seconds, %d, got %d';
 
-    /** @param Listed<string>|Absent $suites */
     private function __construct(
         private Seconds|Absent $budget,
         private TimeoutMode|Absent $mode,
@@ -43,11 +40,10 @@ final readonly class Triage implements Part
         private bool|Absent $confirmSurvivors,
         private TestOrder|Absent $order,
         private SurvivorsFirst|Absent $survivorsFirst,
-        private Listed|Absent $suites,
+        private SuiteLists $lists,
     ) {
     }
 
-    /** @param Listed<string>|Absent $suites */
     public static function of(
         Seconds|Absent $budget = new Absent(),
         TimeoutMode|Absent $mode = new Absent(),
@@ -57,9 +53,19 @@ final readonly class Triage implements Part
         TestOrder|Absent $order = new Absent(),
         SurvivorsFirst|Absent $survivorsFirst = new Absent(),
         TighterSilence|Absent $tighter = new Absent(),
-        Listed|Absent $suites = new Absent(),
+        SuiteLists|Absent $lists = new Absent(),
     ): self {
-        return new self($budget, $mode, $limit, $most, $tighter, $confirmSurvivors, $order, $survivorsFirst, $suites);
+        return new self(
+            $budget,
+            $mode,
+            $limit,
+            $most,
+            $tighter,
+            $confirmSurvivors,
+            $order,
+            $survivorsFirst,
+            $lists instanceof SuiteLists ? $lists : SuiteLists::of(),
+        );
     }
 
     public static function none(): self
@@ -94,7 +100,7 @@ final readonly class Triage implements Part
                 Absent::laid($this->confirmSurvivors, $later->confirmSurvivors),
                 Absent::laid($this->order, $later->order),
                 Absent::laid($this->survivorsFirst, $later->survivorsFirst),
-                Absent::laid($this->suites, $later->suites),
+                $this->lists->over($later->lists),
             )
             : $this;
     }
@@ -165,12 +171,14 @@ final readonly class Triage implements Part
         return $this->order instanceof TestOrder ? $this->order : TestOrder::KillersFirst;
     }
 
-    /** `tests.suites`: the suites whose tests judge, every suite where no layer lists any (ADR-0002). */
-    public function suites(): Suites
+    /**
+     * `tests.suites` and `tests.holding`: the suites whose tests judge every
+     * unit, every suite where no layer lists any, and those whose tests judge
+     * only the units they hold (ADR-0002, decision 8).
+     */
+    public function suites(): JudgingSuites
     {
-        $names = $this->suites instanceof Listed ? [...$this->suites] : [];
-
-        return $names === [] ? Suites::all() : Suites::named(...array_map(SuiteName::of(...), $names));
+        return $this->lists->suites();
     }
 
     /** `survivorsFirst.max`: how many of the last run's survivors a pull request's run re-checks first. */
@@ -200,10 +208,8 @@ final readonly class Triage implements Part
                 'tests',
                 Json::object(
                     Member::of('order', $this->order instanceof TestOrder ? $this->order->value : $this->order),
-                    Member::of(
-                        'suites',
-                        $this->suites instanceof Listed ? Json::items(...$this->suites) : $this->suites,
-                    ),
+                    $this->lists->judgingWritten(),
+                    $this->lists->holdingWritten(),
                 ),
             ),
             Member::unlessEmpty(
@@ -240,7 +246,7 @@ final readonly class Triage implements Part
                 $this->confirmSurvivors ? 'Flaky::confirmingSurvivors()' : 'Flaky::notConfirmingSurvivors()',
             ],
             ...$this->orderCalls(),
-        ]);
+        ])->and($this->lists->calls());
     }
 
     /** `timeouts.tighter` as a config writes it; nothing where no layer set it. */
@@ -262,9 +268,6 @@ final readonly class Triage implements Part
                 TestOrder::KillersFirst => 'Tests::killersFirst()',
                 TestOrder::Runner => 'Tests::inRunnerOrder()',
             }] : [],
-            ...$this->suites instanceof Listed
-                ? [sprintf('Tests::suites(%s)', PhpCalls::literals(...$this->suites))]
-                : [],
             ...$this->survivorsFirst instanceof SurvivorsFirst
                 ? [sprintf('Survivors::firstAtMost(%d)', $this->survivorsFirst->most())]
                 : [],

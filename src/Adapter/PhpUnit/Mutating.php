@@ -182,7 +182,7 @@ final readonly class Mutating
 
         $run = CoverageRun::of($request->judgedBy(), $this->project->ownPath(CoverageRun::OWN_DIRECTORY))
             ->withholding($request->withheld())
-            ->amongSuites($request->narrowing()->selected());
+            ->amongSuites($request->narrowing()->suitesFor($request->judgedBy()));
         $command = $invocation->coverage($run, self::NO_MAP_FILE);
 
         return $this->held->readFrom(

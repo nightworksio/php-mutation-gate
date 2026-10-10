@@ -373,8 +373,8 @@ it('lays each setting over those before it', function (): void {
 });
 
 it('writes the order of each mutant\'s tests beside the suites whose tests judge, each in the tests section', function (): void {
-    expect(Configs::written(Gate::configure()->with(Tests::inRunnerOrder(), Tests::suites('Unit', 'Contract'))))
-        ->toBe(['tests' => ['order' => 'runner', 'suites' => ['Unit', 'Contract']]])
+    expect(Configs::written(Gate::configure()->with(Tests::inRunnerOrder(), Tests::suites('Unit', 'Contract'), Tests::holding('Process'))))
+        ->toBe(['tests' => ['order' => 'runner', 'suites' => ['Unit', 'Contract'], 'holding' => ['Process']]])
         ->and(Configs::written(Gate::configure()->with(Tests::killersFirst())))->toBe(['tests' => ['order' => 'killers-first']]);
 });
 
