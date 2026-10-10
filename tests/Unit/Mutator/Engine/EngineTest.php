@@ -16,12 +16,15 @@ use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 use NightWorksIO\MutationGate\Mutator\Engine\MadeMutant;
 use NightWorksIO\MutationGate\Mutator\Engine\MadeMutants;
+use NightWorksIO\MutationGate\Mutator\Mutator;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Mutator\NodeClasses;
 use NightWorksIO\MutationGate\Tests\Fakes\MutatorFake;
+use NightWorksIO\MutationGate\Tests\Support\Mutators\KeepLeft;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToPlus;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveEcho;
+use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveItem;
 use NightWorksIO\MutationGateDefault\DefaultExtension;
 use PhpParser\Node\Expr\BinaryOp;
 use PhpParser\Node\Expr\BinaryOp\Plus;
@@ -211,4 +214,38 @@ it('counts a site for each mutator that handles a node, by its class, a class it
 
     expect($sites instanceof MutantSites ? perLine($sites, Path::of('src/Sites.php')) : $sites)
         ->toBe([2 => 3, 3 => 2, 4 => 1, 5 => 1]);
+});
+
+it('makes each change to the code as it was, never to the code another change left', function (): void {
+    $file = Path::of('src/Ledger.php');
+    $code = Contents::of(<<<'CODE'
+        <?php
+
+        echo 'loaded';
+
+        function total($a, $b)
+        {
+            echo 'adding';
+
+            return $a*2 + $b;
+        }
+
+        $items = [1, 2 + 3];
+        CODE);
+    $mutators = [new KeepLeft(), new RemoveEcho(), new PlusToMinus(), new RemoveItem()];
+    $texts = static fn(MadeMutants|CannotJudge $made): array => array_map(
+        static fn(MadeMutant $mutant): string => $mutant->mutated()->text(),
+        made($made),
+    );
+    $alone = array_merge(...array_map(
+        static fn(Mutator $mutator): array => $texts(Engine::with($mutator)->mutantsOf($file, $code)),
+        $mutators,
+    ));
+    $together = $texts(Engine::with(...$mutators)->mutantsOf($file, $code));
+    sort($alone);
+    sort($together);
+
+    expect($together)->toBe($alone)
+        ->and($together)->toHaveCount(8)
+        ->and($together)->toContain(str_replace('$a*2 + $b', '$a * 2', $code->text()));
 });

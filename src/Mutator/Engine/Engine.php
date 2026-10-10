@@ -83,11 +83,9 @@ final readonly class Engine
     {
         $changes = [];
 
-        foreach ($this->mutators as $mutator) {
-            foreach ($source->edits($mutator, Offered::Everywhere) as $edit) {
-                if ($edit->mutated() !== $code->text()) {
-                    $changes[] = [$mutator, $edit];
-                }
+        foreach ($source->changes(Offered::Everywhere, ...$this->mutators) as $change) {
+            if ($change->edit()->mutated() !== $code->text()) {
+                $changes[] = [$change->mutator(), $change->edit()];
             }
         }
 
