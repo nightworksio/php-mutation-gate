@@ -193,6 +193,10 @@ parameters:
                 # zlib raises a broken stream as a warning as well as answering false; the handler that keeps the
                 # warning from the run's output is restored before inflate_add's answer is returned.
                 - src/Core/Format/Gzip.php
+                # proc_open and stream_select raise a process that cannot start and a wait a signal cut short as
+                # warnings as well as answering false; the handler that keeps them from the run's output is restored
+                # before either answer is read.
+                - src/Adapter/Process/Running.php
 
         # --- Q1, for ini_set: only the command, and the mutant's own error log ----------------------------
         -
@@ -317,6 +321,9 @@ parameters:
                 - bin/*
                 - src/Cli/*
                 - tests/*
+                # A program a run starts inherits what `$_ENV` holds over this process's own environment, as
+                # Symfony's Process hands it on, and as a dotenv loader that fills only `$_ENV` expects.
+                - src/Adapter/Process/Running.php
 
     disallowedConstants:
         # --- B3: the standard streams are files ----------------------------------

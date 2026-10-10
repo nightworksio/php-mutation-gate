@@ -160,6 +160,7 @@ services:
         arguments:
             protocols:
                 - src/Adapter/PhpUnit/MutantFile.php # PHP hands a stream wrapper resources, which have no native type
+                - src/Adapter/Process/Running.php # proc_open answers a process resource, which has no native type
             decoders:
                 - src/Core/Format/Node.php
                 - src/Core/Format/Json.php
@@ -234,6 +235,11 @@ services:
                     - OTLP # a key of the delivery, not the reporter's name
                 'NightWorksIO\MutationGate\Adapter\PhpUnit\MutationRun':
                     - RUNS_PER_PLACE # mutant runs a place queues per batch, not a span id's length
+                'NightWorksIO\MutationGate\Adapter\Process\Running':
+                    - DESCRIPTORS # proc_open's descriptor kinds, not a record's field
+                    - ERRORS # the standard error stream's file number, not an argument's place or an exit code
+                'NightWorksIO\MutationGate\Core\Runner\Polling':
+                    - MOMENT # seconds a closing process is given to be seen to end, not a check's least limit
                 'NightWorksIO\MutationGate\Adapter\PhpUnit\Command':
                     - WRITING # the shell's flag that takes its script, not git's flag that takes a setting
                 'NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\BootCheck':

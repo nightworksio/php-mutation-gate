@@ -61,9 +61,9 @@ final readonly class Ran
     }
 
     /** A process a signal ended, its exit code the one a shell gives it. */
-    public static function signalled(int $signal, string $output): self
+    public static function signalled(int $signal, string $output, string|NotGiven $printed = new NotGiven()): self
     {
-        return self::exited(self::SIGNALLED + $signal, $output);
+        return self::exited(self::SIGNALLED + $signal, $output, $printed);
     }
 
     public static function stopped(string $output, string|NotGiven $printed = new NotGiven()): self

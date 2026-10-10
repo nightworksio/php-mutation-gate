@@ -22,6 +22,8 @@ use function sprintf;
  */
 final readonly class ChildProcess
 {
+    /** Why a program is not started where the directory it is to run in is not there, as Symfony's Process says. */
+    public const string NO_DIRECTORY = 'The provided cwd "%s" does not exist.';
     private const string EXITED = 'exit %d: %s';
 
     private const string NEVER_STARTED = 'it did not run: %s';
