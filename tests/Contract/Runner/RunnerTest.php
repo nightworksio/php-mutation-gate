@@ -570,6 +570,25 @@ it('measures the same map across two processes as in one', function (Library $li
         ->and($two instanceof CoverageMap ? $two->tests() : $two)->toEqual($one instanceof CoverageMap ? $one->tests() : $one);
 })->with($libraries);
 
+it('measures several test files again at once, naming the tests of each', function (Library $library): void {
+    $runner = $library->runner();
+    $full = $runner->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));
+    $tests = $full instanceof CoverageMap ? $full->tests() : TestIds::none();
+    $names = $runner->names($tests, Withheld::standard());
+    $files = Paths::none();
+
+    foreach ($tests as $test) {
+        $name = $names instanceof TestNames ? $names->testOf($test) : $test;
+        $files = $name instanceof TestName && count($files) < 2 ? $files->with($name->file()) : $files;
+    }
+
+    $again = $runner->coverage(CoverageRun::of(TestPaths::of($files), Path::of('.mutation-gate/again'))->across(ProcessCount::of(2)));
+    $held = $full instanceof CoverageMap ? $runner->testsIn($files, $full) : $full;
+
+    expect($files)->toHaveCount(2)
+        ->and($again instanceof CoverageMap ? $again->tests() : $again)->toEqual($held);
+})->with($libraries);
+
 it('places every test of a full run\'s map in the test files that hold them, so a kept map can be measured by file', function (Library $library): void {
     $runner = $library->runner();
     $full = $runner->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));

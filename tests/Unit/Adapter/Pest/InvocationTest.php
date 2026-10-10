@@ -101,14 +101,23 @@ it('hands every process paratest starts the settings pcov collects with, each qu
     );
 });
 
-it('runs some test files under coverage, in place of the suite', function (): void {
-    $request = CoverageRun::of(TestPaths::of(Paths::of(Path::of('tests/MoneySpec.php'), Path::of('tests/Unit/HeldSpec.php'))), Path::of('held'));
+it('runs several test files under coverage in Pest\'s own process, in place of the suite, as paratest takes one path', function (): void {
+    $files = TestPaths::of(Paths::of(Path::of('tests/MoneySpec.php'), Path::of('tests/Unit/HeldSpec.php')));
+    $arguments = invocation()->coverage(CoverageRun::of($files, Path::of('held'))->across(ProcessCount::of(4)), '/p/held', reach())->arguments();
 
-    expect(array_slice(invocation()->coverage($request, '/p/held', reach())->arguments(), -3))->toBe([
+    expect(array_slice($arguments, -3))->toBe([
         'tests/MoneySpec.php',
         'tests/Unit/HeldSpec.php',
         '--do-not-fail-on-empty-test-suite',
-    ]);
+    ])->and(array_filter($arguments, static fn(string $argument): bool => str_starts_with($argument, '--p')))->toBe([]);
+});
+
+it('runs one test file under coverage across its processes', function (): void {
+    $file = TestPaths::of(Paths::of(Path::of('tests/MoneySpec.php')));
+    $arguments = invocation()->coverage(CoverageRun::of($file, Path::of('held'))->across(ProcessCount::of(4)), '/p/held', reach())->arguments();
+
+    expect($arguments)->toContain('--parallel', '--processes=4')
+        ->and(array_slice($arguments, -2))->toBe(['tests/MoneySpec.php', '--do-not-fail-on-empty-test-suite']);
 });
 
 it('runs the tests a filter names under coverage', function (): void {

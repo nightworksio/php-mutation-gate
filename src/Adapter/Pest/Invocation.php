@@ -85,7 +85,8 @@ final readonly class Invocation
     /**
      * A coverage run, with pcov collecting from every tree of the project in
      * Pest's own process and in each worker paratest starts, which reads
-     * `--passthru-php` through a shell.
+     * `--passthru-php` through a shell. A run of several test files runs in
+     * Pest's own process alone: paratest takes one path.
      */
     public function coverage(CoverageRun $request, string $directory, PcovReach $reach): Command
     {
@@ -94,9 +95,7 @@ final readonly class Invocation
             ...$reach->options(),
             ...[
                 $this->script,
-                '--parallel',
-                sprintf('--processes=%d', $request->processes()->count()),
-                sprintf(self::PASSED_ON, implode(' ', array_map(escapeshellarg(...), $reach->options()))),
+                ...$this->parallel($request, $reach),
                 '--no-tia',
                 sprintf('%s=%s/%s', PhpUnitOption::CoveragePhp->value, $directory, self::MAP),
                 sprintf('%s=%s/%s', PhpUnitOption::LogJunit->value, $directory, self::JUNIT),
@@ -236,6 +235,23 @@ final readonly class Invocation
             ...$options,
             ...$files,
         );
+    }
+
+    /**
+     * The options that spread a coverage run across its processes, where it
+     * runs no more than one path; none for a run of several test files.
+     *
+     * @return list<string>
+     */
+    private function parallel(CoverageRun $request, PcovReach $reach): array
+    {
+        $tests = $request->tests();
+
+        return $tests instanceof TestPaths && count($tests->files()) > 1 ? [] : [
+            '--parallel',
+            sprintf('--processes=%d', $request->processes()->count()),
+            sprintf(self::PASSED_ON, implode(' ', array_map(escapeshellarg(...), $reach->options()))),
+        ];
     }
 
     /**
