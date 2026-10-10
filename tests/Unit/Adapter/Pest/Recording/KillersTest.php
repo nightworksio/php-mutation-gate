@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\KillerFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Killers;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Loaded;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Placed;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RunIssues;
 use NightWorksIO\MutationGate\Tests\Support\Beats;
@@ -37,7 +39,7 @@ it('names no killer where PHPUnit takes no more subscribers', function (): void 
     expect(Killers::listening('/r/results.jsonl', '/tmp/m', $sealed, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat()))->toBe(Off::NamingKillers);
 });
 
-it('writes each killer as a line of its own, with the mutated copy it ran on', function (): void {
+it('writes each killer as a line of its own in the file of the mutated copy it ran on, and none in the results', function (): void {
     $results = sprintf('%s/results.jsonl', Scratch::directory());
     $killers = Killers::listening($results, '/tmp/mutations/abc', new Facade(), original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat());
 
@@ -46,12 +48,11 @@ it('writes each killer as a line of its own, with the mutated copy it ran on', f
         $killers->killedBy("Tests\\LegacySpec::testAdds#(1)\xff");
     }
 
-    expect(file_get_contents($results))->toBe(sprintf(
-        "{\"event\":\"killed\",\"mutated\":\"/tmp/mutations/abc\",\"test\":\"P\\\\Tests\\\\MoneySpec::__pest_evaluable_it_adds\",\"run\":%d}\n"
-        . "{\"event\":\"killed\",\"mutated\":\"/tmp/mutations/abc\",\"test\":\"Tests\\\\LegacySpec::testAdds#(1)\\ufffd\",\"run\":%d}\n",
-        getmypid(),
-        getmypid(),
-    ));
+    expect(file_get_contents(KillerFile::beside($results, '/tmp/mutations/abc')))->toBe(sprintf(
+        '%s%s',
+        KillerFile::line(RecordEvent::Killed, 'P\Tests\MoneySpec::__pest_evaluable_it_adds', Placed::unplaced((int) getmypid())),
+        KillerFile::line(RecordEvent::Killed, "Tests\\LegacySpec::testAdds#(1)\xff", Placed::unplaced((int) getmypid())),
+    ))->and(is_file($results))->toBeFalse();
 });
 
 it('writes first that its process had loaded the original before the override, by its real path, and nothing where it had not', function (): void {
@@ -69,25 +70,25 @@ it('writes first that its process had loaded the original before the override, b
         $killers->killedBy('T::adds');
     }
 
-    expect(file_get_contents($results))->toBe(sprintf(
-        "{\"event\":\"preloaded\",\"mutated\":\"/tmp/mutations/abc\"}\n"
-        . "{\"event\":\"killed\",\"mutated\":\"/tmp/mutations/abc\",\"test\":\"T::adds\",\"run\":%d}\n",
-        getmypid(),
-    ))->and(is_file($clean))->toBeFalse();
+    expect(file_get_contents(KillerFile::beside($results, '/tmp/mutations/abc')))
+        ->toBe(sprintf('%s%s', KillerFile::preloaded(), KillerFile::line(RecordEvent::Killed, 'T::adds', Placed::unplaced((int) getmypid()))))
+        ->and(is_file($results))->toBeFalse()
+        ->and(is_file(KillerFile::beside($clean, '/tmp/mutations/abc')))->toBeFalse();
 });
 
-it('writes a test that errored apart from one that failed, with the mutated copy it ran on', function (): void {
+it('writes a test that errored apart from one that failed, in the file of the mutated copy it ran on', function (): void {
     $results = sprintf('%s/results.jsonl', Scratch::directory());
     $killers = Killers::listening($results, '/tmp/mutations/abc', new Facade(), original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat());
 
     if ($killers instanceof Killers) {
         $killers->erroredBy('T::adds');
+        $killers->killedBy('T::subtracts');
     }
 
-    expect(file_get_contents($results))->toBe(sprintf(
-        "{\"event\":\"errored\",\"mutated\":\"/tmp/mutations/abc\",\"test\":\"T::adds\",\"run\":%d}\n",
-        getmypid(),
-    ));
+    expect(KillerFile::taken(KillerFile::beside($results, '/tmp/mutations/abc'), '/tmp/mutations/abc'))->toBe([
+        RecordLine::errored('/tmp/mutations/abc', 'T::adds', Placed::unplaced((int) getmypid())),
+        RecordLine::killed('/tmp/mutations/abc', 'T::subtracts', Placed::unplaced((int) getmypid())),
+    ])->and(is_file($results))->toBeFalse();
 });
 
 it('logs its process\'s errors to the mutant\'s own file, emptied of what an earlier run left', function (): void {
@@ -154,9 +155,9 @@ it('names as killers, once PHPUnit ends its run, the tests whose issues failed i
 
     PhpUnitEvents::executionFinished($events);
 
-    expect(file_get_contents($results))->toBe(sprintf(
+    expect(file_get_contents(KillerFile::beside($results, '/tmp/mutations/abc')))->toBe(sprintf(
         '%s%s',
-        RecordLine::killed('/tmp/mutations/abc', 'P\Tests\MoneySpec::__pest_evaluable_it_adds', Placed::unplaced((int) getmypid())),
-        RecordLine::ran('/tmp/mutations/abc', 0),
+        KillerFile::line(RecordEvent::Killed, 'P\Tests\MoneySpec::__pest_evaluable_it_adds', Placed::unplaced((int) getmypid())),
+        KillerFile::ran(0),
     ));
 });

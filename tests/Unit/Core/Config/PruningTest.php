@@ -33,3 +33,14 @@ it('writes only the pruning keys a layer sets, and the builder calls for them', 
         ->and($layer->php(ProjectRoot::origin())->code())->toContain("Pruning::auditEvery('3d')")
         ->and(Layer::of(Reach::of(pruning: Pruning::of(enabled: new Absent())))->written(ProjectRoot::origin())->line())->toBe('{}');
 });
+
+it('writes the builder calls for pruning turned off and for a window, and none for keys left out', function (): void {
+    $off = Layer::of(Reach::of(pruning: Pruning::of(enabled: false, window: 200)))->php(ProjectRoot::origin())->code();
+    $none = Layer::of(Reach::of(pruning: Pruning::of()))->php(ProjectRoot::origin())->code();
+
+    expect($off)->toContain('Pruning::off()')
+        ->and($off)->toContain('Pruning::window(200)')
+        ->and($off)->not->toContain('Pruning::on()')
+        ->and($off)->not->toContain('Pruning::auditEvery(')
+        ->and($none)->not->toContain('Pruning::');
+});

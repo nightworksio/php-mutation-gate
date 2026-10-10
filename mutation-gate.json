@@ -30,6 +30,9 @@
             "floor": 100
         }
     ],
+    "security": {
+        "floor": 100
+    },
     "pest": {
         "patch": true
     },
@@ -44,6 +47,191 @@
                 "mutant": "07c3b2ec795f",
                 "reason": "Equivalent: the step only sets how many compressed bytes each inflate call takes. A stream inflates to the same text, TooLarge or CannotJudge at any step size, since inflating stops where the stream ends.",
                 "expires": "2027-10-03"
+            },
+            {
+                "mutant": "f4a4dedec0da",
+                "reason": "Equivalent: the map file a held run's key names is a placeholder each key spells the same way, so any text in its place gives every run the same key, and the key is never read but to find the map again.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "0e6aac2ad9e0",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "e902f5e1016c",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "59a785ce605f",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "709d417e26a7",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "37069400b0ca",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "41075c623030",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "47b400ca08a8",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "7eab05339e50",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "872ec1924c9d",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "ba0bb766c0b1",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "db0547db6657",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "2854e167c098",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "9d55fa01d4dc",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "b1f0a1e0cbed",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "ffb3bbe566d1",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "06e7c3c0eab5",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "2ecc027e1920",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "104f543f97b7",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "129ffc40d669",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "37421d70423b",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "a59827599fd9",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "a636b503f336",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "fc4454dd39e0",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "fd53a8471f4b",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "1c0754e2c9eb",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "cf45df64a5c1",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "f4c0fca70104",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "2525ff51bcd5",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "076d2afcd6a7",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "0b5702711e3c",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "69deb88ab6a5",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "7cbdbe6e48f3",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "49a5b059e49d",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "f064e59320c4",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "c4d470f88290",
+                "reason": "The mutant writes the mark that says its file loaded before the override, so every run of it is left unjudged.",
+                "expires": "2027-10-04"
+            },
+            {
+                "mutant": "26300d8f388f",
+                "reason": "The mutant writes the mark that says its file loaded before the override, so every run of it is left unjudged.",
+                "expires": "2027-10-04"
             },
             {
                 "mutant": "976cfe40169a",

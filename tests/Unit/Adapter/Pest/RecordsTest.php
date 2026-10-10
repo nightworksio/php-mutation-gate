@@ -82,7 +82,7 @@ it('refuses a line cut short anywhere but last, which would lose a killer withou
     ]));
 
     expect($read instanceof CannotJudge ? $read->why() : '')->toMatch(
-        '/^Line 2 of .*results\.jsonl is not a record the gate reads: the line is not JSON: only the last line can be cut short\.$/',
+        '/^Line 2 of .*results\.jsonl is not a record the gate reads: the line is not JSON: only the last line can be cut short, and it reads `\{"event": "killed", "mutated": "\/tmp\/a", "te`\.$/',
     );
 });
 

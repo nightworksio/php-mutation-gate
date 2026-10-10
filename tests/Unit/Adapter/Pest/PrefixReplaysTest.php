@@ -9,11 +9,13 @@ use NightWorksIO\MutationGate\Adapter\Pest\PrefixReplay;
 use NightWorksIO\MutationGate\Adapter\Pest\PrefixReplays;
 use NightWorksIO\MutationGate\Adapter\Pest\Printed;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\KillerFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Placed;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Adapter\Pest\Remembered;
 use NightWorksIO\MutationGate\Adapter\Pest\ReplayVerdict;
+use NightWorksIO\MutationGate\Adapter\Pest\Shell;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -24,8 +26,12 @@ use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Order\Ordering;
+use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
+use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\Unwatched;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -78,7 +84,7 @@ function replaying(Ran $ended, string ...$lines): ShellFake
  *
  * @return list<ReplayVerdict>
  */
-function replayVerdicts(Project $at, ShellFake $shell, Seconds|Unlimited $left = new Unlimited(), PrefixReplay ...$replays): array
+function replayVerdicts(Project $at, Shell $shell, Seconds|Unlimited $left = new Unlimited(), PrefixReplay ...$replays): array
 {
     return new PrefixReplays($at, $shell, new Remembered())->verdicts(
         $replays === [] ? [moneyReplay()] : array_values($replays),
@@ -168,6 +174,46 @@ it('starts a replay with no earlier replay\'s records of the same run left where
     replayVerdicts($at, $shell);
 
     expect($found)->toBe([false, false]);
+});
+
+it('reads the tests a replay ran from the killer file its process wrote for the copy it served, folded into its records', function (): void {
+    $at = PestCases::project();
+    $records = '';
+    $shell = new ShellFake(static function (Command $command) use (&$records): Ran {
+        $results = sprintf('%s', $command->environment()[GateVariable::Results->value]);
+        $served = sprintf('%s', $command->environment()[Recorder::MUTATED]);
+        file_put_contents($results, RecordLine::stopped($served, 2, replayedOrder()));
+        file_put_contents(KillerFile::beside($results, $served), KillerFile::ran(2));
+        $records = $results;
+
+        return Ran::finished(succeeded: true, output: '');
+    });
+
+    expect(replayVerdicts($at, $shell))->toBe([ReplayVerdict::Stands])
+        ->and((string) file_get_contents($records))->toContain('"ran"');
+});
+
+it('reads a replay that wrote no records as one that ran no test, and one never started as one with no time', function (): void {
+    $silent = new ShellFake(static fn(): Ran => Ran::finished(succeeded: true, output: ''));
+    $unstarted = new class implements Shell {
+        public function run(Command $command, ProcessWatch $watch = new Unwatched()): Ran
+        {
+            return Ran::finished(succeeded: true, output: '');
+        }
+
+        public function sideBySide(WorkerSlots $slots, Seconds|Unlimited $startingWithin, Command ...$commands): ProcessEnds
+        {
+            return ProcessEnds::of();
+        }
+
+        public function in(string $directory): Shell
+        {
+            return $this;
+        }
+    };
+
+    expect(replayVerdicts(PestCases::project(), $silent))->toBe([ReplayVerdict::OtherCount])
+        ->and(replayVerdicts(PestCases::project(), $unstarted))->toBe([ReplayVerdict::NoTime]);
 });
 
 it('runs one replay for two kills of one run, keeps what it said, and runs none where no time is left', function (): void {

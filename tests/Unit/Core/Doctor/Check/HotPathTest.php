@@ -75,6 +75,14 @@ it('costs a hot path at what the ledgers learned it takes, where they learned it
         ->toEqual([Seconds::of(42.5), Seconds::of(5.0)]);
 });
 
+it('costs a hot path at the time of the covering tests the map timed, counting an untimed one as nothing', function () use ($measured, $suite): void {
+    $untimed = $suite()->covered(Path::of('src/Boot.php'), Line::of(4), TestId::of('Tests\\BootTest::untimed'));
+    $found = [...HotPath::in($measured($untimed, Units::none(), Timings::none()))];
+
+    expect(array_map(static fn(Finding $finding): mixed => $finding->atStake(), $found))
+        ->toEqual([Seconds::of(5.0), Seconds::of(5.0)]);
+});
+
 it('finds no hot path in a run that gave no map, or where nothing was measured', function () use ($measured): void {
     expect(HotPath::in($measured(CannotJudge::because('No suite.'), Units::none(), Timings::none())))->toEqual(Findings::none())
         ->and(HotPath::in(Observations::none()))->toEqual(Findings::none());

@@ -241,6 +241,69 @@
       "evidence": "none",
       "why": "It holds the runner canary's evidence and checks nothing itself."
     },
+    "mutation/fetch": {
+      "check": "mutation / fetch",
+      "checks": "The default branch's ledger, read with a key that reads nothing else, in a job that runs none of the project's code; it runs where the repository variable MUTATION_GATE_STORE names a store.",
+      "reproduce": "bin/mutation-gate fetch",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation/plan": {
+      "check": "mutation / plan",
+      "checks": "G8: what a change reaches, the units a proof or a carried result already settles, and the shards the rest is cut into, by the gate over its own src.",
+      "reproduce": "bin/mutation-gate plan --ci=json",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation/deliver-plan": {
+      "check": "mutation / deliver plan",
+      "checks": "The pull request comment's planned state the plan left, posted from the gate's own installation.",
+      "reproduce": "bin/mutation-gate deliver --from=.mutation-gate/delivery/planned",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation/shard": {
+      "check": "mutation / shard ${{ matrix.shard.id }} (${{ matrix.shard.label }})",
+      "checks": "G8: one shard of the plan, each of its mutants run against the tests that reach it.",
+      "reproduce": "bin/mutation-gate run --plan=.mutation-gate/plan.json --shard=<id> --results=.mutation-gate/results",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation/survivors": {
+      "check": "mutation / survivors",
+      "checks": "G3: on a pull request, the last run's survivors run again beside the shards, a signal the verdict does not judge.",
+      "reproduce": "bin/mutation-gate survivors --plan=.mutation-gate/plan.json",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation/deliver-survivors": {
+      "check": "mutation / deliver survivors",
+      "checks": "The pull request comment's survivors re-checked state the survivors job left, written over its planned state alone, from the gate's own installation.",
+      "reproduce": "bin/mutation-gate deliver --from=.mutation-gate/delivery/survivors",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation/verdict": {
+      "check": "mutation / verdict",
+      "checks": "G8: every mutant of src killed, at a floor of 100, over the shards' results and the proofs the plan used.",
+      "reproduce": "bin/mutation-gate run",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation/deliver": {
+      "check": "mutation / deliver",
+      "checks": "What the verdict left: the comment, and on a trusted run of the default branch the ledger, the alerts and the trace, sent from the gate's own installation.",
+      "reproduce": "bin/mutation-gate deliver --from=.mutation-gate/delivery/verdict",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
+    "mutation/publish": {
+      "check": "mutation / publish",
+      "checks": "The badge and trend of the default branch, published to the mutation-gate branch.",
+      "reproduce": "Nothing to reproduce: it runs on the default branch only",
+      "evidence": "none",
+      "why": "The workflow this package ships, which other repositories call, so it carries none of this repository's scripts: the gate's own annotations, step summary, pull request comment and mutation-gate-reports artifact are its evidence."
+    },
     "sonar": {
       "check": "sonarcloud",
       "checks": "SonarCloud's analysis of the reports tests and coverage wrote.",

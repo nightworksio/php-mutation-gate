@@ -109,8 +109,8 @@ final readonly class PlanEstimates
     }
 
     /**
-     * One line for each shard with units, and one for the run: what each is
-     * expected to take, and what the estimate rests on.
+     * One line for each shard with units: what it is expected to take, and
+     * what the estimate rests on.
      *
      * @return list<string>
      */
@@ -130,11 +130,30 @@ final readonly class PlanEstimates
             }
         }
 
-        return [...$lines, $this->total()];
+        return $lines;
+    }
+
+    /**
+     * What the run is expected to take, in wall time and runner time, and
+     * what that rests on; where it rests on a measured first run, how many
+     * mutants each shard's runner is taken to run at once; and where
+     * `shards.target` cannot be met under `shards.max`, a line that says so.
+     *
+     * @return list<string>
+     */
+    public function summary(ProcessCount $processes, Seconds|Absent $target, int $most): array
+    {
+        $lines = [$this->total(), ...$this->assumed($processes)];
+
+        foreach ($this->unmet($target, $most) as $warning) {
+            $lines[] = $warning->text();
+        }
+
+        return $lines;
     }
 
     /** What the run is expected to take, in wall time and runner time, and what that rests on. */
-    public function total(): string
+    private function total(): string
     {
         $run = $this->runTime();
 
@@ -156,7 +175,7 @@ final readonly class PlanEstimates
      *
      * @return list<string>
      */
-    public function assumed(ProcessCount $processes): array
+    private function assumed(ProcessCount $processes): array
     {
         $measured = 0;
 
@@ -174,7 +193,7 @@ final readonly class PlanEstimates
      * twice their overhead or a unit no cut splits (decision 7); none where
      * it is met or there is no target.
      */
-    public function unmet(Seconds|Absent $target, int $most): Warnings
+    private function unmet(Seconds|Absent $target, int $most): Warnings
     {
         $longest = $this->runTime()->wall();
 

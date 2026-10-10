@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordField;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -47,6 +48,12 @@ final class Records
         = 'Pest wrote no results to %s. Is pestphp/pest-plugin allowed to run in composer.json?';
 
     private const string MALFORMED = 'Line %d of %s is not a record the gate reads: %s';
+
+    /** What a line cut short anywhere but last is told by, with as much of it as the message shows. */
+    private const string CUT_SHORT = 'JSON: only the last line can be cut short, and it reads `%s`';
+
+    /** How many characters of a line cut short a message shows. */
+    private const int SHOWN = 160;
 
     /** How a line that is not a record is named. */
     private const string LINE = 'the line';
@@ -225,7 +232,9 @@ final class Records
     {
         if (! json_validate($line)) {
             if (! $last) {
-                throw NotInShape::at(self::LINE, 'JSON: only the last line can be cut short');
+                $shown = Fit::line(Fit::verbatim($line), self::SHOWN);
+
+                throw NotInShape::at(self::LINE, sprintf(self::CUT_SHORT, $shown));
             }
 
             return;

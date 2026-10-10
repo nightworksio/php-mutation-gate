@@ -105,11 +105,11 @@ fail or run slowly before a run finds out.
 
 A CI run plans the work, mutates each shard in parallel, and judges the
 result in a verdict job, which is the check to require.
-`vendor/bin/mutation-gate init --ci` writes the definition for GitLab CI,
-Buildkite, CircleCI, Azure DevOps, Bitbucket Pipelines or Jenkins, and one
-for GitHub Actions that does not run yet. [Running the gate in
-CI](.docs/guide/ci/README.md) has a page for each, and the commands for any
-other CI.
+`vendor/bin/mutation-gate init --ci` writes the definition for GitHub
+Actions, GitLab CI, Buildkite, CircleCI, Azure DevOps, Bitbucket Pipelines or
+Jenkins; on GitHub it uses this repository as an action, or calls its
+reusable workflow. [Running the gate in CI](.docs/guide/ci/README.md) has a
+page for each, and the commands for any other CI.
 
 ## Documentation
 
@@ -142,7 +142,7 @@ The first release is tagged when every row says *yes*.
 | | `doctor`: what would fail or run slowly, and the fix, before a run finds out | yes | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 | | A first CI run with no baseline measures, then hands over the baseline to commit | yes | [0017](.docs/decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 | | `init --from=infection.json5`: a config taken over from Infection's | yes | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
-| | `init --ci`: a ready, pinned workflow for GitHub, GitLab, Buildkite, CircleCI, Azure DevOps, Bitbucket Pipelines or Jenkins | yes; the GitHub workflows use an action that is not on `main` | [0015](.docs/decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md), [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
+| | `init --ci`: a ready, pinned workflow for GitHub, GitLab, Buildkite, CircleCI, Azure DevOps, Bitbucket Pipelines or Jenkins | yes | [0015](.docs/decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md), [0024](.docs/decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
 | | Floors that only rise: a committed baseline, which fails on regression and rises on improvement | yes | [0003](.docs/decisions/0003-a-floor-only-rises.md) |
 | | Pull-request mode: changed lines and what the change reaches, with a stricter floor for new code | yes | [0003](.docs/decisions/0003-a-floor-only-rises.md), [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | | Monorepos: a floor per package and module, with reach that follows the dependencies | yes | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |

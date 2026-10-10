@@ -154,7 +154,8 @@ final readonly class JsonDocument
 
         $held = $object->member($keys[0]);
 
-        while ($depth < count($keys) - 1 && $held instanceof JsonMember) {
+        // The path's last key is not written here, so the walk ends before it.
+        while ($held instanceof JsonMember) {
             if (! $held->value->isObject) {
                 return $this;
             }
@@ -170,7 +171,9 @@ final readonly class JsonDocument
     /** @param list<string> $further */
     private function into(JsonSpan $object, string $key, array $further, JsonFragment $value): self
     {
-        $layout = JsonIndent::of($this->text, $this->root->members === [] ? 0 : $this->root->members[0]->keyStart);
+        $layout = $this->root->members === []
+            ? JsonIndent::standard()
+            : JsonIndent::of($this->text, $this->root->members[0]->keyStart);
         $indent = JsonIndent::at($this->text, $object->start);
 
         if ($object->members === []) {

@@ -33,12 +33,21 @@ final readonly class JsonIndent
     {
     }
 
-    /** The layout of this text, whose top object's members stand at this offset, or, where it holds none, not. */
+    /**
+     * The layout of this text, whose top object's first member stands at
+     * this offset; the standard one where that member's line shows none.
+     */
     public static function of(string $json, int $firstMember): self
     {
-        $unit = $firstMember > 0 ? self::at($json, $firstMember) : '';
+        $unit = self::at($json, $firstMember);
 
-        return new self($unit === '' ? self::STANDARD : $unit);
+        return $unit === '' ? self::standard() : new self($unit);
+    }
+
+    /** The layout of a file that shows none, as the gate's own JSON is written. */
+    public static function standard(): self
+    {
+        return new self(self::STANDARD);
     }
 
     /** The indentation of the line this character offset stands on. */

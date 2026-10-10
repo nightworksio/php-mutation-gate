@@ -90,7 +90,7 @@ final readonly class PrefixReplays
                 $replay->limitText(),
                 ...$command->arguments(),
             ]);
-            $started[$keys[$at]] = [$command, $replay];
+            $started[$keys[$at]] = [$command, $replay, $served->copy()];
         }
 
         $said = $started === [] ? [] : $this->remembered->replays(
@@ -115,7 +115,7 @@ final readonly class PrefixReplays
      * What the replays of these keys said, in their order.
      *
      * @param  non-empty-list<string>                      $unknown
-     * @param  array<string, array{Command, PrefixReplay}> $started
+     * @param  array<string, array{Command, PrefixReplay, string}> $started
      * @return list<ReplayVerdict>
      */
     private function ran(
@@ -153,17 +153,20 @@ final readonly class PrefixReplays
             ...$commands,
         )];
 
-        return array_map(
-            static fn(int $at, string $key): ReplayVerdict => array_key_exists($at, $ends)
-                ? self::verdictOf($ends[$at], ReplayRecord::in($files[$key]), $started[$key][1], $left)
-                : ReplayVerdict::NoTime,
-            array_keys($unknown),
-            $unknown,
-        );
+        $verdicts = [];
+
+        foreach ($unknown as $at => $key) {
+            [, $replay, $served] = $started[$key];
+            $verdicts[] = array_key_exists($at, $ends)
+                ? $this->verdictOf($ends[$at], ReplayRecord::in($files[$key], $served), $replay, $left)
+                : ReplayVerdict::NoTime;
+        }
+
+        return $verdicts;
     }
 
     /** What one replay that ran says of its kill. */
-    private static function verdictOf(
+    private function verdictOf(
         Ran $ran,
         ReplayRecord $record,
         PrefixReplay $replay,

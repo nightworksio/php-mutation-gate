@@ -184,7 +184,7 @@ it('cannot tell what changed where git cannot read what the base held', function
     $said = Git::at($repository->root)->changesSince(Revision::ref('base'));
 
     expect($said)->toBeInstanceOf(CannotTell::class)
-        ->and($said instanceof CannotTell ? $said->why() : '')->toStartWith('git diff --find-renames --relative --name-status -z ');
+        ->and($said instanceof CannotTell ? $said->why() : '')->toStartWith('git diff --relative --name-status -z ');
 });
 
 it('keeps what a run withholds from git itself', function (): void {
@@ -206,6 +206,20 @@ it('cannot tell anything outside a repository', function (): void {
     expect(Git::at($directory)->changesSince(Revision::ref('HEAD')))->toBeInstanceOf(CannotTell::class)
         ->and(Git::at($directory)->fingerprints())->toBeInstanceOf(CannotTell::class)
         ->and(Git::at($directory)->unstaged())->toBeInstanceOf(CannotTell::class);
+});
+
+it('never counts what the gate keeps in its own workspace as a change', function (): void {
+    $repository = Repository::empty()->write('src/A.php', "<?php\n")->commit('The base.');
+    $repository->git('tag', 'base');
+    $repository->write('.mutation-gate/plan.json', '{}')
+        ->write('.mutation-gate/workflow/src/Gate.php', "<?php\n")
+        ->write('src/B.php', "<?php\n");
+    $git = Git::at($repository->root);
+    $fingerprints = $git->fingerprints();
+
+    expect(array_keys(changesByPath($git->changesSince(Revision::ref('base')))))->toBe(['src/B.php'])
+        ->and($git->unstaged())->toEqual(Paths::of(Path::of('src/B.php')))
+        ->and($fingerprints instanceof Fingerprints ? $fingerprints->count() : 0)->toBe(2);
 });
 
 it('names a staged file as unstaged only once it changes again, and an ignored one never', function (): void {

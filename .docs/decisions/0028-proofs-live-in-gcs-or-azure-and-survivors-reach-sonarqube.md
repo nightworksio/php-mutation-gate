@@ -198,14 +198,17 @@ What SonarQube documents:
    - `GOOGLE_APPLICATION_CREDENTIALS`, `MUTATION_GATE_GCS_TOKEN`, `AZURE_*`
      and `MUTATION_GATE_AZURE_TOKEN` join what every run withholds from the
      runners, beside `AWS_*` and `ACTIONS_*` (ADR-0004 decisions 3 and 4).
-   - The reusable workflow takes optional inputs for the verdict job's
-     environment and each cloud's identity, and asks for `id-token: write`
-     only in `plan`, which reads, and `verdict`, which writes, as it does for
-     an S3 store behind an OIDC role. This amends ADR-0011 decision 8.
+   - The reusable workflow reads each cloud's identity from the
+     repository's variables, `AZURE_TENANT_ID` and `AZURE_CLIENT_ID`, and
+     `MUTATION_GATE_GCS_PROVIDER` and `MUTATION_GATE_GCS_SERVICE_ACCOUNT`.
+     It asks for `id-token: write` only in `fetch`, which reads, and
+     `deliver`, which writes, the two jobs that run none of the project's
+     code, as it does for an S3 store behind an OIDC role. A project that
+     runs the action grants it only to the job that runs it with
+     `deliver: true`. This amends ADR-0011 decision 8.
    - **As built.** Every run also withholds `GOOGLE_GHA_CREDS_PATH` and
      `CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE`, which
-     `google-github-actions/auth` sets to the same credentials file. The
-     reusable workflow's inputs are not built yet.
+     `google-github-actions/auth` sets to the same credentials file.
 
 ### A SonarQube reporter
 

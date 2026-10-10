@@ -72,12 +72,14 @@ final readonly class RunProfile
     {
         return $this->matrix === $other->matrix
             && $this->securityOnly === $other->securityOnly
-            && $this->suiteNamed($this->suite) === $this->suiteNamed($other->suite);
+            && $this->sameSuite($this->suite, $other->suite);
     }
 
-    /** A suite's name, or the empty name no suite has where every test judges. */
-    private function suiteNamed(SuiteName|NotGiven $suite): string
+    /** Whether two runs are judged by the same suite's tests alone, or both by every test. */
+    private function sameSuite(SuiteName|NotGiven $one, SuiteName|NotGiven $other): bool
     {
-        return $suite instanceof SuiteName ? $suite->value() : '';
+        return $one instanceof SuiteName && $other instanceof SuiteName
+            ? $one->value() === $other->value()
+            : $one instanceof NotGiven && $other instanceof NotGiven;
     }
 }

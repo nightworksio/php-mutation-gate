@@ -68,6 +68,12 @@ final readonly class ServedOriginal
         return $command->with([Recorder::MUTANT => $this->original, Recorder::MUTATED => $this->copy]);
     }
 
+    /** The unmutated copy served in the original's place, which a run's records name as its mutated copy. */
+    public function copy(): string
+    {
+        return $this->copy;
+    }
+
     /** What tells this served file from any other, as a run's key reads it. */
     public function key(): string
     {
