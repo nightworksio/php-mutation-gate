@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Core\Plan;
 
 use function array_filter;
 use function array_map;
-use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -103,9 +102,10 @@ final readonly class ShardResultFile
                 ...$result->measured()->gate()->isRecorded()
                     ? [self::GATE => $result->measured()->gate()->value()]
                     : [],
-                ...count($result->measured()->steps()) > 0
-                    ? [StepsRecord::SECTION => StepsRecord::of($result->measured()->steps())]
-                    : [],
+                ...array_filter(
+                    [StepsRecord::SECTION => StepsRecord::of($result->measured()->steps())],
+                    static fn(array $steps): bool => $steps !== [],
+                ),
             ],
             ...$outcome instanceof CannotJudge ? [self::CANNOT_JUDGE => $outcome->why()] : [
                 'mutants' => array_map(
@@ -117,36 +117,33 @@ final readonly class ShardResultFile
                 ),
                 'skipped' => $outcome->skipped(),
             ],
-            ...count($result->flaky()) > 0 ? [self::FLAKY => array_map(
-                static fn(MutantId $id): string => $id->value(),
-                [...$result->flaky()],
-            )] : [],
-            ...count($result->held()->misses()) > 0 ? [self::MISSED => array_map(
-                static fn(NotCovered $miss): array => [
-                    self::UNIT => UnitRecord::one($miss->unit()),
-                    self::WHY => $miss->why(),
-                ],
-                [...$result->held()->misses()],
-            )] : [],
-            ...count($result->held()->covered()) > 0 ? [self::COVERED => array_map(
-                static fn(Covered $covered): array => [
-                    self::UNIT => UnitRecord::one($covered->unit()),
-                    ProofRecord::JUDGING => array_map(
-                        static fn(TestId $test): string => $test->value(),
-                        [...$covered->tests()],
-                    ),
-                ],
-                [...$result->held()->covered()],
-            )] : [],
-            ...count($result->warnings()) > 0 ? [self::WARNINGS => array_map(
-                static fn(Warning $warning): string => $warning->text(),
-                [...$result->warnings()],
-            )] : [],
-            ...count($result->unjudged()) > 0 ? [self::UNJUDGED => UnitRecord::all($result->unjudged())] : [],
-            ...array_filter(
-                [SurvivorChecksRecord::SECTION => $checks, DoomedRecord::SECTION => $doomed],
-                static fn(array $section): bool => $section !== [],
-            ),
+            ...array_filter([
+                self::FLAKY => array_map(static fn(MutantId $id): string => $id->value(), [...$result->flaky()]),
+                self::MISSED => array_map(
+                    static fn(NotCovered $miss): array => [
+                        self::UNIT => UnitRecord::one($miss->unit()),
+                        self::WHY => $miss->why(),
+                    ],
+                    [...$result->held()->misses()],
+                ),
+                self::COVERED => array_map(
+                    static fn(Covered $covered): array => [
+                        self::UNIT => UnitRecord::one($covered->unit()),
+                        ProofRecord::JUDGING => array_map(
+                            static fn(TestId $test): string => $test->value(),
+                            [...$covered->tests()],
+                        ),
+                    ],
+                    [...$result->held()->covered()],
+                ),
+                self::WARNINGS => array_map(
+                    static fn(Warning $warning): string => $warning->text(),
+                    [...$result->warnings()],
+                ),
+                self::UNJUDGED => UnitRecord::all($result->unjudged()),
+                SurvivorChecksRecord::SECTION => $checks,
+                DoomedRecord::SECTION => $doomed,
+            ], static fn(array $section): bool => $section !== []),
         ]);
     }
 
