@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Proof\Key;
 
+use function array_key_exists;
 use function count;
 use function hash_update;
 
@@ -13,8 +14,8 @@ use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Php\NamedFiles;
+use NightWorksIO\MutationGate\Core\Php\ReachedFiles;
 
-use function sort;
 use function sprintf;
 
 /**
@@ -32,21 +33,34 @@ final readonly class EntryKeying
     /** The format of an entry's key, which changes whenever what a key reads changes. */
     public const string FORMAT = 'mutation-gate coverage entry 1';
 
+    /**
+     * @param array<string, string> $framed each file of the graph, framed with its digest as a key reads it, by its
+     *                                      path
+     */
     private function __construct(
         private Digest $base,
-        private NamedFiles $names,
+        private ReachedFiles $reached,
         private Fingerprints $files,
         private Paths $always,
+        private array $framed,
     ) {
     }
 
     /**
      * Keys over this base, following names through this graph, each file by
-     * its digest among these, with these files read by every entry.
+     * its digest among these, with these files read by every entry. What each
+     * file reaches, and each file framed with its digest, is worked out once.
      */
     public static function of(Digest $base, NamedFiles $names, Fingerprints $files, Paths $always): self
     {
-        return new self($base, $names, $files, $always);
+        $reached = $names->reaches();
+        $framed = [];
+
+        foreach ($reached->files() as $path) {
+            $framed[$path] = self::framedOf($files, $path);
+        }
+
+        return new self($base, $reached, $files, $always, $framed);
     }
 
     /** The key of a test file's entries, whose tests executed these files. */
@@ -58,17 +72,25 @@ final readonly class EntryKeying
             $from[] = $file->value();
         }
 
-        $read = $this->names->reachedFrom(...$from);
-        sort($read);
+        $read = $this->reached->from(...$from);
         $context = Digest::hashing();
         hash_update($context, ContentKeys::framed(self::FORMAT, $this->base->value(), sprintf('%d', count($read))));
 
         foreach ($read as $path) {
-            $digest = $this->files->digestOf(Path::of($path));
-            $written = $digest instanceof Missing ? Missing::DIGESTED : $digest->value();
-            hash_update($context, ContentKeys::framed($path, $written));
+            hash_update(
+                $context,
+                array_key_exists($path, $this->framed) ? $this->framed[$path] : self::framedOf($this->files, $path),
+            );
         }
 
         return Digest::finished($context);
+    }
+
+    /** A file framed with its digest, or as missing, as a key reads it. */
+    private static function framedOf(Fingerprints $files, string $path): string
+    {
+        $digest = $files->digestOf(Path::of($path));
+
+        return ContentKeys::framed($path, $digest instanceof Missing ? Missing::DIGESTED : $digest->value());
     }
 }

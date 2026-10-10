@@ -238,6 +238,9 @@ services:
                     - WRITING # the shell's flag that takes its script, not git's flag that takes a setting
                 'NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\BootCheck':
                     - FIRST_OWN # the first file number a process opens itself, after its three standard streams
+                'NightWorksIO\MutationGate\Core\Php\ReachedFiles':
+                    - BITS # the bits of a byte, not a seed's first byte
+                    - BIT # each bit of a byte by its place, not an exit code, a status or a length
                 'NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Worker':
                     - PACKAGE # directories from the worker's file up to the package's own, not a status record
                 'NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Workforce':
