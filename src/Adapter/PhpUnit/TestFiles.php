@@ -12,7 +12,9 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Php\DependsReader;
 use NightWorksIO\MutationGate\Core\Test\TestClassFiles;
+use NightWorksIO\MutationGate\Core\Test\TestDependencies;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestsByClass;
 
@@ -45,6 +47,18 @@ final class TestFiles
         }
 
         return $classes;
+    }
+
+    /** These tests and every test they depend on, in turn, as the files of their classes record it. */
+    public function withDependencies(TestIds $tests): TestIds
+    {
+        return TestDependencies::closure(
+            $tests,
+            fn(TestIds $asked): TestDependencies => DependsReader::inFiles(
+                $this->declaring($asked)->files(),
+                $this->contentsOf(...),
+            ),
+        );
     }
 
     /**

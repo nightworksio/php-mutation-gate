@@ -47,6 +47,12 @@ if (Library::isPhpUnitInstalled()) {
     $libraries['phpunit'] = [fn(): Library => Library::phpunit(), 'Tests\MoneySpec::addsTwoAmounts'];
 }
 
+/** The libraries whose tests PHPUnit runs, as the PHPUnit and Infection runners do. */
+$dependents = array_map(
+    static fn(array $library): array => [$library[0]],
+    array_intersect_key($libraries, ['infection' => true, 'phpunit' => true]),
+);
+
 /** The libraries whose runner runs a process: every one but the fake. */
 $processes = array_diff_key($libraries, ['the fake' => true]);
 
@@ -92,6 +98,18 @@ it('runs a control of one named row of a data set, by the id the coverage map gi
 
     expect($ends)->toBe([ControlEnd::Passed])->and($marks['ran'])->toBeTrue();
 })->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
+
+it('runs a control of a test that depends on another with the test it depends on', function (Library $at): void {
+    $test = 'Tests\\DependsSpec::marksWhenItRunsWithIt';
+    $ends = [];
+
+    $marks = RunnerContracts::marks(static function () use ($at, $test, &$ends): void {
+        $ends[] = controlsOf($at, Controls::of(moneyControl($test, 60.0)))->of(moneyControl($test, 60.0))->end();
+    });
+
+    expect($ends)->toBe([ControlEnd::Passed])->and($marks['ran'])->toBeTrue();
+})->with($dependents === [] ? ['none installed' => [fn(): Library => Library::fake()]] : $dependents)
+    ->skip($dependents === [], 'the runner contracts jobs install the libraries whose tests PHPUnit runs');
 
 it('says a control ran out where its limit is too short for its tests', function (Library $at, string $test): void {
 

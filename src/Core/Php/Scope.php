@@ -96,6 +96,24 @@ final readonly class Scope
     }
 
     /**
+     * The class a name written here stands for, fully qualified and spelt as
+     * the file spells it: a class never falls back to the global namespace.
+     */
+    public function className(string $name): string
+    {
+        $imported = $this->importedAs($name);
+
+        return match (true) {
+            str_starts_with($name, '\\') => ltrim($name, '\\'),
+            str_starts_with(mb_strtolower($name), self::RELATIVE) => $this->declared(
+                mb_substr($name, mb_strlen(self::RELATIVE)),
+            ),
+            $imported !== [] => array_last($imported),
+            default => $this->declared($name),
+        };
+    }
+
+    /**
      * What a name written here may stand for, of whatever kind it is: where a
      * class and a function or constant are imported under one alias, each of
      * them, as PHP keeps the kinds apart.

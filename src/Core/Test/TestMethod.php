@@ -35,6 +35,12 @@ final readonly class TestMethod
     {
     }
 
+    /** A test method's id: `<class>::<method>`. */
+    public static function id(string $class, string $method): TestId
+    {
+        return TestId::of(sprintf('%s%s%s', $class, self::SEPARATOR, $method));
+    }
+
     /** The test method an id runs; the id itself where it names none, such as a `.phpt` file's. */
     public static function of(TestId $test): self|TestId
     {
@@ -86,7 +92,7 @@ final readonly class TestMethod
      */
     public function named(): string
     {
-        $test = sprintf('%s%s%s', $this->class, self::SEPARATOR, $this->method);
+        $test = self::id($this->class, $this->method)->value();
 
         return $this->row === '' ? $test : sprintf(TestRow::NAMED, $test, $this->row);
     }

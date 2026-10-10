@@ -44,8 +44,6 @@ final readonly class JUnitKillers
     /** A byte Pest replaces in the method it makes of a description, as it cannot be in a name. */
     private const string UNNAMEABLE = '/[^a-zA-Z0-9_\x80-\xff]/';
 
-    /** A test's id: its class, the separator and its method. */
-    private const string ID = '%s%s%s';
 
     private const string IN_DATA_SET = '%s#%s';
 
@@ -86,12 +84,10 @@ final readonly class JUnitKillers
         $name = $case->getAttribute('name');
         $inSet = preg_match(self::DATA_SET, $name, $parts, PREG_UNMATCHED_AS_NULL) === 1;
         $test = $inSet ? $parts['test'] : $name;
-        $id = sprintf(
-            self::ID,
+        $id = TestMethod::id(
             $pest ? sprintf(self::PEST_CLASS, $class) : $class,
-            TestMethod::SEPARATOR,
             $pest ? self::evaluable($test) : $test,
-        );
+        )->value();
 
         return TestId::of($inSet ? sprintf(self::IN_DATA_SET, $id, self::setOf($parts)) : $id);
     }
