@@ -278,7 +278,7 @@ it('renders YAML the provider\'s published schema accepts', function (CiTemplate
     foreach ($expansions as $json) {
         expect(Schema::errors($json, ciSchema($provider)))->toBe([]);
     }
-})->with(ciSchemaTemplates());
+})->with(ciSchemaTemplates())->group('network');
 
 it('renders each template as its snapshot', function (CiTemplate $template): void {
     expect(ciTemplateRendered($template))->toBe((string) file_get_contents(Schema::at(sprintf('tests/Fixtures/CiTemplates/%s', $template->value))));
@@ -425,7 +425,7 @@ it('refuses by Bitbucket\'s schema a deployment on a final step, so a verdict th
     expect($merged)->not->toBe($pipelines)
         ->and(Schema::errors(ciTemplateJson($merged), ciSchema('bitbucket')))->toBe([])
         ->and(Schema::errors(ciTemplateJson($deploying), ciSchema('bitbucket')))->not->toBe([]);
-});
+})->group('network');
 
 it('deploys only the default branch\'s and the full run\'s verdicts, each the last step, and makes a pull request\'s verdict final', function (): void {
     $json = ciTemplateJson(ciTemplateRendered(CiTemplate::BitbucketPipelines));

@@ -303,6 +303,28 @@ jobs:
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
       - id: suite
         run: composer test:report
+      # The schemas the network group validates against, kept by their
+      # pinned digests, so a publisher's outage fails no run whose cache holds
+      # them. A changed pin starts from the newest set.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/mutation-gate-schema-*.json
+          key: schemas-${{ hashFiles('tests/Unit/Core/Ci/CiTemplateTest.php', 'tests/Unit/Core/Report/SarifTest.php') }}-${{ github.run_id }}-${{ github.job }}
+          restore-keys: |
+            schemas-${{ hashFiles('tests/Unit/Core/Ci/CiTemplateTest.php', 'tests/Unit/Core/Report/SarifTest.php') }}-
+            schemas-
+      - id: network
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p evidence/raw
+          composer test:network -- --log-junit=evidence/raw/tests-network.xml
+      # Whatever the run holds, saved even where a host failed, so each schema
+      # fetched once is never fetched again while its pin stands.
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: ${{ !cancelled() }}
+        with:
+          path: /tmp/mutation-gate-schema-*.json
+          key: schemas-${{ hashFiles('tests/Unit/Core/Ci/CiTemplateTest.php', 'tests/Unit/Core/Report/SarifTest.php') }}-${{ github.run_id }}-${{ github.job }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-report
@@ -353,6 +375,26 @@ jobs:
         run: |
           mkdir -p evidence/raw
           composer test -- --log-junit=evidence/raw/lowest.xml
+      # The schemas the network group validates against, kept by their
+      # pinned digests, so a publisher's outage fails no run whose cache holds
+      # them. A changed pin starts from the newest set.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/mutation-gate-schema-*.json
+          key: schemas-${{ hashFiles('tests/Unit/Core/Ci/CiTemplateTest.php', 'tests/Unit/Core/Report/SarifTest.php') }}-${{ github.run_id }}-${{ github.job }}
+          restore-keys: |
+            schemas-${{ hashFiles('tests/Unit/Core/Ci/CiTemplateTest.php', 'tests/Unit/Core/Report/SarifTest.php') }}-
+            schemas-
+      - id: network
+        if: ${{ !cancelled() }}
+        run: composer test:network -- --log-junit=evidence/raw/lowest-network.xml
+      # Whatever the run holds, saved even where a host failed, so each schema
+      # fetched once is never fetched again while its pin stands.
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: ${{ !cancelled() }}
+        with:
+          path: /tmp/mutation-gate-schema-*.json
+          key: schemas-${{ hashFiles('tests/Unit/Core/Ci/CiTemplateTest.php', 'tests/Unit/Core/Report/SarifTest.php') }}-${{ github.run_id }}-${{ github.job }}
       # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
       - name: evidence
         if: ${{ !cancelled() }}

@@ -25,7 +25,7 @@ it('writes SARIF 2.1.0 as its schema describes it', function (string $verdict): 
 
     expect(Schema::errors(Sarif::json(Verdicts::named($verdict)), $schema))->toBe([])
         ->and(Schema::errors(Sarif::rootedAt(Verdicts::named($verdict), SourceRoot::at('/work/gate')), $schema))->toBe([]);
-})->with(['failing', 'passing', 'empty', 'clustered']);
+})->with(['failing', 'passing', 'empty', 'clustered'])->group('network');
 
 it('names the root its paths are relative to only for an editor on this machine', function (): void {
     $root = static fn(string $sarif): mixed => Decoded::at($sarif, 'runs', 0, 'originalUriBaseIds', '%SRCROOT%');
@@ -127,4 +127,4 @@ it('says a security mutant\'s result is one, and makes it an error where its sec
         ->and($security[0]['level'] ?? null)->toBe('error')
         ->and($security[0]['properties']['id'] ?? null)->toBe(Secured::mutant(MutantJudgement::Survived, 3)->mutant()->id()->value())
         ->and(Schema::errors($sarif, Schema::fetched(...SARIF_SCHEMA)))->toBe([]);
-});
+})->group('network');
