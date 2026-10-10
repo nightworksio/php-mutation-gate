@@ -686,6 +686,7 @@ it('checks mutants before their tests only where staticCheck.before asks, and ot
     $plan = Planned::handedIn($project, Planned::twoShards());
     $after = ScriptedRunner::fixture();
     $before = ScriptedRunner::fixture();
+    $unwired = ScriptedRunner::fixture();
     $checker = static fn(): StaticCheckerFake => new StaticCheckerFake(
         AnalyserIdentity::of('fake', '1.0.0', Digest::sha256Of('')),
         Findings::none(),
@@ -699,7 +700,10 @@ it('checks mutants before their tests only where staticCheck.before asks, and ot
         Flows::settings(StaticCheck::beforeTests()),
         $ticking(),
     )->run($plan, ShardId::of(1), Workspace::results());
+    new Running(Flows::adapters($project, [], $unwired), Flows::settings(StaticCheck::beforeTests()), $ticking())
+        ->run($plan, ShardId::of(1), Workspace::results());
 
     expect(array_unique($after->preCheckers()))->toBe([NoPreCheck::class])
-        ->and(array_unique($before->preCheckers()))->toBe([PreChecking::class]);
+        ->and(array_unique($before->preCheckers()))->toBe([PreChecking::class])
+        ->and(array_unique($unwired->preCheckers()))->toBe([PreChecking::class]);
 });
