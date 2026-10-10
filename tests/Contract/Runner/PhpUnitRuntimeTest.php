@@ -247,7 +247,7 @@ it('measures which tests run each line and how long each took, and places and na
         ->of(CoverageRun::of(Filter::matching('TallySpec'), Path::of('.mutation-gate/coverage')));
     $lines = file($project->absolute(Path::of('src/Tally.php')));
     $sum = Line::of((int) array_search("        return \$a + \$b;\n", is_array($lines) ? $lines : [], strict: true) + 1);
-    $adding = $map instanceof CoverageMap ? $map->testsCovering(Path::of('src/Tally.php'), $sum) : TestIds::none();
+    $adding = $map instanceof CoverageMap ? $map->testsCovering(Path::of('src/Tally.php'), $sum, $sum) : TestIds::none();
     $files = new TestFiles($project)->declaring($adding);
     $row = TestId::of("Tests\\TallySpec::addsEachPair#one\nplus one");
 

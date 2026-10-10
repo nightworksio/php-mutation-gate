@@ -136,6 +136,17 @@ final readonly class CoverageMap
         return $this->lines->lines();
     }
 
+    /**
+     * Every executable line as `lines()` lists them, each with the places of
+     * its tests in `tests()`.
+     *
+     * @return Traversable<int, PlacedLine>
+     */
+    public function placedLines(): Traversable
+    {
+        return $this->lines->placedLines();
+    }
+
     public function tests(): TestIds
     {
         return $this->lines->tests();
@@ -161,13 +172,8 @@ final readonly class CoverageMap
         return $this->lines->coveredIn($file);
     }
 
-    public function testsCovering(Path $file, Line $line): TestIds
-    {
-        return $this->lines->running($file, $line, $line);
-    }
-
     /** Every test that covers any line of a file from the first to the last, each once. */
-    public function testsCoveringSpan(Path $file, Line $first, Line $last): TestIds
+    public function testsCovering(Path $file, Line $first, Line $last): TestIds
     {
         return $this->lines->running($file, $first, $last);
     }

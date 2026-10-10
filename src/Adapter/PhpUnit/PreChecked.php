@@ -74,7 +74,7 @@ final readonly class PreChecked
     private static function offer(MadeMutant $mutant, CoverageMap $map): PreCheckable|NotGiven
     {
         $location = $mutant->location();
-        $covering = $map->testsCoveringSpan($location->file(), $location->start(), $location->last());
+        $covering = $map->testsCovering($location->file(), $location->start(), $location->last());
         $tests = OwnTime::of($map, $covering);
 
         return count($covering) === 0 ? NotGiven::value() : PreCheckable::of(

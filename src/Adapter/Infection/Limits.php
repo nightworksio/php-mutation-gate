@@ -58,7 +58,7 @@ final readonly class Limits
     {
         $classes = [];
 
-        foreach ($this->map->testsCovering($file, $line) as $test) {
+        foreach ($this->map->testsCovering($file, $line, $line) as $test) {
             $classes[TestMethod::classOf($test)] = true;
         }
 

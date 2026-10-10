@@ -123,7 +123,7 @@ final readonly class FirstRun
     /** A mutant's run on a line: its start-up and every covering test, or nothing where no test covers it. */
     private static function perMutant(CoverageMap $map, Seconds $startUp, Path $file, Line $line): float
     {
-        $tests = $map->testsCovering($file, $line);
+        $tests = $map->testsCovering($file, $line, $line);
         $seconds = count($tests) === 0 ? 0.0 : $startUp->seconds();
 
         foreach ($tests as $test) {

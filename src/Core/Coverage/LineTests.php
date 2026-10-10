@@ -28,7 +28,6 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 use function sort;
-use function strval;
 
 use Traversable;
 
@@ -123,12 +122,25 @@ final readonly class LineTests
      */
     public function lines(): Traversable
     {
-        foreach ([false, true] as $missed) {
-            foreach ($this->lines as $file => $lines) {
-                foreach (self::kept($lines, $missed) as $number => $line) {
-                    $ids = array_map(fn(int $place): string => $this->tests[$place]->value(), [...$line]);
+        foreach ($this->placedLines() as $line) {
+            $ids = array_map(fn(int $place): string => $this->tests[$place]->value(), [...$line]);
 
-                    yield CoveredLine::of(Path::of(strval($file)), $number, ...$ids);
+            yield CoveredLine::of($line->file(), $line->line(), ...$ids);
+        }
+    }
+
+    /**
+     * Every executable line as `lines()` lists them, each with the places of
+     * its tests in `tests()`.
+     *
+     * @return Traversable<int, PlacedLine>
+     */
+    public function placedLines(): Traversable
+    {
+        foreach ([false, true] as $missed) {
+            foreach ($this->lines as $lines) {
+                foreach (self::kept($lines, $missed) as $line) {
+                    yield $line;
                 }
             }
         }
@@ -153,11 +165,6 @@ final readonly class LineTests
     public function coveredIn(Path $file): Lines
     {
         return Lines::of(...array_map(Line::of(...), array_keys(self::kept($this->linesOf($file), missed: false))));
-    }
-
-    public function missedIn(Path $file): Lines
-    {
-        return Lines::of(...array_map(Line::of(...), array_keys(self::kept($this->linesOf($file), missed: true))));
     }
 
     /** Every test that ran any line of a file from the first to the last, each once, in the order lines name them. */
@@ -194,7 +201,9 @@ final readonly class LineTests
 
         ksort($sets);
 
-        return LineSets::of($this, new ArrayIterator($sets), $this->missedIn($file));
+        $missed = Lines::of(...array_map(Line::of(...), array_keys(self::kept($this->linesOf($file), missed: true))));
+
+        return LineSets::of($this, new ArrayIterator($sets), $missed);
     }
 
     /** The tests of a set this names, each once, in byte order of their ids. */

@@ -50,9 +50,9 @@ it('lists the covered lines of a file, and none for a file nothing covered', fun
 })->group('holds:src/Core/Coverage/LineTests.php');
 
 it('answers the tests that covered one line', function () use ($map, $ids): void {
-    expect($ids($map()->testsCovering(Path::of('src/Money.php'), Line::of(12))))->toBe(['MoneyTest::adds', 'MoneyTest::subtracts'])
-        ->and($ids($map()->testsCovering(Path::of('src/Money.php'), Line::of(13))))->toBe([])
-        ->and($ids($map()->testsCovering(Path::of('src/Other.php'), Line::of(12))))->toBe([]);
+    expect($ids($map()->testsCovering(Path::of('src/Money.php'), Line::of(12), Line::of(12))))->toBe(['MoneyTest::adds', 'MoneyTest::subtracts'])
+        ->and($ids($map()->testsCovering(Path::of('src/Money.php'), Line::of(13), Line::of(13))))->toBe([])
+        ->and($ids($map()->testsCovering(Path::of('src/Other.php'), Line::of(12), Line::of(12))))->toBe([]);
 })->group('holds:src/Core/Coverage/LineTests.php');
 
 it('answers every test that covered any line of a file, each once', function () use ($map, $ids): void {
@@ -63,11 +63,11 @@ it('answers every test that covered any line of a file, each once', function () 
 it('answers every test that covered any line of a span, each once, in the order the lines name them', function () use ($map, $ids): void {
     $money = Path::of('src/Money.php');
 
-    expect($ids($map()->testsCoveringSpan($money, Line::of(3), Line::of(12))))->toBe(['MoneyTest::adds', 'MoneyTest::subtracts'])
-        ->and($ids($map()->testsCoveringSpan($money, Line::of(12), Line::of(20))))->toBe(['MoneyTest::adds', 'MoneyTest::subtracts', 'LedgerTest::books'])
-        ->and($ids($map()->testsCoveringSpan($money, Line::of(13), Line::of(19))))->toBe([])
-        ->and($ids($map()->testsCoveringSpan($money, Line::of(20), Line::of(20))))->toBe(['LedgerTest::books'])
-        ->and($ids($map()->testsCoveringSpan(Path::of('src/Other.php'), Line::of(1), Line::of(99))))->toBe([]);
+    expect($ids($map()->testsCovering($money, Line::of(3), Line::of(12))))->toBe(['MoneyTest::adds', 'MoneyTest::subtracts'])
+        ->and($ids($map()->testsCovering($money, Line::of(12), Line::of(20))))->toBe(['MoneyTest::adds', 'MoneyTest::subtracts', 'LedgerTest::books'])
+        ->and($ids($map()->testsCovering($money, Line::of(13), Line::of(19))))->toBe([])
+        ->and($ids($map()->testsCovering($money, Line::of(20), Line::of(20))))->toBe(['LedgerTest::books'])
+        ->and($ids($map()->testsCovering(Path::of('src/Other.php'), Line::of(1), Line::of(99))))->toBe([]);
 })->group('holds:src/Core/Coverage/LineTests.php');
 
 it('answers the tests of a span in time linear in how many cover it', function (): void {
@@ -77,7 +77,7 @@ it('answers the tests of a span in time linear in how many cover it', function (
             range(1, 4),
         ));
 
-        return static fn(): int => count($map->testsCoveringSpan(Path::of('src/A.php'), Line::of(1), Line::of(4)));
+        return static fn(): int => count($map->testsCovering(Path::of('src/A.php'), Line::of(1), Line::of(4)));
     };
 
     expect($span(10)())->toBe(10)
@@ -114,7 +114,7 @@ it('builds a map at once as it would one entry after another', function () use (
     );
 
     expect($built)->toEqual($map())
-        ->and($built->testsCovering(Path::of('src/Money.php'), Line::of(12)))->toEqual($map()->testsCovering(Path::of('src/Money.php'), Line::of(12)))
+        ->and($built->testsCovering(Path::of('src/Money.php'), Line::of(12), Line::of(12)))->toEqual($map()->testsCovering(Path::of('src/Money.php'), Line::of(12), Line::of(12)))
         ->and($built->durationOf(TestId::of('MoneyTest::adds')))->toEqual(Seconds::of(0.25));
 })->group('holds:src/Core/Coverage/LineTests.php');
 
@@ -144,7 +144,7 @@ it('names an executed method and the lines it spans', function (): void {
 it('knows a test whose id is only digits by that id', function (): void {
     $map = CoverageMap::of(CoveredLine::of(Path::of('src/A.php'), 1, '7'))->timedEach(TimedTest::of('8', 1.0));
 
-    expect($map->testsCovering(Path::of('src/A.php'), Line::of(1)))->toEqual(TestIds::of(TestId::of('7')))
+    expect($map->testsCovering(Path::of('src/A.php'), Line::of(1), Line::of(1)))->toEqual(TestIds::of(TestId::of('7')))
         ->and($map->tests())->toEqual(TestIds::of(TestId::of('7'), TestId::of('8')))
         ->and($map->durationOf(TestId::of('8')))->toEqual(Seconds::of(1.0));
 })->group('holds:src/Core/Coverage/LineTests.php');

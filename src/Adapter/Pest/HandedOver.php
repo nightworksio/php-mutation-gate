@@ -28,7 +28,7 @@ final readonly class HandedOver implements Covering
         foreach ($this->map->linesCovered($path) as $line) {
             $covered = $line->number() >= $first->number() && $line->number() <= $last->number();
 
-            foreach ($covered ? $this->map->testsCovering($path, $line) : [] as $test) {
+            foreach ($covered ? $this->map->testsCovering($path, $line, $line) : [] as $test) {
                 $tests[] = $test;
             }
         }

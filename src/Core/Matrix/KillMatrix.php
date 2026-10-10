@@ -193,6 +193,6 @@ final readonly class KillMatrix
     {
         $location = $judged->mutant()->location();
 
-        return $this->coverage->testsCoveringSpan($location->file(), $location->start(), $location->last());
+        return $this->coverage->testsCovering($location->file(), $location->start(), $location->last());
     }
 }

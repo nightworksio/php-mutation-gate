@@ -334,7 +334,7 @@ final readonly class RunnerFake implements Runner
         );
 
         return match ($change['status']) {
-            MutantStatus::Killed => $mutant->killedBy($map->testsCovering($file, $line)),
+            MutantStatus::Killed => $mutant->killedBy($map->testsCovering($file, $line, $line)),
             MutantStatus::TimedOut => $mutant->withLimit(Seconds::of(5.0)),
             MutantStatus::KilledByStaticAnalysis,
             MutantStatus::Survived,

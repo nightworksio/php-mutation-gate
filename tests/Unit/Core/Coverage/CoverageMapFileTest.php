@@ -73,8 +73,8 @@ it('reads a test listed twice as one, wherever a line names either place', funct
     $ids = static fn(TestIds $tests): array => array_map(static fn(TestId $test): string => $test->value(), [...$tests]);
 
     expect($map instanceof CoverageMap ? $ids($map->tests()) : [])->toBe(['MoneyTest::adds', 'MoneyTest::subtracts'])
-        ->and($map instanceof CoverageMap ? $ids($map->testsCovering(Path::of('src/Money.php'), Line::of(3))) : [])->toBe(['MoneyTest::adds'])
-        ->and($map instanceof CoverageMap ? $ids($map->testsCovering(Path::of('src/Money.php'), Line::of(12))) : [])->toBe(['MoneyTest::adds', 'MoneyTest::subtracts']);
+        ->and($map instanceof CoverageMap ? $ids($map->testsCovering(Path::of('src/Money.php'), Line::of(3), Line::of(3))) : [])->toBe(['MoneyTest::adds'])
+        ->and($map instanceof CoverageMap ? $ids($map->testsCovering(Path::of('src/Money.php'), Line::of(12), Line::of(12))) : [])->toBe(['MoneyTest::adds', 'MoneyTest::subtracts']);
 });
 
 it('is map.json.gz in the directory a job hands on', function (): void {
