@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -134,7 +135,7 @@ it('keeps the coverage run and each mutant\'s run to one suite where the run nam
 
     expect($mutant($suited))->toContain('--testsuite=unit')
         ->and($mutant($request))->not->toContain('--testsuite=unit')
-        ->and(array_slice($invocation->coverage($run->inSuite(SuiteName::of('unit')), '/map.php')->arguments(), -1))
+        ->and(array_slice($invocation->coverage($run->amongSuites(Suites::named(SuiteName::of('unit'))), '/map.php')->arguments(), -1))
         ->toBe(['--testsuite=unit'])
         ->and($invocation->coverage($run, '/map.php')->arguments())->not->toContain('--testsuite=unit');
 });

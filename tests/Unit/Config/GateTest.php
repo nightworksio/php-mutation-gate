@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Config\Shards;
 use NightWorksIO\MutationGate\Config\Source;
 use NightWorksIO\MutationGate\Config\StaticCheck;
 use NightWorksIO\MutationGate\Config\Survivors;
+use NightWorksIO\MutationGate\Config\Tests;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Config\Tree;
 use NightWorksIO\MutationGate\Config\Uncovered;
@@ -369,6 +370,12 @@ it('lays each setting over those before it', function (): void {
         'trees' => [['path' => 'b']],
         'reports' => [['use' => 'json', 'path' => 'b']],
     ]);
+});
+
+it('writes the order of each mutant\'s tests beside the suites whose tests judge, each in the tests section', function (): void {
+    expect(Configs::written(Gate::configure()->with(Tests::inRunnerOrder(), Tests::suites('Unit', 'Contract'))))
+        ->toBe(['tests' => ['order' => 'runner', 'suites' => ['Unit', 'Contract']]])
+        ->and(Configs::written(Gate::configure()->with(Tests::killersFirst())))->toBe(['tests' => ['order' => 'killers-first']]);
 });
 
 it('writes lists as lists, whatever their arguments are named', function (): void {

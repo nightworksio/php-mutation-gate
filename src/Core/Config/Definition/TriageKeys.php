@@ -79,13 +79,7 @@ final readonly class TriageKeys
                     static fn(bool|Absent $confirm): Layer => Layer::of(Triage::of(confirmSurvivors: $confirm)),
                 ),
             ),
-            Field::section(
-                'tests',
-                Section::single(
-                    Field::optional('order', Enumerated::of(TestOrder::cases()), $results),
-                    static fn(TestOrder|Absent $order): Layer => Layer::of(Triage::of(order: $order)),
-                ),
-            ),
+            Field::section('tests', self::tests($results)),
             Field::section(
                 'survivorsFirst',
                 Section::single(
@@ -96,6 +90,37 @@ final readonly class TriageKeys
                 ),
             ),
         ];
+    }
+
+    /**
+     * `tests`: the order each mutant's covering tests run in, and the suites
+     * whose tests judge, each once and at least one where the key is written.
+     *
+     * @return Section<Layer>
+     */
+    private static function tests(Effect $results): Section
+    {
+        $order = Field::optional('order', Enumerated::of(TestOrder::cases()), $results);
+        $suites = Field::optional(
+            'suites',
+            Items::distinctAtLeastOne(Text::of('a test suite\'s name'), static fn(string $name): string => $name),
+            $results,
+        );
+
+        return Section::of(
+            static function (Node $tests) use ($order, $suites): Layer|Invalid {
+                $ordered = $order->read($tests);
+                $listed = $suites->read($tests);
+
+                return Reading::built(
+                    static fn(): Layer => Layer::of(Triage::of(order: $ordered->value(), suites: $listed->value())),
+                    $ordered,
+                    $listed,
+                );
+            },
+            $order,
+            $suites,
+        );
     }
 
     /**

@@ -268,6 +268,19 @@ cannot.
    read through. The committed `resources/mutation-gate.schema.json` must equal that
    output, and a test fails when the two differ.
 
+8. **`tests.suites` lists the suites whose tests judge.** It names
+   `<testsuite>`s of the PHPUnit configuration, each once and at least one.
+   Left out, every suite judges, as a run with no suite named does.
+   - Every run's tests, the coverage run's and each mutant's own run's among
+     them, are kept to the listed suites with PHPUnit's `--testsuite`, the
+     names comma-separated, under every runner. A suite left off the list,
+     such as one whose tests start real processes or check the architecture,
+     still runs in the project's own CI, and judges no mutant.
+   - A name the PHPUnit configuration does not declare fails the run with
+     exit code 2, naming the suites it does declare.
+   - It affects results, so it is in the proof key (ADR-0007 decision 2.3).
+     `--suite` names one suite over it (ADR-0025, decision 9).
+
 ## Alternatives considered
 
 | Option | Why it lost |

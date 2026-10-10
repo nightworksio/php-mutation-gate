@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -311,7 +312,7 @@ it('keeps the coverage run and the mutation run to one suite where the run names
     expect(invocation()->mutation($suited, WholeSuite::tests(), '/p/results.jsonl')->arguments())->toContain('--testsuite=unit')
         ->and(invocation()->mutation($request, WholeSuite::tests(), '/p/results.jsonl')->arguments())
         ->not->toContain('--testsuite=unit')
-        ->and(array_slice(invocation()->coverage($run->inSuite(SuiteName::of('unit')), '/p/cov', reach())->arguments(), -1))
+        ->and(array_slice(invocation()->coverage($run->amongSuites(Suites::named(SuiteName::of('unit'))), '/p/cov', reach())->arguments(), -1))
         ->toBe(['--testsuite=unit'])
         ->and(invocation()->coverage($run, '/p/cov', reach())->arguments())->not->toContain('--testsuite=unit');
 });

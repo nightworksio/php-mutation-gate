@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 
 it('narrows nothing by default: every mutator, judged by every test', function (): void {
     $none = Narrowing::none();
@@ -31,4 +32,14 @@ it('narrows to one suite, leaving the mutators as they were', function (): void 
         ->and($narrowed->mutators())->toEqual(Mutators::named('Plus'))
         ->and(Narrowing::none()->toSuite(SuiteName::of('unit'))->isNone())->toBeFalse()
         ->and(SuiteName::of('unit')->value())->toBe('unit');
+});
+
+it('judges by every suite by default, by the suites the config lists, and by the one --suite names over them, without narrowing for the config', function (): void {
+    $listed = Narrowing::none()->amongSuites(Suites::named(SuiteName::of('unit'), SuiteName::of('contract')));
+
+    expect(Narrowing::none()->selected())->toEqual(Suites::all())
+        ->and($listed->selected())->toEqual(Suites::named(SuiteName::of('unit'), SuiteName::of('contract')))
+        ->and($listed->toSuite(SuiteName::of('e2e'))->selected())->toEqual(Suites::named(SuiteName::of('e2e')))
+        ->and($listed->isNone())->toBeTrue()
+        ->and($listed->suite())->toEqual(NotGiven::value());
 });

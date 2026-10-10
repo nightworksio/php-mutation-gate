@@ -100,7 +100,7 @@ final readonly class Invocation
                 sprintf('%s=%s/%s', PhpUnitOption::CoveragePhp->value, $directory, self::MAP),
                 sprintf('%s=%s/%s', PhpUnitOption::LogJunit->value, $directory, self::JUNIT),
                 ...$this->covering($request->tests()),
-                ...PhpUnitOption::inSuite($request->suite()),
+                ...PhpUnitOption::inSuites($request->suites()),
             ],
         );
     }
@@ -142,7 +142,7 @@ final readonly class Invocation
             sprintf('--path=%s', PathList::of($request->files())->joined(',')),
             sprintf('--ignore=%s', $this->ignored($request->leftOut())),
             ...$this->narrowedTo($judgedBy),
-            ...PhpUnitOption::inSuite($request->narrowing()->suite()),
+            ...PhpUnitOption::inSuites($request->narrowing()->selected()),
             ...$this->applying($request->narrowing()->mutators(), $bridges),
         )->with([
             GateVariable::Results->value => $results,
@@ -202,7 +202,7 @@ final readonly class Invocation
             PhpUnitOption::NoColors->value,
             sprintf('%s=%s', PhpUnitOption::LogEventsText->value, $events),
             ...$this->narrowedTo($opensOn),
-            ...PhpUnitOption::inSuite($request->narrowing()->suite()),
+            ...PhpUnitOption::inSuites($request->narrowing()->selected()),
         );
     }
 

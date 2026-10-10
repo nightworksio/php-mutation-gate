@@ -16,6 +16,8 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Runner\TighterSilence;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\SettingsCases;
@@ -31,7 +33,7 @@ it('reads tree excludes, the shard target and setup, the price, the test order a
             'bucket' => 'proofs',
             'publicUrl' => 'https://proofs.example.com',
         ]]],
-        'tests' => ['order' => 'runner'],
+        'tests' => ['order' => 'runner', 'suites' => ['Unit', 'Contract', 'Unit']],
         'equivalence' => ['static' => false],
     ]);
     $trees = $settings->floors()->trees();
@@ -44,6 +46,7 @@ it('reads tree excludes, the shard target and setup, the price, the test order a
         ->and($price instanceof Price ? [$price->amount(), $price->currency()] : [])->toBe([0.008, 'USD'])
         ->and(Configs::shown($settings, 'proofs', 'store', 'with', 'publicUrl'))->toBe('https://proofs.example.com')
         ->and($settings->triage()->order())->toBe(TestOrder::Runner)
+        ->and($settings->triage()->suites())->toEqual(Suites::named(SuiteName::of('Unit'), SuiteName::of('Contract')))
         ->and($settings->ignores()->staticEquivalence())->toBeFalse();
 });
 
@@ -57,6 +60,7 @@ it('excludes nothing, cuts by seconds, prices nothing, puts killers first and ch
         ->and($settings->shards()->setup())->toEqual(Seconds::of(60))
         ->and($settings->shards()->perRunnerMinute())->toEqual(Absent::setting())
         ->and($settings->triage()->order())->toBe(TestOrder::KillersFirst)
+        ->and($settings->triage()->suites())->toEqual(Suites::all())
         ->and($settings->ignores()->staticEquivalence())->toBeTrue();
 });
 
@@ -96,6 +100,14 @@ it('refuses a shard count set two ways, and a price, a public URL, an order or a
     'a test order the gate does not know' => [
         ['tests' => ['order' => 'random']],
         ['tests.order: expected "killers-first" or "runner", got "random"'],
+    ],
+    'test suites listed as none' => [
+        ['tests' => ['suites' => []]],
+        ['tests.suites: expected at least one entry, got none; leave the key out to take its default'],
+    ],
+    'a test suite that is not named' => [
+        ['tests' => ['suites' => ['Unit', 7]]],
+        ['tests.suites[1]: expected a test suite\'s name, got 7'],
     ],
     'an exclude that is not a list of globs' => [
         ['trees' => [['path' => 'src', 'exclude' => 'src/Legacy']]],
@@ -188,7 +200,8 @@ it('names each CI\'s pipeline file in a config written as PHP', function (): voi
         ->toContain("Pipeline::jenkinsDefinition('ci/Jenkinsfile')")
         ->toContain('StaticCheck::seconds(45)')
         ->toContain('StaticCheck::beforeTests()')
-        ->toContain('Survivors::firstAtMost(5)');
+        ->toContain('Survivors::firstAtMost(5)')
+        ->toContain("Tests::suites('Unit', 'Plugins')");
 });
 
 it('writes how uncovered mutants count and the baseline\'s path and improvement into a config written as PHP', function (array $config, string $with): void {

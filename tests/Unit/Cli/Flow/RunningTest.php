@@ -65,6 +65,7 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -552,7 +553,7 @@ it('runs a held unit\'s holding tests under coverage of the one suite a narrowed
     expect($runner->asked())->toEqual([
         CoverageRun::of(Group::named('holds:src/Held.php'), Path::of('.mutation-gate/held/shard-1'))
             ->withholding($adapters->withheld)
-            ->inSuite(SuiteName::of('unit')),
+            ->amongSuites(Suites::named(SuiteName::of('unit'))),
     ]);
 });
 

@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Runner;
 
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
-use NightWorksIO\MutationGate\Core\Test\SuiteName;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
@@ -29,14 +28,14 @@ final readonly class CoverageRun
         private Path $directory,
         private ProcessCount $processes,
         private Withheld $withheld,
-        private SuiteName|NotGiven $suite,
+        private Suites $suites,
     ) {
     }
 
     /** These tests run under coverage in one process, leaving the map in a directory. */
     public static function of(WholeSuite|Group|Filter|TestPaths $tests, Path $into): self
     {
-        return new self($tests, $into, ProcessCount::single(), Withheld::standard(), NotGiven::value());
+        return new self($tests, $into, ProcessCount::single(), Withheld::standard(), Suites::all());
     }
 
     public function across(ProcessCount $processes): self
@@ -50,16 +49,16 @@ final readonly class CoverageRun
         return clone($this, ['withheld' => $this->withheld->and($withheld)]);
     }
 
-    /** This run, of one suite's tests alone, as `--suite` asks (ADR-0025, decision 9). */
-    public function inSuite(SuiteName $suite): self
+    /** This run, of these suites' tests alone, as `tests.suites` lists them or `--suite` names one. */
+    public function amongSuites(Suites $suites): self
     {
-        return clone($this, ['suite' => $suite]);
+        return clone($this, ['suites' => $suites]);
     }
 
-    /** The suite whose tests alone the run runs; none where it runs every suite's. */
-    public function suite(): SuiteName|NotGiven
+    /** The suites whose tests the run runs: every suite where it names none. */
+    public function suites(): Suites
     {
-        return $this->suite;
+        return $this->suites;
     }
 
     /** The variables the tests never see. */

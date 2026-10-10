@@ -151,7 +151,7 @@ final readonly class Wiring
                     ini_get('disable_functions'),
                 ),
                 ConfigReads::none(),
-            ),
+            )->judgedAmong($settings->triage()->suites()),
         };
     }
 

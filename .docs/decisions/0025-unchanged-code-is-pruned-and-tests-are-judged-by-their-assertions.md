@@ -259,6 +259,8 @@ decision 3). The kill matrix knows which tests cover and which kill
      run records no commit as passed and teaches the cost model nothing.
    - A name the PHPUnit configuration does not declare fails the run with
      exit code 2, naming the suites it does declare.
+   - It names its suite over the suites `tests.suites` lists (ADR-0002,
+     decision 8), whether or not that suite is among them.
 
 10. **Suite scores are reported, never judged.** A lower bound cannot gate
     soundly, so there are no floors per suite.

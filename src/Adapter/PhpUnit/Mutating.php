@@ -34,7 +34,6 @@ use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
-use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
@@ -181,10 +180,9 @@ final readonly class Mutating
             );
         }
 
-        $suite = $request->narrowing()->suite();
         $run = CoverageRun::of($request->judgedBy(), $this->project->ownPath(CoverageRun::OWN_DIRECTORY))
-            ->withholding($request->withheld());
-        $run = $suite instanceof SuiteName ? $run->inSuite($suite) : $run;
+            ->withholding($request->withheld())
+            ->amongSuites($request->narrowing()->selected());
         $command = $invocation->coverage($run, self::NO_MAP_FILE);
 
         return $this->held->readFrom(

@@ -41,6 +41,7 @@ use NightWorksIO\MutationGate\Config\Proofs;
 use NightWorksIO\MutationGate\Config\Runner;
 use NightWorksIO\MutationGate\Config\Shards;
 use NightWorksIO\MutationGate\Config\StaticCheck;
+use NightWorksIO\MutationGate\Config\Tests as TestsSetting;
 use NightWorksIO\MutationGate\Config\Timeouts;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
@@ -91,6 +92,8 @@ use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\SuiteName;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\ThisPackage;
@@ -758,4 +761,15 @@ it('cannot wire a runner where the PHPUnit config it would read the test directo
         Flows::settings(Runner::pest()),
         Directory::at($project),
     ))->toEqual(CannotJudge::because('phpunit.xml is not XML, so the test suite it declares cannot be read.'));
+});
+
+it('judges by the suites tests.suites lists where the PHPUnit config declares each, and refuses one it does not', function (): void {
+    $project = Flows::project();
+    Scratch::write($project, 'phpunit.xml', '<?xml version="1.0"?><phpunit><testsuites><testsuite name="Unit"/><testsuite name="Process"/></testsuites></phpunit>');
+    $wiring = new Wiring(wiringRegistry(), Variables::of([]), wiringDetected());
+    $listed = $wiring->adapters(Flows::settings(Runner::pest(), TestsSetting::suites('Unit')), Directory::at($project));
+
+    expect($listed instanceof Adapters ? $listed->narrowing->selected() : $listed)->toEqual(Suites::named(SuiteName::of('Unit')))
+        ->and($wiring->adapters(Flows::settings(Runner::pest(), TestsSetting::suites('Unit', 'e2e')), Directory::at($project)))
+        ->toEqual(CannotJudge::because('tests.suites lists e2e, which names no test suite. The PHPUnit config declares: Unit, Process.'));
 });

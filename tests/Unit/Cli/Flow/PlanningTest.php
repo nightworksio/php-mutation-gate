@@ -72,6 +72,7 @@ use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -268,7 +269,7 @@ it('briefs every shard and the verdict that a run narrowed to one suite runs its
     $whole = $plan(Flows::project(), Mode::full(), Cut::exactly(2));
 
     expect($suited instanceof Plan ? $suited->briefing()->suite() : $suited)->toEqual(SuiteName::of('unit'))
-        ->and($runner->ran()[0]->suite())->toEqual(SuiteName::of('unit'))
+        ->and($runner->ran()[0]->suites())->toEqual(Suites::named(SuiteName::of('unit')))
         ->and($runner->ran()[0]->withheld())->toEqual(Withheld::standard()->and(Withheld::of('FAKE_CI_TOKEN')))
         ->and($suited instanceof Plan && $whole instanceof Plan ? $suited->base() : $suited)
         ->not->toEqual($whole instanceof Plan ? $whole->base() : $whole);

@@ -61,6 +61,7 @@ use NightWorksIO\MutationGate\Core\Runner\TighterVariables;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestName;
@@ -419,7 +420,7 @@ it('keeps the coverage run and every mutant\'s tests to the suite the request na
         $request->narrowedTo($request->files(), Narrowing::none()->toSuite(SuiteName::of('unit'))),
     );
     new Infection($at, $shell, LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory())->coverage(
-        CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'))->inSuite(SuiteName::of('unit')),
+        CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage'))->amongSuites(Suites::named(SuiteName::of('unit'))),
     );
     $ran = InfectionCases::ran($shell);
 

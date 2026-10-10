@@ -8,12 +8,14 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 
 /**
  * What a run is narrowed to: the mutators it makes mutants with, every one
  * or those `--security` names (ADR-0021, decision 20), the one suite whose
- * tests alone judge them, as `--suite` names it (ADR-0025, decision 9), and
- * the mutators it leaves out of the files whose content is unchanged
+ * tests alone judge them, as `--suite` names it (ADR-0025, decision 9), the
+ * suites whose tests judge them otherwise, as `tests.suites` lists them
+ * (ADR-0002), and the mutators it leaves out of the files whose content is unchanged
  * (ADR-0025, decision 1).
  */
 final readonly class Narrowing
@@ -21,6 +23,7 @@ final readonly class Narrowing
     private function __construct(
         private Mutators $mutators,
         private SuiteName|NotGiven $suite,
+        private Suites $suites,
         private Pruned $pruned,
     ) {
     }
@@ -28,7 +31,7 @@ final readonly class Narrowing
     /** Every mutator, judged by every test, on every file. */
     public static function none(): self
     {
-        return new self(Mutators::all(), NotGiven::value(), Pruned::none());
+        return new self(Mutators::all(), NotGiven::value(), Suites::all(), Pruned::none());
     }
 
     /** This narrowing, making mutants with these mutators alone. */
@@ -41,6 +44,12 @@ final readonly class Narrowing
     public function toSuite(SuiteName $suite): self
     {
         return clone($this, ['suite' => $suite]);
+    }
+
+    /** This narrowing, its mutants judged by these suites' tests, as `tests.suites` lists them (ADR-0002). */
+    public function amongSuites(Suites $suites): self
+    {
+        return clone($this, ['suites' => $suites]);
     }
 
     /** This narrowing, leaving these mutators out of these files. */
@@ -57,6 +66,12 @@ final readonly class Narrowing
     public function suite(): SuiteName|NotGiven
     {
         return $this->suite;
+    }
+
+    /** The suites whose tests judge: the one `--suite` names, or those `tests.suites` lists, every suite by default. */
+    public function selected(): Suites
+    {
+        return $this->suite instanceof SuiteName ? Suites::named($this->suite) : $this->suites;
     }
 
     /** The mutators it leaves out of the files whose content is unchanged. */
