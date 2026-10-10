@@ -20,13 +20,13 @@ final readonly class Measurement
         private string $runner,
         private Instant $at,
         private StepTimes $steps,
-        private string $gate,
+        private GateRelease $gate,
     ) {
     }
 
     public static function of(Seconds $spent, string $runner, Instant $at): self
     {
-        return new self($spent, $runner, $at, StepTimes::none(), '');
+        return new self($spent, $runner, $at, StepTimes::none(), GateRelease::unrecorded());
     }
 
     /** The same measurement, its time having gone to these steps. */
@@ -35,14 +35,14 @@ final readonly class Measurement
         return new self($this->spent, $this->runner, $this->at, $steps, $this->gate);
     }
 
-    /** The same measurement, made by this gate, as its version spells it. */
-    public function measuredBy(string $gate): self
+    /** The same measurement, made by this release of the gate. */
+    public function measuredBy(GateRelease $gate): self
     {
         return new self($this->spent, $this->runner, $this->at, $this->steps, $gate);
     }
 
-    /** The gate that made it, as its version spells it; empty where none was recorded. */
-    public function gate(): string
+    /** The release of the gate that made it; unrecorded where none was. */
+    public function gate(): GateRelease
     {
         return $this->gate;
     }

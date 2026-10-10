@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Plan\Considering;
 use NightWorksIO\MutationGate\Core\Plan\OwnOnly;
 use NightWorksIO\MutationGate\Core\Plan\Proving;
 use NightWorksIO\MutationGate\Core\Proof\Access;
+use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
@@ -141,7 +142,7 @@ final readonly class Ledgers
      */
     public function untimed(Units $units, Version $gate): Units
     {
-        $timings = $this->timings()->measuredBy($gate->spelt());
+        $timings = $this->timings()->measuredBy(GateRelease::of($gate));
         $untimed = [];
 
         foreach ($units as $unit) {
@@ -160,7 +161,7 @@ final readonly class Ledgers
      */
     public function estimated(CostModel $costs, Unit $unit, FirstRun $firstRun, Version $gate): Estimated
     {
-        return $costs->cost($unit, $this->timings()->measuredBy($gate->spelt()), $firstRun);
+        return $costs->cost($unit, $this->timings()->measuredBy(GateRelease::of($gate)), $firstRun);
     }
 
     /**

@@ -28,18 +28,18 @@ final readonly class Timing
         private Seconds $seconds,
         private string $runner,
         private Instant $at,
-        private string $gate,
+        private GateRelease $gate,
     ) {
     }
 
     /** A timing no gate is recorded to have measured, as a ledger written before gates were recorded holds. */
     public static function of(Path $unit, Seconds $seconds, string $runner, Instant $at): self
     {
-        return new self($unit, $seconds, $runner, $at, '');
+        return new self($unit, $seconds, $runner, $at, GateRelease::unrecorded());
     }
 
-    /** The same timing, measured by this gate, as its version spells it. */
-    public function measuredBy(string $gate): self
+    /** The same timing, measured by this release of the gate. */
+    public function measuredBy(GateRelease $gate): self
     {
         return new self($this->unit, $this->seconds, $this->runner, $this->at, $gate);
     }
@@ -76,8 +76,8 @@ final readonly class Timing
         return $this->at;
     }
 
-    /** The gate that measured it, as its version spells it; empty where a ledger recorded none. */
-    public function gate(): string
+    /** The release of the gate that measured it; unrecorded where a ledger recorded none. */
+    public function gate(): GateRelease
     {
         return $this->gate;
     }

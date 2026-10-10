@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\KeysRecord;
 use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
@@ -99,7 +100,9 @@ final readonly class ShardResultFile
                 'seconds' => $result->measured()->spent()->seconds(),
                 'runner' => $result->measured()->runner(),
                 'at' => $result->measured()->at()->value(),
-                ...$result->measured()->gate() === '' ? [] : [self::GATE => $result->measured()->gate()],
+                ...$result->measured()->gate()->isRecorded()
+                    ? [self::GATE => $result->measured()->gate()->value()]
+                    : [],
                 ...count($result->measured()->steps()) > 0
                     ? [StepsRecord::SECTION => StepsRecord::of($result->measured()->steps())]
                     : [],
@@ -266,6 +269,10 @@ final readonly class ShardResultFile
             $measured->field('runner')->text(),
             $at instanceof CannotJudge ? throw NotInShape::at($measured->field('at')->at(), 'an instant') : $at,
         )->withSteps(StepsRecord::read($measured->field(StepsRecord::SECTION)))
-            ->measuredBy($measured->field(self::GATE)->isPresent() ? $measured->field(self::GATE)->text() : '');
+            ->measuredBy(
+                $measured->field(self::GATE)->isPresent()
+                    ? GateRelease::spelt($measured->field(self::GATE)->text())
+                    : GateRelease::unrecorded(),
+            );
     }
 }

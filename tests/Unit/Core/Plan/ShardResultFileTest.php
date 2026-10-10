@@ -32,6 +32,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
+use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Proof\Unkeyed;
@@ -138,11 +139,11 @@ it('reads back a finished shard it wrote', function () use ($finished, $survivor
 });
 
 it('writes the gate that measured a shard, and reads it back, and reads none from a result that names none', function () use ($finished, $survivor, $measured): void {
-    $result = $finished($survivor, $measured->measuredBy('nightworksio/mutation-gate 1.2.0'));
+    $result = $finished($survivor, $measured->measuredBy(GateRelease::spelt('nightworksio/mutation-gate 1.2.0')));
     $read = ShardResultFile::decode(ShardResultFile::encode($result));
 
     expect(ShardResultFile::encode($result))->toContain('"measuredBy": "nightworksio/mutation-gate 1.2.0"')
-        ->and($read instanceof ShardResult ? $read->measured()->gate() : $read)->toBe('nightworksio/mutation-gate 1.2.0')
+        ->and($read instanceof ShardResult ? $read->measured()->gate()->value() : $read)->toBe('nightworksio/mutation-gate 1.2.0')
         ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('measuredBy');
 });
 

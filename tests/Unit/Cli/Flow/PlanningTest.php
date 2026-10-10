@@ -51,6 +51,7 @@ use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
+use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
@@ -342,7 +343,7 @@ it('says of each shard what its estimate rests on, and that its runner opens on 
         Scope::branch('main'),
         Ledger::empty()->withTimings(Timings::of(
             Timing::of(Path::of('src/Held.php'), Seconds::of(50.0), 'fake', Moment::at('2026-09-30T10:00:00Z'))
-                ->measuredBy(Flows::setup()->gate->spelt()),
+                ->measuredBy(GateRelease::of(Flows::setup()->gate)),
         )),
     );
     $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $store, new CostModelFake(Seconds::of(8.0)));
@@ -384,8 +385,8 @@ it('counts nothing and starts no run of no test where every unit to run is timed
     $store->write(
         Scope::branch('main'),
         Ledger::empty()->withTimings(Timings::of(
-            Timing::of(Path::of('src/Held.php'), Seconds::of(50.0), 'fake', $at)->measuredBy(Flows::setup()->gate->spelt()),
-            Timing::of(Path::of('src/Money.php'), Seconds::of(30.0), 'fake', $at)->measuredBy(Flows::setup()->gate->spelt()),
+            Timing::of(Path::of('src/Held.php'), Seconds::of(50.0), 'fake', $at)->measuredBy(GateRelease::of(Flows::setup()->gate)),
+            Timing::of(Path::of('src/Money.php'), Seconds::of(30.0), 'fake', $at)->measuredBy(GateRelease::of(Flows::setup()->gate)),
         )),
     );
     $runner = ScriptedRunner::fixture();
@@ -405,7 +406,7 @@ it('learns nothing from a timing another release of the gate measured, or one no
     $store->write(
         Scope::branch('main'),
         Ledger::empty()->withTimings(Timings::of(
-            Timing::of(Path::of('src/Money.php'), Seconds::of(30.0), 'fake', $at)->measuredBy('nightworksio/mutation-gate 0.9.0'),
+            Timing::of(Path::of('src/Money.php'), Seconds::of(30.0), 'fake', $at)->measuredBy(GateRelease::spelt('nightworksio/mutation-gate 0.9.0')),
             Timing::of(Path::of('src/Held.php'), Seconds::of(50.0), 'fake', $at),
         )),
     );
@@ -512,7 +513,7 @@ it('weighs each unit by what the cost model expects of it, with what the ledgers
         Scope::branch('main'),
         Ledger::empty()->withTimings(Timings::of(
             Timing::of(Path::of('src/Held.php'), Seconds::of(50.0), 'fake', Moment::at('2026-09-30T10:00:00Z'))
-                ->measuredBy(Flows::setup()->gate->spelt()),
+                ->measuredBy(GateRelease::of(Flows::setup()->gate)),
         )),
     );
 

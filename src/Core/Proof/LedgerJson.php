@@ -189,7 +189,7 @@ final readonly class LedgerJson
                 LedgerFile::SECONDS => $timing->seconds()->seconds(),
                 LedgerFile::RUNNER => $timing->runner(),
                 LedgerFile::AT => $timing->at()->value(),
-                ...$timing->gate() === '' ? [] : [LedgerFile::GATE => $timing->gate()],
+                ...$timing->gate()->isRecorded() ? [LedgerFile::GATE => $timing->gate()->value()] : [],
             ];
         }
 

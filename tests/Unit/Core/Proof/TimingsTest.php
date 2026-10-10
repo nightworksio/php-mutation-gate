@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Time\Instant;
@@ -125,13 +126,13 @@ it('smooths in time linear in the number of timings', function () use ($timing):
 
 it('keeps only the timings one gate measured, and smooths a measurement only over one the same gate made', function () use ($timing): void {
     $held = Timings::of(
-        $timing('src/A.php', 10.0)->measuredBy('gate 1'),
-        $timing('src/B.php', 10.0)->measuredBy('gate 2'),
+        $timing('src/A.php', 10.0)->measuredBy(GateRelease::spelt('gate 1')),
+        $timing('src/B.php', 10.0)->measuredBy(GateRelease::spelt('gate 2')),
         $timing('src/C.php', 10.0),
     );
     $newer = Timings::of(
-        $timing('src/A.php', 20.0, '2026-09-30T20:00:00Z')->measuredBy('gate 1'),
-        $timing('src/B.php', 20.0, '2026-09-30T20:00:00Z')->measuredBy('gate 1'),
+        $timing('src/A.php', 20.0, '2026-09-30T20:00:00Z')->measuredBy(GateRelease::spelt('gate 1')),
+        $timing('src/B.php', 20.0, '2026-09-30T20:00:00Z')->measuredBy(GateRelease::spelt('gate 1')),
     );
 
     $byUnit = static fn(Timings $timings): array => array_combine(
@@ -139,7 +140,7 @@ it('keeps only the timings one gate measured, and smooths a measurement only ove
         array_map(static fn(Timing $timing): float => $timing->seconds()->seconds(), [...$timings]),
     );
 
-    expect($byUnit($held->measuredBy('gate 1')))->toBe(['src/A.php' => 10.0])
-        ->and($byUnit($held->measuredBy('gate 3')))->toBe([])
+    expect($byUnit($held->measuredBy(GateRelease::spelt('gate 1'))))->toBe(['src/A.php' => 10.0])
+        ->and($byUnit($held->measuredBy(GateRelease::spelt('gate 3'))))->toBe([])
         ->and($byUnit($newer->smoothedOver($held)))->toBe(['src/A.php' => 19.0, 'src/B.php' => 20.0]);
 });

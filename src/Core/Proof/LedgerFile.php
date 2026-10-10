@@ -281,7 +281,11 @@ final readonly class LedgerFile
                 self::secondsIn($entry),
                 $entry->field(self::RUNNER)->text(),
                 self::instantIn($entry),
-            )->measuredBy($entry->field(self::GATE)->isPresent() ? $entry->field(self::GATE)->text() : '')];
+            )->measuredBy(
+                $entry->field(self::GATE)->isPresent()
+                    ? GateRelease::spelt($entry->field(self::GATE)->text())
+                    : GateRelease::unrecorded(),
+            )];
         } catch (NotInShape) {
             return [];
         }

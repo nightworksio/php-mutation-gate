@@ -33,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Plan\ShardResult;
 use NightWorksIO\MutationGate\Core\Plan\ShardResultFile;
 use NightWorksIO\MutationGate\Core\Plan\Weighed;
+use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
@@ -189,7 +190,7 @@ final readonly class Running
             $outcome instanceof CannotJudge ? $outcome : $outcome->result,
             Measurement::of($spent, $identity instanceof CannotJudge ? '' : $identity->runner(), Instant::at($ended))
                 ->withSteps($stopwatch->steps())
-                ->measuredBy($this->setup->gate->spelt()),
+                ->measuredBy(GateRelease::of($this->setup->gate)),
         );
         $result = $this->left($result, $outcome);
 

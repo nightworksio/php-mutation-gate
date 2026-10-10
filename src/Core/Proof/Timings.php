@@ -71,7 +71,7 @@ final readonly class Timings implements Countable, IteratorAggregate
         foreach ($this->timings as $unit => $timing) {
             $before = array_key_exists($unit, $held->timings) ? $held->timings[$unit] : $timing;
             $blends = $before->runner() === $timing->runner()
-                && $before->gate() === $timing->gate()
+                && $before->gate()->equals($timing->gate())
                 && $timing->at()->isAfter($before->at());
             $smoothed[] = $blends ? $timing->smoothedOver($before) : $timing;
         }
@@ -79,10 +79,13 @@ final readonly class Timings implements Countable, IteratorAggregate
         return self::of(...$smoothed);
     }
 
-    /** Only the timings this gate measured, as its version spells it: another release's cost is not this one's. */
-    public function measuredBy(string $gate): self
+    /** Only the timings this release of the gate measured: another release's cost is not this one's. */
+    public function measuredBy(GateRelease $gate): self
     {
-        return new self(array_filter($this->timings, static fn(Timing $timing): bool => $timing->gate() === $gate));
+        return new self(array_filter(
+            $this->timings,
+            static fn(Timing $timing): bool => $timing->gate()->equals($gate),
+        ));
     }
 
     /** Only the timings of these units, which are the ones that still exist. */

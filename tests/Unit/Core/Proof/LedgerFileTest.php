@@ -33,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Order\Kills;
 use NightWorksIO\MutationGate\Core\Order\RankedMutant;
 use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Proof\Bases;
+use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
 use NightWorksIO\MutationGate\Core\Proof\LastRun;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
@@ -206,13 +207,13 @@ it('reads back the ledger it wrote, each killed mutant as the kill it proves', f
 
 it('writes the gate that measured each timing, reads it back, and reads none from an entry that names none', function (): void {
     $measured = Timing::of(Path::of('src/Money.php'), Seconds::of(12.4), 'pest', Moment::at('2026-09-29T20:48:17Z'))
-        ->measuredBy('nightworksio/mutation-gate 1.2.0');
+        ->measuredBy(GateRelease::spelt('nightworksio/mutation-gate 1.2.0'));
     $unnamed = Timing::of(Path::of('src/Tax.php'), Seconds::of(3.0), 'pest', $measured->at());
     $read = LedgerFile::decode(LedgerFile::encode(Ledger::empty()->withTimings(Timings::of($measured, $unnamed))));
     $gates = [];
 
     foreach ($read->timings() as $timing) {
-        $gates[$timing->unit()->value()] = $timing->gate();
+        $gates[$timing->unit()->value()] = $timing->gate()->value();
     }
 
     expect($gates)->toBe(['src/Money.php' => 'nightworksio/mutation-gate 1.2.0', 'src/Tax.php' => '']);
