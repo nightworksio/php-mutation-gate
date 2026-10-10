@@ -17,10 +17,16 @@ use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 use NightWorksIO\MutationGate\Mutator\Engine\MadeMutant;
 use NightWorksIO\MutationGate\Mutator\Engine\MadeMutants;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
+use NightWorksIO\MutationGate\Mutator\NodeClasses;
+use NightWorksIO\MutationGate\Tests\Fakes\MutatorFake;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToPlus;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveEcho;
 use NightWorksIO\MutationGateDefault\DefaultExtension;
+use PhpParser\Node\Expr\BinaryOp;
+use PhpParser\Node\Expr\BinaryOp\Plus;
+use PhpParser\Node\Expr\FuncCall;
+use PhpParser\Node\FunctionLike;
 
 function ledger(): string
 {
@@ -190,4 +196,19 @@ it('counts, line by line, the mutants the engine makes of every file of the corp
 
 it('has a corpus to agree over', function (): void {
     expect(count(corpus()))->toBeGreaterThan(20);
+});
+
+it('counts a site for each mutator that handles a node, by its class, a class it extends or an interface it implements, once each', function (): void {
+    $code = "<?php\n\$a + \$b;\n\$c - \$d;\nf();\nfunction g() {}\n";
+    $engine = Engine::with(
+        new MutatorFake('Plus', NodeClasses::of(Plus::class)),
+        new MutatorFake('Binary', NodeClasses::of(BinaryOp::class)),
+        new MutatorFake('Calls', NodeClasses::of(FuncCall::class)),
+        new MutatorFake('Twice', NodeClasses::of(BinaryOp::class, Plus::class)),
+        new MutatorFake('Functions', NodeClasses::of(FunctionLike::class)),
+    );
+    $sites = $engine->sitesOf(Path::of('src/Sites.php'), Contents::of($code));
+
+    expect($sites instanceof MutantSites ? perLine($sites, Path::of('src/Sites.php')) : $sites)
+        ->toBe([2 => 3, 3 => 2, 4 => 1, 5 => 1]);
 });
