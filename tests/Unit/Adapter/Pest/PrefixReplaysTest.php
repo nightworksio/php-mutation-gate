@@ -237,8 +237,8 @@ it('serves no unmutated copy where no time is left, and one where any is', funct
 
     expect(glob(sprintf('%s/originals/*.php', dirname(PestCases::results($at)))))->toHaveCount($copies);
 })->with([
-    'none left' => [Seconds::of(0.0), 0],
-    'a second left' => [Seconds::of(1.0), 1],
+    'none left' => [fn(): Seconds => Seconds::of(0.0), 0],
+    'a second left' => [fn(): Seconds => Seconds::of(1.0), 1],
 ]);
 
 it('holds a replay to its kill\'s limit where that is shorter than the time left, and tells a stop at it from one at the time left', function (Seconds|Unlimited $left, float $deadline, ReplayVerdict $verdict): void {

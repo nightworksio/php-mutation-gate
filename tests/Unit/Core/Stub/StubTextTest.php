@@ -172,7 +172,8 @@ it('writes each comment so no character in the diff ends it early', function () 
         ->and($text)->not->toContain("\e");
 });
 
-it('ends no comment line in a blank, as a blank line of the diff would', function () use ($whole): void {
+it('ends no comment line in a blank, as a blank line of the diff would', function () use ($makeWhole): void {
+    $whole = $makeWhole();
     $mutant = JudgedMutant::of(
         Verdicts::mutant('src/Cart.php:7', 'LessThan', MutatorFamily::Boundary, sprintf(
             "%s\n%s\n%s\n \n",

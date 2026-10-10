@@ -30,8 +30,8 @@ it('takes no arguments from a line cut short, or from one whose JSON is no list 
 })->with([
     'cut short' => ['arguments %5B%22vendor'],
     'not JSON' => ["arguments %5B%22vendor\n"],
-    'not a list' => [sprintf("arguments %s\n", rawurlencode('{"a": "b"}'))],
-    'not words' => [sprintf("arguments %s\n", rawurlencode('["a", 1]'))],
+    'not a list' => [fn(): string => sprintf("arguments %s\n", rawurlencode('{"a": "b"}'))],
+    'not words' => [fn(): string => sprintf("arguments %s\n", rawurlencode('["a", 1]'))],
 ]);
 
 it('records nothing where the adapter names no results file or copy', function (string|false $results, string|false $mutated): void {
