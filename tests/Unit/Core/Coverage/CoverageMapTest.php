@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethod;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethods;
+use NightWorksIO\MutationGate\Core\Coverage\TestSet;
 use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
@@ -234,14 +235,17 @@ it('names each covered line\'s set of tests alike wherever the set recurs, in as
         CoveredLine::of($tax, 2, 'b::t', 'a::t', 'a::t'),
     );
     $sets = $map->lineSets($money);
-    $covered = $sets->covered();
+    $covered = iterator_to_array($sets, preserve_keys: true);
+    $taxed = iterator_to_array($map->lineSets($tax), preserve_keys: true);
+    $ids = static fn(TestSet $set): array => array_map(static fn(TestId $test): string => $test->value(), [...$sets->testsOf($set)]);
 
     expect(array_keys($covered))->toBe([3, 5, 9])
-        ->and($covered[3])->toBe($covered[9])
-        ->and($map->lineSets($tax)->covered()[2])->toBe($covered[3])
-        ->and($covered[5])->not->toBe($covered[3])
-        ->and($sets->idsOf($covered[3]))->toBe(['a::t', 'b::t'])
-        ->and($sets->idsOf($covered[5]))->toBe(['10', '9'])
+        ->and($sets)->toHaveCount(3)
+        ->and($covered[3])->toEqual($covered[9])
+        ->and($taxed[2])->toEqual($covered[3])
+        ->and($covered[5])->not->toEqual($covered[3])
+        ->and($ids($covered[3]))->toBe(['a::t', 'b::t'])
+        ->and($ids($covered[5]))->toBe(['10', '9'])
         ->and([...$sets->missed()])->toEqual([Line::of(4)])
-        ->and($map->lineSets(Path::of('src/Gone.php'))->covered())->toBe([]);
+        ->and([...$map->lineSets(Path::of('src/Gone.php'))])->toBe([]);
 });

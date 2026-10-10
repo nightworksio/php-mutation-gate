@@ -10,6 +10,9 @@ use function array_key_exists;
 use function array_keys;
 use function array_map;
 use function array_unique;
+
+use ArrayIterator;
+
 use function count;
 use function explode;
 use function implode;
@@ -186,31 +189,26 @@ final readonly class LineTests
         foreach (self::kept($this->linesOf($file), missed: false) as $number => $line) {
             $places = array_unique([...$line]);
             sort($places);
-            $sets[$number] = implode(self::SET_SEPARATOR, $places);
+            $sets[$number] = TestSet::named(implode(self::SET_SEPARATOR, $places));
         }
 
         ksort($sets);
 
-        return LineSets::of($this, $sets, $this->missedIn($file));
+        return LineSets::of($this, new ArrayIterator($sets), $this->missedIn($file));
     }
 
-    /**
-     * The ids of the tests of a set `setsOn` names, each once, in byte order,
-     * which is a total order, as PHP's default comparison of numeric strings is not.
-     *
-     * @return list<string>
-     */
-    public function idsOfSet(string $set): array
+    /** The tests of a set this names, each once, in byte order of their ids. */
+    public function testsOfSet(TestSet $set): TestIds
     {
         $ids = [];
 
-        foreach (explode(self::SET_SEPARATOR, $set) as $place) {
+        foreach (explode(self::SET_SEPARATOR, $set->name()) as $place) {
             $ids[] = $this->tests[intval($place)]->value();
         }
 
         sort($ids, SORT_STRING);
 
-        return $ids;
+        return TestIds::of(...array_map(TestId::of(...), $ids));
     }
 
     /**

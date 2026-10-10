@@ -30,6 +30,7 @@ use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
@@ -388,7 +389,6 @@ final readonly class ContentKeys
     private function keyReading(string $base, string $read, Unit $unit, CoverageMap $coverage, array $tested): array
     {
         $lines = $coverage->lineSets($unit->path());
-        $covered = $lines->covered();
         $fields = [
             self::FORMAT,
             $base,
@@ -396,17 +396,19 @@ final readonly class ContentKeys
             'unit',
             $unit->path()->value(),
             $this->judgedBy($unit),
-            sprintf('%d', count($covered)),
+            sprintf('%d', count($lines)),
         ];
 
-        foreach ($covered as $line => $set) {
-            if (! array_key_exists($set, $tested)) {
-                $ids = $lines->idsOf($set);
-                $tested[$set] = Digest::sha256Of(self::framed(sprintf('%d', count($ids)), ...$ids))->value();
+        foreach ($lines as $line => $set) {
+            $name = $set->name();
+
+            if (! array_key_exists($name, $tested)) {
+                $ids = array_map(static fn(TestId $test): string => $test->value(), [...$lines->testsOf($set)]);
+                $tested[$name] = Digest::sha256Of(self::framed(sprintf('%d', count($ids)), ...$ids))->value();
             }
 
             $fields[] = sprintf('%d', $line);
-            $fields[] = $tested[$set];
+            $fields[] = $tested[$name];
         }
 
         return [Digest::sha256Of(self::framed(...$fields)), $tested];
