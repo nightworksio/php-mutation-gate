@@ -137,6 +137,15 @@ it('reads back a finished shard it wrote', function () use ($finished, $survivor
     expect(ShardResultFile::decode(ShardResultFile::encode($result)))->toEqual($result);
 });
 
+it('writes the gate that measured a shard, and reads it back, and reads none from a result that names none', function () use ($finished, $survivor, $measured): void {
+    $result = $finished($survivor, $measured->measuredBy('nightworksio/mutation-gate 1.2.0'));
+    $read = ShardResultFile::decode(ShardResultFile::encode($result));
+
+    expect(ShardResultFile::encode($result))->toContain('"measuredBy": "nightworksio/mutation-gate 1.2.0"')
+        ->and($read instanceof ShardResult ? $read->measured()->gate() : $read)->toBe('nightworksio/mutation-gate 1.2.0')
+        ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('measuredBy');
+});
+
 it('writes each kill\'s evidence beside its mutant, and reads it back', function () use ($measured): void {
     $killed = Mutant::of(
         MutantId::hash(Path::of('src/Money.php'), 'Plus', "-a + b\n+a - b", 0),

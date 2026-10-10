@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Unreadable;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
+use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -133,10 +134,14 @@ final readonly class Ledgers
         return $this->defaultBranch->timings()->and($this->own->timings());
     }
 
-    /** Of these units, those no ledger read timed, which only a first run can measure. */
-    public function untimed(Units $units): Units
+    /**
+     * Of these units, those no ledger read timed with this gate, which only a
+     * first run can measure: a timing another release of the gate measured
+     * says nothing of what this one spends.
+     */
+    public function untimed(Units $units, Version $gate): Units
     {
-        $timings = $this->timings();
+        $timings = $this->timings()->measuredBy($gate->spelt());
         $untimed = [];
 
         foreach ($units as $unit) {
@@ -150,12 +155,12 @@ final readonly class Ledgers
 
     /**
      * What the cost model expects of this unit, from what every ledger read
-     * learned, or, where none timed it, what the plan measured of its first
-     * run.
+     * learned of it with this gate, or, where none timed it so, what the plan
+     * measured of its first run.
      */
-    public function estimated(CostModel $costs, Unit $unit, FirstRun $firstRun): Estimated
+    public function estimated(CostModel $costs, Unit $unit, FirstRun $firstRun, Version $gate): Estimated
     {
-        return $costs->cost($unit, $this->timings(), $firstRun);
+        return $costs->cost($unit, $this->timings()->measuredBy($gate->spelt()), $firstRun);
     }
 
     /**

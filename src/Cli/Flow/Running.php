@@ -188,7 +188,8 @@ final readonly class Running
             $this->keysOf($shard->units(), $plan->keys()),
             $outcome instanceof CannotJudge ? $outcome : $outcome->result,
             Measurement::of($spent, $identity instanceof CannotJudge ? '' : $identity->runner(), Instant::at($ended))
-                ->withSteps($stopwatch->steps()),
+                ->withSteps($stopwatch->steps())
+                ->measuredBy($this->setup->gate->spelt()),
         );
         $result = $this->left($result, $outcome);
 
@@ -370,7 +371,7 @@ final readonly class Running
         $weighed = [];
 
         foreach ($shard->units() as $unit) {
-            $estimated = $ledgers->estimated($this->adapters->costs, $unit, FirstRun::unmeasured());
+            $estimated = $ledgers->estimated($this->adapters->costs, $unit, FirstRun::unmeasured(), $this->setup->gate);
             $weighed[] = Weighed::of($unit, $shard->package(), $estimated);
         }
 

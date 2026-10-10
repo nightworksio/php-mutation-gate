@@ -59,6 +59,9 @@ final readonly class LedgerFile
 
     public const string RUNNER = 'runner';
 
+    /** Where a timing names the gate that measured it, as its version spells it. */
+    public const string GATE = 'measuredBy';
+
     public const string AT = ProofRecord::AT;
 
     public const string BASES = 'bases';
@@ -278,7 +281,7 @@ final readonly class LedgerFile
                 self::secondsIn($entry),
                 $entry->field(self::RUNNER)->text(),
                 self::instantIn($entry),
-            )];
+            )->measuredBy($entry->field(self::GATE)->isPresent() ? $entry->field(self::GATE)->text() : '')];
         } catch (NotInShape) {
             return [];
         }

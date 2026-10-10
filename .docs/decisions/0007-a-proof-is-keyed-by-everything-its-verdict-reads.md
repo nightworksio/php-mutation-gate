@@ -228,7 +228,7 @@ has to bring its result with it.
            }
        },
        "timings": {
-           "src/Money.php": { "seconds": 12.4, "runner": "infection", "at": "2026-09-29T20:48:17Z" }
+           "src/Money.php": { "seconds": 12.4, "runner": "infection", "at": "2026-09-29T20:48:17Z", "measuredBy": "1.2.0" }
        },
        "killers": {
            "mutants": {

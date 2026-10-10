@@ -191,7 +191,7 @@ final readonly class Planning
             ->of($base, $ledgers, $proving->toRun(), $keying);
         $opening = $map->suiteDuration();
         $firstRun = new FirstRuns($this->adapters, StartUpSamples::standard())
-            ->measured($map, $ledgers->untimed($proving->toRun()));
+            ->measured($map, $ledgers->untimed($proving->toRun(), $this->setup->gate));
         $shards = $this->shardsOf(
             $proving->toRun(),
             $inventory->trees,
@@ -381,7 +381,7 @@ final readonly class Planning
             $tree = $trees->holding($unit->path());
 
             if ($tree instanceof Tree) {
-                $estimated = $ledgers->estimated($this->adapters->costs, $unit, $firstRun);
+                $estimated = $ledgers->estimated($this->adapters->costs, $unit, $firstRun, $this->setup->gate);
                 $weighed[] = Weighed::of($unit, $tree->package(), $estimated);
             }
         }

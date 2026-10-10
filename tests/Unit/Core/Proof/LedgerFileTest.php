@@ -204,6 +204,20 @@ it('reads back the ledger it wrote, each killed mutant as the kill it proves', f
         ->and(LedgerFile::decode(LedgerFile::encode($readBack)))->toEqual($readBack);
 });
 
+it('writes the gate that measured each timing, reads it back, and reads none from an entry that names none', function (): void {
+    $measured = Timing::of(Path::of('src/Money.php'), Seconds::of(12.4), 'pest', Moment::at('2026-09-29T20:48:17Z'))
+        ->measuredBy('nightworksio/mutation-gate 1.2.0');
+    $unnamed = Timing::of(Path::of('src/Tax.php'), Seconds::of(3.0), 'pest', $measured->at());
+    $read = LedgerFile::decode(LedgerFile::encode(Ledger::empty()->withTimings(Timings::of($measured, $unnamed))));
+    $gates = [];
+
+    foreach ($read->timings() as $timing) {
+        $gates[$timing->unit()->value()] = $timing->gate();
+    }
+
+    expect($gates)->toBe(['src/Money.php' => 'nightworksio/mutation-gate 1.2.0', 'src/Tax.php' => '']);
+});
+
 it('keeps two proofs as new as each other in the order it held them', function () use ($run, $base): void {
     $proof = static fn(string $key): Proof => Proof::of(Digest::of($key), Path::of('src/A.php'), Mutants::none(), $run('local', '2026-09-29T20:00:00Z'));
     $ledger = Ledger::empty()->withProof($proof(str_repeat('c', 64)))->withProof($proof(str_repeat('1', 64)))->atBase(Digest::of($base));

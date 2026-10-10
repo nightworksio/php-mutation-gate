@@ -46,7 +46,7 @@ final readonly class Shares
                 Seconds::of($measured->spent()->seconds() * $share),
                 $measured->runner(),
                 $measured->at(),
-            );
+            )->measuredBy($measured->gate());
         }
 
         return Timings::of(...$timings);

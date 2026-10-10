@@ -106,6 +106,7 @@ it('runs the shard it is named, on the commit its plan was made on, and leaves i
         ->toBe(['Plus-11 killed', 'GreaterThan-16 survived', 'Minus-21 uncovered', 'Decrement-27 timed-out'])
         ->and($result instanceof ShardResult ? $result->measured()->spent() : $result)->toEqual(Seconds::of(33.0))
         ->and($result instanceof ShardResult ? $result->measured()->runner() : $result)->toBe('fake')
+        ->and($result instanceof ShardResult ? $result->measured()->gate() : $result)->toBe(Flows::setup()->gate->spelt())
         ->and($result instanceof ShardResult ? $result->measured()->at() : $result)
         ->toEqual(Moment::at('2026-09-30T12:00:33Z'))
         ->and(is_file(sprintf('%s/.mutation-gate/results/2.json', $project)))->toBeFalse();

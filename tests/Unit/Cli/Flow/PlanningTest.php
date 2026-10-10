@@ -341,7 +341,8 @@ it('says of each shard what its estimate rests on, and that its runner opens on 
     $store->write(
         Scope::branch('main'),
         Ledger::empty()->withTimings(Timings::of(
-            Timing::of(Path::of('src/Held.php'), Seconds::of(50.0), 'fake', Moment::at('2026-09-30T10:00:00Z')),
+            Timing::of(Path::of('src/Held.php'), Seconds::of(50.0), 'fake', Moment::at('2026-09-30T10:00:00Z'))
+                ->measuredBy(Flows::setup()->gate->spelt()),
         )),
     );
     $planned = $plan(Flows::project(), Mode::full(), Cut::exactly(1), $store, new CostModelFake(Seconds::of(8.0)));
@@ -383,8 +384,8 @@ it('counts nothing and starts no run of no test where every unit to run is timed
     $store->write(
         Scope::branch('main'),
         Ledger::empty()->withTimings(Timings::of(
-            Timing::of(Path::of('src/Held.php'), Seconds::of(50.0), 'fake', $at),
-            Timing::of(Path::of('src/Money.php'), Seconds::of(30.0), 'fake', $at),
+            Timing::of(Path::of('src/Held.php'), Seconds::of(50.0), 'fake', $at)->measuredBy(Flows::setup()->gate->spelt()),
+            Timing::of(Path::of('src/Money.php'), Seconds::of(30.0), 'fake', $at)->measuredBy(Flows::setup()->gate->spelt()),
         )),
     );
     $runner = ScriptedRunner::fixture();
@@ -394,6 +395,27 @@ it('counts nothing and starts no run of no test where every unit to run is timed
         ->and($runner->startedUp())->toBe([])
         ->and($planned instanceof Plan ? [...$planned][0]->estimate()->part(CostBasis::Learned) : $planned)
         ->toEqual(Seconds::of(80.0));
+});
+
+it('learns nothing from a timing another release of the gate measured, or one no gate is recorded for, and measures that unit\'s first run', function () use ($plan): void {
+    $project = Flows::project();
+    Scratch::write($project, 'src/Money.php', sprintf("<?php\n%sfunction add(\$a, \$b) { return \$a + \$b; }\n", str_repeat("\n", 9)));
+    $store = new ProofStoreFake();
+    $at = Moment::at('2026-09-30T10:00:00Z');
+    $store->write(
+        Scope::branch('main'),
+        Ledger::empty()->withTimings(Timings::of(
+            Timing::of(Path::of('src/Money.php'), Seconds::of(30.0), 'fake', $at)->measuredBy('nightworksio/mutation-gate 0.9.0'),
+            Timing::of(Path::of('src/Held.php'), Seconds::of(50.0), 'fake', $at),
+        )),
+    );
+    $runner = ScriptedRunner::fixture();
+    $planned = $plan($project, Mode::full(), Cut::exactly(1), $runner, $store, Engine::with(new PlusToMinus()));
+    $estimate = $planned instanceof Plan ? [...$planned][0]->estimate() : null;
+
+    expect($estimate?->part(CostBasis::Learned))->toEqual(Seconds::of(0.0))
+        ->and($estimate?->part(CostBasis::Measured))->toEqual(Seconds::of(1.7))
+        ->and($runner->startedUp())->not->toBe([]);
 });
 
 it('plans, guessing every unit, where its runs of no test cannot run', function () use ($plan): void {
@@ -489,7 +511,8 @@ it('weighs each unit by what the cost model expects of it, with what the ledgers
     $store->write(
         Scope::branch('main'),
         Ledger::empty()->withTimings(Timings::of(
-            Timing::of(Path::of('src/Held.php'), Seconds::of(50.0), 'fake', Moment::at('2026-09-30T10:00:00Z')),
+            Timing::of(Path::of('src/Held.php'), Seconds::of(50.0), 'fake', Moment::at('2026-09-30T10:00:00Z'))
+                ->measuredBy(Flows::setup()->gate->spelt()),
         )),
     );
 
