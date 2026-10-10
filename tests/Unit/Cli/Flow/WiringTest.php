@@ -249,25 +249,25 @@ it('opens the store read-only for a CI job without its credentials, reading the 
     );
 })->with([
     'the branch the config names' => [
-        Flows::settings(Proofs::s3('ledgers', publicUrl: 'https://ledgers.example.com'), Ci::json(), Ci::defaultBranch('trunk')),
+        fn(): Settings => Flows::settings(Proofs::s3('ledgers', publicUrl: 'https://ledgers.example.com'), Ci::json(), Ci::defaultBranch('trunk')),
         '',
         'stable',
         'trunk',
     ],
     'where the config names none, the one the CI names' => [
-        Flows::settings(Proofs::s3('ledgers', publicUrl: 'https://ledgers.example.com'), Ci::gitlab()),
+        fn(): Settings => Flows::settings(Proofs::s3('ledgers', publicUrl: 'https://ledgers.example.com'), Ci::gitlab()),
         'develop',
         'stable',
         'develop',
     ],
     'where neither names one, the one git names' => [
-        Flows::settings(Proofs::s3('ledgers', publicUrl: 'https://ledgers.example.com'), Ci::json()),
+        fn(): Settings => Flows::settings(Proofs::s3('ledgers', publicUrl: 'https://ledgers.example.com'), Ci::json()),
         '',
         'stable',
         'stable',
     ],
     'where nothing names one, main' => [
-        Flows::settings(Proofs::s3('ledgers', publicUrl: 'https://ledgers.example.com'), Ci::json()),
+        fn(): Settings => Flows::settings(Proofs::s3('ledgers', publicUrl: 'https://ledgers.example.com'), Ci::json()),
         '',
         '',
         'main',
@@ -291,12 +291,12 @@ it('plans for the CI its environment shows, the first it detects', function (
 ): void {
     expect(wiredOf(Flows::settings(), $environment)->ci::class)->toBe($plan);
 })->with([
-    'GitHub Actions' => [Variables::of(['GITHUB_ACTIONS' => 'true', 'GITLAB_CI' => 'true']), GitHubPlan::class],
-    'GitLab' => [Variables::of(['GITLAB_CI' => 'true', 'BUILDKITE' => 'true']), GitLabPlan::class],
-    'Buildkite' => [Variables::of(['BUILDKITE' => 'true', 'CIRCLECI' => 'true']), BuildkitePlan::class],
-    'CircleCI' => [Variables::of(['CIRCLECI' => 'true']), CircleCiPlan::class],
+    'GitHub Actions' => [fn(): Variables => Variables::of(['GITHUB_ACTIONS' => 'true', 'GITLAB_CI' => 'true']), GitHubPlan::class],
+    'GitLab' => [fn(): Variables => Variables::of(['GITLAB_CI' => 'true', 'BUILDKITE' => 'true']), GitLabPlan::class],
+    'Buildkite' => [fn(): Variables => Variables::of(['BUILDKITE' => 'true', 'CIRCLECI' => 'true']), BuildkitePlan::class],
+    'CircleCI' => [fn(): Variables => Variables::of(['CIRCLECI' => 'true']), CircleCiPlan::class],
     'a CI that is not set to true' => [
-        Variables::of(['GITHUB_ACTIONS' => 'false', 'CIRCLECI' => 'yes']),
+        fn(): Variables => Variables::of(['GITHUB_ACTIONS' => 'false', 'CIRCLECI' => 'yes']),
         JsonPlan::class,
     ],
 ]);
@@ -403,8 +403,8 @@ it('reads no pull request\'s ledger where ci.trustMergedPullRequests is false or
     expect($changed instanceof MergedHeads ? $ledgers->getValue($changed) : $changed)->toEqual(NoLedgers::none())
         ->and($standing instanceof MergedHeads ? $ledgers->getValue($standing) : $standing)->toEqual(NoLedgers::none());
 })->with([
-    'false' => [Flows::settings(Ci::notTrustingMergedPullRequests())],
-    'not set' => [Flows::settings()],
+    'false' => [fn(): Settings => Flows::settings(Ci::notTrustingMergedPullRequests())],
+    'not set' => [fn(): Settings => Flows::settings()],
 ]);
 
 it('cannot wire a runner the registry does not have, or one that refuses its options', function (): void {
@@ -437,8 +437,8 @@ it('wires no static analyser where none is chosen, or where auto finds none inst
     expect(wiredOf(Flows::settings($static), Variables::of([]))->checker)->toEqual(NoAnalyser::configured())
         ->and(wiredOf(Flows::settings($static), Variables::of([]))->analyser)->toEqual(NoAnalyser::configured());
 })->with([
-    'none' => [StaticCheck::none()],
-    'auto, in a project that installs none' => [StaticCheck::auto()],
+    'none' => [fn(): StaticCheck => StaticCheck::none()],
+    'auto, in a project that installs none' => [fn(): StaticCheck => StaticCheck::auto()],
 ]);
 
 it('wires the analyser chosen, handing it staticCheck.config as its config', function (): void {
@@ -591,7 +591,7 @@ it('tells each built-in runner the mutators whose silence limit has a lower floo
 
     expect($adapters instanceof Adapters ? $adapters->runner : $adapters)->toEqual($built($options));
 })->with([
-    'Infection' => [Runner::infection(), static fn(Options $options): object => Infection::fromOptions($options, new CapDirectory(), new LocalProcesses(new SystemClock()))],
+    'Infection' => [fn(): Runner => Runner::infection(), static fn(Options $options): object => Infection::fromOptions($options, new CapDirectory(), new LocalProcesses(new SystemClock()))],
 ]);
 
 it('cannot wire an analyser the registry does not have', function (): void {

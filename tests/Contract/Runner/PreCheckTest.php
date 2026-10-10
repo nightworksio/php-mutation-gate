@@ -65,4 +65,4 @@ it('runs no mutant the gate\'s static analysis rejects before its tests, nor its
         ->and(array_map(static fn(string $offered): string => substr((string) strrchr(explode(' ', $offered)[0], '\\'), 1), $checker->offered()))
         ->toBe(['WhileAlwaysFalse', 'RemoveArrayItem'])
         ->and(substr_count($recorded, '"event":"arguments"'))->toBe(1);
-})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');

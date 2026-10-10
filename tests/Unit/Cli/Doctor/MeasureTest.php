@@ -24,17 +24,19 @@ afterEach(function (): void {
 });
 
 /** The most memory the suite's processes held, as the measuring flow reads it. */
-$peak = MemoryCap::of(300, MemoryUnit::Megabytes);
+$makePeak = static fn(): MemoryCap => MemoryCap::of(300, MemoryUnit::Megabytes);
 
 /** What `--measure` adds to nothing observed, in a project whose suite this runner runs. */
 $measuring = static fn(string $project, Runner $runner): Observations => new Measure(
-    FlowCommands::composition($project, $runner, new ProofStoreFake(), Flows::ci(), new PeakMemoryFake($peak)),
+    FlowCommands::composition($project, $runner, new ProofStoreFake(), Flows::ci(), new PeakMemoryFake($makePeak())),
 )->into(Observations::none(), new ArrayInput([]));
 
 it('runs the whole suite once under coverage, withholding every CI\'s tokens, writes no map, and reads its peak memory', function () use (
     $measuring,
-    $peak,
+    $makePeak,
 ): void {
+    $peak = $makePeak();
+
     $project = FlowCommands::project();
     $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
     $measured = $measuring($project, $runner)->asked()->measurement();
@@ -58,10 +60,10 @@ it('measures why the suite could not be run, from the coverage run or from findi
     expect($measured instanceof Measurement ? $measured->coverage() : null)->toEqual(CannotJudge::because($why));
 })->with([
     'the coverage run' => [
-        new CoverageAsked(ScriptedRunner::fixture(), CannotJudge::because('1 test failed.')),
+        fn(): CoverageAsked => new CoverageAsked(ScriptedRunner::fixture(), CannotJudge::because('1 test failed.')),
         '1 test failed.',
     ],
-    'the groups' => [ScriptedRunner::fixture()->unlisted('Pest lists no groups.'), 'Pest lists no groups.'],
+    'the groups' => [fn(): ScriptedRunner => ScriptedRunner::fixture()->unlisted('Pest lists no groups.'), 'Pest lists no groups.'],
 ]);
 
 it('measures nothing where the config is invalid, which its own check reports', function () use ($measuring): void {

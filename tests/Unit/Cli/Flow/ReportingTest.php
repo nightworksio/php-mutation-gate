@@ -135,7 +135,7 @@ it('annotates and summarises under GitHub Actions, and comments on a pull reques
     expect(reporterClasses(reportersOf(Flows::settings(), $environment, $pullRequest)))->toBe($expected);
 })->with([
     'a pull request with a token' => [
-        Variables::of([
+        fn(): Variables => Variables::of([
             'GITHUB_ACTIONS' => 'true',
             'GITHUB_EVENT_NAME' => 'pull_request_target',
             'GITHUB_TOKEN' => 'secret',
@@ -143,15 +143,15 @@ it('annotates and summarises under GitHub Actions, and comments on a pull reques
         [Annotations::class, StepSummary::class, PullRequestComment::class],
     ],
     'a pull request with no token' => [
-        Variables::of(['GITHUB_ACTIONS' => 'true', 'GITHUB_EVENT_NAME' => 'pull_request']),
+        fn(): Variables => Variables::of(['GITHUB_ACTIONS' => 'true', 'GITHUB_EVENT_NAME' => 'pull_request']),
         [Annotations::class, StepSummary::class],
     ],
     'a push' => [
-        Variables::of(['GITHUB_ACTIONS' => 'true', 'GITHUB_EVENT_NAME' => 'push', 'GITHUB_TOKEN' => 'secret']),
+        fn(): Variables => Variables::of(['GITHUB_ACTIONS' => 'true', 'GITHUB_EVENT_NAME' => 'push', 'GITHUB_TOKEN' => 'secret']),
         [Annotations::class, StepSummary::class],
     ],
-    'no GitHub Actions' => [Variables::of(['GITHUB_EVENT_NAME' => 'pull_request', 'GITHUB_TOKEN' => 'secret']), []],
-    'GitHub Actions set to something else' => [Variables::of(['GITHUB_ACTIONS' => 'false']), []],
+    'no GitHub Actions' => [fn(): Variables => Variables::of(['GITHUB_EVENT_NAME' => 'pull_request', 'GITHUB_TOKEN' => 'secret']), []],
+    'GitHub Actions set to something else' => [fn(): Variables => Variables::of(['GITHUB_ACTIONS' => 'false']), []],
 ]);
 
 it('draws the badge in CI on the default branch, in the colours the config sets', function (): void {
@@ -170,12 +170,12 @@ it('draws no badge outside CI, off the default branch, or where the run has no r
 ): void {
     expect(reportersOf(Flows::settings(), $environment, $runOn))->toBe([]);
 })->with([
-    'outside CI' => [Variables::of([]), RunOn::at(Scope::branch('main'), Scope::branch('main'))],
-    'a pull request' => [Variables::of(['CI' => 'true']), RunOn::at(Scope::pullRequest(7), Scope::branch('main'))],
-    'a detached HEAD' => [Variables::of(['CI' => 'true']), RunOn::detached(Scope::branch('main'))],
+    'outside CI' => [fn(): Variables => Variables::of([]), fn(): RunOn => RunOn::at(Scope::branch('main'), Scope::branch('main'))],
+    'a pull request' => [fn(): Variables => Variables::of(['CI' => 'true']), fn(): RunOn => RunOn::at(Scope::pullRequest(7), Scope::branch('main'))],
+    'a detached HEAD' => [fn(): Variables => Variables::of(['CI' => 'true']), fn(): RunOn => RunOn::detached(Scope::branch('main'))],
     'no default branch' => [
-        Variables::of(['CI' => 'true']),
-        RunOn::at(Scope::branch('main'), CannotTell::because('unnamed')),
+        fn(): Variables => Variables::of(['CI' => 'true']),
+        fn(): RunOn => RunOn::at(Scope::branch('main'), CannotTell::because('unnamed')),
     ],
 ]);
 
@@ -227,9 +227,9 @@ it('writes no planned state where the run chooses no comment', function (Variabl
     expect(new Reporting(reportingCommentingThrough($client), $environment)->planned(Flows::settings(), $plan))->toBe([])
         ->and($client->getRequestsCount())->toBe(0);
 })->with([
-    'a push' => [Variables::of(['GITHUB_ACTIONS' => 'true', 'GITHUB_EVENT_NAME' => 'push', 'GITHUB_TOKEN' => 'secret'])],
-    'a pull request with no token' => [Variables::of(['GITHUB_ACTIONS' => 'true', 'GITHUB_EVENT_NAME' => 'pull_request'])],
-    'no GitHub Actions' => [Variables::of([])],
+    'a push' => [fn(): Variables => Variables::of(['GITHUB_ACTIONS' => 'true', 'GITHUB_EVENT_NAME' => 'push', 'GITHUB_TOKEN' => 'secret'])],
+    'a pull request with no token' => [fn(): Variables => Variables::of(['GITHUB_ACTIONS' => 'true', 'GITHUB_EVENT_NAME' => 'pull_request'])],
+    'no GitHub Actions' => [fn(): Variables => Variables::of([])],
 ]);
 
 it('says which entry of reports cannot be built before it writes any planned state', function (): void {

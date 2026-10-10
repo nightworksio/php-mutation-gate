@@ -47,7 +47,7 @@ it('names no baseline Mago is not told of, and no config file where it reads non
 it('cannot say the configuration where Mago cannot print it', function (ChildProcess|CannotJudge $shown, string $why): void {
     expect(Configuration::shown($shown, Root::of('/p')))->toEqual(CannotJudge::because($why));
 })->with([
-    'a failed command' => [ChildProcess::exited(2, '', 'unknown command'), 'Mago could not say the configuration it runs with (exit 2: unknown command).'],
-    'a binary not downloaded' => [CannotJudge::because('No binary.'), 'Mago could not say the configuration it runs with (No binary.).'],
-    'output that is no object' => [ChildProcess::exited(0, 'Mago panicked', ''), 'The analyser\'s resolved configuration is no object: null'],
+    'a failed command' => [fn(): ChildProcess => ChildProcess::exited(2, '', 'unknown command'), 'Mago could not say the configuration it runs with (exit 2: unknown command).'],
+    'a binary not downloaded' => [fn(): CannotJudge => CannotJudge::because('No binary.'), 'Mago could not say the configuration it runs with (No binary.).'],
+    'output that is no object' => [fn(): ChildProcess => ChildProcess::exited(0, 'Mago panicked', ''), 'The analyser\'s resolved configuration is no object: null'],
 ]);

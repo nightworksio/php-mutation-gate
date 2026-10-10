@@ -201,9 +201,9 @@ it('prints why there is no verdict, and exits 2', function (CannotJudge|Invalid 
     expect(VerdictCommand::printed($why, $output, Printing::console(), Directory::at(Scratch::directory())))->toBe(2)
         ->and($output->fetch())->toBe($said);
 })->with([
-    'cannot judge' => [CannotJudge::because('The runner failed.'), "The runner failed.\n"],
+    'cannot judge' => [fn(): CannotJudge => CannotJudge::because('The runner failed.'), "The runner failed.\n"],
     'an invalid config' => [
-        Invalid::because(Problem::at('reports[0]', 'no such reporter')),
+        fn(): Invalid => Invalid::because(Problem::at('reports[0]', 'no such reporter')),
         "reports[0]: no such reporter\n",
     ],
 ]);

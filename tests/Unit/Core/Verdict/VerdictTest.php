@@ -40,8 +40,8 @@ $tree = static fn(string $path, JudgedUnits $units, JudgedMutants $mutants): Tre
     $mutants,
     Uncovered::Count,
 );
-$passed = $tree('src', JudgedUnits::none(), Judged::mutants(MutantJudgement::Killed));
-$failed = $tree('src', JudgedUnits::none(), Judged::mutants(MutantJudgement::Survived));
+$makePassed = static fn(): TreeVerdict => $tree('src', JudgedUnits::none(), Judged::mutants(MutantJudgement::Killed));
+$makeFailed = static fn(): TreeVerdict => $tree('src', JudgedUnits::none(), Judged::mutants(MutantJudgement::Survived));
 $newCode = static fn(MutantJudgement $judgement): NewCodeVerdict => NewCodeVerdict::judged(
     Package::at(Path::root()),
     Floor::of(100),
@@ -49,7 +49,9 @@ $newCode = static fn(MutantJudgement $judgement): NewCodeVerdict => NewCodeVerdi
     Uncovered::Count,
 );
 
-it('holds its trees, and nothing else to begin with', function () use ($passed): void {
+it('holds its trees, and nothing else to begin with', function () use ($makePassed): void {
+    $passed = $makePassed();
+
     $trees = TreeVerdicts::of($passed);
     $verdict = Verdict::of($trees);
 
@@ -63,7 +65,10 @@ it('holds its trees, and nothing else to begin with', function () use ($passed):
         ->and($verdict->wasCutShort())->toBeFalse();
 });
 
-it('cannot judge when anything kept the run from judging, whatever its trees and failures say', function () use ($passed, $failed): void {
+it('cannot judge when anything kept the run from judging, whatever its trees and failures say', function () use ($makePassed, $makeFailed): void {
+    $passed = $makePassed();
+    $failed = $makeFailed();
+
     $missing = CannotJudge::because('Shard 2 wrote no result.');
     $late = CannotJudge::because('Shard 3 ran on another commit.');
     $verdict = Verdict::of(TreeVerdicts::of($passed, $failed))->withCannotJudge($missing)->withCannotJudge($late);
@@ -74,7 +79,9 @@ it('cannot judge when anything kept the run from judging, whatever its trees and
         ->and(Verdict::of(TreeVerdicts::of($passed))->withCannotJudge($missing)->judgement())->toBe(Judgement::CannotJudge);
 });
 
-it('says when a budget or a deadline cut the run short, and keeps everything else', function () use ($passed): void {
+it('says when a budget or a deadline cut the run short, and keeps everything else', function () use ($makePassed): void {
+    $passed = $makePassed();
+
     $trees = TreeVerdicts::of($passed);
     $verdict = Verdict::of($trees)->cutShort();
 
@@ -83,7 +90,9 @@ it('says when a budget or a deadline cut the run short, and keeps everything els
         ->and($verdict->withFailures(Failures::none())->wasCutShort())->toBeTrue();
 });
 
-it('takes the new-code sets, the reach, the warnings and the failures, each without losing the others', function () use ($passed, $newCode): void {
+it('takes the new-code sets, the reach, the warnings and the failures, each without losing the others', function () use ($makePassed, $newCode): void {
+    $passed = $makePassed();
+
     $sets = NewCodeVerdicts::of($newCode(MutantJudgement::Killed));
     $reach = Reasons::of(Reason::that('src/Money.php changed.'));
     $warnings = Warnings::of(Warning::that('src/Kernel.php is run by 412 of 430 tests and nothing holds it.'));
@@ -106,19 +115,23 @@ it('shows the trees it does not hold, and fails on its new code and the failures
     NewCodeVerdicts $newCode,
     Failures $failures,
     Judgement $whole,
-) use ($failed): void {
+) use ($makeFailed): void {
+    $failed = $makeFailed();
+
     $verdict = Verdict::of(TreeVerdicts::of($failed), HeldTo::NewCode)->withSets(HeldSets::newCodeOnly($newCode))->withFailures($failures);
 
     expect($verdict->judgement())->toBe($whole)
         ->and($verdict->cutShort()->judgement())->toBe($whole)
         ->and($verdict->trees())->toEqual(TreeVerdicts::of($failed));
 })->with([
-    'its new code passed' => [NewCodeVerdicts::of($newCode(MutantJudgement::Killed)), Failures::none(), Judgement::Passed],
-    'its new code failed' => [NewCodeVerdicts::of($newCode(MutantJudgement::Survived)), Failures::none(), Judgement::Failed],
-    'a failure no floor decides' => [NewCodeVerdicts::none(), Failures::of(Failure::that('A stale ignore.')), Judgement::Failed],
+    'its new code passed' => [fn(): NewCodeVerdicts => NewCodeVerdicts::of($newCode(MutantJudgement::Killed)), fn(): Failures => Failures::none(), Judgement::Passed],
+    'its new code failed' => [fn(): NewCodeVerdicts => NewCodeVerdicts::of($newCode(MutantJudgement::Survived)), fn(): Failures => Failures::none(), Judgement::Failed],
+    'a failure no floor decides' => [fn(): NewCodeVerdicts => NewCodeVerdicts::none(), fn(): Failures => Failures::of(Failure::that('A stale ignore.')), Judgement::Failed],
 ]);
 
-it('carries a kill matrix, one of first killers with no coverage until the run gives one', function () use ($passed): void {
+it('carries a kill matrix, one of first killers with no coverage until the run gives one', function () use ($makePassed): void {
+    $passed = $makePassed();
+
     $matrix = KillMatrix::of(MatrixKind::Full, CoverageMap::empty());
     $verdict = Verdict::of(TreeVerdicts::of($passed));
 
@@ -135,16 +148,19 @@ it('fails when any tree or new-code set failed, or anything else did, and passes
 ): void {
     expect(Verdict::of($trees)->withSets(HeldSets::newCodeOnly($newCode))->withFailures($failures)->judgement())->toBe($whole);
 })->with([
-    'no tree' => [TreeVerdicts::none(), NewCodeVerdicts::none(), Failures::none(), Judgement::Passed],
-    'every tree passed' => [TreeVerdicts::of($passed, $passed), NewCodeVerdicts::none(), Failures::none(), Judgement::Passed],
-    'the last tree failed' => [TreeVerdicts::of($passed, $failed), NewCodeVerdicts::none(), Failures::none(), Judgement::Failed],
-    'the first tree failed' => [TreeVerdicts::of($failed, $passed), NewCodeVerdicts::none(), Failures::none(), Judgement::Failed],
-    'the new code passed' => [TreeVerdicts::of($passed), NewCodeVerdicts::of($newCode(MutantJudgement::Killed)), Failures::none(), Judgement::Passed],
-    'the new code failed' => [TreeVerdicts::of($passed), NewCodeVerdicts::of($newCode(MutantJudgement::Survived)), Failures::none(), Judgement::Failed],
-    'a failure no floor decides' => [TreeVerdicts::of($passed), NewCodeVerdicts::none(), Failures::of(Failure::that('A stale ignore.')), Judgement::Failed],
+    'no tree' => [fn(): TreeVerdicts => TreeVerdicts::none(), fn(): NewCodeVerdicts => NewCodeVerdicts::none(), fn(): Failures => Failures::none(), Judgement::Passed],
+    'every tree passed' => [fn(): TreeVerdicts => TreeVerdicts::of($makePassed(), $makePassed()), fn(): NewCodeVerdicts => NewCodeVerdicts::none(), fn(): Failures => Failures::none(), Judgement::Passed],
+    'the last tree failed' => [fn(): TreeVerdicts => TreeVerdicts::of($makePassed(), $makeFailed()), fn(): NewCodeVerdicts => NewCodeVerdicts::none(), fn(): Failures => Failures::none(), Judgement::Failed],
+    'the first tree failed' => [fn(): TreeVerdicts => TreeVerdicts::of($makeFailed(), $makePassed()), fn(): NewCodeVerdicts => NewCodeVerdicts::none(), fn(): Failures => Failures::none(), Judgement::Failed],
+    'the new code passed' => [fn(): TreeVerdicts => TreeVerdicts::of($makePassed()), fn(): NewCodeVerdicts => NewCodeVerdicts::of($newCode(MutantJudgement::Killed)), fn(): Failures => Failures::none(), Judgement::Passed],
+    'the new code failed' => [fn(): TreeVerdicts => TreeVerdicts::of($makePassed()), fn(): NewCodeVerdicts => NewCodeVerdicts::of($newCode(MutantJudgement::Survived)), fn(): Failures => Failures::none(), Judgement::Failed],
+    'a failure no floor decides' => [fn(): TreeVerdicts => TreeVerdicts::of($makePassed()), fn(): NewCodeVerdicts => NewCodeVerdicts::none(), fn(): Failures => Failures::of(Failure::that('A stale ignore.')), Judgement::Failed],
 ]);
 
-it('holds only the security sets where it holds them alone, showing the trees and new code without holding them', function () use ($passed, $failed, $newCode): void {
+it('holds only the security sets where it holds them alone, showing the trees and new code without holding them', function () use ($makePassed, $makeFailed, $newCode): void {
+    $passed = $makePassed();
+    $failed = $makeFailed();
+
     $failing = SecurityVerdicts::of(Secured::set('.', Floor::of(100), Unrecorded::floor(), Secured::mutant(MutantJudgement::Survived)));
     $passing = SecurityVerdicts::of(Secured::set('.', Floor::of(100), Unrecorded::floor(), Secured::mutant(MutantJudgement::Killed)));
     $newCodeFailed = NewCodeVerdicts::of($newCode(MutantJudgement::Survived));
@@ -155,7 +171,9 @@ it('holds only the security sets where it holds them alone, showing the trees an
         ->toBe(Judgement::Failed);
 });
 
-it('fails on a security set that failed where it holds its trees, and shows it where it holds new code alone', function () use ($passed): void {
+it('fails on a security set that failed where it holds its trees, and shows it where it holds new code alone', function () use ($makePassed): void {
+    $passed = $makePassed();
+
     $failing = SecurityVerdicts::of(Secured::set('.', Floor::of(100), Unrecorded::floor(), Secured::mutant(MutantJudgement::Survived)));
     $passing = SecurityVerdicts::of(Secured::set('.', Floor::of(100), Unrecorded::floor(), Secured::mutant(MutantJudgement::Killed)));
     $sets = HeldSets::of(NewCodeVerdicts::none(), $failing);

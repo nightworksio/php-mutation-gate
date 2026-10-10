@@ -262,54 +262,60 @@ it('writes a definition to a file of its own, and prints one that belongs in a f
     expect(CiTemplate::JenkinsPipeline->destination(Ci::none()))->toEqual(Printed::into('Jenkinsfile'));
 });
 
-it('fills in every placeholder', function (CiTemplate $template): void {
-    expect(ciTemplateRendered($template))->not->toContain('%%');
-})->with(CiTemplate::cases());
-
-it('renders YAML the provider\'s published schema accepts', function (CiTemplate $template): void {
-    [$provider] = explode('/', $template->value);
-    $rendered = ciTemplateRendered($template);
-    $expansions = [ciTemplateJson($rendered)];
-
-    if ($provider === 'azure') {
-        $expansions = [azureExpansion($rendered, holds: true), azureExpansion($rendered, holds: false)];
+it('fills in every placeholder', function (): void {
+    foreach (CiTemplate::cases() as $template) {
+        expect(ciTemplateRendered($template))->not->toContain('%%');
     }
+});
 
-    foreach ($expansions as $json) {
-        expect(Schema::errors($json, ciSchema($provider)))->toBe([]);
-    }
-})->with(ciSchemaTemplates())->group('network');
+it('renders YAML the provider\'s published schema accepts', function (): void {
+    foreach (ciSchemaTemplates() as $template) {
+        [$provider] = explode('/', $template->value);
+        $rendered = ciTemplateRendered($template);
+        $expansions = [ciTemplateJson($rendered)];
 
-it('renders each template as its snapshot', function (CiTemplate $template): void {
-    expect(ciTemplateRendered($template))->toBe((string) file_get_contents(Schema::at(sprintf('tests/Fixtures/CiTemplates/%s', $template->value))));
-})->with(CiTemplate::cases());
+        if ($provider === 'azure') {
+            $expansions = [azureExpansion($rendered, holds: true), azureExpansion($rendered, holds: false)];
+        }
 
-it('pins each action a template uses by the commit the package\'s own workflows use, and the gate by its own', function (
-    CiTemplate $template,
-): void {
-    $pins = [];
-
-    $workflows = glob(Schema::at('.github/workflows/*.yml'));
-
-    foreach (is_array($workflows) ? $workflows : [] as $workflow) {
-        preg_match_all('/uses: ([\w.-]+\/[\w.-]+)@([0-9a-f]{40}) # (\S+)/', (string) file_get_contents($workflow), $used, PREG_SET_ORDER);
-
-        foreach ($used as [, $action, $commit, $tag]) {
-            $pins[$action] = sprintf('%s # %s', $commit, $tag);
+        foreach ($expansions as $json) {
+            expect(Schema::errors($json, ciSchema($provider)))->toBe([]);
         }
     }
+})->group('network');
 
-    $text = (string) file_get_contents(Schema::at(sprintf('resources/ci/%s', $template->value)));
-    preg_match_all('/uses: ([\w.-]+\/[\w.-]+)@(\S+ # \S+)/', $text, $templated, PREG_SET_ORDER);
-    $others = array_filter($templated, static fn(array $use): bool => $use[1] !== 'nightworksio/php-mutation-gate');
-    $gate = substr_count($text, '@%%pin%%');
-
-    expect(count($others) + $gate)->toBe(substr_count($text, 'uses: '));
-
-    foreach ($others as [, $action, $pin]) {
-        expect($pins[$action] ?? 'not used by the package\'s workflows')->toBe($pin);
+it('renders each template as its snapshot', function (): void {
+    foreach (CiTemplate::cases() as $template) {
+        expect(ciTemplateRendered($template))->toBe((string) file_get_contents(Schema::at(sprintf('tests/Fixtures/CiTemplates/%s', $template->value))));
     }
-})->with(CiTemplate::cases());
+});
+
+it('pins each action a template uses by the commit the package\'s own workflows use, and the gate by its own', function (): void {
+    foreach (CiTemplate::cases() as $template) {
+        $pins = [];
+
+        $workflows = glob(Schema::at('.github/workflows/*.yml'));
+
+        foreach (is_array($workflows) ? $workflows : [] as $workflow) {
+            preg_match_all('/uses: ([\w.-]+\/[\w.-]+)@([0-9a-f]{40}) # (\S+)/', (string) file_get_contents($workflow), $used, PREG_SET_ORDER);
+
+            foreach ($used as [, $action, $commit, $tag]) {
+                $pins[$action] = sprintf('%s # %s', $commit, $tag);
+            }
+        }
+
+        $text = (string) file_get_contents(Schema::at(sprintf('resources/ci/%s', $template->value)));
+        preg_match_all('/uses: ([\w.-]+\/[\w.-]+)@(\S+ # \S+)/', $text, $templated, PREG_SET_ORDER);
+        $others = array_filter($templated, static fn(array $use): bool => $use[1] !== 'nightworksio/php-mutation-gate');
+        $gate = substr_count($text, '@%%pin%%');
+
+        expect(count($others) + $gate)->toBe(substr_count($text, 'uses: '));
+
+        foreach ($others as [, $action, $pin]) {
+            expect($pins[$action] ?? 'not used by the package\'s workflows')->toBe($pin);
+        }
+    }
+});
 
 it('refuses a value a shell or YAML would read as code, from whichever setting it comes', function (
     string $branch,
@@ -345,15 +351,15 @@ it('leaves the file of the gate\'s jobs unchecked and unfilled where the CI\'s d
         ->and($values instanceof TemplateValues ? $values->rendered('%%included%% %%runner%%') : '')->toBe('%%included%% pest');
 });
 
-it('quotes every value a project gives wherever a template holds it, a ref\'s branch within its quoted ref, and runs none in a shell line', function (
-    CiTemplate $template,
-): void {
-    $lines = explode("\n", (string) file_get_contents(Schema::at(sprintf('resources/ci/%s', $template->value))));
-    $unquoted = array_filter($lines, static fn(string $line): bool => ! str_starts_with(trim($line), ciCommentMark($template))
-        && preg_match("/(?<!')(?<!'refs\/heads\/)%%(branch|runner|included|check)%%|%%(branch|runner|included|check)%%(?!')/", $line) === 1);
+it('quotes every value a project gives wherever a template holds it, a ref\'s branch within its quoted ref, and runs none in a shell line', function (): void {
+    foreach (CiTemplate::cases() as $template) {
+        $lines = explode("\n", (string) file_get_contents(Schema::at(sprintf('resources/ci/%s', $template->value))));
+        $unquoted = array_filter($lines, static fn(string $line): bool => ! str_starts_with(trim($line), ciCommentMark($template))
+            && preg_match("/(?<!')(?<!'refs\/heads\/)%%(branch|runner|included|check)%%|%%(branch|runner|included|check)%%(?!')/", $line) === 1);
 
-    expect(array_values($unquoted))->toBe([]);
-})->with(CiTemplate::cases());
+        expect(array_values($unquoted))->toBe([]);
+    }
+});
 
 it('names the one-step action\'s job for the check the verdict reports under', function (): void {
     expect(ciTemplateRendered(CiTemplate::GitHubSingle))->toContain(sprintf("    name: '%s'\n", Ci::none()->check()));

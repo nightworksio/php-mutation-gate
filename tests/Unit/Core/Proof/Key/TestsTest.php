@@ -23,7 +23,7 @@ $other = static fn(string $path, string $source): TestFile => TestFile::other(
 $paths = static fn(string ...$paths): Paths => Paths::of(...array_map(Path::of(...), $paths));
 $values = static fn(Paths $paths): array => array_map(static fn(Path $path): string => $path->value(), iterator_to_array($paths, preserve_keys: true));
 
-$files = TestFiles::of(
+$makeFiles = static fn(): TestFiles => TestFiles::of(
     $case('tests/Unit/MoneyTest.php', "<?php\nit('adds', fn() => new Helper());\n"),
     $case('tests/Unit/OtherTest.php', "<?php\nit('other', fn() => new Unused());\n"),
     $case('tests/Unit/UnknownTest.php', "<?php\nit('works');\n"),
@@ -36,9 +36,12 @@ $files = TestFiles::of(
     $other('tests/Support/Bird.php', "<?php\nfinal class Bird {}\n"),
     $other('tests/Support/Unused.php', "<?php\nfinal class Unused {}\n"),
 );
-$known = $paths('tests/Unit/MoneyTest.php', 'tests/Unit/OtherTest.php', 'tests/Unit/CanaryTest.php');
+$makeKnown = static fn(): Paths => $paths('tests/Unit/MoneyTest.php', 'tests/Unit/OtherTest.php', 'tests/Unit/CanaryTest.php');
 
-it('reads what is in every key, and the judging files and the support they name transitively beyond it', function () use ($files, $known, $paths, $values): void {
+it('reads what is in every key, and the judging files and the support they name transitively beyond it', function () use ($makeFiles, $makeKnown, $paths, $values): void {
+    $files = $makeFiles();
+    $known = $makeKnown();
+
     $tests = Tests::of($files, $known, $paths('tests/Unit/CanaryTest.php'));
 
     expect($values($tests->inEveryKey()))->toBe([
@@ -61,7 +64,10 @@ it('reads what is in every key, and the judging files and the support they name 
         ]);
 });
 
-it('reads no canary where the patch is off', function () use ($files, $known, $values): void {
+it('reads no canary where the patch is off', function () use ($makeFiles, $makeKnown, $values): void {
+    $files = $makeFiles();
+    $known = $makeKnown();
+
     $tests = Tests::of($files, $known, Paths::none());
 
     expect($values($tests->inEveryKey()))->toBe([
@@ -90,7 +96,10 @@ it('follows what each file names before the files it named later', function () u
         ->toBe(['tests/ATest.php', 'tests/B.php', 'tests/C.php', 'tests/D.php', 'tests/E.php']);
 });
 
-it('reads a judge it holds no file of by its path alone', function () use ($files, $known, $paths, $values): void {
+it('reads a judge it holds no file of by its path alone', function () use ($makeFiles, $makeKnown, $paths, $values): void {
+    $files = $makeFiles();
+    $known = $makeKnown();
+
     $tests = Tests::of($files, $known, Paths::none());
 
     expect($values($tests->readBy($paths('tests/Unit/GoneTest.php'))))->toBe(['tests/Unit/GoneTest.php'])
@@ -98,7 +107,10 @@ it('reads a judge it holds no file of by its path alone', function () use ($file
         ->and($tests->digestOf(Path::of('tests/Pest.php')))->toEqual(Digest::of('digest of tests/Pest.php'));
 });
 
-it('names every file of test cases, each of which can judge a held unit', function () use ($files, $known, $values): void {
+it('names every file of test cases, each of which can judge a held unit', function () use ($makeFiles, $makeKnown, $values): void {
+    $files = $makeFiles();
+    $known = $makeKnown();
+
     expect($values(Tests::of($files, $known, Paths::none())->testCases()))->toBe([
         'tests/Unit/MoneyTest.php',
         'tests/Unit/OtherTest.php',

@@ -67,7 +67,7 @@ it('turns off a mutator of the default set for the engine, under the PHPUnit run
         ->and($enabled instanceof EnabledMutators ? count($enabled->besideTheRunners()) : $enabled)->toBe(0);
 })->with([
     'the PHPUnit runner' => [BuiltinRunner::PhpUnit],
-    'no built-in runner' => [NotGiven::value()],
+    'no built-in runner' => [fn(): NotGiven => NotGiven::value()],
 ]);
 
 it('refuses a mutator to turn off that only the default set holds under a runner that runs its own', function (BuiltinRunner $runner): void {

@@ -6,9 +6,11 @@ use NightWorksIO\MutationGate\Tests\Support\Commands;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Symfony\Component\Console\Tester\CommandTester;
 
-$here = (string) getcwd();
+$makeHere = static fn(): string => (string) getcwd();
 
-afterEach(function () use ($here): void {
+afterEach(function () use ($makeHere): void {
+    $here = $makeHere();
+
     chdir($here);
     Scratch::sweep();
 });

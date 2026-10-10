@@ -157,7 +157,7 @@ it('finds every method held as PHPUnit\'s own in the installed release', functio
 it('reads the installed PHPUnit as the file pinned for its release reads it', function (): void {
     expect(installedPhpUnitNames())->toBe(phpUnitNames(Version::id()));
 })->skip(
-    ! in_array(Version::id(), PINNED_PHPUNIT, strict: true),
+    fn(): bool => ! in_array(Version::id(), PINNED_PHPUNIT, strict: true),
     'No file is pinned for the installed PHPUnit, such as the lowest a dependency range resolves to.',
 );
 
@@ -233,7 +233,7 @@ it('classifies what a Pest test chains after itself: an expected exception, or n
     'throws' => ['throws', AssertionKind::Value],
     'throws if' => ['throwsIf', AssertionKind::Value],
     'throws unless' => ['throwsUnless', AssertionKind::Value],
-    'a group' => ['group', Unclassified::assertion()],
+    'a group' => ['group', fn(): Unclassified => Unclassified::assertion()],
 ]);
 
 it('tells a change of subject from a check', function (string $call, bool $subject): void {

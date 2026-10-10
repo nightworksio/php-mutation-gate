@@ -48,8 +48,8 @@ it('holds where a run\'s first failing test stood, from one, and its key where t
 it('refuses a position below one and a key that is not twelve hex digits', function (int $position, string|NotGiven $key): void {
     expect(Prefix::read($position, $key))->toBeInstanceOf(NotGiven::class);
 })->with([
-    'nought' => [0, NotGiven::value()],
-    'below nought' => [-1, NotGiven::value()],
+    'nought' => [0, fn(): NotGiven => NotGiven::value()],
+    'below nought' => [-1, fn(): NotGiven => NotGiven::value()],
     'a short key' => [1, '0123456789a'],
     'a long key' => [1, '0123456789abc'],
     'capitals' => [1, '0123456789AB'],
@@ -124,10 +124,10 @@ it('keeps a run\'s ending: its code, a signal where its code is known, what it p
 
     expect([$ended->code(), $ended->signalled(), $ended->fatal(), $ended->tail()])->toEqual($expected);
 })->with([
-    'exited' => [Ran::exited(1, "fails\n"), [1, false, false, "fails\n"]],
-    'a fatal error' => [Ran::exited(255, "PHP Fatal error:  boom\n"), [255, false, true, "PHP Fatal error:  boom\n"]],
-    'signalled' => [Ran::signalled(9, ''), [137, true, false, '']],
-    'no code' => [Ran::exited(NotGiven::value(), 'gone'), [NotGiven::value(), NotGiven::value(), false, 'gone']],
+    'exited' => [fn(): Ran => Ran::exited(1, "fails\n"), [1, false, false, "fails\n"]],
+    'a fatal error' => [fn(): Ran => Ran::exited(255, "PHP Fatal error:  boom\n"), [255, false, true, "PHP Fatal error:  boom\n"]],
+    'signalled' => [fn(): Ran => Ran::signalled(9, ''), [137, true, false, '']],
+    'no code' => [fn(): Ran => Ran::exited(NotGiven::value(), 'gone'), fn(): array => [NotGiven::value(), NotGiven::value(), false, 'gone']],
 ]);
 
 it('holds a kill\'s evidence: a prefix, how its process ended, either or neither', function (): void {

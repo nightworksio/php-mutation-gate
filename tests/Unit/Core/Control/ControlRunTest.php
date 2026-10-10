@@ -48,28 +48,28 @@ function controlRunSaid(ControlRun $run): array
 it('says how a control ended: passed in a time, failed, ran out, or never run and why', function (ControlRun $run, array $said): void {
     expect(controlRunSaid($run))->toBe($said);
 })->with([
-    'passed' => [ControlRun::passed(Seconds::of(1.5)), ['passed', 1.5, '']],
-    'passed, untimed' => [ControlRun::passed(Unmeasured::duration()), ['passed', 'unmeasured', '']],
-    'failed' => [ControlRun::failed(), ['failed', 'unmeasured', '']],
-    'ran out' => [ControlRun::ranOut(), ['ran-out', 'unmeasured', '']],
-    'out of memory' => [ControlRun::outOfMemory(), ['out-of-memory', 'unmeasured', '']],
-    'never run' => [ControlRun::unrun('the file is gone'), ['unrun', 'unmeasured', 'the file is gone']],
+    'passed' => [fn(): ControlRun => ControlRun::passed(Seconds::of(1.5)), ['passed', 1.5, '']],
+    'passed, untimed' => [fn(): ControlRun => ControlRun::passed(Unmeasured::duration()), ['passed', 'unmeasured', '']],
+    'failed' => [fn(): ControlRun => ControlRun::failed(), ['failed', 'unmeasured', '']],
+    'ran out' => [fn(): ControlRun => ControlRun::ranOut(), ['ran-out', 'unmeasured', '']],
+    'out of memory' => [fn(): ControlRun => ControlRun::outOfMemory(), ['out-of-memory', 'unmeasured', '']],
+    'never run' => [fn(): ControlRun => ControlRun::unrun('the file is gone'), ['unrun', 'unmeasured', 'the file is gone']],
 ]);
 
 it('reads a control run as a mutant that changes nothing by the status its run gave it', function (Mutant $unchanged, array $said): void {
     expect(controlRunSaid(ControlRun::asMutant($unchanged)))->toBe($said);
 })->with([
-    'survived' => [unchangedMutant(MutantStatus::Survived), ['passed', 1.0, '']],
-    'killed' => [unchangedMutant(MutantStatus::Killed), ['failed', 'unmeasured', '']],
-    'killed by static analysis' => [unchangedMutant(MutantStatus::KilledByStaticAnalysis), ['failed', 'unmeasured', '']],
-    'errored' => [unchangedMutant(MutantStatus::Errored), ['failed', 'unmeasured', '']],
-    'out of memory' => [unchangedMutant(MutantStatus::OutOfMemory), ['out-of-memory', 'unmeasured', '']],
-    'timed out' => [unchangedMutant(MutantStatus::TimedOut), ['ran-out', 'unmeasured', '']],
-    'skipped' => [unchangedMutant(MutantStatus::Skipped), ['ran-out', 'unmeasured', '']],
-    'uncovered, with no reason' => [unchangedMutant(MutantStatus::Uncovered), ['unrun', 'unmeasured', ControlRun::NO_ANSWER]],
-    'ignored by a marker' => [unchangedMutant(MutantStatus::IgnoredByMarker), ['unrun', 'unmeasured', ControlRun::NO_ANSWER]],
+    'survived' => [fn(): Mutant => unchangedMutant(MutantStatus::Survived), ['passed', 1.0, '']],
+    'killed' => [fn(): Mutant => unchangedMutant(MutantStatus::Killed), ['failed', 'unmeasured', '']],
+    'killed by static analysis' => [fn(): Mutant => unchangedMutant(MutantStatus::KilledByStaticAnalysis), ['failed', 'unmeasured', '']],
+    'errored' => [fn(): Mutant => unchangedMutant(MutantStatus::Errored), ['failed', 'unmeasured', '']],
+    'out of memory' => [fn(): Mutant => unchangedMutant(MutantStatus::OutOfMemory), ['out-of-memory', 'unmeasured', '']],
+    'timed out' => [fn(): Mutant => unchangedMutant(MutantStatus::TimedOut), ['ran-out', 'unmeasured', '']],
+    'skipped' => [fn(): Mutant => unchangedMutant(MutantStatus::Skipped), ['ran-out', 'unmeasured', '']],
+    'uncovered, with no reason' => [fn(): Mutant => unchangedMutant(MutantStatus::Uncovered), ['unrun', 'unmeasured', ControlRun::NO_ANSWER]],
+    'ignored by a marker' => [fn(): Mutant => unchangedMutant(MutantStatus::IgnoredByMarker), ['unrun', 'unmeasured', ControlRun::NO_ANSWER]],
     'unjudged, for a reason' => [
-        unchangedMutant(MutantStatus::Unjudged)->because(Reason::that('The run wrote no guard.')),
+        fn(): Mutant => unchangedMutant(MutantStatus::Unjudged)->because(Reason::that('The run wrote no guard.')),
         ['unrun', 'unmeasured', 'The run wrote no guard.'],
     ],
 ]);
@@ -77,12 +77,12 @@ it('reads a control run as a mutant that changes nothing by the status its run g
 it('reads a control run as a process of its own by how the process ended', function (Ran $ran, array $said): void {
     expect(controlRunSaid(ControlRun::ofProcess($ran)))->toBe($said);
 })->with([
-    'succeeded' => [Ran::finished(succeeded: true, output: '')->took(Seconds::of(2.5)), ['passed', 2.5, '']],
-    'failed' => [Ran::finished(succeeded: false, output: '')->took(Seconds::of(2.5)), ['failed', 'unmeasured', '']],
-    'stopped at its limit' => [Ran::stopped('')->took(Seconds::of(5.0)), ['ran-out', 'unmeasured', '']],
-    'ended by a signal' => [Ran::signalled(9, ''), ['failed', 'unmeasured', '']],
+    'succeeded' => [fn(): Ran => Ran::finished(succeeded: true, output: '')->took(Seconds::of(2.5)), ['passed', 2.5, '']],
+    'failed' => [fn(): Ran => Ran::finished(succeeded: false, output: '')->took(Seconds::of(2.5)), ['failed', 'unmeasured', '']],
+    'stopped at its limit' => [fn(): Ran => Ran::stopped('')->took(Seconds::of(5.0)), ['ran-out', 'unmeasured', '']],
+    'ended by a signal' => [fn(): Ran => Ran::signalled(9, ''), ['failed', 'unmeasured', '']],
     'out of its memory limit' => [
-        Ran::finished(succeeded: false, output: 'PHP Fatal error:  Allowed memory size of 67108864 bytes exhausted (tried to allocate 20480 bytes)'),
+        fn(): Ran => Ran::finished(succeeded: false, output: 'PHP Fatal error:  Allowed memory size of 67108864 bytes exhausted (tried to allocate 20480 bytes)'),
         ['out-of-memory', 'unmeasured', ''],
     ],
 ]);

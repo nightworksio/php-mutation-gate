@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 
-$baseline = Baseline::of(
+$makeBaseline = static fn(): Baseline => Baseline::of(
     Entry::of(Path::of('app/Http'), Floor::of(83.41)),
     Entry::of(Path::of('app/Domain'), Floor::of(100)),
     Entry::of(Path::of('app/Legacy'), Floor::of(61.2))
@@ -32,7 +32,9 @@ $file = <<<'JSON'
 
     JSON;
 
-it('writes each tree in byte order, each floor on a line of its own', function () use ($baseline, $file): void {
+it('writes each tree in byte order, each floor on a line of its own', function () use ($makeBaseline, $file): void {
+    $baseline = $makeBaseline();
+
     expect(BaselineFile::encode($baseline))->toBe($file);
 });
 
@@ -40,7 +42,9 @@ it('writes an empty baseline as no trees', function (): void {
     expect(BaselineFile::encode(Baseline::none()))->toBe("{\n    \"format\": 1,\n    \"trees\": {}\n}\n");
 });
 
-it('reads back the baseline it wrote', function () use ($baseline, $file): void {
+it('reads back the baseline it wrote', function () use ($makeBaseline, $file): void {
+    $baseline = $makeBaseline();
+
     expect(BaselineFile::decode($file, Path::of('mutation-gate.baseline.json')))->toEqual($baseline)
         ->and(BaselineFile::decode(BaselineFile::encode(Baseline::none()), Path::of('b.json')))->toEqual(Baseline::none());
 });

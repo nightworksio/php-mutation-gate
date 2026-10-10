@@ -31,5 +31,5 @@ it('names every file the tests executed, each once', function (TestIds $tests, a
         ['src/Money.php', 'src/Rate.php', 'src/Held.php'],
     ],
     'a test the map does not hold' => [fn(): TestIds => TestIds::of(TestId::of('GoneTest::went')), []],
-    'no test' => [TestIds::none(), []],
+    'no test' => [fn(): TestIds => TestIds::none(), []],
 ]);

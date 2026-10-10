@@ -9,15 +9,19 @@ use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
-$ci = ConfigFile::at(Path::of('/project/ci/gate.json'), Path::of('/project'));
+$makeCi = static fn(): ConfigFile => ConfigFile::at(Path::of('/project/ci/gate.json'), Path::of('/project'));
 
-it('writes globs from the project as a file in a directory of it writes them', function () use ($ci): void {
+it('writes globs from the project as a file in a directory of it writes them', function () use ($makeCi): void {
+    $ci = $makeCi();
+
     expect(WrittenPaths::globs($ci, [Glob::of('src/Gen/**'), Glob::of('ci/docs/**')]))->toBe(['../src/Gen/**', 'docs/**']);
 });
 
 it('writes the options of a choice that hold a path or a list of them from the file, and no other', function () use (
-    $ci,
+    $makeCi,
 ): void {
+    $ci = $makeCi();
+
     $choice = Choice::of('directory', Configs::options('{"path": "ci/cache", "fallback": ["app"], "level": 3}'));
 
     expect(WrittenPaths::choice($choice, $ci, 'path', 'fallback', 'level', 'missing')->written())

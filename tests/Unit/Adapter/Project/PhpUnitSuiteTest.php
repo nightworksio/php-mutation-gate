@@ -88,7 +88,7 @@ it('holds the conventional directory where the config names no test directory', 
         ->and($suite instanceof PhpUnitSuite && $suite->holds(Path::of('tests/MoneyTest.php')))->toBeTrue();
 })->with([
     'a config with no suite' => [fn(): PhpUnitSuite|CannotJudge => $suiteOf('<phpunit/>')],
-    'the convention itself' => [PhpUnitSuite::conventional()],
+    'the convention itself' => [fn(): PhpUnitSuite => PhpUnitSuite::conventional()],
 ]);
 
 it('tells each directory\'s files of test cases by its suffix, PHPUnit\'s where it names none, and each directory once', function () use (

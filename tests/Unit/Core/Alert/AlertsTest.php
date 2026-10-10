@@ -34,18 +34,18 @@ it('alerts when the default branch changes state, and only then', function (
 
     expect($events($verdict->withAccount($before)))->toBe($alerted);
 })->with([
-    'a failure after a pass' => ['failed', Previous::run('passed'), [AlertEvent::Failed]],
-    'a failure after a failure' => ['failed', Previous::run('failed'), []],
-    'a failure after an entry that recorded no judgement' => ['failed', RunAccount::none()->after(Trend::decode('{"runs": [{"commit": "a", "time": "t", "trees": {}}]}')), [AlertEvent::Failed]],
-    'a failure with no run before it' => ['failed', Previous::none(), [AlertEvent::Failed]],
-    'cannot judge after a pass' => ['cannot-judge', Previous::run('passed'), [AlertEvent::CannotJudge]],
-    'cannot judge after a failure' => ['cannot-judge', Previous::run('failed'), [AlertEvent::CannotJudge]],
-    'cannot judge again' => ['cannot-judge', Previous::run('cannot-judge'), []],
-    'cannot judge with no run before it' => ['cannot-judge', Previous::none(), []],
-    'a pass after a failure' => ['passed', Previous::run('failed'), [AlertEvent::Recovered]],
-    'a pass after cannot judge' => ['passed', Previous::run('cannot-judge'), [AlertEvent::Recovered]],
-    'a pass after a pass' => ['passed', Previous::run('passed'), []],
-    'a pass with no run before it' => ['passed', Previous::none(), []],
+    'a failure after a pass' => ['failed', fn(): RunAccount => Previous::run('passed'), [AlertEvent::Failed]],
+    'a failure after a failure' => ['failed', fn(): RunAccount => Previous::run('failed'), []],
+    'a failure after an entry that recorded no judgement' => ['failed', fn(): RunAccount => RunAccount::none()->after(Trend::decode('{"runs": [{"commit": "a", "time": "t", "trees": {}}]}')), [AlertEvent::Failed]],
+    'a failure with no run before it' => ['failed', fn(): RunAccount => Previous::none(), [AlertEvent::Failed]],
+    'cannot judge after a pass' => ['cannot-judge', fn(): RunAccount => Previous::run('passed'), [AlertEvent::CannotJudge]],
+    'cannot judge after a failure' => ['cannot-judge', fn(): RunAccount => Previous::run('failed'), [AlertEvent::CannotJudge]],
+    'cannot judge again' => ['cannot-judge', fn(): RunAccount => Previous::run('cannot-judge'), []],
+    'cannot judge with no run before it' => ['cannot-judge', fn(): RunAccount => Previous::none(), []],
+    'a pass after a failure' => ['passed', fn(): RunAccount => Previous::run('failed'), [AlertEvent::Recovered]],
+    'a pass after cannot judge' => ['passed', fn(): RunAccount => Previous::run('cannot-judge'), [AlertEvent::Recovered]],
+    'a pass after a pass' => ['passed', fn(): RunAccount => Previous::run('passed'), []],
+    'a pass with no run before it' => ['passed', fn(): RunAccount => Previous::none(), []],
 ]);
 
 it('alerts a lowered floor once, beside the change it came with', function () use ($events): void {

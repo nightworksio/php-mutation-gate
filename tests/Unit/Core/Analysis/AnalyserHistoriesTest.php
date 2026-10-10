@@ -12,10 +12,12 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
-$phpstan = AnalyserIdentity::of('phpstan', '2.1.30', Digest::of(str_repeat('a', 64)));
-$plus = Mutation::of('Plus', MutatorFamily::Arithmetic, "-+\n+-");
+$makePhpstan = static fn(): AnalyserIdentity => AnalyserIdentity::of('phpstan', '2.1.30', Digest::of(str_repeat('a', 64)));
+$makePlus = static fn(): Mutation => Mutation::of('Plus', MutatorFamily::Arithmetic, "-+\n+-");
 
-it('holds one history per analyser, the newest of two', function () use ($phpstan): void {
+it('holds one history per analyser, the newest of two', function () use ($makePhpstan): void {
+    $phpstan = $makePhpstan();
+
     $first = AnalyserHistory::of('phpstan')->withTime(CheckTime::of(1, Seconds::of(1.0)));
     $second = AnalyserHistory::of('phpstan')->withTime(CheckTime::of(2, Seconds::of(3.0)));
     $histories = AnalyserHistories::none()->with($first)->with(AnalyserHistory::of('mago'))->with($second);
@@ -24,12 +26,17 @@ it('holds one history per analyser, the newest of two', function () use ($phpsta
         ->and(array_map(static fn(AnalyserHistory $history): string => $history->analyser(), [...$histories]))->toBe(['phpstan', 'mago']);
 });
 
-it('gives an analyser it learned nothing of a history with nothing in it', function () use ($phpstan): void {
+it('gives an analyser it learned nothing of a history with nothing in it', function () use ($makePhpstan): void {
+    $phpstan = $makePhpstan();
+
     expect(AnalyserHistories::none()->of($phpstan))->toEqual(AnalyserHistory::of('phpstan'))
         ->and([...AnalyserHistories::none()])->toBe([]);
 });
 
-it('reads its own histories before another ledger\'s, merging an analyser both know', function () use ($phpstan, $plus): void {
+it('reads its own histories before another ledger\'s, merging an analyser both know', function () use ($makePhpstan, $makePlus): void {
+    $phpstan = $makePhpstan();
+    $plus = $makePlus();
+
     $own = AnalyserHistories::none()->with(AnalyserHistory::of('phpstan')->withRate(RejectionRate::of('Plus', 3, 1)));
     $other = AnalyserHistories::none()
         ->with(AnalyserHistory::of('mago')->withRate(RejectionRate::of('Plus', 9, 9)))
@@ -53,7 +60,9 @@ it('keeps one history of an analyser whose name reads as a number, the newest', 
         ->and([...$histories->and(AnalyserHistories::none()->with(AnalyserHistory::of('7')))])->toEqual([$newest]);
 });
 
-it('adds what a run learned of each analyser to what it holds, and takes one it held nothing of whole', function () use ($phpstan): void {
+it('adds what a run learned of each analyser to what it holds, and takes one it held nothing of whole', function () use ($makePhpstan): void {
+    $phpstan = $makePhpstan();
+
     $held = AnalyserHistories::none()->with(AnalyserHistory::of('phpstan')->withTime(CheckTime::of(4, Seconds::of(2.0))));
     $run = AnalyserHistories::none()
         ->with(AnalyserHistory::of('phpstan')->withTime(CheckTime::of(1, Seconds::of(1.0))))

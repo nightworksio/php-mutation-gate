@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Inputs;
+use NightWorksIO\MutationGate\Core\Proof\NewestProofs;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Proofs;
 use NightWorksIO\MutationGate\Core\Proof\Run;
@@ -43,7 +44,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Origin;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 
-$survivor = Mutant::of(
+$makeSurvivor = static fn(): Mutant => Mutant::of(
     MutantId::hash(Path::of('src/Money.php'), 'LessThan', '1', 0),
     'a1',
     Location::of(Path::of('src/Money.php'), Line::of(3), Line::of(3)),
@@ -58,8 +59,8 @@ $killBy = static fn(string $mutator, int $line, string $test): ProvedKill => Pro
     $mutator,
     TestIds::of(TestId::of($test)),
 );
-$standing = $killBy('Plus', 7, 'MoneyTest::adds');
-$stale = $killBy('Minus', 9, 'TaxTest::rounds');
+$makeStanding = static fn(): ProvedKill => $killBy('Plus', 7, 'MoneyTest::adds');
+$makeStale = static fn(): ProvedKill => $killBy('Minus', 9, 'TaxTest::rounds');
 $inputsOf = static fn(string $source): Inputs => Inputs::of(Digest::sha256Of($source), Digest::sha256Of('mutation'))
     ->withTest(Path::of('tests/MoneyTest.php'), Digest::sha256Of('money test'))
     ->withTest(Path::of('tests/TaxTest.php'), Digest::sha256Of('tax test'));
@@ -70,7 +71,7 @@ $proofOf = static fn(string $unit, string $source, Mutants $reported, ProvedKill
     $kills,
     Run::of('main', Moment::at('2026-09-29T10:00:00Z'), Digest::sha256Of('base')),
 )->withInputs($inputsOf($source));
-$timedOut = Mutant::of(
+$makeTimedOut = static fn(): Mutant => Mutant::of(
     MutantId::hash(Path::of('src/Money.php'), 'Minus', '5', 0),
     'a5',
     Location::of(Path::of('src/Money.php'), Line::of(5), Line::of(5)),
@@ -78,11 +79,11 @@ $timedOut = Mutant::of(
     MutantStatus::TimedOut,
     Unmeasured::duration(),
 );
-$newest = Proofs::of(
-    $proofOf('src/Money.php', 'money', Mutants::of($survivor, $timedOut), ProvedKills::of($standing, $stale)),
+$makeNewest = static fn(): NewestProofs => Proofs::of(
+    $proofOf('src/Money.php', 'money', Mutants::of($makeSurvivor(), $makeTimedOut()), ProvedKills::of($makeStanding(), $makeStale())),
     $proofOf('src/Tax.php', 'tax before', Mutants::none(), ProvedKills::none()),
 )->newest();
-$carrying = Carrying::against(
+$makeCarrying = static fn(): Carrying => Carrying::against(
     Digests::of(Digest::sha256Of('mutation'))
         ->withSource(Path::of('src/Money.php'), Digest::sha256Of('money'))
         ->withSource(Path::of('src/Tax.php'), Digest::sha256Of('tax'))
@@ -95,9 +96,17 @@ $carrying = Carrying::against(
     CoverageMap::empty(),
     ChangesSince::none(),
 );
-$units = Units::of(Unit::file(Path::of('src/Money.php')), Unit::file(Path::of('src/Tax.php')), Unit::file(Path::of('src/New.php')));
+$makeUnits = static fn(): Units => Units::of(Unit::file(Path::of('src/Money.php')), Unit::file(Path::of('src/Tax.php')), Unit::file(Path::of('src/New.php')));
 
-it('counts a unit its newest result stands for by it, each mutant standing or unjudged', function () use ($units, $newest, $carrying, $survivor, $timedOut, $standing, $stale): void {
+it('counts a unit its newest result stands for by it, each mutant standing or unjudged', function () use ($makeUnits, $makeNewest, $makeCarrying, $makeSurvivor, $makeTimedOut, $makeStanding, $makeStale): void {
+    $units = $makeUnits();
+    $newest = $makeNewest();
+    $carrying = $makeCarrying();
+    $survivor = $makeSurvivor();
+    $timedOut = $makeTimedOut();
+    $standing = $makeStanding();
+    $stale = $makeStale();
+
     expect([...LeftUnjudged::of($units, $newest, $carrying)->results()])->toEqual([UnitResult::held(
         Unit::file(Path::of('src/Money.php')),
         Origin::Carried,
@@ -107,7 +116,11 @@ it('counts a unit its newest result stands for by it, each mutant standing or un
     )]);
 });
 
-it('fails the verdict for each unit its newest result cannot stand for, saying why and what judges it', function () use ($units, $newest, $carrying): void {
+it('fails the verdict for each unit its newest result cannot stand for, saying why and what judges it', function () use ($makeUnits, $makeNewest, $makeCarrying): void {
+    $units = $makeUnits();
+    $newest = $makeNewest();
+    $carrying = $makeCarrying();
+
     expect(LeftUnjudged::of($units, $newest, $carrying)->failures())->toEqual(Failures::of(
         Failure::that(
             "src/Tax.php is unjudged: the time budget ran out before this run mutated it.\n"
@@ -121,14 +134,20 @@ it('fails the verdict for each unit its newest result cannot stand for, saying w
     ));
 });
 
-it('counts nothing and fails nothing where the budget left no unit unjudged', function () use ($newest, $carrying): void {
+it('counts nothing and fails nothing where the budget left no unit unjudged', function () use ($makeNewest, $makeCarrying): void {
+    $newest = $makeNewest();
+    $carrying = $makeCarrying();
+
     $none = LeftUnjudged::of(Units::none(), $newest, $carrying);
 
     expect($none->results())->toHaveCount(0)
         ->and($none->failures())->toHaveCount(0);
 });
 
-it('carries a kill by static analysis of this base with its rejection, and one that records no finding as unjudged', function () use ($proofOf, $carrying, $timedOut): void {
+it('carries a kill by static analysis of this base with its rejection, and one that records no finding as unjudged', function () use ($proofOf, $makeCarrying, $makeTimedOut): void {
+    $carrying = $makeCarrying();
+    $timedOut = $makeTimedOut();
+
     $rejected = $timedOut->rejected(Rejection::by('phpstan', Finding::error(Path::of('src/Money.php'), 'return.type', 'Method Money::sub() should return int.')));
     $unplaced = Mutant::of(
         $timedOut->id(),
@@ -149,7 +168,15 @@ it('carries a kill by static analysis of this base with its rejection, and one t
         ->and($carried($unplaced))->toEqual([$unplaced->unjudged(OutOfTime::BeforeMutating)]);
 });
 
-it('counts a unit a doomed run stopped before by its newest result, each mutant that does not stand unjudged by that stop', function () use ($units, $newest, $carrying, $survivor, $timedOut, $standing, $stale): void {
+it('counts a unit a doomed run stopped before by its newest result, each mutant that does not stand unjudged by that stop', function () use ($makeUnits, $makeNewest, $makeCarrying, $makeSurvivor, $makeTimedOut, $makeStanding, $makeStale): void {
+    $units = $makeUnits();
+    $newest = $makeNewest();
+    $carrying = $makeCarrying();
+    $survivor = $makeSurvivor();
+    $timedOut = $makeTimedOut();
+    $standing = $makeStanding();
+    $stale = $makeStale();
+
     $doomed = Doomed::of(Path::of('src/Late.php'), MutantId::hash(Path::of('src/Late.php'), 'Plus', '1', 0), Path::of('src'), Floor::whole(), DoomedBy::Tree);
     $stopped = LeftUnjudged::stoppedBy($doomed, $units, $newest, $carrying);
 

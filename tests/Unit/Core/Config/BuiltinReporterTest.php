@@ -6,9 +6,11 @@ use NightWorksIO\MutationGate\Core\Config\BuiltinReporter;
 use NightWorksIO\MutationGate\Core\Config\EntryPath;
 use NightWorksIO\MutationGate\Core\Config\Name;
 
-it('names each built-in reporter by the name a config chooses it by', function (BuiltinReporter $builtin): void {
-    expect($builtin->named())->toEqual(Name::of($builtin->value));
-})->with(BuiltinReporter::cases());
+it('names each built-in reporter by the name a config chooses it by', function (): void {
+    foreach (BuiltinReporter::cases() as $builtin) {
+        expect($builtin->named())->toEqual(Name::of($builtin->value));
+    }
+});
 
 it('says whether an entry of each reporter names a path', function (BuiltinReporter $reporter, EntryPath $path): void {
     expect($reporter->entryPath())->toBe($path);
@@ -33,7 +35,9 @@ it('says whether an entry of each reporter names a path', function (BuiltinRepor
     [BuiltinReporter::GitHubComment, EntryPath::Refused],
 ]);
 
-it('says which reporters send an alert', function (BuiltinReporter $reporter): void {
-    expect($reporter->alerts())
-        ->toBe(in_array($reporter, [BuiltinReporter::Slack, BuiltinReporter::Discord, BuiltinReporter::Webhook], strict: true));
-})->with(BuiltinReporter::cases());
+it('says which reporters send an alert', function (): void {
+    foreach (BuiltinReporter::cases() as $reporter) {
+        expect($reporter->alerts())
+            ->toBe(in_array($reporter, [BuiltinReporter::Slack, BuiltinReporter::Discord, BuiltinReporter::Webhook], strict: true));
+    }
+});

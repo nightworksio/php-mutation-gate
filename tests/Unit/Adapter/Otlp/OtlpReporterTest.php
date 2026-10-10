@@ -49,7 +49,7 @@ function otlpHeaders(MockResponse $answer): string
     return is_array($headers) ? implode("\n", array_filter($headers, is_string(...))) : '';
 }
 
-$github = Variables::of([
+$makeGithub = static fn(): Variables => Variables::of([
     'GITHUB_ACTIONS' => 'true',
     'GITHUB_REPOSITORY' => 'octo/gate',
     'GITHUB_REF' => 'refs/heads/main',
@@ -60,7 +60,9 @@ $github = Variables::of([
     'OTEL_EXPORTER_OTLP_HEADERS' => 'api-key=secret',
 ]);
 
-it('posts the run\'s trace and the verdict\'s metrics to the endpoint, with OpenTelemetry\'s headers, within 5 seconds', function () use ($github): void {
+it('posts the run\'s trace and the verdict\'s metrics to the endpoint, with OpenTelemetry\'s headers, within 5 seconds', function () use ($makeGithub): void {
+    $github = $makeGithub();
+
     $traces = new MockResponse('{}');
     $metrics = new MockResponse('{}');
     $sent = otlpReport(otlpReporter($github, [$traces, $metrics]), Verdicts::named('accounted'));
@@ -90,7 +92,9 @@ it('posts only metrics for a run the flows did not time, and says nothing of a C
         ->and($metrics->getRequestUrl())->toBe('http://localhost:4318/v1/metrics');
 });
 
-it('names the runner that judged the run on every span', function () use ($github): void {
+it('names the runner that judged the run on every span', function () use ($makeGithub): void {
+    $github = $makeGithub();
+
     $traces = new MockResponse('{}');
     $account = Verdicts::account();
     $timings = $account->timings();
@@ -114,14 +118,18 @@ it('says the full mode of a run with no new code, and leaves out a pipeline the 
         ->and(json_encode($attributes))->not->toContain('cicd.pipeline.name');
 });
 
-it('takes the endpoint its options name over OpenTelemetry\'s', function () use ($github): void {
+it('takes the endpoint its options name over OpenTelemetry\'s', function () use ($makeGithub): void {
+    $github = $makeGithub();
+
     $metrics = new MockResponse('{}');
     otlpReport(otlpReporter($github, [$metrics], '{"endpoint": "https://mine.example"}'), Verdicts::passing());
 
     expect($metrics->getRequestUrl())->toBe('https://mine.example/v1/metrics');
 });
 
-it('keeps OpenTelemetry\'s headers from an endpoint its options name elsewhere, and says so', function () use ($github): void {
+it('keeps OpenTelemetry\'s headers from an endpoint its options name elsewhere, and says so', function () use ($makeGithub): void {
+    $github = $makeGithub();
+
     $traces = new MockResponse('{}');
     $metrics = new MockResponse('{}');
     $sent = otlpReport(otlpReporter($github, [$traces, $metrics], '{"endpoint": "https://mine.example"}'), Verdicts::named('accounted'));
@@ -134,7 +142,9 @@ it('keeps OpenTelemetry\'s headers from an endpoint its options name elsewhere, 
         ->and(otlpHeaders($metrics))->not->toContain('api-key');
 });
 
-it('sends OpenTelemetry\'s headers to an endpoint its options name at the same scheme, host and port', function () use ($github): void {
+it('sends OpenTelemetry\'s headers to an endpoint its options name at the same scheme, host and port', function () use ($makeGithub): void {
+    $github = $makeGithub();
+
     $metrics = new MockResponse('{}');
     $sent = otlpReport(otlpReporter($github, [$metrics], '{"endpoint": "https://otel.example/collector"}'), Verdicts::passing());
 
@@ -151,7 +161,9 @@ it('says nothing of headers where OpenTelemetry\'s variables set none', function
     expect($sent)->toEqual(Written::to('https://mine.example'));
 });
 
-it('says not written, tries nothing again, where the collector refuses or cannot be reached', function () use ($github): void {
+it('says not written, tries nothing again, where the collector refuses or cannot be reached', function () use ($makeGithub): void {
+    $github = $makeGithub();
+
     $refused = otlpReport(otlpReporter($github, [new MockResponse('bad', ['http_code' => 400]), new MockResponse('{}')]), Verdicts::named('accounted'));
     $unreached = otlpReport(otlpReporter($github, [new MockResponse('', ['error' => 'Could not resolve host'])]), Verdicts::passing());
 
@@ -204,7 +216,9 @@ it('names an endpoint by its scheme, host and port alone, so a key in it reaches
         ->and($said)->not->toContain('/otlp');
 });
 
-it('exports the trace and the metrics a run left as they were left, and says where the trace was refused', function () use ($github): void {
+it('exports the trace and the metrics a run left as they were left, and says where the trace was refused', function () use ($makeGithub): void {
+    $github = $makeGithub();
+
     $traces = new MockResponse('{}');
     $metrics = new MockResponse('{}');
     $reporter = otlpReporter($github, [$traces, $metrics]);
@@ -218,7 +232,9 @@ it('exports the trace and the metrics a run left as they were left, and says whe
         ->toEqual(NotWritten::because('https://otel.example answered 400: bad'));
 });
 
-it('leaves the trace and the metrics it would export for deliver, sending nothing', function () use ($github): void {
+it('leaves the trace and the metrics it would export for deliver, sending nothing', function () use ($makeGithub): void {
+    $github = $makeGithub();
+
     $client = new MockHttpClient([]);
     $reporter = OtlpReporter::inEnvironment(Configs::options('{}'), $github, $client, new StoppedClock('2026-09-30T12:00:00Z'));
     $timed = $reporter instanceof OtlpReporter ? $reporter->deferred(Verdicts::named('accounted'), Delivery::none()) : 'invalid';

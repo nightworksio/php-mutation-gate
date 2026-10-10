@@ -101,11 +101,11 @@ it('lets a kill stand where its control passed, and leaves it unjudged, saying w
 
     expect([$applied[0]->status(), $said instanceof Reason ? $said->text() : ''])->toBe([$status, $reason]);
 })->with([
-    'tests that pass unmutated' => [ControlRun::passed(Seconds::of(2.0)), MutantStatus::Killed, ''],
-    'tests that fail unmutated' => [ControlRun::failed(), MutantStatus::Unjudged, KillControls::FAILS_UNMUTATED],
-    'tests out of memory unmutated' => [ControlRun::outOfMemory(), MutantStatus::Unjudged, KillControls::OUT_OF_MEMORY],
-    'tests that run out unmutated' => [ControlRun::ranOut(), MutantStatus::Unjudged, KillControls::RAN_OUT],
-    'a control never run' => [ControlRun::unrun('the file is gone'), MutantStatus::Unjudged, sprintf(KillControls::UNRUN, 'the file is gone')],
+    'tests that pass unmutated' => [fn(): ControlRun => ControlRun::passed(Seconds::of(2.0)), MutantStatus::Killed, ''],
+    'tests that fail unmutated' => [fn(): ControlRun => ControlRun::failed(), MutantStatus::Unjudged, KillControls::FAILS_UNMUTATED],
+    'tests out of memory unmutated' => [fn(): ControlRun => ControlRun::outOfMemory(), MutantStatus::Unjudged, KillControls::OUT_OF_MEMORY],
+    'tests that run out unmutated' => [fn(): ControlRun => ControlRun::ranOut(), MutantStatus::Unjudged, KillControls::RAN_OUT],
+    'a control never run' => [fn(): ControlRun => ControlRun::unrun('the file is gone'), MutantStatus::Unjudged, fn(): string => sprintf(KillControls::UNRUN, 'the file is gone')],
 ]);
 
 it('says a control the runs hold nothing for never ran, and leaves a kill whose control was left unjudged by the budget', function (): void {

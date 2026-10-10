@@ -11,13 +11,15 @@ use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\UnitRecord;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
-$units = Units::of(
+$makeUnits = static fn(): Units => Units::of(
     Unit::file(Path::of('src/Money.php')),
     Unit::held(Path::of('src/Kernel.php'), Group::named('holds:kernel')),
     Unit::held(Path::of('src/Boot.php'), Filter::matching('BootTest')),
 );
 
-it('writes a unit\'s path, and the group or filter that holds it where it is held', function () use ($units): void {
+it('writes a unit\'s path, and the group or filter that holds it where it is held', function () use ($makeUnits): void {
+    $units = $makeUnits();
+
     expect(UnitRecord::all($units))->toBe([
         ['path' => 'src/Money.php'],
         ['path' => 'src/Kernel.php', 'group' => 'holds:kernel'],
@@ -25,7 +27,9 @@ it('writes a unit\'s path, and the group or filter that holds it where it is hel
     ])->and(UnitRecord::one(Unit::file(Path::of('src/A.php'))))->toBe(['path' => 'src/A.php']);
 });
 
-it('reads back the units it wrote', function () use ($units): void {
+it('reads back the units it wrote', function () use ($makeUnits): void {
+    $units = $makeUnits();
+
     expect(UnitRecord::readAll(Node::decode((string) json_encode(UnitRecord::all($units)))))->toEqual($units);
 });
 

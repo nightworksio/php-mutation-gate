@@ -32,10 +32,10 @@ it('names the mutants of its mutator, by its full name or its family, in the pat
     expect(IgnoredPattern::of(Glob::of('src/Log/**'), $mutator, 'Logged elsewhere', Absent::setting())->matches($mutant))
         ->toBe($matches);
 })->with([
-    'its mutator in a path the glob matches' => ['MethodCallRemoval', patternMutant('src/Log/Writer.php', 'MethodCallRemoval', MutatorFamily::RemovedCall), true],
-    'its family' => ['removed-call', patternMutant('src/Log/Writer.php', 'MethodCallRemoval', MutatorFamily::RemovedCall), true],
-    'another mutator' => ['MethodCallRemoval', patternMutant('src/Log/Writer.php', 'Plus', MutatorFamily::Arithmetic), false],
-    'a path the glob does not match' => ['MethodCallRemoval', patternMutant('src/Money.php', 'MethodCallRemoval', MutatorFamily::RemovedCall), false],
+    'its mutator in a path the glob matches' => ['MethodCallRemoval', fn(): Mutant => patternMutant('src/Log/Writer.php', 'MethodCallRemoval', MutatorFamily::RemovedCall), true],
+    'its family' => ['removed-call', fn(): Mutant => patternMutant('src/Log/Writer.php', 'MethodCallRemoval', MutatorFamily::RemovedCall), true],
+    'another mutator' => ['MethodCallRemoval', fn(): Mutant => patternMutant('src/Log/Writer.php', 'Plus', MutatorFamily::Arithmetic), false],
+    'a path the glob does not match' => ['MethodCallRemoval', fn(): Mutant => patternMutant('src/Money.php', 'MethodCallRemoval', MutatorFamily::RemovedCall), false],
 ]);
 
 it('is named by its mutator and its glob', function (): void {

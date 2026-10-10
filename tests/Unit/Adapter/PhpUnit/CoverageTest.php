@@ -97,10 +97,10 @@ it('keeps a coverage run to a group, the tests a filter names, or some test file
 
     expect(array_slice($shell->commands()[0]->arguments(), -2))->toBe($options);
 })->with([
-    'a group' => [Group::named('holds:src/Money.php'), ['--group', 'holds:src/Money.php']],
-    'a filter' => [Filter::matching('Money'), ['--filter', 'Money']],
+    'a group' => [fn(): Group => Group::named('holds:src/Money.php'), ['--group', 'holds:src/Money.php']],
+    'a filter' => [fn(): Filter => Filter::matching('Money'), ['--filter', 'Money']],
     'some test files' => [
-        TestPaths::of(Paths::of(Path::of('tests/MoneyTest.php'), Path::of('tests/HeldTest.php'))),
+        fn(): TestPaths => TestPaths::of(Paths::of(Path::of('tests/MoneyTest.php'), Path::of('tests/HeldTest.php'))),
         ['tests/MoneyTest.php', 'tests/HeldTest.php'],
     ],
 ]);

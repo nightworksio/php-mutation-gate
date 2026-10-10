@@ -24,9 +24,11 @@ function countedReading(ArrayObject $reads, CoverageMap|CannotJudge $answer): Cl
     };
 }
 
-$map = CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('T::adds'));
+$makeMap = static fn(): CoverageMap => CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(3), TestId::of('T::adds'));
 
-it('reads a map once for every read of the same, and afresh for another or once forgotten', function () use ($map): void {
+it('reads a map once for every read of the same, and afresh for another or once forgotten', function () use ($makeMap): void {
+    $map = $makeMap();
+
     $held = new HeldCoverage();
     $reads = new ArrayObject();
 
@@ -41,7 +43,9 @@ it('reads a map once for every read of the same, and afresh for another or once 
         ->and(count($reads))->toBe(4);
 });
 
-it('holds nothing a reading could not judge, so the next reads again', function () use ($map): void {
+it('holds nothing a reading could not judge, so the next reads again', function () use ($makeMap): void {
+    $map = $makeMap();
+
     $held = new HeldCoverage();
     $reads = new ArrayObject();
 

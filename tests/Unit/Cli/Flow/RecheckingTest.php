@@ -279,14 +279,14 @@ it('re-checks nothing, and says why, where it is off, on the default branch, or 
     expect(recheckingOf(Flows::adapters(Flows::project(), [], ...$ran), $chosen, $plan))->toEqual($why)
         ->and(count($runner->requests()))->toBe($before);
 })->with([
-    'off' => ['feature', fn(): ProofStoreFake => recheckingStore('src/Money.php'), Flows::settings(Survivors::firstAtMost(0)), NoRecheck::off()],
-    'the default branch' => ['main', fn(): ProofStoreFake => recheckingStore(), Flows::settings(), NoRecheck::onTheDefaultBranch()],
-    'a first push' => ['feature', fn(): ProofStoreFake => recheckingStore(), Flows::settings(), NoRecheck::noEarlierRun()],
+    'off' => ['feature', fn(): ProofStoreFake => recheckingStore('src/Money.php'), fn(): Settings => Flows::settings(Survivors::firstAtMost(0)), fn(): NoRecheck => NoRecheck::off()],
+    'the default branch' => ['main', fn(): ProofStoreFake => recheckingStore(), fn(): Settings => Flows::settings(), fn(): NoRecheck => NoRecheck::onTheDefaultBranch()],
+    'a first push' => ['feature', fn(): ProofStoreFake => recheckingStore(), fn(): Settings => Flows::settings(), fn(): NoRecheck => NoRecheck::noEarlierRun()],
     'everything ignored' => [
         'feature',
         fn(): ProofStoreFake => recheckingStore('src/Held.php'),
-        Flows::settings(Ignore::mutant('8705b7dc7d27', 'Doubling is checked elsewhere', '2099-01-01')),
-        NoRecheck::noneLeft(),
+        fn(): Settings => Flows::settings(Ignore::mutant('8705b7dc7d27', 'Doubling is checked elsewhere', '2099-01-01')),
+        fn(): NoRecheck => NoRecheck::noneLeft(),
     ],
 ]);
 

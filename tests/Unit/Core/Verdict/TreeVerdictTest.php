@@ -35,7 +35,7 @@ $judged = static fn(
 ): TreeVerdict => TreeVerdict::judged($tree($declared), $baseline, JudgedUnits::none(), $mutants, Uncovered::Count);
 
 // Three killed of four: 75%.
-$threeOfFour = Judged::mutants(MutantJudgement::Killed, MutantJudgement::Killed, MutantJudgement::Killed, MutantJudgement::Survived);
+$makeThreeOfFour = static fn(): JudgedMutants => Judged::mutants(MutantJudgement::Killed, MutantJudgement::Killed, MutantJudgement::Killed, MutantJudgement::Survived);
 
 it('holds the tree, its baseline floor, its units and its mutants', function () use ($tree): void {
     $declared = $tree(Floor::of(80));
@@ -53,7 +53,9 @@ it('holds the tree, its baseline floor, its units and its mutants', function () 
         ->and($verdict->base())->toEqual(Unrecorded::floor());
 });
 
-it('is compared with the score the tree had on the base, and judged the same', function () use ($judged, $threeOfFour): void {
+it('is compared with the score the tree had on the base, and judged the same', function () use ($judged, $makeThreeOfFour): void {
+    $threeOfFour = $makeThreeOfFour();
+
     $verdict = $judged(Floor::of(80), Unrecorded::floor(), $threeOfFour);
     $base = Score::ofHundredths(7_000);
     $compared = $verdict->comparedWith($base);
@@ -73,13 +75,13 @@ it('is held to the higher of its declared floor and its baseline', function (
 
     expect($floor)->toBe(['declared' => $declared, 'baseline' => $baseline][$held]);
 })->with([
-    'the declared floor higher' => [Floor::of(90), Floor::of(80), 'declared'],
-    'the baseline higher' => [Floor::of(80), Floor::of(90), 'baseline'],
-    'both the same' => [Floor::of(80), Floor::of(80), 'declared'],
-    'only a declared floor' => [Floor::of(80), Unrecorded::floor(), 'declared'],
-    'only a baseline' => [Undeclared::floor(), Floor::of(80), 'baseline'],
-    'no floor anywhere' => [Undeclared::floor(), Unrecorded::floor(), 'declared'],
-    'an exempt tree with a baseline' => [Exempt::because('Generated code'), Floor::of(80), 'declared'],
+    'the declared floor higher' => [fn(): Floor => Floor::of(90), fn(): Floor => Floor::of(80), 'declared'],
+    'the baseline higher' => [fn(): Floor => Floor::of(80), fn(): Floor => Floor::of(90), 'baseline'],
+    'both the same' => [fn(): Floor => Floor::of(80), fn(): Floor => Floor::of(80), 'declared'],
+    'only a declared floor' => [fn(): Floor => Floor::of(80), fn(): Unrecorded => Unrecorded::floor(), 'declared'],
+    'only a baseline' => [fn(): Undeclared => Undeclared::floor(), fn(): Floor => Floor::of(80), 'baseline'],
+    'no floor anywhere' => [fn(): Undeclared => Undeclared::floor(), fn(): Unrecorded => Unrecorded::floor(), 'declared'],
+    'an exempt tree with a baseline' => [fn(): Exempt => Exempt::because('Generated code'), fn(): Floor => Floor::of(80), 'declared'],
 ]);
 
 it('scores its mutants, counting uncovered ones as it was told', function (): void {
@@ -100,10 +102,10 @@ it('judges its score against the floor it is held to', function (
 ) use ($judged): void {
     expect($judged($declared, $baseline, $mutants)->judgement())->toBe($judgement);
 })->with([
-    'above the declared floor' => [Floor::of(70), Unrecorded::floor(), $threeOfFour, Judgement::Passed],
-    'below a baseline above the declared floor' => [Floor::of(70), Floor::of(80), $threeOfFour, Judgement::Failed],
-    'nothing to mutate' => [Floor::of(100), Floor::of(100), JudgedMutants::none(), Judgement::NothingToMutate],
-    'exempt' => [Exempt::because('Generated code'), Unrecorded::floor(), JudgedMutants::none(), Judgement::Exempt],
+    'above the declared floor' => [fn(): Floor => Floor::of(70), fn(): Unrecorded => Unrecorded::floor(), fn(): JudgedMutants => $makeThreeOfFour(), Judgement::Passed],
+    'below a baseline above the declared floor' => [fn(): Floor => Floor::of(70), fn(): Floor => Floor::of(80), fn(): JudgedMutants => $makeThreeOfFour(), Judgement::Failed],
+    'nothing to mutate' => [fn(): Floor => Floor::of(100), fn(): Floor => Floor::of(100), fn(): JudgedMutants => JudgedMutants::none(), Judgement::NothingToMutate],
+    'exempt' => [fn(): Exempt => Exempt::because('Generated code'), fn(): Unrecorded => Unrecorded::floor(), fn(): JudgedMutants => JudgedMutants::none(), Judgement::Exempt],
 ]);
 
 it('lists its survivors, counting uncovered ones as it was told', function () use ($tree): void {
@@ -121,19 +123,19 @@ it('raises its baseline to a score above the floor it was held to, and to nothin
 ) use ($judged): void {
     expect($judged($declared, $baseline, $mutants)->raised())->toEqual($raised);
 })->with([
-    'above the baseline' => [Floor::of(50), Floor::of(70), $threeOfFour, Floor::of(75)],
-    'above a declared floor with no baseline' => [Floor::of(70), Unrecorded::floor(), $threeOfFour, Floor::of(75)],
-    'with no floor anywhere' => [Undeclared::floor(), Unrecorded::floor(), $threeOfFour, Floor::of(75)],
-    'at the baseline' => [Floor::of(50), Floor::of(75), $threeOfFour, Unraised::floor()],
-    'at a declared floor with no baseline' => [Floor::of(75), Unrecorded::floor(), $threeOfFour, Unraised::floor()],
-    'above the baseline but below the declared floor' => [Floor::of(80), Floor::of(70), $threeOfFour, Unraised::floor()],
-    'with nothing to mutate' => [Undeclared::floor(), Unrecorded::floor(), JudgedMutants::none(), Unraised::floor()],
-    'exempt' => [Exempt::because('Generated code'), Unrecorded::floor(), $threeOfFour, Unraised::floor()],
+    'above the baseline' => [fn(): Floor => Floor::of(50), fn(): Floor => Floor::of(70), fn(): JudgedMutants => $makeThreeOfFour(), fn(): Floor => Floor::of(75)],
+    'above a declared floor with no baseline' => [fn(): Floor => Floor::of(70), fn(): Unrecorded => Unrecorded::floor(), fn(): JudgedMutants => $makeThreeOfFour(), fn(): Floor => Floor::of(75)],
+    'with no floor anywhere' => [fn(): Undeclared => Undeclared::floor(), fn(): Unrecorded => Unrecorded::floor(), fn(): JudgedMutants => $makeThreeOfFour(), fn(): Floor => Floor::of(75)],
+    'at the baseline' => [fn(): Floor => Floor::of(50), fn(): Floor => Floor::of(75), fn(): JudgedMutants => $makeThreeOfFour(), fn(): Unraised => Unraised::floor()],
+    'at a declared floor with no baseline' => [fn(): Floor => Floor::of(75), fn(): Unrecorded => Unrecorded::floor(), fn(): JudgedMutants => $makeThreeOfFour(), fn(): Unraised => Unraised::floor()],
+    'above the baseline but below the declared floor' => [fn(): Floor => Floor::of(80), fn(): Floor => Floor::of(70), fn(): JudgedMutants => $makeThreeOfFour(), fn(): Unraised => Unraised::floor()],
+    'with nothing to mutate' => [fn(): Undeclared => Undeclared::floor(), fn(): Unrecorded => Unrecorded::floor(), fn(): JudgedMutants => JudgedMutants::none(), fn(): Unraised => Unraised::floor()],
+    'exempt' => [fn(): Exempt => Exempt::because('Generated code'), fn(): Unrecorded => Unrecorded::floor(), fn(): JudgedMutants => $makeThreeOfFour(), fn(): Unraised => Unraised::floor()],
     'above the baseline with an unjudged mutant' => [
-        Floor::of(10),
-        Floor::of(10),
-        Judged::mutants(MutantJudgement::Killed, MutantJudgement::Killed, MutantJudgement::Unjudged),
-        Unraised::floor(),
+        fn(): Floor => Floor::of(10),
+        fn(): Floor => Floor::of(10),
+        fn(): JudgedMutants => Judged::mutants(MutantJudgement::Killed, MutantJudgement::Killed, MutantJudgement::Unjudged),
+        fn(): Unraised => Unraised::floor(),
     ],
 ]);
 

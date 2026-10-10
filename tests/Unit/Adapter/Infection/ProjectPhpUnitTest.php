@@ -58,9 +58,9 @@ it('reads where the config has PHP print errors: the last display_errors its php
         '<phpunit><php><ini name="display_errors" value="Off"/><ini name="display_errors" value="On"/></php></phpunit>',
         ErrorDisplay::Stdout,
     ],
-    'another setting' => ['<phpunit><php><ini name="memory_limit" value="0"/></php></phpunit>', NotGiven::value()],
-    'outside php' => ['<phpunit><ini name="display_errors" value="0"/></phpunit>', NotGiven::value()],
-    'not XML' => ['<phpunit>', NotGiven::value()],
+    'another setting' => ['<phpunit><php><ini name="memory_limit" value="0"/></php></phpunit>', fn(): NotGiven => NotGiven::value()],
+    'outside php' => ['<phpunit><ini name="display_errors" value="0"/></phpunit>', fn(): NotGiven => NotGiven::value()],
+    'not XML' => ['<phpunit>', fn(): NotGiven => NotGiven::value()],
 ]);
 
 it('reads no display where the project has no PHPUnit config', function (): void {

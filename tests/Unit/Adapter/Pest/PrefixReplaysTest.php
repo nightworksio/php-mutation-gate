@@ -94,38 +94,38 @@ it('lets a kill stand only where its replay ran as many tests, none failing, end
     expect(replayVerdicts($at, replaying($ended, $records)))->toBe([$verdict]);
 })->with([
     'every condition holds' => [
-        Ran::finished(succeeded: true, output: ''),
-        implode('', [RecordLine::ran('/r/copy.php', 2), RecordLine::stopped('/r/copy.php', 2, replayedOrder())]),
+        fn(): Ran => Ran::finished(succeeded: true, output: ''),
+        fn(): string => implode('', [RecordLine::ran('/r/copy.php', 2), RecordLine::stopped('/r/copy.php', 2, replayedOrder())]),
         ReplayVerdict::Stands,
     ],
     'a test fails unmutated' => [
-        Ran::finished(succeeded: true, output: ''),
-        implode('', [RecordLine::killed('/r/copy.php', 'T::b', Placed::unplaced(1)), RecordLine::ran('/r/copy.php', 2), RecordLine::stopped('/r/copy.php', 2, replayedOrder())]),
+        fn(): Ran => Ran::finished(succeeded: true, output: ''),
+        fn(): string => implode('', [RecordLine::killed('/r/copy.php', 'T::b', Placed::unplaced(1)), RecordLine::ran('/r/copy.php', 2), RecordLine::stopped('/r/copy.php', 2, replayedOrder())]),
         ReplayVerdict::Failed,
     ],
     'another number of tests ran' => [
-        Ran::finished(succeeded: true, output: ''),
-        implode('', [RecordLine::ran('/r/copy.php', 3), RecordLine::stopped('/r/copy.php', 2, replayedOrder())]),
+        fn(): Ran => Ran::finished(succeeded: true, output: ''),
+        fn(): string => implode('', [RecordLine::ran('/r/copy.php', 3), RecordLine::stopped('/r/copy.php', 2, replayedOrder())]),
         ReplayVerdict::OtherCount,
     ],
     'the run failed with no test failing' => [
-        Ran::finished(succeeded: false, output: ''),
-        implode('', [RecordLine::ran('/r/copy.php', 2), RecordLine::stopped('/r/copy.php', 2, replayedOrder())]),
+        fn(): Ran => Ran::finished(succeeded: false, output: ''),
+        fn(): string => implode('', [RecordLine::ran('/r/copy.php', 2), RecordLine::stopped('/r/copy.php', 2, replayedOrder())]),
         ReplayVerdict::FailedRun,
     ],
     'another order' => [
-        Ran::finished(succeeded: true, output: ''),
-        implode('', [RecordLine::ran('/r/copy.php', 2), RecordLine::stopped('/r/copy.php', 2, replayedOrder('T::c'))]),
+        fn(): Ran => Ran::finished(succeeded: true, output: ''),
+        fn(): string => implode('', [RecordLine::ran('/r/copy.php', 2), RecordLine::stopped('/r/copy.php', 2, replayedOrder('T::c'))]),
         ReplayVerdict::OtherOrder,
     ],
     'no stop recorded' => [
-        Ran::finished(succeeded: true, output: ''),
-        implode('', [RecordLine::ran('/r/copy.php', 2)]),
+        fn(): Ran => Ran::finished(succeeded: true, output: ''),
+        fn(): string => implode('', [RecordLine::ran('/r/copy.php', 2)]),
         ReplayVerdict::OtherOrder,
     ],
     'stopped at its deadline' => [
-        Ran::stopped(''),
-        implode('', [RecordLine::ran('/r/copy.php', 2), RecordLine::stopped('/r/copy.php', 2, replayedOrder())]),
+        fn(): Ran => Ran::stopped(''),
+        fn(): string => implode('', [RecordLine::ran('/r/copy.php', 2), RecordLine::stopped('/r/copy.php', 2, replayedOrder())]),
         ReplayVerdict::NoTime,
     ],
 ]);
@@ -190,10 +190,10 @@ it('holds a replay to its kill\'s limit where that is shorter than the time left
     expect(replayVerdicts($at, $shell, $left, moneyReplay(Seconds::of(3.0))))->toBe([$verdict])
         ->and($shell->commands()[0]->deadline())->toEqual(Seconds::of($deadline));
 })->with([
-    'the limit first' => [Unlimited::time(), 3.0, ReplayVerdict::OverLimit],
-    'the limit before a longer time left' => [Seconds::of(9.0), 3.0, ReplayVerdict::OverLimit],
-    'the time left first' => [Seconds::of(2.0), 2.0, ReplayVerdict::NoTime],
-    'the time left at the limit' => [Seconds::of(3.0), 3.0, ReplayVerdict::NoTime],
+    'the limit first' => [fn(): Unlimited => Unlimited::time(), 3.0, ReplayVerdict::OverLimit],
+    'the limit before a longer time left' => [fn(): Seconds => Seconds::of(9.0), 3.0, ReplayVerdict::OverLimit],
+    'the time left first' => [fn(): Seconds => Seconds::of(2.0), 2.0, ReplayVerdict::NoTime],
+    'the time left at the limit' => [fn(): Seconds => Seconds::of(3.0), 3.0, ReplayVerdict::NoTime],
 ]);
 
 it('keeps what a replay said under one limit apart from a replay of the same run under another', function (): void {

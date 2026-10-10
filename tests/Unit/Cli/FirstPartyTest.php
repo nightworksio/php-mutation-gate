@@ -257,39 +257,39 @@ it('detects the plan of the CI a job runs in, GitHub Actions first, and none any
 
     expect($registry->detectedCiPlan(CiEnvironment::of($environment)->shows(...)))->toEqual($plan);
 })->with([
-    'GitHub Actions' => [Variables::of(['GITHUB_ACTIONS' => 'true']), BuiltinCiPlan::GitHub->named()],
-    'GitLab CI' => [Variables::of(['GITLAB_CI' => 'true']), BuiltinCiPlan::GitLab->named()],
-    'Buildkite' => [Variables::of(['BUILDKITE' => 'true']), BuiltinCiPlan::Buildkite->named()],
-    'CircleCI' => [Variables::of(['CIRCLECI' => 'true']), BuiltinCiPlan::CircleCi->named()],
-    'Azure DevOps' => [Variables::of(['TF_BUILD' => 'True']), BuiltinCiPlan::Azure->named()],
-    'Bitbucket Pipelines' => [Variables::of(['CI' => 'true', 'BITBUCKET_BUILD_NUMBER' => '12']), BuiltinCiPlan::Bitbucket->named()],
-    'Jenkins' => [Variables::of(['CI' => 'true', 'BUILD_TAG' => 'jenkins-gate-main-4']), BuiltinCiPlan::Jenkins->named()],
+    'GitHub Actions' => [fn(): Variables => Variables::of(['GITHUB_ACTIONS' => 'true']), fn(): Name => BuiltinCiPlan::GitHub->named()],
+    'GitLab CI' => [fn(): Variables => Variables::of(['GITLAB_CI' => 'true']), fn(): Name => BuiltinCiPlan::GitLab->named()],
+    'Buildkite' => [fn(): Variables => Variables::of(['BUILDKITE' => 'true']), fn(): Name => BuiltinCiPlan::Buildkite->named()],
+    'CircleCI' => [fn(): Variables => Variables::of(['CIRCLECI' => 'true']), fn(): Name => BuiltinCiPlan::CircleCi->named()],
+    'Azure DevOps' => [fn(): Variables => Variables::of(['TF_BUILD' => 'True']), fn(): Name => BuiltinCiPlan::Azure->named()],
+    'Bitbucket Pipelines' => [fn(): Variables => Variables::of(['CI' => 'true', 'BITBUCKET_BUILD_NUMBER' => '12']), fn(): Name => BuiltinCiPlan::Bitbucket->named()],
+    'Jenkins' => [fn(): Variables => Variables::of(['CI' => 'true', 'BUILD_TAG' => 'jenkins-gate-main-4']), fn(): Name => BuiltinCiPlan::Jenkins->named()],
     'GitHub Actions before any other' => [
-        Variables::of(['GITLAB_CI' => 'true', 'GITHUB_ACTIONS' => 'true']),
-        BuiltinCiPlan::GitHub->named(),
+        fn(): Variables => Variables::of(['GITLAB_CI' => 'true', 'GITHUB_ACTIONS' => 'true']),
+        fn(): Name => BuiltinCiPlan::GitHub->named(),
     ],
     'GitLab CI before Buildkite' => [
-        Variables::of(['BUILDKITE' => 'true', 'GITLAB_CI' => 'true']),
-        BuiltinCiPlan::GitLab->named(),
+        fn(): Variables => Variables::of(['BUILDKITE' => 'true', 'GITLAB_CI' => 'true']),
+        fn(): Name => BuiltinCiPlan::GitLab->named(),
     ],
     'Buildkite before CircleCI' => [
-        Variables::of(['CIRCLECI' => 'true', 'BUILDKITE' => 'true']),
-        BuiltinCiPlan::Buildkite->named(),
+        fn(): Variables => Variables::of(['CIRCLECI' => 'true', 'BUILDKITE' => 'true']),
+        fn(): Name => BuiltinCiPlan::Buildkite->named(),
     ],
     'CircleCI before Azure DevOps' => [
-        Variables::of(['TF_BUILD' => 'True', 'CIRCLECI' => 'true']),
-        BuiltinCiPlan::CircleCi->named(),
+        fn(): Variables => Variables::of(['TF_BUILD' => 'True', 'CIRCLECI' => 'true']),
+        fn(): Name => BuiltinCiPlan::CircleCi->named(),
     ],
     'Azure DevOps before Bitbucket Pipelines' => [
-        Variables::of(['BITBUCKET_BUILD_NUMBER' => '12', 'TF_BUILD' => 'True']),
-        BuiltinCiPlan::Azure->named(),
+        fn(): Variables => Variables::of(['BITBUCKET_BUILD_NUMBER' => '12', 'TF_BUILD' => 'True']),
+        fn(): Name => BuiltinCiPlan::Azure->named(),
     ],
     'Bitbucket Pipelines before Jenkins' => [
-        Variables::of(['BUILD_TAG' => 'jenkins-gate-main-4', 'BITBUCKET_BUILD_NUMBER' => '12']),
-        BuiltinCiPlan::Bitbucket->named(),
+        fn(): Variables => Variables::of(['BUILD_TAG' => 'jenkins-gate-main-4', 'BITBUCKET_BUILD_NUMBER' => '12']),
+        fn(): Name => BuiltinCiPlan::Bitbucket->named(),
     ],
-    'a variable not set to true' => [Variables::of(['GITLAB_CI' => '1']), NotGiven::value()],
-    'no CI' => [Variables::of([]), NotGiven::value()],
+    'a variable not set to true' => [fn(): Variables => Variables::of(['GITLAB_CI' => '1']), fn(): NotGiven => NotGiven::value()],
+    'no CI' => [fn(): Variables => Variables::of([]), fn(): NotGiven => NotGiven::value()],
 ]);
 
 it('keeps GitHub Actions for github where an extension claims it too, and detects the extension\'s own CI', function (): void {

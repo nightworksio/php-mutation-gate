@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Tests\Fakes\ChangeSourceFake;
+use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
@@ -78,15 +79,15 @@ it('cannot find the units where anything it asks cannot answer', function (
     expect($inventory($port))->toEqual(CannotJudge::because($why));
 })->with([
     'where the run stands' => [
-        Flows::lost(),
+        fn(): RepositoryFake => Flows::lost(),
         'The commit HEAD is at cannot be read, so the run cannot be tied to one. git is not installed.',
     ],
     'the trees' => [
-        new TreeSourceFake(CannotJudge::because('No tree is declared.')),
+        fn(): TreeSourceFake => new TreeSourceFake(CannotJudge::because('No tree is declared.')),
         'No tree is declared.',
     ],
     'the files' => [
-        new class implements ChangeSource {
+        fn(): ChangeSource => new class implements ChangeSource {
             public function changesSince(Revision $base): Changes
             {
                 return Changes::none();

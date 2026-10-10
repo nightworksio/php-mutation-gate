@@ -104,11 +104,13 @@ function judgedMutants(MutationResult|CannotJudge $result): array
     ) : [];
 }
 
-$covered = CoverageMap::empty()
+$makeCovered = static fn(): CoverageMap => CoverageMap::empty()
     ->covered(Path::of('src/Money.php'), Line::of(5), TestId::of('Tests\MoneySpec::echoes'))
     ->covered(Path::of('src/Money.php'), Line::of(7), TestId::of('Tests\MoneySpec::adds'));
 
-it('makes every mutant of every PHP file a directory holds, judging each by its covering tests, and none uncovered by a run', function () use ($covered): void {
+it('makes every mutant of every PHP file a directory holds, judging each by its covering tests, and none uncovered by a run', function () use ($makeCovered): void {
+    $covered = $makeCovered();
+
     [$run, $shell] = killingRun(library());
     $result = $run->of(MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests()), $covered, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
@@ -121,7 +123,9 @@ it('makes every mutant of every PHP file a directory holds, judging each by its 
         ->and($shell->commands())->toHaveCount(2);
 });
 
-it('runs one of the mutants that leave a file alike, and judges the rest as it, in no time', function () use ($covered): void {
+it('runs one of the mutants that leave a file alike, and judges the rest as it, in no time', function () use ($makeCovered): void {
+    $covered = $makeCovered();
+
     [$run, $shell] = killingRun(library(), new PlusToMinus(), new PlusToMinusAlso(), new RemoveEcho());
     $result = $run->of(MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests()), $covered, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
     $twins = $result instanceof MutationResult ? array_values(array_map(
@@ -141,7 +145,9 @@ it('runs one of the mutants that leave a file alike, and judges the rest as it, 
         ->and($shell->commands())->toHaveCount(2);
 });
 
-it('kills a covered mutant static analysis rejects before its tests, and its twins, with no run, offering each behind its covering tests\' own time, none where untimed, and no uncovered one', function () use ($covered): void {
+it('kills a covered mutant static analysis rejects before its tests, and its twins, with no run, offering each behind its covering tests\' own time, none where untimed, and no uncovered one', function () use ($makeCovered): void {
+    $covered = $makeCovered();
+
     [$run, $shell] = killingRun(library(), new PlusToMinus(), new PlusToMinusAlso(), new RemoveEcho());
     $checker = new PreCheckerFake(['acme/PlusToMinus']);
     $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())
@@ -169,7 +175,9 @@ it('kills a covered mutant static analysis rejects before its tests, and its twi
         ->and($shell->commands())->toHaveCount(1);
 });
 
-it('allows each mutant 5 s plus three times its covering tests\' own time within the bounds, and the floor where one is untimed', function () use ($covered): void {
+it('allows each mutant 5 s plus three times its covering tests\' own time within the bounds, and the floor where one is untimed', function () use ($makeCovered): void {
+    $covered = $makeCovered();
+
     [$run, $shell] = killingRun(library());
     $timed = $covered->timed(TestId::of('Tests\MoneySpec::adds'), Seconds::of(1.0));
     $result = $run->of(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $timed, LimitBounds::between(Seconds::of(6.0), Seconds::of(30.0)));
@@ -234,7 +242,9 @@ it('judges a mutant that spans lines by the tests of every line it spans, and ti
         ->toEqual([Seconds::of(14.0)]);
 });
 
-it('makes only the mutators asked for, of the files not left out', function () use ($covered): void {
+it('makes only the mutators asked for, of the files not left out', function () use ($makeCovered): void {
+    $covered = $makeCovered();
+
     [$run] = killingRun(library());
     $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())
         ->narrowedTo(Paths::of(Path::of('src')), Narrowing::none()->toMutators(Mutators::named('acme/PlusToMinus')))
@@ -243,7 +253,9 @@ it('makes only the mutators asked for, of the files not left out', function () u
     expect(judgedMutants($run->of($request, $covered, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)))))->toBe([['src/Money.php', 'acme/PlusToMinus', 'killed']]);
 });
 
-it('makes no mutant of a mutator its request leaves out of a file, and every other', function () use ($covered): void {
+it('makes no mutant of a mutator its request leaves out of a file, and every other', function () use ($makeCovered): void {
+    $covered = $makeCovered();
+
     [$run] = killingRun(library());
     $pruned = Pruned::of(MutatorNames::of('acme/PlusToMinus'), Paths::of(Path::of('src/Money.php')));
     $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests())
@@ -253,7 +265,9 @@ it('makes no mutant of a mutator its request leaves out of a file, and every oth
         ->toBe([['src/Money.php', 'acme/RemoveEcho', 'killed'], ['src/Tax.php', 'acme/PlusToMinus', 'uncovered']]);
 });
 
-it('skips with no record every mutant past the request\'s deadline', function () use ($covered): void {
+it('skips with no record every mutant past the request\'s deadline', function () use ($makeCovered): void {
+    $covered = $makeCovered();
+
     [$run, $shell] = killingRun(library());
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->within(Seconds::of(0.0));
     $result = $run->of($request, $covered, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
@@ -263,7 +277,9 @@ it('skips with no record every mutant past the request\'s deadline', function ()
         ->and($shell->commands())->toBe([]);
 });
 
-it('cannot judge a request with a file that does not parse, or a mutant whose files it cannot write', function () use ($covered): void {
+it('cannot judge a request with a file that does not parse, or a mutant whose files it cannot write', function () use ($makeCovered): void {
+    $covered = $makeCovered();
+
     $root = library();
     Scratch::write($root, 'src/Broken.php', "<?php\n\nfunction (\n");
     [$run] = killingRun($root);
@@ -281,7 +297,9 @@ it('cannot judge a request with a file that does not parse, or a mutant whose fi
         ->and($unwritten)->toBeInstanceOf(CannotJudge::class);
 });
 
-it('makes only the mutants a run again names, by their ids', function () use ($covered): void {
+it('makes only the mutants a run again names, by their ids', function () use ($makeCovered): void {
+    $covered = $makeCovered();
+
     [$run, $shell] = killingRun(library());
     $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests());
     $all = $run->of($request, $covered, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
@@ -312,7 +330,9 @@ function sums(int $count): array
     return [$root, $map];
 }
 
-it('runs the mutants side by side across the request\'s processes, each told its place', function () use ($covered): void {
+it('runs the mutants side by side across the request\'s processes, each told its place', function () use ($makeCovered): void {
+    $covered = $makeCovered();
+
     [$run, $shell] = killingRun(library());
     $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())->across(Pool::of(ProcessCount::of(2), Workers::Fresh));
     $result = $run->of($request, $covered, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
@@ -326,7 +346,9 @@ it('runs the mutants side by side across the request\'s processes, each told its
         ->and(array_column($told, 'PARATEST'))->toBe(['1', '1']);
 });
 
-it('tells a mutant\'s run nothing of places where the request runs one process', function () use ($covered): void {
+it('tells a mutant\'s run nothing of places where the request runs one process', function () use ($makeCovered): void {
+    $covered = $makeCovered();
+
     [$run, $shell] = killingRun(library());
     $run->of(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $covered, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
@@ -376,7 +398,9 @@ it('judges no mutant after a batch whose runs could not all start by the deadlin
         ->and($result instanceof MutationResult ? [count($result->mutants()), $result->skipped()] : [])->toBe([3, 14]);
 });
 
-it('gives each kill a fresh run made how far its run went, from the test its results file says started, and a twin its first\'s', function () use ($covered): void {
+it('gives each kill a fresh run made how far its run went, from the test its results file says started, and a twin its first\'s', function () use ($makeCovered): void {
+    $covered = $makeCovered();
+
     $root = library();
     $project = Project::at($root, Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'));
     $shell = new PhpUnitShellFake(static function (Command $command): Ran {

@@ -32,11 +32,11 @@ $tree = static fn(Floor|Exempt|Undeclared $floor, JudgedMutants $mutants): TreeV
 it('says what a tree scored against its floor', function (Floor|Exempt|Undeclared $floor, JudgedMutants $mutants, string $said) use ($tree): void {
     expect(SetText::tree($tree($floor, $mutants)))->toBe($said);
 })->with([
-    'below' => [Floor::of(80), Judged::mutants(MutantJudgement::Killed, MutantJudgement::Survived), 'src scores 50.00%, below its floor of 80.00%.'],
-    'met exactly' => [Floor::of(50), Judged::mutants(MutantJudgement::Killed, MutantJudgement::Survived), 'src scores 50.00% against its floor of 50.00%.'],
-    'no floor' => [Undeclared::floor(), Judged::mutants(MutantJudgement::Killed), 'src scores 100.00%, and no floor holds it.'],
-    'nothing to mutate' => [Floor::of(80), JudgedMutants::none(), 'src has nothing to mutate.'],
-    'exempt' => [Exempt::because('Replaced'), JudgedMutants::none(), 'src is exempt: Replaced'],
+    'below' => [fn(): Floor => Floor::of(80), fn(): JudgedMutants => Judged::mutants(MutantJudgement::Killed, MutantJudgement::Survived), 'src scores 50.00%, below its floor of 80.00%.'],
+    'met exactly' => [fn(): Floor => Floor::of(50), fn(): JudgedMutants => Judged::mutants(MutantJudgement::Killed, MutantJudgement::Survived), 'src scores 50.00% against its floor of 50.00%.'],
+    'no floor' => [fn(): Undeclared => Undeclared::floor(), fn(): JudgedMutants => Judged::mutants(MutantJudgement::Killed), 'src scores 100.00%, and no floor holds it.'],
+    'nothing to mutate' => [fn(): Floor => Floor::of(80), fn(): JudgedMutants => JudgedMutants::none(), 'src has nothing to mutate.'],
+    'exempt' => [fn(): Exempt => Exempt::because('Replaced'), fn(): JudgedMutants => JudgedMutants::none(), 'src is exempt: Replaced'],
 ]);
 
 it('says how a tree changed against the base, where both have a score', function () use ($tree): void {

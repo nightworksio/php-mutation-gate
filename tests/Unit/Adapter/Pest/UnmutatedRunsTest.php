@@ -90,9 +90,9 @@ it('reads how each control ended: passed in the time it took, failed, or ran out
 
     expect($runs->of(pestControl('src/Money.php')))->toEqual($found);
 })->with([
-    'passed' => [Ran::finished(succeeded: true, output: '')->took(Seconds::of(2.0)), ControlRun::passed(Seconds::of(2.0))],
-    'failed' => [Ran::finished(succeeded: false, output: 'FAILED'), ControlRun::failed()],
-    'stopped at its limit' => [Ran::stopped(''), ControlRun::ranOut()],
+    'passed' => [fn(): Ran => Ran::finished(succeeded: true, output: '')->took(Seconds::of(2.0)), fn(): ControlRun => ControlRun::passed(Seconds::of(2.0))],
+    'failed' => [fn(): Ran => Ran::finished(succeeded: false, output: 'FAILED'), fn(): ControlRun => ControlRun::failed()],
+    'stopped at its limit' => [fn(): Ran => Ran::stopped(''), fn(): ControlRun => ControlRun::ranOut()],
 ]);
 
 it('runs a control whose tests Pest\'s filter cannot hold by the tests that judge the request', function (): void {

@@ -106,9 +106,9 @@ it('carries a pull request\'s own results for what it changed before its last ru
         ->and($planned instanceof Plan ? [...$planned->considered()->carriedOwn()] : $planned)->toEqual($carriedOwn)
         ->and($digested instanceof Digests ? $digested->sourceOf(Path::of('src/Money.php')) : $digested)->toEqual($sourceOf($money));
 })->with([
-    'both as their own results record them' => [true, true, [], [Unit::held(Path::of('src/Held.php'), Group::named('holds:src/Held.php')), Unit::file(Path::of('src/Money.php'))]],
-    'one changed since its own result, as a race leaves it' => [false, true, [Unit::held(Path::of('src/Held.php'), Group::named('holds:src/Held.php'))], [Unit::file(Path::of('src/Money.php'))]],
-    'one unchanged since the ref, which carries the newest result of either' => [false, false, [], [Unit::file(Path::of('src/Money.php'))]],
+    'both as their own results record them' => [true, true, [], fn(): array => [Unit::held(Path::of('src/Held.php'), Group::named('holds:src/Held.php')), Unit::file(Path::of('src/Money.php'))]],
+    'one changed since its own result, as a race leaves it' => [false, true, fn(): array => [Unit::held(Path::of('src/Held.php'), Group::named('holds:src/Held.php'))], fn(): array => [Unit::file(Path::of('src/Money.php'))]],
+    'one unchanged since the ref, which carries the newest result of either' => [false, false, [], fn(): array => [Unit::file(Path::of('src/Money.php'))]],
 ]);
 
 it('prunes the clean mutators of a run with a base in each unit whose newest result is of its code, and none in a full run', function (): void {

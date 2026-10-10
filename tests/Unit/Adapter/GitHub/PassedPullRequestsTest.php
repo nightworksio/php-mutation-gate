@@ -276,12 +276,12 @@ it('reads everything since the base when a pull request\'s ledger does not vouch
     expect(trusting($source(), answering(provedCommits(['one', 'two'])), $ledgers)->changesSince(Revision::ref('base')))
         ->toEqual(CannotTell::because('base is not a revision this repository has.'));
 })->with([
-    'no pass recorded' => [Ledger::empty()],
-    'another head passed' => [Ledger::empty()->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('pr-other'), PULL_REQUESTS_CHECK, 0)))],
-    'another check passed' => [Ledger::empty()->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('pr-two'), 'lint', 0)))],
-    'its own proofs were used' => [Ledger::empty()->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('pr-two'), PULL_REQUESTS_CHECK, 1)))],
+    'no pass recorded' => [fn(): Ledger => Ledger::empty()],
+    'another head passed' => [fn(): Ledger => Ledger::empty()->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('pr-other'), PULL_REQUESTS_CHECK, 0)))],
+    'another check passed' => [fn(): Ledger => Ledger::empty()->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('pr-two'), 'lint', 0)))],
+    'its own proofs were used' => [fn(): Ledger => Ledger::empty()->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('pr-two'), PULL_REQUESTS_CHECK, 1)))],
     'its own coverage map was measured against' => [
-        Ledger::empty()->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('pr-two'), PULL_REQUESTS_CHECK, 0)->onOwnScopeCoverage())),
+        fn(): Ledger => Ledger::empty()->withRuns(ScopeRuns::none()->passing(Passed::of(Revision::ref('pr-two'), PULL_REQUESTS_CHECK, 0)->onOwnScopeCoverage())),
     ],
 ]);
 

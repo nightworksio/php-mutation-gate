@@ -26,10 +26,12 @@ const FROM_CI = [
     ]],
 ];
 
-$file = ConfigFile::at(Path::of('/project/ci/gate.json'), Path::of('/project'));
+$makeFile = static fn(): ConfigFile => ConfigFile::at(Path::of('/project/ci/gate.json'), Path::of('/project'));
 
 /** @return mixed what the layer `ci/gate.json` holds writes at this origin, or its problems */
-$read = static function (PathOrigin $origin) use ($file): mixed {
+$read = static function (PathOrigin $origin) use ($makeFile): mixed {
+    $file = $makeFile();
+
     $layer = Configs::layer(FROM_CI, $file);
 
     return $layer instanceof Layer ? Configs::decoded($layer, $origin) : Configs::problems($layer);
@@ -60,11 +62,15 @@ it('reads a copy kept elsewhere in the file\'s place, naming its paths from the 
         ->toBe($read(ProjectRoot::origin()));
 });
 
-it('writes each of them back as the file wrote it', function () use ($read, $file): void {
+it('writes each of them back as the file wrote it', function () use ($read, $makeFile): void {
+    $file = $makeFile();
+
     expect($read($file))->toEqualCanonicalizing(FROM_CI);
 });
 
-it('refuses an absolute path, and one that lands outside the project', function () use ($file): void {
+it('refuses an absolute path, and one that lands outside the project', function () use ($makeFile): void {
+    $file = $makeFile();
+
     expect(Configs::problems(Configs::layer(['trees' => [['path' => '/project/src'], ['path' => '../../src']]], $file)))
         ->toBe([
             'trees[0].path: expected a path inside the project, got "/project/src"',
@@ -92,8 +98,10 @@ it('names the paths of a file the project spells from the project as a file insi
 });
 
 it('hands another adapter its options with their paths named from the file, and refused where they lead out', function () use (
-    $file,
+    $makeFile,
 ): void {
+    $file = $makeFile();
+
     $layer = Configs::layer([
         'proofs' => ['store' => ['use' => 'Acme\Store', 'with' => ['path' => '../cache', 'up' => '../../cache']]],
         'reports' => [['use' => 'acme', 'path' => 'mutation.json', 'with' => ['into' => '/tmp']]],

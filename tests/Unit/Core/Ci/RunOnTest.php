@@ -93,11 +93,11 @@ it('keeps the default branch\'s scope only where the checkout is the commit the 
         ->and($checked->defaultBranch())->toEqual(Scope::branch('main'))
         ->and($checked->commit())->toEqual(Unnamed::commit());
 })->with([
-    'the default branch at the commit named' => [Scope::branch('main'), '5eeca8f', Scope::branch('main')],
-    'the default branch at another commit' => [Scope::branch('main'), '206b4e0', Detached::head()],
-    'the default branch with no commit named' => [Scope::branch('main'), '', Scope::branch('main')],
-    'another branch at another commit' => [Scope::branch('feature'), '206b4e0', Scope::branch('feature')],
-    'a pull request at another commit' => [Scope::pullRequest(12), '206b4e0', Scope::pullRequest(12)],
+    'the default branch at the commit named' => [fn(): Scope => Scope::branch('main'), '5eeca8f', fn(): Scope => Scope::branch('main')],
+    'the default branch at another commit' => [fn(): Scope => Scope::branch('main'), '206b4e0', fn(): Detached => Detached::head()],
+    'the default branch with no commit named' => [fn(): Scope => Scope::branch('main'), '', fn(): Scope => Scope::branch('main')],
+    'another branch at another commit' => [fn(): Scope => Scope::branch('feature'), '206b4e0', fn(): Scope => Scope::branch('feature')],
+    'a pull request at another commit' => [fn(): Scope => Scope::pullRequest(12), '206b4e0', fn(): Scope => Scope::pullRequest(12)],
 ]);
 
 it('keeps a scope where the default branch is not known', function (): void {

@@ -50,6 +50,6 @@ it('asks nobody, taking each default, without a terminal or in CI', function (bo
         ->and($asking->choice('Which?', ['a', 'b'], 'a'))->toBe('a')
         ->and($asking->confirms('Sure?', default: true))->toBeTrue();
 })->with([
-    'no terminal' => [false, Variables::of([])],
-    'CI' => [true, Variables::of(['CI' => 'true'])],
+    'no terminal' => [false, fn(): Variables => Variables::of([])],
+    'CI' => [true, fn(): Variables => Variables::of(['CI' => 'true'])],
 ]);

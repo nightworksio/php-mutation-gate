@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Proof\AnalysersRecord;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
-$histories = AnalyserHistories::none()
+$makeHistories = static fn(): AnalyserHistories => AnalyserHistories::none()
     ->with(AnalyserHistory::of('phpstan')
         ->withRate(RejectionRate::of('Plus', 60, 12))
         ->withRate(RejectionRate::of('Minus', 3, 0))
@@ -21,7 +21,9 @@ $histories = AnalyserHistories::none()
     ->with(AnalyserHistory::of('mago'));
 $read = static fn(array $section): AnalyserHistories => AnalysersRecord::read(Node::decode(JsonText::compact($section)));
 
-it('writes each analyser\'s checks, their seconds, and each mutator\'s checks and rejections', function () use ($histories): void {
+it('writes each analyser\'s checks, their seconds, and each mutator\'s checks and rejections', function () use ($makeHistories): void {
+    $histories = $makeHistories();
+
     expect(JsonText::compact(AnalysersRecord::of($histories)))->toBe(JsonText::compact([
         'phpstan' => ['checks' => 63, 'seconds' => 31.5, 'mutators' => ['Plus' => [60, 12], 'Minus' => [3, 0]]],
         'mago' => ['checks' => 0, 'seconds' => 0.0, 'mutators' => new stdClass()],
@@ -29,7 +31,9 @@ it('writes each analyser\'s checks, their seconds, and each mutator\'s checks an
         ->and(AnalysersRecord::of(AnalyserHistories::none()))->toBe([]);
 });
 
-it('reads back what it wrote', function () use ($histories, $read): void {
+it('reads back what it wrote', function () use ($makeHistories, $read): void {
+    $histories = $makeHistories();
+
     expect($read(AnalysersRecord::of($histories)))->toEqual($histories);
 });
 

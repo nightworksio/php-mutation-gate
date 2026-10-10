@@ -16,17 +16,22 @@ use NightWorksIO\MutationGate\Core\Proof\KillersRecord;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Tests\Support\Growth;
 
-$mutant = MutantId::hash(Path::of('src/Money.php'), 'Plus', "-a\n+b", 0);
-$history = KillHistory::none()
-    ->withMutant($mutant, Ranking::of(Kills::of(TestId::of('b'), 1), Kills::of(TestId::of('a'), 2)))
+$makeMutant = static fn(): MutantId => MutantId::hash(Path::of('src/Money.php'), 'Plus', "-a\n+b", 0);
+$makeHistory = static fn(): KillHistory => KillHistory::none()
+    ->withMutant($makeMutant(), Ranking::of(Kills::of(TestId::of('b'), 1), Kills::of(TestId::of('a'), 2)))
     ->withFunction(Enclosing::named(Path::of('src/Money.php'), 'add'), Ranking::of(Kills::of(TestId::of('c'), 4)));
 
-it('names every test a history holds, once, in the order it first names it', function () use ($history): void {
+it('names every test a history holds, once, in the order it first names it', function () use ($makeHistory): void {
+    $history = $makeHistory();
+
     expect(KillersRecord::testsOf($history))->toBe(['a', 'b', 'c'])
         ->and(KillersRecord::testsOf(KillHistory::none()))->toBe([]);
 });
 
-it('writes each ranking as index and kills pairs, most kills first, and reads back what it wrote', function () use ($history, $mutant): void {
+it('writes each ranking as index and kills pairs, most kills first, and reads back what it wrote', function () use ($makeHistory, $makeMutant): void {
+    $history = $makeHistory();
+    $mutant = $makeMutant();
+
     $written = KillersRecord::of($history, ['a' => 0, 'b' => 1, 'c' => 2]);
 
     expect(JsonText::compact($written))->toBe(JsonText::compact([

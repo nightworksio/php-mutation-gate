@@ -22,9 +22,9 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
 use NightWorksIO\MutationGate\Tests\Support\Secured;
 
-$security = NamedMutators::of(Secured::MUTATOR, 'default/UnwrapStripTags');
-$root = Package::at(Path::root());
-$billing = Package::at(Path::of('packages/billing'));
+$makeSecurity = static fn(): NamedMutators => NamedMutators::of(Secured::MUTATOR, 'default/UnwrapStripTags');
+$makeRoot = static fn(): Package => Package::at(Path::root());
+$makeBilling = static fn(): Package => Package::at(Path::of('packages/billing'));
 
 /** @return list<string> each set's package, floor and native ids, in order */
 $described = static fn(SecurityVerdicts $sets): array => array_map(
@@ -37,7 +37,11 @@ $described = static fn(SecurityVerdicts $sets): array => array_map(
     [...$sets],
 );
 
-it('judges each package\'s security set over the mutants of its trees the security mutators made', function () use ($security, $root, $billing, $described): void {
+it('judges each package\'s security set over the mutants of its trees the security mutators made', function () use ($makeSecurity, $makeRoot, $makeBilling, $described): void {
+    $security = $makeSecurity();
+    $root = $makeRoot();
+    $billing = $makeBilling();
+
     $trees = TreeVerdicts::of(
         Secured::tree('app', $root, Undeclared::floor(), Secured::mutant(MutantJudgement::Killed, 1), Secured::mutant(MutantJudgement::Survived, 2, 'Plus')),
         Secured::tree('lib', $root, Undeclared::floor(), Secured::mutant(MutantJudgement::Survived, 3, 'default/UnwrapStripTags')),
@@ -50,7 +54,10 @@ it('judges each package\'s security set over the mutants of its trees the securi
         ->toBe([Judgement::Failed, Judgement::Passed]);
 });
 
-it('takes the floor a package declares from whichever of its trees carries it', function () use ($security, $billing, $described): void {
+it('takes the floor a package declares from whichever of its trees carries it', function () use ($makeSecurity, $makeBilling, $described): void {
+    $security = $makeSecurity();
+    $billing = $makeBilling();
+
     $trees = TreeVerdicts::of(
         Secured::tree('packages/billing/src', $billing, Undeclared::floor(), Secured::mutant(MutantJudgement::Killed, 1)),
         Secured::tree('packages/billing/lib', $billing->withSecurityFloor(Floor::of(70)), Undeclared::floor(), Secured::mutant(MutantJudgement::Killed, 2)),
@@ -60,7 +67,11 @@ it('takes the floor a package declares from whichever of its trees carries it', 
         ->toBe(['packages/billing 7000 src/Auth.php:1,src/Auth.php:2']);
 });
 
-it('holds a set to its baseline entry, with the reason it was lowered, and judges a package the baseline holds though it has no security mutant', function () use ($security, $root, $billing): void {
+it('holds a set to its baseline entry, with the reason it was lowered, and judges a package the baseline holds though it has no security mutant', function () use ($makeSecurity, $makeRoot, $makeBilling): void {
+    $security = $makeSecurity();
+    $root = $makeRoot();
+    $billing = $makeBilling();
+
     $lowered = Lowered::from(Floor::of(90), 'The legacy login left with its tests.');
     $baseline = Baseline::none()->withSecurity(
         Entry::of(Path::root(), Floor::of(85))->lowered($lowered),
@@ -81,7 +92,10 @@ it('holds a set to its baseline entry, with the reason it was lowered, and judge
         ->and($sets[1]->judgement())->toBe(Judgement::NothingToMutate);
 });
 
-it('judges one empty set at the root where no tree holds a security mutant, and none where no mutator makes one', function () use ($security, $root): void {
+it('judges one empty set at the root where no tree holds a security mutant, and none where no mutator makes one', function () use ($makeSecurity, $makeRoot): void {
+    $security = $makeSecurity();
+    $root = $makeRoot();
+
     $trees = TreeVerdicts::of(Secured::tree('app', $root, Undeclared::floor(), Secured::mutant(MutantJudgement::Survived, 1, 'Plus')));
     $judge = SecurityJudge::of(Baseline::none(), Uncovered::Count, Floor::of(90));
     $empty = [...$judge->judged($trees, $security)];

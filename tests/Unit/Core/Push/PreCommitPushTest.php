@@ -12,30 +12,30 @@ it('gives git\'s line for the push the pre-commit framework names', function (Va
     expect(PreCommitPush::line($set, $head))->toBe($line);
 })->with([
     'the commits and the refs' => [
-        Variables::of([
+        fn(): Variables => Variables::of([
             'PRE_COMMIT_FROM_REF' => str_repeat('2', 40),
             'PRE_COMMIT_TO_REF' => str_repeat('3', 40),
             'PRE_COMMIT_LOCAL_BRANCH' => 'refs/heads/feature',
             'PRE_COMMIT_REMOTE_BRANCH' => 'refs/heads/topic',
         ]),
-        sprintf('refs/heads/feature %s refs/heads/topic %s', str_repeat('3', 40), str_repeat('2', 40)),
+        fn(): string => sprintf('refs/heads/feature %s refs/heads/topic %s', str_repeat('3', 40), str_repeat('2', 40)),
     ],
     'the commits alone' => [
-        Variables::of(['PRE_COMMIT_FROM_REF' => str_repeat('2', 40), 'PRE_COMMIT_TO_REF' => str_repeat('3', 40)]),
-        sprintf('HEAD %s HEAD %s', str_repeat('3', 40), str_repeat('2', 40)),
+        fn(): Variables => Variables::of(['PRE_COMMIT_FROM_REF' => str_repeat('2', 40), 'PRE_COMMIT_TO_REF' => str_repeat('3', 40)]),
+        fn(): string => sprintf('HEAD %s HEAD %s', str_repeat('3', 40), str_repeat('2', 40)),
     ],
     'the refs alone, a history the remote holds none of' => [
-        Variables::of(['PRE_COMMIT_LOCAL_BRANCH' => 'refs/heads/main', 'PRE_COMMIT_REMOTE_BRANCH' => 'refs/heads/main']),
-        sprintf('refs/heads/main %s refs/heads/main %s', str_repeat('1', 40), str_repeat('0', 40)),
+        fn(): Variables => Variables::of(['PRE_COMMIT_LOCAL_BRANCH' => 'refs/heads/main', 'PRE_COMMIT_REMOTE_BRANCH' => 'refs/heads/main']),
+        fn(): string => sprintf('refs/heads/main %s refs/heads/main %s', str_repeat('1', 40), str_repeat('0', 40)),
     ],
-    'one commit' => [Variables::of(['PRE_COMMIT_TO_REF' => str_repeat('3', 40)]), ''],
-    'the other commit' => [Variables::of(['PRE_COMMIT_FROM_REF' => str_repeat('2', 40)]), ''],
-    'a remote ref alone' => [Variables::of(['PRE_COMMIT_REMOTE_BRANCH' => 'refs/heads/main']), ''],
+    'one commit' => [fn(): Variables => Variables::of(['PRE_COMMIT_TO_REF' => str_repeat('3', 40)]), ''],
+    'the other commit' => [fn(): Variables => Variables::of(['PRE_COMMIT_FROM_REF' => str_repeat('2', 40)]), ''],
+    'a remote ref alone' => [fn(): Variables => Variables::of(['PRE_COMMIT_REMOTE_BRANCH' => 'refs/heads/main']), ''],
     'empty values' => [
-        Variables::of(['PRE_COMMIT_FROM_REF' => '', 'PRE_COMMIT_TO_REF' => '', 'PRE_COMMIT_LOCAL_BRANCH' => '']),
+        fn(): Variables => Variables::of(['PRE_COMMIT_FROM_REF' => '', 'PRE_COMMIT_TO_REF' => '', 'PRE_COMMIT_LOCAL_BRANCH' => '']),
         '',
     ],
-    'nothing' => [Variables::of([]), ''],
+    'nothing' => [fn(): Variables => Variables::of([]), ''],
 ]);
 
 it('names no commit as long as the working tree\'s commit is named', function (): void {

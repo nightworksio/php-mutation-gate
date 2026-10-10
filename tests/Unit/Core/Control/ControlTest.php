@@ -33,11 +33,11 @@ it('holds the file it serves unmutated, the tests it runs in their order, and th
 it('is told from another control by its file, its tests in their order and its limit, and by nothing else', function (Control $other, bool $same): void {
     expect(controlOf('src/Money.php', ['MoneyTest::a', 'MoneyTest::b'], 5.0)->key() === $other->key())->toBe($same);
 })->with([
-    'the same control' => [controlOf('src/Money.php', ['MoneyTest::a', 'MoneyTest::b'], 5.0), true],
-    'another file' => [controlOf('src/Tax.php', ['MoneyTest::a', 'MoneyTest::b'], 5.0), false],
-    'another test' => [controlOf('src/Money.php', ['MoneyTest::a', 'MoneyTest::c'], 5.0), false],
-    'the tests in another order' => [controlOf('src/Money.php', ['MoneyTest::b', 'MoneyTest::a'], 5.0), false],
-    'fewer tests' => [controlOf('src/Money.php', ['MoneyTest::a'], 5.0), false],
-    'another limit' => [controlOf('src/Money.php', ['MoneyTest::a', 'MoneyTest::b'], 6.0), false],
-    'one test whose id holds the others\' joined' => [controlOf('src/Money.php', ['MoneyTest::a MoneyTest::b'], 5.0), false],
+    'the same control' => [fn(): Control => controlOf('src/Money.php', ['MoneyTest::a', 'MoneyTest::b'], 5.0), true],
+    'another file' => [fn(): Control => controlOf('src/Tax.php', ['MoneyTest::a', 'MoneyTest::b'], 5.0), false],
+    'another test' => [fn(): Control => controlOf('src/Money.php', ['MoneyTest::a', 'MoneyTest::c'], 5.0), false],
+    'the tests in another order' => [fn(): Control => controlOf('src/Money.php', ['MoneyTest::b', 'MoneyTest::a'], 5.0), false],
+    'fewer tests' => [fn(): Control => controlOf('src/Money.php', ['MoneyTest::a'], 5.0), false],
+    'another limit' => [fn(): Control => controlOf('src/Money.php', ['MoneyTest::a', 'MoneyTest::b'], 6.0), false],
+    'one test whose id holds the others\' joined' => [fn(): Control => controlOf('src/Money.php', ['MoneyTest::a MoneyTest::b'], 5.0), false],
 ]);

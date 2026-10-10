@@ -141,7 +141,7 @@ it('serves the mutant by another case of its name where the filesystem ignores c
 
     expect(require sprintf('%s/ORIGINAL.php', $directory))->toBe('mutant');
 })->skip(
-    ! is_file(sprintf('%s/COMPOSER.JSON', dirname(__DIR__, 4))),
+    fn(): bool => ! is_file(sprintf('%s/COMPOSER.JSON', dirname(__DIR__, 4))),
     'only a filesystem that ignores case names one file by two cases',
 );
 
@@ -352,7 +352,7 @@ it('states a file it cannot read as there, though not readable, as PHP\'s own wr
 
     expect($served)->toBe($native)
         ->and($native)->toBe([[true, true, false, 4], []]);
-})->skip(! FileModes::areEnforced(), 'root reads a file whatever its mode');
+})->skip(fn(): bool => ! FileModes::areEnforced(), 'root reads a file whatever its mode');
 
 it('raises only PHP\'s own warning for a file that is not there', function (): void {
     [$native, $served] = nativeThenServed(static function (string $directory): array {

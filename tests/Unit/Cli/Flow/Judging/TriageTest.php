@@ -73,15 +73,18 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-$tree = JudgingRuns::tree(...);
-$reporting = JudgingRuns::reporting(...);
-$judged = JudgingRuns::judged(...);
+$makeTree = static fn(): Closure => JudgingRuns::tree(...);
+$makeReporting = static fn(): Closure => JudgingRuns::reporting(...);
+$makeJudged = static fn(): Closure => JudgingRuns::judged(...);
 
 it('kills a timeout only where triage confirms it, so a tree at 100 fails on one it cannot', function (
     CoverageMap $map,
     Setting $timeouts,
     Judgement $judgement,
-) use ($tree, $reporting): void {
+) use ($makeTree, $makeReporting): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+
     $project = Flows::project();
     $timedOut = array_values(array_filter(
         [...RunnerFake::ofTheFixture()
@@ -108,16 +111,20 @@ it('kills a timeout only where triage confirms it, so a tree at 100 fails on one
     expect(count($timedOut))->toBe(1)
         ->and($verdict->judgement())->toBe($judgement);
 })->with([
-    'tests that take under half its limit' => [Flows::map(), Timeouts::confirmed(), Judgement::Passed],
-    'tests whose time the map does not hold' => [CoverageMap::empty(), Timeouts::confirmed(), Judgement::Failed],
-    'timeouts.mode unjudged' => [Flows::map(), Timeouts::unjudged(), Judgement::Failed],
+    'tests that take under half its limit' => [fn(): CoverageMap => Flows::map(), fn(): Timeouts => Timeouts::confirmed(), Judgement::Passed],
+    'tests whose time the map does not hold' => [fn(): CoverageMap => CoverageMap::empty(), fn(): Timeouts => Timeouts::confirmed(), Judgement::Failed],
+    'timeouts.mode unjudged' => [fn(): CoverageMap => Flows::map(), fn(): Timeouts => Timeouts::unjudged(), Judgement::Failed],
 ]);
 
 it('says how many of the runner\'s own ignore markers ignores.native allows in what the run mutated', function (
     Setting $native,
     Markers|CannotJudge $markers,
     array $said,
-) use ($tree, $reporting, $judged): void {
+) use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $verdict = JudgingRuns::verdictOf($judged(
         Planned::twoShards(),
         Flows::adapters(Flows::project(), [], $tree(Floor::of(0)), ScriptedRunner::fixture()->marking($markers)),
@@ -128,8 +135,8 @@ it('says how many of the runner\'s own ignore markers ignores.native allows in w
     expect(JudgingRuns::texts($verdict->warnings()))->toBe($said);
 })->with([
     'allowed' => [
-        Ignores::allowingNativeMarkers(),
-        Markers::of(
+        fn(): Ignores => Ignores::allowingNativeMarkers(),
+        fn(): Markers => Markers::of(
             Marker::inSource(Path::of('src/Money.php'), Line::of(9), 'a', Nameless::code()),
             Marker::inSource(Path::of('src/Held.php'), Line::of(4), 'b', Nameless::code()),
         ),
@@ -139,23 +146,26 @@ it('says how many of the runner\'s own ignore markers ignores.native allows in w
             Move them into ignores.entries.
             SAID],
     ],
-    'allowed, and none found' => [Ignores::allowingNativeMarkers(), Markers::none(), []],
+    'allowed, and none found' => [fn(): Ignores => Ignores::allowingNativeMarkers(), fn(): Markers => Markers::none(), []],
     'allowed, and not counted' => [
-        Ignores::allowingNativeMarkers(),
-        CannotJudge::because('infection.json5 cannot be read.'),
+        fn(): Ignores => Ignores::allowingNativeMarkers(),
+        fn(): CannotJudge => CannotJudge::because('infection.json5 cannot be read.'),
         ['The runner\'s own ignore markers could not be counted. infection.json5 cannot be read.'],
     ],
     'refused, where the plan already stopped for any' => [
-        Ignores::refusingNativeMarkers(),
-        Markers::of(Marker::inSource(Path::of('src/Money.php'), Line::of(9), 'a', Nameless::code())),
+        fn(): Ignores => Ignores::refusingNativeMarkers(),
+        fn(): Markers => Markers::of(Marker::inSource(Path::of('src/Money.php'), Line::of(9), 'a', Nameless::code())),
         [],
     ],
 ]);
 
 it('warns of what a shard warned of, and judges as it would without it', function () use (
-    $tree,
-    $reporting,
+    $makeTree,
+    $makeReporting,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+
     $project = Flows::project();
     $plan = Planned::oneShard();
     $adapters = Flows::adapters($project, [], $tree(Floor::of(0)));
@@ -175,9 +185,12 @@ it('warns of what a shard warned of, and judges as it would without it', functio
 });
 
 it('kills a survivor static analysis rejects, and warns once for each reason it left the shards\' survivors unchecked', function () use (
-    $tree,
-    $reporting,
+    $makeTree,
+    $makeReporting,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+
     $project = Flows::project();
     $plan = Planned::twoShards();
     $identity = AnalyserIdentity::of('fake', '1.0.0', Digest::sha256Of('{}'));
@@ -217,10 +230,14 @@ it('kills a survivor static analysis rejects, and warns once for each reason it 
 });
 
 it('names the tests as the plan names them, and warns once where it names none', function () use (
-    $tree,
-    $reporting,
-    $judged,
+    $makeTree,
+    $makeReporting,
+    $makeJudged,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $names = TestNames::none()->with(TestId::of('MoneyTest::adds'), TestName::in(Path::of('tests/MoneyTest.php'), 'it adds'));
     $adapters = static fn(): Adapters => Flows::adapters(Flows::project(), [], $tree(Floor::of(0)));
     $named = JudgingRuns::verdictOf($judged(
@@ -246,7 +263,11 @@ it('names the tests as the plan names them, and warns once where it names none',
 it('builds the kill matrix of first killers over the map the plan handed it, as its runner can', function (
     ScriptedRunner $runner,
     NotFull $whyNotFull,
-) use ($tree, $reporting, $judged): void {
+) use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $verdict = JudgingRuns::verdictOf($judged(
         Planned::twoShards(),
         Flows::adapters(Flows::project(), [], $tree(Floor::of(0)), $runner),
@@ -272,18 +293,22 @@ it('builds the kill matrix of first killers over the map the plan handed it, as 
         ->and($verdict->matrix()->secondsOf(TestId::of('MoneyTest::adds')))->toEqual(Seconds::of(0.2))
         ->and(JudgingRuns::texts($verdict->warnings()))->toBe([]);
 })->with([
-    'a runner that can record every killer' => [ScriptedRunner::fixture(), NotFull::FirstKillers],
+    'a runner that can record every killer' => [fn(): ScriptedRunner => ScriptedRunner::fixture(), NotFull::FirstKillers],
     'one that stops at the first' => [
-        ScriptedRunner::fixture()->behaving(RunnerBehaviour::standard()->stoppingAtFirstKiller(NotFull::Infection)),
+        fn(): ScriptedRunner => ScriptedRunner::fixture()->behaving(RunnerBehaviour::standard()->stoppingAtFirstKiller(NotFull::Infection)),
         NotFull::Infection,
     ],
 ]);
 
 it('builds a full kill matrix where the plan records one, and writes proofs whose runs recorded every killer', function () use (
-    $tree,
-    $reporting,
-    $judged,
+    $makeTree,
+    $makeReporting,
+    $makeJudged,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $store = new ProofStoreFake();
     $verdict = JudgingRuns::verdictOf($judged(
         Planned::twoShards()->briefed(Briefing::standard()->recording(MatrixKind::Full)),
@@ -301,9 +326,12 @@ it('builds a full kill matrix where the plan records one, and writes proofs whos
 });
 
 it('holds each mutant\'s killers alone, and warns, where the plan handed the verdict no map', function () use (
-    $tree,
-    $reporting,
+    $makeTree,
+    $makeReporting,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+
     $project = Flows::project();
     $plan = Planned::oneShard();
     $adapters = Flows::adapters($project, [], $tree(Floor::of(0)));
@@ -324,9 +352,12 @@ it('holds each mutant\'s killers alone, and warns, where the plan handed the ver
 });
 
 it('warns of each file most of the suite runs through that nothing holds, past holds.hotPath', function () use (
-    $tree,
-    $reporting,
+    $makeTree,
+    $makeReporting,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+
     $project = Flows::project();
     $plan = Planned::oneShard();
     $map = Flows::map();
@@ -352,7 +383,10 @@ it('warns of each file most of the suite runs through that nothing holds, past h
 
 it('fails a verdict on a held unit its holding tests miss lines of, and proves nothing of it', function (
     Setting $uncovered,
-) use ($tree, $reporting): void {
+) use ($makeTree, $makeReporting): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+
     $project = Flows::project();
     $store = new ProofStoreFake();
     $plan = Planned::oneShard();
@@ -381,15 +415,19 @@ it('fails a verdict on a held unit its holding tests miss lines of, and proves n
             [...LedgerRead::ledger($store->read(Scope::branch('main')))->proofs()],
         ))->toBe(['src/Money.php']);
 })->with([
-    'uncovered mutants counted' => [Uncovered::counted()],
-    'uncovered mutants left out' => [Uncovered::excluded()],
+    'uncovered mutants counted' => [fn(): Uncovered => Uncovered::counted()],
+    'uncovered mutants left out' => [fn(): Uncovered => Uncovered::excluded()],
 ]);
 
 it('judges flaky what a fresh result and a proof under its key disagree on, and keeps neither', function () use (
-    $tree,
-    $reporting,
-    $judged,
+    $makeTree,
+    $makeReporting,
+    $makeJudged,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $store = new ProofStoreFake();
     $plan = Planned::twoShards();
     $earlier = Run::of('github:0/1', Moment::at('2026-09-28T12:00:00Z'), $plan->base());
@@ -415,7 +453,10 @@ it('judges flaky what a fresh result and a proof under its key disagree on, and 
         ->and($ledger->proofs()->has(Digest::sha256Of('held')))->toBeTrue();
 });
 
-it('clusters the survivors of one cause from the project\'s source before it reports', function () use ($tree, $reporting): void {
+it('clusters the survivors of one cause from the project\'s source before it reports', function () use ($makeTree, $makeReporting): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+
     $project = Flows::project();
     Scratch::write($project, 'src/Money.php', Verdicts::MONEY);
     $comparison = static fn(string $mutator, string $added): Mutant => Verdicts::mutant(

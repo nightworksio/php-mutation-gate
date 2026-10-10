@@ -12,11 +12,13 @@ use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\DigestsRecord;
 use NightWorksIO\MutationGate\Core\Proof\Uncommitted;
 
-$digests = Digests::of(Digest::sha256Of('mutation'))
+$makeDigests = static fn(): Digests => Digests::of(Digest::sha256Of('mutation'))
     ->withSource(Path::of('src/Money.php'), Digest::sha256Of('money'))
     ->withTest(Path::of('tests/MoneyTest.php'), Digest::sha256Of('money test'));
 
-it('reads a run\'s digests back as written, with the commit they were taken at or none', function () use ($digests): void {
+it('reads a run\'s digests back as written, with the commit they were taken at or none', function () use ($makeDigests): void {
+    $digests = $makeDigests();
+
     $taken = $digests->takenAt(Revision::ref(str_repeat('c0', 20)));
 
     expect(DigestsRecord::readRun(Node::config(JsonText::encode(DigestsRecord::ofRun($taken)))))->toEqual($taken)
@@ -24,7 +26,9 @@ it('reads a run\'s digests back as written, with the commit they were taken at o
         ->toEqual(Uncommitted::tree());
 });
 
-it('refuses a run\'s commit that is not a full commit id, rather than read it as none', function (mixed $commit) use ($digests): void {
+it('refuses a run\'s commit that is not a full commit id, rather than read it as none', function (mixed $commit) use ($makeDigests): void {
+    $digests = $makeDigests();
+
     $written = [...DigestsRecord::ofRun($digests), 'commit' => $commit];
 
     expect(fn(): Digests => DigestsRecord::readRun(Node::config(JsonText::encode($written))))->toThrow(NotInShape::class);

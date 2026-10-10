@@ -72,16 +72,16 @@ $mutant = static fn(string $file, int $line, MutantStatus $status): Mutant => Mu
     $status,
     Unmeasured::duration(),
 );
-$root = Package::at(Path::root());
-$app = Tree::at(Path::of('app'), Floor::of(50), $root);
-$http = Tree::at(Path::of('app/Http'), Undeclared::floor(), $root);
-$billing = Tree::at(Path::of('packages/billing/src'), Floor::of(100), Package::at(Path::of('packages/billing')))
+$root = static fn(): Package => Package::at(Path::root());
+$app = static fn(): Tree => Tree::at(Path::of('app'), Floor::of(50), $root());
+$http = static fn(): Tree => Tree::at(Path::of('app/Http'), Undeclared::floor(), $root());
+$billing = static fn(): Tree => Tree::at(Path::of('packages/billing/src'), Floor::of(100), Package::at(Path::of('packages/billing')))
     ->withNewCodeFloor(Floor::of(80));
-$trees = Trees::of($app, $http, $billing);
-$reach = Reach::nothing(Packages::of($trees))
+$makeTrees = static fn(): Trees => Trees::of($app(), $http(), $billing());
+$makeReach = static fn(): Reach => Reach::nothing(Packages::of($makeTrees()))
     ->withLines(Path::of('app/Http/Controller.php'), Lines::of(Line::of(3)))
     ->withLines(Path::of('packages/billing/src/Invoice.php'), Lines::of(Line::of(9)));
-$results = UnitResults::of(
+$makeResults = static fn(): UnitResults => UnitResults::of(
     UnitResult::of(Unit::file(Path::of('app/Kernel.php')), Origin::Proved, Mutants::of(
         $mutant('app/Kernel.php', 1, MutantStatus::Killed),
         $mutant('app/Kernel.php', 2, MutantStatus::Survived),
@@ -99,16 +99,19 @@ $results = UnitResults::of(
         $mutant('lib/Loose.php', 1, MutantStatus::Survived),
     )),
 );
-$judge = Judge::of(
-    $trees,
+$makeJudge = static fn(): Judge => Judge::of(
+    $makeTrees(),
     Baseline::of(Entry::of(Path::of('app/Http'), Floor::of(40))),
-    $reach,
+    $makeReach(),
     Uncovered::Count,
     TimeoutMode::Confirm,
     Ignoring::none(),
 );
 
-it('judges each tree over the units it holds most closely, with their origins', function () use ($judge, $results): void {
+it('judges each tree over the units it holds most closely, with their origins', function () use ($makeJudge, $makeResults): void {
+    $judge = $makeJudge();
+    $results = $makeResults();
+
     $verdicts = [...$judge->trees($results)];
     $units = static fn(TreeVerdict $verdict): array => array_map(
         static fn(JudgedUnit $unit): string => sprintf('%s %s', $unit->unit()->path()->value(), $unit->origin()->value),
@@ -122,7 +125,10 @@ it('judges each tree over the units it holds most closely, with their origins', 
         ->and($units($verdicts[2]))->toBe([]);
 });
 
-it('judges each mutant as reported, marks those on changed lines, and scores the tree against its floor', function () use ($judge, $results): void {
+it('judges each mutant as reported, marks those on changed lines, and scores the tree against its floor', function () use ($makeJudge, $makeResults): void {
+    $judge = $makeJudge();
+    $results = $makeResults();
+
     [$app, $http, $billing] = [...$judge->trees($results)];
 
     expect($app->score())->toEqual(Score::ofHundredths(5_000))
@@ -139,7 +145,11 @@ it('judges each mutant as reported, marks those on changed lines, and scores the
         ->and($billing->score())->toEqual(NothingToMutate::found());
 });
 
-it('carries the reason a baseline gives for lowering a tree\'s floor', function () use ($trees, $reach, $results): void {
+it('carries the reason a baseline gives for lowering a tree\'s floor', function () use ($makeTrees, $makeReach, $makeResults): void {
+    $trees = $makeTrees();
+    $reach = $makeReach();
+    $results = $makeResults();
+
     $lowered = Lowered::from(Floor::of(60), 'The HTTP layer moved to integration tests');
     $baseline = Baseline::of(Entry::of(Path::of('app/Http'), Floor::of(40))->lowered($lowered), Entry::of(Path::of('app'), Floor::of(10)));
     $judge = Judge::of($trees, $baseline, $reach, Uncovered::Count, TimeoutMode::Confirm, Ignoring::none());
@@ -149,7 +159,11 @@ it('carries the reason a baseline gives for lowering a tree\'s floor', function 
         ->and($app->lowering())->toEqual(Unlowered::floor());
 });
 
-it('leaves a survivor the config ignores out of its tree\'s score, with the ignore\'s reason', function () use ($trees, $reach, $results, $mutant): void {
+it('leaves a survivor the config ignores out of its tree\'s score, with the ignore\'s reason', function () use ($makeTrees, $makeReach, $makeResults, $mutant): void {
+    $trees = $makeTrees();
+    $reach = $makeReach();
+    $results = $makeResults();
+
     $ignoring = Ignoring::of(
         Listed::of(IgnoredMutant::of($mutant('app/Kernel.php', 2, MutantStatus::Survived)->id(), 'Both branches build the same list', Absent::setting())),
         new DateTimeImmutable(Configs::NOW),
@@ -163,7 +177,11 @@ it('leaves a survivor the config ignores out of its tree\'s score, with the igno
         ->and($reason instanceof Reason ? $reason->text() : '')->toBe('Both branches build the same list');
 });
 
-it('holds the mutants on changed lines to the floor for new code, per package and floor', function () use ($trees, $reach, $results, $mutant): void {
+it('holds the mutants on changed lines to the floor for new code, per package and floor', function () use ($makeTrees, $makeReach, $makeResults, $mutant): void {
+    $trees = $makeTrees();
+    $reach = $makeReach();
+    $results = $makeResults();
+
     $judge = Judge::of($trees, Baseline::none(), $reach, Uncovered::Count, TimeoutMode::Confirm, Ignoring::none());
     $billing = UnitResult::of(Unit::file(Path::of('packages/billing/src/Invoice.php')), Origin::Run, Mutants::of(
         $mutant('packages/billing/src/Invoice.php', 9, MutantStatus::Killed),
@@ -179,7 +197,9 @@ it('holds the mutants on changed lines to the floor for new code, per package an
         ->and(Judged::natives($sets[0]->mutants()))->toBe(['app/Http/Controller.php:3']);
 });
 
-it('judges one empty new-code set, which passes and says so, when no changed line holds a mutant', function () use ($trees): void {
+it('judges one empty new-code set, which passes and says so, when no changed line holds a mutant', function () use ($makeTrees): void {
+    $trees = $makeTrees();
+
     $judge = Judge::of(
         $trees,
         Baseline::none(),
@@ -196,7 +216,11 @@ it('judges one empty new-code set, which passes and says so, when no changed lin
         ->and($sets[0]->judgement())->toBe(Judgement::NothingToMutate);
 });
 
-it('judges each package\'s security set over the mutants its mutators made, against its baseline entry', function () use ($trees, $reach, $results): void {
+it('judges each package\'s security set over the mutants its mutators made, against its baseline entry', function () use ($makeTrees, $makeReach, $makeResults): void {
+    $trees = $makeTrees();
+    $reach = $makeReach();
+    $results = $makeResults();
+
     $judge = Judge::of(
         $trees,
         Baseline::none()->withSecurity(Entry::of(Path::root(), Floor::of(25))),
@@ -214,7 +238,9 @@ it('judges each package\'s security set over the mutants its mutators made, agai
         ->and($sets[0]->mutants())->toHaveCount(5);
 });
 
-it('keeps only the mutants these mutators made, as a run of the security mutators alone judges its units', function () use ($judge): void {
+it('keeps only the mutants these mutators made, as a run of the security mutators alone judges its units', function () use ($makeJudge): void {
+    $judge = $makeJudge();
+
     $made = static fn(string $mutator, int $line): Mutant => Mutant::of(
         MutantId::hash(Path::of('app/Kernel.php'), $mutator, sprintf('%d', $line), 0),
         sprintf('app/Kernel.php:%d', $line),
@@ -234,9 +260,12 @@ it('keeps only the mutants these mutators made, as a run of the security mutator
 });
 
 it('judges a mutant flaky where its unit\'s result names it so, and every other as reported', function () use (
-    $trees,
-    $reach,
+    $makeTrees,
+    $makeReach,
 ): void {
+    $trees = $makeTrees();
+    $reach = $makeReach();
+
     $apart = static fn(int $occurrence, MutantStatus $status): Mutant => Mutant::of(
         MutantId::hash(Path::of('app/Kernel.php'), 'LessThan', '', $occurrence),
         sprintf('app/Kernel.php:%d', $occurrence),
@@ -258,7 +287,9 @@ it('judges a mutant flaky where its unit\'s result names it so, and every other 
         ->toBe([MutantJudgement::Flaky, MutantJudgement::Killed, MutantJudgement::Survived]);
 });
 
-it('judges each kill a ledger proved killed beside the mutants it reported in full, marks those on changed lines, and keeps the run the proof names', function () use ($judge, $mutant): void {
+it('judges each kill a ledger proved killed beside the mutants it reported in full, marks those on changed lines, and keeps the run the proof names', function () use ($makeJudge, $mutant): void {
+    $judge = $makeJudge();
+
     $run = Run::of('main', Moment::at('2026-09-29T10:00:00Z'), Digest::sha256Of('base'));
     $kill = static fn(int $line): ProvedKill => ProvedKill::of(
         MutantId::hash(Path::of('packages/billing/src/Invoice.php'), 'LessThan', sprintf('%d', $line), 0),
@@ -286,7 +317,10 @@ it('judges each kill a ledger proved killed beside the mutants it reported in fu
         ->and([...$billing->units()][0]->run())->toBe($run);
 });
 
-it('judges each mutant by the tests the kill matrix says cover it, a held unit\'s by those of them its holding tests run, and none where it names none', function () use ($judge, $results, $mutant): void {
+it('judges each mutant by the tests the kill matrix says cover it, a held unit\'s by those of them its holding tests run, and none where it names none', function () use ($makeJudge, $makeResults, $mutant): void {
+    $judge = $makeJudge();
+    $results = $makeResults();
+
     $matrix = KillMatrix::of(MatrixKind::FirstKiller, CoverageMap::empty()
         ->covered(Path::of('app/Kernel.php'), Line::of(2), TestId::of('KernelTest::boots'))
         ->covered(Path::of('app/Http/Middleware/Auth.php'), Line::of(5), TestId::of('AuthTest::checks'))
@@ -306,7 +340,10 @@ it('judges each mutant by the tests the kill matrix says cover it, a held unit\'
         ->and($tested($judge, $results))->toBe([[], [], [], [], []]);
 });
 
-it('marks each mutant and kill its unit\'s result carries for a pruned mutator, and no other', function () use ($trees, $reach): void {
+it('marks each mutant and kill its unit\'s result carries for a pruned mutator, and no other', function () use ($makeTrees, $makeReach): void {
+    $trees = $makeTrees();
+    $reach = $makeReach();
+
     $run = PruningCases::mutant('app/Kernel.php', 'Minus', 1);
     $carried = PruningCases::mutant('app/Kernel.php', 'Plus', 2, MutantStatus::Survived);
     $kill = ProvedKill::of(MutantId::hash(Path::of('app/Kernel.php'), 'Plus', '-3', 0), Path::of('app/Kernel.php'), Line::of(3), 'Plus', TestIds::none());

@@ -278,11 +278,11 @@ it('stats a dangling link as a link, and a file it cannot read as there, while t
             'stat(missing)' => [false, 1],
             'file_exists(missing)' => [false, 0],
         ]);
-})->skip(! FileModes::areEnforced(), 'root reads a file whatever its mode');
+})->skip(fn(): bool => ! FileModes::areEnforced(), 'root reads a file whatever its mode');
 
 it('stats a dangling link and a file it cannot read as missing while the shipped override serves a file', function (): void {
     expect(overrideStats(MutatePlugin::pristine()->vendor()))->toMatchArray([
         'is_link(dangling)' => [false, 0],
         'file_exists(unreadable)' => [false, 0],
     ]);
-})->skip(! FileModes::areEnforced(), 'root reads a file whatever its mode');
+})->skip(fn(): bool => ! FileModes::areEnforced(), 'root reads a file whatever its mode');

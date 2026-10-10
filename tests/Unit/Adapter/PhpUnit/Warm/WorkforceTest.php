@@ -136,11 +136,13 @@ function warmWarnings(MutationResult|CannotJudge $result): array
         : ['cannot judge'];
 }
 
-$addsOnly = CoverageMap::empty()
+$makeAddsOnly = static fn(): CoverageMap => CoverageMap::empty()
     ->covered(Path::of('src/Money.php'), Line::of(7), TestId::of('Tests\MoneySpec::adds'));
-$both = $addsOnly->covered(Path::of('src/Money.php'), Line::of(5), TestId::of('Tests\MoneySpec::echoes'));
+$makeBoth = static fn(): CoverageMap => $makeAddsOnly()->covered(Path::of('src/Money.php'), Line::of(5), TestId::of('Tests\MoneySpec::echoes'));
 
-it('judges each run a worker\'s child ran at its own place in the queue, past the mutants with no run, and starts none fresh', function () use ($addsOnly): void {
+it('judges each run a worker\'s child ran at its own place in the queue, past the mutants with no run, and starts none fresh', function () use ($makeAddsOnly): void {
+    $addsOnly = $makeAddsOnly();
+
     $shell = killingWorkers();
     $result = warmMutation(warmLibrary(), $shell)->of(forking(1), $addsOnly, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
@@ -154,7 +156,9 @@ it('judges each run a worker\'s child ran at its own place in the queue, past th
         ->and(warmWarnings($result))->toBe([]);
 });
 
-it('starts one worker in each of the request\'s places, the runs between them, and tells each child PHPUnit\'s command line from its script on', function () use ($both): void {
+it('starts one worker in each of the request\'s places, the runs between them, and tells each child PHPUnit\'s command line from its script on', function () use ($makeBoth): void {
+    $both = $makeBoth();
+
     $project = warmLibrary();
     $shell = killingWorkers();
     $result = warmMutation($project, $shell)->of(forking(2), $both, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
@@ -172,7 +176,9 @@ it('starts one worker in each of the request\'s places, the runs between them, a
         ->toBe([$project->absolute(Path::of('src/Money.php')), $project->absolute(Path::of('src/Money.php'))]);
 });
 
-it('runs fresh each run no worker claimed, in its place in the queue', function () use ($both): void {
+it('runs fresh each run no worker claimed, in its place in the queue', function () use ($makeBoth): void {
+    $both = $makeBoth();
+
     $shell = killingWorkers()->claimingAtMost(1);
     $result = warmMutation(warmLibrary(), $shell)->of(forking(1), $both, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
@@ -186,7 +192,9 @@ it('runs fresh each run no worker claimed, in its place in the queue', function 
         ->and(warmWarnings($result))->toBe([]);
 });
 
-it('warns once of a refused boot however many workers it refused, runs each mutant fresh, and keeps the reason for doctor', function () use ($both): void {
+it('warns once of a refused boot however many workers it refused, runs each mutant fresh, and keeps the reason for doctor', function () use ($makeBoth): void {
+    $both = $makeBoth();
+
     $project = warmLibrary();
     $shell = killingWorkers()->booting(Refusal::guarded('The boot left a socket open.'));
     $result = warmMutation($project, $shell)->of(forking(2), $both, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
@@ -197,7 +205,9 @@ it('warns once of a refused boot however many workers it refused, runs each muta
         ->and(file_get_contents($project->own(WarmRefusal::NAME)))->toBe('The boot left a socket open.');
 });
 
-it('forgets the kept reason once the workers fork', function () use ($both): void {
+it('forgets the kept reason once the workers fork', function () use ($makeBoth): void {
+    $both = $makeBoth();
+
     $project = warmLibrary();
     $shell = killingWorkers();
     warmMutation($project, $shell->booting(Refusal::guarded('The boot left a socket open.')))->of(forking(1), $both, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
@@ -206,7 +216,9 @@ it('forgets the kept reason once the workers fork', function () use ($both): voi
     expect(is_file($project->own(WarmRefusal::NAME)))->toBeFalse();
 });
 
-it('runs each mutant fresh, and warns of nothing, where the PHP the runner starts cannot fork', function () use ($both): void {
+it('runs each mutant fresh, and warns of nothing, where the PHP the runner starts cannot fork', function () use ($makeBoth): void {
+    $both = $makeBoth();
+
     $project = warmLibrary();
     $shell = killingWorkers()->booting(Refusal::unforkable('pcntl is not loaded.'));
     $result = warmMutation($project, $shell)->of(forking(1), $both, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
@@ -216,7 +228,9 @@ it('runs each mutant fresh, and warns of nothing, where the PHP the runner start
         ->and(is_file($project->own(WarmRefusal::NAME)))->toBeFalse();
 });
 
-it('warns of a worker that failed with all it said, and runs the mutants it left fresh', function () use ($both): void {
+it('warns of a worker that failed with all it said, and runs the mutants it left fresh', function () use ($makeBoth): void {
+    $both = $makeBoth();
+
     $shell = killingWorkers()->booting(Ran::exited(255, "\nPHP Fatal error: bootstrap.php broke\n"));
     $result = warmMutation(warmLibrary(), $shell)->of(forking(1), $both, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
@@ -230,7 +244,9 @@ it('warns of a worker that failed with all it said, and runs the mutants it left
         ->and($shell->fresh())->toHaveCount(2);
 });
 
-it('gives its workers no deadline where the request has none, and the time left, the longest limit and a minute where it has', function () use ($both): void {
+it('gives its workers no deadline where the request has none, and the time left, the longest limit and a minute where it has', function () use ($makeBoth): void {
+    $both = $makeBoth();
+
     $unlimited = killingWorkers();
     $limited = killingWorkers();
     warmMutation(warmLibrary(), $unlimited)->of(forking(1), $both, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
@@ -253,14 +269,18 @@ it('starts no worker where no mutant has a run', function (): void {
         ->and(warmVerdicts($result))->toHaveCount(3);
 });
 
-it('removes the workplace it made once its workers are done', function () use ($both): void {
+it('removes the workplace it made once its workers are done', function () use ($makeBoth): void {
+    $both = $makeBoth();
+
     $project = warmLibrary();
     warmMutation($project, killingWorkers())->of(forking(1), $both, LimitBounds::between(Seconds::of(5.0), Seconds::of(5.0)));
 
     expect(glob($project->own('warm/*')))->toBe([]);
 });
 
-it('runs each mutant fresh, and warns of nothing, where it cannot make its workplace', function () use ($both): void {
+it('runs each mutant fresh, and warns of nothing, where it cannot make its workplace', function () use ($makeBoth): void {
+    $both = $makeBoth();
+
     $project = warmLibrary();
     $project->written('warm', 'a file where the workplaces go');
     $shell = killingWorkers();
@@ -271,7 +291,9 @@ it('runs each mutant fresh, and warns of nothing, where it cannot make its workp
         ->and(warmWarnings($result))->toBe([]);
 });
 
-it('claims no run once the request\'s deadline has passed, and leaves it unstarted', function () use ($both): void {
+it('claims no run once the request\'s deadline has passed, and leaves it unstarted', function () use ($makeBoth): void {
+    $both = $makeBoth();
+
     $slow = new PhpUnitWorkersFake(
         static function (WarmRun $run): Ran {
             warmRunningFor(600_000_000);
@@ -287,7 +309,9 @@ it('claims no run once the request\'s deadline has passed, and leaves it unstart
         ->and($result instanceof MutationResult ? $result->skipped() : -1)->toBe(1);
 });
 
-it('gives each kill a worker\'s child made how far its run went, from the test its results file says started', function () use ($both): void {
+it('gives each kill a worker\'s child made how far its run went, from the test its results file says started', function () use ($makeBoth): void {
+    $both = $makeBoth();
+
     $started = static function (string $results, string $guard): Ran {
         $ran = warmKilled($results, $guard);
         file_put_contents($results, sprintf("started Tests%%5CMoneySpec%%3A%%3Aadds\n%s", (string) file_get_contents($results)));

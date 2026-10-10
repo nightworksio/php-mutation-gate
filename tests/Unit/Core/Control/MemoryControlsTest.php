@@ -117,20 +117,20 @@ it('judges each mutant out of memory by what its control found', function (Contr
         ->toEqual([$status, $need, $reason]);
 })->with([
     'a control that held 20M' => [
-        ControlRun::passed(Seconds::of(1.0))->withPeak(MemoryCap::of(20, MemoryUnit::Megabytes)),
+        fn(): ControlRun => ControlRun::passed(Seconds::of(1.0))->withPeak(MemoryCap::of(20, MemoryUnit::Megabytes)),
         MutantStatus::OutOfMemory,
-        MemoryCap::of(20, MemoryUnit::Megabytes),
+        fn(): MemoryCap => MemoryCap::of(20, MemoryUnit::Megabytes),
         '',
     ],
-    'a control that passed, its peak unmeasured' => [ControlRun::passed(Seconds::of(1.0)), MutantStatus::OutOfMemory, MemoryCap::of(64, MemoryUnit::Megabytes), ''],
-    'a control that failed' => [ControlRun::failed(), MutantStatus::Unjudged, Unmeasured::duration(), MemoryControls::FAILS_UNMUTATED],
-    'a control out of memory too' => [ControlRun::outOfMemory(), MutantStatus::OutOfMemory, Unmeasured::duration(), MemoryControls::OUT_OF_MEMORY],
-    'a control out of time' => [ControlRun::ranOut(), MutantStatus::OutOfMemory, Unmeasured::duration(), MemoryControls::RAN_OUT],
+    'a control that passed, its peak unmeasured' => [fn(): ControlRun => ControlRun::passed(Seconds::of(1.0)), MutantStatus::OutOfMemory, fn(): MemoryCap => MemoryCap::of(64, MemoryUnit::Megabytes), ''],
+    'a control that failed' => [fn(): ControlRun => ControlRun::failed(), MutantStatus::Unjudged, fn(): Unmeasured => Unmeasured::duration(), MemoryControls::FAILS_UNMUTATED],
+    'a control out of memory too' => [fn(): ControlRun => ControlRun::outOfMemory(), MutantStatus::OutOfMemory, fn(): Unmeasured => Unmeasured::duration(), MemoryControls::OUT_OF_MEMORY],
+    'a control out of time' => [fn(): ControlRun => ControlRun::ranOut(), MutantStatus::OutOfMemory, fn(): Unmeasured => Unmeasured::duration(), MemoryControls::RAN_OUT],
     'a control never run' => [
-        ControlRun::unrun('the file is gone'),
+        fn(): ControlRun => ControlRun::unrun('the file is gone'),
         MutantStatus::OutOfMemory,
-        Unmeasured::duration(),
-        sprintf(MemoryControls::UNRUN, 'the file is gone'),
+        fn(): Unmeasured => Unmeasured::duration(),
+        fn(): string => sprintf(MemoryControls::UNRUN, 'the file is gone'),
     ],
 ]);
 

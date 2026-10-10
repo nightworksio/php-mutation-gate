@@ -86,7 +86,7 @@ function buildkiteVerdicts(array $template = [], string ...$first): array
     ];
 }
 
-$verdict = buildkiteVerdicts();
+$makeVerdict = static fn(): array => buildkiteVerdicts();
 
 $on = static fn(Variables $variables): BuildkitePlan => BuildkitePlan::of(BuildkiteStep::none(), $variables);
 
@@ -94,8 +94,10 @@ it('prints a step per shard, a wait that continues on failure, and the verdict',
     $stepsIn,
     $run,
     $wait,
-    $verdict,
+    $makeVerdict,
 ): void {
+    $verdict = $makeVerdict();
+
     $published = BuildkitePlan::of(BuildkiteStep::none(), Variables::of([]))->publish(ShardedPlan::of(2));
 
     expect($published->delivery())->toBe(Delivery::Printed)
@@ -151,7 +153,9 @@ it('refuses a template whose command is neither a command nor a list of them', f
         ->toEqual(Invalid::because(Problem::at('step.command', 'expected a command, or a list of commands, as text')));
 })->with(['a number' => ['7'], 'a list with a number' => ['["composer install", 7]']]);
 
-it('prints only the wait and the verdict for a plan with no shards', function () use ($stepsIn, $wait, $verdict): void {
+it('prints only the wait and the verdict for a plan with no shards', function () use ($stepsIn, $wait, $makeVerdict): void {
+    $verdict = $makeVerdict();
+
     $printed = BuildkitePlan::of(BuildkiteStep::none(), Variables::of([]))->publish(ShardedPlan::of(0))->text();
 
     expect($stepsIn($printed))->toBe([$wait, ...$verdict]);
@@ -190,7 +194,9 @@ it('prints to the output with the step template its options give', function () u
     expect(array_slice($stepsIn($printed), 1))->toBe(buildkiteVerdicts(['agents' => ['queue' => 'mutation']]));
 });
 
-it('takes no step template where its options name none', function () use ($stepsIn, $verdict): void {
+it('takes no step template where its options name none', function () use ($stepsIn, $makeVerdict): void {
+    $verdict = $makeVerdict();
+
     foreach (['{"definition": "ci.yml"}', '{"step": {}, "definition": "ci.yml"}'] as $options) {
         $plan = BuildkitePlan::fromOptions(Configs::options($options));
         $printed = $plan instanceof BuildkitePlan ? $plan->publish(ShardedPlan::of(0))->text() : '';

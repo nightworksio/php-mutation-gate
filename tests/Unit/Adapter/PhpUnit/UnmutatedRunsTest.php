@@ -48,7 +48,7 @@ function unmutated(Project $project, PhpUnitShellFake $shell): UnmutatedRuns
     return new UnmutatedRuns($project, $shell, new TestFiles($project), new CapDirectory());
 }
 
-$whole = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests());
+$makeWhole = static fn(): MutationRequest => MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests());
 
 /** A control of a file by Money's test, allowed this long. */
 function phpUnitControl(string $file, float $limit = 5.0): Control
@@ -76,7 +76,9 @@ function controlled(UnmutatedRuns $runner, Controls $controls, MutationRequest $
     return $runs instanceof ControlRuns ? $runs : throw new LogicException($runs->why());
 }
 
-it('runs each control as a mutant that changes nothing: its file as the project holds it, served through the override, its tests selected, allowed its limit', function () use ($whole): void {
+it('runs each control as a mutant that changes nothing: its file as the project holds it, served through the override, its tests selected, allowed its limit', function () use ($makeWhole): void {
+    $whole = $makeWhole();
+
     $project = unmutatedPhpUnitProject();
     $shell = controlPhpUnit(Outcome::Passed, Ran::finished(succeeded: true, output: '')->took(Seconds::of(0.7)));
 
@@ -90,17 +92,21 @@ it('runs each control as a mutant that changes nothing: its file as the project 
         ->and($command->deadline())->toEqual(Seconds::of(6.0));
 });
 
-it('reads how each control ended: passed, failed, or ran out of its limit with its file served', function (Outcome $outcome, Ran $ran, ControlEnd $end) use ($whole): void {
+it('reads how each control ended: passed, failed, or ran out of its limit with its file served', function (Outcome $outcome, Ran $ran, ControlEnd $end) use ($makeWhole): void {
+    $whole = $makeWhole();
+
     $runs = controlled(unmutated(unmutatedPhpUnitProject(), controlPhpUnit($outcome, $ran)), Controls::of(phpUnitControl('src/Money.php')), $whole);
 
     expect($runs->of(phpUnitControl('src/Money.php'))->end())->toBe($end);
 })->with([
-    'passed' => [Outcome::Passed, Ran::finished(succeeded: true, output: ''), ControlEnd::Passed],
-    'failed' => [Outcome::Failed, Ran::finished(succeeded: false, output: ''), ControlEnd::Failed],
-    'stopped at its limit' => [Outcome::Started, Ran::stopped(''), ControlEnd::RanOut],
+    'passed' => [Outcome::Passed, fn(): Ran => Ran::finished(succeeded: true, output: ''), ControlEnd::Passed],
+    'failed' => [Outcome::Failed, fn(): Ran => Ran::finished(succeeded: false, output: ''), ControlEnd::Failed],
+    'stopped at its limit' => [Outcome::Started, fn(): Ran => Ran::stopped(''), ControlEnd::RanOut],
 ]);
 
-it('runs each control of one file apart, in files of its own, side by side', function () use ($whole): void {
+it('runs each control of one file apart, in files of its own, side by side', function () use ($makeWhole): void {
+    $whole = $makeWhole();
+
     $project = unmutatedPhpUnitProject();
     $shell = controlPhpUnit(Outcome::Passed, Ran::finished(succeeded: true, output: ''));
 
@@ -112,7 +118,9 @@ it('runs each control of one file apart, in files of its own, side by side', fun
         ->and($runs->of(phpUnitControl('src/Money.php', 6.0))->end())->toBe(ControlEnd::Passed);
 });
 
-it('never runs a control whose file cannot be read, nor one not started by the request\'s deadline, saying why', function () use ($whole): void {
+it('never runs a control whose file cannot be read, nor one not started by the request\'s deadline, saying why', function () use ($makeWhole): void {
+    $whole = $makeWhole();
+
     $project = unmutatedPhpUnitProject();
     $shell = controlPhpUnit(Outcome::Passed, Ran::finished(succeeded: true, output: ''))->startingAtMost(0);
 
@@ -123,13 +131,17 @@ it('never runs a control whose file cannot be read, nor one not started by the r
         ->and($shell->commands())->toBe([]);
 });
 
-it('reads a control stopped at its limit before it served the file as having run out', function () use ($whole): void {
+it('reads a control stopped at its limit before it served the file as having run out', function () use ($makeWhole): void {
+    $whole = $makeWhole();
+
     $runs = controlled(unmutated(unmutatedPhpUnitProject(), PhpUnitShellFake::answering(Ran::stopped(''))), Controls::of(phpUnitControl('src/Money.php')), $whole);
 
     expect($runs->of(phpUnitControl('src/Money.php'))->end())->toBe(ControlEnd::RanOut);
 });
 
-it('cannot run controls without an override or a cap to run them with', function (string $broken) use ($whole): void {
+it('cannot run controls without an override or a cap to run them with', function (string $broken) use ($makeWhole): void {
+    $whole = $makeWhole();
+
     $project = unmutatedPhpUnitProject();
     $request = $broken === 'cap' ? $whole->cappedAt(MemoryCap::standard()) : $whole;
 
@@ -149,7 +161,9 @@ it('cannot run controls without an override or a cap to run them with', function
     expect($runs)->toBeInstanceOf(CannotJudge::class);
 })->with(['override', 'cap']);
 
-it('starts each control through the launcher, and gives it the peak the launcher wrote', function () use ($whole): void {
+it('starts each control through the launcher, and gives it the peak the launcher wrote', function () use ($makeWhole): void {
+    $whole = $makeWhole();
+
     $project = unmutatedPhpUnitProject();
     $shell = new PhpUnitShellFake(static function (Command $command): Ran {
         $test = 'Tests\MoneyTest::testAdds';
@@ -168,7 +182,9 @@ it('starts each control through the launcher, and gives it the peak the launcher
         ->and($runs->of(phpUnitControl('src/Money.php'))->peak())->toEqual(PeakLauncher::peakIn('20480', PHP_OS_FAMILY));
 });
 
-it('gives a control no peak an earlier run left in its place, where the launcher wrote none', function () use ($whole): void {
+it('gives a control no peak an earlier run left in its place, where the launcher wrote none', function () use ($makeWhole): void {
+    $whole = $makeWhole();
+
     $project = unmutatedPhpUnitProject();
     Scratch::write($project->own(Control::DIRECTORY), 'peak-0', '99999');
     $shell = new PhpUnitShellFake(static function (Command $command): Ran {

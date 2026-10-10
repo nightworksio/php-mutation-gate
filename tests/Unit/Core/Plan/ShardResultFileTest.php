@@ -51,9 +51,9 @@ use NightWorksIO\MutationGate\Core\Verdict\DoomedBy;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
-$measured = Measurement::of(Seconds::of(42.5), 'pest', Instant::at(new DateTimeImmutable('2026-09-29T20:48:17Z')));
+$makeMeasured = static fn(): Measurement => Measurement::of(Seconds::of(42.5), 'pest', Instant::at(new DateTimeImmutable('2026-09-29T20:48:17Z')));
 
-$survivor = Mutant::of(
+$makeSurvivor = static fn(): Mutant => Mutant::of(
     MutantId::hash(Path::of('src/Money.php'), 'LessThan', "-a < b\n+a <= b", 0),
     '7',
     Location::of(Path::of('src/Money.php'), Line::of(12), Line::of(12)),
@@ -74,9 +74,12 @@ $finished = static fn(Mutant $survivor, Measurement $measured): ShardResult => S
 
 it('writes every mutant record, each unit key and what the shard measured', function () use (
     $finished,
-    $survivor,
-    $measured,
+    $makeSurvivor,
+    $makeMeasured,
 ): void {
+    $survivor = $makeSurvivor();
+    $measured = $makeMeasured();
+
     expect(ShardResultFile::encode($finished($survivor, $measured)))->toBe(sprintf(<<<'JSON'
         {
             "format": 1,
@@ -112,7 +115,9 @@ it('writes every mutant record, each unit key and what the shard measured', func
         JSON, $survivor->id()->value()));
 });
 
-it('writes why the runner could not judge instead of mutants', function () use ($measured): void {
+it('writes why the runner could not judge instead of mutants', function () use ($makeMeasured): void {
+    $measured = $makeMeasured();
+
     $stopped = CannotJudge::because('Pest stopped.');
     $result = ShardResult::of(Digest::of('9c1e'), ShardId::of(1), Keys::none(), $stopped, $measured);
 
@@ -132,13 +137,19 @@ it('writes why the runner could not judge instead of mutants', function () use (
         JSON);
 });
 
-it('reads back a finished shard it wrote', function () use ($finished, $survivor, $measured): void {
+it('reads back a finished shard it wrote', function () use ($finished, $makeSurvivor, $makeMeasured): void {
+    $survivor = $makeSurvivor();
+    $measured = $makeMeasured();
+
     $result = $finished($survivor, $measured);
 
     expect(ShardResultFile::decode(ShardResultFile::encode($result)))->toEqual($result);
 });
 
-it('writes the gate that measured a shard, and reads it back, and reads none from a result that names none', function () use ($finished, $survivor, $measured): void {
+it('writes the gate that measured a shard, and reads it back, and reads none from a result that names none', function () use ($finished, $makeSurvivor, $makeMeasured): void {
+    $survivor = $makeSurvivor();
+    $measured = $makeMeasured();
+
     $result = $finished($survivor, $measured->measuredBy(GateRelease::spelt('nightworksio/mutation-gate 1.2.0')));
     $read = ShardResultFile::decode(ShardResultFile::encode($result));
 
@@ -147,7 +158,9 @@ it('writes the gate that measured a shard, and reads it back, and reads none fro
         ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('measuredBy');
 });
 
-it('writes each kill\'s evidence beside its mutant, and reads it back', function () use ($measured): void {
+it('writes each kill\'s evidence beside its mutant, and reads it back', function () use ($makeMeasured): void {
+    $measured = $makeMeasured();
+
     $killed = Mutant::of(
         MutantId::hash(Path::of('src/Money.php'), 'Plus', "-a + b\n+a - b", 0),
         '8',
@@ -173,7 +186,9 @@ it('writes each kill\'s evidence beside its mutant, and reads it back', function
         ->and(ShardResultFile::decode($written))->toEqual($result);
 });
 
-it('writes only the evidence a runner gave: a prefix without its key, a process end without its code', function () use ($measured): void {
+it('writes only the evidence a runner gave: a prefix without its key, a process end without its code', function () use ($makeMeasured): void {
+    $measured = $makeMeasured();
+
     $killed = Mutant::of(
         MutantId::hash(Path::of('src/Money.php'), 'Plus', "-a + b\n+a - b", 0),
         '8',
@@ -197,7 +212,9 @@ it('writes only the evidence a runner gave: a prefix without its key, a process 
         ->and(ShardResultFile::encode($result->withFlaky(MutantIds::none())))->toBe($written);
 });
 
-it('writes a process end that kept nothing it printed as its code and signal alone, and reads it back', function () use ($measured): void {
+it('writes a process end that kept nothing it printed as its code and signal alone, and reads it back', function () use ($makeMeasured): void {
+    $measured = $makeMeasured();
+
     $killed = Mutant::of(
         MutantId::hash(Path::of('src/Money.php'), 'Plus', "-a + b\n+a - b", 0),
         '8',
@@ -220,7 +237,9 @@ it('writes a process end that kept nothing it printed as its code and signal alo
         ->and(ShardResultFile::decode($written))->toEqual($result);
 });
 
-it('writes whether PHP recorded a fatal error in a kill\'s process beside its code, and reads it back', function () use ($measured): void {
+it('writes whether PHP recorded a fatal error in a kill\'s process beside its code, and reads it back', function () use ($makeMeasured): void {
+    $measured = $makeMeasured();
+
     $killed = Mutant::of(
         MutantId::hash(Path::of('src/Money.php'), 'Plus', "-a + b\n+a - b", 0),
         '8',
@@ -245,9 +264,12 @@ it('writes whether PHP recorded a fatal error in a kill\'s process beside its co
 
 it('lists the mutants that gave two answers after the rest, and reads them back', function () use (
     $finished,
-    $survivor,
-    $measured,
+    $makeSurvivor,
+    $makeMeasured,
 ): void {
+    $survivor = $makeSurvivor();
+    $measured = $makeMeasured();
+
     $other = MutantId::hash(Path::of('src/Money.php'), 'Plus', '', 0);
     $result = $finished($survivor, $measured)->withFlaky(MutantIds::of($survivor->id(), $other));
     $written = ShardResultFile::encode($result);
@@ -263,9 +285,12 @@ it('lists the mutants that gave two answers after the rest, and reads them back'
 
 it('lists each held unit its holding tests miss lines of, with why, and reads them back', function () use (
     $finished,
-    $survivor,
-    $measured,
+    $makeSurvivor,
+    $makeMeasured,
 ): void {
+    $survivor = $makeSurvivor();
+    $measured = $makeMeasured();
+
     $held = HeldChecks::none()
         ->with(NotCovered::because(Unit::held(Path::of('src/Kernel.php'), Group::named('holds:src/Kernel.php')), 'Missed 48.'))
         ->with(NotCovered::because(Unit::held(Path::of('src/Http'), Filter::matching('HttpTest')), 'Missed all.'));
@@ -279,9 +304,12 @@ it('lists each held unit its holding tests miss lines of, with why, and reads th
 
 it('lists each held unit its holding tests cover, with those of them that run it, and reads them back', function () use (
     $finished,
-    $survivor,
-    $measured,
+    $makeSurvivor,
+    $makeMeasured,
 ): void {
+    $survivor = $makeSurvivor();
+    $measured = $makeMeasured();
+
     $held = HeldChecks::none()
         ->with(Covered::by(
             Unit::held(Path::of('src/Kernel.php'), Group::named('holds:src/Kernel.php')),
@@ -296,7 +324,10 @@ it('lists each held unit its holding tests cover, with those of them that run it
         ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"covered"');
 });
 
-it('lists what the shard warns of, and reads it back', function () use ($finished, $survivor, $measured): void {
+it('lists what the shard warns of, and reads it back', function () use ($finished, $makeSurvivor, $makeMeasured): void {
+    $survivor = $makeSurvivor();
+    $measured = $makeMeasured();
+
     $result = $finished($survivor, $measured)
         ->withWarnings(Warnings::of(Warning::that('One.'), Warning::that('Two.')));
     $written = ShardResultFile::encode($result);
@@ -306,7 +337,10 @@ it('lists what the shard warns of, and reads it back', function () use ($finishe
         ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"warnings"');
 });
 
-it('lists the units its budget ran out before, and reads them back', function () use ($finished, $survivor, $measured): void {
+it('lists the units its budget ran out before, and reads them back', function () use ($finished, $makeSurvivor, $makeMeasured): void {
+    $survivor = $makeSurvivor();
+    $measured = $makeMeasured();
+
     $unjudged = Units::of(
         Unit::file(Path::of('src/Late.php')),
         Unit::held(Path::of('src/Http'), Group::named('holds:src/Http')),
@@ -319,7 +353,10 @@ it('lists the units its budget ran out before, and reads them back', function ()
         ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"unjudged"');
 });
 
-it('names the survivor that made the run certain to fail, where the shard stopped on one, and reads it back', function (DoomedBy $by, string $why) use ($finished, $survivor, $measured): void {
+it('names the survivor that made the run certain to fail, where the shard stopped on one, and reads it back', function (DoomedBy $by, string $why) use ($finished, $makeSurvivor, $makeMeasured): void {
+    $survivor = $makeSurvivor();
+    $measured = $makeMeasured();
+
     $doomed = Doomed::of(Path::of('src/Money.php'), $survivor->id(), Path::of('src'), Floor::whole(), $by);
     $result = $finished($survivor, $measured)->withDoomed($doomed);
     $written = ShardResultFile::encode($result);
@@ -339,7 +376,10 @@ it('names the survivor that made the run certain to fail, where the shard stoppe
     'by the new code' => [DoomedBy::NewCode, 'newCode'],
 ]);
 
-it('reads back the floor a doom names as it was written', function () use ($finished, $survivor, $measured): void {
+it('reads back the floor a doom names as it was written', function () use ($finished, $makeSurvivor, $makeMeasured): void {
+    $survivor = $makeSurvivor();
+    $measured = $makeMeasured();
+
     $doomed = Doomed::of(Path::of('src/Money.php'), $survivor->id(), Path::of('src'), Floor::of(87.5), DoomedBy::Tree);
     $read = ShardResultFile::decode(ShardResultFile::encode($finished($survivor, $measured)->withDoomed($doomed)));
 
@@ -347,7 +387,10 @@ it('reads back the floor a doom names as it was written', function () use ($fini
         ->toBe(8_750);
 });
 
-it('lists what static analysis\'s checks of its survivors came to, and reads it back', function () use ($finished, $survivor, $measured): void {
+it('lists what static analysis\'s checks of its survivors came to, and reads it back', function () use ($finished, $makeSurvivor, $makeMeasured): void {
+    $survivor = $makeSurvivor();
+    $measured = $makeMeasured();
+
     $checks = SurvivorChecks::none()
         ->timing(AnalyserHistory::of('phpstan')->checked(Seconds::of(0.5)))
         ->leaving(UncheckedSurvivor::of(Unchecked::OutOfScope, Path::of('lib/Legacy.php')));
@@ -359,7 +402,10 @@ it('lists what static analysis\'s checks of its survivors came to, and reads it 
         ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"staticChecks"');
 });
 
-it('lists the steps the shard\'s time went to under what it measured, a count only past one, and reads them back', function () use ($finished, $survivor, $measured): void {
+it('lists the steps the shard\'s time went to under what it measured, a count only past one, and reads them back', function () use ($finished, $makeSurvivor, $makeMeasured): void {
+    $survivor = $makeSurvivor();
+    $measured = $makeMeasured();
+
     $steps = StepTimes::of(
         StepTime::of(Step::Mutation, Seconds::of(2.0), Seconds::of(30.5), 12),
         StepTime::of(Step::Baselines, Seconds::of(33.0), Seconds::of(4.25)),
@@ -377,7 +423,9 @@ it('lists the steps the shard\'s time went to under what it measured, a count on
         ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"steps"');
 });
 
-it('reads back a shard that could not judge', function () use ($measured): void {
+it('reads back a shard that could not judge', function () use ($makeMeasured): void {
+    $measured = $makeMeasured();
+
     $stopped = CannotJudge::because('Pest stopped.');
     $result = ShardResult::of(Digest::of('9c1e'), ShardId::of(1), Keys::none(), $stopped, $measured);
 

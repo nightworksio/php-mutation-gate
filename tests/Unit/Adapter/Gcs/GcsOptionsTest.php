@@ -20,9 +20,9 @@ it('reads the bucket, the prefix and the public URL', function (): void {
 it('says why options that miss a bucket or a prefix, or give a public URL that is no text, open none', function (string $options, Problem $problem): void {
     expect(GcsOptions::read(Configs::options($options)))->toEqual(Invalid::because($problem));
 })->with([
-    'no bucket' => ['{"prefix": "gate"}', Problem::at('bucket', 'expected the bucket, got nothing')],
-    'no prefix' => ['{"bucket": "acme-ledgers"}', Problem::at('prefix', 'expected the prefix, got nothing')],
-    'a public URL that is no text' => ['{"bucket": "acme-ledgers", "prefix": "p", "publicUrl": 3}', Problem::at('publicUrl', 'expected text, got 3')],
+    'no bucket' => ['{"prefix": "gate"}', fn(): Problem => Problem::at('bucket', 'expected the bucket, got nothing')],
+    'no prefix' => ['{"bucket": "acme-ledgers"}', fn(): Problem => Problem::at('prefix', 'expected the prefix, got nothing')],
+    'a public URL that is no text' => ['{"bucket": "acme-ledgers", "prefix": "p", "publicUrl": 3}', fn(): Problem => Problem::at('publicUrl', 'expected text, got 3')],
 ]);
 
 it('refuses a bucket its path cannot hold, so the token reaches only Cloud Storage', function (string $bucket): void {

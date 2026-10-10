@@ -14,13 +14,16 @@ use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 
-$mutants = Flows::mutantsOf('src/Money.php');
-$killed = array_values(array_filter([...$mutants], static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Killed));
-$others = array_values(array_filter([...$mutants], static fn(Mutant $mutant): bool => $mutant->status() !== MutantStatus::Killed));
-$first = $killed[0];
-$second = $others[0];
+$makeMutants = static fn(): Mutants => Flows::mutantsOf('src/Money.php');
+$killed = static fn(): array => array_values(array_filter([...$makeMutants()], static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Killed));
+$others = static fn(): array => array_values(array_filter([...$makeMutants()], static fn(Mutant $mutant): bool => $mutant->status() !== MutantStatus::Killed));
+$makeFirst = static fn(): Mutant => $killed()[0];
+$makeSecond = static fn(): Mutant => $others()[0];
 
-it('keeps nothing of what a kill\'s process printed where a secret is in it, its code, signal and prefix kept', function () use ($mutants, $first): void {
+it('keeps nothing of what a kill\'s process printed where a secret is in it, its code, signal and prefix kept', function () use ($makeMutants, $makeFirst): void {
+    $mutants = $makeMutants();
+    $first = $makeFirst();
+
     $evidence = Evidences::none()->with(
         $first->id(),
         Evidence::none()->withPrefix(Prefix::at(1))->withEnded(Ended::of(255, signalled: false, printed: 'key hunter2hunter2 leaked')),
@@ -33,14 +36,20 @@ it('keeps nothing of what a kill\'s process printed where a secret is in it, its
         ->and($hidden->prefix())->toEqual(Prefix::at(1));
 });
 
-it('keeps what a kill\'s process printed where no secret is in it, as text a terminal shows safely', function () use ($mutants, $first): void {
+it('keeps what a kill\'s process printed where no secret is in it, as text a terminal shows safely', function () use ($makeMutants, $makeFirst): void {
+    $mutants = $makeMutants();
+    $first = $makeFirst();
+
     $evidence = Evidences::none()->with($first->id(), Evidence::none()->withEnded(Ended::of(1, signalled: false, printed: "fatal\x1b[2J error\n")));
     $ended = Hidden::in($evidence, $mutants, Secrets::of('hunter2hunter2'))->of($first->id())->ended();
 
     expect($ended instanceof Ended ? $ended->tail() : $ended)->toBe("fatal[2J error\n");
 });
 
-it('drops what a cut left of a secret at the start of a long print', function () use ($mutants, $first): void {
+it('drops what a cut left of a secret at the start of a long print', function () use ($makeMutants, $makeFirst): void {
+    $mutants = $makeMutants();
+    $first = $makeFirst();
+
     $secret = sprintf('%s-withheld', str_repeat('s', 40));
     // The process kept the last 8 KiB: the secret's last 20 bytes, control characters, and the end.
     $printed = sprintf('%s%s%s%s', str_repeat('x', 100), $secret, str_repeat("\x00", 8165), 'the end');
@@ -50,7 +59,10 @@ it('drops what a cut left of a secret at the start of a long print', function ()
     expect($ended instanceof Ended ? $ended->tail() : $ended)->toBe('the end');
 });
 
-it('keeps nothing where the tail\'s cut would fall inside a secret', function () use ($mutants, $first): void {
+it('keeps nothing where the tail\'s cut would fall inside a secret', function () use ($makeMutants, $makeFirst): void {
+    $mutants = $makeMutants();
+    $first = $makeFirst();
+
     $secret = 'withheld-value-across-the-cut';
     $printed = sprintf('%s%s%s', str_repeat('x', 100), $secret, str_repeat('y', 2040));
     $evidence = Evidences::none()->with($first->id(), Evidence::none()->withEnded(Ended::of(1, signalled: false, printed: $printed)));
@@ -59,7 +71,10 @@ it('keeps nothing where the tail\'s cut would fall inside a secret', function ()
     expect($ended instanceof Ended ? $ended->tail() : $ended)->toEqual(NotGiven::value());
 });
 
-it('keeps whether PHP recorded a fatal error in a kill\'s process, whatever the screen keeps of what it printed', function () use ($mutants, $first): void {
+it('keeps whether PHP recorded a fatal error in a kill\'s process, whatever the screen keeps of what it printed', function () use ($makeMutants, $makeFirst): void {
+    $mutants = $makeMutants();
+    $first = $makeFirst();
+
     $ended = Ended::of(255, signalled: false, printed: 'key hunter2hunter2 leaked')->withFatal(fatal: true);
     $evidence = Evidences::none()->with($first->id(), Evidence::none()->withEnded($ended));
     $screened = Hidden::in($evidence, $mutants, Secrets::of('hunter2hunter2'))->of($first->id())->ended();
@@ -67,13 +82,19 @@ it('keeps whether PHP recorded a fatal error in a kill\'s process, whatever the 
     expect($screened instanceof Ended ? [$screened->fatal(), $screened->tail()] : $screened)->toEqual([true, NotGiven::value()]);
 });
 
-it('keeps an ending with nothing printed as it was', function () use ($mutants, $first): void {
+it('keeps an ending with nothing printed as it was', function () use ($makeMutants, $makeFirst): void {
+    $mutants = $makeMutants();
+    $first = $makeFirst();
+
     $evidence = Evidences::none()->with($first->id(), Evidence::none()->withEnded(Ended::unprinted(2, signalled: false)));
 
     expect(Hidden::in($evidence, $mutants, Secrets::of('hunter2hunter2'))->of($first->id())->ended())->toEqual(Ended::unprinted(2, signalled: false));
 });
 
-it('keeps a prefix alone as it was, and the evidence of no mutant the shard does not hold or does not end killed', function () use ($first, $second): void {
+it('keeps a prefix alone as it was, and the evidence of no mutant the shard does not hold or does not end killed', function () use ($makeFirst, $makeSecond): void {
+    $first = $makeFirst();
+    $second = $makeSecond();
+
     $evidence = Evidences::none()
         ->with($first->id(), Evidence::none()->withPrefix(Prefix::at(4)))
         ->with($second->id(), Evidence::none()->withPrefix(Prefix::at(2)));

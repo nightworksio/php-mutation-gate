@@ -237,8 +237,8 @@ it('runs a mutant a narrowed run killed with no killer again with every test fil
         ->and($narrow)->toBe(['1', false])
         ->and(file_get_contents(sprintf('%s.only', PestCases::results($at))))->toBe('n1');
 })->with([
-    'within a deadline' => [PestCases::money()->within(Seconds::of(60.0))],
-    'with no deadline' => [PestCases::money()],
+    'within a deadline' => [fn(): MutationRequest => PestCases::money()->within(Seconds::of(60.0))],
+    'with no deadline' => [fn(): MutationRequest => PestCases::money()],
 ]);
 
 /**
@@ -278,9 +278,9 @@ it('gives a kill run again with every test file the evidence of that run, and no
     expect($mutants)->toHaveCount(1)
         ->and($result instanceof MutationResult && $mutants !== [] ? $result->evidence()->of($mutants[0]->id()) : null)->toEqual($expected);
 })->with([
-    'killed again' => [true, true, Evidence::none()->withEnded(Ended::unprinted(255, signalled: false))],
-    'killed again, its control failing, so unjudged' => [true, false, Evidence::none()],
-    'surviving' => [false, true, Evidence::none()],
+    'killed again' => [true, true, fn(): Evidence => Evidence::none()->withEnded(Ended::unprinted(255, signalled: false))],
+    'killed again, its control failing, so unjudged' => [true, false, fn(): Evidence => Evidence::none()],
+    'surviving' => [false, true, fn(): Evidence => Evidence::none()],
 ]);
 
 it('runs a mutant a narrowed run killed only by tests that errored again with every test file, before it counts', function (): void {

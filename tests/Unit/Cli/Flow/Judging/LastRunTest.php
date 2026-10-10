@@ -33,13 +33,16 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-$tree = JudgingRuns::tree(...);
-$reporting = JudgingRuns::reporting(...);
+$makeTree = static fn(): Closure => JudgingRuns::tree(...);
+$makeReporting = static fn(): Closure => JudgingRuns::reporting(...);
 
 it('records the commit it judged as its scope\'s last run, with what it was made of, and none where git cannot say', function (bool $known) use (
-    $tree,
-    $reporting,
+    $makeTree,
+    $makeReporting,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+
     $project = Flows::project();
     $store = new ProofStoreFake();
     $plan = Planned::of()->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')));

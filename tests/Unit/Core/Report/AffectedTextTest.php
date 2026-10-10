@@ -43,15 +43,15 @@ it('cannot list by id a file that holds no test the map names, or a test PHPUnit
     expect(AffectedText::ids($tests))->toEqual(CannotJudge::because($why));
 })->with([
     'a file with no ids' => [
-        AffectedTests::none(TestPlaces::none())->wholly(Path::of('tests/NewTest.php'), Reason::that('New.')),
+        fn(): AffectedTests => AffectedTests::none(TestPlaces::none())->wholly(Path::of('tests/NewTest.php'), Reason::that('New.')),
         '`tests/NewTest.php` holds no test the coverage map names, so --format=ids cannot select it: give --format=files.',
     ],
     'an id with a line break' => [
-        AffectedTests::none(TestPlaces::none())->reaching(Path::of('tests/RowTest.php'), Affected::ids("RowTest::adds#one\nrow"), Reason::that('Row.')),
+        fn(): AffectedTests => AffectedTests::none(TestPlaces::none())->reaching(Path::of('tests/RowTest.php'), Affected::ids("RowTest::adds#one\nrow"), Reason::that('Row.')),
         'PHPUnit cannot read back the test id "RowTest::adds#one\nrow" from --test-id-filter-file: give --format=files.',
     ],
     'an id that ends in a carriage return' => [
-        AffectedTests::none(TestPlaces::none())->reaching(Path::of('tests/RowTest.php'), Affected::ids("RowTest::adds#one\r"), Reason::that('Row.')),
+        fn(): AffectedTests => AffectedTests::none(TestPlaces::none())->reaching(Path::of('tests/RowTest.php'), Affected::ids("RowTest::adds#one\r"), Reason::that('Row.')),
         'PHPUnit cannot read back the test id "RowTest::adds#one\r" from --test-id-filter-file: give --format=files.',
     ],
 ]);

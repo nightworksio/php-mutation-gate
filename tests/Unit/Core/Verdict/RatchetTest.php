@@ -24,7 +24,7 @@ use NightWorksIO\MutationGate\Tests\Support\Judged;
 use NightWorksIO\MutationGate\Tests\Support\Secured;
 
 // Three killed of four: 75%.
-$threeOfFour = Judged::mutants(
+$makeThreeOfFour = static fn(): JudgedMutants => Judged::mutants(
     MutantJudgement::Killed,
     MutantJudgement::Killed,
     MutantJudgement::Killed,
@@ -51,13 +51,15 @@ $texts = static fn(Failures $failures): array => array_map(
     static fn(Failure $failure): string => $failure->text(),
     [...$failures],
 );
-$baseline = Path::of('mutation-gate.baseline.json');
+$makeBaseline = static fn(): Path => Path::of('mutation-gate.baseline.json');
 
 it('names each tree with a score and no floor declared or in the baseline, in order', function () use (
     $judged,
     $values,
-    $threeOfFour,
+    $makeThreeOfFour,
 ): void {
+    $threeOfFour = $makeThreeOfFour();
+
     $verdicts = TreeVerdicts::of(
         $judged('app/Http', Undeclared::floor(), Unrecorded::floor(), $threeOfFour),
         $judged('app/Domain', Floor::of(80), Unrecorded::floor(), $threeOfFour),
@@ -71,7 +73,9 @@ it('names each tree with a score and no floor declared or in the baseline, in or
         ->and(Ratchet::unfloored(TreeVerdicts::none()))->toHaveCount(0);
 });
 
-it('stops a run on each tree held to no floor, saying how to give it one', function () use ($texts, $baseline): void {
+it('stops a run on each tree held to no floor, saying how to give it one', function () use ($texts, $makeBaseline): void {
+    $baseline = $makeBaseline();
+
     $failures = Ratchet::unflooredBecause(Paths::of(Path::of('app/Http'), Path::of('app/Jobs')), $baseline);
     $said = static fn(string $tree): string => sprintf(
         "%s has no floor: no floor is declared for it, and the baseline holds none.\n%s",
@@ -86,9 +90,12 @@ it('stops a run on each tree held to no floor, saying how to give it one', funct
 it('fails each tree whose score rose above the floor it was held to, until the raise is committed', function () use (
     $judged,
     $texts,
-    $threeOfFour,
-    $baseline,
+    $makeThreeOfFour,
+    $makeBaseline,
 ): void {
+    $threeOfFour = $makeThreeOfFour();
+    $baseline = $makeBaseline();
+
     $verdicts = TreeVerdicts::of(
         $judged('app/Http', Floor::of(50), Unrecorded::floor(), $threeOfFour),
         $judged('app/Domain', Floor::of(75), Unrecorded::floor(), $threeOfFour),
@@ -113,8 +120,10 @@ it('fails each tree whose score rose above the floor it was held to, until the r
 it('names each package whose security set has a score and no floor, and stops a run on each, saying how to give it one', function () use (
     $values,
     $texts,
-    $baseline,
+    $makeBaseline,
 ): void {
+    $baseline = $makeBaseline();
+
     $killed = Secured::mutant(MutantJudgement::Killed);
     $sets = SecurityVerdicts::of(
         Secured::set('.', Undeclared::floor(), Unrecorded::floor(), $killed),
@@ -135,8 +144,10 @@ it('names each package whose security set has a score and no floor, and stops a 
 
 it('fails each security set whose score rose above the floor it was held to, until the raise is committed', function () use (
     $texts,
-    $baseline,
+    $makeBaseline,
 ): void {
+    $baseline = $makeBaseline();
+
     $sets = SecurityVerdicts::of(
         Secured::set('.', Floor::of(40), Floor::of(50), Secured::mutant(MutantJudgement::Killed)),
         Secured::set('packages/b', Undeclared::floor(), Unrecorded::floor(), Secured::mutant(MutantJudgement::Killed)),

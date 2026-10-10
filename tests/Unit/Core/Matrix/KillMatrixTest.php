@@ -23,9 +23,9 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 
-$first = TestId::of('MoneyTest::fits');
-$second = TestId::of('MoneyTest::refuses');
-$third = TestId::of('PriceTest::adds');
+$makeFirst = static fn(): TestId => TestId::of('MoneyTest::fits');
+$makeSecond = static fn(): TestId => TestId::of('MoneyTest::refuses');
+$makeThird = static fn(): TestId => TestId::of('PriceTest::adds');
 
 $judged = static function (MutantStatus $status, TestIds $killers, int $end = 7): JudgedMutant {
     $path = Path::of('src/Money.php');
@@ -42,12 +42,14 @@ $judged = static function (MutantStatus $status, TestIds $killers, int $end = 7)
 };
 
 $coverage = static fn(): CoverageMap => CoverageMap::empty()
-    ->covered(Path::of('src/Money.php'), Line::of(7), $first)
-    ->covered(Path::of('src/Money.php'), Line::of(7), $second)
-    ->covered(Path::of('src/Money.php'), Line::of(8), $third)
-    ->timed($first, Seconds::of(0.5));
+    ->covered(Path::of('src/Money.php'), Line::of(7), $makeFirst())
+    ->covered(Path::of('src/Money.php'), Line::of(7), $makeSecond())
+    ->covered(Path::of('src/Money.php'), Line::of(8), $makeThird())
+    ->timed($makeFirst(), Seconds::of(0.5));
 
-it('knows only the killers each record names where the run gave no matrix', function () use ($judged, $first): void {
+it('knows only the killers each record names where the run gave no matrix', function () use ($judged, $makeFirst): void {
+    $first = $makeFirst();
+
     $killed = $judged(MutantStatus::Killed, TestIds::of($first));
 
     expect(KillMatrix::none()->kind())->toBe(MatrixKind::FirstKiller)
@@ -56,7 +58,11 @@ it('knows only the killers each record names where the run gave no matrix', func
         ->and(KillMatrix::none()->secondsOf($first))->toEqual(Unmeasured::duration());
 });
 
-it('covers a mutant by every test the map holds for any line it spans, and every killer', function () use ($judged, $coverage, $first, $second, $third): void {
+it('covers a mutant by every test the map holds for any line it spans, and every killer', function () use ($judged, $coverage, $makeFirst, $makeSecond, $makeThird): void {
+    $first = $makeFirst();
+    $second = $makeSecond();
+    $third = $makeThird();
+
     $matrix = KillMatrix::of(MatrixKind::Full, $coverage());
     $killer = TestId::of('CartTest::totals');
 
@@ -67,14 +73,19 @@ it('covers a mutant by every test the map holds for any line it spans, and every
         ->and($matrix->secondsOf($first))->toEqual(Seconds::of(0.5));
 });
 
-it('covers a carried mutant by the tests its proof names', function () use ($judged, $coverage, $third): void {
+it('covers a carried mutant by the tests its proof names', function () use ($judged, $coverage, $makeThird): void {
+    $third = $makeThird();
+
     $carried = $judged(MutantStatus::Survived, TestIds::none());
     $matrix = KillMatrix::of(MatrixKind::FirstKiller, $coverage())->carried($carried->mutant()->id(), TestIds::of($third));
 
     expect($matrix->coveredBy($carried))->toEqual(TestIds::of($third));
 });
 
-it('says a test passed with a survivor, and killed a mutant it killed', function () use ($judged, $coverage, $first, $second): void {
+it('says a test passed with a survivor, and killed a mutant it killed', function () use ($judged, $coverage, $makeFirst, $makeSecond): void {
+    $first = $makeFirst();
+    $second = $makeSecond();
+
     $matrix = KillMatrix::of(MatrixKind::FirstKiller, $coverage());
     $killed = $judged(MutantStatus::Killed, TestIds::of($first));
     $survivor = $judged(MutantStatus::Survived, TestIds::none());
@@ -84,14 +95,19 @@ it('says a test passed with a survivor, and killed a mutant it killed', function
         ->and($matrix->outcome($judged(MutantStatus::Errored, TestIds::of($second)), $second))->toBe(Outcome::Killed);
 });
 
-it('says the other covering tests of a killed mutant did not run, or passed under a full matrix', function () use ($judged, $coverage, $first, $second): void {
+it('says the other covering tests of a killed mutant did not run, or passed under a full matrix', function () use ($judged, $coverage, $makeFirst, $makeSecond): void {
+    $first = $makeFirst();
+    $second = $makeSecond();
+
     $killed = $judged(MutantStatus::Killed, TestIds::of($first));
 
     expect(KillMatrix::of(MatrixKind::FirstKiller, $coverage())->outcome($killed, $second))->toBe(Outcome::NotRun)
         ->and(KillMatrix::of(MatrixKind::Full, $coverage())->outcome($killed, $second))->toBe(Outcome::Passed);
 });
 
-it('does not know what a test did with a timeout, a mutant out of memory, a flaky mutant, an unknown killer or moved coverage', function () use ($judged, $coverage, $first): void {
+it('does not know what a test did with a timeout, a mutant out of memory, a flaky mutant, an unknown killer or moved coverage', function () use ($judged, $coverage, $makeFirst): void {
+    $first = $makeFirst();
+
     $matrix = KillMatrix::of(MatrixKind::Full, $coverage());
     $survivor = $judged(MutantStatus::Survived, TestIds::none());
     $flaky = JudgedMutant::of($survivor->mutant(), MutantJudgement::Flaky);
@@ -104,7 +120,9 @@ it('does not know what a test did with a timeout, a mutant out of memory, a flak
         ->and($matrix->outcome($survivor, $first))->toBe(Outcome::Passed);
 });
 
-it('says no test ran a mutant the run never ran', function (MutantStatus $status) use ($judged, $coverage, $first): void {
+it('says no test ran a mutant the run never ran', function (MutantStatus $status) use ($judged, $coverage, $makeFirst): void {
+    $first = $makeFirst();
+
     expect(KillMatrix::of(MatrixKind::Full, $coverage())->outcome($judged($status, TestIds::none()), $first))->toBe(Outcome::NotRun);
 })->with([
     MutantStatus::KilledByStaticAnalysis,
@@ -114,13 +132,18 @@ it('says no test ran a mutant the run never ran', function (MutantStatus $status
     MutantStatus::Skipped,
 ]);
 
-it('keeps the names the runner gives its tests', function () use ($coverage, $first): void {
+it('keeps the names the runner gives its tests', function () use ($coverage, $makeFirst): void {
+    $first = $makeFirst();
+
     $names = TestNames::none()->with($first, TestName::in(Path::of('tests/Unit/MoneyTest.php'), 'it fits'));
 
     expect(KillMatrix::of(MatrixKind::FirstKiller, $coverage())->named($names)->names())->toBe($names);
 });
 
-it('says a test outside the ones that judge a held mutant never ran with it', function () use ($judged, $coverage, $first, $second): void {
+it('says a test outside the ones that judge a held mutant never ran with it', function () use ($judged, $coverage, $makeFirst, $makeSecond): void {
+    $first = $makeFirst();
+    $second = $makeSecond();
+
     $matrix = KillMatrix::of(MatrixKind::Full, $coverage());
     $held = $judged(MutantStatus::Killed, TestIds::of($first))->judgedBy(TestIds::of($first));
     $open = $judged(MutantStatus::Killed, TestIds::of($first));

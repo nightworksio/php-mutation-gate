@@ -15,7 +15,7 @@ it('says how much of the matrix it records, whether it holds the security sets a
 it('is another kind where any of what it is of differs', function (RunProfile $other, bool $equal): void {
     expect(RunProfile::standard()->equals($other))->toBe($equal);
 })->with([
-    'the same' => [RunProfile::standard(), true],
+    'the same' => [fn(): RunProfile => RunProfile::standard(), true],
     'the full matrix' => [fn(): RunProfile => RunProfile::standard()->recording(MatrixKind::Full), false],
     'the security sets alone' => [fn(): RunProfile => RunProfile::standard()->securityOnly(), false],
     'one suite' => [fn(): RunProfile => RunProfile::standard()->inSuite(SuiteName::of('unit')), false],

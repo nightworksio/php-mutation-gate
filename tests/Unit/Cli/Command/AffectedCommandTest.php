@@ -60,13 +60,15 @@ $affected = static function (string $options, ScriptedRunner $runner, Change ...
     )), $options);
 };
 
-$money = Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(11)));
+$makeMoney = static fn(): Change => Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(11)));
 
-$test = Change::modified(Path::of('tests/MoneyTest.php'), Lines::of(Line::of(3)));
+$makeTest = static fn(): Change => Change::modified(Path::of('tests/MoneyTest.php'), Lines::of(Line::of(3)));
 
 $phpunit = static fn(string $version): Version => Version::of('phpunit/phpunit', $version, 'abc');
 
-it('prints the test files a change reaches a line each, and each reason on standard error', function () use ($affected, $money): void {
+it('prints the test files a change reaches a line each, and each reason on standard error', function () use ($affected, $makeMoney): void {
+    $money = $makeMoney();
+
     $printed = $affected('', ScriptedRunner::fixture(), $money);
 
     expect([$printed->code, $printed->output, $printed->errors])->toBe([
@@ -77,11 +79,15 @@ it('prints the test files a change reaches a line each, and each reason on stand
     ]);
 });
 
-it('ends each file with a NUL byte for files0', function () use ($affected, $money): void {
+it('ends each file with a NUL byte for files0', function () use ($affected, $makeMoney): void {
+    $money = $makeMoney();
+
     expect($affected('--format=files0', ScriptedRunner::fixture(), $money)->output)->toBe("tests/DrainSpec.php\0tests/MoneySpec.php\0");
 });
 
-it('prints the whole answer as JSON, with nothing on standard error', function () use ($affected, $test): void {
+it('prints the whole answer as JSON, with nothing on standard error', function () use ($affected, $makeTest): void {
+    $test = $makeTest();
+
     $printed = $affected('--format=json', ScriptedRunner::fixture(), $test);
     $json = $printed->output;
 
@@ -100,9 +106,11 @@ it('prints nothing, and exits 0, where the change reaches no test', function () 
 
 it('prints the test ids a change reaches where the runner drives a PHPUnit that takes them', function () use (
     $affected,
-    $test,
+    $makeTest,
     $phpunit,
 ): void {
+    $test = $makeTest();
+
     $printed = $affected('--format=ids', ScriptedRunner::fixture()->driving($phpunit('13.2.0')), $test);
 
     expect([$printed->code, $printed->output])->toBe([0, "MoneyTest::adds\n"]);
@@ -111,26 +119,30 @@ it('prints the test ids a change reaches where the runner drives a PHPUnit that 
 it('refuses ids, naming files, where the runner\'s ids are not ones PHPUnit\'s filter takes', function (
     ScriptedRunner $runner,
     string $why,
-) use ($affected, $test): void {
+) use ($affected, $makeTest): void {
+    $test = $makeTest();
+
     $printed = $affected('--format=ids', $runner, $test);
 
     expect([$printed->code, $printed->output, $printed->errors])->toBe([2, '', sprintf("%s\n", $why)]);
 })->with([
     'Pest' => [
-        ScriptedRunner::fixture()->driving(Version::of('pestphp/pest', '5.2.1', 'abc'), Version::of('phpunit/phpunit', '13.3.4', 'abc')),
+        fn(): ScriptedRunner => ScriptedRunner::fixture()->driving(Version::of('pestphp/pest', '5.2.1', 'abc'), Version::of('phpunit/phpunit', '13.3.4', 'abc')),
         'Pest\'s test ids are not ones PHPUnit\'s filter takes: give --format=files.',
     ],
     'a PHPUnit before 13.2' => [
-        ScriptedRunner::fixture()->driving(Version::of('phpunit/phpunit', '13.1.6', 'abc')),
+        fn(): ScriptedRunner => ScriptedRunner::fixture()->driving(Version::of('phpunit/phpunit', '13.1.6', 'abc')),
         '--format=ids needs PHPUnit 13.2.0 or later, and the runner drives 13.1.6: give --format=files.',
     ],
     'no PHPUnit' => [
-        ScriptedRunner::fixture()->driving(Version::of('fake/runner', '1.0.0', 'abc')),
+        fn(): ScriptedRunner => ScriptedRunner::fixture()->driving(Version::of('fake/runner', '1.0.0', 'abc')),
         '--format=ids needs PHPUnit 13.2.0 or later, and the runner drives no PHPUnit: give --format=files.',
     ],
 ]);
 
-it('refuses ids where a file listed holds no test the map names', function () use ($affected, $money, $phpunit): void {
+it('refuses ids where a file listed holds no test the map names', function () use ($affected, $makeMoney, $phpunit): void {
+    $money = $makeMoney();
+
     $printed = $affected('--format=ids', ScriptedRunner::fixture()->driving($phpunit('13.3.4')), $money);
 
     expect([$printed->code, $printed->errors])->toBe([

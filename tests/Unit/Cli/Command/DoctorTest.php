@@ -24,9 +24,11 @@ use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\HttpClient\Response\JsonMockResponse;
 
-$here = (string) getcwd();
+$makeHere = static fn(): string => (string) getcwd();
 
-afterEach(function () use ($here): void {
+afterEach(function () use ($makeHere): void {
+    $here = $makeHere();
+
     chdir($here);
     Scratch::sweep();
 });

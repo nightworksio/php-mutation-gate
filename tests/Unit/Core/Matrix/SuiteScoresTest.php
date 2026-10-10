@@ -33,7 +33,7 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Tests\Support\Killings;
 
-$suites = Killings::suites(...);
+$makeSuites = static fn(): Closure => Killings::suites(...);
 
 /** The verdict with its matrix grouped into these suites. */
 $grouped = static fn(Verdict $verdict, DeclaredSuites $suites): Verdict => $verdict->withMatrix(
@@ -54,7 +54,9 @@ $summary = static fn(SuiteScores $scores): array => array_map(
 
 it('scores what each suite alone kills, a lower bound from first killers and exact under a full matrix', function (
     MatrixKind $kind,
-) use ($suites, $grouped, $summary): void {
+) use ($makeSuites, $grouped, $summary): void {
+    $suites = $makeSuites();
+
     $scores = SuiteScores::of($grouped(Killings::verdict($kind), $suites()));
 
     expect($summary($scores))->toBe([
@@ -65,10 +67,12 @@ it('scores what each suite alone kills, a lower bound from first killers and exa
 })->with([MatrixKind::FirstKiller, MatrixKind::Full]);
 
 it('counts no mutant a static analyser killed, which no test of a suite has a known outcome for', function () use (
-    $suites,
+    $makeSuites,
     $grouped,
     $summary,
 ): void {
+    $suites = $makeSuites();
+
     $scores = SuiteScores::of($grouped(Killings::verdict(MatrixKind::Full, MutantStatus::KilledByStaticAnalysis), $suites()));
 
     expect($summary($scores)[1])->toBe(['feature', 2, 1, 5_000, true]);
@@ -102,8 +106,10 @@ it('counts a held unit\'s mutants only for its group\'s tests', function () use 
 });
 
 it('scores no suite where the project declares none, and says a run whose tests the runner named none is unplaced', function () use (
-    $suites,
+    $makeSuites,
 ): void {
+    $suites = $makeSuites();
+
     $unnamed = Killings::verdict(MatrixKind::FirstKiller);
     $unnamed = $unnamed->withMatrix(KillMatrix::of(MatrixKind::FirstKiller, $unnamed->matrix()->coverage())->grouping($suites()));
 

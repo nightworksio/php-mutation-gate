@@ -13,10 +13,10 @@ it('keeps a scope\'s ledger under the prefix, whose empty segments count for not
 ): void {
     expect(LedgerObject::under($prefix)->of($scope))->toBe($key);
 })->with([
-    'a branch' => ['mutation-gate', Scope::branch('main'), 'mutation-gate/refs/heads/main/ledger.json.gz'],
-    'a pull request' => ['mutation-gate', Scope::pullRequest(12), 'mutation-gate/refs/pull/12/ledger.json.gz'],
-    'a prefix of several segments' => ['/team//mutation-gate/', Scope::branch('main'), 'team/mutation-gate/refs/heads/main/ledger.json.gz'],
-    'no prefix' => ['', Scope::branch('release/2.x'), 'refs/heads/release/2.x/ledger.json.gz'],
+    'a branch' => ['mutation-gate', fn(): Scope => Scope::branch('main'), 'mutation-gate/refs/heads/main/ledger.json.gz'],
+    'a pull request' => ['mutation-gate', fn(): Scope => Scope::pullRequest(12), 'mutation-gate/refs/pull/12/ledger.json.gz'],
+    'a prefix of several segments' => ['/team//mutation-gate/', fn(): Scope => Scope::branch('main'), 'team/mutation-gate/refs/heads/main/ledger.json.gz'],
+    'no prefix' => ['', fn(): Scope => Scope::branch('release/2.x'), 'refs/heads/release/2.x/ledger.json.gz'],
 ]);
 
 it('keeps no ledger for a ref that is no scope', function (): void {

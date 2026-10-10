@@ -78,19 +78,19 @@ it('selects every test that holds a path, and no other, when it runs the group',
     [$exit, $traced] = shapesRun('--group=holds:src/Shapes.php');
 
     expect($exit)->toBe(0)->and($traced)->toEqualCanonicalizing(shapesTraced('suite', HELD_SHAPES));
-})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('selects the same tests when it runs the group in parallel', function (): void {
     [$exit, $traced] = shapesRun('--group=holds:src/Shapes.php', '--parallel', '--processes=3');
 
     expect($exit)->toBe(0)->and($traced)->toEqualCanonicalizing(shapesTraced('suite', HELD_SHAPES));
-})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('puts a test with two #[Holds] in both groups', function (): void {
     [$exit, $traced] = shapesRun('--group=holds:src/Legacy.php');
 
     expect($exit)->toBe(0)->and($traced)->toBe(['suite twice']);
-})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('lists every holds: group among the suite\'s groups, one only #[Holds] on a closure names too', function (): void {
     $groups = Library::pest(Patching::off())->runner()->groups(Withheld::standard());
@@ -99,7 +99,7 @@ it('lists every holds: group among the suite\'s groups, one only #[Holds] on a c
     expect($listed('holds:src/Shapes.php'))->toBeTrue()
         ->and($listed('holds:src/Held.php'))->toBeTrue()
         ->and($listed('holds:src/Legacy.php'))->toBeTrue();
-})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('runs every test that holds a path, and no other, in a mutant\'s own process', function (): void {
     $trace = sprintf('%s/trace', Scratch::directory());
@@ -123,4 +123,4 @@ it('runs every test that holds a path, and no other, in a mutant\'s own process'
 
     expect(array_map(static fn(Mutant $mutant): string => $mutant->status()->value, $mutants))->toBe(['survived'])
         ->and($inMutant)->toEqualCanonicalizing(shapesTraced('mutant', HELD_SHAPES));
-})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');

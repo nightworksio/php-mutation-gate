@@ -18,21 +18,21 @@ it('writes a value the same way for every constant that holds it', function (): 
 it('finds too plain to have a home: nothing, zero, one, a boolean, a single character, an empty array', function (string $written): void {
     expect(Written::isPlain($written))->toBeTrue();
 })->with([
-    'nothing' => [Written::of(new ConstantStringType(''))],
-    'zero' => [Written::of(new ConstantIntegerType(0))],
-    'one' => [Written::of(new ConstantIntegerType(1))],
-    'a whole float one' => [Written::of(new ConstantFloatType(1.0))],
-    'true' => [Written::of(new ConstantBooleanType(value: true))],
-    'false' => [Written::of(new ConstantBooleanType(value: false))],
-    'null' => [Written::of(new NullType())],
-    'a single character' => [Written::of(new ConstantStringType('/'))],
+    'nothing' => [fn(): string => Written::of(new ConstantStringType(''))],
+    'zero' => [fn(): string => Written::of(new ConstantIntegerType(0))],
+    'one' => [fn(): string => Written::of(new ConstantIntegerType(1))],
+    'a whole float one' => [fn(): string => Written::of(new ConstantFloatType(1.0))],
+    'true' => [fn(): string => Written::of(new ConstantBooleanType(value: true))],
+    'false' => [fn(): string => Written::of(new ConstantBooleanType(value: false))],
+    'null' => [fn(): string => Written::of(new NullType())],
+    'a single character' => [fn(): string => Written::of(new ConstantStringType('/'))],
     'an empty array' => ['array{}'],
 ]);
 
 it('finds a value a reader would look up worth one home', function (string $written): void {
     expect(Written::isPlain($written))->toBeFalse();
 })->with([
-    'two characters' => [Written::of(new ConstantStringType('ok'))],
-    'a name' => [Written::of(new ConstantStringType('composer.json'))],
-    'a number' => [Written::of(new ConstantIntegerType(20))],
+    'two characters' => [fn(): string => Written::of(new ConstantStringType('ok'))],
+    'a name' => [fn(): string => Written::of(new ConstantStringType('composer.json'))],
+    'a number' => [fn(): string => Written::of(new ConstantIntegerType(20))],
 ]);

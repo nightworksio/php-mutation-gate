@@ -69,10 +69,12 @@ it('says where a floor went down from, and why, and why a run cannot judge', fun
         ->and(Schema::errors($payload, Schema::at('resources/webhook.schema.json')))->toBe([]);
 });
 
-it('posts what the committed schema describes', function (AlertEvent $event): void {
-    $schema = Schema::at('resources/webhook.schema.json');
-    $payload = WebhookPayload::json(Alert::of($event, Verdicts::failing(), TrendEntry::none()), Previous::ci());
+it('posts what the committed schema describes', function (): void {
+    foreach (AlertEvent::cases() as $event) {
+        $schema = Schema::at('resources/webhook.schema.json');
+        $payload = WebhookPayload::json(Alert::of($event, Verdicts::failing(), TrendEntry::none()), Previous::ci());
 
-    expect((string) file_get_contents($schema))->toBe(sprintf("%s\n", ReportSchema::webhook()), 'resources/webhook.schema.json is out of date. Run composer report:schema and commit it.')
-        ->and(Schema::errors($payload, $schema))->toBe([]);
-})->with(AlertEvent::cases());
+        expect((string) file_get_contents($schema))->toBe(sprintf("%s\n", ReportSchema::webhook()), 'resources/webhook.schema.json is out of date. Run composer report:schema and commit it.')
+            ->and(Schema::errors($payload, $schema))->toBe([]);
+    }
+});

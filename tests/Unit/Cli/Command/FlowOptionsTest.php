@@ -74,12 +74,12 @@ it('considers what changed since the last commit that passed unless asked otherw
     expect(FlowOptions::mode($given($options), $settings))->toEqual($mode)
         ->and(FlowOptions::isFull($given($options), $settings))->toBe($full);
 })->with([
-    'nothing asked' => [[], false, Mode::since('last-passed'), false],
-    'nothing asked, where run.full is true' => [[], true, Mode::full(), true],
-    '--full' => [['--full' => true], false, Mode::full(), true],
-    '--changed-since' => [['--changed-since' => 'origin/main'], false, Mode::since('origin/main'), false],
-    '--changed-since, where run.full is true' => [['--changed-since' => 'origin/main'], true, Mode::since('origin/main'), false],
-    'last-run' => [['--changed-since' => 'last-run'], false, Mode::since('last-run'), false],
+    'nothing asked' => [[], false, fn(): Mode => Mode::since('last-passed'), false],
+    'nothing asked, where run.full is true' => [[], true, fn(): Mode => Mode::full(), true],
+    '--full' => [['--full' => true], false, fn(): Mode => Mode::full(), true],
+    '--changed-since' => [['--changed-since' => 'origin/main'], false, fn(): Mode => Mode::since('origin/main'), false],
+    '--changed-since, where run.full is true' => [['--changed-since' => 'origin/main'], true, fn(): Mode => Mode::since('origin/main'), false],
+    'last-run' => [['--changed-since' => 'last-run'], false, fn(): Mode => Mode::since('last-run'), false],
 ]);
 
 it('refuses a full run and a change-scoped one asked for together', function () use ($given): void {
@@ -163,10 +163,10 @@ it('prints the console\'s report unless asked for problems, and all of them unle
     expect(FlowOptions::printing($given($options)))->toEqual($printing)
         ->and(FlowOptions::printing($bare()))->toEqual(Printing::console());
 })->with([
-    'nothing asked' => [[], Printing::of(VerdictOutput::Console, ProblemsShown::All)],
-    'the console' => [['--output' => 'console'], Printing::of(VerdictOutput::Console, ProblemsShown::All)],
-    'problems' => [['--output' => 'problems'], Printing::of(VerdictOutput::Problems, ProblemsShown::All)],
-    'problems on changed lines' => [['--output' => 'problems', '--only' => 'changed'], Printing::of(VerdictOutput::Problems, ProblemsShown::Changed)],
+    'nothing asked' => [[], fn(): Printing => Printing::of(VerdictOutput::Console, ProblemsShown::All)],
+    'the console' => [['--output' => 'console'], fn(): Printing => Printing::of(VerdictOutput::Console, ProblemsShown::All)],
+    'problems' => [['--output' => 'problems'], fn(): Printing => Printing::of(VerdictOutput::Problems, ProblemsShown::All)],
+    'problems on changed lines' => [['--output' => 'problems', '--only' => 'changed'], fn(): Printing => Printing::of(VerdictOutput::Problems, ProblemsShown::Changed)],
 ]);
 
 it('refuses an output it does not print, and --only where it cannot apply', function (array $options, string $why) use ($given): void {

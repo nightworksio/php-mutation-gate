@@ -80,17 +80,17 @@ $capped = static function (Library $library) use ($probed): void {
 
 it('runs every mutant\'s process of a Pest run, and of a reproduction, under the cap', function () use ($capped): void {
     $capped(Library::pest(Patching::off()));
-})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('runs every mutant\'s process of an Infection run, and of a reproduction, under the cap', function () use (
     $capped,
 ): void {
     $capped(Library::infection(Seconds::of(10.0)));
-})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs its library');
+})->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs its library');
 
 it('runs every mutant\'s process of a phpunit run, and of a reproduction, under the cap', function () use ($capped): void {
     $capped(Library::phpunit());
-})->skip(! Library::isPhpUnitInstalled(), 'the PHPUnit runner contracts steps install its library');
+})->skip(fn(): bool => ! Library::isPhpUnitInstalled(), 'the PHPUnit runner contracts steps install its library');
 
 /**
  * The status and limit of each mutant of Money::add a run under a 64M cap
@@ -137,7 +137,7 @@ it('reads a Pest mutant whose own process ran out of the cap as out of memory, a
 
     expect(array_unique($hogged($library, 'cap')))->toBe(['out-of-memory 64M'])
         ->and(array_unique($hogged($library, '48M')))->toBe(['killed unlimited']);
-})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('reads an Infection mutant whose own process ran out of the cap as out of memory, and of its own limit as it was', function () use (
     $hogged,
@@ -146,7 +146,7 @@ it('reads an Infection mutant whose own process ran out of the cap as out of mem
 
     expect(array_unique($hogged($library, 'cap')))->toBe(['out-of-memory 64M'])
         ->and(array_unique($hogged($library, '48M')))->not->toContain('out-of-memory 64M');
-})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs its library');
+})->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs its library');
 
 it('reads an Infection mutant out of the cap as out of memory where PHP\'s own ini shows errors nowhere', function () use (
     $hogged,
@@ -161,7 +161,7 @@ it('reads an Infection mutant out of the cap as out of memory where PHP\'s own i
         MemoryCap::SCAN_DIR,
         sprintf('%s%s', PATH_SEPARATOR, $production),
     )))->toBe(['out-of-memory 64M']);
-})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs its library');
+})->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs its library');
 
 it('reads an Infection mutant as out of memory with no limit, and so too heavy to judge, where its PHPUnit config hides errors again', function () use (
     $hogged,
@@ -173,7 +173,7 @@ it('reads an Infection mutant as out of memory with no limit, and so too heavy t
 
     expect(array_unique($hogged(Library::infectionAt($copy, Triage::standard()->bounds()), 'cap')))
         ->toBe(['out-of-memory unlimited']);
-})->skip(! Library::isInfectionInstalled(), 'the Infection runner contracts job installs its library');
+})->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs its library');
 
 it('reads a phpunit mutant whose own process ran out of the cap as out of memory, and of its own limit as killed', function () use (
     $hogged,
@@ -182,7 +182,7 @@ it('reads a phpunit mutant whose own process ran out of the cap as out of memory
 
     expect(array_unique($hogged($library, 'cap')))->toBe(['out-of-memory 64M'])
         ->and(array_unique($hogged($library, '48M')))->toBe(['killed unlimited']);
-})->skip(! Library::isPhpUnitInstalled(), 'the PHPUnit runner contracts steps install its library');
+})->skip(fn(): bool => ! Library::isPhpUnitInstalled(), 'the PHPUnit runner contracts steps install its library');
 
 it('reads a phpunit mutant out of the cap as out of memory where PHP\'s own ini shows errors nowhere', function () use (
     $hogged,
@@ -193,4 +193,4 @@ it('reads a phpunit mutant out of the cap as out of memory where PHP\'s own ini 
 
     expect(array_unique($hogged(Library::phpunit(), 'cap', MemoryCap::SCAN_DIR, sprintf('%s%s', PATH_SEPARATOR, $production))))
         ->toBe(['out-of-memory 64M']);
-})->skip(! Library::isPhpUnitInstalled(), 'the PHPUnit runner contracts steps install its library');
+})->skip(fn(): bool => ! Library::isPhpUnitInstalled(), 'the PHPUnit runner contracts steps install its library');

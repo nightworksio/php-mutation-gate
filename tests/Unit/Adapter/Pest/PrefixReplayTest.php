@@ -18,10 +18,10 @@ function replayAllowed(Seconds|Unmeasured $limit): PrefixReplay
 it('takes the longer limit of two kills it vouches for, and the time left once either limit is unknown', function (Seconds|Unmeasured $first, Seconds|Unmeasured $second, Seconds|Unlimited $within): void {
     expect(replayAllowed($first)->alsoFor($second)->within(Unlimited::time()))->toEqual($within);
 })->with([
-    'both known' => [Seconds::of(2.0), Seconds::of(5.0), Seconds::of(5.0)],
-    'the longer first' => [Seconds::of(5.0), Seconds::of(2.0), Seconds::of(5.0)],
-    'the first unknown' => [Unmeasured::duration(), Seconds::of(2.0), Unlimited::time()],
-    'the second unknown' => [Seconds::of(2.0), Unmeasured::duration(), Unlimited::time()],
+    'both known' => [fn(): Seconds => Seconds::of(2.0), fn(): Seconds => Seconds::of(5.0), fn(): Seconds => Seconds::of(5.0)],
+    'the longer first' => [fn(): Seconds => Seconds::of(5.0), fn(): Seconds => Seconds::of(2.0), fn(): Seconds => Seconds::of(5.0)],
+    'the first unknown' => [fn(): Unmeasured => Unmeasured::duration(), fn(): Seconds => Seconds::of(2.0), fn(): Unlimited => Unlimited::time()],
+    'the second unknown' => [fn(): Seconds => Seconds::of(2.0), fn(): Unmeasured => Unmeasured::duration(), fn(): Unlimited => Unlimited::time()],
 ]);
 
 it('spells its limit for a key, and nothing where it is not known', function (): void {

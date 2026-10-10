@@ -20,26 +20,32 @@ function namedFilesRead(array $sources): array
 }
 
 // a names b and c, b names d and a, c names d; e names a, and nothing names e.
-$cycle = NamedFiles::byName(
+$makeCycle = static fn(): NamedFiles => NamedFiles::byName(
     ['a.php' => ['a'], 'b.php' => ['b'], 'c.php' => ['c'], 'd.php' => ['d'], 'e.php' => ['e']],
     ['a.php' => ['b', 'c', 'b'], 'b.php' => ['d', 'a'], 'c.php' => ['d'], 'd.php' => [], 'e.php' => ['a', 'unknown']],
 );
 
-it('reaches every file the files name, in turn, each once, in the order reached, past a cycle', function () use ($cycle): void {
+it('reaches every file the files name, in turn, each once, in the order reached, past a cycle', function () use ($makeCycle): void {
+    $cycle = $makeCycle();
+
     expect($cycle->reachedFrom('a.php'))->toBe(['a.php', 'b.php', 'c.php', 'd.php'])
         ->and($cycle->reachedFrom('d.php', 'c.php', 'd.php'))->toBe(['d.php', 'c.php'])
         ->and($cycle->reachedFrom('unnamed.php'))->toBe(['unnamed.php'])
         ->and($cycle->reachedFrom())->toBe([]);
 });
 
-it('finds every file that mentions a name, and every file that names those, in turn, each once, in the order reached', function () use ($cycle): void {
+it('finds every file that mentions a name, and every file that names those, in turn, each once, in the order reached', function () use ($makeCycle): void {
+    $cycle = $makeCycle();
+
     expect($cycle->naming('d'))->toBe(['b.php', 'c.php', 'a.php', 'e.php'])
         ->and($cycle->naming('a', 'unknown'))->toBe(['b.php', 'e.php', 'a.php'])
         ->and($cycle->naming('e'))->toBe([])
         ->and($cycle->naming())->toBe([]);
 });
 
-it('finds only the files that mention a name themselves, in the order of the graph', function () use ($cycle): void {
+it('finds only the files that mention a name themselves, in the order of the graph', function () use ($makeCycle): void {
+    $cycle = $makeCycle();
+
     expect($cycle->mentioning('d'))->toBe(['b.php', 'c.php'])
         ->and($cycle->mentioning('a', 'unknown', 'a'))->toBe(['b.php', 'e.php'])
         ->and($cycle->mentioning('e'))->toBe([])

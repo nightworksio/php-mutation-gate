@@ -101,6 +101,6 @@ it('says a loader that reads another file beside one that names none', function 
         sprintf('/fixtures/Config/valid.fake names no other file, and the loader says it reads %s beside itself.', $said),
     ]);
 })->with([
-    'a file it names' => [ConfigReads::named(Path::of('shared.fake'), Path::of('more.fake')), 'shared.fake, more.fake'],
-    'one it cannot name' => [ConfigReads::unnamed('It globs.'), 'what it cannot name (It globs.)'],
+    'a file it names' => [fn(): ConfigReads => ConfigReads::named(Path::of('shared.fake'), Path::of('more.fake')), 'shared.fake, more.fake'],
+    'one it cannot name' => [fn(): ConfigReads => ConfigReads::unnamed('It globs.'), 'what it cannot name (It globs.)'],
 ]);

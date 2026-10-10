@@ -38,10 +38,13 @@ $carried = static fn(UnitResults $results): array => array_map(
     static fn(UnitResult $result): string => sprintf('%s %s', $result->unit()->path()->value(), $result->origin()->value),
     [...$results],
 );
-$units = Units::of(Unit::file(Path::of('src/A.php')), Unit::file(Path::of('src/B.php')), Unit::file(Path::of('src/C.php')));
-$reachingA = Reach::nothing(Packages::of(Trees::none()))->files(Paths::of(Path::of('src/A.php')), Reason::that('src/A.php changed.'));
+$makeUnits = static fn(): Units => Units::of(Unit::file(Path::of('src/A.php')), Unit::file(Path::of('src/B.php')), Unit::file(Path::of('src/C.php')));
+$makeReachingA = static fn(): Reach => Reach::nothing(Packages::of(Trees::none()))->files(Paths::of(Path::of('src/A.php')), Reason::that('src/A.php changed.'));
 
-it('considers what the change reaches, carries the newest result of the rest, and considers what has none', function () use ($units, $reachingA, $proof, $paths, $carried): void {
+it('considers what the change reaches, carries the newest result of the rest, and considers what has none', function () use ($makeUnits, $makeReachingA, $proof, $paths, $carried): void {
+    $units = $makeUnits();
+    $reachingA = $makeReachingA();
+
     $considering = Considering::of(
         $units,
         $reachingA,
@@ -55,7 +58,9 @@ it('considers what the change reaches, carries the newest result of the rest, an
         ->and($considering->ownScopeProofs())->toBe(0);
 });
 
-it('considers every unit a full run reaches', function () use ($units, $proof, $paths): void {
+it('considers every unit a full run reaches', function () use ($makeUnits, $proof, $paths): void {
+    $units = $makeUnits();
+
     $everywhere = Reach::nothing(Packages::of(Trees::none()))->everywhere(Reason::that('A full run.'));
     $considering = Considering::of($units, $everywhere, Proofs::of($proof('src/B.php', 'main', '2026-09-29T10:00:00Z')), Proofs::none(), OwnOnly::none());
 
@@ -68,7 +73,10 @@ it('carries the newer of the default branch\'s result and the run\'s own, and sa
     string $own,
     string $taken,
     int $ownScope,
-) use ($units, $reachingA, $proof): void {
+) use ($makeUnits, $makeReachingA, $proof): void {
+    $units = $makeUnits();
+    $reachingA = $makeReachingA();
+
     $considering = Considering::of(
         $units,
         $reachingA,
@@ -86,7 +94,10 @@ it('carries the newer of the default branch\'s result and the run\'s own, and sa
     'both as new' => ['2026-09-29T10:00:00Z', '2026-09-29T10:00:00Z', 'main', 0],
 ]);
 
-it('carries the run\'s own result where the default branch has none', function () use ($units, $reachingA, $proof): void {
+it('carries the run\'s own result where the default branch has none', function () use ($makeUnits, $makeReachingA, $proof): void {
+    $units = $makeUnits();
+    $reachingA = $makeReachingA();
+
     $considering = Considering::of($units, $reachingA, Proofs::none(), Proofs::of($proof('src/B.php', 'pr', '2026-09-29T10:00:00Z')), OwnOnly::none());
 
     expect($considering->carried())->toHaveCount(1)
@@ -94,10 +105,12 @@ it('carries the run\'s own result where the default branch has none', function (
 });
 
 it('counts every result it carries from the run\'s own scope, and none from the default branch', function () use (
-    $units,
+    $makeUnits,
     $proof,
     $carried,
 ): void {
+    $units = $makeUnits();
+
     $reachingC = Reach::nothing(Packages::of(Trees::none()))
         ->files(Paths::of(Path::of('src/C.php')), Reason::that('src/C.php changed.'));
     $considering = Considering::of(
@@ -191,10 +204,10 @@ it('reaches a unit that carries its own scope\'s result alone where that result 
     ],
     'the run took no digests' => [
         fn(): Proofs => Proofs::of($of('a now', 'mutation', 'pr', '2026-10-01T10:00:00Z')),
-        Undigested::proof(),
+        fn(): Undigested => Undigested::proof(),
     ],
     'its own scope holds none' => [
-        Proofs::none(),
+        fn(): Proofs => Proofs::none(),
         fn(): Digests => $now(),
     ],
 ]);

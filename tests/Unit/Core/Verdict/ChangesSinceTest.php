@@ -61,10 +61,12 @@ $proof = static fn(string $unit, string $base, ProvedKills $kills, Mutants $muta
     $kills,
     Run::of('main', Moment::at('2026-09-29T10:00:00Z'), Digest::sha256Of($base)),
 )->withInputs($inputs);
-$inputs = Inputs::of(Digest::sha256Of('source'), Digest::sha256Of('mutation'));
-$roles = FileRoles::of(Layout::standard(Paths::none()), Packages::of(Flows::trees()), Paths::none());
+$makeInputs = static fn(): Inputs => Inputs::of(Digest::sha256Of('source'), Digest::sha256Of('mutation'));
+$makeRoles = static fn(): FileRoles => FileRoles::of(Layout::standard(Paths::none()), Packages::of(Flows::trees()), Paths::none());
 
-it('reads the commit of each result established at another base that holds a kill, by a test or by static analysis, each commit once', function () use ($commit, $kill, $killed, $proof, $inputs): void {
+it('reads the commit of each result established at another base that holds a kill, by a test or by static analysis, each commit once', function () use ($commit, $kill, $killed, $proof, $makeInputs): void {
+    $inputs = $makeInputs();
+
     $rejected = $killed('src/Checked.php')->rejected(Rejection::by('phpstan', Finding::error(Path::of('src/Checked.php'), 'return.type', 'No.')));
     $survived = Mutant::of(
         MutantId::hash(Path::of('src/Survived.php'), 'Plus', '2', 0),
@@ -93,7 +95,9 @@ it('reads the commit of each result established at another base that holds a kil
     expect(ChangesSince::commitsOf($units, $proofs->newest(), Digest::sha256Of('base')))->toEqual([$commit('first'), $commit('second'), $commit('third')]);
 });
 
-it('answers what changed since a commit it read, and cannot tell for one it did not', function () use ($commit, $roles): void {
+it('answers what changed since a commit it read, and cannot tell for one it did not', function () use ($commit, $makeRoles): void {
+    $roles = $makeRoles();
+
     $reach = ChangeReach::of(Changes::none(), ByPath::none(), ByPath::none(), NamedFiles::byName([], []), $roles);
     $since = ChangesSince::none()->with($commit('read'), $reach);
 
@@ -101,7 +105,9 @@ it('answers what changed since a commit it read, and cannot tell for one it did 
         ->and($since->at($commit('unread')))->toEqual(CannotTell::because(sprintf('What changed since %s was not read.', $commit('unread')->name())));
 });
 
-it('warns why no kill proved at a commit carries, where git cannot say what changed or the change reaches every kill', function () use ($commit, $roles): void {
+it('warns why no kill proved at a commit carries, where git cannot say what changed or the change reaches every kill', function () use ($commit, $makeRoles): void {
+    $roles = $makeRoles();
+
     $none = NamedFiles::byName([], []);
     $since = ChangesSince::none()
         ->with($commit('shallow'), CannotTell::because('The clone is shallow.'))

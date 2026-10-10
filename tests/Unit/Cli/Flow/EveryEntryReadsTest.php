@@ -106,6 +106,6 @@ it('names the first file of a change that every entry reads, by either path, and
             Change::modified(Path::of('src/Money.php'), Lines::none()),
             Change::deleted(Path::of('tests/MoneyTest.php')),
         ),
-        NotGiven::value(),
+        fn(): NotGiven => NotGiven::value(),
     ],
 ]);

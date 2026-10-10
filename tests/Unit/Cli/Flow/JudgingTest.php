@@ -81,14 +81,18 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-$tree = JudgingRuns::tree(...);
-$reporting = JudgingRuns::reporting(...);
-$judged = JudgingRuns::judged(...);
+$makeTree = static fn(): Closure => JudgingRuns::tree(...);
+$makeReporting = static fn(): Closure => JudgingRuns::reporting(...);
+$makeJudged = static fn(): Closure => JudgingRuns::judged(...);
 
 it('proves a survivor equivalent where it compiles to its original program, and leaves the others survivors', function (
     Setting $equivalence,
     string $judgement,
-) use ($tree, $reporting, $judged): void {
+) use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $verdict = JudgingRuns::verdictOf($judged(
         Planned::twoShards(),
         Flows::adapters(Flows::project(), [], $tree(Floor::of(0)), JudgingRuns::moneyLaidOut()),
@@ -99,11 +103,15 @@ it('proves a survivor equivalent where it compiles to its original program, and 
     expect(JudgingRuns::judgements($verdict))->toMatchArray(['GreaterThan-16' => $judgement, 'Plus-11' => 'survived'])
         ->and(JudgingRuns::texts($verdict->warnings()))->toBe([]);
 })->with([
-    'by default' => [Equivalence::provenStatically(), 'equivalent'],
-    'not where equivalence.static is false' => [Equivalence::notProvenStatically(), 'survived'],
+    'by default' => [fn(): Equivalence => Equivalence::provenStatically(), 'equivalent'],
+    'not where equivalence.static is false' => [fn(): Equivalence => Equivalence::notProvenStatically(), 'survived'],
 ]);
 
-it('says no mutant was checked, and proves none, where opcache gives no opcodes', function () use ($tree, $reporting, $judged): void {
+it('says no mutant was checked, and proves none, where opcache gives no opcodes', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $project = Flows::project();
     $silent = new Prover(new Compiler(PHP_BINARY, sprintf('%s/.mutation-gate/equivalence', $project), 30.0, 1, ['opcache.opt_debug_level=0']));
     $verdict = JudgingRuns::verdictOf($judged(
@@ -121,7 +129,11 @@ it('keeps an ignore that leaves out only mutants proven equivalent, and says it 
     Ignore $ignore,
     array $judgements,
     array $said,
-) use ($tree, $reporting, $judged): void {
+) use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $verdict = JudgingRuns::verdictOf($judged(
         Planned::twoShards(),
         Flows::adapters(Flows::project(), [], $tree(Floor::of(0)), JudgingRuns::moneyLaidOut()),
@@ -134,18 +146,22 @@ it('keeps an ignore that leaves out only mutants proven equivalent, and says it 
         ->and(JudgingRuns::texts($verdict->failures()))->toBe([]);
 })->with([
     'one that leaves out only proven ones' => [
-        Ignore::mutator('GreaterThan', 'src/Money.php', 'The bound is never reached'),
+        fn(): Ignore => Ignore::mutator('GreaterThan', 'src/Money.php', 'The bound is never reached'),
         ['GreaterThan-16' => 'ignored', 'Plus-11' => 'survived'],
         ['The ignore of GreaterThan in src/Money.php leaves out only mutants proven equivalent: this ignore can go.'],
     ],
     'not one that leaves out a survivor no proof covers' => [
-        Ignore::mutator('Plus', 'src/**', 'Both sums are the same'),
+        fn(): Ignore => Ignore::mutator('Plus', 'src/**', 'Both sums are the same'),
         ['GreaterThan-16' => 'equivalent', 'Plus-11' => 'ignored'],
         [],
     ],
 ]);
 
-it('judges every tree whole, records the run, and reports it, timed by each shard\'s result', function () use ($tree, $reporting, $judged): void {
+it('judges every tree whole, records the run, and reports it, timed by each shard\'s result', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $project = Flows::project();
     $store = new ProofStoreFake();
     $recorded = new ReporterFake();
@@ -172,7 +188,11 @@ it('judges every tree whole, records the run, and reports it, timed by each shar
         ->toBe(2);
 });
 
-it('judges a plan\'s results again as the verdict did, reporting nothing and writing no ledger', function () use ($tree, $reporting, $judged): void {
+it('judges a plan\'s results again as the verdict did, reporting nothing and writing no ledger', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $project = Flows::project();
     $store = new ProofStoreFake();
     $adapters = Flows::adapters($project, [], $store, $tree(Floor::of(50)));
@@ -192,7 +212,10 @@ it('judges a plan\'s results again as the verdict did, reporting nothing and wri
         ->and($store->read(Scope::branch('main')))->toEqual($written);
 });
 
-it('cannot judge again where the trees or the baseline cannot be read', function (string $broken) use ($tree, $reporting): void {
+it('cannot judge again where the trees or the baseline cannot be read', function (string $broken) use ($makeTree, $makeReporting): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+
     $project = Flows::project();
     $trees = $broken === 'trees' ? new TreeSourceFake(CannotJudge::because('No trees.')) : $tree(Floor::of(50));
 
@@ -210,7 +233,11 @@ it('cannot judge again where the trees or the baseline cannot be read', function
     expect($again instanceof CannotJudge ? $again->why() : $again)->toBe($broken === 'trees' ? 'No trees.' : $unreadable);
 })->with(['trees', 'baseline']);
 
-it('records a pass under the check the config names', function () use ($tree, $reporting, $judged): void {
+it('records a pass under the check the config names', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $project = Flows::project();
     $store = new ProofStoreFake();
 
@@ -226,7 +253,11 @@ it('records a pass under the check the config names', function () use ($tree, $r
         ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'gate / verdict', 0)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW))));
 });
 
-it('records a pass measured against its own scope\'s coverage map as one that used its own scope, which the default branch never trusts', function () use ($tree, $reporting, $judged): void {
+it('records a pass measured against its own scope\'s coverage map as one that used its own scope, which the default branch never trusts', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $project = Flows::project();
     $store = new ProofStoreFake();
     $plan = Planned::twoShards();
@@ -243,7 +274,11 @@ it('records a pass measured against its own scope\'s coverage map as one that us
         ->and($passed instanceof Passed && $passed->usedOwnScope())->toBeTrue();
 });
 
-it('says what a reporter could not write', function () use ($tree, $reporting, $judged): void {
+it('says what a reporter could not write', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $unwritten = new class implements Reporter {
         public function report(Verdict $verdict): NotWritten
         {
@@ -262,7 +297,11 @@ it('says what a reporter could not write', function () use ($tree, $reporting, $
         ->toBe(['Wrote memory:refs/heads/main.', 'The disk is full.']);
 });
 
-it('says why the ledger was not written', function () use ($tree, $reporting, $judged): void {
+it('says why the ledger was not written', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $judgement = $judged(
         Planned::twoShards(),
         Flows::adapters(Flows::project(), [], $tree(Floor::of(50))),
@@ -275,9 +314,12 @@ it('says why the ledger was not written', function () use ($tree, $reporting, $j
 });
 
 it('cannot judge where the ledger cannot learn what a shard cost, and reports nothing', function () use (
-    $tree,
-    $reporting,
+    $makeTree,
+    $makeReporting,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+
     $project = Flows::project();
     $recorded = new ReporterFake();
     $adapters = Flows::adapters($project, [], $tree(Floor::of(50)));
@@ -296,10 +338,14 @@ it('cannot judge where the ledger cannot learn what a shard cost, and reports no
 });
 
 it('stops a CI run on a tree held to no floor once it reported and recorded what it measured', function () use (
-    $tree,
-    $reporting,
-    $judged,
+    $makeTree,
+    $makeReporting,
+    $makeJudged,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $store = new ProofStoreFake();
     $judgement = $judged(
         Planned::twoShards(),
@@ -327,7 +373,11 @@ it('stops a CI run on a tree held to no floor once it reported and recorded what
         ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->proofs())->toHaveCount(2);
 });
 
-it('warns of a tree held to no floor outside CI', function () use ($tree, $reporting, $judged): void {
+it('warns of a tree held to no floor outside CI', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $verdict = JudgingRuns::verdictOf($judged(
         Planned::twoShards(),
         Flows::adapters(Flows::project(), [], $tree(Undeclared::floor())),
@@ -339,7 +389,10 @@ it('warns of a tree held to no floor outside CI', function () use ($tree, $repor
         ->toBe(['src has no floor yet. Run mutation-gate baseline --write and commit floors.json.']);
 });
 
-it('warns of each mutator set a preset turns on that is not installed', function () use ($reporting, $judged): void {
+it('warns of each mutator set a preset turns on that is not installed', function () use ($makeReporting, $makeJudged): void {
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $skipped = Warning::that('The laravel preset turns on the mutator set "laravel", which is not installed: `composer require --dev nightworksio/mutation-gate-laravel`');
     $verdict = JudgingRuns::verdictOf($judged(
         Planned::twoShards(),
@@ -352,10 +405,14 @@ it('warns of each mutator set a preset turns on that is not installed', function
 });
 
 it('says in the verdict why a ledger could not be read, before what else it warns of', function () use (
-    $tree,
-    $reporting,
-    $judged,
+    $makeTree,
+    $makeReporting,
+    $makeJudged,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $unread = Unreadable::because(UnreadReason::Refused, 'https://ledgers.example.com', 'HTTP 503');
     $verdict = JudgingRuns::verdictOf($judged(
         Planned::twoShards(),
@@ -371,10 +428,14 @@ it('says in the verdict why a ledger could not be read, before what else it warn
 });
 
 it('holds each tree to the higher of its declared floor and the baseline\'s', function () use (
-    $tree,
-    $reporting,
-    $judged,
+    $makeTree,
+    $makeReporting,
+    $makeJudged,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $project = Flows::project();
     Scratch::write($project, 'mutation-gate.baseline.json', BaselineFile::encode(
         Baseline::of(Entry::of(Path::of('src'), Floor::of(45))),
@@ -390,7 +451,10 @@ it('holds each tree to the higher of its declared floor and the baseline\'s', fu
     expect($verdict->judgement())->toBe(Judgement::Failed);
 });
 
-it('cannot judge a baseline it cannot read', function () use ($tree, $reporting): void {
+it('cannot judge a baseline it cannot read', function () use ($makeTree, $makeReporting): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+
     $project = Flows::project();
     Scratch::write($project, 'mutation-gate.baseline.json', 'not a baseline');
 
@@ -405,7 +469,9 @@ it('cannot judge a baseline it cannot read', function () use ($tree, $reporting)
         ->and($judgement)->toBeInstanceOf(CannotJudge::class);
 });
 
-it('cannot judge where the trees cannot be read', function () use ($reporting): void {
+it('cannot judge where the trees cannot be read', function () use ($makeReporting): void {
+    $reporting = $makeReporting();
+
     $project = Flows::project();
     $unread = new TreeSourceFake(CannotJudge::because('There is no composer.json.'));
 
@@ -419,7 +485,10 @@ it('cannot judge where the trees cannot be read', function () use ($reporting): 
     expect($judgement)->toEqual(CannotJudge::because('There is no composer.json.'));
 });
 
-it('cannot judge with a report it cannot build', function () use ($tree, $reporting): void {
+it('cannot judge with a report it cannot build', function () use ($makeTree, $makeReporting): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+
     $project = Flows::project();
 
     $judgement = new Judging(
@@ -433,10 +502,14 @@ it('cannot judge with a report it cannot build', function () use ($tree, $report
 });
 
 it('judges a pull request\'s new code against its own floor, and fails a raise not committed with it', function () use (
-    $tree,
-    $reporting,
-    $judged,
+    $makeTree,
+    $makeReporting,
+    $makeJudged,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $plan = Planned::twoShards()
         ->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')))
         ->considering(Considered::everything()->reaching(
@@ -464,10 +537,14 @@ it('judges a pull request\'s new code against its own floor, and fails a raise n
 });
 
 it('only reports a raise in a pull request where baseline.improvement is report', function () use (
-    $tree,
-    $reporting,
-    $judged,
+    $makeTree,
+    $makeReporting,
+    $makeJudged,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $plan = Planned::twoShards()->on(RunOn::at(Scope::pullRequest(7), Scope::branch('main')));
 
     $verdict = JudgingRuns::verdictOf($judged(
@@ -482,10 +559,14 @@ it('only reports a raise in a pull request where baseline.improvement is report'
 });
 
 it('fails a pull request that lowers a floor the default branch holds without a reason', function () use (
-    $tree,
-    $reporting,
-    $judged,
+    $makeTree,
+    $makeReporting,
+    $makeJudged,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $project = Flows::project();
     Scratch::write($project, 'mutation-gate.baseline.json', BaselineFile::encode(
         Baseline::of(Entry::of(Path::of('src'), Floor::of(40))),
@@ -511,10 +592,14 @@ it('fails a pull request that lowers a floor the default branch holds without a 
 });
 
 it('cannot judge a pull request where git cannot read the default branch\'s baseline', function () use (
-    $tree,
-    $reporting,
-    $judged,
+    $makeTree,
+    $makeReporting,
+    $makeJudged,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $shallow = new ChangeSourceFake(Revision::ref('base'), Changes::none(), [
         Revision::workingTree()->name() => Flows::FILES,
     ]);
@@ -539,9 +624,12 @@ it('cannot judge a pull request where git cannot read the default branch\'s base
 });
 
 it('counts the proofs and the results of its own scope it took, and records how many it used', function () use (
-    $tree,
-    $reporting,
+    $makeTree,
+    $makeReporting,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+
     $project = Flows::project();
     $store = new ProofStoreFake();
     $plan = Planned::of()
@@ -576,9 +664,12 @@ it('counts the proofs and the results of its own scope it took, and records how 
 });
 
 it('uses none of its own scope where the default branch proved what it took', function () use (
-    $tree,
-    $reporting,
+    $makeTree,
+    $makeReporting,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+
     $project = Flows::project();
     $store = new ProofStoreFake();
     $plan = Planned::of()
@@ -602,9 +693,12 @@ it('uses none of its own scope where the default branch proved what it took', fu
 });
 
 it('cannot judge where a unit the plan proved or carried has lost its proof', function () use (
-    $tree,
-    $reporting,
+    $makeTree,
+    $makeReporting,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+
     $project = Flows::project();
     $store = new ProofStoreFake();
     $plan = Planned::of()
@@ -629,9 +723,12 @@ it('cannot judge where a unit the plan proved or carried has lost its proof', fu
 });
 
 it('takes a planned proof from the run\'s own scope where it has moved there from the default branch', function () use (
-    $tree,
-    $reporting,
+    $makeTree,
+    $makeReporting,
 ): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+
     $project = Flows::project();
     $store = new ProofStoreFake();
     $plan = Planned::of()
@@ -655,7 +752,11 @@ it('takes a planned proof from the run\'s own scope where it has moved there fro
         ->toEqual(Passed::of(Revision::ref(Flows::HEAD), 'mutation / verdict', 1)->passedAt(Instant::at(new DateTimeImmutable(Configs::NOW))));
 });
 
-it('carries the last result\'s mutants of a mutator the plan pruned into the unit, and writes no proof of it', function () use ($tree, $reporting, $judged): void {
+it('carries the last result\'s mutants of a mutator the plan pruned into the unit, and writes no proof of it', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $tree = $makeTree();
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+
     $project = Flows::project();
     $store = JudgingRuns::proven('money', 'money test');
     $digested = JudgingRuns::digested('money', 'money test');

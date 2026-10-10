@@ -93,13 +93,13 @@ function riskProofOf(string $unit, Mutant $mutant): Proof
     );
 }
 
-$trees = Trees::of(Tree::at(Path::of('src'), Floor::of(50), Package::at(Path::root())));
-$reach = Reach::nothing(Packages::of($trees))
+$trees = static fn(): Trees => Trees::of(Tree::at(Path::of('src'), Floor::of(50), Package::at(Path::root())));
+$reach = static fn(): Reach => Reach::nothing(Packages::of($trees()))
     ->files(Paths::of(Path::of('src/Reached.php'), Path::of('src/Changed.php')), Reason::that('A changed test runs them.'))
     ->withLines(Path::of('src/Changed.php'), Lines::of(Line::of(4)))
     ->withLines(Path::of('src/Edited/Kept.php'), Lines::of(Line::of(2)));
-$order = RiskOrder::of(
-    $reach,
+$makeOrder = static fn(): RiskOrder => RiskOrder::of(
+    $reach(),
     Proofs::of(
         riskProof('src/Changed.php', MutantStatus::Survived),
         riskProof('src/Survivor.php', MutantStatus::Survived),
@@ -114,22 +114,26 @@ $order = RiskOrder::of(
     MutantTriage::under(TimeoutMode::Confirm),
 );
 
-it('ranks a unit by the first risk it runs', function (Unit $unit, Risk $risk) use ($order): void {
+it('ranks a unit by the first risk it runs', function (Unit $unit, Risk $risk) use ($makeOrder): void {
+    $order = $makeOrder();
+
     expect($order->riskOf($unit))->toBe($risk);
 })->with([
-    'changed lines, whatever its last result' => [Unit::file(Path::of('src/Changed.php')), Risk::ChangedLines],
-    'changed lines of a file a held unit holds' => [Unit::held(Path::of('src/Edited'), Group::named('holds:src/Edited')), Risk::ChangedLines],
-    'a survivor last time' => [Unit::file(Path::of('src/Survivor.php')), Risk::Unsettled],
-    'a mutant too slow to judge last time' => [Unit::file(Path::of('src/TooSlow.php')), Risk::Unsettled],
-    'a mutant too heavy to judge last time' => [Unit::file(Path::of('src/TooHeavy.php')), Risk::Unsettled],
-    'a kill by the memory cap, and nothing else' => [Unit::file(Path::of('src/KilledByMemoryCap.php')), Risk::Rest],
-    'never mutated' => [Unit::file(Path::of('src/New.php')), Risk::NeverMutated],
-    'reached by a changed test' => [Unit::file(Path::of('src/Reached.php')), Risk::Reached],
-    'a timeout that killed it, and nothing else' => [Unit::file(Path::of('src/KilledByTimeout.php')), Risk::Rest],
-    'everything settled and unreached' => [Unit::file(Path::of('src/Settled.php')), Risk::Rest],
+    'changed lines, whatever its last result' => [fn(): Unit => Unit::file(Path::of('src/Changed.php')), Risk::ChangedLines],
+    'changed lines of a file a held unit holds' => [fn(): Unit => Unit::held(Path::of('src/Edited'), Group::named('holds:src/Edited')), Risk::ChangedLines],
+    'a survivor last time' => [fn(): Unit => Unit::file(Path::of('src/Survivor.php')), Risk::Unsettled],
+    'a mutant too slow to judge last time' => [fn(): Unit => Unit::file(Path::of('src/TooSlow.php')), Risk::Unsettled],
+    'a mutant too heavy to judge last time' => [fn(): Unit => Unit::file(Path::of('src/TooHeavy.php')), Risk::Unsettled],
+    'a kill by the memory cap, and nothing else' => [fn(): Unit => Unit::file(Path::of('src/KilledByMemoryCap.php')), Risk::Rest],
+    'never mutated' => [fn(): Unit => Unit::file(Path::of('src/New.php')), Risk::NeverMutated],
+    'reached by a changed test' => [fn(): Unit => Unit::file(Path::of('src/Reached.php')), Risk::Reached],
+    'a timeout that killed it, and nothing else' => [fn(): Unit => Unit::file(Path::of('src/KilledByTimeout.php')), Risk::Rest],
+    'everything settled and unreached' => [fn(): Unit => Unit::file(Path::of('src/Settled.php')), Risk::Rest],
 ]);
 
-it('orders units the riskiest first, and by path between units of one risk', function () use ($order): void {
+it('orders units the riskiest first, and by path between units of one risk', function () use ($makeOrder): void {
+    $order = $makeOrder();
+
     $held = Unit::held(Path::of('src/Held'), Group::named('holds:src/Held'));
     $ordered = $order->ordered(Units::of(
         Unit::file(Path::of('src/Settled.php')),
@@ -152,7 +156,9 @@ it('orders units the riskiest first, and by path between units of one risk', fun
     ]);
 });
 
-it('names the units of least risk, which are the ones recency orders', function () use ($order): void {
+it('names the units of least risk, which are the ones recency orders', function () use ($makeOrder): void {
+    $order = $makeOrder();
+
     $least = $order->least(Units::of(
         Unit::file(Path::of('src/Settled.php')),
         Unit::file(Path::of('src/Changed.php')),
@@ -164,7 +170,9 @@ it('names the units of least risk, which are the ones recency orders', function 
         ->toBe(['src/Settled.php', 'src/KilledByTimeout.php']);
 });
 
-it('puts the most recently changed first among the least risky, those no commit changed after them, and ties by path', function () use ($order): void {
+it('puts the most recently changed first among the least risky, those no commit changed after them, and ties by path', function () use ($makeOrder): void {
+    $order = $makeOrder();
+
     $at = Moment::at(...);
     $ordered = $order
         ->knowing(ByPath::none()

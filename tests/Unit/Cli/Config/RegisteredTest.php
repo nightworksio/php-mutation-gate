@@ -25,9 +25,11 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Symfony\Component\Yaml\Yaml;
 
-$here = (string) getcwd();
+$makeHere = static fn(): string => (string) getcwd();
 
-afterEach(function () use ($here): void {
+afterEach(function () use ($makeHere): void {
+    $here = $makeHere();
+
     chdir($here);
     Scratch::sweep();
 });

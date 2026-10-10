@@ -50,8 +50,8 @@ afterEach(function (): void {
 /** A workflow that runs the gate, pinned at a commit. */
 const REACHED_WORKFLOW = "on: push\njobs:\n  gate:\n    steps:\n      - uses: actions/checkout@%s # v4\n";
 
-$money = Unit::file(Path::of('src/Money.php'));
-$held = Unit::held(Path::of('src/Held.php'), Group::named('holds:src/Held.php'));
+$makeMoney = static fn(): Unit => Unit::file(Path::of('src/Money.php'));
+$makeHeld = static fn(): Unit => Unit::held(Path::of('src/Held.php'), Group::named('holds:src/Held.php'));
 
 /**
  * What these changes since `base` reach, where the checkout has these files
@@ -116,7 +116,10 @@ function reachedSuite(ChangeSourceFake $checkout, Adapters $adapters): Suite
     return $suite instanceof Suite ? $suite : throw new RuntimeException($suite->why());
 }
 
-it('reaches every unit of a full run, for its reason', function () use ($money, $held): void {
+it('reaches every unit of a full run, for its reason', function () use ($makeMoney, $makeHeld): void {
+    $money = $makeMoney();
+    $held = $makeHeld();
+
     $reached = Reached::everything(Flows::trees(), CannotTell::because('A full run considers every unit.'));
 
     expect($reached->reach()->reaches($money))->toBeTrue()
@@ -126,9 +129,12 @@ it('reaches every unit of a full run, for its reason', function () use ($money, 
 });
 
 it('reaches what a source change reaches, and keeps the lines each change added or modified', function () use (
-    $money,
-    $held,
+    $makeMoney,
+    $makeHeld,
 ): void {
+    $money = $makeMoney();
+    $held = $makeHeld();
+
     $reached = reachedSince(Changes::of(
         Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(2), Line::of(3))),
         Change::added(Path::of('src/Limit.php'), Lines::of(Line::of(1))),
@@ -148,7 +154,9 @@ it('reaches what a source change reaches, and keeps the lines each change added 
 it('reaches the files a changed test runs, as the runner says which tests judge each', function (
     string $test,
     bool $reachesMoney,
-) use ($money): void {
+) use ($makeMoney): void {
+    $money = $makeMoney();
+
     $runner = new RunnerFake(
         Identity::of('fake', Versions::none(), Digest::of('php')),
         Groups::of(),
@@ -175,8 +183,10 @@ it('reaches the files a changed test runs, as the runner says which tests judge 
 ]);
 
 it('tells a changed test by the suffix the PHPUnit config gives the directory it is in', function () use (
-    $money,
+    $makeMoney,
 ): void {
+    $money = $makeMoney();
+
     $config = <<<'XML'
         <phpunit>
             <testsuites>
@@ -205,7 +215,9 @@ it('tells a changed test by the suffix the PHPUnit config gives the directory it
         ->and($reached->reach()->isEverywhere())->toBeFalse();
 });
 
-it('reaches everything where a file that decides how the gate runs changed', function (string $file) use ($held): void {
+it('reaches everything where a file that decides how the gate runs changed', function (string $file) use ($makeHeld): void {
+    $held = $makeHeld();
+
     $reached = reachedSince(
         Changes::of(Change::modified(Path::of($file), Lines::of(Line::of(1)))),
         [$file => sprintf(REACHED_WORKFLOW, 'b')],
@@ -220,7 +232,9 @@ it('reaches everything where a file that decides how the gate runs changed', fun
     'a file that defines the runner' => ['tests/Pest.php'],
 ]);
 
-it('reaches everything where the commit a workflow pins an action at moved', function () use ($money): void {
+it('reaches everything where the commit a workflow pins an action at moved', function () use ($makeMoney): void {
+    $money = $makeMoney();
+
     $reached = reachedSince(
         Changes::of(Change::modified(Path::of('.github/workflows/gate.yml'), Lines::of(Line::of(5)))),
         ['.github/workflows/gate.yml' => sprintf(REACHED_WORKFLOW, str_repeat('b', 40))],
@@ -231,7 +245,9 @@ it('reaches everything where the commit a workflow pins an action at moved', fun
         ->and($reached->reach()->reaches($money))->toBeTrue();
 });
 
-it('reaches nothing where only a workflow\'s comment lines changed', function () use ($money): void {
+it('reaches nothing where only a workflow\'s comment lines changed', function () use ($makeMoney): void {
+    $money = $makeMoney();
+
     $reached = reachedSince(
         Changes::of(Change::modified(Path::of('.github/workflows/gate.yml'), Lines::of(Line::of(5)))),
         ['.github/workflows/gate.yml' => sprintf("# The gate.\n%s", sprintf(REACHED_WORKFLOW, str_repeat('a', 40)))],
@@ -242,7 +258,9 @@ it('reaches nothing where only a workflow\'s comment lines changed', function ()
         ->and($reached->reach()->reaches($money))->toBeFalse();
 });
 
-it('reaches nothing where the config file the run reads changed no setting that affects results, and everything where it did', function (string $before, bool $everywhere) use ($money): void {
+it('reaches nothing where the config file the run reads changed no setting that affects results, and everything where it did', function (string $before, bool $everywhere) use ($makeMoney): void {
+    $money = $makeMoney();
+
     $config = static fn(string $project): DecidingConfig => DecidingConfig::read(
         new Effective(
             $project,
@@ -269,7 +287,9 @@ it('reaches nothing where the config file the run reads changed no setting that 
     'the trees' => ['{"runner": "pest", "trees": [{"path": "lib"}]}', true],
 ]);
 
-it('reaches everything where a file the config reads beside itself changed, was added, deleted or renamed', function (Change $change) use ($held): void {
+it('reaches everything where a file the config reads beside itself changed, was added, deleted or renamed', function (Change $change) use ($makeHeld): void {
+    $held = $makeHeld();
+
     $reached = reachedReading(
         DecidingConfig::unread(...),
         ConfigReads::named(Path::of('settings/shared.php')),
@@ -283,14 +303,16 @@ it('reaches everything where a file the config reads beside itself changed, was 
         ->and(array_map(static fn(Reason $reason): string => $reason->text(), [...$reached->reach()->reasons()]))
         ->toBe(['`settings/shared.php` decides how the gate runs, so every unit is reached.']);
 })->with([
-    'edited' => [Change::modified(Path::of('settings/shared.php'), Lines::of(Line::of(1)))],
-    'added' => [Change::added(Path::of('settings/shared.php'), Lines::of(Line::of(1)))],
-    'deleted' => [Change::deleted(Path::of('settings/shared.php'))],
-    'renamed away' => [Change::renamed(Path::of('settings/shared.php'), Path::of('settings/moved.php'), Lines::of())],
-    'renamed into its place' => [Change::renamed(Path::of('settings/new.php'), Path::of('settings/shared.php'), Lines::of())],
+    'edited' => [fn(): Change => Change::modified(Path::of('settings/shared.php'), Lines::of(Line::of(1)))],
+    'added' => [fn(): Change => Change::added(Path::of('settings/shared.php'), Lines::of(Line::of(1)))],
+    'deleted' => [fn(): Change => Change::deleted(Path::of('settings/shared.php'))],
+    'renamed away' => [fn(): Change => Change::renamed(Path::of('settings/shared.php'), Path::of('settings/moved.php'), Lines::of())],
+    'renamed into its place' => [fn(): Change => Change::renamed(Path::of('settings/new.php'), Path::of('settings/shared.php'), Lines::of())],
 ]);
 
-it('reaches everything on every change where the config reads a file it cannot name, saying why, and nothing with no change', function () use ($money): void {
+it('reaches everything on every change where the config reads a file it cannot name, saying why, and nothing with no change', function () use ($makeMoney): void {
+    $money = $makeMoney();
+
     $why = 'mutation-gate.php reads what the gate cannot name without running it (`file_get_contents()` on line 7), so every change reaches everything.';
     $reached = reachedReading(
         DecidingConfig::unread(...),
@@ -307,7 +329,9 @@ it('reaches everything on every change where the config reads a file it cannot n
         ->and($unchanged->reach()->isEverywhere())->toBeFalse();
 });
 
-it('reaches nothing for a file beside a config that reads no other file, as a JSON config reads none', function () use ($money): void {
+it('reaches nothing for a file beside a config that reads no other file, as a JSON config reads none', function () use ($makeMoney): void {
+    $money = $makeMoney();
+
     $reached = reachedReading(
         DecidingConfig::unread(...),
         ConfigReads::none(),
@@ -320,7 +344,9 @@ it('reaches nothing for a file beside a config that reads no other file, as a JS
         ->and($reached->reach()->reaches($money))->toBeFalse();
 });
 
-it('reaches everything where git cannot tell what changed, and says why it keeps no line', function () use ($held): void {
+it('reaches everything where git cannot tell what changed, and says why it keeps no line', function () use ($makeHeld): void {
+    $held = $makeHeld();
+
     $checkout = new ChangeSourceFake(
         Revision::ref('elsewhere'),
         Changes::none(),
@@ -357,7 +383,10 @@ function reachedFrom(ChangeSourceFake $checkout, ChangeBase $base): Reached
     );
 }
 
-it('reaches only what changed since its last run, gives the new code since the ref, and carries its own results alone for what changed since the ref', function () use ($money, $held): void {
+it('reaches only what changed since its last run, gives the new code since the ref, and carries its own results alone for what changed since the ref', function () use ($makeMoney, $makeHeld): void {
+    $money = $makeMoney();
+    $held = $makeHeld();
+
     $sinceRef = Changes::of(
         Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(3))),
         Change::modified(Path::of('src/Held.php'), Lines::of(Line::of(2))),
@@ -376,7 +405,10 @@ it('reaches only what changed since its last run, gives the new code since the r
         ->and([...$reached->ownOnly()])->toEqual([Path::of('src/Money.php'), Path::of('src/Held.php')]);
 });
 
-it('reads its change since the ref where git cannot read the commit its last run judged, as after a force-push', function () use ($money, $held): void {
+it('reads its change since the ref where git cannot read the commit its last run judged, as after a force-push', function () use ($makeMoney, $makeHeld): void {
+    $money = $makeMoney();
+    $held = $makeHeld();
+
     $sinceRef = Changes::of(Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(3))));
     $checkout = new ChangeSourceFake(Revision::ref('base'), $sinceRef, [
         Revision::workingTree()->name() => Flows::FILES,
@@ -391,7 +423,10 @@ it('reads its change since the ref where git cannot read the commit its last run
         ->and([...$reached->ownOnly()])->toBe([]);
 });
 
-it('reads its change from the tree a gone last run\'s merge makes again, where that is the tree it held, and since the ref where it is not', function (bool $sameTree, bool $exact) use ($money, $held): void {
+it('reads its change from the tree a gone last run\'s merge makes again, where that is the tree it held, and since the ref where it is not', function (bool $sameTree, bool $exact) use ($makeMoney, $makeHeld): void {
+    $money = $makeMoney();
+    $held = $makeHeld();
+
     $sinceRef = Changes::of(
         Change::modified(Path::of('src/Money.php'), Lines::of(Line::of(3))),
         Change::modified(Path::of('src/Held.php'), Lines::of(Line::of(2))),

@@ -128,7 +128,7 @@ function phpUnitRunner(Project $project, PhpUnitShellFake $shell): PhpUnit
     return new PhpUnit($project, $shell, Engine::with(new PlusToMinus()), LimitBounds::between(Seconds::of(5.0), Seconds::of(6.0)), new CapDirectory());
 }
 
-$request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
+$makeRequest = static fn(): MutationRequest => MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
 
 it('is built from the options the flows write, or refuses those not in their shape', function (): void {
     $built = PhpUnit::fromOptions(Configs::options('{"timeout": 30}'), Path::of('vendor'), new CapDirectory(), new LocalProcesses(new SystemClock()));
@@ -240,7 +240,9 @@ it('cannot time a run of no test that fails, of a file that is gone, or without 
         });
 })->with(['a run that fails', 'a file that is gone', 'no override']);
 
-it('mutates afresh each time, allowing each mutant its limit within the bounds, and runs a mutant again on the map its run read under a raised most', function () use ($request): void {
+it('mutates afresh each time, allowing each mutant its limit within the bounds, and runs a mutant again on the map its run read under a raised most', function () use ($makeRequest): void {
+    $request = $makeRequest();
+
     $project = phpUnitRunnerProject();
     $shell = phpUnitAnswering($project);
     $runner = phpUnitRunner($project, $shell);
@@ -259,7 +261,9 @@ it('mutates afresh each time, allowing each mutant its limit within the bounds, 
         ->and($coverageRuns)->toHaveCount(2);
 });
 
-it('offers its covered mutants to the gate\'s static analysis before their tests', function () use ($request): void {
+it('offers its covered mutants to the gate\'s static analysis before their tests', function () use ($makeRequest): void {
+    $request = $makeRequest();
+
     $project = phpUnitRunnerProject();
     $checker = new PreCheckerFake([]);
 
@@ -268,7 +272,9 @@ it('offers its covered mutants to the gate\'s static analysis before their tests
     expect($checker->offered())->not->toBe([]);
 });
 
-it('lays each mutant\'s limit on the start-up the request\'s pool measured, a run again too', function () use ($request): void {
+it('lays each mutant\'s limit on the start-up the request\'s pool measured, a run again too', function () use ($makeRequest): void {
+    $request = $makeRequest();
+
     $project = phpUnitRunnerProject();
     $shell = phpUnitAnswering($project);
     $runner = phpUnitRunner($project, $shell);
@@ -280,7 +286,9 @@ it('lays each mutant\'s limit on the start-up the request\'s pool measured, a ru
     expect($last->deadline())->toEqual(Seconds::of(13.5));
 });
 
-it('names the steps its time went to: readying the coverage, preparing the mutants\' runs, and running them', function () use ($request): void {
+it('names the steps its time went to: readying the coverage, preparing the mutants\' runs, and running them', function () use ($makeRequest): void {
+    $request = $makeRequest();
+
     $project = phpUnitRunnerProject();
     $clock = new class implements Clock {
         private float $read = 0.0;
@@ -305,7 +313,9 @@ it('names the steps its time went to: readying the coverage, preparing the mutan
     ]);
 });
 
-it('reproduces a mutant on its own, on the map its run read, with what PHPUnit printed', function () use ($request): void {
+it('reproduces a mutant on its own, on the map its run read, with what PHPUnit printed', function () use ($makeRequest): void {
+    $request = $makeRequest();
+
     $project = phpUnitRunnerProject();
     $runner = phpUnitRunner($project, phpUnitAnswering($project));
     $first = $runner->mutate($request);
@@ -371,7 +381,9 @@ it('answers as PHPUnit in a package where Composer installed it there, and canno
         ));
 });
 
-it('runs each control as a mutant that changes nothing, its file served through the override', function () use ($request): void {
+it('runs each control as a mutant that changes nothing, its file served through the override', function () use ($makeRequest): void {
+    $request = $makeRequest();
+
     $project = phpUnitRunnerProject();
     $control = Control::of(Path::of('src/Money.php'), TestIds::of(TestId::of('Tests\MoneyTest::testAdds')), Seconds::of(5.0));
     $runs = phpUnitRunner($project, phpUnitAnswering($project))->controls($request, Controls::of($control));

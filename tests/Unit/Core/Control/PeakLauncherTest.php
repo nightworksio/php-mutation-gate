@@ -18,12 +18,12 @@ afterEach(function (): void {
 it('reads the peak the script wrote in kilobytes, or in bytes on macOS, and none from what is no whole number above nought', function (string $written, string $family, MemoryCap|NotGiven $peak): void {
     expect(PeakLauncher::peakIn($written, $family))->toEqual($peak);
 })->with([
-    'kilobytes on Linux' => ["2048\n", 'Linux', MemoryCap::of(2, MemoryUnit::Megabytes)],
-    'bytes on macOS' => ['2097152', 'Darwin', MemoryCap::of(2, MemoryUnit::Megabytes)],
-    'nothing' => ['', 'Linux', NotGiven::value()],
-    'nought' => ['0', 'Linux', NotGiven::value()],
-    'not a number' => ['12k', 'Linux', NotGiven::value()],
-    'a sign' => ['+12', 'Linux', NotGiven::value()],
+    'kilobytes on Linux' => ["2048\n", 'Linux', fn(): MemoryCap => MemoryCap::of(2, MemoryUnit::Megabytes)],
+    'bytes on macOS' => ['2097152', 'Darwin', fn(): MemoryCap => MemoryCap::of(2, MemoryUnit::Megabytes)],
+    'nothing' => ['', 'Linux', fn(): NotGiven => NotGiven::value()],
+    'nought' => ['0', 'Linux', fn(): NotGiven => NotGiven::value()],
+    'not a number' => ['12k', 'Linux', fn(): NotGiven => NotGiven::value()],
+    'a sign' => ['+12', 'Linux', fn(): NotGiven => NotGiven::value()],
 ]);
 
 it('gives a control the peak the script wrote, and leaves one without it where it wrote none', function (): void {

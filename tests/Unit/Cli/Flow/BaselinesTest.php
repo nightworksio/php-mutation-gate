@@ -98,10 +98,10 @@ it('cannot judge where git cannot read the default branch, or its file is not a 
         Fetch the default branch into the checkout before the verdict.
         SAID, $why)));
 })->with([
-    'a shallow checkout' => [$remotes(), 'refs/remotes/origin/main is not a revision this repository has.'],
+    'a shallow checkout' => [fn(): ChangeSourceFake => $remotes(), 'refs/remotes/origin/main is not a revision this repository has.'],
     'a file that is not a baseline' => [
-        $remotes(main: 'not a baseline'),
-        sprintf(
+        fn(): ChangeSourceFake => $remotes(main: 'not a baseline'),
+        fn(): string => sprintf(
             '%s %s',
             'The baseline floors.json cannot be read: the file.format is missing.',
             'Fix it, or run mutation-gate baseline --write.',

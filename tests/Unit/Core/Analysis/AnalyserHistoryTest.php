@@ -9,10 +9,13 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
-$plus = Mutation::of('Plus', MutatorFamily::Arithmetic, "-+\n+-");
-$minus = Mutation::of('Minus', MutatorFamily::Arithmetic, "--\n++");
+$makePlus = static fn(): Mutation => Mutation::of('Plus', MutatorFamily::Arithmetic, "-+\n+-");
+$makeMinus = static fn(): Mutation => Mutation::of('Minus', MutatorFamily::Arithmetic, "--\n++");
 
-it('learns each check: its mutator\'s rate and its time', function () use ($plus, $minus): void {
+it('learns each check: its mutator\'s rate and its time', function () use ($makePlus, $makeMinus): void {
+    $plus = $makePlus();
+    $minus = $makeMinus();
+
     $history = AnalyserHistory::of('phpstan')
         ->rejected($plus, Seconds::of(1.0))
         ->passed($plus, Seconds::of(2.0))
@@ -25,13 +28,18 @@ it('learns each check: its mutator\'s rate and its time', function () use ($plus
         ->and([...$history])->toEqual([RejectionRate::of('Plus', 2, 1), RejectionRate::of('Minus', 1, 0)]);
 });
 
-it('knows nothing of a mutator it never checked', function () use ($plus): void {
+it('knows nothing of a mutator it never checked', function () use ($makePlus): void {
+    $plus = $makePlus();
+
     expect(AnalyserHistory::of('mago')->rateOf($plus))->toEqual(RejectionRate::unchecked('Plus'))
         ->and(AnalyserHistory::of('mago')->time())->toEqual(CheckTime::none())
         ->and([...AnalyserHistory::of('mago')])->toBe([]);
 });
 
-it('reads its own rates and time before another ledger\'s, and takes the other\'s where it has none', function () use ($plus, $minus): void {
+it('reads its own rates and time before another ledger\'s, and takes the other\'s where it has none', function () use ($makePlus, $makeMinus): void {
+    $plus = $makePlus();
+    $minus = $makeMinus();
+
     $own = AnalyserHistory::of('phpstan')->withRate(RejectionRate::of('Plus', 10, 2));
     $other = AnalyserHistory::of('phpstan')
         ->withRate(RejectionRate::of('Plus', 60, 30))
@@ -55,7 +63,9 @@ it('keeps one rate of a mutator whose name reads as a number, this history\'s fi
         ->and($read->rateOf($twelve))->toEqual(RejectionRate::of('12', 2, 1));
 });
 
-it('learns a check after the tests by its time alone', function () use ($plus): void {
+it('learns a check after the tests by its time alone', function () use ($makePlus): void {
+    $plus = $makePlus();
+
     $history = AnalyserHistory::of('mago')->checked(Seconds::of(0.25))->checked(Seconds::of(0.75));
 
     expect($history->time())->toEqual(CheckTime::of(2, Seconds::of(1.0)))
@@ -63,7 +73,10 @@ it('learns a check after the tests by its time alone', function () use ($plus): 
         ->and([...$history])->toBe([]);
 });
 
-it('adds what a run learned to it: each mutator\'s checks and rejections, and the checks\' time', function () use ($plus, $minus): void {
+it('adds what a run learned to it: each mutator\'s checks and rejections, and the checks\' time', function () use ($makePlus, $makeMinus): void {
+    $plus = $makePlus();
+    $minus = $makeMinus();
+
     $held = AnalyserHistory::of('phpstan')
         ->withRate(RejectionRate::of('Plus', 10, 2))
         ->withTime(CheckTime::of(10, Seconds::of(5.0)));

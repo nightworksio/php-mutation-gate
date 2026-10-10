@@ -41,7 +41,7 @@ function foundOnline(string $project, array $environment, MockHttpClient $github
         ->gitHub();
 }
 
-$online = foundOnline(...);
+$makeOnline = static fn(): Closure => foundOnline(...);
 
 $github = static fn(string $repository): MockHttpClient => GitHubAnswering::client([
     sprintf('/repos/%s', $repository) => new JsonMockResponse(['default_branch' => 'main']),
@@ -52,7 +52,9 @@ $github = static fn(string $repository): MockHttpClient => GitHubAnswering::clie
     ]]),
 ]);
 
-it('reads the repository GITHUB_REPOSITORY names, about the GitHub workflows that run the gate', function () use ($online, $github): void {
+it('reads the repository GITHUB_REPOSITORY names, about the GitHub workflows that run the gate', function () use ($makeOnline, $github): void {
+    $online = $makeOnline();
+
     $settings = $online(Scratch::directory(), ['GITHUB_REPOSITORY' => 'octo/gate'], $github('octo/gate'));
     $schedule = $settings instanceof GitHubSettings ? $settings->schedule() : null;
 
@@ -60,7 +62,9 @@ it('reads the repository GITHUB_REPOSITORY names, about the GitHub workflows tha
         ->and($schedule instanceof Schedule ? $schedule->workflows() : null)->toEqual(Paths::of(Path::of('.github/workflows/mutation.yml')));
 });
 
-it('reads the repository git\'s origin remote is on, on the server GITHUB_SERVER_URL names', function () use ($online, $github): void {
+it('reads the repository git\'s origin remote is on, on the server GITHUB_SERVER_URL names', function () use ($makeOnline, $github): void {
+    $online = $makeOnline();
+
     $repository = Repository::empty();
     $repository->git('remote', 'add', 'origin', 'https://git.example.com/octo/gate.git');
     $settings = $online($repository->root, ['GITHUB_SERVER_URL' => 'https://git.example.com'], $github('octo/gate'));
@@ -70,7 +74,9 @@ it('reads the repository git\'s origin remote is on, on the server GITHUB_SERVER
         ->toEqual(CannotTell::because('git\'s origin remote, https://git.example.com/octo/gate.git, is not a repository on github.com.'));
 });
 
-it('finds no repository without GITHUB_REPOSITORY or an origin remote, or with a name that is none', function () use ($online, $github): void {
+it('finds no repository without GITHUB_REPOSITORY or an origin remote, or with a name that is none', function () use ($makeOnline, $github): void {
+    $online = $makeOnline();
+
     $settings = $online(Scratch::directory(), [], $github('octo/gate'));
 
     expect($settings instanceof CannotTell ? $settings->why() : '')->toStartWith('GITHUB_REPOSITORY is not set, and git names no origin remote: ')
@@ -84,7 +90,9 @@ it('asks with GITHUB_TOKEN, else GH_TOKEN, at GITHUB_API_URL', function (
     string $api,
     string $url,
     string $token,
-) use ($online): void {
+) use ($makeOnline): void {
+    $online = $makeOnline();
+
     $response = new JsonMockResponse(['default_branch' => 'main']);
     $environment = array_filter([
         'GITHUB_REPOSITORY' => 'octo/gate',

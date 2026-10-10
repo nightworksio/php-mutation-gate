@@ -85,24 +85,24 @@ it('says why there is no token where the CI\'s, the exchange or the impersonatio
 })->with([
     'GitHub refuses' => [
         '{}',
-        new Cloud()->answering(ExternalAccounts::REQUEST_URL, 401, 'Unauthorized'),
+        fn(): Cloud => new Cloud()->answering(ExternalAccounts::REQUEST_URL, 401, 'Unauthorized'),
         'https://pipelines.actions.githubusercontent.com answered 401: Unauthorized',
     ],
     'GitHub gives none' => [
         '{}',
-        new Cloud()->answering(ExternalAccounts::REQUEST_URL, 200, '{"value": ""}'),
+        fn(): Cloud => new Cloud()->answering(ExternalAccounts::REQUEST_URL, 200, '{"value": ""}'),
         'the CI\'s token from https://pipelines.actions.githubusercontent.com is empty',
     ],
     'the exchange refuses' => [
         '{}',
-        new Cloud()
+        fn(): Cloud => new Cloud()
             ->answering(ExternalAccounts::REQUEST_URL, 200, '{"value": "jwt"}')
             ->answering(ExternalAccounts::STS, 400, '{"error": "invalid_grant"}'),
         'https://sts.googleapis.com answered 400: {"error": "invalid_grant"}',
     ],
     'the impersonation refuses' => [
-        sprintf('{"service_account_impersonation_url": "%s"}', ExternalAccounts::IMPERSONATE),
-        new Cloud()
+        fn(): string => sprintf('{"service_account_impersonation_url": "%s"}', ExternalAccounts::IMPERSONATE),
+        fn(): Cloud => new Cloud()
             ->answering(ExternalAccounts::REQUEST_URL, 200, '{"value": "jwt"}')
             ->answering(ExternalAccounts::STS, 200, '{"access_token": "federated"}')
             ->answering(ExternalAccounts::IMPERSONATE, 403, 'denied'),

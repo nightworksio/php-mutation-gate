@@ -69,14 +69,14 @@ function baseProof(string $unit, int $hour, Mutants $mutants): Proof
     return Proof::of(Digest::sha256Of(sprintf('%s@%d', $unit, $hour)), Path::of($unit), $mutants, $run);
 }
 
-$root = Package::at(Path::root());
-$trees = Trees::of(
-    Tree::at(Path::of('app'), Floor::of(50), $root),
-    Tree::at(Path::of('lib'), Floor::of(50), $root),
-    Tree::at(Path::of('empty'), Floor::of(50), $root),
+$root = static fn(): Package => Package::at(Path::root());
+$makeTrees = static fn(): Trees => Trees::of(
+    Tree::at(Path::of('app'), Floor::of(50), $root()),
+    Tree::at(Path::of('lib'), Floor::of(50), $root()),
+    Tree::at(Path::of('empty'), Floor::of(50), $root()),
 );
-$units = Units::of(Unit::file(Path::of('app/A.php')), Unit::file(Path::of('app/B.php')), Unit::file(Path::of('lib/C.php')));
-$judge = Judge::of($trees, Baseline::none(), Reach::nothing(Packages::of($trees)), Uncovered::Count, TimeoutMode::Confirm, Ignoring::none());
+$makeUnits = static fn(): Units => Units::of(Unit::file(Path::of('app/A.php')), Unit::file(Path::of('app/B.php')), Unit::file(Path::of('lib/C.php')));
+$makeJudge = static fn(): Judge => Judge::of($makeTrees(), Baseline::none(), Reach::nothing(Packages::of($makeTrees())), Uncovered::Count, TimeoutMode::Confirm, Ignoring::none());
 
 /** Each tree's base score, as the verdicts compared with them say. */
 $bases = static fn(TreeVerdicts $verdicts): array => array_map(
@@ -84,7 +84,11 @@ $bases = static fn(TreeVerdicts $verdicts): array => array_map(
     [...$verdicts],
 );
 
-it('scores each tree on the newest result of every one of its units on the default branch', function () use ($judge, $trees, $units, $bases): void {
+it('scores each tree on the newest result of every one of its units on the default branch', function () use ($makeJudge, $makeTrees, $makeUnits, $bases): void {
+    $judge = $makeJudge();
+    $trees = $makeTrees();
+    $units = $makeUnits();
+
     $defaultBranch = Proofs::of(
         baseProof('app/A.php', 9, baseMutants('app/A.php', MutantStatus::Survived, MutantStatus::Survived)),
         baseProof('app/A.php', 10, baseMutants('app/A.php', MutantStatus::Killed, MutantStatus::Survived)),
@@ -100,7 +104,11 @@ it('scores each tree on the newest result of every one of its units on the defau
     ]);
 });
 
-it('gives no base score to a tree with a unit the default branch has no result for', function () use ($judge, $trees, $units, $bases): void {
+it('gives no base score to a tree with a unit the default branch has no result for', function () use ($makeJudge, $makeTrees, $makeUnits, $bases): void {
+    $judge = $makeJudge();
+    $trees = $makeTrees();
+    $units = $makeUnits();
+
     $defaultBranch = Proofs::of(baseProof('app/A.php', 9, baseMutants('app/A.php', MutantStatus::Killed)));
     $now = $judge->trees(UnitResults::of(UnitResult::of(Unit::file(Path::of('lib/C.php')), Origin::Run, baseMutants('lib/C.php', MutantStatus::Killed))));
     $compared = BaseScores::of($judge, $trees, $units, $defaultBranch)->compare($now);
@@ -109,7 +117,9 @@ it('gives no base score to a tree with a unit the default branch has no result f
         ->and([...$compared][1]->score())->toEqual(Score::ofHundredths(10_000));
 });
 
-it('compares nothing where no tree has a base score', function () use ($judge, $bases): void {
+it('compares nothing where no tree has a base score', function () use ($makeJudge, $bases): void {
+    $judge = $makeJudge();
+
     expect($bases(BaseScores::none()->compare($judge->trees(UnitResults::none()))))
         ->toEqual([Unrecorded::floor(), Unrecorded::floor(), Unrecorded::floor()]);
 });

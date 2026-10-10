@@ -6,9 +6,11 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinition;
 
-$pin = str_repeat('3d', 20);
+$makePin = static fn(): string => str_repeat('3d', 20);
 
-it('reads the definition as it runs: without its comment lines, and with every pin and blank line', function () use ($pin): void {
+it('reads the definition as it runs: without its comment lines, and with every pin and blank line', function () use ($makePin): void {
+    $pin = $makePin();
+
     $definition = CiDefinition::at(Path::of('.github/workflows/mutation.yml'), Contents::of(sprintf(<<<'YAML'
         # The gate.
         name: mutation

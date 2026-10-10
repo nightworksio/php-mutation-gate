@@ -135,9 +135,9 @@ it('writes the re-checked survivors over its planned state alone, so a verdict a
             ->toBe(RecheckedMarkdown::comment(Rechecks::mixed(), 'https://github.example/octo/gate/actions/runs/7'));
     }
 })->with([
-    'planned' => [PlannedMarkdown::comment(ShardedPlan::planned(2), ''), true],
-    'the verdict' => [Markdown::comment(Verdicts::failing(), ''), false],
-    'the heading quoted inside a line' => [sprintf("%s\nnot %s here", Markdown::MARKER, PlannedMarkdown::HEADING), false],
+    'planned' => [fn(): string => PlannedMarkdown::comment(ShardedPlan::planned(2), ''), true],
+    'the verdict' => [fn(): string => Markdown::comment(Verdicts::failing(), ''), false],
+    'the heading quoted inside a line' => [fn(): string => sprintf("%s\nnot %s here", Markdown::MARKER, PlannedMarkdown::HEADING), false],
 ]);
 
 it('writes no re-checked survivors where the pull request has no comment of its own yet', function () use ($environment, $event, $comment): void {
@@ -177,10 +177,10 @@ it('writes no comment, and says why, where the run cannot comment', function (st
 
     expect($answer)->toEqual(NotWritten::because($why));
 })->with([
-    'a push' => ['push', 'secret', $event(), 'This run is not for a pull request, so there is no comment to write.'],
+    'a push' => ['push', 'secret', fn(): string => $event(), 'This run is not for a pull request, so there is no comment to write.'],
     'no pull request in the event' => ['pull_request', 'secret', '{}', 'This run is not for a pull request, so there is no comment to write.'],
-    'no token' => ['pull_request', '', $event(), 'GITHUB_TOKEN is not set, so no comment is written; the step summary carries it.'],
-    'a fork' => ['pull_request', 'secret', $event('someone/gate'), 'A fork\'s pull request gets a read-only token, so no comment is written; the step summary carries it.'],
+    'no token' => ['pull_request', '', fn(): string => $event(), 'GITHUB_TOKEN is not set, so no comment is written; the step summary carries it.'],
+    'a fork' => ['pull_request', 'secret', fn(): string => $event('someone/gate'), 'A fork\'s pull request gets a read-only token, so no comment is written; the step summary carries it.'],
 ]);
 
 it('reads its run from the environment and the event file, and its identity from its options', function () use ($event): void {
@@ -246,6 +246,6 @@ it('leaves no comment for deliver on a run that is no pull request\'s', function
         ->and($comment->plannedLater(ShardedPlan::planned(1), Delivery::none()))->toEqual(Delivery::none())
         ->and($comment->recheckedLater(Rechecks::mixed(), Delivery::none()))->toEqual(Delivery::none());
 })->with([
-    'a push' => ['push', $event()],
+    'a push' => ['push', fn(): string => $event()],
     'no pull request in the event' => ['pull_request', '{}'],
 ]);

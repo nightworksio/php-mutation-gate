@@ -12,8 +12,8 @@ it('reads a full commit id in either of git\'s object formats', function (string
     expect($commit instanceof Commit ? $commit->id() : '')->toBe($id)
         ->and($commit instanceof Commit ? $commit->revision() : null)->toEqual(Revision::ref($id));
 })->with([
-    'SHA-1' => [str_repeat('a1', 20)],
-    'SHA-256' => [str_repeat('b2', 32)],
+    'SHA-1' => [fn(): string => str_repeat('a1', 20)],
+    'SHA-256' => [fn(): string => str_repeat('b2', 32)],
 ]);
 
 it('says why what a file holds is no commit id', function (string $id): void {
@@ -22,7 +22,7 @@ it('says why what a file holds is no commit id', function (string $id): void {
     'an option git would read' => ['--output=/tmp/x'],
     'a branch' => ['main'],
     'abbreviated' => ['5eeca8f'],
-    'uppercase' => [str_repeat('A1', 20)],
-    'a line break after it' => [sprintf("%s\n", str_repeat('a1', 20))],
-    'between the formats' => [str_repeat('a', 50)],
+    'uppercase' => [fn(): string => str_repeat('A1', 20)],
+    'a line break after it' => [fn(): string => sprintf("%s\n", str_repeat('a1', 20))],
+    'between the formats' => [fn(): string => str_repeat('a', 50)],
 ]);

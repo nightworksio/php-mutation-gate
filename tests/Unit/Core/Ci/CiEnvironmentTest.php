@@ -14,14 +14,14 @@ it('shows a marker set to true, one set to anything, and never none', function (
 ): void {
     expect(CiEnvironment::of(Variables::of(['MARK' => $value]))->shows($marker))->toBe($shown);
 })->with([
-    'true' => [CiMarker::saying('MARK'), 'true', true],
-    'True, which is not true' => [CiMarker::saying('MARK'), 'True', false],
-    'True, set to something' => [CiMarker::setting('MARK'), 'True', true],
-    'not true' => [CiMarker::saying('MARK'), '1', false],
-    'unset' => [CiMarker::saying('OTHER'), 'true', false],
-    'set to anything' => [CiMarker::setting('MARK'), '42', true],
-    'set to nothing' => [CiMarker::setting('MARK'), '', false],
-    'no marker' => [CiMarker::none(), 'true', false],
+    'true' => [fn(): CiMarker => CiMarker::saying('MARK'), 'true', true],
+    'True, which is not true' => [fn(): CiMarker => CiMarker::saying('MARK'), 'True', false],
+    'True, set to something' => [fn(): CiMarker => CiMarker::setting('MARK'), 'True', true],
+    'not true' => [fn(): CiMarker => CiMarker::saying('MARK'), '1', false],
+    'unset' => [fn(): CiMarker => CiMarker::saying('OTHER'), 'true', false],
+    'set to anything' => [fn(): CiMarker => CiMarker::setting('MARK'), '42', true],
+    'set to nothing' => [fn(): CiMarker => CiMarker::setting('MARK'), '', false],
+    'no marker' => [fn(): CiMarker => CiMarker::none(), 'true', false],
 ]);
 
 it('names the variable a marker reads, and how it reads it', function (): void {

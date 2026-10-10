@@ -29,14 +29,16 @@ $names = static fn(Units $units): array => array_map(
     static fn(Unit $unit): string => sprintf('%s%s', $unit->path()->value(), $unit->isHeld() ? ' (held)' : ''),
     iterator_to_array($units, preserve_keys: true),
 );
-$root = Package::at(Path::root());
-$trees = Trees::of(
-    Tree::at(Path::of('src'), Floor::of(100), $root),
-    Tree::at(Path::of('src/Generated'), Exempt::because('Generated code'), $root),
-    Tree::at(Path::of('lib'), Floor::of(80), $root),
+$root = static fn(): Package => Package::at(Path::root());
+$makeTrees = static fn(): Trees => Trees::of(
+    Tree::at(Path::of('src'), Floor::of(100), $root()),
+    Tree::at(Path::of('src/Generated'), Exempt::because('Generated code'), $root()),
+    Tree::at(Path::of('lib'), Floor::of(80), $root()),
 );
 
-it('makes a unit of each held path, then of each PHP file in a tree no held path holds', function () use ($files, $names, $trees): void {
+it('makes a unit of each held path, then of each PHP file in a tree no held path holds', function () use ($files, $names, $makeTrees): void {
+    $trees = $makeTrees();
+
     $units = TreeUnits::of(
         $trees,
         $files(

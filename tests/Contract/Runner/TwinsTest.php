@@ -66,4 +66,4 @@ it('runs one of each pair of mutants that leave a file alike, and judges the oth
     ])
         ->and(substr_count($recorded, '"event":"twin"'))->toBe(2)
         ->and(substr_count($recorded, '"event":"planned"'))->toBe(2);
-})->skip(! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');

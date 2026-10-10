@@ -83,9 +83,9 @@ it('gives the limit of a mutant that ran out of time or memory, with what its te
 
     expect(explainedIn($judged, CannotTell::because('Not run.'), Reasons::of()))->toContain(sprintf("\n    %s\n", $said));
 })->with([
-    'timed out' => [MutantStatus::TimedOut, Seconds::of(5.0), Seconds::of(1.25), 'Limit: 5.00s; its judging tests took 1.25s unmutated under it'],
-    'skipped' => [MutantStatus::Skipped, Seconds::of(5.0), Unmeasured::duration(), 'Limit: 5.00s'],
-    'out of memory' => [MutantStatus::OutOfMemory, MemoryCap::of(256, MemoryUnit::Megabytes), MemoryCap::of(300, MemoryUnit::Megabytes), 'Limit: 256M; its judging tests take 300M on their own'],
+    'timed out' => [MutantStatus::TimedOut, fn(): Seconds => Seconds::of(5.0), fn(): Seconds => Seconds::of(1.25), 'Limit: 5.00s; its judging tests took 1.25s unmutated under it'],
+    'skipped' => [MutantStatus::Skipped, fn(): Seconds => Seconds::of(5.0), fn(): Unmeasured => Unmeasured::duration(), 'Limit: 5.00s'],
+    'out of memory' => [MutantStatus::OutOfMemory, fn(): MemoryCap => MemoryCap::of(256, MemoryUnit::Megabytes), fn(): MemoryCap => MemoryCap::of(300, MemoryUnit::Megabytes), 'Limit: 256M; its judging tests take 300M on their own'],
 ]);
 
 it('gives no limit to a mutant that did not run out of one, nor to one whose limit nobody recorded', function (): void {

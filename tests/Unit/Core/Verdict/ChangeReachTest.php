@@ -123,8 +123,8 @@ it('reaches what named a class a change deleted, or renamed from under it', func
 
     expect(reachOf($files, $before, [$change])->reaches(Path::of('src/Money.php'), Paths::none()))->toBeTrue();
 })->with([
-    'deleted' => [Change::deleted(Path::of('src/Equals.php')), ''],
-    'renamed, and changed' => [Change::renamed(Path::of('src/Equals.php'), Path::of('src/Same.php'), Lines::none()), 'src/Same.php'],
+    'deleted' => [fn(): Change => Change::deleted(Path::of('src/Equals.php')), ''],
+    'renamed, and changed' => [fn(): Change => Change::renamed(Path::of('src/Equals.php'), Path::of('src/Same.php'), Lines::none()), 'src/Same.php'],
 ]);
 
 it('reaches every kill with a change it cannot follow by name, and says why', function (string $changed, string $source, string $why): void {
@@ -221,8 +221,8 @@ it('follows a test file a change deleted, or renamed, by name, though it ran cod
         ->and($reach->reaches(Path::of('src/Money.php'), Paths::of(Path::of('tests/TaxTest.php'))))->toBeFalse()
         ->and($reach->reaches(Path::of('src/Money.php'), Paths::of(Path::of('tests/OldTest.php'))))->toBeTrue();
 })->with([
-    'deleted' => [Change::deleted(Path::of('tests/OldTest.php'))],
-    'renamed' => [Change::renamed(Path::of('tests/OldTest.php'), Path::of('tests/NewTest.php'), Lines::none())],
+    'deleted' => [fn(): Change => Change::deleted(Path::of('tests/OldTest.php'))],
+    'renamed' => [fn(): Change => Change::renamed(Path::of('tests/OldTest.php'), Path::of('tests/NewTest.php'), Lines::none())],
 ]);
 
 it('reaches what spells the name of a changed PHP file that runs code when it is loaded, and what declares, but nothing else', function (string $source): void {

@@ -40,16 +40,16 @@ it('pins nothing it can name where Composer does not list the gate, or names no 
     expect([$pin->commit(), $pin->version(), $pin->isKnown(), $pin->pin()])
         ->toBe(['<the commit of a release>', '<its version>', false, '<the commit of a release>']);
 })->with([
-    'not listed' => [gatePinOf([['name' => 'acme/other', 'version' => 'v9.0.0', 'source' => ['reference' => 'ffff']]])],
-    'no commit' => [gatePinOf([['name' => 'nightworksio/mutation-gate', 'version' => 'dev-main']])],
-    'an empty commit' => [gatePinOf([
+    'not listed' => [fn(): GatePin => gatePinOf([['name' => 'acme/other', 'version' => 'v9.0.0', 'source' => ['reference' => 'ffff']]])],
+    'no commit' => [fn(): GatePin => gatePinOf([['name' => 'nightworksio/mutation-gate', 'version' => 'dev-main']])],
+    'an empty commit' => [fn(): GatePin => gatePinOf([
         ['name' => 'nightworksio/mutation-gate', 'version' => 'dev-main', 'source' => ['reference' => '']],
     ])],
-    'unknown' => [GatePin::unknown()],
-    'no full commit' => [gatePinOf([
+    'unknown' => [fn(): GatePin => GatePin::unknown()],
+    'no full commit' => [fn(): GatePin => gatePinOf([
         ['name' => 'nightworksio/mutation-gate', 'version' => 'v1.2.0', 'source' => ['reference' => '0123abcd']],
     ])],
-    'a version a comment cannot hold' => [gatePinOf([
+    'a version a comment cannot hold' => [fn(): GatePin => gatePinOf([
         ['name' => 'nightworksio/mutation-gate', 'version' => "v1\n- run: evil", 'source' => ['reference' => GATE_COMMIT]],
     ])],
 ]);

@@ -53,16 +53,18 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-$ticking = RunningCases::ticking(...);
-$tickingBy = RunningCases::tickingBy(...);
-$unjudged = RunningCases::unjudged(...);
-$resultIn = RunningCases::resultIn(...);
-$statuses = RunningCases::statuses(...);
-$orderings = RunningCases::orderings(...);
+$makeTicking = static fn(): Closure => RunningCases::ticking(...);
+$makeTickingBy = static fn(): Closure => RunningCases::tickingBy(...);
+$makeUnjudged = static fn(): Closure => RunningCases::unjudged(...);
+$makeResultIn = static fn(): Closure => RunningCases::resultIn(...);
+$makeStatuses = static fn(): Closure => RunningCases::statuses(...);
+$makeOrderings = static fn(): Closure => RunningCases::orderings(...);
 
 it('runs each mutant\'s likely killers first, by the kill history the plan handed the shard', function () use (
-    $orderings,
+    $makeOrderings,
 ): void {
+    $orderings = $makeOrderings();
+
     $project = Flows::project();
     $ranked = Ranking::of(Kills::of(TestId::of('MoneyTest::adds'), 2));
     $history = KillHistory::none()->withFunction(Enclosing::named(Path::of('src/Money.php'), 'add'), $ranked);
@@ -100,7 +102,9 @@ it('asks the runner for every killer of each mutant where the plan records a ful
         ->and($matrices($first))->toBe([MatrixKind::FirstKiller, MatrixKind::FirstKiller]);
 });
 
-it('runs the tests in the runner\'s own order where tests.order says so', function () use ($orderings): void {
+it('runs the tests in the runner\'s own order where tests.order says so', function () use ($makeOrderings): void {
+    $orderings = $makeOrderings();
+
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
 
@@ -113,9 +117,12 @@ it('runs the tests in the runner\'s own order where tests.order says so', functi
 });
 
 it('orders a shard handed no kill history as though nothing was killed yet, and warns of nothing', function () use (
-    $resultIn,
-    $orderings,
+    $makeResultIn,
+    $makeOrderings,
 ): void {
+    $resultIn = $makeResultIn();
+    $orderings = $makeOrderings();
+
     $project = Flows::project();
     $plan = Planned::handedIn($project, Planned::oneShard());
     unlink(sprintf('%s/.mutation-gate/coverage/shard-1/killers.json', $project));
@@ -133,10 +140,14 @@ it('orders a shard handed no kill history as though nothing was killed yet, and 
 });
 
 it('judges a shard whose kill history cannot be read without it, and warns of it', function () use (
-    $resultIn,
-    $statuses,
-    $orderings,
+    $makeResultIn,
+    $makeStatuses,
+    $makeOrderings,
 ): void {
+    $resultIn = $makeResultIn();
+    $statuses = $makeStatuses();
+    $orderings = $makeOrderings();
+
     $project = Flows::project();
     $plan = Planned::handedIn($project, Planned::oneShard());
     Scratch::write($project, '.mutation-gate/coverage/shard-1/killers.json', '{"format": 1, "tests": 3}');
@@ -157,7 +168,9 @@ it('judges a shard whose kill history cannot be read without it, and warns of it
         ->toStartWith('Shard 1 ran its tests without the kill history the plan handed it. A kill history cannot be read: ');
 });
 
-it('keeps what the runner warned of in each invocation, before the shard\'s own warnings', function () use ($resultIn): void {
+it('keeps what the runner warned of in each invocation, before the shard\'s own warnings', function () use ($makeResultIn): void {
+    $resultIn = $makeResultIn();
+
     $project = Flows::project();
     $plan = Planned::handedIn($project, Planned::oneShard());
     Scratch::write($project, '.mutation-gate/coverage/shard-1/killers.json', '{"format": 1, "tests": 3}');
@@ -178,7 +191,10 @@ it('keeps what the runner warned of in each invocation, before the shard\'s own 
         ->and($texts[2] ?? '')->toStartWith('Shard 1 ran its tests without the kill history');
 });
 
-it('runs every batch that fits a budget with the time left, leaving nothing unjudged', function () use ($resultIn, $unjudged): void {
+it('runs every batch that fits a budget with the time left, leaving nothing unjudged', function () use ($makeResultIn, $makeUnjudged): void {
+    $resultIn = $makeResultIn();
+    $unjudged = $makeUnjudged();
+
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
     $setup = new Setup(
@@ -203,7 +219,11 @@ it('runs every batch that fits a budget with the time left, leaving nothing unju
         ->and($unjudged($resultIn($project, 1)))->toBe([]);
 });
 
-it('starts nothing a budget has no room for, and leaves every unit unjudged', function () use ($resultIn, $unjudged, $statuses): void {
+it('starts nothing a budget has no room for, and leaves every unit unjudged', function () use ($makeResultIn, $makeUnjudged, $makeStatuses): void {
+    $resultIn = $makeResultIn();
+    $unjudged = $makeUnjudged();
+    $statuses = $makeStatuses();
+
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
     $setup = new Setup(
@@ -225,9 +245,12 @@ it('starts nothing a budget has no room for, and leaves every unit unjudged', fu
 });
 
 it('stops before the batch after the one an interruption arrived in, leaving the units no batch took unjudged', function () use (
-    $resultIn,
-    $unjudged,
+    $makeResultIn,
+    $makeUnjudged,
 ): void {
+    $resultIn = $makeResultIn();
+    $unjudged = $makeUnjudged();
+
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
     $setup = new Setup(
@@ -257,9 +280,12 @@ it('stops before the batch after the one an interruption arrived in, leaving the
 });
 
 it('leaves the steps its time went to in its result, the runner\'s own and those around it, each from when the shard began', function () use (
-    $ticking,
-    $resultIn,
+    $makeTicking,
+    $makeResultIn,
 ): void {
+    $ticking = $makeTicking();
+    $resultIn = $makeResultIn();
+
     $project = Flows::project();
     $plan = Planned::handedIn($project, Planned::oneShard());
 
@@ -292,10 +318,14 @@ it('leaves the steps its time went to in its result, the runner\'s own and those
 });
 
 it('leaves the units no batch took unjudged, and each survivor it had no time to confirm', function () use (
-    $tickingBy,
-    $resultIn,
-    $unjudged,
+    $makeTickingBy,
+    $makeResultIn,
+    $makeUnjudged,
 ): void {
+    $tickingBy = $makeTickingBy();
+    $resultIn = $makeResultIn();
+    $unjudged = $makeUnjudged();
+
     $project = Flows::project();
     $runner = ScriptedRunner::fixture();
 
@@ -320,7 +350,11 @@ it('leaves a batch unjudged whose runner stopped at the deadline, and cannot jud
     int $step,
     array $left,
     bool $judged,
-) use ($tickingBy, $resultIn, $unjudged): void {
+) use ($makeTickingBy, $makeResultIn, $makeUnjudged): void {
+    $tickingBy = $makeTickingBy();
+    $resultIn = $makeResultIn();
+    $unjudged = $makeUnjudged();
+
     $project = Flows::project();
     $runner = ScriptedRunner::fixture()->refusing('Pest was stopped at its deadline before it had made its mutants.');
 

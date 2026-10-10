@@ -84,8 +84,8 @@ it('says why the store\'s options build none, with the credentials or without', 
 
     expect($keyed->build(Configs::options(KEYED_STORE_OPTIONS)))->toBe($invalid);
 })->with([
-    'with them' => [Variables::of(['AWS_ACCESS_KEY_ID' => 'AKIA'])],
-    'without them' => [Variables::of([])],
+    'with them' => [fn(): Variables => Variables::of(['AWS_ACCESS_KEY_ID' => 'AKIA'])],
+    'without them' => [fn(): Variables => Variables::of([])],
 ]);
 
 it('reads from the top of the public URL where the prefix is empty', function (): void {

@@ -219,8 +219,8 @@ it('writes the proofs of a narrowed run, and teaches the cost model and pruning 
         ->and(count($ledger->timings()))->toBe(0)
         ->and($ledger->survival())->toEqual(Survival::none());
 })->with([
-    'to the security mutators' => [Narrowing::none()->toMutators(Mutators::named('Plus'))],
-    'to one suite' => [Narrowing::none()->toSuite(SuiteName::of('unit'))],
+    'to the security mutators' => [fn(): Narrowing => Narrowing::none()->toMutators(Mutators::named('Plus'))],
+    'to one suite' => [fn(): Narrowing => Narrowing::none()->toSuite(SuiteName::of('unit'))],
 ]);
 
 it('adds the time each analyser\'s checks of the shards\' survivors took to what the ledger held of it', function () use (
@@ -411,8 +411,8 @@ it('writes nothing where the run may not write its scope', function (
         ->and($written)->toBeInstanceOf(ReadsOnly::class)
         ->and(LedgerRead::ledger($store->read(Scope::branch('main'))))->toEqual(Ledger::empty());
 })->with([
-    'proofs.write is never' => [Writing::Never, RunOn::at(Scope::branch('main'), Scope::branch('main'))],
-    'a detached HEAD' => [Writing::Auto, RunOn::detached(Scope::branch('main'))],
+    'proofs.write is never' => [Writing::Never, fn(): RunOn => RunOn::at(Scope::branch('main'), Scope::branch('main'))],
+    'a detached HEAD' => [Writing::Auto, fn(): RunOn => RunOn::detached(Scope::branch('main'))],
 ]);
 
 it('says why the store did not write', function () use ($map, $run, $ledgers): void {

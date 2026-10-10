@@ -70,8 +70,8 @@ it('reaches what a walk reaches, sorted, from any set of files', function (array
     'two starts that share what they reach' => [['a' => ['c'], 'b' => ['c'], 'c' => ['d'], 'd' => []], ['b', 'a']],
     'a file only named' => [['a' => ['b']], ['b']],
     'no start' => [['a' => ['b']], []],
-    'a chain across many bytes, written last first' => [reachedChain(30), ['f00']],
-    'the tail of a long chain' => [reachedChain(30), ['f27']],
+    'a chain across many bytes, written last first' => [fn(): array => reachedChain(30), ['f00']],
+    'the tail of a long chain' => [fn(): array => reachedChain(30), ['f27']],
 ]);
 
 it('reaches a file the graph does not hold as itself alone, in sorted place among the rest', function (): void {

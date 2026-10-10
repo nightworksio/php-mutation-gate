@@ -125,15 +125,15 @@ it('says why a ledger could not be read, and reads none of what came with a refu
             $why,
         ), 0]);
 })->with([
-    'a server\'s error' => [new MockResponse(LedgerFile::encode(publicLedgerProved()), ['http_code' => 503]), UnreadReason::Refused, 'HTTP 503'],
-    'a denied read' => [new MockResponse(LedgerFile::encode(publicLedgerProved()), ['http_code' => 403]), UnreadReason::Refused, 'HTTP 403'],
+    'a server\'s error' => [fn(): MockResponse => new MockResponse(LedgerFile::encode(publicLedgerProved()), ['http_code' => 503]), UnreadReason::Refused, 'HTTP 503'],
+    'a denied read' => [fn(): MockResponse => new MockResponse(LedgerFile::encode(publicLedgerProved()), ['http_code' => 403]), UnreadReason::Refused, 'HTTP 403'],
     'a redirect it does not follow' => [
-        new MockResponse(LedgerFile::encode(publicLedgerProved()), ['http_code' => 302, 'response_headers' => ['Location: https://elsewhere.example.com/']]),
+        fn(): MockResponse => new MockResponse(LedgerFile::encode(publicLedgerProved()), ['http_code' => 302, 'response_headers' => ['Location: https://elsewhere.example.com/']]),
         UnreadReason::Refused,
         'HTTP 302',
     ],
-    'no ledger this gate reads' => [new MockResponse('not a ledger'), UnreadReason::Malformed, 'The ledger is not a whole gzip stream'],
-    'a ledger of another format' => [new MockResponse(Gzip::pack('{"format": 1}')), UnreadReason::Malformed, 'The ledger is of a format this gate does not read'],
+    'no ledger this gate reads' => [fn(): MockResponse => new MockResponse('not a ledger'), UnreadReason::Malformed, 'The ledger is not a whole gzip stream'],
+    'a ledger of another format' => [fn(): MockResponse => new MockResponse(Gzip::pack('{"format": 1}')), UnreadReason::Malformed, 'The ledger is of a format this gate does not read'],
 ]);
 
 it('says the store could not be reached, or did not answer in time', function (): void {

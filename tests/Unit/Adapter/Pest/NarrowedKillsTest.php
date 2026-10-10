@@ -230,7 +230,7 @@ it('replays each narrowed kill whose order is known, once for an order and file 
         ->and($kills->sets())->toBe(2);
 })->with([
     'a replay that lets it stand' => [ReplayVerdict::Stands, []],
-    'a replay that does not' => [ReplayVerdict::OtherOrder, [
+    'a replay that does not' => [ReplayVerdict::OtherOrder, fn(): array => [
         ['native-1', MutantStatus::Unjudged, Reason::that(ReplayVerdict::OtherOrder->reason())],
         ['native-3', MutantStatus::Unjudged, Reason::that(ReplayVerdict::OtherOrder->reason())],
     ]],

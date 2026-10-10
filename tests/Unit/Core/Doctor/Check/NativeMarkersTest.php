@@ -17,10 +17,13 @@ use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 
 $why = 'A marker hides mutants with no reason and no end, so under ignores.native: refuse a run stops at once.';
-$inAdd = Marker::inSource(Path::of('src/Money.php'), Line::of(7), '@pest-mutate-ignore', Enclosing::named(Path::of('src/Money.php'), 'add'));
-$atTop = Marker::inSource(Path::of('src/Held.php'), Line::of(2), '@pest-mutate-ignore', Nameless::code());
+$makeInAdd = static fn(): Marker => Marker::inSource(Path::of('src/Money.php'), Line::of(7), '@pest-mutate-ignore', Enclosing::named(Path::of('src/Money.php'), 'add'));
+$makeAtTop = static fn(): Marker => Marker::inSource(Path::of('src/Held.php'), Line::of(2), '@pest-mutate-ignore', Nameless::code());
 
-it('lists each marker a refusing config would stop a run for, with the entry that replaces it', function () use ($why, $inAdd, $atTop): void {
+it('lists each marker a refusing config would stop a run for, with the entry that replaces it', function () use ($why, $makeInAdd, $makeAtTop): void {
+    $inAdd = $makeInAdd();
+    $atTop = $makeAtTop();
+
     $observed = Observations::none()->withSettings(Configs::settings(['runner' => 'pest']))->withMarkers(Markers::of($inAdd, $atTop));
     $entry = '{"mutant": "<the id of each mutant it hides>", "reason": "<why no test can tell>"}';
 
@@ -33,13 +36,17 @@ it('lists each marker a refusing config would stop a run for, with the entry tha
     )));
 });
 
-it('counts one marker as one', function () use ($atTop): void {
+it('counts one marker as one', function () use ($makeAtTop): void {
+    $atTop = $makeAtTop();
+
     $observed = Observations::none()->withSettings(Configs::settings(['runner' => 'pest']))->withMarkers(Markers::of($atTop));
 
     expect([...NativeMarkers::in($observed)][0]->found())->toBe('1 native marker: src/Held.php:2, @pest-mutate-ignore.');
 });
 
-it('finds nothing where the config allows markers, none were found, or nothing was observed', function () use ($inAdd): void {
+it('finds nothing where the config allows markers, none were found, or nothing was observed', function () use ($makeInAdd): void {
+    $inAdd = $makeInAdd();
+
     $allowing = Configs::settings(['runner' => 'pest', 'ignores' => ['native' => 'allow']]);
     $refusing = Configs::settings(['runner' => 'pest']);
 

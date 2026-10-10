@@ -142,17 +142,17 @@ it('says what is wrong with a config it cannot compose', function (
     'an invalid config' => [
         '{"runner": "fake", "shards": {"max": 0}}',
         'fake',
-        Invalid::because(Problem::at('shards.max', 'expected an integer of at least 1, got 0')),
+        fn(): Invalid => Invalid::because(Problem::at('shards.max', 'expected an integer of at least 1, got 0')),
     ],
     'a runner no extension offers' => [
         '{"runner": "fake"}',
         'nowhere',
-        CannotJudge::because('No runner is registered as "nowhere".'),
+        fn(): CannotJudge => CannotJudge::because('No runner is registered as "nowhere".'),
     ],
     'an extension that is not one' => [
         '{"runner": "fake", "extensions": ["Nowhere\\\\Gone"]}',
         'fake',
-        CannotJudge::because(sprintf(
+        fn(): CannotJudge => CannotJudge::because(sprintf(
             'the config file names Nowhere\\Gone in extensions, and it is not a class that implements %s.',
             Extension::class,
         )),
@@ -160,7 +160,7 @@ it('says what is wrong with a config it cannot compose', function (
     'a reporter whose options the config gets wrong' => [
         '{"runner": "fake", "reports": [{"use": "badge", "path": "p", "with": {"colors": "x"}}]}',
         'fake',
-        Invalid::because(Problem::at(
+        fn(): Invalid => Invalid::because(Problem::at(
             'reports[0].with.colors',
             'expected an object of numbers, got "x"',
         )),

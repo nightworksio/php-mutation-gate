@@ -20,15 +20,15 @@ function gateEntryOf(string $json): GateEntry
 it('declares the floor extra.mutation-gate.floor says', function (string $json, Floor|Exempt|Undeclared $floor): void {
     expect(gateEntryOf($json)->floor())->toEqual($floor);
 })->with([
-    'none' => ['{}', Undeclared::floor()],
-    'no extra map' => ['{"extra": "none"}', Undeclared::floor()],
-    'no mutation-gate map' => ['{"extra": {"mutation-gate": 1}}', Undeclared::floor()],
-    'a whole number' => ['{"extra": {"mutation-gate": {"floor": 100}}}', Floor::of(100)],
-    'a fraction' => ['{"extra": {"mutation-gate": {"floor": 83.41}}}', Floor::of(83.41)],
-    'just above none' => ['{"extra": {"mutation-gate": {"floor": 0.01}}}', Floor::ofHundredths(1)],
+    'none' => ['{}', fn(): Undeclared => Undeclared::floor()],
+    'no extra map' => ['{"extra": "none"}', fn(): Undeclared => Undeclared::floor()],
+    'no mutation-gate map' => ['{"extra": {"mutation-gate": 1}}', fn(): Undeclared => Undeclared::floor()],
+    'a whole number' => ['{"extra": {"mutation-gate": {"floor": 100}}}', fn(): Floor => Floor::of(100)],
+    'a fraction' => ['{"extra": {"mutation-gate": {"floor": 83.41}}}', fn(): Floor => Floor::of(83.41)],
+    'just above none' => ['{"extra": {"mutation-gate": {"floor": 0.01}}}', fn(): Floor => Floor::ofHundredths(1)],
     'none at all, with its reason' => [
         '{"extra": {"mutation-gate": {"floor": 0, "floorReason": "Generated"}}}',
-        Exempt::because('Generated'),
+        fn(): Exempt => Exempt::because('Generated'),
     ],
 ]);
 

@@ -44,6 +44,6 @@ it('counts uncovered mutants as not killed, or leaves them out', function (): vo
 it('has no score with nothing left to count', function (JudgedMutants $mutants): void {
     expect(Counts::of($mutants)->score(Uncovered::Exclude))->toEqual(NothingToMutate::found());
 })->with([
-    'no mutant' => [JudgedMutants::none()],
-    'every mutant left out' => [Judged::mutants(MutantJudgement::Ignored, MutantJudgement::IgnoredByMarker, MutantJudgement::Uncovered)],
+    'no mutant' => [fn(): JudgedMutants => JudgedMutants::none()],
+    'every mutant left out' => [fn(): JudgedMutants => Judged::mutants(MutantJudgement::Ignored, MutantJudgement::IgnoredByMarker, MutantJudgement::Uncovered)],
 ]);
