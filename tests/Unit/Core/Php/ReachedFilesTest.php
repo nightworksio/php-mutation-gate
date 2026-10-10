@@ -38,7 +38,7 @@ function reachedGraph(array $edges): array
 function walkedSorted(NamedFiles $named, string ...$from): array
 {
     $walked = $named->reachedFrom(...$from);
-    sort($walked);
+    sort($walked, SORT_STRING);
 
     return $walked;
 }
@@ -80,6 +80,14 @@ it('reaches a file the graph does not hold as itself alone, in sorted place amon
     expect($reached->from('c', 'b', 'a'))->toBe(['a', 'b', 'c', 'd'])
         ->and($reached->from('z'))->toBe(['z'])
         ->and($reached->files())->toBe(['b', 'd']);
+});
+
+it('sorts byte by byte, so paths that read as numbers keep one order in the whole graph and in each reach', function (): void {
+    [, $reached] = reachedGraph(['a' => ['9.0', '1e1'], 'b' => []]);
+
+    expect($reached->files())->toBe(['1e1', '9.0', 'a', 'b'])
+        ->and($reached->from('a'))->toBe(['1e1', '9.0', 'a'])
+        ->and($reached->from('b', '30', '1e2'))->toBe(['1e2', '30', 'b']);
 });
 
 it('reaches nothing from nothing in an empty graph', function (): void {
