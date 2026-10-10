@@ -128,3 +128,31 @@ it('says each shard\'s runner is taken to run as many mutants at once as this ma
             'It takes each shard\'s runner to run 4 mutants at once, as this machine does.',
         ]);
 });
+
+it('expects a plan of shards under a second at their own time, and no time of a plan of none', function (): void {
+    expect(PlanEstimates::of(estimatedPlan(estimatedShard(1, 0.0, 0.5, 0.0)), Seconds::of(0.0))->runTime())
+        ->toEqual(RunTime::estimated(Seconds::of(0.5), Seconds::of(0.5)))
+        ->and(PlanEstimates::of(estimatedPlan(), Seconds::of(0.0))->runTime())
+        ->toEqual(RunTime::estimated(Seconds::of(0.0), Seconds::of(0.0)));
+});
+
+it('gives the whole share to the one basis of a plan of a microsecond', function (): void {
+    $estimates = PlanEstimates::of(estimatedPlan(estimatedShard(1, 0.000001, 0.0, 0.0)), Seconds::of(0.0));
+
+    expect($estimates->share(CostBasis::Learned))->toEqual(Percentage::whole())
+        ->and($estimates->share(CostBasis::Guessed))->toEqual(Percentage::none());
+});
+
+it('says how many mutants a runner is taken to run at once where a microsecond of the estimate is measured', function (): void {
+    $measured = Shard::of(ShardId::of(1), Package::at(Path::root()), Units::none(), Seconds::of(0.000001), 'src')->estimated(
+        ShardEstimate::none()->with(Estimated::of(Seconds::of(0.000001), CostBasis::Measured)),
+    );
+
+    expect(PlanEstimates::of(estimatedPlan($measured), Seconds::of(0.0))->summary(ProcessCount::of(4), Absent::setting(), 2))
+        ->toContain('It takes each shard\'s runner to run 4 mutants at once, as this machine does.');
+});
+
+it('names every basis a shard\'s estimate rests on, however little of it each gives', function (): void {
+    expect(PlanEstimates::of(estimatedPlan(estimatedShard(1, 0.5, 0.5, 0.0)), Seconds::of(0.0))->lines())
+        ->toBe(['Shard 1 (src, part 1): about 1s, learned and guessed.']);
+});
