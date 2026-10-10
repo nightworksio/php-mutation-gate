@@ -119,7 +119,7 @@ final readonly class Source
             $class = $node::class;
 
             if (! array_key_exists($class, $handling)) {
-                $handling[$class] = iterator_to_array($handlers->handling($node), preserve_keys: true);
+                $handling[$class] = [...$handlers->handling($node)];
             }
 
             foreach ($handling[$class] as $mutator) {
