@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Mutator\Engine;
 
-use function array_filter;
 use function array_key_exists;
+use function array_keys;
 use function array_values;
+use function class_implements;
+use function class_parents;
 use function count;
+use function ksort;
 
 use NightWorksIO\MutationGate\Core\Cost\MutantSites;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -94,6 +97,7 @@ final readonly class Source
      */
     public function sites(Path $file, Mutator ...$mutators): MutantSites
     {
+        $byClass = $this->byClass(...$mutators);
         $handling = [];
         $starts = [];
 
@@ -101,10 +105,7 @@ final readonly class Source
             $class = $node::class;
 
             if (! array_key_exists($class, $handling)) {
-                $handling[$class] = array_values(array_filter(
-                    $mutators,
-                    static fn(Mutator $mutator): bool => $mutator->handles()->has($node),
-                ));
+                $handling[$class] = $this->handling($byClass, $class);
             }
 
             foreach ($handling[$class] as $mutator) {
@@ -115,6 +116,54 @@ final readonly class Source
         }
 
         return MutantSites::inFile($file, ...$starts);
+    }
+
+    /**
+     * Each mutator, by its place, under each node class it handles, read once
+     * per file, so the mutators that handle a node are found by its class.
+     *
+     * @return array<string, array<int, Mutator>>
+     */
+    private function byClass(Mutator ...$mutators): array
+    {
+        $byClass = [];
+
+        foreach (array_values($mutators) as $place => $mutator) {
+            foreach ($mutator->handles() as $class) {
+                $byClass[$class][$place] = $mutator;
+            }
+        }
+
+        return $byClass;
+    }
+
+    /**
+     * The mutators that handle nodes of a class: those filed under it, a
+     * class it extends or an interface it implements, each once, in the
+     * order they were given.
+     *
+     * @param  array<string, array<int, Mutator>> $byClass
+     * @param  class-string<Node>                 $class
+     * @return list<Mutator>
+     */
+    private function handling(array $byClass, string $class): array
+    {
+        $handling = [];
+        $parents = class_parents($class);
+        $interfaces = class_implements($class);
+        $kinds = [
+            $class,
+            ...array_keys($parents === false ? [] : $parents),
+            ...array_keys($interfaces === false ? [] : $interfaces),
+        ];
+
+        foreach ($kinds as $kind) {
+            $handling += array_key_exists($kind, $byClass) ? $byClass[$kind] : [];
+        }
+
+        ksort($handling);
+
+        return array_values($handling);
     }
 
     /**
