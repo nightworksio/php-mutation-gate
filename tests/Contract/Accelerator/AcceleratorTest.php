@@ -8,10 +8,13 @@ use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Proof\Key\ContentKeys;
 use NightWorksIO\MutationGate\Core\Proof\Key\EntryKeying;
+use NightWorksIO\MutationGate\Core\Proof\Keys;
 use NightWorksIO\MutationGate\Core\Runner\Environment;
 use NightWorksIO\MutationGate\Core\Turbo\EntryKeysAsked;
 use NightWorksIO\MutationGate\Core\Turbo\NotAccelerated;
+use NightWorksIO\MutationGate\Core\Turbo\UnitKeysAsked;
 use NightWorksIO\MutationGate\Port\Accelerator;
 use NightWorksIO\MutationGate\Tests\Fakes\AcceleratorFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -111,5 +114,38 @@ foreach ($accelerators as $name => [$accelerator, $answers, $absent]) {
 
         expect($answered instanceof NotAccelerated ? $answered : $answered->keyOf(Path::of('tests/9')))
             ->toEqual($answered instanceof NotAccelerated ? $answered : $key);
+    })->skip($absent, TurboHelper::NOT_BUILT);
+}
+
+foreach ($accelerators as $name => [$accelerator, $answers, $absent]) {
+    it(sprintf('answers each unit key as the fifth format frames it, or nothing, as %s does', $name), function () use (
+        $accelerator,
+        $answers,
+    ): void {
+        $asked = UnitKeysAsked::of(
+            Digest::of('b4'),
+            [
+                [Path::of('src/A.php'), '', Digest::of('r1'), [[3, 'wide'], [7, 'narrow'], [9, 'wide']]],
+                [Path::of('src/B.php'), 'group', Digest::of('r2'), []],
+            ],
+            ['wide' => ['b::t', 'a::t', 'é::t', 'B::t', '10', '9'], 'narrow' => ['a::t']],
+        );
+        $request = $asked->request();
+        $answered = $request instanceof NotAccelerated ? $request : $asked->keysIn($accelerator()->answer($request));
+        $wide = hash('sha256', "1:6\n2:10\n1:9\n4:B::t\n4:a::t\n4:b::t\n5:é::t\n");
+        $narrow = hash('sha256', "1:1\n4:a::t\n");
+        $format = sprintf('%d:%s', strlen(ContentKeys::FORMAT), ContentKeys::FORMAT);
+        $expected = Keys::none()
+            ->with(Path::of('src/A.php'), Digest::of(hash('sha256', sprintf(
+                "%s\n2:b4\n2:r1\n4:unit\n9:src/A.php\n0:\n1:3\n1:3\n64:%s\n1:7\n64:%s\n1:9\n64:%s\n",
+                $format,
+                $wide,
+                $narrow,
+                $wide,
+            ))))
+            ->with(Path::of('src/B.php'), Digest::of(hash('sha256', sprintf("%s\n2:b4\n2:r2\n4:unit\n9:src/B.php\n5:group\n1:0\n", $format))));
+
+        expect($answered)->toEqual($answers ? $expected : $answered)
+            ->and($answers || $answered instanceof NotAccelerated)->toBeTrue();
     })->skip($absent, TurboHelper::NOT_BUILT);
 }
