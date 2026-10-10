@@ -523,11 +523,11 @@ it('weighs each unit by what the cost model expects of it, with what the ledgers
         )),
     );
 
-    expect($shards($plan(Flows::project(), Mode::full(), Cut::bySize(10, 10), new CostModelFake(Seconds::of(1.0)))))
+    expect($shards($plan(Flows::project(), Mode::full(), Cut::bySize(10, Seconds::of(0.0), 10), new CostModelFake(Seconds::of(1.0)))))
         ->toEqual([1 => [$held, $money]])
-        ->and($shards($plan(Flows::project(), Mode::full(), Cut::bySize(10, 10), new CostModelFake(Seconds::of(8.0)))))
+        ->and($shards($plan(Flows::project(), Mode::full(), Cut::bySize(10, Seconds::of(0.0), 10), new CostModelFake(Seconds::of(8.0)))))
         ->toHaveCount(2)
-        ->and($shards($plan(Flows::project(), Mode::full(), Cut::bySize(10, 10), $store)))
+        ->and($shards($plan(Flows::project(), Mode::full(), Cut::bySize(10, Seconds::of(0.0), 10), $store)))
         ->toHaveCount(2);
 });
 
@@ -796,14 +796,16 @@ it('cuts to a target wall time counting the coverage run\'s tests as each shard\
     $planned = $plan(
         Flows::project(),
         Mode::full(),
-        Cut::toTarget(Seconds::of(2.5), Seconds::of(0.0), 20),
+        Cut::toTarget(Seconds::of(17.0), Seconds::of(0.0), 20),
         new CoverageAsked(RunnerFake::ofTheFixture(), $map),
+        new CostModelFake(Seconds::of(8.0)),
     );
 
     expect($planned instanceof Plan ? count($planned) : $planned)->toBe($count);
 })->with([
     'an opening run that leaves room for every unit in one shard' => [0.0, 1],
     'an opening run that leaves room for one unit a shard' => [2.0, 2],
+    'an opening run that would leave each shard less than twice its own cost' => [5.0, 1],
 ]);
 
 /** The default branch's ledger, proving each of these units with no mutant, so none is at risk from its last result. */

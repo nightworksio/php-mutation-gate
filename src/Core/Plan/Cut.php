@@ -10,6 +10,7 @@ use function array_pad;
 use function array_sum;
 use function ceil;
 use function count;
+use function floor;
 use function max;
 use function min;
 
@@ -27,13 +28,18 @@ use function sprintf;
  * wall time, as `shards.target` asks (ADR-0013, decision 6), the count is the
  * smallest whose shards each fit their overhead, the opening run and
  * `shards.setup`, and their share of the cost into the target, and the cut
- * within it is by size. Exactly, as `--shards=<n>` asks, there are n shards,
+ * within it is by size. Either way, no package is cut into shards whose
+ * share of its cost is below twice their overhead (ADR-0013, decision 7).
+ * Exactly, as `--shards=<n>` asks, there are n shards,
  * and those the units do not fill are empty and say so. Packages never share a shard, because a shard runs in
  * one package's directory; floors may, because the verdict adds up each
  * mutant itself.
  */
 final readonly class Cut
 {
+    /** How many times its overhead a shard's share of the cost must be at least, for the cut to make it. */
+    private const float WORK_PER_OVERHEAD = 2.0;
+
     /**
      * @param Seconds|Absent $size   the size of a shard, where the config sets it; none where the workload decides
      * @param Seconds|Absent $target the wall time the shards are cut to fit, where the config asks for one
@@ -47,16 +53,10 @@ final readonly class Cut
     ) {
     }
 
-    /** Shards of about `shards.seconds` each, at most `shards.max` of them. */
-    public static function bySize(int $seconds, int $most): self
+    /** Shards of about `shards.seconds` each, each set up in `shards.setup`, at most `shards.max` of them. */
+    public static function bySize(int $seconds, Seconds $setup, int $most): self
     {
-        return new self(
-            Seconds::of($seconds),
-            $most,
-            exact: false,
-            target: Absent::setting(),
-            overhead: Seconds::of(0.0),
-        );
+        return new self(Seconds::of($seconds), $most, exact: false, target: Absent::setting(), overhead: $setup);
     }
 
     /** As many shards as fit a shard's setup and share of the cost into a target wall time, at most `shards.max`. */
@@ -123,7 +123,29 @@ final readonly class Cut
             $counts = $this->countsAt($packages, $size);
         }
 
-        return $counts;
+        return $this->exact ? $counts : $this->worthCutting($packages, $counts);
+    }
+
+    /**
+     * These counts, each lowered to the most shards whose share of the
+     * package's cost is at least twice their overhead. A package lowered to
+     * none still runs, in one shard, as each package does.
+     *
+     * @param  list<PackageWork> $packages
+     * @param  list<int>         $counts
+     * @return list<int>
+     */
+    private function worthCutting(array $packages, array $counts): array
+    {
+        $least = $this->overhead->seconds() * self::WORK_PER_OVERHEAD;
+
+        return array_map(
+            static fn(PackageWork $package, int $count): int => $least > 0.0
+                ? min($count, (int) floor($package->cost()->seconds() / $least))
+                : $count,
+            $packages,
+            $counts,
+        );
     }
 
     /**

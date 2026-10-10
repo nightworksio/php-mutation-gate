@@ -39,6 +39,12 @@ final readonly class PlanEstimates
         Raise shards.max, or shards.target, to meet it.
         SAID;
 
+    private const string UNSPLIT = <<<'SAID'
+        shards.target is %s, and at %d shards the longest is expected to take %s.
+        More shards would each cost less than twice their opening run and setup, or split a unit, which no cut does.
+        Raise shards.target to meet it.
+        SAID;
+
     private function __construct(private Plan $plan, private Seconds $setup)
     {
     }
@@ -163,17 +169,24 @@ final readonly class PlanEstimates
 
     /**
      * Where `shards.target` asks for a wall time the longest shard cannot
-     * meet, because `shards.max` stops the cut short (ADR-0013, decision 6):
-     * a warning that says so; none where it is met or there is no target.
+     * meet, a warning that says what stops it: `shards.max` (ADR-0013,
+     * decision 6), or, short of it, shards that would each cost less than
+     * twice their overhead or a unit no cut splits (decision 7); none where
+     * it is met or there is no target.
      */
     public function unmet(Seconds|Absent $target, int $most): Warnings
     {
         $longest = $this->runTime()->wall();
-        $missed = $target instanceof Seconds && $longest->seconds() > $target->seconds();
 
-        return $missed && count($this->plan) >= $most
-            ? Warnings::of(Warning::that(sprintf(self::UNMET, $target->text(), $most, $longest->text())))
-            : Warnings::none();
+        if (! $target instanceof Seconds || $longest->seconds() <= $target->seconds()) {
+            return Warnings::none();
+        }
+
+        $shards = count($this->plan);
+
+        return Warnings::of(Warning::that($shards >= $most
+            ? sprintf(self::UNMET, $target->text(), $most, $longest->text())
+            : sprintf(self::UNSPLIT, $target->text(), $shards, $longest->text())));
     }
 
     /** A shard's job: its units, its opening run and its setup; no time for a shard of no units. */

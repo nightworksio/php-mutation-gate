@@ -187,6 +187,12 @@ decides are accepted for that release too.
      the longest shard's time.
    - `shards.target` judges or reports only, like the other `shards` keys
      (ADR-0007 decision 2.3).
+   - **Both rules stop at the floor.** By `shards.seconds` or to
+     `shards.target`, no package is cut into more shards than leave each a
+     share of its cost at least twice the shard's overhead (decision 7). The
+     count the rule gives is lowered to that many, and a package whose whole
+     cost is below twice the overhead runs in one shard. `--shards=<n>` is not
+     lowered: a count asked for is cut as asked.
 
 7. **A shard's overhead is its measured opening run plus a configured
    setup.**
@@ -197,11 +203,16 @@ decides are accepted for that release too.
      With no measurement, it is the coverage run's own duration.
    - **The setup.** Checkout and `composer install` run before the gate
      starts, so the gate cannot time them. `shards.setup`, a duration, `1m`
-     by default, stands for them.
+     by default, stands for them, in a cut by size as in a cut to a target.
+   - **A shard earns its overhead.** A shard whose share of the cost is below
+     twice its overhead spends more than a third of its job starting up, so
+     the cut never makes one (decision 6).
 
 8. **A target the plan cannot meet is a warning.** When the target needs more
    than `shards.max` shards, or the overhead alone exceeds it, the plan cuts
-   `shards.max` shards and warns. The warning gives the expected wall time
+   `shards.max` shards and warns. When it cuts fewer and the longest shard
+   still misses the target, because more shards would fall below the floor
+   (decision 7) or would split a unit, it warns and says so. The warning gives the expected wall time
    and the count the target would need, in the console, the step summary and
    the PR comment. Costs decide placement only (ADR-0006 decision 4), so a
    missed target never changes a verdict.

@@ -166,7 +166,7 @@ options.
 | `shards.seconds` | integer | `600` | [0006](../decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `shards.max` | integer | `20` | [0006](../decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `shards.target` | duration; replaces `shards.seconds`, and setting both is an error | none | [0013](../decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
-| `shards.setup` | duration: each shard's CI setup before the gate starts | `1m` | [0013](../decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
+| `shards.setup` | duration: each shard's CI setup before the gate starts. With the opening run it is a shard's overhead, and no shard is cut whose share of the cost is below twice that | `1m` | [0013](../decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | `costs.secondsPerLine` | map of path prefix to number | `{"": 0.2}` | [0006](../decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `costs.perRunnerMinute` | `{amount, currency}` | none | [0016](../decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
 | `ci.plan` | adapter: `github`, `gitlab`, `buildkite`, `circleci`, `azure`, `bitbucket`, `jenkins`, `json` | detected from the environment | [0006](../decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md), [0024](../decisions/0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md) |
