@@ -229,6 +229,18 @@ it('runs one replay for two kills of one run, keeps what it said, and runs none 
         ->and($shell->commands())->toHaveCount(1);
 });
 
+it('serves no unmutated copy where no time is left, and one where any is', function (Seconds $left, int $copies): void {
+    $at = PestCases::project();
+    $shell = replaying(Ran::finished(succeeded: true, output: ''), RecordLine::ran('/r/copy.php', 2));
+
+    replayVerdicts($at, $shell, $left);
+
+    expect(glob(sprintf('%s/originals/*.php', dirname(PestCases::results($at)))))->toHaveCount($copies);
+})->with([
+    'none left' => [Seconds::of(0.0), 0],
+    'a second left' => [Seconds::of(1.0), 1],
+]);
+
 it('holds a replay to its kill\'s limit where that is shorter than the time left, and tells a stop at it from one at the time left', function (Seconds|Unlimited $left, float $deadline, ReplayVerdict $verdict): void {
     $at = PestCases::project();
     $shell = replaying(Ran::stopped(''), RecordLine::ran('/r/copy.php', 1));
