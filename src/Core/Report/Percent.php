@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
+use function abs;
+
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
 use NightWorksIO\MutationGate\Core\Score\Percentage;
@@ -29,13 +31,12 @@ final readonly class Percent
     public static function change(Score $from, Score $to): string
     {
         $difference = $to->hundredths() - $from->hundredths();
-        $size = $difference < 0 ? -$difference : $difference;
         $sign = match (true) {
             $difference > 0 => '+',
             $difference < 0 => '-',
             default => '±',
         };
 
-        return sprintf('%s%s', $sign, Percentage::points($size));
+        return sprintf('%s%s', $sign, Percentage::points(abs($difference)));
     }
 }
