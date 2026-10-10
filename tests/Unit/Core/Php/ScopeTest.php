@@ -113,3 +113,13 @@ it('reads a name that a class and a function are both imported as as the one imp
         ->and($scope->resolveAny('\Lib\Money')->all())->toBe(['lib\money'])
         ->and($scope->importing(...$tokens('use Lib\Clock;'))->resolveAny('Clock')->all())->toBe(['lib\clock']);
 });
+
+it('names a class as the file spells it: fully qualified, relative, imported or the namespace\'s own', function () use ($tokens): void {
+    $scope = Scope::global()->inside('Tests')->importing(...$tokens('use App\Domain\Money as Cash;'));
+
+    expect($scope->className('\App\Order'))->toBe('App\Order')
+        ->and($scope->className('namespace\Unit\Cart'))->toBe('Tests\Unit\Cart')
+        ->and($scope->className('Cash'))->toBe('App\Domain\Money')
+        ->and($scope->className('Cash\Rate'))->toBe('App\Domain\Money\Rate')
+        ->and($scope->className('CartTest'))->toBe('Tests\CartTest');
+});

@@ -23,8 +23,8 @@ use function sprintf;
 
 /**
  * Unmutated controls as the Infection runner runs them (ADR-0008, decision
- * 2): each control's tests, in a suite of the files that declare their
- * classes and selected by their ids, on a config shaped as Infection shapes
+ * 2): each control's tests with every test they depend on, in a suite of
+ * the files that declare their classes and selected by their ids, on a config shaped as Infection shapes
  * a mutant's, whose bootstrap serves an unchanged copy of its file through
  * Infection's include interceptor (see StartUpConfig), under the request's
  * memory cap and allowed its limit; one after another, as the adapter runs
@@ -80,11 +80,16 @@ final readonly class UnmutatedRuns
                 break;
             }
 
+            $selected = Control::of(
+                $control->file(),
+                TestFiles::withDependencies($this->project, $control->tests()),
+                $control->limit(),
+            );
             $written = StartUpConfig::holding(
                 $this->project,
                 $config,
-                $control->file(),
-                TestFiles::declaring($this->project, $control->tests())->files(),
+                $selected->file(),
+                TestFiles::declaring($this->project, $selected->tests())->files(),
                 sprintf(self::PLACE, Control::DIRECTORY, $at),
             );
             $peak = $written instanceof CannotJudge
@@ -92,7 +97,7 @@ final readonly class UnmutatedRuns
                 : $this->project->fresh($this->project->own(sprintf(self::PEAK, Control::DIRECTORY, $at)));
             $run = $peak instanceof CannotJudge
                 ? ControlRun::unrun($peak->why())
-                : $this->ran($written, $peak, $launcher, $control, $request, $config, $scan);
+                : $this->ran($written, $peak, $launcher, $selected, $request, $config, $scan);
             $runs = $runs->with($control, $run);
         }
 

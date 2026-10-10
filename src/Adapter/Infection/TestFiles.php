@@ -11,7 +11,9 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Php\DependsReader;
 use NightWorksIO\MutationGate\Core\Test\TestClassFiles;
+use NightWorksIO\MutationGate\Core\Test\TestDependencies;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestsByClass;
 
@@ -24,6 +26,20 @@ final readonly class TestFiles
     public static function declaring(Project $project, TestIds $tests): TestClassFiles
     {
         return self::found($project, TestClassFiles::of($tests));
+    }
+
+    /** These tests and every test they depend on, in turn, as the files of their classes record it. */
+    public static function withDependencies(Project $project, TestIds $tests): TestIds
+    {
+        return TestDependencies::closure(
+            $tests,
+            static fn(TestIds $asked): TestDependencies => DependsReader::inFiles(
+                self::declaring($project, $asked)->files(),
+                static fn(Path $file): Contents => Contents::of(
+                    sprintf('%s', file_get_contents($project->absolute($file))),
+                ),
+            ),
+        );
     }
 
     /**

@@ -32,7 +32,7 @@ use function unlink;
  * Unmutated controls as the PHPUnit runner runs them (ADR-0008, decision 2):
  * each a mutant that changes nothing, its file as the project holds it,
  * served through the override as a mutant's is (see ControlMutant), its tests
- * run as a mutant's are, under the request's memory cap and stopped at its
+ * and every test they depend on run as a mutant's are, under the request's memory cap and stopped at its
  * limit, started through the launcher that measures its peak (see
  * PeakLauncher); side by side in the request's pool, none started once the
  * request's deadline has passed. A control whose file cannot be read, or
@@ -90,7 +90,12 @@ final readonly class UnmutatedRuns
             $made = ControlMutant::of($this->project, $control);
             $run = $made instanceof CannotJudge
                 ? $made
-                : $judging->prepared($made, $control->tests(), $request, $control->limit());
+                : $judging->prepared(
+                    $made,
+                    $this->tests->withDependencies($control->tests()),
+                    $request,
+                    $control->limit(),
+                );
 
             if ($run instanceof PreparedRun) {
                 $prepared[] = $run;

@@ -410,8 +410,10 @@ running it: why is this mutant here, and has it always been?
     its mutant was, so that a test that fails only while the runner serves a
     file, or fails on its own, is never read as a kill:
     - Each such kill gets one unmutated control (ADR-0008, decision 2): its
-      killers, run with its file served unmutated by the means the runner
-      serves a mutant's file, under the request's memory cap, allowed the
+      killers, with every test they depend on through PHPUnit's
+      `#[Depends]` attributes (PHPUnit skips a test whose dependency did not
+      run before it), run with its file served unmutated by the means the
+      runner serves a mutant's file, under the request's memory cap, allowed the
       standard mutant limit of their time as the coverage map timed them. Two
       kills of the same file and killers share it, as does a timeout's
       control of the same tests and limit.

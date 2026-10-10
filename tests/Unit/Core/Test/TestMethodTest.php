@@ -70,3 +70,7 @@ it('reads the class an id\'s test is in as the test method it runs names it', fu
     'a row where a method should be, and no other separator' => ['A::#b', 'A::#b'],
     'separators alone' => ['::::', ''],
 ]);
+
+it('spells a test method\'s id from its class and method', function (): void {
+    expect(TestMethod::id('Tests\MoneyTest', 'testAdds'))->toEqual(TestId::of('Tests\MoneyTest::testAdds'));
+});
