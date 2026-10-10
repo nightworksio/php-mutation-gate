@@ -59,9 +59,9 @@ final readonly class Timings implements Countable, IteratorAggregate
 
     /**
      * These timings, as a run measured them, each smoothed over the unit's
-     * timing held from an earlier measurement by the same runner, as
-     * `Timing::smoothedOver()` weighs them. A unit with none held,
-     * or one an other runner measured or measured later, takes its newest
+     * timing held from an earlier measurement by the same runner and gate, as
+     * `Timing::smoothedOver()` weighs them. A unit with none held, or one an
+     * other runner or gate measured or measured later, takes its newest
      * measurement as it is.
      */
     public function smoothedOver(self $held): self
@@ -70,11 +70,22 @@ final readonly class Timings implements Countable, IteratorAggregate
 
         foreach ($this->timings as $unit => $timing) {
             $before = array_key_exists($unit, $held->timings) ? $held->timings[$unit] : $timing;
-            $blends = $before->runner() === $timing->runner() && $timing->at()->isAfter($before->at());
+            $blends = $before->runner() === $timing->runner()
+                && $before->gate()->equals($timing->gate())
+                && $timing->at()->isAfter($before->at());
             $smoothed[] = $blends ? $timing->smoothedOver($before) : $timing;
         }
 
         return self::of(...$smoothed);
+    }
+
+    /** Only the timings this release of the gate measured: another release's cost is not this one's. */
+    public function measuredBy(GateRelease $gate): self
+    {
+        return new self(array_filter(
+            $this->timings,
+            static fn(Timing $timing): bool => $timing->gate()->equals($gate),
+        ));
     }
 
     /** Only the timings of these units, which are the ones that still exist. */

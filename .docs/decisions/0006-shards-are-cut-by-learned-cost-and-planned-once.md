@@ -153,11 +153,18 @@ Two parts of that do not carry over to a public package.
      run from the two before it, against last-value, max-of-k and other
      weights. One of those two runs predates the per-mutant limit of
      ADR-0008 decision 2, so the weight is refitted from three runs after
-     it once a third lands. A share from another runner, or with no timing
-     held, replaces it as it is. A unit that was proved rather than run
-     keeps its last timing.
+     it once a third lands. A share from another runner or another release
+     of the gate, or with no timing held, replaces it as it is. A unit that
+     was proved rather than run keeps its last timing.
+   - **A timing counts only for the gate that measured it.** What one release
+     of the gate spends on a unit says nothing of another's, which may judge
+     with fewer runs or start each mutant faster. A plan estimates from the
+     timings the running gate measured, as its version spells it: a release
+     by its tag, a branch by its name and commit. Every other unit, a timing
+     from before gates were recorded among them, is estimated from its first
+     run as a cold start is.
    - **Where timings live.** In the ledger (ADR-0007), keyed by unit path, with
-     the runner and the time of measurement. They are not committed: they
+     the runner, the gate that measured it and the time of measurement. They are not committed: they
      describe the CI's machines, not the code, and they change on every run.
      Beside them the ledger keeps each package's newest opening-run time per
      runner, which the shard count of a target wall time uses (ADR-0013,

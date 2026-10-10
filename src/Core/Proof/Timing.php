@@ -8,7 +8,11 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
-/** What mutating one unit took a runner, as a finished shard measured it, and when. */
+/**
+ * What mutating one unit took a runner, as a finished shard measured it,
+ * when, and which release of the gate measured it: what one release of the
+ * gate spends on a unit says nothing of another's.
+ */
 final readonly class Timing
 {
     /**
@@ -24,12 +28,20 @@ final readonly class Timing
         private Seconds $seconds,
         private string $runner,
         private Instant $at,
+        private GateRelease $gate,
     ) {
     }
 
+    /** A timing no gate is recorded to have measured, as a ledger written before gates were recorded holds. */
     public static function of(Path $unit, Seconds $seconds, string $runner, Instant $at): self
     {
-        return new self($unit, $seconds, $runner, $at);
+        return new self($unit, $seconds, $runner, $at, GateRelease::unrecorded());
+    }
+
+    /** The same timing, measured by this release of the gate. */
+    public function measuredBy(GateRelease $gate): self
+    {
+        return new self($this->unit, $this->seconds, $this->runner, $this->at, $gate);
     }
 
     /**
@@ -40,7 +52,7 @@ final readonly class Timing
     {
         $seconds = self::NEWEST * $this->seconds->seconds() + (1 - self::NEWEST) * $earlier->seconds->seconds();
 
-        return new self($this->unit, Seconds::of($seconds), $this->runner, $this->at);
+        return new self($this->unit, Seconds::of($seconds), $this->runner, $this->at, $this->gate);
     }
 
     public function unit(): Path
@@ -62,5 +74,11 @@ final readonly class Timing
     public function at(): Instant
     {
         return $this->at;
+    }
+
+    /** The release of the gate that measured it; unrecorded where a ledger recorded none. */
+    public function gate(): GateRelease
+    {
+        return $this->gate;
     }
 }

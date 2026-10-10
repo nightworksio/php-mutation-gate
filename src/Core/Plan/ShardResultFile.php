@@ -23,7 +23,9 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\KeysRecord;
+use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Proof\ProofRecord;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
@@ -70,6 +72,9 @@ final readonly class ShardResultFile
 
     private const string MEASURED = 'measured';
 
+    /** Where a shard's measurement names the gate that made it, as its version spells it. */
+    private const string GATE = LedgerFile::GATE;
+
     private const string FLAKY = 'flaky';
 
     private const string MISSED = 'missed';
@@ -95,6 +100,9 @@ final readonly class ShardResultFile
                 'seconds' => $result->measured()->spent()->seconds(),
                 'runner' => $result->measured()->runner(),
                 'at' => $result->measured()->at()->value(),
+                ...$result->measured()->gate()->isRecorded()
+                    ? [self::GATE => $result->measured()->gate()->value()]
+                    : [],
                 ...count($result->measured()->steps()) > 0
                     ? [StepsRecord::SECTION => StepsRecord::of($result->measured()->steps())]
                     : [],
@@ -260,6 +268,11 @@ final readonly class ShardResultFile
             Seconds::of($measured->field('seconds')->number()),
             $measured->field('runner')->text(),
             $at instanceof CannotJudge ? throw NotInShape::at($measured->field('at')->at(), 'an instant') : $at,
-        )->withSteps(StepsRecord::read($measured->field(StepsRecord::SECTION)));
+        )->withSteps(StepsRecord::read($measured->field(StepsRecord::SECTION)))
+            ->measuredBy(
+                $measured->field(self::GATE)->isPresent()
+                    ? GateRelease::spelt($measured->field(self::GATE)->text())
+                    : GateRelease::unrecorded(),
+            );
     }
 }

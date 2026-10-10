@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Measurement;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
@@ -155,4 +156,15 @@ it('counts a mutant in a file under a held path for that path, and no file that 
 
 it('learns nothing from a shard with no units', function () use ($measured): void {
     expect(Shares::of(Units::none(), Mutants::none(), CoverageMap::empty(), $measured))->toEqual(Timings::none());
+});
+
+it('records the gate that measured the shard on each timing it shares out', function () use ($at, $mutant): void {
+    $units = Units::of(Unit::file(Path::of('src/Money.php')));
+    $mutants = Mutants::of($mutant('src/Money.php', 3, Seconds::of(1.0)));
+    $measured = Measurement::of(Seconds::of(60.0), 'pest', $at)->measuredBy(GateRelease::spelt('nightworksio/mutation-gate 1.2.0'));
+
+    expect(array_map(
+        static fn(Timing $timing): string => $timing->gate()->value(),
+        [...Shares::of($units, $mutants, CoverageMap::empty(), $measured)],
+    ))->toBe(['nightworksio/mutation-gate 1.2.0']);
 });

@@ -20,18 +20,31 @@ final readonly class Measurement
         private string $runner,
         private Instant $at,
         private StepTimes $steps,
+        private GateRelease $gate,
     ) {
     }
 
     public static function of(Seconds $spent, string $runner, Instant $at): self
     {
-        return new self($spent, $runner, $at, StepTimes::none());
+        return new self($spent, $runner, $at, StepTimes::none(), GateRelease::unrecorded());
     }
 
     /** The same measurement, its time having gone to these steps. */
     public function withSteps(StepTimes $steps): self
     {
-        return new self($this->spent, $this->runner, $this->at, $steps);
+        return new self($this->spent, $this->runner, $this->at, $steps, $this->gate);
+    }
+
+    /** The same measurement, made by this release of the gate. */
+    public function measuredBy(GateRelease $gate): self
+    {
+        return new self($this->spent, $this->runner, $this->at, $this->steps, $gate);
+    }
+
+    /** The release of the gate that made it; unrecorded where none was. */
+    public function gate(): GateRelease
+    {
+        return $this->gate;
     }
 
     /** The steps the shard's time went to, each from when the shard began; none where it timed none. */
