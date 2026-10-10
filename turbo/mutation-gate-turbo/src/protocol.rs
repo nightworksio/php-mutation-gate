@@ -2,6 +2,7 @@
 
 use crate::entry_keys;
 use crate::refusal::Refusal;
+use crate::unit_keys;
 use serde_json::{Value, json};
 
 /// The protocol both sides must name for a request to be answered. It changes whenever a request or answer does.
@@ -38,6 +39,11 @@ pub fn answer(request: &str, threads: usize) -> Result<Value, Refusal> {
 
             Ok(json!({ "protocol": PROTOCOL, "keys": keys }))
         }
+        Some("unit-keys") => {
+            let keys = unit_keys::Asked::read(&request)?.keys(threads)?;
+
+            Ok(json!({ "protocol": PROTOCOL, "keys": keys }))
+        }
         _ => Err(Refusal::because("the request names no kind this helper answers")),
     }
 }
@@ -60,8 +66,27 @@ mod tests {
     fn a_request_that_is_not_json_another_protocol_or_an_unknown_kind_is_refused() {
         assert!(answer("{", 1).is_err());
         assert!(answer(&json!({"protocol": 2, "kind": "entry-keys"}).to_string(), 1).is_err());
+        assert!(answer(&json!({"protocol": 1, "kind": "line-keys"}).to_string(), 1).is_err());
         assert!(answer(&json!({"protocol": 1, "kind": "unit-keys"}).to_string(), 1).is_err());
         assert!(answer(&json!({"protocol": 1}).to_string(), 1).is_err());
+    }
+
+    #[test]
+    fn unit_keys_are_answered_with_the_protocol() {
+        let request = json!({
+            "protocol": 1, "kind": "unit-keys", "format": "f", "base": "b", "tests": ["t"], "sets": [[0]],
+            "units": [{"path": "p", "judgedBy": "", "read": "r", "lines": [[1, 0]]}],
+        });
+
+        let answered = answer(&request.to_string(), 2).map_err(|refusal| refusal.why().to_owned());
+
+        assert_eq!(
+            answered.map(|value| value
+                .get("keys")
+                .and_then(serde_json::Value::as_array)
+                .map_or(0, Vec::len)),
+            Ok(1)
+        );
     }
 
     #[test]
