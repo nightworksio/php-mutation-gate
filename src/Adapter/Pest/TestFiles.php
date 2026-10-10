@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
-use function array_any;
 use function array_flip;
 use function array_key_exists;
 use function array_keys;
@@ -38,7 +37,6 @@ use function preg_replace_callback;
 use function scandir;
 use function sort;
 use function sprintf;
-use function str_ends_with;
 use function str_replace;
 
 /**
@@ -50,7 +48,8 @@ use function str_replace;
  * file, or the file declares it itself.
  *
  * It lists the files, and names each one's class, once, and answers each set
- * of classes once: many units share a set, and a project holds thousands of
+ * of classes once, by searching the class names from their ends rather than
+ * reading them all: many units share a set, and a project holds thousands of
  * test files.
  */
 final class TestFiles
@@ -71,6 +70,9 @@ final class TestFiles
 
     /** @var list<array<string, string>> each test file's class name, by its path, once listed */
     private array $listed = [];
+
+    /** @var list<ClassNameEndings> each test file's class name, read from its end, once listed */
+    private array $endings = [];
 
     /** @var array<string, Paths> the files each set of classes names, by the set */
     private array $named = [];
@@ -103,15 +105,11 @@ final class TestFiles
         $key = implode("\n", $asked);
 
         if (! array_key_exists($key, $this->named)) {
-            $named = [];
-
-            foreach ($this->classes() as $file => $class) {
-                if (array_any($asked, static fn(string $selected): bool => str_ends_with($class, $selected))) {
-                    $named[] = Path::of($file);
-                }
-            }
-
-            $this->named[$key] = Paths::of(...$named);
+            $files = array_keys($this->classes());
+            $this->named[$key] = Paths::of(...array_map(
+                static fn(int $place): Path => Path::of($files[$place]),
+                $this->endings()->placesEndingIn($asked),
+            ));
         }
 
         return $this->named[$key];
@@ -237,6 +235,16 @@ final class TestFiles
         }
 
         return $this->listed[0];
+    }
+
+    /** Each test file's class name, read from its end, by the file's place among them all. */
+    private function endings(): ClassNameEndings
+    {
+        if ($this->endings === []) {
+            $this->endings = [ClassNameEndings::of(array_values($this->classes()))];
+        }
+
+        return $this->endings[0];
     }
 
     /** @return list<string> the PHP files an entry of a directory is, or holds, by their paths on disk */
