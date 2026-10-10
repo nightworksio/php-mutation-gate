@@ -79,13 +79,15 @@ final readonly class Inventory
         }
 
         $holdings = self::holdingsOf($adapters, $suite, $listings->groups());
-        $held = $holdings instanceof Holdings ? $holdings->units($trees, $files) : $holdings;
+        $additions = $holdings instanceof Holdings
+            ? $holdings->additions($listings->judging, $listings->holding)
+            : Additions::none();
+        $held = $holdings instanceof Holdings ? $holdings->units($trees, $files, $additions) : $holdings;
 
         if ($held instanceof CannotJudge) {
             return $held;
         }
 
-        $additions = $holdings->additions($listings->judging, $listings->holding);
         $unmapped = self::unmapped($adapters, $additions);
 
         return $unmapped instanceof CannotJudge ? $unmapped : new self(

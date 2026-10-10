@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Hold\Addition;
+use NightWorksIO\MutationGate\Core\Hold\Additions;
 use NightWorksIO\MutationGate\Core\Hold\Holdings;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -151,7 +152,7 @@ it('cannot find the units where the runner cannot list its groups', function () 
 
 it('cannot find the units where a group holds a path no tree has', function () use ($listing, $inventory): void {
     $groups = Groups::of(Group::named('holds:src/Nowhere.php'));
-    $refused = Holdings::inGroups($groups)->units(Flows::trees(), Flows::checkout()->fingerprints());
+    $refused = Holdings::inGroups($groups)->units(Flows::trees(), Flows::checkout()->fingerprints(), Additions::none());
 
     expect($refused)->toBeInstanceOf(CannotJudge::class)
         ->and($inventory($listing($groups)))->toEqual($refused);
@@ -296,6 +297,20 @@ it('leaves a path held only from a holding suite a unit of its tree, its hold ad
     ])
         ->and($found instanceof Inventory ? [...$found->additions] : $found)->toEqual([
             Addition::of(Path::of('src/Held.php'), TestIds::of(TestId::of('P\Tests\Process\HeldTest::starts')), 'holds:src/Held.php'),
+        ]);
+});
+
+it('lets holds from a holding suite nest, each adding judges', function () use ($heldInProcess): void {
+    $starts = TestIds::of(TestId::of('P\Tests\Process\HeldTest::starts'));
+    $found = inventoryHeldFromProcess(TestListing::none(), $heldInProcess()->grouping(Group::named('holds:src'), $starts));
+
+    expect($found instanceof Inventory ? [...$found->units] : $found)->toEqual([
+        Unit::file(Path::of('src/Money.php')),
+        Unit::file(Path::of('src/Held.php')),
+    ])
+        ->and($found instanceof Inventory ? [...$found->additions] : $found)->toEqual([
+            Addition::of(Path::of('src/Held.php'), $starts, 'holds:src/Held.php'),
+            Addition::of(Path::of('src'), $starts, 'holds:src'),
         ]);
 });
 

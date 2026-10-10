@@ -12,6 +12,7 @@ use function implode;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
@@ -92,9 +93,11 @@ final readonly class Holdings
      * One unit per held path, judged by the tests that hold it. A path that is
      * not a tree or an existing file or directory inside one, a path held both
      * by a group and by `#[Holds]`, and a held path inside another cannot be
-     * judged.
+     * judged, unless both are held only from the holding suites: those holds
+     * add judges and narrow nothing, so a mutant is judged once whatever they
+     * hold.
      */
-    public function units(Trees $trees, Fingerprints $files): Units|CannotJudge
+    public function units(Trees $trees, Fingerprints $files, Additions $additions): Units|CannotJudge
     {
         $units = [];
 
@@ -108,7 +111,7 @@ final readonly class Holdings
             $units[$unit->path()->value()] = $unit;
         }
 
-        return $this->apart($units);
+        return $this->apart($units, $additions->paths());
     }
 
     /**
@@ -196,11 +199,11 @@ final readonly class Holdings
     }
 
     /** @param array<string, Unit> $units by path */
-    private function apart(array $units): Units|CannotJudge
+    private function apart(array $units, Paths $added): Units|CannotJudge
     {
         foreach ($units as $outer) {
             foreach ($units as $inner) {
-                if (! $inner->path()->equals($outer->path()) && $inner->path()->within($outer->path())) {
+                if (self::clash($outer->path(), $inner->path(), $added)) {
                     return CannotJudge::because(
                         sprintf(self::NESTED, $outer->path()->value(), $inner->path()->value()),
                     );
@@ -209,5 +212,13 @@ final readonly class Holdings
         }
 
         return Units::of(...$units);
+    }
+
+    /** Whether one held path lies inside another where a mutant there would be judged twice. */
+    private static function clash(Path $outer, Path $inner, Paths $added): bool
+    {
+        $nested = ! $inner->equals($outer) && $inner->within($outer);
+
+        return $nested && ! ($added->has($inner) && $added->has($outer));
     }
 }

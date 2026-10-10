@@ -47,7 +47,10 @@ Its hold adds to that code's judges and replaces none of them
 The held path stays part of its tree. Every test of `tests.suites` that covers
 a line of it still judges that line, and so do the holding tests that run it.
 Use this for slow tests, such as tests that start processes, that should judge
-only the code they are written for.
+only the code they are written for. Since none of these holds narrows, one may
+lie inside another: a test can hold a whole directory while another holds one
+file in it. A hold from `tests.suites` still may not lie inside any other hold,
+nor hold one inside it.
 
 The coverage map keeps a holding test only on the lines it runs inside the
 paths it holds. A hold whose tests run no line of its path stops the run with
