@@ -21,6 +21,9 @@ use function sprintf;
  * configured, and `none` turns checking off; both are names, not adapters.
  * Without a config, the analyser discovers its own. One check may take
  * `staticCheck.seconds`, and so may Psalm's language server to start.
+ * `staticCheck.before` also checks a mutant before its tests where that pays;
+ * off by default, so only the tests' survivors are checked (ADR-0020,
+ * decision 11).
  */
 final readonly class StaticCheck implements Part
 {
@@ -34,6 +37,7 @@ final readonly class StaticCheck implements Part
         private Choice|Absent $tool,
         private Path|Absent $config,
         private Seconds|Absent $seconds,
+        private bool|Absent $before,
     ) {
     }
 
@@ -41,8 +45,9 @@ final readonly class StaticCheck implements Part
         Choice|Absent $tool = new Absent(),
         Path|Absent $config = new Absent(),
         Seconds|Absent $seconds = new Absent(),
+        bool|Absent $before = new Absent(),
     ): self {
-        return new self($tool, $config, $seconds);
+        return new self($tool, $config, $seconds, $before);
     }
 
     public static function none(): self
@@ -54,7 +59,7 @@ final readonly class StaticCheck implements Part
     {
         $none = self::none();
 
-        return self::of($none->tool(), seconds: $none->seconds());
+        return self::of($none->tool(), seconds: $none->seconds(), before: $none->before());
     }
 
     /** An analyser is chosen whole, and so is the config it reads. */
@@ -65,6 +70,7 @@ final readonly class StaticCheck implements Part
                 Absent::laid($this->tool, $later->tool),
                 Absent::laid($this->config, $later->config),
                 Absent::laid($this->seconds, $later->seconds),
+                Absent::laid($this->before, $later->before),
             )
             : $this;
     }
@@ -90,6 +96,15 @@ final readonly class StaticCheck implements Part
         return $this->seconds instanceof Seconds ? $this->seconds : Seconds::of(Seconds::PER_MINUTE);
     }
 
+    /**
+     * `staticCheck.before`: whether a mutant is also checked before its tests
+     * where that pays; no by default, so only survivors are checked.
+     */
+    public function before(): bool
+    {
+        return $this->before === true;
+    }
+
     public function written(PathOrigin $origin): Json
     {
         return Json::object(Member::unlessEmpty(
@@ -101,6 +116,7 @@ final readonly class StaticCheck implements Part
                     'seconds',
                     $this->seconds instanceof Seconds ? intval($this->seconds->seconds()) : $this->seconds,
                 ),
+                Member::of('before', $this->before),
             ),
         ));
     }
@@ -117,6 +133,8 @@ final readonly class StaticCheck implements Part
             ...$this->seconds instanceof Seconds
                 ? [sprintf('StaticCheck::seconds(%d)', intval($this->seconds->seconds()))]
                 : [],
+            ...$this->before === true ? ['StaticCheck::beforeTests()'] : [],
+            ...$this->before === false ? ['StaticCheck::afterTests()'] : [],
         ]);
     }
 

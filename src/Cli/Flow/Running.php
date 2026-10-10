@@ -7,7 +7,9 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use Closure;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistory;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
+use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
 use NightWorksIO\MutationGate\Core\Analysis\PreCheck;
+use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Ci\WhichShard;
@@ -246,7 +248,7 @@ final readonly class Running
         $kept = HeldCoverage::kept($shard, $held->misses());
         $startUp = new StartUpTiming($this->adapters, StartUpSamples::standard())->of($map, $kept->units());
         $warmUp = new AnalyserWarmUp();
-        $preChecking = new PreChecking(
+        $preChecking = $this->settings->staticCheck()->before() ? new PreChecking(
             $this->adapters,
             $this->setup->clock,
             $deadline,
@@ -255,7 +257,7 @@ final readonly class Running
             $warmUp,
             $stopwatch,
             PreCheck::standard(),
-        );
+        ) : new NoPreCheck();
         $invoking = new Invoking(
             $this->adapters,
             $this->settings,
@@ -314,7 +316,9 @@ final readonly class Running
             $spent->flaky,
             $held,
             $spent->unjudged,
-            $spent->checks->plus($checked->checks)->plus($preChecking->checks()),
+            $spent->checks->plus($checked->checks)->plus(
+                $preChecking instanceof PreChecking ? $preChecking->checks() : SurvivorChecks::none(),
+            ),
             $spent->doomed,
         );
     }

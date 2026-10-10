@@ -336,6 +336,14 @@ it('names each built-in adapter by a method of its own', function (Closure $gate
         fn(): Gate => Gate::configure()->with(StaticCheck::none()),
         ['staticCheck' => ['tool' => 'none']],
     ],
+    'analysis before the tests' => [
+        fn(): Gate => Gate::configure()->with(StaticCheck::beforeTests()),
+        ['staticCheck' => ['before' => true]],
+    ],
+    'analysis of the survivors only' => [
+        fn(): Gate => Gate::configure()->with(StaticCheck::beforeTests(), StaticCheck::afterTests()),
+        ['staticCheck' => ['before' => false]],
+    ],
     'mago' => [fn(): Gate => Gate::configure()->with(StaticCheck::mago()), ['staticCheck' => ['tool' => 'mago']]],
     'psalm' => [fn(): Gate => Gate::configure()->with(StaticCheck::psalm()), ['staticCheck' => ['tool' => 'psalm']]],
     'an analyser by name' => [

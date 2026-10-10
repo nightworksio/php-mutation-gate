@@ -1726,6 +1726,10 @@
                     "type": "integer",
                     "minimum": 1,
                     "default": 60
+                },
+                "before": {
+                    "type": "boolean",
+                    "default": false
                 }
             },
             "additionalProperties": false
