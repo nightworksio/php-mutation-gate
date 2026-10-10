@@ -193,77 +193,85 @@ function contentKeyPaths(array $paths): Paths
 
 $keyOf = contentKeyOf(...);
 
-/** The SHA-256 of fields, each written with its length in bytes before it. */
-$framed = static fn(string ...$fields): Digest => Digest::of(hash('sha256', implode('', array_map(
+/** Fields, each written with its length in bytes before it. */
+$frame = static fn(string ...$fields): string => implode('', array_map(
     static fn(string $field): string => sprintf("%d:%s\n", strlen($field), $field),
     $fields,
-))));
+));
 
-it('hashes everything a result could depend on, in order', function () use ($keyOf, $framed): void {
-    expect(ContentKeys::FORMAT)->toBe('mutation-gate proof 4')
+/** The SHA-256 of fields, each written with its length in bytes before it. */
+$framed = static fn(string ...$fields): Digest => Digest::of(hash('sha256', $frame(...$fields)));
+
+it('hashes everything a result could depend on, in order, from finished digests', function () use ($keyOf, $frame, $framed): void {
+    $base = $framed(
+        'mutation-gate proof 5',
+        'gate',
+        'nightworksio/mutation-gate',
+        '1.0.0',
+        'abc123',
+        'config',
+        '{"runner":"pëst"}',
+        'runner',
+        'pest',
+        '2',
+        'pestphp/pest',
+        '5.2.0',
+        'r1',
+        'pestphp/pest-plugin-mutate',
+        '5.0.1',
+        'r2',
+        'platform',
+        'analyser',
+        'none',
+        'installed',
+        'installed',
+        'files',
+        '3',
+        'composer.json',
+        'c1',
+        'src/A.php',
+        'a1',
+        'src/B.php',
+        'b1',
+        'ci',
+        '1',
+        '.github/workflows/mutation.yml',
+        "name: mutation\nsteps:\n  - uses: actions/checkout@3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d # v7\n",
+        'always',
+        '4',
+        'tests/Pest.php',
+        'p1',
+        'tests/Support/Base.php',
+        'b2',
+        'tests/Unit/CanaryTest.php',
+        'k1',
+        'tests/Unit/UnknownTest.php',
+        'u1',
+    )->value();
+    $read = hash('sha256', $frame(
+        'tests',
+        '3',
+        'tests/Support/Helper.php',
+        'h1',
+        'tests/Unit/Ghost.php',
+        'missing',
+        'tests/Unit/MoneyTest.php',
+        'm1',
+    ));
+
+    expect(ContentKeys::FORMAT)->toBe('mutation-gate proof 5')
         ->and($keyOf())->toEqual($framed(
-            'mutation-gate proof 4',
-            'gate',
-            'nightworksio/mutation-gate',
-            '1.0.0',
-            'abc123',
-            'config',
-            '{"runner":"pëst"}',
-            'runner',
-            'pest',
-            '2',
-            'pestphp/pest',
-            '5.2.0',
-            'r1',
-            'pestphp/pest-plugin-mutate',
-            '5.0.1',
-            'r2',
-            'platform',
-            'analyser',
-            'none',
-            'installed',
-            'installed',
-            'files',
-            '3',
-            'composer.json',
-            'c1',
-            'src/A.php',
-            'a1',
-            'src/B.php',
-            'b1',
-            'ci',
-            '1',
-            '.github/workflows/mutation.yml',
-            "name: mutation\nsteps:\n  - uses: actions/checkout@3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d # v7\n",
-            'always',
-            '4',
-            'tests/Pest.php',
-            'p1',
-            'tests/Support/Base.php',
-            'b2',
-            'tests/Unit/CanaryTest.php',
-            'k1',
-            'tests/Unit/UnknownTest.php',
-            'u1',
-            'tests',
-            '3',
-            'tests/Support/Helper.php',
-            'h1',
-            'tests/Unit/Ghost.php',
-            'missing',
-            'tests/Unit/MoneyTest.php',
-            'm1',
+            'mutation-gate proof 5',
+            $base,
+            $read,
             'unit',
             'src/A.php',
             'the whole suite',
             '2',
             '1',
-            '1',
-            'c::t',
+            hash('sha256', $frame('1', 'c::t')),
             '3',
-            '2',
-            'a::t',
-            'b::t',
+            hash('sha256', $frame('2', 'a::t', 'b::t')),
         ));
 });
 
@@ -353,31 +361,13 @@ $bare = static fn(): ContentKeys => ContentKeys::of(
     Tests::of(TestFiles::of(), Paths::none(), Paths::none()),
 );
 
-it('writes what holds a unit, by its name', function (Unit $unit, string $heldBy) use ($bare, $framed): void {
-    expect($bare()->keyOf($unit, Paths::none(), CoverageMap::empty()))->toEqual($framed(
-        'mutation-gate proof 4',
-        'gate',
-        'nightworksio/mutation-gate',
-        '1.0.0',
-        'abc123',
-        'config',
-        '{}',
-        'runner',
-        'pest',
-        '0',
-        'platform',
-        'analyser',
-        'none',
-        'installed',
-        'installed',
-        'files',
-        '0',
-        'ci',
-        '0',
-        'always',
-        '0',
-        'tests',
-        '0',
+it('writes what holds a unit, by its name', function (Unit $unit, string $heldBy) use ($bare, $frame, $framed): void {
+    $keys = $bare();
+
+    expect($keys->keyOf($unit, Paths::none(), CoverageMap::empty()))->toEqual($framed(
+        'mutation-gate proof 5',
+        $keys->base()->value(),
+        hash('sha256', $frame('tests', '0')),
         'unit',
         'src/A.php',
         $heldBy,
@@ -452,12 +442,12 @@ it('keys each unit of a fixture with the bytes its format gives it, whatever ord
     expect($keys->keyOf($unit, $judges, $coverage))->toEqual(Digest::of($key))
         ->and($keys->keyOf($unit, Paths::of(...array_reverse([...$judges])), $coverage))->toEqual(Digest::of($key));
 })->with([
-    'a unit judged by one test file' => [Unit::file(Path::of('src/A.php')), Paths::of(Path::of('tests/Unit/MoneyTest.php')), '2e1336c4087c23c7cf3d9a0cff6aef712260018272ca66d597084c3a5abf6cef'],
-    'a unit judged by test files named by digits' => [Unit::file(Path::of('src/A.php')), Paths::of(Path::of('tests/10'), Path::of('tests/9'), Path::of('tests/Unit/LedgerTest.php')), 'ec90d582aad95f1ac6677b28cf795ffae2e71adf877773425342cc588ce8743e'],
-    'a unit judged by a test file the key does not hold' => [Unit::file(Path::of('src/B.php')), Paths::of(Path::of('tests/Unit/GoneTest.php'), Path::of('tests/Unit/MoneyTest.php')), 'aaa4d928c769fc5ce16082d1c69f2c5b2202924cda849e098afa789d5c88ab07'],
-    'a unit nothing judges' => [Unit::file(Path::of('src/C.php')), Paths::none(), 'ed2a0e79b4c3048e83ec5ba4c18e58b7dbe19bdc50f1b7b5078e48fe569f384e'],
-    'a unit a group holds' => [Unit::held(Path::of('src/A.php'), Group::named('holds:src/A.php')), Paths::none(), 'd6837f6de13d65979fa49b9f773161a3e27c5e4d6648f787685060d3441b2761'],
-    'a unit a filter holds' => [Unit::held(Path::of('src/B.php'), Filter::matching('Money')), Paths::of(Path::of('tests/Unit/MoneyTest.php')), '61e42728a6fe0532c4dc36fb3d5e508013e4c958f5e23e12c9e77ec76e29d804'],
+    'a unit judged by one test file' => [Unit::file(Path::of('src/A.php')), Paths::of(Path::of('tests/Unit/MoneyTest.php')), 'bc82a56be408e8113dd265d32abd2e4d806380bd9c61bf78d0792b3b0104eabd'],
+    'a unit judged by test files named by digits' => [Unit::file(Path::of('src/A.php')), Paths::of(Path::of('tests/10'), Path::of('tests/9'), Path::of('tests/Unit/LedgerTest.php')), '1fac46477f49f7eca10a18a5661d0ecd4d7081a865a3f1f93658c32af5b56f3b'],
+    'a unit judged by a test file the key does not hold' => [Unit::file(Path::of('src/B.php')), Paths::of(Path::of('tests/Unit/GoneTest.php'), Path::of('tests/Unit/MoneyTest.php')), 'ef0a5abb7a29730b7813e353657fe2209f51d579851c7d2566129e7bda02cdd7'],
+    'a unit nothing judges' => [Unit::file(Path::of('src/C.php')), Paths::none(), 'b097a191a8ec4b35cc27125d4e1913f17ad10e5d2ee600e83cd318a9762e4009'],
+    'a unit a group holds' => [Unit::held(Path::of('src/A.php'), Group::named('holds:src/A.php')), Paths::none(), '75f67169e937beef59a002bafeceaf342fb870432566ca02dbdad941df585ce1'],
+    'a unit a filter holds' => [Unit::held(Path::of('src/B.php'), Filter::matching('Money')), Paths::of(Path::of('tests/Unit/MoneyTest.php')), '21607a846b51514bdc9664148db55cd0ce3d1167868da184957af2a5d7e0bd5b'],
 ]);
 
 it('keys many units at once as it keys each alone, reading a set of judging files once', function (): void {
@@ -522,7 +512,7 @@ it('names the base every key of a run is built on: the digest of what every key 
     $keys = $bare();
 
     expect($keys->base())->toEqual($framed(
-        'mutation-gate proof 4',
+        'mutation-gate proof 5',
         'gate',
         'nightworksio/mutation-gate',
         '1.0.0',
@@ -599,7 +589,7 @@ it('digests what decides a mutant set, each unit\'s source, and each test file w
     $digests = contentDigestsOf(Units::of(Unit::file(Path::of('src/A.php')), Unit::held(Path::of('src'), Group::named('holds:src'))));
 
     expect($digests->mutation())->toEqual($framed(
-        'mutation-gate proof 4',
+        'mutation-gate proof 5',
         'gate',
         'nightworksio/mutation-gate',
         '1.0.0',

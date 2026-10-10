@@ -435,7 +435,7 @@ it('reads the lines no test ran from the report beside the XML coverage, which l
     }), LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory())
         ->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.gate/planned')));
 
-    expect($map instanceof CoverageMap ? [...$map->linesMissed(Path::of('src/Money.php'))] : $map)->toEqual([Line::of(12)])
+    expect($map instanceof CoverageMap ? [...$map->lineSets(Path::of('src/Money.php'))->missed()] : $map)->toEqual([Line::of(12)])
         ->and($map instanceof CoverageMap ? [...$map->linesCovered(Path::of('src/Money.php'))] : $map)->toEqual([Line::of(11)]);
 });
 

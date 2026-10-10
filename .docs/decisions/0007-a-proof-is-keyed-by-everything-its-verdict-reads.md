@@ -57,13 +57,16 @@ has to bring its result with it.
    adding an ignore re-runs nothing.
 
 2. **The content key is a SHA-256 over all of the following, in this order.**
-   1. **The key's format**, `mutation-gate proof 4`. It changes whenever what
+   1. **The key's format**, `mutation-gate proof 5`. It changes whenever what
       the key means changes, so an older proof is never read as a newer one.
       Format 2 moved the test files every key reads into the base (items 7
       and 8), in the same change as ledger format 2 (decision 3), so the one
       bump covers both. Format 3 added the static analyser to item 4. Format 4
       kept every pin and blank line of a CI definition in item 6, and moved
       `extensions`, `runner.withhold` and `ci.buildkite.step` into item 3.
+      Format 5 builds each unit's key from finished digests, so another
+      implementation can build it alike, and hashes each set of covering
+      tests once, as the paragraph after item 9 says.
    2. **The gate**: its installed version and source reference.
    3. **The configuration** as it affects results: the effective config after
       presets, serialised canonically, with the settings that only judge or
@@ -189,6 +192,17 @@ has to bring its result with it.
    Items 1 to 7 are the same for every unit of a run. They are the run's
    **base**: hashed once, and its digest recorded with every proof the run
    establishes (decision 3). A key can only match a proof of its own base.
+
+   A unit's key is the SHA-256 of these fields, each written as its length in
+   bytes, a colon, the field and a line break: the format, the base's digest,
+   the digest of what item 8 reads for the unit's judging test files,
+   `unit`, the unit's path, what holds it, the number of its covered lines,
+   and then for each covered line, in ascending order, its number and the
+   digest of the set of tests that cover it. A set's digest is the SHA-256 of
+   its size and its test ids, framed alike, the ids in byte order. Each set
+   is hashed once however many lines it covers: a map of the gate's own
+   suite holds about 37,000 covered lines but only about 11,400 distinct
+   sets, whose ids would otherwise come to about 900 MB of text.
 
    Where a key cannot be computed, the unit always runs and is never recorded.
    That happens with no git, or with no coverage map. Every doubt resolves the
