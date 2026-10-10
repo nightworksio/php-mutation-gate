@@ -10,6 +10,7 @@ use function array_values;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\Change\Change;
+use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\Config\ConfigReads;
 use NightWorksIO\MutationGate\Core\Config\Format;
@@ -46,15 +47,19 @@ final readonly class Layout
     /**
      * The files that decide how the gate runs in every package, and its tests
      * in `tests`, named as PHPUnit names them by default. Those files are the
-     * gate's config, the package's `composer.json`, its PHPUnit config, and
-     * the files that define the runner, each spelt from the package's own
-     * directory.
+     * gate's config, the package's `composer.json`, `composer.lock` and
+     * `vendor/composer/installed.json`, since a dependency that moves changes
+     * what every mutant runs against and no coverage map shows it, its
+     * PHPUnit config, and the files that define the runner, each spelt from
+     * the package's own directory.
      */
     public static function standard(Paths $runnerDefinitions): self
     {
         $decisive = [
             ...array_map(Path::of(...), Format::fileNames()),
             Manifest::fileIn(Path::root()),
+            Manifest::lockIn(Path::root()),
+            Installed::fileIn(Path::of(Manifest::VENDOR)),
             ...PhpUnitConfig::candidatesIn(Path::root()),
             ...$runnerDefinitions,
         ];

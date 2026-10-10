@@ -82,6 +82,11 @@ it('reaches everything where a root file decides how the gate runs, even where i
     'renamed away' => [fn(): Change => Change::renamed(Path::of('phpunit.xml'), Path::of('phpunit.old'), Lines::none()), 'phpunit.xml'],
     'renamed to' => [fn(): Change => Change::renamed(Path::of('phpunit.old'), Path::of('phpunit.xml'), Lines::none()), 'phpunit.xml'],
     'deleted' => [fn(): Change => Change::deleted(Path::of('tests/Pest.php')), 'tests/Pest.php'],
+    'the lock moved' => [fn(): Change => Change::modified(Path::of('composer.lock'), Lines::of(Line::of(9))), 'composer.lock'],
+    'what Composer installed moved' => [
+        fn(): Change => Change::modified(Path::of('vendor/composer/installed.json'), Lines::of(Line::of(4))),
+        'vendor/composer/installed.json',
+    ],
 ]);
 
 it('reaches a package whole, and every package that depends on it, where a file of its decides how the gate runs', function () use ($reaching, $judges, $said, $core, $money, $root): void {

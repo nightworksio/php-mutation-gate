@@ -25,6 +25,8 @@ it('decides how the gate runs with the files every project decides with, spelt f
     'mutation-gate.yml',
     'mutation-gate.neon',
     'composer.json',
+    'composer.lock',
+    'vendor/composer/installed.json',
     'phpunit.xml',
     'phpunit.xml.dist',
     'phpunit.dist.xml',
@@ -42,7 +44,7 @@ it('decides how the gate runs with the files that define the runner, and not wit
 
 it('decides nothing with any other file', function (string $file): void {
     expect(layoutDefinedBy('tests/Pest.php')->decides(Path::of($file), Path::root()))->toBeFalse();
-})->with(['README.md', 'src/composer.json', 'composer.lock', 'tests/Unit/PestTest.php', 'src/phpunit.xml']);
+})->with(['README.md', 'src/composer.json', 'src/composer.lock', 'tests/Unit/PestTest.php', 'src/phpunit.xml']);
 
 it('decides with the files of a package spelt from its directory, and with those reach.everything adds spelt from the repository\'s', function (): void {
     $layout = layoutDefinedBy()->decidedAlsoBy(Glob::of('config/**'))->decidedAlsoBy(Glob::of('packages/money/routes/**'));
