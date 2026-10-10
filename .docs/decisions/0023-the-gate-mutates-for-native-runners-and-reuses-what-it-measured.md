@@ -142,6 +142,9 @@ manual.
    - **A subset of single tests** narrows by test id: `--test-id-filter-file`
      for Infection, or `--filter` on a PHPUnit release without it, and
      `--filter` for Pest where a file's entries are mixed.
+   - A test of a suite `tests.holding` lists (ADR-0002, decision 8) is
+     measured among those suites, and its entry keeps only the lines it runs
+     inside the paths it holds (ADR-0005, decision 9).
    - The gate merges the partial map into the kept one: re-measured entries
      are replaced, a deleted test file's entries are dropped, and each
      untouched test keeps its recorded duration. For a subset of test files,

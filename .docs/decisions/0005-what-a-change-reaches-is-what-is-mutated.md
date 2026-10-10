@@ -39,7 +39,8 @@ The same repository has two more needs.
 
 1. **A unit is what a verdict and a proof are about.** It is either one source
    file in a tree, or a path a holding group judges (decision 9), mutated as one
-   unit against that group.
+   unit against that group. A path held only from the suites `tests.holding`
+   lists stays the source files of its tree, each its own unit (decision 9).
 
 2. **Two modes.**
    - **Full**: every unit is considered, as `--full` asks, and as a run asked
@@ -200,6 +201,9 @@ The same repository has two more needs.
       coverage map.
       - A changed test inside a module's directory (decision 7) also reaches
         every tree of that module.
+      - A changed test in a suite `tests.holding` lists (ADR-0002, decision 8)
+        reaches what it executes inside the paths it holds, which is all the
+        map keeps of it (decision 9).
       - A test that asserts less changes no line of the code it judged. The map
         is the only way to find that code again.
       - A deleted test, or no map to read, reaches everything in its package.
@@ -369,12 +373,38 @@ The same repository has two more needs.
      the run with exit code 2. A misspelt path would otherwise be mutated
      against the whole suite, correct and slow, with no sign the declaration
      was never read.
-   - **How a held path runs.** It is one unit, mutated against its holding
-     tests alone and never with the shared coverage map. For Pest that is
-     `--group`. For Infection it is the group or, for `#[Holds]`, a `--filter`
-     naming the holding tests (ADR-0004). The runs of the tree around it leave
-     it out (Pest's `--ignore`), so no mutant is judged twice or by the wrong
-     tests.
+   - **How a held path runs.** Where any test that holds it is in a suite
+     whose tests judge every unit (`tests.suites`, ADR-0002 decision 8), it is
+     one unit, mutated against its holding tests alone, those in the suites
+     `tests.holding` lists among them, and never with the shared coverage map.
+     For Pest that is `--group`. For Infection it is the group or, for
+     `#[Holds]`, a `--filter` naming the holding tests (ADR-0004). The runs of
+     the tree around it leave it out (Pest's `--ignore`), so no mutant is
+     judged twice or by the wrong tests.
+   - **How a path held only from holding suites runs.** Where every test that
+     holds a path is in a suite `tests.holding` lists, the hold adds judges and
+     narrows nothing. Such a suite's tests judge nothing unless they hold it,
+     so narrowing the path to them would drop every killer the other suites
+     give it.
+     - The path's files stay units of their trees, run with the tree around
+       them and judged through the shared coverage map.
+     - The coverage run runs the holding suites too, and the map keeps each
+       of their tests only on the lines it runs inside the paths it holds.
+       There it is a covering test like any other, in everything that reads
+       the map: what a change reaches (rule 3), the test files the key reads
+       (ADR-0007, decision 2), the coverage input the gate writes for the
+       runner (ADR-0023, decision 4), the shard's result and the proof's
+       `judging` (ADR-0007, decision 3). A run of mutants that any of these
+       tests judges runs the holding suites too. A holding suite's test is on
+       no other path's lines, so it judges no other unit.
+     - The gate reads which tests hold a path, and in which suites, from the
+       runner's own listing of each test's groups, once over each list of
+       suites (ADR-0004). A `#[Holds]` read from tokens is in the suite that
+       holds its file.
+     - Pest without `pest.patch` runs its own opening suite and takes no
+       coverage input from the gate, so it cannot add tests to one path's
+       lines alone. There, a path held only from holding suites fails the run
+       with exit code 2, naming `pest.patch`.
 
 10. **A group must cover what it holds before it may judge it.** Before a held
     path is mutated, its group runs alone under coverage. Every line of the path
@@ -390,6 +420,17 @@ The same repository has two more needs.
     A group that does not pass on its own is *cannot judge*. A path with no
     file in the group's report is unreached as a whole, never "nothing missed".
 
+    A hold only from the suites `tests.holding` lists need not cover every
+    line, since the suites that judge every unit still judge the rest. It
+    must run at least one line of the path it holds. A hold that runs none
+    declares what cannot be true, so, as with a misspelt path, the run stops
+    with exit code 2 and names it:
+
+    ```text
+    holds:src/Kernel.php in the holding suites runs no line of src/Kernel.php, so it judges none of its mutants.
+    Add the test that runs it to the group, or remove the hold.
+    ```
+
     The tests of the group that run any line of a path it covers are the
     tests that judge its mutants. The shard's result lists them as `covered`,
     and the unit's proof keeps them as `judging` (ADR-0007, decision 3), so a
@@ -399,7 +440,8 @@ The same repository has two more needs.
     coverage run, a warning names each source file whose lines are executed by
     at least `holds.hotPath` of the suite's tests (a fraction from 0 to 1, 0.8
     by default, and only in suites of 20 tests or more), when no group holds
-    it. The warning appears in the console, the step summary and the PR comment
+    it from the suites that judge every unit: a hold from a holding suite
+    adds judges and narrows nothing, so it leaves the cost as it was. The warning appears in the console, the step summary and the PR comment
     (ADR-0009): *`src/Kernel.php` is run by 412 of 430 tests and nothing holds
     it; each of its mutants runs most of the suite.* The verdict finds them in
     the coverage map the plan hands it (ADR-0014, decision 11), among the
@@ -445,6 +487,7 @@ The same repository has two more needs.
 | **A changed source file also reaches every unit whose tests run it** | Would re-run most of a project for a change to shared code, to catch mutants whose killing test changed behaviour indirectly. The scheduled full run catches those at a fraction of the cost. The in-house gate makes the same trade. |
 | **Reach every dependent package whenever a package's source changes** | Every change to a shared core package would re-mutate the whole monorepo. Kept for changes that alter how a package's tests run (its manifest and test setup), which is where a dependent's verdict genuinely moves. |
 | **A config file per package** | Two places answer for one monorepo, and a package's file could quietly contradict the root's. One root config, with floors in the manifests beside the code they hold, keeps one answer. |
+| **Holds from a holding suite narrow, as other holds do** | A holding suite's tests judge nothing they do not hold, so a held path would lose every killer the suites that judge every unit give it. On the gate's own suite, a process-starting test file that held `src/Core/Runner/MemoryCap.php` would cut it off from 1,488 covering tests in 139 files. Spreading the group onto every covering test keeps them, but the groups go stale as tests change. |
 | **Declaring held paths in config instead of in tests** | Puts the claim "these tests hold that code" away from the tests that make it. A group or attribute moves with the test, and the coverage check keeps it honest. |
 | **Reading `#[Holds]` by reflection** | Loads test classes, which can run code at load time. Tokens are enough to read an attribute's argument. The Pest plugin reads it by reflection only inside Pest's own runs, which load the test files anyway. |
 | **`#[Holds]` refused under Pest, with groups as the only Pest form** | One attribute would then mean different things per runner. The plugin can add the group at the point Pest adds its own, so the attribute works with both. |
