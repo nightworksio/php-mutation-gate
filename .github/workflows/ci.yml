@@ -4,6 +4,10 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Every gate, every night, whatever merged: a pull request runs only the
+  # runner legs and the warm workers its paths reach.
+  schedule:
+    - cron: "0 3 * * *"
 
 permissions:
   contents: read
@@ -22,14 +26,17 @@ env:
 # rules, coverage and the lowest dependencies) each have their own.
 
 jobs:
-  # Which of the PHP gates are worth running at all. A documentation change
-  # starts none of them, and asking costs one checkout.
+  # Which of the gates are worth running at all, and which runner legs and
+  # whether the warm workers (scope.py). A documentation change starts none of
+  # them, and asking costs one checkout.
   scope:
     name: what changed
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
       code: ${{ steps.diff.outputs.code }}
+      warm: ${{ steps.diff.outputs.warm }}
+      runners: ${{ steps.diff.outputs.runners }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -37,36 +44,16 @@ jobs:
           persist-credentials: false
       - id: diff
         env:
+          EVENT: ${{ github.event_name }}
           # A pull request is measured against its base, and a push to main
           # against the commit before it.
           BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
         run: |
           set -euo pipefail
-          # No base to compare against means every gate runs.
           if [ -z "${BASE}" ] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
-            echo "code=true" >> "$GITHUB_OUTPUT"
-            echo "No usable base commit, so every gate runs."
-            exit 0
-          fi
-          changed="$(git diff --name-only "${BASE}" HEAD)"
-          # Anything that is not documentation is code, so a new kind of file
-          # runs the gates. ARCHITECTURE.md holds the rule tables the Guards
-          # suite reads, .docs/reference/ the config reference and examples the
-          # config tests read, .docs/guide/ci/ the CI setups the CI tests read,
-          # and the troubleshooting guide the slugs the Docs suite reads, so
-          # all of them are code here. Under .github/, only this file and the
-          # scripts it runs start a PHP gate.
-          code=false
-          while IFS= read -r path; do
-            case "${path}" in
-            ARCHITECTURE.md | .docs/reference/* | .docs/guide/ci/* | .docs/guide/troubleshooting.md | .github/workflows/ci.yml | .github/scripts/*) code=true ;;
-            '' | .docs/* | *.md | LICENSE | .github/*) continue ;;
-            *) code=true ;;
-            esac
-          done <<< "${changed}"
-          echo "code=${code}" >> "$GITHUB_OUTPUT"
-          if [ "${code}" = false ]; then
-            echo "Documentation only; the PHP gates are skipped."
+            python3 .github/scripts/scope.py "${EVENT}" --no-base | tee -a "$GITHUB_OUTPUT"
+          else
+            git diff --name-only "${BASE}" HEAD | python3 .github/scripts/scope.py "${EVENT}" | tee -a "$GITHUB_OUTPUT"
           fi
       - name: what failed
         if: failure()
@@ -426,13 +413,15 @@ jobs:
   runner-contract:
     name: runner contract
     needs: scope
-    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.runners != '[]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        runner: [pest, infection-13, infection-12, phpunit, analysers]
+        # The runners whose legs this run reaches, every one where `what
+        # changed` could not say.
+        runner: ${{ fromJSON(needs.scope.outputs.runners || '["pest", "infection-13", "infection-12", "phpunit", "analysers"]') }}
         resolution: [highest, lowest]
     env:
       LEG: ${{ matrix.runner }}-${{ matrix.resolution }}
@@ -628,8 +617,11 @@ jobs:
       - name: every leg passed
         env:
           LEGS: ${{ needs.runner-contract.result }}
+          RUNNERS: ${{ needs.scope.outputs.runners }}
         run: |
-          if [ "${LEGS}" != success ]; then
+          if [ "${LEGS}" = skipped ] && [ "${RUNNERS}" = '[]' ]; then
+            echo "This run reaches no runner's adapter or fixture, so no leg ran."
+          elif [ "${LEGS}" != success ]; then
             echo "::error title=runner contracts::A leg of runner contract ended ${LEGS}. Its own log says why."
             exit 1
           fi
@@ -669,7 +661,7 @@ jobs:
   warm-workers:
     name: warm workers
     needs: scope
-    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.warm == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -849,7 +841,7 @@ jobs:
   sonar:
     name: sonarcloud
     needs: tests
-    if: ${{ !cancelled() && needs.tests.result == 'success' && (github.event_name == 'push' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]')) }}
+    if: ${{ !cancelled() && needs.tests.result == 'success' && (github.event_name == 'push' || github.event_name == 'schedule' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
