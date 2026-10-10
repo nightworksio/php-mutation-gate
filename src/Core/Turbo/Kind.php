@@ -9,4 +9,7 @@ enum Kind: string
 {
     /** The key of each test file's coverage entries (ADR-0023, decision 1). */
     case EntryKeys = 'entry-keys';
+
+    /** Each unit's proof key (ADR-0007). */
+    case UnitKeys = 'unit-keys';
 }

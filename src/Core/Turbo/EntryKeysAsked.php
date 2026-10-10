@@ -5,15 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Turbo;
 
 use function array_key_exists;
-use function array_keys;
 use function array_map;
 use function array_push;
-use function array_slice;
 use function array_values;
-use function ceil;
-use function count;
-use function hash;
-use function max;
 use function mb_check_encoding;
 
 use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
@@ -23,13 +17,7 @@ use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
-use NightWorksIO\MutationGate\Core\Format\Node;
-use NightWorksIO\MutationGate\Core\Format\NotInShape;
-use NightWorksIO\MutationGate\Core\Proof\Key\ContentKeys;
 use NightWorksIO\MutationGate\Core\Proof\Key\EntryKeying;
-
-use function sprintf;
-use function uasort;
 
 /**
  * The keys of test files' coverage entries, asked of the helper: everything
@@ -43,21 +31,7 @@ use function uasort;
  */
 final readonly class EntryKeysAsked
 {
-    /** How many entries a run recomputes in PHP at least, to check the helper's answer. */
-    private const int SAMPLED_AT_LEAST = 50;
-
-    /** The share of entries a run recomputes in PHP, where that is more than {@see SAMPLED_AT_LEAST}. */
-    private const float SAMPLED_SHARE = 0.02;
-
     private const string NOT_UTF8 = 'The paths or digests are not all UTF-8, which the helper\'s JSON cannot carry.';
-
-    private const string UNREAD = 'The helper\'s answer is not what this gate reads: %s';
-
-    private const string MISCOUNTED = 'The helper answered %d keys for %d test files.';
-
-    private const string NOT_A_KEY = 'The helper answered %s for %s, which is no SHA-256.';
-
-    private const string OTHER_PROTOCOL = 'The helper answered in protocol %d, and this gate reads %d.';
 
     /**
      * @param list<string>     $paths   every path the walk can reach, each once
@@ -149,74 +123,25 @@ final readonly class EntryKeysAsked
     /** Each test file's key, as the helper answered it; or why there is no answer, or it is not read. */
     public function keysIn(Answer|NotAccelerated $answer): EntryKeys|NotAccelerated
     {
-        if ($answer instanceof NotAccelerated) {
-            return $answer;
+        $digests = AnsweredKeys::read($answer, $this->files);
+
+        if ($digests instanceof NotAccelerated) {
+            return $digests;
         }
 
-        $read = Node::decode($answer->text(), Protocol::ANSWER);
-
-        try {
-            $protocol = $read->field('protocol')->integer();
-            $keys = $read->field('keys')->items();
-        } catch (NotInShape $unread) {
-            return NotAccelerated::because(sprintf(self::UNREAD, $unread->getMessage()));
-        }
-
-        return match (true) {
-            $protocol !== Protocol::VERSION
-                => NotAccelerated::because(sprintf(self::OTHER_PROTOCOL, $protocol, Protocol::VERSION)),
-            count($keys) !== count($this->files)
-                => NotAccelerated::because(sprintf(self::MISCOUNTED, count($keys), count($this->files))),
-            default => $this->keyed($keys),
-        };
-    }
-
-    /**
-     * The test files a run recomputes in PHP to check the helper's answer:
-     * those whose digest beside the base comes first, so which are checked
-     * changes with every state of the repository and no one picks them.
-     */
-    public function sample(): Paths
-    {
-        $ranks = [];
-
-        foreach ($this->files as $at => $file) {
-            $ranks[$at] = hash('sha256', ContentKeys::framed($this->base, $file->value()));
-        }
-
-        uasort($ranks, static fn(string $a, string $b): int => $a <=> $b);
-        $size = (int) max(self::SAMPLED_AT_LEAST, ceil(count($this->files) * self::SAMPLED_SHARE));
-        $sampled = [];
-
-        foreach (array_keys(array_slice($ranks, 0, $size, preserve_keys: true)) as $at) {
-            $sampled[] = $this->files[$at];
-        }
-
-        return Paths::of(...$sampled);
-    }
-
-    /** @param list<Node> $keys */
-    private function keyed(array $keys): EntryKeys|NotAccelerated
-    {
         $entries = EntryKeys::none();
 
-        foreach ($keys as $at => $key) {
-            $file = $this->files[$at];
-
-            try {
-                $text = $key->text();
-            } catch (NotInShape $unread) {
-                return NotAccelerated::because(sprintf(self::UNREAD, $unread->getMessage()));
-            }
-
-            if (! Digest::isSha256($text)) {
-                return NotAccelerated::because(sprintf(self::NOT_A_KEY, $text, $file->value()));
-            }
-
-            $entries = $entries->with($file, Digest::of($text));
+        foreach ($digests as $at => $digest) {
+            $entries = $entries->with($this->files[$at], $digest);
         }
 
         return $entries;
+    }
+
+    /** The test files a run recomputes in PHP to check the helper's answer ({@see Sample}). */
+    public function sample(): Paths
+    {
+        return Sample::of($this->base, $this->files);
     }
 
     /**

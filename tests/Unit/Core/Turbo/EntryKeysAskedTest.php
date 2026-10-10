@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Turbo\Answer;
 use NightWorksIO\MutationGate\Core\Turbo\EntryKeysAsked;
 use NightWorksIO\MutationGate\Core\Turbo\NotAccelerated;
 use NightWorksIO\MutationGate\Core\Turbo\Request;
+use NightWorksIO\MutationGate\Core\Turbo\Sample;
 
 $paths = static fn(string ...$paths): Paths => Paths::of(...array_map(Path::of(...), $paths));
 
@@ -68,45 +69,11 @@ it('reads each test file\'s key from the answer, in the order asked', function (
     );
 });
 
-it('passes on why there is no answer', function () use ($asked): void {
-    expect($asked()->keysIn(NotAccelerated::because('turned off')))->toEqual(NotAccelerated::because('turned off'));
+it('passes on why there is no answer or it is not read', function () use ($asked): void {
+    expect($asked()->keysIn(NotAccelerated::because('turned off')))->toEqual(NotAccelerated::because('turned off'))
+        ->and($asked()->keysIn(Answer::ofText('{"protocol":1,"keys":[]}')))->toBeInstanceOf(NotAccelerated::class);
 });
 
-it('refuses an answer it cannot read, in another protocol, of another count or with a key that is no SHA-256', function () use (
-    $asked,
-    $key,
-): void {
-    $answered = static fn(mixed $answer): EntryKeys|NotAccelerated => $asked()->keysIn(Answer::ofText((string) json_encode($answer)));
-
-    expect($asked()->keysIn(Answer::ofText('not json')))->toBeInstanceOf(NotAccelerated::class)
-        ->and($answered(['protocol' => 2, 'keys' => [$key('a'), $key('b')]]))
-        ->toEqual(NotAccelerated::because('The helper answered in protocol 2, and this gate reads 1.'))
-        ->and($answered(['protocol' => 1, 'keys' => [$key('a')]]))
-        ->toEqual(NotAccelerated::because('The helper answered 1 keys for 2 test files.'))
-        ->and($answered(['protocol' => 1, 'keys' => [$key('a'), 'ABC']]))
-        ->toEqual(NotAccelerated::because('The helper answered ABC for tests/OtherTest.php, which is no SHA-256.'))
-        ->and($answered(['protocol' => 1, 'keys' => [$key('a'), 7]]))->toBeInstanceOf(NotAccelerated::class)
-        ->and($answered(['protocol' => 1]))->toBeInstanceOf(NotAccelerated::class);
-});
-
-it('samples fifty entries at least, and a fiftieth of many, the same for the same base and another for another', function () use (
-    $paths,
-): void {
-    $entries = static fn(int $count): array => array_map(
-        static fn(int $at): array => [Path::of(sprintf('tests/T%dTest.php', $at)), $paths()],
-        range(1, $count),
-    );
-    $sample = static fn(string $base, int $count): Paths => EntryKeysAsked::of(
-        Digest::of($base),
-        [],
-        Fingerprints::none(),
-        $paths(),
-        $entries($count),
-    )->sample();
-
-    expect(count($sample('b', 10)))->toBe(10)
-        ->and(count($sample('b', 120)))->toBe(50)
-        ->and(count($sample('b', 5000)))->toBe(100)
-        ->and($sample('b', 120))->toEqual($sample('b', 120))
-        ->and($sample('b', 120))->not->toEqual($sample('c', 120));
+it('samples the test files a run checks in PHP', function () use ($asked): void {
+    expect($asked()->sample())->toEqual(Sample::of('b4', [Path::of('tests/MoneyTest.php'), Path::of('tests/OtherTest.php')]));
 });
