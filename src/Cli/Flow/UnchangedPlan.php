@@ -78,7 +78,7 @@ final readonly class UnchangedPlan
 
     private function planned(Inventory $inventory, Briefing $briefing, Unchanged $unchanged): PlanMade
     {
-        $plan = Plan::of($inventory->standing->head(), Digest::sha256Of(''), Keys::none(), Shards::none())
+        $plan = Plan::of($inventory->standing->head(), Digest::ofNothing(), Keys::none(), Shards::none())
             ->on($inventory->standing->runOn())
             ->briefed($briefing->unchangedSince($unchanged))
             ->considering(Considered::everything()->reaching(Changes::none(), Reasons::of($unchanged->reason())));

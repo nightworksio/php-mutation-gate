@@ -36,6 +36,12 @@ final readonly class Digest
         return new self(hash(self::ALGORITHM, $content));
     }
 
+    /** The SHA-256 of no content. */
+    public static function ofNothing(): self
+    {
+        return self::sha256Of('');
+    }
+
     /** A SHA-256 to feed in parts with `hash_update()`, and finish with `finished()`. */
     public static function hashing(): HashContext
     {
