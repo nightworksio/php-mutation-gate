@@ -213,6 +213,8 @@ services:
             coincidences:
                 'NightWorksIO\MutationGate\Cli\Init\InitQuestions':
                     - NONE # init's answer of no CI, not a hook setup's or a status
+                'NightWorksIO\MutationGate\Core\Turbo\EntryKeysAsked':
+                    - SAMPLED_AT_LEAST # entry keys a run recomputes in PHP, not a static check's standard count
                 'NightWorksIO\MutationGate\Core\Hook\HookRecipe':
                     - ACTION # a key of CaptainHook's config, not hook's argument
                 'NightWorksIO\MutationGate\Core\Push\PreCommitPush':

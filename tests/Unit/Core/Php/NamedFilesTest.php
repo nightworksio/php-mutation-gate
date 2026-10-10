@@ -32,6 +32,16 @@ it('reaches every file the files name, in turn, each once, in the order reached,
         ->and($cycle->reachedFrom())->toBe([]);
 });
 
+it('hands on its graph: the files each file names, each once, in the order it mentions them', function () use ($cycle): void {
+    expect($cycle->edges())->toBe([
+        'a.php' => ['b.php', 'c.php'],
+        'b.php' => ['d.php', 'a.php'],
+        'c.php' => ['d.php'],
+        'd.php' => [],
+        'e.php' => ['a.php'],
+    ]);
+});
+
 it('finds every file that mentions a name, and every file that names those, in turn, each once, in the order reached', function () use ($cycle): void {
     expect($cycle->naming('d'))->toBe(['b.php', 'c.php', 'a.php', 'e.php'])
         ->and($cycle->naming('a', 'unknown'))->toBe(['b.php', 'e.php', 'a.php'])

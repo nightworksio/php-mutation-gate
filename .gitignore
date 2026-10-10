@@ -6,6 +6,7 @@
 /.phpunit.cache/
 /.phpunit.result.cache
 /.mutation-gate/
+/turbo/target/
 /.phpactor.json
 /tests/Contract/Runner/fixture/vendor/
 /tests/Contract/Runner/fixture/.mutation-gate/

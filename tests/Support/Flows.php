@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Opcache\Prover;
+use NightWorksIO\MutationGate\Adapter\Turbo\Unavailable;
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
@@ -49,10 +50,12 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
+use NightWorksIO\MutationGate\Core\Turbo\NotAccelerated;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
+use NightWorksIO\MutationGate\Port\Accelerator;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Port\CostModel;
@@ -199,6 +202,7 @@ final readonly class Flows
             self::given(Narrowing::class, Narrowing::none(), $ports),
             self::given(Prover::class, Prover::of(PHP_BINARY, Root::of($project)->at(Path::of('.mutation-gate/equivalence')), ProcessCount::of(2), disabled: false), $ports),
             self::given(ConfigReads::class, ConfigReads::none(), $ports),
+            self::given(Accelerator::class, Unavailable::because(NotAccelerated::because('A flow test asks no helper.')), $ports),
         );
     }
 

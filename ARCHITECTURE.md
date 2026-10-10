@@ -31,6 +31,8 @@ plugins/
                its own composer.json, src and tests, which leaves by moving its
                directory (ADR-0021).
 phpstan/Rules/ this repository's own analyser rules.
+turbo/        the optional Rust helper, which computes what the core defines and
+               is checked against it (ADR-0029).
 tests/
   Arch/        the rules in this document that the suite enforces.
   Unit/        one test file per source file, mirroring src.

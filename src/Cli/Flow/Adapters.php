@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
+use NightWorksIO\MutationGate\Port\Accelerator;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Port\CostModel;
@@ -50,8 +51,9 @@ use function sprintf;
  * mutators whose mutants are security mutants, the mutators a run makes
  * mutants with, every one or the security mutators `--security` narrows it
  * to (ADR-0021), the suite whose tests alone judge them, where `--suite`
- * names one (ADR-0025), and what proves a survivor equivalent (ADR-0013,
- * decision 10).
+ * names one (ADR-0025), what proves a survivor equivalent (ADR-0013,
+ * decision 10), and the helper that computes keys faster than PHP, where one
+ * is installed and checked, or why there is none (ADR-0029).
  */
 final readonly class Adapters
 {
@@ -85,6 +87,7 @@ final readonly class Adapters
         public Narrowing $narrowing,
         public Prover $equivalence,
         public ConfigReads $configReads,
+        public Accelerator $accelerator,
     ) {
     }
 

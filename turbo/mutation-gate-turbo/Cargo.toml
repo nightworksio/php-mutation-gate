@@ -1,0 +1,15 @@
+[package]
+name = "mutation-gate-turbo"
+version = "0.1.0"
+description = "Computes mutation-gate's proof keys from what the gate hands it, byte for byte as the gate's PHP does."
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde_json = "=1.0.151"
+sha2 = "=0.11.0"
+
+[lints]
+workspace = true

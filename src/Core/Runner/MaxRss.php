@@ -10,12 +10,9 @@ namespace NightWorksIO\MutationGate\Core\Runner;
  */
 final readonly class MaxRss
 {
-    /** The operating system family, as `PHP_OS_FAMILY` names it, that counts `ru_maxrss` in bytes. */
-    private const string IN_BYTES = 'Darwin';
-
     /** `ru_maxrss` in bytes, on the operating system family `PHP_OS_FAMILY` names. */
     public static function bytes(int $maximum, string $family): int
     {
-        return $family === self::IN_BYTES ? $maximum : $maximum * MemoryUnit::Kilobytes->bytes();
+        return $family === OsFamily::Darwin->value ? $maximum : $maximum * MemoryUnit::Kilobytes->bytes();
     }
 }

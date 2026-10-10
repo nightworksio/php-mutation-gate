@@ -328,6 +328,69 @@ jobs:
         if: failure()
         run: python3 .github/scripts/gate_summary.py tests
 
+  # The optional Rust helper (ADR-0029): its formatting, lints, tests and
+  # dependencies, then the accelerator's contract suite run against a release
+  # build of it, which is the parity test between the helper and the gate's
+  # PHP. Every row of that suite must run here, so a skipped one fails.
+  turbo:
+    name: turbo
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # cargo-deny as a binary, at the version the job pins. The toolchain is
+      # the one turbo/rust-toolchain.toml pins, which rustup installs on first
+      # use.
+      - uses: taiki-e/install-action@75a348306ce8f67c0b06fc62c32a8546140ba955 # cargo-deny
+        with:
+          tool: cargo-deny@0.20.2
+      - id: format
+        working-directory: turbo
+        run: |
+          mkdir -p ../evidence/raw
+          cargo fmt --check
+      - id: lint
+        working-directory: turbo
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - id: test
+        working-directory: turbo
+        run: cargo test --locked
+      - id: deny
+        working-directory: turbo
+        run: cargo deny --locked check
+      - id: build
+        working-directory: turbo
+        run: cargo build --locked --release
+      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - id: parity
+        env:
+          MUTATION_GATE_TURBO_BINARY: ${{ github.workspace }}/turbo/target/release/mutation-gate-turbo
+        run: php vendor/pestphp/pest/bin/pest tests/Contract/Accelerator --fail-on-skipped --log-junit=evidence/raw/turbo-junit.xml
+      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py turbo
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-turbo
+          path: evidence/turbo*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py turbo
+
   # The suite against the oldest release of every dependency the constraints in
   # composer.json admit, so a lower bound that no longer works is found here
   # rather than by whoever installs it.
@@ -881,7 +944,7 @@ jobs:
   # left none.
   evidence:
     name: evidence
-    needs: [scope, scripts, hygiene, security, rules, guards, checks, tests, lowest, runner-contract, runner-contracts, warm-workers, hook-managers, sonar, gate]
+    needs: [scope, scripts, hygiene, security, rules, guards, checks, tests, turbo, lowest, runner-contract, runner-contracts, warm-workers, hook-managers, sonar, gate]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

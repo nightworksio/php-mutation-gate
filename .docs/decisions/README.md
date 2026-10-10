@@ -19,7 +19,7 @@ There is no separate requirements document, and there are no requirement IDs.
 
 | # | Decision | Status |
 |---|----------|--------|
-| [0001](0001-a-framework-free-core-behind-nine-ports.md) | A framework-free core behind eleven ports, with adapters found through Composer | Accepted; its list of ports superseded by [0020](0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) and [0023](0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md), and its gate that never mutates by [0023](0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) for native runners |
+| [0001](0001-a-framework-free-core-behind-nine-ports.md) | A framework-free core behind twelve ports, with adapters found through Composer | Accepted; its list of ports superseded by [0020](0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md), [0023](0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) and [0029](0029-an-optional-native-helper-computes-what-the-core-defines-and-is-checked-against-it.md), and its gate that never mutates by [0023](0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) for native runners |
 | [0002](0002-one-typed-config-from-several-formats.md) | One typed Config, read from PHP, JSON, YAML or NEON, and none needed to start | Accepted |
 | [0003](0003-a-floor-only-rises.md) | A tree's floor only rises, is committed beside the code, and new code has a floor of its own | Accepted; "a tree is judged whole" superseded by [0020](0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) for sampled runs |
 | [0004](0004-pest-and-infection-behind-one-runner-port.md) | Pest and Infection behind one Runner port, each reporting every mutant | Accepted |
@@ -46,3 +46,4 @@ There is no separate requirements document, and there are no requirement IDs.
 | [0026](0026-configs-and-baselines-move-forward-with-one-command.md) | Configs and baselines move forward between versions with one command | Accepted |
 | [0027](0027-codeception-phpspec-and-testo-get-native-runners.md) | Codeception, PhpSpec and Testo get native runners on the gate's own mutants | Accepted |
 | [0028](0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) | Proofs can live in Google Cloud Storage or Azure Blob under OIDC bound to an environment or a workflow, and survivors reach SonarQube | Accepted |
+| [0029](0029-an-optional-native-helper-computes-what-the-core-defines-and-is-checked-against-it.md) | An optional native helper computes what the core defines, and the core checks every answer against its own | Accepted |

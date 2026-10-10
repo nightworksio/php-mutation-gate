@@ -119,6 +119,17 @@ final readonly class NamedFiles
         return self::tagged(self::FILE, Words::in(pathinfo(basename($file->value()), PATHINFO_FILENAME))->all());
     }
 
+    /**
+     * The graph itself: the files each file names, by its path, in the order
+     * {@see reachedFrom()} follows them.
+     *
+     * @return array<string, list<string>>
+     */
+    public function edges(): array
+    {
+        return $this->naming;
+    }
+
     /** @return list<string> these files, and every file they name, transitively, each once, in the order reached */
     public function reachedFrom(string ...$from): array
     {

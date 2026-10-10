@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function count;
+use function getenv;
 use function ini_get;
 
 use NightWorksIO\MutationGate\Adapter\Azure\ContainerLedger;
@@ -18,12 +19,18 @@ use NightWorksIO\MutationGate\Adapter\Infection\StaticAnalysis;
 use NightWorksIO\MutationGate\Adapter\Opcache\Prover;
 use NightWorksIO\MutationGate\Adapter\Pest\PestOptions;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnitOptions;
+use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Project\PhpUnitSuite;
+use NightWorksIO\MutationGate\Adapter\Turbo\Installation;
+use NightWorksIO\MutationGate\Adapter\Turbo\Pinned;
+use NightWorksIO\MutationGate\Adapter\Turbo\Platform;
+use NightWorksIO\MutationGate\Cli\ComposerVendor;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\Config\DeclaredTrees;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
 use NightWorksIO\MutationGate\Cli\Registry\EnabledMutators;
 use NightWorksIO\MutationGate\Cli\Registry\Lookup;
+use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserSettings;
 use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
@@ -50,11 +57,14 @@ use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Runner\EnvironmentRead;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Withholding;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
+use NightWorksIO\MutationGate\Port\Accelerator;
 use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\CiPlan;
 use NightWorksIO\MutationGate\Port\CostModel;
@@ -65,6 +75,8 @@ use NightWorksIO\MutationGate\Port\StaticChecker;
 use NightWorksIO\MutationGate\Port\TreeSource;
 
 use const PHP_BINARY;
+
+use function php_uname;
 
 /**
  * The adapters the settings choose, built from the registry: the runner, the
@@ -151,6 +163,7 @@ final readonly class Wiring
                     ini_get('disable_functions'),
                 ),
                 ConfigReads::none(),
+                $this->accelerator($project, $withheld),
             ),
         };
     }
@@ -367,5 +380,24 @@ final readonly class Wiring
             Member::of('check', $settings->ci()->check()),
             Member::of('withhold', Json::items(...$withheld)),
         ));
+    }
+
+    /**
+     * The helper this run may ask (ADR-0029), run in the project's root with
+     * what every process withholds kept from it.
+     */
+    private function accelerator(Directory $project, Withheld $withheld): Accelerator
+    {
+        $root = $project->root()->value();
+
+        return Installation::found(
+            $this->environment,
+            ComposerVendor::on($root),
+            $root,
+            new LocalProcesses(new SystemClock()),
+            EnvironmentRead::of(Withholding::of($withheld, getenv())),
+            Platform::of(PHP_OS_FAMILY, php_uname('m')),
+            Pinned::release(),
+        );
     }
 }

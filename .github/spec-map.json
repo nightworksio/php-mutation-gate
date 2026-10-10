@@ -2,6 +2,9 @@
   "$comment": "The decisions a change to each path belongs to, so the pull request comment can suggest a Spec: line (ADR-0019, decision 12). A glob is read as the config reads one. .github/scripts/test_pr_text.py fails where a glob matches no file or names no decision.",
   "globs": {
     "src/Port/**": ["0001"],
+    "src/Core/Turbo/**": ["0029"],
+    "src/Adapter/Turbo/**": ["0029"],
+    "turbo/**": ["0029"],
     "src/Config/**": ["0002"],
     "src/Core/Config/**": ["0002"],
     "src/Cli/Config/**": ["0002"],

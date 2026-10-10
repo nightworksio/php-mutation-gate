@@ -24,6 +24,8 @@
 /phpstan.neon export-ignore
 /phpunit.xml export-ignore
 /plugins/*/tests export-ignore
+# The helper is built and released apart, as its own package (ADR-0029).
+/turbo export-ignore
 # The Composer plugin is a package of its own, published from its directory.
 /plugins/composer export-ignore
 /pint.json export-ignore
@@ -32,4 +34,6 @@
 /sonar-project.properties export-ignore
 /src/.gitkeep export-ignore
 /tests export-ignore
+# The helper is built and released apart, as its own package (ADR-0029).
+/turbo export-ignore
 /typos.toml export-ignore
