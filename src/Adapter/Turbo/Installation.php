@@ -57,10 +57,6 @@ final readonly class Installation
 
     private const string NO_HANDSHAKE = 'The helper at %s did not say what it is: %s';
 
-    private function __construct()
-    {
-    }
-
     /**
      * The helper for this platform, as PHP names it ({@see Platform::of()}),
      * checked against these pins; or why there is none to ask.

@@ -28,10 +28,6 @@ final readonly class AnsweredKeys
 
     private const string OTHER_PROTOCOL = 'The helper answered in protocol %d, and this gate reads %d.';
 
-    private function __construct()
-    {
-    }
-
     /**
      * Each path's key, as the answer gives it; or why there is no answer, or it is not read.
      *

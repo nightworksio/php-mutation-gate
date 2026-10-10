@@ -345,7 +345,7 @@ jobs:
       # cargo-deny as a binary, at the version the job pins. The toolchain is
       # the one turbo/rust-toolchain.toml pins, which rustup installs on first
       # use.
-      - uses: taiki-e/install-action@75a348306ce8f67c0b06fc62c32a8546140ba955 # cargo-deny
+      - uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
         with:
           tool: cargo-deny@0.20.2
       - id: format

@@ -31,10 +31,6 @@ final readonly class Sample
     /** The share of the paths a run recomputes in PHP, where that is more than {@see AT_LEAST}. */
     private const float SHARE = 0.02;
 
-    private function __construct()
-    {
-    }
-
     /** @param list<Path> $answered the paths the helper answered for, in the answer's order */
     public static function of(string $base, array $answered): Paths
     {
