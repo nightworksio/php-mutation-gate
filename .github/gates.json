@@ -132,11 +132,12 @@
     "tests": {
       "check": "tests and coverage",
       "checks": "The suite, with every line of src covered (G7).",
-      "reproduce": "composer test:coverage",
+      "reproduce": "composer test:coverage && composer test:network",
       "troubleshooting": "no-coverage-driver",
       "evidence": [
         {"step": "suite", "tool": "pest", "raw": "coverage/junit.xml"},
-        {"step": "suite", "tool": "coverage", "raw": "coverage/clover.xml"}
+        {"step": "suite", "tool": "coverage", "raw": "coverage/clover.xml"},
+        {"step": "network", "tool": "pest", "raw": "evidence/raw/tests-network.xml"}
       ],
       "rules": {
         "pest": "The suite did not run to the end, so it wrote no log of its tests.",
@@ -149,9 +150,10 @@
     "lowest": {
       "check": "lowest dependencies",
       "checks": "The suite against the oldest release of every dependency composer.json admits.",
-      "reproduce": "composer update --prefer-lowest --prefer-stable && composer test",
+      "reproduce": "composer update --prefer-lowest --prefer-stable && composer test && composer test:network",
       "evidence": [
-        {"step": "suite", "tool": "pest", "raw": "evidence/raw/lowest.xml"}
+        {"step": "suite", "tool": "pest", "raw": "evidence/raw/lowest.xml"},
+        {"step": "network", "tool": "pest", "raw": "evidence/raw/lowest-network.xml"}
       ],
       "rules": {
         "pest": "The suite did not run to the end, so it wrote no log of its tests.",
