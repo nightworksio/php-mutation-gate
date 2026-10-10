@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Turbo;
 
 use function array_key_exists;
-use function array_map;
-use function array_push;
 use function array_values;
 use function count;
 use function mb_check_encoding;
@@ -17,6 +15,8 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Proof\Key\ContentKeys;
 use NightWorksIO\MutationGate\Core\Proof\Keys;
+
+use function sprintf;
 
 /**
  * Units' proof keys, asked of the helper: everything
@@ -30,8 +30,7 @@ use NightWorksIO\MutationGate\Core\Proof\Keys;
  */
 final readonly class UnitKeysAsked
 {
-    /** The place of a set that was not given. */
-    private const int NONE = -1;
+    private const string UNNAMED = 'A covered line of %s names a set of tests the request was not given.';
 
     private const string NOT_UTF8 = 'The paths or test ids are not all UTF-8, which the helper\'s JSON cannot carry.';
 
@@ -49,6 +48,7 @@ final readonly class UnitKeysAsked
         private array $units,
         private array $paths,
         private array $texts,
+        private string $unnamed,
     ) {
     }
 
@@ -84,10 +84,13 @@ final readonly class UnitKeysAsked
         $asked = [];
         $paths = [];
         $texts = [$base->value(), ...array_values($tests)];
+        $unnamed = '';
 
         foreach ($units as [$unit, $judgedBy, $read, $lines]) {
             $paths[] = $unit;
-            array_push($texts, $unit->value(), $judgedBy);
+            $texts[] = $unit->value();
+            $texts[] = $judgedBy;
+            $unnamed = $unnamed === '' && ! self::allNamed($lines, $named) ? $unit->value() : $unnamed;
             $asked[] = [
                 'path' => $unit->value(),
                 'judgedBy' => $judgedBy,
@@ -96,12 +99,16 @@ final readonly class UnitKeysAsked
             ];
         }
 
-        return new self($base->value(), array_values($tests), $written, $asked, $paths, $texts);
+        return new self($base->value(), array_values($tests), $written, $asked, $paths, $texts, $unnamed);
     }
 
     /** The request in the helper's protocol; or why it cannot be written. */
     public function request(): Request|NotAccelerated
     {
+        if ($this->unnamed !== '') {
+            return NotAccelerated::because(sprintf(self::UNNAMED, $this->unnamed));
+        }
+
         foreach ($this->texts as $text) {
             if (! mb_check_encoding($text, 'UTF-8')) {
                 return NotAccelerated::because(self::NOT_UTF8);
@@ -144,8 +151,7 @@ final readonly class UnitKeysAsked
     }
 
     /**
-     * Each line with the place of its set; a set not given takes a place no
-     * set has, which the helper refuses.
+     * Each line with the place of its set.
      *
      * @param  list<array{int, string}> $lines
      * @param  array<array-key, int>    $named each set's place, by its name
@@ -153,12 +159,29 @@ final readonly class UnitKeysAsked
      */
     private static function linesOf(array $lines, array $named): array
     {
-        return array_map(
-            static fn(array $line): array => [
-                $line[0],
-                array_key_exists($line[1], $named) ? $named[$line[1]] : self::NONE,
-            ],
-            $lines,
-        );
+        $placed = [];
+
+        foreach ($lines as [$line, $set]) {
+            $placed[] = [$line, array_key_exists($set, $named) ? $named[$set] : 0];
+        }
+
+        return $placed;
+    }
+
+    /**
+     * Whether every line names a set the request was given.
+     *
+     * @param list<array{int, string}> $lines
+     * @param array<array-key, int>    $named
+     */
+    private static function allNamed(array $lines, array $named): bool
+    {
+        foreach ($lines as [, $set]) {
+            if (! array_key_exists($set, $named)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

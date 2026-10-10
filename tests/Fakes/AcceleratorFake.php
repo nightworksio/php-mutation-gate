@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Tests\Fakes;
 
 use function array_key_exists;
 use function array_map;
-use function array_push;
 use function array_values;
 use function count;
 use function hash;
@@ -78,7 +77,8 @@ final readonly class AcceleratorFake implements Accelerator
             $fields[] = sprintf('%d', count($unit['lines']));
 
             foreach ($unit['lines'] as [$line, $set]) {
-                array_push($fields, sprintf('%d', $line), $sets[$set]);
+                $fields[] = sprintf('%d', $line);
+                $fields[] = $sets[$set];
             }
 
             return hash('sha256', ContentKeys::framed(...$fields));

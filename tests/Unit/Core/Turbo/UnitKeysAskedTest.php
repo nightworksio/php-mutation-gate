@@ -41,10 +41,14 @@ it('writes every test id once, each set by place, and each unit\'s lines naming 
         ]);
 });
 
-it('names a set it was not given by a place no set has, which the helper refuses', function (): void {
-    $request = UnitKeysAsked::of(Digest::of('b'), [[Path::of('src/A.php'), '', Digest::of('r'), [[1, 'gone']]]], [])->request();
+it('writes no request where a covered line names a set it was not given', function (): void {
+    $asked = UnitKeysAsked::of(
+        Digest::of('b'),
+        [[Path::of('src/A.php'), '', Digest::of('r'), [[1, 's']]], [Path::of('src/B.php'), '', Digest::of('r'), [[1, 'gone']]]],
+        ['s' => ['a::t']],
+    );
 
-    expect($request instanceof Request ? $request->text() : '')->toContain('"lines":[[1,-1]]');
+    expect($asked->request())->toEqual(NotAccelerated::because('A covered line of src/B.php names a set of tests the request was not given.'));
 });
 
 it('writes no request where a test id is not UTF-8, which JSON cannot carry', function (): void {
