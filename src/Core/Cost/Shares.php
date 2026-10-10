@@ -81,7 +81,7 @@ final readonly class Shares
 
         $location = $mutant->location();
 
-        foreach ($coverage->testsCoveringSpan($location->file(), $location->start(), $location->last()) as $test) {
+        foreach ($coverage->testsCovering($location->file(), $location->start(), $location->last()) as $test) {
             $took = $coverage->durationOf($test);
             $standIn += $took instanceof Seconds ? $took->seconds() : 0.0;
         }

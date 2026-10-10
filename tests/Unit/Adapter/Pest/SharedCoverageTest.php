@@ -90,7 +90,7 @@ it('hands each line the tests that cover it, wherever they stand among the map\'
     SharedCoverage::write($map, $at, $target);
     $read = CoverageFile::at($target);
 
-    expect($read instanceof CoverageFile ? $read->map($at)->testsCovering(Path::of('src/Tax.php'), Line::of(7)) : $read)
+    expect($read instanceof CoverageFile ? $read->map($at)->testsCovering(Path::of('src/Tax.php'), Line::of(7), Line::of(7)) : $read)
         ->toEqual(TestIds::of(TestId::of('TaxTest::rounds'), TestId::of('TaxTest::rates')));
 });
 
@@ -118,7 +118,7 @@ it('writes a test name that closes php-code-coverage\'s nowdoc as data, which re
     SharedCoverage::write($map, $at, $target);
     $read = CoverageFile::at($target);
 
-    expect($read instanceof CoverageFile ? $read->map($at)->testsCovering(Path::of('src/Money.php'), Line::of(3)) : $read)
+    expect($read instanceof CoverageFile ? $read->map($at)->testsCovering(Path::of('src/Money.php'), Line::of(3), Line::of(3)) : $read)
         ->toEqual(TestIds::of(TestId::of($hostile)))
         ->and(is_file($planted))->toBeFalse();
 });

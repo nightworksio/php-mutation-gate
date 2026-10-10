@@ -4,25 +4,18 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Coverage;
 
-use function array_map;
-use function count;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
 use NightWorksIO\MutationGate\Core\Format\Gzip;
-use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Format\TooLarge;
 use NightWorksIO\MutationGate\Core\NotGiven;
-use NightWorksIO\MutationGate\Core\Test\TestId;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
-
-use stdClass;
 
 /**
  * A coverage map as the gate carries it between jobs: `"format": 1`, compact
@@ -55,10 +48,12 @@ final readonly class CoverageMapFile
 
     /** The field that lists each file's executed methods. */
     public const string METHODS = 'methods';
+
+    /** The format a map's file is written in. */
+    public const int FORMAT = 1;
+
     /** The map's name in the directory a job hands it over in. */
     private const string NAME = 'map.json.gz';
-
-    private const int FORMAT = 1;
 
     /** Why a map is not kept: it is past a store's limits, packed or as text. */
     private const string OVER = 'The coverage map is %d bytes packed and %d bytes as text, over what a store keeps.';
@@ -85,14 +80,15 @@ final readonly class CoverageMapFile
     /**
      * A map as the gate writes it, with where it was measured, which a map
      * of some files alone does not say, and each test file's entry key where
-     * the map is one a store keeps.
+     * the map is one a store keeps. A map's tables, read once, write it and
+     * each of its files alone as its map would.
      */
     public static function encode(
-        CoverageMap $map,
+        CoverageMap|MapText $map,
         MeasuredAt|Unplaced $at,
         EntryKeys|NotGiven $keys = new NotGiven(),
     ): string {
-        return Gzip::pack(self::written($map, $at, $keys));
+        return Gzip::pack(($map instanceof MapText ? $map : MapText::of($map))->written($at, $keys));
     }
 
     /**
@@ -101,7 +97,7 @@ final readonly class CoverageMapFile
      */
     public static function keeping(KeptMap $kept, MapLimits $limits): string|CannotJudge
     {
-        $text = self::written($kept->map(), $kept->measuredAt(), $kept->keys());
+        $text = MapText::of($kept->map())->written($kept->measuredAt(), $kept->keys());
         $bytes = Gzip::pack($text);
 
         return $limits->admits($text, $bytes)
@@ -145,79 +141,6 @@ final readonly class CoverageMapFile
         return MapFileRead::read($file);
     }
 
-    /** The JSON text a map is written as. */
-    private static function written(CoverageMap $map, MeasuredAt|Unplaced $at, EntryKeys|NotGiven $keys): string
-    {
-        $places = [];
-        $tests = [];
-
-        foreach ($map->tests() as $test) {
-            $places[$test->value()] = count($tests);
-            $tests[] = self::test($test, $map);
-        }
-
-        $files = [];
-
-        foreach ($map->lines() as $line) {
-            $files[$line->file()->value()][$line->line()] = array_map(
-                static fn(string $test): int => $places[$test],
-                [...$line],
-            );
-        }
-
-        return JsonText::compact([
-            'format' => self::FORMAT,
-            ...($at instanceof MeasuredAt ? $at->written() : []),
-            'tests' => $tests,
-            'files' => $files === [] ? new stdClass() : $files,
-            ...self::optional($map, $keys),
-        ]);
-    }
-
-    /**
-     * The fields a map writes only where it holds them: methods, and entry keys.
-     *
-     * @return array{methods?: array<string, list<MethodRecord>>, keys?: array<string, string>|stdClass}
-     */
-    private static function optional(CoverageMap $map, EntryKeys|NotGiven $keys): array
-    {
-        $methods = self::methodsOf($map);
-        $keyed = $keys instanceof EntryKeys ? $keys->written() : [];
-
-        return [
-            ...($methods === [] ? [] : [self::METHODS => $methods]),
-            ...($keys instanceof EntryKeys ? [EntryKeys::FIELD => $keyed === [] ? new stdClass() : $keyed] : []),
-        ];
-    }
-
-    /** @return array<string, list<MethodRecord>> each file's executed methods, by path */
-    private static function methodsOf(CoverageMap $map): array
-    {
-        $methods = [];
-
-        foreach ($map->methods() as $file => $executed) {
-            foreach ($executed as $method) {
-                $methods[$file->value()][] = [
-                    'name' => $method->name(),
-                    'start' => $method->first()->number(),
-                    'end' => $method->last()->number(),
-                ];
-            }
-        }
-
-        return $methods;
-    }
-
-    /** @return TestRecord */
-    private static function test(TestId $test, CoverageMap $map): array
-    {
-        $seconds = $map->durationOf($test);
-
-        return $seconds instanceof Seconds
-            ? ['id' => $test->value(), self::SECONDS => $seconds->seconds()]
-            : ['id' => $test->value()];
-    }
-
     private static function isThisFormat(Node $file): bool
     {
         try {
@@ -226,5 +149,4 @@ final readonly class CoverageMapFile
             return false;
         }
     }
-
 }

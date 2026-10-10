@@ -113,7 +113,7 @@ final readonly class SourceTests
         $lines = 0;
 
         foreach ($this->map->linesCovered($file) as $line) {
-            $lines += count($this->map->testsCovering($file, $line)->among($tests)) > 0 ? 1 : 0;
+            $lines += count($this->map->testsCovering($file, $line, $line)->among($tests)) > 0 ? 1 : 0;
         }
 
         return $lines;

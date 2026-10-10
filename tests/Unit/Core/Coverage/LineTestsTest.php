@@ -55,7 +55,7 @@ it('holds a line placed with no test as missed, and never one some test also cov
         PlacedLine::of($money, 6, 0),
     );
 
-    expect($lines->missedIn($money))->toEqual(Lines::of(Line::of(5)))
+    expect($lines->setsOn($money)->missed())->toEqual(Lines::of(Line::of(5)))
         ->and($lines->coveredIn($money))->toEqual(Lines::of(Line::of(6)))
         ->and(lineTestsRead($lines))->toBe([['src/Money.php', 6, ['A::a']], ['src/Money.php', 5, []]]);
 });

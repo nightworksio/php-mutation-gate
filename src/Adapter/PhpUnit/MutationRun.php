@@ -280,7 +280,7 @@ final readonly class MutationRun
     {
         $location = $mutant->location();
 
-        return $map->testsCoveringSpan($location->file(), $location->start(), $location->last());
+        return $map->testsCovering($location->file(), $location->start(), $location->last());
     }
 
     /**

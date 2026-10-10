@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\EntryKeys;
 use NightWorksIO\MutationGate\Core\Coverage\HandoffLimits;
+use NightWorksIO\MutationGate\Core\Coverage\MapText;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -71,9 +72,10 @@ final readonly class Handoff
     ): Written|CannotJudge {
         $written = Written::to(Workspace::coverage()->value());
         $considered = Units::none();
+        $text = MapText::of($map);
         $whole = $this->project->write(
             CoverageMapFile::in(Workspace::coverage()),
-            Contents::of(CoverageMapFile::encode($map, $at, $keys)),
+            Contents::of(CoverageMapFile::encode($text, $at, $keys)),
         );
 
         if ($whole instanceof CannotJudge) {
@@ -85,7 +87,7 @@ final readonly class Handoff
             $files = $this->filesOf($shard->units(), $map);
             $wrote = $this->project->write(
                 $this->fileOf($shard->id()),
-                Contents::of(CoverageMapFile::encode($map->onlyFor($files), Unplaced::map())),
+                Contents::of(CoverageMapFile::encode($text->onlyFor($files), Unplaced::map())),
             );
             $wrote = $wrote instanceof CannotJudge ? $wrote : $this->project->write(
                 $this->killersOf($shard->id()),
@@ -100,10 +102,7 @@ final readonly class Handoff
         $considered = Units::of(...$considered, ...$plan->considered()->proved(), ...$plan->considered()->carried());
         $wrote = $this->project->write(
             CoverageMapFile::in(Workspace::verdictCoverage()),
-            Contents::of(CoverageMapFile::encode(
-                $map->onlyFor($this->filesOf($considered, $map)),
-                Unplaced::map(),
-            )),
+            Contents::of(CoverageMapFile::encode($text->onlyFor($this->filesOf($considered, $map)), Unplaced::map())),
         );
 
         return $wrote instanceof CannotJudge ? $wrote : $written;

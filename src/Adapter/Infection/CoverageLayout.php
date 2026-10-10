@@ -147,7 +147,7 @@ final readonly class CoverageLayout
         foreach ($lines as $line) {
             $covered = self::element($coverage, 'line', ['nr' => sprintf('%d', $line->number())]);
 
-            foreach ($map->testsCovering($file, $line) as $test) {
+            foreach ($map->testsCovering($file, $line, $line) as $test) {
                 self::element($covered, 'covered', ['by' => $test->value()]);
             }
         }

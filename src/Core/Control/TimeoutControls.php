@@ -60,7 +60,7 @@ final readonly class TimeoutControls implements ControlJudge
             $location = $mutant->location();
             $tests = $held->judgingAmong(
                 $location->file(),
-                $map->testsCoveringSpan($location->file(), $location->start(), $location->last()),
+                $map->testsCovering($location->file(), $location->start(), $location->last()),
             );
             $controls += $mutant->status() === MutantStatus::TimedOut
                 && $limit instanceof Seconds
