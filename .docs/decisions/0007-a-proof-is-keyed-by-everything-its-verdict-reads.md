@@ -57,7 +57,7 @@ has to bring its result with it.
    adding an ignore re-runs nothing.
 
 2. **The content key is a SHA-256 over all of the following, in this order.**
-   1. **The key's format**, `mutation-gate proof 5`. It changes whenever what
+   1. **The key's format**, `mutation-gate proof 6`. It changes whenever what
       the key means changes, so an older proof is never read as a newer one.
       Format 2 moved the test files every key reads into the base (items 7
       and 8), in the same change as ledger format 2 (decision 3), so the one
@@ -66,7 +66,10 @@ has to bring its result with it.
       `extensions`, `runner.withhold` and `ci.buildkite.step` into item 3.
       Format 5 builds each unit's key from finished digests, so another
       implementation can build it alike, and hashes each set of covering
-      tests once, as the paragraph after item 9 says.
+      tests once, as the paragraph after item 9 says. Format 6 puts every
+      set of packages and paths a key reads in byte order, where PHP's default
+      comparison put numeric-looking paths in an order that hung on the
+      order they came in.
    2. **The gate**: its installed version and source reference.
    3. **The configuration** as it affects results: the effective config after
       presets, serialised canonically, with the settings that only judge or

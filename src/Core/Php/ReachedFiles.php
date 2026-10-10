@@ -17,10 +17,10 @@ use function str_repeat;
 
 /**
  * Every file each file of a graph reaches, worked out once for the whole
- * graph: the files are numbered in sorted order, and each file's reach,
+ * graph: the files are numbered in byte order, and each file's reach,
  * kept as one bit per file, takes in the reach of every file it leads to
  * until no reach widens. So the files any set of files reaches come out
- * sorted, at the cost of their own number, rather than of a walk.
+ * in byte order, at the cost of their own number, rather than of a walk.
  */
 final readonly class ReachedFiles
 {
@@ -53,7 +53,7 @@ final readonly class ReachedFiles
         }
 
         $sorted = array_values($files);
-        sort($sorted);
+        sort($sorted, SORT_STRING);
         $places = [];
 
         foreach ($sorted as $place => $file) {
@@ -179,7 +179,7 @@ final readonly class ReachedFiles
      */
     private function sorted(array $files): array
     {
-        sort($files);
+        sort($files, SORT_STRING);
 
         return $files;
     }

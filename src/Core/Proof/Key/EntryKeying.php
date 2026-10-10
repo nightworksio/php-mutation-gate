@@ -31,7 +31,7 @@ use function sprintf;
 final readonly class EntryKeying
 {
     /** The format of an entry's key, which changes whenever what a key reads changes. */
-    public const string FORMAT = 'mutation-gate coverage entry 1';
+    public const string FORMAT = 'mutation-gate coverage entry 2';
 
     /**
      * @param array<string, string> $framed each file of the graph, framed with its digest as a key reads it, by its

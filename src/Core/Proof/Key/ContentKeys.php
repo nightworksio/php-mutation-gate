@@ -70,7 +70,7 @@ use function sprintf;
  */
 final readonly class ContentKeys
 {
-    public const string FORMAT = 'mutation-gate proof 5';
+    public const string FORMAT = 'mutation-gate proof 6';
 
     private function __construct(
         private HashContext $everyKey,
@@ -283,7 +283,7 @@ final readonly class ContentKeys
             $packages[] = $version->package();
         }
 
-        sort($packages);
+        sort($packages, SORT_STRING);
         hash_update($context, self::framed(sprintf('%d', count($packages))));
 
         foreach ($packages as $package) {
@@ -302,7 +302,7 @@ final readonly class ContentKeys
             $paths[] = $fingerprint->path()->value();
         }
 
-        sort($paths);
+        sort($paths, SORT_STRING);
         hash_update($context, self::framed(sprintf('%d', count($paths))));
 
         foreach ($paths as $path) {
@@ -347,7 +347,7 @@ final readonly class ContentKeys
     private function setOf(Paths $judges): string
     {
         $values = array_map(static fn(Path $path): string => $path->value(), [...$judges]);
-        sort($values);
+        sort($values, SORT_STRING);
 
         return Digest::sha256Of(self::framed(...$values))->value();
     }
@@ -363,7 +363,7 @@ final readonly class ContentKeys
             $values[] = $path->value();
         }
 
-        sort($values);
+        sort($values, SORT_STRING);
         $read = self::framed($section, sprintf('%d', count($values)));
 
         foreach ($values as $value) {
