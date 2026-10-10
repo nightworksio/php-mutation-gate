@@ -13,6 +13,10 @@ it('takes the SHA-256 of a content in lowercase hex', function (): void {
         ->and(Digest::sha256Of('abc')->value())->toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
 });
 
+it('takes the SHA-256 of no content as that of an empty one', function (): void {
+    expect(Digest::ofNothing()->value())->toBe('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
+});
+
 it('takes the same SHA-256 of a content fed in parts as of the whole', function (): void {
     $context = Digest::hashing();
     hash_update($context, 'a');

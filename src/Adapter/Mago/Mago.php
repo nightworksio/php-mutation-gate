@@ -100,7 +100,7 @@ final readonly class Mago implements StaticChecker
         $config = $this->config();
 
         if (! $config instanceof Path) {
-            return $this->identified($withheld, Digest::sha256Of(''));
+            return $this->identified($withheld, Digest::ofNothing());
         }
 
         $contents = is_file($this->absolute($config)) ? file_get_contents($this->absolute($config)) : false;
