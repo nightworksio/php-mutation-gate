@@ -98,8 +98,8 @@ it('reads tests/Pest.php as any other file where the runner does not say Pest lo
 it('refuses a #[Holds] Pest never passes to its filter', function (HoldsAttribute $attribute, string $on) use ($refusal): void {
     expect($refusal('tests/Feature/KernelTest.php', $attribute))->toBe(sprintf(<<<'SAID'
         tests/Feature/KernelTest.php:4: %s stands on %s, which Pest never passes to its filter, so no group can follow from it.
-        Hold the tests with ->group(%s) on a test or a describe, or with pest()->group(%s) for the whole file.
-        SAID, $attribute->written(), $on, $attribute->path()->group(), $attribute->path()->group()));
+        Hold the tests with ->group(%s) on a test, or on a describe around every test in the file.
+        SAID, $attribute->written(), $on, $attribute->path()->group()));
 })->with([
     'a hook' => [
         fn(): HoldsAttribute => HoldsAttribute::at(Standing::HookClosure, HeldPath::literal('src/Kernel.php'), 4),

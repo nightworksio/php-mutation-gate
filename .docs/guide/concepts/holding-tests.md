@@ -13,9 +13,18 @@ it('boots the kernel', #[Holds('src/Kernel.php')] function () {
     // …
 });
 
-// or, for the whole file
-pest()->group('holds:src/Kernel.php');
+// or, for every test in the file
+describe('Kernel', function () {
+    it('boots', function () {
+        // …
+    });
+})->group('holds:src/Kernel.php');
 ```
+
+`pest()->group('holds:src/Kernel.php')` holds the whole file too, but it changes
+Pest's configuration as the file loads, so every mutant's narrowed run has to
+load that file
+([ADR-0004](../../decisions/0004-pest-and-infection-behind-one-runner-port.md)).
 
 ```php
 // A PHPUnit test class
