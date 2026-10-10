@@ -317,8 +317,9 @@ The same repository has two more needs.
      - In Pest: `#[Holds]` on the closure passed to `it()`, `test()` or
        `arch()`, which holds that test, or on the closure passed to
        `describe()`, which holds every test inside it at any depth. Groups
-       work too: `pest()->group('holds:<path>')` for a whole file,
-       `->group('holds:<path>')` on one test or one `describe`. The package's
+       work too: `->group('holds:<path>')` on one test or one `describe`,
+       or `pest()->group('holds:<path>')` for a whole file, which makes the
+       file one every narrowed run loads (ADR-0004, decision 9). The package's
        Pest plugin turns each `#[Holds]` into the matching group before Pest
        builds the test (ADR-0004), so Pest selects both kinds the same way.
      - In PHPUnit classes: `#[Holds]` on a class or a method, or PHPUnit's own

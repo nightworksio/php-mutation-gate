@@ -34,7 +34,7 @@ final readonly class PestHolds
     /** Why a `#[Holds]` Pest never passes to its filter cannot be judged. */
     private const string NOT_FILTERED = <<<'SAID'
         %1$s stands on %2$s, which Pest never passes to its filter, so no group can follow from it.
-        Hold the tests with ->group(%3$s) on a test or a describe, or with pest()->group(%3$s) for the whole file.
+        Hold the tests with ->group(%3$s) on a test, or on a describe around every test in the file.
         SAID;
 
     /** Why a `#[Holds]` on a closure kept in a variable cannot be judged. */
