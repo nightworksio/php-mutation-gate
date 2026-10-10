@@ -44,12 +44,6 @@ final readonly class Unchanged
         return $this->base;
     }
 
-    /** When its verdict passed. */
-    public function at(): Instant
-    {
-        return $this->at;
-    }
-
     /** Why the plan runs nothing. */
     public function reason(): Reason
     {
