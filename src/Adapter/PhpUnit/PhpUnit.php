@@ -30,6 +30,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -150,7 +151,7 @@ final readonly class PhpUnit implements Runner
         return PhpUnitGroups::listedIn($this->shell->run($this->invocation()->listingGroups($withheld)));
     }
 
-    public function coverage(CoverageRun|CoverageRead $request): CoverageMap|CannotJudge
+    public function coverage(CoverageRun|CoverageRead|CoverageRan $request): CoverageMap|CannotJudge
     {
         return new Coverage($this->project, $this->shell, $this->invocation())->of($request);
     }

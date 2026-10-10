@@ -8,6 +8,7 @@ use function getenv;
 use function is_string;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Cli\Command\FlowOptions;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
@@ -42,8 +43,6 @@ final readonly class Deliver
 {
     public const string COMMAND = 'deliver';
 
-    private const string FROM = 'from';
-
     private const string NOTHING = 'There is no delivery at %s, so deliver sends nothing.';
 
     /** @param array<string, string> $environment */
@@ -71,7 +70,7 @@ final readonly class Deliver
         $refused = $this->installation->refusing(self::COMMAND);
         $from = $refused instanceof CannotJudge
             ? $refused
-            : DirectoryOption::in($input, self::COMMAND, self::FROM, Workspace::delivery());
+            : DirectoryOption::in($input, self::COMMAND, FlowOptions::FROM, Workspace::delivery());
         $sent = is_string($from) ? $this->sentFrom(Directory::at($from)) : $from;
 
         if ($sent instanceof CannotJudge) {

@@ -29,6 +29,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
+use NightWorksIO\MutationGate\Core\Coverage\PhpReport;
 use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -45,6 +46,7 @@ use NightWorksIO\MutationGate\Core\Order\Ordering;
 use NightWorksIO\MutationGate\Core\Order\Ranking;
 use NightWorksIO\MutationGate\Core\Pruning\MutatorNames;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -156,6 +158,22 @@ it('runs the suite under coverage into a directory it makes, with pcov collectin
         ->timed(TestId::of(PestCases::RUN_ADDS), Seconds::of(0.5)))
         ->and($shell->commands())
         ->toEqual([PestCases::invocation()->coverage($request, $directory, PcovReach::under($at->root(), Path::of('vendor')))]);
+});
+
+it('reads the map a coverage run this job started itself left in a directory, running nothing', function (): void {
+    $at = PestCases::project();
+    mkdir(sprintf('%s/build/suite', $at->root()), recursive: true);
+    PestCases::map($at->root(), 'build/suite/coverage.php', ['src/Money.php' => [11 => [0]]], [PestCases::RUN_ADDS => 0.5]);
+    $shell = ShellFake::answering(Ran::finished(succeeded: false, output: 'not run'));
+    $pest = new Pest($at, $shell, Patching::off(), new CapDirectory(), Triage::standard()->bounds());
+
+    expect($pest->coverage(CoverageRan::in(Path::of('build/suite'))))->toEqual(CoverageMap::empty()
+        ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of(PestCases::RUN_ADDS))
+        ->timed(TestId::of(PestCases::RUN_ADDS), Seconds::of(0.5)))
+        ->and($pest->coverage(CoverageRan::in(Path::of('build/none'))))
+        ->toEqual(PhpReport::missingAt(sprintf('%s/build/none/coverage.php', $at->root())))
+        ->and($shell->commands())->toBe([])
+        ->and(sprintf('%s/build/none', $at->root()))->not->toBeDirectory();
 });
 
 it('cannot judge a coverage run that failed, with what Pest said', function (): void {

@@ -23,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -394,7 +395,7 @@ final class ScriptedRunner implements Runner
         return $this->identified;
     }
 
-    public function coverage(CoverageRun|CoverageRead $request): CoverageMap|CannotJudge
+    public function coverage(CoverageRun|CoverageRead|CoverageRan $request): CoverageMap|CannotJudge
     {
         return $this->covering instanceof CannotJudge ? $this->covering : $this->covering->coverage($request);
     }

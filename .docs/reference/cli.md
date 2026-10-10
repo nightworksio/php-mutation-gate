@@ -9,7 +9,7 @@ the design decision behind each option.
 | Command | What it does |
 |---------|--------------|
 | `mutation-gate` or `mutation-gate run` | Plan, run and judge in one process: what changed since the last commit that passed, or everything where none passed yet or `run.full` asks for it. With `--changed-since=<ref>`, only what the change since `<ref>` reaches; with `--full`, everything. With `--budget=<duration>`, the riskiest code first, within that time. |
-| `coverage [--into=<dir>]` | Run the suite under coverage and write the gate's own map, `<dir>/map.json.gz` (`.mutation-gate/coverage` by default), for a later `plan --coverage=<dir>` |
+| `coverage [--into=<dir>] [--from=<dir>]` | Run the suite under coverage and write the gate's own map, `<dir>/map.json.gz` (`.mutation-gate/coverage` by default), for a later `plan --coverage=<dir>`. With `--from`, run nothing and read the reports this job's own coverage run left in that directory instead: `coverage.php` from `--coverage-php` for Pest and PHPUnit; `coverage-xml/`, `junit.xml` and `clover.xml` for Infection |
 | `plan` | Work out the reach, drop proved units, cut shards and print the plan for a CI (`--ci=github\|gitlab\|buildkite\|circleci\|azure\|bitbucket\|jenkins\|json`, or `--shards=<n>` for a fixed count; `--coverage=<dir>` reads the map `coverage` wrote instead of running the suite) |
 | `run --plan=<file> [--shard=<id>]` | Mutate one shard: the one `--shard` names, or the one the CI's environment names |
 | `verdict --plan=<file> --results=<dir>` | Merge every shard's results, judge the floors, write reports and the ledger |
@@ -48,6 +48,7 @@ the design decision behind each option.
 | `--full` | `plan`, `run` without a plan | Mutate everything, whatever the event and `run.full`; an error beside `--changed-since` | [0005](../decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `--budget=<duration>` | `run` | Stop after this long, riskiest code first | [0008](../decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `--coverage=<dir>` | `plan`, `run` without a plan, `affected` | Read the coverage an earlier job wrote instead of running the suite | [0006](../decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
+| `--from=<dir>` | `coverage` | Read the reports this job's own run of the suite under coverage left in this directory instead of running the suite | [0006](../decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `--ci=<name>` | `plan`, `run` | Set `ci.plan`: this CI's format instead of the detected one | [0006](../decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `--shards=<n>` | `plan`, `run` without a plan | Cut exactly n shards | [0006](../decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
 | `--security` | `plan`, `run` without a plan | Make mutants with the security-tagged mutators alone, and judge only the security sets: each tree is shown exempt, and no commit is recorded as passed. Every shard and the verdict follow a plan made with it | [0021](../decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md) |

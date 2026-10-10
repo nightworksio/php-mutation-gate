@@ -28,6 +28,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\CoverageFailure;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -163,18 +164,21 @@ final readonly class Pest implements Runner
     }
 
     /**
-     * A per-test line map: this job's own run of the suite under coverage, or
-     * the map of the gate's own another job handed over, and never a
-     * runner's map another job wrote.
+     * A per-test line map: this job's own run of the suite under coverage,
+     * the report a run the project started in this job left, or the map of
+     * the gate's own another job handed over, and never a runner's map
+     * another job wrote.
      */
-    public function coverage(CoverageRun|CoverageRead $request): CoverageMap|CannotJudge
+    public function coverage(CoverageRun|CoverageRead|CoverageRan $request): CoverageMap|CannotJudge
     {
         if ($request instanceof CoverageRead) {
             return SharedCoverage::in($this->project, $request->directory());
         }
 
-        $directory = $this->project->directory($request->directory());
-        $ran = $this->measured($request, $directory);
+        $directory = $request instanceof CoverageRun
+            ? $this->project->directory($request->directory())
+            : $this->project->absolute($request->directory());
+        $ran = $request instanceof CoverageRun ? $this->measured($request, $directory) : $request;
         $file = $ran instanceof CannotJudge ? $ran : CoverageFile::at(sprintf('%s/%s', $directory, Invocation::MAP));
 
         return $file instanceof CannotJudge ? $file : $file->map($this->project);

@@ -83,6 +83,12 @@ final readonly class Project
         return $this->root->relative($file);
     }
 
+    /** Where a path of the project is on disk, as the layout reads it. */
+    public function onDisk(Path $path): DiskPath
+    {
+        return $this->root->at($path);
+    }
+
     /** A directory of the project on disk, made where it is not there yet. */
     public function directory(Path $path): DiskPath
     {

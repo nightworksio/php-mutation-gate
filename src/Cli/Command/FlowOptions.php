@@ -17,9 +17,11 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
 use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
@@ -41,6 +43,9 @@ final readonly class FlowOptions
     public const string FULL = 'full';
 
     public const string COVERAGE = 'coverage';
+
+    /** The option naming the directory a command reads what an earlier step left from. */
+    public const string FROM = 'from';
 
     public const string SHARDS = 'shards';
 
@@ -234,6 +239,14 @@ final readonly class FlowOptions
         return $from === ''
             ? CoverageRun::of(WholeSuite::tests(), Workspace::coverage())
             : CoverageRead::from(Path::of($from));
+    }
+
+    /** The reports this job's own coverage run left where `--from` says; none where it says nowhere. */
+    public static function coverageRan(InputInterface $input): CoverageRan|NotGiven
+    {
+        $from = self::text($input, self::FROM);
+
+        return $from === '' ? NotGiven::value() : CoverageRan::in(Path::of($from));
     }
 
     public static function cut(InputInterface $input, Settings $settings): Cut|CannotJudge

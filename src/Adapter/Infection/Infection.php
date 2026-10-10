@@ -36,6 +36,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -164,10 +165,14 @@ final readonly class Infection implements Runner
      * The map PHPUnit writes running the suite or a group under coverage, or
      * the gate's own map another job handed on.
      */
-    public function coverage(CoverageRun|CoverageRead $request): CoverageMap|CannotJudge
+    public function coverage(CoverageRun|CoverageRead|CoverageRan $request): CoverageMap|CannotJudge
     {
         if ($request instanceof CoverageRead) {
             return HandedMap::in($this->project, $request->directory());
+        }
+
+        if ($request instanceof CoverageRan) {
+            return CoverageXml::measured($this->project, $this->project->onDisk($request->directory()));
         }
 
         $config = OwnConfig::in($this->project);

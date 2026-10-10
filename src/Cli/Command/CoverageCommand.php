@@ -9,6 +9,7 @@ use function is_string;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Cli\Flow\Composition;
+use NightWorksIO\MutationGate\Cli\Flow\CoverageMeasured;
 use NightWorksIO\MutationGate\Cli\Flow\Inventory;
 use NightWorksIO\MutationGate\Cli\Flow\KeptCoverage;
 use NightWorksIO\MutationGate\Cli\Flow\Measuring;
@@ -19,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -28,8 +30,10 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * `mutation-gate coverage --into=<dir>`: runs the suite under coverage and
  * writes the gate's own map, `<dir>/map.json.gz`, which `plan --coverage=<dir>`
- * reads in a later job. The runner's own map, which may be code, never
- * leaves this job.
+ * reads in a later job. With `--from=<dir>` it runs nothing: it reads the
+ * reports the project's own run of its suite under coverage left in that
+ * directory, in this job, as a test job's run does, so the suite runs once
+ * for both. The runner's own map, which may be code, never leaves this job.
  */
 final readonly class CoverageCommand
 {
@@ -44,30 +48,46 @@ final readonly class CoverageCommand
                 mode: InputOption::VALUE_REQUIRED,
                 description: 'The directory to write map.json.gz into',
             )
+            ->addOption(
+                FlowOptions::FROM,
+                mode: InputOption::VALUE_REQUIRED,
+                description: 'Read the reports this job\'s own coverage run left in this directory instead of running',
+            )
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
                 $composed = $composition->compose($input);
 
                 return $composed instanceof Composed
-                    ? self::written($composed, FlowOptions::path($input, self::INTO, Workspace::coverage()), $output)
+                    ? self::written(
+                        $composed,
+                        FlowOptions::path($input, self::INTO, Workspace::coverage()),
+                        FlowOptions::coverageRan($input),
+                        $output,
+                    )
                     : Failed::because($output, $composed);
             });
     }
 
     /**
      * The suite's map, measured against the default branch's kept map where
-     * it may be, written into a directory with each test file's entry key;
-     * or why it cannot be.
+     * it may be, or read from the reports a run in this job left, written
+     * into a directory with each test file's entry key; or why it cannot be.
      */
-    private static function written(Composed $composed, Path $into, OutputInterface $output): int
-    {
+    private static function written(
+        Composed $composed,
+        Path $into,
+        CoverageRan|NotGiven $ran,
+        OutputInterface $output,
+    ): int {
         $adapters = $composed->adapters;
         $inventory = Inventory::of($adapters, $composed->settings);
         $kept = new KeptCoverage($adapters, $composed->settings, $composed->setup);
         $entries = $kept->entries($inventory);
-        $measured = $kept->forRun($inventory, $entries, KeptCoverage::built(), ownMap: false);
-        $request = $measured->request();
+        $measured = $ran instanceof CoverageRan
+            ? NotGiven::value()
+            : $kept->forRun($inventory, $entries, KeptCoverage::built(), ownMap: false);
+        $request = $measured instanceof CoverageMeasured ? $measured->request() : $ran;
         $map = $adapters->runner->coverage(
-            $request instanceof CoverageRun ? $request->withholding($adapters->withheld) : $request,
+            $request instanceof CoverageRun ? $adapters->covering($request) : $request,
         );
         $keys = $map instanceof CoverageMap ? KeptCoverage::keysOf($entries, $map) : NotGiven::value();
         $file = CoverageMapFile::in($into);
@@ -80,7 +100,7 @@ final readonly class CoverageCommand
             return Failed::because($output, $written);
         }
 
-        $said = $measured->said();
+        $said = $measured instanceof CoverageMeasured ? $measured->said() : NotGiven::value();
 
         if (is_string($said)) {
             Aside::of($output)->writeln($said, OutputInterface::OUTPUT_RAW);

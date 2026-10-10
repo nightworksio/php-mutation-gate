@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Command\CoverageCommand;
+use NightWorksIO\MutationGate\Cli\Flow\Composed;
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
@@ -14,7 +16,9 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
+use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
@@ -23,6 +27,7 @@ use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
+use Symfony\Component\Console\Input\ArrayInput;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -159,4 +164,60 @@ it('measures every test, keying none, where the project cannot be listed', funct
     expect($written->code)->toBe(0)
         ->and($written->errors)->toBe("Coverage: No group can be listed. So every test was measured.\n")
         ->and($map instanceof KeptMap ? $map->keys()->written() : $map)->toBe([]);
+});
+
+it('reads the reports this job\'s own coverage run left where it is told, runs nothing, and writes the map', function () use (
+    $kept,
+): void {
+    $project = FlowCommands::project();
+    $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
+
+    $written = FlowCommands::run(
+        CoverageCommand::command(FlowCommands::composition($project, $runner, new ProofStoreFake(), Flows::ci())),
+        '--from=build/suite --into=build/coverage',
+    );
+
+    expect($written->code)->toBe(0)
+        ->and($written->errors)->toBe('')
+        ->and($written->output)->toBe(sprintf("Wrote %s/build/coverage/map.json.gz.\n", $project))
+        ->and($runner->asked())->toEqual([CoverageRan::in(Path::of('build/suite'))])
+        ->and($runner->ran())->toBe([])
+        ->and($kept(sprintf('%s/build/coverage/map.json.gz', $project))[0])->toEqual(Flows::map());
+});
+
+it('says why the reports it is told to read cannot be read, and writes no map', function (): void {
+    $project = FlowCommands::project();
+    $runner = new CoverageAsked(ScriptedRunner::fixture(), CannotJudge::because('build/suite/coverage.php is not there.'));
+
+    $written = FlowCommands::run(
+        CoverageCommand::command(FlowCommands::composition($project, $runner, new ProofStoreFake(), Flows::ci())),
+        '--from=build/suite',
+    );
+
+    expect($written->code)->toBe(2)
+        ->and($written->errors)->toBe("build/suite/coverage.php is not there.\n")
+        ->and(file_exists(sprintf('%s/.mutation-gate/coverage/map.json.gz', $project)))->toBeFalse();
+});
+
+it('measures the suite across as many processes as its runner runs mutants at once', function (): void {
+    $project = FlowCommands::project();
+    $runner = new CoverageAsked(
+        ScriptedRunner::fixture()->behaving(RunnerBehaviour::standard()->runningPerCore()),
+        Flows::map(),
+    );
+    $composition = FlowCommands::composition($project, $runner, new ProofStoreFake(), Flows::ci());
+    $composed = $composition->compose(new ArrayInput([]));
+
+    FlowCommands::run(CoverageCommand::command($composition));
+
+    expect($composed instanceof Composed ? $runner->ran()[0]->processes() : $composed)
+        ->toEqual($composed instanceof Composed ? $composed->adapters->processes() : null);
+});
+
+it('offers the directory of the reports to read instead of running the suite', function (): void {
+    $command = CoverageCommand::command(
+        FlowCommands::composition(FlowCommands::project(), ScriptedRunner::fixture(), new ProofStoreFake(), Flows::ci()),
+    );
+
+    expect($command->getDefinition()->getOption('from')->isValueRequired())->toBeTrue();
 });

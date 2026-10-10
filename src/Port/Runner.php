@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -60,10 +61,11 @@ interface Runner
 
     /**
      * Which tests run which line, with each test's duration, by running the
-     * suite, a group or the tests of some files, or by reading a map another
-     * job wrote.
+     * suite, a group or the tests of some files, by reading the reports a run
+     * the project started in this job left, or by reading a map another job
+     * wrote.
      */
-    public function coverage(CoverageRun|CoverageRead $request): CoverageMap|CannotJudge;
+    public function coverage(CoverageRun|CoverageRead|CoverageRan $request): CoverageMap|CannotJudge;
 
     /**
      * The tests of a map that these test files hold, by the runner's own rules

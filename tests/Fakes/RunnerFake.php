@@ -40,6 +40,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Mutant\RunnerMutatorName;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -164,7 +165,7 @@ final readonly class RunnerFake implements Runner
     }
 
     /** Its map, or, for a run of some test files, the entries of the tests those files hold alone. */
-    public function coverage(CoverageRun|CoverageRead $request): CoverageMap
+    public function coverage(CoverageRun|CoverageRead|CoverageRan $request): CoverageMap
     {
         $tests = $request instanceof CoverageRun ? $request->tests() : WholeSuite::tests();
 
