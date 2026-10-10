@@ -29,3 +29,12 @@ it('keeps of the tests covering a mutant those its held unit\'s holding tests ru
     'a held file' => ['src/Boot.php', ['BootTest::a']],
     'a file beside a held directory' => ['src/KernelBoot.php', ['KernelTest::a', 'BootTest::a', 'SuiteTest::a']],
 ]);
+
+it('counts the held units it knows to be covered, and lists them in the order given', function (): void {
+    $kernel = Covered::by(Unit::held(Path::of('src/Kernel'), Group::named('holds:src/Kernel')), TestIds::of(TestId::of('KernelTest::a')));
+    $boot = Covered::by(Unit::held(Path::of('src/Boot.php'), Group::named('holds:src/Boot.php')), TestIds::of(TestId::of('BootTest::a')));
+
+    expect(count(HeldCovered::of($kernel, $boot)))->toBe(2)
+        ->and([...HeldCovered::of($kernel, $boot)])->toBe([$kernel, $boot])
+        ->and(count(HeldCovered::none()))->toBe(0);
+});
