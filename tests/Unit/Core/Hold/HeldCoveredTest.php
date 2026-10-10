@@ -36,5 +36,6 @@ it('counts the held units it knows to be covered, and lists them in the order gi
 
     expect(count(HeldCovered::of($kernel, $boot)))->toBe(2)
         ->and([...HeldCovered::of($kernel, $boot)])->toBe([$kernel, $boot])
-        ->and(count(HeldCovered::none()))->toBe(0);
+        ->and(count(HeldCovered::none()))->toBe(0)
+        ->and([...HeldCovered::of($kernel)->with($boot)])->toBe([$kernel, $boot]);
 });
