@@ -99,10 +99,10 @@ it('runs the whole suite under coverage into the workspace, unless a map is name
         ->toEqual(CoverageRead::from(Path::of('build/coverage')));
 });
 
-it('cuts shards by the config\'s size and most, or into as many as asked', function () use ($given): void {
-    $settings = Flows::settings(Shards::seconds(600), Shards::max(12));
+it('cuts shards by the config\'s size, setup and most, or into as many as asked', function () use ($given): void {
+    $settings = Flows::settings(Shards::seconds(600), Shards::setup('90s'), Shards::max(12));
 
-    expect(FlowOptions::cut($given([]), $settings))->toEqual(Cut::bySize(600, 12))
+    expect(FlowOptions::cut($given([]), $settings))->toEqual(Cut::bySize(600, Seconds::of(90.0), 12))
         ->and(FlowOptions::cut($given(['--shards' => '3']), $settings))->toEqual(Cut::exactly(3))
         ->and(FlowOptions::cut($given(['--shards' => '12']), $settings))->toEqual(Cut::exactly(12));
 });

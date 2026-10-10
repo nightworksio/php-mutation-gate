@@ -55,7 +55,7 @@ it('cuts units in path order into as many shards as their cost over the shard si
         $weighed('src/C.php', 300.0),
     );
 
-    expect($shards(Cut::bySize(600, 20)->cut($work, $src)))->toBe([
+    expect($shards(Cut::bySize(600, Seconds::of(0.0), 20)->cut($work, $src)))->toBe([
         [1, 'src, part 1 of 3', 600.0, '.', ['src/A.php', 'src/B.php']],
         [2, 'src, part 2 of 3', 300.0, '.', ['src/C.php']],
         [3, 'src, part 3 of 3', 400.0, '.', ['src/D.php']],
@@ -67,7 +67,7 @@ it('cuts on the unit that reaches an equal share exactly', function () use ($wei
 
     $work = Workload::of($weighed('src/A.php', 600.0), $weighed('src/B.php', 600.0));
 
-    expect($shards(Cut::bySize(600, 20)->cut($work, $src)))->toBe([
+    expect($shards(Cut::bySize(600, Seconds::of(0.0), 20)->cut($work, $src)))->toBe([
         [1, 'src, part 1 of 2', 600.0, '.', ['src/A.php']],
         [2, 'src, part 2 of 2', 600.0, '.', ['src/B.php']],
     ]);
@@ -78,7 +78,7 @@ it('cuts by size into the shards a size takes, the costliest as cheap as a cut i
 
     $work = Workload::of($weighed('src/A.php', 299.0), $weighed('src/B.php', 301.0));
 
-    expect($shards(Cut::bySize(300, 20)->cut($work, $src)))->toBe([
+    expect($shards(Cut::bySize(300, Seconds::of(0.0), 20)->cut($work, $src)))->toBe([
         [1, 'src, part 1 of 2', 299.0, '.', ['src/A.php']],
         [2, 'src, part 2 of 2', 301.0, '.', ['src/B.php']],
     ]);
@@ -93,7 +93,7 @@ it('makes shards larger rather than cut more of them than the most there may be'
 
     $work = Workload::of($weighed('src/A.php', 1000.0), $weighed('src/B.php', 1000.0), $weighed('src/C.php', 1000.0));
 
-    expect($shards(Cut::bySize(600, 2)->cut($work, $src)))->toBe([
+    expect($shards(Cut::bySize(600, Seconds::of(0.0), 2)->cut($work, $src)))->toBe([
         [1, 'src, part 1 of 2', 2000.0, '.', ['src/A.php', 'src/B.php']],
         [2, 'src, part 2 of 2', 1000.0, '.', ['src/C.php']],
     ]);
@@ -104,7 +104,7 @@ it('stops growing once the shards fit the most there may be exactly', function (
 
     $work = Workload::of($weighed('src/A.php', 600.0), $weighed('src/B.php', 600.0));
 
-    expect($shards(Cut::bySize(600, 2)->cut($work, $src)))->toHaveCount(2);
+    expect($shards(Cut::bySize(600, Seconds::of(0.0), 2)->cut($work, $src)))->toHaveCount(2);
 });
 
 it('gives every package a shard of its own, even past the most there may be', function () use (
@@ -113,7 +113,7 @@ it('gives every package a shard of its own, even past the most there may be', fu
 ): void {
     $work = Workload::of($weighed('b/src/B.php', 100.0, 'b'), $weighed('a/src/A.php', 100.0, 'a'));
 
-    expect($shards(Cut::bySize(600, 1)->cut($work, Trees::none())))->toBe([
+    expect($shards(Cut::bySize(600, Seconds::of(0.0), 1)->cut($work, Trees::none())))->toBe([
         [1, 'a/src/A.php', 100.0, 'a', ['a/src/A.php']],
         [2, 'b/src/B.php', 100.0, 'b', ['b/src/B.php']],
     ]);
@@ -126,7 +126,7 @@ it('never puts two packages in one shard, and takes packages in path order', fun
         $weighed('src/Z.php', 100.0),
     );
 
-    expect($shards(Cut::bySize(600, 20)->cut($work, Trees::none())))->toBe([
+    expect($shards(Cut::bySize(600, Seconds::of(0.0), 20)->cut($work, Trees::none())))->toBe([
         [1, 'src/Z.php', 100.0, '.', ['src/Z.php']],
         [2, 'packages/a/src/Y.php', 100.0, 'packages/a', ['packages/a/src/Y.php']],
         [3, 'packages/b/src/X.php', 100.0, 'packages/b', ['packages/b/src/X.php']],
@@ -138,7 +138,7 @@ it('puts units that cost nothing in one shard', function () use ($weighed, $make
 
     $work = Workload::of($weighed('src/A.php', 0.0), $weighed('src/B.php', 0.0));
 
-    expect($shards(Cut::bySize(600, 20)->cut($work, $src)))->toBe([
+    expect($shards(Cut::bySize(600, Seconds::of(0.0), 20)->cut($work, $src)))->toBe([
         [1, 'src', 0.0, '.', ['src/A.php', 'src/B.php']],
     ]);
 });
@@ -148,7 +148,7 @@ it('puts a package in one shard where a shard has no size', function () use ($we
 
     $work = Workload::of($weighed('src/A.php', 100.0), $weighed('src/B.php', 100.0));
 
-    expect($shards(Cut::bySize(0, 20)->cut($work, $src)))->toBe([
+    expect($shards(Cut::bySize(0, Seconds::of(0.0), 20)->cut($work, $src)))->toBe([
         [1, 'src', 200.0, '.', ['src/A.php', 'src/B.php']],
     ]);
 });
@@ -156,7 +156,7 @@ it('puts a package in one shard where a shard has no size', function () use ($we
 it('cuts nothing into no shards', function () use ($makeSrc): void {
     $src = $makeSrc();
 
-    expect(Cut::bySize(600, 20)->cut(Workload::of(), $src))->toHaveCount(0);
+    expect(Cut::bySize(600, Seconds::of(0.0), 20)->cut(Workload::of(), $src))->toHaveCount(0);
 });
 
 it('cuts exactly as many shards as asked, the ones left over empty and saying so', function () use (
@@ -241,11 +241,40 @@ it('cuts to a target wall time the fewest shards whose overhead and share of the
 })->with([
     'a setup that leaves room for half the cost' => [fn(): Cut => Cut::toTarget(Seconds::of(700.0), Seconds::of(100.0), 20), 2],
     'an opening run on top of the setup' => [
-        fn(): Cut => Cut::toTarget(Seconds::of(700.0), Seconds::of(100.0), 20)->opening(Seconds::of(200.0)),
+        fn(): Cut => Cut::toTarget(Seconds::of(700.0), Seconds::of(100.0), 20)->opening(Seconds::of(100.0)),
         3,
+    ],
+    'shards that would each cost less than twice their overhead' => [
+        fn(): Cut => Cut::toTarget(Seconds::of(700.0), Seconds::of(100.0), 20)->opening(Seconds::of(200.0)),
+        2,
     ],
     'more than the most shards there may be' => [fn(): Cut => Cut::toTarget(Seconds::of(150.0), Seconds::of(100.0), 2), 2],
     'an overhead past the target' => [fn(): Cut => Cut::toTarget(Seconds::of(60.0), Seconds::of(100.0), 3), 3],
+]);
+
+it('never cuts a package into shards that would each cost less than twice their overhead, unless asked for a count', function (
+    Cut $cut,
+    array $costs,
+) use ($weighed, $makeSrc, $shards): void {
+    $src = $makeSrc();
+
+    $work = Workload::of(
+        $weighed('src/A.php', 400.0),
+        $weighed('src/B.php', 400.0),
+        $weighed('src/C.php', 400.0),
+    );
+
+    expect(array_column($shards($cut->cut($work, $src)), 2))->toBe($costs);
+})->with([
+    'no overhead' => [fn(): Cut => Cut::bySize(300, Seconds::of(0.0), 20), [400.0, 400.0, 400.0]],
+    'shards that cost twice their setup' => [fn(): Cut => Cut::bySize(300, Seconds::of(200.0), 20), [400.0, 400.0, 400.0]],
+    'shards that would cost less than twice their setup' => [fn(): Cut => Cut::bySize(300, Seconds::of(250.0), 20), [800.0, 400.0]],
+    'shards that would cost less than twice their setup and opening run' => [
+        fn(): Cut => Cut::bySize(300, Seconds::of(150.0), 20)->opening(Seconds::of(100.0)),
+        [800.0, 400.0],
+    ],
+    'a package whose whole cost is less than twice the overhead' => [fn(): Cut => Cut::bySize(300, Seconds::of(1000.0), 20), [1200.0]],
+    'a count asked for' => [fn(): Cut => Cut::exactly(3)->opening(Seconds::of(1000.0)), [400.0, 400.0, 400.0]],
 ]);
 
 it('cuts no shard to a target where there is no work', function (): void {

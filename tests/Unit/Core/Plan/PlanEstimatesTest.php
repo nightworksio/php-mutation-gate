@@ -92,18 +92,25 @@ it('writes a line for each shard with units and one for the run', function (): v
     ]);
 });
 
-it('warns where shards.max stops the plan meeting shards.target, and only then', function (): void {
+it('warns where the plan cannot meet shards.target, saying what stops it', function (): void {
     $plan = estimatedPlan(estimatedShard(1, 0.0, 700.0, 60.0), estimatedShard(2, 0.0, 400.0, 60.0));
     $estimates = PlanEstimates::of($plan, Seconds::of(60.0));
+    $said = static fn(Seconds|Absent $target, int $most): array => array_map(
+        static fn(Warning $warning): string => $warning->text(),
+        [...$estimates->unmet($target, $most)],
+    );
 
-    expect(array_map(static fn(Warning $warning): string => $warning->text(), [...$estimates->unmet(Seconds::of(600.0), 2)]))
-        ->toBe([<<<'SAID'
-            shards.target is 10m, and at shards.max of 2 shards the longest is expected to take 14m.
-            Raise shards.max, or shards.target, to meet it.
+    expect($said(Seconds::of(600.0), 2))->toBe([<<<'SAID'
+        shards.target is 10m, and at shards.max of 2 shards the longest is expected to take 14m.
+        Raise shards.max, or shards.target, to meet it.
+        SAID])
+        ->and($said(Seconds::of(600.0), 3))->toBe([<<<'SAID'
+            shards.target is 10m, and at 2 shards the longest is expected to take 14m.
+            More shards would each cost less than twice their opening run and setup, or split a unit, which no cut does.
+            Raise shards.target to meet it.
             SAID])
-        ->and($estimates->unmet(Seconds::of(900.0), 2))->toHaveCount(0)
-        ->and($estimates->unmet(Seconds::of(600.0), 3))->toHaveCount(0)
-        ->and($estimates->unmet(Absent::setting(), 2))->toHaveCount(0);
+        ->and($said($estimates->runTime()->wall(), 2))->toBe([])
+        ->and($said(Absent::setting(), 2))->toBe([]);
 });
 
 it('says each shard\'s runner is taken to run as many mutants at once as this machine, where a unit\'s estimate is measured', function (): void {
