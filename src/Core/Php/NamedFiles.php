@@ -119,6 +119,12 @@ final readonly class NamedFiles
         return self::tagged(self::FILE, Words::in(pathinfo(basename($file->value()), PATHINFO_FILENAME))->all());
     }
 
+    /** What each file of the graph reaches by the names it mentions, worked out once for the whole graph. */
+    public function reaches(): ReachedFiles
+    {
+        return ReachedFiles::over($this->naming);
+    }
+
     /** @return list<string> these files, and every file they name, transitively, each once, in the order reached */
     public function reachedFrom(string ...$from): array
     {
