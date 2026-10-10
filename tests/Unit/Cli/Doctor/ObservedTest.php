@@ -176,6 +176,19 @@ it('observes an empty baseline where there is none, and why one cannot be read',
         ->and(Doctored::observed($broken, $php)->of(CommandLine::nothing())->files()->baseline())->toBeInstanceOf(CannotJudge::class);
 });
 
+it('says why a baseline the disk will not hand over cannot be read, rather than reading it', function (): void {
+    $locked = Scratch::copy('tests/Fixtures/Projects/Library');
+    Scratch::write($locked, 'mutation-gate.baseline.json', BaselineFile::encode(Baseline::none()));
+    $file = sprintf('%s/mutation-gate.baseline.json', $locked);
+    chmod($file, 0o000);
+    $php = sprintf('%s/php', FakePhp::printing(Described::output([], [])));
+
+    $baseline = Doctored::observed($locked, $php)->of(CommandLine::nothing())->files()->baseline();
+    chmod($file, 0o644);
+
+    expect($baseline)->toEqual(CannotJudge::because('mutation-gate.baseline.json could not be read.'));
+});
+
 it('observes no markers where the chosen runner cannot be built, and nothing of a project with no composer.json', function (): void {
     $project = Scratch::copy('tests/Fixtures/Projects/Library');
     Scratch::write($project, 'mutation-gate.json', '{"runner": "\\\\Acme\\\\Missing"}');
