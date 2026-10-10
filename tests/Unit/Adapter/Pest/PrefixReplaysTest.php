@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Order\Ordering;
+use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -56,14 +57,29 @@ function replayedOrder(string $second = 'T::b'): string
  */
 function moneyReplay(Seconds|Unmeasured $limit = new Unmeasured()): PrefixReplay
 {
+    return replayOf(limit: $limit);
+}
+
+/**
+ * The replay of a run of a file that loaded tests/MoneySpec.php, filtered so,
+ * and ran this many tests up to its last killer, its mutant allowed these seconds.
+ *
+ * @param positive-int $reach
+ */
+function replayOf(
+    string $file = 'src/Money.php',
+    int $reach = 2,
+    string $filter = '--filter=MoneySpec',
+    Seconds|Unmeasured $limit = new Unmeasured(),
+): PrefixReplay {
     $files = Paths::of(Path::of('tests/MoneySpec.php'));
 
     return PrefixReplay::of(
-        Path::of('src/Money.php'),
+        Path::of($file),
         '/tmp/mutations/abc',
-        ['vendor/bin/pest', '--bail', '--filter=MoneySpec', '/p/tests/MoneySpec.php'],
+        ['vendor/bin/pest', '--bail', $filter, '/p/tests/MoneySpec.php'],
         $files,
-        2,
+        $reach,
         Prefix::keyOf($files, replayedOrder()),
         $limit,
     );
@@ -266,9 +282,47 @@ it('keeps what a replay said under one limit apart from a replay of the same run
         ->and($shell->commands())->toHaveCount(2);
 });
 
-it('cannot vouch for a kill whose file it cannot serve unmutated', function (): void {
+it('cannot vouch for a kill whose file it cannot serve unmutated, and goes on to the next', function (): void {
     $at = PestCases::project();
-    unlink(sprintf('%s/src/Money.php', $at->root()));
+    $shell = replaying(Ran::finished(succeeded: true, output: ''), RecordLine::ran('/r/copy.php', 2), RecordLine::stopped('/r/copy.php', 2, replayedOrder()));
 
-    expect(replayVerdicts($at, replaying(Ran::finished(succeeded: true, output: ''))))->toBe([ReplayVerdict::Unserved]);
+    expect(replayVerdicts($at, $shell, Unlimited::time(), replayOf(file: 'src/Gone.php'), moneyReplay()))
+        ->toBe([ReplayVerdict::Unserved, ReplayVerdict::Stands]);
 });
+
+it('replays a run again where it withholds more, serves another copy, runs further or starts otherwise', function (
+    PrefixReplay $again,
+    MutationRequest $request,
+    bool $edited,
+    int $runs,
+): void {
+    $at = PestCases::project();
+    $shell = replaying(Ran::finished(succeeded: true, output: ''), RecordLine::ran('/r/copy.php', 2), RecordLine::stopped('/r/copy.php', 2, replayedOrder()));
+    $replays = new PrefixReplays($at, $shell, new Remembered());
+
+    $replays->verdicts([moneyReplay()], PestCases::money(), Unlimited::time(), PestCases::results($at));
+
+    if ($edited) {
+        file_put_contents(sprintf('%s/src/Money.php', $at->root()), "<?php\n\nfinal class Money\n{\n    public int \$cents = 0;\n}\n");
+    }
+
+    $replays->verdicts([$again], $request, Unlimited::time(), PestCases::results($at));
+
+    expect($shell->commands())->toHaveCount($runs);
+})->with([
+    'the same run' => [fn(): PrefixReplay => moneyReplay(), fn(): MutationRequest => PestCases::money(), false, 1],
+    'withholding more' => [
+        fn(): PrefixReplay => moneyReplay(),
+        fn(): MutationRequest => PestCases::money()->withholding(Withheld::of('DEPLOY_*')),
+        false,
+        2,
+    ],
+    'serving another copy' => [fn(): PrefixReplay => moneyReplay(), fn(): MutationRequest => PestCases::money(), true, 2],
+    'running further' => [fn(): PrefixReplay => replayOf(reach: 3), fn(): MutationRequest => PestCases::money(), false, 2],
+    'started otherwise' => [
+        fn(): PrefixReplay => replayOf(filter: '--filter=OtherSpec'),
+        fn(): MutationRequest => PestCases::money(),
+        false,
+        2,
+    ],
+]);
