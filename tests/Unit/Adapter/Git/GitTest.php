@@ -222,6 +222,34 @@ it('never counts what the gate keeps in its own workspace as a change', function
         ->and($fingerprints instanceof Fingerprints ? $fingerprints->count() : 0)->toBe(2);
 });
 
+it('names both sides of a file moved on disk and not yet staged, whatever the repository configures', function (): void {
+    $repository = Repository::empty()->write('src/A.php', "<?php\n// the file\n")->commit('The base.');
+    unlink(sprintf('%s/src/A.php', $repository->root));
+    $repository->write('src/B.php', "<?php\n// the file\n")->git('add', '--intent-to-add', 'src/B.php');
+    $repository->git('config', 'diff.renames', 'true');
+
+    expect(Git::at($repository->root)->unstaged())->toEqual(Paths::of(Path::of('src/A.php'), Path::of('src/B.php')));
+});
+
+it('cannot tell what is unstaged where git cannot list the changed files, or the untracked ones', function (): void {
+    $directory = Scratch::directory();
+    $repository = Repository::empty()->write('src/A.php', "<?php\n")->commit('The base.');
+    $exclude = sprintf('%s/.git/info/exclude', $repository->root);
+    if (is_file($exclude)) {
+        unlink($exclude);
+    }
+    mkdir($exclude, recursive: true);
+    $outside = Git::at($directory)->unstaged();
+    $unlisted = Git::at($repository->root)->unstaged();
+
+    expect($outside instanceof CannotTell ? $outside->why() : '')->toStartWith('git diff --name-only --no-renames -z gave no answer: ')
+        ->and($unlisted instanceof CannotTell ? $unlisted->why() : '')->toStartWith('git ls-files --others --exclude-standard -z ');
+});
+
+it('needs no repository to say when no file last changed', function (): void {
+    expect(Git::at(Scratch::directory())->lastChanged(Paths::none()))->toEqual(ByPath::none());
+});
+
 it('names a staged file as unstaged only once it changes again, and an ignored one never', function (): void {
     $repository = Repository::empty()->write('.gitignore', "ignored.php\n")->write('src/A.php', "<?php\n")->commit('The base.');
     $repository->write('src/A.php', "<?php\n// staged\n")->write('ignored.php', '')->git('add', 'src/A.php');
