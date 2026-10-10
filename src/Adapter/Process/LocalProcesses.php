@@ -25,12 +25,11 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Port\Processes;
 use Psr\Clock\ClockInterface;
 
-use function usleep;
-
 /**
  * Runs programs as processes on this machine, side by side where there are
- * several places, looking at each running one about a hundred times a second,
- * and at a watched one's watch as often, and timing each on a clock.
+ * several places, looking at the running ones as soon as one prints or ends
+ * and at least about a hundred times a second, and at a watched one's watch
+ * as often, and timing each on a clock.
  */
 final readonly class LocalProcesses implements Processes
 {
@@ -75,7 +74,7 @@ final readonly class LocalProcesses implements Processes
 
             if ($ended === [] && $running !== []) {
                 $watch->look();
-                usleep(Polling::interval()->microseconds());
+                Running::awaitAny(Polling::interval(), ...$running);
             }
         }
 

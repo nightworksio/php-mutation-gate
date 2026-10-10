@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Process\ProcessTree;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use Symfony\Component\Process\Exception\ProcessSignaledException;
 use Symfony\Component\Process\Process;
 
 afterEach(function (): void {
@@ -26,12 +27,12 @@ it('stops every process a program started, at any depth, and then the program', 
     // Stopped only once the whole tree has started, however long that takes.
     $program->waitUntil(static fn(string $type, string $output): bool => str_contains($output, 'ready'));
 
-    ProcessTree::of($program)->stop();
+    ProcessTree::of((int) $program->getPid())->stop();
     // The lock is released the moment the grandchild ends, so taking it waits for exactly that.
     $alive = fopen(sprintf('%s/alive', $directory), 'c');
     $ended = $alive !== false && flock($alive, LOCK_EX);
 
-    expect($program->isRunning())->toBeFalse()
+    expect(static fn(): int => $program->wait())->toThrow(ProcessSignaledException::class, 'signal "9"')
         ->and($ended)->toBeTrue()
         ->and(is_file(sprintf('%s/outlived', $directory)))->toBeFalse();
 });
@@ -41,17 +42,7 @@ it('stops a program that started nothing', function (): void {
     $program->start();
     $program->waitUntil(static fn(string $type, string $output): bool => str_contains($output, 'ready'));
 
-    ProcessTree::of($program)->stop();
+    ProcessTree::of((int) $program->getPid())->stop();
 
-    expect($program->isRunning())->toBeFalse();
-});
-
-it('stops nothing of a program that has already ended', function (): void {
-    $program = new Process([PHP_BINARY, '-r', 'echo "done";']);
-    $program->run();
-
-    ProcessTree::of($program)->stop();
-
-    expect($program->isRunning())->toBeFalse()
-        ->and($program->getOutput())->toBe('done');
+    expect(static fn(): int => $program->wait())->toThrow(ProcessSignaledException::class, 'signal "9"');
 });

@@ -63,9 +63,6 @@ final readonly class Command
     /** Why git gave no answer. */
     private const string FAILED = 'git %s gave no answer: %s';
 
-    /** Why git cannot run where the directory it is to run in is not there. */
-    private const string NO_DIRECTORY = 'The provided cwd "%s" does not exist.';
-
     /** Why git cannot be handed its input. */
     private const string NO_SCRATCH = 'there is no temporary file to hand it its input in.';
 
@@ -128,9 +125,11 @@ final readonly class Command
         $errors = tempnam(sys_get_temp_dir(), $scratch);
         $handed = is_string($in) && is_string($errors) && file_put_contents($in, $input) !== false;
 
+        $missing = sprintf(ChildProcess::NO_DIRECTORY, $this->directory);
+
         try {
             return match (true) {
-                ! is_dir($this->directory) => $this->refused($arguments, sprintf(self::NO_DIRECTORY, $this->directory)),
+                ! is_dir($this->directory) => $this->refused($arguments, $missing),
                 ! $handed => $this->refused($arguments, self::NO_SCRATCH),
                 default => $this->fedFrom($arguments, $in, $errors),
             };
