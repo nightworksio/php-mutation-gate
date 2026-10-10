@@ -4,20 +4,36 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
+use function chmod;
+use function copy;
 use function dirname;
-use function escapeshellarg;
-use function exec;
 use function fclose;
 use function file_put_contents;
+
+use FilesystemIterator;
+
 use function fopen;
 use function ftruncate;
 use function is_dir;
+use function mb_strlen;
+use function mb_substr;
 use function mkdir;
 use function random_bytes;
+use function readlink;
+
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+
 use function register_shutdown_function;
+use function rmdir;
 use function sodium_bin2hex;
+
+use SplFileInfo;
+
 use function sprintf;
+use function symlink;
 use function sys_get_temp_dir;
+use function unlink;
 
 /**
  * Directories a test writes into, each new and empty, removed by `sweep()`, or,
@@ -86,7 +102,7 @@ final class Scratch
     public static function copy(string $fixture): string
     {
         $root = self::directory();
-        exec(sprintf('cp -R %s/. %s', escapeshellarg(Tree::at($fixture)), escapeshellarg($root)));
+        self::copied(Tree::at($fixture), $root);
 
         return $root;
     }
@@ -103,7 +119,74 @@ final class Scratch
 
     private static function remove(string $root): void
     {
-        exec(sprintf('rm -rf %s', escapeshellarg($root)));
+        if (! is_dir($root)) {
+            return;
+        }
+
+        foreach (self::entries($root, RecursiveIteratorIterator::SELF_FIRST) as $entry) {
+            self::opened($entry);
+        }
+
+        foreach (self::entries($root, RecursiveIteratorIterator::CHILD_FIRST) as $entry) {
+            self::removed($entry);
+        }
+
+        rmdir($root);
+    }
+
+    /** Copies a directory's contents into another, keeping each file's mode and each link as a link. */
+    private static function copied(string $from, string $into): void
+    {
+        foreach (self::entries($from, RecursiveIteratorIterator::SELF_FIRST) as $entry) {
+            $target = sprintf('%s%s', $into, mb_substr($entry->getPathname(), mb_strlen($from)));
+
+            if ($entry->isLink()) {
+                symlink((string) readlink($entry->getPathname()), $target);
+
+                continue;
+            }
+
+            if ($entry->isDir()) {
+                mkdir($target);
+
+                continue;
+            }
+
+            copy($entry->getPathname(), $target);
+            chmod($target, $entry->getPerms() & 0777);
+        }
+    }
+
+    /**
+     * Every entry under a directory, in this order.
+     *
+     * @param  RecursiveIteratorIterator::SELF_FIRST|RecursiveIteratorIterator::CHILD_FIRST $mode
+     * @return list<SplFileInfo>
+     */
+    private static function entries(string $root, int $mode): array
+    {
+        $entries = [];
+
+        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS), $mode) as $entry) {
+            if ($entry instanceof SplFileInfo) {
+                $entries[] = $entry;
+            }
+        }
+
+        return $entries;
+    }
+
+    /** Lets a directory a test made read-only be emptied. */
+    private static function opened(SplFileInfo $entry): void
+    {
+        if ($entry->isDir() && ! $entry->isLink()) {
+            chmod($entry->getPathname(), 0700);
+        }
+    }
+
+    private static function removed(SplFileInfo $entry): void
+    {
+        $entry->isDir() && ! $entry->isLink() ? rmdir($entry->getPathname()) : unlink($entry->getPathname());
     }
 
     private static function fresh(): string
