@@ -13,7 +13,7 @@ use function mb_strtolower;
 final readonly class OwnMember
 {
     /** The variable a class calls its own methods on. */
-    private const string THIS = '$this';
+    private const string THIS = ReachingVariable::This->value;
 
     /** How a class names itself, besides `static`. */
     private const string SELF = 'self';

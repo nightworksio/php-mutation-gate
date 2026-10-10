@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Php\Argument;
+use NightWorksIO\MutationGate\Core\Php\OwnVariables;
+use NightWorksIO\MutationGate\Tests\Support\Assigning;
 
 /** An argument, by how it is written. */
 function writtenArgument(string $written): Argument
@@ -19,7 +21,7 @@ function writtenArgument(string $written): Argument
 }
 
 it('reads an expression that runs nothing as it is evaluated', function (string $written): void {
-    expect(writtenArgument($written)->runsNothing())->toBeTrue();
+    expect(writtenArgument($written)->runsNothing(OwnVariables::none()))->toBeTrue();
 })->with([
     'a string' => ["'adds'"],
     'a number, negative or not' => ['-1.5 + 2'],
@@ -39,7 +41,7 @@ it('reads an expression that runs nothing as it is evaluated', function (string 
 ]);
 
 it('reads an expression that runs code as it is evaluated', function (string $written): void {
-    expect(writtenArgument($written)->runsNothing())->toBeFalse();
+    expect(writtenArgument($written)->runsNothing(OwnVariables::none()))->toBeFalse();
 })->with([
     'a function call' => ["sprintf('%d', 1)"],
     'a static call' => ['Money::make()'],
@@ -75,7 +77,7 @@ it('reads anything else as no closure', function (string $written): void {
 ]);
 
 it('reads a closure that only returns or yields what runs nothing as only giving', function (string $written): void {
-    expect(writtenArgument($written)->onlyGives())->toBeTrue();
+    expect(writtenArgument($written)->onlyGives(OwnVariables::none()))->toBeTrue();
 })->with([
     'an arrow function' => ['fn (): array => [[1], [2]]'],
     'a return' => ['function (): array { return [[1], [2]]; }'],
@@ -84,7 +86,7 @@ it('reads a closure that only returns or yields what runs nothing as only giving
 ]);
 
 it('reads any other argument as not only giving', function (string $written): void {
-    expect(writtenArgument($written)->onlyGives())->toBeFalse();
+    expect(writtenArgument($written)->onlyGives(OwnVariables::none()))->toBeFalse();
 })->with([
     'an array' => ['[[1]]'],
     'a closure that runs more' => ["function (): array { putenv('A=1'); return [[1]]; }"],
@@ -105,3 +107,14 @@ it('reads a closure\'s body as its statements, and an arrow function\'s expressi
         ->and($spelt("fn () => it('a')"))->toBe(["it ( 'a' ) ;"])
         ->and($spelt("'adds'"))->toBe([]);
 });
+
+it('reads a variable of the scope\'s own as running nothing, and calling it or what it holds as running code', function (string $written, bool $nothing): void {
+    expect(writtenArgument($written)->runsNothing(Assigning::own('$rows = [[1]];', '$make = static fn (): int => 1;')))->toBe($nothing);
+})->with([
+    'read' => ['$rows', true],
+    'spread and indexed' => ['[...$rows, $rows[0]]', true],
+    'beside another of its own' => ['[$rows, $make]', true],
+    'called' => ['$make()', false],
+    'a method of it called' => ['$rows->count()', false],
+    'beside a variable not its own' => ['[$rows, $amount]', false],
+]);

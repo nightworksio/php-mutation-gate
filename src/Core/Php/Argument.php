@@ -120,36 +120,39 @@ final readonly class Argument
      * whose every statement returns or yields such a value, and that declares
      * nothing.
      */
-    public function onlyGives(): bool
+    public function onlyGives(OwnVariables $own): bool
     {
         $closure = ClosureLiteral::at($this->read, 0);
 
         return match (true) {
             ! $this->isClosure() => false,
-            $closure->isArrow() => self::of(array_slice($this->tokens, $closure->opens() + 1))->runsNothing(),
-            default => $this->givesOnly($this->body()),
+            $closure->isArrow() => self::of(array_slice($this->tokens, $closure->opens() + 1))->runsNothing($own),
+            default => $this->givesOnly($this->body(), $own),
         };
     }
 
     /**
      * Whether evaluating the argument runs nothing: literals, constants,
-     * `::class` and class constants, arrays of these, the operators that
-     * combine them, and closures, which run only when called. A call, a
-     * variable, an assignment, `new`, an include and anything else run code.
+     * `::class` and class constants, arrays of these, these variables of the
+     * scope's own, the operators that combine them, and closures, which run
+     * only when called. A call, another variable, an assignment, `new`, an
+     * include and anything else run code.
      */
-    public function runsNothing(): bool
+    public function runsNothing(OwnVariables $own): bool
     {
         $operand = false;
         $at = 0;
 
         while ($at < count($this->tokens)) {
             $closure = ClosureLiteral::at($this->read, $at);
+            $owned = $own->has($this->tokens[$at]);
 
-            if (! $closure->isOne() && ! $this->evaluatesNothing($at, $operand)) {
+            if (! $closure->isOne() && ! $owned && ! $this->evaluatesNothing($at, $operand)) {
                 return false;
             }
 
             $operand = $closure->isOne()
+                || $owned
                 || $this->read->is($at, ...self::LITERALS, ...Names::TOKENS, ...self::OPERAND_ENDS);
             $at = $closure->isOne() ? $closure->end() : $at + 1;
         }
@@ -158,7 +161,7 @@ final readonly class Argument
     }
 
     /** Whether a closure's body declares nothing, and each of its statements returns or yields what runs nothing. */
-    private function givesOnly(TopLevel $body): bool
+    private function givesOnly(TopLevel $body, OwnVariables $own): bool
     {
         if ($body->declared() !== []) {
             return false;
@@ -168,7 +171,7 @@ final readonly class Argument
             $value = array_slice($statement, 1, -1);
             $gives = $statement[0]->is(self::GIVES) && $statement[count($statement) - 1]->is(self::END);
 
-            if (! $gives || $value === [] || ! self::of($value)->runsNothing()) {
+            if (! $gives || $value === [] || ! self::of($value)->runsNothing($own)) {
                 return false;
             }
         }

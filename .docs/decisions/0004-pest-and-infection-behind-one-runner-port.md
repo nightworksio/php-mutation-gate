@@ -429,7 +429,16 @@ its parser attributes. Both change when the checkout moves.
        runs two closures as the file loads, so each is held to more: a
        `describe` body, whose statements must each be such a registration in
        turn, and a dataset handed to `dataset` or `->with()` as a closure,
-       which may only return or yield what runs nothing. Anything else acts,
+       which may only return or yield what runs nothing. A plain variable
+       assigned, by value, a value that runs nothing as it is evaluated, at
+       the top or in a `describe` body, keeps the file inert too: Pest
+       requires each test file inside a method, so the variable stays in
+       that file, and making a closure runs none of its body. Such a
+       variable is the file's own, and reading it, in a registration's
+       arguments or in another such assignment, runs nothing either.
+       `$this`, `$GLOBALS`, a superglobal and an assignment by reference
+       reach past the file, and a value that calls, or reads a variable not
+       its own, runs code. Anything else acts,
        at the top, in a `describe` body or in a dataset closure: a hook or a
        trait sent `->in()` a directory, `pest()` and `mutates()`, which change
        Pest's configuration, a write to `$_ENV`, the environment or
