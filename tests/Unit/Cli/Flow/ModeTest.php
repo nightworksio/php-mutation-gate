@@ -58,6 +58,13 @@ it('reads the change since the newest commit of its own scope that passed', func
     expect(Mode::since(Mode::LAST_PASSED)->base(modeLedgers('p1')))->toEqual(Revision::ref('p1'));
 });
 
+it('says whether it reads the change since the newest commit of its own scope that passed', function (): void {
+    expect(Mode::since(Mode::LAST_PASSED)->isSinceLastPassed())->toBeTrue()
+        ->and(Mode::since(Mode::LAST_RUN)->isSinceLastPassed())->toBeFalse()
+        ->and(Mode::since('v1.2')->isSinceLastPassed())->toBeFalse()
+        ->and(Mode::full()->isSinceLastPassed())->toBeFalse();
+});
+
 it('is full where no commit of its scope has passed yet', function (): void {
     expect(Mode::since('last-passed')->base(modeLedgers('')))->toEqual(CannotTell::because(
         'No commit of this scope has passed yet, so the run considers every unit.',

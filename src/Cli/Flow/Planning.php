@@ -36,9 +36,6 @@ use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
-use NightWorksIO\MutationGate\Core\Runner\Exhaustion;
-use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
-use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -65,12 +62,6 @@ final readonly class Planning
     private const string PACKAGED = <<<'SAID'
         The package at %s has units to mutate, and the runner runs the suite of the project's root alone,
         which does not judge another package's code, so their mutants cannot be judged.
-        SAID;
-
-    private const string OVER_CAP = <<<'SAID'
-        The largest process of the suite's coverage run held %s resident, more than the %s each mutant's
-        process may hold, so its mutants cannot be judged under that cap. Resident memory counts more than
-        memory_limit does. %s
         SAID;
 
     private const string NOT_FULL = <<<'SAID'
@@ -102,6 +93,29 @@ final readonly class Planning
             return $inventory;
         }
 
+        $writing = Writing::from($this->settings->proofs()->write()->value);
+        $ledgers = Ledgers::read($this->adapters->proofs, $inventory->standing, $writing);
+        $unchanged = new UnchangedPlan($this->adapters, $this->settings, $this->setup)
+            ->of($inventory, $ledgers, $mode, $matrix);
+
+        return $unchanged instanceof PlanMade
+            ? $unchanged
+            : $this->measured($inventory, $ledgers, $mode, $coverage, $cut, $matrix, $ownMap);
+    }
+
+    /**
+     * The plan of a run whose coverage map is measured, or read, against the
+     * map its own scope or the default branch keeps; or why there is none.
+     */
+    private function measured(
+        Inventory $inventory,
+        Ledgers $ledgers,
+        Mode $mode,
+        CoverageRun|CoverageRead $coverage,
+        Cut $cut,
+        MatrixKind $matrix,
+        bool $ownMap,
+    ): PlanMade|CannotJudge {
         $kept = new KeptCoverage($this->adapters, $this->settings, $this->setup);
         $entries = $kept->entries($inventory);
         $measured = $kept->forRun($inventory, $entries, $coverage, $ownMap);
@@ -111,7 +125,8 @@ final readonly class Planning
         );
 
         $peak = $coverage instanceof CoverageRun ? $this->setup->memory->peak() : NotGiven::value();
-        $map = $map instanceof CoverageMap ? $this->withinTheCap($map, $peak) : $map;
+        $cap = new CoverageCap($this->adapters, $this->settings);
+        $map = $map instanceof CoverageMap ? $cap->holding($map, $peak) : $map;
 
         if ($map instanceof CannotJudge) {
             return $map;
@@ -120,7 +135,17 @@ final readonly class Planning
         $keying = Keying::of($this->adapters, $this->settings, $this->setup, $inventory->suite, $map);
         $at = Measuring::of($this->adapters, $request);
         $planned = $keying instanceof Keying
-            ? $this->planned($inventory, KeptCoverage::keysOf($entries, $map), $map, $at, $keying, $mode, $cut, $matrix)
+            ? $this->planned(
+                $inventory,
+                $ledgers,
+                KeptCoverage::keysOf($entries, $map),
+                $map,
+                $at,
+                $keying,
+                $mode,
+                $cut,
+                $matrix,
+            )
             : $keying;
 
         $briefing = $measured->briefing(Briefing::standard()->weighing($peak)->recording($matrix));
@@ -130,30 +155,9 @@ final readonly class Planning
             : $planned;
     }
 
-    /**
-     * The map of the coverage run just run, where the suite, unmutated, held
-     * no more than the cap in force in it: `runner.memory`, or the project's
-     * own `memory_limit` where that lifts it; or why its mutants cannot be
-     * judged under that cap (ADR-0004, decision 9). The peak is the most
-     * resident memory of a process, an upper bound on what `memory_limit`
-     * counts. A peak the system does not count, or a map another job wrote,
-     * refuses nothing.
-     */
-    private function withinTheCap(CoverageMap $map, MemoryCap|NotGiven $peak): CoverageMap|CannotJudge
-    {
-        $cap = ProjectMemoryLimit::inForce(
-            $this->adapters->project,
-            PhpUnitConfig::among($this->adapters->runner->definitions()),
-            $this->settings->runner()->memory(),
-        );
-
-        return $peak instanceof MemoryCap && $cap->isExceededBy($peak)
-            ? CannotJudge::because(sprintf(self::OVER_CAP, $peak->written(), $cap->written(), Exhaustion::ADVICE))
-            : $map;
-    }
-
     private function planned(
         Inventory $inventory,
+        Ledgers $ledgers,
         EntryKeys|NotGiven $entryKeys,
         CoverageMap $map,
         MeasuredAt|Unplaced $at,
@@ -162,8 +166,6 @@ final readonly class Planning
         Cut $cut,
         MatrixKind $matrix,
     ): Plan|CannotJudge {
-        $writing = Writing::from($this->settings->proofs()->write()->value);
-        $ledgers = Ledgers::read($this->adapters->proofs, $inventory->standing, $writing);
         $kind = $this->adapters->briefing(Briefing::standard()->recording($matrix))->profile();
         $base = $mode->changeBase($ledgers, $inventory->standing, $kind, $this->settings->ci()->check());
         $reached = $base instanceof ChangeBase

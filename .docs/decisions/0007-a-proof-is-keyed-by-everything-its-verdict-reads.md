@@ -258,7 +258,8 @@ has to bring its result with it.
        "analysers": {
            "phpstan": { "checks": 63, "seconds": 31.5, "mutators": { "Plus": [60, 12] } }
        },
-       "passed": { "commit": "<commit sha>", "check": "<check-run name>", "ownScopeProofs": 0 },
+       "passed": { "commit": "<commit sha>", "check": "<check-run name>", "ownScopeProofs": 0,
+                   "at": "2026-10-10T07:30:00Z" },
        "lastRun": { "commit": "<commit sha>", "tree": "<tree sha>", "parents": ["<commit sha>", "<commit sha>"],
                     "check": "<check-run name>", "kind": { "matrix": "full" } }
    }
@@ -370,11 +371,13 @@ has to bring its result with it.
      many proofs of this scope's own ledger that verdict used.
      `ownScopeCoverage`, `true` where it is written, says the verdict's plan
      measured its coverage map against the map this scope keeps (ADR-0023,
-     decision 2). A pull request's passing run is trusted on the default
-     branch only where it used neither, because its own code could have
-     written both, and only as the named check-run shows it. A `passed` that
-     is not such a record, one whose `ownScopeCoverage` is anything but
-     `true` among them, reads as none.
+     decision 2). `at` is the instant the verdict passed, in UTC; a record
+     without it does not say, and its verdict never stands for a later commit
+     (ADR-0005, decision 12). A pull request's passing run is trusted on the
+     default branch only where it used neither, because its own code could
+     have written both, and only as the named check-run shows it. A `passed`
+     that is not such a record, one whose `ownScopeCoverage` is anything but
+     `true` or whose `at` is no instant among them, reads as none.
    - `lastRun` records the commit this scope's last run judged, the
      `last-run` base (ADR-0005, decision 2), with `tree`, the tree it held,
      and `parents`, the commits it was made from in its order, so a gone

@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanFile;
+use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 
@@ -50,10 +51,17 @@ final readonly class LastRun
         }
 
         $results = Results::read($plan, Workspace::results(), $composed->adapters->project);
+        $unchanged = $plan->briefing()->unchanged();
 
-        return $results instanceof Results
-            ? new Judging($composed->adapters, $composed->settings, $composed->setup, $composed->reporting)
-                ->again($plan, $results)
-            : $results;
+        return match (true) {
+            $unchanged instanceof Unchanged => UnchangedVerdict::verdictOf($unchanged),
+            $results instanceof Results => new Judging(
+                $composed->adapters,
+                $composed->settings,
+                $composed->setup,
+                $composed->reporting,
+            )->again($plan, $results),
+            default => $results,
+        };
     }
 }

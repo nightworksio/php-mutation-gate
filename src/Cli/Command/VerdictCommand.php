@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Cli\Flow\Judged;
 use NightWorksIO\MutationGate\Cli\Flow\Judging;
 use NightWorksIO\MutationGate\Cli\Flow\LastRun;
 use NightWorksIO\MutationGate\Cli\Flow\Results;
+use NightWorksIO\MutationGate\Cli\Flow\UnchangedVerdict;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -19,6 +20,7 @@ use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
+use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Verdict\HeldTo;
 
 use function sprintf;
@@ -90,10 +92,17 @@ final readonly class VerdictCommand
     ): Judged|Invalid|CannotJudge {
         $following = $composed->following($plan);
         $read = Results::read($plan, $results, $composed->adapters->project);
+        $unchanged = $plan->briefing()->unchanged();
 
         return match (true) {
             ! $following instanceof Composed => $following,
             ! $read instanceof Results => $read,
+            $unchanged instanceof Unchanged => new UnchangedVerdict(
+                $following->adapters,
+                $following->settings,
+                $following->setup,
+                $following->reporting,
+            )->of($plan, $unchanged),
             default => new Judging(
                 $following->adapters,
                 $following->settings,

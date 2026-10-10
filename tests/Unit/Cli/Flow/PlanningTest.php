@@ -49,13 +49,16 @@ use NightWorksIO\MutationGate\Core\Plan\Cut;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
+use NightWorksIO\MutationGate\Core\Plan\Unchanged;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\GateRelease;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
+use NightWorksIO\MutationGate\Core\Proof\Passed;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
+use NightWorksIO\MutationGate\Core\Proof\ScopeRuns;
 use NightWorksIO\MutationGate\Core\Proof\Timing;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
 use NightWorksIO\MutationGate\Core\Proof\Uncommitted;
@@ -75,6 +78,7 @@ use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
@@ -956,3 +960,70 @@ it('briefs a plan measured against the map its own scope keeps as such, and one 
 
     expect($planned instanceof Plan ? $planned->briefing()->isOnOwnScopeCoverage() : $planned)->toBe($own);
 })->with(['its own scope\'s map' => [true], 'the default branch\'s map' => [false]]);
+
+it('plans nothing, before any coverage run, where only files that do not matter to the gate changed since the last commit that passed', function () use (
+    $plan,
+    $shards,
+): void {
+    $project = Flows::project();
+    $at = Instant::at(new DateTimeImmutable('2026-10-09T08:00:00Z'));
+    $passed = Passed::of(Revision::ref('passed'), 'mutation / verdict', 1)->passedAt($at);
+    $store = new ProofStoreFake();
+    $store->write(Scope::branch('main'), Ledger::empty()->withRuns(ScopeRuns::none()->passing($passed)));
+    $checkout = new ChangeSourceFake(
+        Revision::ref('passed'),
+        Changes::of(Change::modified(Path::of('README.md'), Lines::none())),
+        [Revision::workingTree()->name() => Flows::FILES, 'passed' => Flows::FILES],
+    );
+    $runner = new CoverageAsked(RunnerFake::ofTheFixture(), CoverageMap::empty());
+    $made = $plan($project, Mode::since(Mode::LAST_PASSED), Cut::exactly(1), $store, $checkout, $runner);
+
+    expect($shards($made))->toBe([])
+        ->and($made instanceof Plan ? $made->briefing()->unchanged() : $made)->toEqual(Unchanged::since($passed, $at))
+        ->and($made instanceof Plan ? $made->commit() : $made)->toEqual(Revision::ref(Flows::HEAD))
+        ->and($made instanceof Plan ? $made->keys()->units() : $made)->toEqual(Paths::none())
+        ->and($runner->asked())->toBe([])
+        ->and(is_file(sprintf('%s/.mutation-gate/coverage/map.json.gz', $project)))->toBeFalse();
+});
+
+it('plans as ever where a changed file matters to the gate, or the change is not read since the last commit that passed', function (string $since, string $changed) use (
+    $plan,
+): void {
+    $passed = Passed::of(Revision::ref('passed'), 'mutation / verdict', 1)
+        ->passedAt(Instant::at(new DateTimeImmutable('2026-10-09T08:00:00Z')));
+    $store = new ProofStoreFake();
+    $store->write(Scope::branch('main'), Ledger::empty()->withRuns(ScopeRuns::none()->passing($passed)));
+    $checkout = new ChangeSourceFake(
+        Revision::ref('passed'),
+        Changes::of(Change::modified(Path::of($changed), Lines::none())),
+        [Revision::workingTree()->name() => Flows::FILES, 'passed' => Flows::FILES],
+    );
+    $made = $plan(Flows::project(), $since === '' ? Mode::full() : Mode::since($since), Cut::exactly(1), $store, $checkout);
+
+    expect($made instanceof Plan ? $made->briefing()->unchanged() : $made)->toEqual(NotGiven::value());
+})->with([
+    'a PHP file' => [Mode::LAST_PASSED, 'src/Money.php'],
+    'the baseline' => [Mode::LAST_PASSED, 'mutation-gate.baseline.json'],
+    'a change read since a ref' => ['passed', 'README.md'],
+    'a full run' => ['', 'README.md'],
+]);
+
+it('plans as ever a run narrowed to some mutators or one suite, though nothing that matters changed', function (Narrowing $narrowing) use (
+    $plan,
+): void {
+    $passed = Passed::of(Revision::ref('passed'), 'mutation / verdict', 1)
+        ->passedAt(Instant::at(new DateTimeImmutable('2026-10-09T08:00:00Z')));
+    $store = new ProofStoreFake();
+    $store->write(Scope::branch('main'), Ledger::empty()->withRuns(ScopeRuns::none()->passing($passed)));
+    $checkout = new ChangeSourceFake(
+        Revision::ref('passed'),
+        Changes::of(Change::modified(Path::of('README.md'), Lines::none())),
+        [Revision::workingTree()->name() => Flows::FILES, 'passed' => Flows::FILES],
+    );
+    $made = $plan(Flows::project(), Mode::since(Mode::LAST_PASSED), Cut::exactly(1), $store, $checkout, $narrowing);
+
+    expect($made instanceof Plan ? $made->briefing()->unchanged() : $made)->toEqual(NotGiven::value());
+})->with([
+    'to the security mutators' => [fn(): Narrowing => Narrowing::none()->toMutators(Mutators::named('security/HashEqualsToTrue'))],
+    'to one suite' => [fn(): Narrowing => Narrowing::none()->toSuite(SuiteName::of('unit'))],
+]);

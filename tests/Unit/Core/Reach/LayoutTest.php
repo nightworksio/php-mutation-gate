@@ -86,6 +86,16 @@ it('finds files of test cases and test support under the tests', function (): vo
         ->and($layout->isSupport(Path::of('src/Clock.php')))->toBeFalse();
 });
 
+it('finds every file inside a directory of tests, whatever it holds, and none outside', function (): void {
+    $layout = layoutDefinedBy()->testedIn(SuiteDirectory::conventional(), SuiteDirectory::of(Path::of('spec'), ''));
+
+    expect($layout->isInTests(Path::of('tests/fixtures/money.json')))->toBeTrue()
+        ->and($layout->isInTests(Path::of('tests/Unit/MoneyTest.php')))->toBeTrue()
+        ->and($layout->isInTests(Path::of('spec/data.csv')))->toBeTrue()
+        ->and($layout->isInTests(Path::of('docs/tests.md')))->toBeFalse()
+        ->and($layout->isInTests(Path::of('testsuite/data.csv')))->toBeFalse();
+});
+
 it('finds tests in the directories it is given in place of tests', function (): void {
     $layout = layoutDefinedBy()->testedIn(SuiteDirectory::of(Path::of('spec'), ''), SuiteDirectory::of(Path::of('modules/billing/tests'), ''));
 

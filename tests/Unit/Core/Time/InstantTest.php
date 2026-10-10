@@ -28,3 +28,13 @@ it('orders instants by when they were', function (): void {
         ->and($earlier->isAfter($later))->toBeFalse()
         ->and($earlier->isAfter($earlier))->toBeFalse();
 });
+
+it('is the moment it names, in UTC, and no moment where its day is not on the calendar', function (): void {
+    $read = Instant::parse('2026-09-29T20:48:17Z');
+    $overflowing = Instant::parse('2026-02-30T20:48:17Z');
+
+    expect($read instanceof Instant ? $read->moment() : $read)
+        ->toEqual(new DateTimeImmutable('2026-09-29 20:48:17', new DateTimeZone('UTC')))
+        ->and($overflowing instanceof Instant ? $overflowing->moment() : $overflowing)
+        ->toEqual(CannotJudge::because('"2026-02-30T20:48:17Z" is no moment of the calendar.'));
+});

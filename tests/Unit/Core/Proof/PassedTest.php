@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Passed;
+use NightWorksIO\MutationGate\Core\Time\Instant;
 
 it('is a passing commit, the check it reported under, and how many of its own scope\'s proofs it used', function (): void {
     $passed = Passed::of(Revision::ref('206b4e0'), 'mutation / verdict', 2);
@@ -23,4 +25,14 @@ it('used its own scope where it was measured against its own scope\'s coverage m
         ->and($passed->measuredOnOwnScope())->toBeTrue()
         ->and($passed->ownScopeProofs())->toBe(0)
         ->and(Passed::of(Revision::ref('206b4e0'), 'mutation / verdict', 0)->measuredOnOwnScope())->toBeFalse();
+});
+
+it('says when its verdict passed only where it is told, keeping all else', function (): void {
+    $at = Instant::at(new DateTimeImmutable('2026-10-10T07:30:00Z'));
+    $passed = Passed::of(Revision::ref('206b4e0'), 'mutation / verdict', 2)->onOwnScopeCoverage()->passedAt($at);
+
+    expect($passed->at())->toEqual($at)
+        ->and(Passed::of(Revision::ref('206b4e0'), 'mutation / verdict', 2)->at())->toEqual(NotGiven::value())
+        ->and([$passed->commit(), $passed->check(), $passed->ownScopeProofs(), $passed->measuredOnOwnScope()])
+        ->toEqual([Revision::ref('206b4e0'), 'mutation / verdict', 2, true]);
 });
