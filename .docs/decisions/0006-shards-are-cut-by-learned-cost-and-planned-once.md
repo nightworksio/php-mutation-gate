@@ -38,9 +38,16 @@ Two parts of that do not carry over to a public package.
      - takes the coverage map, either by running the suite or from
        `--coverage=<dir>`: the gate's own map, `<dir>/map.json.gz`, which an
        earlier job wrote with `mutation-gate coverage --into=<dir>`. That
-       command runs the suite under coverage and writes the map. A PHP
-       coverage map, such as Pest's, is code that reading it runs, so a PHP
-       coverage map is read only when this same job wrote it;
+       command runs the suite under coverage and writes the map. With
+       `--from=<dir>` it runs nothing: it reads the reports the project's
+       own run of its suite under coverage left in that directory, in the
+       same job, under the names the runner's own coverage run gives them
+       (`coverage.php` for Pest and PHPUnit; `coverage-xml/`, `junit.xml`
+       and `clover.xml` for Infection). A test job that already runs the
+       suite under coverage then hands the plan its map, and the suite runs
+       once for both. A PHP coverage map, such as Pest's, is code that
+       reading it runs, so a PHP coverage map is read only when this same
+       job wrote it;
      - works out the reach (ADR-0005) and each considered unit's content key
        (ADR-0007), and drops every unit a proof already covers;
      - weighs the rest with the cost model and cuts the shards.

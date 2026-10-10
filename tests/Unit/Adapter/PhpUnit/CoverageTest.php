@@ -9,10 +9,12 @@ use NightWorksIO\MutationGate\Adapter\PhpUnit\Project;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
+use NightWorksIO\MutationGate\Core\Coverage\PhpReport;
 use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
@@ -158,4 +160,25 @@ it('reads a handed-over map within this process\'s share of its memory', functio
     expect($share)->toBeLessThan(300 * strlen($bomb))
         ->and(ini_get('memory_limit'))->not->toBe($limit)
         ->and($read)->toEqual(CannotJudge::because(sprintf('The coverage map inflates to more than %d bytes.', $share)));
+});
+
+it('reads the report a coverage run this job started itself left in a directory, running nothing', function (): void {
+    $project = coverageProject();
+    $adds = TestId::of('Tests\MoneyTest::testAdds');
+    mkdir(sprintf('%s/build/suite', $project->root()), recursive: true);
+    CoverageMaps::write(
+        sprintf('%s/build/suite/coverage.php', $project->root()),
+        sprintf('%s/', $project->root()),
+        ['src/Money.php' => [4 => [0]]],
+        ['Tests\MoneyTest::testAdds'],
+        ['Tests\MoneyTest::testAdds' => 0.5],
+    );
+    $shell = PhpUnitShellFake::answering(Ran::finished(succeeded: true, output: ''));
+    $coverage = new Coverage($project, $shell, new Invocation($project, '/gate/override.php'));
+
+    expect($coverage->of(CoverageRan::in(Path::of('build/suite'))))
+        ->toEqual(CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(4), $adds)->timed($adds, Seconds::of(0.5)))
+        ->and($coverage->of(CoverageRan::in(Path::of('build/none'))))
+        ->toEqual(PhpReport::missingAt(sprintf('%s/build/none/coverage.php', $project->root())))
+        ->and($shell->commands())->toBe([]);
 });

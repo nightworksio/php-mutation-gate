@@ -22,6 +22,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -150,6 +151,20 @@ it('reads the map another job handed on without running anything, and never a ru
             $at->root(),
         )))
         ->and($shell->commands())->toBe([]);
+});
+
+it('reads the reports a coverage run this job started itself left in a directory, running nothing', function (): void {
+    $at = InfectionCases::project();
+    $measured = new Infection($at, InfectionCases::shell($at, []), LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory())
+        ->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('build/suite')));
+    $shell = InfectionCases::shell($at, []);
+    $adapter = new Infection($at, $shell, LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory());
+
+    expect($measured)->toBeInstanceOf(CoverageMap::class)
+        ->and($adapter->coverage(CoverageRan::in(Path::of('build/suite'))))->toEqual($measured)
+        ->and($adapter->coverage(CoverageRan::in(Path::of('build/none'))))->toBeInstanceOf(CannotJudge::class)
+        ->and($shell->commands())->toBe([])
+        ->and(sprintf('%s/build/none', $at->root()))->not->toBeDirectory();
 });
 
 it('times a run of no test, started as a mutant\'s run, withholding what it is told', function (): void {

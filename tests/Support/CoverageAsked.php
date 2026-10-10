@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -43,7 +44,7 @@ use NightWorksIO\MutationGate\Port\Runner;
  */
 final class CoverageAsked implements Runner
 {
-    /** @var list<CoverageRun|CoverageRead> */
+    /** @var list<CoverageRun|CoverageRead|CoverageRan> */
     private array $asked = [];
 
     private CoverageMap|CannotJudge $files;
@@ -74,7 +75,7 @@ final class CoverageAsked implements Runner
         return $runner;
     }
 
-    /** @return list<CoverageRun|CoverageRead> each coverage request, in the order it was asked */
+    /** @return list<CoverageRun|CoverageRead|CoverageRan> each coverage request, in the order it was asked */
     public function asked(): array
     {
         return $this->asked;
@@ -85,7 +86,7 @@ final class CoverageAsked implements Runner
     {
         return array_values(array_filter(
             $this->asked,
-            static fn(CoverageRun|CoverageRead $asked): bool => $asked instanceof CoverageRun,
+            static fn(CoverageRun|CoverageRead|CoverageRan $asked): bool => $asked instanceof CoverageRun,
         ));
     }
 
@@ -104,7 +105,7 @@ final class CoverageAsked implements Runner
         return $this->runner->groups($withheld);
     }
 
-    public function coverage(CoverageRun|CoverageRead $request): CoverageMap|CannotJudge
+    public function coverage(CoverageRun|CoverageRead|CoverageRan $request): CoverageMap|CannotJudge
     {
         $this->asked[] = $request;
 

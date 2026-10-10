@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -77,7 +78,7 @@ final class NamesAsked implements Runner
         return $this->runner->groups($withheld);
     }
 
-    public function coverage(CoverageRun|CoverageRead $request): CoverageMap|CannotJudge
+    public function coverage(CoverageRun|CoverageRead|CoverageRan $request): CoverageMap|CannotJudge
     {
         return $this->runner->coverage($request);
     }

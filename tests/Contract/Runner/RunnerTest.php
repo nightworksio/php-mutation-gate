@@ -52,6 +52,7 @@ use NightWorksIO\MutationGate\Core\Pruning\MutatorNames;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -587,6 +588,14 @@ it('measures several test files again at once, naming the tests of each', functi
 
     expect($files)->toHaveCount(2)
         ->and($again instanceof CoverageMap ? $again->tests() : $again)->toEqual($held);
+})->with($libraries);
+
+it('reads the reports a coverage run it did not start left in a directory as the map its own run measures', function (Library $library): void {
+    $runner = $library->runner();
+    $own = $runner->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));
+
+    expect($own)->toBeInstanceOf(CoverageMap::class)
+        ->and($runner->coverage(CoverageRan::in(Path::of('.mutation-gate/coverage'))))->toEqual($own);
 })->with($libraries);
 
 it('places every test of a full run\'s map in the test files that hold them, so a kept map can be measured by file', function (Library $library): void {

@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Report\Problems;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Test\TestPaths;
@@ -73,8 +74,9 @@ $changing = static fn(string $path = 'src/Money.php'): ChangingCheckout => Chang
 
 /** Each request for a coverage map, read, run for the whole suite or run for some test files, in order. */
 $kinds = static fn(CoverageAsked $runner): array => array_values(array_filter(array_map(
-    static fn(CoverageRun|CoverageRead $asked): string => match (true) {
+    static fn(CoverageRun|CoverageRead|CoverageRan $asked): string => match (true) {
         $asked instanceof CoverageRead => CoverageRead::class,
+        $asked instanceof CoverageRan => CoverageRan::class,
         $asked->tests() instanceof WholeSuite => CoverageRun::class,
         $asked->tests() instanceof TestPaths => sprintf(
             '%s %s',

@@ -39,6 +39,7 @@ use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\ReadsOnly;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Proof\Writing;
+use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -176,8 +177,8 @@ function keptWritten(string $project): CoverageMap|CannotJudge
  */
 function keptAsked(CoverageAsked $runner): array
 {
-    return array_map(static fn(CoverageRun|CoverageRead $asked): string => match (true) {
-        $asked instanceof CoverageRead => $asked->directory()->value(),
+    return array_map(static fn(CoverageRun|CoverageRead|CoverageRan $asked): string => match (true) {
+        $asked instanceof CoverageRead, $asked instanceof CoverageRan => $asked->directory()->value(),
         $asked->tests() instanceof TestPaths => implode(' ', array_map(
             static fn(Path $file): string => $file->value(),
             [...$asked->tests()->files()],
