@@ -202,9 +202,8 @@ The same repository has two more needs.
       - A changed test inside a module's directory (decision 7) also reaches
         every tree of that module.
       - A changed test in a suite `tests.holding` lists (ADR-0002, decision 8)
-        reaches every path its tests hold, read as decision 9 reads holds. The
-        coverage map is measured over the other suites, so it holds no test of
-        these.
+        reaches what it executes inside the paths it holds, which is all the
+        map keeps of it (decision 9).
       - A test that asserts less changes no line of the code it judged. The map
         is the only way to find that code again.
       - A deleted test, or no map to read, reaches everything in its package.
@@ -387,19 +386,21 @@ The same repository has two more needs.
      narrows nothing. Such a suite's tests judge nothing unless they hold it,
      so narrowing the path to them would drop every killer the other suites
      give it.
-     - The path's files stay units of their trees. They run with the tree
-       around them, judged by the covering tests the shared coverage map gives
-       them from the suites that judge every unit.
-     - The holding tests run alone under coverage, as decision 10 runs a
-       group. Those that run a line of the path join that line's covering
-       tests in the coverage input the gate writes for the runner (ADR-0023,
-       decision 4), and the mutants' runs run the holding suites too. They
-       join no other path's lines, so they judge no other unit.
-     - They count as covering tests wherever covering tests are read: the
-       shard's result, the proof's `judging` (ADR-0007, decision 3) and the
-       test files the key reads (ADR-0007, decision 2).
-     - The gate tells the two kinds of hold apart by the suite each holding
-       test is listed in (ADR-0004).
+     - The path's files stay units of their trees, run with the tree around
+       them and judged through the shared coverage map.
+     - The coverage run runs the holding suites too, and the map keeps each
+       of their tests only on the lines it runs inside the paths it holds.
+       There it is a covering test like any other, in everything that reads
+       the map: what a change reaches (rule 3), the test files the key reads
+       (ADR-0007, decision 2), the coverage input the gate writes for the
+       runner (ADR-0023, decision 4), the shard's result and the proof's
+       `judging` (ADR-0007, decision 3). A run of mutants that any of these
+       tests judges runs the holding suites too. A holding suite's test is on
+       no other path's lines, so it judges no other unit.
+     - The gate reads which tests hold a path, and in which suites, from the
+       runner's own listing of each test's groups, once over each list of
+       suites (ADR-0004). A `#[Holds]` read from tokens is in the suite that
+       holds its file.
      - Pest without `pest.patch` runs its own opening suite and takes no
        coverage input from the gate, so it cannot add tests to one path's
        lines alone. There, a path held only from holding suites fails the run
@@ -421,8 +422,9 @@ The same repository has two more needs.
 
     A hold only from the suites `tests.holding` lists need not cover every
     line, since the suites that judge every unit still judge the rest. It
-    must run at least one line of the path it holds. Otherwise the path's
-    units fail in the same way, and the message names the hold:
+    must run at least one line of the path it holds. A hold that runs none
+    declares what cannot be true, so, as with a misspelt path, the run stops
+    with exit code 2 and names it:
 
     ```text
     holds:src/Kernel.php in the holding suites runs no line of src/Kernel.php, so it judges none of its mutants.
