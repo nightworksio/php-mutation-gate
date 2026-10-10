@@ -63,6 +63,18 @@ final readonly class StaticCheck implements Setting
         return new self(Json::at('staticCheck.seconds', $seconds));
     }
 
+    /** `staticCheck.before`: a mutant is also checked before its tests, where that pays. */
+    public static function beforeTests(): self
+    {
+        return new self(Json::at('staticCheck.before', value: true));
+    }
+
+    /** `staticCheck.before` off, as by default: only the tests' survivors are checked. */
+    public static function afterTests(): self
+    {
+        return new self(Json::at('staticCheck.before', value: false));
+    }
+
     public function written(): Json
     {
         return $this->json;

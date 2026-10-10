@@ -144,7 +144,8 @@ final readonly class SettingsCases
         },
         "staticCheck": {
             "tool": "auto",
-            "seconds": 60
+            "seconds": 60,
+            "before": false
         },
         "local": {
             "watchBudget": "1m",
@@ -216,7 +217,7 @@ final readonly class SettingsCases
         ],
         'badge' => ['colors' => ['green' => 95]],
         'pest' => ['patch' => true, 'canary' => 'canary'],
-        'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45],
+        'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45, 'before' => true],
         'pruning' => ['enabled' => false, 'window' => 200, 'audit' => '3d'],
         'local' => ['watchBudget' => '2m', 'prePushBudget' => '90s'],
     ];

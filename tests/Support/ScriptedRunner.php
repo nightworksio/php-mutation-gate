@@ -57,6 +57,9 @@ final class ScriptedRunner implements Runner
     /** @var list<MutationRequest> */
     private array $requests = [];
 
+    /** @var list<class-string<PreChecker>> */
+    private array $preCheckers = [];
+
     /** @var list<array{Mutants, Seconds, WholeSuite|Group|Filter, Withheld, MutationRequest}> */
     private array $retries = [];
 
@@ -426,11 +429,22 @@ final class ScriptedRunner implements Runner
         return $this->startedUp;
     }
 
+    /**
+     * The class of the pre-checker each run was given, in order.
+     *
+     * @return list<class-string<PreChecker>>
+     */
+    public function preCheckers(): array
+    {
+        return $this->preCheckers;
+    }
+
     public function mutate(
         MutationRequest $request,
         PreChecker $preChecker = new NoPreCheck(),
     ): MutationResult|CannotJudge {
         $this->requests[] = $request;
+        $this->preCheckers[] = $preChecker::class;
 
         if ($this->turns !== []) {
             return $this->turns[min(count($this->requests), count($this->turns)) - 1];

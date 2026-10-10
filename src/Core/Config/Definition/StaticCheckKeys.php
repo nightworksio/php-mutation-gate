@@ -27,14 +27,16 @@ final readonly class StaticCheckKeys
         $tool = Field::optional('tool', Adapter::choosing(Builtins::staticCheckers($origin)), $results);
         $config = Field::optional('config', Location::path($origin), $results);
         $seconds = Field::optional('seconds', Integer::atLeast(1), $results);
+        $before = Field::optional('before', Flag::boolean(), Effect::JudgesOrReportsOnly);
 
         return [Field::section(
             'staticCheck',
             Section::of(
-                static function (Node $staticCheck) use ($tool, $config, $seconds): Layer|Invalid {
+                static function (Node $staticCheck) use ($tool, $config, $seconds, $before): Layer|Invalid {
                     $chosen = $tool->read($staticCheck);
                     $read = $config->read($staticCheck);
                     $limit = $seconds->read($staticCheck);
+                    $placed = $before->read($staticCheck);
                     $cap = $limit->value();
 
                     return Reading::built(
@@ -42,15 +44,18 @@ final readonly class StaticCheckKeys
                             $chosen->value(),
                             $read->value(),
                             $cap instanceof Absent ? $cap : Seconds::of($cap),
+                            $placed->value(),
                         )),
                         $chosen,
                         $read,
                         $limit,
+                        $placed,
                     );
                 },
                 $tool,
                 $config,
                 $seconds,
+                $before,
             ),
         )];
     }

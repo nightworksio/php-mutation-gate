@@ -229,8 +229,9 @@ manual.
      format-preserving printer, so only the mutated node's lines change and
      the diff is exact.
    - The gate controls generation there, so it runs exact lists of mutants,
-     shards by mutant, carries pruned results by mutant, and checks a mutant before its tests with
-     no hand-off (ADR-0020, ADR-0025).
+     shards by mutant, carries pruned results by mutant, and, where
+     `staticCheck.before` asks, checks a mutant before its tests with no
+     hand-off (ADR-0020, ADR-0025).
    - Pest and Infection make their own mutants.
    - This supersedes ADR-0001's context sentence "It does not mutate code
      itself", for native runners only, and ADR-0013's rejected alternative

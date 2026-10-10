@@ -4,14 +4,19 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
+use NightWorksIO\MutationGate\Cli\Flow\PreChecking;
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Budget;
 use NightWorksIO\MutationGate\Config\Equivalence;
 use NightWorksIO\MutationGate\Config\Flaky;
 use NightWorksIO\MutationGate\Config\Runner as ConfiguredRunner;
+use NightWorksIO\MutationGate\Config\StaticCheck;
 use NightWorksIO\MutationGate\Config\Timeouts;
+use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
+use NightWorksIO\MutationGate\Core\Analysis\Findings;
+use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Absent;
@@ -67,6 +72,7 @@ use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
+use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
@@ -671,4 +677,33 @@ it('lays each request on no start-up where a run of no test cannot run, so each 
     expect(count($runner->startedUp()))->toBe(1)
         ->and(array_map(static fn(MutationRequest $request): Pool => $request->pool(), $runner->requests()))
         ->each->toEqual(Pool::of(ProcessCount::single(), Workers::Fork));
+});
+
+it('checks mutants before their tests only where staticCheck.before asks, and otherwise leaves the analyser to the survivors', function () use (
+    $ticking,
+): void {
+    $project = Flows::project();
+    $plan = Planned::handedIn($project, Planned::twoShards());
+    $after = ScriptedRunner::fixture();
+    $before = ScriptedRunner::fixture();
+    $unwired = ScriptedRunner::fixture();
+    $checker = static fn(): StaticCheckerFake => new StaticCheckerFake(
+        AnalyserIdentity::of('fake', '1.0.0', Digest::sha256Of('')),
+        Findings::none(),
+        [],
+    );
+
+    new Running(Flows::adapters($project, [], $after, $checker()), Flows::settings(), $ticking())
+        ->run($plan, ShardId::of(1), Workspace::results());
+    new Running(
+        Flows::adapters($project, [], $before, $checker()),
+        Flows::settings(StaticCheck::beforeTests()),
+        $ticking(),
+    )->run($plan, ShardId::of(1), Workspace::results());
+    new Running(Flows::adapters($project, [], $unwired), Flows::settings(StaticCheck::beforeTests()), $ticking())
+        ->run($plan, ShardId::of(1), Workspace::results());
+
+    expect(array_unique($after->preCheckers()))->toBe([NoPreCheck::class])
+        ->and(array_unique($before->preCheckers()))->toBe([PreChecking::class])
+        ->and(array_unique($unwired->preCheckers()))->toBe([PreChecking::class]);
 });

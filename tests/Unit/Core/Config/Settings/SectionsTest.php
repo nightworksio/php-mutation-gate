@@ -187,6 +187,7 @@ it('names each CI\'s pipeline file in a config written as PHP', function (): voi
         ->toContain("Pipeline::bitbucketDefinition('ci/bitbucket.yml')")
         ->toContain("Pipeline::jenkinsDefinition('ci/Jenkinsfile')")
         ->toContain('StaticCheck::seconds(45)')
+        ->toContain('StaticCheck::beforeTests()')
         ->toContain('Survivors::firstAtMost(5)');
 });
 
@@ -312,3 +313,14 @@ it('reads timeouts.tighter, each key the standard where it is left out, and refu
         ->and(Configs::problems(Configs::validated(['timeouts' => ['tighter' => ['mutators' => ['default/RemoveArrayItem'], 'floor' => 0]]])))
         ->toHaveCount(2);
 });
+
+it('writes whether the analyser runs before the tests into a config written as PHP only where it is set', function (array $config, string $written, string $unwritten): void {
+    $code = Configs::valid(['runner' => 'pest', ...$config])->php(ProjectRoot::origin())->code();
+
+    expect($code)->toContain($written)
+        ->and(str_contains($code, $unwritten))->toBeFalse();
+})->with([
+    'after' => [['staticCheck' => ['before' => false]], 'StaticCheck::afterTests()', 'StaticCheck::beforeTests()'],
+    'before' => [['staticCheck' => ['before' => true]], 'StaticCheck::beforeTests()', 'StaticCheck::afterTests()'],
+    'unset' => [[], 'Runner::pest()', 'Tests()'],
+]);

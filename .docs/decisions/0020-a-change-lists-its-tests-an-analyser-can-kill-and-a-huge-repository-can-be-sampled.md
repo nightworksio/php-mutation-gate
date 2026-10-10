@@ -382,10 +382,18 @@ needs remain, and the runners' own behaviour shapes each answer.
     - A check after the tests records its time alone, in the ledger's
       `analysers` section. Rates are learned only from checks before the
       tests, since the survivors are no fair sample of a mutator's mutants.
-    - A mutant is also checked **before** its tests when its mutator's
-      rejection rate × its judging tests' time is greater than the time of
-      one check. The tests' time comes from the coverage map, and the check's
-      from the analyser's measured times.
+    - A mutant is also checked **before** its tests only where
+      `staticCheck.before` is `true`; it is `false` by default, so the
+      analyser judges only what the tests let through, and its run over the
+      originals waits until a survivor needs it instead of holding up the
+      first mutant's run. Measured on the gate's own shards, that run took
+      188 to 205 s of every shard before any mutant ran, and a warm check
+      cost about as much as the test run it saved. A project whose tests
+      are slow to judge a mutant, a Laravel suite on a database say, turns
+      it on. With it on, a mutant is checked before its tests when its
+      mutator's rejection rate × its judging tests' time is greater than
+      the time of one check. The tests' time comes from the coverage map,
+      and the check's from the analyser's measured times.
     - A mutator's rejection rate is learned per analyser, in the ledger's
       `analysers` section: by the analyser's name, its checks and their
       `seconds` together, and each mutator's `[checks, rejections]`. The
