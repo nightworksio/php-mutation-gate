@@ -144,6 +144,20 @@ it('drops a test that is not well formed, and every line that names it', functio
     'seconds below none' => [['id' => 'MoneyTest::subtracts', 'seconds' => -1.0]],
 ]);
 
+it('reads a test timed at no time at all as timed so', function () use ($file, $written): void {
+    $instant = $file();
+    $instant['tests'][1] = ['id' => 'MoneyTest::subtracts', 'seconds' => 0.0];
+
+    expect(CoverageMapFile::decode($written($instant), HandedMaps::limits()))->toEqual(CoverageMap::of(
+        CoveredLine::of(Path::of('src/Money.php'), 3, 'MoneyTest::adds'),
+        CoveredLine::of(Path::of('src/Money.php'), 12, 'MoneyTest::adds', 'MoneyTest::subtracts'),
+    )->timedEach(
+        TimedTest::of('MoneyTest::adds', 0.25),
+        TimedTest::of('MoneyTest::subtracts', 0.0),
+        TimedTest::of('IdleTest::waits', 1.5),
+    ));
+});
+
 it('reads tests and files that are not a list and a map as none, and knows each listed test though it covers no line', function () use ($file, $written): void {
     $listed = LineTests::placed(TestIds::of(TestId::of('MoneyTest::adds'), TestId::of('MoneyTest::subtracts'), TestId::of('IdleTest::waits')));
 
