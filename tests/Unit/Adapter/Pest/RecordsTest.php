@@ -86,6 +86,18 @@ it('refuses a line cut short anywhere but last, which would lose a killer withou
     );
 });
 
+it('shows a line cut short whole up to 160 characters, and cut to them past that', function () use ($results, $planned): void {
+    $line = static fn(int $length): string => str_pad('{"event": "killed", "te', $length, 'x');
+    $why = static function (string $cut) use ($results, $planned): string {
+        $read = Records::in($results([$planned('a', '/p/src/Money.php', 10), $cut, RecordLine::end()]));
+
+        return $read instanceof CannotJudge ? $read->why() : '';
+    };
+
+    expect($why($line(160)))->toEndWith(sprintf('it reads `%s`.', $line(160)))
+        ->and($why($line(161)))->toEndWith(sprintf('it reads `%s…`.', mb_substr($line(161), 0, 159)));
+});
+
 it('refuses a whole record that names no event it knows, or lacks a field its event carries', function () use ($results): void {
     $refused = static fn(string $line): CannotJudge|Records => Records::in($results([RecordLine::end(), $line]));
     $why = static fn(CannotJudge|Records $read): string => $read instanceof CannotJudge ? $read->why() : '';

@@ -15,6 +15,7 @@ use function count;
 use function explode;
 use function file_get_contents;
 use function is_file;
+use function is_float;
 use function json_validate;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
@@ -141,11 +142,11 @@ final class Records
      */
     public function durationOf(PlannedMutant $mutant): Seconds|Unmeasured
     {
-        $seconds = $this->nth($this->durations, $mutant, 0.0);
+        $seconds = $this->nth($this->durations, $mutant, Unmeasured::duration());
 
         return match (true) {
             $mutant->isTwin() => Seconds::of(0.0),
-            $seconds > 0.0 => Seconds::of($seconds),
+            is_float($seconds) && $seconds > 0.0 => Seconds::of($seconds),
             default => Unmeasured::duration(),
         };
     }
@@ -307,12 +308,13 @@ final class Records
      * is arbitrary, and harmless: they leave the same source.
      *
      * @template T of PestStatus|float
+     * @template N of PestStatus|Unmeasured
      *
      * @param  array<string, list<T>> $byId
-     * @param  T                      $none
-     * @return T
+     * @param  N                      $none
+     * @return T|N
      */
-    private function nth(array $byId, PlannedMutant $mutant, PestStatus|float $none): PestStatus|float
+    private function nth(array $byId, PlannedMutant $mutant, PestStatus|Unmeasured $none): PestStatus|float|Unmeasured
     {
         $sharing = array_key_exists($mutant->id(), $byId) ? $byId[$mutant->id()] : [];
 
