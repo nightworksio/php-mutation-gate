@@ -9,7 +9,15 @@ use function array_intersect_key;
 use function array_key_exists;
 use function array_keys;
 use function array_map;
+use function array_unique;
+
+use ArrayIterator;
+
 use function count;
+use function explode;
+use function implode;
+use function intval;
+use function ksort;
 
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
@@ -19,6 +27,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
+use function sort;
 use function strval;
 
 use Traversable;
@@ -32,6 +41,9 @@ use Traversable;
  */
 final readonly class LineTests
 {
+    /** What separates the places of a set's tests in its name. */
+    private const string SET_SEPARATOR = ',';
+
     /**
      * @param list<TestId>                          $tests  every test, in the order the map first knew them
      * @param array<string, int<0, max>>            $places each test's place in the list, by id
@@ -167,6 +179,36 @@ final readonly class LineTests
     public function runningFile(Path $file): TestIds
     {
         return $this->testsOf(...$this->linesOf($file));
+    }
+
+    /** The executable lines of a file, each covered one with the name of its set of tests. */
+    public function setsOn(Path $file): LineSets
+    {
+        $sets = [];
+
+        foreach (self::kept($this->linesOf($file), missed: false) as $number => $line) {
+            $places = array_unique([...$line]);
+            sort($places);
+            $sets[$number] = TestSet::named(implode(self::SET_SEPARATOR, $places));
+        }
+
+        ksort($sets);
+
+        return LineSets::of($this, new ArrayIterator($sets), $this->missedIn($file));
+    }
+
+    /** The tests of a set this names, each once, in byte order of their ids. */
+    public function testsOfSet(TestSet $set): TestIds
+    {
+        $ids = [];
+
+        foreach (explode(self::SET_SEPARATOR, $set->name()) as $place) {
+            $ids[] = $this->tests[intval($place)]->value();
+        }
+
+        sort($ids, SORT_STRING);
+
+        return TestIds::of(...array_map(TestId::of(...), $ids));
     }
 
     /**

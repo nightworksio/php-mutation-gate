@@ -23,7 +23,7 @@ final readonly class Untested
         $untested = Changes::none();
 
         foreach ($changed as $change) {
-            $missed = $map->linesMissed($change->path());
+            $missed = $map->lineSets($change->path())->missed();
             $lines = Lines::none();
 
             foreach ($change->lines() as $line) {

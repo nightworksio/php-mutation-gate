@@ -146,15 +146,19 @@ final readonly class CoverageMap
         return $this->lines->files();
     }
 
+    /**
+     * The executable lines of a file: each covered one with a name for the
+     * set of tests that ran it, the same for the same set anywhere in this
+     * map, and those no test ran.
+     */
+    public function lineSets(Path $file): LineSets
+    {
+        return $this->lines->setsOn($file);
+    }
+
     public function linesCovered(Path $file): Lines
     {
         return $this->lines->coveredIn($file);
-    }
-
-    /** The executable lines of a file the run that measured the map missed: no test ran them. */
-    public function linesMissed(Path $file): Lines
-    {
-        return $this->lines->missedIn($file);
     }
 
     public function testsCovering(Path $file, Line $line): TestIds

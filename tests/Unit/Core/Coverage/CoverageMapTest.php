@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethod;
 use NightWorksIO\MutationGate\Core\Coverage\ExecutedMethods;
+use NightWorksIO\MutationGate\Core\Coverage\TestSet;
 use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Lines;
@@ -198,18 +199,18 @@ it('holds each executable line no test ran, never one some test covers, whatever
         CoveredLine::of(Path::of('src/Tax.php'), 9),
     );
 
-    expect([...$read->linesMissed($money)])->toEqual([Line::of(4)])
-        ->and([...$read->linesMissed(Path::of('src/Tax.php'))])->toEqual([Line::of(9)])
-        ->and([...$read->linesMissed(Path::of('src/Other.php'))])->toBe([])
+    expect([...$read->lineSets($money)->missed()])->toEqual([Line::of(4)])
+        ->and([...$read->lineSets(Path::of('src/Tax.php'))->missed()])->toEqual([Line::of(9)])
+        ->and([...$read->lineSets(Path::of('src/Other.php'))->missed()])->toBe([])
         ->and([...$read->linesCovered($money)])->toEqual([Line::of(5), Line::of(6)])
         ->and($read->files())->toEqual(Paths::of($money))
-        ->and([...$read->covered($money, Line::of(4), TestId::of('MoneyTest::adds'))->linesMissed($money)])->toBe([])
+        ->and([...$read->covered($money, Line::of(4), TestId::of('MoneyTest::adds'))->lineSets($money)->missed()])->toBe([])
         ->and(CoverageMap::of(CoveredLine::of($money, 4))->covered($money, Line::of(4), TestId::of('MoneyTest::adds')))
         ->toEqual(CoverageMap::empty()->covered($money, Line::of(4), TestId::of('MoneyTest::adds')))
-        ->and([...$read->onlyFor(Paths::of($money))->linesMissed(Path::of('src/Tax.php'))])->toBe([])
-        ->and([...$read->onlyFor(Paths::of($money))->linesMissed($money)])->toEqual([Line::of(4)])
-        ->and($read->timed(TestId::of('MoneyTest::adds'), Seconds::of(1.0))->linesMissed($money))->toEqual($read->linesMissed($money))
-        ->and($read->executing($money, ExecutedMethod::of('add', 4, 6))->linesMissed($money))->toEqual($read->linesMissed($money));
+        ->and([...$read->onlyFor(Paths::of($money))->lineSets(Path::of('src/Tax.php'))->missed()])->toBe([])
+        ->and([...$read->onlyFor(Paths::of($money))->lineSets($money)->missed()])->toEqual([Line::of(4)])
+        ->and($read->timed(TestId::of('MoneyTest::adds'), Seconds::of(1.0))->lineSets($money)->missed())->toEqual($read->lineSets($money)->missed())
+        ->and($read->executing($money, ExecutedMethod::of('add', 4, 6))->lineSets($money)->missed())->toEqual($read->lineSets($money)->missed());
 })->group('holds:src/Core/Coverage/LineTests.php');
 
 it('lists every executable line: the covered ones with their tests, then those no test ran, with none', function (): void {
@@ -221,3 +222,30 @@ it('lists every executable line: the covered ones with their tests, then those n
 
     expect($lines)->toBe([['src/Money.php', 5, ['MoneyTest::adds']], ['src/Money.php', 4, []]]);
 })->group('holds:src/Core/Coverage/LineTests.php');
+
+it('names each covered line\'s set of tests alike wherever the set recurs, in ascending order of line, beside the lines no test ran', function (): void {
+    $money = Path::of('src/Money.php');
+    $tax = Path::of('src/Tax.php');
+    $map = CoverageMap::of(
+        CoveredLine::of($money, 9, 'b::t', 'a::t'),
+        CoveredLine::of($money, 3, 'a::t', 'b::t'),
+        CoveredLine::of($money, 5, '9'),
+        CoveredLine::of($money, 5, '10'),
+        CoveredLine::of($money, 4),
+        CoveredLine::of($tax, 2, 'b::t', 'a::t', 'a::t'),
+    );
+    $sets = $map->lineSets($money);
+    $covered = iterator_to_array($sets, preserve_keys: true);
+    $taxed = iterator_to_array($map->lineSets($tax), preserve_keys: true);
+    $ids = static fn(TestSet $set): array => array_map(static fn(TestId $test): string => $test->value(), [...$sets->testsOf($set)]);
+
+    expect(array_keys($covered))->toBe([3, 5, 9])
+        ->and($sets)->toHaveCount(3)
+        ->and($covered[3])->toEqual($covered[9])
+        ->and($taxed[2])->toEqual($covered[3])
+        ->and($covered[5])->not->toEqual($covered[3])
+        ->and($ids($covered[3]))->toBe(['a::t', 'b::t'])
+        ->and($ids($covered[5]))->toBe(['10', '9'])
+        ->and([...$sets->missed()])->toEqual([Line::of(4)])
+        ->and([...$map->lineSets(Path::of('src/Gone.php'))])->toBe([]);
+});

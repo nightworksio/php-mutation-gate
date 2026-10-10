@@ -221,8 +221,8 @@ it('writes each line no test ran with no tests, and reads it back as one', funct
 
     expect($json)->toContain('"src/Money.php":{"12":[0,1],"3":[0],"4":[]}')
         ->and($json)->toContain('"src/Gone.php":{"2":[]}')
-        ->and($read instanceof CoverageMap ? [...$read->linesMissed(Path::of('src/Money.php'))] : $read)->toEqual([Line::of(4)])
-        ->and($read instanceof CoverageMap ? [...$read->linesMissed(Path::of('src/Gone.php'))] : $read)->toEqual([Line::of(2)]);
+        ->and($read instanceof CoverageMap ? [...$read->lineSets(Path::of('src/Money.php'))->missed()] : $read)->toEqual([Line::of(4)])
+        ->and($read instanceof CoverageMap ? [...$read->lineSets(Path::of('src/Gone.php'))->missed()] : $read)->toEqual([Line::of(2)]);
 });
 
 it('keeps a map with where it was measured and each test file\'s entry key, and reads all three back as data', function () use ($map): void {

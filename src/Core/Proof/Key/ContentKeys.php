@@ -35,6 +35,7 @@ use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
 use function sort;
+use function spl_object_id;
 use function sprintf;
 
 /**
@@ -69,7 +70,7 @@ use function sprintf;
  */
 final readonly class ContentKeys
 {
-    public const string FORMAT = 'mutation-gate proof 4';
+    public const string FORMAT = 'mutation-gate proof 5';
 
     private function __construct(
         private HashContext $everyKey,
@@ -182,7 +183,10 @@ final readonly class ContentKeys
     public function keysOf(CoverageMap $coverage, Judging ...$units): Keys
     {
         $read = [];
+        $named = [];
         $keys = [];
+        $tested = [];
+        $base = $this->base()->value();
 
         foreach ($units as $judging) {
             $judges = $this->judgesOf($judging);
@@ -193,16 +197,17 @@ final readonly class ContentKeys
                 continue;
             }
 
-            $set = $this->setOf($judges);
+            $object = spl_object_id($judges);
+            $named[$object] = array_key_exists($object, $named) ? $named[$object] : $this->setOf($judges);
+            $set = $named[$object];
 
             if (! array_key_exists($set, $read)) {
-                $read[$set] = self::testFiles('tests', $this->tests->readBy($judges), $this->tests);
+                $read[$set] = Digest::sha256Of(self::testFiles('tests', $this->tests->readBy($judges), $this->tests))
+                    ->value();
             }
 
-            $keys[] = Keys::none()->with(
-                $judging->unit()->path(),
-                $this->keyReading($read[$set], $judging->unit(), $coverage),
-            );
+            [$key, $tested] = $this->keyReading($base, $read[$set], $judging->unit(), $coverage, $tested);
+            $keys[] = Keys::none()->with($judging->unit()->path(), $key);
         }
 
         return Keys::none()->and(...$keys);
@@ -369,30 +374,44 @@ final readonly class ContentKeys
         return $read;
     }
 
-    /** A unit's key, from what of the test directories its judging test files read. */
-    private function keyReading(string $read, Unit $unit, CoverageMap $coverage): Digest
+    /**
+     * A unit's key, built from finished digests alone, so another
+     * implementation can build it alike: the format with the base and what
+     * of the test directories its judging test files read, then the unit and
+     * each of its covered lines, in ascending order, with the digest of the
+     * set of tests that ran it. Each set's digest is worked out once.
+     *
+     * @param  string                               $base   the digest of what every key reads
+     * @param  string                               $read   the digest of what its judging test files read
+     * @param  array<string, string>                $tested each set's digest, by the name the map gives it
+     * @return array{Digest, array<string, string>}
+     */
+    private function keyReading(string $base, string $read, Unit $unit, CoverageMap $coverage, array $tested): array
     {
-        $context = hash_copy($this->everyKey);
-        hash_update($context, $read);
-        $this->hashUnitRead($context, $unit, $coverage);
+        $lines = $coverage->lineSets($unit->path());
+        $fields = [
+            self::FORMAT,
+            $base,
+            $read,
+            'unit',
+            $unit->path()->value(),
+            $this->judgedBy($unit),
+            sprintf('%d', count($lines)),
+        ];
 
-        return Digest::finished($context);
-    }
+        foreach ($lines as $line => $set) {
+            $name = $set->name();
 
-    private function hashUnitRead(HashContext $context, Unit $unit, CoverageMap $coverage): void
-    {
-        $lines = $coverage->linesCovered($unit->path());
-        hash_update($context, self::framed('unit', $unit->path()->value(), $this->judgedBy($unit)));
-        hash_update($context, self::framed(sprintf('%d', count($lines))));
+            if (! array_key_exists($name, $tested)) {
+                $ids = array_map(static fn(TestId $test): string => $test->value(), [...$lines->testsOf($set)]);
+                $tested[$name] = Digest::sha256Of(self::framed(sprintf('%d', count($ids)), ...$ids))->value();
+            }
 
-        foreach ($lines as $line) {
-            $ids = array_map(
-                static fn(TestId $test): string => $test->value(),
-                [...$coverage->testsCovering($unit->path(), $line)],
-            );
-            sort($ids);
-            hash_update($context, self::framed(sprintf('%d', $line->number()), sprintf('%d', count($ids)), ...$ids));
+            $fields[] = sprintf('%d', $line);
+            $fields[] = $tested[$name];
         }
+
+        return [Digest::sha256Of(self::framed(...$fields)), $tested];
     }
 
     private function judgedBy(Unit $unit): string
