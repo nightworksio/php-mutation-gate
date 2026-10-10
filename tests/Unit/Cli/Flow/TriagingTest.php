@@ -3,8 +3,11 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Flow\Triaging;
+use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
+use NightWorksIO\MutationGate\Core\Coverage\Fresh;
+use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
@@ -23,11 +26,16 @@ use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Triage\Repeated;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\HoldingSuites;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 use NightWorksIO\MutationGate\Tests\Support\Varying;
@@ -128,7 +136,7 @@ it('runs each mutant\'s likely killers first by what every ledger learned of the
 });
 
 it('learns of every file within a held path, and of none beside it', function () use ($triage, $history, $store): void {
-    $runner = ScriptedRunner::fixture()->listing(Groups::of(Group::named('holds:src')));
+    $runner = ScriptedRunner::fixture()->listingGroups(Groups::of(Group::named('holds:src')));
 
     $triage($runner, 'src', 2, TestOrder::KillersFirst, $store());
 
@@ -182,4 +190,23 @@ it('stops at the first run that cannot judge, and says which run of how many it 
     expect($triaged)->toEqual(CannotJudge::because('Run 2 of 4 cannot judge: the runner crashed.'))
         ->and($handed)->toBe([[1, 1]])
         ->and($runner->requests())->toHaveCount(2);
+});
+
+it('runs a unit a hold from the holding suites holds on the gate\'s map, and cannot where that map cannot be made', function (): void {
+    $process = TestListing::of(TestIds::of(TestId::of('HeldTest::doubles')))
+        ->grouping(Group::named('holds:src/Held.php'), TestIds::of(TestId::of('HeldTest::doubles')));
+    $listing = RunnerFake::ofTheFixture()->listingIn(Suites::listed('Unit'), TestListing::none())->listingIn(Suites::listed('Process'), $process);
+    $runner = ScriptedRunner::fixture()->listingGroups($listing);
+    $uncovering = ScriptedRunner::fixture()->listingGroups($listing)->uncovering('Pest failed.');
+    $triaged = static fn(ScriptedRunner $runner): Repeated|CannotJudge => new Triaging(
+        HoldingSuites::adapters(HoldingSuites::project(), HoldingSuites::checkout(), $runner),
+        Flows::settings(),
+    )->triaged(Path::of('src/Held.php'), 2, TestOrder::Runner, static function (): void {
+    });
+
+    expect($triaged($runner))->toBeInstanceOf(Repeated::class)
+        ->and(array_map(static fn(MutationRequest $request): Handed|Fresh => $request->coverage(), $runner->requests()))
+        ->toEqual(array_fill(0, 2, Handed::maps(Workspace::admittedCoverage(), Workspace::admittedCoverage())))
+        ->and($triaged($uncovering))->toEqual(CannotJudge::because('Pest failed.'))
+        ->and($uncovering->requests())->toBe([]);
 });

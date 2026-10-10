@@ -49,9 +49,10 @@ use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
-use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -65,6 +66,7 @@ use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitShellFake;
 use NightWorksIO\MutationGate\Tests\Support\PreCheckerFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\TestLists;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -110,7 +112,7 @@ function phpUnitAnswering(Project $project): PhpUnitShellFake
         }
 
         return match (true) {
-            str_contains($arguments, '--list-groups') => Ran::finished(succeeded: true, output: "Available test groups:\n - default (1 test)\n - holds:src/Money.php (1 test)\n"),
+            TestLists::wrote($command->arguments(), TestLists::of(['Tests\MoneyTest::testAdds'], ['default' => ['Tests\MoneyTest::testAdds'], 'holds:src/Money.php' => ['Tests\MoneyTest::testAdds']])) => Ran::finished(succeeded: true, output: 'Wrote list'),
             str_contains($arguments, '(?!)') => Ran::finished(succeeded: true, output: 'No tests executed!')->took(Seconds::of(0.3)),
             in_array('-r', $command->arguments(), strict: true) => Ran::finished(succeeded: true, output: Described::output()),
             default => (static function () use ($command): Ran {
@@ -171,13 +173,39 @@ it('behaves as a standard runner: holds as groups, a limit it can raise, the map
         ->toEqual(RunnerBehaviour::standard()->runningPerCore());
 });
 
-it('lists the groups PHPUnit lists for the suite', function (): void {
+it('lists the tests of some suites and their groups as PHPUnit lists them into a file of its own', function (): void {
     $project = phpUnitRunnerProject();
     $shell = phpUnitAnswering($project);
+    $listing = phpUnitRunner($project, $shell)->listing(Withheld::of('SECRET'), Suites::listed('Unit'));
 
-    expect(phpUnitRunner($project, $shell)->groups(Withheld::of('SECRET')))
-        ->toEqual(Groups::of(Group::named('default'), Group::named('holds:src/Money.php')))
+    expect($listing instanceof TestListing ? [...$listing->groups()] : $listing)
+        ->toEqual([Group::named('default'), Group::named('holds:src/Money.php')])
+        ->and($listing instanceof TestListing ? $listing->tests() : $listing)->toEqual(TestIds::of(TestId::of('Tests\MoneyTest::testAdds')))
+        ->and($shell->commands()[0]->arguments())->toContain('--testsuite=Unit')
         ->and($shell->commands()[0]->withheld())->toEqual(Withheld::standard()->and(Withheld::of('SECRET')));
+});
+
+it('lists no test where it cannot write the file PHPUnit lists them into, starting nothing', function (): void {
+    $project = phpUnitRunnerProject();
+    mkdir($project->own('tests.xml'), recursive: true);
+    $shell = PhpUnitShellFake::answering(Ran::finished(succeeded: true, output: ''));
+
+    expect(phpUnitRunner($project, $shell)->listing(Withheld::standard(), Suites::all()))->toEqual(CannotJudge::because(sprintf(
+        'The gate cannot write %s, which the PHPUnit it starts reads.',
+        $project->own('tests.xml'),
+    )))
+        ->and($shell->commands())->toBe([]);
+});
+
+it('cannot list the tests where PHPUnit fails', function (): void {
+    $project = phpUnitRunnerProject();
+    $listing = phpUnitRunner($project, PhpUnitShellFake::answering(Ran::finished(succeeded: false, output: 'broken')))
+        ->listing(Withheld::standard(), Suites::all());
+
+    expect($listing)->toEqual(CannotJudge::because(sprintf(
+        "PHPUnit did not list the tests of the suite: %s holds no list of tests. It said:\nbroken",
+        $project->own('tests.xml'),
+    )));
 });
 
 it('measures coverage, reads a map handed on, and names the test files that judge a covered file and none for another', function (): void {

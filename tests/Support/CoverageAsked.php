@@ -30,8 +30,9 @@ use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
-use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -100,9 +101,9 @@ final class CoverageAsked implements Runner
         return $this->runner->identity($withheld);
     }
 
-    public function groups(Withheld $withheld): Groups|CannotJudge
+    public function listing(Withheld $withheld, Suites $suites): TestListing|CannotJudge
     {
-        return $this->runner->groups($withheld);
+        return $this->runner->listing($withheld, $suites);
     }
 
     public function coverage(CoverageRun|CoverageRead|CoverageRan $request): CoverageMap|CannotJudge

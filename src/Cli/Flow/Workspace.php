@@ -49,6 +49,22 @@ final readonly class Workspace
         return Path::of(sprintf('%s/coverage/remeasured', GateDirectory::root()->value()));
     }
 
+    /**
+     * Where a run of one unit that a hold from the holding suites holds leaves
+     * the whole suite's map, before the gate keeps each holding test on the
+     * lines of what it holds alone (ADR-0005, decision 9).
+     */
+    public static function suiteCoverage(): Path
+    {
+        return Path::of(sprintf('%s/coverage/suite', GateDirectory::root()->value()));
+    }
+
+    /** The directory of that map once each holding test is kept on the lines of what it holds, which the run reads. */
+    public static function admittedCoverage(): Path
+    {
+        return Path::of(sprintf('%s/coverage/admitted', GateDirectory::root()->value()));
+    }
+
     /** Where the tests that hold a shard's units leave the map of their run on their own. */
     public static function heldCoverage(ShardId $shard): Path
     {

@@ -17,22 +17,23 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
-use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\Suites;
+use NightWorksIO\MutationGate\Core\Test\TestListing;
 
 /**
  * What one Pest runner learns once for every run it starts in a process: the
- * groups its suite lists, the PHP it starts, whether the vendor is patched,
- * each map another job handed over, the maps it has written again for Pest,
- * whether each control of a kill passes on the unmutated code, served as
- * its mutant was (see Control), and what each replay of a kill's own run
- * said (see PrefixReplays). Each is slow to learn, from a process started
- * for it or a map that can reach hundreds of megabytes, and none changes
- * while the gate runs.
+ * tests and groups each set of its suites lists, the PHP it starts, whether
+ * the vendor is patched, each map another job handed over, the maps it has
+ * written again for Pest, whether each control of a kill passes on the
+ * unmutated code, served as its mutant was (see Control), and what each
+ * replay of a kill's own run said (see PrefixReplays). Each is slow to
+ * learn, from a process started for it or a map that can reach hundreds of
+ * megabytes, and none changes while the gate runs.
  */
 final class Remembered
 {
-    /** @var array<string, Groups|CannotJudge> by what the listing withheld */
-    private array $groups = [];
+    /** @var array<string, array<string, TestListing|CannotJudge>> by the suites listed, then what it withheld */
+    private array $listings = [];
 
     /** @var array<string, Platform|CannotJudge> by what the PHP described withheld */
     private array $platforms = [];
@@ -52,16 +53,17 @@ final class Remembered
     /** @var array<string, ReplayVerdict> what each replay of a kill's own run, unmutated, said, by its key */
     private array $replays = [];
 
-    /** @param Closure(): (Groups|CannotJudge) $listing */
-    public function groups(Withheld $withheld, Closure $listing): Groups|CannotJudge
+    /** @param Closure(): (TestListing|CannotJudge) $listing */
+    public function listing(Withheld $withheld, Suites $suites, Closure $listing): TestListing|CannotJudge
     {
+        $among = $suites->joined();
         $key = $withheld->pattern();
 
-        if (! array_key_exists($key, $this->groups)) {
-            $this->groups[$key] = $listing();
+        if (! array_key_exists($among, $this->listings) || ! array_key_exists($key, $this->listings[$among])) {
+            $this->listings[$among][$key] = $listing();
         }
 
-        return $this->groups[$key];
+        return $this->listings[$among][$key];
     }
 
     /** @param Closure(): (Platform|CannotJudge) $describing */

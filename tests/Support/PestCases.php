@@ -42,6 +42,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitTestList;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -61,7 +62,40 @@ final readonly class PestCases
 
     public const string RUN_ADDS = 'P\Tests\MoneySpec::__pest_evaluable_it_adds';
 
-    public const string RUN_LISTING = "   INFO  Available test groups:\n\n - default (2 tests)\n - mutation-canary (1 test).\n";
+    /** The list of tests Pest writes for the fixture: two tests, one of them the canary group's. */
+    public const string RUN_LISTING = <<<'XML'
+        <?xml version="1.0"?>
+        <testSuite xmlns="https://xml.phpunit.de/testSuite">
+         <tests>
+          <testClass name="P\Tests\MoneySpec" file="eval()'d code">
+           <testMethod id="P\Tests\MoneySpec::__pest_evaluable_it_adds" name="__pest_evaluable_it_adds"/>
+           <testMethod id="P\Tests\MoneySpec::__pest_evaluable_it_is_alive" name="__pest_evaluable_it_is_alive"/>
+          </testClass>
+         </tests>
+         <groups>
+          <group name="default">
+           <test id="P\Tests\MoneySpec::__pest_evaluable_it_adds"/>
+          </group>
+          <group name="mutation-canary">
+           <test id="P\Tests\MoneySpec::__pest_evaluable_it_is_alive"/>
+          </group>
+         </groups>
+        </testSuite>
+        XML;
+
+    /** The file Pest lists a project's tests into. */
+    public static function listingFile(Project $at): string
+    {
+        return sprintf('%s/%s', $at->workspace(), PhpUnitTestList::FILE);
+    }
+
+    /** A run that lists the fixture's tests into the file a listing command names, as Pest does. */
+    public static function listed(Command $command): Ran
+    {
+        TestLists::wrote($command->arguments(), self::RUN_LISTING);
+
+        return Ran::finished(succeeded: true, output: '');
+    }
 
     /**
      * A coverage map in a project's root, covering these lines of its files, by the one test RUN_ADDS.

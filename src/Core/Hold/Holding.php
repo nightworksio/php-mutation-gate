@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Hold;
 
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestListing;
 
+use function preg_match;
 use function sprintf;
 
 /**
@@ -40,6 +43,23 @@ final readonly class Holding
     public function by(): Group|Holder
     {
         return $this->by;
+    }
+
+    /** The tests of a listing that hold the path: those of its group, or those the `#[Holds]` stands on. */
+    public function testsIn(TestListing $listing): TestIds
+    {
+        if ($this->by instanceof Group) {
+            return $listing->inGroup($this->by);
+        }
+
+        $held = TestIds::none();
+        $pattern = sprintf('/^(?:%s)/', $this->by->filtered());
+
+        foreach ($listing->tests() as $test) {
+            $held = preg_match($pattern, $test->value()) === 1 ? $held->with($test) : $held;
+        }
+
+        return $held;
     }
 
     /** The declaration as its author wrote it, to name it in a message. */

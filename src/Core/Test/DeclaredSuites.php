@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Test;
 
+use function array_any;
 use function array_diff;
 use function array_map;
 use function array_values;
@@ -15,6 +16,8 @@ use function in_array;
 
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
@@ -83,6 +86,34 @@ final readonly class DeclaredSuites implements IteratorAggregate
         return $left === []
             ? CannotJudge::because(self::NONE_LEFT)
             : JudgingSuites::holding(Suites::listed(...$left), $holding);
+    }
+
+    /** Whether one of these suites holds a test's file: any file, where they are every suite. */
+    public function hold(Path $file, Suites $suites): bool
+    {
+        if ($suites->isAll()) {
+            return true;
+        }
+
+        $names = array_map(static fn(SuiteName $name): string => $name->value(), [...$suites]);
+
+        return array_any(
+            $this->suites,
+            static fn(DeclaredSuite $suite): bool => in_array($suite->name(), $names, strict: true)
+                && $suite->holds($file),
+        );
+    }
+
+    /** Of some test files, those one of these suites holds: every one, where they are every suite. */
+    public function among(Paths $files, Suites $suites): Paths
+    {
+        $among = Paths::none();
+
+        foreach ($files as $file) {
+            $among = $this->hold($file, $suites) ? $among->with($file) : $among;
+        }
+
+        return $among;
     }
 
     /** @return Traversable<int, DeclaredSuite> */

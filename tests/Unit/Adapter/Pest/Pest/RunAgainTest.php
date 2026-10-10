@@ -94,7 +94,7 @@ it('runs mutants again on the canary group, reading the map the planning job han
     $at = PestCases::patched();
     $written = sprintf('%s/shared.coverage.php', dirname(PestCases::results($at)));
     $shell = new ShellFake(static fn(Command $command, int $before): Ran => $before === 0
-        ? Ran::finished(succeeded: true, output: PestCases::RUN_LISTING)
+        ? PestCases::listed($command)
         : PestCases::killed($command, $at));
     $invocation = PestCases::money()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
 

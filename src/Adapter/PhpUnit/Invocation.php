@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Runner\Platform;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -68,7 +69,9 @@ final readonly class Invocation
     {
         $options = [
             ...$this->judgedBy($request->judgedBy()),
-            ...PhpUnitOption::inSuites($request->narrowing()->suitesFor($request->judgedBy())),
+            ...PhpUnitOption::inSuites(
+                $request->narrowing()->suitesForMutants($request->judgedBy(), $request->coverage()),
+            ),
         ];
 
         return $this->mutant($files, $request->search()->matrix(), ...$options)
@@ -99,13 +102,14 @@ final readonly class Invocation
         return $this->mutant($files, MatrixKind::FirstKiller, ...$none)->withholding($withheld);
     }
 
-    /** The suite's groups, listed and no test run. */
-    public function listingGroups(Withheld $withheld): Command
+    /** These suites' tests and the groups each is in, listed into a file and none run. */
+    public function listing(Withheld $withheld, Suites $suites, string $file): Command
     {
         return Command::php(
             $this->project->phpunit(),
-            PhpUnitOption::ListGroups->value,
+            sprintf('%s=%s', PhpUnitOption::ListTestsXml->value, $file),
             PhpUnitOption::NoColors->value,
+            ...PhpUnitOption::inSuites($suites),
         )->withholding($withheld);
     }
 

@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Hold;
 
 use function array_any;
 use function array_map;
+use function count;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -14,6 +15,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -107,6 +109,27 @@ final readonly class Holdings
         }
 
         return $this->apart($units);
+    }
+
+    /**
+     * The holds written only in the suites `tests.holding` lists, each with
+     * the tests that hold its path there: a holding the suites that judge
+     * every unit list no test of, and the holding suites list some
+     * (ADR-0005, decision 9). Each path must be one `units()` accepts.
+     */
+    public function additions(TestListing $judging, TestListing $holdingSuites): Additions
+    {
+        $additions = Additions::none();
+
+        foreach ($this->holdings as $holding) {
+            $tests = $holding->testsIn($holdingSuites);
+            $adds = count($holding->testsIn($judging)) === 0 && count($tests) > 0;
+            $additions = $adds
+                ? $additions->with(Addition::of(Path::of($holding->declared()), $tests, $holding->written()))
+                : $additions;
+        }
+
+        return $additions;
     }
 
     private function unitOf(Holding $holding, Trees $trees, Fingerprints $files): Unit|CannotJudge

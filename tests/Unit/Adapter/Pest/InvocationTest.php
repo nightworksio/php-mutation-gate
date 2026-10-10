@@ -43,14 +43,16 @@ function reach(): PcovReach
     return PcovReach::under('/p', Path::of('vendor'));
 }
 
-it('lists the groups without colour', function (): void {
-    expect(invocation()->listingGroups(Withheld::standard()))
-        ->toEqual(Command::pest('vendor/pestphp/pest/bin/pest', Withheld::standard(), '--list-groups', '--colors=never'));
+it('lists the tests of some suites into a file without colour, and of every suite naming none', function (): void {
+    expect(invocation()->listing(Withheld::standard(), Suites::listed('Unit', 'Process'), '/w/tests.xml'))
+        ->toEqual(Command::pest('vendor/pestphp/pest/bin/pest', Withheld::standard(), '--list-tests-xml=/w/tests.xml', '--colors=never', '--testsuite=Unit,Process'))
+        ->and(invocation()->listing(Withheld::standard(), Suites::all(), '/w/tests.xml'))
+        ->toEqual(Command::pest('vendor/pestphp/pest/bin/pest', Withheld::standard(), '--list-tests-xml=/w/tests.xml', '--colors=never'));
 });
 
 it('runs Pest\'s own script in the vendor directory the project installs into', function (): void {
-    expect(Invocation::installedIn(Path::of('lib/vendor'))->listingGroups(Withheld::standard()))
-        ->toEqual(Command::pest('lib/vendor/pestphp/pest/bin/pest', Withheld::standard(), '--list-groups', '--colors=never'));
+    expect(Invocation::installedIn(Path::of('lib/vendor'))->listing(Withheld::standard(), Suites::all(), 'tests.xml'))
+        ->toEqual(Command::pest('lib/vendor/pestphp/pest/bin/pest', Withheld::standard(), '--list-tests-xml=tests.xml', '--colors=never'));
 });
 
 it('runs the whole suite under coverage into a directory, as --coverage expects to find it', function (): void {
@@ -237,8 +239,8 @@ it('withholds from the listing, the coverage run and the mutation run what each 
             WholeSuite::tests(),
             '/p/results.jsonl',
         );
-        $listing = invocation()->listingGroups(Withheld::of('CI_JOB_TOKEN'));
-        $unlisted = invocation()->listingGroups(Withheld::standard());
+        $listing = invocation()->listing(Withheld::of('CI_JOB_TOKEN'), Suites::all(), 'tests.xml');
+        $unlisted = invocation()->listing(Withheld::standard(), Suites::all(), 'tests.xml');
     } finally {
         putenv(is_string($before) ? sprintf('CI_JOB_TOKEN=%s', $before) : 'CI_JOB_TOKEN');
     }

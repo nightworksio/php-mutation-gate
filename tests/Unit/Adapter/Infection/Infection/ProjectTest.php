@@ -447,6 +447,30 @@ it('runs the holding suites too for a held unit\'s coverage and mutants, and nev
         ->and($ran[1])->toContain('--test-framework-extra-args=--group="holds:src/Money.php" --testsuite="Unit,Process"');
 });
 
+it('runs the holding suites too for the mutants the whole suite judges through a map the plan handed on, and not through its own', function (): void {
+    $at = InfectionCases::project();
+    Scratch::write($at->root(), 'phpunit.xml', '<phpunit/>');
+    $plan = Planned::of(
+        Shard::of(ShardId::of(1), Package::at(Path::root()), Units::of(Planned::money()), Seconds::of(1.0), 'money'),
+    );
+    new Handoff(Directory::at($at->root()), HandedMaps::limits())->write($plan, CoverageMap::empty()
+        ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'))
+        ->timed(TestId::of('Tests\MoneyTest::adds'), Seconds::of(0.5)), KillHistory::none(), Unplaced::map());
+    $suites = Narrowing::none()->amongSuites(JudgingSuites::holding(Suites::listed('Unit'), Suites::listed('Process')));
+    $whole = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
+    $whole = $whole->narrowedTo($whole->files(), $suites);
+    $handedShell = InfectionCases::shell($at, InfectionCases::killed($at));
+    $ownShell = InfectionCases::shell($at, InfectionCases::killed($at));
+
+    new Infection($at, $handedShell, LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory())
+        ->mutate($whole->reusingCoverage(Handed::maps(Workspace::shardCoverage(ShardId::of(1)), Workspace::coverage())));
+    new Infection($at, $ownShell, LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory())
+        ->mutate($whole);
+
+    expect(array_merge(...InfectionCases::ran($handedShell)))->toContain('--test-framework-extra-args=--testsuite="Unit,Process"')
+        ->and(array_merge(...InfectionCases::ran($ownShell)))->toContain('--test-framework-extra-args=--testsuite="Unit"');
+});
+
 it('reads the lines no test ran from the report beside the XML coverage, which leaves them out', function (): void {
     $at = InfectionCases::project();
     $map = new Infection($at, InfectionCases::missing($at, static function (): void {

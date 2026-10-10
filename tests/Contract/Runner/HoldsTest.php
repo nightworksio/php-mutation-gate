@@ -13,7 +13,8 @@ use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
-use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\Suites;
+use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
@@ -93,8 +94,8 @@ it('puts a test with two #[Holds] in both groups', function (): void {
 })->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
 
 it('lists every holds: group among the suite\'s groups, one only #[Holds] on a closure names too', function (): void {
-    $groups = Library::pest(Patching::off())->runner()->groups(Withheld::standard());
-    $listed = static fn(string $group): bool => $groups instanceof Groups && $groups->has(Group::named($group));
+    $groups = Library::pest(Patching::off())->runner()->listing(Withheld::standard(), Suites::all());
+    $listed = static fn(string $group): bool => $groups instanceof TestListing && $groups->groups()->has(Group::named($group));
 
     expect($listed('holds:src/Shapes.php'))->toBeTrue()
         ->and($listed('holds:src/Held.php'))->toBeTrue()

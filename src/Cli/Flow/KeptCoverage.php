@@ -120,6 +120,7 @@ final readonly class KeptCoverage
         CoverageEntries|CannotJudge|NotGiven $entries,
         KeptMap|Missing|CannotJudge $kept,
         KeptFrom $from,
+        SuiteCoverage|NotGiven $suites,
     ): CoverageMeasured {
         $usable = $this->usable($kept, $from);
 
@@ -127,8 +128,26 @@ final readonly class KeptCoverage
             ! $usable instanceof KeptMap => $this->every($usable),
             $entries instanceof CannotJudge => $this->every(sprintf(self::UNREAD, $entries->why())),
             $entries instanceof NotGiven => $this->every(sprintf(self::EVERY, self::OFF)),
-            default => $this->updated($entries, $usable, $from),
+            default => $this->updated($entries, $usable, $from, $suites),
         };
+    }
+
+    /**
+     * The map a measure gives, run or read, with only what the listed suites
+     * may judge in it, where the inventory says which suite holds each test;
+     * or why there is none.
+     */
+    public function mapOf(CoverageMeasured $measured, SuiteCoverage|NotGiven $suites): CoverageMap|CannotJudge
+    {
+        $request = $measured->request();
+        $asked = match (true) {
+            $request instanceof CoverageRead => $request,
+            $suites instanceof SuiteCoverage => $suites->whole($request),
+            default => $this->adapters->covering($request),
+        };
+        $map = $this->adapters->runner->coverage($asked);
+
+        return $map instanceof CoverageMap && $suites instanceof SuiteCoverage ? $suites->admitted($map) : $map;
     }
 
     /**
@@ -156,6 +175,7 @@ final readonly class KeptCoverage
         CoverageEntries|CannotJudge|NotGiven $entries,
         CoverageRun|CoverageRead $asked,
         bool $ownMap,
+        SuiteCoverage|NotGiven $suites,
     ): CoverageMeasured {
         if ($asked instanceof CoverageRead) {
             return CoverageMeasured::asked($asked);
@@ -174,7 +194,7 @@ final readonly class KeptCoverage
             ? StoredCoverage::of($this->fromWorkspace(), KeptFrom::LastRound)
             : self::fromStore($this->adapters->proofs, $access);
 
-        return $this->measuring($entries, $kept->map(), $kept->from());
+        return $this->measuring($entries, $kept->map(), $kept->from(), $suites);
     }
 
     /**
@@ -244,26 +264,36 @@ final readonly class KeptCoverage
     }
 
     /** The kept map with every moved entry measured again; or the whole suite, where that cannot be told. */
-    private function updated(CoverageEntries $entries, KeptMap $kept, KeptFrom $from): CoverageMeasured
-    {
+    private function updated(
+        CoverageEntries $entries,
+        KeptMap $kept,
+        KeptFrom $from,
+        SuiteCoverage|NotGiven $suites,
+    ): CoverageMeasured {
         $moving = Moving::of($entries, $kept);
 
         return match (true) {
             $moving instanceof CannotJudge => $this->every(sprintf(self::UNREAD, $moving->why())),
             ! $moving->placesEvery() => $this->every(sprintf(self::EVERY, self::UNPLACED)),
             $moving->movesEvery() => $this->every($this->everyMoved($entries, $kept, $moving, $from)),
-            default => $this->merged($kept, $moving, $from),
+            default => $this->merged($kept, $moving, $from, $suites),
         };
     }
 
     /** The kept map with the moved entries measured again, written where a run reads it. */
-    private function merged(KeptMap $kept, Moving $moving, KeptFrom $from): CoverageMeasured
-    {
-        $moved = $moving->moved();
-        $measured = count($moved) === 0
+    private function merged(
+        KeptMap $kept,
+        Moving $moving,
+        KeptFrom $from,
+        SuiteCoverage|NotGiven $suites,
+    ): CoverageMeasured {
+        $moved = $suites instanceof SuiteCoverage
+            ? $suites->measured($moving->moved())
+            : TestPaths::of($moving->moved());
+        $measured = count($moved->files()) === 0
             ? CoverageMap::empty()
             : $this->adapters->runner->coverage(
-                $this->adapters->covering(CoverageRun::of(TestPaths::of($moved), Workspace::remeasuredCoverage())),
+                $this->adapters->covering(CoverageRun::of($moved, Workspace::remeasuredCoverage())),
             );
         $written = $measured instanceof CoverageMap
             ? $this->adapters->project->write(
@@ -277,7 +307,7 @@ final readonly class KeptCoverage
 
         $merged = CoverageMeasured::of(
             CoverageRead::from(Workspace::coverage()),
-            sprintf(self::MEASURED, count($moved), $moving->total(), $from->value),
+            sprintf(self::MEASURED, count($moved->files()), $moving->total(), $from->value),
         );
 
         return match (true) {

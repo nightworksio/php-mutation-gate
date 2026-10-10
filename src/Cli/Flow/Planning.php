@@ -116,13 +116,12 @@ final readonly class Planning
         MatrixKind $matrix,
         bool $ownMap,
     ): PlanMade|CannotJudge {
+        $suites = SuiteCoverage::of($this->adapters, $inventory);
         $kept = new KeptCoverage($this->adapters, $this->settings, $this->setup);
         $entries = $kept->entries($inventory);
-        $measured = $kept->forRun($inventory, $entries, $coverage, $ownMap);
+        $measured = $kept->forRun($inventory, $entries, $coverage, $ownMap, $suites);
         $request = $measured->request();
-        $map = $this->adapters->runner->coverage(
-            $request instanceof CoverageRun ? $this->adapters->covering($request) : $request,
-        );
+        $map = $kept->mapOf($measured, $suites);
 
         $peak = $coverage instanceof CoverageRun ? $this->setup->memory->peak() : NotGiven::value();
         $cap = new CoverageCap($this->adapters, $this->settings);

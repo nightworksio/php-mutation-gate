@@ -26,8 +26,9 @@ use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
-use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -54,10 +55,11 @@ interface Runner
     public function behaviour(): RunnerBehaviour;
 
     /**
-     * The suite's groups, as the runner itself lists them. Listing loads the
-     * project's code, which never sees the variables withheld.
+     * These suites' tests and the groups each is in, as the runner itself
+     * lists them, running none. Listing loads the project's code, which
+     * never sees the variables withheld.
      */
-    public function groups(Withheld $withheld): Groups|CannotJudge;
+    public function listing(Withheld $withheld, Suites $suites): TestListing|CannotJudge;
 
     /**
      * Which tests run which line, with each test's duration, by running the

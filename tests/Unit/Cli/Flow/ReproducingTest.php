@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Cli\Flow\Reproduced;
 use NightWorksIO\MutationGate\Cli\Flow\Reproducing;
+use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Runner as ConfiguredRunner;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
+use NightWorksIO\MutationGate\Core\Coverage\Fresh;
+use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -20,11 +23,17 @@ use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\Suites;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\HoldingSuites;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
@@ -131,4 +140,35 @@ it('cannot judge where the units cannot be found, or the runner cannot run the m
 
     expect($unread->reproduce(Sought::of('49e02f')))->toEqual(CannotJudge::because('No tree is declared.'))
         ->and($refused->reproduce(Sought::of('49e02f')))->toEqual(CannotJudge::because('Pest is not installed.'));
+});
+
+it('runs a mutant again on the gate\'s map where a hold from the holding suites holds its file, and on its own run otherwise', function () use ($store): void {
+    $process = TestListing::of(TestIds::of(TestId::of('HeldTest::doubles')))
+        ->grouping(Group::named('holds:src/Held.php'), TestIds::of(TestId::of('HeldTest::doubles')));
+    $runner = ScriptedRunner::fixture()->listingGroups(
+        RunnerFake::ofTheFixture()->listingIn(Suites::listed('Unit'), TestListing::none())->listingIn(Suites::listed('Process'), $process),
+    );
+    $reproducing = new Reproducing(HoldingSuites::adapters(HoldingSuites::project(), HoldingSuites::checkout(), $store(), $runner), Flows::settings());
+
+    $held = $reproducing->reproduce(Sought::of('8705b7dc7d27'));
+    $money = $reproducing->reproduce(Sought::of('49e02f'));
+
+    expect($held instanceof Reproduced ? $held->judgedBy : $held)->toEqual(WholeSuite::tests())
+        ->and($money)->toBeInstanceOf(Reproduced::class)
+        ->and(array_map(static fn(array $asked): Handed|Fresh => $asked[1]->coverage(), $runner->reproductions()))->toEqual([
+            Handed::maps(Workspace::admittedCoverage(), Workspace::admittedCoverage()),
+            Fresh::coverage(),
+        ]);
+});
+
+it('cannot run a mutant again where the gate\'s map of a held file cannot be made', function () use ($store): void {
+    $process = TestListing::of(TestIds::of(TestId::of('HeldTest::doubles')))
+        ->grouping(Group::named('holds:src/Held.php'), TestIds::of(TestId::of('HeldTest::doubles')));
+    $runner = ScriptedRunner::fixture()->listingGroups(
+        RunnerFake::ofTheFixture()->listingIn(Suites::listed('Unit'), TestListing::none())->listingIn(Suites::listed('Process'), $process),
+    )->uncovering('Pest failed.');
+
+    expect(new Reproducing(HoldingSuites::adapters(HoldingSuites::project(), HoldingSuites::checkout(), $store(), $runner), Flows::settings())
+        ->reproduce(Sought::of('8705b7dc7d27')))->toEqual(CannotJudge::because('Pest failed.'))
+        ->and($runner->reproductions())->toBe([]);
 });

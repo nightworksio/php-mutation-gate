@@ -37,9 +37,10 @@ use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
-use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Verdict\Warning;
@@ -49,6 +50,7 @@ use NightWorksIO\MutationGate\Tests\Support\InfectionRun;
 use NightWorksIO\MutationGate\Tests\Support\InfectionShellFake;
 use NightWorksIO\MutationGate\Tests\Support\InfectionSource;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\TestLists;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -107,20 +109,59 @@ it('names the static analysis tool the project has kill mutants among what it dr
         ->toBeInstanceOf(CannotJudge::class);
 });
 
-it('lists the groups PHPUnit lists, and none in a project whose config it refuses', function (): void {
+it('lists the tests of some suites PHPUnit lists into a file, and none in a project whose config it refuses', function (): void {
     $at = InfectionCases::project();
-    $shell = InfectionShellFake::answering(Ran::finished(succeeded: true, output: "Available test groups:\n - slow (1 test)\n"));
+    $shell = new InfectionShellFake(static function (Command $command): Ran {
+        TestLists::wrote($command->arguments(), TestLists::of(['SlowTest::testOne'], ['slow' => ['SlowTest::testOne']]));
+
+        return Ran::finished(succeeded: true, output: 'Wrote list');
+    });
     $refused = InfectionCases::project('{"testFramework": "codeception"}');
     $untouched = InfectionCases::shell($refused, []);
-
     $infection = new Infection($at, $shell, LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory());
+    $listing = $infection->listing(Withheld::of('CI_JOB_TOKEN'), Suites::listed('Unit'));
+    $file = sprintf('%s/.gate/infection/tests.xml', $at->root());
 
-    expect($infection->groups(Withheld::of('CI_JOB_TOKEN')))->toEqual(Groups::of(Group::named('slow')))
-        ->and(InfectionCases::ran($shell))->toBe([[sprintf('%s/vendor/bin/phpunit', $at->root()), sprintf('--configuration=%s', $at->root()), '--list-groups', '--colors=never']])
+    expect($listing instanceof TestListing ? [[...$listing->groups()], $listing->inGroup(Group::named('slow'))] : $listing)
+        ->toEqual([[Group::named('slow')], TestIds::of(TestId::of('SlowTest::testOne'))])
+        ->and(InfectionCases::ran($shell))->toBe([[sprintf('%s/vendor/bin/phpunit', $at->root()), sprintf('--configuration=%s', $at->root()), sprintf('--list-tests-xml=%s', $file), '--colors=never', '--testsuite=Unit']])
         ->and($shell->commands()[0]->withheld())->toEqual(Withheld::standard()->and(Withheld::of('CI_JOB_TOKEN')))
-        ->and(new Infection($refused, $untouched, LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory())->groups(Withheld::standard()))
+        ->and(new Infection($refused, $untouched, LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory())->listing(Withheld::standard(), Suites::all()))
         ->toBeInstanceOf(CannotJudge::class)
         ->and($untouched->commands())->toBe([]);
+});
+
+it('lists no test where an earlier list cannot be removed, starting nothing', function (): void {
+    $at = InfectionCases::project();
+    $file = sprintf('%s/.gate/infection/tests.xml', $at->root());
+    mkdir(dirname($file), recursive: true);
+    file_put_contents($file, 'stale');
+    chmod(dirname($file), 0o555);
+    $shell = InfectionShellFake::answering(Ran::finished(succeeded: true, output: ''));
+
+    try {
+        $listing = new Infection($at, $shell, LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory())
+            ->listing(Withheld::standard(), Suites::all());
+    } finally {
+        chmod(dirname($file), 0o755);
+    }
+
+    expect($listing)->toEqual(CannotJudge::because(sprintf(
+        'The gate cannot remove %s, so it cannot tell what this run wrote from what an earlier one did.',
+        $file,
+    )))
+        ->and($shell->commands())->toBe([]);
+});
+
+it('cannot list the tests where the project\'s PHPUnit fails', function (): void {
+    $at = InfectionCases::project();
+    $shell = InfectionShellFake::answering(Ran::finished(succeeded: false, output: 'broken'));
+    $infection = new Infection($at, $shell, LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory());
+
+    expect($infection->listing(Withheld::standard(), Suites::all()))->toEqual(CannotJudge::because(sprintf(
+        "PHPUnit did not list the tests of the suite: %s/.gate/infection/tests.xml holds no list of tests. It said:\nbroken",
+        $at->root(),
+    )));
 });
 
 it('runs the suite or a group under coverage into a directory and reads the map it wrote', function (): void {

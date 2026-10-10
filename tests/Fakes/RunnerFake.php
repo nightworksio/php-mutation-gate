@@ -55,8 +55,10 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\TestPaths;
@@ -84,9 +86,12 @@ final readonly class RunnerFake implements Runner
     /** What its unmutated controls find, where they are told. */
     private ControlRuns $controlled;
 
+    /** What it lists for each list of suites. */
+    private ListingsFake $listings;
+
     public function __construct(
         private Identity|CannotJudge $identity,
-        private Groups|CannotJudge $groups,
+        Groups|CannotJudge $groups,
         private CoverageMap $map,
         private Mutants $library,
         private Paths $judges,
@@ -96,6 +101,13 @@ final readonly class RunnerFake implements Runner
     ) {
         $this->behaviour = RunnerBehaviour::standard();
         $this->controlled = ControlRuns::none();
+        $this->listings = ListingsFake::of($groups);
+    }
+
+    /** This runner, listing these tests for these suites. */
+    public function listingIn(Suites $suites, TestListing|CannotJudge $listing): self
+    {
+        return clone($this, ['listings' => $this->listings->in($suites, $listing)]);
     }
 
     /** This runner, its unmutated controls finding these, each other one passing. */
@@ -159,9 +171,10 @@ final readonly class RunnerFake implements Runner
         return $this->identity;
     }
 
-    public function groups(Withheld $withheld): Groups|CannotJudge
+    /** What it lists for these suites, where it was told; otherwise each of its groups, holding no test. */
+    public function listing(Withheld $withheld, Suites $suites): TestListing|CannotJudge
     {
-        return $this->groups;
+        return $this->listings->listing($suites);
     }
 
     /** Its map, or, for a run of some test files, the entries of the tests those files hold alone. */

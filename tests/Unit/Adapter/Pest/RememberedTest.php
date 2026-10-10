@@ -9,23 +9,27 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
-use NightWorksIO\MutationGate\Core\Test\Group;
-use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\Suites;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestListing;
 
-it('learns each thing once, and each set of groups once for what it withheld', function (): void {
+it('learns each thing once, and each listing once for its suites and what it withheld', function (): void {
     $remembered = new Remembered();
     $asked = [];
-    $groups = static function (string $name) use (&$asked): Closure {
-        return static function () use ($name, &$asked): Groups {
+    $listing = static function (string $name) use (&$asked): Closure {
+        return static function () use ($name, &$asked): TestListing {
             $asked[] = $name;
 
-            return Groups::of(Group::named($name));
+            return TestListing::of(TestIds::of(TestId::of($name)));
         };
     };
 
-    $first = $remembered->groups(Withheld::standard(), $groups('first'));
-    $again = $remembered->groups(Withheld::standard(), $groups('again'));
-    $other = $remembered->groups(Withheld::of('DEPLOY_*'), $groups('other'));
+    $first = $remembered->listing(Withheld::standard(), Suites::all(), $listing('first'));
+    $again = $remembered->listing(Withheld::standard(), Suites::all(), $listing('again'));
+    $other = $remembered->listing(Withheld::of('DEPLOY_*'), Suites::all(), $listing('other'));
+    $suites = $remembered->listing(Withheld::standard(), Suites::listed('Process'), $listing('suites'));
+    $suitesAgain = $remembered->listing(Withheld::standard(), Suites::listed('Process'), $listing('suites again'));
     $patched = [$remembered->patched(static fn(): bool => true), $remembered->patched(static fn(): bool => false)];
     $map = $remembered->map(Path::of('planned'), static fn(): CoverageMap => CoverageMap::of());
     $mapAgain = $remembered->map(Path::of('planned'), static fn(): CannotJudge => CannotJudge::because('read again'));
@@ -39,7 +43,8 @@ it('learns each thing once, and each set of groups once for what it withheld', f
 
     expect($first)->toBe($again)
         ->and($other)->not->toBe($first)
-        ->and($asked)->toBe(['first', 'other'])
+        ->and($suites)->toBe($suitesAgain)
+        ->and($asked)->toBe(['first', 'other', 'suites'])
         ->and($patched)->toBe([true, true])
         ->and($mapAgain)->toBe($map)
         ->and($written)->toBe(1);

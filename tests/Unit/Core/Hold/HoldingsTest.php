@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Fingerprint;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Hold\Addition;
 use NightWorksIO\MutationGate\Core\Hold\Holder;
 use NightWorksIO\MutationGate\Core\Hold\Holding;
 use NightWorksIO\MutationGate\Core\Hold\Holdings;
@@ -14,6 +15,9 @@ use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -115,4 +119,22 @@ it('leaves the holdings it came from as they were', function () use ($trees, $fi
     $holdings->merge(Holdings::inGroups(Groups::of(Group::named('holds:src/Kernel.php'))));
 
     expect($holdings->units($trees(), $files()))->toEqual(Units::none());
+});
+
+it('adds judges where only the holding suites list tests of a hold, and narrows by the rest', function (): void {
+    $holdings = Holdings::inGroups(Groups::of(
+        Group::named('holds:src/Kernel.php'),
+        Group::named('holds:src/Http'),
+        Group::named('holds:src/Unrun.php'),
+    ))->with(Holding::byAttribute('src/Shell.php', Holder::of('Tests\ShellTest')));
+    $judging = TestListing::of(TestIds::of(TestId::of('Tests\HttpTest::testServes')))
+        ->grouping(Group::named('holds:src/Http'), TestIds::of(TestId::of('Tests\HttpTest::testServes')));
+    $holding = TestListing::of(TestIds::of(TestId::of('Tests\KernelTest::testBoots'), TestId::of('Tests\ShellTest::testStarts')))
+        ->grouping(Group::named('holds:src/Kernel.php'), TestIds::of(TestId::of('Tests\KernelTest::testBoots')))
+        ->grouping(Group::named('holds:src/Http'), TestIds::of(TestId::of('Tests\HttpProcessTest::testServes')));
+
+    expect([...$holdings->additions($judging, $holding)])->toEqual([
+        Addition::of(Path::of('src/Kernel.php'), TestIds::of(TestId::of('Tests\KernelTest::testBoots')), 'holds:src/Kernel.php'),
+        Addition::of(Path::of('src/Shell.php'), TestIds::of(TestId::of('Tests\ShellTest::testStarts')), "#[Holds('src/Shell.php')] on Tests\\ShellTest"),
+    ]);
 });

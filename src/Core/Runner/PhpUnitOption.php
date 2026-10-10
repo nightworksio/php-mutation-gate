@@ -66,8 +66,8 @@ enum PhpUnitOption: string
     /** Writes a Clover report, every executable line with how many runs it had, to the file after `=`. */
     case CoverageClover = '--coverage-clover';
 
-    /** Lists the suite's groups and runs no test. */
-    case ListGroups = '--list-groups';
+    /** Writes the suite's tests and each group's tests to a file as XML, and runs no test. */
+    case ListTestsXml = '--list-tests-xml';
 
     /** Prints no colour, whatever the project's config asks, so what PHPUnit prints can be read back. */
     case NoColors = '--colors=never';
