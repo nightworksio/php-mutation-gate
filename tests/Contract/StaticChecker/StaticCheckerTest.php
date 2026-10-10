@@ -172,8 +172,11 @@ it('checks several mutants in one go, side by side where it can, each answered i
         default => 'cannot judge',
     };
 
-    expect(array_map($read, [...$checker->checks(MutantChecks::of(...$checks), ProcessCount::of(2))]))
-        ->toBe(['rejected', 'out of scope', 'passed', 'cannot judge'])
+    $answers = [...$checker->checks(MutantChecks::of(...$checks), ProcessCount::of(2))];
+    $why = static fn(Findings|OutOfScope|CannotJudge $answer): string => $answer instanceof CannotJudge ? $answer->why() : '';
+
+    expect(array_map($read, $answers))
+        ->toBe(['rejected', 'out of scope', 'passed', 'cannot judge'], implode(' | ', array_map($why, $answers)))
         ->and(array_map($read, array_map($checker->check(...), $checks)))
         ->toBe(['rejected', 'out of scope', 'passed', 'cannot judge'])
         ->and(count($checker->checks(MutantChecks::of(), ProcessCount::of(2))))->toBe(0);
