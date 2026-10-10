@@ -1,5 +1,10 @@
 """The deciding half of bench.py: python3 -m unittest discover .github/scripts"""
+import json
+import sys
+import tempfile
+import time
 import unittest
+from pathlib import Path
 
 import bench
 
@@ -151,6 +156,41 @@ class Summary(unittest.TestCase):
         self.assertIn("| src/Money.php | 1 / 1 / 0 / 0 / 0 / 0 | 1 / 1 / 0 / 0 / 0 / 0 |", text)
         self.assertIn("Mutants they judge otherwise or one lacks: 1, of which unexplained: 1.", text)
         self.assertIn("| src/Money.php | 3 | Plus | killed | absent | no |", text)
+
+
+class Run(unittest.TestCase):
+    def test_says_a_round_ended_by_its_exit_code_or_as_stopped(self):
+        self.assertEqual(bench.ended(0, stopped=False), 0)
+        self.assertEqual(bench.ended(2, stopped=False), 2)
+        self.assertEqual(bench.ended(-9, stopped=True), "stopped")
+        self.assertEqual(bench.ended(None, stopped=False), "stopped")
+
+    def test_stops_an_arm_that_outruns_its_time_with_what_it_started_and_keeps_what_it_left(self):
+        with tempfile.TemporaryDirectory() as work:
+            place, out = Path(work) / "project", Path(work) / "out"
+            place.mkdir()
+            started = (
+                "import pathlib, subprocess, sys, time;"
+                "pathlib.Path('.gate').mkdir();"
+                "pathlib.Path('.gate/plan.json').write_text('{}');"
+                "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)']);"
+                "time.sleep(30)"
+            )
+            project = {"arms": {"slow": {"command": [sys.executable, "-c", started], "keep": [".gate", "gone"]}}}
+            began = time.monotonic()
+            bench.run(project, place, out, rounds=1, arm_seconds=1.0)
+            self.assertLess(time.monotonic() - began, 20)
+            self.assertEqual(json.loads((out / "slow-1.time").read_text())["exit"], "stopped")
+            self.assertEqual((out / "slow-1.kept" / ".gate" / "plan.json").read_text(), "{}")
+            self.assertFalse((out / "slow-1.kept" / "gone").exists())
+
+    def test_records_the_exit_of_an_arm_that_ends_in_time(self):
+        with tempfile.TemporaryDirectory() as work:
+            place, out = Path(work) / "project", Path(work) / "out"
+            place.mkdir()
+            project = {"arms": {"quick": {"command": [sys.executable, "-c", "import sys; sys.exit(3)"]}}}
+            bench.run(project, place, out, rounds=1, arm_seconds=30.0)
+            self.assertEqual(json.loads((out / "quick-1.time").read_text())["exit"], 3)
 
 
 if __name__ == "__main__":

@@ -38,7 +38,10 @@
             ],
             "copy": {
                 "mutation-gate.baseline.json": "bench-baseline.json"
-            }
+            },
+            "keep": [
+                ".mutation-gate"
+            ]
         },
         "gate-phpunit": {
             "said": "the gate in one job, mutating with its own engine and forked PHPUnit workers",
@@ -55,7 +58,10 @@
             ],
             "copy": {
                 "mutation-gate.baseline.json": "bench-baseline.json"
-            }
+            },
+            "keep": [
+                ".mutation-gate"
+            ]
         }
     },
     "same": [

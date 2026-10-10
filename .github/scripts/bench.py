@@ -2,7 +2,7 @@
 """The benchmark's harness: each arm run on one project, interleaved, and what they did reconciled.
 
 Usage:
-  bench.py run <project file> <project directory> <out directory> [--rounds N]
+  bench.py run <project file> <project directory> <out directory> [--rounds N] [--arm-seconds S]
   bench.py reconcile <project file> <project directory> <out directory> <result file>
   bench.py time <times> <result file> -- <command...>
 
@@ -15,7 +15,12 @@ file an arm's `log` names where the tool writes it to a path of its config.
 An arm whose `stdout` is set has what it printed kept as its report, as plain
 Pest's is. An arm runs in the project directory, or in the copy its
 `directory` names, as a plain arm runs in a copy the gate's `infection:patch`
-or `pest:patch` never touched.
+or `pest:patch` never touched. With `--arm-seconds`, an arm still running
+after that long is stopped, every process it started with it, and the round
+records it as stopped: one slow arm leaves the other arms and rounds their
+time. Whatever paths an arm's `keep` lists are copied into the out directory
+after each round, stopped or not, so a stopped gate's plan, shard results
+and coverage timings are kept with the artifact.
 
 Plain Pest, run in parallel, names only its untested and uncovered mutants,
 and counts the rest: its killed and timed-out mutants come to the totals
@@ -39,6 +44,7 @@ import os
 import platform
 import re
 import shutil
+import signal
 import statistics
 import subprocess
 import sys
@@ -308,7 +314,33 @@ def removed(target: Path) -> None:
         target.unlink(missing_ok=True)
 
 
-def run(project: dict, directory: Path, out: Path, rounds: int) -> None:
+def stop(process: subprocess.Popen) -> None:
+    """A process stopped with every process it started, which share its session."""
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    process.wait()
+
+
+def ended(returncode: int | None, stopped: bool) -> int | str:
+    """How a round of an arm ended: its exit code, or `stopped` where it outran its time."""
+    return "stopped" if stopped or returncode is None else returncode
+
+
+def kept(place: Path, arm: dict, out: Path, name: str, at: int) -> None:
+    """The paths an arm keeps, copied beside its report, each as it was when the round ended."""
+    for each in arm.get("keep", []):
+        source = place / each
+        target = out / f"{name}-{at}.kept" / each
+        if source.is_dir():
+            shutil.copytree(source, target, dirs_exist_ok=True)
+        elif source.exists():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, target)
+
+
+def run(project: dict, directory: Path, out: Path, rounds: int, arm_seconds: float | None = None) -> None:
     """Every arm once a round, in turn, each from a cold start, its report and wall time kept."""
     out.mkdir(parents=True, exist_ok=True)
     environment = {name: value for name, value in os.environ.items() if name not in ("CI", "GITHUB_ACTIONS")}
@@ -324,16 +356,22 @@ def run(project: dict, directory: Path, out: Path, rounds: int) -> None:
                 shutil.copyfile(place / source, place / to)
             started = time.monotonic()
             command = [fill(part, report) for part in arm["command"]]
-            if arm.get("stdout"):
-                with open(report, "w", encoding="utf-8") as printed:
-                    done = subprocess.run(command, cwd=place, env=environment, check=False, stdout=printed)
-            else:
-                done = subprocess.run(command, cwd=place, env=environment, check=False)
+            stopped = False
+            with open(report if arm.get("stdout") else os.devnull, "w", encoding="utf-8") as printed:
+                process = subprocess.Popen(command, cwd=place, env=environment, start_new_session=True,
+                                           stdout=printed if arm.get("stdout") else None)
+                try:
+                    process.wait(timeout=arm_seconds)
+                except subprocess.TimeoutExpired:
+                    stopped = True
+                    stop(process)
             seconds = time.monotonic() - started
             if arm.get("log") and (place / arm["log"]).exists():
                 shutil.move(place / arm["log"], report)
-            (out / f"{name}-{at}.time").write_text(json.dumps({"seconds": seconds, "exit": done.returncode}))
-            print(f"{name}, round {at}: {seconds:.1f} s, exit {done.returncode}", flush=True)
+            kept(place, arm, out, name, at)
+            exit_code = ended(process.returncode, stopped)
+            (out / f"{name}-{at}.time").write_text(json.dumps({"seconds": seconds, "exit": exit_code}))
+            print(f"{name}, round {at}: {seconds:.1f} s, exit {exit_code}", flush=True)
 
 
 def reconcile(project: dict, out: Path, result: Path, root: str) -> int:
@@ -400,7 +438,8 @@ def main(argv: list[str]) -> int:
     project = json.loads(Path(argv[1]).read_text(encoding="utf-8"))
     if argv[0] == "run":
         rounds = int(argv[argv.index("--rounds") + 1]) if "--rounds" in argv else 3
-        run(project, Path(argv[2]).resolve(), Path(argv[3]).resolve(), rounds)
+        arm_seconds = float(argv[argv.index("--arm-seconds") + 1]) if "--arm-seconds" in argv else None
+        run(project, Path(argv[2]).resolve(), Path(argv[3]).resolve(), rounds, arm_seconds)
         return 0
     return reconcile(project, Path(argv[3]).resolve(), Path(argv[4]), str(Path(argv[2]).resolve()))
 
