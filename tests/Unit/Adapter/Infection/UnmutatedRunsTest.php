@@ -22,8 +22,11 @@ use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\Pool;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -90,16 +93,22 @@ it('reads how each control ended: passed, failed, or ran out of its limit', func
     'stopped at its limit' => [Ran::stopped(''), ControlEnd::RanOut],
 ]);
 
-it('runs the controls one after another, each in a place of its own, and never one whose file is gone, saying why', function () use ($request): void {
+it('runs the controls side by side in the request\'s pool, each in a place of its own, and never one whose file is gone, saying why', function () use ($request): void {
     $at = controlledInfection();
     $shell = InfectionShellFake::answering(Ran::finished(succeeded: true, output: ''));
+    $controls = Controls::of(infectionControl('src/Gone.php'), infectionControl('src/Money.php'), infectionControl('src/Money.php', 9.0));
 
-    $runs = infectionControlled($at, $shell, Controls::of(infectionControl('src/Gone.php'), infectionControl('src/Money.php')), $request);
+    $runs = infectionControlled($at, $shell, $controls, $request->across(Pool::of(ProcessCount::of(4), Workers::Fresh)));
 
     expect($runs->of(infectionControl('src/Gone.php'))->why())
         ->toBe('A run on Infection\'s config for a mutant needs an unchanged copy of src/Gone.php, which was not made.')
+        ->and($runs->of(infectionControl('src/Money.php', 9.0))->end())->toBe(ControlEnd::Passed)
         ->and(array_map(static fn(Command $command): string => $command->arguments()[5], $shell->commands()))
-        ->toBe([sprintf('--configuration=%s/.gate/infection/unmutated/control-1/phpunit.xml', $at->root())]);
+        ->toBe([
+            sprintf('--configuration=%s/.gate/infection/unmutated/control-1/phpunit.xml', $at->root()),
+            sprintf('--configuration=%s/.gate/infection/unmutated/control-2/phpunit.xml', $at->root()),
+        ])
+        ->and($shell->sides())->toBe([[2, 4]]);
 });
 
 it('starts no control once the request\'s deadline has passed', function () use ($request): void {

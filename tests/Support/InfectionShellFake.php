@@ -4,13 +4,20 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
+use function array_map;
+
 use Closure;
 
 use function count;
+use function iterator_count;
 
 use NightWorksIO\MutationGate\Adapter\Infection\Command;
 use NightWorksIO\MutationGate\Adapter\Infection\Shell;
+use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
 /**
  * A shell that runs neither PHPUnit nor Infection: it keeps every command it
@@ -25,6 +32,9 @@ final class InfectionShellFake implements Shell
 
     /** @var list<string> */
     private array $directories = [];
+
+    /** @var list<array{int, int}> */
+    private array $sides = [];
 
     /** @param Closure(Command, int): Ran $answer */
     public function __construct(private readonly Closure $answer)
@@ -43,6 +53,21 @@ final class InfectionShellFake implements Shell
         $this->commands[] = $command;
 
         return ($this->answer)($command, $before);
+    }
+
+    /** Each command run in turn, none where no time to start them is left. */
+    public function sideBySide(WorkerSlots $slots, Seconds|Unlimited $startingWithin, Command ...$commands): ProcessEnds
+    {
+        $this->sides[] = [count($commands), iterator_count($slots)];
+        $starting = $startingWithin instanceof Unlimited || $startingWithin->seconds() > 0.0 ? $commands : [];
+
+        return ProcessEnds::of(...array_map($this->run(...), $starting));
+    }
+
+    /** @return list<array{int, int}> how many commands each run side by side was given, and in how many places */
+    public function sides(): array
+    {
+        return $this->sides;
     }
 
     /** This shell, which keeps the directory it was moved to. */

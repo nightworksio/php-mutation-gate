@@ -6,9 +6,12 @@ use NightWorksIO\MutationGate\Adapter\Infection\Command;
 use NightWorksIO\MutationGate\Adapter\Infection\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Cli\SystemClock;
+use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Tests\Fakes\ProcessesFake;
 use NightWorksIO\MutationGate\Tests\Support\Measured;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -114,4 +117,16 @@ it('unsets the variables that make a process another run\'s worker, even where o
     unset($_ENV['PARATEST']);
 
     expect($ran->output())->toBe('false');
+});
+
+it('runs commands side by side, each in its directory, told its place, withholding what it withholds', function (): void {
+    $directory = (string) realpath(Scratch::directory());
+    $told = Command::php('-r', 'echo getcwd(), " ", getenv("TEST_TOKEN"), " ", var_export(getenv("KEPT_PROBE"), true);')
+        ->withholding(Withheld::of('KEPT_PROBE'));
+
+    $ends = new ProcessShell(new LocalProcesses(new SystemClock()), $directory, ['PATH' => '/usr/bin', 'KEPT_PROBE' => 'secret'])
+        ->sideBySide(WorkerSlots::of(ProcessCount::of(2), 'run'), Unlimited::time(), $told, $told);
+
+    expect(array_map(static fn(Ran $ran): string => $ran->output(), [...$ends]))
+        ->toBe([sprintf('%s 1 false', $directory), sprintf('%s 2 false', $directory)]);
 });
