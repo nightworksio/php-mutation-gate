@@ -122,6 +122,9 @@ The same repository has two more needs.
    1. **A file that decides how the gate runs reaches everything in its
       package.** Those files are:
       - the gate's config and each package's `composer.json`;
+      - each package's `composer.lock` and `vendor/composer/installed.json`:
+        a dependency that moves changes what every mutant runs against, and
+        no coverage map shows it;
       - each file the gate's config file reads beside itself, as the loader
         of its format finds it from its code without running it. In a
         `mutation-gate.php`, a `require` or `include` of a literal path, or
