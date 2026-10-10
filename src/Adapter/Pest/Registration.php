@@ -12,8 +12,10 @@ use function mb_strtolower;
 
 use NightWorksIO\MutationGate\Core\Assertion\TestAssertions;
 use NightWorksIO\MutationGate\Core\Php\Argument;
+use NightWorksIO\MutationGate\Core\Php\Assignment;
 use NightWorksIO\MutationGate\Core\Php\Chain;
 use NightWorksIO\MutationGate\Core\Php\Link;
+use NightWorksIO\MutationGate\Core\Php\OwnVariables;
 use NightWorksIO\MutationGate\Core\Php\PhpFile;
 use NightWorksIO\MutationGate\Core\Php\TopLevel;
 use PhpToken;
@@ -33,6 +35,16 @@ use PhpToken;
  * a registration on this list in turn, and a dataset handed to `dataset()` or
  * `->with()` as a closure, which must only return or yield what runs nothing.
  * Any other closure runs as a test or a hook runs.
+ *
+ * A plain variable assigned, by value, a value that runs nothing as it is
+ * evaluated, `$make = static fn(): Money => Money::of(5);`, keeps the file
+ * inert too: Pest requires each test file inside a method, so the variable
+ * stays in that file, and making a closure runs none of its body. Such a
+ * variable is the file's own, and reading it, in a registration's arguments
+ * or in another such assignment, runs nothing either: `->with($rows)`.
+ * `$this`, `$GLOBALS`, a superglobal and an assignment by reference reach
+ * past the file, and a value that calls, or reads a variable not its own,
+ * runs code.
  *
  * A test file that runs anything else, at its top, in a `describe()` body or
  * in a dataset closure, acts on what other files find: a registration sent
@@ -73,7 +85,10 @@ enum Registration: string
     /** The method that hands a test its dataset, which Pest resolves as the file loads. */
     private const string WITH = 'with';
 
-    /** Whether loading the file only declares and makes registrations on this list. */
+    /**
+     * Whether loading the file only declares, makes registrations on this
+     * list, and assigns what runs nothing to variables of its own.
+     */
     public static function inert(PhpFile $file): bool
     {
         return self::registersOnly($file->running());
@@ -82,7 +97,13 @@ enum Registration: string
     /** @param list<non-empty-list<PhpToken>> $statements */
     private static function registersOnly(array $statements): bool
     {
-        return array_all($statements, fn(array $statement): bool => self::registers($statement));
+        $own = OwnVariables::assignedIn($statements);
+
+        return array_all(
+            $statements,
+            static fn(array $statement): bool => self::registers($statement, $own)
+                || Assignment::keepsToItsScope($statement, $own),
+        );
     }
 
     /**
@@ -91,7 +112,7 @@ enum Registration: string
      *
      * @param non-empty-list<PhpToken> $statement
      */
-    private static function registers(array $statement): bool
+    private static function registers(array $statement, OwnVariables $own): bool
     {
         $chain = Chain::of($statement);
 
@@ -101,7 +122,7 @@ enum Registration: string
 
         foreach (self::cases() as $case) {
             if (mb_strtolower($case->value) === $chain->called()->name()) {
-                return $case->takes($chain->called()) && self::chains($chain->methods());
+                return $case->takes($chain->called(), $own) && self::chains($chain->methods(), $own);
             }
         }
 
@@ -112,7 +133,7 @@ enum Registration: string
      * Whether this registration's arguments run nothing as the file loads but what stays in it: a `describe()`
      * body only registrations in turn, and a closure `dataset()` takes only what it gives.
      */
-    private function takes(Link $call): bool
+    private function takes(Link $call, OwnVariables $own): bool
     {
         $describes = $this === self::Describe;
         $gives = $this === self::Dataset;
@@ -121,9 +142,10 @@ enum Registration: string
             $call,
             static fn(Argument $closure): bool => match (true) {
                 $describes => self::describes($closure->body()),
-                $gives => $closure->onlyGives(),
+                $gives => $closure->onlyGives($own),
                 default => true,
             },
+            $own,
         );
     }
 
@@ -133,20 +155,21 @@ enum Registration: string
      *
      * @param list<Link> $methods
      */
-    private static function chains(array $methods): bool
+    private static function chains(array $methods, OwnVariables $own): bool
     {
-        return array_all($methods, static fn(Link $method): bool => self::passes($method));
+        return array_all($methods, static fn(Link $method): bool => self::passes($method, $own));
     }
 
     /**
      * Whether a chained method keeps the registration in the file, and its arguments run nothing as the file
      * loads: a closure `->with()` takes only what it gives.
      */
-    private static function passes(Link $method): bool
+    private static function passes(Link $method, OwnVariables $own): bool
     {
         return $method->name() !== self::ELSEWHERE && self::eachRunsNothing(
             $method,
-            static fn(Argument $closure): bool => $method->name() !== self::WITH || $closure->onlyGives(),
+            static fn(Argument $closure): bool => $method->name() !== self::WITH || $closure->onlyGives($own),
+            $own,
         );
     }
 
@@ -156,13 +179,13 @@ enum Registration: string
      *
      * @param Closure(Argument): bool $allows
      */
-    private static function eachRunsNothing(Link $call, Closure $allows): bool
+    private static function eachRunsNothing(Link $call, Closure $allows, OwnVariables $own): bool
     {
         return array_all(
             $call->arguments(),
             static fn(Argument $argument): bool => $argument->isClosure()
                 ? $allows($argument)
-                : $argument->runsNothing(),
+                : $argument->runsNothing($own),
         );
     }
 

@@ -37,6 +37,13 @@ it('holds a test file inert whose top only declares, or registers what stays in 
     'arguments of constants, class names and operators' => ["it('adds' . PHP_EOL, fn () => 1)->skip(PHP_OS_FAMILY === 'Windows' || ! true)->group(Money::class)->with([[1 => -2, 'k' => Money::LIMIT]]);"],
     'a test closure with an attribute' => ["it('adds', #[Holds('src/Money.php')] static fn () => 1);"],
     'registrations in a namespace\'s block' => ["namespace Tests\\Unit { it('adds', fn () => 1); }"],
+    'a variable of its own assigned a closure' => ["\$make = static fn (): int => 1; it('adds', fn () => \$make());"],
+    'a variable of its own assigned a closure with a body, which ends the statement' => ["\$make = static function () use (\$rows): int { foreach (\$rows as \$row) {} return 1; }; it('adds', fn () => \$make());"],
+    'a variable of its own assigned literals, constants and class names' => ["\$rows = [[1, Money::LIMIT], ['k' => PHP_EOL . Money::class]];"],
+    'a variable of its own assigned in a describe body' => ["describe('money', function (): void { \$make = fn () => 1; it('adds', fn () => 1); });"],
+    'a variable of its own handed to with()' => ["\$rows = [[1], [2]]; it('adds', fn (int \$a) => \$a)->with(\$rows);"],
+    'a variable of its own given by a dataset closure' => ["it('adds', fn (int \$a) => \$a)->with(fn (): array => \$rows); \$rows = [[1]];"],
+    'a variable of its own assigned others of its own' => ["\$all = [...\$cheap, ...\$dear]; \$cheap = [[1]]; \$dear = [[2]]; dataset('prices', \$all);"],
 ]);
 
 it('holds a test file acting, and loaded in every narrowed run, whose top runs anything else', function (string $top) use ($inert): void {
@@ -68,4 +75,18 @@ it('holds a test file acting, and loaded in every narrowed run, whose top runs a
     'a test handed as a variable' => ["it('adds', \$test);"],
     'a statement that runs past its registration' => ["it('adds', fn () => 1) || putenv('SHARED=5');"],
     'a write in a namespace\'s block' => ["namespace Tests\\Unit { putenv('SHARED=5'); }"],
+    'a variable assigned what a call returns' => ["\$money = Money::of(5);"],
+    'a variable assigned what a closure called at once returns' => ["\$money = (fn () => 1)();"],
+    'a variable assigned another variable' => ["\$copy = \$other;"],
+    'a variable assigned by reference' => ["\$alias = &\$other;"],
+    'a variable operated on' => ["\$count .= 'more';"],
+    'a superglobal assigned' => ["\$_ENV = ['SHARED' => '5'];"],
+    'a superglobal\'s item assigned' => ["\$_SERVER['SHARED'] = '5';"],
+    'a variable assigned in a describe body what a call returns' => ["describe('money', function (): void { \$money = Money::of(5); it('adds', fn () => 1); });"],
+    'a variable assigned an anonymous class, which ends the statement' => ["\$clock = new class {};"],
+    'a variable assigned a match, which ends the statement' => ["\$rate = match (PHP_OS_FAMILY) { 'Linux' => 1, default => 2 };"],
+    'a variable not of its own handed to with()' => ["it('adds', fn (int \$a) => \$a)->with(\$rows);"],
+    'a variable assigned what a call returns, handed to with()' => ["\$money = Money::of(5); it('adds', fn (Money \$a) => \$a)->with([\$money]);"],
+    'a variable of its own called' => ["\$make = static fn (): array => [[1]]; it('adds', fn (int \$a) => \$a)->with(\$make());"],
+    'variables that only assign each other' => ["\$a = \$b; \$b = \$a;"],
 ]);
