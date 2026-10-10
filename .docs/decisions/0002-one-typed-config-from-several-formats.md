@@ -281,16 +281,18 @@ cannot.
    - A name either key lists that the PHPUnit configuration does not declare
      fails the run with exit code 2, naming the suites it does declare.
    - `tests.holding` lists the suites whose tests judge only the units they
-     hold with `#[Holds]` (ADR-0005), each once and at least one, never one
-     `tests.suites` also lists. A run of the tests that hold a unit, its
-     coverage run and each of its mutants' runs, runs these suites as well;
-     a run of the whole suite, or of some test files, never does, so a
-     holding suite's tests are in no other unit's covering tests. Where
-     `tests.suites` lists none, every declared suite `tests.holding` leaves
-     out judges every unit, and a holding list that leaves none fails the
-     run with exit code 2. This keeps a suite of slow tests, such as tests
-     that start real processes, out of every mutant's run but those of the
-     units it exists to test.
+     hold with `#[Holds]` or a `holds:` group (ADR-0005), each once and at
+     least one, never one `tests.suites` also lists. A hold written in one
+     of these suites adds judges to what it holds rather than replacing
+     them (ADR-0005, decision 9): its tests judge the held path's mutants
+     beside the tests the other suites already judge them by. They judge no
+     other unit's mutants, so they are in no other unit's covering tests.
+     Where `tests.suites` lists none, every declared suite `tests.holding`
+     leaves out judges every unit, and a holding list that leaves none fails
+     the run with exit code 2. This keeps a suite of slow tests, such as
+     tests that start real processes, out of every mutant's run but those
+     of the units it exists to test, and loses none of the mutants those
+     tests kill.
    - Both keys affect results, so they are in the proof key (ADR-0007
      decision 2.3). `--suite` names one suite over both (ADR-0025, decision
      9).
