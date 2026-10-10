@@ -22,6 +22,18 @@ it('writes the arguments to the process\'s killer file, which Pest\'s own proces
         ->toBe([RecordLine::arguments('/tmp/mutations/abc', ['vendor/bin/pest', '--filter=a b|c'])]);
 });
 
+it('adds each process\'s arguments to its killer file after what it holds', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+
+    StartedWith::record($results, '/tmp/mutations/abc', ['vendor/bin/pest', '--bail']);
+    StartedWith::record($results, '/tmp/mutations/abc', ['vendor/bin/pest', '--filter=b']);
+
+    expect(KillerFile::taken(KillerFile::beside($results, '/tmp/mutations/abc'), '/tmp/mutations/abc'))->toBe([
+        RecordLine::arguments('/tmp/mutations/abc', ['vendor/bin/pest', '--bail']),
+        RecordLine::arguments('/tmp/mutations/abc', ['vendor/bin/pest', '--filter=b']),
+    ]);
+});
+
 it('takes no arguments from a line cut short, or from one whose JSON is no list of words', function (string $line): void {
     $results = sprintf('%s/results.jsonl', Scratch::directory());
     file_put_contents(KillerFile::beside($results, '/tmp/mutations/abc'), $line);
@@ -36,10 +48,14 @@ it('takes no arguments from a line cut short, or from one whose JSON is no list 
 
 it('records nothing where the adapter names no results file or copy', function (string|false $results, string|false $mutated): void {
     $directory = Scratch::directory();
+    $before = (string) getcwd();
+    chdir($directory);
 
     StartedWith::record($results === 'here' ? sprintf('%s/results.jsonl', $directory) : $results, $mutated, ['vendor/bin/pest']);
+    chdir($before);
+    $entries = scandir($directory);
 
-    expect(glob(sprintf('%s/*', $directory)))->toBe([]);
+    expect($entries === false ? $entries : array_values(array_diff($entries, ['.', '..'])))->toBe([]);
 })->with([
     'no results file' => [false, '/tmp/mutations/abc'],
     'an empty results file' => ['', '/tmp/mutations/abc'],
