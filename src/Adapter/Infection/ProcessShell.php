@@ -7,14 +7,19 @@ namespace NightWorksIO\MutationGate\Adapter\Infection;
 use function array_fill_keys;
 use function array_filter;
 use function array_key_exists;
+use function array_map;
 
 use NightWorksIO\MutationGate\Core\Runner\EnvironmentRead;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
+use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\SearchPath;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Withholding;
+use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Runner\WorkerVariable;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Port\Processes;
 
 /**
@@ -47,11 +52,24 @@ final readonly class ProcessShell implements Shell
 
     public function run(Command $command): Ran
     {
-        return $this->processes->run(
-            ProcessCommand::of($this->directory, ...$command->arguments())
-                ->with(EnvironmentRead::of([...$this->environment($command->withheld()), ...$command->environment()]))
-                ->within($command->deadline()),
+        return $this->processes->run($this->processCommandOf($command));
+    }
+
+    public function sideBySide(WorkerSlots $slots, Seconds|Unlimited $startingWithin, Command ...$commands): ProcessEnds
+    {
+        return $this->processes->sideBySide(
+            $slots,
+            $startingWithin,
+            ...array_map($this->processCommandOf(...), $commands),
         );
+    }
+
+    /** A command as a process runs it: in this shell's directory, told what the process must and must not see. */
+    private function processCommandOf(Command $command): ProcessCommand
+    {
+        return ProcessCommand::of($this->directory, ...$command->arguments())
+            ->with(EnvironmentRead::of([...$this->environment($command->withheld()), ...$command->environment()]))
+            ->within($command->deadline());
     }
 
     /**

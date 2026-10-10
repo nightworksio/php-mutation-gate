@@ -6,7 +6,7 @@ namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 use function file_get_contents;
 use function file_put_contents;
-use function hrtime;
+use function getmypid;
 use function is_file;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -17,18 +17,19 @@ use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Control\PeakLauncher;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 
 use function sprintf;
+use function strval;
 
 /**
  * Unmutated controls as the Infection runner runs them (ADR-0008, decision
  * 2): each control's tests with every test they depend on, in a suite of
- * the files that declare their classes and selected by their ids, on a config shaped as Infection shapes
- * a mutant's, whose bootstrap serves an unchanged copy of its file through
+ * the files that declare their classes and selected by their ids, on a
+ * config shaped as Infection shapes a mutant's, whose bootstrap serves an unchanged copy of its file through
  * Infection's include interceptor (see StartUpConfig), under the request's
- * memory cap and allowed its limit; one after another, as the adapter runs
- * every process, none started once the request's deadline has passed. Its
+ * memory cap and allowed its limit; side by side in the request's pool, none
+ * started once the request's deadline has passed. Its
  * tests' time is the time its process took, and its peak what the launcher
  * it starts through measured (see PeakLauncher).
  */
@@ -62,7 +63,10 @@ final readonly class UnmutatedRuns
         };
     }
 
-    /** What each control found, one after another, until the request's deadline has passed. */
+    /**
+     * What each control found, run side by side in the request's pool, none
+     * started once the request's deadline has passed.
+     */
     private function controlled(
         MutationRequest $request,
         Controls $controls,
@@ -71,34 +75,29 @@ final readonly class UnmutatedRuns
         string $launcher,
     ): ControlRuns {
         file_put_contents($launcher, PeakLauncher::SCRIPT);
-        $deadline = $request->deadline();
-        $end = $deadline instanceof Seconds ? hrtime(as_number: true) + $deadline->nanoseconds() : PHP_INT_MAX;
         $runs = ControlRuns::none();
+        $asked = [];
+        $commands = [];
 
         foreach ($controls as $at => $control) {
-            if (hrtime(as_number: true) >= $end) {
-                break;
+            $command = $this->commandOf($at, $control, $request, $config, $scan, $launcher);
+
+            if ($command instanceof CannotJudge) {
+                $runs = $runs->with($control, ControlRun::unrun($command->why()));
+
+                continue;
             }
 
-            $selected = Control::of(
-                $control->file(),
-                TestFiles::withDependencies($this->project, $control->tests()),
-                $control->limit(),
-            );
-            $written = StartUpConfig::holding(
-                $this->project,
-                $config,
-                $selected->file(),
-                TestFiles::declaring($this->project, $selected->tests())->files(),
-                sprintf(self::PLACE, Control::DIRECTORY, $at),
-            );
-            $peak = $written instanceof CannotJudge
-                ? $written
-                : $this->project->fresh($this->project->own(sprintf(self::PEAK, Control::DIRECTORY, $at)));
-            $run = $peak instanceof CannotJudge
-                ? ControlRun::unrun($peak->why())
-                : $this->ran($written, $peak, $launcher, $selected, $request, $config, $scan);
-            $runs = $runs->with($control, $run);
+            $asked[] = [$control, $this->peakOf($at)];
+            $commands[] = $command;
+        }
+
+        $slots = WorkerSlots::of($request->pool()->processes(), strval(getmypid()));
+
+        foreach ($this->shell->sideBySide($slots, $request->deadline(), ...$commands) as $index => $ran) {
+            [$control, $peak] = $asked[$index];
+            $written = is_file($peak) ? (string) file_get_contents($peak) : '';
+            $runs = $runs->with($control, PeakLauncher::measured(ControlRun::ofProcess($ran), $written, PHP_OS_FAMILY));
         }
 
         $scan->remove();
@@ -106,24 +105,43 @@ final readonly class UnmutatedRuns
         return $runs;
     }
 
-    /** What a control found, run on its config through the launcher, with the peak it wrote. */
-    private function ran(
-        string $config,
-        string $peak,
-        string $launcher,
+    /**
+     * A control's command: its tests, with every test they depend on, on a
+     * config of their own, through the launcher, writing its peak beside it; or why it cannot run.
+     */
+    private function commandOf(
+        int $at,
         Control $control,
         MutationRequest $request,
         OwnConfig $own,
         MemoryScan $scan,
-    ): ControlRun {
-        $ran = $this->shell->run($scan->onto(
-            Invocation::controlling($this->project, $own, $config, $control->tests())
-                ->withholding($request->withheld())
-                ->within($control->limit())
-                ->launchedBy($launcher, $peak),
-        ));
-        $written = is_file($peak) ? (string) file_get_contents($peak) : '';
+        string $launcher,
+    ): Command|CannotJudge {
+        $tests = TestFiles::withDependencies($this->project, $control->tests());
+        $written = StartUpConfig::holding(
+            $this->project,
+            $own,
+            $control->file(),
+            TestFiles::declaring($this->project, $tests)->files(),
+            sprintf(self::PLACE, Control::DIRECTORY, $at),
+        );
+        $peak = $written instanceof CannotJudge ? $written : $this->project->fresh($this->peakOf($at));
 
-        return PeakLauncher::measured(ControlRun::ofProcess($ran), $written, PHP_OS_FAMILY);
+        return match (true) {
+            $written instanceof CannotJudge => $written,
+            $peak instanceof CannotJudge => $peak,
+            default => $scan->onto(
+                Invocation::controlling($this->project, $own, $written, $tests)
+                    ->withholding($request->withheld())
+                    ->within($control->limit())
+                    ->launchedBy($launcher, $peak),
+            ),
+        };
+    }
+
+    /** Where the launcher of the control at a position writes its peak. */
+    private function peakOf(int $at): string
+    {
+        return $this->project->own(sprintf(self::PEAK, Control::DIRECTORY, $at));
     }
 }
