@@ -445,6 +445,49 @@ it('reads the changes alike whatever copy detection the user\'s own config asks 
     ]);
 });
 
+it('cannot tell the head of a repository with no commit yet, git saying nothing of it', function (): void {
+    $head = Git::at(Repository::empty()->root)->head();
+
+    expect($head instanceof CannotTell ? $head->why() : $head)->toBe('git rev-parse --verify --quiet HEAD^{commit} gave no answer: ');
+});
+
+it('cannot tell when the last change of a file was where git cannot read its history', function (): void {
+    expect(Git::at(Scratch::directory())->lastChanged(Paths::of(Path::of('src/A.php'))))->toBeInstanceOf(CannotTell::class);
+});
+
+it('cannot tell whether a working tree is clean where git cannot read the index, or the files it ignores', function (): void {
+    $repository = Repository::empty()->write('src/A.php', "<?php\n")->commit('The base.');
+    $unread = Repository::empty()->write('src/A.php', "<?php\n")->commit('The base.');
+    file_put_contents(sprintf('%s/.git/index', $unread->root), 'not an index');
+    $exclude = sprintf('%s/.git/info/exclude', $repository->root);
+
+    if (is_file($exclude)) {
+        unlink($exclude);
+    }
+
+    mkdir($exclude, recursive: true);
+    $index = Git::at($unread->root)->isClean();
+    $ignored = Git::at($repository->root)->isClean();
+
+    expect($index instanceof CannotTell ? $index->why() : $index)->toStartWith('git ls-files -v -z gave no answer: ')
+        ->and($ignored instanceof CannotTell ? $ignored->why() : $ignored)->toStartWith('git --no-optional-locks status --porcelain ');
+});
+
+it('tells an untracked file from a clean tree whatever the repository configures, and writes nothing while it looks', function (): void {
+    $repository = Repository::empty()->write('src/A.php', "<?php\n")->commit('The base.');
+    $index = sprintf('%s/.git/index', $repository->root);
+    touch(sprintf('%s/src/A.php', $repository->root), time() + 60);
+    $before = hash_file('sha256', $index);
+    $clean = Git::at($repository->root)->isClean();
+    $after = hash_file('sha256', $index);
+    $repository->git('config', 'status.showUntrackedFiles', 'no');
+    $repository->write('src/B.php', "<?php\n");
+
+    expect($clean)->toBeTrue()
+        ->and($after)->toBe($before)
+        ->and(Git::at($repository->root)->isClean())->toBeFalse();
+});
+
 it('names the URL its origin remote fetches from, and cannot tell without one', function (): void {
     $repository = Repository::empty()->write('a.txt', "a\n")->commit('One.');
     $none = Git::at($repository->root)->originUrl();

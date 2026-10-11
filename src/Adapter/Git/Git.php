@@ -173,21 +173,21 @@ final readonly class Git implements ChangeSource, Repository
 
     public function isClean(): bool|CannotTell
     {
+        $flagged = $this->git->run(['ls-files', '-v', '-z']);
+
+        if ($flagged instanceof CannotTell || Diff::hidesChanges($flagged)) {
+            return $flagged instanceof CannotTell ? $flagged : false;
+        }
+
         $status = $this->git->run([
             '--no-optional-locks',
             'status',
             '--porcelain',
-            '-z',
             '--untracked-files=all',
             ...OutsideTheWorkspace::pathspec(),
         ]);
-        $flagged = $this->git->run(['ls-files', '-v', '-z']);
 
-        return match (true) {
-            $status instanceof CannotTell => $status,
-            $flagged instanceof CannotTell => $flagged,
-            default => $status === '' && ! Diff::hidesChanges($flagged),
-        };
+        return $status instanceof CannotTell ? $status : $status === '';
     }
 
     /** Whether the clone is shallow: it holds only the newest commits, and not the history before them. */
@@ -219,7 +219,7 @@ final readonly class Git implements ChangeSource, Repository
     /** The URL git's `origin` remote fetches from, as git spells it. */
     public function originUrl(): string|CannotTell
     {
-        $url = $this->git->run(['remote', 'get-url', '--', 'origin']);
+        $url = $this->git->run(['remote', 'get-url', 'origin']);
 
         return $url instanceof CannotTell ? $url : trim($url);
     }
