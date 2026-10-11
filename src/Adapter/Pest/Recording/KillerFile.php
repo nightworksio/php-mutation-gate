@@ -7,10 +7,11 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
 use function array_is_list;
 use function array_map;
 use function array_merge;
-use function array_pad;
 use function array_pop;
+use function array_slice;
 use function explode;
 use function file_get_contents;
+use function implode;
 use function is_array;
 use function is_file;
 use function is_string;
@@ -124,12 +125,11 @@ final readonly class KillerFile
      */
     public static function taken(string $file, string $mutated): array
     {
-        $text = is_file($file) ? file_get_contents($file) : false;
-
-        if (! is_string($text)) {
+        if (! is_file($file)) {
             return [];
         }
 
+        $text = (string) file_get_contents($file);
         unlink($file);
         $lines = explode(self::LINE, $text);
         array_pop($lines);
@@ -144,12 +144,12 @@ final readonly class KillerFile
      */
     private static function recordOf(string $line, string $mutated): array
     {
-        [$mark, $rest] = array_pad(explode(self::SEPARATOR, $line, 2), 2, '');
-        [$test, $placed] = array_pad(explode(self::SEPARATOR, $rest, 2), 2, '');
-        $where = Placed::read($placed);
+        $fields = explode(self::SEPARATOR, $line);
+        $test = implode(array_slice($fields, 1, 1));
+        $where = Placed::read(implode(self::SEPARATOR, array_slice($fields, 2)));
         $named = rawurldecode($test);
 
-        return match (RecordEvent::tryFrom($mark)) {
+        return match (RecordEvent::tryFrom($fields[0])) {
             RecordEvent::Killed => $where instanceof Placed ? [RecordLine::killed($mutated, $named, $where)] : [],
             RecordEvent::Errored => $where instanceof Placed ? [RecordLine::errored($mutated, $named, $where)] : [],
             RecordEvent::Preloaded => [RecordLine::preloaded($mutated)],
@@ -167,7 +167,7 @@ final readonly class KillerFile
      */
     private static function startedWith(string $mutated, string $json): array
     {
-        $decoded = json_validate($json) ? json_decode($json, associative: true) : null;
+        $decoded = json_validate($json) ? json_decode($json) : null;
         $words = [];
 
         foreach (is_array($decoded) && array_is_list($decoded) ? $decoded : [null] as $argument) {

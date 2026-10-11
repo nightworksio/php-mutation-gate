@@ -57,7 +57,7 @@ it('takes the record of every line, the preload, each test and the count, in the
 
 it('takes no record from a line that names no test as failed or errored, nor no place it writes, nor from a count that is no whole number', function (): void {
     $file = sprintf('%s/results.jsonl.abc.killers', Scratch::directory());
-    file_put_contents($file, "{\"mutated\":\"/m/a.php\"}\n\nplanned P%5CTests\nran\nran -1\nran 2x\nkilled\nkilled T 7\nkilled T x - -\nkilled T 7 2 -\nkilled T 7 - abc\nkilled  7 - -\n");
+    file_put_contents($file, "{\"mutated\":\"/m/a.php\"}\n\nplanned P%5CTests\nran\nran -1\nran 2x\nkilled\nkilled T 7\nkilled T x - -\nkilled T 7 2 -\nkilled T 7 - abc\nkilled  7 - -\nerrored T 7\nerrored T x - -\n");
 
     expect(KillerFile::taken($file, '/m/a.php'))->toBe([RecordLine::killed('/m/a.php', '', Placed::unplaced(7))]);
 });
@@ -65,8 +65,11 @@ it('takes no record from a line that names no test as failed or errored, nor no 
 it('takes no record from a last line with no line break after it, as a process stopped while it wrote leaves one', function (): void {
     $file = sprintf('%s/results.jsonl.abc.killers', Scratch::directory());
     file_put_contents($file, sprintf('%skilled P%%5CTests%%5CMon', KillerFile::line(RecordEvent::Killed, 'P\Tests\MoneySpec::first', secondPlace())));
+    $whole = sprintf('%s/results.jsonl.def.killers', Scratch::directory());
+    file_put_contents($whole, sprintf('%s%s', KillerFile::preloaded(), mb_rtrim(KillerFile::ran(3))));
 
-    expect(KillerFile::taken($file, '/m/a.php'))->toBe([RecordLine::killed('/m/a.php', 'P\Tests\MoneySpec::first', secondPlace())]);
+    expect(KillerFile::taken($file, '/m/a.php'))->toBe([RecordLine::killed('/m/a.php', 'P\Tests\MoneySpec::first', secondPlace())])
+        ->and(KillerFile::taken($whole, '/m/a.php'))->toBe([RecordLine::preloaded('/m/a.php')]);
 });
 
 it('takes no record where there is no file', function (): void {

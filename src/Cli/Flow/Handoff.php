@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_any;
-use function array_key_exists;
 use function ini_get;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
@@ -172,18 +171,18 @@ final readonly class Handoff
      */
     private function filesOf(Units $units, CoverageMap $map): Paths
     {
-        $named = [];
+        $named = Paths::none();
         $held = [];
 
         foreach ($units as $unit) {
-            $named[$unit->path()->value()] = true;
+            $named = $named->with($unit->path());
             $held = $unit->isHeld() ? [...$held, $unit->path()] : $held;
         }
 
         $files = [];
 
         foreach ($map->files() as $file) {
-            if (array_key_exists($file->value(), $named) || $this->withinAny($file, $held)) {
+            if ($named->has($file) || $this->withinAny($file, $held)) {
                 $files[] = $file;
             }
         }
