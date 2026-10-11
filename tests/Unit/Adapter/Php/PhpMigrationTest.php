@@ -211,3 +211,25 @@ it('cuts only the outer of two nested removals', function (): void {
 
     expect($migrated->after())->toBe(sprintf("%sreturn Gate::configure()->newCode(1);\n", $uses));
 });
+
+it('cuts a retired link and retired arguments out of a chain written on one line, whatever blanks stand around them', function (): void {
+    $migrated = phpMigrationOf(<<<'PHP'
+        <?php
+
+        use NightWorksIO\MutationGate\Config\Gate;
+        use NightWorksIO\MutationGate\Config\Reach;
+
+        return Gate::configure()-> legacy()->with(Reach::hotSpot(0.5) , Reach::hotSpot(0.4), Reach::paths('src'));
+
+        PHP);
+
+    expect($migrated->after())->toBe(<<<'PHP'
+        <?php
+
+        use NightWorksIO\MutationGate\Config\Gate;
+        use NightWorksIO\MutationGate\Config\Reach;
+
+        return Gate::configure()->with(Reach::paths('src'));
+
+        PHP);
+});

@@ -60,9 +60,9 @@ final readonly class ChainCuts
             $cuts = [...$cuts, ...$cutting->cutsOf($call, $migrations)];
         }
 
-        usort($cuts, static fn(array $one, array $other): int => [$one[0], $other[1]] <=> [$other[0], $one[1]]);
+        usort($cuts, static fn(array $one, array $other): int => $one[0] <=> $other[0]);
         $outer = [];
-        $reached = 0;
+        $reached = PHP_INT_MIN;
 
         foreach ($cuts as [$start, $end]) {
             if ($start >= $reached) {
@@ -72,8 +72,7 @@ final readonly class ChainCuts
         }
 
         foreach (array_reverse($outer) as [$start, $end]) {
-            $rest = Bytes::slice($code, $end, Bytes::length($code) - $end);
-            $code = sprintf('%s%s', Bytes::slice($code, 0, $start), $rest);
+            $code = sprintf('%s%s', Bytes::slice($code, 0, $start), Bytes::from($code, $end));
         }
 
         return $code;
@@ -151,10 +150,10 @@ final readonly class ChainCuts
             return [$line, $this->lineEnd($end)];
         }
 
-        $rest = ltrim(Bytes::slice($this->code, $end, Bytes::length($this->code) - $end), Bytes::BLANKS);
+        $rest = ltrim(Bytes::from($this->code, $end), Bytes::BLANKS);
 
         if (str_starts_with($rest, self::COMMA)) {
-            $tail = ltrim(Bytes::slice($rest, Bytes::length(self::COMMA), Bytes::length($rest)), Bytes::BLANKS);
+            $tail = ltrim(Bytes::from($rest, Bytes::length(self::COMMA)), Bytes::BLANKS);
 
             return [$start, Bytes::length($this->code) - Bytes::length($tail)];
         }

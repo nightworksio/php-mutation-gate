@@ -39,6 +39,12 @@ final readonly class Bytes
         return mb_strpos($text, $sought, $from, self::ENCODING);
     }
 
+    /** The bytes of the text from an offset to its end. */
+    public static function from(string $text, int $from): string
+    {
+        return mb_substr($text, $from, encoding: self::ENCODING);
+    }
+
     /** The bytes of the text from an offset, this many of them, or as many as there are. */
     public static function slice(string $text, int $from, int $length): string
     {
