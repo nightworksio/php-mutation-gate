@@ -67,13 +67,24 @@ it('names each covering test\'s class by its name within its namespace, once', f
     expect($selection->classes())->toBe(['MoneySpec', 'LegacySpec']);
 });
 
-it('fits while the filter argument is shorter than the ceiling, in bytes', function (): void {
-    $test = static fn(int $length): string => sprintf('P\A::__pest_evaluable_%s', str_repeat('x', $length));
+it('fits while the filter argument is shorter than the ceiling, in bytes, where PCRE compiles it', function (): void {
+    $test = static fn(int $length): string => sprintf('P\A::%s%s', str_repeat('\Q\E', intdiv($length, 4)), str_repeat('x', $length % 4));
     $under = $test(Ceiling::BYTES - 19);
     $at = $test(Ceiling::BYTES - 18);
 
     expect(Selection::of(coveringTests($under, $under, 'LegacySpec::decrements'))->fits())->toBeTrue()
         ->and(mb_strlen(Selection::of(coveringTests($under))->argument(), '8bit'))->toBe(Ceiling::BYTES - 1)
         ->and(Selection::of(coveringTests($at))->fits())->toBeFalse()
+        ->and(Selection::of(coveringTests($at))->filter()->compiles())->toBeTrue()
         ->and(Selection::of(coveringTests())->fits())->toBeTrue();
+});
+
+it('does not fit where PCRE cannot compile the filter, however short the argument', function (): void {
+    $tests = array_map(static fn(int $at): string => sprintf('P\Tests\Unit\MoneyTest::__pest_evaluable_it_adds_%d', $at), range(1, 2000));
+    $selection = Selection::of(coveringTests(...$tests));
+
+    expect(Ceiling::admits($selection->argument()))->toBeTrue()
+        ->and($selection->fits())->toBeFalse()
+        ->and(Selection::passable($selection->argument()))->toBeFalse()
+        ->and(Selection::passable('--filter="MoneyTest::(.*)adds"'))->toBeTrue();
 });

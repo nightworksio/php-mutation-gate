@@ -55,7 +55,10 @@ They differ in ways that shape the adapters.
   that every test covers. Pest builds one `--filter` argument naming every
   covering test, and for such a line that argument grows past the kernel's
   limit, so the child process never starts (`posix_spawn() failed: Argument
-  list too long`).
+  list too long`). Well before that, the pattern grows past what PHP's PCRE
+  compiles: PHPUnit then matches no test name, the run executes no test and
+  exits 0, and Pest calls the mutant survived. The patch drops such a filter
+  too.
 - **Mutator names are short class names, and some are shared:** two
   `BitwiseAndToBitwiseOr` classes exist, in different namespaces. `--mutator`
   accepts a fully qualified class name.

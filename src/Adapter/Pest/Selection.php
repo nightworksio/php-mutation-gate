@@ -46,8 +46,9 @@ final readonly class Selection
     /**
      * @param list<string> $tests
      * @param string       $argument the `--filter` argument the tests make, built once
+     * @param bool         $fits     whether the argument is passed, judged once
      */
-    private function __construct(private array $tests, private string $argument)
+    private function __construct(private array $tests, private string $argument, private bool $fits)
     {
     }
 
@@ -57,7 +58,19 @@ final readonly class Selection
         $tests = array_map(static fn(TestId $test): string => $test->value(), [...$covering]);
         $pieces = array_unique(array_filter(array_map(self::pieceOf(...), $tests), is_string(...)));
 
-        return new self($tests, sprintf('%s"%s"', self::ARGUMENT, implode('|', $pieces)));
+        $argument = sprintf('%s"%s"', self::ARGUMENT, implode('|', $pieces));
+
+        return new self($tests, $argument, self::passable($argument));
+    }
+
+    /**
+     * Whether pest-plugin-mutate's `--filter` argument reaches a mutant's own
+     * run: short enough, in bytes, to start a process with (see Ceiling), and
+     * a pattern PCRE compiles, without which PHPUnit selects no test.
+     */
+    public static function passable(string $argument): bool
+    {
+        return Ceiling::admits($argument) && self::filterIn($argument)->compiles();
     }
 
     public function count(): int
@@ -68,7 +81,7 @@ final readonly class Selection
     /** The filter, as pest-plugin-mutate passes it, quotes and all, for a run that selects as a mutant's does. */
     public function filter(): Filter
     {
-        return Filter::matching(mb_substr($this->argument, mb_strlen(self::ARGUMENT)));
+        return self::filterIn($this->argument);
     }
 
     /** The `--filter` argument pest-plugin-mutate starts the mutant's process with. */
@@ -77,10 +90,10 @@ final readonly class Selection
         return $this->argument;
     }
 
-    /** Whether the `--filter` argument is short enough to be passed, in bytes, as the patch counts it. */
+    /** Whether the `--filter` argument is passed, as the patch judges it (see passable). */
     public function fits(): bool
     {
-        return Ceiling::admits($this->argument);
+        return $this->fits;
     }
 
     /** The covering tests the filter does not select. */
@@ -103,6 +116,12 @@ final readonly class Selection
         }
 
         return array_values($classes);
+    }
+
+    /** The filter a `--filter` argument passes, quotes and all. */
+    private static function filterIn(string $argument): Filter
+    {
+        return Filter::matching(mb_substr($argument, mb_strlen(self::ARGUMENT)));
     }
 
     /** The alternative pest-plugin-mutate adds to the filter for one test, or none where it drops the test. */

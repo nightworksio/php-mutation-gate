@@ -52,7 +52,7 @@ final readonly class Instant
     {
         $moment = DateTimeImmutable::createFromFormat(self::FORMAT, $this->value, new DateTimeZone(self::UTC));
 
-        return $moment instanceof DateTimeImmutable && $moment->format(self::FORMAT) === $this->value
+        return $moment !== false && $moment->format(self::FORMAT) === $this->value
             ? $moment
             : CannotJudge::because(sprintf('"%s" is no moment of the calendar.', $this->value));
     }

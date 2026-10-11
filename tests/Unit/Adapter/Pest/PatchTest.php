@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\PrunedFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Twins;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Verdicts;
+use NightWorksIO\MutationGate\Adapter\Pest\Selection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Tests\Support\FileModes;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
@@ -33,7 +34,11 @@ it('patches the four files, leaving each one PHP', function () use ($vendor, $so
     expect(Patch::isAppliedIn($at))->toBeFalse()
         ->and(Patch::applyIn($at))->toBe('pest:patch patched 4 of the 4 files it changes in pest-plugin-mutate.')
         ->and(Patch::isAppliedIn($at))->toBeTrue()
-        ->and($source($at, 'MutationTest.php'))->toContain("...(strlen(\$filter) < 100000 ? [\$filter] : []),\n")
+        ->and($source($at, 'MutationTest.php'))->toContain(sprintf(
+            '$passed = class_exists(\\%1$s::class) ? \\%1$s::passable($filter) : strlen($filter) < 100000;',
+            Selection::class,
+        ))
+        ->and($source($at, 'MutationTest.php'))->toContain("...(\$passed ? [\$filter] : []),\n")
         ->and($source($at, 'Plugins/Mutate.php'))
         ->toContain("if ((string) getenv('MUTATION_GATE_SHARED_COVERAGE') !== '') {\n")
         ->and($source($at, 'Plugins/Mutate.php'))
