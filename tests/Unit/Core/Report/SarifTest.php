@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Report\Sarif;
 use NightWorksIO\MutationGate\Core\Report\SourceRoot;
 use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Tests\Support\Clustered;
@@ -116,15 +117,32 @@ it('keeps a message that holds a workflow command JSON-escaped, on no line of it
 });
 
 it('says a security mutant\'s result is one, and makes it an error where its security set failed', function (): void {
-    $sarif = Sarif::json(Verdicts::secured());
-    $results = Decoded::at($sarif, 'runs', 0, 'results');
-    $security = array_values(array_filter(
+    $results = Decoded::at(Sarif::json(Verdicts::secured()), 'runs', 0, 'results');
+    $properties = array_map(
+        static fn(mixed $result): mixed => is_array($result) ? $result['properties'] ?? null : null,
         is_array($results) ? $results : [],
-        static fn(mixed $result): bool => is_array($result) && is_array($result['properties'] ?? null) && ($result['properties']['security'] ?? false) === true,
-    ));
+    );
+    $security = array_keys(array_filter($properties, static fn(mixed $said): bool => is_array($said) && ($said['security'] ?? false) === true));
+    $first = $security[0] ?? 0;
 
-    expect(count($security))->toBe(1)
-        ->and($security[0]['level'] ?? null)->toBe('error')
-        ->and($security[0]['properties']['id'] ?? null)->toBe(Secured::mutant(MutantJudgement::Survived, 3)->mutant()->id()->value())
-        ->and(Schema::errors($sarif, Schema::fetched(...SARIF_SCHEMA)))->toBe([]);
+    expect($security)->toHaveCount(1)
+        ->and(is_array($results) && is_array($results[$first]) ? $results[$first]['level'] : null)->toBe('error')
+        ->and(is_array($properties[$first]) ? $properties[$first]['id'] : null)->toBe(Secured::mutant(MutantJudgement::Survived, 3)->mutant()->id()->value())
+        ->and(array_filter($properties, static fn(mixed $said): bool => is_array($said) && array_key_exists('security', $said) && $said['security'] !== true))->toBe([]);
+});
+
+it('writes a security mutant\'s result as SARIF 2.1.0\'s schema describes it', function (): void {
+    expect(Schema::errors(Sarif::json(Verdicts::secured()), Schema::fetched(...SARIF_SCHEMA)))->toBe([]);
 })->group('network');
+
+it('describes each rule and the tool where a reader can learn more of them', function (): void {
+    $sarif = Sarif::json(Verdicts::passing());
+
+    expect(Decoded::at($sarif, 'runs', 0, 'tool', 'driver', 'informationUri'))->toBe(ThisPackage::REPOSITORY)
+        ->and(Decoded::at($sarif, 'runs', 0, 'tool', 'driver', 'rules', 0))->toBe([
+            'id' => 'survived',
+            'shortDescription' => ['text' => 'A mutant no test fails on.'],
+            'helpUri' => ThisPackage::REPOSITORY,
+        ])
+        ->and(Decoded::column($sarif, 'helpUri', 'runs', 0, 'tool', 'driver', 'rules'))->toBe(array_fill(0, 4, ThisPackage::REPOSITORY));
+});
