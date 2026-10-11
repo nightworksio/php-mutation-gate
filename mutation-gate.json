@@ -269,6 +269,11 @@
                 "expires": "2027-10-06"
             },
             {
+                "mutant": "a6a05d04da17",
+                "reason": "Equivalent: TestFile::closingOf compares token indices, and a brace's index never equals the index of the class keyword, so > and >= pick the same brace.",
+                "expires": "2027-10-11"
+            },
+            {
                 "mutant": "138ea56eced8",
                 "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
                 "expires": "2027-10-06"
