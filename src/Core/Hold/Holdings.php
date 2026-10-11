@@ -203,7 +203,7 @@ final readonly class Holdings
     {
         foreach ($units as $outer) {
             foreach ($units as $inner) {
-                if (self::clash($outer->path(), $inner->path(), $added)) {
+                if ($this->clash($outer->path(), $inner->path(), $added)) {
                     return CannotJudge::because(
                         sprintf(self::NESTED, $outer->path()->value(), $inner->path()->value()),
                     );
@@ -215,10 +215,10 @@ final readonly class Holdings
     }
 
     /** Whether one held path lies inside another where a mutant there would be judged twice. */
-    private static function clash(Path $outer, Path $inner, Paths $added): bool
+    private function clash(Path $outer, Path $inner, Paths $added): bool
     {
         $nested = ! $inner->equals($outer) && $inner->within($outer);
 
-        return $nested && ! ($added->has($inner) && $added->has($outer));
+        return $nested && (!$added->has($inner) || !$added->has($outer));
     }
 }
