@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Pest\Remembered;
+use NightWorksIO\MutationGate\Adapter\Pest\ReplayVerdict;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -77,4 +78,23 @@ it('runs each baseline once, all it does not know in one call, and keeps nothing
         [true],
     ])
         ->and($asked)->toBe([['passes', 'fails', 'stopped', 'unstarted'], ['stopped', 'unstarted']]);
+});
+
+it('replays each key not yet kept once, though it is asked for twice, none where every key is kept, and keeps no replay that had no time', function (): void {
+    $remembered = new Remembered();
+    $ran = [];
+    $running = static function (array $keys) use (&$ran): array {
+        $ran[] = $keys;
+
+        return array_map(static fn(string $key): ReplayVerdict => $key === 'b' ? ReplayVerdict::NoTime : ReplayVerdict::Stands, $keys);
+    };
+
+    $first = $remembered->replays(['a', 'b', 'a'], $running);
+    $again = $remembered->replays(['a', 'b'], $running);
+    $kept = $remembered->replays(['a'], $running);
+
+    expect($ran)->toBe([['a', 'b'], ['b']])
+        ->and($kept)->toBe([ReplayVerdict::Stands])
+        ->and($first)->toBe([ReplayVerdict::Stands, ReplayVerdict::NoTime, ReplayVerdict::Stands])
+        ->and($again)->toBe([ReplayVerdict::Stands, ReplayVerdict::NoTime]);
 });
