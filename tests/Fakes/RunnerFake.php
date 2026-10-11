@@ -152,7 +152,7 @@ final readonly class RunnerFake implements Runner
             ->grouping(Group::named('holds:src/Held.php'), TestIds::of(TestId::of('HeldTest::doubles')))
             ->grouping(Group::named(Library::CANARY), TestIds::none());
 
-        return (new self(
+        return new self(
             Identity::of('fake', Versions::of(Version::of('fake/runner', '1.0.0', 'abc123')), Digest::of('php')),
             Groups::of(Group::named('holds:src/Held.php'), Group::named(Library::CANARY)),
             $map,
@@ -167,7 +167,7 @@ final readonly class RunnerFake implements Runner
                     '"one"',
                 )),
             Paths::of(Path::of('fixture')),
-        ))->listingIn(Suites::all(), $listed);
+        )->listingIn(Suites::all(), $listed);
     }
 
     public function identity(Withheld $withheld): Identity|CannotJudge
