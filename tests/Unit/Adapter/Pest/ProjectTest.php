@@ -65,7 +65,7 @@ it('makes a directory where it is not there, and leaves one that is', function (
         ->and(is_dir($made))->toBeTrue();
 });
 
-it('names a results file with no earlier run\'s results, map, list of mutants, log of events, verdicts, pruned list, mutated copies, error logs or killer files left beside it', function () use ($project): void {
+it('names a results file with no earlier run\'s results, map, list of mutants, log of events, verdicts, pruned list, mutated copies, error logs, killer files or replays left beside it', function () use ($project): void {
     $at = $project();
     $results = sprintf('%s/.mutation-gate/pest/results.jsonl', $at->root());
     mkdir(dirname($results), recursive: true);
@@ -79,6 +79,7 @@ it('names a results file with no earlier run\'s results, map, list of mutants, l
     file_put_contents(sprintf('%s/mutants/n1.php', dirname($results)), 'earlier');
     file_put_contents(Recorder::errorsBeside($results, '/tmp/mutations/n1.php'), 'earlier');
     file_put_contents(KillerFile::beside($results, '/tmp/mutations/n1.php'), 'earlier');
+    file_put_contents(sprintf('%s.replay-0', $results), 'earlier');
 
     expect($at->freshResults())->toBe($results)
         ->and(is_file($results))->toBeFalse()
@@ -90,6 +91,7 @@ it('names a results file with no earlier run\'s results, map, list of mutants, l
         ->and(is_file(sprintf('%s/mutants/n1.php', dirname($results))))->toBeFalse()
         ->and(is_file(Recorder::errorsBeside($results, '/tmp/mutations/n1.php')))->toBeFalse()
         ->and(is_file(KillerFile::beside($results, '/tmp/mutations/n1.php')))->toBeFalse()
+        ->and(is_file(sprintf('%s.replay-0', $results)))->toBeFalse()
         ->and($at->freshResults())->toBe($results);
 });
 
@@ -115,11 +117,14 @@ it('cannot name a results file where an earlier run\'s cannot be removed', funct
 it('names the order directory with no earlier run\'s plan or orders left in it, or why they are', function () use ($project): void {
     $at = $project();
     $order = sprintf('%s/.mutation-gate/order', $at->root());
-    mkdir(sprintf('%s/m1', $order), recursive: true);
+    mkdir(sprintf('%s/m1/copy', $order), recursive: true);
     file_put_contents(sprintf('%s/plan.json', $order), 'earlier');
     file_put_contents(sprintf('%s/m1/test-run-history', $order), 'earlier');
+    file_put_contents(sprintf('%s/m1/copy/test-run-history', $order), 'earlier');
     $fresh = $at->freshOrder();
-    $emptied = ! is_file(sprintf('%s/plan.json', $order)) && ! is_file(sprintf('%s/m1/test-run-history', $order));
+    $emptied = ! is_file(sprintf('%s/plan.json', $order))
+        && ! is_file(sprintf('%s/m1/test-run-history', $order))
+        && ! is_file(sprintf('%s/m1/copy/test-run-history', $order));
     mkdir(sprintf('%s/plan.json', $order));
 
     expect($fresh)->toBe($order)
