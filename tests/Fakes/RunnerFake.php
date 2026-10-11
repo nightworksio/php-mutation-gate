@@ -148,7 +148,11 @@ final readonly class RunnerFake implements Runner
             $mutants = $mutants->with(self::mutant($change, $mutator, $family, $map));
         }
 
-        return new self(
+        $listed = TestListing::of(TestIds::of(TestId::of('MoneyTest::adds'), TestId::of('HeldTest::doubles')))
+            ->grouping(Group::named('holds:src/Held.php'), TestIds::of(TestId::of('HeldTest::doubles')))
+            ->grouping(Group::named(Library::CANARY), TestIds::none());
+
+        return (new self(
             Identity::of('fake', Versions::of(Version::of('fake/runner', '1.0.0', 'abc123')), Digest::of('php')),
             Groups::of(Group::named('holds:src/Held.php'), Group::named(Library::CANARY)),
             $map,
@@ -163,7 +167,7 @@ final readonly class RunnerFake implements Runner
                     '"one"',
                 )),
             Paths::of(Path::of('fixture')),
-        );
+        ))->listingIn(Suites::all(), $listed);
     }
 
     public function identity(Withheld $withheld): Identity|CannotJudge
