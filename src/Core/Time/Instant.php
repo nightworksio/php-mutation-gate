@@ -62,4 +62,10 @@ final readonly class Instant
     {
         return $this->value > $other->value;
     }
+
+    /** Below zero where this came first, above zero where it came last, and zero where both are one moment. */
+    public function comparedTo(self $other): int
+    {
+        return $this->value <=> $other->value;
+    }
 }
