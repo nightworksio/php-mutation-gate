@@ -16,7 +16,6 @@ use function mkdir;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Bridged;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
-use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
@@ -214,7 +213,7 @@ final readonly class Recorder
         $verdicts = getenv(GateVariable::Verdicts->value);
 
         if (is_string($verdicts) && $verdicts !== '') {
-            Verdicts::await($verdicts, Seconds::of((float) Seconds::PER_HOUR));
+            Verdicts::await($verdicts, Seconds::of(Seconds::PER_HOUR));
         }
     }
 
@@ -261,9 +260,14 @@ final readonly class Recorder
             return;
         }
 
-        $logged = (string) file_get_contents($log);
-        $limit = Exhaustion::in($logged);
+        $logged = file_get_contents($log);
         unlink($log);
+
+        if (! is_string($logged)) {
+            return;
+        }
+
+        $limit = Exhaustion::in($logged);
 
         if ($limit instanceof MemoryCap) {
             $this->write(RecordLine::exhausted($mutated, $limit));
@@ -289,16 +293,10 @@ final readonly class Recorder
         $this->write(RecordLine::end());
     }
 
-    /** A mutant's status as the plugin knows it, or as Pest names one it does not. */
-    private function statusOf(MutationTest $test): PestStatus|string
+    /** A mutant's status, as Pest names it: the record holds the word whether or not the plugin knows it. */
+    private function statusOf(MutationTest $test): string
     {
-        return $this->known($test->result()->value);
-    }
-
-    /** A status Pest names, as the plugin knows it, or as Pest names it where a later Pest adds one. */
-    private function known(string $word): PestStatus|string
-    {
-        return PestStatus::tryFrom($word) ?? $word;
+        return $test->result()->value;
     }
 
     /** @phpstan-assert-if-true non-empty-string $results */

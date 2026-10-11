@@ -129,8 +129,12 @@ final readonly class KillerFile
             return [];
         }
 
-        $text = (string) file_get_contents($file);
+        $text = file_get_contents($file);
         unlink($file);
+
+        if (! is_string($text)) {
+            return [];
+        }
         $lines = explode(self::LINE, $text);
         array_pop($lines);
 

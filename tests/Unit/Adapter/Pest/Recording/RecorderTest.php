@@ -211,6 +211,23 @@ it('waits for the gate\'s verdicts once every planned mutant is written, where t
         ->and(Mutations::recorded($results))->toHaveCount(2);
 });
 
+it('waits for no verdicts where the gate names no file for them', function (): void {
+    $root = (string) realpath(Scratch::directory());
+    Scratch::write($root, 'src/Money.php', '<?php');
+    $results = sprintf('%s/unverdicted.jsonl', $root);
+    putenv(sprintf('%s=', GateVariable::Verdicts->value));
+    $started = hrtime(as_number: true);
+
+    try {
+        Mutations::recorder($results, '/c')->planned(Mutations::suite(sprintf('%s/src/Money.php', $root), MutationTestResult::None));
+    } finally {
+        putenv(GateVariable::Verdicts->value);
+    }
+
+    expect(Mutations::recorded($results))->toHaveCount(2)
+        ->and(hrtime(as_number: true) - $started)->toBeLessThan(Seconds::of(Seconds::PER_MINUTE)->nanoseconds());
+});
+
 it('records each outcome as it arrives, one line of JSON with its slashes as they are', function (): void {
     $root = Scratch::directory();
     $results = sprintf('%s/results.jsonl', $root);
