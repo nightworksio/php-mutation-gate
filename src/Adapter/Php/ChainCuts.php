@@ -36,8 +36,6 @@ final readonly class ChainCuts
 {
     private const string NEWLINE = "\n";
 
-    private const string BLANKS = " \t";
-
     private const string SPACE = " \t\r\n";
 
     private const string ARROW = '->';
@@ -153,10 +151,10 @@ final readonly class ChainCuts
             return [$line, $this->lineEnd($end)];
         }
 
-        $rest = ltrim(Bytes::slice($this->code, $end, Bytes::length($this->code) - $end), self::BLANKS);
+        $rest = ltrim(Bytes::slice($this->code, $end, Bytes::length($this->code) - $end), Bytes::BLANKS);
 
         if (str_starts_with($rest, self::COMMA)) {
-            $tail = ltrim(Bytes::slice($rest, Bytes::length(self::COMMA), Bytes::length($rest)), self::BLANKS);
+            $tail = ltrim(Bytes::slice($rest, Bytes::length(self::COMMA), Bytes::length($rest)), Bytes::BLANKS);
 
             return [$start, Bytes::length($this->code) - Bytes::length($tail)];
         }
@@ -169,7 +167,7 @@ final readonly class ChainCuts
     /** Where the newline before this offset is, where only blanks stand between them; or the offset itself. */
     private function lineStart(int $offset): int
     {
-        $lead = rtrim(Bytes::slice($this->code, 0, $offset), self::BLANKS);
+        $lead = rtrim(Bytes::slice($this->code, 0, $offset), Bytes::BLANKS);
 
         return str_ends_with($lead, self::NEWLINE) ? Bytes::length($lead) - 1 : $offset;
     }
