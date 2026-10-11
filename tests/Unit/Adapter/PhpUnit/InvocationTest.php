@@ -9,6 +9,8 @@ use NightWorksIO\MutationGate\Adapter\PhpUnit\Project;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Variable;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Worker;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Workplace;
+use NightWorksIO\MutationGate\Core\Coverage\Fresh;
+use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
@@ -73,11 +75,11 @@ it('starts a run of no test as a mutant\'s own run, its mutant the file unchange
         ->and($command?->deadline())->toEqual(Unlimited::time());
 });
 
-it('lists the suite\'s groups without colour, and runs no test', function () use ($project): void {
+it('lists the tests of some suites into a file without colour, and runs no test', function () use ($project): void {
     $at = $project();
-    $command = new Invocation($at, '/gate/override.php')->listingGroups(Withheld::of('SECRET'));
+    $command = new Invocation($at, '/gate/override.php')->listing(Withheld::of('SECRET'), Suites::listed('Unit'), '/w/tests.xml');
 
-    expect($command->arguments())->toBe([PHP_BINARY, sprintf('%s/vendor/bin/phpunit', $at->root()), '--list-groups', '--colors=never'])
+    expect($command->arguments())->toBe([PHP_BINARY, sprintf('%s/vendor/bin/phpunit', $at->root()), '--list-tests-xml=/w/tests.xml', '--colors=never', '--testsuite=Unit'])
         ->and($command->withheld())->toEqual(Withheld::standard()->and(Withheld::of('SECRET')))
         ->and($command->environment())->toBe([]);
 });
@@ -142,21 +144,24 @@ it('keeps the coverage run and each mutant\'s run to one suite where the run nam
         ->and($invocation->coverage($run, '/map.php')->arguments())->not->toContain('--testsuite=unit');
 });
 
-it('runs the holding suites too in a mutant\'s run its unit\'s holding tests judge, and never in one the whole suite judges', function () use ($project): void {
+it('runs the holding suites too in a mutant\'s run its unit\'s holding tests judge, or the whole suite judges through a handed map, and never otherwise', function () use ($project): void {
     $at = $project();
     $files = MutantFiles::startingUp($at, Path::of('src/Money.php'));
     $invocation = new Invocation($at, '/gate/override.php');
     $suites = Narrowing::none()->amongSuites(JudgingSuites::holding(Suites::listed('Unit'), Suites::listed('Process')));
-    $mutant = static function (WholeSuite|Filter $judgedBy) use ($files, $invocation, $suites): array {
+    $mutant = static function (WholeSuite|Filter $judgedBy, Handed|Fresh $coverage) use ($files, $invocation, $suites): array {
         $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), $judgedBy);
+        $request = $coverage instanceof Handed ? $request->reusingCoverage($coverage) : $request;
 
         return $files instanceof MutantFiles
             ? $invocation->of($files, $request->narrowedTo($request->files(), $suites), Seconds::of(10.0))->arguments()
             : [];
     };
+    $handed = Handed::maps(Path::of('shard'), Path::of('whole'));
 
-    expect($mutant(WholeSuite::tests()))->toContain('--testsuite=Unit')
-        ->and($mutant(Filter::matching('MoneyTest')))->toContain('--testsuite=Unit,Process');
+    expect($mutant(WholeSuite::tests(), Fresh::coverage()))->toContain('--testsuite=Unit')
+        ->and($mutant(WholeSuite::tests(), $handed))->toContain('--testsuite=Unit,Process')
+        ->and($mutant(Filter::matching('MoneyTest'), Fresh::coverage()))->toContain('--testsuite=Unit,Process');
 });
 
 it('starts a warm worker as a mutant\'s own run starts PHP, on the worker\'s script, the autoloader and its place, writing its output to its files', function () use ($project): void {

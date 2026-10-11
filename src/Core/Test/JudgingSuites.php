@@ -11,7 +11,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * the suites whose tests judge every unit, as `tests.suites` lists them, and
  * the suites whose tests judge only the units they hold, as `tests.holding`
  * lists them. A run of the whole suite, or of some test files, runs the
- * first alone; a run of the tests that hold a unit runs both.
+ * first alone; a run of the tests that hold a unit runs both, and so does a
+ * run of mutants whose tests a map the gate wrote picks (see Narrowing).
  */
 final readonly class JudgingSuites
 {

@@ -80,7 +80,7 @@ final readonly class PhpUnitSuite
         return new self(
             $directories === [] ? [SuiteDirectory::conventional()] : $directories,
             self::pathsIn($xml, self::FILES),
-            self::pathsIn($xml, self::EXCLUDED),
+            self::excludedIn($xml, self::EXCLUDED, $glob),
             self::suitesIn($xml, $glob),
         );
     }
@@ -140,7 +140,7 @@ final readonly class PhpUnitSuite
             $suites[] = DeclaredSuite::named(
                 (string) $suite->attributes()?->name,
                 self::pathsIn($suite, self::FILE),
-                self::pathsIn($suite, self::EXCLUDE),
+                self::excludedIn($suite, self::EXCLUDE, $glob),
                 ...self::directoriesIn($suite, self::DIRECTORY, $glob),
             );
         }
@@ -175,6 +175,21 @@ final readonly class PhpUnitSuite
         $nodes = $xml->xpath($query);
 
         return $nodes === false || $nodes === null ? [] : array_values($nodes);
+    }
+
+    /**
+     * The paths the `<exclude>` nodes a query finds name, each wildcard
+     * expanded into the directories it matches, as PHPUnit expands them.
+     */
+    private static function excludedIn(SimpleXMLElement $xml, string $query, DirectoryGlob $glob): Paths
+    {
+        $excluded = Paths::none();
+
+        foreach (self::pathsIn($xml, $query) as $path) {
+            $excluded = $excluded->and($glob->expanded($path));
+        }
+
+        return $excluded;
     }
 
     private static function pathsIn(SimpleXMLElement $xml, string $query): Paths

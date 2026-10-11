@@ -5,6 +5,12 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_any;
+use function array_filter;
+
+use const ARRAY_FILTER_USE_KEY;
+
+use function array_keys;
+use function array_map;
 use function array_values;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
@@ -24,6 +30,7 @@ use NightWorksIO\MutationGate\Core\Reach\Sources;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestsDirectory;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -104,15 +111,16 @@ final readonly class Suite
     }
 
     /**
-     * The `#[Holds]` in the test files as Pest's plugin reads them, where Pest
-     * loads these files before it starts any plugin; or the first from which
-     * no group can follow.
+     * The `#[Holds]` in the files of these suites' tests as Pest's plugin
+     * reads them, where Pest loads these files before it starts any plugin
+     * and reads them whatever suite runs; or the first from which no group
+     * can follow.
      */
-    public function pestHolds(Paths $first): PestHolds|CannotJudge
+    public function pestHolds(Paths $first, Suites $among): PestHolds|CannotJudge
     {
         $holds = PestHolds::after($first);
 
-        foreach ($this->contents as $path => $contents) {
+        foreach ($this->contentsAmong($first, $among) as $path => $contents) {
             $holds = $holds->read(Path::of($path), PhpFile::read($contents)->holds());
 
             if ($holds instanceof CannotJudge) {
@@ -123,16 +131,22 @@ final readonly class Suite
         return $holds;
     }
 
-    /** What the `#[Holds]` in the test files declare. */
-    public function holdings(): Holdings
+    /** What the `#[Holds]` in the files of these suites' tests declare: a suite neither list names judges nothing. */
+    public function holdings(Suites $among): Holdings
     {
         $holdings = Holdings::none();
 
-        foreach ($this->contents as $contents) {
+        foreach ($this->contentsAmong(Paths::none(), $among) as $contents) {
             $holdings = $holdings->merge(PhpFile::read($contents)->holdings());
         }
 
         return $holdings;
+    }
+
+    /** Of some test files, those these suites' tests are in. */
+    public function among(Paths $files, Suites $suites): Paths
+    {
+        return $this->configured->suites()->among($files, $suites);
     }
 
     /**
@@ -258,5 +272,22 @@ final readonly class Suite
     {
         return $configured->holdsTestCase($path)
             || array_any($packages, static fn(SuiteDirectory $tests): bool => $tests->holdsTestCase($path));
+    }
+
+    /**
+     * The contents of these files, and of each test file of these suites.
+     *
+     * @return array<string, Contents> by path
+     */
+    private function contentsAmong(Paths $first, Suites $among): array
+    {
+        $files = Paths::of(...array_map(Path::of(...), array_keys($this->contents)));
+        $kept = $this->among($files, $among)->and($first);
+
+        return array_filter(
+            $this->contents,
+            static fn(string $path): bool => $kept->has(Path::of($path)),
+            ARRAY_FILTER_USE_KEY,
+        );
     }
 }

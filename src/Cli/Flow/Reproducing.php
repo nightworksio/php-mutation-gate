@@ -43,14 +43,20 @@ final readonly class Reproducing
         $ledgers = Ledgers::read($this->adapters->proofs, $inventory->standing, Writing::Never);
         $newest = $ledgers->records($sought)->newest();
 
-        return $newest instanceof Recorded ? $this->again($newest, $inventory->units) : $newest;
+        return $newest instanceof Recorded ? $this->again($newest, $inventory) : $newest;
     }
 
-    private function again(Recorded $recorded, Units $units): Reproduced|CannotJudge
+    private function again(Recorded $recorded, Inventory $inventory): Reproduced|CannotJudge
     {
-        $judgedBy = $this->judgedBy($recorded->proof()->unit(), $units);
+        $judgedBy = $this->judgedBy($recorded->proof()->unit(), $inventory->units);
         $mutant = Reproducible::of($recorded->mutant());
-        $request = RunRequest::of($this->adapters, $this->settings, Paths::of($mutant->file()), $judgedBy);
+        $request = SuiteCoverage::of($this->adapters, $inventory)
+            ->handing(RunRequest::of($this->adapters, $this->settings, Paths::of($mutant->file()), $judgedBy));
+
+        if ($request instanceof CannotJudge) {
+            return $request;
+        }
+
         $now = $this->adapters->runner->reproduce($mutant, $request, $this->settings->triage()->most());
 
         return $now instanceof CannotJudge ? $now : new Reproduced($recorded, $judgedBy, $now);

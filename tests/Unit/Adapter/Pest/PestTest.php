@@ -50,6 +50,7 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
+use NightWorksIO\MutationGate\Core\Runner\Leftover;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
@@ -66,9 +67,11 @@ use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
-use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -133,13 +136,48 @@ it('cannot say which Pest it runs where Composer installed none', function (): v
     )));
 });
 
-it('lists the suite\'s groups as Pest lists them', function (): void {
-    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: PestCases::RUN_LISTING));
+it('lists the tests of some suites and their groups as Pest lists them into a file of its own', function (): void {
+    $at = PestCases::project();
+    $shell = new ShellFake(static fn(Command $command): Ran => PestCases::listed($command));
+    $pest = new Pest($at, $shell, Patching::off(), new CapDirectory(), Triage::standard()->bounds());
 
-    $groups = new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), Triage::standard()->bounds())->groups(Withheld::of('CI_JOB_TOKEN'));
+    $listing = $pest->listing(Withheld::of('CI_JOB_TOKEN'), Suites::listed('Unit'));
 
-    expect($groups)->toEqual(Groups::of(Group::named('mutation-canary')))
-        ->and($shell->commands())->toEqual([PestCases::invocation()->listingGroups(Withheld::of('CI_JOB_TOKEN'))]);
+    expect($listing instanceof TestListing ? [...$listing->groups()] : $listing)
+        ->toEqual([Group::named('default'), Group::named('mutation-canary')])
+        ->and($listing instanceof TestListing ? $listing->inGroup(Group::named('mutation-canary')) : $listing)
+        ->toEqual(TestIds::of(TestId::of('P\Tests\MoneySpec::__pest_evaluable_it_is_alive')))
+        ->and($shell->commands())->toEqual([
+            PestCases::invocation()->listing(Withheld::of('CI_JOB_TOKEN'), Suites::listed('Unit'), PestCases::listingFile($at)),
+        ]);
+});
+
+it('lists the tests of each set of suites once', function (): void {
+    $shell = new ShellFake(static fn(Command $command): Ran => PestCases::listed($command));
+    $pest = new Pest(PestCases::project(), $shell, Patching::off(), new CapDirectory(), Triage::standard()->bounds());
+
+    $pest->listing(Withheld::standard(), Suites::listed('Unit'));
+    $pest->listing(Withheld::standard(), Suites::listed('Unit'));
+    $pest->listing(Withheld::standard(), Suites::listed('Process'));
+
+    expect($shell->commands())->toHaveCount(2);
+});
+
+it('cannot list the tests where Pest fails, or where an earlier list cannot be removed', function (): void {
+    $at = PestCases::project();
+    $failed = ShellFake::answering(Ran::finished(succeeded: false, output: 'broken'));
+    $pest = new Pest($at, $failed, Patching::off(), new CapDirectory(), Triage::standard()->bounds());
+    $blocked = PestCases::project();
+    mkdir(PestCases::listingFile($blocked), recursive: true);
+    $untouched = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+
+    expect($pest->listing(Withheld::standard(), Suites::all()))->toEqual(CannotJudge::because(sprintf(
+        "Pest did not list the tests of the suite: %s holds no list of tests. It said:\nbroken",
+        PestCases::listingFile($at),
+    )))
+        ->and(new Pest($blocked, $untouched, Patching::off(), new CapDirectory(), Triage::standard()->bounds())->listing(Withheld::standard(), Suites::all()))
+        ->toEqual(Leftover::at(PestCases::listingFile($blocked)))
+        ->and($untouched->commands())->toBe([]);
 });
 
 it('runs the suite under coverage into a directory it makes, with pcov collecting from the whole project, and reads the map', function (): void {
@@ -425,7 +463,7 @@ it('opens a patched shard on the canary group, with the planning job\'s map writ
     $shell = new ShellFake(static function (Command $command, int $before) use ($at, $written, &$loaded): Ran {
         $loaded ??= is_file($written) ? CoverageFile::at($written) : null;
 
-        return $before === 0 ? Ran::finished(succeeded: true, output: PestCases::RUN_LISTING) : PestCases::killed($command, $at);
+        return $before === 0 ? PestCases::listed($command) : PestCases::killed($command, $at);
     });
     $request = PestCases::money()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
     $result = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), Triage::standard()->bounds())->mutate($request);
@@ -440,7 +478,7 @@ it('opens a patched shard on the canary group, with the planning job\'s map writ
                 ->timedEach(TimedTest::of(PestCases::RUN_ADDS, 1.25), TimedTest::of('Tests\B::c', 2.0)),
         )
         ->and($shell->commands())->toEqual([
-            PestCases::invocation()->listingGroups(Withheld::standard()),
+            PestCases::invocation()->listing(Withheld::standard(), Suites::all(), PestCases::listingFile($at)),
             PestCases::invocation()->mutation($request, WholeSuite::tests(), PestCases::results($at))->with([
                 'MUTATION_GATE_SHARED_COVERAGE' => $written,
                 'MUTATION_GATE_SUITE_SECONDS' => '3.250000',
@@ -456,7 +494,7 @@ it('opens a patched shard on the canary group, with the planning job\'s map writ
 it('runs a patched shard\'s canary group again alone where its opening run failed no test and still failed', function (): void {
     $at = PestCases::patched();
     $shell = new ShellFake(static fn(Command $command, int $before): Ran => $before === 0
-        ? Ran::finished(succeeded: true, output: PestCases::RUN_LISTING)
+        ? PestCases::listed($command)
         : Ran::exited(1, "  Tests:    1 passed (1 assertions)\n"));
     $request = PestCases::money()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
 
@@ -495,7 +533,7 @@ it('judges a patched shard\'s mutant on a line that is not executable by the tes
     PestCases::handedOver($at, 'own', CoverageMap::of($other));
     PestCases::handedOver($at, 'whole', CoverageMap::of($other, $internal));
     $shell = new ShellFake(static fn(Command $command, int $before): Ran => match (true) {
-        $before === 0 => Ran::finished(succeeded: true, output: PestCases::RUN_LISTING),
+        $before === 0 => PestCases::listed($command),
         in_array('--mutate', $command->arguments(), strict: true) => Ran::finished(
             succeeded: Unexecutables::run($at, ['internal']) !== '',
             output: '  Mutations: 1 uncovered',
@@ -531,7 +569,7 @@ it('cannot judge a run whose plugin wrote no results, and judges no mutant left 
 it('cannot judge a patched shard\'s run without the plan\'s whole map', function (): void {
     $at = PestCases::patched();
     $shell = new ShellFake(static fn(Command $command, int $before): Ran => $before === 0
-        ? Ran::finished(succeeded: true, output: PestCases::RUN_LISTING)
+        ? PestCases::listed($command)
         : PestCases::killed($command, $at));
     $request = PestCases::money()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('whole')));
 
@@ -555,7 +593,7 @@ it('opens a shard on its own suite unpatched, or when it collects its own map', 
 });
 
 it('cannot open a shard on the canary group without the patch applied', function (): void {
-    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: PestCases::RUN_LISTING));
+    $shell = new ShellFake(static fn(Command $command): Ran => PestCases::listed($command));
     $request = PestCases::money()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
 
     expect(new Pest(PestCases::project(), $shell, PestCases::canary(), new CapDirectory(), Triage::standard()->bounds())->mutate($request))->toEqual(CannotJudge::because(
@@ -569,38 +607,55 @@ it('finds Pest, what Composer installed and the patch in the vendor directory th
     $packages = array_map(static fn(string $name): array => ['name' => $name, 'version' => '1.0.0'], $installed);
     Scratch::write($at->root(), 'lib/vendor/composer/installed.json', (string) json_encode(['packages' => $packages]));
     $shell = new ShellFake(static fn(Command $command, int $before): Ran => match ($before) {
-        0 => Ran::finished(succeeded: true, output: PestCases::RUN_LISTING),
+        0 => PestCases::listed($command),
         1 => Ran::finished(succeeded: true, output: Described::output()),
         default => PestCases::killed($command, $at),
     });
     $pest = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), Triage::standard()->bounds());
     $invocation = Invocation::installedIn(Path::of('lib/vendor'));
 
-    expect($pest->groups(Withheld::standard()))->toBeInstanceOf(Groups::class)
+    expect($pest->listing(Withheld::standard(), Suites::all()))->toBeInstanceOf(TestListing::class)
         ->and($pest->identity(Withheld::standard()))->toBeInstanceOf(Identity::class)
         ->and($pest->mutate(PestCases::money()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')))))->toBeInstanceOf(MutationResult::class)
-        ->and($shell->commands()[0])->toEqual($invocation->listingGroups(Withheld::standard()));
+        ->and($shell->commands()[0])->toEqual($invocation->listing(Withheld::standard(), Suites::all(), PestCases::listingFile($at)));
 });
 
 it('cannot open a shard on a canary group with no test, or one it cannot list', function (): void {
     $at = PestCases::patched();
     $request = PestCases::money()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
-    $empty = ShellFake::answering(Ran::finished(succeeded: true, output: PestCases::RUN_LISTING));
+    $empty = new ShellFake(static fn(Command $command): Ran => PestCases::listed($command));
     $unlisted = ShellFake::answering(Ran::finished(succeeded: false, output: 'broken'));
     $other = Patching::on(Group::named('canary'));
 
     expect(new Pest($at, $empty, $other, new CapDirectory(), Triage::standard()->bounds())->mutate($request))
         ->toEqual(CannotJudge::because('pest.patch is on, but the canary group canary holds no test. Add one.'))
         ->and(new Pest($at, $unlisted, $other, new CapDirectory(), Triage::standard()->bounds())->mutate($request))
-        ->toEqual(CannotJudge::because(
-            "Pest did not list the suite's groups, so no group can hold a path. Pest said:\nbroken",
-        ));
+        ->toEqual(CannotJudge::because(sprintf(
+            "Pest did not list the tests of the suite: %s holds no list of tests. It said:\nbroken",
+            PestCases::listingFile($at),
+        )));
+});
+
+it('looks for the canary group among the suites its opening run runs, the holding suites too', function (): void {
+    $at = PestCases::patched();
+    $request = PestCases::money()->reusingCoverage(Handed::maps(Path::of('absent'), Path::of('absent')));
+    $request = $request->narrowedTo(
+        $request->files(),
+        Narrowing::none()->amongSuites(JudgingSuites::holding(Suites::listed('Unit'), Suites::listed('Process'))),
+    );
+    $shell = new ShellFake(static fn(Command $command): Ran => PestCases::listed($command));
+
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), Triage::standard()->bounds())->mutate($request);
+
+    expect($shell->commands()[0] ?? null)->toEqual(
+        PestCases::invocation()->listing(Withheld::standard(), Suites::listed('Unit', 'Process'), PestCases::listingFile($at)),
+    );
 });
 
 it('cannot open a shard on the canary group without the planning job\'s map', function (): void {
     $at = PestCases::patched();
     $request = PestCases::money()->reusingCoverage(Handed::maps(Path::of('absent'), Path::of('absent')));
-    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: PestCases::RUN_LISTING));
+    $shell = new ShellFake(static fn(Command $command): Ran => PestCases::listed($command));
 
     expect(new Pest($at, $shell, PestCases::canary(), new CapDirectory(), Triage::standard()->bounds())->mutate($request))->toEqual(CannotJudge::because(sprintf(
         'The gate wrote no coverage map at %s/absent/map.json.gz, and reads no runner\'s map another job wrote.',

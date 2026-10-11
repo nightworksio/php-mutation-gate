@@ -45,8 +45,9 @@ use NightWorksIO\MutationGate\Core\Runner\Reproduction;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Group;
-use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Port\Processes;
@@ -153,14 +154,12 @@ final readonly class Pest implements Runner
         return $canary instanceof Group ? $pest->readingInEveryKey($canary) : $pest->openingEachShard();
     }
 
-    /** The groups the suite lists, listed once for each set of variables withheld. */
-    public function groups(Withheld $withheld): Groups|CannotJudge
+    /** These suites' tests and their groups, listed once for each set of suites and variables withheld. */
+    public function listing(Withheld $withheld, Suites $suites): TestListing|CannotJudge
     {
-        $listing = fn(): Groups|CannotJudge => Listing::groupsIn(
-            $this->shell->run(Invocation::installedIn($this->project->vendor())->listingGroups($withheld)),
-        );
+        $listing = fn(): TestListing|CannotJudge => Listed::of($this->project, $this->shell, $withheld, $suites);
 
-        return $this->remembered->groups($withheld, $listing);
+        return $this->remembered->listing($withheld, $suites, $listing);
     }
 
     /**
@@ -365,7 +364,7 @@ final readonly class Pest implements Runner
             $this->files,
             $this->patching,
             $this->remembered,
-            $this->groups(...),
+            $this->listing(...),
             $this->bounds,
             clock: $this->clock,
             bridges: $this->bridges,

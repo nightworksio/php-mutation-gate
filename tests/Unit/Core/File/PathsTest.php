@@ -50,3 +50,12 @@ it('builds and searches paths in time linear in their number', function (): void
     expect($held(10)())->toHaveCount(10)
         ->and(Growth::of(625, $held))->toBeLessThan(Growth::LINEAR);
 });
+
+it('joins these paths with more, once each in order, and leaves some out', function (): void {
+    $paths = Paths::of(Path::of('src/A.php'), Path::of('src/B.php'));
+
+    expect([...$paths->and(Paths::of(Path::of('src/B.php'), Path::of('src/C.php')))])
+        ->toEqual([Path::of('src/A.php'), Path::of('src/B.php'), Path::of('src/C.php')])
+        ->and([...$paths->without(Paths::of(Path::of('src/A.php'), Path::of('src/D.php')))])->toEqual([Path::of('src/B.php')])
+        ->and([...$paths])->toEqual([Path::of('src/A.php'), Path::of('src/B.php')]);
+});

@@ -163,6 +163,39 @@ it('expands a directory with a wildcard into each directory it matches, in the s
         ->and($suite instanceof PhpUnitSuite && $suite->holds(Path::of('plugins/a/src/A.php')))->toBeFalse();
 });
 
+it('leaves out each directory an exclude with a wildcard matches, in the suite and in its named one', function () use (
+    $suiteOf,
+): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'plugins/a/tests/ATest.php', '<?php');
+    Scratch::write($project, 'plugins/a/tests/Process/ProcessTest.php', '<?php');
+    Scratch::write($project, 'plugins/b/tests/Process/ProcessTest.php', '<?php');
+    $suite = $suiteOf(<<<'XML'
+        <?xml version="1.0"?>
+        <phpunit>
+            <testsuites>
+                <testsuite name="Plugins">
+                    <directory>plugins/*/tests</directory>
+                    <exclude>plugins/*/tests/Process</exclude>
+                    <exclude>modules/*/tests</exclude>
+                    <exclude>plugins/a/tests/Fixture</exclude>
+                </testsuite>
+            </testsuites>
+        </phpunit>
+        XML, $project);
+    $excluded = Paths::of(Path::of('plugins/a/tests/Process'), Path::of('plugins/b/tests/Process'), Path::of('plugins/a/tests/Fixture'));
+
+    expect($suite instanceof PhpUnitSuite ? $suite->suites() : $suite)->toEqual(DeclaredSuites::of(DeclaredSuite::named(
+        'Plugins',
+        Paths::none(),
+        $excluded,
+        SuiteDirectory::of(Path::of('plugins/a/tests'), ''),
+        SuiteDirectory::of(Path::of('plugins/b/tests'), ''),
+    )))
+        ->and($suite instanceof PhpUnitSuite && $suite->holds(Path::of('plugins/a/tests/ATest.php')))->toBeTrue()
+        ->and($suite instanceof PhpUnitSuite && $suite->holds(Path::of('plugins/b/tests/Process/ProcessTest.php')))->toBeFalse();
+});
+
 it('holds the conventional directory where every directory the config names is a wildcard that matches none', function () use (
     $suiteOf,
 ): void {

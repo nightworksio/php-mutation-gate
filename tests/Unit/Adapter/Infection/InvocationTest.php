@@ -32,13 +32,14 @@ function invokedIn(): Project
     return Project::at(Root::of('/project'), Paths::none(), Path::of('.gate'));
 }
 
-it('lists the groups with the project\'s PHPUnit and its config', function (): void {
-    expect(Invocation::listingGroups(invokedIn(), invoked('{}'))->arguments())->toBe([
+it('lists the tests of some suites into a file with the project\'s PHPUnit and its config', function (): void {
+    expect(Invocation::listing(invokedIn(), invoked('{}'), Suites::listed('Unit'), '/w/tests.xml')->arguments())->toBe([
         PHP_BINARY,
         '/project/vendor/bin/phpunit',
         '--configuration=/project',
-        '--list-groups',
+        '--list-tests-xml=/w/tests.xml',
         '--colors=never',
+        '--testsuite=Unit',
     ]);
 });
 

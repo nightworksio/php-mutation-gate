@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Role;
 use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -136,13 +137,13 @@ it('gathers what the #[Holds] of every test file declare', function () use ($lis
         $listed('tests/HeldTest.php', 'tests/KernelTest.php', 'tests/MoneyTest.php', 'tests/GoneTest.php'),
     );
 
-    expect($read->holdings())->toEqual(Holdings::none()
+    expect($read->holdings(Suites::all()))->toEqual(Holdings::none()
         ->with(Holding::byAttribute('src/Held.php', Holder::of('Tests\HeldTest')))
         ->with(Holding::byAttribute('src/Kernel.php', Holder::of('Tests\KernelTest'))));
 });
 
 it('declares no holding where no test file holds anything', function () use ($listed): void {
-    expect(suiteOf(['tests/MoneyTest.php' => "<?php\n"], $listed('tests/MoneyTest.php'))->holdings()->anyByAttribute())
+    expect(suiteOf(['tests/MoneyTest.php' => "<?php\n"], $listed('tests/MoneyTest.php'))->holdings(Suites::all())->anyByAttribute())
         ->toBeFalse();
 });
 
@@ -206,7 +207,7 @@ it('reads the tests the PHPUnit config declares, and leaves out what it excludes
         'spec/LimitSpec.php' => Role::TestCase,
         'spec/Helper.php' => Role::Support,
     ])
-        ->and($read->holdings()->anyByAttribute())->toBeFalse()
+        ->and($read->holdings(Suites::all())->anyByAttribute())->toBeFalse()
         ->and($read->directories())->toEqual([
             SuiteDirectory::of(Path::of('tests'), ''),
             SuiteDirectory::of(Path::of('spec'), 'Spec.php'),

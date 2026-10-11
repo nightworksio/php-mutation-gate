@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Cli\Flow\CoverageMeasured;
 use NightWorksIO\MutationGate\Cli\Flow\Inventory;
 use NightWorksIO\MutationGate\Cli\Flow\KeptCoverage;
 use NightWorksIO\MutationGate\Cli\Flow\Measuring;
+use NightWorksIO\MutationGate\Cli\Flow\SuiteCoverage;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -21,7 +22,6 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
-use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -67,6 +67,14 @@ final readonly class CoverageCommand
             });
     }
 
+    /** A map the project's own run left, with only what the listed suites may judge in it; or why there is none. */
+    private static function admitted(
+        CoverageMap|CannotJudge $map,
+        SuiteCoverage|NotGiven $suites,
+    ): CoverageMap|CannotJudge {
+        return $map instanceof CoverageMap && $suites instanceof SuiteCoverage ? $suites->admitted($map) : $map;
+    }
+
     /**
      * The suite's map, measured against the default branch's kept map where
      * it may be, or read from the reports a run in this job left, written
@@ -80,15 +88,24 @@ final readonly class CoverageCommand
     ): int {
         $adapters = $composed->adapters;
         $inventory = Inventory::of($adapters, $composed->settings);
+        $suites = match (true) {
+            $inventory instanceof Inventory => SuiteCoverage::of($adapters, $inventory),
+            $ran instanceof CoverageRan => $inventory,
+            default => NotGiven::value(),
+        };
+
+        if ($suites instanceof CannotJudge) {
+            return Failed::because($output, $suites);
+        }
+
         $kept = new KeptCoverage($adapters, $composed->settings, $composed->setup);
         $entries = $kept->entries($inventory);
         $measured = $ran instanceof CoverageRan
-            ? NotGiven::value()
-            : $kept->forRun($inventory, $entries, KeptCoverage::built(), ownMap: false);
-        $request = $measured instanceof CoverageMeasured ? $measured->request() : $ran;
-        $map = $adapters->runner->coverage(
-            $request instanceof CoverageRun ? $adapters->covering($request) : $request,
-        );
+            ? $ran
+            : $kept->forRun($inventory, $entries, KeptCoverage::built(), ownMap: false, suites: $suites);
+        $map = $measured instanceof CoverageMeasured
+            ? $kept->mapOf($measured, $suites)
+            : self::admitted($adapters->runner->coverage($measured), $suites);
         $keys = $map instanceof CoverageMap ? KeptCoverage::keysOf($entries, $map) : NotGiven::value();
         $file = CoverageMapFile::in($into);
         $at = Measuring::now($adapters);

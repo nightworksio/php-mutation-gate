@@ -39,11 +39,14 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Port\Runner;
+use NightWorksIO\MutationGate\Tests\Fakes\ListingsFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 
 use function sprintf;
@@ -69,6 +72,9 @@ final class ScriptedRunner implements Runner
 
     /** @var list<Withheld> */
     private array $listings = [];
+
+    /** @var list<Suites> the suites each listing listed, in order */
+    private array $listed = [];
 
     /** @var list<Withheld> */
     private array $identified = [];
@@ -101,7 +107,7 @@ final class ScriptedRunner implements Runner
         private readonly Identity|CannotJudge $identity,
         private readonly CannotJudge|MutationResult|RunnerFake $mutating,
         private readonly CannotJudge|MutantStatus $retrying,
-        private readonly CannotJudge|Groups $groups,
+        private readonly CannotJudge|Groups|RunnerFake $groups,
         private readonly CannotJudge|RunnerFake $covering,
         private readonly CannotJudge|Markers|RunnerFake $marking,
     ) {
@@ -117,9 +123,7 @@ final class ScriptedRunner implements Runner
         $fake = RunnerFake::ofTheFixture();
         $identity = $fake->identity(Withheld::nothing());
 
-        $groups = $fake->groups(Withheld::nothing());
-
-        return new self($fake, $identity, $fake, MutantStatus::Survived, $groups, $fake, $fake);
+        return new self($fake, $identity, $fake, MutantStatus::Survived, $fake, $fake, $fake);
     }
 
     /** This runner, whose survivors are killed when run again, by a test or as the status says. */
@@ -318,8 +322,8 @@ final class ScriptedRunner implements Runner
         );
     }
 
-    /** This runner, listing these groups of its suite. */
-    public function listing(Groups $groups): self
+    /** This runner, listing these groups of its suite, or what this fake lists for each list of suites. */
+    public function listingGroups(Groups|RunnerFake $groups): self
     {
         return new self(
             $this->fake,
@@ -379,11 +383,22 @@ final class ScriptedRunner implements Runner
         return $this->identity;
     }
 
-    public function groups(Withheld $withheld): Groups|CannotJudge
+    public function listing(Withheld $withheld, Suites $suites): TestListing|CannotJudge
     {
         $this->listings[] = $withheld;
+        $this->listed[] = $suites;
 
-        return $this->groups;
+        return match (true) {
+            $this->groups instanceof RunnerFake => $this->groups->listing($withheld, $suites),
+            $this->groups instanceof Groups => ListingsFake::listed($this->groups),
+            default => $this->groups,
+        };
+    }
+
+    /** @return list<Suites> the suites of each listing, in order */
+    public function listedSuites(): array
+    {
+        return $this->listed;
     }
 
     /** @return list<Withheld> what each listing of its groups withheld, in order */

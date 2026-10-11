@@ -51,6 +51,18 @@ final readonly class Triaging
      */
     public function triaged(Path $path, int $runs, TestOrder $order, Closure $ran): Repeated|CannotJudge
     {
+        $request = $this->requestAt($path, $order);
+
+        return $request instanceof CannotJudge ? $request : $this->repeated($request, $runs, $ran);
+    }
+
+    /**
+     * The request of the unit at a path, with its tests in this order, reading
+     * the gate's map where a hold from the holding suites holds it; or why
+     * there is none.
+     */
+    private function requestAt(Path $path, TestOrder $order): MutationRequest|CannotJudge
+    {
         $inventory = Inventory::of($this->adapters, $this->settings);
         $unit = $inventory instanceof Inventory ? $this->unitAt($path, $inventory) : $inventory;
 
@@ -58,7 +70,18 @@ final readonly class Triaging
             return $unit;
         }
 
-        $request = $this->requestFor($unit, $order, $inventory);
+        return SuiteCoverage::of($this->adapters, $inventory)->handing($this->requestFor($unit, $order, $inventory));
+    }
+
+    /**
+     * A request run this many times, each run handed to `$ran` as it ends; or
+     * why one of them cannot judge.
+     *
+     * @param int<2, max>                          $runs
+     * @param Closure(int, MutationResult): void $ran
+     */
+    private function repeated(MutationRequest $request, int $runs, Closure $ran): Repeated|CannotJudge
+    {
         $results = [];
 
         for ($run = 1; $run <= $runs; ++$run) {

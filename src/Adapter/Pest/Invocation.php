@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\JUnitLog;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
@@ -59,13 +60,15 @@ final readonly class Invocation
         return new self(sprintf(self::SCRIPT, $vendor->value()));
     }
 
-    public function listingGroups(Withheld $withheld): Command
+    /** These suites' tests and the groups each is in, listed into a file and none run. */
+    public function listing(Withheld $withheld, Suites $suites, string $file): Command
     {
         return Command::pest(
             $this->script,
             $withheld,
-            PhpUnitOption::ListGroups->value,
+            sprintf('%s=%s', PhpUnitOption::ListTestsXml->value, $file),
             PhpUnitOption::NoColors->value,
+            ...PhpUnitOption::inSuites($suites),
         );
     }
 

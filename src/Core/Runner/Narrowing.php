@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use NightWorksIO\MutationGate\Core\Coverage\Fresh;
+use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Pruning\Pruned;
@@ -80,6 +82,40 @@ final readonly class Narrowing
     public function suitesFor(WholeSuite|Group|Filter|TestPaths $tests): Suites
     {
         return $this->suite instanceof SuiteName ? Suites::named($this->suite) : $this->suites->for($tests);
+    }
+
+    /**
+     * The suites whose tests judge only the units they hold, where the config
+     * lists any and `--suite` names no one suite over both lists.
+     */
+    public function holdingSuites(): Suites|NotGiven
+    {
+        return $this->suite instanceof SuiteName ? NotGiven::value() : $this->suites->heldUnits();
+    }
+
+    /**
+     * The suites a run of these tests runs where a coverage map the gate
+     * wrote picks each mutant's tests: the holding suites too, whose tests
+     * the map keeps only on the lines of the paths they hold (ADR-0005,
+     * decision 9).
+     */
+    public function mappedSuitesFor(WholeSuite|Group|Filter|TestPaths $tests): Suites
+    {
+        $holding = $this->holdingSuites();
+
+        return $holding instanceof Suites ? $this->suitesFor($tests)->and($holding) : $this->suitesFor($tests);
+    }
+
+    /**
+     * The suites the runs of mutants judged by these tests run: the holding
+     * suites too where the whole suite judges through the maps a plan handed
+     * over, which keep a holding suite's tests on the lines of what they hold.
+     */
+    public function suitesForMutants(WholeSuite|Group|Filter $tests, Handed|Fresh $coverage): Suites
+    {
+        return $coverage instanceof Handed && $tests instanceof WholeSuite
+            ? $this->mappedSuitesFor($tests)
+            : $this->suitesFor($tests);
     }
 
     /** The mutators it leaves out of the files whose content is unchanged. */

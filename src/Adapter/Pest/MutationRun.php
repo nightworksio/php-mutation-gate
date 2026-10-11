@@ -35,7 +35,8 @@ use NightWorksIO\MutationGate\Core\Runner\Unwatched;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
-use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\Suites;
+use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -72,7 +73,8 @@ final readonly class MutationRun
     private const string SHARED_MAP = '%s/shared.coverage.php';
 
     /**
-     * @param Closure(Withheld): (Groups|CannotJudge) $groups the suite's groups, as the runner lists them
+     * @param Closure(Withheld, Suites): (TestListing|CannotJudge) $listing the suites' tests and groups,
+     *                                                                as the runner lists them
      * @param list<string>                            $only   the native ids of the only mutants a patched run
      *                                                        makes, or none for every mutant it finds
      */
@@ -82,7 +84,7 @@ final readonly class MutationRun
         private CapFiles $files,
         private Patching $patching,
         private Remembered $remembered,
-        private Closure $groups,
+        private Closure $listing,
         private LimitBounds $bounds,
         private array $only = [],
         private Clock $clock = new WallClock(),
@@ -440,15 +442,15 @@ final readonly class MutationRun
 
         $directory = $handed->own();
 
-        $refusal = $this->refusal($request->withheld());
+        $refusal = $this->refusal($request);
 
         $reading = fn(): CoverageMap|CannotJudge => SharedCoverage::in($this->project, $directory);
 
         return $refusal instanceof CannotJudge ? $refusal : $this->remembered->map($directory, $reading);
     }
 
-    /** Why a shard cannot open on the canary group, if it cannot. */
-    private function refusal(Withheld $withheld): Groups|CannotJudge
+    /** Why a shard cannot open on the canary group among the suites its opening run runs, if it cannot. */
+    private function refusal(MutationRequest $request): TestListing|CannotJudge
     {
         $vendor = $this->project->absolute($this->project->vendor());
 
@@ -456,11 +458,12 @@ final readonly class MutationRun
             return CannotJudge::because(sprintf(self::NOT_PATCHED, $this->project->vendor()->value()));
         }
 
-        $groups = ($this->groups)($withheld);
         $canary = $this->patching->canary();
+        $opensOn = $this->patching->opensOn($request->judgedBy(), handedAMap: true);
+        $listing = ($this->listing)($request->withheld(), $request->narrowing()->suitesFor($opensOn));
 
-        return $groups instanceof CannotJudge || ! $canary instanceof Group || $groups->has($canary)
-            ? $groups
+        return $listing instanceof CannotJudge || ! $canary instanceof Group || $listing->groups()->has($canary)
+            ? $listing
             : CannotJudge::because(sprintf(self::EMPTY_CANARY, $canary->name()));
     }
 }

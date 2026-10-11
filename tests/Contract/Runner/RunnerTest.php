@@ -66,9 +66,10 @@ use NightWorksIO\MutationGate\Core\Runner\Unmade;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Runner\Workers;
 use NightWorksIO\MutationGate\Core\Test\Group;
-use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Test\TestName;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Test\TestPaths;
@@ -131,11 +132,11 @@ it('answers the same identity every time it is asked', function (Library $librar
 })->with($libraries);
 
 it('behaves consistently: every key reads only groups of its suite', function (Library $library): void {
-    $groups = $library->runner()->groups(Withheld::standard());
+    $groups = $library->runner()->listing(Withheld::standard(), Suites::all());
     $behaviour = $library->runner()->behaviour();
 
     foreach ($behaviour->readByEveryKey() as $group) {
-        expect($groups instanceof Groups && $groups->has($group))->toBeTrue();
+        expect($groups instanceof TestListing && $groups->groups()->has($group))->toBeTrue();
     }
 
     expect($behaviour->readByEveryKey()->count() === 0 || ! $behaviour->opensEachShard())->toBeTrue();
@@ -144,11 +145,12 @@ it('behaves consistently: every key reads only groups of its suite', function (L
     'pest patched' => fn(): Library => Library::installed('pest patched'),
 ]);
 
-it('lists the group that holds a path, and the canary, among the suite\'s groups', function (Library $library): void {
-    $groups = $library->runner()->groups(Withheld::standard());
+it('lists the group that holds a path, with its tests, and the canary, among the suite\'s groups', function (Library $library): void {
+    $groups = $library->runner()->listing(Withheld::standard(), Suites::all());
 
-    expect($groups instanceof Groups && $groups->has(Group::named('holds:src/Held.php')))->toBeTrue()
-        ->and($groups instanceof Groups && $groups->has(Library::canary()))->toBeTrue();
+    expect($groups instanceof TestListing && $groups->groups()->has(Group::named('holds:src/Held.php')))->toBeTrue()
+        ->and($groups instanceof TestListing ? count($groups->inGroup(Group::named('holds:src/Held.php'))) : 0)->toBeGreaterThan(0)
+        ->and($groups instanceof TestListing && $groups->groups()->has(Library::canary()))->toBeTrue();
 })->with($libraries);
 
 it('times a run of no test, started as a mutant\'s own run', function (Library $library): void {
@@ -693,8 +695,8 @@ it('answers as the runner built in a package when rooted in it from the director
     expect($rooted instanceof CannotJudge ? $rooted : $rooted->identity(Withheld::standard()))
         ->toEqual($runner->identity(Withheld::standard()))
         ->and($rooted instanceof CannotJudge ? $rooted : $rooted->definitions())->toEqual($runner->definitions())
-        ->and($rooted instanceof CannotJudge ? $rooted : $rooted->groups(Withheld::standard()))
-        ->toEqual($runner->groups(Withheld::standard()));
+        ->and($rooted instanceof CannotJudge ? $rooted : $rooted->listing(Withheld::standard(), Suites::all()))
+        ->toEqual($runner->listing(Withheld::standard(), Suites::all()));
 })->with($libraries);
 
 // A runner rooted in a package from the directory around it is told the

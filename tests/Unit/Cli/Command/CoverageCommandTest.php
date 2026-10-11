@@ -6,25 +6,34 @@ use NightWorksIO\MutationGate\Cli\Command\CoverageCommand;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMapFile;
+use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\Coverage\KeptMap;
 use NightWorksIO\MutationGate\Core\Coverage\MapLimits;
 use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Proof\Companion;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
+use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestListing;
+use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Support\CoverageAsked;
 use NightWorksIO\MutationGate\Tests\Support\FlowCommands;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\HoldingSuites;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 use Symfony\Component\Console\Input\ArrayInput;
@@ -220,4 +229,91 @@ it('offers the directory of the reports to read instead of running the suite', f
     );
 
     expect($command->getDefinition()->getOption('from')->isValueRequired())->toBeTrue();
+});
+
+/**
+ * `coverage` with these options in the holding-suites project, whose config
+ * lists Unit to judge and Process to hold, with these files changed, keeping
+ * in this store, measured by this runner: what it said, and the lines of the
+ * map it wrote into build/coverage.
+ *
+ * @param array<string, string> $changed
+ *
+ * @return array{FlowCommands, list<CoveredLine>|CannotJudge, string}
+ */
+function coverageHeldFromProcess(string $input, CoverageAsked $runner, ProofStoreFake $store = new ProofStoreFake(), array $changed = [], string $project = ''): array
+{
+    $config = ['mutation-gate.json' => '{"runner": "fake", "tests": {"suites": ["Unit"], "holding": ["Process"]}}'];
+    $project = $project === '' ? HoldingSuites::project($config) : $project;
+
+    foreach ($changed as $path => $contents) {
+        Scratch::write($project, $path, $contents);
+    }
+
+    $written = FlowCommands::run(CoverageCommand::command(FlowCommands::reading(
+        Flows::trees(),
+        $project,
+        $runner,
+        $store,
+        Flows::ci(),
+        Variables::of([]),
+        RepositoryFake::onMain(Revision::ref(Flows::HEAD)),
+        HoldingSuites::checkout([...$config, ...$changed]),
+    )), $input);
+    $map = CoverageMapFile::kept((string) file_get_contents(sprintf('%s/build/coverage/map.json.gz', $project)), MapLimits::standard());
+
+    return [$written, $map instanceof KeptMap ? [...$map->map()->lines()] : $map, $project];
+}
+
+/** A map every suite's test ran lines of src/Held.php and src/Money.php in, and the runner that measures it, src/Held.php held from Process. */
+$everySuite = static function (): CoverageAsked {
+    $map = CoverageMap::of(
+        CoveredLine::of(Path::of('src/Held.php'), 4, HoldingSuites::ADDS, HoldingSuites::STARTS, HoldingSuites::RULES),
+        CoveredLine::of(Path::of('src/Money.php'), 7, HoldingSuites::ADDS, HoldingSuites::STARTS, HoldingSuites::RULES),
+    );
+    $process = TestListing::of(TestIds::of(TestId::of(HoldingSuites::STARTS)))
+        ->grouping(Group::named('holds:src/Held.php'), TestIds::of(TestId::of(HoldingSuites::STARTS)));
+
+    return new CoverageAsked(HoldingSuites::runner(TestListing::none(), $process, $map), $map);
+};
+
+it('writes, whether it measures the suite or reads a run\'s reports, only what the listed suites may judge', function (string $from) use ($everySuite): void {
+    [$written, $lines] = coverageHeldFromProcess(sprintf('--into=build/coverage%s', $from), $everySuite());
+
+    expect($written->code)->toBe(0)
+        ->and($lines)->toEqual([
+            CoveredLine::of(Path::of('src/Held.php'), 4, HoldingSuites::ADDS, HoldingSuites::STARTS),
+            CoveredLine::of(Path::of('src/Money.php'), 7, HoldingSuites::ADDS),
+        ]);
+})->with([
+    'measuring the suite' => [''],
+    'reading a run\'s reports' => [' --from=build/suite'],
+]);
+
+it('reads no run\'s reports where the project cannot be listed, saying why', function () use ($coverage): void {
+    $project = FlowCommands::project();
+
+    $written = $coverage($project, '--from=build/suite', ScriptedRunner::fixture()->unlisted('No group can be listed.'));
+
+    expect($written->code)->toBe(2)
+        ->and($written->errors)->toBe("No group can be listed.\n")
+        ->and(file_exists(sprintf('%s/.mutation-gate/coverage/map.json.gz', $project)))->toBeFalse();
+});
+
+it('measures again only the moved test files of the listed suites against the map the default branch keeps', function () use ($everySuite): void {
+    $store = new ProofStoreFake();
+    [, , $project] = coverageHeldFromProcess('--into=build/coverage', $everySuite(), $store);
+    $store->keep(
+        Scope::branch('main'),
+        Companion::Coverage,
+        Contents::of((string) file_get_contents(sprintf('%s/build/coverage/map.json.gz', $project))),
+    );
+    $again = $everySuite();
+    [$written] = coverageHeldFromProcess('--into=build/coverage', $again, $store, [
+        'tests/Arch/RulesTest.php' => "<?php\n\n// changed\n",
+        'tests/Unit/MoneyTest.php' => "<?php\n\n// changed\n",
+    ], $project);
+
+    expect($written->errors)->toBe("Coverage: measured 1 of 3 test files again; kept the rest from the default branch's map.\n")
+        ->and(($again->ran()[0] ?? null)?->tests())->toEqual(TestPaths::of(Paths::of(Path::of('tests/Unit/MoneyTest.php'))));
 });

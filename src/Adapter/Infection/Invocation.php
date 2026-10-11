@@ -70,13 +70,15 @@ final readonly class Invocation
         return is_file($project->absolute(Path::of(self::INFECTION)));
     }
 
-    public static function listingGroups(Project $project, OwnConfig $config): Command
+    /** These suites' tests and the groups each is in, as the project's PHPUnit lists them into a file, running none. */
+    public static function listing(Project $project, OwnConfig $config, Suites $suites, string $file): Command
     {
         return Command::php(
             $config->phpunit($project),
             sprintf('--configuration=%s', $config->configDirectory($project)),
-            PhpUnitOption::ListGroups->value,
+            sprintf('%s=%s', PhpUnitOption::ListTestsXml->value, $file),
             PhpUnitOption::NoColors->value,
+            ...PhpUnitOption::inSuites($suites),
         );
     }
 

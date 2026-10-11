@@ -334,8 +334,6 @@ services:
                     - FIELDS # the fields of a silence record, not a ranking's top
                 'NightWorksIO\MutationGate\Core\Doctor\Check\Xdebug':
                     - CHEAP # Xdebug's modes, not the Infection adapter's directory
-                'NightWorksIO\MutationGate\Adapter\Pest\Listing':
-                    - NOT_THE_SUITES # PHPUnit's and Pest's group names, not a mutator set
                 'NightWorksIO\MutationGate\Adapter\Pest\Registration':
                     - WITH # Pest's method that hands a test its dataset, not the PHP builder's
                 'NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Choice':

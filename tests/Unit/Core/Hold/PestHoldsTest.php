@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\File\Fingerprint;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Hold\Additions;
 use NightWorksIO\MutationGate\Core\Hold\HeldPath;
 use NightWorksIO\MutationGate\Core\Hold\Holdings;
 use NightWorksIO\MutationGate\Core\Hold\HoldsAttribute;
@@ -190,7 +191,7 @@ it('answers the groups Pest lists once every literal path read is among them', f
     );
 
     expect($holdings)->toEqual(Holdings::inGroups($listing))
-        ->and($holdings instanceof Holdings ? $holdings->units($trees, $files) : $holdings)->toEqual(Units::of(
+        ->and($holdings instanceof Holdings ? $holdings->units($trees, $files, Additions::none()) : $holdings)->toEqual(Units::of(
             Unit::held(Path::of('src/Kernel.php'), Group::named('holds:src/Kernel.php')),
             Unit::held(Path::of('src/Http'), Group::named('holds:src/Http')),
         ))

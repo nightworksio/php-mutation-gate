@@ -38,7 +38,8 @@ final readonly class Tests implements Setting
 
     /**
      * The `<testsuite>`s whose tests judge only the units they hold with
-     * `#[Holds]`, by name, such as a suite of tests that start real processes.
+     * `#[Holds]` or a `holds:` group, by name, such as a suite of tests that
+     * start real processes: they add to the judges of what they hold.
      */
     public static function holding(string $first, string ...$more): self
     {

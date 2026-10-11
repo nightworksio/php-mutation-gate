@@ -2,9 +2,13 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Coverage\Fresh;
+use NightWorksIO\MutationGate\Core\Coverage\Handed;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Narrowing;
+use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
@@ -47,4 +51,31 @@ it('judges by every suite by default, by the suites the config lists for the tes
         ->and($listed->toSuite(SuiteName::of('e2e'))->suitesFor(Group::named('holds:src/Shell.php')))->toEqual(Suites::named(SuiteName::of('e2e')))
         ->and($listed->isNone())->toBeTrue()
         ->and($listed->suite())->toEqual(NotGiven::value());
+});
+
+it('names the holding suites the config lists, and none by default or where --suite names one', function (): void {
+    $holding = Narrowing::none()->amongSuites(JudgingSuites::holding(Suites::listed('unit'), Suites::listed('process')));
+
+    expect($holding->holdingSuites())->toEqual(Suites::listed('process'))
+        ->and(Narrowing::none()->holdingSuites())->toEqual(NotGiven::value())
+        ->and($holding->toSuite(SuiteName::of('unit'))->holdingSuites())->toEqual(NotGiven::value());
+});
+
+it('runs the holding suites too where a map the gate wrote picks each mutant\'s tests, and those alone where none is listed', function (): void {
+    $holding = Narrowing::none()->amongSuites(JudgingSuites::holding(Suites::listed('unit'), Suites::listed('process')));
+    $judging = Narrowing::none()->amongSuites(JudgingSuites::judging(Suites::listed('unit')));
+
+    expect($holding->mappedSuitesFor(WholeSuite::tests()))->toEqual(Suites::listed('unit', 'process'))
+        ->and($judging->mappedSuitesFor(WholeSuite::tests()))->toEqual(Suites::listed('unit'))
+        ->and($holding->toSuite(SuiteName::of('e2e'))->mappedSuitesFor(WholeSuite::tests()))->toEqual(Suites::listed('e2e'));
+});
+
+it('runs the holding suites for mutants the whole suite judges through a map a plan handed over, and only then', function (): void {
+    $holding = Narrowing::none()->amongSuites(JudgingSuites::holding(Suites::listed('unit'), Suites::listed('process')));
+    $handed = Handed::maps(Path::of('shard'), Path::of('whole'));
+
+    expect($holding->suitesForMutants(WholeSuite::tests(), $handed))->toEqual(Suites::listed('unit', 'process'))
+        ->and($holding->suitesForMutants(WholeSuite::tests(), Fresh::coverage()))->toEqual(Suites::listed('unit'))
+        ->and($holding->suitesForMutants(Filter::matching('/x/'), $handed))->toEqual(Suites::listed('unit', 'process'))
+        ->and($holding->toSuite(SuiteName::of('e2e'))->suitesForMutants(Group::named('slow'), $handed))->toEqual(Suites::listed('e2e'));
 });

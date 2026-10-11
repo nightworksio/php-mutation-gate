@@ -7,6 +7,8 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Fingerprint;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Hold\Addition;
+use NightWorksIO\MutationGate\Core\Hold\Additions;
 use NightWorksIO\MutationGate\Core\Hold\Holder;
 use NightWorksIO\MutationGate\Core\Hold\Holding;
 use NightWorksIO\MutationGate\Core\Hold\Holdings;
@@ -14,6 +16,9 @@ use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -29,7 +34,7 @@ $files = static fn(): Fingerprints => Fingerprints::of(
 );
 
 it('holds nothing to begin with', function () use ($trees, $files): void {
-    expect(Holdings::none()->units($trees(), $files()))->toEqual(Units::none())
+    expect(Holdings::none()->units($trees(), $files(), Additions::none()))->toEqual(Units::none())
         ->and(Holdings::none()->anyByAttribute())->toBeFalse();
 });
 
@@ -40,7 +45,7 @@ it('reads a held path from each group whose name says it holds one, and no other
         Group::named('holds:src/Http'),
     ));
 
-    expect($holdings->units($trees(), $files()))->toEqual(Units::of(
+    expect($holdings->units($trees(), $files(), Additions::none()))->toEqual(Units::of(
         Unit::held(Path::of('src/Kernel.php'), Group::named('holds:src/Kernel.php')),
         Unit::held(Path::of('src/Http'), Group::named('holds:src/Http')),
     ))
@@ -52,7 +57,7 @@ it('judges a path #[Holds] declares by a filter that selects each holding class 
         ->with(Holding::byAttribute('src/Http', Holder::of('Tests\HttpTest')))
         ->with(Holding::byAttribute('src/Http', Holder::of('Tests\BootTest::testBoots')));
 
-    expect($holdings->units($trees(), $files()))->toEqual(Units::of(
+    expect($holdings->units($trees(), $files(), Additions::none()))->toEqual(Units::of(
         Unit::held(Path::of('src/Http'), Filter::matching('/^(?:Tests\\\\HttpTest::|Tests\\\\BootTest\\:\\:testBoots\\b)/')),
     ))
         ->and($holdings->anyByAttribute())->toBeTrue();
@@ -62,7 +67,7 @@ it('holds what groups and attributes hold together, where they hold different pa
     $holdings = Holdings::inGroups(Groups::of(Group::named('holds:src/Kernel.php')))
         ->merge(Holdings::none()->with(Holding::byAttribute('src/Http', Holder::of('Tests\HttpTest'))));
 
-    expect($holdings->units($trees(), $files()))->toEqual(Units::of(
+    expect($holdings->units($trees(), $files(), Additions::none()))->toEqual(Units::of(
         Unit::held(Path::of('src/Kernel.php'), Group::named('holds:src/Kernel.php')),
         Unit::held(Path::of('src/Http'), Filter::matching('/^(?:Tests\\\\HttpTest::)/')),
     ));
@@ -71,14 +76,14 @@ it('holds what groups and attributes hold together, where they hold different pa
 it('holds a tree whole, whether or not a file is in it', function () use ($files): void {
     $trees = Trees::of(Tree::at(Path::of('lib'), Undeclared::floor(), Package::at(Path::root())));
 
-    expect(Holdings::inGroups(Groups::of(Group::named('holds:lib')))->units($trees, $files()))
+    expect(Holdings::inGroups(Groups::of(Group::named('holds:lib')))->units($trees, $files(), Additions::none()))
         ->toEqual(Units::of(Unit::held(Path::of('lib'), Group::named('holds:lib'))));
 });
 
 it('cannot judge a path that is not spelt as the repository spells it, or is not in a tree', function (string $declared) use ($trees, $files): void {
     $holdings = Holdings::inGroups(Groups::of(Group::named(sprintf('holds:%s', $declared))));
 
-    expect($holdings->units($trees(), $files()))->toEqual(CannotJudge::because(sprintf(
+    expect($holdings->units($trees(), $files(), Additions::none()))->toEqual(CannotJudge::because(sprintf(
         "holds:%1\$s names %1\$s, which is not a tree, or a file or directory inside one,\nspelt as the repository spells it. A misspelt path would otherwise be mutated\nagainst the whole suite, correct and slow, with no sign the declaration was never read.",
         $declared,
     )));
@@ -87,7 +92,7 @@ it('cannot judge a path that is not spelt as the repository spells it, or is not
 it('names the attribute that declares a path it cannot judge', function () use ($trees, $files): void {
     $holdings = Holdings::none()->with(Holding::byAttribute('src/Kenrel.php', Holder::of('Tests\KernelTest')));
 
-    expect($holdings->units($trees(), $files()))->toEqual(CannotJudge::because(
+    expect($holdings->units($trees(), $files(), Additions::none()))->toEqual(CannotJudge::because(
         "#[Holds('src/Kenrel.php')] on Tests\\KernelTest names src/Kenrel.php, which is not a tree, or a file or directory inside one,\nspelt as the repository spells it. A misspelt path would otherwise be mutated\nagainst the whole suite, correct and slow, with no sign the declaration was never read.",
     ));
 });
@@ -96,7 +101,7 @@ it('cannot judge a path held both by a group and by #[Holds]', function () use (
     $holdings = Holdings::inGroups(Groups::of(Group::named('holds:src/Kernel.php')))
         ->merge(Holdings::none()->with(Holding::byAttribute('src/Kernel.php', Holder::of('Tests\KernelTest'))));
 
-    expect($holdings->units($trees(), $files()))->toEqual(CannotJudge::because(
+    expect($holdings->units($trees(), $files(), Additions::none()))->toEqual(CannotJudge::because(
         "src/Kernel.php is held both by the group holds:src/Kernel.php and by #[Holds].\nA held path is judged by one set of tests, so declare it one way.",
     ));
 });
@@ -104,9 +109,25 @@ it('cannot judge a path held both by a group and by #[Holds]', function () use (
 it('cannot judge a held path inside another', function () use ($trees, $files): void {
     $holdings = Holdings::inGroups(Groups::of(Group::named('holds:src'), Group::named('holds:src/Kernel.php')));
 
-    expect($holdings->units($trees(), $files()))->toEqual(CannotJudge::because(
+    expect($holdings->units($trees(), $files(), Additions::none()))->toEqual(CannotJudge::because(
         "src is held, and so is src/Kernel.php inside it, so a mutant there would be judged twice.\nHold one or the other.",
     ));
+});
+
+it('judges held paths inside one another where only the holding suites hold both, and no other', function () use ($trees, $files): void {
+    $holdings = Holdings::inGroups(Groups::of(Group::named('holds:src'), Group::named('holds:src/Kernel.php')));
+    $outer = Addition::of(Path::of('src'), TestIds::none(), 'holds:src');
+    $inner = Addition::of(Path::of('src/Kernel.php'), TestIds::none(), 'holds:src/Kernel.php');
+    $nested = CannotJudge::because(
+        "src is held, and so is src/Kernel.php inside it, so a mutant there would be judged twice.\nHold one or the other.",
+    );
+
+    expect($holdings->units($trees(), $files(), Additions::none()->with($outer)->with($inner)))->toEqual(Units::of(
+        Unit::held(Path::of('src'), Group::named('holds:src')),
+        Unit::held(Path::of('src/Kernel.php'), Group::named('holds:src/Kernel.php')),
+    ))
+        ->and($holdings->units($trees(), $files(), Additions::none()->with($outer)))->toEqual($nested)
+        ->and($holdings->units($trees(), $files(), Additions::none()->with($inner)))->toEqual($nested);
 });
 
 it('leaves the holdings it came from as they were', function () use ($trees, $files): void {
@@ -114,5 +135,23 @@ it('leaves the holdings it came from as they were', function () use ($trees, $fi
     $holdings->with(Holding::byAttribute('src/Http', Holder::of('Tests\HttpTest')));
     $holdings->merge(Holdings::inGroups(Groups::of(Group::named('holds:src/Kernel.php'))));
 
-    expect($holdings->units($trees(), $files()))->toEqual(Units::none());
+    expect($holdings->units($trees(), $files(), Additions::none()))->toEqual(Units::none());
+});
+
+it('adds judges where only the holding suites list tests of a hold, and narrows by the rest', function (): void {
+    $holdings = Holdings::inGroups(Groups::of(
+        Group::named('holds:src/Kernel.php'),
+        Group::named('holds:src/Http'),
+        Group::named('holds:src/Unrun.php'),
+    ))->with(Holding::byAttribute('src/Shell.php', Holder::of('Tests\ShellTest')));
+    $judging = TestListing::of(TestIds::of(TestId::of('Tests\HttpTest::testServes')))
+        ->grouping(Group::named('holds:src/Http'), TestIds::of(TestId::of('Tests\HttpTest::testServes')));
+    $holding = TestListing::of(TestIds::of(TestId::of('Tests\KernelTest::testBoots'), TestId::of('Tests\ShellTest::testStarts')))
+        ->grouping(Group::named('holds:src/Kernel.php'), TestIds::of(TestId::of('Tests\KernelTest::testBoots')))
+        ->grouping(Group::named('holds:src/Http'), TestIds::of(TestId::of('Tests\HttpProcessTest::testServes')));
+
+    expect([...$holdings->additions($judging, $holding)])->toEqual([
+        Addition::of(Path::of('src/Kernel.php'), TestIds::of(TestId::of('Tests\KernelTest::testBoots')), 'holds:src/Kernel.php'),
+        Addition::of(Path::of('src/Shell.php'), TestIds::of(TestId::of('Tests\ShellTest::testStarts')), "#[Holds('src/Shell.php')] on Tests\\ShellTest"),
+    ]);
 });

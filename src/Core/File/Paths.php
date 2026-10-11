@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\File;
 
+use function array_diff_key;
 use function array_key_exists;
 use function array_values;
 
@@ -53,6 +54,18 @@ final readonly class Paths implements Countable, IteratorAggregate
         $paths[$path->value()] = $path;
 
         return new self($paths);
+    }
+
+    /** These paths, then those of some more these do not hold, in their order. */
+    public function and(self $more): self
+    {
+        return new self($this->paths + $more->paths);
+    }
+
+    /** These paths, less those of some others. */
+    public function without(self $left): self
+    {
+        return new self(array_diff_key($this->paths, $left->paths));
     }
 
     public function has(Path $path): bool

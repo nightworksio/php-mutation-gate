@@ -13,14 +13,21 @@ use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Hold\Addition;
+use NightWorksIO\MutationGate\Core\Hold\Additions;
 use NightWorksIO\MutationGate\Core\Hold\Holdings;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
+use NightWorksIO\MutationGate\Core\Test\Suites;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -30,6 +37,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\RepositoryFake;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\HoldingSuites;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 
@@ -144,7 +152,7 @@ it('cannot find the units where the runner cannot list its groups', function () 
 
 it('cannot find the units where a group holds a path no tree has', function () use ($listing, $inventory): void {
     $groups = Groups::of(Group::named('holds:src/Nowhere.php'));
-    $refused = Holdings::inGroups($groups)->units(Flows::trees(), Flows::checkout()->fingerprints());
+    $refused = Holdings::inGroups($groups)->units(Flows::trees(), Flows::checkout()->fingerprints(), Additions::none());
 
     expect($refused)->toBeInstanceOf(CannotJudge::class)
         ->and($inventory($listing($groups)))->toEqual($refused);
@@ -253,4 +261,136 @@ it('lists the runner\'s groups withholding what every process running the projec
     Inventory::of($adapters, Flows::settings());
 
     expect($runner->listings())->toEqual([$adapters->withheld]);
+});
+
+/**
+ * The inventory of the holding-suites project with these files besides, its
+ * runner behaving so and listing these tests over Unit and these over Process.
+ *
+ * @param array<string, string> $more
+ */
+function inventoryHeldFromProcess(
+    TestListing $unit,
+    TestListing $process,
+    RunnerBehaviour|NotGiven $behaviour = new NotGiven(),
+    array $more = [],
+): Inventory|CannotJudge {
+    $runner = HoldingSuites::runner($unit, $process, CoverageMap::empty())
+        ->behaving($behaviour instanceof RunnerBehaviour ? $behaviour : RunnerBehaviour::standard())
+        ->definedBy(Paths::of(Path::of('tests/Arch/Bootstrap.php')));
+
+    return Inventory::of(
+        HoldingSuites::adapters(HoldingSuites::project($more), HoldingSuites::checkout($more), $runner),
+        Flows::settings(),
+    );
+}
+
+$heldInProcess = static fn(): TestListing => TestListing::of(TestIds::of(TestId::of('P\Tests\Process\HeldTest::starts')))
+    ->grouping(Group::named('holds:src/Held.php'), TestIds::of(TestId::of('P\Tests\Process\HeldTest::starts')));
+
+it('leaves a path held only from a holding suite a unit of its tree, its hold adding judges', function () use ($heldInProcess): void {
+    $found = inventoryHeldFromProcess(TestListing::of(TestIds::of(TestId::of('P\Tests\Unit\MoneyTest::adds'))), $heldInProcess());
+
+    expect($found instanceof Inventory ? [...$found->units] : $found)->toEqual([
+        Unit::file(Path::of('src/Money.php')),
+        Unit::file(Path::of('src/Held.php')),
+    ])
+        ->and($found instanceof Inventory ? [...$found->additions] : $found)->toEqual([
+            Addition::of(Path::of('src/Held.php'), TestIds::of(TestId::of('P\Tests\Process\HeldTest::starts')), 'holds:src/Held.php'),
+        ]);
+});
+
+it('lets holds from a holding suite nest, each adding judges', function () use ($heldInProcess): void {
+    $starts = TestIds::of(TestId::of('P\Tests\Process\HeldTest::starts'));
+    $found = inventoryHeldFromProcess(TestListing::none(), $heldInProcess()->grouping(Group::named('holds:src'), $starts));
+
+    expect($found instanceof Inventory ? [...$found->units] : $found)->toEqual([
+        Unit::file(Path::of('src/Money.php')),
+        Unit::file(Path::of('src/Held.php')),
+    ])
+        ->and($found instanceof Inventory ? [...$found->additions] : $found)->toEqual([
+            Addition::of(Path::of('src/Held.php'), $starts, 'holds:src/Held.php'),
+            Addition::of(Path::of('src'), $starts, 'holds:src'),
+        ]);
+});
+
+it('holds a path some judging suite\'s tests hold as a unit of its own, judged by them and the holding suites\' alone', function () use ($heldInProcess): void {
+    $unit = TestListing::of(TestIds::of(TestId::of('P\Tests\Unit\HeldTest::doubles')))
+        ->grouping(Group::named('holds:src/Held.php'), TestIds::of(TestId::of('P\Tests\Unit\HeldTest::doubles')));
+    $found = inventoryHeldFromProcess($unit, $heldInProcess());
+
+    expect($found instanceof Inventory ? [...$found->units] : $found)->toEqual([
+        Unit::held(Path::of('src/Held.php'), Group::named('holds:src/Held.php')),
+        Unit::file(Path::of('src/Money.php')),
+    ])
+        ->and($found instanceof Inventory ? count($found->additions) : $found)->toBe(0);
+});
+
+it('cannot find the units where the runner opens each shard on its own coverage run and a holding suite holds a path', function () use ($heldInProcess): void {
+    expect(inventoryHeldFromProcess(TestListing::none(), $heldInProcess(), RunnerBehaviour::standard()->openingEachShard()))
+        ->toEqual(CannotJudge::because(<<<'SAID'
+            holds:src/Held.php holds src/Held.php only from the holding suites, which adds their tests to the judges of its lines
+            through the coverage map the gate hands the runner. This runner opens each shard on a coverage
+            run of its own, as Pest does without pest.patch, so it cannot. Turn on pest.patch, or hold the
+            path from a suite tests.suites lists.
+            SAID))
+        ->and(inventoryHeldFromProcess(TestListing::none(), TestListing::none(), RunnerBehaviour::standard()->openingEachShard()))
+        ->toBeInstanceOf(Inventory::class);
+});
+
+it('cannot find the units where the runner cannot list the holding suites\' tests', function (): void {
+    $runner = HoldingSuites::runner(TestListing::none(), TestListing::none(), CoverageMap::empty())
+        ->listingIn(Suites::listed('Process'), CannotJudge::because('Pest cannot list Process.'));
+
+    expect(Inventory::of(HoldingSuites::adapters(HoldingSuites::project(), HoldingSuites::checkout(), $runner), Flows::settings()))
+        ->toEqual(CannotJudge::because('Pest cannot list Process.'));
+});
+
+it('reads no #[Holds] from a suite neither list names, which judges nothing', function (): void {
+    $arch = <<<'PHP_WRAP'
+    <?php
+    
+    use NightWorksIO\MutationGate\Attribute\Holds;
+    
+    #[Holds('src/Nowhere.php')]
+    final class RulesTest extends \PHPUnit\Framework\TestCase
+    {
+    }
+    
+    PHP_WRAP;
+    $found = inventoryHeldFromProcess(TestListing::none(), TestListing::none(), more: ['tests/Arch/RulesTest.php' => $arch]);
+
+    expect($found)->toBeInstanceOf(Inventory::class)
+        ->and($found instanceof Inventory ? count($found->additions) : $found)->toBe(0);
+});
+
+it('reads under Pest the #[Holds] of the files Pest loads first, whatever suite runs, and none of a suite no list names', function () use ($heldInProcess): void {
+    $held = <<<'PHP'
+        <?php
+
+        use NightWorksIO\MutationGate\Attribute\Holds;
+
+        it('doubles', #[Holds('src/Held.php')] function () {
+            expect(2)->toBe(2);
+        });
+
+        PHP;
+    $pest = RunnerBehaviour::standard()->holdingAsLoaded();
+    $arch = inventoryHeldFromProcess(TestListing::none(), $heldInProcess(), $pest, ['tests/Arch/HeldTest.php' => str_replace('src/Held.php', 'src/Nowhere.php', $held)]);
+    $bootstrap = inventoryHeldFromProcess(TestListing::none(), $heldInProcess(), $pest, ['tests/Arch/Bootstrap.php' => $held]);
+
+    expect($arch)->toBeInstanceOf(Inventory::class)
+        ->and($bootstrap instanceof CannotJudge ? $bootstrap->why() : $bootstrap)
+        ->toStartWith("tests/Arch/Bootstrap.php:5: #[Holds('src/Held.php')] stands in tests/Arch/Bootstrap.php");
+});
+
+it('lists the holding suites\' tests only once the judging suites\' are listed', function (): void {
+    $runner = ScriptedRunner::fixture()->listingGroups(
+        HoldingSuites::runner(TestListing::none(), TestListing::none(), CoverageMap::empty())
+            ->listingIn(Suites::listed('Unit'), CannotJudge::because('Pest cannot list Unit.')),
+    );
+
+    expect(Inventory::of(HoldingSuites::adapters(HoldingSuites::project(), HoldingSuites::checkout(), $runner), Flows::settings()))
+        ->toEqual(CannotJudge::because('Pest cannot list Unit.'))
+        ->and($runner->listedSuites())->toEqual([Suites::listed('Unit')]);
 });

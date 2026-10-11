@@ -8,6 +8,7 @@ use function count;
 use function file_get_contents;
 use function getenv;
 use function is_file;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
@@ -44,14 +45,16 @@ use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
-use NightWorksIO\MutationGate\Core\Runner\PhpUnitGroups;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitTestList;
 use NightWorksIO\MutationGate\Core\Runner\Platform;
+use NightWorksIO\MutationGate\Core\Runner\Program;
 use NightWorksIO\MutationGate\Core\Runner\Reproducible;
 use NightWorksIO\MutationGate\Core\Runner\Reproduction;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
-use NightWorksIO\MutationGate\Core\Test\Groups;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Port\Processes;
@@ -150,15 +153,22 @@ final readonly class Infection implements Runner
         return RunnerBehaviour::standard()->stoppingAtFirstKiller(NotFull::Infection)->runningPerCore();
     }
 
-    public function groups(Withheld $withheld): Groups|CannotJudge
+    /** These suites' tests and their groups, as the project's PHPUnit lists them into a file; or why it lists none. */
+    public function listing(Withheld $withheld, Suites $suites): TestListing|CannotJudge
     {
         $config = OwnConfig::in($this->project);
+        $file = $this->project->fresh($this->project->own(PhpUnitTestList::FILE));
 
-        return $config instanceof CannotJudge
-            ? $config
-            : PhpUnitGroups::listedIn(
-                $this->shell->run(Invocation::listingGroups($this->project, $config)->withholding($withheld)),
-            );
+        if ($config instanceof CannotJudge || $file instanceof CannotJudge) {
+            return $config instanceof CannotJudge ? $config : $file;
+        }
+
+        $ran = $this->shell->run(
+            Invocation::listing($this->project, $config, $suites, $file)->withholding($withheld),
+        );
+        $xml = is_file($file) ? file_get_contents($file) : false;
+
+        return PhpUnitTestList::listedIn($ran, is_string($xml) ? $xml : '', $file, Program::PhpUnit);
     }
 
     /**

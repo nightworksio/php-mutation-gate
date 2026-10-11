@@ -24,3 +24,8 @@ it('hands each shard a coverage directory of its own', function (): void {
 it('leaves each shard\'s result in the directory of results, named by its number', function (): void {
     expect(Workspace::result(Path::of('build/results'), ShardId::of(12)))->toEqual(Path::of('build/results/12.json'));
 });
+
+it('keeps the whole suite\'s map of a run of one unit apart from the map it admits for that run', function (): void {
+    expect(Workspace::suiteCoverage())->toEqual(Path::of('.mutation-gate/coverage/suite'))
+        ->and(Workspace::admittedCoverage())->toEqual(Path::of('.mutation-gate/coverage/admitted'));
+});
