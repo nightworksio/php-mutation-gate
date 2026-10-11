@@ -21,6 +21,10 @@ use NightWorksIO\MutationGate\Tests\Support\Tree;
 use Pest\Mutate\Mutators\Logical\TrueToFalse;
 use Symfony\Component\Process\Process;
 
+$holds = [
+    'holds:src/Adapter/Pest',
+];
+
 // Which tests Pest runs for a holds: group, over every shape a test can hold a
 // path in (ADR-0004, decision 7): serially, under --parallel, and in a
 // mutant's own process. Each test in the fixture that runs src/Shapes.php
@@ -79,19 +83,19 @@ it('selects every test that holds a path, and no other, when it runs the group',
     [$exit, $traced] = shapesRun('--group=holds:src/Shapes.php');
 
     expect($exit)->toBe(0)->and($traced)->toEqualCanonicalizing(shapesTraced('suite', HELD_SHAPES));
-})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('selects the same tests when it runs the group in parallel', function (): void {
     [$exit, $traced] = shapesRun('--group=holds:src/Shapes.php', '--parallel', '--processes=3');
 
     expect($exit)->toBe(0)->and($traced)->toEqualCanonicalizing(shapesTraced('suite', HELD_SHAPES));
-})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('puts a test with two #[Holds] in both groups', function (): void {
     [$exit, $traced] = shapesRun('--group=holds:src/Legacy.php');
 
     expect($exit)->toBe(0)->and($traced)->toBe(['suite twice']);
-})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('lists every holds: group among the suite\'s groups, one only #[Holds] on a closure names too', function (): void {
     $groups = Library::pest(Patching::off())->runner()->listing(Withheld::standard(), Suites::all());
@@ -100,7 +104,7 @@ it('lists every holds: group among the suite\'s groups, one only #[Holds] on a c
     expect($listed('holds:src/Shapes.php'))->toBeTrue()
         ->and($listed('holds:src/Held.php'))->toBeTrue()
         ->and($listed('holds:src/Legacy.php'))->toBeTrue();
-})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('runs every test that holds a path, and no other, in a mutant\'s own process', function (): void {
     $trace = sprintf('%s/trace', Scratch::directory());
@@ -124,4 +128,4 @@ it('runs every test that holds a path, and no other, in a mutant\'s own process'
 
     expect(array_map(static fn(Mutant $mutant): string => $mutant->status()->value, $mutants))->toBe(['survived'])
         ->and($inMutant)->toEqualCanonicalizing(shapesTraced('mutant', HELD_SHAPES));
-})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);

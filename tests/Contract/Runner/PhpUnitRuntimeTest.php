@@ -43,6 +43,10 @@ use NightWorksIO\MutationGate\Tests\Support\PhpUnitScan;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
+$holds = [
+    'holds:src/Adapter/PhpUnit',
+];
+
 // What the PHPUnit runner's pieces do with a real PHPUnit (ADR-0023 decisions
 // 9 and 10), over the quirks of a project's tests in phpunit-fixture/, which
 // the runner contracts job installs at the lowest and the highest PHPUnit the
@@ -113,42 +117,42 @@ function verdictOf(Mutant|CannotJudge $mutant): array
 it('drives a PHPUnit the runner supports', function (): void {
     expect(Installed::versionsIn(Tree::at(sprintf('%s/vendor/composer/installed.json', PHPUNIT_LIBRARY))))
         ->toBeInstanceOf(Versions::class);
-})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library')->group(...$holds);
 
 it('serves a mutant of a class to the test that kills it, and names that test', function (): void {
     expect(verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Tally.php', 0, ['TallySpec::addsTwoAmounts'])))
         ->toBe(['killed', 'Tests\TallySpec::addsTwoAmounts']);
-})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library')->group(...$holds);
 
 it('serves a mutant of a function Composer loads before anything else', function (): void {
     expect(verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/helpers.php', 0, ['TallySpec::doublesThroughAFunctionComposerLoads'])))
         ->toBe(['killed', 'Tests\TallySpec::doublesThroughAFunctionComposerLoads']);
-})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library')->group(...$holds);
 
 it('lets a mutant survive the test that runs it and checks nothing of it', function (): void {
     expect(verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Tally.php', 1, ['TallySpec::countsWithoutSayingSo'])))
         ->toBe(['survived']);
-})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library')->group(...$holds);
 
 it('passes a test\'s own locking, truncating, touching and listing of files while it stands in for file://', function (): void {
     expect(verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Tally.php', 1, ['FilesSpec::locksTruncatesTouchesAndListsFiles'])))
         ->toBe(['survived']);
-})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library')->group(...$holds);
 
 it('stops a mutant that never ends at its limit', function (): void {
     expect(verdictOf(judgedByPhpUnit(new DecrementToIncrement(), 'src/Tally.php', 0, ['TallySpec::drainsAnAmountToNothing'], 3.0)))
         ->toBe(['timed-out']);
-})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library')->group(...$holds);
 
 it('leaves unjudged a mutant whose tests\' ids match no test', function (): void {
     expect(verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Tally.php', 0, ['TallySpec::noSuchTest'])))
         ->toBe(['unjudged', 'PHPUnit ran none of the 1 tests that cover it: the selection matched no test.']);
-})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library')->group(...$holds);
 
 it('judges a mutant by the test that fails, however many risky tests run before it', function (): void {
     expect(verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Tally.php', 0, ['AaRiskySpec::addsAndChecksNothing', 'TallySpec::addsTwoAmounts'])))
         ->toBe(['killed', 'Tests\TallySpec::addsTwoAmounts']);
-})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library')->group(...$holds);
 
 it('names every test that kills a mutant under a full kill matrix, and the first that does otherwise', function (): void {
     $covering = ['TallySpec::addsTwoAmounts', 'IsolatedSpec::addsInAProcessOfItsOwn'];
@@ -159,22 +163,22 @@ it('names every test that kills a mutant under a full kill matrix, and the first
         ->and(array_slice($full, 1))->toEqualCanonicalizing(['Tests\TallySpec::addsTwoAmounts', 'Tests\IsolatedSpec::addsInAProcessOfItsOwn'])
         ->and($first[0] ?? '')->toBe('killed')
         ->and(array_slice($first, 1))->toHaveCount(1);
-})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library')->group(...$holds);
 
 it('serves the mutant to a test PHPUnit runs in a process of its own, and names that test', function (): void {
     expect(verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Tally.php', 0, ['IsolatedSpec::addsInAProcessOfItsOwn'])))
         ->toBe(['killed', 'Tests\IsolatedSpec::addsInAProcessOfItsOwn']);
-})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library')->group(...$holds);
 
 it('kills a mutant whose fatal error ends the test running it, and names that test', function (): void {
     expect(verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Tally.php', 2, ['QuirksSpec::padsWithinMemory'])))
         ->toBe(['killed', 'Tests\QuirksSpec::padsWithinMemory']);
-})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library')->group(...$holds);
 
 it('lets a mutant survive a test that reads a file\'s lines to its end, touches a file and states a dangling link', function (string $test): void {
     expect(verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Tally.php', 1, [$test])))->toBe(['survived']);
 })->with(['QuirksSpec::readsEveryLineToTheEnd', 'QuirksSpec::touchesAFileAndStatesADanglingLink'])
-    ->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+    ->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library')->group(...$holds);
 
 it('leaves unjudged a mutant whose every test is set aside, however PHPUnit sets it aside', function (string $test, string ...$more): void {
     expect(verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Tally.php', 1, [$test, ...array_values($more)])))
@@ -185,23 +189,23 @@ it('leaves unjudged a mutant whose every test is set aside, however PHPUnit sets
     'marked incomplete in setUp' => ['IncompleteInSetUpSpec::countsWhereItCan'],
     'skipped with its whole class' => ['SkippedBeforeClassSpec::countsWhereItCan', 'SkippedBeforeClassSpec::countsAgainWhereItCan'],
     'skipped for a requirement it does not meet' => ['QuirksSpec::needsAnExtensionNoPhpHas'],
-])->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+])->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library')->group(...$holds);
 
 it('kills a mutant that breaks a setUpBeforeClass, by the tests of its class', function (): void {
     expect(verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Tally.php', 0, ['AddsBeforeClassSpec::runsOnceTheLibraryAdds'])))
         ->toBe(['killed', 'Tests\\AddsBeforeClassSpec::runsOnceTheLibraryAdds']);
-})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library')->group(...$holds);
 
 it('lets a mutant survive a setUpBeforeClass it leaves as it was', function (): void {
     expect(verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Tally.php', 1, ['AddsBeforeClassSpec::runsOnceTheLibraryAdds'])))
         ->toBe(['survived']);
-})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library')->group(...$holds);
 
 it('lets a mutant survive the tests that run beside one set aside in setUp', function (string $setAside): void {
     expect(verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Tally.php', 1, [$setAside, 'TallySpec::countsWithoutSayingSo'])))
         ->toBe(['survived']);
 })->with(['SkippedInSetUpSpec::countsWhereItCan', 'IncompleteInSetUpSpec::countsWhereItCan'])
-    ->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+    ->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library')->group(...$holds);
 
 it('leaves unjudged, with what PHPUnit said, a mutant whose run PHPUnit fails for a warning the project fails on', function (): void {
     $verdict = verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Tally.php', 1, ['QuirksSpec::warns'], inherited: ['FIXTURE_WARNS' => '1']));
@@ -209,14 +213,14 @@ it('leaves unjudged, with what PHPUnit said, a mutant whose run PHPUnit fails fo
     expect($verdict[0])->toBe('unjudged')
         ->and($verdict[1] ?? '')->toStartWith('PHPUnit failed the run, though no test that ran failed. PHPUnit said:')
         ->and($verdict[1] ?? '')->toContain('a project warns');
-})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library')->group(...$holds);
 
 it('leaves unjudged a mutant a test puts PHP\'s own file wrapper back before it loads', function (): void {
     expect(verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Tally.php', 0, ['QuirksSpec::putsBackPhpsOwnFileWrapperFirst'])))->toBe([
         'unjudged',
         'The mutated file never ran in its place: PHPUnit loaded the file some other way, such as another wrapper.',
     ]);
-})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library')->group(...$holds);
 
 it('serves each mutant, and no later run a mutant, where the project keeps an opcache file cache', function (): void {
     $settings = sprintf('%s/ini', Scratch::directory());
@@ -233,12 +237,12 @@ it('serves each mutant, and no later run a mutant, where the project keeps an op
     expect(extension_loaded('Zend OPcache'))->toBeTrue('a PHP without opcache proves nothing of it')
         ->and($killed)->toBe(['killed', 'Tests\TallySpec::addsTwoAmounts'])
         ->and($after)->toBe(['survived']);
-})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library')->group(...$holds);
 
 it('selects a test by its file where its data set\'s name has a line break, and credits no kill to another test of the file', function (): void {
     expect(verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Tally.php', 0, ["TallySpec::addsEachPair#one\nplus one"])))
         ->toBe(['killed']);
-})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library')->group(...$holds);
 
 it('measures which tests run each line and how long each took, and places and names each test by its file', function (): void {
     $project = Project::at(Tree::at(PHPUNIT_LIBRARY), Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'));
@@ -257,8 +261,8 @@ it('measures which tests run each line and how long each took, and places and na
         ->and($files->files())->toEqual(Paths::of(Path::of('tests/TallySpec.php')))
         ->and($files->names($adding)->nameOf($row))
         ->toEqual(TestRow::of(TestName::in(Path::of('tests/TallySpec.php'), 'addsEachPair'), "\"one\nplus one\""));
-})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
+})->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library')->group(...$holds);
 
 it('has the PHPUnit library installed wherever the PHPUnit runner contracts run', function (): void {
     expect(isPhpUnitLibraryInstalled())->toBeTrue();
-})->skip(fn(): bool => getenv('RUNNER_CONTRACTS') !== 'phpunit', 'only the PHPUnit runner contracts job installs its library');
+})->skip(fn(): bool => getenv('RUNNER_CONTRACTS') !== 'phpunit', 'only the PHPUnit runner contracts job installs its library')->group(...$holds);

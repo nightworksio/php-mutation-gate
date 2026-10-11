@@ -18,6 +18,15 @@ use NightWorksIO\MutationGate\Tests\Support\Project;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree as Repository;
 
+$holds = [
+    'holds:src/Adapter/Composer',
+    'holds:src/Adapter/Project',
+    'holds:src/Core/Composer/GateEntry.php',
+    'holds:src/Core/Composer/Manifest.php',
+    'holds:src/Core/File/ByPath.php',
+    'holds:src/Core/File/Root.php',
+];
+
 // What every tree source answers over the fixture: src/Domain declares 100,
 // src/Http declares nothing and src/Generated declares 0 with a reason. One
 // line per implementation.
@@ -47,11 +56,11 @@ it('finds every tree once, with the floor each declares', function (TreeSource $
             'src/Http' => Undeclared::floor(),
             'src/Generated' => Exempt::because('Generated on every build'),
         ]);
-})->with($sources);
+})->with($sources)->group(...$holds);
 
 it('places every tree in a package', function (TreeSource $source): void {
     $trees = $source->trees();
     $packages = $trees instanceof Trees ? array_map(static fn(Tree $tree): string => $tree->package()->path()->value(), iterator_to_array($trees, preserve_keys: true)) : [];
 
     expect($packages)->toBe(['.', '.', '.']);
-})->with($sources);
+})->with($sources)->group(...$holds);

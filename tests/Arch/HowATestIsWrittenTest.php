@@ -54,9 +54,9 @@ it('reads the tests it judges', function (): void {
     expect(testFiles())->not->toBe([], 'no test file was read, so every rule in this file judged nothing');
 });
 
-it('keeps every unit test beside the file it tests', function (): void {
+it('keeps every unit test and every test that starts processes beside the file it tests', function (): void {
     $orphans = [];
-    $mirrors = ['tests/Unit/' => 'src/'];
+    $mirrors = ['tests/Unit/' => 'src/', 'tests/Process/' => 'src/'];
 
     foreach (Tree::plugins() as $plugin) {
         $mirrors[sprintf('%s/tests/', $plugin)] = sprintf('%s/src/', $plugin);

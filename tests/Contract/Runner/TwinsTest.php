@@ -20,6 +20,10 @@ use Pest\Mutate\Mutators\ControlStructures\WhileAlwaysFalse;
 use Pest\Mutate\Mutators\Logical\TrueToFalse;
 use Pest\Mutate\Mutators\Removal\RemoveArrayItem;
 
+$holds = [
+    'holds:src/Adapter/Pest',
+];
+
 // Patched Pest runs one of the mutants that leave a file alike, and the
 // adapter judges the rest by that run (ADR-0025, decision 13). Looped.php
 // holds two such pairs: `while (true)` made `while (false)` by two mutators,
@@ -66,4 +70,4 @@ it('runs one of each pair of mutants that leave a file alike, and judges the oth
     ])
         ->and(substr_count($recorded, '"event":"twin"'))->toBe(2)
         ->and(substr_count($recorded, '"event":"planned"'))->toBe(2);
-})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);

@@ -44,6 +44,59 @@ use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\JsonMockResponse;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
+$holds = [
+    'holds:src/Adapter/Alert',
+    'holds:src/Adapter/Console',
+    'holds:src/Adapter/Filesystem/BadgeDirectory.php',
+    'holds:src/Adapter/Filesystem/DeliveredReport.php',
+    'holds:src/Adapter/Filesystem/DeliveryDirectory.php',
+    'holds:src/Adapter/Filesystem/HtmlReportDirectory.php',
+    'holds:src/Adapter/Filesystem/MutatedFiles.php',
+    'holds:src/Adapter/Filesystem/ProjectPath.php',
+    'holds:src/Adapter/Filesystem/ReportPath.php',
+    'holds:src/Adapter/Filesystem/SarifReportFile.php',
+    'holds:src/Adapter/Filesystem/SonarReportFile.php',
+    'holds:src/Adapter/Filesystem/TestsReportFile.php',
+    'holds:src/Adapter/GitHub',
+    'holds:src/Adapter/Otlp',
+    'holds:src/Core/Alert/AlertLines.php',
+    'holds:src/Core/Alert/Alerts.php',
+    'holds:src/Core/Alert/DiscordMessage.php',
+    'holds:src/Core/Alert/LoweredFloors.php',
+    'holds:src/Core/Alert/SlackMessage.php',
+    'holds:src/Core/Alert/WebhookPayload.php',
+    'holds:src/Core/Ci/PullRequestNumber.php',
+    'holds:src/Core/Cost/RunAccount.php',
+    'holds:src/Core/Delivery/DeliveryFile.php',
+    'holds:src/Core/Http/Reply.php',
+    'holds:src/Core/Matrix/KillMatrix.php',
+    'holds:src/Core/Matrix/TestStandings.php',
+    'holds:src/Core/Proof/Scope.php',
+    'holds:src/Core/Report/AccountJson.php',
+    'holds:src/Core/Report/Badge.php',
+    'holds:src/Core/Report/BadgeColors.php',
+    'holds:src/Core/Report/Columns.php',
+    'holds:src/Core/Report/FileColumns.php',
+    'holds:src/Core/Report/JUnit.php',
+    'holds:src/Core/Report/JsonReport.php',
+    'holds:src/Core/Report/MutantText.php',
+    'holds:src/Core/Report/Overview.php',
+    'holds:src/Core/Report/Problems.php',
+    'holds:src/Core/Report/Sarif.php',
+    'holds:src/Core/Report/SetText.php',
+    'holds:src/Core/Report/Sonar.php',
+    'holds:src/Core/Report/SonarRule.php',
+    'holds:src/Core/Report/Sources.php',
+    'holds:src/Core/Report/Stryker.php',
+    'holds:src/Core/Report/Trend.php',
+    'holds:src/Core/Report/TrendEntry.php',
+    'holds:src/Core/Report/TrendRecord.php',
+    'holds:src/Core/Report/TrendSvg.php',
+    'holds:src/Core/Report/WeakAssertions.php',
+    'holds:src/Core/Telemetry/Metrics.php',
+    'holds:src/Core/Verdict/Verdict.php',
+];
+
 // What every reporter answers for a failing, a passing and an empty verdict,
 // and for one a budget cut short: that it wrote, or why it did not, and never
 // an exception. One line per implementation.
@@ -136,7 +189,7 @@ it('reports a verdict of each kind, saying where it wrote or why it could not', 
     'nothing to mutate' => ['empty'],
     'cut short' => ['cut short'],
     'a unit a ledger proved' => ['proved'],
-]);
+])->group(...$holds);
 
 it('writes a failing verdict, and leaves a file it wrote where it says', function (Reporter $reporter): void {
     $answer = $reporter->report(Verdicts::failing()->withAccount(Previous::run('passed')));
@@ -144,4 +197,4 @@ it('writes a failing verdict, and leaves a file it wrote where it says', functio
 
     expect($answer)->toBeInstanceOf(Written::class)
         ->and(str_starts_with($where, '/') ? file_exists($where) : $where !== '')->toBeTrue();
-})->with($reporters);
+})->with($reporters)->group(...$holds);

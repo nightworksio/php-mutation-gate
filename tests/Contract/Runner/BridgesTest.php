@@ -38,6 +38,11 @@ use NightWorksIO\MutationGate\Tests\Contract\Runner\Mutators\RemoveFinal;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
 
+$holds = [
+    'holds:src/Adapter/Infection',
+    'holds:src/Adapter/Pest',
+];
+
 // A mutator written once against the SDK makes its mutants under each runner
 // that makes its own (ADR-0021): the Pest and Infection libraries autoload
 // Mutators\PlusToTimes, and load the bridges their adapters write to it. Each
@@ -129,7 +134,7 @@ it('makes a registered mutator\'s mutant by its name, under its own name and fam
 
     expect(summed($result))->toBe([['contract/PlusToTimes', MutatorFamily::Arithmetic, MutantStatus::Killed]])
         ->and(bridgedIds($retried))->toBe(bridgedIds(bridgedMutants($result)));
-})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the library')->group(...$holds);
 
 it('makes a registered mutator\'s mutants beside its own in a run of every mutator, with Pest', function (): void {
     expect(summed(bridgedPest()->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()))))
@@ -137,7 +142,7 @@ it('makes a registered mutator\'s mutants beside its own in a run of every mutat
             [PlusToMinus::class, MutatorFamily::Arithmetic, MutantStatus::Killed],
             ['contract/PlusToTimes', MutatorFamily::Arithmetic, MutantStatus::Killed],
         );
-})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the library')->group(...$holds);
 
 it('makes a registered mutator\'s mutant by its name, under its own name and family, and runs it again by that name, with Infection', function (): void {
     $result = bridgedInfection()->mutate(moneyWith(Mutators::named('contract/PlusToTimes')));
@@ -145,7 +150,7 @@ it('makes a registered mutator\'s mutant by its name, under its own name and fam
 
     expect(summed($result))->toBe([['contract/PlusToTimes', MutatorFamily::Arithmetic, MutantStatus::Killed]])
         ->and(bridgedIds($retried))->toBe(bridgedIds(bridgedMutants($result)));
-})->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
+})->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library')->group(...$holds);
 
 it('makes a registered mutator\'s mutants beside its own in a run of every mutator, with Infection', function (): void {
     expect(summed(bridgedInfection()->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()))))
@@ -153,7 +158,7 @@ it('makes a registered mutator\'s mutants beside its own in a run of every mutat
             ['Plus', MutatorFamily::Arithmetic, MutantStatus::Killed],
             ['contract/PlusToTimes', MutatorFamily::Arithmetic, MutantStatus::Killed],
         );
-})->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
+})->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library')->group(...$holds);
 
 /**
  * Each mutant of a run, by its mutator and the line it starts on; why not, for a run that cannot be judged.
@@ -172,8 +177,8 @@ function declared(MutationResult|CannotJudge $result): array
 
 it('makes a registered mutator\'s mutant of a class\'s declaration, outside every method, with Pest', function (): void {
     expect(declared(bridgedPest()->mutate(moneyWith(Mutators::named('contract/RemoveFinal')))))->toBe([['contract/RemoveFinal', 7]]);
-})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the library')->group(...$holds);
 
 it('offers a registered mutator no node outside a method, so makes no mutant of a class\'s declaration, with Infection', function (): void {
     expect(declared(bridgedInfection()->mutate(moneyWith(Mutators::named('contract/RemoveFinal')))))->toBe([]);
-})->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
+})->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library')->group(...$holds);

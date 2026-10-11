@@ -26,6 +26,23 @@ use NightWorksIO\MutationGate\Tests\Fakes\CiPlanFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
 
+$holds = [
+    'holds:src/Adapter/Azure',
+    'holds:src/Adapter/Bitbucket',
+    'holds:src/Adapter/Buildkite',
+    'holds:src/Adapter/CircleCi',
+    'holds:src/Adapter/Filesystem/PublicationFile.php',
+    'holds:src/Adapter/GitHub',
+    'holds:src/Adapter/GitLab',
+    'holds:src/Adapter/Jenkins',
+    'holds:src/Adapter/Json',
+    'holds:src/Core/Ci/RunOn.php',
+    'holds:src/Core/Cost/ShardEstimate.php',
+    'holds:src/Core/Plan/PlanFile.php',
+    'holds:src/Core/Unit/UnitRecord.php',
+    'holds:src/Core/Written.php',
+];
+
 // What every CI plan answers: that it publishes any plan where it can be put,
 // what it can say of the run, and which definitions run the gate. One line per
 // implementation.
@@ -67,13 +84,13 @@ it('publishes a plan, even one with no shards, where it can be put', function (C
 
     expect($put($ci->publish(ShardedPlan::of(2))))->toBeInstanceOf(Written::class)
         ->and($put($ci->publish(ShardedPlan::of(0))))->toBeInstanceOf(Written::class);
-})->with($plans);
+})->with($plans)->group(...$holds);
 
 it('says what it can of the run, or that it cannot tell', function (CiPlan $ci): void {
     $run = $ci->runOn();
 
     expect($run instanceof RunOn || $run->why() !== '')->toBeTrue();
-})->with($plans);
+})->with($plans)->group(...$holds);
 
 it('names the CI definitions that run the gate as paths from the root', function (CiPlan $ci): void {
     $definitions = $ci->definitions();
@@ -84,7 +101,7 @@ it('names the CI definitions that run the gate as paths from the root', function
     }
 
     expect($definitions->count())->toBeLessThanOrEqual(2);
-})->with($plans);
+})->with($plans)->group(...$holds);
 
 it('declares the credentials of its CI that no runner hands the tests, over and above what every run withholds', function (Withheld $declared): void {
     $withheld = Withheld::standard()->and($declared);
@@ -101,4 +118,4 @@ it('declares the credentials of its CI that no runner hands the tests, over and 
     'Bitbucket Pipelines' => fn(): Withheld => BitbucketPlan::withheld(),
     'Jenkins' => fn(): Withheld => JenkinsPlan::withheld(),
     'plain JSON' => fn(): Withheld => JsonPlan::withheld(),
-]);
+])->group(...$holds);
