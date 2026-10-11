@@ -21,6 +21,9 @@ final readonly class Bytes
     /** Bytes in PHP's `M`, as a memory_limit counts them. */
     public const int PER_MEBIBYTE = 1_048_576;
 
+    /** The bytes a line's indentation is made of: a space and a tab. */
+    public const string BLANKS = " \t";
+
     /** The encoding in which one character is one byte. */
     private const string ENCODING = '8bit';
 
@@ -34,6 +37,12 @@ final readonly class Bytes
     public static function find(string $text, string $sought, int $from): int|false
     {
         return mb_strpos($text, $sought, $from, self::ENCODING);
+    }
+
+    /** The bytes of the text from an offset to its end. */
+    public static function from(string $text, int $from): string
+    {
+        return mb_substr($text, $from, encoding: self::ENCODING);
     }
 
     /** The bytes of the text from an offset, this many of them, or as many as there are. */

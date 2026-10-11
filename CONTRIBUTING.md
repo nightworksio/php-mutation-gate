@@ -10,7 +10,8 @@ privately, as [SECURITY.md](SECURITY.md) says, and everyone here keeps the
 - **PHP 8.5 with pcov.** The coverage gate runs under pcov.
 - **`composer install`.** It sets `core.hooksPath` to `.githooks` and runs
   `bin/mutation-gate pest:patch`.
-- **Python 3** runs the scripts under `.github/scripts` and their tests.
+- **Python 3** runs the scripts under `.github/scripts`, the action's script under
+  `resources/action`, and their tests.
 - **Node** runs markdownlint, locked in `.github/bot/markdownlint`.
 
 The hooks in `.githooks` say early what CI says later:
@@ -40,7 +41,7 @@ Before each push, run the entries for what you changed:
 | Markdown | `hygiene/markdown` and `hygiene/links` |
 | `ARCHITECTURE.md`, `.docs/reference/`, `.docs/guide/ci/` or `.docs/guide/troubleshooting.md` | the Markdown entries, and `composer test`, because tests read them |
 | a workflow | `hygiene/actionlint` and `hygiene/zizmor` |
-| `.github/scripts` | `scripts` |
+| `.github/scripts` or `resources/action` | `scripts` |
 
 `tests/Unit` mirrors `src`, so the tests of `src/Core/Plan/Cut.php` are in
 `tests/Unit/Core/Plan/CutTest.php`, and each plugin's are under

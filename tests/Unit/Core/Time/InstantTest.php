@@ -26,7 +26,10 @@ it('orders instants by when they were', function (): void {
 
     expect($later->isAfter($earlier))->toBeTrue()
         ->and($earlier->isAfter($later))->toBeFalse()
-        ->and($earlier->isAfter($earlier))->toBeFalse();
+        ->and($earlier->isAfter($earlier))->toBeFalse()
+        ->and($earlier->comparedTo($later))->toBe(-1)
+        ->and($later->comparedTo($earlier))->toBe(1)
+        ->and($earlier->comparedTo($earlier))->toBe(0);
 });
 
 it('is the moment it names, in UTC, and no moment where its day is not on the calendar', function (): void {

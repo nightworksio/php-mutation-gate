@@ -52,3 +52,10 @@ it('says what pruning saved in the headline, and under it what pruning left out,
         ->and(SavingsText::of(Verdicts::failing()->withAccount(RunAccount::none()->withPruning(PruningCases::account())), Seconds::of(60.0)))
         ->toBe($pruned);
 });
+
+it('says what pruning saved wherever it saved any time, under a second too, and nothing where it saved none', function () use ($timings, $savings): void {
+    $measured = $timings(RunTime::measured(Seconds::of(360.0), Seconds::of(840.0)));
+
+    expect(SavingsText::headline($measured, $savings(), Seconds::of(0.5)))->toContain(sprintf(', pruning %s', Seconds::of(0.5)->text()))
+        ->and(SavingsText::headline($measured, $savings(), Seconds::of(0.0)))->not->toContain(', pruning');
+});

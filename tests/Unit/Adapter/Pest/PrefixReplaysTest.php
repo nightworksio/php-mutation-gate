@@ -9,11 +9,13 @@ use NightWorksIO\MutationGate\Adapter\Pest\PrefixReplay;
 use NightWorksIO\MutationGate\Adapter\Pest\PrefixReplays;
 use NightWorksIO\MutationGate\Adapter\Pest\Printed;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\KillerFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Placed;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Adapter\Pest\Remembered;
 use NightWorksIO\MutationGate\Adapter\Pest\ReplayVerdict;
+use NightWorksIO\MutationGate\Adapter\Pest\Shell;
 use NightWorksIO\MutationGate\Core\Config\TestOrder;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -24,8 +26,13 @@ use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\Order\KillHistory;
 use NightWorksIO\MutationGate\Core\Order\KillSearch;
 use NightWorksIO\MutationGate\Core\Order\Ordering;
+use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
+use NightWorksIO\MutationGate\Core\Runner\ProcessWatch;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Runner\Unwatched;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
@@ -50,14 +57,29 @@ function replayedOrder(string $second = 'T::b'): string
  */
 function moneyReplay(Seconds|Unmeasured $limit = new Unmeasured()): PrefixReplay
 {
+    return replayOf(limit: $limit);
+}
+
+/**
+ * The replay of a run of a file that loaded tests/MoneySpec.php, filtered so,
+ * and ran this many tests up to its last killer, its mutant allowed these seconds.
+ *
+ * @param positive-int $reach
+ */
+function replayOf(
+    string $file = 'src/Money.php',
+    int $reach = 2,
+    string $filter = '--filter=MoneySpec',
+    Seconds|Unmeasured $limit = new Unmeasured(),
+): PrefixReplay {
     $files = Paths::of(Path::of('tests/MoneySpec.php'));
 
     return PrefixReplay::of(
-        Path::of('src/Money.php'),
+        Path::of($file),
         '/tmp/mutations/abc',
-        ['vendor/bin/pest', '--bail', '--filter=MoneySpec', '/p/tests/MoneySpec.php'],
+        ['vendor/bin/pest', '--bail', $filter, '/p/tests/MoneySpec.php'],
         $files,
-        2,
+        $reach,
         Prefix::keyOf($files, replayedOrder()),
         $limit,
     );
@@ -78,7 +100,7 @@ function replaying(Ran $ended, string ...$lines): ShellFake
  *
  * @return list<ReplayVerdict>
  */
-function replayVerdicts(Project $at, ShellFake $shell, Seconds|Unlimited $left = new Unlimited(), PrefixReplay ...$replays): array
+function replayVerdicts(Project $at, Shell $shell, Seconds|Unlimited $left = new Unlimited(), PrefixReplay ...$replays): array
 {
     return new PrefixReplays($at, $shell, new Remembered())->verdicts(
         $replays === [] ? [moneyReplay()] : array_values($replays),
@@ -170,6 +192,46 @@ it('starts a replay with no earlier replay\'s records of the same run left where
     expect($found)->toBe([false, false]);
 });
 
+it('reads the tests a replay ran from the killer file its process wrote for the copy it served, folded into its records', function (): void {
+    $at = PestCases::project();
+    $records = '';
+    $shell = new ShellFake(static function (Command $command) use (&$records): Ran {
+        $results = sprintf('%s', $command->environment()[GateVariable::Results->value]);
+        $served = sprintf('%s', $command->environment()[Recorder::MUTATED]);
+        file_put_contents($results, RecordLine::stopped($served, 2, replayedOrder()));
+        file_put_contents(KillerFile::beside($results, $served), KillerFile::ran(2));
+        $records = $results;
+
+        return Ran::finished(succeeded: true, output: '');
+    });
+
+    expect(replayVerdicts($at, $shell))->toBe([ReplayVerdict::Stands])
+        ->and((string) file_get_contents($records))->toContain('"ran"');
+});
+
+it('reads a replay that wrote no records as one that ran no test, and one never started as one with no time', function (): void {
+    $silent = new ShellFake(static fn(): Ran => Ran::finished(succeeded: true, output: ''));
+    $unstarted = new class implements Shell {
+        public function run(Command $command, ProcessWatch $watch = new Unwatched()): Ran
+        {
+            return Ran::finished(succeeded: true, output: '');
+        }
+
+        public function sideBySide(WorkerSlots $slots, Seconds|Unlimited $startingWithin, Command ...$commands): ProcessEnds
+        {
+            return ProcessEnds::of();
+        }
+
+        public function in(string $directory): Shell
+        {
+            return $this;
+        }
+    };
+
+    expect(replayVerdicts(PestCases::project(), $silent))->toBe([ReplayVerdict::OtherCount])
+        ->and(replayVerdicts(PestCases::project(), $unstarted))->toBe([ReplayVerdict::NoTime]);
+});
+
 it('runs one replay for two kills of one run, keeps what it said, and runs none where no time is left', function (): void {
     $at = PestCases::project();
     $shell = replaying(Ran::finished(succeeded: true, output: ''), RecordLine::ran('/r/copy.php', 2), RecordLine::stopped('/r/copy.php', 2, replayedOrder()));
@@ -182,6 +244,18 @@ it('runs one replay for two kills of one run, keeps what it said, and runs none 
     expect([$first, $again, $late])->toBe([[ReplayVerdict::Stands, ReplayVerdict::Stands], [ReplayVerdict::Stands], [ReplayVerdict::NoTime]])
         ->and($shell->commands())->toHaveCount(1);
 });
+
+it('serves no unmutated copy where no time is left, and one where any is', function (Seconds $left, int $copies): void {
+    $at = PestCases::project();
+    $shell = replaying(Ran::finished(succeeded: true, output: ''), RecordLine::ran('/r/copy.php', 2));
+
+    replayVerdicts($at, $shell, $left);
+
+    expect(glob(sprintf('%s/originals/*.php', dirname(PestCases::results($at)))))->toHaveCount($copies);
+})->with([
+    'none left' => [fn(): Seconds => Seconds::of(0.0), 0],
+    'a second left' => [fn(): Seconds => Seconds::of(1.0), 1],
+]);
 
 it('holds a replay to its kill\'s limit where that is shorter than the time left, and tells a stop at it from one at the time left', function (Seconds|Unlimited $left, float $deadline, ReplayVerdict $verdict): void {
     $at = PestCases::project();
@@ -208,9 +282,47 @@ it('keeps what a replay said under one limit apart from a replay of the same run
         ->and($shell->commands())->toHaveCount(2);
 });
 
-it('cannot vouch for a kill whose file it cannot serve unmutated', function (): void {
+it('cannot vouch for a kill whose file it cannot serve unmutated, and goes on to the next', function (): void {
     $at = PestCases::project();
-    unlink(sprintf('%s/src/Money.php', $at->root()));
+    $shell = replaying(Ran::finished(succeeded: true, output: ''), RecordLine::ran('/r/copy.php', 2), RecordLine::stopped('/r/copy.php', 2, replayedOrder()));
 
-    expect(replayVerdicts($at, replaying(Ran::finished(succeeded: true, output: ''))))->toBe([ReplayVerdict::Unserved]);
+    expect(replayVerdicts($at, $shell, Unlimited::time(), replayOf(file: 'src/Gone.php'), moneyReplay()))
+        ->toBe([ReplayVerdict::Unserved, ReplayVerdict::Stands]);
 });
+
+it('replays a run again where it withholds more, serves another copy, runs further or starts otherwise', function (
+    PrefixReplay $again,
+    MutationRequest $request,
+    bool $edited,
+    int $runs,
+): void {
+    $at = PestCases::project();
+    $shell = replaying(Ran::finished(succeeded: true, output: ''), RecordLine::ran('/r/copy.php', 2), RecordLine::stopped('/r/copy.php', 2, replayedOrder()));
+    $replays = new PrefixReplays($at, $shell, new Remembered());
+
+    $replays->verdicts([moneyReplay()], PestCases::money(), Unlimited::time(), PestCases::results($at));
+
+    if ($edited) {
+        file_put_contents(sprintf('%s/src/Money.php', $at->root()), "<?php\n\nfinal class Money\n{\n    public int \$cents = 0;\n}\n");
+    }
+
+    $replays->verdicts([$again], $request, Unlimited::time(), PestCases::results($at));
+
+    expect($shell->commands())->toHaveCount($runs);
+})->with([
+    'the same run' => [fn(): PrefixReplay => moneyReplay(), fn(): MutationRequest => PestCases::money(), false, 1],
+    'withholding more' => [
+        fn(): PrefixReplay => moneyReplay(),
+        fn(): MutationRequest => PestCases::money()->withholding(Withheld::of('DEPLOY_*')),
+        false,
+        2,
+    ],
+    'serving another copy' => [fn(): PrefixReplay => moneyReplay(), fn(): MutationRequest => PestCases::money(), true, 2],
+    'running further' => [fn(): PrefixReplay => replayOf(reach: 3), fn(): MutationRequest => PestCases::money(), false, 2],
+    'started otherwise' => [
+        fn(): PrefixReplay => replayOf(filter: '--filter=OtherSpec'),
+        fn(): MutationRequest => PestCases::money(),
+        false,
+        2,
+    ],
+]);

@@ -34,11 +34,11 @@ it('holds the files in every test suite\'s directories and those it names, less 
             <testsuites>
                 <testsuite name="Unit">
                     <directory>tests/Unit</directory>
-                    <exclude>tests/Unit/fixture</exclude>
+                    <exclude> tests/Unit/fixture </exclude>
                 </testsuite>
                 <testsuite name="Feature">
                     <directory> ./tests/Feature/ </directory>
-                    <file>tests/SmokeTest.php</file>
+                    <file> tests/SmokeTest.php </file>
                 </testsuite>
             </testsuites>
         </phpunit>

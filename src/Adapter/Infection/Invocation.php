@@ -108,7 +108,9 @@ final readonly class Invocation
      * (see StartUpConfig), whose one suite holds the control's test files,
      * with the project's extra arguments and a filter that selects its tests
      * by the names PHPUnit gives them: a row an id names alone, and every
-     * row of a method it names whole.
+     * row of a method it names whole. A filter PCRE cannot compile would
+     * select no test, so, as Infection drops its own past PCRE's limit, the
+     * control then runs every test of its suite.
      */
     public static function controlling(
         Project $project,
@@ -117,13 +119,14 @@ final readonly class Invocation
         TestIds $tests,
     ): Command {
         $ids = array_map(static fn(TestId $test): string => preg_quote(self::named($test), '/'), [...$tests]);
+        $filter = Filter::matching(sprintf(self::SELECTING, implode('|', $ids)));
 
         return Command::php(
             $config->phpunit($project),
             sprintf('--configuration=%s', $controlConfig),
             PhpUnitOption::NoColors->value,
             ...$config->extraArguments(),
-            ...self::narrowedTo(Filter::matching(sprintf(self::SELECTING, implode('|', $ids)))),
+            ...self::narrowedTo($filter->compiles() ? $filter : WholeSuite::tests()),
         );
     }
 

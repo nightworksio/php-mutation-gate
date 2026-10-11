@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Adapter\Infection\PatchState;
 use NightWorksIO\MutationGate\Adapter\Infection\PrunedFile;
 use NightWorksIO\MutationGate\Adapter\Infection\Release;
 use NightWorksIO\MutationGate\Adapter\Infection\Silence;
+use NightWorksIO\MutationGate\Adapter\Infection\UnsupportedRelease;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Tests\Support\FileModes;
 use NightWorksIO\MutationGate\Tests\Support\InfectionSource;
@@ -70,8 +71,8 @@ it('finds the patch in place and changes nothing when patching again', function 
 it('patches no release it does not support, and says which it supports', function (): void {
     $at = InfectionSource::pristine()->vendor('0.34.0');
 
-    expect(Patch::applyIn($at))->toEqual(CannotJudge::because(sprintf(
-        'infection:patch patched nothing: it patches Infection %s, and %s holds Infection 0.34.0. Install a supported release.',
+    expect(Patch::applyIn($at))->toEqual(UnsupportedRelease::because(sprintf(
+        'infection:patch patched nothing: it patches Infection %s, and %s holds Infection 0.34.0, which keeps its own mutant limit.',
         Release::listed(),
         $at,
     )))
@@ -86,6 +87,18 @@ it('patches nothing where Composer lists no Infection', function (): void {
         'infection:patch patched nothing: %s/composer/installed.json lists no Infection. Is Infection installed?',
         $at,
     )));
+});
+
+it('patches nothing where Composer\'s list of what it installed cannot be read, and says why', function (): void {
+    $at = InfectionSource::pristine()->vendor();
+    $listed = sprintf('%s/composer/installed.json', $at);
+    file_put_contents($listed, '{"packages": ');
+
+    $patched = Patch::applyIn($at);
+
+    expect($patched)->toBeInstanceOf(CannotJudge::class)
+        ->and($patched instanceof CannotJudge ? $patched->why() : '')->toContain($listed)
+        ->and($patched instanceof CannotJudge ? $patched->why() : '')->not->toContain('lists no Infection');
 });
 
 it('patches nothing where a line it rewrites has moved', function (): void {

@@ -13,8 +13,8 @@ a changelog key by key.
 
 What exists to build on:
 
-- **The config has no version marker.** JSON's `$schema` names the major
-  version in its URL (`…/php-mutation-gate/v1/resources/mutation-gate.schema.json`,
+- **The config has no version marker.** JSON's `$schema` names the release
+  line in its URL (`…/php-mutation-gate/v0.1/resources/mutation-gate.schema.json`,
   ADR-0002 decision 3). The baseline has `"format": 1` (ADR-0003
   decision 3).
 - **Every format reads into one form.** Each config file, in any of the four
@@ -80,7 +80,7 @@ What exists to build on:
    - **JSON:** each step is a key-level text edit, through a JSON tokenizer
      in `Core` that keeps the file's whitespace and key order. JSON holds no
      comments. A `$schema` that names this package's published schema of
-     another major is rewritten to the current major's, on every JSON
+     another release line is rewritten to the current line's, on every JSON
      migration. A `$schema` that names a local path, such as the one `init`
      writes into `vendor`, is left as it is.
    - **YAML and NEON:** the file is written again from its migrated form.

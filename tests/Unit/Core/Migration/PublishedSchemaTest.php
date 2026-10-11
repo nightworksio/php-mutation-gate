@@ -13,13 +13,14 @@ function publishedSchemaOf(string $schema): string
     return $document instanceof JsonDocument ? PublishedSchema::current($document)->text() : '';
 }
 
-it('names the current major\'s published schema where a config names another major\'s, and leaves any other $schema', function (): void {
+it('names the current release line\'s published schema where a config names another line\'s, and leaves any other $schema', function (): void {
     $current = sprintf('{"$schema": %s, "runner": "pest"}', json_encode(Definition::PUBLISHED, JSON_UNESCAPED_SLASHES));
-    $older = str_replace('/v1/', '/v0/', Definition::PUBLISHED);
+    $older = (string) preg_replace('~/v[\d.]+/~', '/v0/', Definition::PUBLISHED);
     $local = 'vendor/nightworksio/mutation-gate/resources/mutation-gate.schema.json';
 
     expect(publishedSchemaOf($older))->toBe($current)
-        ->and(publishedSchemaOf(str_replace('/v1/', '/v12/', Definition::PUBLISHED)))->toBe($current)
+        ->and(publishedSchemaOf((string) preg_replace('~/v[\d.]+/~', '/v12/', Definition::PUBLISHED)))->toBe($current)
+        ->and(publishedSchemaOf((string) preg_replace('~/v[\d.]+/~', '/v0.0/', Definition::PUBLISHED)))->toBe($current)
         ->and(publishedSchemaOf(Definition::PUBLISHED))->toBe($current)
         ->and(publishedSchemaOf($local))->toBe(sprintf('{"$schema": %s, "runner": "pest"}', json_encode($local, JSON_UNESCAPED_SLASHES)))
         ->and(publishedSchemaOf('https://example.com/v0/resources/mutation-gate.schema.json'))->toContain('example.com/v0')
@@ -28,7 +29,7 @@ it('names the current major\'s published schema where a config names another maj
             : '')->toBe('{"runner": "pest"}');
 });
 
-it('leaves the current major\'s published schema as the file writes it, its slashes escaped or not', function (): void {
+it('leaves the current release line\'s published schema as the file writes it, its slashes escaped or not', function (): void {
     $escaped = sprintf('{"$schema": %s}', json_encode(Definition::PUBLISHED));
     $document = JsonDocument::parse($escaped);
 

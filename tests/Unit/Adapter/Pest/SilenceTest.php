@@ -74,10 +74,12 @@ it('never stops a run it does not watch, one watched again under tests the map d
     $unwatched = silenceRun(0.0);
     $untimed = silenceRun(0.0);
     $unfiltered = silenceRun(0.0);
+    $uncompiled = silenceRun(0.0);
     Silence::watch($untimed, ['T::a'], '/tmp/mutations/timed', '--filter="T::a"', 'P\\Plus');
     Silence::watch($untimed, ['T::never'], '/tmp/mutations/untimed', '--filter="T::never"', 'P\\Plus');
     Silence::watch($unfiltered, ['T::a'], '/tmp/mutations/unfiltered', str_repeat('T::a|', Ceiling::BYTES), 'P\\Plus');
-    $runs = [$unwatched, $untimed, $unfiltered];
+    Silence::watch($uncompiled, ['T::a'], '/tmp/mutations/uncompiled', '--filter="T::a("', 'P\\Plus');
+    $runs = [$unwatched, $untimed, $unfiltered, $uncompiled];
     array_map(silenceBeaten(...), $runs);
     $now = microtime(as_float: true);
 
@@ -85,7 +87,7 @@ it('never stops a run it does not watch, one watched again under tests the map d
         array_map(static fn(Process $run) => Silence::check($run, $at), $runs);
     }
 
-    expect(array_map(static fn(Process $run): bool => $run->isRunning(), $runs))->toBe([true, true, true]);
+    expect(array_map(static fn(Process $run): bool => $run->isRunning(), $runs))->toBe([true, true, true, true]);
 
     foreach ($runs as $run) {
         $run->stop(0);

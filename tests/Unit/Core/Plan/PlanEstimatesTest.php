@@ -28,7 +28,6 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
-use NightWorksIO\MutationGate\Core\Verdict\Warning;
 
 /** A shard of one unit, its estimate learned and guessed in these seconds, with this opening run. */
 function estimatedShard(int $id, float $learned, float $guessed, float $opening): Shard
@@ -82,12 +81,19 @@ it('sets the planned work the changed lines the plan says no test runs, by file'
         ->and(PlanEstimates::of(estimatedPlan(), Seconds::of(0.0))->work()->uncovered())->toEqual(ByPath::none());
 });
 
-it('writes a line for each shard with units and one for the run', function (): void {
+it('writes a line for each shard with units', function (): void {
     $plan = estimatedPlan(estimatedShard(1, 0.0, 540.0, 60.0), estimatedShard(2, 120.0, 0.0, 60.0), Shard::empty(ShardId::of(3)));
 
     expect(PlanEstimates::of($plan, Seconds::of(60.0))->lines())->toBe([
         'Shard 1 (src, part 1): about 11m, guessed.',
         'Shard 2 (src, part 2): about 4m, learned.',
+    ]);
+});
+
+it('sums the run up in one line where nothing is measured and the target is met', function (): void {
+    $plan = estimatedPlan(estimatedShard(1, 0.0, 540.0, 60.0), estimatedShard(2, 120.0, 0.0, 60.0), Shard::empty(ShardId::of(3)));
+
+    expect(PlanEstimates::of($plan, Seconds::of(60.0))->summary(ProcessCount::of(4), Absent::setting(), 2))->toBe([
         'The plan expects about 11m of wall time and 15m of runner time: 18% learned, 0% measured, 81% guessed.',
     ]);
 });
@@ -95,22 +101,20 @@ it('writes a line for each shard with units and one for the run', function (): v
 it('warns where the plan cannot meet shards.target, saying what stops it', function (): void {
     $plan = estimatedPlan(estimatedShard(1, 0.0, 700.0, 60.0), estimatedShard(2, 0.0, 400.0, 60.0));
     $estimates = PlanEstimates::of($plan, Seconds::of(60.0));
-    $said = static fn(Seconds|Absent $target, int $most): array => array_map(
-        static fn(Warning $warning): string => $warning->text(),
-        [...$estimates->unmet($target, $most)],
-    );
+    $total = 'The plan expects about 14m of wall time and 22m of runner time: 0% learned, 0% measured, 100% guessed.';
 
-    expect($said(Seconds::of(600.0), 2))->toBe([<<<'SAID'
-        shards.target is 10m, and at shards.max of 2 shards the longest is expected to take 14m.
-        Raise shards.max, or shards.target, to meet it.
-        SAID])
-        ->and($said(Seconds::of(600.0), 3))->toBe([<<<'SAID'
+    expect($estimates->summary(ProcessCount::of(4), Seconds::of(600.0), 2))
+        ->toBe([$total, <<<'SAID'
+            shards.target is 10m, and at shards.max of 2 shards the longest is expected to take 14m.
+            Raise shards.max, or shards.target, to meet it.
+            SAID])
+        ->and($estimates->summary(ProcessCount::of(4), Seconds::of(600.0), 3))->toBe([$total, <<<'SAID'
             shards.target is 10m, and at 2 shards the longest is expected to take 14m.
             More shards would each cost less than twice their opening run and setup, or split a unit, which no cut does.
             Raise shards.target to meet it.
             SAID])
-        ->and($said($estimates->runTime()->wall(), 2))->toBe([])
-        ->and($said(Absent::setting(), 2))->toBe([]);
+        ->and($estimates->summary(ProcessCount::of(4), $estimates->runTime()->wall(), 2))->toBe([$total])
+        ->and($estimates->summary(ProcessCount::of(4), Absent::setting(), 2))->toBe([$total]);
 });
 
 it('says each shard\'s runner is taken to run as many mutants at once as this machine, where a unit\'s estimate is measured', function (): void {
@@ -118,8 +122,37 @@ it('says each shard\'s runner is taken to run as many mutants at once as this ma
         ShardEstimate::none()->with(Estimated::of(Seconds::of(5.0), CostBasis::Measured)),
     );
 
-    expect(PlanEstimates::of(estimatedPlan($measured), Seconds::of(0.0))->assumed(ProcessCount::of(4)))
-        ->toBe(['It takes each shard\'s runner to run 4 mutants at once, as this machine does.'])
-        ->and(PlanEstimates::of(estimatedPlan(estimatedShard(1, 10.0, 10.0, 0.0)), Seconds::of(0.0))->assumed(ProcessCount::of(4)))
-        ->toBe([]);
+    expect(PlanEstimates::of(estimatedPlan($measured), Seconds::of(0.0))->summary(ProcessCount::of(4), Absent::setting(), 2))
+        ->toBe([
+            'The plan expects about 5s of wall time and 5s of runner time: 0% learned, 100% measured, 0% guessed.',
+            'It takes each shard\'s runner to run 4 mutants at once, as this machine does.',
+        ]);
+});
+
+it('expects a plan of shards under a second at their own time, and no time of a plan of none', function (): void {
+    expect(PlanEstimates::of(estimatedPlan(estimatedShard(1, 0.0, 0.5, 0.0)), Seconds::of(0.0))->runTime())
+        ->toEqual(RunTime::estimated(Seconds::of(0.5), Seconds::of(0.5)))
+        ->and(PlanEstimates::of(estimatedPlan(), Seconds::of(0.0))->runTime())
+        ->toEqual(RunTime::estimated(Seconds::of(0.0), Seconds::of(0.0)));
+});
+
+it('gives the whole share to the one basis of a plan of a microsecond', function (): void {
+    $estimates = PlanEstimates::of(estimatedPlan(estimatedShard(1, 0.000001, 0.0, 0.0)), Seconds::of(0.0));
+
+    expect($estimates->share(CostBasis::Learned))->toEqual(Percentage::whole())
+        ->and($estimates->share(CostBasis::Guessed))->toEqual(Percentage::none());
+});
+
+it('says how many mutants a runner is taken to run at once where a microsecond of the estimate is measured', function (): void {
+    $measured = Shard::of(ShardId::of(1), Package::at(Path::root()), Units::none(), Seconds::of(0.000001), 'src')->estimated(
+        ShardEstimate::none()->with(Estimated::of(Seconds::of(0.000001), CostBasis::Measured)),
+    );
+
+    expect(PlanEstimates::of(estimatedPlan($measured), Seconds::of(0.0))->summary(ProcessCount::of(4), Absent::setting(), 2))
+        ->toContain('It takes each shard\'s runner to run 4 mutants at once, as this machine does.');
+});
+
+it('names every basis a shard\'s estimate rests on, however little of it each gives', function (): void {
+    expect(PlanEstimates::of(estimatedPlan(estimatedShard(1, 0.5, 0.5, 0.0)), Seconds::of(0.0))->lines())
+        ->toBe(['Shard 1 (src, part 1): about 1s, learned and guessed.']);
 });

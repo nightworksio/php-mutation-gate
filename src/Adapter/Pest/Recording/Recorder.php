@@ -16,7 +16,6 @@ use function mkdir;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Bridged;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
-use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\PlannedMutant;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
@@ -46,9 +45,10 @@ use function unlink;
  *   it, diff and the mutated copy Pest serves in a mutant's own process,
  *   once they are all made, and `made`, how many there are and the opening
  *   run's seconds;
- * - `outcome`, each mutant's status as Pest decides it, and `exhausted`, the
- *   memory limit a caught mutant's own process ran out of, where its output
- *   says it did;
+ * - `outcome`, each mutant's status as Pest decides it, then `killed` and
+ *   `errored`, each test its own process wrote to its killer file as failing
+ *   or erroring there, and `exhausted`, the memory limit a caught mutant's
+ *   own process ran out of, where its output says it did;
  * - `finished`, every mutant's final status and duration, which Pest sets only
  *   after the outcome is announced, and `end`.
  */
@@ -213,7 +213,7 @@ final readonly class Recorder
         $verdicts = getenv(GateVariable::Verdicts->value);
 
         if (is_string($verdicts) && $verdicts !== '') {
-            Verdicts::await($verdicts, Seconds::of((float) Seconds::PER_HOUR));
+            Verdicts::await($verdicts, Seconds::of(Seconds::PER_HOUR));
         }
     }
 
@@ -231,9 +231,19 @@ final readonly class Recorder
         );
     }
 
+    /**
+     * A mutant's status as Pest decided it, once its own process has ended,
+     * and each test that process wrote to its killer file as failing or
+     * erroring there.
+     */
     public function outcome(MutationTest $test): void
     {
+        $mutated = $test->mutation->modifiedSourcePath;
         $this->write(RecordLine::outcome($test->getId(), $this->statusOf($test)));
+
+        foreach (KillerFile::taken(KillerFile::beside($this->results, $mutated), $mutated) as $record) {
+            $this->write($record);
+        }
     }
 
     /**
@@ -246,13 +256,15 @@ final readonly class Recorder
         $mutated = $test->mutation->modifiedSourcePath;
         $log = self::errorsBeside($this->results, $mutated);
 
-        if (! is_file($log)) {
+        $logged = is_file($log) ? file_get_contents($log) : false;
+
+        if ($logged === false) {
             return;
         }
 
-        $logged = (string) file_get_contents($log);
-        $limit = Exhaustion::in($logged);
         unlink($log);
+
+        $limit = Exhaustion::in($logged);
 
         if ($limit instanceof MemoryCap) {
             $this->write(RecordLine::exhausted($mutated, $limit));
@@ -278,16 +290,10 @@ final readonly class Recorder
         $this->write(RecordLine::end());
     }
 
-    /** A mutant's status as the plugin knows it, or as Pest names one it does not. */
-    private function statusOf(MutationTest $test): PestStatus|string
+    /** A mutant's status, as Pest names it: the record holds the word whether or not the plugin knows it. */
+    private function statusOf(MutationTest $test): string
     {
-        return $this->known($test->result()->value);
-    }
-
-    /** A status Pest names, as the plugin knows it, or as Pest names it where a later Pest adds one. */
-    private function known(string $word): PestStatus|string
-    {
-        return PestStatus::tryFrom($word) ?? $word;
+        return $test->result()->value;
     }
 
     /** @phpstan-assert-if-true non-empty-string $results */

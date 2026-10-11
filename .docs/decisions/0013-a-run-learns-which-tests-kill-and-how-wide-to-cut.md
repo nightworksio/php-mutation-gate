@@ -58,11 +58,13 @@ decides are accepted for that release too.
 1. **The first test that kills each mutant is recorded.**
    - **Pest.** In a mutant's child process, the package's Pest plugin
      subscribes to PHPUnit's `Test\Failed` and `Test\Errored` events. It
-     appends the mutated file Pest serves and the failing test's id to the
+     appends the failing test's id to a file of that mutant's own beside the
      results file that `MUTATION_GATE_RESULTS` names, which the child
-     inherits. The adapter joins each line to its mutant by the mutated
-     file's path (`Mutation::$modifiedSourcePath`). ADR-0004's decision 3
-     records the plugin's jobs in a child.
+     inherits. Once the child ends, the plugin in Pest's own process writes
+     each id to the results file with the mutated file Pest serves. The
+     adapter joins each line to its mutant by the mutated file's path
+     (`Mutation::$modifiedSourcePath`). ADR-0004's decision 3 records the
+     plugin's jobs in a child.
    - **Infection.** The adapter reads the failing test's id from each
      killed mutant's `processOutput` in `logs.json`.
    - **The record.** Each mutant carries `killedBy`: a test id, or *unknown*
@@ -391,7 +393,7 @@ decides are accepted for that release too.
     branch's ledger. ADR-0005 decision 6 asks for a full run at least weekly,
     and this meets it.
 
-17. **1.0.0 is tagged when every feature the README lists is built.** The
+17. **0.1.0 is tagged when every feature the README lists is built.** The
     features this ADR decides, and those of the ADRs that follow it, join the
     README's feature table and the first release. ADR-0011's release rule
     counts no features: it names the README's list.
@@ -430,7 +432,7 @@ decides are accepted for that release too.
 | **The last default-branch run's artifact, through the Actions API** | GitHub only, where the cache already serves forks, and artifacts expire. |
 | **Fork detection in the CiPlan port**, forcing `proofs.write: never` | A Core and Port change per CI for what a missing credential already says, and it would stop a fork's harmless re-run cache on GitHub. |
 | **Signing the default branch's ledger** | The bucket's own access control already covers a public mirror. Readers of the mirror are runs whose trust matters only to themselves. |
-| **Releasing these features after 1.0.0**, with ADR-0011's count unchanged | The maintainer chose one first release holding every accepted feature. A count in the release rule would go stale with each new ADR. |
+| **Releasing these features after 0.1.0**, with ADR-0011's count unchanged | The maintainer chose one first release holding every accepted feature. A count in the release rule would go stale with each new ADR. |
 | **Keeping the documented schedule weekly** | After a quiet week, the next pull request re-mutates everything it cannot carry. |
 
 ## Consequences

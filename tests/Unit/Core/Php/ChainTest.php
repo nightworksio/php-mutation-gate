@@ -36,6 +36,7 @@ it('reads any other statement as no chain', function (string $written): void {
     expect(chainOf($written)->isChain())->toBeFalse();
 })->with([
     'a name alone' => ['it;'],
+    'a chain with no end' => ["it('adds')->only"],
     'a call not ended' => ["it('adds') {}"],
     'more after the chain' => ["it('adds') || putenv('A=1');"],
     'a nullsafe call' => ["it('adds')?->group('a');"],

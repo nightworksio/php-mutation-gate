@@ -63,7 +63,6 @@ final readonly class GitHubPlan implements CiPlan, Configurable
 
     private const string NO_PULL_REQUEST = 'This run is not for a pull request.';
 
-
     private function __construct(private CiJob $job)
     {
     }

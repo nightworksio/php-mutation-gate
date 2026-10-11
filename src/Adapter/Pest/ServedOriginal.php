@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Control\Control;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Format\Bytes;
 
 use function sprintf;
 
@@ -54,10 +55,11 @@ final readonly class ServedOriginal
             return $printed;
         }
 
-        $copy = sprintf(self::COPIES, $directory, hash('xxh3', $printed->text()));
+        $print = $printed->text();
+        $copy = sprintf(self::COPIES, $directory, hash('xxh3', $print));
         $copies = $project->directory(Path::of(dirname($copy)));
 
-        return is_file($copy) || (is_writable($copies) && file_put_contents($copy, $printed->text()) !== false)
+        return is_file($copy) || (is_writable($copies) && file_put_contents($copy, $print) === Bytes::length($print))
             ? new self($original, $copy)
             : CannotJudge::because(sprintf(self::UNWRITTEN, $copy, $file->value()));
     }
@@ -66,6 +68,12 @@ final readonly class ServedOriginal
     public function onto(Command $command): Command
     {
         return $command->with([Recorder::MUTANT => $this->original, Recorder::MUTATED => $this->copy]);
+    }
+
+    /** The unmutated copy served in the original's place, which a run's records name as its mutated copy. */
+    public function copy(): string
+    {
+        return $this->copy;
     }
 
     /** What tells this served file from any other, as a run's key reads it. */

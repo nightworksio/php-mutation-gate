@@ -16,8 +16,9 @@ use function sprintf;
 /**
  * `pest:patch`: the changes to pest-plugin-mutate the gate's `pest.patch`
  * setting relies on.
- * - A mutant's `--filter` too long to start a process with is dropped, so the
- *   mutant runs every test its run loads, which can only kill more mutants.
+ * - A mutant's `--filter` too long to start a process with, or too large for
+ *   PCRE to compile, is dropped (see Selection::passable), so the mutant runs
+ *   every test its run loads, which can only kill more mutants.
  * - Given a coverage map another job wrote, the opening run is the canary
  *   group alone, and the map is copied in place of the one that run wrote.
  * - Each mutant is allowed the standard mutant limit of its covering tests'
@@ -94,14 +95,15 @@ final readonly class Patch
         PHP;
 
     private const string FILTER_BECOMES = <<<'PHP'
-                {MARK} a filter too long to start a process with is left out.
+                {MARK} a filter too long to start a process with, or for PCRE to compile, is left out.
                 $filter = '--filter="'.implode('|', $filters).'"';
+                $passed = class_exists(\%1$s::class) ? \%1$s::passable($filter) : strlen($filter) < %2$d;
 
                 $process = new Process(
                     command: [
                         ...$filteredArguments,
                         '--bail',
-                        ...(strlen($filter) < %d ? [$filter] : []),
+                        ...($passed ? [$filter] : []),
                     ],
         PHP;
 
@@ -340,7 +342,11 @@ final readonly class Patch
     private static function hunks(): array
     {
         return [
-            Hunk::in(self::MUTATION_TEST, self::FILTER_SHIPS, sprintf(self::FILTER_BECOMES, Ceiling::BYTES)),
+            Hunk::in(
+                self::MUTATION_TEST,
+                self::FILTER_SHIPS,
+                sprintf(self::FILTER_BECOMES, Selection::class, Ceiling::BYTES),
+            ),
             Hunk::in(self::MUTATION_TEST, self::START_SHIPS, sprintf(self::START_BECOMES, Verdicts::class)),
             Hunk::in(self::MUTATION_TEST, self::COVERING_SHIPS, self::COVERING_BECOMES),
             Hunk::in(self::MUTATION_TEST, self::PATHS_SHIPS, sprintf(self::PATHS_BECOMES, CoveringFiles::class)),

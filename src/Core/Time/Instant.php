@@ -52,7 +52,7 @@ final readonly class Instant
     {
         $moment = DateTimeImmutable::createFromFormat(self::FORMAT, $this->value, new DateTimeZone(self::UTC));
 
-        return $moment instanceof DateTimeImmutable && $moment->format(self::FORMAT) === $this->value
+        return $moment !== false && $moment->format(self::FORMAT) === $this->value
             ? $moment
             : CannotJudge::because(sprintf('"%s" is no moment of the calendar.', $this->value));
     }
@@ -61,5 +61,11 @@ final readonly class Instant
     public function isAfter(self $other): bool
     {
         return $this->value > $other->value;
+    }
+
+    /** Below zero where this came first, above zero where it came last, and zero where both are one moment. */
+    public function comparedTo(self $other): int
+    {
+        return $this->value <=> $other->value;
     }
 }

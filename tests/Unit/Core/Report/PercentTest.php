@@ -25,6 +25,8 @@ it('prints the change from one score to another, signed, in points', function (i
     expect(Percent::change(Score::ofHundredths($from), Score::ofHundredths($to)))->toBe($change);
 })->with([
     'up' => [8_000, 8_120, '+1.20'],
+    'up by a hundredth' => [8_000, 8_001, '+0.01'],
+    'down by a hundredth' => [8_000, 7_999, '-0.01'],
     'down by hundredths' => [8_000, 7_995, '-0.05'],
     'down by points' => [9_000, 7_000, '-20.00'],
     'unchanged' => [8_000, 8_000, '±0.00'],

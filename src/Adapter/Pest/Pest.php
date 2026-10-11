@@ -242,7 +242,7 @@ final readonly class Pest implements Runner
         $natives = [];
 
         foreach ($mutants as $mutant) {
-            $files[$mutant->location()->file()->value()] = $mutant->location()->file();
+            $files[] = $mutant->location()->file();
             $mutators[$mutant->mutation()->mutator()] = $mutant->mutation()->mutator();
             $natives[] = $mutant->nativeId();
         }
@@ -255,7 +255,7 @@ final readonly class Pest implements Runner
             ->upTo($most)
             ->only(...$natives)
             ->of($request->narrowedTo(
-                Paths::of(...array_values($files)),
+                Paths::of(...$files),
                 $request->narrowing()->toMutators(Mutators::named(...array_values($mutators))),
             ));
 

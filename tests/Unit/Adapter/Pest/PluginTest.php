@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Seed;
 use NightWorksIO\MutationGate\Adapter\Pest\Plugin;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Guard;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\KillerFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Naming;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
@@ -161,7 +162,8 @@ it('records a mutant\'s own process\'s arguments as Pest gave them, and a replay
     ], $arguments);
     $own = argumentsHandledWith([Recorder::MUTATED => '/tmp/mutations/other', GateVariable::Order->value => $order], $arguments);
 
-    expect(file_get_contents($results))->toBe(RecordLine::arguments('/tmp/originals/copy.php', ['vendor/bin/pest', '--bail']))
+    expect(KillerFile::taken(KillerFile::beside($results, '/tmp/originals/copy.php'), '/tmp/originals/copy.php'))
+        ->toBe([RecordLine::arguments('/tmp/originals/copy.php', ['vendor/bin/pest', '--bail'])])
         ->and($replayed)->toContain(sprintf('--cache-directory=%s/abc/run-%d', $order, getmypid()))
         ->and($own)->toBe(['vendor/bin/pest', '--bail']);
 });

@@ -184,7 +184,7 @@ it('cannot tell what changed where git cannot read what the base held', function
     $said = Git::at($repository->root)->changesSince(Revision::ref('base'));
 
     expect($said)->toBeInstanceOf(CannotTell::class)
-        ->and($said instanceof CannotTell ? $said->why() : '')->toStartWith('git diff --find-renames --relative --name-status -z ');
+        ->and($said instanceof CannotTell ? $said->why() : '')->toStartWith('git diff --relative --name-status -z ');
 });
 
 it('keeps what a run withholds from git itself', function (): void {
@@ -206,6 +206,48 @@ it('cannot tell anything outside a repository', function (): void {
     expect(Git::at($directory)->changesSince(Revision::ref('HEAD')))->toBeInstanceOf(CannotTell::class)
         ->and(Git::at($directory)->fingerprints())->toBeInstanceOf(CannotTell::class)
         ->and(Git::at($directory)->unstaged())->toBeInstanceOf(CannotTell::class);
+});
+
+it('never counts what the gate keeps in its own workspace as a change', function (): void {
+    $repository = Repository::empty()->write('src/A.php', "<?php\n")->commit('The base.');
+    $repository->git('tag', 'base');
+    $repository->write('.mutation-gate/plan.json', '{}')
+        ->write('.mutation-gate/workflow/src/Gate.php', "<?php\n")
+        ->write('src/B.php', "<?php\n");
+    $git = Git::at($repository->root);
+    $fingerprints = $git->fingerprints();
+
+    expect(array_keys(changesByPath($git->changesSince(Revision::ref('base')))))->toBe(['src/B.php'])
+        ->and($git->unstaged())->toEqual(Paths::of(Path::of('src/B.php')))
+        ->and($fingerprints instanceof Fingerprints ? $fingerprints->count() : 0)->toBe(2);
+});
+
+it('names both sides of a file moved on disk and not yet staged, whatever the repository configures', function (): void {
+    $repository = Repository::empty()->write('src/A.php', "<?php\n// the file\n")->commit('The base.');
+    unlink(sprintf('%s/src/A.php', $repository->root));
+    $repository->write('src/B.php', "<?php\n// the file\n")->git('add', '--intent-to-add', 'src/B.php');
+    $repository->git('config', 'diff.renames', 'true');
+
+    expect(Git::at($repository->root)->unstaged())->toEqual(Paths::of(Path::of('src/A.php'), Path::of('src/B.php')));
+});
+
+it('cannot tell what is unstaged where git cannot list the changed files, or the untracked ones', function (): void {
+    $directory = Scratch::directory();
+    $repository = Repository::empty()->write('src/A.php', "<?php\n")->commit('The base.');
+    $exclude = sprintf('%s/.git/info/exclude', $repository->root);
+    if (is_file($exclude)) {
+        unlink($exclude);
+    }
+    mkdir($exclude, recursive: true);
+    $outside = Git::at($directory)->unstaged();
+    $unlisted = Git::at($repository->root)->unstaged();
+
+    expect($outside instanceof CannotTell ? $outside->why() : '')->toStartWith('git diff --name-only --no-renames -z gave no answer: ')
+        ->and($unlisted instanceof CannotTell ? $unlisted->why() : '')->toStartWith('git ls-files --others --exclude-standard -z ');
+});
+
+it('needs no repository to say when no file last changed', function (): void {
+    expect(Git::at(Scratch::directory())->lastChanged(Paths::none()))->toEqual(ByPath::none());
 });
 
 it('names a staged file as unstaged only once it changes again, and an ignored one never', function (): void {
@@ -401,6 +443,49 @@ it('reads the changes alike whatever copy detection the user\'s own config asks 
     expect(changesByPath(Git::at($repository->root)->changesSince(Revision::ref('base'))))->toEqual([
         'src/Copy.php' => ['added', [1, 2, 3, 4, 5, 6], 'src/Copy.php'],
     ]);
+});
+
+it('cannot tell the head of a repository with no commit yet, git saying nothing of it', function (): void {
+    $head = Git::at(Repository::empty()->root)->head();
+
+    expect($head instanceof CannotTell ? $head->why() : $head)->toBe('git rev-parse --verify --quiet HEAD^{commit} gave no answer: ');
+});
+
+it('cannot tell when the last change of a file was where git cannot read its history', function (): void {
+    expect(Git::at(Scratch::directory())->lastChanged(Paths::of(Path::of('src/A.php'))))->toBeInstanceOf(CannotTell::class);
+});
+
+it('cannot tell whether a working tree is clean where git cannot read the index, or the files it ignores', function (): void {
+    $repository = Repository::empty()->write('src/A.php', "<?php\n")->commit('The base.');
+    $unread = Repository::empty()->write('src/A.php', "<?php\n")->commit('The base.');
+    file_put_contents(sprintf('%s/.git/index', $unread->root), 'not an index');
+    $exclude = sprintf('%s/.git/info/exclude', $repository->root);
+
+    if (is_file($exclude)) {
+        unlink($exclude);
+    }
+
+    mkdir($exclude, recursive: true);
+    $index = Git::at($unread->root)->isClean();
+    $ignored = Git::at($repository->root)->isClean();
+
+    expect($index instanceof CannotTell ? $index->why() : $index)->toStartWith('git ls-files -v -z gave no answer: ')
+        ->and($ignored instanceof CannotTell ? $ignored->why() : $ignored)->toStartWith('git --no-optional-locks status --porcelain ');
+});
+
+it('tells an untracked file from a clean tree whatever the repository configures, and writes nothing while it looks', function (): void {
+    $repository = Repository::empty()->write('src/A.php', "<?php\n")->commit('The base.');
+    $index = sprintf('%s/.git/index', $repository->root);
+    touch(sprintf('%s/src/A.php', $repository->root), time() + 60);
+    $before = hash_file('sha256', $index);
+    $clean = Git::at($repository->root)->isClean();
+    $after = hash_file('sha256', $index);
+    $repository->git('config', 'status.showUntrackedFiles', 'no');
+    $repository->write('src/B.php', "<?php\n");
+
+    expect($clean)->toBeTrue()
+        ->and($after)->toBe($before)
+        ->and(Git::at($repository->root)->isClean())->toBeFalse();
 });
 
 it('names the URL its origin remote fetches from, and cannot tell without one', function (): void {

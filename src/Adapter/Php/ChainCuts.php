@@ -36,8 +36,6 @@ final readonly class ChainCuts
 {
     private const string NEWLINE = "\n";
 
-    private const string BLANKS = " \t";
-
     private const string SPACE = " \t\r\n";
 
     private const string ARROW = '->';
@@ -62,9 +60,9 @@ final readonly class ChainCuts
             $cuts = [...$cuts, ...$cutting->cutsOf($call, $migrations)];
         }
 
-        usort($cuts, static fn(array $one, array $other): int => [$one[0], $other[1]] <=> [$other[0], $one[1]]);
+        usort($cuts, static fn(array $one, array $other): int => $one[0] <=> $other[0]);
         $outer = [];
-        $reached = 0;
+        $reached = PHP_INT_MIN;
 
         foreach ($cuts as [$start, $end]) {
             if ($start >= $reached) {
@@ -74,8 +72,7 @@ final readonly class ChainCuts
         }
 
         foreach (array_reverse($outer) as [$start, $end]) {
-            $rest = Bytes::slice($code, $end, Bytes::length($code) - $end);
-            $code = sprintf('%s%s', Bytes::slice($code, 0, $start), $rest);
+            $code = sprintf('%s%s', Bytes::slice($code, 0, $start), Bytes::from($code, $end));
         }
 
         return $code;
@@ -153,10 +150,10 @@ final readonly class ChainCuts
             return [$line, $this->lineEnd($end)];
         }
 
-        $rest = ltrim(Bytes::slice($this->code, $end, Bytes::length($this->code) - $end), self::BLANKS);
+        $rest = ltrim(Bytes::from($this->code, $end), Bytes::BLANKS);
 
         if (str_starts_with($rest, self::COMMA)) {
-            $tail = ltrim(Bytes::slice($rest, Bytes::length(self::COMMA), Bytes::length($rest)), self::BLANKS);
+            $tail = ltrim(Bytes::from($rest, Bytes::length(self::COMMA)), Bytes::BLANKS);
 
             return [$start, Bytes::length($this->code) - Bytes::length($tail)];
         }
@@ -169,7 +166,7 @@ final readonly class ChainCuts
     /** Where the newline before this offset is, where only blanks stand between them; or the offset itself. */
     private function lineStart(int $offset): int
     {
-        $lead = rtrim(Bytes::slice($this->code, 0, $offset), self::BLANKS);
+        $lead = rtrim(Bytes::slice($this->code, 0, $offset), Bytes::BLANKS);
 
         return str_ends_with($lead, self::NEWLINE) ? Bytes::length($lead) - 1 : $offset;
     }

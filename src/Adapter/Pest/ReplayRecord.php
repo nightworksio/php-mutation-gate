@@ -6,9 +6,12 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function explode;
 use function file_get_contents;
+use function file_put_contents;
+use function implode;
 use function is_file;
 use function json_validate;
 
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\KillerFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordField;
 use NightWorksIO\MutationGate\Core\Format\Node;
@@ -28,14 +31,20 @@ final readonly class ReplayRecord
     {
     }
 
-    public static function in(string $file): self
+    /**
+     * What a replay wrote to this results file, with what its process wrote
+     * to the killer file of the copy it served, folded into the results file
+     * first, as Pest's parent folds a mutant's.
+     */
+    public static function in(string $file, string $served): self
     {
+        self::fold($file, $served);
         $text = is_file($file) ? file_get_contents($file) : false;
         $ran = 0;
         $failed = false;
         $order = NotGiven::value();
 
-        foreach (explode("\n", $text === false ? '' : $text) as $line) {
+        foreach ($text === false ? [] : explode("\n", $text) as $line) {
             try {
                 $record = json_validate($line) ? Node::decode($line) : Node::decode('{}');
                 $event = RecordEvent::tryFrom($record->field(RecordField::Event->value)->text());
@@ -66,5 +75,15 @@ final readonly class ReplayRecord
     public function order(): string|NotGiven
     {
         return $this->order;
+    }
+
+    /** What the replay's process wrote to its killer file, appended to its results file; the killer file gone. */
+    private static function fold(string $file, string $served): void
+    {
+        $killers = KillerFile::taken(KillerFile::beside($file, $served), $served);
+
+        if ($killers !== []) {
+            file_put_contents($file, implode('', $killers), FILE_APPEND);
+        }
     }
 }

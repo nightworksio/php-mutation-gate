@@ -25,5 +25,7 @@ it('keeps a header not yet whole, and reads a header without a length as an empt
     expect(Frames::read('Content-Len')->bodies())->toBe([])
         ->and(Frames::read('Content-Len')->rest())->toBe('Content-Len')
         ->and(Frames::read("X: 1\r\n\r\n")->bodies())->toBe([''])
+        ->and(Frames::read("X: 1\r\n\r\n")->rest())->toBe('')
+        ->and(Frames::read(sprintf("X: 1\r\n\r\n%s", Frames::framed('{"a":1}')))->bodies())->toBe(['', '{"a":1}'])
         ->and(Frames::read('')->rest())->toBe('');
 });

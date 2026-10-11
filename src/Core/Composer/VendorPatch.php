@@ -182,15 +182,18 @@ final readonly class VendorPatch
             static fn(string $source, string $file): bool => $source !== $sources[$file],
             ARRAY_FILTER_USE_BOTH,
         );
-        $locked = array_values(array_filter(
+        $locked = array_first(array_filter(
             array_keys($changed),
             fn(string $file): bool => ! $writable($this->path($vendor, $file)),
         ));
-        $first = $this->path($vendor, $locked === [] ? '' : array_first($locked));
 
-        return $locked === []
-            ? $changed
-            : CannotJudge::because(sprintf(self::UNWRITABLE, $this->command, dirname($first), basename($first)));
+        if ($locked === null) {
+            return $changed;
+        }
+
+        $first = $this->path($vendor, $locked);
+
+        return CannotJudge::because(sprintf(self::UNWRITABLE, $this->command, dirname($first), basename($first)));
     }
 
     /**
