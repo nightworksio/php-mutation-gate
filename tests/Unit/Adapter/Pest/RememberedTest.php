@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
+use NightWorksIO\MutationGate\Tests\Support\ReplayRuns;
 
 it('learns each thing once, and each listing once for its suites and what it withheld', function (): void {
     $remembered = new Remembered();
@@ -82,18 +83,13 @@ it('runs each baseline once, all it does not know in one call, and keeps nothing
 
 it('replays each key not yet kept once, though it is asked for twice, none where every key is kept, and keeps no replay that had no time', function (): void {
     $remembered = new Remembered();
-    $ran = [];
-    $running = static function (array $keys) use (&$ran): array {
-        $ran[] = $keys;
+    $replays = new ReplayRuns(['b']);
 
-        return array_map(static fn(string $key): ReplayVerdict => $key === 'b' ? ReplayVerdict::NoTime : ReplayVerdict::Stands, $keys);
-    };
+    $first = $remembered->replays(['a', 'b', 'a'], $replays->run(...));
+    $again = $remembered->replays(['a', 'b'], $replays->run(...));
+    $kept = $remembered->replays(['a'], $replays->run(...));
 
-    $first = $remembered->replays(['a', 'b', 'a'], $running);
-    $again = $remembered->replays(['a', 'b'], $running);
-    $kept = $remembered->replays(['a'], $running);
-
-    expect($ran)->toBe([['a', 'b'], ['b']])
+    expect($replays->ran())->toBe([['a', 'b'], ['b']])
         ->and($kept)->toBe([ReplayVerdict::Stands])
         ->and($first)->toBe([ReplayVerdict::Stands, ReplayVerdict::NoTime, ReplayVerdict::Stands])
         ->and($again)->toBe([ReplayVerdict::Stands, ReplayVerdict::NoTime]);
