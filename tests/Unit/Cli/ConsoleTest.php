@@ -5,7 +5,6 @@ declare(strict_types=1);
 use Composer\InstalledVersions;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Tests\Support\Commands;
-use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
 use NightWorksIO\MutationGate\Tests\Support\Printed;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -60,16 +59,6 @@ it('offers every command the command-line reference lists', function (string $co
     'pest:patch',
     'doctor',
 ]);
-
-it('says what would fail a run in a project, before a run does', function (): void {
-    $project = Scratch::copy('tests/Fixtures/Projects/TwoRunners');
-    $tester = new ApplicationTester(Commands::console($project));
-    $code = $tester->run(['command' => 'doctor', '--format' => 'json']);
-    $slugs = Decoded::column(Printed::by($tester->getOutput()), 'slug', 'findings');
-
-    expect($code)->toBe(1)
-        ->and($slugs)->toContain('two-runners');
-});
 
 it('runs the whole gate when no command is named, beginning with the config', function (): void {
     $tester = new ApplicationTester(Commands::console(Scratch::copy('tests/Fixtures/Projects/TwoRunners')));

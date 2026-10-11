@@ -1,0 +1,155 @@
+<?php
+
+declare(strict_types=1);
+
+use NightWorksIO\MutationGate\Adapter\Infection\MutantTime;
+use NightWorksIO\MutationGate\Adapter\Infection\Patch;
+use NightWorksIO\MutationGate\Adapter\Infection\PatchState;
+use NightWorksIO\MutationGate\Adapter\Infection\PrunedFile;
+use NightWorksIO\MutationGate\Adapter\Infection\Release;
+use NightWorksIO\MutationGate\Adapter\Infection\Silence;
+use NightWorksIO\MutationGate\Tests\Support\FileModes;
+use NightWorksIO\MutationGate\Tests\Support\InfectionPatches;
+use NightWorksIO\MutationGate\Tests\Support\InfectionSource;
+use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use Symfony\Component\Process\Process;
+
+afterEach(function (): void {
+    Scratch::sweep();
+});
+
+/** A file of the copy, as it is now. */
+$source = static fn(string $vendor, string $file): string => (string) file_get_contents(
+    sprintf('%s/infection/infection/src/%s', $vendor, $file),
+);
+
+it('patches the limit, the skip, the pruned mutators and the silence limit of every supported release, leaving each file PHP', function () use ($source): void {
+    foreach (Release::cases() as $release) {
+        $at = InfectionSource::pristine($release->value)->vendor();
+
+        expect(Patch::stateIn($at))->toBe(PatchState::Missing)
+            ->and(Patch::applyIn($at))->toBe('infection:patch patched 3 of the 3 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.')
+            ->and(Patch::stateIn($at))->toBe(PatchState::Applied)
+            ->and($source($at, 'Process/Factory/MutantProcessContainerFactory.php'))
+            ->toContain(sprintf(
+                "? \\%s::of(\$mutant->getMutation()->getNominalTestExecutionTime(), \$this->timeout)\n",
+                MutantTime::class,
+            ))
+            ->and($source($at, 'Process/Runner/MutationTestingRunner.php'))
+            ->toContain(sprintf("if (class_exists(\\%1\$s::class) && \\%1\$s::bounded()) {\n", MutantTime::class))
+            ->and($source($at, 'Process/Runner/MutationTestingRunner.php'))
+            ->toContain('// mutation-gate infection:patch: within the gate\'s bounds')
+            ->and($source($at, 'Process/Runner/MutationTestingRunner.php'))
+            ->toContain(sprintf("&& \\%s::leavesOut(\n", PrunedFile::class))
+            ->and($source($at, 'Process/Runner/MutationTestingRunner.php'))
+            ->toContain("(string) getenv('MUTATION_GATE_PRUNED'),\n")
+            ->and($source($at, 'Process/Factory/MutantProcessContainerFactory.php'))
+            ->toContain(sprintf("\\%s::watch(\$process, \$mutant, \$this->timeout);\n", Silence::class))
+            ->and($source($at, 'Process/Runner/ParallelProcessRunner.php'))
+            ->toContain(sprintf("\\%s::check(\$process, microtime(true));\n", Silence::class));
+
+        foreach (InfectionSource::FILES as $file) {
+            $lint = new Process([PHP_BINARY, '-l', sprintf('%s/infection/infection/src/%s', $at, $file)]);
+            $lint->run();
+
+            expect($lint->isSuccessful())->toBeTrue();
+        }
+    }
+});
+
+it('patches the interceptor\'s stat of every include-interceptor release Infection allows, leaving it PHP', function (): void {
+    foreach (array_keys(InfectionSource::INTERCEPTOR_SHIPS_AS) as $interceptor) {
+        $at = InfectionSource::pristine('0.35.6', $interceptor)->vendor();
+
+        expect(Patch::applyIn($at))->toBe(
+            'infection:patch patched 3 of the 3 files it changes in infection. infection:patch patched 1 of the 1 files it changes in include-interceptor.',
+        )
+            ->and(InfectionPatches::interceptor($at))->toContain("if (! file_exists(\$path) && ! (\$link && is_link(\$path))) {\n")
+            ->and(InfectionPatches::interceptor($at))->toContain('// mutation-gate infection:patch: a path stats as without the wrapper')
+            ->and(InfectionPatches::interceptor($at))->not->toContain('is_readable($path) === false');
+
+        $lint = new Process([PHP_BINARY, '-l', sprintf('%s/infection/include-interceptor/src/IncludeInterceptor.php', $at)]);
+        $lint->run();
+
+        expect($lint->isSuccessful())->toBeTrue();
+    }
+});
+
+/**
+ * What a PHP process says of a dangling link, a file it cannot read, a missing
+ * file, a plain one and a link to it, by these stat calls: without
+ * include-interceptor, or with the interceptor from this vendor directory
+ * enabled to serve another file, and how many warnings each call raised.
+ *
+ * @return array<mixed>
+ */
+function interceptedStats(string $vendor = ''): array
+{
+    $at = Scratch::directory();
+    Scratch::write($at, 'served.php', "<?php\n");
+    Scratch::write($at, 'copy.php', "<?php\n");
+    Scratch::write($at, 'plain', 'plain');
+    Scratch::write($at, 'unreadable', 'unreadable');
+    chmod(sprintf('%s/unreadable', $at), 0o000);
+    symlink(sprintf('%s/gone', $at), sprintf('%s/dangling', $at));
+    symlink(sprintf('%s/plain', $at), sprintf('%s/link', $at));
+    $wrapper = $vendor === '' ? '' : sprintf('%s/infection/include-interceptor/src/IncludeInterceptor.php', $vendor);
+    $probe = <<<'PHP'
+        <?php
+        [, $at, $wrapper] = $argv;
+        if ($wrapper !== '') {
+            require $wrapper;
+            \Infection\StreamWrapper\IncludeInterceptor::intercept("$at/served.php", "$at/copy.php");
+            \Infection\StreamWrapper\IncludeInterceptor::enable();
+        }
+        $warnings = 0;
+        set_error_handler(static function () use (&$warnings): bool { $warnings++; return true; });
+        $said = [];
+        foreach ([
+            'is_link(dangling)' => static fn() => is_link("$at/dangling"),
+            'file_exists(dangling)' => static fn() => file_exists("$at/dangling"),
+            'lstat(dangling)' => static fn() => lstat("$at/dangling") !== false,
+            'file_exists(unreadable)' => static fn() => file_exists("$at/unreadable"),
+            'is_file(unreadable)' => static fn() => is_file("$at/unreadable"),
+            'is_readable(unreadable)' => static fn() => is_readable("$at/unreadable"),
+            'file_exists(missing)' => static fn() => file_exists("$at/missing"),
+            'stat(missing)' => static fn() => stat("$at/missing"),
+            'is_link(plain)' => static fn() => is_link("$at/plain"),
+            'filesize(plain)' => static fn() => filesize("$at/plain"),
+            'is_file(link)' => static fn() => is_file("$at/link"),
+            'filesize(link)' => static fn() => filesize("$at/link"),
+            'is_link(link)' => static fn() => is_link("$at/link"),
+        ] as $call => $asked) {
+            $warnings = 0;
+            $said[$call] = [$asked(), $warnings];
+        }
+        echo json_encode($said);
+        PHP;
+    Scratch::write($at, 'probe.php', $probe);
+    $process = new Process([PHP_BINARY, '-n', sprintf('%s/probe.php', $at), $at, $wrapper]);
+    $process->run();
+    chmod(sprintf('%s/unreadable', $at), 0o600);
+    $said = json_decode($process->getOutput(), associative: true);
+
+    return is_array($said) ? $said : ['failed' => $process->getErrorOutput()];
+}
+
+it('stats a dangling link as a link, and a file it cannot read as there, while the patched interceptor serves a file, as PHP does without it', function (): void {
+    $at = InfectionSource::pristine()->vendor();
+    Patch::applyIn($at);
+
+    expect(interceptedStats($at))->toBe(interceptedStats())
+        ->and(interceptedStats())->toMatchArray([
+            'is_link(dangling)' => [true, 0],
+            'file_exists(unreadable)' => [true, 0],
+            'stat(missing)' => [false, 1],
+            'file_exists(missing)' => [false, 0],
+        ]);
+})->skip(fn(): bool => ! FileModes::areEnforced(), 'root reads a file whatever its mode');
+
+it('stats a dangling link and a file it cannot read as missing while the shipped interceptor serves a file', function (): void {
+    expect(interceptedStats(InfectionSource::pristine()->vendor()))->toMatchArray([
+        'is_link(dangling)' => [false, 0],
+        'file_exists(unreadable)' => [false, 0],
+    ]);
+})->skip(fn(): bool => ! FileModes::areEnforced(), 'root reads a file whatever its mode');

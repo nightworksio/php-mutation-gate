@@ -15,6 +15,23 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
+$holds = [
+    'holds:src/Adapter/Json',
+    'holds:src/Adapter/Neon',
+    'holds:src/Adapter/Php',
+    'holds:src/Adapter/Yaml',
+    'holds:src/Core/Config/Definition/FloorsKeys.php',
+    'holds:src/Core/Config/Definition/Number.php',
+    'holds:src/Core/Config/Definition/Percent.php',
+    'holds:src/Core/Config/Definition/Presets.php',
+    'holds:src/Core/Config/Definition/ReportEntry.php',
+    'holds:src/Core/Config/Parsed.php',
+    'holds:src/Core/Config/Reports.php',
+    'holds:src/Core/Config/RunnerLayer.php',
+    'holds:src/Core/Config/Setup.php',
+    'holds:src/Core/Runner/MemoryCap.php',
+];
+
 // The configuration reference shows one config in four formats. Each reads
 // into the same effective config.
 
@@ -51,7 +68,7 @@ $effective = static function (string $format, string $example, ConfigLoader $loa
 
 it('shows the config in all four formats', function () use ($examples): void {
     expect(array_keys($examples()))->toBe(['php', 'json', 'yaml', 'neon']);
-});
+})->group(...$holds);
 
 it('shows one config in every format', function (string $format, ConfigLoader $loader) use (
     $examples,
@@ -67,4 +84,4 @@ it('shows one config in every format', function (string $format, ConfigLoader $l
     'JSON' => ['json', fn(): ConfigLoader => new JsonConfig()],
     'YAML' => ['yaml', fn(): ConfigLoader => new YamlConfig()],
     'NEON' => ['neon', fn(): ConfigLoader => new NeonConfig()],
-]);
+])->group(...$holds);

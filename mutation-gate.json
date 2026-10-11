@@ -33,6 +33,10 @@
     "pest": {
         "patch": true
     },
+    "tests": {
+        "suites": ["Unit", "Plugins"],
+        "holding": ["Process", "Contract"]
+    },
     "ignores": {
         "entries": [
             {

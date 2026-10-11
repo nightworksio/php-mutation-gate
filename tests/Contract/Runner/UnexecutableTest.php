@@ -28,6 +28,11 @@ use NightWorksIO\MutationGate\Tests\Support\Tree;
 use Pest\Mutate\Mutators\Number\DecrementInteger;
 use Pest\Mutate\Mutators\Number\IncrementInteger;
 
+$holds = [
+    'holds:src/Adapter/Infection',
+    'holds:src/Adapter/Pest',
+];
+
 // A mutant on a line php-code-coverage leaves out of its map, which Pest calls
 // uncovered, judged by the tests that read the value it changes, each run
 // through Pest's own override (ADR-0004, decision 8). Pest's runs are real.
@@ -111,7 +116,7 @@ it('judges each kind of value on a line that is not executable by the tests that
     $judged = unexecutableJudged($library, unexecutableFiles(), WholeSuite::tests(), IncrementInteger::class);
 
     expect($judged)->toEqualCanonicalizing(UNEXECUTABLE_JUDGED);
-})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('names the tests that killed a mutant on a line that is not executable, as the coverage map names them', function (): void {
     $files = Paths::of(Path::of('src/Unexecutable/Rates.php'));
@@ -126,7 +131,7 @@ it('names the tests that killed a mutant on a line that is not executable, as th
     }
 
     expect($killers)->toBe(['line 14' => ['P\Tests\UnexecutableSpec::__pest_evaluable_it_reads_a_constant_through_an_alias']]);
-})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('says what a run that judged nothing did: its exit code, any test that failed, and the files it ran', function (): void {
     $files = Paths::of(Path::of('src/Unexecutable/Early.php'));
@@ -135,7 +140,7 @@ it('says what a run that judged nothing did: its exit code, any test that failed
 
     expect($said['src/Unexecutable/Early.php:10'] ?? '')
         ->toMatch('/^unjudged loaded before the override \(exit code \d+; (first failing test .+; )?ran tests\/.+\.php.*\)$/');
-})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('judges the same through a project root that is a symbolic link', function (): void {
     $root = sprintf('%s/library', Scratch::directory());
@@ -145,7 +150,7 @@ it('judges the same through a project root that is a symbolic link', function ()
     $judged = unexecutableJudged($library, unexecutableFiles(), WholeSuite::tests(), IncrementInteger::class);
 
     expect($judged)->toEqualCanonicalizing(UNEXECUTABLE_JUDGED);
-})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('judges a held unit by its holding group alone, where a test outside it would kill', function (): void {
     $files = Paths::of(Path::of('src/Unexecutable/Guarded.php'));
@@ -154,7 +159,7 @@ it('judges a held unit by its holding group alone, where a test outside it would
     $judged = unexecutableJudged(Library::pest(Patching::off()), $files, $held, IncrementInteger::class);
 
     expect($judged)->toBe(['src/Unexecutable/Guarded.php:10' => 'survived']);
-})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('makes no mutant of a value outside a function, only of a parameter\'s default, with Infection', function (): void {
     $files = Paths::of(
@@ -167,7 +172,7 @@ it('makes no mutant of a value outside a function, only of a parameter\'s defaul
     $judged = unexecutableJudged($library, $files, WholeSuite::tests(), 'IncrementInteger');
 
     expect($judged)->toBe(['src/Unexecutable/Values.php:20' => 'killed']);
-})->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
+})->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library')->group(...$holds);
 
 /**
  * The trial of the mutant that makes the fixture's loop step nought, under a
@@ -204,7 +209,7 @@ it('records the time a trial\'s tests took on their own, unmutated, so a trial t
     $library = Library::pestWithin(Patching::off(), LimitBounds::between(Seconds::of(1.0), Seconds::of(300.0)), 'pest unpatched, paced');
 
     expect(unexecutablePaced($library))->toBe([MutantStatus::TimedOut, true, MutantJudgement::KilledByTimeout]);
-})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('records the time a trial\'s tests took on their own, unmutated, with patched Pest', function (): void {
     Patch::applyIn(Library::vendor());
@@ -215,4 +220,4 @@ it('records the time a trial\'s tests took on their own, unmutated, with patched
     );
 
     expect(unexecutablePaced($library))->toBe([MutantStatus::TimedOut, true, MutantJudgement::KilledByTimeout]);
-})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
