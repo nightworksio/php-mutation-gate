@@ -145,7 +145,7 @@ final readonly class KillerFile
     private static function recordOf(string $line, string $mutated): array
     {
         $fields = explode(self::SEPARATOR, $line);
-        $test = implode(array_slice($fields, 1, 1));
+        $test = implode(self::SEPARATOR, array_slice($fields, 1, 1));
         $where = Placed::read(implode(self::SEPARATOR, array_slice($fields, 2)));
         $named = rawurldecode($test);
 
