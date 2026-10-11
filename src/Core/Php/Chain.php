@@ -33,8 +33,7 @@ final readonly class Chain
     {
         $read = Tokens::of($statement);
         $last = count($statement) - 1;
-        $shaped = $last > 1
-            && $read->is($last, self::END)
+        $shaped = $read->is($last, self::END)
             && $read->is(0, ...self::FUNCTION_NAMES)
             && $read->is(1, '(');
 
