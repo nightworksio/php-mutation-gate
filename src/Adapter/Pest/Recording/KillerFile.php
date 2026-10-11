@@ -125,16 +125,13 @@ final readonly class KillerFile
      */
     public static function taken(string $file, string $mutated): array
     {
-        if (! is_file($file)) {
+        $text = is_file($file) ? file_get_contents($file) : false;
+
+        if ($text === false) {
             return [];
         }
 
-        $text = file_get_contents($file);
         unlink($file);
-
-        if (! is_string($text)) {
-            return [];
-        }
         $lines = explode(self::LINE, $text);
         array_pop($lines);
 

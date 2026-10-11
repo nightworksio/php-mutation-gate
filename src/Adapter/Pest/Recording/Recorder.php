@@ -256,16 +256,13 @@ final readonly class Recorder
         $mutated = $test->mutation->modifiedSourcePath;
         $log = self::errorsBeside($this->results, $mutated);
 
-        if (! is_file($log)) {
+        $logged = is_file($log) ? file_get_contents($log) : false;
+
+        if ($logged === false) {
             return;
         }
 
-        $logged = file_get_contents($log);
         unlink($log);
-
-        if (! is_string($logged)) {
-            return;
-        }
 
         $limit = Exhaustion::in($logged);
 
