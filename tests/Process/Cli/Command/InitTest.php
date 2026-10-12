@@ -36,7 +36,6 @@ $holds = [
     'holds:src/Cli/Config/Imported.php',
     'holds:src/Cli/Console.php',
     'holds:src/Core/Ci/GatePin.php',
-    'holds:src/Core/Config/BuilderClasses.php',
     'holds:src/Core/Config/DeclaredTree.php',
     'holds:src/Core/Config/Definition/FloorsKeys.php',
     'holds:src/Core/Config/Definition/Number.php',

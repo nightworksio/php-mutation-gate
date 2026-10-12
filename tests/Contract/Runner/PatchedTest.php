@@ -40,7 +40,6 @@ use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
 use SebastianBergmann\CodeCoverage\Serialization\Serializer;
 
 $holds = [
-    'holds:src/Adapter/Infection',
     'holds:src/Adapter/Pest',
     'holds:src/Core/Composer/VendorPatch.php',
 ];

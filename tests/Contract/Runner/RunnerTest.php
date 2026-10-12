@@ -90,9 +90,7 @@ use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 $holds = [
-    'holds:src/Adapter/Infection',
     'holds:src/Adapter/Pest',
-    'holds:src/Adapter/PhpUnit',
     'holds:src/Core/Coverage/Remeasured.php',
     'holds:src/Core/Mutant/Evidences.php',
     'holds:src/Core/Mutant/Mutators.php',

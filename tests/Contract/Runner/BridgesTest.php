@@ -39,7 +39,6 @@ use NightWorksIO\MutationGate\Tests\Support\Tree;
 use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
 
 $holds = [
-    'holds:src/Adapter/Infection',
     'holds:src/Adapter/Pest',
 ];
 

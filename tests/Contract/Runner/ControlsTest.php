@@ -22,9 +22,7 @@ use NightWorksIO\MutationGate\Tests\Support\RunnerContracts;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 $holds = [
-    'holds:src/Adapter/Infection',
     'holds:src/Adapter/Pest',
-    'holds:src/Adapter/PhpUnit',
     'holds:src/Core/Control/ControlRuns.php',
     'holds:src/Core/Control/Controls.php',
     'holds:src/Core/Coverage/OwnTime.php',
