@@ -19,6 +19,10 @@ use Pest\Mutate\Mutators\ControlStructures\WhileAlwaysFalse;
 use Pest\Mutate\Mutators\Logical\TrueToFalse;
 use Pest\Mutate\Mutators\Removal\RemoveArrayItem;
 
+$holds = [
+    'holds:src/Adapter/Pest',
+];
+
 // Patched Pest hands every mutant it planned to the gate's static analysis
 // before the first one runs (ADR-0020, decision 12), and runs none the gate
 // rejects. Looped.php's `while (false)` pair, rejected here, never runs, and
@@ -65,4 +69,4 @@ it('runs no mutant the gate\'s static analysis rejects before its tests, nor its
         ->and(array_map(static fn(string $offered): string => substr((string) strrchr(explode(' ', $offered)[0], '\\'), 1), $checker->offered()))
         ->toBe(['WhileAlwaysFalse', 'RemoveArrayItem'])
         ->and(substr_count($recorded, '"event":"arguments"'))->toBe(1);
-})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);

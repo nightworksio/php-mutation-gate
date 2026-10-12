@@ -27,6 +27,16 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 use PHPUnit\Framework\Assert;
 
+$holds = [
+    'holds:src/Adapter/Mago',
+    'holds:src/Adapter/PhpStan',
+    'holds:src/Adapter/Psalm',
+    'holds:src/Core/Analysis/AnalyserSettings.php',
+    'holds:src/Core/Analysis/Finding.php',
+    'holds:src/Core/Analysis/Findings.php',
+    'holds:src/Core/Analysis/MutantCheck.php',
+];
+
 // What every static analyser answers over the fixture in this directory: who
 // it is, the configuration it runs with, written alike wherever the fixture
 // lies, with its config file among what it reads, what it reports of the
@@ -108,7 +118,7 @@ it('names the analyser and its exact version', function (StaticChecker $checker)
 
     expect($identity)->toBeInstanceOf(AnalyserIdentity::class)
         ->and($identity instanceof AnalyserIdentity ? [$identity->analyser(), $identity->version()] : [])->not->toContain('');
-})->with($checkers);
+})->with($checkers)->group(...$holds);
 
 it('says the configuration it runs with, under the fixture\'s root, with its config file among the files it reads', function (StaticChecker $checker) use ($makeRoot): void {
     $root = $makeRoot();
@@ -121,7 +131,7 @@ it('says the configuration it runs with, under the fixture\'s root, with its con
         ->and(array_filter($references, static fn(Path $file): bool => $file->escapes()))->toBe([])
         ->and(array_intersect(array_map(static fn(Path $file): string => $file->value(), $references), ['phpstan.neon', 'mago.toml', 'psalm.xml']))
         ->not->toBe([]);
-})->with($checkers);
+})->with($checkers)->group(...$holds);
 
 it('rejects a mutant that is no valid program, by an error the original does not have', function (StaticChecker $checker) use ($fixture): void {
     $withheld = Withheld::standard();
@@ -130,7 +140,7 @@ it('rejects a mutant that is no valid program, by an error the original does not
 
     expect($original)->toBeInstanceOf(Findings::class)
         ->and($mutant instanceof Findings && $original instanceof Findings && $mutant->rejects($original))->toBeTrue();
-})->with($checkers);
+})->with($checkers)->group(...$holds);
 
 it('leaves a mutant that is a valid program to its tests', function (StaticChecker $checker) use ($fixture): void {
     $withheld = Withheld::standard();
@@ -139,7 +149,7 @@ it('leaves a mutant that is a valid program to its tests', function (StaticCheck
 
     expect($mutant instanceof Findings && $original instanceof Findings && $mutant->rejects($original))->toBeFalse()
         ->and($mutant)->toBeInstanceOf(Findings::class);
-})->with($checkers);
+})->with($checkers)->group(...$holds);
 
 it('names the file each new error sits in: the original for one in the mutant, and a dependent\'s own for one there, listed where it reads them', function (
     StaticChecker $checker,
@@ -154,7 +164,7 @@ it('names the file each new error sits in: the original for one in the mutant, a
         ->toBe(['src/Money.php'])
         ->and($files($checker->check($checker->readsDependents() ? $retyped->withDependents(Paths::of($fixture('src/Wallet.php'))) : $retyped)))
         ->toBe(['src/Wallet.php']);
-})->with($checkers);
+})->with($checkers)->group(...$holds);
 
 it('leaves a mutant of a file outside the paths it analyses, or one its config excludes, out of its scope', function (
     StaticChecker $checker,
@@ -166,7 +176,7 @@ it('leaves a mutant of a file outside the paths it analyses, or one its config e
     expect($original)->toBeInstanceOf(Findings::class)
         ->and($outside)->toEqual(OutOfScope::of($fixture('outside/Other.php')))
         ->and($excluded)->toEqual(OutOfScope::of($fixture('src/Excluded.php')));
-})->with($checkers);
+})->with($checkers)->group(...$holds);
 
 it('checks several mutants in one go, side by side where it can, each answered in its check\'s place as one check answers it', function (
     StaticChecker $checker,
@@ -192,12 +202,12 @@ it('checks several mutants in one go, side by side where it can, each answered i
         ->and(array_map($read, array_map($checker->check(...), $checks)))
         ->toBe(['rejected', 'out of scope', 'passed', 'cannot judge'])
         ->and(count($checker->checks(MutantChecks::of(), ProcessCount::of(2))))->toBe(0);
-})->with($checkers);
+})->with($checkers)->group(...$holds);
 
 it('cannot judge a mutant it cannot analyse, so the mutant goes to its tests', function (StaticChecker $checker) use ($fixture): void {
     expect($checker->check(MutantCheck::of($fixture('src/Money.php'), $fixture('mutants/Money.missing.php'))))
         ->toBeInstanceOf(CannotJudge::class);
-})->with($checkers);
+})->with($checkers)->group(...$holds);
 
 it('starts every process without what the runner withholds', function (StaticChecker $checker) use ($fixture): void {
     putenv(sprintf('%s=leaked', StaticCheckerFake::LEAK));
@@ -207,7 +217,7 @@ it('starts every process without what the runner withholds', function (StaticChe
     expect($checker->identity($withheld))->toBeInstanceOf(AnalyserIdentity::class)
         ->and($checker->findings(Paths::of($fixture('src/Money.php')), $withheld))->toBeInstanceOf(Findings::class)
         ->and($checker->check($check->withholding($withheld)))->toBeInstanceOf(Findings::class);
-})->with($checkers);
+})->with($checkers)->group(...$holds);
 
 it('lets the project\'s code see a variable it does not withhold, so the check above can fail', function (StaticChecker $checker) use ($fixture): void {
     putenv(sprintf('%s=leaked', StaticCheckerFake::LEAK));
@@ -215,4 +225,4 @@ it('lets the project\'s code see a variable it does not withhold, so the check a
 
     expect($checker->findings(Paths::of($fixture('src/Money.php')), Withheld::standard()))->toBeInstanceOf(CannotJudge::class)
         ->and($checker->check($check))->toBeInstanceOf(CannotJudge::class);
-})->with($loading);
+})->with($loading)->group(...$holds);

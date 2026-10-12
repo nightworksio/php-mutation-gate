@@ -29,6 +29,12 @@
             <directory>tests/Unit</directory>
         </testsuite>
 
+        <!-- The tests that start real processes, one file per source file, mirroring
+             src as Unit does. They judge only the units they hold (tests.holding). -->
+        <testsuite name="Process">
+            <directory>tests/Process</directory>
+        </testsuite>
+
         <!-- The first-party plugins, each tested inside its own tree (A8). -->
         <testsuite name="Plugins">
             <directory>plugins/*/tests</directory>

@@ -15,6 +15,15 @@ use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
+$holds = [
+    'holds:src/Adapter/Git',
+    'holds:src/Adapter/GitHub',
+    'holds:src/Core/Change/Commit.php',
+    'holds:src/Core/Ci/RunOn.php',
+    'holds:src/Core/Proof/Scope.php',
+    'holds:src/Core/Runner/ChildProcess.php',
+];
+
 // What every repository answers for a checkout of the fixture, first on main
 // with origin/HEAD pointing at main, then on a detached HEAD with no remote.
 // One line per implementation.
@@ -62,7 +71,7 @@ it('names the commit the checkout is at, the branch it is on and the default bra
         GITHUB_RUN,
         'mutation / verdict',
     ),
-]);
+])->group(...$holds);
 
 it('says a detached HEAD is on no branch, and cannot tell a default branch no remote names', function (
     Repository $repository,
@@ -81,7 +90,7 @@ it('says a detached HEAD is on no branch, and cannot tell a default branch no re
         GITHUB_RUN,
         'mutation / verdict',
     ),
-]);
+])->group(...$holds);
 
 $committed = static fn(): Fixture => Fixture::ofTheFixture()
     ->write('.gitignore', "/build/\n")
@@ -101,7 +110,7 @@ it('says a working tree that holds nothing but its commit and what git ignores i
         GITHUB_RUN,
         'mutation / verdict',
     ),
-]);
+])->group(...$holds);
 
 it('says a working tree with a change, staged or not, or a file git neither tracks nor ignores, is not clean', function (
     Repository $repository,
@@ -139,7 +148,7 @@ it('says a working tree with a change, staged or not, or a file git neither trac
         GITHUB_RUN,
         'mutation / verdict',
     ),
-]);
+])->group(...$holds);
 
 it('cannot tell where a directory that is no repository stands', function (): void {
     $git = Git::at(Scratch::directory());
@@ -148,4 +157,4 @@ it('cannot tell where a directory that is no repository stands', function (): vo
         ->and($git->isClean())->toBeInstanceOf(CannotTell::class)
         ->and($git->branch())->toBeInstanceOf(CannotTell::class)
         ->and($git->defaultBranch())->toBeInstanceOf(CannotTell::class);
-});
+})->group(...$holds);

@@ -35,6 +35,10 @@ use NightWorksIO\MutationGate\Tests\Support\PhpUnitScan;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
+$holds = [
+    'holds:src/Adapter/PhpUnit',
+];
+
 // What warm workers do with a real PHPUnit (ADR-0023, decisions 12 to 14),
 // at the lowest and the highest PHPUnit the runner contracts install: each
 // mutant run in a child forked from a booted worker comes to the verdict a
@@ -167,7 +171,7 @@ it('judges each mutant in a child of a booted worker, through PHPUnit\'s own Loa
         ->and($warm)->toBe($fresh)
         ->and($warnings)->toBe([]);
 })->with(['one worker' => [1], 'two workers' => [2]])
-    ->skip(fn(): bool => ! isWarmLibraryInstalled(), 'the runner contracts job installs the PHPUnit library, on a PHP that forks');
+    ->skip(fn(): bool => ! isWarmLibraryInstalled(), 'the runner contracts job installs the PHPUnit library, on a PHP that forks')->group(...$holds);
 
 it('carries nothing one child left, in memory or in the environment, into the next child of its worker', function (): void {
     // One worker runs both mutants, one after the other: the test fails in the second where the first left its
@@ -175,21 +179,21 @@ it('carries nothing one child left, in memory or in the environment, into the ne
     [$warm] = warmlyAndFreshly(warmProject(), 1);
 
     expect($warm[1])->toBe(['survived']);
-})->skip(fn(): bool => ! isWarmLibraryInstalled(), 'the runner contracts job installs the PHPUnit library, on a PHP that forks');
+})->skip(fn(): bool => ! isWarmLibraryInstalled(), 'the runner contracts job installs the PHPUnit library, on a PHP that forks')->group(...$holds);
 
 it('forks nothing from a boot that leaves a socket open, and warns of it once', function (): void {
     [$warm, , $warnings] = warmlyAndFreshly(warmProject("\$GLOBALS['warmSocket'] = stream_socket_server('tcp://127.0.0.1:0');"), 2);
 
     expect($warm)->toBe([['not forked'], ['not forked']])
         ->and($warnings)->toBe(['The boot left 1 socket open once bootstrap.php ran, which every forked child would share, so each mutant ran fresh.']);
-})->skip(fn(): bool => ! isWarmLibraryInstalled(), 'the runner contracts job installs the PHPUnit library, on a PHP that forks');
+})->skip(fn(): bool => ! isWarmLibraryInstalled(), 'the runner contracts job installs the PHPUnit library, on a PHP that forks')->group(...$holds);
 
 it('forks nothing from a boot that loads a file the run mutates, and warns of it', function (): void {
     [$warm, , $warnings] = warmlyAndFreshly(warmProject("class_exists('Warm\\\\Counter');"));
 
     expect($warm)->toBe([['not forked'], ['not forked']])
         ->and($warnings)->toBe(['The boot loaded src/Counter.php, which this run mutates, at bootstrap.php:12, so each mutant ran fresh.']);
-})->skip(fn(): bool => ! isWarmLibraryInstalled(), 'the runner contracts job installs the PHPUnit library, on a PHP that forks');
+})->skip(fn(): bool => ! isWarmLibraryInstalled(), 'the runner contracts job installs the PHPUnit library, on a PHP that forks')->group(...$holds);
 
 it('forks nothing from a boot that fails, and warns of how the worker failed', function (): void {
     [$warm, , $warnings] = warmlyAndFreshly(warmProject("throw new RuntimeException('the bootstrap broke');"));
@@ -198,7 +202,7 @@ it('forks nothing from a boot that fails, and warns of how the worker failed', f
         ->and($warnings)->toHaveCount(1)
         ->and($warnings[0] ?? '')->toStartWith('A warm worker failed, so the mutants it left ran fresh. It said: ')
         ->and($warnings[0] ?? '')->toContain('the bootstrap broke');
-})->skip(fn(): bool => ! isWarmLibraryInstalled(), 'the runner contracts job installs the PHPUnit library, on a PHP that forks');
+})->skip(fn(): bool => ! isWarmLibraryInstalled(), 'the runner contracts job installs the PHPUnit library, on a PHP that forks')->group(...$holds);
 
 it('stops a child at its mutant\'s limit, and judges it as a fresh process judges a run stopped so', function (): void {
     [$warm, $fresh, $warnings] = warmlyAndFreshly(warmProject(source: 'CountingUp.php'), 1, 2.0);
@@ -206,11 +210,11 @@ it('stops a child at its mutant\'s limit, and judges it as a fresh process judge
     expect($warm)->toBe([['timed-out'], ['killed', 'Warm\Tests\CounterSpec::adds']])
         ->and($warm)->toBe($fresh)
         ->and($warnings)->toBe([]);
-})->skip(fn(): bool => ! isWarmLibraryInstalled(), 'the runner contracts job installs the PHPUnit library, on a PHP that forks');
+})->skip(fn(): bool => ! isWarmLibraryInstalled(), 'the runner contracts job installs the PHPUnit library, on a PHP that forks')->group(...$holds);
 
 it('forks nothing from a boot that started PHPUnit\'s events, and warns of it', function (): void {
     [$warm, , $warnings] = warmlyAndFreshly(warmProject('PHPUnit\Event\Facade::emitter();'));
 
     expect($warm)->toBe([['not forked'], ['not forked']])
         ->and($warnings)->toBe(['The boot started PHPUnit\'s events once bootstrap.php ran, which every child would inherit, so each mutant ran fresh.']);
-})->skip(fn(): bool => ! isWarmLibraryInstalled(), 'the runner contracts job installs the PHPUnit library, on a PHP that forks');
+})->skip(fn(): bool => ! isWarmLibraryInstalled(), 'the runner contracts job installs the PHPUnit library, on a PHP that forks')->group(...$holds);

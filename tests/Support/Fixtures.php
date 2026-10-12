@@ -386,7 +386,7 @@ final readonly class Fixtures
                 it('describes a class that is not there', function (): void {
                     expect(true)->toBeTrue();
                 });
-                PHP, 'keeps every unit test beside the file it tests'),
+                PHP, 'keeps every unit test and every test that starts processes beside the file it tests'),
             self::inTheCore('H5', 'PlantedConcat', "return 'shard ' . PHP_VERSION;", 'string', 'H5 — build this with sprintf rather than concatenation'),
             self::inTheCore('H5', 'PlantedJoin', "return 'one '\n        . 'two';", 'string', 'H5 — write this as one literal'),
             self::inTheCore('H5', 'PlantedInterpolation', 'return "PHP {$_SERVER[\'x\']}";', 'string', 'H5 — build this with sprintf rather than interpolation'),

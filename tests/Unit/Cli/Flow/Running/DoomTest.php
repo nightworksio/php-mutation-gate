@@ -5,15 +5,11 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Cli\Flow\Running;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
-use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\Analysis\Finding;
 use NightWorksIO\MutationGate\Core\Analysis\Findings;
 use NightWorksIO\MutationGate\Core\CannotJudge;
-use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Mutant\Mutant;
-use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Plan\Shard;
 use NightWorksIO\MutationGate\Core\Plan\ShardId;
@@ -29,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Fakes\CostModelFake;
 use NightWorksIO\MutationGate\Tests\Fakes\StaticCheckerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
+use NightWorksIO\MutationGate\Tests\Support\Dooms;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Planned;
 use NightWorksIO\MutationGate\Tests\Support\RecordingChecker;
@@ -250,25 +247,13 @@ it('runs no shard of a plan in one process after one that stopped once its run c
         ->and(is_file(sprintf('%s/.mutation-gate/results/2.json', $project)))->toBeFalse();
 });
 
-/** The fixture's one survivor of a file, as the shard's runner reports it. */
-function doomSurvivor(string $file): Mutant
-{
-    foreach (Flows::mutantsOf($file) as $mutant) {
-        if ($mutant->status() === MutantStatus::Survived) {
-            return $mutant;
-        }
-    }
-
-    throw new LogicException(sprintf('No survivor in %s.', $file));
-}
-
 /** An analyser that answers each of these survivors' checks with what it finds, and finds nothing in the originals. */
 function doomChecker(string $project, Findings ...$found): RecordingChecker
 {
     $answers = [];
 
     foreach (['src/Money.php', 'src/Held.php'] as $at => $file) {
-        $answers[Workspace::checkedMutant(doomSurvivor($file)->id())->value()] = $found[$at] ?? Findings::none();
+        $answers[Workspace::checkedMutant(Dooms::survivor($file)->id())->value()] = $found[$at] ?? Findings::none();
     }
 
     return new RecordingChecker(new StaticCheckerFake(AnalyserIdentity::of('fake', '1.0.0', Digest::sha256Of('')), Findings::none(), $answers), $project);
@@ -337,34 +322,7 @@ it('runs a pull request\'s shard on past each survivor static analysis kills, ch
     expect($asked($runner))->toBe([['src/Money.php'], ['src/Held.php']])
         ->and($unjudged($result))->toBe([])
         ->and($doomOf($result))->toBe('undoomed')
-        ->and(RunningCases::statuses($result))->toContain(sprintf('%s killed-by-static-analysis', doomSurvivor('src/Money.php')->nativeId()))
+        ->and(RunningCases::statuses($result))->toContain(sprintf('%s killed-by-static-analysis', Dooms::survivor('src/Money.php')->nativeId()))
         ->and(array_map(static fn(array $check): string => $check[0], $checker->asked()))->toBe(['src/Money.php', 'src/Held.php'])
         ->and($checker->warmUps())->toHaveCount(1);
-});
-
-it('runs a pull request\'s shard on past a survivor proven equivalent, to the chunk whose survivor is not', function () use (
-    $makeResultIn,
-    $makeUnjudged,
-    $makeOnPullRequest,
-    $makeFloored,
-    $makeAsked,
-    $makeDoomOf,
-): void {
-    $resultIn = $makeResultIn();
-    $unjudged = $makeUnjudged();
-    $onPullRequest = $makeOnPullRequest();
-    $floored = $makeFloored();
-    $asked = $makeAsked();
-    $doomOf = $makeDoomOf();
-
-    $project = Flows::project();
-    $runner = ScriptedRunner::fixture()->checking(Checkable::inPlace(Contents::of("<?php\n\nfinal  class Money\n{\n}\n")));
-
-    new Running(Flows::adapters($project, [], $runner, $floored(Floor::whole())), Flows::settings(), Flows::setup())
-        ->run(Planned::handedIn($project, $onPullRequest(Planned::oneShard())), ShardId::of(1), Workspace::results());
-    $result = $resultIn($project, 1);
-
-    expect($asked($runner))->toBe([['src/Money.php'], ['src/Held.php']])
-        ->and($unjudged($result))->toBe([])
-        ->and($doomOf($result))->toBe(['src/Held.php', doomSurvivor('src/Held.php')->id()->value(), 'src', 10_000, 'tree']);
 });

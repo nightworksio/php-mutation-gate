@@ -21,6 +21,10 @@ use NightWorksIO\MutationGate\Tests\Support\Tree;
 use Pest\Mutate\Mutators\Equality\SmallerToSmallerOrEqual;
 use Pest\Mutate\Mutators\Number\IncrementInteger;
 
+$holds = [
+    'holds:src/Adapter/Pest',
+];
+
 // The runs that vouch for a kill on the unmutated code serve the file the
 // mutant changes through the same override as the mutant's own run. Only
 // patched Pest runs them: its trial of a mutant on a line that is not
@@ -79,7 +83,7 @@ it('kills and spares the mutants of a file whose tests read alike through the ov
         [16, 'IncrementInteger', MutantStatus::Killed, '', ['P\\Tests\\LinkedSpec::__pest_evaluable_it_tells_a_link_for_a_link']],
         [16, 'SmallerToSmallerOrEqual', MutantStatus::Survived, '', []],
     ]);
-})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('kills no mutant of a file whose tests fail whenever the override serves a file, leaving each unjudged, with Pest', function (): void {
     $judged = overrideJudged('WrappedSpec.php');
@@ -92,4 +96,4 @@ it('kills no mutant of a file whose tests fail whenever the override serves a fi
         ->and($judged[0][3])->toStartWith('the selected tests fail on their own (')
         ->and([$judged[1][3], $judged[2][3]])->each->toBe(ReplayVerdict::Failed->reason())
         ->and(array_column($judged, 4))->toBe([[], [], []]);
-})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);

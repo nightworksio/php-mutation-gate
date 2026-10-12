@@ -25,6 +25,15 @@ use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
+$holds = [
+    'holds:src/Adapter/Git',
+    'holds:src/Adapter/GitHub',
+    'holds:src/Core/Change/Tree.php',
+    'holds:src/Core/File/Fingerprints.php',
+    'holds:src/Core/File/Paths.php',
+    'holds:src/Core/Time/Instant.php',
+];
+
 // What every change source answers over the fixture: since fixture-base, the
 // working tree changed line 2 of src/Money.php and added src/Limit.php. One
 // line per implementation.
@@ -56,7 +65,7 @@ it('says what changed since a base, on which lines', function (ChangeSource $sou
         'src/Money.php' => ['modified', [2]],
         'src/Limit.php' => ['added', [1]],
     ]);
-})->with($sources);
+})->with($sources)->group(...$holds);
 
 it('names every file whose content on disk is not what is staged', function (ChangeSource $source): void {
     $unstaged = $source->unstaged();
@@ -64,7 +73,7 @@ it('names every file whose content on disk is not what is staged', function (Cha
     sort($said);
 
     expect($said)->toBe(['src/Limit.php', 'src/Money.php']);
-})->with($sources);
+})->with($sources)->group(...$holds);
 
 it('says when each path last changed in a commit, a directory by its newest file, and nothing for one never committed', function (ChangeSource $source): void {
     $paths = Paths::of(Path::of('src/Money.php'), Path::of('src'), Path::of('src/Limit.php'));
@@ -78,11 +87,11 @@ it('says when each path last changed in a commit, a directory by its newest file
     expect(array_keys($said))->toBe(['src/Money.php', 'src'])
         ->and($said['src'])->toEqual($said['src/Money.php'])
         ->and($source->lastChanged(Paths::none()))->toHaveCount(0);
-})->with($sources);
+})->with($sources)->group(...$holds);
 
 it('cannot tell what changed since a revision it does not have', function (ChangeSource $source): void {
     expect($source->changesSince(Revision::ref('no-such-revision')))->toBeInstanceOf(CannotTell::class);
-})->with($sources);
+})->with($sources)->group(...$holds);
 
 it('fingerprints every file by what it holds', function (ChangeSource $source): void {
     $fingerprints = $source->fingerprints();
@@ -92,13 +101,13 @@ it('fingerprints every file by what it holds', function (ChangeSource $source): 
     expect($money)->toBeInstanceOf(Digest::class)
         ->and($limit)->toBeInstanceOf(Digest::class)
         ->and($money)->not->toEqual($limit);
-})->with($sources);
+})->with($sources)->group(...$holds);
 
 it('reads a file as it was at a revision, and says when it was not there', function (ChangeSource $source): void {
     expect($source->fileAt(Path::of('src/Money.php'), Revision::ref('fixture-base')))->toEqual(Contents::of("<?php\nreturn 1;\n"))
         ->and($source->fileAt(Path::of('src/Money.php'), Revision::workingTree()))->toEqual(Contents::of("<?php\nreturn 2;\n"))
         ->and($source->fileAt(Path::of('src/Limit.php'), Revision::ref('fixture-base')))->toEqual(Missing::at(Path::of('src/Limit.php')));
-})->with($sources);
+})->with($sources)->group(...$holds);
 
 it('reads files as they were at a revision together, each one there or missing', function (ChangeSource $source): void {
     $paths = Paths::of(Path::of('src/Money.php'), Path::of('src/Limit.php'));
@@ -115,7 +124,7 @@ it('reads files as they were at a revision together, each one there or missing',
     expect($held($source->filesAt($paths, Revision::ref('fixture-base'))))->toEqual([Contents::of("<?php\nreturn 1;\n"), Missing::at(Path::of('src/Limit.php'))])
         ->and($held($source->filesAt($paths, Revision::workingTree())))->toEqual([Contents::of("<?php\nreturn 2;\n"), Contents::of("<?php\n")])
         ->and($source->filesAt($paths, Revision::ref('fixture-base')))->toHaveCount(2);
-})->with($sources);
+})->with($sources)->group(...$holds);
 
 it('says what changed from a revision, on which lines', function (ChangeSource $source): void {
     $changes = $source->changesFrom(Revision::ref('fixture-base'));
@@ -130,7 +139,7 @@ it('says what changed from a revision, on which lines', function (ChangeSource $
         'src/Limit.php' => ['added', [1]],
     ])
         ->and($source->changesFrom(Revision::ref('no-such-revision')))->toBeInstanceOf(CannotTell::class);
-})->with($sources);
+})->with($sources)->group(...$holds);
 
 it('reads what changed from a revision off HEAD\'s history from that revision itself, not from where the two meet', function (ChangeSource $source): void {
     $from = $source->changesFrom(Revision::ref('side'));
@@ -150,7 +159,7 @@ it('reads what changed from a revision off HEAD\'s history from that revision it
         ['GITHUB_REPOSITORY' => 'octo/gate', 'GITHUB_SHA' => 'head'],
         'mutation / verdict',
     ),
-]);
+])->group(...$holds);
 
 it('says a commit a shallow clone does not hold is past its history, and how to read it', function (): void {
     $origin = Repository::ofTheFixture()->commit('The change.');
@@ -167,7 +176,7 @@ it('says a commit a shallow clone does not hold is past its history, and how to 
             . 'A clone of the whole history reads it, as `fetch-depth: 0` asks of `actions/checkout`.',
             $first,
         ));
-});
+})->group(...$holds);
 
 /**
  * The fixture, with a branch `side` off its base that adds src/Side.php,
@@ -191,4 +200,4 @@ it('says what a commit it has was made of, reads it as itself, and cannot read o
         ->and($judged instanceof JudgedCommit ? $source->readable($judged) : $judged)
         ->toEqual($judged instanceof JudgedCommit ? $judged->commit() : $judged)
         ->and($source->readable($gone))->toBeInstanceOf(CannotTell::class);
-})->with($sources);
+})->with($sources)->group(...$holds);

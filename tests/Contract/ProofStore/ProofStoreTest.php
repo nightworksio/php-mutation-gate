@@ -38,6 +38,32 @@ use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
+$holds = [
+    'holds:src/Adapter/Azure',
+    'holds:src/Adapter/Filesystem/DeliveredLedger.php',
+    'holds:src/Adapter/Filesystem/DeliveryDirectory.php',
+    'holds:src/Adapter/Filesystem/LedgerDirectory.php',
+    'holds:src/Adapter/Filesystem/LocalLedgers.php',
+    'holds:src/Adapter/Filesystem/ProjectPath.php',
+    'holds:src/Adapter/Gcs',
+    'holds:src/Adapter/Http',
+    'holds:src/Adapter/S3',
+    'holds:src/Core/Delivery/DeliveryFile.php',
+    'holds:src/Core/File/Digest.php',
+    'holds:src/Core/Proof/Bases.php',
+    'holds:src/Core/Proof/EncodedLedger.php',
+    'holds:src/Core/Proof/Ledger.php',
+    'holds:src/Core/Proof/LedgerFile.php',
+    'holds:src/Core/Proof/LedgerJson.php',
+    'holds:src/Core/Proof/LedgerLimits.php',
+    'holds:src/Core/Proof/LedgerObject.php',
+    'holds:src/Core/Proof/LedgerRetention.php',
+    'holds:src/Core/Proof/ObjectLedger.php',
+    'holds:src/Core/Proof/ProofRecord.php',
+    'holds:src/Core/Proof/Proofs.php',
+    'holds:src/Core/Proof/Unreadable.php',
+];
+
 // What every proof store answers: an empty ledger for a scope nothing wrote,
 // and back what was written to a scope, and only to it; or, for a store
 // opened read-only, why it keeps nothing; for a store that leaves what it
@@ -126,7 +152,7 @@ $unreadable = [
 
 it('reads an empty ledger for a scope nothing wrote', function (ProofStore $store): void {
     expect(LedgerRead::ledger($store->read(Scope::branch('main')))->proofs())->toHaveCount(0);
-})->with([...$stores, ...$readOnly, ...$deferring]);
+})->with([...$stores, ...$readOnly, ...$deferring])->group(...$holds);
 
 it('reads back what was written to a scope, and only to that scope', function (ProofStore $store): void {
     $key = Digest::sha256Of('src/Money.php');
@@ -136,7 +162,7 @@ it('reads back what was written to a scope, and only to that scope', function (P
     expect($store->write(Scope::pullRequest(12), $ledger))->toBeInstanceOf(Written::class)
         ->and(LedgerRead::ledger($store->read(Scope::pullRequest(12)))->proofs()->has($key))->toBeTrue()
         ->and(LedgerRead::ledger($store->read(Scope::branch('main')))->proofs())->toHaveCount(0);
-})->with($stores);
+})->with($stores)->group(...$holds);
 
 it('says why a store opened read-only keeps nothing, and reads nothing back', function (ProofStore $store): void {
     $run = Run::of('github:1/1', Instant::at(new DateTimeImmutable('2026-09-29T20:48:17Z')), Digest::of(str_repeat('b', 64)));
@@ -146,7 +172,7 @@ it('says why a store opened read-only keeps nothing, and reads nothing back', fu
     expect($written)->toBeInstanceOf(NotWritten::class)
         ->and($written instanceof NotWritten ? $written->why() : '')->not->toBe('')
         ->and(LedgerRead::ledger($store->read(Scope::pullRequest(12)))->proofs())->toHaveCount(0);
-})->with($readOnly);
+})->with($readOnly)->group(...$holds);
 
 it('says it wrote what it leaves for deliver, and reads what the store it reads holds, never what it wrote', function (ProofStore $store): void {
     $run = Run::of('github:1/1', Instant::at(new DateTimeImmutable('2026-09-29T20:48:17Z')), Digest::of(str_repeat('b', 64)));
@@ -156,18 +182,18 @@ it('says it wrote what it leaves for deliver, and reads what the store it reads 
         ->and(LedgerRead::ledger($store->read(Scope::pullRequest(12)))->proofs())->toHaveCount(0)
         ->and($store->keep(Scope::pullRequest(12), Companion::Coverage, Contents::of(Gzip::pack('{"format":1}'))))->toBeInstanceOf(Written::class)
         ->and($store->companion(Scope::pullRequest(12), Companion::Coverage))->toBeInstanceOf(Missing::class);
-})->with($deferring);
+})->with($deferring)->group(...$holds);
 
 it('says why it cannot read a ledger it holds, and judges with none of it', function (ProofStore $store): void {
     $read = $store->read(Scope::branch('main'));
 
     expect(LedgerRead::unread($read)[0] ?? null)->toBe(UnreadReason::Malformed)
         ->and($read instanceof Unreadable ? $read->ledger() : null)->toEqual(Ledger::empty());
-})->with($unreadable);
+})->with($unreadable)->group(...$holds);
 
 it('reads no coverage map beside a ledger for a scope nothing kept one in', function (ProofStore $store): void {
     expect($store->companion(Scope::branch('main'), Companion::Coverage))->toBeInstanceOf(Missing::class);
-})->with([...$stores, ...$readOnly, ...$deferring]);
+})->with([...$stores, ...$readOnly, ...$deferring])->group(...$holds);
 
 it('reads back the coverage map kept beside a scope\'s ledger, byte for byte, and only that scope\'s', function (ProofStore $store): void {
     $bytes = Contents::of(Gzip::pack('{"format":1}'));
@@ -176,7 +202,7 @@ it('reads back the coverage map kept beside a scope\'s ledger, byte for byte, an
         ->and($store->companion(Scope::pullRequest(12), Companion::Coverage))->toEqual($bytes)
         ->and($store->companion(Scope::branch('main'), Companion::Coverage))->toBeInstanceOf(Missing::class)
         ->and(LedgerRead::ledger($store->read(Scope::pullRequest(12)))->proofs())->toHaveCount(0);
-})->with($stores);
+})->with($stores)->group(...$holds);
 
 it('says why a store opened read-only keeps no coverage map, and reads none back', function (ProofStore $store): void {
     $kept = $store->keep(Scope::pullRequest(12), Companion::Coverage, Contents::of(Gzip::pack('{"format":1}')));
@@ -184,4 +210,4 @@ it('says why a store opened read-only keeps no coverage map, and reads none back
     expect($kept)->toBeInstanceOf(NotWritten::class)
         ->and($kept instanceof NotWritten ? $kept->why() : '')->not->toBe('')
         ->and($store->companion(Scope::pullRequest(12), Companion::Coverage))->toBeInstanceOf(Missing::class);
-})->with($readOnly);
+})->with($readOnly)->group(...$holds);

@@ -46,7 +46,11 @@ Before each push, run the entries for what you changed:
 `tests/Unit/Core/Plan/CutTest.php`, and each plugin's are under
 `plugins/<name>/tests`. Where they would pass the line cap, they are split by
 concern into `tests/Unit/Core/Plan/Cut/`, beside the first file, with what the
-files share in a class of `tests/Support`.
+files share in a class of `tests/Support`. A test that starts a real process
+goes in `tests/Process` instead, mirroring `src` the same way. Its file holds
+the units its tests kill with a `holds:` group on each test, since the gate's
+own config lists `Process` in `tests.holding`
+([holding tests](.docs/guide/concepts/holding-tests.md)).
 
 The whole suite runs locally too, more slowly:
 
@@ -123,10 +127,13 @@ A comment whose first line is one of these runs it:
 - **[The decisions](.docs/decisions/README.md) are the design.** Each ADR
   gives a decision, the alternatives and why they lost. A commit or pull
   request that implements one names it in `Spec:`.
-- **The tests are laid out by kind.** `tests/Unit` mirrors `src`.
+- **The tests are laid out by kind.** `tests/Unit` mirrors `src`, and so
+  does `tests/Process`, which holds the tests that start real processes.
   `tests/Contract` holds one suite per port, which runs against the port's
   fake in `tests/Fakes` and every adapter. `tests/Arch` holds the rules the
-  suite enforces, and `tests/Docs` holds the documentation to the code.
+  suite enforces, and `tests/Docs` holds the documentation to the code. The
+  gate judges its own mutants by `Unit` and `Plugins`. `Process` and
+  `Contract` judge only the units they hold.
 
 ## Adding an adapter, a preset or an extension
 

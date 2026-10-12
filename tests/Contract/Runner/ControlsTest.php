@@ -21,6 +21,15 @@ use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
 use NightWorksIO\MutationGate\Tests\Support\RunnerContracts;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
+$holds = [
+    'holds:src/Adapter/Infection',
+    'holds:src/Adapter/Pest',
+    'holds:src/Adapter/PhpUnit',
+    'holds:src/Core/Control/ControlRuns.php',
+    'holds:src/Core/Control/Controls.php',
+    'holds:src/Core/Coverage/OwnTime.php',
+];
+
 // What every runner finds of an unmutated control (ADR-0008, decision 2):
 // Money's test that adds two amounts, run with src/Money.php served unmutated
 // by the means the runner serves a mutant's file, allowed a limit, its peak
@@ -68,7 +77,7 @@ it('passes a control of a test that passes on the unmutated code, within its lim
 
     expect($found->end())->toBe(ControlEnd::Passed)
         ->and($took instanceof Seconds ? $took->seconds() : 0.0)->toBeGreaterThan(0.0)->toBeLessThan(60.0);
-})->with($libraries);
+})->with($libraries)->group(...$holds);
 
 it('serves the control\'s file through Pest\'s override, as a mutant\'s own run is, and runs its test', function (): void {
     $test = 'P\Tests\MoneySpec::__pest_evaluable_it_adds_two_amounts';
@@ -76,7 +85,7 @@ it('serves the control\'s file through Pest\'s override, as a mutant\'s own run 
     expect(RunnerContracts::marks(static function () use ($test): void {
         controlsOf(Library::pest(Patching::off()), Controls::of(moneyControl($test, 60.0)));
     }))->toBe(['loaded' => true, 'wrapped' => true, 'ran' => true]);
-})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library');
+})->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('runs a control of one named row of a data set, by the id the coverage map gives it, and that row alone', function (): void {
     $test = 'Tests\RowsSpec::marksItsNamedRow#384 bits';
@@ -89,7 +98,7 @@ it('runs a control of one named row of a data set, by the id the coverage map gi
     });
 
     expect($ends)->toBe([ControlEnd::Passed])->and($marks['ran'])->toBeTrue();
-})->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library');
+})->skip(fn(): bool => ! Library::isInfectionInstalled(), 'the Infection runner contracts job installs the Infection library')->group(...$holds);
 
 it('runs a control of a test that depends on another with the test it depends on', function (Library $at): void {
     $test = 'Tests\\DependsSpec::marksWhenItRunsWithIt';
@@ -100,15 +109,15 @@ it('runs a control of a test that depends on another with the test it depends on
     });
 
     expect($ends)->toBe([ControlEnd::Passed])->and($marks['ran'])->toBeTrue();
-})->with($dependents);
+})->with($dependents)->group(...$holds);
 
 it('says a control ran out where its limit is too short for its tests', function (Library $at, string $test): void {
 
     expect(controlsOf($at, Controls::of(moneyControl($test, 0.01)))->of(moneyControl($test, 0.01))->end())->toBe(ControlEnd::RanOut);
-})->with($processes);
+})->with($processes)->group(...$holds);
 
 it('measures the most memory a control\'s processes held, as every runner measures it', function (Library $at, string $test): void {
     $peak = controlsOf($at, Controls::of(moneyControl($test, 60.0)))->of(moneyControl($test, 60.0))->peak();
 
     expect($peak instanceof MemoryCap ? $peak->bytes() : 0)->toBeGreaterThan(MemoryCap::of(1, MemoryUnit::Megabytes)->bytes());
-})->with($processes);
+})->with($processes)->group(...$holds);

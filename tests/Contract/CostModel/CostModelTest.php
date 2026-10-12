@@ -29,6 +29,14 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Port\CostModel;
 use NightWorksIO\MutationGate\Tests\Fakes\CostModelFake;
 
+$holds = [
+    'holds:src/Adapter/Filesystem/MeasuredCosts.php',
+    'holds:src/Core/Cost/FirstRun.php',
+    'holds:src/Core/Cost/MutantSites.php',
+    'holds:src/Core/Cost/Shares.php',
+    'holds:src/Core/Proof/Timings.php',
+];
+
 // What every cost model answers: a cost of nothing or more for any unit, and a
 // timing for every unit of a finished shard that together is no more than the
 // time the shard spent. One line per implementation.
@@ -64,7 +72,7 @@ it('costs any unit nothing or more, measured or not', function (CostModel $model
         ->and($model->cost(Unit::file(Path::of('src/Other.php')), $learned, $firstRun)->seconds()->seconds())
         ->toBeGreaterThanOrEqual(0.0)
         ->and($model->cost(Unit::file($money), Timings::none(), $firstRun)->seconds()->seconds())->toBeGreaterThanOrEqual(0.0);
-})->with($models);
+})->with($models)->group(...$holds);
 
 it('learns a timing for every unit of a shard, together no more than the shard spent', function (CostModel $model) use (
     $mutantOf,
@@ -78,4 +86,4 @@ it('learns a timing for every unit of a shard, together no more than the shard s
     expect(array_map(static fn(Timing $timing): string => $timing->unit()->value(), iterator_to_array($timings, preserve_keys: true)))->toEqualCanonicalizing(['src/Money.php', 'src/Limit.php'])
         ->and(array_sum($seconds))->toBeLessThanOrEqual(60.0)
         ->and(array_filter($seconds, static fn(float $share): bool => $share < 0.0))->toBe([]);
-})->with($models);
+})->with($models)->group(...$holds);
