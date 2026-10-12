@@ -7,10 +7,14 @@ use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\Control;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Remembered;
+use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
+use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -65,4 +69,29 @@ it('runs a control for each file served, though the tests and their files are th
 
     expect($passed)->toBe([true, false])
         ->and($shell->commands())->toHaveCount(2);
+});
+
+it('runs a control of no test file over the suites its mutant\'s run ran, and one of test files over those files', function (): void {
+    $root = (string) realpath(Scratch::directory());
+    Scratch::write($root, 'src/Money.php', "<?php\n\nfinal class Money\n{\n}\n");
+    $at = Project::at($root, Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'));
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
+    $request = $request->narrowedTo(
+        $request->files(),
+        Narrowing::none()->amongSuites(JudgingSuites::holding(Suites::listed('Unit'), Suites::listed('Process'))),
+    )->reusingCoverage(Handed::maps(Path::of('shard'), Path::of('whole')));
+
+    new AloneRuns($at, $shell, new Remembered())->pass(
+        [
+            Control::of(Path::of('src/Money.php'), Paths::none(), WholeSuite::tests()),
+            Control::of(Path::of('src/Money.php'), Paths::of(Path::of('tests/MoneySpec.php')), WholeSuite::tests()),
+        ],
+        $request,
+        Unlimited::time(),
+        sprintf('%s/results.jsonl', $root),
+    );
+
+    expect($shell->commands()[0]->arguments())->toContain('--testsuite=Unit,Process')
+        ->and(implode(' ', $shell->commands()[1]->arguments()))->not->toContain('--testsuite');
 });

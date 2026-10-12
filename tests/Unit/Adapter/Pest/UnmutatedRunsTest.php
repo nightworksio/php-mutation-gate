@@ -15,13 +15,17 @@ use NightWorksIO\MutationGate\Core\Control\ControlRun;
 use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Control\PeakLauncher;
+use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\Narrowing;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\JudgingSuites;
+use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
@@ -108,6 +112,27 @@ it('runs a control whose tests Pest\'s filter cannot hold by the tests that judg
     );
 
     expect($shell->commands()[0]->arguments())->toContain('--group=holds:src/Money.php');
+});
+
+it('runs each control over the suites its mutant\'s run ran, the holding suites too where the whole suite judges through a handed map', function (): void {
+    $at = unmutatedProject();
+    $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
+    $suites = Narrowing::none()->amongSuites(JudgingSuites::holding(Suites::listed('Unit'), Suites::listed('Process')));
+    $request = unmutatedRequest()->narrowedTo(unmutatedRequest()->files(), $suites);
+    $many = array_map(static fn(int $at): string => sprintf('it_takes_case_%d_with_a_long_description_to_pass_the_ceiling', $at), range(1, 2000));
+
+    unmutatedRuns($at, $shell, Controls::of(pestControl('src/Money.php')), $request);
+    unmutatedRuns($at, $shell, Controls::of(pestControl('src/Money.php', 5.0, ...$many)), $request);
+    unmutatedRuns(
+        $at,
+        $shell,
+        Controls::of(pestControl('src/Money.php', 5.0, ...$many)),
+        $request->reusingCoverage(Handed::maps(Path::of('shard'), Path::of('whole'))),
+    );
+
+    expect($shell->commands()[0]->arguments())->toContain('--testsuite=Unit,Process')
+        ->and($shell->commands()[1]->arguments())->toContain('--testsuite=Unit')
+        ->and($shell->commands()[2]->arguments())->toContain('--testsuite=Unit,Process');
 });
 
 it('never runs a control whose file cannot be read, saying why, and runs the rest', function (): void {
