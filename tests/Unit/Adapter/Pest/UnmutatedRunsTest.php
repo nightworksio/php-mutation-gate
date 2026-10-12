@@ -114,25 +114,19 @@ it('runs a control whose tests Pest\'s filter cannot hold by the tests that judg
     expect($shell->commands()[0]->arguments())->toContain('--group=holds:src/Money.php');
 });
 
-it('runs each control over the suites its mutant\'s run ran, the holding suites too where the whole suite judges through a handed map', function (): void {
+it('runs each control over the judging suites, and the holding suites too where Pest\'s filter names its tests', function (): void {
     $at = unmutatedProject();
     $shell = ShellFake::answering(Ran::finished(succeeded: true, output: ''));
     $suites = Narrowing::none()->amongSuites(JudgingSuites::holding(Suites::listed('Unit'), Suites::listed('Process')));
-    $request = unmutatedRequest()->narrowedTo(unmutatedRequest()->files(), $suites);
+    $request = unmutatedRequest()->narrowedTo(unmutatedRequest()->files(), $suites)
+        ->reusingCoverage(Handed::maps(Path::of('shard'), Path::of('whole')));
     $many = array_map(static fn(int $at): string => sprintf('it_takes_case_%d_with_a_long_description_to_pass_the_ceiling', $at), range(1, 2000));
 
     unmutatedRuns($at, $shell, Controls::of(pestControl('src/Money.php')), $request);
     unmutatedRuns($at, $shell, Controls::of(pestControl('src/Money.php', 5.0, ...$many)), $request);
-    unmutatedRuns(
-        $at,
-        $shell,
-        Controls::of(pestControl('src/Money.php', 5.0, ...$many)),
-        $request->reusingCoverage(Handed::maps(Path::of('shard'), Path::of('whole'))),
-    );
 
     expect($shell->commands()[0]->arguments())->toContain('--testsuite=Unit,Process')
-        ->and($shell->commands()[1]->arguments())->toContain('--testsuite=Unit')
-        ->and($shell->commands()[2]->arguments())->toContain('--testsuite=Unit,Process');
+        ->and($shell->commands()[1]->arguments())->toContain('--testsuite=Unit');
 });
 
 it('never runs a control whose file cannot be read, saying why, and runs the rest', function (): void {

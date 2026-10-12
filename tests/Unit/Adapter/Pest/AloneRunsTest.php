@@ -71,7 +71,7 @@ it('runs a control for each file served, though the tests and their files are th
         ->and($shell->commands())->toHaveCount(2);
 });
 
-it('runs a control of no test file over the suites its mutant\'s run ran, and one of test files over those files', function (): void {
+it('runs a control of no test file over the judging suites, and one of test files over those files', function (): void {
     $root = (string) realpath(Scratch::directory());
     Scratch::write($root, 'src/Money.php', "<?php\n\nfinal class Money\n{\n}\n");
     $at = Project::at($root, Paths::none(), Path::of('.mutation-gate'), Path::of('vendor'));
@@ -92,6 +92,6 @@ it('runs a control of no test file over the suites its mutant\'s run ran, and on
         sprintf('%s/results.jsonl', $root),
     );
 
-    expect($shell->commands()[0]->arguments())->toContain('--testsuite=Unit,Process')
+    expect($shell->commands()[0]->arguments())->toContain('--testsuite=Unit')
         ->and(implode(' ', $shell->commands()[1]->arguments()))->not->toContain('--testsuite');
 });

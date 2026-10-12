@@ -119,7 +119,7 @@ final readonly class UnmutatedRuns
             Paths::none(),
             $judgedBy,
             $request->withheld(),
-            ...PhpUnitOption::inSuites($request->narrowing()->suitesForMutants($judgedBy, $request->coverage())),
+            ...PhpUnitOption::inSuites($request->narrowing()->suitesFor($judgedBy)),
         )->within($control->limit());
     }
 

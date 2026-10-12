@@ -97,14 +97,15 @@ final readonly class AloneRuns
     }
 
     /**
-     * The suites a control of no test file runs, as its mutant's own run
-     * ran them; none named for one of test files, which runs those files.
+     * The suites a control of no test file runs: the judging suites, and the
+     * holding suites too where its tests hold a unit; none named for one of
+     * test files, which runs those files.
      *
      * @return list<string>
      */
     private function suitesOf(Control $control, MutationRequest $request): array
     {
-        $suites = $request->narrowing()->suitesForMutants($control->judgedBy(), $request->coverage());
+        $suites = $request->narrowing()->suitesFor($control->judgedBy());
 
         return count($control->tests()) === 0 ? PhpUnitOption::inSuites($suites) : [];
     }
