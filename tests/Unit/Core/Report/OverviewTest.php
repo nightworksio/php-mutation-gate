@@ -15,6 +15,8 @@ use NightWorksIO\MutationGate\Core\Verdict\HeldSets;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutants;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
+use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdicts;
+use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Survivors;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
@@ -104,4 +106,16 @@ it('knows the security mutants, fails those of a security set that failed, and l
         ->and($overview->isSecurity(Verdicts::survivor()))->toBeFalse()
         ->and(Judged::natives(...[JudgedMutants::of(...$overview->securitySurvivors())]))->toBe(['src/Auth.php:3'])
         ->and(Overview::of(Verdicts::failing())->securitySurvivors())->toBe([]);
+});
+
+it('lists every security survivor, in the order the survivors stand, and none of another set', function (): void {
+    $first = Secured::mutant(MutantJudgement::Survived, 3);
+    $second = Secured::mutant(MutantJudgement::Survived, 9);
+    $plain = Verdicts::survivor();
+    $verdict = Verdict::of(TreeVerdicts::of(Secured::tree('src/Auth.php', Package::at(Path::root()), Floor::of(0), $first, $second)))
+        ->withSets(HeldSets::of(NewCodeVerdicts::of(), SecurityVerdicts::of(Secured::set('.', Floor::of(100), Unrecorded::floor(), $first, $second))));
+
+    expect(Judged::natives(...[JudgedMutants::of(...Overview::of($verdict)->securitySurvivors())]))
+        ->toBe(['src/Auth.php:3', 'src/Auth.php:9'])
+        ->and(Overview::of($verdict)->isSecurity($plain))->toBeFalse();
 });

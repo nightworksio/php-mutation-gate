@@ -28,11 +28,11 @@ final readonly class DoomedRecord
 {
     public const string SECTION = 'doomed';
 
-    private const string MUTANT = 'mutant';
+    public const string MUTANT = 'mutant';
 
-    private const string TREE = 'tree';
+    public const string TREE = 'tree';
 
-    private const string FLOOR = 'floor';
+    public const string FLOOR = 'floor';
 
     /** @return array{}|array{unit: string, mutant: string, tree: string, floor: int|float, why: string} */
     public static function of(Doomed|Undoomed $doomed): array

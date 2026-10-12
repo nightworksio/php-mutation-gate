@@ -104,6 +104,7 @@ it('reads a class member after a method\'s body, and nothing in a member without
     $code = '<?php class C { public function f() { } public $a; const B = 1; public function g($x) { } }';
 
     expect(symbolAtToken($code, '1'))->toEqual(Symbol::constant('C', 'B'))
+        ->and(symbolAtToken('<?php class C { public function f() { } const B = 1; }', '1'))->toEqual(Symbol::constant('C', 'B'))
         ->and(symbolAtToken($code, '$a'))->toEqual(Executable::line())
         ->and(symbolAtToken($code, '$x'))->toEqual(Executable::line());
 });

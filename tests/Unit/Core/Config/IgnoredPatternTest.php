@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\IgnoredPattern;
+use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -13,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\Time\Day;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 /** A survivor of this file, made by this mutator of this family. */
@@ -41,4 +43,13 @@ it('names the mutants of its mutator, by its full name or its family, in the pat
 it('is named by its mutator and its glob', function (): void {
     expect(IgnoredPattern::of(Glob::of('src/Log/**'), 'MethodCallRemoval', 'Logged elsewhere', Absent::setting())->named())
         ->toBe('MethodCallRemoval in src/Log/**');
+});
+
+it('is written as PHP with its day where it has one, and with nothing after its reason where it has none', function (): void {
+    $day = Day::on(new DateTimeImmutable('2027-01-01'));
+
+    expect(IgnoredPattern::of(Glob::of('src/**'), 'Plus', 'Why', $day)->php(ProjectRoot::origin()))
+        ->toBe("Ignore::mutator('Plus', in: 'src/**', because: 'Why', until: '2027-01-01')")
+        ->and(IgnoredPattern::of(Glob::of('src/**'), 'Plus', 'Why', Absent::setting())->php(ProjectRoot::origin()))
+        ->toBe("Ignore::mutator('Plus', in: 'src/**', because: 'Why')");
 });

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Time;
 
+use DateMalformedStringException;
 use DateTimeImmutable;
 use DateTimeZone;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -50,16 +51,29 @@ final readonly class Instant
     /** The moment, in UTC, as a clock would have read it; or why it is no moment of the calendar. */
     public function moment(): DateTimeImmutable|CannotJudge
     {
-        $moment = DateTimeImmutable::createFromFormat(self::FORMAT, $this->value, new DateTimeZone(self::UTC));
+        try {
+            $moment = new DateTimeImmutable($this->value)->setTimezone(new DateTimeZone(self::UTC));
+        } catch (DateMalformedStringException) {
+            return $this->noMoment();
+        }
 
-        return $moment instanceof DateTimeImmutable && $moment->format(self::FORMAT) === $this->value
-            ? $moment
-            : CannotJudge::because(sprintf('"%s" is no moment of the calendar.', $this->value));
+        return $moment->format(self::FORMAT) === $this->value ? $moment : $this->noMoment();
     }
 
     /** Whether this came after another; written in one zone and to the second, instants order as their text does. */
     public function isAfter(self $other): bool
     {
         return $this->value > $other->value;
+    }
+
+    /** Below zero where this came first, above zero where it came last, and zero where both are one moment. */
+    public function comparedTo(self $other): int
+    {
+        return $this->value <=> $other->value;
+    }
+
+    private function noMoment(): CannotJudge
+    {
+        return CannotJudge::because(sprintf('"%s" is no moment of the calendar.', $this->value));
     }
 }

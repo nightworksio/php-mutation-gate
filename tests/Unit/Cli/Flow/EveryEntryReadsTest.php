@@ -101,6 +101,14 @@ it('names the first file of a change that every entry reads, by either path, and
         fn(): Changes => Changes::of(Change::renamed(Path::of('tests/Support/Boot.php'), Path::of('src/Boot.php'), Lines::none())),
         'tests/Support/Boot.php',
     ],
+    'a source renamed to a file every entry reads' => [
+        fn(): Changes => Changes::of(Change::renamed(Path::of('src/Boot.php'), Path::of('tests/Support/Boot.php'), Lines::none())),
+        'tests/Support/Boot.php',
+    ],
+    'a file every entry reads renamed to another, by its new path first' => [
+        fn(): Changes => Changes::of(Change::renamed(Path::of('phpunit.xml'), Path::of('composer.json'), Lines::none())),
+        'composer.json',
+    ],
     'sources and test cases alone' => [
         fn(): Changes => Changes::of(
             Change::modified(Path::of('src/Money.php'), Lines::none()),

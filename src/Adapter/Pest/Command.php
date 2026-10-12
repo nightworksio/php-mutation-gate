@@ -108,11 +108,12 @@ final readonly class Command
      * and those that make a process another run's worker, each unset whether
      * or not the environment holds it, since a process also inherits what
      * `$_ENV` holds, which `getenv()` does not show. Only the command that
-     * needs one sets it.
+     * needs one sets it, and a test that starts Pest or a tool that runs it
+     * unsets them too, so its run is not taken for a mutant's own.
      *
      * @return array<string, false>
      */
-    private static function unset(): array
+    public static function unset(): array
     {
         $gate = array_map(static fn(GateVariable $variable): string => $variable->value, GateVariable::cases());
 

@@ -101,7 +101,7 @@ adopt the gate from. What exists, read at source and through GitHub's API:
      `.docs/guide/ci/`.
    - The configuration reference, the environment variables and the files
      move to `.docs/reference/`. That move is part of the documentation built
-     for 1.0.0, and until then the README holds them. The tests that read
+     for 0.1.0, and until then the README holds them. The tests that read
      the reference and the config examples from the README (the config
      definitions' test, the README examples' contract test and the builder's
      test) move with them in that same change, so no test ever reads a page
@@ -188,9 +188,9 @@ adopt the gate from. What exists, read at source and through GitHub's API:
 10. **Release notes are the version's CHANGELOG section.**
     - They are written, generated then edited, in a pull request before the
       tag. The GitHub release's body is that section.
-    - **1.0.0's notes are written by hand:** the feature table, grouped as
+    - **0.1.0's notes are written by hand:** the feature table, grouped as
       the README groups it, rather than a list of every commit before the
-      first release. Generation starts after 1.0.0.
+      first release. Generation starts after 0.1.0.
     - The contributor bot drafts that pull request, and the maintainer signs
       the tag (ADR-0019, decision 15).
 
@@ -283,7 +283,7 @@ adopt the gate from. What exists, read at source and through GitHub's API:
 |--------|-------------|
 | **MkDocs Material on GitHub Pages** | The PHP ecosystem's familiar look, with search and versioning. It is in maintenance mode, with fixes promised only into late 2026, and adds Python and a deploy job with `pages: write`. |
 | **VitePress or Docusaurus** | Maintained, with search, and Docusaurus versions built in. A Node toolchain and its updates in a PHP package's repository. |
-| **Zensical** | Material's successor, with no record yet to bet 1.0's docs on. |
+| **Zensical** | Material's successor, with no record yet to bet 0.1.0's docs on. |
 | **User docs in `docs/`, ADRs in `.docs/decisions/`** | Two homes for one project's writing, against the repository's rule that documentation lives in `.docs/`. |
 | **Everything in `docs/`, ADRs moved** | Every ADR link, the `Spec:` hook's path and `scope`'s rule would change, and ADRs would sit among user guides. |
 | **The README as the whole reference, with guides beside it** | A 700-line front page, and guides that repeat parts of it. |

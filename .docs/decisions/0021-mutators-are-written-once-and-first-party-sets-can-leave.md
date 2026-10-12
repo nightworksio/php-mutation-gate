@@ -199,7 +199,7 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
     - The sets are `plugins/laravel/`, `plugins/symfony/` and
       `plugins/security/`. Each has its own `composer.json`
       (`nightworksio/mutation-gate-laravel`, `…-symfony`, `…-security`),
-      requiring `nightworksio/mutation-gate` ^1 and `nikic/php-parser` ^5.9,
+      requiring `nightworksio/mutation-gate` ^0.1 and `nikic/php-parser` ^5.9,
       with its own `autoload`, its own `extra.mutation-gate.extensions`, and
       `src/` and `tests/` inside.
     - Their namespaces are `NightWorksIO\MutationGateLaravel\`,
@@ -451,7 +451,7 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
 | **No testing kit** | Every author would build one, and the first-party sets would test through something private. |
 | **Sets under the gate's own namespace root**, `NightWorksIO\MutationGate\Laravel\` | The layer rules would need an exemption for a sub-namespace, and "nothing names the set" would be a prefix rule with an exception. |
 | **Sets under `src/Plugin/`** | Leaving would change their paths, and they would share `src`'s tooling until then. |
-| **Separate repositories from the start** | A version matrix between the gate and its sets before 1.0, which ADR-0001 rejected for the runners. |
+| **Separate repositories from the start** | A version matrix between the gate and its sets before 0.1.0, which ADR-0001 rejected for the runners. |
 | **A path repository in development** | Tests the split for real, but a path repository cannot be published, so the root would need two ways to find one set. |
 | **A missing set always exit 2** | A zero-config run of a Laravel project without the set's package would stop. |
 | **A missing set always skipped** | A misspelt set in the config would silently do nothing, which ADR-0002 decision 6 refuses. |

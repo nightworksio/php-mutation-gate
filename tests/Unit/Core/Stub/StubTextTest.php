@@ -171,3 +171,20 @@ it('writes each comment so no character in the diff ends it early', function () 
     expect($text)->toContain("//     +        return '? >' . \"[31m\";\n")
         ->and($text)->not->toContain("\e");
 });
+
+it('ends no comment line in a blank, as a blank line of the diff would', function () use ($makeWhole): void {
+    $whole = $makeWhole();
+    $mutant = JudgedMutant::of(
+        Verdicts::mutant('src/Cart.php:7', 'LessThan', MutatorFamily::Boundary, sprintf(
+            "%s\n%s\n%s\n \n",
+            '@@ @@',
+            '-        return $amount < $limit;',
+            '+        return $amount <= $limit;',
+        )),
+        MutantJudgement::Survived,
+    );
+    $text = StubText::of(Subject::of($mutant, Nameless::code(), $whole), AssertionStyle::Pest, Format::Json, RunnerBehaviour::standard());
+
+    expect($text)->toContain("\n    //\n")
+        ->and($text)->not->toMatch('/ $/m');
+});

@@ -81,8 +81,8 @@ The same repository has two more needs.
        On the default branch `last-run` reads the change since
        `last-passed`.
      - The package's GitHub action and reusable workflow pass the pull
-       request's base on `pull_request`, and `last-passed` on a push to the
-       default branch (ADR-0011).
+       request's base on `pull_request`, the default branch on any other
+       branch, and `last-passed` on the default branch (ADR-0011).
    - **`--full`** asks for a full run by name. It is accepted wherever
      `--changed-since` is, and the two together are an error (exit code 2).
 
@@ -93,7 +93,7 @@ The same repository has two more needs.
      `release` and a pushed tag.
    - `full` passes `--full` whatever the event.
    - `changed` is change-scoped whatever the event. On an event with no base it
-     runs from `last-passed`.
+     runs from the base the bullet above names for its branch.
    - The release workflow (ADR-0011) runs the gate with `mode: full` before it
      moves the major tag, so a release is judged over all its code.
 

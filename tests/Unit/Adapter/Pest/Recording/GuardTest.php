@@ -6,9 +6,15 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Guard;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Loaded;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
+use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
+beforeEach(function (): void {
+    GateEnvironment::clear();
+});
+
 afterEach(function (): void {
+    GateEnvironment::restore();
     Scratch::sweep();
 });
 

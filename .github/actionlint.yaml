@@ -1,0 +1,7 @@
+# job.workflow_repository and job.workflow_sha are in GitHub's job context,
+# and actionlint 1.7.12 does not know them yet: the reusable workflow checks
+# out its own commit with them.
+paths:
+  .github/workflows/mutation-gate.yml:
+    ignore:
+      - 'property "workflow_(repository|sha)" is not defined in object type'

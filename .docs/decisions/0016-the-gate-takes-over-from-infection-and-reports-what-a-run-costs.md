@@ -243,7 +243,7 @@ Operating the gate raises four needs its reports do not yet meet.
       names the variable to use.
     - The reusable workflow takes these as optional secrets, passed to its
       `verdict` job only, with `MUTATION_GATE_WEBHOOK_SECRET` (decision 12).
-      The one-step action reads them from its step's `env`.
+      The action reads them from its `deliver` step's `env`.
 
 12. **Each alert is one short summary, rendered three ways.**
     - **Every message carries** the event, the failing trees with floor,

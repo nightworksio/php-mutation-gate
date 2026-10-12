@@ -95,3 +95,26 @@ it('writes a new file of one test: Pest\'s closures, or a PHPUnit class named fo
 
         CLASS);
 });
+
+it('adds a method before the closing brace of the class, not of a function after it', function () use ($method): void {
+    $file = TestFile::read(Path::of('tests/CartTest.php'), Contents::of("<?php\n\nfinal class CartTest\n{\n}\n\nfunction cart(): void\n{\n}\n"));
+
+    expect($file->with($method))->toBe(<<<'CLASS'
+        <?php
+
+        final class CartTest
+        {
+
+            public function testKills(): void
+            {
+
+                $this->fail();
+            }
+        }
+
+        function cart(): void
+        {
+        }
+
+        CLASS);
+});

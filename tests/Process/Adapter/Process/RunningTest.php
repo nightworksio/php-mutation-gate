@@ -2,16 +2,27 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\PhpUnit\MutantFile;
 use NightWorksIO\MutationGate\Adapter\Process\Running;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Environment;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Tests\Support\FileWrapper;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Started;
 
+$holds = [
+    'holds:src/Adapter/Process/Running.php',
+];
+
+beforeEach(function (): void {
+    FileWrapper::keep();
+});
+
 afterEach(function (): void {
+    FileWrapper::restore();
     Scratch::sweep();
 });
 
@@ -41,14 +52,14 @@ it('wakes a wait as soon as a running program prints, long before the wait is up
     expect($waited($running, 20.0))->toBeLessThan(5.0)
         ->and($running->endedBy(0.0))->toBeInstanceOf(NotGiven::class)
         ->and($running->endedBy(100.0))->toEqual(Ran::stopped('ready', 'ready')->took(Seconds::of(100.0)));
-});
+})->group(...$holds);
 
 it('wakes a wait as soon as a running program ends', function () use ($started, $waited, $ended): void {
     $running = $started('usleep(100000);');
 
     expect($waited($running, 20.0))->toBeLessThan(5.0)
         ->and($ended($running)->succeeded())->toBeTrue();
-});
+})->group(...$holds);
 
 it('waits a moment, not the whole wait, on a program that has closed its pipes and runs on', function () use ($started, $waited): void {
     $running = $started('fclose(STDOUT); fclose(STDERR); sleep(30);');
@@ -61,21 +72,21 @@ it('waits a moment, not the whole wait, on a program that has closed its pipes a
 
     expect($waited($running, 20.0))->toBeLessThan(1.0)
         ->and($running->endedBy(100.0))->toEqual(Ran::stopped('', '')->took(Seconds::of(100.0)));
-});
+})->group(...$holds);
 
 it('keeps all a program prints however much more it is than a pipe holds', function () use ($started, $ended): void {
     $ran = $ended($started('echo str_repeat("x", 1048576); fwrite(STDERR, str_repeat("y", 1048576));'));
 
     expect(strlen($ran->printed()))->toBe(1_048_576)
         ->and(strlen($ran->output()))->toBe(2_097_152);
-});
+})->group(...$holds);
 
 it('says a program a signal ended was signalled, keeping what it printed', function () use ($ended): void {
     $ran = $ended(Started::command(ProcessCommand::of(Scratch::directory(), 'sh', '-c', 'echo x; kill -9 $$')));
 
     expect($ran)->toEqual(Ran::signalled(9, "x\n", "x\n")->took(Seconds::of(0.0)))
         ->and($ran->endedBySignal())->toBeTrue();
-});
+})->group(...$holds);
 
 it('unsets a variable this process holds where its command unsets it', function () use ($ended): void {
     putenv('MUTATION_GATE_RUNNING=held');
@@ -89,7 +100,7 @@ it('unsets a variable this process holds where its command unsets it', function 
     } finally {
         putenv('MUTATION_GATE_RUNNING');
     }
-});
+})->group(...$holds);
 
 it('hands a program what $_ENV holds over this process\'s own environment, as Symfony\'s Process does', function () use ($ended): void {
     putenv('MUTATION_GATE_RUNNING=own');
@@ -104,4 +115,19 @@ it('hands a program what $_ENV holds over this process\'s own environment, as Sy
         putenv('MUTATION_GATE_RUNNING');
         unset($_ENV['MUTATION_GATE_RUNNING'], $_ENV['MUTATION_GATE_RUNNING_ALONE']);
     }
-});
+})->group(...$holds);
+
+it('gives a program an input that has ended as it starts', function () use ($started, $ended): void {
+    $ran = $ended($started('$in = [STDIN]; $none = null; echo stream_select($in, $none, $none, 3) === 1 ? strlen((string) stream_get_contents(STDIN)) : "open";'));
+
+    expect([$ran->succeeded(), $ran->output()])->toBe([true, '0']);
+})->group(...$holds);
+
+it('starts a program while a stream wrapper stands in for files, as a mutant\'s run puts one', function () use ($started, $ended): void {
+    $directory = (string) realpath(Scratch::directory());
+    Scratch::write($directory, 'Served.php', '<?php');
+    Scratch::write($directory, 'guard.txt', '');
+    MutantFile::serve(sprintf('%s/Served.php', $directory), sprintf('%s/Served.php', $directory), sprintf('%s/guard.txt', $directory));
+
+    expect($ended($started('echo "ran";'))->output())->toBe('ran');
+})->group(...$holds);

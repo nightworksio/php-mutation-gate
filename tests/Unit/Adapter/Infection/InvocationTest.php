@@ -114,6 +114,17 @@ it('runs a control on its config with the project\'s arguments, selecting its te
     ]);
 });
 
+it('runs every test of a control\'s suite where PCRE cannot compile the filter of its tests', function (): void {
+    $tests = TestIds::of(...array_map(static fn(int $at): TestId => TestId::of(sprintf('Tests\\MoneyTest::testAdds%d', $at)), range(1, 3000)));
+
+    expect(Invocation::controlling(invokedIn(), invoked('{}'), '/project/.gate/infection/controls/0/phpunit.xml', $tests)->arguments())->toBe([
+        PHP_BINARY,
+        '/project/vendor/bin/phpunit',
+        '--configuration=/project/.gate/infection/controls/0/phpunit.xml',
+        '--colors=never',
+    ]);
+});
+
 it('runs Infection on the generated config over the coverage the gate chose, reporting every mutant and nothing of its own', function (): void {
     $command = Invocation::mutation(
         invokedIn(),

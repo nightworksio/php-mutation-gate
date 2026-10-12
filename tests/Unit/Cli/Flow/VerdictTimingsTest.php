@@ -35,6 +35,25 @@ function verdictTimingsRead(Plan $plan, string $project): Results
     return $results instanceof Results ? $results : throw new RuntimeException($results->why());
 }
 
+/** A project whose two shards both ran, with each result's measured instant and seconds then written as given. */
+function verdictTimingsWritten(string $first, float $firstSpent, string $second, float $secondSpent): Results
+{
+    $project = Flows::project();
+    $plan = Planned::handedIn($project, Planned::twoShards());
+    $running = new Running(Flows::adapters($project, [], ScriptedRunner::fixture()), Flows::settings(), Flows::setup());
+
+    foreach ([1 => [$first, $firstSpent], 2 => [$second, $secondSpent]] as $shard => [$at, $spent]) {
+        $running->run($plan, ShardId::of($shard), Workspace::results());
+        $file = sprintf('%s/%s/%d.json', $project, Workspace::results()->value(), $shard);
+        $decoded = json_decode((string) file_get_contents($file), associative: true, flags: JSON_THROW_ON_ERROR);
+        $result = is_array($decoded) ? $decoded : [];
+        $measured = ['measured' => ['at' => $at, 'seconds' => $spent]];
+        file_put_contents($file, json_encode(array_replace_recursive($result, $measured), JSON_THROW_ON_ERROR));
+    }
+
+    return verdictTimingsRead($plan, $project);
+}
+
 afterEach(function (): void {
     Scratch::sweep();
 });
@@ -74,4 +93,17 @@ it('times each shard from its start to its result, with its steps, and the verdi
         ->and($timings->spent()->wall())->toEqual(Seconds::of(3630.0 + 60.0))
         ->and($timings->spent()->runner())->toEqual(Seconds::of(30.0 + 60.0 + $spent[0] + 60.0 + $spent[1] + 60.0))
         ->and($timings->spent()->isMeasured())->toBeFalse();
+});
+
+it('starts a shard the seconds it spent, rounded, before its result was written, and at the verdict\'s start where that instant is no moment', function (): void {
+    $began = new DateTimeImmutable('2026-09-30T13:00:00+00:00');
+    $starts = static fn(Results $results): array => array_map(
+        static fn(ShardTiming $shard): string => $shard->whole()->start()->value(),
+        [...VerdictTimings::of('github:1/1', $results, $began, $began, Seconds::of(0.0))->shards()],
+    );
+
+    expect($starts(verdictTimingsWritten('2026-09-30T12:00:10Z', 2.4, '2026-09-30T12:01:00Z', 2.6)))
+        ->toBe(['2026-09-30T12:00:08Z', '2026-09-30T12:00:57Z'])
+        ->and($starts(verdictTimingsWritten('2026-09-30T12:00:10Z', 2.4, '2026-02-30T12:00:00Z', 2.6)))
+        ->toBe(['2026-09-30T12:00:08Z', '2026-09-30T13:00:00Z']);
 });

@@ -20,6 +20,7 @@ use NightWorksIO\MutationGate\Core\Config\PhpCalls;
 use NightWorksIO\MutationGate\Core\Config\ProjectRoot;
 use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Mutant\SourcePin;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Php\Enclosing;
 use NightWorksIO\MutationGate\Core\Php\HoldsReader;
 use NightWorksIO\MutationGate\Core\Removal\Removable;
@@ -108,7 +109,7 @@ final readonly class StubText
 
         $pin = $subject->pin();
         $lines = [...$lines, ...$pin instanceof SourcePin ? Scaffold::pinned($pin, $function, $style) : []];
-        $pinned = $pin instanceof SourcePin ? $first->mutant()->mutator() : '';
+        $pinned = $pin instanceof SourcePin ? $first->mutant()->mutator() : NotGiven::value();
 
         foreach ($subject->members() as $member) {
             $family = $member->mutant()->mutation()->family();

@@ -153,7 +153,7 @@ final readonly class Tokens implements Countable
     /** Whether some bracket encloses the token at an index. */
     public function isEnclosed(int $at): bool
     {
-        return $this->enclosing[$at] !== self::NONE;
+        return array_key_exists($at, $this->enclosing) && $this->enclosing[$at] !== self::NONE;
     }
 
     /** Whether a token stands at an index, and is of one of these kinds. */

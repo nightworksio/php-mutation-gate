@@ -49,7 +49,7 @@ final readonly class HeldCovered implements Countable, IteratorAggregate
 
     public function with(Covered $covered): self
     {
-        return self::of(...[...array_values($this->covered), $covered]);
+        return self::of(...$this, ...[$covered]);
     }
 
     /** The holding tests that run the unit held at this path; none for a unit not among these. */

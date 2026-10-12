@@ -7,15 +7,17 @@ use NightWorksIO\MutationGate\Adapter\Pest\MutantTime;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
 use Pest\Mutate\Mutators\Removal\RemoveArrayItem;
 
+beforeEach(function (): void {
+    GateEnvironment::clear();
+});
+
 afterEach(function (): void {
-    putenv(GateVariable::MutantFloor->value);
-    putenv(GateVariable::MutantCap->value);
-    putenv(GateVariable::MutantStartUp->value);
-    putenv(GateVariable::Results->value);
+    GateEnvironment::restore();
     MutantTime::remember([]);
     Scratch::sweep();
 });

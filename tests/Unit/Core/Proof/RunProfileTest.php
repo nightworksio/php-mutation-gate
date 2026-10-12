@@ -12,11 +12,21 @@ it('says how much of the matrix it records, whether it holds the security sets a
     expect([$kind->matrix(), $kind->isSecurityOnly(), $kind->suite()])->toEqual([MatrixKind::Full, true, SuiteName::of('unit')]);
 });
 
-it('is another kind where any of what it is of differs', function (RunProfile $other, bool $equal): void {
-    expect(RunProfile::standard()->equals($other))->toBe($equal);
+it('is another kind where any of what it is of differs', function (RunProfile $one, RunProfile $other, bool $equal): void {
+    expect([$one->equals($other), $other->equals($one)])->toBe([$equal, $equal]);
 })->with([
-    'the same' => [fn(): RunProfile => RunProfile::standard(), true],
-    'the full matrix' => [fn(): RunProfile => RunProfile::standard()->recording(MatrixKind::Full), false],
-    'the security sets alone' => [fn(): RunProfile => RunProfile::standard()->securityOnly(), false],
-    'one suite' => [fn(): RunProfile => RunProfile::standard()->inSuite(SuiteName::of('unit')), false],
+    'the same' => [fn(): RunProfile => RunProfile::standard(), fn(): RunProfile => RunProfile::standard(), true],
+    'the full matrix' => [fn(): RunProfile => RunProfile::standard(), fn(): RunProfile => RunProfile::standard()->recording(MatrixKind::Full), false],
+    'the security sets alone' => [fn(): RunProfile => RunProfile::standard(), fn(): RunProfile => RunProfile::standard()->securityOnly(), false],
+    'one suite' => [fn(): RunProfile => RunProfile::standard(), fn(): RunProfile => RunProfile::standard()->inSuite(SuiteName::of('unit')), false],
+    'the same suite' => [
+        fn(): RunProfile => RunProfile::standard()->inSuite(SuiteName::of('unit')),
+        fn(): RunProfile => RunProfile::standard()->inSuite(SuiteName::of('unit')),
+        true,
+    ],
+    'another suite' => [
+        fn(): RunProfile => RunProfile::standard()->inSuite(SuiteName::of('unit')),
+        fn(): RunProfile => RunProfile::standard()->inSuite(SuiteName::of('feature')),
+        false,
+    ],
 ]);

@@ -135,6 +135,15 @@ it('runs the tests a filter names under coverage', function (): void {
 
 it('starts a run of no test as pest-plugin-mutate starts a mutant\'s own run, in the environment it gives one', function (): void {
     $command = invocation()->startingUp(Withheld::of('DEPLOY_*'), '/p/src/Money.php', '/p/.gate/Money.php');
+    $told = array_intersect_key($command->environment(), array_flip([
+        'PEST_MUTATION_TESTING',
+        'PEST_MUTATION_FILE',
+        'PARATEST',
+        'TEST_TOKEN',
+        'UNIQUE_TEST_TOKEN',
+        'LARAVEL_PARALLEL_TESTING',
+    ]));
+    ksort($told);
 
     expect($command->arguments())->toBe([
         PHP_BINARY,
@@ -144,20 +153,13 @@ it('starts a run of no test as pest-plugin-mutate starts a mutant\'s own run, in
         '--colors=never',
         '--filter=(?!)',
         '--do-not-fail-on-empty-test-suite',
-    ])->and(array_intersect_key($command->environment(), array_flip([
-        'PEST_MUTATION_TESTING',
-        'PEST_MUTATION_FILE',
-        'PARATEST',
-        'TEST_TOKEN',
-        'UNIQUE_TEST_TOKEN',
-        'LARAVEL_PARALLEL_TESTING',
-    ])))->toEqual([
-        'PEST_MUTATION_TESTING' => '/p/src/Money.php',
-        'PEST_MUTATION_FILE' => '/p/.gate/Money.php',
+    ])->and($told)->toBe([
+        'LARAVEL_PARALLEL_TESTING' => '1',
         'PARATEST' => '1',
+        'PEST_MUTATION_FILE' => '/p/.gate/Money.php',
+        'PEST_MUTATION_TESTING' => '/p/src/Money.php',
         'TEST_TOKEN' => '0',
         'UNIQUE_TEST_TOKEN' => '0_start-up',
-        'LARAVEL_PARALLEL_TESTING' => '1',
     ]);
 });
 

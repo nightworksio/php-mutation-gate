@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Tests\Support\Fixture;
 use NightWorksIO\MutationGate\Tests\Support\Fixtures;
 use NightWorksIO\MutationGate\Tests\Support\Proof;
@@ -183,7 +184,7 @@ it('sees the coverage floor refuse every uncovered line planted for it, alone in
     }
 
     $report = sprintf('%s.junit.xml', $copy);
-    $covered = new Process(['sh', 'scripts/coverage.sh', sprintf('--log-junit=%s', $report)], $copy, timeout: null);
+    $covered = new Process(['sh', 'scripts/coverage.sh', sprintf('--log-junit=%s', $report)], $copy, Command::unset(), timeout: null);
     $covered->run();
     $said = sprintf('%s%s', $covered->getOutput(), $covered->getErrorOutput());
     $failed = array_map(trim(...), array_values(suiteFailures($covered, $report)));
@@ -310,6 +311,7 @@ function theRun(): array
         'suite' => started(new Process(
             [PHP_BINARY, 'vendor/bin/pest', '--testsuite=Arch', sprintf('--log-junit=%s.junit.xml', $copy)],
             $copy,
+            Command::unset(),
             timeout: null,
         )),
         'dependencies' => started(new Process(

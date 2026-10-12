@@ -281,7 +281,8 @@ Two parts of that do not carry over to a public package.
    runs the whole gate in one job, or one shard when given `shard`. The
    reusable workflow `.github/workflows/mutation-gate.yml` runs a plan job,
    one matrix job per shard, a verdict job and, on the default branch, a
-   publish job. It carries the plan, coverage and results between jobs as
+   publish job, with jobs that fetch the default branch's ledger and deliver
+   what needs a credential beside them (ADR-0011). It carries the plan, coverage and results between jobs as
    artifacts, and keeps the ledger in the Actions cache.
 
 ## Alternatives considered

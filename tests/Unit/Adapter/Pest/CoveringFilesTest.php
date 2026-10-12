@@ -7,11 +7,15 @@ use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\LoadedTests;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
+use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
+beforeEach(function (): void {
+    GateEnvironment::clear();
+});
+
 afterEach(function (): void {
-    putenv(GateVariable::Narrow->value);
-    putenv(GateVariable::Results->value);
+    GateEnvironment::restore();
     CoveringFiles::forget();
     Scratch::sweep();
 });

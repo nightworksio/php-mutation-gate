@@ -22,6 +22,8 @@ use NightWorksIO\MutationGate\Core\Analysis\RejectionRate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Cost\Step;
+use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -86,19 +88,33 @@ function preOffer(Mutant $mutant, float $tests = 10.0): PreCheckable
 /** The pre-checks, in a project, by this analyser, with what the ledgers learned. */
 function preChecking(string $project, RecordingChecker|NoAnalyser $checker, AnalyserHistory $known, Deadline|Unlimited $deadline = new Unlimited()): PreChecking
 {
+    return preTimed($project, $checker, $known, $deadline)[0];
+}
+
+/**
+ * The pre-checks, and the stopwatch that times the shard's steps.
+ *
+ * @return array{PreChecking, Stopwatch}
+ */
+function preTimed(string $project, RecordingChecker|NoAnalyser $checker, AnalyserHistory $known, Deadline|Unlimited $deadline = new Unlimited()): array
+{
     $ports = $checker instanceof RecordingChecker ? [ScriptedRunner::fixture(), $checker] : [ScriptedRunner::fixture()];
     $clock = new TickingClock('2026-01-01T00:00:00Z', 1);
+    $stopwatch = new Stopwatch($clock, $clock->now());
 
-    return new PreChecking(
-        Flows::adapters($project, [], ...$ports),
-        $clock,
-        $deadline,
-        Seconds::of(60.0),
-        $known,
-        new AnalyserWarmUp(),
-        new Stopwatch($clock, $clock->now()),
-        PreCheck::standard(),
-    );
+    return [
+        new PreChecking(
+            Flows::adapters($project, [], ...$ports),
+            $clock,
+            $deadline,
+            Seconds::of(60.0),
+            $known,
+            new AnalyserWarmUp(),
+            $stopwatch,
+            PreCheck::standard(),
+        ),
+        $stopwatch,
+    ];
 }
 
 /** @param array<string, Findings|OutOfScope|CannotJudge> $answers what the analyser answers of each mutant, by where it reads it */
@@ -129,6 +145,7 @@ it('rejects a mutant whose check finds an error its original does not have, pass
         ->and($rate($first))->toBe([1, 1])
         ->and($rate($second))->toBe([1, 0])
         ->and($learned->time()->checks())->toBe(2)
+        ->and($learned->time()->seconds())->toEqual(Seconds::of(2.0))
         ->and(array_map(static fn(array $check): string => $check[2], $checker->asked()))->toBe([
             sprintf('<?php // %s', $first->id()->value()),
             sprintf('<?php // %s', $second->id()->value()),
@@ -266,4 +283,40 @@ it('runs each check without what the gate withholds, and lists the files a mutan
 
     expect($checker->dependents())->toBe([['src/Wallet.php']])
         ->and(preg_match($checker->withheld()[0], 'FAKE_CI_TOKEN'))->toBe(1);
+});
+
+it('learns a check run beside none as taking the whole of its batch\'s time, and times the shard\'s static check step', function (): void {
+    $project = Scratch::directory();
+    [$first, $second] = preOffered();
+    $checker = preCheckedBy($project, [Workspace::checkedMutant($first->id())->value() => preOriginals()]);
+    [$checking, $stopwatch] = preTimed($project, $checker, AnalyserHistory::of('fake'));
+
+    $checking->rejected(PreCheckables::of(preOffer($first)), ProcessCount::of(2));
+    $learned = $checking->checks()->histories()->of(preIdentity());
+    $steps = array_map(
+        static fn(StepTime $step): array => [$step->step(), $step->count()],
+        [...$stopwatch->steps()],
+    );
+
+    expect([$learned->time()->checks(), $learned->time()->seconds()])->toEqual([1, Seconds::of(1.0)])
+        ->and($steps)->toBe([[Step::StaticCheck, 1]]);
+});
+
+it('checks nothing, and rejects nothing, where no chosen mutant\'s print analyses as its file does', function (): void {
+    $project = Scratch::directory();
+    $held = [...Flows::mutantsOf('src/Held.php')][0];
+    $checker = preCheckedBy($project, [Workspace::checkedOriginal($held->id())->value() => Findings::none()]);
+    $printed = PreCheckable::of(
+        $held,
+        Checkable::printed(Contents::of('<?php // the print'), Contents::of('<?php // the mutant')),
+        Seconds::of(10.0),
+    );
+
+    $checking = preChecking($project, $checker, AnalyserHistory::of('fake'));
+    $rejections = $checking->rejected(PreCheckables::of($printed), ProcessCount::of(2));
+
+    expect(count($rejections))->toBe(0)
+        ->and(array_map(static fn(array $check): string => $check[1], $checker->asked()))
+        ->toBe([Workspace::checkedOriginal($held->id())->value()])
+        ->and($checking->checks()->histories()->of(preIdentity())->time()->checks())->toBe(0);
 });

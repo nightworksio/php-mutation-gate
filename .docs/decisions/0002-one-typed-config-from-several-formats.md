@@ -119,7 +119,7 @@ cannot.
      the conventions ask of a public API (ADR-0011).
    - **JSON**. The schema ships in the package at
      `resources/mutation-gate.schema.json` and is published at
-     `https://raw.githubusercontent.com/nightworksio/php-mutation-gate/v1/resources/mutation-gate.schema.json`,
+     `https://raw.githubusercontent.com/nightworksio/php-mutation-gate/v0.1/resources/mutation-gate.schema.json`,
      so an editor completes and checks the file. The definition accepts the
      `$schema` key and ignores its value:
 

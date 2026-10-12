@@ -54,12 +54,19 @@ use function usleep;
  */
 final class Running
 {
-    /** Where the process reads from, and the pipes it writes its output and its errors to. */
+    /**
+     * The pipe the process reads from, closed as it starts, and the pipes it
+     * writes its output and its errors to. No file is opened for it: a stream
+     * wrapper a test or a mutation run put over files yields a stream PHP
+     * cannot hand a process.
+     */
     private const array DESCRIPTORS = [
-        0 => ['file', '/dev/null', 'r'],
+        self::INPUT => ['pipe', 'r'],
         self::OUTPUT => ['pipe', 'w'],
         self::ERRORS => ['pipe', 'w'],
     ];
+
+    private const int INPUT = 0;
 
     private const int OUTPUT = 1;
 
@@ -120,6 +127,9 @@ final class Running
         if (! is_resource($process)) {
             return self::unstarted(sprintf(self::NOT_STARTED, $arguments[0]));
         }
+
+        fclose($pipes[self::INPUT]);
+        unset($pipes[self::INPUT]);
 
         foreach ($pipes as $pipe) {
             stream_set_blocking($pipe, enable: false);

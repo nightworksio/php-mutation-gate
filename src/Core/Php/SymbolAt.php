@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Php;
 
-use function array_filter;
-use function array_values;
 use function ltrim;
+use function range;
 
 /**
  * What a token of a file stands in, read from the brackets around it: an
@@ -25,14 +24,12 @@ final readonly class SymbolAt
         return new self($tokens, $shape);
     }
 
-    /** What the token at an index stands in: a value coverage cannot see run, or executable code. */
+    /**
+     * What the token at an index stands in, as the innermost bracket that
+     * decides it makes of it: a value coverage cannot see run, or executable
+     * code, as is any index where no token stands.
+     */
     public function token(int $at): Symbol|Unnamed|Executable
-    {
-        return $at < 0 || $at >= $this->tokens->count() ? Executable::line() : $this->around($at);
-    }
-
-    /** What the innermost bracket that decides it makes of a token. */
-    private function around(int $at): Symbol|Unnamed|Executable
     {
         for ($child = $at; $this->tokens->isEnclosed($child); $child = $this->tokens->enclosing($child)) {
             $opener = $this->tokens->enclosing($child);
@@ -114,7 +111,7 @@ final readonly class SymbolAt
     {
         $direct = [];
 
-        for ($at = $from; $at > $opener; $at--) {
+        foreach (range($from, $opener) as $at) {
             $direct = $this->tokens->enclosing($at) === $opener ? [...$direct, $at] : $direct;
         }
 
@@ -145,12 +142,7 @@ final readonly class SymbolAt
     /** The name of the parameter whose default begins after an `=` of a parameter list, without its `$`. */
     private function nameBefore(int $list, int $equals): string
     {
-        $variables = array_values(array_filter(
-            $this->direct($list, $equals),
-            fn(int $at): bool => $this->tokens->is($at, T_VARIABLE),
-        ));
-
-        return $variables === [] ? '' : ltrim($this->tokens->text($variables[0]), '$');
+        return ltrim($this->tokens->text($this->first($this->direct($list, $equals), T_VARIABLE)), '$');
     }
 
     /**

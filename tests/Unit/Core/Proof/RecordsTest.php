@@ -105,6 +105,17 @@ it('names each mutant a prefix names where it names several, the most recently r
         ->and($newest instanceof Ambiguous ? count($newest->candidates()) : $newest)->toBe(2);
 });
 
+it('names every mutant of one proof the prefix names', function () use ($mutant, $ledger): void {
+    $records = Records::none(Sought::of('abcdef'))->in(Scope::branch('main'), $ledger(
+        '2026-09-29T10:00:00Z',
+        $mutant('abcdef000001', MutantStatus::Survived),
+        $mutant('abcdef000002', MutantStatus::Killed),
+    ));
+
+    expect($records)->toHaveCount(2)
+        ->and($records->newest())->toBeInstanceOf(Ambiguous::class);
+});
+
 it('holds a kill a ledger proved beside the mutants its proofs reported', function () use ($mutant): void {
     $kill = ProvedKill::of(MutantId::hash(Path::of('src/Money.php'), 'Minus', '-b', 0), Path::of('src/Money.php'), Line::of(12), 'Minus', TestIds::none());
     $proof = Proof::held(

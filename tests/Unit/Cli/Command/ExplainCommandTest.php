@@ -56,12 +56,12 @@ $composed = static fn(ScriptedRunner $runner, ProofStoreFake $store, string $pro
     Flows::ci(),
 );
 
-/** A survivor of `src/Money.php`'s sixteenth line with this id, as a ledger keeps it. */
-$survivor = static fn(MutantId $id): Mutant => Mutant::of(
+/** A survivor of `src/Money.php`'s sixteenth line with this id and diff, as a ledger keeps it. */
+$survivor = static fn(MutantId $id, string $diff = ''): Mutant => Mutant::of(
     $id,
     '',
     Location::of(Path::of('src/Money.php'), Line::of(16), Line::of(16)),
-    Mutation::of('GreaterThan', MutatorFamily::Boundary, ''),
+    Mutation::of('GreaterThan', MutatorFamily::Boundary, $diff),
     MutantStatus::Survived,
     Unmeasured::duration(),
 );
@@ -194,6 +194,7 @@ it('explains a cluster of the last run by its id: its heading, hint and stub, th
 
     $explained = FlowCommands::run(ExplainCommand::command($composition), sprintf('id=%s', $id));
     $json = FlowCommands::run(ExplainCommand::command($composition), sprintf('id=%s --format=json', $id))->output;
+    $other = FlowCommands::run(ExplainCommand::command($composition), 'id=k0123456789a');
     $members = Decoded::at($json, 'cluster', 'members');
     $count = is_array($members) ? count($members) : 0;
     $explainedIds = [];
@@ -207,7 +208,8 @@ it('explains a cluster of the last run by its id: its heading, hint and stub, th
         ->and($explained->output)->toContain(sprintf("    Stub: vendor/bin/mutation-gate stub %s\n\nsrc/Money.php:7  LessThan  survived", $id))
         ->and(substr_count($explained->output, 'Reproduce: vendor/bin/mutation-gate reproduce'))->toBe($count)
         ->and(Decoded::at($json, 'cluster', 'id'))->toBe($id)
-        ->and($explainedIds)->toBe($members);
+        ->and($explainedIds)->toBe($members)
+        ->and([$other->code, $other->output])->toBe([2, '']);
 });
 
 it('exits 2 for a cluster id the last run names no cluster by, or where there is no last run to find clusters in', function () use ($store, $composed): void {
@@ -255,6 +257,26 @@ it('exits 2 for a prefix that names several mutants, in the ledgers and the last
     expect($recorded->code)->toBe(0)
         ->and([$ambiguous->code, $ambiguous->errors])
         ->toBe([2, "49e02f names 2 recorded mutants: 49e02fb39669, 49e02f000001. Give more of the id.\n"]);
+});
+
+it('exits 2 for a prefix that names several mutants of the last run, where no ledger holds either', function () use ($composed, $survivor): void {
+    $twins = [];
+
+    foreach (['abc123000001', 'abc123000002'] as $twin) {
+        $id = MutantId::parse($twin);
+        $twins = $id instanceof MutantId
+            ? [...$twins, $survivor($id, Verdicts::diff('return $amount > 100;', 'return $amount >= 100;'))]
+            : $twins;
+    }
+
+    $project = FlowCommands::project();
+    $runner = ScriptedRunner::fixture()->answering(Mutants::of(...$twins), 0);
+    FlowCommands::run(RunCommand::command($composed($runner, new ProofStoreFake(), $project)), '--full');
+
+    $ambiguous = FlowCommands::run(ExplainCommand::command($composed($runner, new ProofStoreFake(), $project)), 'id=abc123');
+
+    expect([$ambiguous->code, $ambiguous->errors])
+        ->toBe([2, "abc123 names 2 recorded mutants: abc123000001, abc123000002. Give more of the id.\n"]);
 });
 
 it('exits 2 for what is no id, and for a form it does not write', function () use ($store, $composed): void {

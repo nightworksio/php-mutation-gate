@@ -51,7 +51,7 @@ it('lets a boot be forked from that holds no socket open and loaded no file the 
 });
 
 it('refuses a boot that holds a socket open, beyond the standard streams, naming the file of the boot that ran last', function (): void {
-    [$listing, $sockets] = bootCheckListing('2', 'name', '3');
+    [$listing, $sockets] = bootCheckListing('0', '1', '2', 'name', '3');
     $refusal = BootCheck::of([], bootCheckBoot(), $listing)->refusal();
 
     foreach ($sockets as $socket) {
@@ -63,8 +63,10 @@ it('refuses a boot that holds a socket open, beyond the standard streams, naming
     ));
 });
 
-it('refuses a boot that loaded a file the run mutates, naming where', function (): void {
-    $refusal = BootCheck::of([Tree::at('src/Core/NotGiven.php')], bootCheckBoot(), bootCheckSockets())->refusal();
+it('refuses a boot that loaded a file the run mutates, naming where, and passes over one it did not load', function (): void {
+    $unloaded = sprintf('%s/Unloaded.php', Scratch::directory());
+    file_put_contents($unloaded, "<?php\n");
+    $refusal = BootCheck::of([$unloaded, Tree::at('src/Core/NotGiven.php')], bootCheckBoot(), bootCheckSockets())->refusal();
 
     expect($refusal)->toEqual(Refusal::guarded(
         'The boot loaded src/Core/NotGiven.php, which this run mutates, at vendor/autoload.php, so each mutant ran fresh.',
@@ -101,10 +103,11 @@ it('refuses a boot that started PHPUnit\'s events, naming the file of the boot t
     ));
 });
 
-it('counts only the sockets among the open files the system lists', function (): void {
+it('counts only the sockets among the open files the system lists, passing over one closed since it was listed', function (): void {
     $listing = bootCheckSockets();
     file_put_contents(sprintf('%s/5', $listing), 'a file');
     mkdir(sprintf('%s/6', $listing));
+    symlink(sprintf('%s/closed', $listing), sprintf('%s/7', $listing));
 
     expect(BootCheck::of([], bootCheckBoot(), $listing)->refusal())->toEqual(NotGiven::value());
 });

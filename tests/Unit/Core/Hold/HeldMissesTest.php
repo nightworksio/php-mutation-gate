@@ -24,3 +24,11 @@ it('holds each held unit once, by its path, in the order first added', function 
         ->and($misses->misses(Path::of('src/Money.php')))->toBeFalse()
         ->and(HeldMisses::none())->toHaveCount(0);
 });
+
+it('adds a held unit after those it holds, and another set\'s after its own', function () use ($miss): void {
+    $held = HeldMisses::of($miss('src/Kernel.php', 'kernel'));
+    $why = static fn(HeldMisses $misses): array => array_map(static fn(NotCovered $each): string => $each->why(), [...$misses]);
+
+    expect($why($held->with($miss('src/Http', 'http'))))->toBe(['kernel', 'http'])
+        ->and($why($held->and(HeldMisses::of($miss('src/Http', 'http'), $miss('src/Boot.php', 'boot')))))->toBe(['kernel', 'http', 'boot']);
+});

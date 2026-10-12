@@ -224,11 +224,11 @@ it('hands the verdict the lines of every unit the plan considered, run, proved o
     $makeMap,
 ): void {
     $plan = $makePlan();
-    $map = $makeMap();
+    $map = $makeMap()->covered(Path::of('src/Kept/C.php'), Line::of(8), TestId::of('KeptTest::e'));
 
     $considered = $plan->considering(
         Considered::everything()
-            ->proving(Units::of(Unit::file(Path::of('src/HeldToo.php'))))
+            ->proving(Units::of(Unit::file(Path::of('src/HeldToo.php')), Unit::held(Path::of('src/Kept'), Group::named('holds:src/Kept'))))
             ->carrying(Units::of(Unit::file(Path::of('src/Gone.php')))),
     );
     $handoff = new Handoff(Directory::at(Scratch::directory()), HandedMaps::limits());
@@ -240,6 +240,7 @@ it('hands the verdict the lines of every unit the plan considered, run, proved o
         Path::of('src/Held/A.php'),
         Path::of('src/Held/B.php'),
         Path::of('src/HeldToo.php'),
+        Path::of('src/Kept/C.php'),
     ))
         ->and($handed instanceof CoverageMap ? $handed->durationOf(TestId::of('MoneyTest::adds')) : $handed)
         ->toEqual(Seconds::of(0.5));

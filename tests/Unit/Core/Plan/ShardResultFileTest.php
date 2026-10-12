@@ -402,7 +402,7 @@ it('lists what static analysis\'s checks of its survivors came to, and reads it 
         ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"staticChecks"');
 });
 
-it('lists the steps the shard\'s time went to under what it measured, a count only past one, and reads them back', function () use ($finished, $makeSurvivor, $makeMeasured): void {
+it('lists the steps the shard\'s time went to under what it measured, even one, a count only past one, and reads them back', function () use ($finished, $makeSurvivor, $makeMeasured): void {
     $survivor = $makeSurvivor();
     $measured = $makeMeasured();
 
@@ -420,6 +420,8 @@ it('lists the steps the shard\'s time went to under what it measured, a count on
             . "                \"seconds\": 4.25\n            }\n        ]",
     )
         ->and(ShardResultFile::decode($written))->toEqual($result)
+        ->and(ShardResultFile::encode($finished($survivor, $measured->withSteps(StepTimes::of(StepTime::of(Step::Baselines, Seconds::of(1.0), Seconds::of(2.0)))))))
+        ->toContain('"steps": [')
         ->and(ShardResultFile::encode($finished($survivor, $measured)))->not->toContain('"steps"');
 });
 

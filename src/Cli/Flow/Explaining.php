@@ -72,20 +72,19 @@ final readonly class Explaining
         Ledgers $ledgers,
         Verdict|CannotJudge $last,
     ): Explanations|NoRecord|Ambiguous {
-        $held = $last instanceof Verdict ? $this->held($sought, $last) : [];
+        $held = $last instanceof Verdict ? $this->held($sought, $last, $ledgers) : [];
         $history = $ledgers->records($sought);
         $ids = $history->ids();
 
-        foreach ($held as $judged) {
-            $ids = $ids->and(MutantIds::of($judged->mutant()->id()));
+        foreach ($held as $explained) {
+            $ids = $ids->and(MutantIds::of($explained->mutant()->mutant()->id()));
         }
 
         $newest = $history->newest();
 
         return match (true) {
             count($ids) > 1 => Ambiguous::of($sought, $ids),
-            $last instanceof Verdict && $held !== []
-                => Explanations::ofMutant($this->judged($held[0], $last, $ledgers)),
+            $held !== [] => Explanations::ofMutant($held[0]),
             $newest instanceof Recorded => Explanations::ofMutant($this->recorded($newest, $history, $last)),
             default => NoRecord::of($sought),
         };
@@ -122,13 +121,15 @@ final readonly class Explaining
         return Explanations::ofCluster($cluster, $this->judged($first, $last, $ledgers), ...$more);
     }
 
-    /** @return list<JudgedMutant|JudgedKill> the mutants of the last run the id or prefix names */
-    private function held(IdPrefix $sought, Verdict $last): array
+    /** @return list<Explanation> each mutant of the last run the id or prefix names, explained */
+    private function held(IdPrefix $sought, Verdict $last, Ledgers $ledgers): array
     {
         $held = [];
 
         foreach ($last->trees()->mutants() as $judged) {
-            $held = $sought->names($judged->mutant()->id()) ? [...$held, $judged] : $held;
+            $held = $sought->names($judged->mutant()->id())
+                ? [...$held, $this->judged($judged, $last, $ledgers)]
+                : $held;
         }
 
         return $held;

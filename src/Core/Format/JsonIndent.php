@@ -11,18 +11,15 @@ use function json_encode;
 use function mb_strlen;
 use function mb_strrpos;
 use function mb_substr;
-use function preg_match;
 use function sprintf;
 use function str_replace;
 use function str_starts_with;
+use function strspn;
 
 /** How a JSON file lays out what it holds: the indentation of each line, and a member written into it at a depth. */
 final readonly class JsonIndent
 {
     private const string NEWLINE = "\n";
-
-    /** The blanks a line starts with. */
-    private const string LEADING = '/^[ \t]*/u';
 
     /** The level of a file that shows none, as the gate's own JSON is written. */
     private const string STANDARD = '    ';
@@ -33,12 +30,21 @@ final readonly class JsonIndent
     {
     }
 
-    /** The layout of this text, whose top object's members stand at this offset, or, where it holds none, not. */
+    /**
+     * The layout of this text, whose top object's first member stands at
+     * this offset; the standard one where that member's line shows none.
+     */
     public static function of(string $json, int $firstMember): self
     {
-        $unit = $firstMember > 0 ? self::at($json, $firstMember) : '';
+        $unit = self::at($json, $firstMember);
 
-        return new self($unit === '' ? self::STANDARD : $unit);
+        return $unit === '' ? self::standard() : new self($unit);
+    }
+
+    /** The layout of a file that shows none, as the gate's own JSON is written. */
+    public static function standard(): self
+    {
+        return new self(self::STANDARD);
     }
 
     /** The indentation of the line this character offset stands on. */
@@ -48,7 +54,7 @@ final readonly class JsonIndent
         $newline = mb_strrpos($before, self::NEWLINE);
         $line = $newline === false ? $before : mb_substr($before, $newline + 1);
 
-        return preg_match(self::LEADING, $line, $blanks) === 1 ? $blanks[0] : '';
+        return mb_substr($line, 0, strspn($line, Bytes::BLANKS));
     }
 
     /** A value's text with its lines after the first indented by this much more. */
