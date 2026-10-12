@@ -29,6 +29,8 @@ $holds = [
     'holds:src/Cli/Command/EditorFiles.php',
     'holds:src/Cli/Command/IgnoredWorkspace.php',
     'holds:src/Cli/Command/Init.php',
+    'holds:src/Cli/Command/InitRun.php',
+    'holds:src/Cli/Command/LineCountEstimate.php',
     'holds:src/Cli/Command/Output.php',
     'holds:src/Cli/Command/ZeroConfig.php',
     'holds:src/Cli/Config/Detected.php',

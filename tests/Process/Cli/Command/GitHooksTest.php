@@ -7,6 +7,10 @@ use NightWorksIO\MutationGate\Cli\Command\Output;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
+$holds = [
+    'holds:src/Cli/Command/GitHooks.php',
+];
+
 afterEach(function (): void {
     Scratch::sweep();
 });
@@ -31,7 +35,7 @@ it('writes git\'s own pre-push hook as hook install does, and says so', function
     expect($made)->toBe(sprintf('Wrote %s/.git/hooks/pre-push.', realpath($project)))
         ->and((string) file_get_contents(sprintf('%s/.git/hooks/pre-push', $project)))
         ->toContain("exec vendor/bin/mutation-gate pre-push \"\$@\"\n");
-});
+})->group(...$holds);
 
 it('prints the hook whole with --dry-run, and writes none', function (): void {
     $project = gitHooksProject(repository: true);
@@ -40,11 +44,11 @@ it('prints the hook whole with --dry-run, and writes none', function (): void {
 
     expect($made)->toStartWith(sprintf("%s/.git/hooks/pre-push:\n\n#!/bin/sh\n", realpath($project)))
         ->and(is_file(sprintf('%s/.git/hooks/pre-push', $project)))->toBeFalse();
-});
+})->group(...$holds);
 
 it('says why it cannot set git\'s hooks up outside a repository', function (): void {
     $made = GitHooks::made(gitHooksProject(repository: false), Output::Written);
 
     expect($made)->toBeInstanceOf(CannotJudge::class)
         ->and($made instanceof CannotJudge ? $made->why() : '')->toContain('not a git repository');
-});
+})->group(...$holds);
