@@ -1,0 +1,28 @@
+{
+    "format": 1,
+    "runs": [
+        {
+            "commit": "fb61bf39fb4b2faadfdf3993e75129effc5fdccf",
+            "time": "2026-10-13T23:13:24Z",
+            "verdict": "passed",
+            "score": 95.61,
+            "trees": {
+                "src": 95.57,
+                "plugins/composer/src": 92.59,
+                "plugins/default/src": 99.6,
+                "plugins/laravel/src": 93.33,
+                "plugins/security/src": 91.78,
+                "plugins/symfony/src": 96.35
+            },
+            "floors": {
+                "src": 84.05,
+                "plugins/composer/src": 92.59,
+                "plugins/default/src": 99.6,
+                "plugins/laravel/src": 93.33,
+                "plugins/security/src": 91.78,
+                "plugins/symfony/src": 96.35
+            },
+            "runnerSeconds": 74768.10476183891
+        }
+    ]
+}
