@@ -30,6 +30,9 @@
     "pest": {
         "patch": true
     },
+    "shards": {
+        "max": 40
+    },
     "tests": {
         "suites": ["Unit", "Plugins"],
         "holding": ["Process", "Contract"]
