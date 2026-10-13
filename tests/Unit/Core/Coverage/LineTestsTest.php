@@ -95,6 +95,26 @@ describe('LineTests', function (): void {
             ->and(count($lines->tests()))->toBe(4);
     });
 
+    it('names each covered line\'s set, and reads a set back as its tests, each once, in byte order of their ids', function () use ($makeMoney): void {
+        $money = $makeMoney();
+        $tests = TestIds::of(TestId::of('C::c'), TestId::of('A::a'), TestId::of('B::b'));
+
+        $sets = LineTests::placed(
+            $tests,
+            PlacedLine::of($money, 3, 0, 2),
+            PlacedLine::of($money, 3, 2, 1),
+            PlacedLine::of($money, 4, 1),
+        )->setsOn($money);
+
+        $read = [];
+
+        foreach ($sets as $number => $set) {
+            $read[$number] = array_map(static fn(TestId $test): string => $test->value(), [...$sets->testsOf($set)]);
+        }
+
+        expect($read)->toBe([3 => ['A::a', 'B::b', 'C::c'], 4 => ['A::a']]);
+    });
+
     it('holds covered lines in time linear in how many tests they name, however many tests there are', function (): void {
         $holding = static function (int $size): Closure {
             $covered = array_map(

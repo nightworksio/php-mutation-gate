@@ -9,6 +9,6 @@
         "src": { "floor": 84.05 }
     },
     "security": {
-        ".": { "floor": 75 }
+        ".": { "floor": 80 }
     }
 }
