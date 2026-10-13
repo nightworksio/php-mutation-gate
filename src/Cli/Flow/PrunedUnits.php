@@ -35,7 +35,7 @@ final readonly class PrunedUnits
         }
 
         $pruning = $this->settings->reach()->pruning();
-        $audit = new DateInterval(sprintf('PT%dS', (int) $pruning->audit()->seconds()));
+        $audit = new DateInterval(sprintf('PT%dS', $pruning->audit()->seconds()));
         $since = Instant::at($this->setup->clock->now()->sub($audit));
         $never = MutatorNames::of(...$this->adapters->security);
 

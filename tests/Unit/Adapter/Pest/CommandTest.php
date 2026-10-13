@@ -53,7 +53,7 @@ it('puts that PHP first on Pest\'s path, and hands Pest none of another run\'s o
 });
 
 it('hands Pest none of the variables the gate sets for its plugin, even where the environment shows none', function (): void {
-    expect(Command::pest('pest', Withheld::standard())->environment())->toMatchArray([
+    $unset = [
         'MUTATION_GATE_RESULTS' => false,
         'MUTATION_GATE_GUARD' => false,
         'MUTATION_GATE_ONLY' => false,
@@ -64,7 +64,22 @@ it('hands Pest none of the variables the gate sets for its plugin, even where th
         'TEST_TOKEN' => false,
         'UNIQUE_TEST_TOKEN' => false,
         'LARAVEL_PARALLEL_TESTING' => false,
-    ]);
+    ];
+    $shown = [];
+
+    foreach (array_keys($unset) as $name) {
+        $value = getenv($name);
+        $shown = is_string($value) ? [...$shown, $name => $value] : $shown;
+        putenv($name);
+    }
+
+    $environment = Command::pest('pest', Withheld::standard())->environment();
+
+    foreach ($shown as $name => $value) {
+        putenv(sprintf('%s=%s', $name, $value));
+    }
+
+    expect($environment)->toMatchArray($unset);
 });
 
 it('adds to its environment, a later value replacing an earlier one', function (): void {

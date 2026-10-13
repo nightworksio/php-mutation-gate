@@ -83,7 +83,7 @@ final readonly class TestFile
             "%s\n\n%s\n%s",
             rtrim(Bytes::slice($this->text, 0, $this->closing)),
             self::indented($test),
-            Bytes::slice($this->text, $this->closing, Bytes::length($this->text)),
+            Bytes::from($this->text, $this->closing),
         );
     }
 

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Php;
 
+use function array_flip;
+use function array_key_exists;
 use function count;
 
 /**
@@ -14,6 +16,9 @@ use function count;
  */
 final readonly class ClosureLiteral
 {
+    /** What stands beside a closure's keyword in its bracket: other keywords, and where a body opens. */
+    private const array BESIDE = [T_FUNCTION, T_FN, '{', T_DOUBLE_ARROW];
+
     /**
      * @param int $opens where its body opens, at the `{` or the `=>`, or none
      * @param int $end   where it ends, past its last token, or none
@@ -73,31 +78,20 @@ final readonly class ClosureLiteral
     }
 
     /**
-     * Where the body of the closure whose keyword stands at an index opens,
-     * past its parameters, what it uses and its return type; none where the
-     * tokens are no closure.
+     * Where the body of the closure whose keyword stands at an index opens:
+     * the next of the keywords, `{` and `=>` beside it in its bracket, which
+     * steps over its parameters, what it uses and its return type, since each
+     * of those that holds one is a bracket of its own; none where no
+     * parameters follow the keyword, or what follows is no such body.
      */
     private static function bodyFrom(Tokens $read, int $keyword, bool $arrow): int
     {
-        $next = self::signatureEnd($read, $keyword);
-
-        while ($next !== Tokens::NONE && $next < count($read) && ! $read->is($next, $arrow ? T_DOUBLE_ARROW : '{')) {
-            $next = $read->is($next, '(') ? $read->closing($next) + 1 : $next + 1;
-        }
-
-        return $next < count($read) ? $next : Tokens::NONE;
-    }
-
-    /**
-     * Where the parameters, and what the closure uses, end, past the keyword at an index; none where no
-     * parameters follow it.
-     */
-    private static function signatureEnd(Tokens $read, int $keyword): int
-    {
         $parameters = $read->is($keyword + 1, '&') ? $keyword + 2 : $keyword + 1;
-        $next = $read->is($parameters, '(') ? $read->closing($parameters) + 1 : Tokens::NONE;
+        $beside = $read->inside($read->enclosing($keyword), ...self::BESIDE);
+        $next = array_flip($beside)[$keyword] + 1;
+        $body = array_key_exists($next, $beside) ? $beside[$next] : Tokens::NONE;
 
-        return $read->is($next, T_USE) && $read->is($next + 1, '(') ? $read->closing($next + 1) + 1 : $next;
+        return $read->is($parameters, '(') && $read->is($body, $arrow ? T_DOUBLE_ARROW : '{') ? $body : Tokens::NONE;
     }
 
     /** Where an arrow function's expression, after its `=>` at an index, ends: at a comma, or its bracket's end. */
@@ -106,7 +100,7 @@ final readonly class ClosureLiteral
         $level = $read->enclosing($arrow);
         $counter = count($read);
 
-        for ($at = $arrow + 1; $at < $counter; ++$at) {
+        for ($at = $arrow; $at < $counter; ++$at) {
             if ($read->enclosing($at) === $level && $read->is($at, ',', ';', ')', ']', '}')) {
                 return $at;
             }

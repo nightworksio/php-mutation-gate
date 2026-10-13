@@ -29,9 +29,7 @@ use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
 $holds = [
-    'holds:src/Adapter/Infection',
     'holds:src/Adapter/Pest',
-    'holds:src/Adapter/PhpUnit',
 ];
 
 // What every runner reports over the fixture library in fixture/: in

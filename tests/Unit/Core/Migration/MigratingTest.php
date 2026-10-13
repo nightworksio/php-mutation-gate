@@ -19,7 +19,7 @@ function migratingRenames(): Migrations
 }
 
 it('moves a JSON config key by key, naming the current published schema, and says what it would write', function (): void {
-    $older = str_replace('/v1/', '/v0/', Definition::PUBLISHED);
+    $older = (string) preg_replace('~/v[\d.]+/~', '/v0/', Definition::PUBLISHED);
     $migrated = Migrating::json('mutation-gate.json', sprintf("{\n    \"\$schema\": \"%s\",\n    \"runnr\": \"pest\"\n}\n", $older), migratingRenames());
 
     expect($migrated instanceof Migrated ? $migrated->after() : $migrated)
@@ -30,7 +30,7 @@ it('moves a JSON config key by key, naming the current published schema, and say
 });
 
 it('moves a baseline key by key, leaving any $schema, and says a current file changes nothing', function (): void {
-    $older = str_replace('/v1/', '/v0/', Definition::PUBLISHED);
+    $older = (string) preg_replace('~/v[\d.]+/~', '/v0/', Definition::PUBLISHED);
     $baseline = sprintf('{"$schema": "%s", "runnr": 1}', $older);
     $migrated = Migrating::baseline('mutation-gate.baseline.json', $baseline, migratingRenames());
     $current = Migrating::baseline('mutation-gate.baseline.json', '{"format": 1}', migratingRenames());

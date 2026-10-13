@@ -14,18 +14,19 @@ final readonly class TestStanding
     private function __construct(
         private TestName|TestRow|TestId $name,
         private int $judged,
-        private int $kills,
-        private int $beaten,
+        private bool $killedFirst,
+        private bool $ranBehind,
     ) {
     }
 
     /**
-     * A test that judged these many mutants with a known result, killed
-     * these many first, and ran behind another test's first kill in these many.
+     * A test that judged these many mutants with a known result, whether it
+     * killed any first, and whether it ran behind another test's first kill
+     * in any.
      */
-    public static function of(TestName|TestRow|TestId $name, int $judged, int $kills, int $beaten): self
+    public static function of(TestName|TestRow|TestId $name, int $judged, bool $killedFirst, bool $ranBehind): self
     {
-        return new self($name, $judged, $kills, $beaten);
+        return new self($name, $judged, $killedFirst, $ranBehind);
     }
 
     public function name(): TestName|TestRow|TestId
@@ -43,8 +44,8 @@ final readonly class TestStanding
     {
         return match (true) {
             $this->judged === 0 => Standing::NotAssessed,
-            $this->kills > 0 => Standing::Useful,
-            $this->beaten > 0 => Standing::NeverFirst,
+            $this->killedFirst => Standing::Useful,
+            $this->ranBehind => Standing::NeverFirst,
             default => Standing::KillsNothing,
         };
     }

@@ -120,13 +120,8 @@ final readonly class FullRunEstimate
         $estimates = PlanEstimates::of($plan, $shards->setup());
         $lines = [
             sprintf(self::MEASURED, count($plan)),
-            $estimates->total(),
-            ...$estimates->assumed($composed->adapters->processes()),
+            ...$estimates->summary($composed->adapters->processes(), $shards->target(), $shards->max()),
         ];
-
-        foreach ($estimates->unmet($shards->target(), $shards->max()) as $warning) {
-            $lines[] = $warning->text();
-        }
 
         $map = new Handoff($composed->adapters->project, Handoff::limits())->forVerdict();
 

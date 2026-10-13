@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\Bridges;
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
+use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
@@ -135,6 +136,15 @@ it('runs the tests a filter names under coverage', function (): void {
 
 it('starts a run of no test as pest-plugin-mutate starts a mutant\'s own run, in the environment it gives one', function (): void {
     $command = invocation()->startingUp(Withheld::of('DEPLOY_*'), '/p/src/Money.php', '/p/.gate/Money.php');
+    $told = array_intersect_key($command->environment(), array_flip([
+        'PEST_MUTATION_TESTING',
+        'PEST_MUTATION_FILE',
+        'PARATEST',
+        'TEST_TOKEN',
+        'UNIQUE_TEST_TOKEN',
+        'LARAVEL_PARALLEL_TESTING',
+    ]));
+    ksort($told);
 
     expect($command->arguments())->toBe([
         PHP_BINARY,
@@ -144,20 +154,13 @@ it('starts a run of no test as pest-plugin-mutate starts a mutant\'s own run, in
         '--colors=never',
         '--filter=(?!)',
         '--do-not-fail-on-empty-test-suite',
-    ])->and(array_intersect_key($command->environment(), array_flip([
-        'PEST_MUTATION_TESTING',
-        'PEST_MUTATION_FILE',
-        'PARATEST',
-        'TEST_TOKEN',
-        'UNIQUE_TEST_TOKEN',
-        'LARAVEL_PARALLEL_TESTING',
-    ])))->toEqual([
-        'PEST_MUTATION_TESTING' => '/p/src/Money.php',
-        'PEST_MUTATION_FILE' => '/p/.gate/Money.php',
+    ])->and($told)->toBe([
+        'LARAVEL_PARALLEL_TESTING' => '1',
         'PARATEST' => '1',
+        'PEST_MUTATION_FILE' => '/p/.gate/Money.php',
+        'PEST_MUTATION_TESTING' => '/p/src/Money.php',
         'TEST_TOKEN' => '0',
         'UNIQUE_TEST_TOKEN' => '0_start-up',
-        'LARAVEL_PARALLEL_TESTING' => '1',
     ]);
 });
 
@@ -320,12 +323,14 @@ it('keeps the coverage run and the mutation run to one suite where the run names
         ->and(invocation()->coverage($run, '/p/cov', reach())->arguments())->not->toContain('--testsuite=unit');
 });
 
-it('runs the holding suites too where the tests that hold a unit judge it, and never for the whole suite', function (): void {
+it('runs the holding suites too where the tests that hold a unit judge it, or the whole suite judges through a handed map, and never otherwise', function (): void {
     $request = MutationRequest::of(Paths::of(Path::of('src')), WholeSuite::tests());
     $listed = $request->narrowedTo($request->files(), Narrowing::none()->amongSuites(JudgingSuites::holding(Suites::listed('Unit'), Suites::listed('Process'))));
+    $handed = $listed->reusingCoverage(Handed::maps(Path::of('shard'), Path::of('whole')));
     $held = Group::named('holds:src/Shell.php');
 
     expect(invocation()->mutation($listed, WholeSuite::tests(), '/p/results.jsonl')->arguments())->toContain('--testsuite=Unit')
+        ->and(invocation()->mutation($handed, WholeSuite::tests(), '/p/results.jsonl')->arguments())->toContain('--testsuite=Unit,Process')
         ->and(invocation()->mutation($listed, $held, '/p/results.jsonl')->arguments())->toContain('--testsuite=Unit,Process')
         ->and(invocation()->opening($listed, WholeSuite::tests(), '/p/events.txt')->arguments())->toContain('--testsuite=Unit')
         ->and(invocation()->opening($listed, $held, '/p/events.txt')->arguments())->toContain('--testsuite=Unit,Process');

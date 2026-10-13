@@ -176,12 +176,12 @@ final readonly class InitRun
         string|CannotJudge $made,
         bool $fresh,
     ): string|CannotJudge {
-        $local = is_string($made) ? $additions->localMade($this->setting->project, $this->setting->gate) : '';
-        $estimate = is_string($local)
-            ? $this->estimate->said($this->input, $settings, $additions->output(), $fresh)
-            : '';
-
-        return Said::joined($config, $made, $local, $estimate);
+        return Said::joined(
+            $config,
+            $made,
+            fn(): string|CannotJudge => $additions->localMade($this->setting->project, $this->setting->gate),
+            fn(): string => $this->estimate->said($this->input, $settings, $additions->output(), $fresh),
+        );
     }
 
     /**

@@ -344,6 +344,17 @@ it('measures every test where every entry moved, naming a changed file every ent
     ],
 ]);
 
+it('moves every entry where any file every entry reads changed, not the last of them alone', function (string $changed): void {
+    $loaded = ['tests/fixtures/a.json' => "{}\n", 'tests/fixtures/b.json' => "{}\n"];
+    $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());
+    [$kept, $inventory] = keptFlow([...keptFiles(), ...$loaded], new CoverageAsked(ScriptedRunner::fixture(), Flows::map()), Changes::none());
+    $before = $inventory instanceof Inventory ? KeptCoverage::keysOf($kept->entries($inventory), Flows::map()) : $inventory;
+    [$again, $now] = keptFlow([...keptFiles(), ...$loaded, $changed => "{\"changed\": true}\n"], $runner, Changes::none());
+    $after = $now instanceof Inventory ? KeptCoverage::keysOf($again->entries($now), Flows::map()) : $now;
+
+    expect($after)->not->toEqual($before);
+})->with(['the first' => ['tests/fixtures/a.json'], 'the last' => ['tests/fixtures/b.json']]);
+
 it('names the last round\'s map where every entry moved and the change names no file every entry reads', function (): void {
     $files = keptFiles(['composer.json' => "{\"name\": \"changed\"}\n"]);
     $runner = new CoverageAsked(ScriptedRunner::fixture(), Flows::map());

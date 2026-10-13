@@ -130,13 +130,15 @@ final class PreChecking implements PreChecker
             }
         }
 
+        if ($checks === []) {
+            return Rejections::none();
+        }
+
         $started = $this->clock->now();
         $batch = MutantChecks::of(...$checks);
         $answers = [...$warm->checker->checks($batch, $side)->padded($batch)];
         $took = Seconds::between($started, $this->clock->now());
-        $each = Seconds::of(
-            count($checks) === 0 ? 0.0 : $took->seconds() * min($side->count(), count($checks)) / count($checks),
-        );
+        $each = Seconds::of($took->seconds() * min($side->count(), count($checks)) / count($checks));
 
         foreach ($checks as $check) {
             $this->adapters->project->remove($check->mutant());

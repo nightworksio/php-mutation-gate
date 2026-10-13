@@ -3,10 +3,13 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Git\CommitObject;
+use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Adapter\Git\GitVersion;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\File\ByPath;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -40,4 +43,8 @@ it('reads a commit\'s tree and parents from its headers alone, never from its me
         array_map(static fn(Revision $parent): string => $parent->name(), [...$read->parents()]),
     ] : $read)->toBe([str_repeat('e', 40), [str_repeat('a', 40), str_repeat('b', 40)]])
         ->and(CommitObject::read(str_repeat('d', 40), "author Gate\n\ntree x\n"))->toBeInstanceOf(CannotTell::class);
+});
+
+it('needs no repository to say when no file last changed', function (): void {
+    expect(Git::at(Scratch::directory())->lastChanged(Paths::none()))->toEqual(ByPath::none());
 });

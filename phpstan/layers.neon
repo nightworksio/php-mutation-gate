@@ -193,6 +193,9 @@ parameters:
                 # zlib raises a broken stream as a warning as well as answering false; the handler that keeps the
                 # warning from the run's output is restored before inflate_add's answer is returned.
                 - src/Core/Format/Gzip.php
+                # preg_match raises a pattern PCRE cannot compile as a warning as well as answering false; the handler
+                # that keeps the warning from the run's output is restored before the answer is returned.
+                - src/Core/Test/Filter.php
                 # proc_open and stream_select raise a process that cannot start and a wait a signal cut short as
                 # warnings as well as answering false; the handler that keeps them from the run's output is restored
                 # before either answer is read.

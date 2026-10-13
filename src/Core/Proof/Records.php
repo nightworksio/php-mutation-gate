@@ -99,13 +99,6 @@ final readonly class Records implements Countable, IteratorAggregate
 
     private function newestFirst(Recorded $one, Recorded $other): int
     {
-        $first = $one->proof()->run()->at();
-        $second = $other->proof()->run()->at();
-
-        return match (true) {
-            $first->isAfter($second) => -1,
-            $second->isAfter($first) => 1,
-            default => 0,
-        };
+        return $other->proof()->run()->at()->comparedTo($one->proof()->run()->at());
     }
 }

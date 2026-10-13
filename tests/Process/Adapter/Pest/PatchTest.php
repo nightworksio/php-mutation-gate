@@ -9,14 +9,11 @@ use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\PrunedFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Twins;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Verdicts;
+use NightWorksIO\MutationGate\Adapter\Pest\Selection;
 use NightWorksIO\MutationGate\Tests\Support\FileModes;
 use NightWorksIO\MutationGate\Tests\Support\MutatePlugin;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Symfony\Component\Process\Process;
-
-$holds = [
-    'holds:src/Adapter/Pest/Ceiling.php',
-];
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -36,7 +33,11 @@ it('patches the four files, leaving each one PHP', function () use ($vendor, $so
     expect(Patch::isAppliedIn($at))->toBeFalse()
         ->and(Patch::applyIn($at))->toBe('pest:patch patched 4 of the 4 files it changes in pest-plugin-mutate.')
         ->and(Patch::isAppliedIn($at))->toBeTrue()
-        ->and($source($at, 'MutationTest.php'))->toContain("...(strlen(\$filter) < 100000 ? [\$filter] : []),\n")
+        ->and($source($at, 'MutationTest.php'))->toContain(sprintf(
+            '$passed = class_exists(\\%1$s::class) ? \\%1$s::passable($filter) : strlen($filter) < 100000;',
+            Selection::class,
+        ))
+        ->and($source($at, 'MutationTest.php'))->toContain("...(\$passed ? [\$filter] : []),\n")
         ->and($source($at, 'Plugins/Mutate.php'))
         ->toContain("if ((string) getenv('MUTATION_GATE_SHARED_COVERAGE') !== '') {\n")
         ->and($source($at, 'Plugins/Mutate.php'))
@@ -84,7 +85,7 @@ it('patches the four files, leaving each one PHP', function () use ($vendor, $so
 
         expect($lint->isSuccessful())->toBeTrue();
     }
-})->group(...$holds);
+});
 
 /**
  * What a PHP process says of a dangling link, a file it cannot read, a missing
@@ -155,11 +156,11 @@ it('stats a dangling link as a link, and a file it cannot read as there, while t
             'stat(missing)' => [false, 1],
             'file_exists(missing)' => [false, 0],
         ]);
-})->skip(fn(): bool => ! FileModes::areEnforced(), 'root reads a file whatever its mode')->group(...$holds);
+})->skip(fn(): bool => ! FileModes::areEnforced(), 'root reads a file whatever its mode');
 
 it('stats a dangling link and a file it cannot read as missing while the shipped override serves a file', function (): void {
     expect(overrideStats(MutatePlugin::pristine()->vendor()))->toMatchArray([
         'is_link(dangling)' => [false, 0],
         'file_exists(unreadable)' => [false, 0],
     ]);
-})->skip(fn(): bool => ! FileModes::areEnforced(), 'root reads a file whatever its mode')->group(...$holds);
+})->skip(fn(): bool => ! FileModes::areEnforced(), 'root reads a file whatever its mode');

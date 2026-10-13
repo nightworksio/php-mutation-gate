@@ -48,12 +48,12 @@ final readonly class HeldMisses implements Countable, IteratorAggregate
 
     public function with(NotCovered $miss): self
     {
-        return self::of(...[...array_values($this->misses), $miss]);
+        return self::of(...$this, ...[$miss]);
     }
 
     public function and(self $those): self
     {
-        return self::of(...array_values($this->misses), ...array_values($those->misses));
+        return self::of(...$this, ...$those);
     }
 
     /** Whether the unit held at this path is one whose tests miss lines of it. */

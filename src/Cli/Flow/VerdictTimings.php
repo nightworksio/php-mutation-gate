@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use DateTimeImmutable;
-use DateTimeZone;
+
+use function min;
+
 use NightWorksIO\MutationGate\Core\Cost\Phase;
 use NightWorksIO\MutationGate\Core\Cost\RunTime;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
@@ -43,7 +45,7 @@ final readonly class VerdictTimings
         foreach ($results->shards() as [, $result]) {
             $spent = $result->measured()->spent();
             $start = self::start($result, $spent, $began);
-            $first = $start < $first ? $start : $first;
+            $first = min($first, $start);
             $runner += $spent->seconds() + $setup->seconds();
             $shards[] = ShardTiming::of(
                 $result->shard()->number(),
@@ -68,11 +70,10 @@ final readonly class VerdictTimings
      */
     private static function start(ShardResult $result, Seconds $spent, DateTimeImmutable $began): DateTimeImmutable
     {
-        $written = $result->measured()->at()->value();
-        $at = DateTimeImmutable::createFromFormat(Instant::FORMAT, $written, new DateTimeZone(Instant::UTC));
+        $at = $result->measured()->at()->moment();
 
         return $at instanceof DateTimeImmutable
-            ? $at->modify(sprintf('-%d seconds', (int) round($spent->seconds())))
+            ? $at->modify(sprintf('-%d seconds', round($spent->seconds())))
             : $began;
     }
 }

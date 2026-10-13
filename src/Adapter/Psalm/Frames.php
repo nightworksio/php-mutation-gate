@@ -53,7 +53,7 @@ final readonly class Frames
             }
 
             $bodies[] = Bytes::slice($rest, $start, $length);
-            $rest = Bytes::slice($rest, $start + $length, Bytes::length($rest));
+            $rest = Bytes::from($rest, $start + $length);
         }
 
         return new self($bodies, $rest);

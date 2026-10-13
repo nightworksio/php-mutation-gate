@@ -82,8 +82,20 @@ it('refuses a line cut short anywhere but last, which would lose a killer withou
     ]));
 
     expect($read instanceof CannotJudge ? $read->why() : '')->toMatch(
-        '/^Line 2 of .*results\.jsonl is not a record the gate reads: the line is not JSON: only the last line can be cut short\.$/',
+        '/^Line 2 of .*results\.jsonl is not a record the gate reads: the line is not JSON: only the last line can be cut short, and it reads `\{"event": "killed", "mutated": "\/tmp\/a", "te`\.$/',
     );
+});
+
+it('shows a line cut short whole up to 160 characters, and cut to them past that', function () use ($results, $planned): void {
+    $line = static fn(int $length): string => str_pad('{"event": "killed", "te', $length, 'x');
+    $why = static function (string $cut) use ($results, $planned): string {
+        $read = Records::in($results([$planned('a', '/p/src/Money.php', 10), $cut, RecordLine::end()]));
+
+        return $read instanceof CannotJudge ? $read->why() : '';
+    };
+
+    expect($why($line(160)))->toEndWith(sprintf('it reads `%s`.', $line(160)))
+        ->and($why($line(161)))->toEndWith(sprintf('it reads `%s…`.', mb_substr($line(161), 0, 159)));
 });
 
 it('refuses a whole record that names no event it knows, or lacks a field its event carries', function () use ($results): void {

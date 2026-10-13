@@ -40,7 +40,6 @@ use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
 use SebastianBergmann\CodeCoverage\Serialization\Serializer;
 
 $holds = [
-    'holds:src/Adapter/Infection',
     'holds:src/Adapter/Pest',
     'holds:src/Core/Composer/VendorPatch.php',
 ];
@@ -245,7 +244,7 @@ it('vouches for a narrowed kill by its own run, replayed unmutated in the order 
     $killed = $result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false) : [];
     $prefix = $result instanceof MutationResult && $killed !== [] ? $result->evidence()->of($killed[0]->id())->prefix() : NotGiven::value();
     $replays = glob(Tree::at(sprintf('%s/.mutation-gate/pest/results.jsonl.replay-????????????????', Library::DIRECTORY)));
-    $replay = ReplayRecord::in(is_array($replays) && $replays !== [] ? $replays[0] : '');
+    $replay = ReplayRecord::in(is_array($replays) && $replays !== [] ? $replays[0] : '', '');
 
     expect($result instanceof MutationResult ? Library::records($result->mutants()) : $result)
         ->toBe($library->expected('adds'))

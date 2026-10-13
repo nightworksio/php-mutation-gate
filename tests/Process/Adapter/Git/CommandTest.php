@@ -3,18 +3,24 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Git\Command;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\MutantFile;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
+use NightWorksIO\MutationGate\Tests\Support\FileWrapper;
 use NightWorksIO\MutationGate\Tests\Support\Repository;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
-use Pest\Mutate\Support\StreamWrapper;
 
 $holds = [
     'holds:src/Adapter/Git/Command.php',
     'holds:src/Core/Runner/Withheld.php',
 ];
 
+beforeEach(function (): void {
+    FileWrapper::keep();
+});
+
 afterEach(function (): void {
+    FileWrapper::restore();
     Scratch::sweep();
 });
 
@@ -39,17 +45,15 @@ it('hands git what it reads from its input', function (): void {
 })->group(...$holds);
 
 it('feeds git where a stream wrapper of PHP code serves file://, as Pest\'s does in a mutant\'s own run', function (): void {
+    $root = Repository::empty()->root;
     $copy = sprintf('%s/Money.php', Scratch::directory());
+    $guard = sprintf('%s/guard.txt', Scratch::directory());
     file_put_contents($copy, '<?php');
-    StreamWrapper::start(__FILE__, $copy);
+    file_put_contents($guard, '');
+    MutantFile::serve(__FILE__, $copy, $guard);
 
-    try {
-        $hashed = Command::in(Repository::empty()->root)->feed(['hash-object', '--stdin'], "hello\n");
-    } finally {
-        StreamWrapper::disable();
-    }
-
-    expect($hashed)->toBe("ce013625030ba8dba906f756967f9e9ca394464a\n");
+    expect(FileWrapper::changed())->toBeTrue()
+        ->and(Command::in($root)->feed(['hash-object', '--stdin'], "hello\n"))->toBe("ce013625030ba8dba906f756967f9e9ca394464a\n");
 })->group(...$holds);
 
 it('cannot tell where git gives no answer, and says what git said', function (): void {

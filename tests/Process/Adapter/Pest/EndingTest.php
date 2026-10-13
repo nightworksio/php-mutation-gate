@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\Ending;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Adapter\Pest\Silence;
+use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Symfony\Component\Process\Process;
 
@@ -13,8 +14,12 @@ $holds = [
     'holds:src/Adapter/Pest/Recording/RecordLine.php',
 ];
 
+beforeEach(function (): void {
+    GateEnvironment::clear();
+});
+
 afterEach(function (): void {
-    putenv(GateVariable::Results->value);
+    GateEnvironment::restore();
     Scratch::sweep();
 });
 

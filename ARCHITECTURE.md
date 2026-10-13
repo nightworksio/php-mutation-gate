@@ -175,9 +175,10 @@ osv-scanner, which read the repository rather than the code.
 | **G5** | One assertion idiom: Pest's `expect()`, never PHPUnit's `assert*` | arch: over the text of every test |
 | **G6** | No committed `->only()`, and no `->skip()` without the reason | arch: over the text of every test |
 | **G7** | Every line of `src` and of each plugin's `src` is covered | ci: `pest --coverage --min=100` |
-| **G8** | Every mutant of `src` is killed | planned: the package's own gate at a floor of 100, through its reusable workflow and action (`ci.yml` holds the place) |
+| **G8** | Every mutant of `src` and of each plugin's `src` is killed, or its tree holds the floor `mutation-gate.baseline.json` records | ci: the `mutation` job, the package's own gate through its reusable workflow and action |
 | **G9** | A diagnostic fails the run, and no setting exempts one | arch: the settings, read out of `phpunit.xml` |
 | **G10** | Every test file is inert: loading it runs nothing, so a mutant's narrowed run need not load it (ADR-0004, decision 9) | arch: every test file, read as the Pest adapter reads it |
+| **G11** | The package's own floors only rise: they live in `mutation-gate.baseline.json` alone, none carries `lowered`, and `mutation-gate.json` declares none (ADR-0003) | arch: `mutation-gate.json` and `mutation-gate.baseline.json`, read; ci: the `mutation` job fails a tree below its floor, and a floor lower than the base branch's |
 
 ## V — CI and the bot
 

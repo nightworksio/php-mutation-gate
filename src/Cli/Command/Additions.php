@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Command;
 
-use function is_string;
-
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\GatePin;
 use NightWorksIO\MutationGate\Core\Editor\Editor;
@@ -107,9 +105,7 @@ final readonly class Additions
      */
     public function localMade(string $project, GatePin $gate): string|CannotJudge
     {
-        $editor = $this->editorMade($project);
-
-        return Said::joined($editor, is_string($editor) ? $this->hookMade($project, $gate) : '');
+        return Said::joined($this->editorMade($project), fn(): string|CannotJudge => $this->hookMade($project, $gate));
     }
 
     /** The hooks set up in this project, said; nothing where none are; or why they could not be. */

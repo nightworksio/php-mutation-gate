@@ -16,6 +16,7 @@ use function mkdir;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Seed;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\KillerFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Verdicts;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -121,8 +122,8 @@ final readonly class Project
 
     /**
      * The file the plugin writes a run's results to, with no earlier run's
-     * results, map, list of mutants to make, mutated copies or error logs
-     * left beside it, or why an earlier run's are still there.
+     * results, map, list of mutants to make, mutated copies, error logs or
+     * killer files left beside it, or why an earlier run's are still there.
      */
     public function freshResults(): string|CannotJudge
     {
@@ -131,6 +132,7 @@ final readonly class Project
         $copies = glob(Recorder::mutantBeside($results, '*'));
         $logs = glob(Recorder::everyErrorLogBeside($results));
         $replays = glob(PrefixReplays::everyBeside($results));
+        $killers = glob(KillerFile::everyBeside($results));
         $beside = [
             Recorder::coverageBeside($results),
             OnlyList::beside($results),
@@ -139,7 +141,7 @@ final readonly class Project
             Verdicts::beside($results),
         ];
         $beside = [...$beside, ...(is_array($copies) ? $copies : []), ...(is_array($logs) ? $logs : [])];
-        $beside = [...$beside, ...(is_array($replays) ? $replays : [])];
+        $beside = [...$beside, ...(is_array($replays) ? $replays : []), ...(is_array($killers) ? $killers : [])];
 
         return $this->without($results, ...$beside)
             ? $results

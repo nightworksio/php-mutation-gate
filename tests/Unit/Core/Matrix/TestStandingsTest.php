@@ -69,11 +69,11 @@ it('judges a held unit\'s mutants only by the tests of its group', function (): 
 });
 
 it('names a test the runner named nothing by its id', function (): void {
-    $test = TestStanding::of(TestId::of('Tests\\FTest::test'), 0, 0, 0);
+    $test = TestStanding::of(TestId::of('Tests\\FTest::test'), 0, killedFirst: false, ranBehind: false);
 
     expect(WholeTest::of(TestId::of('Tests\\FTest::test'), $test)->test()->value())->toBe('Tests\\FTest::test')
         ->and($test->standing())->toBe(Standing::NotAssessed)
-        ->and(TestStanding::of(TestId::of('x'), 2, 0, 0)->standing())->toBe(Standing::KillsNothing)
-        ->and(TestStanding::of(TestId::of('x'), 2, 0, 1)->standing())->toBe(Standing::NeverFirst)
-        ->and(TestStanding::of(TestId::of('x'), 2, 1, 1)->standing())->toBe(Standing::Useful);
+        ->and(TestStanding::of(TestId::of('x'), 2, killedFirst: false, ranBehind: false)->standing())->toBe(Standing::KillsNothing)
+        ->and(TestStanding::of(TestId::of('x'), 2, killedFirst: false, ranBehind: true)->standing())->toBe(Standing::NeverFirst)
+        ->and(TestStanding::of(TestId::of('x'), 2, killedFirst: true, ranBehind: true)->standing())->toBe(Standing::Useful);
 });

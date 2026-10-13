@@ -26,15 +26,23 @@ it('orders instants by when they were', function (): void {
 
     expect($later->isAfter($earlier))->toBeTrue()
         ->and($earlier->isAfter($later))->toBeFalse()
-        ->and($earlier->isAfter($earlier))->toBeFalse();
+        ->and($earlier->isAfter($earlier))->toBeFalse()
+        ->and($earlier->comparedTo($later))->toBe(-1)
+        ->and($later->comparedTo($earlier))->toBe(1)
+        ->and($earlier->comparedTo($earlier))->toBe(0);
 });
 
 it('is the moment it names, in UTC, and no moment where its day is not on the calendar', function (): void {
     $read = Instant::parse('2026-09-29T20:48:17Z');
     $overflowing = Instant::parse('2026-02-30T20:48:17Z');
+    $unparsed = Instant::parse('2026-99-99T99:99:99Z');
+    $moment = $read instanceof Instant ? $read->moment() : $read;
 
     expect($read instanceof Instant ? $read->moment() : $read)
         ->toEqual(new DateTimeImmutable('2026-09-29 20:48:17', new DateTimeZone('UTC')))
         ->and($overflowing instanceof Instant ? $overflowing->moment() : $overflowing)
-        ->toEqual(CannotJudge::because('"2026-02-30T20:48:17Z" is no moment of the calendar.'));
+        ->toEqual(CannotJudge::because('"2026-02-30T20:48:17Z" is no moment of the calendar.'))
+        ->and($unparsed instanceof Instant ? $unparsed->moment() : $unparsed)
+        ->toEqual(CannotJudge::because('"2026-99-99T99:99:99Z" is no moment of the calendar.'))
+        ->and($moment instanceof DateTimeImmutable ? $moment->getTimezone()->getName() : $moment)->toBe('UTC');
 });

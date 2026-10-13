@@ -73,8 +73,10 @@ it in its fourth decision.
     file they record silence stops in.
 - **`infection:patch` gives Infection the gate's mutant limit.** It is
   `@php vendor/bin/mutation-gate infection:patch` in `post-install-cmd`
-  and `post-update-cmd`. It rewrites four places in Infection and one in
-  its include-interceptor, each marked with a
+  and `post-update-cmd`. The GitHub action runs `infection:patch` itself
+  after it installs the project, wherever the effective config runs
+  Infection, so the Composer hook serves every other run. It rewrites four
+  places in Infection and one in its include-interceptor, each marked with a
   `// mutation-gate infection:patch:` comment:
   - `MutantProcessContainerFactory` allows each mutant the gate's standard
     limit (ADR-0008, decision 2) of Infection's own time for its covering
@@ -112,10 +114,14 @@ it in its fourth decision.
   own limit and skip, and stops no run for silence; the interceptor stats
   as PHP does either way. The command patches only the Infection releases the
   runner contracts run, listed in `Adapter\Infection\Release`,
-  reading the release from Composer's list of what it installed. It
-  refuses any other release, a file whose lines have moved, and a file
-  another version of the gate patched, and says which, as `pest:patch`
-  does. Each run checks whether the installed Infection and its
+  reading the release from Composer's list of what it installed. Any
+  other release it leaves unpatched, with its own limit, and exits 1. A
+  supported release it cannot patch, because a file's lines have moved or
+  another version of the gate patched it, it refuses with exit code 2, and
+  says which, as `pest:patch` does. An install fails on either. The action
+  tells them apart by the exit code: it warns of an unpatched release, in
+  the log and the step summary, and goes on, and it fails on a refusal.
+  Each run checks whether the installed Infection and its
   include-interceptor carry the patch. Where it does not, each mutant keeps Infection's own limit, the
   gate triages by that limit, and the run's report warns of it, naming
   `infection:patch`; `doctor` advises it too (`infection-unpatched`).

@@ -46,6 +46,13 @@ it('tells a trait from the other class-likes', function (string $keyword, bool $
     'an enum' => ['enum', false],
 ]);
 
+it('declares no constant for a case whose value opens the body, before any const', function (): void {
+    $enum = Php::source("<?php enum Status: string { case Paid = 'p'; const LATE = 'l'; }")->shape()->classes()[0];
+
+    expect($enum->declares('Paid'))->toBeFalse()
+        ->and($enum->declares('LATE'))->toBeTrue();
+});
+
 it('names nothing for an anonymous class, or where no class stands', function (): void {
     $source = Php::source('<?php $a = new class extends Base { const X = 1; };');
     $anonymous = $source->shape()->classes()[0];

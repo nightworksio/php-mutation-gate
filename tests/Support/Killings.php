@@ -88,7 +88,7 @@ final class Killings
 
     /**
      * A verdict of one held unit, `src/Log.php`, whose group holds `A`: its
-     * one mutant, a survivor on line 1, is covered by `A` and `C`, and
+     * one mutant, a survivor on line 1, is covered by `C` and then `A`, and
      * judged by `A` alone.
      */
     public static function heldVerdict(): Verdict
@@ -109,7 +109,7 @@ final class Killings
             JudgedMutants::of(JudgedMutant::of($mutant, MutantJudgement::Survived)->judgedBy(self::ids('A'))),
             Uncovered::Count,
         );
-        $coverage = CoverageMap::empty()->covered($log, Line::of(1), self::id('A'))->covered($log, Line::of(1), self::id('C'));
+        $coverage = CoverageMap::empty()->covered($log, Line::of(1), self::id('C'))->covered($log, Line::of(1), self::id('A'));
 
         return Verdict::of(TreeVerdicts::of($tree))->withMatrix(
             KillMatrix::of(MatrixKind::Full, $coverage)->named(

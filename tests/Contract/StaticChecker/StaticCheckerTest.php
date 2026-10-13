@@ -28,9 +28,6 @@ use NightWorksIO\MutationGate\Tests\Support\Tree;
 use PHPUnit\Framework\Assert;
 
 $holds = [
-    'holds:src/Adapter/Mago',
-    'holds:src/Adapter/PhpStan',
-    'holds:src/Adapter/Psalm',
     'holds:src/Core/Analysis/AnalyserSettings.php',
     'holds:src/Core/Analysis/Finding.php',
     'holds:src/Core/Analysis/Findings.php',

@@ -19,9 +19,7 @@ use NightWorksIO\MutationGate\Tests\Contract\Runner\Library;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 $holds = [
-    'holds:src/Adapter/Infection',
     'holds:src/Adapter/Pest',
-    'holds:src/Adapter/PhpUnit',
 ];
 
 afterEach(function (): void {

@@ -145,7 +145,7 @@ final readonly class Invocation
             sprintf('--path=%s', PathList::of($request->files())->joined(',')),
             sprintf('--ignore=%s', $this->ignored($request->leftOut())),
             ...$this->narrowedTo($judgedBy),
-            ...PhpUnitOption::inSuites($request->narrowing()->suitesFor($judgedBy)),
+            ...PhpUnitOption::inSuites($request->narrowing()->suitesForMutants($judgedBy, $request->coverage())),
             ...$this->applying($request->narrowing()->mutators(), $bridges),
         )->with([
             GateVariable::Results->value => $results,

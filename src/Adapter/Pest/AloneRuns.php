@@ -8,12 +8,14 @@ use function array_combine;
 use function array_key_exists;
 use function array_keys;
 use function array_map;
+use function count;
 use function dirname;
 use function getmypid;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -66,9 +68,12 @@ final readonly class AloneRuns
                 continue;
             }
 
-            $judging = $served->onto(
-                $invocation->judging($control->tests(), $control->judgedBy(), $withheld)->within($left),
-            );
+            $judging = $served->onto($invocation->judging(
+                $control->tests(),
+                $control->judgedBy(),
+                $withheld,
+                ...$this->suitesOf($control, $request),
+            )->within($left));
             $keys[$at] = implode(self::BETWEEN, [$withheld->pattern(), $served->key(), ...$judging->arguments()]);
             $commands[$keys[$at]] = $judging;
         }
@@ -89,5 +94,19 @@ final readonly class AloneRuns
             static fn(int $at): bool => array_key_exists($at, $keys) && $passed[$keys[$at]],
             array_keys($controls),
         );
+    }
+
+    /**
+     * The suites a control of no test file runs: the judging suites, and the
+     * holding suites too where its tests hold a unit; none named for one of
+     * test files, which runs those files.
+     *
+     * @return list<string>
+     */
+    private function suitesOf(Control $control, MutationRequest $request): array
+    {
+        $suites = $request->narrowing()->suitesFor($control->judgedBy());
+
+        return count($control->tests()) === 0 ? PhpUnitOption::inSuites($suites) : [];
     }
 }

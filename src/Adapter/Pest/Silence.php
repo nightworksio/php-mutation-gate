@@ -52,7 +52,7 @@ final class Silence
         $limit = MutantTime::silence($tests, $mutator);
         unset(self::$watched[spl_object_id($process)]);
 
-        if ($limit instanceof Seconds && Ceiling::admits($filter)) {
+        if ($limit instanceof Seconds && Selection::passable($filter)) {
             self::$watched[spl_object_id($process)] = [$limit->seconds(), $mutated, 0.0];
         }
     }

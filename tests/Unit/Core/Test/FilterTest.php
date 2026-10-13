@@ -15,3 +15,18 @@ it('selects no test at all with the filter of nothing', function (): void {
         ->and(preg_match(sprintf('/%s/', $pattern), 'Tests\\MoneyTest::adds'))->toBe(0)
         ->and(preg_match(sprintf('/%s/', $pattern), ''))->toBe(0);
 });
+
+it('compiles as PHPUnit reads it, as written or wrapped, and not past what PCRE compiles', function (): void {
+    expect(Filter::matching('MoneyTest::adds')->compiles())->toBeTrue()
+        ->and(Filter::matching('/a}b/')->compiles())->toBeTrue()
+        ->and(Filter::matching('(')->compiles())->toBeFalse()
+        ->and(Filter::matching(str_repeat('MoneyTest::adds|', 5000))->compiles())->toBeFalse()
+        ->and(Filter::nothing()->compiles())->toBeTrue();
+});
+
+it('raises nothing of its own while it finds a pattern PCRE cannot compile', function (): void {
+    error_clear_last();
+
+    expect(Filter::matching('(')->compiles())->toBeFalse()
+        ->and(error_get_last())->toBeNull();
+});

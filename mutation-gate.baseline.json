@@ -1,0 +1,14 @@
+{
+    "format": 1,
+    "trees": {
+        "plugins/composer/src": { "floor": 92.59 },
+        "plugins/default/src": { "floor": 99.6 },
+        "plugins/laravel/src": { "floor": 93.33 },
+        "plugins/security/src": { "floor": 91.78 },
+        "plugins/symfony/src": { "floor": 96.35 },
+        "src": { "floor": 84.05 }
+    },
+    "security": {
+        ".": { "floor": 80 }
+    }
+}

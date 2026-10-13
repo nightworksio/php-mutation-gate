@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\PhpUnit\MutantFile;
 use NightWorksIO\MutationGate\Tests\Support\FileModes;
+use NightWorksIO\MutationGate\Tests\Support\FileWrapper;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Source;
 
+beforeEach(function (): void {
+    FileWrapper::keep();
+});
+
 afterEach(function (): void {
-    $handle = fopen(__FILE__, 'rb');
-
-    if (is_resource($handle) && stream_get_meta_data($handle)['wrapper_type'] === 'user-space') {
-        stream_wrapper_restore('file');
-    }
-
+    FileWrapper::restore();
     Scratch::sweep();
 });
 
@@ -185,10 +185,8 @@ it('stands in for nothing where the file it would serve is not there, or no muta
         $mutated === '' ? '' : sprintf('%s/%s', $directory, $mutated),
         $guard === '' ? '' : sprintf('%s/%s', $directory, $guard),
     );
-    $handle = fopen(__FILE__, 'rb');
-
     expect(require sprintf('%s/Original.php', $directory))->toBe('original')
-        ->and(is_resource($handle) ? stream_get_meta_data($handle)['wrapper_type'] : '')->toBe('plainfile');
+        ->and(FileWrapper::changed())->toBeFalse();
 })->with([
     'a file that is not there' => ['Gone.php', 'mutant.php', 'guard.txt'],
     'no mutant' => ['Original.php', '', 'guard.txt'],

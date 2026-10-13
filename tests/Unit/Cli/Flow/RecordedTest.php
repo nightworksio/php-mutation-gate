@@ -545,12 +545,14 @@ it('records with each proof its share of the plan\'s digests, with each test fil
         ->withSource(Path::of('src/Money.php'), Digest::sha256Of('money source'))
         ->withTest(Path::of('tests/MoneyTest.php'), Digest::sha256Of('money test'))
         ->withTest(Path::of('tests/TaxTest.php'), Digest::sha256Of('tax test'))
+        ->withTest(Path::of('tests/RoundTest.php'), Digest::sha256Of('round test'))
         ->takenAt(Revision::ref(str_repeat('c0', 20)));
     $plan = Planned::twoShards()
         ->digesting($digests)
         ->naming(TestNames::none()
             ->with(TestId::of('MoneyTest::adds'), TestName::in(Path::of('tests/MoneyTest.php'), 'adds'))
-            ->with(TestId::of('TaxTest::rounds'), TestName::in(Path::of('tests/TaxTest.php'), 'rounds')));
+            ->with(TestId::of('TaxTest::rounds'), TestName::in(Path::of('tests/TaxTest.php'), 'rounds'))
+            ->with(TestId::of('RoundTest::up'), TestName::in(Path::of('tests/RoundTest.php'), 'up')));
     $killed = Mutant::of(
         MutantId::hash(Path::of('src/Money.php'), 'Plus', '@@ @@', 0),
         'Plus-1',
@@ -567,7 +569,15 @@ it('records with each proof its share of the plan\'s digests, with each test fil
         MutantStatus::TimedOut,
         Seconds::of(0.1),
     )->killedBy(TestIds::of(TestId::of('TaxTest::rounds')));
-    $results = recordedRanOf($plan, $project, ScriptedRunner::fixture()->answering(Mutants::of($killed, $timedOut), 0), $map());
+    $alsoKilled = Mutant::of(
+        MutantId::hash(Path::of('src/Money.php'), 'Times', '@@ @@', 0),
+        'Times-3',
+        Location::of(Path::of('src/Money.php'), Line::of(3), Line::of(3)),
+        Mutation::of('Times', MutatorFamily::Arithmetic, '@@ @@'),
+        MutantStatus::Killed,
+        Seconds::of(0.1),
+    )->killedBy(TestIds::of(TestId::of('RoundTest::up')));
+    $results = recordedRanOf($plan, $project, ScriptedRunner::fixture()->answering(Mutants::of($killed, $timedOut, $alsoKilled), 0), $map());
 
     new Recorded(adapters: Flows::adapters($project, [], $store), settings: Flows::settings())
         ->write($plan, $results, $ledgers($store, $plan), $run($plan), CannotTell::because('It failed.'), recordedLastRun());
@@ -578,6 +588,7 @@ it('records with each proof its share of the plan\'s digests, with each test fil
     expect($money instanceof Proof ? $money->inputs() : $money)->toEqual(
         Inputs::of(Digest::sha256Of('money source'), Digest::sha256Of('mutation'))
             ->withTest(Path::of('tests/MoneyTest.php'), Digest::sha256Of('money test'))
+            ->withTest(Path::of('tests/RoundTest.php'), Digest::sha256Of('round test'))
             ->takenAt(Revision::ref(str_repeat('c0', 20))),
     )
         ->and($held instanceof Proof ? $held->inputs() : $held)->toEqual(Undigested::proof());

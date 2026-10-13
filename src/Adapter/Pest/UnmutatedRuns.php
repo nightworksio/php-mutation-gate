@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Control\PeakLauncher;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
+use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 
 use function sprintf;
@@ -112,11 +113,13 @@ final readonly class UnmutatedRuns
     private function judging(Control $control, MutationRequest $request): Command
     {
         $selection = Selection::of($control->tests());
+        $judgedBy = $selection->fits() ? $selection->filter() : $request->judgedBy();
 
         return Invocation::installedIn($this->project->vendor())->judging(
             Paths::none(),
-            $selection->fits() ? $selection->filter() : $request->judgedBy(),
+            $judgedBy,
             $request->withheld(),
+            ...PhpUnitOption::inSuites($request->narrowing()->suitesFor($judgedBy)),
         )->within($control->limit());
     }
 

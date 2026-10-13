@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Php;
 
 use function in_array;
 use function mb_strtolower;
+use function range;
 
 /**
  * A class, interface, trait or enum a file declares: its fully qualified name,
@@ -18,11 +19,11 @@ final readonly class ClassLike
     private const array PARENTS = [T_EXTENDS, T_IMPLEMENTS];
 
     /**
-     * What a walk back from a member's `=` directly inside a class-like body
-     * stops at: the `const` that declares a constant, or the `;` that ends
-     * the member before it.
+     * What a class-like body's members are read by, directly inside it: the
+     * `const` that opens a declaration of constants, the `=` that gives each
+     * a value, and the `;` that ends a member.
      */
-    private const array STOPS = [T_CONST, ';'];
+    private const array MEMBERS = [T_CONST, '=', ';'];
 
     /** @param list<string> $constants */
     private function __construct(
@@ -40,26 +41,14 @@ final readonly class ClassLike
      */
     public static function at(Tokens $tokens, Scope $scope, int $keyword, int $body): self
     {
-        $parents = Names::of();
-        $naming = false;
-
-        for ($each = $keyword + 1; $each < $body; $each++) {
-            $naming = $naming || $tokens->is($each, ...self::PARENTS);
-            $parents = $naming && $tokens->is($each, ...Names::TOKENS)
-                ? $parents->merge($scope->resolve($tokens->text($each)))
-                : $parents;
-        }
-
         $name = $tokens->is($keyword + 1, T_STRING) ? $scope->declared($tokens->text($keyword + 1)) : Nameless::code();
-        $constants = [];
 
-        foreach ($tokens->inside($body, '=') as $equals) {
-            $constants = self::isConstant($tokens, $body, $equals)
-                ? [...$constants, $tokens->text($equals - 1)]
-                : $constants;
-        }
-
-        return new self($name, $parents, $constants, trait: $tokens->is($keyword, T_TRAIT));
+        return new self(
+            $name,
+            self::parentsOf($tokens, $scope, $keyword, $body),
+            self::constantsIn($tokens, $body),
+            trait: $tokens->is($keyword, T_TRAIT),
+        );
     }
 
     /** A place no class-like encloses, which names nothing and extends nothing. */
@@ -108,15 +97,38 @@ final readonly class ClassLike
         return in_array($constant, $this->constants, strict: true);
     }
 
-    /** Whether an `=` directly inside a class-like body gives a constant its value. */
-    private static function isConstant(Tokens $tokens, int $body, int $equals): bool
+    /** What the names between a class-like's keyword and its body extend or implement, each resolved. */
+    private static function parentsOf(Tokens $tokens, Scope $scope, int $keyword, int $body): Names
     {
-        $at = $equals - 1;
+        $parents = Names::of();
+        $naming = false;
 
-        while ($at > $body && ($tokens->enclosing($at) !== $body || !$tokens->is($at, ...self::STOPS))) {
-            $at--;
+        foreach (range($keyword, $body) as $each) {
+            $naming = $naming || $tokens->is($each, ...self::PARENTS);
+            $parents = $naming && $tokens->is($each, ...Names::TOKENS)
+                ? $parents->merge($scope->resolve($tokens->text($each)))
+                : $parents;
         }
 
-        return $tokens->is($at, T_CONST);
+        return $parents;
+    }
+
+    /**
+     * The constants a class-like body declares: the name before each `=` of a
+     * member a `const` opens, until the `;` that ends it.
+     *
+     * @return list<string>
+     */
+    private static function constantsIn(Tokens $tokens, int $body): array
+    {
+        $constants = [];
+        $declaring = false;
+
+        foreach ($tokens->inside($body, ...self::MEMBERS) as $at) {
+            $declaring = $tokens->is($at, T_CONST) || ($declaring && ! $tokens->is($at, ';'));
+            $constants = $declaring && $tokens->is($at, '=') ? [...$constants, $tokens->text($at - 1)] : $constants;
+        }
+
+        return $constants;
     }
 }

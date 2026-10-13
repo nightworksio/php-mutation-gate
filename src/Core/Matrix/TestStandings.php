@@ -43,9 +43,9 @@ final readonly class TestStandings implements Countable, IteratorAggregate
         $names = $verdict->matrix()->names();
         $wholes = [];
 
-        foreach (self::tallies($verdict) as [$test, $judged, $kills, $beaten]) {
+        foreach (self::tallies($verdict) as [$test, $judged, $killedFirst, $ranBehind]) {
             $whole = $names->testOf($test);
-            $row = TestStanding::of($names->nameOf($test), $judged, $kills, $beaten);
+            $row = TestStanding::of($names->nameOf($test), $judged, $killedFirst, $ranBehind);
             $wholes[$whole->value()] = array_key_exists($whole->value(), $wholes)
                 ? $wholes[$whole->value()]->with($row)
                 : WholeTest::of($whole, $row);
@@ -82,7 +82,7 @@ final readonly class TestStandings implements Countable, IteratorAggregate
     /**
      * Each test's tally over every mutant it covers, in the order the mutants first name it.
      *
-     * @return array<string, array{TestId, int, int, int}>
+     * @return array<string, array{TestId, int, bool, bool}>
      */
     private static function tallies(Verdict $verdict): array
     {
@@ -95,7 +95,9 @@ final readonly class TestStandings implements Countable, IteratorAggregate
                     continue;
                 }
 
-                $tally = array_key_exists($test->value(), $tallies) ? $tallies[$test->value()] : [$test, 0, 0, 0];
+                $tally = array_key_exists($test->value(), $tallies)
+                    ? $tallies[$test->value()]
+                    : [$test, 0, false, false];
                 $outcome = $matrix->outcome($judged, $test);
                 $tallies[$test->value()] = self::tallied($tally, $outcome, self::wasKilled($judged));
             }
@@ -105,19 +107,20 @@ final readonly class TestStandings implements Countable, IteratorAggregate
     }
 
     /**
-     * A test's tally with one more cell: what it judged with a known result, killed first, and ran behind.
+     * A test's tally with one more cell: how many mutants it judged with a known result, and whether it killed
+     * any first or ran behind another test's first kill in any.
      *
-     * @param  array{TestId, int, int, int} $tally
-     * @return array{TestId, int, int, int}
+     * @param  array{TestId, int, bool, bool} $tally
+     * @return array{TestId, int, bool, bool}
      */
     private static function tallied(array $tally, Outcome $outcome, bool $killed): array
     {
-        [$test, $judged, $kills, $beaten] = $tally;
+        [$test, $judged, $killedFirst, $ranBehind] = $tally;
 
         return match (true) {
-            $outcome === Outcome::Killed => [$test, $judged + 1, $kills + 1, $beaten],
-            $outcome === Outcome::Passed => [$test, $judged + 1, $kills, $beaten],
-            $outcome === Outcome::NotRun && $killed => [$test, $judged + 1, $kills, $beaten + 1],
+            $outcome === Outcome::Killed => [$test, $judged + 1, true, $ranBehind],
+            $outcome === Outcome::Passed => [$test, $judged + 1, $killedFirst, $ranBehind],
+            $outcome === Outcome::NotRun && $killed => [$test, $judged + 1, $killedFirst, true],
             default => $tally,
         };
     }
