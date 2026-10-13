@@ -23,3 +23,10 @@ it('compiles as PHPUnit reads it, as written or wrapped, and not past what PCRE 
         ->and(Filter::matching(str_repeat('MoneyTest::adds|', 5000))->compiles())->toBeFalse()
         ->and(Filter::nothing()->compiles())->toBeTrue();
 });
+
+it('raises nothing of its own while it finds a pattern PCRE cannot compile', function (): void {
+    error_clear_last();
+
+    expect(Filter::matching('(')->compiles())->toBeFalse()
+        ->and(error_get_last())->toBeNull();
+});

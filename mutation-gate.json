@@ -24,6 +24,9 @@
             "path": "plugins/composer/src"
         }
     ],
+    "baseline": {
+        "improvement": "report"
+    },
     "pest": {
         "patch": true
     },
@@ -33,6 +36,56 @@
     },
     "ignores": {
         "entries": [
+            {
+                "mutant": "c4d470f88290",
+                "reason": "The file loads before pest-plugin-mutate's override starts, so no run can put this mutant in place.",
+                "expires": "2027-10-13"
+            },
+            {
+                "mutant": "18566bc51216",
+                "reason": "The mutant writes the killer file that names its own kill, so its process cannot name the test that killed it, and no run can judge it.",
+                "expires": "2027-10-13"
+            },
+            {
+                "mutant": "1019000241d4",
+                "reason": "The mutant writes the killer file that names its own kill, so its process cannot name the test that killed it, and no run can judge it.",
+                "expires": "2027-10-13"
+            },
+            {
+                "mutant": "9ee120a4d2e0",
+                "reason": "The mutant writes the killer file that names its own kill, so its process cannot name the test that killed it, and no run can judge it.",
+                "expires": "2027-10-13"
+            },
+            {
+                "mutant": "e22978a6aff2",
+                "reason": "The mutant writes the killer file that names its own kill, so its process cannot name the test that killed it, and no run can judge it.",
+                "expires": "2027-10-13"
+            },
+            {
+                "mutant": "b43847391082",
+                "reason": "The mutant writes the killer file that names its own kill, so its process cannot name the test that killed it, and no run can judge it.",
+                "expires": "2027-10-13"
+            },
+            {
+                "mutant": "79ac801735a8",
+                "reason": "The mutant writes the killer file that names its own kill, so its process cannot name the test that killed it, and no run can judge it.",
+                "expires": "2027-10-13"
+            },
+            {
+                "mutant": "ae19e9d690d9",
+                "reason": "The mutant writes the killer file that names its own kill, so its process cannot name the test that killed it, and no run can judge it.",
+                "expires": "2027-10-13"
+            },
+            {
+                "mutant": "9e17d996323d",
+                "reason": "The mutant writes the killer file that names its own kill, so its process cannot name the test that killed it, and no run can judge it.",
+                "expires": "2027-10-13"
+            },
+            {
+                "mutant": "96b0928628e8",
+                "reason": "Equivalent: whether PCRE compiles a pattern does not depend on the subject it is matched against, so any text in place of '' gives the same answer.",
+                "expires": "2027-10-13"
+            },
             {
                 "mutant": "cd88f123f3b9",
                 "reason": "Equivalent: the step only sets how many compressed bytes each inflate call takes. A stream inflates to the same text, TooLarge or CannotJudge at any step size, since inflating stops where the stream ends.",
