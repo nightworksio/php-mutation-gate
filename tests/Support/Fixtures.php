@@ -566,7 +566,7 @@ final readonly class Fixtures
                     expect($started)->toBeFloat();
                 });
                 PHP, 'keeps every test file inert as it loads'),
-            Fixture::edit('G11', 'mutation-gate.json', "\"path\": \"src\"\n", "\"path\": \"src\",\n            \"floor\": 50\n", 'keeps the package\'s own floors in its baseline alone, where none went down', 'declares a floor the baseline should hold'),
+            Fixture::edit('G11', 'mutation-gate.json', "\"path\": \"src\",\n", "\"path\": \"src\",\n            \"floor\": 50,\n", 'keeps the package\'s own floors in its baseline alone, where none went down', 'declares a floor the baseline should hold'),
         ];
     }
 
