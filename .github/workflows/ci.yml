@@ -77,7 +77,7 @@ jobs:
         env:
           STEPS: ${{ toJSON(steps) }}
         run: python3 .github/scripts/evidence.py scripts
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: evidence-scripts
@@ -126,7 +126,7 @@ jobs:
         env:
           STEPS: ${{ toJSON(steps) }}
         run: python3 .github/scripts/evidence.py rules
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: evidence-rules
@@ -175,7 +175,7 @@ jobs:
         env:
           STEPS: ${{ toJSON(steps) }}
         run: python3 .github/scripts/evidence.py guards
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: evidence-guards
@@ -259,7 +259,7 @@ jobs:
         env:
           STEPS: ${{ toJSON(steps) }}
         run: python3 .github/scripts/evidence.py checks
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: evidence-checks
@@ -313,7 +313,7 @@ jobs:
         with:
           path: /tmp/mutation-gate-schema-*.json
           key: schemas-${{ hashFiles('tests/Unit/Core/Ci/CiTemplateTest.php', 'tests/Unit/Core/Report/SarifTest.php') }}-${{ github.run_id }}-${{ github.job }}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage-report
           path: |
@@ -327,7 +327,7 @@ jobs:
         env:
           STEPS: ${{ toJSON(steps) }}
         run: python3 .github/scripts/evidence.py tests
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: evidence-tests
@@ -389,7 +389,7 @@ jobs:
         env:
           STEPS: ${{ toJSON(steps) }}
         run: python3 .github/scripts/evidence.py lowest
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: evidence-lowest
@@ -572,7 +572,7 @@ jobs:
         run: |
           mkdir -p evidence/raw
           jq -n --arg leg "${LEG}" --arg outcome "${OUTCOME}" '{($leg): {outcome: $outcome}}' > "evidence/raw/${LEG}.outcome.json"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: runner-contract-${{ matrix.runner }}-${{ matrix.resolution }}
@@ -598,7 +598,7 @@ jobs:
         with:
           persist-credentials: false
           sparse-checkout: .github
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: runner-contract-*
           path: evidence/raw
@@ -632,7 +632,7 @@ jobs:
         env:
           STEPS: ${{ steps.legs.outputs.steps }}
         run: python3 .github/scripts/evidence.py runner-contracts
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: evidence-runner-contracts
@@ -769,7 +769,7 @@ jobs:
         env:
           STEPS: ${{ toJSON(steps) }}
         run: python3 .github/scripts/evidence.py warm-workers
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: evidence-warm-workers
@@ -820,7 +820,7 @@ jobs:
         env:
           STEPS: ${{ toJSON(steps) }}
         run: python3 .github/scripts/evidence.py hook-managers
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: evidence-hook-managers
@@ -867,7 +867,7 @@ jobs:
           # introduced it, which is what makes "new code" a usable gate.
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: coverage-report
           path: coverage
@@ -915,7 +915,7 @@ jobs:
         env:
           STEPS: ${{ toJSON(steps) }}
         run: python3 .github/scripts/evidence.py gate
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: evidence-gate
@@ -940,7 +940,7 @@ jobs:
         with:
           persist-credentials: false
           sparse-checkout: .github
-      - uses: actions/upload-artifact/merge@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact/merge@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: evidence
           pattern: evidence-*
