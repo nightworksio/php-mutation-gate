@@ -1,4 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="240" height="40" viewBox="0 0 240 40" role="img">
-<title>Mutation score over 5 runs, 95.57% at the last</title>
-<polyline fill="none" stroke="#4c1" stroke-width="2" points="0.0,1.8 60.0,1.8 120.0,1.8 180.0,1.8 240.0,1.8"/>
+<title>Mutation score over 6 runs, 95.57% at the last</title>
+<polyline fill="none" stroke="#4c1" stroke-width="2" points="0.0,1.8 48.0,1.8 96.0,1.8 144.0,1.8 192.0,1.8 240.0,1.8"/>
 </svg>
