@@ -27,6 +27,7 @@ use NightWorksIO\MutationGate\Core\Delivery\Delivery;
 use NightWorksIO\MutationGate\Core\Delivery\KeptPost;
 use NightWorksIO\MutationGate\Core\Delivery\LedgerPost;
 use NightWorksIO\MutationGate\Core\Delivery\OtlpPost;
+use NightWorksIO\MutationGate\Core\Delivery\StoreLocation;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Format\TooLarge;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -47,7 +48,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 /**
  * What `deliver` does with a delivery (ADR-0007 decision 5): it writes the
  * ledger to the store its own environment locates through the
- * `MUTATION_GATE_STORE` variables, and sends the comment, each alert and the
+ * `MUTATION_GATE_STORE` variables, where they name one, and sends the comment, each alert and the
  * OTLP export where its own environment says, with the credentials its own
  * environment holds. Nothing in the delivery names a destination, a store or
  * a variable: the comment goes to `GITHUB_REPOSITORY`'s pull request the
@@ -67,6 +68,9 @@ final readonly class Sending
         = 'The ledger is not written: the delivery holds %s\'s, and this run writes %s\'s alone.';
 
     private const string NOT_KEPT = 'The %s is not kept: %s';
+
+    /** Why no store is built: no variable names one, so the workflow's Actions cache keeps what the run left. */
+    private const string UNNAMED = '%s names no store, so it stays in the Actions cache.';
 
     /** Why no store is built: the delivery writes nothing to the default branch's scope on this run. */
     private const string NOTHING_TO_WRITE = 'The delivery writes nothing to the store on this run.';
@@ -102,8 +106,9 @@ final readonly class Sending
 
     /**
      * What each part of the delivery came to, and the exit code: a trusted run's ledger, or an object to keep
-     * beside it, left unwritten fails the job. Each is written only on a trusted run of the default branch, and
-     * only for that branch's scope; elsewhere none is read, and no store is built.
+     * beside it, left unwritten fails the job where its own environment names a store. Each is written only on a
+     * trusted run of the default branch, and only for that branch's scope; elsewhere none is read, and no store is
+     * built.
      *
      * @param Closure(): (Ledger|CannotJudge|TooLarge)                   $ledger the ledger beside the delivery, read
      *                                                                            when written
@@ -129,20 +134,33 @@ final readonly class Sending
             ...array_map($this->alerted(...), $delivery->alerts()),
             ...$otlp instanceof OtlpPost ? [$this->exported($otlp)] : [],
         ];
-        $unwritten = array_filter([$stored, ...$keeping], static fn(object $one): bool => $one instanceof NotWritten);
 
         return Sent::of(
             array_map(
                 static fn(Written|NotWritten $one): string => $one instanceof Written ? $one->said() : $one->why(),
                 $said,
             ),
-            $trusted instanceof Scope && $unwritten !== [] ? ExitCode::CannotJudge : ExitCode::Passed,
+            $this->exitOf($trusted, [...$stored instanceof NotGiven ? [] : [$stored], ...$keeping]),
         );
     }
 
     /**
-     * The store its own environment locates for the default branch, built once, and only where the delivery holds
-     * something to write there on a trusted run; else why none is built.
+     * Whether a trusted run left unwritten what its own environment names a store for.
+     *
+     * @param list<Written|NotWritten> $stored the ledger and each object kept beside it
+     */
+    private function exitOf(Scope|NotWritten $trusted, array $stored): ExitCode
+    {
+        $unwritten = array_filter($stored, static fn(Written|NotWritten $one): bool => $one instanceof NotWritten);
+
+        return $trusted instanceof Scope && $this->namesStore() && $unwritten !== []
+            ? ExitCode::CannotJudge
+            : ExitCode::Passed;
+    }
+
+    /**
+     * The store its own environment locates for the default branch, built once, and only where it names one and
+     * the delivery holds something to write there on a trusted run; else why none is built.
      */
     private function storeFor(Delivery $delivery, Scope|NotWritten $trusted): ProofStore|NotWritten|CannotJudge
     {
@@ -154,7 +172,17 @@ final readonly class Sending
         $writes = $trusted instanceof Scope
             && array_any($scopes, static fn(Scope $scope): bool => $scope->equals($trusted));
 
-        return $writes ? $this->stores->forDefaultBranch($trusted) : NotWritten::because(self::NOTHING_TO_WRITE);
+        return match (true) {
+            ! $writes => NotWritten::because(self::NOTHING_TO_WRITE),
+            ! $this->namesStore() => NotWritten::because(sprintf(self::UNNAMED, StoreLocation::Store->value)),
+            default => $this->stores->forDefaultBranch($trusted),
+        };
+    }
+
+    /** Whether its own environment names a store, however well. */
+    private function namesStore(): bool
+    {
+        return Variables::of($this->environment)->valueOf(StoreLocation::Store->value) !== '';
     }
 
     /**

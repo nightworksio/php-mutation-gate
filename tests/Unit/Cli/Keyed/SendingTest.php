@@ -160,7 +160,7 @@ it('takes every part of the store\'s location from its own environment', functio
         ->toBe(['{"prefix":"ci/proofs","region":"auto","insecureEndpoint":false,"bucket":"proofs","endpoint":"https://r2.example.com"}']);
 });
 
-it('writes no ledger, and fails, where its own environment names no store that needs credentials, or one its options refuse', function (string $store, string $bucket, string $key, string $why): void {
+it('writes no ledger, and fails, where its own environment names a store that needs no credentials, or one its options refuse', function (string $store, string $bucket, string $key, string $why): void {
     $built = new ArrayObject();
     $environment = array_filter(
         ['MUTATION_GATE_STORE' => $store, 'MUTATION_GATE_STORE_BUCKET' => $bucket, 'AWS_ACCESS_KEY_ID' => $key, 'AWS_SECRET_ACCESS_KEY' => $key],
@@ -173,7 +173,6 @@ it('writes no ledger, and fails, where its own environment names no store that n
         ->and($sent->said())->toBe([$why])
         ->and($sent->exit())->toBe(ExitCode::CannotJudge);
 })->with([
-    'none' => ['', '', 'id', 'The ledger is not written: MUTATION_GATE_STORE names no built-in store that needs credentials: s3, gcs or azure.'],
     'the directory' => ['directory', '', 'id', 'The ledger is not written: MUTATION_GATE_STORE names no built-in store that needs credentials: s3, gcs or azure.'],
     'a class' => ['Acme\\Store', 'proofs', 'id', 'The ledger is not written: MUTATION_GATE_STORE names no built-in store that needs credentials: s3, gcs or azure.'],
     'no keys' => ['s3', 'proofs', '', 'The ledger is not written: MUTATION_GATE_STORE names s3, whose credentials this job does not hold.'],
@@ -397,14 +396,29 @@ it('fails, and keeps nothing, for another scope than its own run\'s, or an objec
     'too large' => [fn(): Scope => Scope::branch('main'), fn(): TooLarge => TooLarge::because('past the limit'), 'The coverage map is not kept, since it cannot be read: past the limit'],
 ]);
 
-it('fails, and keeps nothing, where its own environment locates no store for the coverage map', function (): void {
-    $sent = sendingOf([], new ArrayObject(), new ProofStoreFake())->sent(
-        Delivery::none()->withKept(KeptPost::of(Companion::Coverage, Scope::branch('main'))),
+it('writes no ledger, keeps nothing and fails nothing on a trusted run where its own environment names no store, as the Actions cache keeps both', function (): void {
+    $built = new ArrayObject();
+    $read = new ArrayObject();
+    $sent = sendingOf(['AWS_ACCESS_KEY_ID' => 'id', 'AWS_SECRET_ACCESS_KEY' => 'secret'], $built, new ProofStoreFake())->sent(
+        sendingLedger(Scope::branch('main'))->withKept(KeptPost::of(Companion::Coverage, Scope::branch('main'))),
         Scope::branch('main'),
-        static fn(): Ledger => Ledger::empty(),
-        static fn(): Contents => Contents::of('map'),
+        static function () use ($read): Ledger {
+            $read->append('ledger');
+
+            return Ledger::empty();
+        },
+        static function () use ($read): Contents {
+            $read->append('map');
+
+            return Contents::of('map');
+        },
     );
 
-    expect($sent->said())->toBe(['The coverage map is not kept: MUTATION_GATE_STORE names no built-in store that needs credentials: s3, gcs or azure.'])
-        ->and($sent->exit())->toBe(ExitCode::CannotJudge);
+    expect([...$built])->toBe([])
+        ->and([...$read])->toBe([])
+        ->and($sent->said())->toBe([
+            'The ledger is not written: MUTATION_GATE_STORE names no store, so it stays in the Actions cache.',
+            'The coverage map is not kept: MUTATION_GATE_STORE names no store, so it stays in the Actions cache.',
+        ])
+        ->and($sent->exit())->toBe(ExitCode::Passed);
 });

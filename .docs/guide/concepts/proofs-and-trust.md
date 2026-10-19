@@ -151,8 +151,11 @@ working directory's `vendor`
     branch's. It decides that from its own event and ref before it reads the
     delivery. The default branch is the one the event payload names, else
     `MUTATION_GATE_DEFAULT_BRANCH`. On any other run it writes no ledger and
-    fails nothing. The coverage map is kept beside the ledger on the same
-    runs, for the same scope.
+    fails nothing. Where `MUTATION_GATE_STORE` names no store, it writes no
+    ledger either and fails nothing: the ledger stays in the Actions cache. A
+    store that is named, but cannot be located or whose credentials the job
+    does not hold, fails the job. The coverage map is kept beside the ledger
+    on the same runs, for the same scope.
 - **`fetch`** reads the default branch's ledger, and no other scope's, from
   the store that [the store variables](../../reference/environment.md#the-store-for-deliver-and-fetch) locate, with a key that only needs to read.
   It writes the ledger into `.mutation-gate/ledger`, where the `directory`
