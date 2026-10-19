@@ -42,7 +42,7 @@ delivery or a config:
 
 | Variable | What it sets |
 |----------|--------------|
-| `MUTATION_GATE_STORE` | The store: `s3`, `gcs` or `azure` |
+| `MUTATION_GATE_STORE` | The store: `s3`, `gcs` or `azure`. Unset, `deliver` and `fetch` use no store, and the ledger stays in the Actions cache |
 | `MUTATION_GATE_STORE_BUCKET` | `bucket`, for `s3` and `gcs` |
 | `MUTATION_GATE_STORE_PREFIX` | `prefix` (`mutation-gate` by default) |
 | `MUTATION_GATE_STORE_REGION` | `region`, for `s3` (`us-east-1` by default) |

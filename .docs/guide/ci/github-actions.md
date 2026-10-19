@@ -11,7 +11,8 @@ In the first job the action sets up PHP, installs your dependencies, keeps the
 proof ledger in the Actions cache and runs the whole gate. It writes line
 annotations and the step summary, and holds no token once your code runs. In
 the second job, with `deliver: 'true'`, it runs none of your code. It posts
-the sticky PR comment and, on a trusted run, writes the ledger to a store.
+the sticky PR comment and, on a trusted run, writes the ledger to the store
+`MUTATION_GATE_STORE` names, where it names one.
 
 ```yaml
 name: mutation
@@ -158,9 +159,11 @@ installation, at the workflow's commit:
 - `deliver` sends what the verdict leaves as the artifact
   `mutation-gate-delivery`. On every run it posts the comment. A trusted run, a
   push, schedule or dispatch on the default branch, enters the environment
-  `mutation-gate-store`, and there it also writes the ledger, sends the alerts
-  and exports the trace. GitHub refuses that environment to a run on any other
-  branch, even one whose workflow names it.
+  `mutation-gate-store`, and there it also writes the ledger, where
+  `MUTATION_GATE_STORE` names a store, sends the alerts and exports the
+  trace. With no store named, the ledger stays in the Actions cache. GitHub
+  refuses that environment to a run on any other branch, even one whose
+  workflow names it.
 
 To keep the ledger in S3, R2 or MinIO, set these under Settings:
 
