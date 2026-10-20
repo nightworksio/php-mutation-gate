@@ -102,6 +102,44 @@ jobs:
   security:
     uses: ./.github/workflows/security.yml # zizmor: ignore[self-repository]
 
+  # Every test file a mutant's narrowed run can load passes alone on the
+  # unmutated code, so that its run can vouch for its kills, and a file that
+  # leans on another is named the day it starts to.
+  alone:
+    name: test files alone
+    needs: scope
+    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+          extensions: pcntl, sodium
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - id: alone
+        run: python3 .github/scripts/alone.py . --findings evidence/raw/alone.json
+      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      - name: evidence
+        if: ${{ !cancelled() }}
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: python3 .github/scripts/evidence.py alone
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: evidence-alone
+          path: evidence/alone*
+          if-no-files-found: error
+          retention-days: 7
+      - name: what failed
+        if: failure()
+        run: python3 .github/scripts/gate_summary.py alone
+
   # R1 — the rules, before anything slower gets a chance to hide a broken
   # boundary. The Arch suite reads ARCHITECTURE.md against the code, so it runs
   # on every change, documentation included.
@@ -955,7 +993,7 @@ jobs:
   # left none.
   evidence:
     name: evidence
-    needs: [scope, scripts, hygiene, security, rules, guards, checks, tests, lowest, runner-contract, runner-contracts, warm-workers, hook-managers, mutation, sonar, gate]
+    needs: [scope, scripts, alone, hygiene, security, rules, guards, checks, tests, lowest, runner-contract, runner-contracts, warm-workers, hook-managers, mutation, sonar, gate]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

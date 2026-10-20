@@ -69,6 +69,18 @@
         "error": "A test threw before it could finish."
       }
     },
+    "alone": {
+      "check": "test files alone",
+      "checks": "Every test file of the Unit, Process and Plugins suites passes when it runs alone, in a Pest of its own, on the unmutated code, so that a mutant's run narrowed to the test files its covering tests need can vouch for its kills (ADR-0004, decision 9).",
+      "reproduce": "python3 .github/scripts/alone.py . --findings <file>, after composer install",
+      "evidence": [
+        {"step": "alone", "tool": "alone", "raw": "evidence/raw/alone.json"}
+      ],
+      "rules": {
+        "alone": "The runs did not finish, so no file was judged. The step's log says why.",
+        "fails-alone": "The file's tests fail when it runs alone: it leans on what another test file declares or leaves behind. Move that into tests/Support, or into the file itself."
+      }
+    },
     "rules": {
       "check": "rules",
       "checks": "The architecture rules of ARCHITECTURE.md: layers, shapes, names and the tests themselves (tests/Arch).",
