@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
+use NightWorksIO\MutationGate\Tests\Support\Locks;
 use NightWorksIO\MutationGate\Tests\Support\SettingsCases;
 
 describe('Settings sections', function (): void {
@@ -326,6 +327,21 @@ describe('Settings sections', function (): void {
         'every unit' => [['run' => ['full' => true]], true, 'Reach::fullByDefault()'],
         'what changed' => [['run' => ['full' => false]], false, 'Reach::changedByDefault()'],
     ]);
+
+    it('reads reach.lockPackages, deciding by every package where it is left out, writes it into a config written as PHP, and refuses what is no package\'s name', function (): void {
+        $named = Configs::settings(['runner' => 'pest', 'reach' => ['lockPackages' => ['pestphp/*']]])->reach()->lockPackages();
+        $every = Configs::settings(['runner' => 'pest'])->reach()->lockPackages();
+        $before = Locks::of(['pestphp/pest' => '5.2.1', 'symfony/console' => '8.1.7']);
+        $console = Locks::of(['pestphp/pest' => '5.2.1', 'symfony/console' => '8.1.9']);
+        $php = Configs::valid(['runner' => 'pest', 'reach' => ['lockPackages' => ['pestphp/*', 'nikic/php-parser']]])->php(ProjectRoot::origin())->code();
+
+        expect($named->decide($before, $console))->toBeFalse()
+            ->and($every->decide($before, $console))->toBeTrue()
+            ->and($php)->toContain("Reach::lockPackages('pestphp/*', 'nikic/php-parser')")
+            ->and(ReachSetting::lockPackages('pestphp/*')->written())->toEqual(Json::at('reach.lockPackages', Json::items('pestphp/*')))
+            ->and(Configs::problems(Configs::validated(['runner' => 'pest', 'reach' => ['lockPackages' => ['pest', 'a/b/c', 'a /b']]])))
+            ->toHaveCount(3);
+    });
 
     it('writes run.full from the PHP config\'s builders as the JSON a file writes', function (): void {
         expect(ReachSetting::fullByDefault()->written())->toEqual(Json::at('run.full', value: true))

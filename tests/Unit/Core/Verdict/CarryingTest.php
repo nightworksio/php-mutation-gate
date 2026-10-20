@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Composer\DecidingPackages;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -125,7 +126,7 @@ function carryChanged(string $file): ChangeReach
         $changed,
         $changed,
         NamedFiles::read($read),
-        FileRoles::of(Layout::standard(Paths::none()), Packages::of(Flows::trees()), Paths::none()),
+        FileRoles::of(Layout::standard(Paths::none()), Packages::of(Flows::trees()), Paths::none(), DecidingPackages::every()),
     );
 }
 

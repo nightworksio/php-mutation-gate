@@ -337,6 +337,7 @@ describe('Settings', function (): void {
             ->toBe(Configs::settings(SettingsCases::EVERYTHING)->canonical());
     })->with([
         'what reaches everything' => [['reach' => ['everything' => ['bootstrap/**']]]],
+        'the packages whose move in a lock decides' => [['reach' => [...SettingsCases::EVERYTHING['reach'], 'lockPackages' => ['nikic/php-parser']]]],
         'the check' => [['ci' => [...SettingsCases::EVERYTHING['ci'], 'check' => 'other']]],
         'the default branch' => [['ci' => [...SettingsCases::EVERYTHING['ci'], 'defaultBranch' => 'develop']]],
         'trusting merged pull requests' => [['ci' => [...SettingsCases::EVERYTHING['ci'], 'trustMergedPullRequests' => false]]],

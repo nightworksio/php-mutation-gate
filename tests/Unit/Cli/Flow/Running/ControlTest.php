@@ -270,6 +270,32 @@ it('leaves a kill unjudged where the tests that killed it fail unmutated too, an
     'tests that fail unmutated' => [fn(): ControlRun => ControlRun::failed(), MutantStatus::Unjudged],
 ]);
 
+it('controls a file\'s kills together first, and each on its own only where that does not pass', function (bool $passes, int $asked) use ($makeResultIn): void {
+    $resultIn = $makeResultIn();
+
+    $project = Flows::project();
+    $money = Path::of('src/Money.php');
+    $together = Control::of($money, TestIds::of(TestId::of('MoneyTest::adds'), TestId::of('MoneyTest::subtracts')), Seconds::of(10.0));
+    $alone = static fn(string $test): Control => Control::of($money, TestIds::of(TestId::of($test)), Seconds::of(10.0));
+    $runner = ScriptedRunner::fixtureKillingAlso($money, Line::of(16), TestId::of('MoneyTest::subtracts'))
+        ->controlling(ControlRuns::none()
+            ->with($together, $passes ? ControlRun::passed(Seconds::of(0.4)) : ControlRun::failed())
+            ->with($alone('MoneyTest::adds'), ControlRun::passed(Seconds::of(0.2)))
+            ->with($alone('MoneyTest::subtracts'), ControlRun::failed()));
+
+    new Running(Flows::adapters($project, [], $runner), Flows::settings(), Flows::setup())
+        ->run(Planned::handedIn($project, Planned::oneShard()), ShardId::of(1), Workspace::results());
+    $keys = controlKeysAsked($runner);
+
+    expect($keys)->toContain($together->key())
+        ->and(count($keys))->toBe($asked)
+        ->and(controlMutantIn($resultIn($project, 1), 'Plus-11')->status())->toBe(MutantStatus::Killed)
+        ->and(controlMutantIn($resultIn($project, 1), 'Minus-16')->status())->toBe($passes ? MutantStatus::Killed : MutantStatus::Unjudged);
+})->with([
+    'together they pass' => [true, 2],
+    'together they fail, and one alone' => [false, 4],
+]);
+
 it('weighs a mutant out of memory by the peak of its control under the same cap, and leaves it too heavy where the control runs out too', function (
     ControlRun $found,
     MemoryCap|Unmeasured $need,

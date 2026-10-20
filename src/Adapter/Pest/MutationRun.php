@@ -340,7 +340,7 @@ final readonly class MutationRun
         return $again instanceof CannotJudge ? $again : $result
             ->withMutants(FoundAgain::replacing($result->mutants(), $again->mutants()))
             ->withEvidence($again->evidence())
-            ->withSteps(StepTimes::of($laps->lap(Step::Confirmation, $from)));
+            ->withSteps(StepTimes::of($laps->lap(Step::Confirmation, $from, count($doubtful))));
     }
 
     /** The time left of the request's deadline since the run began. */

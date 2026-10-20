@@ -193,7 +193,7 @@ it('runs a pull request\'s shard to its end where its trees cannot be read, or i
     'one suite\'s tests alone' => [fn(): Narrowing => Narrowing::none()->toSuite(SuiteName::of('unit'))],
 ]);
 
-it('chunks a pull request\'s shard in about two minutes of the work the cost model expects, each chunk at least one unit', function (float $each, array $chunks) use (
+it('chunks a pull request\'s shard in about fifteen minutes of the work the cost model expects, each chunk at least one unit', function (float $each, array $chunks) use (
     $makeDoomable,
     $makeOnPullRequest,
     $makeFloored,
@@ -217,9 +217,9 @@ it('chunks a pull request\'s shard in about two minutes of the work the cost mod
 
     expect($asked($runner))->toBe($chunks);
 })->with([
-    'each a minute and a half' => [90.0, [['src/Money.php'], ['src/Second.php'], ['src/Third.php']]],
-    'each half a minute' => [30.0, [['src/Money.php', 'src/Second.php', 'src/Third.php']]],
-    'each a minute' => [50.0, [['src/Money.php', 'src/Second.php'], ['src/Third.php']]],
+    'each ten minutes' => [600.0, [['src/Money.php'], ['src/Second.php'], ['src/Third.php']]],
+    'each four minutes' => [240.0, [['src/Money.php', 'src/Second.php', 'src/Third.php']]],
+    'each six minutes' => [360.0, [['src/Money.php', 'src/Second.php'], ['src/Third.php']]],
 ]);
 
 it('runs no shard of a plan in one process after one that stopped once its run could not pass', function () use (

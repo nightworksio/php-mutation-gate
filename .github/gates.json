@@ -69,6 +69,18 @@
         "error": "A test threw before it could finish."
       }
     },
+    "alone": {
+      "check": "test files alone",
+      "checks": "Every test file of the Unit, Process and Plugins suites passes when it runs alone, in a Pest of its own, on the unmutated code, so that a mutant's run narrowed to the test files its covering tests need can vouch for its kills (ADR-0004, decision 9).",
+      "reproduce": "python3 .github/scripts/alone.py . --findings <file>, after composer install",
+      "evidence": [
+        {"step": "alone", "tool": "alone", "raw": "evidence/raw/alone.json"}
+      ],
+      "rules": {
+        "alone": "The runs did not finish, so no file was judged. The step's log says why.",
+        "fails-alone": "The file's tests fail when it runs alone: it leans on what another test file declares or leaves behind. Move that into tests/Support, or into the file itself."
+      }
+    },
     "rules": {
       "check": "rules",
       "checks": "The architecture rules of ARCHITECTURE.md: layers, shapes, names and the tests themselves (tests/Arch).",
@@ -190,8 +202,8 @@
         "error": "A contract test threw before it could finish."
       }
     },
-    "warm-workers": {
-      "check": "warm workers",
+    "end-to-end/warm-workers": {
+      "check": "end-to-end / warm workers",
       "checks": "The gate run on a pinned lcobucci/jwt with runner.workers fresh and with fork, on one coverage map, and each twice more where they disagree: no mutant gets one verdict from every forked run and another from every fresh run, and the step summary says what each run took (ADR-0023, decisions 12 to 14).",
       "reproduce": "Install lcobucci/jwt at the tag and commit the job pins with this checkout's gate, run vendor/bin/mutation-gate coverage, then vendor/bin/mutation-gate run with each of runner.workers fresh and fork, each with --report=json:<file>, and python3 .github/scripts/warm_measure.py judge --fresh <report> <seconds> --fork <report> <seconds> --findings <file>",
       "evidence": [
@@ -202,8 +214,8 @@
         "verdict": "Every forked run gave a mutant one verdict, and every fresh run another."
       }
     },
-    "hook-managers": {
-      "check": "hook managers",
+    "end-to-end/hook-managers": {
+      "check": "end-to-end / hook managers",
       "checks": "composer mutate through this checkout's Composer plugin runs the gate with the arguments given and exits as it does, and a project that does not allow the plugin installs without it; and the gate set up by init --hook in real CaptainHook, GrumPHP and pre-commit framework repositories, from this checkout's gate and its .pre-commit-hooks.yaml: a commit through each manager's pre-commit hook passes, and through CaptainHook and the pre-commit framework a push whose new code is killed passes while one whose new code no test covers is refused with the gate's failed verdict (ADR-0024, decisions 11 to 13).",
       "reproduce": "python3 .github/scripts/hook_managers.py . <an empty directory> <pre-commit's zipapp> --findings <file>, with Composer, PHP with pcov and git on the PATH",
       "evidence": [

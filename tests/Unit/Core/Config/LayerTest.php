@@ -24,6 +24,11 @@ it('lays a later layer over an earlier one, section by section', function (
         ['reach' => ['everything' => ['routes/**', '.env.test']]],
         ['reach' => ['everything' => ['config/**', 'routes/**', '.env.test']]],
     ],
+    'the packages whose move in a lock decides concatenate too' => [
+        ['reach' => ['lockPackages' => ['pestphp/*', 'phpunit/phpunit']]],
+        ['reach' => ['lockPackages' => ['phpunit/phpunit', 'nikic/php-parser']]],
+        ['reach' => ['lockPackages' => ['pestphp/*', 'phpunit/phpunit', 'nikic/php-parser']]],
+    ],
     'a report repeats only when it is the same report' => [
         ['reports' => [['use' => 'sarif', 'path' => 'a']]],
         ['reports' => [['use' => 'sarif', 'path' => 'a'], ['use' => 'sarif', 'path' => 'b']]],

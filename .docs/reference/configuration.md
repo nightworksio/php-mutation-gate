@@ -161,6 +161,7 @@ options.
 | `baseline.improvement` | `require` or `report` | `require` | [0003](../decisions/0003-a-floor-only-rises.md) |
 | `packages` | list of globs | `[]` | [0005](../decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `reach.everything` | list of globs, from the repository's root | `[]`, plus the preset's | [0005](../decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
+| `reach.lockPackages` | list of Composer package names, `vendor/name`, where `*` stands for any run of characters within either part: a change to a `composer.lock` decides how the gate runs only where it moved one of these, or a key besides the package lists | none: every package decides | [0030](../decisions/0030-a-lock-file-decides-by-the-packages-it-moved.md) |
 | `holds.hotPath` | number, 0 to 1 | `0.8` | [0005](../decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `run.full` | boolean: a run given neither `--full` nor `--changed-since` considers every unit, rather than what changed since `last-passed` | `false` | [0005](../decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `shards.seconds` | integer | `600` | [0006](../decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
@@ -203,7 +204,7 @@ options.
 | `timeouts.most` | integer, at least `timeouts.seconds`: the most a mutant's run is allowed; unpatched Infection skips a mutant whose covering tests take as long | `300` | [0008](../decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `timeouts.tighter.mutators` | list of mutators by their short names, the last part of the name a runner gives a mutator, after its last `\` or `/`: `RemoveArrayItem` matches Pest's `Pest\Mutate\Mutators\Removal\RemoveArrayItem` and the default set's `default/RemoveArrayItem`. A mutant of a listed mutator has its silence limit kept above `timeouts.tighter.floor` instead of `timeouts.seconds` | `RemoveArrayItem`, `DecrementInteger`, `IncrementInteger`, `ForeachEmptyIterable`, `UnwrapArrayValues`, `InstanceOfToTrue`, `InstanceOfToFalse`, `TernaryNegated`, and Infection's `ArrayItemRemoval`, `Foreach_`, `InstanceOf_` and `Ternary` | [0008](../decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
 | `timeouts.tighter.floor` | integer, at least 1: the floor of the silence limit of a mutant of a mutator `timeouts.tighter.mutators` lists, where it is under `timeouts.seconds`; its whole-run limit keeps `timeouts.seconds` | `7` | [0008](../decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
-| `flaky.confirmSurvivors` | boolean | `true` | [0008](../decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md) |
+| `flaky.confirmSurvivors` | boolean: run each survivor once more, alone, and report one killed then as flaky. A suite whose CI runs each test file alone may turn it off | `true` | [0008](../decisions/0008-a-run-spends-its-time-on-the-riskiest-code-first.md), [0034](../decisions/0034-a-suite-whose-test-files-pass-alone-need-not-confirm-survivors.md) |
 | `tests.order` | `killers-first` or `runner` | `killers-first` | [0013](../decisions/0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md) |
 | `tests.suites` | list of `<testsuite>` names of the PHPUnit config, at least one: the suites whose tests judge | every suite | [0002](../decisions/0002-one-typed-config-from-several-formats.md) |
 | `tests.holding` | list of `<testsuite>` names, at least one and none in `tests.suites`: the suites whose tests judge only the units they hold with `#[Holds]` or a `holds:` group, adding to their judges | none | [0002](../decisions/0002-one-typed-config-from-several-formats.md), [0005](../decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
@@ -239,3 +240,16 @@ In a `composer.json`, under `extra.mutation-gate`:
 | `floorReason` | string | none; required when `floor` is 0 | [0005](../decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `newCodeFloor` | number, 0 to 100 | `newCode.floor` | [0005](../decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `securityFloor` | number, 0 to 100, in a package's `composer.json` only | `security.floor` | [0021](../decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md) |
+
+## In the reusable workflow's call
+
+The reusable workflow takes the action's inputs less `shard`, which the
+[GitHub Actions guide](../guide/ci/github-actions.md) lists, and two of its own:
+
+| Input | Type | Default | Decided in |
+|-------|------|---------|------------|
+| `coverage` | the name of an artifact of the run that holds `map.json.gz` | none: the plan runs the suite under coverage | [0006](../decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
+| `runs-on` | the runner every job runs on: a label, or a JSON list of labels a runner must all have | `ubuntu-latest` | [0035](../decisions/0035-the-reusable-workflow-runs-on-the-runner-its-caller-names.md) |
+
+The one-step action runs on the runner of the job that uses it, so that job's
+`runs-on` sets it.

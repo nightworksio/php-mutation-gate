@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
+use NightWorksIO\MutationGate\Core\Composer\DecidingPackages;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Glob;
@@ -20,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Verdict\ChangeReach;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\Locks;
 
 /** The files on disk: src/Equals.php declares Equals, and nothing but these files names anything. */
 const REACH_EQUALS = "<?php\nnamespace App;\n\nfinal class Equals\n{\n    public static function of(): self\n    {\n        return new self();\n    }\n}\n";
@@ -59,6 +61,7 @@ function reachRoles(): FileRoles
         Layout::standard(Paths::of(Path::of('tests/Pest.php')))->decidedAlsoBy(Glob::of('config/**')),
         Packages::of(Flows::trees()),
         Paths::of(Path::of('src/helpers.php')),
+        DecidingPackages::every(),
     );
 }
 
@@ -253,3 +256,28 @@ it('follows a PHP file that only declares by what it declares, not by the words 
 
     expect($reach->reaches(Path::of('src/Money.php'), Paths::none()))->toBeFalse();
 });
+
+it('reaches every kill where the lock moved a package that decides, and follows it by name where it moved only others', function (string $console, string $pest, bool $everything): void {
+    $path = Path::of('composer.lock');
+    $then = Locks::of(['symfony/console' => '8.1.7', 'pestphp/pest' => '5.2.1']);
+    $now = Locks::of(['symfony/console' => $console, 'pestphp/pest' => $pest]);
+    $roles = FileRoles::of(
+        Layout::standard(Paths::none()),
+        Packages::of(Flows::trees()),
+        Paths::none(),
+        DecidingPackages::named(Glob::of('pestphp/*')),
+    );
+    $reach = ChangeReach::of(
+        Changes::of(Change::modified($path, Lines::none())),
+        ByPath::none()->with($path, $then),
+        ByPath::none()->with($path, $now),
+        NamedFiles::read(['src/Tax.php' => PhpFile::read(Contents::of("<?php\nnamespace App;\n\nfinal class Tax\n{\n}\n"))]),
+        $roles,
+    );
+
+    expect($reach->reaches(Path::of('src/Tax.php'), Paths::none()))->toBe($everything)
+        ->and(count($reach->everything()))->toBe($everything ? 1 : 0);
+})->with([
+    'only the console' => ['8.1.9', '5.2.1', false],
+    'pest' => ['8.1.7', '5.2.2', true],
+]);

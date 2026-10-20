@@ -43,14 +43,33 @@
     "baseline": {
         "improvement": "report"
     },
+    "reach": {
+        "lockPackages": [
+            "brianium/paratest",
+            "ergebnis/phpstan-rules",
+            "nikic/php-parser",
+            "pestphp/*",
+            "phpstan/*",
+            "phpunit/*",
+            "sebastian/*",
+            "shipmonk/phpstan-rules",
+            "spaze/phpstan-disallowed-calls",
+            "staabm/side-effects-detector",
+            "symfony/process",
+            "tomasvotruba/*"
+        ]
+    },
     "pest": {
         "patch": true
     },
     "shards": {
-        "max": 40
+        "max": 20
     },
     "timeouts": {
         "seconds": 30
+    },
+    "flaky": {
+        "confirmSurvivors": false
     },
     "tests": {
         "suites": ["Unit", "Plugins"],

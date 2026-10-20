@@ -22,7 +22,9 @@ name: mutation-gate
 #
 # A calling job grants what its called jobs ask for, or the run does not
 # start: contents: write (publish, which runs on the default branch only),
-# actions: read and pull-requests: write (the deliver jobs).
+# actions: read and pull-requests: write (the deliver jobs). It passes each
+# secret declared below under its own name, read from its own secrets by that
+# name; the values stay in the two environments.
 
 on:
   workflow_call:
@@ -59,6 +61,56 @@ on:
         description: Keep the proof ledger in the Actions cache.
         type: boolean
         default: true
+      coverage:
+        description: >-
+          An artifact of this run that holds map.json.gz, the map `mutation-gate coverage --into` wrote in the job
+          that ran the suite under coverage; where empty, the plan runs the suite under coverage itself.
+        type: string
+        default: ''
+      runs-on:
+        description: >-
+          The runner every job runs on: a label, such as ubuntu-24.04-arm, or a JSON list of labels a runner must
+          all have, such as ["self-hosted", "linux"].
+        type: string
+        default: ubuntu-latest
+    # A called job reads an environment's secret only under a name its caller
+    # passes (ADR-0029), so each is declared here and passed by name. The
+    # value comes from the environment the reading job enters, which wins over
+    # what the caller passes. Only fetch and deliver read any of them.
+    secrets:
+      MUTATION_GATE_READ_AWS_ACCESS_KEY_ID:
+        description: The key that reads the default branch's ledger, from the environment mutation-gate-read.
+        required: false
+      MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY:
+        description: The secret of that key, from the environment mutation-gate-read.
+        required: false
+      AWS_ACCESS_KEY_ID:
+        description: The key that writes the default branch's ledger, from the environment mutation-gate-store.
+        required: false
+      AWS_SECRET_ACCESS_KEY:
+        description: The secret of that key, from the environment mutation-gate-store.
+        required: false
+      AWS_SESSION_TOKEN:
+        description: The session token of a temporary key, from the environment mutation-gate-store.
+        required: false
+      MUTATION_GATE_SLACK_URL:
+        description: The Slack webhook alerts go to, from the environment mutation-gate-store.
+        required: false
+      MUTATION_GATE_DISCORD_URL:
+        description: The Discord webhook alerts go to, from the environment mutation-gate-store.
+        required: false
+      MUTATION_GATE_WEBHOOK_URL:
+        description: The webhook alerts go to, from the environment mutation-gate-store.
+        required: false
+      MUTATION_GATE_WEBHOOK_SECRET:
+        description: The secret that signs what the webhook receives, from the environment mutation-gate-store.
+        required: false
+      OTEL_EXPORTER_OTLP_ENDPOINT:
+        description: Where the trace is exported, from the environment mutation-gate-store.
+        required: false
+      OTEL_EXPORTER_OTLP_HEADERS:
+        description: The headers the trace is exported with, from the environment mutation-gate-store.
+        required: false
     outputs:
       verdict:
         description: passed, failed or cannot-judge.
@@ -86,6 +138,9 @@ env:
   # Where a run of the project's code leaves what deliver sends, a directory
   # for each command that leaves some: planned, survivors and verdict.
   DELIVERY: .mutation-gate/delivery
+  # Where the plan finds the map another job of the run handed over, under the
+  # `coverage` input.
+  HANDED: .mutation-gate/handed
 
 jobs:
   # The default branch's ledger, read where the store needs credentials, which
@@ -100,7 +155,7 @@ jobs:
     environment:
       name: mutation-gate-read
       deployment: false
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: 10
     # id-token: write lets a store that signs in through GitHub's OIDC, Azure's
     # or GCS's, ask for this job's token, which GitHub hands only to a job
@@ -165,7 +220,7 @@ jobs:
     name: plan
     needs: fetch
     if: ${{ !cancelled() && needs.fetch.result != 'cancelled' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: 60
     # The comment's planned state goes to deliver-plan.
     permissions:
@@ -251,14 +306,25 @@ jobs:
           pattern: mutation-gate-fetched
           path: ${{ env.LEDGERS }}
           merge-multiple: true
+      # The map the job that ran the suite under coverage wrote, so the plan
+      # runs no suite of its own (ADR-0006, decision 1).
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: inputs.coverage != ''
+        with:
+          name: ${{ inputs.coverage }}
+          path: ${{ env.HANDED }}
       - name: Plan
         id: plan
         env:
           GATE: ${{ steps.resolve.outputs.gate }}
           OPTIONS: ${{ steps.resolve.outputs.plan_options }}
+          COVERAGE: ${{ inputs.coverage }}
         run: |
           set -euo pipefail
           mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
+          if [ -n "${COVERAGE}" ]; then
+            arguments+=("--coverage=${HANDED}")
+          fi
           "${GATE}" plan --ci=github --deliver-later "${arguments[@]}"
       - name: Say whether the plan left a delivery
         id: delivery
@@ -304,7 +370,7 @@ jobs:
     name: deliver plan
     needs: plan
     if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.delivery == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: 10
     permissions:
       contents: read
@@ -336,7 +402,7 @@ jobs:
     name: shard ${{ matrix.shard.id }} (${{ matrix.shard.label }})
     needs: plan
     if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.shards != '[]' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: 360
     permissions:
       contents: read
@@ -408,7 +474,7 @@ jobs:
     name: survivors
     needs: plan
     if: ${{ !cancelled() && needs.plan.result == 'success' && github.event_name == 'pull_request' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: 30
     permissions:
       contents: read
@@ -528,7 +594,7 @@ jobs:
     name: deliver survivors
     needs: survivors
     if: ${{ !cancelled() && needs.survivors.result == 'success' && needs.survivors.outputs.delivery == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: 10
     permissions:
       contents: read
@@ -564,7 +630,7 @@ jobs:
     name: verdict
     needs: [plan, shard, survivors]
     if: ${{ !cancelled() && needs.plan.result != 'skipped' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: 30
     permissions:
       contents: read
@@ -789,7 +855,7 @@ jobs:
       deployment: false
     needs: verdict
     if: ${{ !cancelled() && contains(fromJSON('["success","failure"]'), needs.verdict.result) && needs.verdict.outputs.delivery == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: 15
     # id-token: write, as fetch has it, for a store that signs in through
     # GitHub's OIDC.
@@ -860,7 +926,7 @@ jobs:
     if: >-
       ${{ !cancelled() && needs.plan.result == 'success' && contains(fromJSON('["success","failure"]'), needs.verdict.result) && needs.verdict.outputs.verdict != ''
       && (contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event_name) && (github.event.repository.default_branch || vars.MUTATION_GATE_DEFAULT_BRANCH) != '' && github.ref == format('refs/heads/{0}', (github.event.repository.default_branch || vars.MUTATION_GATE_DEFAULT_BRANCH))) }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: 10
     permissions:
       contents: write

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_push;
-use function array_values;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
@@ -65,9 +64,9 @@ final readonly class Since
     private function reach(Revision $commit, NamedFiles $graph, FileRoles $roles): ChangeReach|CannotTell
     {
         $changes = $this->adapters->changes->changesFrom($commit);
-        $php = $changes instanceof Changes ? $this->phpOf($changes) : Paths::none();
-        $before = $this->adapters->changes->filesAt($php, $commit);
-        $now = $this->adapters->changes->filesAt($php, Revision::workingTree());
+        $read = $changes instanceof Changes ? $this->readOf($changes, $roles) : Paths::none();
+        $before = $this->adapters->changes->filesAt($read, $commit);
+        $now = $this->adapters->changes->filesAt($read, Revision::workingTree());
 
         return match (true) {
             $changes instanceof CannotTell => $changes,
@@ -111,7 +110,12 @@ final readonly class Since
             $loaded instanceof CannotJudge => $loaded,
             default => [
                 $named,
-                FileRoles::of(Reached::layout($this->adapters, $this->settings, $suite), Packages::of($trees), $loaded),
+                FileRoles::of(
+                    Reached::layout($this->adapters, $this->settings, $suite),
+                    Packages::of($trees),
+                    $loaded,
+                    $this->settings->reach()->lockPackages(),
+                ),
             ],
         };
     }
@@ -144,19 +148,19 @@ final readonly class Since
         return Paths::of(...$loaded);
     }
 
-    /** Every PHP file a change touched, as it is named now and as it was named before a rename. */
-    private function phpOf(Changes $changes): Paths
+    /** Each PHP file and each package's lock these changes touch, as it is and as it was: the files read both ways. */
+    private function readOf(Changes $changes, FileRoles $roles): Paths
     {
-        $php = [];
+        $read = [];
 
         foreach ($changes as $change) {
             foreach ([$change->previousPath(), $change->path()] as $path) {
-                if ($path->isPhp()) {
-                    $php[$path->value()] = $path;
+                if ($path->isPhp() || $roles->isLock($path)) {
+                    $read[] = $path;
                 }
             }
         }
 
-        return Paths::of(...array_values($php));
+        return Paths::of(...$read);
     }
 }

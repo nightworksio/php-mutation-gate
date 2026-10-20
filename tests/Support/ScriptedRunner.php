@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\Control\ControlRuns;
 use NightWorksIO\MutationGate\Core\Control\Controls;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Markers;
@@ -40,6 +41,7 @@ use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 use NightWorksIO\MutationGate\Core\Test\Suites;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
@@ -121,6 +123,15 @@ final class ScriptedRunner implements Runner
     public static function fixture(): self
     {
         $fake = RunnerFake::ofTheFixture();
+        $identity = $fake->identity(Withheld::nothing());
+
+        return new self($fake, $identity, $fake, MutantStatus::Survived, $fake, $fake, $fake);
+    }
+
+    /** The fixture's runner, whose library also holds a mutant this test kills on this line of this file. */
+    public static function fixtureKillingAlso(Path $file, Line $line, TestId $killer): self
+    {
+        $fake = RunnerFake::ofTheFixture()->killingAlso($file, $line, $killer, Seconds::of(0.2));
         $identity = $fake->identity(Withheld::nothing());
 
         return new self($fake, $identity, $fake, MutantStatus::Survived, $fake, $fake, $fake);
@@ -473,9 +484,19 @@ final class ScriptedRunner implements Runner
     {
         $this->controlled[] = [$controls, $request];
 
-        return $this->controlling instanceof RunnerFake
-            ? $this->controlling->controls($request, $controls)
-            : $this->controlling;
+        if (! $this->controlling instanceof ControlRuns) {
+            return $this->controlling instanceof RunnerFake
+                ? $this->controlling->controls($request, $controls)
+                : $this->controlling;
+        }
+
+        $found = ControlRuns::none();
+
+        foreach ($controls as $control) {
+            $found = $found->with($control, $this->controlling->of($control));
+        }
+
+        return $found;
     }
 
     public function retry(MutationRequest $request, Mutants $mutants, Seconds $limit): Mutants|CannotJudge

@@ -25,12 +25,15 @@ afterEach(function (): void {
 /**
  * Whether a process has ended: no longer listed, or listed only as a zombie
  * its new parent has yet to reap. It asks the process table again for up to
- * two hundred times, which gives the system time to reap it without the test
+ * ten seconds, a third of what the process left under the stopped child
+ * would live, which gives a loaded system time to reap it without the test
  * sleeping.
  */
 function workerIsGone(int $process): bool
 {
-    for ($asked = 0; $asked < 200; $asked++) {
+    $until = hrtime(as_number: true) + 10_000_000_000;
+
+    while (hrtime(as_number: true) < $until) {
         $listed = [];
         exec(sprintf('ps -o stat= -p %d', $process), $listed);
         $state = trim(implode('', $listed));

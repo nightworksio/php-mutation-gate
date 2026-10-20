@@ -126,6 +126,8 @@ The same repository has two more needs.
       - each package's `composer.lock` and `vendor/composer/installed.json`:
         a dependency that moves changes what every mutant runs against, and
         no coverage map shows it;
+        ADR-0030 narrows the lock: where `reach.lockPackages` is set, a
+        change to it decides only where it moved a package that setting names;
       - each file the gate's config file reads beside itself, as the loader
         of its format finds it from its code without running it. In a
         `mutation-gate.php`, a `require` or `include` of a literal path, or
@@ -515,3 +517,4 @@ covers it, instead of timeouts.
 - [ADR-0006](0006-shards-are-cut-by-learned-cost-and-planned-once.md): held units in shards
 - [ADR-0007](0007-a-proof-is-keyed-by-everything-its-verdict-reads.md): the ledger, `last-passed` and what reach does not cover
 - [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): the paths presets add to rule 1
+- [ADR-0030](0030-a-lock-file-decides-by-the-packages-it-moved.md): the lock file, which decides by the packages it moved

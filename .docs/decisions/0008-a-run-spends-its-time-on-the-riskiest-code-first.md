@@ -117,7 +117,8 @@ presets for Laravel, Symfony and plain libraries.
        kill: one to a file that decides how the gate runs (ADR-0005,
        decision 4, rule 1, which names the runner's definitions, each
        package's `composer.json`, the gate's config, and what the presets and
-       `reach.everything` name), or to a package's `composer.lock`; and one
+       `reach.everything` name), or to a package's `composer.lock`, which
+       ADR-0030 narrows to a move of a package `reach.lockPackages` names; and one
        to a file any `composer.json` of the repository lists under `files` in
        its `autoload` or `autoload-dev`, which Composer's autoloader loads in
        every process, whatever names it.
@@ -312,7 +313,8 @@ presets for Laravel, Symfony and plain libraries.
      Pest the survivors run again in one run of their files with their
      mutators, each still in a process of its own, so Pest's opening run is
      paid once rather than once for each file and mutator.
-     `flaky.confirmSurvivors` is a boolean, `true` by default. A mutant
+     `flaky.confirmSurvivors` is a boolean, `true` by default; ADR-0034 says
+     when a project may turn it off. A mutant
      judged by reference (ADR-0004, decision 8) is run again through those
      same steps, against its judging tests. The confirming run takes the
      runner's own test order, whatever `tests.order` says, and a survivor
@@ -471,7 +473,7 @@ presets for Laravel, Symfony and plain libraries.
      checked once, so the check after the shard's last chunk takes up only
      the survivors no chunk's check did. A shard that finds none runs every
      unit, at the cost of one runner opening per chunk. One code path serves
-     every runner.
+     every runner. ADR-0032 grows the chunk to about fifteen minutes.
    - **What it leaves.** The shard's result names the survivor under
      `doomed`, with these fields:
      - `unit`: the unit's path;
@@ -552,3 +554,6 @@ warnings say where holding groups would save time.
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): the order survivor confirmation and `triage` use, and ignores a proof makes redundant
 - [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): Infection's ignores converted by `init --from`
 - [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): native markers as an adoption bridge
+- [ADR-0030](0030-a-lock-file-decides-by-the-packages-it-moved.md): the lock file, which decides by the packages it moved
+- [ADR-0032](0032-a-pull-requests-shard-stops-in-chunks-of-fifteen-minutes.md): the chunk, which grows to fifteen minutes
+- [ADR-0034](0034-a-suite-whose-test-files-pass-alone-need-not-confirm-survivors.md): survivor confirmation, which a suite whose test files pass alone may turn off

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Hold;
 
 use function array_any;
+use function array_key_exists;
+use function array_key_first;
 
 use ArrayIterator;
 
@@ -14,6 +16,7 @@ use Countable;
 use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\CoveredLine;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -78,13 +81,36 @@ final readonly class Additions implements Countable, IteratorAggregate
      */
     public function unrunIn(CoverageMap $map): CannotJudge|NotGiven
     {
-        foreach ($this->additions as $addition) {
-            if (! $this->runs($addition, $map)) {
-                return CannotJudge::because(sprintf(self::UNRUN, $addition->written(), $addition->path()->value()));
+        $unrun = $this->additions;
+        $holding = [];
+
+        foreach ($map->lines() as $line) {
+            $file = $line->file()->value();
+
+            if (! array_key_exists($file, $holding)) {
+                $holding[$file] = $this->indicesOn($line->file());
             }
+
+            $unrun = $this->unrunAfter($unrun, $holding[$file], $line);
         }
 
-        return NotGiven::value();
+        $first = array_key_first($unrun);
+
+        return $first === null
+            ? NotGiven::value()
+            : CannotJudge::because(sprintf(self::UNRUN, $unrun[$first]->written(), $unrun[$first]->path()->value()));
+    }
+
+    /** Those of them that hold a file. */
+    public function on(Path $file): self
+    {
+        $on = [];
+
+        foreach ($this->indicesOn($file) as $at) {
+            $on[] = $this->additions[$at];
+        }
+
+        return new self($on);
     }
 
     public function count(): int
@@ -104,13 +130,42 @@ final readonly class Additions implements Countable, IteratorAggregate
         return array_any($this->additions, static fn(Addition $addition): bool => $addition->adds($test, $file));
     }
 
-    private function runs(Addition $addition, CoverageMap $map): bool
+    /** @return list<int> the place of each of them that holds a file */
+    private function indicesOn(Path $file): array
     {
-        foreach ($map->lines() as $line) {
-            foreach ($line as $test) {
-                if ($addition->adds(TestId::of($test), $line->file())) {
-                    return true;
-                }
+        $at = [];
+
+        foreach ($this->additions as $index => $addition) {
+            if ($file->within($addition->path())) {
+                $at[] = $index;
+            }
+        }
+
+        return $at;
+    }
+
+    /**
+     * @param  array<int, Addition> $unrun   the holds no line has been found run for yet, by their place
+     * @param  list<int>            $holding the places of the holds that hold the line's file
+     * @return array<int, Addition> those of them this line does not run either
+     */
+    private function unrunAfter(array $unrun, array $holding, CoveredLine $line): array
+    {
+        foreach ($holding as $at) {
+            if (array_key_exists($at, $unrun) && $this->runsOn($unrun[$at], $line)) {
+                unset($unrun[$at]);
+            }
+        }
+
+        return $unrun;
+    }
+
+    /** Whether one of a hold's tests runs a line, of a file it holds. */
+    private function runsOn(Addition $addition, CoveredLine $line): bool
+    {
+        foreach ($line as $test) {
+            if ($addition->adds(TestId::of($test), $line->file())) {
+                return true;
             }
         }
 

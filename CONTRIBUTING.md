@@ -68,9 +68,9 @@ Leave these to CI:
 - `runner contracts`, because each of its legs installs a fixture library at
   one end of a supported range first. On a pull request, a runner's legs run
   only where its adapter, its fixture or what every runner shares changed;
-  `warm workers` runs only where the PHPUnit runner, its worker or what every
-  runner shares changed (`.github/scripts/scope.py`). Every leg runs on `main`
-  and every night;
+  `end-to-end / warm workers` runs only where the PHPUnit runner, its worker
+  or what every runner shares changed (`.github/scripts/scope.py`). Every leg
+  runs on `main` and every night;
 - `sonarcloud` and `gate`, which ask SonarCloud;
 - `analyze`, CodeQL's analysis of the workflows.
 

@@ -144,3 +144,18 @@ it('keeps only the timings one gate measured, and smooths a measurement only ove
         ->and($byUnit($held->measuredBy(GateRelease::spelt('gate 3'))))->toBe([])
         ->and($byUnit($newer->smoothedOver($held)))->toBe(['src/A.php' => 19.0, 'src/B.php' => 20.0]);
 });
+
+it('keeps the timings any build of a branch measured for another, and smooths over them, but never over a release\'s', function () use ($timing): void {
+    $held = Timings::of(
+        $timing('src/A.php', 10.0)->measuredBy(GateRelease::spelt('dev-7fe21685 7fe21685')),
+        $timing('src/B.php', 10.0)->measuredBy(GateRelease::spelt('v1.2.0')),
+    );
+    $newer = Timings::of(
+        $timing('src/A.php', 20.0, '2026-09-30T20:00:00Z')->measuredBy(GateRelease::spelt('dev-main 6cb0bffc')),
+        $timing('src/B.php', 20.0, '2026-09-30T20:00:00Z')->measuredBy(GateRelease::spelt('2.x-dev 6cb0bffc')),
+    );
+    $seconds = static fn(Timings $timings): array => array_map(static fn(Timing $timing): float => $timing->seconds()->seconds(), [...$timings]);
+
+    expect($seconds($held->measuredBy(GateRelease::spelt('dev-main 6cb0bffc'))))->toBe([10.0])
+        ->and($seconds($newer->smoothedOver($held)))->toBe([19.0, 20.0]);
+});

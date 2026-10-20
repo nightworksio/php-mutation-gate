@@ -134,10 +134,54 @@ jobs:
       id-token: write        # used only by fetch and deliver, for a store that signs in through OIDC
     with:
       php-version: '8.5'
+    secrets:
+      MUTATION_GATE_READ_AWS_ACCESS_KEY_ID: ${{ secrets.MUTATION_GATE_READ_AWS_ACCESS_KEY_ID }}
+      MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY: ${{ secrets.MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
 ```
 
-It takes the action's inputs less `shard`. Its outputs are `verdict`, `scores`
-and `plan`, and it uploads the reports as the artifact `mutation-gate-reports`.
+It takes the action's inputs less `shard`, and two of its own, `coverage` and
+`runs-on`. Its outputs are `verdict`, `scores` and `plan`, and it uploads the
+reports as the artifact `mutation-gate-reports`.
+
+Every job runs on `ubuntu-latest` unless `runs-on` names another runner: a
+label, such as `runs-on: ubuntu-24.04-arm`, or a JSON list of labels a runner
+must all have, such as `runs-on: '["self-hosted", "linux"]'`. All the jobs run
+on it, because a proof's key holds the machine's architecture. Changing the
+architecture makes the next run carry no proofs. The one-step action runs on
+its own job's `runs-on`.
+
+By default the `plan` job runs the suite under coverage itself. Where a job of
+yours runs it under coverage already, it can hand its map over instead, so the
+suite runs once: add `--coverage-php=<dir>/coverage.php` to that run, then run
+`vendor/bin/mutation-gate coverage --from=<dir> --into=<map dir>` in the same
+job, upload `<map dir>/map.json.gz` as an artifact, and name that artifact in
+`coverage`. The calling job then `needs` that job. The gate reads the runner's
+report only in the job that wrote it, since reading one can run code; the map
+it hands over is the gate's own JSON.
+
+Pest's `--coverage`, which `--min` needs, writes its PHP report to a path of
+its own, `Pest\Support\Coverage::getPath()`, in place of yours, and deletes it
+once it has printed its summary. To keep it, create `<dir>/coverage.php` empty
+before the run and hard-link Pest's path to it, as this package's own CI does:
+
+```bash
+report=$(php -r 'require "vendor/autoload.php"; echo \Pest\Support\Coverage::getPath();')
+mkdir -p <dir> "$(dirname "${report}")"
+: > <dir>/coverage.php
+ln -f <dir>/coverage.php "${report}"
+vendor/bin/pest --coverage --min=100
+```
+
+A called workflow's job reads an environment's secret only under a name its
+caller passes. So the call passes each secret the store needs under its own
+name, as above, and never inherits them all, which would hand on every secret
+the repository holds. Each value comes from the environment of the one job that
+reads it, which wins over anything the caller passes, so these secrets stay in
+the environments below and never in the repository. The alerts and the trace
+are passed the same way, under the names listed in step 3.
 
 The `plan`, `shard` and `verdict` jobs run the project's own code, so they hold
 no secret and no token that can write. Whatever needs a credential runs in a

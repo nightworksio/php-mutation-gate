@@ -63,9 +63,12 @@ final readonly class Remeasured
 
         foreach ($map->tests() as $test) {
             $duration = $map->durationOf($test);
-            $timed = $duration instanceof Seconds && ! $leaving->has($test)
-                ? [...$timed, TimedTest::of($test->value(), $duration->seconds())]
-                : $timed;
+
+            if (! $duration instanceof Seconds || $leaving->has($test)) {
+                continue;
+            }
+
+            $timed[] = TimedTest::of($test->value(), $duration->seconds());
         }
 
         return $timed;

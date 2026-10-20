@@ -245,7 +245,8 @@ about Laravel, NativePHP or the project's modules, and does not.
    - **A reusable workflow, `.github/workflows/mutation-gate.yml`**, called with
      `workflow_call`, for sharded runs.
      - **Inputs** are the action's less `shard`, with the same types and
-       defaults.
+       defaults. ADR-0035 adds two of its own: `coverage`, the map another
+       job made, and `runs-on`, the runner every job runs on.
      - **Secrets** come from two environments, never from the caller, and
        reach only jobs that run none of the project's code (ADR-0007,
        decision 5). `mutation-gate-read`, with no branch policy, holds
@@ -260,6 +261,10 @@ about Laravel, NativePHP or the project's modules, and does not.
        `OTEL_EXPORTER_OTLP_HEADERS`, which alert and trace (ADR-0016), for
        `deliver` on a trusted run. The store's location comes from the
        repository variables `MUTATION_GATE_STORE` and `MUTATION_GATE_STORE_*`.
+       ADR-0029 supersedes "never from the caller": a caller passes each of
+       these by name, since a called job reads an environment's secret only
+       under a name its caller passes, and the values stay in the two
+       environments.
      - **Outputs** are `verdict`, `scores` and `plan`, as the action's. The
        reports are uploaded as the artifact `mutation-gate-reports`, and a
        baseline measured for trees with no floor as `mutation-gate-baseline`
@@ -413,6 +418,8 @@ points at the ADR that decides it.
 - [ADR-0019](0019-contributor-automation-runs-no-pull-request-content-where-it-can-write.md): the `pr` and `scripts` jobs, zizmor, the contributor bot, tag verification, and the OIDC roles
 - [ADR-0021](0021-mutators-are-written-once-and-first-party-sets-can-leave.md): the plugins' trees, and the mutator SDK as public API
 - [ADR-0022](0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md): the PHAR and the image, the `phar` job, and what a release publishes
+- [ADR-0029](0029-a-caller-passes-the-store-secrets-by-name.md): the reusable workflow's secrets, passed by name
+- [ADR-0035](0035-the-reusable-workflow-runs-on-the-runner-its-caller-names.md): the reusable workflow's own inputs, `coverage` and `runs-on`
 - [ADR-0023](0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md): the native PHPUnit runner
 - [ADR-0024](0024-the-gate-runs-and-comments-beyond-github-and-aggregates-an-organisation.md): the Composer plugin published from `plugins/composer`, and the `.pre-commit-hooks.yaml` ids
 - [ADR-0027](0027-codeception-phpspec-and-testo-get-native-runners.md): the Codeception, PhpSpec and Testo runners
