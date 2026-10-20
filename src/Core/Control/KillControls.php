@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Control;
 
 use function array_key_exists;
-use function array_values;
 use function count;
 
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -95,7 +94,7 @@ final readonly class KillControls implements ControlJudge
     /** The control of each file, every test that killed one of its mutants at once, each asked for once. */
     public function asked(): Controls
     {
-        return Controls::of(...array_values($this->files));
+        return Controls::of(...$this->files);
     }
 
     /**

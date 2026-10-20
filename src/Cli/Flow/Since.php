@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_push;
-use function array_values;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
@@ -157,11 +156,11 @@ final readonly class Since
         foreach ($changes as $change) {
             foreach ([$change->previousPath(), $change->path()] as $path) {
                 if ($path->isPhp() || $roles->isLock($path)) {
-                    $read[$path->value()] = $path;
+                    $read[] = $path;
                 }
             }
         }
 
-        return Paths::of(...array_values($read));
+        return Paths::of(...$read);
     }
 }
