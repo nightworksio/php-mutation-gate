@@ -61,8 +61,14 @@ final readonly class Version
     /** Whether Composer installed a release, whose version is a tag, rather than a branch: `dev-main` or `2.x-dev`. */
     public function isRelease(): bool
     {
-        return $this->version !== ''
-            && ! str_starts_with($this->version, self::DEV)
-            && ! str_ends_with($this->version, self::BRANCH);
+        return self::namesRelease($this->version);
+    }
+
+    /** Whether a version as Composer names it is a release's tag, rather than a branch: `dev-main` or `2.x-dev`. */
+    public static function namesRelease(string $version): bool
+    {
+        return $version !== ''
+            && ! str_starts_with($version, self::DEV)
+            && ! str_ends_with($version, self::BRANCH);
     }
 }

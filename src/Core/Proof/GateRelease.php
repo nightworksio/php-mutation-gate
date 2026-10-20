@@ -7,7 +7,6 @@ namespace NightWorksIO\MutationGate\Core\Proof;
 use function explode;
 
 use NightWorksIO\MutationGate\Core\Runner\Version;
-use NightWorksIO\MutationGate\Core\ThisPackage;
 
 /**
  * The release of the gate that measured something, as its version spells it:
@@ -71,6 +70,6 @@ final readonly class GateRelease
     private function isBranch(): bool
     {
         return $this->isRecorded()
-            && ! Version::of(ThisPackage::COMPOSER, explode(self::BETWEEN, $this->spelt)[0], '')->isRelease();
+            && ! Version::namesRelease(explode(self::BETWEEN, $this->spelt)[0]);
     }
 }
