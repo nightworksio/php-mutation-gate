@@ -330,8 +330,17 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           coverage: pcov
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      # Pest's --coverage writes its PHP report to its own path and deletes it
+      # once it has printed the summary, so that path is linked to the one
+      # the gate's map is read from, which keeps the report.
       - id: suite
-        run: composer test:report -- --coverage-php=.mutation-gate/ran/coverage.php
+        run: |
+          set -euo pipefail
+          report=$(php -r 'require "vendor/autoload.php"; echo \Pest\Support\Coverage::getPath();')
+          mkdir -p .mutation-gate/ran "$(dirname "${report}")"
+          : > .mutation-gate/ran/coverage.php
+          ln -f .mutation-gate/ran/coverage.php "${report}"
+          composer test:report
       # The gate's own map, read from the PHP report in the job that wrote it,
       # since reading a runner's report can run code (ADR-0006, decision 1).
       - id: map

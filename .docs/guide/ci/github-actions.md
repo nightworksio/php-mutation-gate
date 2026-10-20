@@ -162,6 +162,19 @@ job, upload `<map dir>/map.json.gz` as an artifact, and name that artifact in
 report only in the job that wrote it, since reading one can run code; the map
 it hands over is the gate's own JSON.
 
+Pest's `--coverage`, which `--min` needs, writes its PHP report to a path of
+its own, `Pest\Support\Coverage::getPath()`, in place of yours, and deletes it
+once it has printed its summary. To keep it, create `<dir>/coverage.php` empty
+before the run and hard-link Pest's path to it, as this package's own CI does:
+
+```bash
+report=$(php -r 'require "vendor/autoload.php"; echo \Pest\Support\Coverage::getPath();')
+mkdir -p <dir> "$(dirname "${report}")"
+: > <dir>/coverage.php
+ln -f <dir>/coverage.php "${report}"
+vendor/bin/pest --coverage --min=100
+```
+
 A called workflow's job reads an environment's secret only under a name its
 caller passes. So the call passes each secret the store needs under its own
 name, as above, and never inherits them all, which would hand on every secret
