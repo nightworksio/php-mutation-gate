@@ -134,10 +134,24 @@ jobs:
       id-token: write        # used only by fetch and deliver, for a store that signs in through OIDC
     with:
       php-version: '8.5'
+    secrets:
+      MUTATION_GATE_READ_AWS_ACCESS_KEY_ID: ${{ secrets.MUTATION_GATE_READ_AWS_ACCESS_KEY_ID }}
+      MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY: ${{ secrets.MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
 ```
 
 It takes the action's inputs less `shard`. Its outputs are `verdict`, `scores`
 and `plan`, and it uploads the reports as the artifact `mutation-gate-reports`.
+
+A called workflow's job reads an environment's secret only under a name its
+caller passes. So the call passes each secret the store needs under its own
+name, as above, and never inherits them all, which would hand on every secret
+the repository holds. Each value comes from the environment of the one job that
+reads it, which wins over anything the caller passes, so these secrets stay in
+the environments below and never in the repository. The alerts and the trace
+are passed the same way, under the names listed in step 3.
 
 The `plan`, `shard` and `verdict` jobs run the project's own code, so they hold
 no secret and no token that can write. Whatever needs a credential runs in a

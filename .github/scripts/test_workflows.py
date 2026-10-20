@@ -217,6 +217,10 @@ RULE = re.compile(
 
 GUARDED = re.compile(r"^(?P<name>[A-Z_]+): \$\{\{ (?P<rule>.+) && secrets\.(?P=name) \|\| '' \}\}$")
 
+# A secret a caller passes to the reusable workflow: under its own name, read
+# from the caller's secrets by that name.
+PASSED = re.compile(r"^(?P<name>[A-Z_]+): \$\{\{ secrets\.(?P=name) \}\}$")
+
 ENTERED = re.compile(r"^name: \$\{\{ (?P<rule>.+) && 'mutation-gate-store' \|\| '' \}\}$")
 
 
@@ -228,6 +232,22 @@ def roots(expression: str) -> set[str]:
 def rule() -> str:
     """The rule the deliver job hands its first secret on by."""
     return GUARDED.match(next(line.strip() for line in job(WORKFLOW, "deliver") if "secrets." in line))["rule"]
+
+
+def declared_secrets() -> dict[str, list[str]]:
+    """Each secret the reusable workflow declares under workflow_call, with the lines under it."""
+    lines = lines_of(WORKFLOW)
+    called = block(lines, lines.index("  workflow_call:"))
+    under = block(called, called.index("    secrets:"))[1:]
+    names = [at for at, line in enumerate(under) if indent(line) == 6 and line.endswith(":")]
+    return {under[at].strip()[:-1]: block(under, at)[1:] for at in names}
+
+
+def passed_secrets(calling: str) -> list[str]:
+    """The lines under a call's `secrets:`, none where it passes none."""
+    lines = calling.splitlines()
+    at = next((at for at, line in enumerate(lines) if line.strip() == "secrets:"), None)
+    return [] if at is None else [line.strip() for line in block(lines, at)[1:] if line.strip()]
 
 
 def jobs(path: str) -> dict[str, list[str]]:
@@ -288,8 +308,12 @@ class Secrets(unittest.TestCase):
         self.assertEqual({rule()}, {ENTERED.match(line)["rule"] for line in entering})
         self.assertIn(entering[0], [line.strip() for line in job(WORKFLOW, "deliver")])
 
-    def test_a_caller_hands_the_workflow_no_secret(self):
-        self.assertNotIn("    secrets:", lines_of(WORKFLOW))
+    def test_the_workflow_declares_every_secret_its_jobs_read_and_requires_none(self):
+        read = set(re.findall(r"secrets\.([A-Z_]+)", "\n".join(lines_of(WORKFLOW))))
+        declared = declared_secrets()
+
+        self.assertEqual(read, set(declared))
+        self.assertEqual({"required: false"}, {line for lines in declared.values() for line in map(str.strip, lines) if line.startswith("required:")})
 
     def test_no_caller_or_example_hands_the_workflow_every_secret(self):
         others = ("vendor", "node_modules", ".git", ".mutation-gate")
@@ -304,13 +328,21 @@ class Secrets(unittest.TestCase):
         self.assertTrue(any(f"{os.sep}.docs{os.sep}" in path for path in scanned))
         self.assertEqual([], [path for path in scanned if "secrets: inherit" in "\n".join(lines_of(path))])
 
-    def test_the_guide_and_the_template_call_the_workflow_with_no_secrets(self):
+    def test_the_caller_the_guide_and_the_template_pass_each_secret_by_its_own_name_alone(self):
         guide = "\n".join(lines_of(os.path.join(ROOT, ".docs", "guide", "ci", "github-actions.md")))
         examples = [block for block in guide.split("```") if "/.github/workflows/mutation-gate.yml@" in block]
         template = "\n".join(lines_of(os.path.join(ROOT, "resources", "ci", "github", "sharded.yml")))
+        caller = "\n".join(job(os.path.join(ROOT, ".github", "workflows", "ci.yml"), "mutation"))
+        declared = set(declared_secrets())
 
         self.assertTrue(examples)
-        self.assertEqual([], [block for block in [*examples, template] if re.search(r"^\s*secrets:", block, re.M)])
+        for calling in [*examples, template, caller]:
+            with self.subTest(calling=calling[:60]):
+                passed = passed_secrets(calling)
+
+                self.assertTrue(passed)
+                self.assertEqual([], [line for line in passed if PASSED.match(line) is None])
+                self.assertLessEqual({PASSED.match(line)["name"] for line in passed}, declared)
 
     def test_a_run_with_no_default_branch_name_says_so(self):
         name = RULE.match(rule())["name"]

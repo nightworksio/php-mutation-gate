@@ -22,7 +22,9 @@ name: mutation-gate
 #
 # A calling job grants what its called jobs ask for, or the run does not
 # start: contents: write (publish, which runs on the default branch only),
-# actions: read and pull-requests: write (the deliver jobs).
+# actions: read and pull-requests: write (the deliver jobs). It passes each
+# secret declared below under its own name, read from its own secrets by that
+# name; the values stay in the two environments.
 
 on:
   workflow_call:
@@ -59,6 +61,44 @@ on:
         description: Keep the proof ledger in the Actions cache.
         type: boolean
         default: true
+    # A called job reads an environment's secret only under a name its caller
+    # passes (ADR-0029), so each is declared here and passed by name. The
+    # value comes from the environment the reading job enters, which wins over
+    # what the caller passes. Only fetch and deliver read any of them.
+    secrets:
+      MUTATION_GATE_READ_AWS_ACCESS_KEY_ID:
+        description: The key that reads the default branch's ledger, from the environment mutation-gate-read.
+        required: false
+      MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY:
+        description: The secret of that key, from the environment mutation-gate-read.
+        required: false
+      AWS_ACCESS_KEY_ID:
+        description: The key that writes the default branch's ledger, from the environment mutation-gate-store.
+        required: false
+      AWS_SECRET_ACCESS_KEY:
+        description: The secret of that key, from the environment mutation-gate-store.
+        required: false
+      AWS_SESSION_TOKEN:
+        description: The session token of a temporary key, from the environment mutation-gate-store.
+        required: false
+      MUTATION_GATE_SLACK_URL:
+        description: The Slack webhook alerts go to, from the environment mutation-gate-store.
+        required: false
+      MUTATION_GATE_DISCORD_URL:
+        description: The Discord webhook alerts go to, from the environment mutation-gate-store.
+        required: false
+      MUTATION_GATE_WEBHOOK_URL:
+        description: The webhook alerts go to, from the environment mutation-gate-store.
+        required: false
+      MUTATION_GATE_WEBHOOK_SECRET:
+        description: The secret that signs what the webhook receives, from the environment mutation-gate-store.
+        required: false
+      OTEL_EXPORTER_OTLP_ENDPOINT:
+        description: Where the trace is exported, from the environment mutation-gate-store.
+        required: false
+      OTEL_EXPORTER_OTLP_HEADERS:
+        description: The headers the trace is exported with, from the environment mutation-gate-store.
+        required: false
     outputs:
       verdict:
         description: passed, failed or cannot-judge.

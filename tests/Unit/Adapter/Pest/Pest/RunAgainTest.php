@@ -411,6 +411,17 @@ it('names the steps a patched run\'s time went to, each timed from when the run 
     ]);
 });
 
+it('counts the narrowed kills its confirmation runs again with every test file', function (): void {
+    $at = PestCases::project();
+    $result = new Pest($at, PestCases::narrowedKills($at), PestCases::canary(), new CapDirectory(), Triage::standard()->bounds())->mutate(PestCases::money());
+    $confirmed = $result instanceof MutationResult ? array_map(
+        static fn(StepTime $step): int => $step->count(),
+        array_values(array_filter([...$result->steps()], static fn(StepTime $step): bool => $step->step() === Step::Confirmation)),
+    ) : $result;
+
+    expect($confirmed)->toBe([2]);
+});
+
 it('leaves a narrowed kill unjudged where no time is left to run its files\' tests alone', function (): void {
     $at = PestCases::project();
     $shell = PestCases::narrowedKill($at, passAlone: true);

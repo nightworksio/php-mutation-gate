@@ -42,7 +42,10 @@ enum Step: string
     /** The runs of a narrowed kill's test files alone on the unmutated code, one for each set of files. */
     case Baselines = 'baselines';
 
-    /** The run again, with every test file, of the narrowed kills those files alone cannot vouch for. */
+    /**
+     * The run again, with every test file, of the narrowed kills those files
+     * alone cannot vouch for, counting those kills.
+     */
     case Confirmation = 'confirmation';
 
     /** Proving an invocation's survivors equivalent to their originals, before they run again (ADR-0013). */

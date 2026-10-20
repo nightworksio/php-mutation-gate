@@ -13,10 +13,12 @@ permissions:
   contents: read
 
 # A pull request pushed again cancels the run on its old head, which nobody will
-# read. Every other event is grouped by its own run, so it is never cancelled
-# and never cancels.
+# read, and a push to main cancels the run of the push before it: the newer run
+# judges everything the older one would have, from the last commit that passed.
+# A scheduled run is grouped by its own run, so it is never cancelled and never
+# cancels.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ contains(fromJSON('["pull_request","push"]'), github.event_name) && github.ref || github.run_id }}
   cancel-in-progress: true
 
 env:
@@ -840,7 +842,8 @@ jobs:
   # evidence (.github/gates.json). The permissions are what its jobs ask for,
   # and a called job gets only what it asks for itself: `contents: write` goes
   # only to the default-branch publish job, and `id-token: write` only to
-  # fetch and deliver.
+  # fetch and deliver. The store's keys are passed by name, and their values
+  # come from the environments fetch and deliver enter (ADR-0029).
   mutation:
     needs: scope
     if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
@@ -850,6 +853,11 @@ jobs:
       pull-requests: write
       id-token: write
     uses: ./.github/workflows/mutation-gate.yml # zizmor: ignore[self-repository]
+    secrets:
+      MUTATION_GATE_READ_AWS_ACCESS_KEY_ID: ${{ secrets.MUTATION_GATE_READ_AWS_ACCESS_KEY_ID }}
+      MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY: ${{ secrets.MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
   # SonarCloud, fed the reports `tests` wrote rather than running the suite a
   # second time. A pull request from a fork or from Dependabot is given no
