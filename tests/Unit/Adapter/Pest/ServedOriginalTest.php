@@ -35,10 +35,12 @@ it('serves a file unmutated as Pest prints its mutants, through Pest\'s override
     $served = ServedOriginal::of($at, sprintf('%s/run', $at->root()), Path::of('src/Money.php'));
 
     $environment = $served instanceof ServedOriginal ? $served->onto(Command::pest('pest', Withheld::standard()))->environment() : [];
+    $named = array_intersect_key($environment, ['PEST_MUTATION_TESTING' => true, 'PEST_MUTATION_FILE' => true]);
+    ksort($named);
 
-    expect(array_intersect_key($environment, ['PEST_MUTATION_TESTING' => true, 'PEST_MUTATION_FILE' => true]))->toBe([
-        'PEST_MUTATION_TESTING' => sprintf('%s/src/Money.php', $at->root()),
+    expect($named)->toBe([
         'PEST_MUTATION_FILE' => $copy,
+        'PEST_MUTATION_TESTING' => sprintf('%s/src/Money.php', $at->root()),
     ])
         ->and(file_get_contents($copy))->toBe($text)
         ->and($text)->not->toBe(file_get_contents(sprintf('%s/src/Money.php', $at->root())))
