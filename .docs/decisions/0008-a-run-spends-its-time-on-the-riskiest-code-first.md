@@ -313,7 +313,8 @@ presets for Laravel, Symfony and plain libraries.
      Pest the survivors run again in one run of their files with their
      mutators, each still in a process of its own, so Pest's opening run is
      paid once rather than once for each file and mutator.
-     `flaky.confirmSurvivors` is a boolean, `true` by default. A mutant
+     `flaky.confirmSurvivors` is a boolean, `true` by default; ADR-0034 says
+     when a project may turn it off. A mutant
      judged by reference (ADR-0004, decision 8) is run again through those
      same steps, against its judging tests. The confirming run takes the
      runner's own test order, whatever `tests.order` says, and a survivor
@@ -555,3 +556,4 @@ warnings say where holding groups would save time.
 - [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): native markers as an adoption bridge
 - [ADR-0030](0030-a-lock-file-decides-by-the-packages-it-moved.md): the lock file, which decides by the packages it moved
 - [ADR-0032](0032-a-pull-requests-shard-stops-in-chunks-of-fifteen-minutes.md): the chunk, which grows to fifteen minutes
+- [ADR-0034](0034-a-suite-whose-test-files-pass-alone-need-not-confirm-survivors.md): survivor confirmation, which a suite whose test files pass alone may turn off

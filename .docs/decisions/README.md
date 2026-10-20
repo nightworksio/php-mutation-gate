@@ -51,3 +51,4 @@ There is no separate requirements document, and there are no requirement IDs.
 | [0031](0031-builds-of-a-branch-learn-from-each-others-timings.md) | Builds of a branch learn from each other's timings | Accepted |
 | [0032](0032-a-pull-requests-shard-stops-in-chunks-of-fifteen-minutes.md) | A pull request's shard stops in chunks of about fifteen minutes | Accepted |
 | [0033](0033-a-files-kills-are-controlled-together-first.md) | A file's kills are controlled together first | Accepted |
+| [0034](0034-a-suite-whose-test-files-pass-alone-need-not-confirm-survivors.md) | A suite whose test files each pass alone need not confirm its survivors, and the gate's own does not | Accepted |

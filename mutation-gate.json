@@ -68,6 +68,9 @@
     "timeouts": {
         "seconds": 30
     },
+    "flaky": {
+        "confirmSurvivors": false
+    },
     "tests": {
         "suites": ["Unit", "Plugins"],
         "holding": ["Process", "Contract"]
