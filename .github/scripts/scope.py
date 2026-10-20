@@ -31,13 +31,15 @@ RUNNERS = ("pest", "infection-13", "infection-12", "phpunit", "analysers")
 # holds the rule tables the Guards suite reads, .docs/reference/ the config
 # reference and examples the config tests read, .docs/guide/ci/ the CI setups
 # the CI tests read, and the troubleshooting guide the slugs the Docs suite
-# reads. Under .github/, only ci.yml and the scripts it runs start a PHP gate.
+# reads. Under .github/, only ci.yml, the end-to-end workflow it calls and the
+# scripts they run start a PHP gate.
 CODE_DOCS = (
     "ARCHITECTURE.md",
     ".docs/reference/",
     ".docs/guide/ci/",
     ".docs/guide/troubleshooting.md",
     ".github/workflows/ci.yml",
+    ".github/workflows/end-to-end.yml",
     ".github/scripts/",
 )
 
@@ -98,6 +100,7 @@ WARM = (
     "bin/mutation-gate-worker",
     "tests/Contract/Runner/phpunit-fixture/",
     ".github/scripts/warm_measure.py",
+    ".github/workflows/end-to-end.yml",
 )
 
 

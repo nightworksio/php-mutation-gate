@@ -78,6 +78,7 @@ class Outputs(unittest.TestCase):
             "bin/mutation-gate-worker",
             "tests/Contract/Runner/phpunit-fixture/composer.lock",
             ".github/scripts/warm_measure.py",
+            ".github/workflows/end-to-end.yml",
         )
         for path in measured:
             self.assertEqual(scope.outputs("pull_request", [path])["warm"], "true", path)
