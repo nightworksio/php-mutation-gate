@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Doctor\Check;
 
-use DateTimeImmutable;
-
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Config\Expiry;
@@ -35,11 +33,12 @@ final readonly class IgnoresExpiring
     {
         $settings = $observed->settings();
         $run = $observed->run();
-        $now = $run instanceof DoctorRun ? $run->now() : $run;
 
-        if (! $settings instanceof Settings || ! $now instanceof DateTimeImmutable) {
+        if (! $settings instanceof Settings || ! $run instanceof DoctorRun) {
             return Findings::none();
         }
+
+        $now = $run->now();
 
         $found = [];
 
