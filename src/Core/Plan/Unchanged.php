@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Plan;
 
 use DateTimeImmutable;
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Config\Expiry;
 use NightWorksIO\MutationGate\Core\Config\Ignored;
@@ -75,7 +76,7 @@ final readonly class Unchanged
 
         foreach ($ignores as $ignore) {
             $expires = $ignore->expires();
-            $applied = ! $passed instanceof DateTimeImmutable || ! $expires instanceof Day
+            $applied = $passed instanceof CannotJudge || ! $expires instanceof Day
                 || Expiry::of($expires, $passed->setTimezone($now->getTimezone())) !== Expiry::Expired;
 
             if ($expires instanceof Day && $applied && Expiry::of($expires, $now) === Expiry::Expired) {

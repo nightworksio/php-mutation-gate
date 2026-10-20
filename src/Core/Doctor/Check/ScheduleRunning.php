@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Doctor\Check;
 
 use function count;
-
-use DateTimeImmutable;
-
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
@@ -50,10 +47,9 @@ final readonly class ScheduleRunning
     {
         $gitHub = $observed->asked()->gitHub();
         $run = $observed->run();
-        $now = $run instanceof DoctorRun ? $run->now() : $run;
 
-        return $gitHub instanceof GitHubSettings && $now instanceof DateTimeImmutable
-            ? self::scheduled($gitHub, Instant::at($now->modify(self::WITHIN)))
+        return $gitHub instanceof GitHubSettings && $run instanceof DoctorRun
+            ? self::scheduled($gitHub, Instant::at($run->now()->modify(self::WITHIN)))
             : Findings::none();
     }
 
