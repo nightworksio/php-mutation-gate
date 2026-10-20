@@ -70,3 +70,30 @@ it('names the first hold that runs no line of what it holds, though it runs line
         Add the test that runs it to the group, or remove the hold.
         SAID));
 });
+
+it('names the first hold in the order written that runs nothing, wherever in the map the others run', function (): void {
+    $map = CoverageMap::of(
+        CoveredLine::of(Path::of('src/Shell.php'), 2, 'ShellTest::starts'),
+        CoveredLine::of(Path::of('src/Git/Command.php'), 4, 'MoneyTest::adds'),
+    );
+    $unrunBoth = CoverageMap::of(CoveredLine::of(Path::of('src/Money.php'), 9, 'GitTest::runs', 'ShellTest::starts'));
+
+    expect(additionsOfGitAndShell()->unrunIn($map))->toEqual(CannotJudge::because(<<<'SAID'
+        holds:src/Git in the holding suites runs no line of src/Git, so it judges none of its mutants.
+        Add the test that runs it to the group, or remove the hold.
+        SAID))
+        ->and(additionsOfGitAndShell()->unrunIn($unrunBoth))->toEqual(CannotJudge::because(<<<'SAID'
+            holds:src/Git in the holding suites runs no line of src/Git, so it judges none of its mutants.
+            Add the test that runs it to the group, or remove the hold.
+            SAID));
+});
+
+it('keeps those of them that hold a file, in the order written', function (): void {
+    $additions = additionsOfGitAndShell()
+        ->with(Addition::of(Path::of('src'), TestIds::of(TestId::of('AppTest::boots')), 'holds:src'));
+    $written = static fn(Additions $on): array => array_map(static fn(Addition $addition): string => $addition->written(), [...$on]);
+
+    expect($written($additions->on(Path::of('src/Git/Command.php'))))->toBe(['holds:src/Git', 'holds:src'])
+        ->and($written($additions->on(Path::of('src/Shell.php'))))->toBe(['holds:src/Shell.php', 'holds:src'])
+        ->and($written($additions->on(Path::of('tests/ShellTest.php'))))->toBe([]);
+});

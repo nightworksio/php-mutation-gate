@@ -151,9 +151,16 @@ final readonly class SuiteCoverage
     {
         $lines = [];
         $onLines = [];
+        $holding = [];
 
         foreach ($map->lines() as $line) {
-            $staying = $this->staying($line, $leaving);
+            $file = $line->file()->value();
+
+            if (! array_key_exists($file, $holding)) {
+                $holding[$file] = $this->additions->on($line->file());
+            }
+
+            $staying = $this->staying($line, $leaving, $holding[$file]);
             $lines[] = CoveredLine::of($line->file(), $line->line(), ...$staying);
             $onLines += array_flip($staying);
         }
@@ -168,15 +175,18 @@ final readonly class SuiteCoverage
     }
 
     /** @return list<string> the tests of a line that stay: those not leaving, and those that hold what they run */
-    private function staying(CoveredLine $line, TestIds $leaving): array
+    private function staying(CoveredLine $line, TestIds $leaving, Additions $holding): array
     {
         $staying = [];
 
         foreach ($line as $test) {
             $id = TestId::of($test);
-            $staying = ! $leaving->has($id) || $this->additions->adds($id, $line->file())
-                ? [...$staying, $test]
-                : $staying;
+
+            if ($leaving->has($id) && ! $holding->adds($id, $line->file())) {
+                continue;
+            }
+
+            $staying[] = $test;
         }
 
         return $staying;
@@ -193,9 +203,12 @@ final readonly class SuiteCoverage
         foreach ($map->tests() as $test) {
             $duration = $map->durationOf($test);
             $stays = ! $leaving->has($test) || array_key_exists($test->value(), $onLines);
-            $timed = $stays && $duration instanceof Seconds
-                ? [...$timed, TimedTest::of($test->value(), $duration->seconds())]
-                : $timed;
+
+            if (! $stays || ! $duration instanceof Seconds) {
+                continue;
+            }
+
+            $timed[] = TimedTest::of($test->value(), $duration->seconds());
         }
 
         return $timed;
