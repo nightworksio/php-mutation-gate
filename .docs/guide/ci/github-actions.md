@@ -142,9 +142,16 @@ jobs:
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
 ```
 
-It takes the action's inputs less `shard`, and one of its own, `coverage`. Its
-outputs are `verdict`, `scores` and `plan`, and it uploads the reports as the
-artifact `mutation-gate-reports`.
+It takes the action's inputs less `shard`, and two of its own, `coverage` and
+`runs-on`. Its outputs are `verdict`, `scores` and `plan`, and it uploads the
+reports as the artifact `mutation-gate-reports`.
+
+Every job runs on `ubuntu-latest` unless `runs-on` names another runner: a
+label, such as `runs-on: ubuntu-24.04-arm`, or a JSON list of labels a runner
+must all have, such as `runs-on: '["self-hosted", "linux"]'`. All the jobs run
+on it, because a proof's key holds the machine's architecture. Changing the
+architecture makes the next run carry no proofs. The one-step action runs on
+its own job's `runs-on`.
 
 By default the `plan` job runs the suite under coverage itself. Where a job of
 yours runs it under coverage already, it can hand its map over instead, so the

@@ -1,13 +1,21 @@
 # The benchmark (ADR-0017, decisions 14 to 17): each pinned project, prepared
 # here and never changed upstream, run by every arm on one GitHub-hosted
 # machine, interleaved, three times; each arm's mutants reconciled per file
-# and status. On demand and monthly, never on pull requests.
+# and status. On demand and monthly, never on pull requests. On demand, the
+# runners suite instead times the gate's own shards on each runner its
+# reusable workflow's `runs-on` may name.
 name: bench
 
 on:
   schedule:
     - cron: "0 5 1 * *"
   workflow_dispatch:
+    inputs:
+      suite:
+        description: projects, the pinned projects; or runners, the gate's own shards on each runner.
+        type: choice
+        options: [projects, runners]
+        default: projects
 
 permissions: {}
 
@@ -26,6 +34,7 @@ jobs:
   # first two make the same mutants, so they are reconciled one by one.
   jwt:
     name: lcobucci/jwt
+    if: inputs.suite != 'runners'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -74,6 +83,7 @@ jobs:
   # its own CI tests against.
   pinkary:
     name: pinkary.com
+    if: inputs.suite != 'runners'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -127,6 +137,7 @@ jobs:
   # mutants under Pest pays it once, so it is the floor of a mutant's time.
   pest-start-up:
     name: Pest start-up
+    if: inputs.suite != 'runners'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -149,5 +160,105 @@ jobs:
         with:
           name: bench-pest-start-up
           path: bench/results/pest-start-up.json
+          if-no-files-found: error
+          retention-days: 90
+
+  # The gate's own full plan, cut as its CI cuts it, and three of its shards:
+  # the first, the middle and the last, which the runners job runs on each
+  # runner, so both run the same mutants with the same limits.
+  runners-plan:
+    name: runners / plan
+    if: inputs.suite == 'runners'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 60
+    outputs:
+      shards: ${{ steps.three.outputs.shards }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+      - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
+      - name: plan every mutant
+        run: php bin/mutation-gate plan --full
+      - name: take three shards
+        id: three
+        run: |
+          set -euo pipefail
+          echo "shards=$(jq -c '.shards | [.[0], .[length / 2 | floor], .[-1]] | map(.id) | unique' \
+            .mutation-gate/plan.json)" >> "${GITHUB_OUTPUT}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bench-runners-plan
+          path: .mutation-gate/plan.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 90
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bench-runners-coverage
+          path: |
+            .mutation-gate/coverage/
+            !.mutation-gate/coverage/*.php
+            !.mutation-gate/coverage/*.xml
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  # Each of the three shards on each runner, at once, through the action as a
+  # shard of the reusable workflow runs it. The action step's time is the
+  # measure; each result is kept, so the two runners' statuses can be matched.
+  runners:
+    name: runners / shard ${{ matrix.shard }} on ${{ matrix.runs-on }}
+    needs: runners-plan
+    runs-on: ${{ matrix.runs-on }}
+    permissions:
+      contents: read
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        runs-on: [ubuntu-latest, ubuntu-24.04-arm]
+        shard: ${{ fromJSON(needs.runners-plan.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: bench-runners-plan
+          path: .mutation-gate
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: bench-runners-coverage
+          path: .mutation-gate/coverage
+      - name: keep only this shard's coverage map and the whole map
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          find .mutation-gate/coverage -mindepth 1 -maxdepth 1 -type d ! -name "shard-${SHARD}" -exec rm -rf {} +
+      - name: the CPU and memory
+        run: |
+          lscpu | grep -E '^(Architecture|Model name|CPU\(s\)):'
+          free -m | grep '^Mem:'
+      - uses: ./ # zizmor: ignore[self-repository]
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          shard: ${{ matrix.shard }}
+          mode: full
+          cache: 'false'
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: bench-runners-${{ matrix.shard }}-${{ matrix.runs-on }}
+          path: .mutation-gate/results/${{ matrix.shard }}.json
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 90

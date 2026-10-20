@@ -67,6 +67,12 @@ on:
           that ran the suite under coverage; where empty, the plan runs the suite under coverage itself.
         type: string
         default: ''
+      runs-on:
+        description: >-
+          The runner every job runs on: a label, such as ubuntu-24.04-arm, or a JSON list of labels a runner must
+          all have, such as ["self-hosted", "linux"].
+        type: string
+        default: ubuntu-latest
     # A called job reads an environment's secret only under a name its caller
     # passes (ADR-0029), so each is declared here and passed by name. The
     # value comes from the environment the reading job enters, which wins over
@@ -149,7 +155,7 @@ jobs:
     environment:
       name: mutation-gate-read
       deployment: false
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: 10
     # id-token: write lets a store that signs in through GitHub's OIDC, Azure's
     # or GCS's, ask for this job's token, which GitHub hands only to a job
@@ -214,7 +220,7 @@ jobs:
     name: plan
     needs: fetch
     if: ${{ !cancelled() && needs.fetch.result != 'cancelled' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: 60
     # The comment's planned state goes to deliver-plan.
     permissions:
@@ -364,7 +370,7 @@ jobs:
     name: deliver plan
     needs: plan
     if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.delivery == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: 10
     permissions:
       contents: read
@@ -396,7 +402,7 @@ jobs:
     name: shard ${{ matrix.shard.id }} (${{ matrix.shard.label }})
     needs: plan
     if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.shards != '[]' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: 360
     permissions:
       contents: read
@@ -468,7 +474,7 @@ jobs:
     name: survivors
     needs: plan
     if: ${{ !cancelled() && needs.plan.result == 'success' && github.event_name == 'pull_request' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: 30
     permissions:
       contents: read
@@ -588,7 +594,7 @@ jobs:
     name: deliver survivors
     needs: survivors
     if: ${{ !cancelled() && needs.survivors.result == 'success' && needs.survivors.outputs.delivery == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: 10
     permissions:
       contents: read
@@ -624,7 +630,7 @@ jobs:
     name: verdict
     needs: [plan, shard, survivors]
     if: ${{ !cancelled() && needs.plan.result != 'skipped' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: 30
     permissions:
       contents: read
@@ -849,7 +855,7 @@ jobs:
       deployment: false
     needs: verdict
     if: ${{ !cancelled() && contains(fromJSON('["success","failure"]'), needs.verdict.result) && needs.verdict.outputs.delivery == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: 15
     # id-token: write, as fetch has it, for a store that signs in through
     # GitHub's OIDC.
@@ -920,7 +926,7 @@ jobs:
     if: >-
       ${{ !cancelled() && needs.plan.result == 'success' && contains(fromJSON('["success","failure"]'), needs.verdict.result) && needs.verdict.outputs.verdict != ''
       && (contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event_name) && (github.event.repository.default_branch || vars.MUTATION_GATE_DEFAULT_BRANCH) != '' && github.ref == format('refs/heads/{0}', (github.event.repository.default_branch || vars.MUTATION_GATE_DEFAULT_BRANCH))) }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: 10
     permissions:
       contents: write

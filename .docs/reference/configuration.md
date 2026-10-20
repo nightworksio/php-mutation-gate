@@ -240,3 +240,16 @@ In a `composer.json`, under `extra.mutation-gate`:
 | `floorReason` | string | none; required when `floor` is 0 | [0005](../decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `newCodeFloor` | number, 0 to 100 | `newCode.floor` | [0005](../decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `securityFloor` | number, 0 to 100, in a package's `composer.json` only | `security.floor` | [0021](../decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md) |
+
+## In the reusable workflow's call
+
+The reusable workflow takes the action's inputs less `shard`, which the
+[GitHub Actions guide](../guide/ci/github-actions.md) lists, and two of its own:
+
+| Input | Type | Default | Decided in |
+|-------|------|---------|------------|
+| `coverage` | the name of an artifact of the run that holds `map.json.gz` | none: the plan runs the suite under coverage | [0006](../decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |
+| `runs-on` | the runner every job runs on: a label, or a JSON list of labels a runner must all have | `ubuntu-latest` | [0035](../decisions/0035-the-reusable-workflow-runs-on-the-runner-its-caller-names.md) |
+
+The one-step action runs on the runner of the job that uses it, so that job's
+`runs-on` sets it.

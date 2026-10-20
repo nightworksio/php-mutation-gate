@@ -460,5 +460,26 @@ class Shards(unittest.TestCase):
                 self.assertLess(coverage[0], running[0])
 
 
+
+# A job's runner, as the reusable workflow names it: its `runs-on` input,
+# a label or a JSON list of labels.
+RUNS_ON = "    runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}"
+
+
+class Runner(unittest.TestCase):
+    def test_every_job_runs_on_the_runner_the_caller_names(self):
+        for name, lines in jobs(WORKFLOW).items():
+            with self.subTest(job=name):
+                self.assertEqual([line for line in lines if line.startswith("    runs-on:")], [RUNS_ON])
+
+    def test_the_runner_is_ubuntu_latest_where_the_caller_names_none(self):
+        lines = lines_of(WORKFLOW)
+        inputs = block(lines, lines.index("    inputs:"))
+        runs_on = block(inputs, inputs.index("      runs-on:"))
+
+        self.assertIn("        type: string", runs_on)
+        self.assertIn("        default: ubuntu-latest", runs_on)
+
+
 if __name__ == "__main__":
     unittest.main()
