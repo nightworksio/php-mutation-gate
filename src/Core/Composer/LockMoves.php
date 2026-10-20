@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Composer;
 
-use function array_key_exists;
+use function array_diff_assoc;
 use function array_keys;
 use function in_array;
 use function ksort;
@@ -51,17 +51,7 @@ final readonly class LockMoves
             return CannotJudge::because(self::UNREADABLE);
         }
 
-        $moved = [];
-
-        foreach (array_keys($then + $after) as $name) {
-            $was = array_key_exists($name, $then) ? $then[$name] : '';
-            $is = array_key_exists($name, $after) ? $after[$name] : '';
-
-            if ($was !== $is) {
-                $moved[] = $name;
-            }
-        }
-
+        $moved = array_keys(array_diff_assoc($then, $after) + array_diff_assoc($after, $then));
         sort($moved, SORT_STRING);
 
         return new self($moved, $thenRest !== $afterRest);
