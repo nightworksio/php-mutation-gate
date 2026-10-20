@@ -61,8 +61,8 @@ final readonly class ChangeReach
      * What these changes reach, each changed file read as it was at the
      * commit and as it is now, over what the files on disk name.
      *
-     * @param ByPath<Contents|Missing> $before each changed PHP file as it was at the commit
-     * @param ByPath<Contents|Missing> $now    each changed PHP file as it is on disk
+     * @param ByPath<Contents|Missing> $before each changed PHP file and lock as it was at the commit
+     * @param ByPath<Contents|Missing> $now    each changed PHP file and lock as it is on disk
      */
     public static function of(
         Changes $changes,
@@ -148,7 +148,7 @@ final readonly class ChangeReach
     private static function read(Path $path, array $versions, FileRoles $roles): array|Reason
     {
         return match (true) {
-            $roles->decides($path) => Reason::that(sprintf(self::DECIDES, $path->value())),
+            $roles->decides($path, ...$versions) => Reason::that(sprintf(self::DECIDES, $path->value())),
             $roles->isLoadedEverywhere($path) => Reason::that(sprintf(self::LOADED, $path->value())),
             ! $path->isPhp() => NamedFiles::nameOf($path),
             default => self::declared($path, $versions),

@@ -18,7 +18,7 @@ empty the same way, so no ledger was ever written, and every pull request,
 every merge and every nightly mutated all 34,035 mutants again.
 
 GitHub resolves an environment's secret in a called workflow only under a
-name the caller hands on: by `secrets: inherit`, or by passing that name
+name the caller hands on: by inheriting every secret, or by passing that name
 (actions/runner#4453). Where a job of the called workflow enters an
 environment, the environment's value wins over the value the caller passed.
 
@@ -33,7 +33,7 @@ environment, the environment's value wins over the value the caller passed.
    `MUTATION_GATE_WEBHOOK_SECRET`, `OTEL_EXPORTER_OTLP_ENDPOINT` and
    `OTEL_EXPORTER_OTLP_HEADERS`.
 2. **A caller passes each one it uses under its own name**, as
-   `NAME: ${{ secrets.NAME }}`, never `secrets: inherit`. The guide, the
+   `NAME: ${{ secrets.NAME }}`, never inheriting them all. The guide, the
    template `init --ci=github` writes, and this repository's own `ci.yml` do
    so.
 3. **The values stay in the environments.** Only `fetch` reads the read key,
@@ -54,7 +54,7 @@ This supersedes the bullet of ADR-0011's decision that says the secrets come
 
 | Alternative | Why not |
 |---|---|
-| **`secrets: inherit`** | It hands the called workflow every secret the repository holds, `SONAR_TOKEN` among them, for the sake of four. |
+| **Inheriting every secret** | It hands the called workflow every secret the repository holds, `SONAR_TOKEN` among them, for the sake of four. |
 | **Leave the store unset and keep the ledger in the Actions cache** | A pull request then reads no ledger of the default branch, which is the whole saving. |
 | **Repository secrets instead of environment secrets** | A repository secret reaches a run on any branch; the write key must reach the default branch alone. |
 

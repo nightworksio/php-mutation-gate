@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
 use NightWorksIO\MutationGate\Core\Change\Changes;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Composer\DecidingPackages;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -62,7 +63,7 @@ $proof = static fn(string $unit, string $base, ProvedKills $kills, Mutants $muta
     Run::of('main', Moment::at('2026-09-29T10:00:00Z'), Digest::sha256Of($base)),
 )->withInputs($inputs);
 $makeInputs = static fn(): Inputs => Inputs::of(Digest::sha256Of('source'), Digest::sha256Of('mutation'));
-$makeRoles = static fn(): FileRoles => FileRoles::of(Layout::standard(Paths::none()), Packages::of(Flows::trees()), Paths::none());
+$makeRoles = static fn(): FileRoles => FileRoles::of(Layout::standard(Paths::none()), Packages::of(Flows::trees()), Paths::none(), DecidingPackages::every());
 
 it('reads the commit of each result established at another base that holds a kill, by a test or by static analysis, each commit once', function () use ($commit, $kill, $killed, $proof, $makeInputs): void {
     $inputs = $makeInputs();

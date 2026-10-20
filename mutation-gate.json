@@ -43,6 +43,22 @@
     "baseline": {
         "improvement": "report"
     },
+    "reach": {
+        "lockPackages": [
+            "brianium/paratest",
+            "ergebnis/phpstan-rules",
+            "nikic/php-parser",
+            "pestphp/*",
+            "phpstan/*",
+            "phpunit/*",
+            "sebastian/*",
+            "shipmonk/phpstan-rules",
+            "spaze/phpstan-disallowed-calls",
+            "staabm/side-effects-detector",
+            "symfony/process",
+            "tomasvotruba/*"
+        ]
+    },
     "pest": {
         "patch": true
     },

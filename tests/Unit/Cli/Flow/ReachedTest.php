@@ -41,6 +41,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\JudgedCommits;
+use NightWorksIO\MutationGate\Tests\Support\Locks;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -56,8 +57,8 @@ $makeHeld = static fn(): Unit => Unit::held(Path::of('src/Held.php'), Group::nam
 /**
  * What these changes since `base` reach, where the checkout has these files
  * now, on disk too, and had those at the base, `.github/workflows/gate.yml` runs the gate,
- * `config/**` decides everything, and the fake runner's `phpunit.xml`
- * defines it.
+ * `config/**` decides everything, a move of `pestphp/*` in a lock decides
+ * how the gate runs, and the fake runner's `phpunit.xml` defines it.
  *
  * @param array<string, string> $now
  * @param array<string, string> $before
@@ -101,7 +102,7 @@ function reachedReading(
         ChangeBase::since(Revision::ref('base')),
         Flows::trees(),
         $adapters,
-        Flows::settings(Reach::everything('config/**')),
+        Flows::settings(Reach::everything('config/**'), Reach::lockPackages('pestphp/*')),
         reachedSuite($checkout, $adapters),
         $map,
         $config($project),
@@ -231,6 +232,36 @@ it('reaches everything where a file that decides how the gate runs changed', fun
     'a file reach.everything names' => ['config/app.php'],
     'a file that defines the runner' => ['tests/Pest.php'],
 ]);
+
+it('reaches nothing where the lock moved only packages the config leaves out, and everything where it moved one it names', function (string $console, string $pest, bool $everywhere) use ($makeMoney): void {
+    $money = $makeMoney();
+
+    $reached = reachedSince(
+        Changes::of(Change::modified(Path::of('composer.lock'), Lines::of(Line::of(3)))),
+        ['composer.lock' => Locks::of(['symfony/console' => $console], ['pestphp/pest' => $pest])->text()],
+        ['composer.lock' => Locks::of(['symfony/console' => '8.1.7'], ['pestphp/pest' => '5.2.1'])->text()],
+    );
+
+    expect($reached->reach()->isEverywhere())->toBe($everywhere)
+        ->and($reached->reach()->reaches($money))->toBe($everywhere)
+        ->and($reached->reach()->reasons())->toEqual(Reasons::of(Reason::that(sprintf(
+            $everywhere ? '`%s` decides how the gate runs, so every unit is reached.' : '`%s` changed nothing that decides how the gate runs, so it reaches nothing.',
+            'composer.lock',
+        ))));
+})->with([
+    'only the console' => ['8.1.9', '5.2.1', false],
+    'pest' => ['8.1.7', '5.2.2', true],
+]);
+
+it('reaches everything where a lock was added, whatever it pins', function (): void {
+    $reached = reachedSince(
+        Changes::of(Change::added(Path::of('composer.lock'), Lines::of(Line::of(1)))),
+        ['composer.lock' => Locks::of(['symfony/console' => '8.1.9'])->text()],
+        [],
+    );
+
+    expect($reached->reach()->isEverywhere())->toBeTrue();
+});
 
 it('reaches everything where the commit a workflow pins an action at moved', function () use ($makeMoney): void {
     $money = $makeMoney();

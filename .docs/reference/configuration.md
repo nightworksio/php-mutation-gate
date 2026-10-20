@@ -161,6 +161,7 @@ options.
 | `baseline.improvement` | `require` or `report` | `require` | [0003](../decisions/0003-a-floor-only-rises.md) |
 | `packages` | list of globs | `[]` | [0005](../decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `reach.everything` | list of globs, from the repository's root | `[]`, plus the preset's | [0005](../decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
+| `reach.lockPackages` | list of Composer package names, `vendor/name`, where `*` stands for any run of characters within either part: a change to a `composer.lock` decides how the gate runs only where it moved one of these, or a key besides the package lists | none: every package decides | [0030](../decisions/0030-a-lock-file-decides-by-the-packages-it-moved.md) |
 | `holds.hotPath` | number, 0 to 1 | `0.8` | [0005](../decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `run.full` | boolean: a run given neither `--full` nor `--changed-since` considers every unit, rather than what changed since `last-passed` | `false` | [0005](../decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | `shards.seconds` | integer | `600` | [0006](../decisions/0006-shards-are-cut-by-learned-cost-and-planned-once.md) |

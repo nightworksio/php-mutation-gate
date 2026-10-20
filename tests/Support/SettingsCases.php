@@ -173,7 +173,7 @@ final readonly class SettingsCases
         'uncovered' => 'exclude',
         'baseline' => ['path' => 'build/baseline.json', 'improvement' => 'report'],
         'packages' => ['packages/*'],
-        'reach' => ['everything' => ['config/**', 'routes/**']],
+        'reach' => ['everything' => ['config/**', 'routes/**'], 'lockPackages' => ['pestphp/*', 'phpunit/phpunit']],
         'holds' => ['hotPath' => 1],
         'shards' => ['seconds' => 900, 'max' => 8],
         'costs' => ['secondsPerLine' => ['' => 0.25, 'src/Legacy' => 2]],

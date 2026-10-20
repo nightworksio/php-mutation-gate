@@ -117,7 +117,8 @@ presets for Laravel, Symfony and plain libraries.
        kill: one to a file that decides how the gate runs (ADR-0005,
        decision 4, rule 1, which names the runner's definitions, each
        package's `composer.json`, the gate's config, and what the presets and
-       `reach.everything` name), or to a package's `composer.lock`; and one
+       `reach.everything` name), or to a package's `composer.lock`, which
+       ADR-0030 narrows to a move of a package `reach.lockPackages` names; and one
        to a file any `composer.json` of the repository lists under `files` in
        its `autoload` or `autoload-dev`, which Composer's autoloader loads in
        every process, whatever names it.
@@ -552,3 +553,4 @@ warnings say where holding groups would save time.
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): the order survivor confirmation and `triage` use, and ignores a proof makes redundant
 - [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): Infection's ignores converted by `init --from`
 - [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): native markers as an adoption bridge
+- [ADR-0030](0030-a-lock-file-decides-by-the-packages-it-moved.md): the lock file, which decides by the packages it moved

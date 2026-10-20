@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Config;
 
+use function array_map;
+
+use NightWorksIO\MutationGate\Core\Composer\DecidingPackages;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
@@ -13,6 +16,8 @@ use function sprintf;
 
 /**
  * What a change reaches (ADR-0005): `packages`, `reach.everything`, the
+ * packages whose move in a lock decides how the gate runs,
+ * `reach.lockPackages` (ADR-0030), the
  * share of the suite past which code nothing holds is warned about,
  * `holds.hotPath`, whether a run given no mode considers every unit,
  * `run.full`, rather than what changed since its last passing commit, and
@@ -22,8 +27,9 @@ use function sprintf;
 final readonly class Reach implements Part
 {
     /**
-     * @param Listed<Glob>|Absent $packages
-     * @param Listed<Glob>|Absent $everything
+     * @param Listed<Glob>|Absent   $packages
+     * @param Listed<Glob>|Absent   $everything
+     * @param Listed<string>|Absent $lockPackages
      */
     private function __construct(
         private Listed|Absent $packages,
@@ -31,12 +37,14 @@ final readonly class Reach implements Part
         private int|float|Absent $hotPath,
         private bool|Absent $full,
         private Pruning $pruning,
+        private Listed|Absent $lockPackages,
     ) {
     }
 
     /**
-     * @param Listed<Glob>|Absent $packages
-     * @param Listed<Glob>|Absent $everything
+     * @param Listed<Glob>|Absent   $packages
+     * @param Listed<Glob>|Absent   $everything
+     * @param Listed<string>|Absent $lockPackages
      */
     public static function of(
         Listed|Absent $packages = new Absent(),
@@ -44,10 +52,11 @@ final readonly class Reach implements Part
         int|float|Absent $hotPath = new Absent(),
         bool|Absent $full = new Absent(),
         Pruning|Absent $pruning = new Absent(),
+        Listed|Absent $lockPackages = new Absent(),
     ): self {
         $set = $pruning instanceof Pruning ? $pruning : Pruning::of();
 
-        return new self($packages, $everything, $hotPath, $full, $set);
+        return new self($packages, $everything, $hotPath, $full, $set, $lockPackages);
     }
 
     public static function none(): self
@@ -79,6 +88,7 @@ final readonly class Reach implements Part
                 $later->hotPath instanceof Absent ? $this->hotPath : $later->hotPath,
                 $later->full instanceof Absent ? $this->full : $later->full,
                 $this->pruning->over($later->pruning),
+                $this->joinedNames($this->lockPackages, $later->lockPackages),
             )
             : $this;
     }
@@ -93,6 +103,17 @@ final readonly class Reach implements Part
     public function everything(): Listed
     {
         return $this->everything instanceof Listed ? $this->everything : Listed::of();
+    }
+
+    /**
+     * The packages whose move in a `composer.lock` decides how the gate runs:
+     * those `reach.lockPackages` names, every package where it names none.
+     */
+    public function lockPackages(): DecidingPackages
+    {
+        return $this->lockPackages instanceof Listed
+            ? DecidingPackages::named(...array_map(Glob::of(...), [...$this->lockPackages]))
+            : DecidingPackages::every();
     }
 
     /** The files most of the suite runs through that nothing holds, past `holds.hotPath` of it. */
@@ -127,12 +148,20 @@ final readonly class Reach implements Part
             ),
             Member::unlessEmpty(
                 'reach',
-                Json::object(Member::of(
-                    'everything',
-                    $this->everything instanceof Listed
-                        ? Json::items(...WrittenPaths::globs($origin, $this->everything))
-                        : $this->everything,
-                )),
+                Json::object(
+                    Member::of(
+                        'everything',
+                        $this->everything instanceof Listed
+                            ? Json::items(...WrittenPaths::globs($origin, $this->everything))
+                            : $this->everything,
+                    ),
+                    Member::of(
+                        'lockPackages',
+                        $this->lockPackages instanceof Listed
+                            ? Json::items(...$this->lockPackages)
+                            : $this->lockPackages,
+                    ),
+                ),
             ),
             Member::unlessEmpty('holds', Json::object(Member::of('hotPath', $this->hotPath))),
             Member::unlessEmpty('run', Json::object(Member::of('full', $this->full))),
@@ -151,6 +180,9 @@ final readonly class Reach implements Part
                 PhpCalls::literals(...WrittenPaths::globs($origin, $this->everything)),
             )]
             : [];
+        $lockPackages = $this->lockPackages instanceof Listed
+            ? [sprintf('Reach::lockPackages(%s)', PhpCalls::literals(...$this->lockPackages))]
+            : [];
         $hotPath = $this->hotPath instanceof Absent
             ? []
             : [sprintf('Reach::hotPath(%s)', PhpCalls::literal($this->hotPath))];
@@ -161,9 +193,23 @@ final readonly class Reach implements Part
             default => [],
         };
 
-        $calls = PhpCalls::inWith(...$packages, ...$everything, ...$hotPath, ...$full);
+        $calls = PhpCalls::inWith(...$packages, ...$everything, ...$lockPackages, ...$hotPath, ...$full);
 
         return $calls->and($this->pruning->php());
+    }
+
+    /**
+     * @param  Listed<string>|Absent $earlier
+     * @param  Listed<string>|Absent $later
+     * @return Listed<string>|Absent
+     */
+    private function joinedNames(Listed|Absent $earlier, Listed|Absent $later): Listed|Absent
+    {
+        return match (true) {
+            $later instanceof Absent => $earlier,
+            $earlier instanceof Absent => $later,
+            default => $earlier->and($later, static fn(string $name): string => $name),
+        };
     }
 
     /**

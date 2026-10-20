@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Coverage\Judges;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Glob;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Reach\DecidingLocks;
 use NightWorksIO\MutationGate\Core\Reach\Layout;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
@@ -65,7 +66,14 @@ final readonly class Reached
         $reach = new Reaching(self::layout($adapters, $settings, $suite), $trees)->of(
             $changes,
             self::judges($adapters, $map),
-            self::sources($changes, $from, $adapters, $suite->sources(), $config),
+            self::sources(
+                $changes,
+                $from,
+                $adapters,
+                $suite->sources(),
+                $config,
+                DecidingLocks::in(Packages::of($trees), $settings->reach()->lockPackages()),
+            ),
         );
 
         return new self(
@@ -125,8 +133,9 @@ final readonly class Reached
 
     /**
      * The test files on disk, each changed file as it is on disk and as it
-     * was at the base, and the config file marked deciding alike where its
-     * change moved no setting that affects results.
+     * was at the base, the config file marked deciding alike where its change
+     * moved no setting that affects results, and each package's lock where
+     * its change moved no package that decides (ADR-0030).
      */
     public static function sources(
         Changes|CannotTell $changes,
@@ -134,6 +143,7 @@ final readonly class Reached
         Adapters $adapters,
         Sources $sources,
         DecidingConfig $config,
+        DecidingLocks $locks,
     ): Sources {
         foreach ($changes instanceof Changes ? $changes : Changes::none() as $change) {
             $now = $adapters->changes->fileAt($change->path(), Revision::workingTree());
@@ -141,6 +151,7 @@ final readonly class Reached
             $sources = $now instanceof Contents ? $sources->withNow($change->path(), $now) : $sources;
             $sources = $before instanceof Contents ? $sources->withBefore($change->previousPath(), $before) : $sources;
             $sources = $before instanceof CannotTell ? $sources : $config->marking($sources, $change, $before);
+            $sources = $locks->marking($sources, $change);
         }
 
         return $sources;

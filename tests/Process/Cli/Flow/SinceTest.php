@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Git\Git;
 use NightWorksIO\MutationGate\Cli\Flow\Since;
+use NightWorksIO\MutationGate\Config\Reach;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Revision;
@@ -12,6 +13,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Verdict\ChangeReach;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\Locks;
 use NightWorksIO\MutationGate\Tests\Support\Repository;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
@@ -162,3 +164,20 @@ it('reads no file outside the tests that is not PHP, as nothing names a file by 
     expect(new Since(Flows::adapters($repository->root, [], Git::at($repository->root)), Flows::settings())->of($commit)->at($commit))
         ->toBeInstanceOf(ChangeReach::class);
 })->group(...$holds);
+
+it('reads a lock at the commit and now, and follows every kill only where it moved a package the config names', function (string $pest, bool $everything): void {
+    $repository = sinceRepository()
+        ->write('composer.lock', Locks::of(['pestphp/pest' => '5.2.1', 'symfony/console' => '8.1.7'])->text())
+        ->commit('The lock.');
+    $commit = Revision::ref(trim($repository->git('rev-parse', 'HEAD')));
+    $repository->write('composer.lock', Locks::of(['pestphp/pest' => $pest, 'symfony/console' => '8.1.9'])->text());
+    $settings = Flows::settings(Reach::lockPackages('pestphp/*'));
+    $since = new Since(Flows::adapters($repository->root, [], Git::at($repository->root)), $settings)->of($commit)->at($commit);
+
+    expect($since)->toBeInstanceOf(ChangeReach::class)
+        ->and($since instanceof ChangeReach ? count($since->everything()) : $since)->toBe($everything ? 1 : 0)
+        ->and($since instanceof ChangeReach ? $since->reaches(Path::of('src/Tax.php'), Paths::none()) : $since)->toBe($everything);
+})->with([
+    'only the console moved' => ['5.2.1', false],
+    'pest moved' => ['5.2.2', true],
+])->group(...[...$holds, 'holds:src/Core/Reach/DecidingLocks.php', 'holds:src/Core/Reach/FileRoles.php']);
