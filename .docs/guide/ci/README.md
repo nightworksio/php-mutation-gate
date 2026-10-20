@@ -60,7 +60,7 @@ equivalent, where its tree's floor is 100, or its line is one the change
 added or modified and the new-code floor is 100. It stops only where no
 static analysis can clear such a survivor: `equivalence.static` is `false`
 and `staticCheck.tool` is `none`. The shard runs its units riskiest first,
-in chunks of about two minutes of expected work, and stops after the chunk
+in chunks of about fifteen minutes of expected work, and stops after the chunk
 that confirms such a survivor. Its result names the survivor under `doomed`
 in `.mutation-gate/results/<id>.json`:
 

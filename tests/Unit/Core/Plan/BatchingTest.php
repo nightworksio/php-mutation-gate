@@ -87,6 +87,6 @@ it('takes every unit in a row where neither time nor a chunk limits it, a held u
         ->toBe(['src/Held']);
 });
 
-it('chunks a doomed run\'s shard in about two minutes of expected work', function (): void {
-    expect(Batching::chunk())->toEqual(Seconds::minutes(2));
+it('chunks a doomed run\'s shard in about fifteen minutes of expected work', function (): void {
+    expect(Batching::chunk())->toEqual(Seconds::minutes(15));
 });

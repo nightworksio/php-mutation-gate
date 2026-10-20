@@ -472,7 +472,7 @@ presets for Laravel, Symfony and plain libraries.
      checked once, so the check after the shard's last chunk takes up only
      the survivors no chunk's check did. A shard that finds none runs every
      unit, at the cost of one runner opening per chunk. One code path serves
-     every runner.
+     every runner. ADR-0032 grows the chunk to about fifteen minutes.
    - **What it leaves.** The shard's result names the survivor under
      `doomed`, with these fields:
      - `unit`: the unit's path;
@@ -554,3 +554,4 @@ warnings say where holding groups would save time.
 - [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): Infection's ignores converted by `init --from`
 - [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): native markers as an adoption bridge
 - [ADR-0030](0030-a-lock-file-decides-by-the-packages-it-moved.md): the lock file, which decides by the packages it moved
+- [ADR-0032](0032-a-pull-requests-shard-stops-in-chunks-of-fifteen-minutes.md): the chunk, which grows to fifteen minutes

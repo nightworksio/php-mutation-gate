@@ -19,8 +19,8 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  */
 final readonly class Batching
 {
-    /** How much expected work a chunk of a shard that can stop once it cannot pass holds. */
-    private const int CHUNK_MINUTES = 2;
+    /** How much expected work a chunk of a shard that can stop once it cannot pass holds (ADR-0032). */
+    private const int CHUNK_MINUTES = 15;
 
     private function __construct(private Seconds $opening, private Seconds|Unlimited $chunk)
     {
