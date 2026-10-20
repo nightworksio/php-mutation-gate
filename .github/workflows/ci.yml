@@ -273,8 +273,9 @@ jobs:
         run: python3 .github/scripts/gate_summary.py checks
 
   # G7 — every line of src covered, by scripts/coverage.sh. The clover and
-  # JUnit reports it writes are what `sonar` hands SonarCloud, so the suite runs
-  # once for both. It runs on pushes to main as well, because `sonar` analyses
+  # JUnit reports it writes are what `sonar` hands SonarCloud, and the PHP
+  # report is what the mutation plan's map is read from, so the suite runs once
+  # for all three. It runs on pushes to main as well, because `sonar` analyses
   # main from its report.
   tests:
     name: tests and coverage
@@ -292,7 +293,18 @@ jobs:
           coverage: pcov
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
       - id: suite
-        run: composer test:report
+        run: composer test:report -- --coverage-php=.mutation-gate/ran/coverage.php
+      # The gate's own map, read from the PHP report in the job that wrote it,
+      # since reading a runner's report can run code (ADR-0006, decision 1).
+      - id: map
+        run: php bin/mutation-gate coverage --from=.mutation-gate/ran --into=.mutation-gate/map
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutation-gate-map
+          path: .mutation-gate/map/map.json.gz
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
       # The schemas the network group validates against, kept by their
       # pinned digests, so a publisher's outage fails no run whose cache holds
       # them. A changed pin starts from the newest set.
@@ -843,16 +855,20 @@ jobs:
   # and a called job gets only what it asks for itself: `contents: write` goes
   # only to the default-branch publish job, and `id-token: write` only to
   # fetch and deliver. The store's keys are passed by name, and their values
-  # come from the environments fetch and deliver enter (ADR-0029).
+  # come from the environments fetch and deliver enter (ADR-0029). The plan
+  # reads the map `tests` wrote, so the suite runs under coverage once, and a
+  # run whose suite fails spends no mutation.
   mutation:
-    needs: scope
-    if: ${{ !cancelled() && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
+    needs: [scope, tests]
+    if: ${{ !cancelled() && needs.tests.result == 'success' && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
     permissions:
       contents: write
       actions: read
       pull-requests: write
       id-token: write
     uses: ./.github/workflows/mutation-gate.yml # zizmor: ignore[self-repository]
+    with:
+      coverage: mutation-gate-map
     secrets:
       MUTATION_GATE_READ_AWS_ACCESS_KEY_ID: ${{ secrets.MUTATION_GATE_READ_AWS_ACCESS_KEY_ID }}
       MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY: ${{ secrets.MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY }}

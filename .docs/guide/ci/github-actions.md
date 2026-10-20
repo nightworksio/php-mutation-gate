@@ -142,8 +142,18 @@ jobs:
       AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
 ```
 
-It takes the action's inputs less `shard`. Its outputs are `verdict`, `scores`
-and `plan`, and it uploads the reports as the artifact `mutation-gate-reports`.
+It takes the action's inputs less `shard`, and one of its own, `coverage`. Its
+outputs are `verdict`, `scores` and `plan`, and it uploads the reports as the
+artifact `mutation-gate-reports`.
+
+By default the `plan` job runs the suite under coverage itself. Where a job of
+yours runs it under coverage already, it can hand its map over instead, so the
+suite runs once: add `--coverage-php=<dir>/coverage.php` to that run, then run
+`vendor/bin/mutation-gate coverage --from=<dir> --into=<map dir>` in the same
+job, upload `<map dir>/map.json.gz` as an artifact, and name that artifact in
+`coverage`. The calling job then `needs` that job. The gate reads the runner's
+report only in the job that wrote it, since reading one can run code; the map
+it hands over is the gate's own JSON.
 
 A called workflow's job reads an environment's secret only under a name its
 caller passes. So the call passes each secret the store needs under its own
