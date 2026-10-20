@@ -725,7 +725,8 @@ jobs:
   # fetch and deliver. The store's keys are passed by name, and their values
   # come from the environments fetch and deliver enter (ADR-0029). The plan
   # reads the map `tests` wrote, so the suite runs under coverage once, and a
-  # run whose suite fails spends no mutation.
+  # run whose suite fails spends no mutation. Its jobs run on Arm, where three
+  # of its shards gave the same verdicts in 29% less time (ADR-0035).
   mutation:
     needs: [scope, tests]
     if: ${{ !cancelled() && needs.tests.result == 'success' && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
@@ -737,6 +738,7 @@ jobs:
     uses: ./.github/workflows/mutation-gate.yml # zizmor: ignore[self-repository]
     with:
       coverage: mutation-gate-map
+      runs-on: ubuntu-24.04-arm
     secrets:
       MUTATION_GATE_READ_AWS_ACCESS_KEY_ID: ${{ secrets.MUTATION_GATE_READ_AWS_ACCESS_KEY_ID }}
       MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY: ${{ secrets.MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY }}

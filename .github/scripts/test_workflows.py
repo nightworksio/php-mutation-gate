@@ -480,6 +480,18 @@ class Runner(unittest.TestCase):
         self.assertIn("        type: string", runs_on)
         self.assertIn("        default: ubuntu-latest", runs_on)
 
+    def test_this_repository_s_callers_name_one_runner(self):
+        named = set()
+        for path in (os.path.join(ROOT, ".github", "workflows", "ci.yml"), RELEASE):
+            calls = [
+                lines for lines in jobs(path).values()
+                if any("uses: ./.github/workflows/mutation-gate.yml" in line for line in lines)
+            ]
+            self.assertEqual(len(calls), 1, path)
+            named |= {line.strip() for line in calls[0] if line.strip().startswith("runs-on:")}
+
+        self.assertEqual(named, {"runs-on: ubuntu-24.04-arm"})
+
 
 if __name__ == "__main__":
     unittest.main()

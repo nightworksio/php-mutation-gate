@@ -42,6 +42,11 @@ names in an input of its own, `coverage`.
    suite of `bench.yml`, on demand, plans the gate's own mutants once and runs
    the same three shards on `ubuntu-latest` and on `ubuntu-24.04-arm` at once.
    `ci.yml` names the Arm runner only where its shards are faster there.
+   In run 39437343869 the three shards took 5,866 s, 2,899 s and 1,777 s on
+   `ubuntu-latest` and 4,243 s, 1,682 s and 1,533 s on `ubuntu-24.04-arm`,
+   29% less in all, and judged every mutant alike. So `ci.yml` and
+   `release.yml` both name `ubuntu-24.04-arm`, the one runner, so that their
+   proofs are keyed alike.
 
 ## Alternatives considered
 
