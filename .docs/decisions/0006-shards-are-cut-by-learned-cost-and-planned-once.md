@@ -169,7 +169,8 @@ Two parts of that do not carry over to a public package.
      timings the running gate measured, as its version spells it: a release
      by its tag, a branch by its name and commit. Every other unit, a timing
      from before gates were recorded among them, is estimated from its first
-     run as a cold start is.
+     run as a cold start is. ADR-0031 lets builds of a branch learn from each
+     other's timings, whatever the branch and the commit.
    - **Where timings live.** In the ledger (ADR-0007), keyed by unit path, with
      the runner, the gate that measured it and the time of measurement. They are not committed: they
      describe the CI's machines, not the code, and they change on every run.
@@ -317,3 +318,4 @@ all proved plans zero shards and costs one planning job.
 - [ADR-0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): the composite action and the reusable workflow
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): the shard count from a target wall time, and the opening-run timings
 - [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): the first-run estimate `init` prints, and what a run saved
+- [ADR-0031](0031-builds-of-a-branch-learn-from-each-others-timings.md): builds of a branch, which learn from each other's timings

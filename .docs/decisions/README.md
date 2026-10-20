@@ -24,7 +24,7 @@ There is no separate requirements document, and there are no requirement IDs.
 | [0003](0003-a-floor-only-rises.md) | A tree's floor only rises, is committed beside the code, and new code has a floor of its own | Accepted; "a tree is judged whole" superseded by [0020](0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) for sampled runs |
 | [0004](0004-pest-and-infection-behind-one-runner-port.md) | Pest and Infection behind one Runner port, each reporting every mutant | Accepted |
 | [0005](0005-what-a-change-reaches-is-what-is-mutated.md) | What a change reaches is what is mutated, package by package, judged by the tests that hold it | Accepted; its lock file that reaches everything narrowed by [0030](0030-a-lock-file-decides-by-the-packages-it-moved.md) |
-| [0006](0006-shards-are-cut-by-learned-cost-and-planned-once.md) | Shards are cut by learned cost, planned once, and rendered for any CI | Accepted |
+| [0006](0006-shards-are-cut-by-learned-cost-and-planned-once.md) | Shards are cut by learned cost, planned once, and rendered for any CI | Accepted; its timing that counts only for the gate that measured it superseded by [0031](0031-builds-of-a-branch-learn-from-each-others-timings.md) for builds of a branch |
 | [0007](0007-a-proof-is-keyed-by-everything-its-verdict-reads.md) | A proof is keyed by everything its result could depend on, so a skip is never wrong | Accepted |
 | [0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md) | A run spends its time on the riskiest code first, and never passes what it did not judge | Accepted; its lock file that reaches every carried kill narrowed by [0030](0030-a-lock-file-decides-by-the-packages-it-moved.md) |
 | [0009](0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) | Every verdict is readable by a machine, a reviewer and a badge, and every survivor says how to reproduce it and what the tests miss | Accepted |
@@ -48,3 +48,4 @@ There is no separate requirements document, and there are no requirement IDs.
 | [0028](0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md) | Proofs can live in Google Cloud Storage or Azure Blob under OIDC bound to an environment or a workflow, and survivors reach SonarQube | Accepted |
 | [0029](0029-a-caller-passes-the-store-secrets-by-name.md) | A caller passes the reusable workflow its store's secrets by name, and their values stay in the environments | Accepted |
 | [0030](0030-a-lock-file-decides-by-the-packages-it-moved.md) | A lock file decides how the gate runs only where it moved a package the config names | Accepted |
+| [0031](0031-builds-of-a-branch-learn-from-each-others-timings.md) | Builds of a branch learn from each other's timings | Accepted |

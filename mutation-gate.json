@@ -63,7 +63,7 @@
         "patch": true
     },
     "shards": {
-        "max": 40
+        "max": 20
     },
     "timeouts": {
         "seconds": 30

@@ -59,10 +59,10 @@ final readonly class Timings implements Countable, IteratorAggregate
 
     /**
      * These timings, as a run measured them, each smoothed over the unit's
-     * timing held from an earlier measurement by the same runner and gate, as
-     * `Timing::smoothedOver()` weighs them. A unit with none held, or one an
-     * other runner or gate measured or measured later, takes its newest
-     * measurement as it is.
+     * timing held from an earlier measurement by the same runner and a gate
+     * that costs as this one does, as `Timing::smoothedOver()` weighs them. A
+     * unit with none held, or one another runner or gate measured or measured
+     * later, takes its newest measurement as it is.
      */
     public function smoothedOver(self $held): self
     {
@@ -71,7 +71,7 @@ final readonly class Timings implements Countable, IteratorAggregate
         foreach ($this->timings as $unit => $timing) {
             $before = array_key_exists($unit, $held->timings) ? $held->timings[$unit] : $timing;
             $blends = $before->runner() === $timing->runner()
-                && $before->gate()->equals($timing->gate())
+                && $before->gate()->costsAs($timing->gate())
                 && $timing->at()->isAfter($before->at());
             $smoothed[] = $blends ? $timing->smoothedOver($before) : $timing;
         }
@@ -79,12 +79,16 @@ final readonly class Timings implements Countable, IteratorAggregate
         return self::of(...$smoothed);
     }
 
-    /** Only the timings this release of the gate measured: another release's cost is not this one's. */
+    /**
+     * Only the timings this release of the gate measured, or, for a build of
+     * a branch, any build of a branch: another release's cost is not this
+     * one's (ADR-0031).
+     */
     public function measuredBy(GateRelease $gate): self
     {
         return new self(array_filter(
             $this->timings,
-            static fn(Timing $timing): bool => $timing->gate()->equals($gate),
+            static fn(Timing $timing): bool => $timing->gate()->costsAs($gate),
         ));
     }
 
