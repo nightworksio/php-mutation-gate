@@ -416,7 +416,8 @@ running it: why is this mutant here, and has it always been?
       runner serves a mutant's file, under the request's memory cap, allowed the
       standard mutant limit of their time as the coverage map timed them. Two
       kills of the same file and killers share it, as does a timeout's
-      control of the same tests and limit.
+      control of the same tests and limit. ADR-0033 first controls a file's kills
+      together, and controls each on its own only where that does not pass.
     - Every runner is held to it, Pest included: a Pest kill its own run
       already checked on narrowed test files is checked here too.
     - The kill stands where its control passes. Where the control fails, runs
@@ -473,3 +474,4 @@ with no runner, and `reproduce` stays the one command that runs it.
 - [ADR-0007](0007-a-proof-is-keyed-by-everything-its-verdict-reads.md): `killedBy` in the proof, and the agreement check that ignores it
 - [ADR-0009](0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md): the verdict's test-level data, and the `tests` and `kill-matrix` reports
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): the first killer, and the order it depends on
+- [ADR-0033](0033-a-files-kills-are-controlled-together-first.md): a file's kills, controlled together first

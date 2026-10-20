@@ -46,6 +46,12 @@ final readonly class Controls implements Countable, IteratorAggregate
         return new self($this->controls + [$control->key() => $control]);
     }
 
+    /** These, and those of others these do not hold. */
+    public function and(self $others): self
+    {
+        return new self($this->controls + $others->controls);
+    }
+
     /** Whether a control is one of these. */
     public function has(Control $control): bool
     {

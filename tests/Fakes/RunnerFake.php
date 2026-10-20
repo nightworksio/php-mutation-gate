@@ -133,6 +133,23 @@ final readonly class RunnerFake implements Runner
         return $this->behaviour;
     }
 
+    /**
+     * This runner, whose library also holds a mutant of this file and line
+     * that this test, timed at this many seconds, covers and kills.
+     */
+    public function killingAlso(Path $file, Line $line, TestId $killer, Seconds $took): self
+    {
+        $map = $this->map->covered($file, $line, $killer)->timed($killer, $took);
+        $mutant = self::mutant(
+            ['file' => $file->value(), 'line' => $line->number(), 'removed' => 'a', 'added' => 'b', 'status' => MutantStatus::Killed],
+            'Minus',
+            MutatorFamily::Arithmetic,
+            $map,
+        );
+
+        return clone($this, ['map' => $map, 'library' => $this->library->with($mutant)]);
+    }
+
     /** The runner over the contract suite's fixture library, which knows each change's mutant. */
     public static function ofTheFixture(): self
     {

@@ -48,7 +48,8 @@ use Psr\Clock\ClockInterface;
  * mutant whose time ran out is never run again; its tests run unmutated, as
  * its control, under the same limit (see TimeoutControls), unless
  * `timeouts.mode: unjudged` makes every timeout too slow to judge, and so do
- * the tests that killed each mutant a test is named for (see KillControls),
+ * the tests that killed each mutant a test is named for, a file's together
+ * first and each kill's alone only where that does not pass (see KillControls),
  * and those of each mutant out of memory (see MemoryControls).
  * Under a budget, a survivor whose second run would not fit in the time
  * left, at `timeouts.seconds`, is not run again, and a mutant whose control
@@ -214,6 +215,33 @@ final readonly class Invoking
             return $mutants;
         }
 
+        [$runs, $left] = $this->ranOf($asked, $request);
+        $fallback = $runs instanceof CannotJudge ? [] : [...$kills->fallback($runs, $left)];
+        [$again, $leftAgain] = $fallback === []
+            ? [ControlRuns::none(), Controls::none()]
+            : $this->ranOf($fallback, $request);
+
+        return match (true) {
+            $runs instanceof CannotJudge => $runs,
+            $again instanceof CannotJudge => $again,
+            default => $memory->applied(
+                $kills->applied($timeouts->applied($mutants, $runs, $left), $runs->and($again), $left->and($leftAgain)),
+                $runs,
+                $left,
+            ),
+        };
+    }
+
+    /**
+     * What these controls found, those that fit in the time left run side by
+     * side in the request's pool and timed as the controls step, and those
+     * the time left had no room for.
+     *
+     * @param  non-empty-list<Control>          $asked
+     * @return array{ControlRuns|CannotJudge, Controls}
+     */
+    private function ranOf(array $asked, MutationRequest $request): array
+    {
         $longest = max(array_map(static fn(Control $control): float => $control->limit()->seconds(), $asked));
         $fitting = $this->fitting(count($asked), Seconds::of($longest));
         $from = $this->stopwatch->now();
@@ -223,13 +251,10 @@ final readonly class Invoking
                 $this->retimed($request),
                 Controls::of(...array_slice($asked, 0, $fitting)),
             );
-        $left = Controls::of(...array_slice($asked, $fitting));
 
         $this->stopwatch->handled(Step::Controls, $from, $fitting);
 
-        return $runs instanceof CannotJudge
-            ? $runs
-            : $memory->applied($kills->applied($timeouts->applied($mutants, $runs, $left), $runs, $left), $runs, $left);
+        return [$runs, Controls::of(...array_slice($asked, $fitting))];
     }
 
     /**

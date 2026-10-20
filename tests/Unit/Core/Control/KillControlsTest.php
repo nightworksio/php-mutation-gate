@@ -67,7 +67,7 @@ function askedKillControls(KillControls $controls): array
     ], [...$controls->asked()]);
 }
 
-it('asks for one control of each kill a test is named for: its killers, its file, and the standard limit of their time', function (): void {
+it('asks for one control of each file first: every test that killed one of its mutants, its file, and the standard limit of their time', function (): void {
     $mutants = Mutants::of(
         killedBy('src/Loop.php', '1', MutantStatus::Killed, 'LoopTest::a'),
         killedBy('src/Loop.php', '2', MutantStatus::Killed, 'LoopTest::a'),
@@ -76,10 +76,49 @@ it('asks for one control of each kill a test is named for: its killers, its file
     );
 
     expect(askedKillControls(KillControls::of($mutants, killersMap(), LimitBounds::between(Seconds::of(1.0), Seconds::of(100.0)))))->toBe([
-        ['src/Loop.php', ['LoopTest::a'], 11.0],
-        ['src/Loop.php', ['LoopTest::b'], 1.0],
+        ['src/Loop.php', ['LoopTest::a', 'LoopTest::b'], 1.0],
         ['src/Tax.php', ['LoopTest::a'], 11.0],
     ]);
+});
+
+it('asks for each kill\'s own control only where its file\'s did not pass, ran, and is not that same control', function (): void {
+    $mutants = Mutants::of(
+        killedBy('src/Loop.php', '1', MutantStatus::Killed, 'LoopTest::a'),
+        killedBy('src/Loop.php', '2', MutantStatus::Killed, 'LoopTest::a'),
+        killedBy('src/Loop.php', '3', MutantStatus::Killed, 'LoopTest::b'),
+        killedBy('src/Tax.php', '4', MutantStatus::Killed, 'LoopTest::a'),
+        killedBy('src/Rate.php', '5', MutantStatus::Killed, 'LoopTest::a'),
+        killedBy('src/Rate.php', '6', MutantStatus::Killed, 'LoopTest::b'),
+    );
+    $controls = KillControls::of($mutants, killersMap(), killBounds());
+    [$loop, $tax, $rate] = [...$controls->asked()];
+    $runs = ControlRuns::none()->with($loop, ControlRun::failed())->with($tax, ControlRun::failed());
+    $fallback = static fn(KillControls $controls): array => array_map(static fn(Control $control): array => [
+        $control->file()->value(),
+        array_map(static fn(TestId $test): string => $test->value(), [...$control->tests()]),
+    ], [...$controls->fallback($runs, Controls::of($rate))]);
+
+    expect($fallback($controls))->toBe([['src/Loop.php', ['LoopTest::a']], ['src/Loop.php', ['LoopTest::b']]])
+        ->and([...$controls->fallback(ControlRuns::none()->with($loop, ControlRun::passed(Seconds::of(1.0))), Controls::of($tax, $rate))])->toBe([]);
+});
+
+it('lets every kill of a file stand where its file\'s control passed, and judges each by its own where it did not', function (): void {
+    $mutants = Mutants::of(
+        killedBy('src/Loop.php', '1', MutantStatus::Killed, 'LoopTest::a'),
+        killedBy('src/Loop.php', '2', MutantStatus::Killed, 'LoopTest::b'),
+    );
+    $controls = KillControls::of($mutants, killersMap(), killBounds());
+    [$file] = [...$controls->asked()];
+    [$a, $b] = [...$controls->fallback(ControlRuns::none()->with($file, ControlRun::failed()), Controls::none())];
+    $statuses = static fn(ControlRuns $runs, Controls $left): array => array_map(
+        static fn(Mutant $mutant): MutantStatus => $mutant->status(),
+        [...$controls->applied($mutants, $runs, $left)],
+    );
+
+    expect($statuses(ControlRuns::none()->with($file, ControlRun::passed(Seconds::of(1.0))), Controls::none()))->toBe([MutantStatus::Killed, MutantStatus::Killed])
+        ->and($statuses(ControlRuns::none()->with($file, ControlRun::failed())->with($a, ControlRun::passed(Seconds::of(1.0)))->with($b, ControlRun::failed()), Controls::none()))
+        ->toBe([MutantStatus::Killed, MutantStatus::Unjudged])
+        ->and($statuses(ControlRuns::none(), Controls::of($file)))->toBe([MutantStatus::Unjudged, MutantStatus::Unjudged]);
 });
 
 it('asks for no control of a kill no test is named for, nor of a mutant not killed by a test', function (): void {
