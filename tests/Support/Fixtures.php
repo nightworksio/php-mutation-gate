@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
+use function dirname;
+use function file_get_contents;
 use function implode;
+use function is_string;
 
 use NightWorksIO\MutationGate\PHPStan\Rules\NoManyMethodsRule;
 
+use function preg_match;
 use function range;
 use function sprintf;
 use function str_repeat;
@@ -20,6 +24,9 @@ use function str_repeat;
  */
 final readonly class Fixtures
 {
+    /** `symfony/process`'s entry in `composer.lock`, up to the end of its version. */
+    private const string LOCKED_PROCESS = '#"name": "symfony/process",\n {12}"version": "[^"]+",#';
+
     /** @return list<Fixture> */
     public static function all(): array
     {
@@ -471,7 +478,7 @@ final readonly class Fixtures
             self::inTheCore('S1', 'PlantedDanger', 'return phpinfo();', 'bool', 'phpinfo()'),
             Fixture::audit(
                 'S2',
-                "\"name\": \"symfony/process\",\n            \"version\": \"v8.1.7\",",
+                self::lockedProcess(),
                 "\"name\": \"symfony/process\",\n            \"version\": \"v7.1.6\",",
                 'CVE-2024-51736',
             ),
@@ -615,6 +622,17 @@ final readonly class Fixtures
                 }
             }
             PHP, $class, $returns === '' ? '' : sprintf(': %s', $returns), $body), $marker);
+    }
+
+    /** `symfony/process` and its version as `composer.lock` locks them, whatever the version, for S2 to swap. */
+    private static function lockedProcess(): string
+    {
+        $lock = file_get_contents(sprintf('%s/composer.lock', dirname(__DIR__, 2)));
+        $found = [];
+
+        return is_string($lock) && preg_match(self::LOCKED_PROCESS, $lock, $found) === 1
+            ? $found[0]
+            : 'symfony/process, which composer.lock does not lock';
     }
 
     private static function aValueCalled(string $class): string

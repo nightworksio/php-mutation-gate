@@ -108,7 +108,7 @@ final readonly class FullRunEstimate
             ),
         };
 
-        return $made instanceof PlanMade && $composed instanceof Composed
+        return $made instanceof PlanMade
             ? $this->lines($composed, $made->plan())
             : sprintf(self::UNMEASURED, $made->why());
     }
