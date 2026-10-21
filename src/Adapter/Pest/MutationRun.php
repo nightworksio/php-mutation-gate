@@ -9,7 +9,6 @@ use function array_values;
 use Closure;
 
 use function count;
-use function dirname;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Plan;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
@@ -21,7 +20,6 @@ use NightWorksIO\MutationGate\Core\Cost\Step;
 use NightWorksIO\MutationGate\Core\Cost\StepTime;
 use NightWorksIO\MutationGate\Core\Cost\StepTimes;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
-use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
@@ -34,10 +32,8 @@ use NightWorksIO\MutationGate\Core\Runner\MutationResult;
 use NightWorksIO\MutationGate\Core\Runner\Unwatched;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Test\Filter;
-use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
-use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
@@ -57,20 +53,12 @@ final readonly class MutationRun
 
     private const string COMMA = "Pest's --path and --ignore split on commas, so Pest cannot mutate %s less %s.";
 
-    private const string NOT_PATCHED
-        = 'pest.patch is on, but pest-plugin-mutate in %s is not patched. Run mutation-gate pest:patch.';
-
-    private const string EMPTY_CANARY = 'pest.patch is on, but the canary group %s holds no test. Add one.';
-
     /** Why a narrowed run's doubtful kill is unjudged where no time is left to run it again. */
     private const string NO_TIME_TO_CONFIRM
         = "Killed where its covering tests' files alone cannot vouch for the kill; no time is left to run them all.";
 
     /** Why such a mutant is unjudged where the run again made no mutant with its id. */
     private const string NOT_MADE_TO_CONFIRM = 'Run again with every test file, Pest made no mutant with this id.';
-
-    /** Where the map another job handed over is written again for this job's Pest, beside the results. */
-    private const string SHARED_MAP = '%s/shared.coverage.php';
 
     /**
      * @param Closure(Withheld, Suites): (TestListing|CannotJudge) $listing the suites' tests and groups,
@@ -151,7 +139,7 @@ final readonly class MutationRun
 
         $laps = Laps::since(fn(): Seconds => Seconds::of($this->clock->seconds()), Seconds::of($started));
         $from = $laps->now();
-        $shared = $this->shared($request);
+        $shared = $this->shardMap()->of($request);
         $read = $shared instanceof CoverageMap ? StepTimes::of($laps->lap(Step::Coverage, $from)) : StepTimes::none();
         $result = $shared instanceof CannotJudge ? $shared : $this->ran($request, $results, $shared, $started, $laps);
         $result = $result instanceof CannotJudge ? $result : $result->withStepsBefore($read);
@@ -398,72 +386,19 @@ final readonly class MutationRun
             ),
             default => $this->bridges->loading(
                 $this->project,
-                $this->opened(
+                $this->shardMap()->opened(
                     Invocation::installedIn($this->project->vendor())
                         ->mutation($request, $judgedBy, $results, $this->bridges),
                     $results,
                     $shared,
+                    $request,
                 ),
             ),
         };
     }
 
-    /** A run that opens on the canary group with the map another job handed over, where it has one. */
-    private function opened(Command $command, string $results, CoverageMap|Unshared $shared): Command
+    private function shardMap(): ShardMap
     {
-        if (! $shared instanceof CoverageMap) {
-            return $command;
-        }
-
-        $map = sprintf(self::SHARED_MAP, dirname($results));
-        $this->remembered->writeOnce($map, fn() => SharedCoverage::write($shared, $this->project, $map));
-
-        $canary = $this->patching->canary();
-
-        return $command->with([
-            GateVariable::SharedCoverage->value => $map,
-            GateVariable::SuiteSeconds->value => sprintf('%F', SharedCoverage::seconds($shared)),
-            ...($canary instanceof Group ? [GateVariable::Canary->value => $canary->name()] : []),
-        ]);
-    }
-
-    /**
-     * The shard's own map the plan handed over, where a patched shard opens
-     * on the canary group, why it cannot, or none where the run opens on its
-     * own suite.
-     */
-    private function shared(MutationRequest $request): CoverageMap|Unshared|CannotJudge
-    {
-        $handed = $request->coverage();
-
-        if (! $this->patching->isOn() || ! $handed instanceof Handed || ! $request->judgedBy() instanceof WholeSuite) {
-            return Unshared::Coverage;
-        }
-
-        $directory = $handed->own();
-
-        $refusal = $this->refusal($request);
-
-        $reading = fn(): CoverageMap|CannotJudge => SharedCoverage::in($this->project, $directory);
-
-        return $refusal instanceof CannotJudge ? $refusal : $this->remembered->map($directory, $reading);
-    }
-
-    /** Why a shard cannot open on the canary group among the suites its opening run runs, if it cannot. */
-    private function refusal(MutationRequest $request): TestListing|CannotJudge
-    {
-        $vendor = $this->project->absolute($this->project->vendor());
-
-        if (! $this->remembered->patched(static fn(): bool => Patch::isAppliedIn($vendor))) {
-            return CannotJudge::because(sprintf(self::NOT_PATCHED, $this->project->vendor()->value()));
-        }
-
-        $canary = $this->patching->canary();
-        $opensOn = $this->patching->opensOn($request->judgedBy(), handedAMap: true);
-        $listing = ($this->listing)($request->withheld(), $request->narrowing()->suitesFor($opensOn));
-
-        return $listing instanceof CannotJudge || ! $canary instanceof Group || $listing->groups()->has($canary)
-            ? $listing
-            : CannotJudge::because(sprintf(self::EMPTY_CANARY, $canary->name()));
+        return new ShardMap($this->project, $this->patching, $this->remembered, $this->listing);
     }
 }

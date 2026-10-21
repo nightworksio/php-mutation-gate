@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\ShardMap;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Triage;
@@ -92,7 +93,7 @@ it('runs the mutants again in one run of their files with their mutators, naming
 
 it('runs mutants again on the canary group, reading the map the planning job handed the invocation, under the raised limit', function (): void {
     $at = PestCases::patched();
-    $written = sprintf('%s/shared.coverage.php', dirname(PestCases::results($at)));
+    $written = ShardMap::fileFor(PestCases::results($at), Paths::of(Path::of('src/Money.php')));
     $shell = new ShellFake(static fn(Command $command, int $before): Ran => $before === 0
         ? PestCases::listed($command)
         : PestCases::killed($command, $at));

@@ -23,7 +23,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 final readonly class Reflections
 {
     /** The reflection classes that can read a constant, by their names in lower case. */
-    private const array CLASSES = [
+    public const array CLASSES = [
         'reflectionclass',
         self::CONSTANT,
         'reflectionenum',

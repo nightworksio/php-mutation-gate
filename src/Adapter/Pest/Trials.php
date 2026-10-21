@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Judging;
+use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Selector;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\Laps;
 use NightWorksIO\MutationGate\Core\Cost\Step;
@@ -41,13 +42,18 @@ final readonly class Trials
         Laps $laps,
     ): MutationResult|CannotJudge {
         $from = $laps->now();
-        $reads = new WholeMap($this->project, $this->remembered)->covering($request, $own, $shared);
+        $whole = new WholeMap($this->project, $this->remembered);
+        $reads = $whole->covering($request, $own, $shared);
         $read = $laps->lap(Step::TrialCoverage, $from);
         $from = $laps->now();
         $judged = $reads instanceof CannotJudge
             ? $reads
-            : new Judging($this->project, $this->shell, $this->files, $this->bounds)
-                ->of($result, $request, $results, $reads);
+            : new Judging($this->project, $this->shell, $this->files, $this->bounds)->of(
+                $result,
+                $request,
+                $results,
+                static fn(): Selector => $whole->selector($request, $reads, $shared),
+            );
 
         return $judged instanceof CannotJudge
             ? $judged

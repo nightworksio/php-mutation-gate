@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Php;
 
+use function array_last;
+use function explode;
 use function ltrim;
 use function mb_strtolower;
 use function sprintf;
@@ -46,6 +48,18 @@ final readonly class Symbol
         return self::owned($static ? SymbolKind::StaticProperty : SymbolKind::Property, $owner, $name);
     }
 
+    /**
+     * A constant `const` declares outside every class, or `define()` does, by
+     * its fully qualified name; its owner is that name, and its name is the
+     * last segment of it.
+     */
+    public static function globalConstant(string $name): self
+    {
+        $segments = explode('\\', ltrim($name, '\\'));
+
+        return new self(SymbolKind::GlobalConstant, ltrim($name, '\\'), array_last($segments));
+    }
+
     /** A plain function's parameter default, by the function's fully qualified name. */
     public static function parameter(string $function, string $name): self
     {
@@ -69,10 +83,12 @@ final readonly class Symbol
         return $this->name;
     }
 
-    /** How a reason names it, such as `constant Money::RATE`. */
+    /** How a reason names it, such as `constant Money::RATE` or `global constant App\LIMIT`. */
     public function described(): string
     {
-        return sprintf('%s %s::%s', $this->kind->value, $this->owner, $this->name);
+        return $this->kind === SymbolKind::GlobalConstant
+            ? sprintf('%s %s', $this->kind->value, $this->owner)
+            : sprintf('%s %s::%s', $this->kind->value, $this->owner, $this->name);
     }
 
     /** @return ($owner is string ? self : Unnamed) */

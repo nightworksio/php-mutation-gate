@@ -59,10 +59,10 @@ final readonly class CoverageMap
         return new self($lines, [], ByPath::none())->timedEach(...$timed);
     }
 
-    /** This map, with a test covering a line. */
-    public function covered(Path $file, Line $line, TestId $test): self
+    /** This map, with these tests covering a line. */
+    public function covered(Path $file, Line $line, TestId ...$tests): self
     {
-        return new self($this->lines->covered($file, $line, $test), $this->durations, $this->methods);
+        return new self($this->lines->covered($file, $line, ...$tests), $this->durations, $this->methods);
     }
 
     /** This map, with how long a test took. */

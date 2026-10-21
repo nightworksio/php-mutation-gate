@@ -77,12 +77,13 @@ final readonly class LineTests
         return self::none()->knowing(...$tests)->with(...$placed);
     }
 
-    /** These lines, with a test covering a line, where it did not already. */
-    public function covered(Path $file, Line $line, TestId $test): self
+    /** These lines, with these tests covering a line, each where it did not already. */
+    public function covered(Path $file, Line $line, TestId ...$tests): self
     {
-        $known = $this->knowing($test);
+        $known = $this->knowing(...$tests);
+        $places = array_map(static fn(TestId $test): int => $known->places[$test->value()], $tests);
 
-        return $known->with(PlacedLine::of($file, $line->number(), $known->places[$test->value()]));
+        return $known->with(PlacedLine::of($file, $line->number(), ...$places));
     }
 
     /** These lines, knowing these tests too, each one it did not know after those it did. */

@@ -21,11 +21,14 @@ use function sprintf;
  */
 final readonly class StaticReads
 {
+    /**
+     * Where a call whose first argument is one token goes on past it, from
+     * the name it calls: the `)` of a `constant()` that reads one string, or
+     * the `,` after a `define()`'s name.
+     */
+    public const int CLOSE = 3;
     /** What stands before a `constant` that is not a call of PHP's `constant()`. */
     private const array NOT_A_CALL = [T_OBJECT_OPERATOR, T_NULLSAFE_OBJECT_OPERATOR, T_DOUBLE_COLON, T_FUNCTION];
-
-    /** Where a `constant()` call that reads one string closes. */
-    private const int CLOSE = 3;
 
     private function __construct(private Symbol $symbol, private Source $source, private Hierarchy $hierarchy)
     {
@@ -104,7 +107,7 @@ final readonly class StaticReads
         $found = References::none();
 
         foreach ($tokens->indicesOf(T_STRING) as $at) {
-            $call = mb_strtolower($tokens->text($at)) === 'constant'
+            $call = mb_strtolower($tokens->text($at)) === Reads::LOOKUP
                 && $tokens->is($at + 1, '(')
                 && ! $tokens->is($at - 1, ...self::NOT_A_CALL);
             $found = $call ? $found->and($this->lookedUp($at)) : $found;

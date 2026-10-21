@@ -6,13 +6,16 @@ namespace NightWorksIO\MutationGate\Core\Php;
 
 /**
  * What a line that is not executable declares, and so what can read the value
- * a mutant there changes. A named constant, case, property or plain
- * function's parameter can be followed to the code that reads it; a method's
- * or a closure's parameter and an attribute's argument are always unnamed.
+ * a mutant there changes, and a global constant, whose line is executable but
+ * whose value is read wherever its name is. A named constant, case, property
+ * or plain function's parameter can be followed to the code that reads it; a
+ * method's or a closure's parameter and an attribute's argument are always
+ * unnamed.
  */
 enum SymbolKind: string
 {
     case Constant = 'constant';
+    case GlobalConstant = 'global constant';
     case EnumCase = 'enum case';
     case StaticProperty = 'static property';
     case Property = 'property';

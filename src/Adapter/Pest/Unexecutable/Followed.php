@@ -9,12 +9,16 @@ use function array_key_exists;
 use NightWorksIO\MutationGate\Core\Php\Codebase;
 use NightWorksIO\MutationGate\Core\Php\References;
 use NightWorksIO\MutationGate\Core\Php\Symbol;
+use NightWorksIO\MutationGate\Core\Php\SymbolKind;
 use NightWorksIO\MutationGate\Core\Php\Unnamed;
+
+use function sprintf;
 
 /**
  * Where a codebase reads each value, followed once for each symbol and kept
  * while the judging that read the codebase runs: every mutant of one constant
- * asks the same question.
+ * asks the same question. Every case of one enum asks it too, as any use of
+ * the enum reads each case's value.
  */
 final class Followed
 {
@@ -31,7 +35,9 @@ final class Followed
     /** Where the codebase reads a value, followed through the declarations that read it. */
     public function references(Symbol|Unnamed $symbol): References
     {
-        $key = $symbol->described();
+        $key = $symbol instanceof Symbol && $symbol->kind() === SymbolKind::EnumCase
+            ? sprintf('%s %s', SymbolKind::EnumCase->value, $symbol->owner())
+            : $symbol->described();
 
         if (! array_key_exists($key, $this->references)) {
             $this->references[$key] = $this->codebase->references($symbol);

@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\Pest\PrunedFile;
+use NightWorksIO\MutationGate\Adapter\Pest\ShardMap;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
 use NightWorksIO\MutationGate\Core\Analysis\PreChecker;
@@ -458,7 +459,7 @@ it('tells a patched run the start-up the request\'s pool measured, which each mu
 
 it('opens a patched shard on the canary group, with the planning job\'s map written again for its Pest', function (): void {
     $at = PestCases::patched();
-    $written = sprintf('%s/shared.coverage.php', dirname(PestCases::results($at)));
+    $written = ShardMap::fileFor(PestCases::results($at), PestCases::money()->files());
     $loaded = null;
     $shell = new ShellFake(static function (Command $command, int $before) use ($at, $written, &$loaded): Ran {
         $loaded ??= is_file($written) ? CoverageFile::at($written) : null;
@@ -489,6 +490,28 @@ it('opens a patched shard on the canary group, with the planning job\'s map writ
                 ...TighterVariables::of(TighterSilence::standard()),
             ]),
         ]);
+});
+
+it('covers the line of a constant a shard\'s file declares with the tests that read it, in the map written for its Pest', function (): void {
+    $at = PestCases::patched();
+    Scratch::write($at->root(), 'src/Money.php', "<?php\n\nfinal class Money\n{\n    public const RATE = 2;\n}\n");
+    Scratch::write($at->root(), 'tests/MoneySpec.php', "<?php\nit('adds', fn () => Money::RATE);\n");
+    $written = ShardMap::fileFor(PestCases::results($at), PestCases::money()->files());
+    $loaded = null;
+    $shell = new ShellFake(static function (Command $command, int $before) use ($at, $written, &$loaded): Ran {
+        $loaded ??= is_file($written) ? CoverageFile::at($written) : null;
+
+        return $before === 0 ? PestCases::listed($command) : PestCases::killed($command, $at);
+    });
+    $request = PestCases::money()->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
+    new Pest($at, $shell, PestCases::canary(), new CapDirectory(), Triage::standard()->bounds())->mutate($request);
+
+    expect($loaded instanceof CoverageFile ? $loaded->map($at) : $loaded)->toEqual(
+        CoverageMap::of(
+            CoveredLine::of(Path::of('src/Money.php'), 11, PestCases::RUN_ADDS),
+            CoveredLine::of(Path::of('src/Money.php'), 5, PestCases::RUN_ADDS),
+        )->timedEach(TimedTest::of(PestCases::RUN_ADDS, 1.25), TimedTest::of('Tests\B::c', 2.0)),
+    );
 });
 
 it('runs a patched shard\'s canary group again alone where its opening run failed no test and still failed', function (): void {

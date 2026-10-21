@@ -29,3 +29,29 @@ it('reads each kind of value the way that kind is read, and no reference names t
         ->and($read(Symbol::enumCase('App\Status', 'Paid')))->toBe(['src/A.php:9'])
         ->and($read(Symbol::parameter('App\tax', 'rate')))->toBe(['src/A.php:10']);
 });
+
+it('reads a global constant by its name', function (): void {
+    $source = Php::source("<?php\nnamespace App;\nconst LIMIT = 1;\necho LIMIT;\n");
+
+    expect(Php::sites(Reads::of(Symbol::globalConstant('App\LIMIT'), $source, Hierarchy::of($source))))->toBe(['src/A.php:4']);
+});
+
+it('looks for a read only in a file whose names end in a word the read must spell', function (): void {
+    $holds = static fn(Symbol $symbol, string $code): bool => Reads::mayHold($symbol, Php::source($code));
+    $rate = Symbol::constant('App\Money', 'RATE');
+    $limit = Symbol::globalConstant('App\LIMIT');
+    $paid = Symbol::enumCase('App\Status', 'Paid');
+
+    expect([
+        $holds($rate, "<?php\necho Money::RATE;"),
+        $holds($rate, "<?php\necho constant(\$name);"),
+        $holds($rate, "<?php\nnew ReflectionClass(\$money);"),
+        $holds($rate, "<?php\necho Money::OTHER;"),
+        $holds($limit, "<?php\necho \\App\\LIMIT;"),
+        $holds($limit, "<?php\necho CONSTANT('App\\\\LIMIT');"),
+        $holds($limit, "<?php\necho FLOOR;"),
+        $holds($paid, "<?php\nuse App\\Status as S;\nS::from('p');"),
+        $holds($paid, "<?php\necho Money::Paid;"),
+        $holds(Symbol::property('App\Money', 'cents', static: false), "<?php\necho 1;"),
+    ])->toBe([true, true, true, false, true, true, false, true, false, true]);
+});

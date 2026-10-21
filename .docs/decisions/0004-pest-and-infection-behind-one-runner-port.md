@@ -604,7 +604,10 @@ its parser attributes. Both change when the checkout moves.
 
 8. **A mutant on a line that is not executable is judged by the tests that
    reference its symbol, and one on a statement's first line by the tests
-   that run the statement** (Pest only).
+   that run the statement** (Pest only). ADR-0037 amends this for a patched
+   shard: a constant's or a backed case's lines, and a global constant's,
+   are covered by the tests one run judges them by, where the scan follows
+   every read, so their mutants run in the mutation step.
    - **Which mutants.** php-code-coverage leaves some lines out of the
      coverage map altogether: class and interface constants, enum cases,
      property declarations, parameters of plain functions and closures, and
@@ -946,3 +949,4 @@ interfaces, so each is added only once the contract suite passes on it.
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): the first killer recorded, and the order of a mutant's tests
 - [ADR-0014](0014-every-test-is-judged-by-what-it-kills.md): every killer recorded, for a full kill matrix
 - [ADR-0036](0036-a-kill-only-errors-made-counts-where-its-control-passes.md): a narrowed kill only errors made, judged by its control
+- [ADR-0037](0037-a-value-is-covered-by-the-tests-that-read-it.md): a declared value's lines covered by the tests that read it
