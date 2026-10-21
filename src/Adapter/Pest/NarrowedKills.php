@@ -38,14 +38,16 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 /**
  * The kills of a run in which each mutant's own run loaded only the test
  * files its covering tests need, as far as its records can vouch for them. A
- * kill is doubtful where no test is named as the killer, where only tests
- * that errored are, or where the records cannot be read. Any other kill of a
- * narrowed own run stands only where its control passes: the tests of the
- * files it loaded, loaded alone, with the file it changes served unmutated
- * through Pest's override as the mutant's copy was (see Control). A file left
- * out can hold what a test needs without a name, such as a hook
- * `pest()->in()` registers or state its loading sets, and a test can fail
- * only while the override serves a file; either would pass as a killer.
+ * kill is doubtful where no test is named as the killer, or where the records
+ * cannot be read. Any other kill of a narrowed own run, one only tests that
+ * errored made included (ADR-0036), stands only where its control passes: the
+ * tests of the files it loaded, loaded alone, with the file it changes served
+ * unmutated through Pest's override as the mutant's copy was (see Control). A
+ * file left out can hold what a test needs without a name, such as a hook
+ * `pest()->in()` registers, state its loading sets or a helper a test calls
+ * by a name built at run time, and a test can fail only while the override
+ * serves a file; either would pass as a killer, and either fails the control
+ * too.
  * Mutants that share Pest's id share their own run, and so its doubt. A
  * kill of a mutant Pest left uncovered is the trial's (ADR-0004, decision 8),
  * which ran no own process of Pest's and first ran its tests alone on the
@@ -91,12 +93,12 @@ final readonly class NarrowedKills
             [$run, $copy, $limit] = $recorded
                 ? $runs[$mutant->nativeId()]
                 : [
-                    OwnRun::of([], [], [], NotGiven::value(), preloaded: false, tests: NotGiven::value()),
+                    OwnRun::of([], [], NotGiven::value(), preloaded: false, tests: NotGiven::value()),
                     '',
                     Unmeasured::duration(),
                 ];
 
-            if (! $recorded || count($mutant->killers()) === 0 || $run->killedByErrorsOnly()) {
+            if (! $recorded || count($mutant->killers()) === 0) {
                 $doubtful[] = $mutant;
 
                 continue;

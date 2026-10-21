@@ -55,7 +55,7 @@ function narrowedResults(string ...$lines): string
     return $file;
 }
 
-it('doubts a kill no test is named for, one only errors made, one with no record, and a narrowed one its files do not vouch for, asking for every set of files at once', function () use ($mutant): void {
+it('doubts a kill no test is named for, one with no record, and a narrowed one its files do not vouch for, asking for every set of files at once', function () use ($mutant): void {
     $mutants = [
         $mutant(1, MutantStatus::Killed, 'T::a'),
         $mutant(2, MutantStatus::Killed, 'T::b'),
@@ -93,11 +93,31 @@ it('doubts a kill no test is named for, one only errors made, one with no record
     );
 
     expect(array_map(static fn(Mutant $each): string => $each->nativeId(), [...$doubted]))
-        ->toEqualCanonicalizing(['native-3', 'native-5', 'native-6', 'native-8'])
+        ->toEqualCanonicalizing(['native-3', 'native-6', 'native-8'])
         ->and($asked)->toEqual([[
             Control::of(Path::of('src/Money.php'), Paths::of(Path::of('/p/tests/ASpec.php'), Path::of('/p/tests/BSpec.php')), Group::named('holds:src/Money.php')),
             Control::of(Path::of('src/Money.php'), Paths::of(Path::of('/p/tests/CSpec.php')), Group::named('holds:src/Money.php')),
         ]]);
+});
+
+it('judges a narrowed kill only tests that errored made by its control, as any other narrowed kill', function () use ($mutant): void {
+    $file = narrowedResults(
+        PestRun::errored('native-1', 'T::a'),
+        PestRun::narrowed('native-1', ['/p/tests/ASpec.php']),
+        PestRun::errored('native-2', 'T::b'),
+        PestRun::narrowed('native-2', ['/p/tests/CSpec.php']),
+    );
+    $result = MutationResult::of(Mutants::of($mutant(1, MutantStatus::Killed, 'T::a'), $mutant(2, MutantStatus::Killed, 'T::b')), 0);
+
+    $doubted = NarrowedKills::in($result, $file, PestCases::project())->doubted(
+        WholeSuite::tests(),
+        static fn(array $controls): array => array_map(
+            static fn(Control $control): bool => array_map(static fn(Path $test): string => $test->value(), [...$control->tests()]) !== ['/p/tests/CSpec.php'],
+            $controls,
+        ),
+    );
+
+    expect(array_map(static fn(Mutant $each): string => $each->nativeId(), [...$doubted]))->toBe(['native-2']);
 });
 
 it('asks for a control of each file a narrowed kill changes, though the runs of several loaded the same files', function () use ($mutant): void {

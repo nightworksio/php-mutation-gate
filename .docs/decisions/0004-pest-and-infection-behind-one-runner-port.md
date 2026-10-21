@@ -459,7 +459,9 @@ its parser attributes. Both change when the checkout moves.
      - A narrowed kill counts only where the run can vouch for it:
        - a kill with no test named as its killer, or only tests that errored,
          does not count, as a helper a test calls by a name built at run time
-         leaves;
+         leaves. ADR-0036 amends this: a kill only tests that errored made is
+         judged as the kills below are, whose replay or control fails in that
+         case too;
        - any other, where the run recorded the arguments Pest started it
          with, how many tests it took up to its last killer and the key of
          that order (ADR-0014, decision 16), counts only where a replay of
@@ -943,3 +945,4 @@ interfaces, so each is added only once the contract suite passes on it.
 - [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): timeouts, flaky results and ignores
 - [ADR-0013](0013-a-run-learns-which-tests-kill-and-how-wide-to-cut.md): the first killer recorded, and the order of a mutant's tests
 - [ADR-0014](0014-every-test-is-judged-by-what-it-kills.md): every killer recorded, for a full kill matrix
+- [ADR-0036](0036-a-kill-only-errors-made-counts-where-its-control-passes.md): a narrowed kill only errors made, judged by its control

@@ -283,7 +283,7 @@ it('gives a kill run again with every test file the evidence of that run, and no
     'surviving' => [false, true, fn(): Evidence => Evidence::none()],
 ]);
 
-it('runs a mutant a narrowed run killed only by tests that errored again with every test file, before it counts', function (): void {
+it('counts a mutant a run killed only by tests that errored without running it again', function (): void {
     $at = PestCases::project();
     $shell = PestCases::loadedNothing($at, PestRun::errored('n1', PestCases::RUN_ADDS), PestRun::errored('n1', 'T::subtracts'));
 
@@ -292,8 +292,8 @@ it('runs a mutant a narrowed run killed only by tests that errored again with ev
     expect($result instanceof MutationResult ? array_map(
         static fn(Mutant $mutant): MutantStatus => $mutant->status(),
         [...$result->mutants()],
-    ) : $result)->toBe([MutantStatus::Survived])
-        ->and($shell->commands())->toHaveCount(2);
+    ) : $result)->toBe([MutantStatus::Killed])
+        ->and($shell->commands())->toHaveCount(1);
 });
 
 it('counts a mutant a narrowed run killed where a test failed, whatever else errored', function (): void {
