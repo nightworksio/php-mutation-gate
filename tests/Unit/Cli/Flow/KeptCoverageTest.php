@@ -434,7 +434,7 @@ it('reads the map the default branch\'s runs keep from a store, where the run\'s
     $bytes = CoverageMapFile::keeping($kept, MapLimits::standard());
     $store->keep(Scope::branch('main'), Companion::Coverage, Contents::of(is_string($bytes) ? $bytes : ''));
 
-    expect(KeptCoverage::fromStore($store, Access::of($on, Scope::branch('main'), Writing::Auto)))
+    expect(StoredCoverage::in($store, Access::of($on, Scope::branch('main'), Writing::Auto)))
         ->toEqual(StoredCoverage::of($kept, KeptFrom::DefaultBranch));
 })->with([
     'the default branch' => [fn(): Scope => Scope::branch('main')],
@@ -452,21 +452,21 @@ it('reads the map its own scope keeps first, and the default branch\'s where its
     $access = Access::of(Scope::pullRequest(7), Scope::branch('main'), Writing::Auto);
     $store->keep(Scope::branch('main'), Companion::Coverage, Contents::of($bytes($main)));
     $store->keep(Scope::pullRequest(7), Companion::Coverage, Contents::of($bytes($own)));
-    $first = KeptCoverage::fromStore($store, $access);
+    $first = StoredCoverage::in($store, $access);
     $store->keep(Scope::pullRequest(7), Companion::Coverage, Contents::of('not a map'));
 
     expect($first)->toEqual(StoredCoverage::of($own, KeptFrom::OwnScope))
-        ->and(KeptCoverage::fromStore($store, $access))->toEqual(StoredCoverage::of($main, KeptFrom::DefaultBranch));
+        ->and(StoredCoverage::in($store, $access))->toEqual(StoredCoverage::of($main, KeptFrom::DefaultBranch));
 });
 
 it('reads no map from a store that keeps none, and says why one that is no map cannot be read', function (): void {
     $store = new ProofStoreFake();
     $access = Access::of(Scope::branch('main'), Scope::branch('main'), Writing::Auto);
-    $none = KeptCoverage::fromStore($store, $access)->map();
+    $none = StoredCoverage::in($store, $access)->map();
     $store->keep(Scope::branch('main'), Companion::Coverage, Contents::of('not a map'));
 
     expect($none)->toBeInstanceOf(Missing::class)
-        ->and(KeptCoverage::fromStore($store, $access)->map())->toBeInstanceOf(CannotJudge::class);
+        ->and(StoredCoverage::in($store, $access)->map())->toBeInstanceOf(CannotJudge::class);
 });
 
 it('reads the default branch\'s map where a run asks for the whole suite, and the last round\'s for watch', function (): void {

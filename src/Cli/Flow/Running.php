@@ -111,7 +111,7 @@ final readonly class Running
             default => $this->resultOf($followed, $id, $this->deadline()),
         };
 
-        return $result instanceof CannotJudge ? $result : $this->written($result, $results);
+        return $this->written($result, $results);
     }
 
     /** Every shard of a plan, one after another in this process, each leaving its result. */
@@ -130,13 +130,13 @@ final readonly class Running
     {
         foreach ($plan as $shard) {
             $result = $this->resultOf($plan, $shard->id(), $deadline);
-            $ran = $result instanceof CannotJudge ? $result : $this->written($result, $results);
+            $ran = $this->written($result, $results);
 
             if ($ran instanceof CannotJudge) {
                 return $ran;
             }
 
-            if ($result->doomed() instanceof Doomed) {
+            if ($result instanceof ShardResult && $result->doomed() instanceof Doomed) {
                 break;
             }
         }
@@ -152,10 +152,10 @@ final readonly class Running
         return $budget instanceof Seconds ? Deadline::after($this->setup->clock->now(), $budget) : $budget;
     }
 
-    /** A shard's result, left where the verdict reads it. */
-    private function written(ShardResult $result, Path $results): Written|CannotJudge
+    /** A shard's result, left where the verdict reads it; or why it has none. */
+    private function written(ShardResult|CannotJudge $result, Path $results): Written|CannotJudge
     {
-        return $this->adapters->project->write(
+        return $result instanceof CannotJudge ? $result : $this->adapters->project->write(
             Workspace::result($results, $result->shard()),
             Contents::of(ShardResultFile::encode($result)),
         );

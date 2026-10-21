@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Coverage;
 
+use function array_filter;
 use function array_key_exists;
 use function array_map;
 use function array_merge;
+use function array_values;
 use function count;
 use function intval;
 
@@ -63,26 +65,27 @@ final readonly class MapFileRead
         $tests = [];
         $byId = [];
         $places = [];
-        $timed = [];
+        $read = [];
 
         foreach ($listed as $place => $entry) {
             foreach (self::testIn($entry) as $test) {
-                $id = $test instanceof TimedTest ? $test->test() : $test;
-
-                if (! array_key_exists($id->value(), $byId)) {
-                    $byId[$id->value()] = count($tests);
-                    $tests[] = $id;
-                }
-
+                $id = self::idOf($test);
+                $byId += [$id->value() => count($byId)];
+                $tests += [$id->value() => $id];
                 $places[$place] = $byId[$id->value()];
-
-                if ($test instanceof TimedTest) {
-                    $timed[] = $test;
-                }
+                $read[] = $test;
             }
         }
 
-        return [$tests, $places, $timed];
+        $timed = array_filter($read, static fn(TestId|TimedTest $test): bool => $test instanceof TimedTest);
+
+        return [array_values($tests), $places, [...$timed]];
+    }
+
+    /** The test an entry lists, timed or not. */
+    private static function idOf(TestId|TimedTest $test): TestId
+    {
+        return $test instanceof TimedTest ? $test->test() : $test;
     }
 
     /**

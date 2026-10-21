@@ -6,6 +6,9 @@ namespace NightWorksIO\MutationGate\Adapter\PhpStan;
 
 use function array_any;
 use function array_map;
+use function file_get_contents;
+use function is_file;
+use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\ShellPattern;
@@ -27,6 +30,8 @@ final readonly class Scope
     public const string PARAMETERS = 'the parameters';
 
     private const string UNREAD = 'PHPStan did not say which files it analyses: %s';
+
+    private const string NOT_KEPT = 'PHPStan\'s run over the originals has not said which files it analyses.';
 
     /** The exclusions PHPStan dumps: of what it neither analyses nor scans, and of what it scans alone. */
     private const array EXCLUSIONS = ['analyseAndScan', 'analyse'];
@@ -52,6 +57,14 @@ final readonly class Scope
         }
 
         return new self($paths, $excluded);
+    }
+
+    /** The scope the warm-up kept in this file for the checks; none where it kept none. */
+    public static function kept(string $file): self|CannotJudge
+    {
+        $kept = is_file($file) ? file_get_contents($file) : null;
+
+        return is_string($kept) ? self::dumped($kept) : CannotJudge::because(self::NOT_KEPT);
     }
 
     /** Whether PHPStan analyses this file, by its absolute path. */

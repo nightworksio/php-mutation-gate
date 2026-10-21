@@ -50,8 +50,8 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
-use NightWorksIO\MutationGate\Tests\Support\CoverageMaps;
 use NightWorksIO\MutationGate\Tests\Support\FirstMutant;
+use NightWorksIO\MutationGate\Tests\Support\MoneyCoverage;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitShellFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -82,18 +82,12 @@ function mutatingPhpUnit(Project $project, ArrayObject $caps = new ArrayObject()
         $mapped = array_values(array_filter($command->arguments(), static fn(string $a): bool => str_starts_with($a, '--coverage-php=')));
 
         if ($mapped !== []) {
-            $file = substr($mapped[0], strlen('--coverage-php='));
-            if ($file === '') {
-                return Ran::finished(succeeded: false, output: 'No map named');
-            }
-
-            if (! is_dir(dirname($file))) {
-                mkdir(dirname($file), recursive: true);
-            }
-
-            CoverageMaps::write($file, sprintf('%s/', $project->root()), ['src/Money.php' => [5 => [0]]], ['Tests\MoneyTest::testAdds'], ['Tests\MoneyTest::testAdds' => 0.5]);
-
-            return Ran::finished(succeeded: ! $coverageFails, output: 'PHPUnit ran the suite under coverage');
+            return MoneyCoverage::ran(
+                substr($mapped[0], strlen('--coverage-php=')),
+                $project->root(),
+                ! $coverageFails,
+                'PHPUnit ran the suite under coverage',
+            );
         }
 
         $scanned = $command->scanned();

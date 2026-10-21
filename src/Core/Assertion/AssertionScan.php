@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Assertion;
 
+use function array_push;
 use function count;
 use function mb_strtolower;
 
@@ -175,9 +176,7 @@ final readonly class AssertionScan
         foreach (self::linkEnds($this->tokens, $closer) as $end) {
             $called = $this->tokens->is($after + self::CALL_OPENS, '(');
 
-            foreach ($called ? $this->checked(Call::at($this->tokens, $after + 2), $negated) : [] as $assertion) {
-                $made[] = $assertion;
-            }
+            array_push($made, ...($called ? $this->checked(Call::at($this->tokens, $after + 2), $negated) : []));
 
             $negated = ! $called && ($negated xor $this->tokens->text($after + 2) === self::NOT);
             $after = $end;

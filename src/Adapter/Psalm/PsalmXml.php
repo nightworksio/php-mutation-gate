@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Psalm;
 
 use function array_any;
+use function array_filter;
 use function array_key_exists;
 use function array_map;
+use function array_push;
 use function dirname;
 use function is_array;
 use function mb_strlen;
@@ -81,7 +83,7 @@ final readonly class PsalmXml
             ...self::attributed($xml, 'errorBaseline', $directory),
             ...self::attributed($xml, 'autoloader', $directory),
             ...self::namesIn(self::child($xml, 'stubs'), 'file', $directory),
-            ...self::filenamesOf(self::child($xml, 'plugins'), $directory),
+            ...self::namesIn(self::child($xml, 'plugins'), 'plugin', $directory, 'filename'),
             ...self::includedBy($xml, $directory),
         ];
 
@@ -191,27 +193,34 @@ final readonly class PsalmXml
         return $children;
     }
 
-    /** The first child of an element with this name, or the element itself where it has none, which names nothing. */
+    /** The first child of an element with this name, or an element of none where it has none, which names nothing. */
     private static function child(SimpleXMLElement $element, string $name): SimpleXMLElement
     {
-        foreach (self::childrenOf($element) as $child) {
-            if ($child->getName() === $name) {
-                return $child;
-            }
-        }
+        $children = self::ofKind($element, $name);
 
-        return new SimpleXMLElement('<none/>');
+        return $children === [] ? new SimpleXMLElement('<none/>') : $children[0];
     }
 
-    /** @return list<string> the `name` of each child of this kind, absolute */
-    private static function namesIn(SimpleXMLElement $parent, string $kind, string $directory): array
+    /** @return list<SimpleXMLElement> the children of an element with this name, in order */
+    private static function ofKind(SimpleXMLElement $element, string $name): array
     {
+        return [...array_filter(
+            self::childrenOf($element),
+            static fn(SimpleXMLElement $child): bool => $child->getName() === $name,
+        )];
+    }
+
+    /** @return list<string> an attribute of each child of this kind, absolute */
+    private static function namesIn(
+        SimpleXMLElement $parent,
+        string $kind,
+        string $directory,
+        string $attribute = 'name',
+    ): array {
         $names = [];
 
-        foreach (self::childrenOf($parent) as $child) {
-            if ($child->getName() === $kind) {
-                $names = [...$names, ...self::attributed($child, 'name', $directory)];
-            }
+        foreach (self::ofKind($parent, $kind) as $child) {
+            array_push($names, ...self::attributed($child, $attribute, $directory));
         }
 
         return $names;
@@ -251,18 +260,6 @@ final readonly class PsalmXml
         }
 
         return $links;
-    }
-
-    /** @return list<string> the `filename` of each `<plugin>`, absolute */
-    private static function filenamesOf(SimpleXMLElement $plugins, string $directory): array
-    {
-        $files = [];
-
-        foreach (self::childrenOf($plugins) as $plugin) {
-            $files = [...$files, ...self::attributed($plugin, 'filename', $directory)];
-        }
-
-        return $files;
     }
 
     /** @return list<string> the file every `xi:include` anywhere in the config pulls in, absolute */

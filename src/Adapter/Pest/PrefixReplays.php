@@ -101,7 +101,7 @@ final readonly class PrefixReplays
              */
             fn(array $unknown): array => $this->ran($unknown, $started, $request, $left, $results),
         );
-        $byKey = $said === [] ? [] : array_combine(array_keys($started), $said);
+        $byKey = array_combine(array_keys($started), $said);
 
         return array_map(
             static fn(int $at): ReplayVerdict => array_key_exists($at, $keys)

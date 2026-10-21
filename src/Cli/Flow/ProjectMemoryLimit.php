@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Doctor\PhpUnitMemory;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
@@ -29,9 +31,7 @@ final readonly class ProjectMemoryLimit
             $read = $project->read($candidate);
 
             if (! $read instanceof Missing) {
-                $limit = PhpUnitIni::memoryIn($read instanceof Contents ? $read->text() : '');
-
-                return $limit instanceof MemoryCap ? PhpUnitMemory::of($candidate, $limit) : $limit;
+                return self::setIn($candidate, $read);
             }
         }
 
@@ -44,5 +44,13 @@ final readonly class ProjectMemoryLimit
         $own = self::in($project, $configs);
 
         return $own instanceof PhpUnitMemory && $cap->isExceededBy($own->limit()) ? $own->limit() : $cap;
+    }
+
+    /** The limit a config the project has sets; none where it sets none, or cannot be read. */
+    private static function setIn(Path $config, Contents|CannotJudge $read): PhpUnitMemory|NotGiven
+    {
+        $limit = $read instanceof Contents ? PhpUnitIni::memoryIn($read->text()) : NotGiven::value();
+
+        return $limit instanceof MemoryCap ? PhpUnitMemory::of($config, $limit) : $limit;
     }
 }

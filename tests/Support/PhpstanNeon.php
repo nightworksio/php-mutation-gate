@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Tests\Support;
 
 use function array_filter;
+use function array_find;
 use function array_values;
 use function is_array;
 use function is_string;
@@ -49,14 +50,13 @@ final readonly class PhpstanNeon
     {
         $configuration = Neon::decodeFile(Tree::at('phpstan.neon'));
 
-        foreach (is_array($configuration) && is_array($configuration['services']) ? $configuration['services'] : [] as $service) {
-            $arguments = is_array($service) && ($service['class'] ?? '') === $rule ? $service['arguments'] ?? [] : [];
+        $services = is_array($configuration) && is_array($configuration['services']) ? $configuration['services'] : [];
+        $service = array_find(
+            $services,
+            static fn(mixed $service): bool => is_array($service) && ($service['class'] ?? '') === $rule,
+        );
+        $arguments = is_array($service) ? $service['arguments'] ?? [] : [];
 
-            if (is_array($arguments) && is_array($arguments[$argument] ?? '')) {
-                return $arguments[$argument];
-            }
-        }
-
-        return [];
+        return is_array($arguments) && is_array($arguments[$argument] ?? '') ? $arguments[$argument] : [];
     }
 }

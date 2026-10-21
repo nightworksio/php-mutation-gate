@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_any;
+use function array_filter;
 use function array_map;
 use function count;
 use function implode;
@@ -15,6 +16,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Hold\HeldMisses;
+use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
@@ -254,26 +256,15 @@ final readonly class Results
     /** Whether a time budget left one of these mutants unjudged. */
     private function leftAny(Mutants $mutants): bool
     {
-        foreach ($mutants as $mutant) {
-            if (OutOfTime::left($mutant)) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any([...$mutants], OutOfTime::left(...));
     }
 
     /** The mutants of a unit: those of its file, or of the files inside its held path. */
     private function mutantsOf(Unit $unit, Mutants $mutants): Mutants
     {
-        $of = [];
-
-        foreach ($mutants as $mutant) {
-            if ($mutant->location()->file()->within($unit->path())) {
-                $of[] = $mutant;
-            }
-        }
-
-        return Mutants::of(...$of);
+        return Mutants::of(...array_filter(
+            [...$mutants],
+            static fn(Mutant $mutant): bool => $mutant->location()->file()->within($unit->path()),
+        ));
     }
 }

@@ -37,15 +37,16 @@ final readonly class BaseScores
         $unmeasured = Paths::none();
 
         foreach ($units as $unit) {
-            $tree = $trees->holding($unit->path());
             $proof = $newest->of($unit->path());
+
             if ($proof instanceof Proof) {
                 $results[] = UnitResult::fromProof($unit, Origin::Carried, $proof);
+
+                continue;
             }
 
-            if (! $proof instanceof Proof && $tree instanceof Tree) {
-                $unmeasured = $unmeasured->with($tree->path());
-            }
+            $tree = $trees->holding($unit->path());
+            $unmeasured = $tree instanceof Tree ? $unmeasured->with($tree->path()) : $unmeasured;
         }
 
         $scores = [];

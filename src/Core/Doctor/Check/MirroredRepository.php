@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Doctor\Check;
 
+use function array_filter;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Doctor\ComposerSetup;
@@ -11,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Doctor\Finding;
 use NightWorksIO\MutationGate\Core\Doctor\Findings;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\Doctor\Severity;
+use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
@@ -43,10 +45,10 @@ final readonly class MirroredRepository
         $found = [];
 
         foreach ($composer->mirrored() as $directory) {
-            foreach ($trees as $tree) {
-                $found = $tree->path()->within($directory)
-                    ? [...$found, sprintf(self::HOLDS, $directory->value(), $tree->path()->value())]
-                    : $found;
+            $inside = array_filter([...$trees], static fn(Tree $tree): bool => $tree->path()->within($directory));
+
+            foreach ($inside as $tree) {
+                $found[] = sprintf(self::HOLDS, $directory->value(), $tree->path()->value());
             }
         }
 

@@ -39,14 +39,25 @@ final readonly class PhpFiles
             return Path::of($path->value())->isPhp() ? [$path->value()] : [];
         }
 
-        $entries = is_dir($path->value()) ? scandir($path->value()) : [];
         $found = [];
 
-        foreach (is_array($entries) ? $entries : [] as $entry) {
+        foreach (self::entries($path) as $entry) {
             $found = [...$found, ...(self::isFollowed($path, $entry) ? self::under($path->child($entry)) : [])];
         }
 
         return $found;
+    }
+
+    /**
+     * The entries of a directory; none for anything else.
+     *
+     * @return list<string>
+     */
+    private static function entries(DiskPath $path): array
+    {
+        $entries = is_dir($path->value()) ? scandir($path->value()) : [];
+
+        return is_array($entries) ? $entries : [];
     }
 
     /**

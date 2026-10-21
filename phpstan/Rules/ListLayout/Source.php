@@ -53,9 +53,7 @@ final readonly class Source
                 continue;
             }
 
-            if (! array_key_exists($token->line, $firstColumns)) {
-                $firstColumns[$token->line] = $token->pos - $lineStarts[$token->line - 1];
-            }
+            $firstColumns += [$token->line => $token->pos - $lineStarts[$token->line - 1]];
 
             if ($token->is(')')) {
                 $closers[] = $token->pos;

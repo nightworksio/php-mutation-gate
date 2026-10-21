@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_map;
+use function array_push;
 
 use Closure;
 
@@ -107,7 +108,7 @@ final readonly class Reporting
                     static fn(): Written|NotWritten => $reporter->planned($work),
                     static fn(Delivery $delivery): Delivery => $reporter->plannedLater($work, $delivery),
                 );
-                $said[] = $written instanceof Written ? $written->said() : $written->why();
+                array_push($said, ...$this->saidOf($written));
             }
         }
 
@@ -143,14 +144,24 @@ final readonly class Reporting
                 $reporter instanceof StepSummary => $reporter->rechecked($rechecked),
                 default => NotGiven::value(),
             };
-            $said = match (true) {
-                $written instanceof Written => [...$said, $written->said()],
-                $written instanceof NotWritten => [...$said, $written->why()],
-                default => $said,
-            };
+            array_push($said, ...$this->saidOf($written));
         }
 
         return $said;
+    }
+
+    /**
+     * What a reporter said of what it wrote, or of why it did not; nothing where it writes nothing of it.
+     *
+     * @return list<string>
+     */
+    private function saidOf(Written|NotWritten|CannotJudge|NotGiven $written): array
+    {
+        return match (true) {
+            $written instanceof Written => [$written->said()],
+            $written instanceof NotGiven => [],
+            default => [$written->why()],
+        };
     }
 
     /**

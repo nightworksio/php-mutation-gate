@@ -76,9 +76,7 @@ final readonly class SurvivorsCommand
                     return Failed::because($output, $lines);
                 }
 
-                foreach ($lines as $line) {
-                    $output->writeln($line, OutputInterface::OUTPUT_RAW);
-                }
+                $output->writeln($lines, OutputInterface::OUTPUT_RAW);
 
                 return ExitCode::Passed->value;
             });

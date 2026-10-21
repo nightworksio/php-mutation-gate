@@ -174,16 +174,10 @@ final class Trial
      */
     private function aloneEach(array $trials): void
     {
-        $sets = [];
-
-        foreach ($trials as $trial) {
-            $sets += array_key_exists($trial->set(), $this->alone) ? [] : [$trial->set() => $trial];
-        }
-
         $commands = [];
         $running = [];
 
-        foreach ($sets as $set => $trial) {
+        foreach ($this->unrun($trials) as $set => $trial) {
             $served = ServedOriginal::of($this->project, $this->directory, $trial->original());
 
             if ($served instanceof CannotJudge) {
@@ -207,6 +201,23 @@ final class Trial
                 default => $this->unjudged(self::ALONE, $ran, $trial->tests(), $position),
             };
         }
+    }
+
+    /**
+     * The first trial of each set of tests that has not run on its own yet, by the set.
+     *
+     * @param  list<TrialRun>           $trials
+     * @return array<string, TrialRun>
+     */
+    private function unrun(array $trials): array
+    {
+        $sets = [];
+
+        foreach ($trials as $trial) {
+            $sets += array_key_exists($trial->set(), $this->alone) ? [] : [$trial->set() => $trial];
+        }
+
+        return $sets;
     }
 
     /**

@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Fakes;
 
+use function array_filter;
 use function array_key_exists;
+use function array_values;
 use function in_array;
+use function max;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Change\Change;
@@ -208,13 +211,12 @@ final readonly class ChangeSourceFake implements ChangeSource
         $changed = ByPath::none();
 
         foreach ($paths as $path) {
-            $newest = '';
-
-            foreach ($this->changedAt as $file => $at) {
-                $newest = Path::of($file)->within($path) && $at > $newest ? $at : $newest;
-            }
-
-            $instant = Instant::parse($newest);
+            $inside = array_filter(
+                $this->changedAt,
+                static fn(string $file): bool => Path::of($file)->within($path),
+                ARRAY_FILTER_USE_KEY,
+            );
+            $instant = Instant::parse(max(['', ...array_values($inside)]));
             $changed = $instant instanceof Instant ? $changed->with($path, $instant) : $changed;
         }
 

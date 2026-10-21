@@ -147,3 +147,13 @@ it('starts no command once its time to start has run out, and ends those started
 
     expect(array_map(static fn(Ran $ran): string => $ran->output(), [...$ends]))->toBe(['said']);
 })->group(...$holds);
+
+it('starts no command at the moment its time to start runs out', function (): void {
+    $reads = 0;
+    $clock = processesClock(static function () use (&$reads): float {
+        return $reads++ < 1 ? 0.0 : 50.0;
+    });
+    $said = ProcessCommand::of(Scratch::directory(), PHP_BINARY, '-r', 'echo "said";');
+
+    expect([...new LocalProcesses($clock)->sideBySide(WorkerSlots::alone(), Seconds::of(50.0), $said, $said)])->toBe([]);
+})->group(...$holds);

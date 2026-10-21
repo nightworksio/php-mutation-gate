@@ -9,7 +9,6 @@ use function file_get_contents;
 use function file_put_contents;
 use function implode;
 use function is_file;
-use function json_validate;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\KillerFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
@@ -39,24 +38,17 @@ final readonly class ReplayRecord
     public static function in(string $file, string $served): self
     {
         self::fold($file, $served);
-        $text = is_file($file) ? file_get_contents($file) : false;
-        $ran = 0;
-        $failed = false;
-        $order = NotGiven::value();
+        $read = new self(ran: 0, failed: false, order: NotGiven::value());
 
-        foreach ($text === false ? [] : explode("\n", $text) as $line) {
+        foreach (self::lines($file) as $line) {
             try {
-                $record = json_validate($line) ? Node::decode($line) : Node::decode('{}');
-                $event = RecordEvent::tryFrom($record->field(RecordField::Event->value)->text());
-                $ran += $event === RecordEvent::Ran ? $record->field(RecordField::Count->value)->integer() : 0;
-                $failed = $failed || $event === RecordEvent::Killed || $event === RecordEvent::Errored;
-                $order = $event === RecordEvent::Stopped ? $record->field(RecordField::Order->value)->text() : $order;
+                $read = $read->with(Node::decode($line));
             } catch (NotInShape) {
                 continue;
             }
         }
 
-        return new self($ran, $failed, $order);
+        return $read;
     }
 
     /** How many tests the replay ran. */
@@ -85,5 +77,33 @@ final readonly class ReplayRecord
         if ($killers !== []) {
             file_put_contents($file, implode('', $killers), FILE_APPEND);
         }
+    }
+
+    /**
+     * The lines of a results file that are JSON; none where there is no file.
+     *
+     * @return list<string>
+     */
+    private static function lines(string $file): array
+    {
+        $text = is_file($file) ? file_get_contents($file) : false;
+
+        return $text === false ? [] : explode("\n", $text);
+    }
+
+    /**
+     * This, and what a record says.
+     *
+     * @throws NotInShape
+     */
+    private function with(Node $record): self
+    {
+        $event = RecordEvent::tryFrom($record->field(RecordField::Event->value)->text());
+
+        return new self(
+            $this->ran + ($event === RecordEvent::Ran ? $record->field(RecordField::Count->value)->integer() : 0),
+            $this->failed || $event === RecordEvent::Killed || $event === RecordEvent::Errored,
+            $event === RecordEvent::Stopped ? $record->field(RecordField::Order->value)->text() : $this->order,
+        );
     }
 }

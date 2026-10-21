@@ -12,4 +12,13 @@ enum TimeoutMode: string
 
     /** Always too slow to judge. */
     case Unjudged = 'unjudged';
+
+    /** The builder's call that sets it. */
+    public function php(): string
+    {
+        return match ($this) {
+            self::Confirm => 'Timeouts::confirmed()',
+            self::Unjudged => 'Timeouts::unjudged()',
+        };
+    }
 }

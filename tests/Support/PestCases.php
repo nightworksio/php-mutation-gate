@@ -236,8 +236,8 @@ final readonly class PestCases
                 return Ran::finished(succeeded: $passAlone, output: 'the narrowed files alone');
             }
 
-            $narrowed = ($command->environment()[GateVariable::Narrow->value] ?? false) === '1';
-            $status = $narrowed ? PestStatus::Tested : PestStatus::Untested;
+            $narrowed = self::isNarrowed($command);
+            $status = self::statusOf($narrowed);
             CoverageMaps::write(Recorder::coverageBeside($results), sprintf('%s/', $at->root()), ['src/Money.php' => [11 => [0]]], [self::RUN_ADDS], []);
             PestRun::write($results, [
                 PestRun::planned('n1', sprintf('%s/src/Money.php', $at->root()), 11, self::RUN_PLUS, 'return $a + $b;', 'return $a - $b;'),
@@ -292,8 +292,8 @@ final readonly class PestCases
                 return Ran::finished(succeeded: in_array(end($arguments), $passAlone, strict: true), output: 'the narrowed files alone');
             }
 
-            $narrowed = ($command->environment()[GateVariable::Narrow->value] ?? false) === '1';
-            $status = $narrowed ? PestStatus::Tested : PestStatus::Untested;
+            $narrowed = self::isNarrowed($command);
+            $status = self::statusOf($narrowed);
             $money = sprintf('%s/src/Money.php', $at->root());
             CoverageMaps::write(Recorder::coverageBeside($results), sprintf('%s/', $at->root()), ['src/Money.php' => [11 => [0], 16 => [0]]], [self::RUN_ADDS], []);
             PestRun::write($results, [
@@ -352,7 +352,7 @@ final readonly class PestCases
                 return Ran::finished(succeeded: !$served || !$sensitive, output: 'the control');
             }
 
-            $narrowed = ($command->environment()[GateVariable::Narrow->value] ?? false) === '1';
+            $narrowed = self::isNarrowed($command);
             CoverageMaps::write(Recorder::coverageBeside($results), sprintf('%s/', $at->root()), ['src/Money.php' => [11 => [0]]], [self::RUN_ADDS], []);
             PestRun::write($results, [
                 PestRun::planned('n1', sprintf('%s/src/Money.php', $at->root()), 11, self::RUN_PLUS, 'return $a + $b;', 'return $a - $b;'),
@@ -417,5 +417,17 @@ final readonly class PestCases
             $shell->commands(),
             static fn(Command $command): bool => ($command->environment()[GateVariable::Results->value] ?? false) === false,
         ));
+    }
+
+    /** Whether a run of the fake is the narrowed one. */
+    private static function isNarrowed(Command $command): bool
+    {
+        return ($command->environment()[GateVariable::Narrow->value] ?? false) === '1';
+    }
+
+    /** The status a mutant's run ends with: tested by the narrowed run, untested by any other. */
+    private static function statusOf(bool $narrowed): PestStatus
+    {
+        return $narrowed ? PestStatus::Tested : PestStatus::Untested;
     }
 }

@@ -41,6 +41,15 @@ it('keeps what PHPUnit said whole where it does not begin with the test\'s name,
         ->toBe(['tests/A.php::it fails', 'Failed asserting.']);
 });
 
+it('reads past the text and the output a test case holds before its failure', function (): void {
+    $failed = FailedFirst::in(failedFirstLog(
+        "<testcase name=\"it fails\" file=\"tests/A.php::it fails\">\n  <system-out>printed</system-out>\n  <failure>it failsFailed.</failure></testcase>",
+    ));
+
+    expect($failed instanceof FailedFirst ? [$failed->test(), $failed->said()] : [])
+        ->toBe(['tests/A.php::it fails', 'Failed.']);
+});
+
 it('names none where no test failed, there is no log, or the log is not XML', function (): void {
     $notXml = sprintf('%s/junit.xml', Scratch::directory());
     file_put_contents($notXml, 'not xml');

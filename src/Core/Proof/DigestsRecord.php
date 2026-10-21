@@ -41,6 +41,12 @@ final readonly class DigestsRecord
     /** Where digests keep the commit they were taken at. */
     private const string COMMIT = 'commit';
 
+    /** @return array{digests?: RunWritten} the field of a run's digests, where it has them */
+    public static function field(Digests|Undigested $digests): array
+    {
+        return $digests instanceof Digests ? [self::FIELD => self::ofRun($digests)] : [];
+    }
+
     /** @return RunWritten */
     public static function ofRun(Digests $digests): array
     {

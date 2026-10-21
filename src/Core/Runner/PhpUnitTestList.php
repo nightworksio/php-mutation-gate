@@ -44,15 +44,7 @@ final readonly class PhpUnitTestList
             return CannotJudge::because(sprintf(self::UNREAD, $program->title(), $file, $ran->output()));
         }
 
-        $tests = TestIds::none();
-
-        foreach (self::named($list, 'tests') as $section) {
-            foreach (self::named($section, 'testClass') as $class) {
-                $tests = $tests->and(self::idsOf($class, 'testMethod'));
-            }
-        }
-
-        $listing = TestListing::of($tests);
+        $listing = TestListing::of(self::testsIn($list));
 
         foreach (self::named($list, 'groups') as $section) {
             foreach (self::named($section, 'group') as $group) {
@@ -61,6 +53,20 @@ final readonly class PhpUnitTestList
         }
 
         return $listing;
+    }
+
+    /** The tests a listing lists, class by class. */
+    private static function testsIn(SimpleXMLElement $list): TestIds
+    {
+        $tests = TestIds::none();
+
+        foreach (self::named($list, 'tests') as $section) {
+            foreach (self::named($section, 'testClass') as $class) {
+                $tests = $tests->and(self::idsOf($class, 'testMethod'));
+            }
+        }
+
+        return $tests;
     }
 
     /** The ids each child of an element that bears this name gives. */

@@ -4,12 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
-use function array_key_exists;
-
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
-use NightWorksIO\MutationGate\Core\File\Missing;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 
@@ -23,20 +20,16 @@ final readonly class Sources
     /** @return ByPath<Contents> */
     public static function ofSurvivors(TreeVerdicts $verdicts, Directory $project): ByPath
     {
-        $sources = ByPath::none();
-        $read = [];
+        $asking = [];
 
         foreach ($verdicts as $tree) {
             foreach ($tree->survivors() as $survivor) {
                 $file = $survivor->mutant()->location()->file();
-                $asked = $survivor->judgement()->asksForATest() && ! array_key_exists($file->value(), $read);
-                $contents = $asked ? $project->read($file) : Missing::at($file);
-                $read[$file->value()] = true;
-                $sources = $contents instanceof Contents ? $sources->with($file, $contents) : $sources;
+                $asking += $survivor->judgement()->asksForATest() ? [$file->value() => $file] : [];
             }
         }
 
-        return $sources;
+        return self::of(Paths::of(...$asking), $project);
     }
 
     /**

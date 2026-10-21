@@ -22,7 +22,7 @@ function replayResults(string $text): string
 }
 
 it('reads past a record of no shape it knows, as one cut short, to the records after it', function (): void {
-    $file = replayResults(sprintf("{\"event\": \"ran\"}\n%s", RecordLine::ran('src/Money.php', 4)));
+    $file = replayResults(sprintf("{\"event\": \"ran\"}\n{\"event\": \"ra\n%s", RecordLine::ran('src/Money.php', 4)));
 
     expect(ReplayRecord::in($file, 'src/Money.php')->ran())->toBe(4);
 });

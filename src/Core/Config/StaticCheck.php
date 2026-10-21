@@ -112,10 +112,7 @@ final readonly class StaticCheck implements Part
             Json::object(
                 Member::of('tool', $this->tool instanceof Choice ? $this->tool->written() : $this->tool),
                 Member::of('config', $this->config instanceof Path ? $origin->written($this->config) : $this->config),
-                Member::of(
-                    'seconds',
-                    $this->seconds instanceof Seconds ? intval($this->seconds->seconds()) : $this->seconds,
-                ),
+                Member::of('seconds', WholeSeconds::written($this->seconds)),
                 Member::of('before', $this->before),
             ),
         ));

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function array_filter;
+use function array_push;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\StartUpSamples;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -12,6 +15,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
+use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
 /**
@@ -62,13 +66,7 @@ final readonly class StartUpTiming
         $files = [];
 
         foreach ($units as $unit) {
-            $files[] = $unit->path();
-
-            foreach ($unit->isHeld() ? $map->files() : [] as $file) {
-                if ($file->within($unit->path())) {
-                    $files[] = $file;
-                }
-            }
+            array_push($files, $unit->path(), ...($unit->isHeld() ? self::heldBy($map, $unit) : []));
         }
 
         return Paths::of(...$files);
@@ -78,13 +76,26 @@ final readonly class StartUpTiming
     private function firstFileOf(CoverageMap $map, Units $units): Path|NotGiven
     {
         foreach ($units as $unit) {
-            foreach ($unit->isHeld() ? self::filesOf($map, Units::of($unit)) : [$unit->path()] as $file) {
-                if (! $file->equals($unit->path()) || ! $unit->isHeld()) {
-                    return $file;
-                }
+            $files = $unit->isHeld() ? self::heldBy($map, $unit) : [$unit->path()];
+
+            if ($files !== []) {
+                return $files[0];
             }
         }
 
         return NotGiven::value();
+    }
+
+    /**
+     * Every file of the map a held unit's path holds, other than the path itself.
+     *
+     * @return list<Path>
+     */
+    private static function heldBy(CoverageMap $map, Unit $unit): array
+    {
+        return [...array_filter(
+            [...$map->files()],
+            static fn(Path $file): bool => $file->within($unit->path()) && ! $file->equals($unit->path()),
+        )];
     }
 }

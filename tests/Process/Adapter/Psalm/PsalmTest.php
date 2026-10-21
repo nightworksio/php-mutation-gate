@@ -138,7 +138,7 @@ it('cannot run over the originals where one is outside the files it analyses, or
         ->toEqual(CannotJudge::because('Psalm wrote no report (exit 1: PHP Fatal error: out of memory).'));
 })->group(...$holds);
 
-it('checks a mutant in its original\'s place, and each dependent it analyses, through one warm server, restoring the original after', function (): void {
+it('checks a mutant in its original\'s place, and each dependent it analyses past those it does not, through one warm server, restoring the original after', function (): void {
     $project = PsalmProjects::project();
     Scratch::write($project, 'mutants/Money.php', "<?php\n// error: InvalidReturnStatement in the mutant\n// info: MixedReturn lesser\n");
     Scratch::write($project, 'tests/MoneyTest.php', "<?php\n// error: Never sent\n");
@@ -153,7 +153,7 @@ it('checks a mutant in its original\'s place, and each dependent it analyses, th
     $check = MutantCheck::of(Path::of('src/Money.php'), Path::of('mutants/Money.php'));
 
     $alone = $psalm->check($check);
-    $withDependents = $psalm->check($check->withDependents(Paths::of(Path::of('src/Wallet.php'), Path::of('tests/MoneyTest.php'))));
+    $withDependents = $psalm->check($check->withDependents(Paths::of(Path::of('lib/Rate.php'), Path::of('src/Wallet.php'), Path::of('tests/MoneyTest.php'))));
     $real = realpath($project);
 
     expect($alone)->toEqual(Findings::of(

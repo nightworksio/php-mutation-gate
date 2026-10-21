@@ -61,15 +61,26 @@ final readonly class NativeMarkers
             return Path::of($path)->isPhp() ? [$path] : [];
         }
 
-        $entries = is_dir($path) ? scandir($path) : [];
         $found = [];
 
-        foreach (is_array($entries) ? $entries : [] as $entry) {
+        foreach (self::entries($path) as $entry) {
             $child = sprintf('%s/%s', $path, $entry);
             $found = [...$found, ...(self::isFollowed($entry, $child) ? self::under($child) : [])];
         }
 
         return $found;
+    }
+
+    /**
+     * The entries of a directory; none for anything else.
+     *
+     * @return list<string>
+     */
+    private static function entries(string $path): array
+    {
+        $entries = is_dir($path) ? scandir($path) : [];
+
+        return is_array($entries) ? $entries : [];
     }
 
     /**

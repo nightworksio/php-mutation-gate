@@ -78,6 +78,14 @@ it('needs each loaded test file that is not inert, and each that declares a func
         ->and($loaded->fileOf('never\loaded'))->toBe('');
 });
 
+it('reads no loaded test file where the test directory is not there', function () use ($suite): void {
+    [$namespace, $files, $root] = $suite();
+    $loaded = LoadedTests::inThisProcess(sprintf('%s/missing', $root));
+
+    expect($loaded->fileOf(mb_strtolower(sprintf('%s\ChildTest', $namespace))))->toBe('')
+        ->and($loaded->needs($files['ChildTest.php']))->toBe([$files['ChildTest.php']]);
+});
+
 it('leaves out of what a file needs the files Pest loads in every process, whatever their top runs', function () use ($suite): void {
     [, $files, $root] = $suite();
     $booted = ['Pest.php', 'Helpers.php', 'Helpers/Shared.php', 'Expectations.php', 'Expectations/Money.php', 'Datasets.php'];

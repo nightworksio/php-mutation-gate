@@ -147,8 +147,7 @@ final readonly class InitRun
                 $settings,
                 $destination,
                 $from,
-                ($prepared instanceof PreparedCi ? $prepared->config() : Layer::none())
-                    ->over($native instanceof NativeMarkers ? Layer::of(Ignores::of(native: $native)) : Layer::none()),
+                $this->layered($prepared, $native),
                 $additions->output(),
             ),
         };
@@ -162,6 +161,13 @@ final readonly class InitRun
                 $existing instanceof NoConfigFile,
             )
             : $config;
+    }
+
+    /** What the config takes beside the settings: the CI definition's part, then the native markers it ignores. */
+    private function layered(PreparedCi|NotGiven $prepared, NativeMarkers|NotGiven $native): Layer
+    {
+        return ($prepared instanceof PreparedCi ? $prepared->config() : Layer::none())
+            ->over($native instanceof NativeMarkers ? Layer::of(Ignores::of(native: $native)) : Layer::none());
     }
 
     /**

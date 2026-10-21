@@ -50,7 +50,7 @@ final readonly class Considering
 
         foreach ($units as $unit) {
             $path = $unit->path();
-            $trusted = $ownOnly->has($path) ? NeverProved::unit($path) : $trustedProofs->of($path);
+            $trusted = self::trustedOf($path, $trustedProofs, $ownOnly);
             $newest = self::newer($trusted, self::ownOf($path, $ownProofs, $ownOnly));
 
             if (! $reach->reaches($unit) && $newest instanceof Proof) {
@@ -80,6 +80,12 @@ final readonly class Considering
     public function ownScopeProofs(): int
     {
         return $this->ownScope;
+    }
+
+    /** The default branch's newest result for a path, unless the path carries the run's own scope's alone. */
+    private static function trustedOf(Path $path, NewestProofs $trusted, OwnOnly $ownOnly): Proof|NeverProved
+    {
+        return $ownOnly->has($path) ? NeverProved::unit($path) : $trusted->of($path);
     }
 
     /** The run's own scope's newest result for a path, unless the path carries its own alone and it is stale. */

@@ -35,17 +35,15 @@ afterEach(function (): void {
 /** The contract program as the fake runs it: what it prints and how it ends, with no process. */
 function processesProgram(ProcessCommand $command): Ran
 {
-    $arguments = [...$command->arguments()];
-    $verb = count($arguments) > 2 ? $arguments[2] : '';
-    $first = count($arguments) > 3 ? $arguments[3] : '';
+    [$program, $second, $verb, $first, $fifth] = [...$command->arguments(), '', '', '', ''];
     $told = iterator_to_array($command->environment(), preserve_keys: true);
     $deadline = $command->deadline();
 
     $ended = match (true) {
-        $arguments[0] === 'sleep' => processesSlept((float) $arguments[1], $deadline),
-        $arguments[0] !== PHP_BINARY => Ran::finished(succeeded: false, output: 'The program cannot be started.'),
-        $verb === 'say' => Ran::exited((int) (count($arguments) > 4 ? $arguments[4] : '0'), $first),
-        $verb === 'both' => Ran::exited(0, sprintf('%s%s', $first, $arguments[4] ?? ''), $first),
+        $program === 'sleep' => processesSlept((float) $second, $deadline),
+        $program !== PHP_BINARY => Ran::finished(succeeded: false, output: 'The program cannot be started.'),
+        $verb === 'say' => Ran::exited((int) $fifth, $first),
+        $verb === 'both' => Ran::exited(0, sprintf('%s%s', $first, $fifth), $first),
         $verb === 'await' => Ran::exited(0, is_file($first) ? (string) file_get_contents($first) : ''),
         $verb === 'tell' => Ran::exited(0, array_key_exists($first, $told) ? (string) $told[$first] : ''),
         $verb === 'stall' => $command->silence() instanceof SilenceLimit ? Ran::silenced('') : processesSlept(30.0, $deadline),

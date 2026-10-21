@@ -46,8 +46,8 @@ it('keeps the tests of the group that run any file inside what it holds, and no 
         ->toEqualCanonicalizing(['HttpTest::serves', 'MiddlewareTest::guards']);
 });
 
-it('names every line the suite covers and the group misses', function () use ($map, $kernel): void {
-    $suite = $map('src/Kernel.php:10', 'src/Kernel.php:12', 'src/Kernel.php:48', 'src/Other.php:3');
+it('names every line the suite covers and the group misses, past the files outside what it holds', function () use ($map, $kernel): void {
+    $suite = $map('src/Other.php:3', 'src/Kernel.php:10', 'src/Kernel.php:12', 'src/Kernel.php:48');
 
     expect(GroupCoverage::of($kernel(), $suite, $map('src/Kernel.php:10')))->toEqual(NotCovered::because(
         $kernel(),

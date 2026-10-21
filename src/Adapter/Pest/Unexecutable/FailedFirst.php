@@ -45,10 +45,10 @@ final readonly class FailedFirst
         }
 
         foreach ($document->getElementsByTagName('testcase') as $case) {
-            foreach ($case->childNodes as $child) {
-                if ($child instanceof DOMElement && in_array($child->tagName, self::OUTCOMES, strict: true)) {
-                    return self::of($case, $child->textContent);
-                }
+            $outcome = self::outcomeOf($case);
+
+            if ($outcome instanceof DOMElement) {
+                return self::of($case, $outcome->textContent);
             }
         }
 
@@ -72,5 +72,17 @@ final readonly class FailedFirst
         $message = str_starts_with($text, $name) ? mb_substr($text, mb_strlen($name)) : $text;
 
         return new self(Fit::plain($case->getAttribute('file')), Fit::plain(explode("\n", trim($message))[0]));
+    }
+
+    /** The failure or error a test case holds; none where it passed. */
+    private static function outcomeOf(DOMElement $case): DOMElement|NotGiven
+    {
+        for ($child = $case->firstElementChild; $child instanceof DOMElement; $child = $child->nextElementSibling) {
+            if (in_array($child->tagName, self::OUTCOMES, strict: true)) {
+                return $child;
+            }
+        }
+
+        return NotGiven::value();
     }
 }

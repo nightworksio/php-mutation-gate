@@ -53,3 +53,25 @@ it('reads each file a survivor that asks for a test is in once, and no file of a
     expect($sources)->toHaveCount(1)
         ->and($sources->at(Path::of('src/Cart.php'), Contents::of('')))->toEqual(Contents::of(Clustered::CART));
 });
+
+it('reads a file where a survivor that asks for a test follows one in it that does not', function (): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'src/Cart.php', Clustered::CART);
+    $mutant = static fn(string $at, MutantJudgement $judgement): JudgedMutant => JudgedMutant::of(
+        Verdicts::mutant($at, 'Plus', MutatorFamily::Arithmetic, ''),
+        $judgement,
+    );
+    $trees = TreeVerdicts::of(TreeVerdict::judged(
+        Tree::at(Path::of('src'), Floor::of(80), Package::at(Path::root())),
+        Unrecorded::floor(),
+        JudgedUnits::none(),
+        JudgedMutants::of(
+            $mutant('src/Cart.php:7', MutantJudgement::Flaky),
+            $mutant('src/Cart.php:16', MutantJudgement::Survived),
+        ),
+        Uncovered::Count,
+    ));
+
+    expect(Sources::ofSurvivors($trees, Directory::at($project))->at(Path::of('src/Cart.php'), Contents::of('')))
+        ->toEqual(Contents::of(Clustered::CART));
+});

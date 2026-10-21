@@ -25,15 +25,7 @@ final readonly class Shape
 
     public static function of(Tokens $tokens, Scope $scope): self
     {
-        $classes = [];
-
-        foreach ($tokens->indicesOf(...Tokens::CLASS_LIKE) as $at) {
-            $body = self::braceAfter($tokens, $at, $at + 1);
-            $classes = $tokens->is($at - 1, T_DOUBLE_COLON) || $body === Tokens::NONE
-                ? $classes
-                : $classes + [$body => ClassLike::at($tokens, $scope, $at, $body)];
-        }
-
+        $classes = self::classesIn($tokens, $scope);
         $signatures = [];
         $bodies = [];
 
@@ -85,6 +77,21 @@ final readonly class Shape
     public function classes(): array
     {
         return array_values($this->classes);
+    }
+
+    /** @return array<int, ClassLike> each class-like declaration, by where its body opens */
+    private static function classesIn(Tokens $tokens, Scope $scope): array
+    {
+        $classes = [];
+
+        foreach ($tokens->indicesOf(...Tokens::CLASS_LIKE) as $at) {
+            $body = self::braceAfter($tokens, $at, $at);
+            $classes = $tokens->is($at - 1, T_DOUBLE_COLON) || $body === Tokens::NONE
+                ? $classes
+                : $classes + [$body => ClassLike::at($tokens, $scope, $at, $body)];
+        }
+
+        return $classes;
     }
 
     /**

@@ -54,6 +54,26 @@ it('finds a return early where another return of its method follows it', functio
         ->and(Returns::isEarly($last))->toBeFalse();
 });
 
+it('finds no early return where only statements that return nothing follow it', function (): void {
+    [$followed] = returnsIn(<<<'PHP'
+        <?php
+
+        final class Money
+        {
+            public function amount($a)
+            {
+                if ($a) {
+                    return 1;
+                }
+
+                echo 2;
+            }
+        }
+        PHP);
+
+    expect(Returns::isEarly($followed))->toBeFalse();
+});
+
 it('finds no early return outside a method, nor in a method without statements', function (): void {
     [$inFunction] = returnsIn("<?php\n\nfunction amount()\n{\n    return 1;\n\n    return 2;\n}\n");
 

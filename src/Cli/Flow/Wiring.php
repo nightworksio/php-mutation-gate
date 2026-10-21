@@ -32,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Ci\CiEnvironment;
 use NightWorksIO\MutationGate\Core\Ci\DefaultBranch;
 use NightWorksIO\MutationGate\Core\Ci\RunOn;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Config\BoundsOptions;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCostModel;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
@@ -44,7 +45,6 @@ use NightWorksIO\MutationGate\Core\Config\Name;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Config\StaticCheck;
-use NightWorksIO\MutationGate\Core\Config\TighterOptions;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Member;
@@ -205,44 +205,33 @@ final readonly class Wiring
     ): Choice {
         $runner = $settings->runner()->choice();
         $use = $runner->use()->value();
-        $seconds = $settings->triage()->limit()->seconds();
-        $most = $settings->triage()->most()->seconds();
-        $tighter = $settings->triage()->tighter();
+        $bounds = BoundsOptions::of($settings->triage());
         $beside = Json::items(...$mutators->besideTheRunners()->classes());
         $tests = $this->testsOf($suite);
-        $infection = Json::object(
+        $infection = Json::object(...[
             Member::of(Setup::TESTS, $tests),
-            Member::of(Setup::TIMEOUT, $seconds),
-            Member::of(Setup::MOST, $most),
-            TighterOptions::floor($tighter),
-            TighterOptions::mutators($tighter),
+            ...$bounds,
             Member::of(Setup::MUTATORS, $beside),
             ...$checker instanceof StaticChecker
                 ? [Member::of(Setup::STATIC_ANALYSIS, StaticAnalysis::Gate->value)]
                 : [],
-        );
-        $native = Json::object(
+        ]);
+        $native = Json::object(...[
             Member::of(PhpUnitOptions::TESTS, $tests),
-            Member::of(PhpUnitOptions::TIMEOUT, $seconds),
-            Member::of(PhpUnitOptions::MOST, $most),
-            TighterOptions::floor($tighter),
-            TighterOptions::mutators($tighter),
+            ...$bounds,
             Member::of(PhpUnitOptions::MUTATORS, Json::items(...$mutators->forTheEngine()->classes())),
-        );
+        ]);
 
         return match (true) {
             $use === BuiltinRunner::Infection->value => Choice::of($use, $runner->options()->over($infection)),
             $use === BuiltinRunner::PhpUnit->value => Choice::of($use, $runner->options()->over($native)),
             $use === BuiltinRunner::Pest->value => Choice::of(
                 $use,
-                $runner->options()->over(Json::object(
+                $runner->options()->over(Json::object(...[
                     Member::of(PestOptions::TESTS, $tests),
-                    Member::of(PestOptions::TIMEOUT, $seconds),
-                    Member::of(PestOptions::MOST, $most),
-                    TighterOptions::floor($tighter),
-                    TighterOptions::mutators($tighter),
+                    ...$bounds,
                     Member::of(PestOptions::MUTATORS, $beside),
-                )),
+                ])),
             ),
             default => $runner,
         };

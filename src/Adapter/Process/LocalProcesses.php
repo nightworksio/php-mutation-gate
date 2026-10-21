@@ -67,7 +67,7 @@ final readonly class LocalProcesses implements Processes
         $ends = [];
 
         while ($waiting !== [] || $running !== []) {
-            $waiting = $startBy === INF || $this->now() < $startBy ? $waiting : [];
+            $waiting = $this->isStarting($startBy) ? $waiting : [];
             [$free, $waiting, $running, $ends] = $this->started($free, $waiting, $running, $ends);
             [$free, $running, $ended] = $this->ended($places, $free, $running);
             $ends += $ended;
@@ -81,6 +81,12 @@ final readonly class LocalProcesses implements Processes
         ksort($ends);
 
         return ProcessEnds::of(...$ends);
+    }
+
+    /** Whether commands may still start: always, where nothing bounds when they start, else until then. */
+    private function isStarting(float $startBy): bool
+    {
+        return $startBy === INF || $this->now() < $startBy;
     }
 
     /**

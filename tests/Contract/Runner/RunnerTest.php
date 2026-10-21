@@ -5,8 +5,8 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
-use NightWorksIO\MutationGate\Cli\Flow\KeptCoverage;
 use NightWorksIO\MutationGate\Cli\Flow\KeptFrom;
+use NightWorksIO\MutationGate\Cli\Flow\StoredCoverage;
 use NightWorksIO\MutationGate\Core\Analysis\AsWritten;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -558,7 +558,7 @@ it('keeps its map beside a pull request\'s ledger, and reads it back first, from
     $store = new ProofStoreFake();
     $store->keep(Scope::branch('main'), Companion::Coverage, Contents::of(CoverageMapFile::encode(CoverageMap::empty(), Unplaced::map())));
     $store->keep(Scope::pullRequest(7), Companion::Coverage, Contents::of(is_string($bytes) ? $bytes : ''));
-    $read = KeptCoverage::fromStore($store, Access::of(Scope::pullRequest(7), Scope::branch('main'), Writing::Auto));
+    $read = StoredCoverage::in($store, Access::of(Scope::pullRequest(7), Scope::branch('main'), Writing::Auto));
     $kept = $read->map();
 
     expect($map)->toBeInstanceOf(CoverageMap::class)

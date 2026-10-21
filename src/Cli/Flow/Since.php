@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Php\NamedFiles;
 use NightWorksIO\MutationGate\Core\Reach\FileRoles;
@@ -129,23 +130,38 @@ final readonly class Since
         $loaded = [];
 
         foreach ($files as $file) {
-            $directory = $file->path()->directory();
+            $loads = $this->loadedFrom($file->path());
 
-            if (! $file->path()->equals(Manifest::fileIn($directory))) {
-                continue;
+            if ($loads instanceof CannotJudge) {
+                return $loads;
             }
 
-            $contents = $this->adapters->project->read($file->path());
-            $manifest = $contents instanceof Contents ? Manifest::decode($contents, $directory) : $contents;
-
-            if ($manifest instanceof CannotJudge) {
-                return $manifest;
-            }
-
-            array_push($loaded, ...($manifest instanceof Manifest ? $manifest->classLocations()->loadedFiles() : []));
+            array_push($loaded, ...$loads);
         }
 
         return Paths::of(...$loaded);
+    }
+
+    /**
+     * Every file a file has Composer's autoloader load in every process,
+     * where it is a `composer.json`; or why it cannot be read.
+     */
+    private function loadedFrom(Path $file): Paths|CannotJudge
+    {
+        $directory = $file->directory();
+
+        if (! $file->equals(Manifest::fileIn($directory))) {
+            return Paths::none();
+        }
+
+        $contents = $this->adapters->project->read($file);
+        $manifest = $contents instanceof Contents ? Manifest::decode($contents, $directory) : $contents;
+
+        return match (true) {
+            $manifest instanceof Manifest => $manifest->classLocations()->loadedFiles(),
+            $manifest instanceof CannotJudge => $manifest,
+            default => Paths::none(),
+        };
     }
 
     /** Each PHP file and each package's lock these changes touch, as it is and as it was: the files read both ways. */

@@ -356,6 +356,38 @@ it('leaves the re-checked survivors in the delivery under --deliver-later, to be
         )));
 });
 
+it('says why where the re-checked survivors cannot be left in the delivery under --deliver-later', function (): void {
+    $project = Scratch::directory();
+    $summary = sprintf('%s/summary.md', $project);
+    $environment = [
+        'GITHUB_EVENT_NAME' => 'pull_request',
+        'GITHUB_REPOSITORY' => 'octo/gate',
+        'GITHUB_SERVER_URL' => 'https://github.example',
+        'GITHUB_RUN_ID' => '7',
+    ];
+    $chosen = new Chosen(new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)))
+        ->withReporter(
+            BuiltinReporter::GitHubComment->named(),
+            static fn(): Reporter => PullRequestComment::inRun($environment, '{"pull_request": {"number": 12}}', new MockHttpClient([]), ''),
+        )
+        ->withReporter(
+            BuiltinReporter::GitHubSummary->named(),
+            static fn(): Reporter => StepSummary::appendingTo($summary, '', new SystemClock()),
+        ));
+    $onAPullRequest = Variables::of(['GITHUB_ACTIONS' => 'true', 'GITHUB_EVENT_NAME' => 'pull_request']);
+    $plan = Planned::twoShards()->on(RunOn::at(Scope::pullRequest(12), Scope::branch('main')));
+    Scratch::write($project, '.mutation-gate/delivery/survivors/delivery.json', 'not a delivery');
+
+    $said = new Reporting($chosen, $onAPullRequest)
+        ->deliveringLater(DeliveryDirectory::of(Directory::at($project), Stage::Survivors))
+        ->rechecked(Flows::settings(), $plan, Rechecks::mixed());
+
+    expect($said)->toBe([
+        Written::to($summary)->said(),
+        'The delivery cannot be read, so deliver sends nothing: delivery is not a map.',
+    ]);
+});
+
 it('writes no re-checked survivors where the run chooses neither, and says why where the reports cannot be built', function (): void {
     $client = new MockHttpClient([]);
     $plan = Planned::twoShards()->on(RunOn::at(Scope::pullRequest(12), Scope::branch('main')));

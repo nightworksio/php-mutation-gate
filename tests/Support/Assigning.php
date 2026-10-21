@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
+use function array_filter;
+use function array_values;
+
 use NightWorksIO\MutationGate\Core\Php\OwnVariables;
 use PhpToken;
 
@@ -18,13 +21,10 @@ final readonly class Assigning
         $read = [];
 
         foreach ($statements as $statement) {
-            $tokens = [];
-
-            foreach (PhpToken::tokenize(sprintf('<?php %s', $statement)) as $token) {
-                if (! $token->isIgnorable() && ! $token->is(T_OPEN_TAG)) {
-                    $tokens[] = $token;
-                }
-            }
+            $tokens = array_values(array_filter(
+                PhpToken::tokenize(sprintf('<?php %s', $statement)),
+                static fn(PhpToken $token): bool => ! $token->isIgnorable() && ! $token->is(T_OPEN_TAG),
+            ));
 
             if ($tokens !== []) {
                 $read[] = $tokens;

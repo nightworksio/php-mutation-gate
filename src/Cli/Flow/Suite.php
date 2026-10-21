@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Adapter\Project\DirectoryGlob;
 use NightWorksIO\MutationGate\Adapter\Project\PhpUnitSuite;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Fingerprint;
 use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -103,7 +104,7 @@ final readonly class Suite
         $quoted = [sprintf("'%s'", $group->name()), sprintf('"%s"', $group->name())];
 
         foreach ($this->contents as $path => $contents) {
-            $names = str_contains($contents->text(), $quoted[0]) || str_contains($contents->text(), $quoted[1]);
+            $names = array_any($quoted, static fn(string $name): bool => str_contains($contents->text(), $name));
             $naming = $names ? $naming->with(Path::of($path)) : $naming;
         }
 
@@ -159,10 +160,12 @@ final readonly class Suite
         foreach (PhpUnitConfig::candidatesIn(Path::root()) as $candidate) {
             $contents = $project->read($candidate);
 
-            if ($contents instanceof Contents || $contents instanceof CannotJudge) {
-                return $contents instanceof Contents
-                    ? PhpUnitSuite::declaredIn($contents, $candidate, DirectoryGlob::from($project->root()))
-                    : $contents;
+            if ($contents instanceof Contents) {
+                return PhpUnitSuite::declaredIn($contents, $candidate, DirectoryGlob::from($project->root()));
+            }
+
+            if ($contents instanceof CannotJudge) {
+                return $contents;
             }
         }
 
@@ -208,9 +211,7 @@ final readonly class Suite
             }
 
             if ($contents instanceof Contents) {
-                $read[] = self::isTestCase($file->path(), $configured, $packages)
-                    ? TestFile::testCase($file, $contents)
-                    : TestFile::other($file, $contents);
+                $read[] = self::testFile($file, $contents, $configured, $packages);
                 $contentsOf[$file->path()->value()] = $contents;
                 $sources = $sources->withNow($file->path(), $contents);
             }
@@ -223,6 +224,22 @@ final readonly class Suite
             $outside,
             $contentsOf,
         );
+    }
+
+    /**
+     * A file of the suite as the content key reads it: one of test cases, or another.
+     *
+     * @param list<SuiteDirectory> $packages
+     */
+    private static function testFile(
+        Fingerprint $file,
+        Contents $contents,
+        PhpUnitSuite $configured,
+        array $packages,
+    ): TestFile {
+        return self::isTestCase($file->path(), $configured, $packages)
+            ? TestFile::testCase($file, $contents)
+            : TestFile::other($file, $contents);
     }
 
     /**

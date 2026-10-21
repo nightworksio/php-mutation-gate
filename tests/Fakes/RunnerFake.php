@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Fakes;
 
+use function array_map;
 use function count;
 use function explode;
 use function file_get_contents;
@@ -262,11 +263,11 @@ final readonly class RunnerFake implements Runner
         $judgedBy = $request->judgedBy();
         $found = Mutants::none();
 
+        $asked = array_map(static fn(Mutant $mutant): string => $mutant->id()->value(), [...$mutants]);
+
         foreach ($this->library as $known) {
-            foreach ($mutants as $asked) {
-                if ($known->id()->value() === $asked->id()->value()) {
-                    $found = $found->with($this->judged($known, $judgedBy));
-                }
+            if (in_array($known->id()->value(), $asked, strict: true)) {
+                $found = $found->with($this->judged($known, $judgedBy));
             }
         }
 

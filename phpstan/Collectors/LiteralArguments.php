@@ -87,13 +87,12 @@ final readonly class LiteralArguments implements Collector
     private function called(CallLike $call, Scope $scope): array
     {
         $reached = match (true) {
-            $call instanceof MethodCall, $call instanceof NullsafeMethodCall => $call->name instanceof Identifier
-                ? [$scope->getMethodReflection($scope->getType($call->var), $call->name->toString())]
-                : [],
-            $call instanceof StaticCall => $call->class instanceof Name && $call->name instanceof Identifier
-                ? [$scope->getMethodReflection($scope->resolveTypeByName($call->class), $call->name->toString())]
-                : [],
-            $call instanceof New_ => $call->class instanceof Name ? [$scope->getMethodReflection($scope->getType($call), '__construct')] : [],
+            ($call instanceof MethodCall || $call instanceof NullsafeMethodCall) && $call->name instanceof Identifier
+                => [$scope->getMethodReflection($scope->getType($call->var), $call->name->toString())],
+            $call instanceof StaticCall && $call->class instanceof Name && $call->name instanceof Identifier
+                => [$scope->getMethodReflection($scope->resolveTypeByName($call->class), $call->name->toString())],
+            $call instanceof New_ && $call->class instanceof Name
+                => [$scope->getMethodReflection($scope->getType($call), '__construct')],
             default => [],
         };
 

@@ -24,7 +24,6 @@ use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\DigestsRecord;
 use NightWorksIO\MutationGate\Core\Proof\KeysRecord;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
-use NightWorksIO\MutationGate\Core\Proof\Undigested;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
@@ -172,15 +171,9 @@ final readonly class PlanFile
             ...self::considered($plan->considered()),
             ...PrunedRecord::field($plan->considered()->pruned()),
             ...self::change($plan->considered()),
-            ...self::digests($plan->digests()),
+            ...DigestsRecord::field($plan->digests()),
             ...BriefingRecord::of($plan->briefing()),
         ];
-    }
-
-    /** @return array{digests?: RunDigests} the digests of the run's inputs, where the plan has them */
-    private static function digests(Digests|Undigested $digests): array
-    {
-        return $digests instanceof Digests ? [self::DIGESTS => DigestsRecord::ofRun($digests)] : [];
     }
 
     /** @return RunOnWritten the ref and the default branch, each where there is one */

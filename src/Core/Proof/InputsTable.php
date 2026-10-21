@@ -85,14 +85,20 @@ final readonly class InputsTable
 
         foreach ($proofs as $proof) {
             $inputs = $proof->inputs();
-            $commit = $inputs instanceof Inputs ? $inputs->commit() : Uncommitted::tree();
-            $mutations += $inputs instanceof Inputs ? [$inputs->mutation()->value() => true] : [];
-            $tests += $inputs instanceof Inputs ? self::testsOf($inputs) : [];
+
+            if (! $inputs instanceof Inputs) {
+                continue;
+            }
+
+            $commit = $inputs->commit();
+            $mutation = $inputs->mutation()->value();
+            $mutations += [$mutation => $mutation];
+            $tests += self::testsOf($inputs);
             $commits += $commit instanceof Revision ? [$commit->name() => true] : [];
         }
 
         return new self(
-            array_map(strval(...), array_keys($mutations)),
+            array_values($mutations),
             array_values($tests),
             array_map(strval(...), array_keys($commits)),
         );

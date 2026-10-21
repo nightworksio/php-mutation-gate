@@ -85,8 +85,8 @@ final readonly class Reach implements Part
             ? new self(
                 $this->joined($this->packages, $later->packages),
                 $this->joined($this->everything, $later->everything),
-                $later->hotPath instanceof Absent ? $this->hotPath : $later->hotPath,
-                $later->full instanceof Absent ? $this->full : $later->full,
+                Absent::laid($this->hotPath, $later->hotPath),
+                Absent::laid($this->full, $later->full),
                 $this->pruning->over($later->pruning),
                 $this->joinedNames($this->lockPackages, $later->lockPackages),
             )

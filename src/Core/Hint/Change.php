@@ -252,12 +252,7 @@ final readonly class Change
      */
     private function endsLeftward(int $at): bool
     {
-        $depth = 0;
-
-        for ($token = $at; $token < $this->from; ++$token) {
-            $depth += $this->before[$token]->is(self::OPENS) ? 1 : 0;
-            $depth -= $this->before[$token]->is(self::CLOSES) ? 1 : 0;
-        }
+        $depth = $this->depthOf($at, $this->from);
 
         return $depth > 0
             || ($depth === 0 && $this->before[$at]->is(self::STOPS))
@@ -267,13 +262,21 @@ final readonly class Change
     /** Whether the expression ends at this token, reading rightward: a close bracket or a stop outside brackets. */
     private function endsRightward(int $at): bool
     {
+        $depth = $this->depthOf($this->to, $at + 1);
+
+        return $depth < 0 || ($depth === 0 && $this->before[$at]->is(self::STOPS));
+    }
+
+    /** How many more brackets the original's tokens from one to before another open than they close. */
+    private function depthOf(int $from, int $to): int
+    {
         $depth = 0;
 
-        for ($token = $this->to; $token <= $at; ++$token) {
+        for ($token = $from; $token < $to; ++$token) {
             $depth += $this->before[$token]->is(self::OPENS) ? 1 : 0;
             $depth -= $this->before[$token]->is(self::CLOSES) ? 1 : 0;
         }
 
-        return $depth < 0 || ($depth === 0 && $this->before[$at]->is(self::STOPS));
+        return $depth;
     }
 }

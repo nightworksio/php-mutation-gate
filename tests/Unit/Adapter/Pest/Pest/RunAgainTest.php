@@ -255,19 +255,27 @@ function adapterEndedTwice(Project $at, bool $killedAgain, bool $controlPasses =
             return Ran::finished(succeeded: $controlPasses, output: 'the control on the unmutated code');
         }
 
-        CoverageMaps::write(Recorder::coverageBeside($results), sprintf('%s/', $at->root()), ['src/Money.php' => [11 => [0]]], [PestCases::RUN_ADDS], []);
-        $killed = $before === 0 || $killedAgain;
-        $status = $killed ? PestStatus::Tested : PestStatus::Untested;
-        PestRun::write($results, [
-            PestRun::planned('n1', sprintf('%s/src/Money.php', $at->root()), 11, PestCases::RUN_PLUS, 'return $a + $b;', 'return $a - $b;'),
-            PestRun::made(1),
-            ...($killed ? [PestRun::ended('n1', Ended::of($before === 0 ? 2 : 255, signalled: false, printed: sprintf('run %d', $before)))] : []),
-            PestRun::finished('n1', $status, 0.25),
-            PestRun::end(),
-        ]);
+        $status = adapterRanAgain($at, $results, $before, $killedAgain);
 
         return Ran::finished(succeeded: true, output: sprintf('  Mutations: 1 %s', $status->value));
     });
+}
+
+/** What a run with these results wrote, the first narrowed, killing with code 2, and the next killing with 255 where told. */
+function adapterRanAgain(Project $at, string $results, int $before, bool $killedAgain): PestStatus
+{
+    CoverageMaps::write(Recorder::coverageBeside($results), sprintf('%s/', $at->root()), ['src/Money.php' => [11 => [0]]], [PestCases::RUN_ADDS], []);
+    $killed = $before === 0 || $killedAgain;
+    $status = $killed ? PestStatus::Tested : PestStatus::Untested;
+    PestRun::write($results, [
+        PestRun::planned('n1', sprintf('%s/src/Money.php', $at->root()), 11, PestCases::RUN_PLUS, 'return $a + $b;', 'return $a - $b;'),
+        PestRun::made(1),
+        ...($killed ? [PestRun::ended('n1', Ended::of($before === 0 ? 2 : 255, signalled: false, printed: sprintf('run %d', $before)))] : []),
+        PestRun::finished('n1', $status, 0.25),
+        PestRun::end(),
+    ]);
+
+    return $status;
 }
 
 it('gives a kill run again with every test file the evidence of that run, and none of the narrowed run it replaced', function (bool $killedAgain, bool $controlPasses, Evidence $expected): void {

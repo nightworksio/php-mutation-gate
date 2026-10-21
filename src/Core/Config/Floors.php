@@ -67,12 +67,12 @@ final readonly class Floors implements Part
     {
         return $later instanceof self
             ? new self(
-                $later->trees instanceof Listed ? $later->trees : $this->trees,
-                $later->newCode instanceof Floor ? $later->newCode : $this->newCode,
-                $later->security instanceof Floor ? $later->security : $this->security,
-                $later->uncovered instanceof Uncovered ? $later->uncovered : $this->uncovered,
-                $later->baseline instanceof Path ? $later->baseline : $this->baseline,
-                $later->improvement instanceof Improvement ? $later->improvement : $this->improvement,
+                Absent::laid($this->trees, $later->trees),
+                Absent::laid($this->newCode, $later->newCode),
+                Absent::laid($this->security, $later->security),
+                Absent::laid($this->uncovered, $later->uncovered),
+                Absent::laid($this->baseline, $later->baseline),
+                Absent::laid($this->improvement, $later->improvement),
             )
             : $this;
     }

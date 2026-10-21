@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Report\ClusterText;
@@ -51,6 +52,16 @@ it('annotates a survivor in a set that failed as an error, where it is, with its
         $survivor->hint()->text(),
         $survivor->mutant()->id()->value(),
     )]);
+});
+
+it('says the annotations were not written where their file cannot be written', function (): void {
+    $file = sprintf('%s/annotations', Scratch::directory());
+    mkdir($file);
+    set_error_handler(static fn(): bool => true);
+    $written = Annotations::printingTo($file)->report(Verdicts::of(Floor::of(80), Verdicts::survivor()));
+    restore_error_handler();
+
+    expect($written)->toEqual(NotWritten::because(sprintf('The annotations could not be written to %s.', $file)));
 });
 
 it('annotates a mutant with the reason its record gives before its hint, as the summary does', function () use ($printed): void {

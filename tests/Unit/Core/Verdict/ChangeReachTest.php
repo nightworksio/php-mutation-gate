@@ -42,12 +42,22 @@ function reachOf(array $files, array $before, array $changes): ChangeReach
 
     foreach ($changes as $change) {
         foreach ([$change->previousPath(), $change->path()] as $path) {
-            $then = $then->with($path, array_key_exists($path->value(), $before) ? Contents::of($before[$path->value()]) : Missing::at($path));
-            $now = $now->with($path, array_key_exists($path->value(), $files) ? Contents::of($files[$path->value()]) : Missing::at($path));
+            $then = $then->with($path, reachHeld($before, $path));
+            $now = $now->with($path, reachHeld($files, $path));
         }
     }
 
     return ChangeReach::of(Changes::of(...$changes), $then, $now, NamedFiles::read($read), reachRoles());
+}
+
+/**
+ * What a file holds among these, by its path; missing where it is not among them.
+ *
+ * @param array<string, string> $files
+ */
+function reachHeld(array $files, Path $path): Contents|Missing
+{
+    return array_key_exists($path->value(), $files) ? Contents::of($files[$path->value()]) : Missing::at($path);
 }
 
 /**

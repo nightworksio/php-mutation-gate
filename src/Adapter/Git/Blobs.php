@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Git;
 
-use function array_key_exists;
 use function intval;
 
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
@@ -17,7 +16,7 @@ use NightWorksIO\MutationGate\Core\Format\Bytes;
 
 use function preg_match;
 use function sprintf;
-use function str_contains;
+use function strpbrk;
 
 /**
  * Files as a commit holds them, read from git in one `cat-file --batch`. A
@@ -48,10 +47,10 @@ final readonly class Blobs
     public function of(Paths $paths): ByPath|CannotTell
     {
         $batched = [];
-        $alone = [];
+        $alone = ByPath::none();
 
         foreach ($paths as $path) {
-            if (! str_contains($path->value(), "\n") && ! str_contains($path->value(), "\r")) {
+            if (strpbrk($path->value(), "\r\n") === false) {
                 $batched[] = $path;
 
                 continue;
@@ -63,16 +62,14 @@ final readonly class Blobs
                 return $file;
             }
 
-            $alone[$path->value()] = $file;
+            $alone = $alone->with($path, $file);
         }
 
         $held = $this->batch($batched);
 
         return $held instanceof CannotTell ? $held : ByPath::mapping(
             $paths,
-            static fn(Path $path): Contents|Missing => array_key_exists($path->value(), $alone)
-                ? $alone[$path->value()]
-                : $held->at($path, Missing::at($path)),
+            static fn(Path $path): Contents|Missing => $alone->at($path, $held->at($path, Missing::at($path))),
         );
     }
 

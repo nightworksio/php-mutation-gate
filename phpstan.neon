@@ -58,7 +58,6 @@ parameters:
 
     # D3 — nothing untyped anywhere.
     type_coverage:
-        declare: 100
         return_type: 100
         param_type: 100
         property_type: 100
@@ -485,19 +484,15 @@ services:
                     - LITERAL # tokens after a class literal's name
                 'NightWorksIO\MutationGate\Adapter\Infection\Setup':
                     - TESTS # a key of the runner's options
-                    - TIMEOUT # a key of the runner's options
-                    - MOST # a key of the runner's options
                     - MUTATORS # a key of the runner's options
                 'NightWorksIO\MutationGate\Adapter\Pest\PestOptions':
                     - TESTS # a key of the runner's options
-                    - TIMEOUT # a key of the runner's options
-                    - MOST # a key of the runner's options
                     - MUTATORS # a key of the runner's options
                 'NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnitOptions':
                     - TESTS # a key of the runner's options
-                    - TIMEOUT # a key of the runner's options
-                    - MOST # a key of the runner's options
                     - MUTATORS # a key of the runner's options
+                'NightWorksIO\MutationGate\Core\Config\BoundsOptions':
+                    - TIMEOUT # a key of the runner's options
                 'NightWorksIO\MutationGate\Adapter\Filesystem\ReportPath':
                     - KEY # a key of a report's entry
                 'NightWorksIO\MutationGate\Core\Composer\Manifest':

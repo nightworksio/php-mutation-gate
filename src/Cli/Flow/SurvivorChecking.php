@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function array_filter;
 use function array_key_exists;
 use function array_replace;
 
@@ -72,15 +73,11 @@ final readonly class SurvivorChecking
      */
     public function checked(Mutants $mutants, MutantIds $passedOver): Checked
     {
-        $listed = [];
-
-        foreach ($mutants as $mutant) {
-            if ($mutant->status() === MutantStatus::Survived && ! $passedOver->has($mutant->id())) {
-                $listed[] = $mutant;
-            }
-        }
-
-        $survivors = Mutants::of(...$listed);
+        $survivors = Mutants::of(...array_filter(
+            [...$mutants],
+            static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Survived
+                && ! $passedOver->has($mutant->id()),
+        ));
         $checker = $this->adapters->checker;
         $from = $this->stopwatch->now();
         $checked = $checker instanceof NoAnalyser || $survivors->count() === 0
@@ -100,16 +97,9 @@ final readonly class SurvivorChecking
         $identity = $this->adapters->analyser;
 
         return match (true) {
-            ! $identity instanceof AnalyserIdentity => new Checked(
-                $mutants,
-                $this->leaving($survivors, Unchecked::Unidentified),
-                $survivors,
-            ),
-            $this->deadline instanceof Deadline && $this->deadline->hasPassed($this->clock->now()) => new Checked(
-                $mutants,
-                $this->leaving($survivors, Unchecked::OutOfTime),
-                $survivors,
-            ),
+            ! $identity instanceof AnalyserIdentity => Checked::leaving($mutants, $survivors, Unchecked::Unidentified),
+            $this->deadline instanceof Deadline && $this->deadline->hasPassed($this->clock->now())
+                => Checked::leaving($mutants, $survivors, Unchecked::OutOfTime),
             default => $this->warmed($checker, $identity, $mutants, $survivors),
         };
     }
@@ -129,18 +119,7 @@ final readonly class SurvivorChecking
 
         return $warm instanceof WarmedUp
             ? $this->each($warm, $mutants, $survivors)
-            : new Checked($mutants, $this->leaving($survivors, $warm), $survivors);
-    }
-
-    private function leaving(Mutants $survivors, Unchecked $why): SurvivorChecks
-    {
-        $checks = SurvivorChecks::none();
-
-        foreach ($survivors as $survivor) {
-            $checks = $checks->leaving(UncheckedSurvivor::of($why, $survivor->location()->file()));
-        }
-
-        return $checks;
+            : Checked::leaving($mutants, $survivors, $warm);
     }
 
     /**
@@ -184,13 +163,17 @@ final readonly class SurvivorChecking
     private function one(WarmedUp $warm, Mutant $survivor, AnalyserHistory $history, array $baselines): array
     {
         $checkable = $this->adapters->runner->checkable($survivor);
+
+        if (! $checkable instanceof Checkable) {
+            return [Unchecked::NoMutant, $history, $baselines];
+        }
+
         $file = $survivor->location()->file()->value();
         $cached = array_key_exists($file, $baselines);
-        $printed = $checkable instanceof Checkable && $checkable->original() instanceof Contents && ! $cached;
-        $needed = $printed ? self::WITH_ITS_PRINT : self::ALONE;
+        $needed = $checkable->original() instanceof Contents && ! $cached ? self::WITH_ITS_PRINT : self::ALONE;
 
-        if (! $checkable instanceof Checkable || ! $this->fits($history, $needed, $warm->took)) {
-            return [$checkable instanceof Checkable ? Unchecked::OutOfTime : Unchecked::NoMutant, $history, $baselines];
+        if (! $this->fits($history, $needed, $warm->took)) {
+            return [Unchecked::OutOfTime, $history, $baselines];
         }
 
         [$baseline, $history] = $cached

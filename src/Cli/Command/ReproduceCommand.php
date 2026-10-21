@@ -44,8 +44,7 @@ final readonly class ReproduceCommand
             ->addArgument('id', InputArgument::REQUIRED, 'The mutant\'s id, or its first six or more characters')
             ->setCode(static function (InputInterface $input, OutputInterface $output) use ($composition): int {
                 $composed = $composition->compose($input);
-                $id = $input->getArgument('id');
-                $sought = IdPrefix::parse(is_string($id) ? $id : '');
+                $sought = self::sought($input);
 
                 if (! $composed instanceof Composed || $sought instanceof CannotJudge) {
                     return Failed::because($output, $composed instanceof Composed ? $sought : $composed);
@@ -57,6 +56,14 @@ final readonly class ReproduceCommand
                     ? self::shown($output, $reproduced)
                     : Failed::unfound($output, $reproduced);
             });
+    }
+
+    /** The id, or the start of one, the command names. */
+    private static function sought(InputInterface $input): IdPrefix|CannotJudge
+    {
+        $id = $input->getArgument('id');
+
+        return IdPrefix::parse(is_string($id) ? $id : '');
     }
 
     private static function shown(OutputInterface $output, Reproduced $reproduced): int

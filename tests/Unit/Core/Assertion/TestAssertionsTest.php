@@ -62,6 +62,12 @@ it('reads a test as weak only when every assertion checks existence or shape', f
     'a function of PHPUnit, and a method named like an expectation' => [PHPUNIT_CART_TEST, 'testCallsIt', [['assertCount shape'], true]],
 ]);
 
+it('reads a test inside a describe() whose description is not written out as a test of its own', function (): void {
+    $text = "<?php\n\ndescribe(\$name, function () {\n    it('runs inside', function () {\n        expect(1)->toBe(1);\n    });\n});\n";
+
+    expect(readAssertions($text, 'it runs inside'))->toBe([['->toBe() value'], false]);
+});
+
 it('reads what Pest chains after expect(), qualified or not, as each call checks', function (string $description, array $read): void {
     expect(readAssertions(PEST_CART_TEST, $description))->toBe($read);
 })->with([

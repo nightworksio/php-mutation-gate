@@ -55,25 +55,14 @@ final readonly class Sent
             return is_string($restored) ? $mutant : $restored;
         }
 
-        $texts = [$original => $mutant];
+        $dependents = self::dependentsOf($check, $root, $xml);
 
-        foreach ($check->dependents() as $dependent) {
-            $at = $root->at($dependent)->value();
-
-            if (! $xml->holds($at)) {
-                continue;
-            }
-
-            $text = self::read($root, $dependent);
-
-            if (! is_string($text)) {
-                return $text;
-            }
-
-            $texts[$at] = $text;
-        }
-
-        return new self($texts, $original, $restored, FindingFiles::under($root)->substituting($check));
+        return $dependents instanceof CannotJudge ? $dependents : new self(
+            [$original => $mutant, ...$dependents],
+            $original,
+            $restored,
+            FindingFiles::under($root)->substituting($check),
+        );
     }
 
     /**
@@ -120,6 +109,35 @@ final readonly class Sent
         }
 
         return Findings::of(...$findings);
+    }
+
+    /**
+     * The text of each file that depends on the mutant's original and Psalm
+     * analyses, by its absolute path; or why one cannot be read.
+     *
+     * @return array<string, string>|CannotJudge
+     */
+    private static function dependentsOf(MutantCheck $check, Root $root, PsalmXml $xml): array|CannotJudge
+    {
+        $texts = [];
+
+        foreach ($check->dependents() as $dependent) {
+            $at = $root->at($dependent)->value();
+
+            if (! $xml->holds($at)) {
+                continue;
+            }
+
+            $text = self::read($root, $dependent);
+
+            if (! is_string($text)) {
+                return $text;
+            }
+
+            $texts[$at] = $text;
+        }
+
+        return $texts;
     }
 
     private static function read(Root $root, Path $file): string|CannotJudge

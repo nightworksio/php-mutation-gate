@@ -156,10 +156,7 @@ final readonly class Shards implements Part
             Member::unlessEmpty(
                 'shards',
                 Json::object(
-                    Member::of(
-                        'seconds',
-                        $this->seconds instanceof Seconds ? intval($this->seconds->seconds()) : $this->seconds,
-                    ),
+                    Member::of('seconds', WholeSeconds::written($this->seconds)),
                     Member::of('max', $this->max),
                     Member::of('target', $this->target instanceof Seconds ? $this->target->written() : $this->target),
                     Member::of('setup', $this->setup instanceof Seconds ? $this->setup->written() : $this->setup),

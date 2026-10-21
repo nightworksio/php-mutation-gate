@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
 use function array_filter;
+use function array_push;
 use function count;
 use function file_get_contents;
 use function getmypid;
 use function hrtime;
 use function in_array;
 use function is_array;
-use function iterator_to_array;
 
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Forked;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Workforce;
@@ -249,9 +249,10 @@ final readonly class MutationRun
                 return $made;
             }
 
-            foreach ($made as $mutant) {
-                $asked = $this->isAsked($request, $mutant) ? [...$asked, $mutant] : $asked;
-            }
+            array_push(
+                $asked,
+                ...array_filter([...$made], fn(MadeMutant $mutant): bool => $this->isAsked($request, $mutant)),
+            );
         }
 
         return $asked;
@@ -265,7 +266,7 @@ final readonly class MutationRun
     private function isAsked(MutationRequest $request, MadeMutant $mutant): bool
     {
         $mutators = $request->narrowing()->mutators();
-        $named = iterator_to_array($mutators, preserve_keys: false);
+        $named = [...$mutators];
         $mutator = $mutators->isAll() || in_array($mutant->mutation()->mutator(), $named, strict: true);
         $pruned = $request->narrowing()->pruned()->leavesOut(
             $mutant->location()->file(),

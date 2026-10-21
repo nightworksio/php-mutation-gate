@@ -7,6 +7,8 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use function array_map;
 
 use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
+use NightWorksIO\MutationGate\Core\Analysis\Unchecked;
+use NightWorksIO\MutationGate\Core\Analysis\UncheckedSurvivor;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
@@ -22,6 +24,18 @@ final readonly class Checked
 {
     public function __construct(public Mutants $mutants, public SurvivorChecks $checks, public Mutants $examined)
     {
+    }
+
+    /** These mutants, with every survivor taken up and left unchecked for the same reason. */
+    public static function leaving(Mutants $mutants, Mutants $survivors, Unchecked $why): self
+    {
+        $checks = SurvivorChecks::none();
+
+        foreach ($survivors as $survivor) {
+            $checks = $checks->leaving(UncheckedSurvivor::of($why, $survivor->location()->file()));
+        }
+
+        return new self($mutants, $checks, $survivors);
     }
 
     /** The ids of the survivors the checks took up, killed, passed or left. */

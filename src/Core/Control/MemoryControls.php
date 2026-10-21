@@ -101,13 +101,11 @@ final readonly class MemoryControls implements ControlJudge
     public function judged(Mutant $mutant, ControlRun $run, Control $control): Mutant
     {
         $peak = $run->peak();
-        $cap = $mutant->limit();
+        $need = $peak instanceof MemoryCap ? $peak : $mutant->limit();
         $why = $run->why();
 
         return match ($run->end()) {
-            ControlEnd::Passed => $peak instanceof MemoryCap || $cap instanceof MemoryCap
-                ? $mutant->withUnmutatedNeed($peak instanceof MemoryCap ? $peak : $cap)
-                : $mutant,
+            ControlEnd::Passed => $need instanceof MemoryCap ? $mutant->withUnmutatedNeed($need) : $mutant,
             ControlEnd::Failed => $mutant->unjudged(Reason::that(self::FAILS_UNMUTATED)),
             ControlEnd::OutOfMemory => $mutant->because(Reason::that(self::OUT_OF_MEMORY)),
             ControlEnd::RanOut => $mutant->because(Reason::that(self::RAN_OUT)),
