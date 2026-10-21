@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\TestFiles;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\Coverage\OwnTime;
+use NightWorksIO\MutationGate\Core\Coverage\TimedTest;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -29,9 +30,14 @@ use NightWorksIO\MutationGate\Core\Php\Source;
 use NightWorksIO\MutationGate\Core\Php\StatementTail;
 use NightWorksIO\MutationGate\Core\Php\Symbol;
 use NightWorksIO\MutationGate\Core\Php\Unnamed;
+use NightWorksIO\MutationGate\Core\Php\ValueDeclaration;
+use NightWorksIO\MutationGate\Core\Php\ValueDeclarations;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+
+use function range;
 
 /**
  * The test files that judge a mutant Pest left uncovered. On a line that is
@@ -58,6 +64,7 @@ final readonly class Selector
         private Followed $followed,
         private CoverageMap $map,
         private Originals $originals,
+        private Codebase $codebase,
     ) {
     }
 
@@ -82,7 +89,7 @@ final readonly class Selector
 
         $originals = new Originals($project, $codebase);
 
-        return new self($project, $coverage, $tests, $suite, new Followed($codebase), $map, $originals);
+        return new self($project, $coverage, $tests, $suite, new Followed($codebase), $map, $originals, $codebase);
     }
 
     /** A mutated file's original, scanned as the codebase read it; why it cannot be printed; or none. */
@@ -111,6 +118,29 @@ final readonly class Selector
             $arms instanceof MatchArms => $this->running($arms->first(), $arms->last(), $source->path()),
             default => NotGiven::value(),
         };
+    }
+
+    /**
+     * A map with the lines of each value these files declare covered by the
+     * tests of the test files one run judges its mutants by (see Choice), each
+     * timed as the map of every file timed it, where it did not already, so
+     * Pest runs those mutants as it runs any covered one. A value whose reads
+     * the scan cannot follow, or that nothing reads, is left as the map had
+     * it, and a trial judges its mutants (ADR-0037).
+     */
+    public function readCoverage(Paths $files, CoverageMap $onto): CoverageMap
+    {
+        $read = $onto;
+
+        foreach ($files as $file) {
+            $source = $this->codebase->source($file);
+
+            foreach ($source instanceof Source ? ValueDeclarations::in($source) : [] as $declared) {
+                $read = $this->reading($read, $file, $declared);
+            }
+        }
+
+        return $read;
     }
 
     /**
@@ -171,6 +201,49 @@ final readonly class Selector
             Line::of($first),
             Line::of($last),
         ));
+    }
+
+    /**
+     * A map with the lines of one value covered by the tests one run judges
+     * its mutants by, each timed; the map as it is where no run can.
+     */
+    private function reading(CoverageMap $map, Path $file, ValueDeclaration $declared): CoverageMap
+    {
+        $run = $this->choose($declared->symbol(), $file)->oneRun();
+        $tests = $run instanceof Paths ? $this->tests->holding($run, $this->map) : TestIds::none();
+
+        if (count($tests) === 0) {
+            return $map;
+        }
+
+        $read = $map;
+
+        foreach (range($declared->first()->number(), $declared->last()->number()) as $line) {
+            $read = $read->covered($file, Line::of($line), ...$tests);
+        }
+
+        return $read->timedEach(...$this->timed($tests, $map));
+    }
+
+    /**
+     * How long each of these tests took, as the map of every file timed it,
+     * where a map does not time it already.
+     *
+     * @return list<TimedTest>
+     */
+    private function timed(TestIds $tests, CoverageMap $timing): array
+    {
+        $timed = [];
+
+        foreach ($tests as $test) {
+            $duration = $this->map->durationOf($test);
+
+            if ($duration instanceof Seconds && ! $timing->durationOf($test) instanceof Seconds) {
+                $timed[] = TimedTest::of($test->value(), $duration->seconds());
+            }
+        }
+
+        return $timed;
     }
 
     /**

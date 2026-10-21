@@ -12,7 +12,7 @@ namespace NightWorksIO\MutationGate\Core\Php;
 final readonly class Calls
 {
     /** What stands before a name followed by `(` that is no call of a plain function. */
-    private const array NOT_A_CALL = [T_OBJECT_OPERATOR, T_NULLSAFE_OBJECT_OPERATOR, T_DOUBLE_COLON, T_FUNCTION, T_NEW];
+    public const array NOT_A_CALL = [T_OBJECT_OPERATOR, T_NULLSAFE_OBJECT_OPERATOR, T_DOUBLE_COLON, T_FUNCTION, T_NEW];
 
     public static function of(Symbol $symbol, Source $source): References
     {

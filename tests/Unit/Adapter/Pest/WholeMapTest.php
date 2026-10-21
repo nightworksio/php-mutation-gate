@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Tests\Support\HandedMaps;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use NightWorksIO\MutationGate\Tests\Support\Unexecutables;
 
 afterEach(function (): void {
     Scratch::sweep();
@@ -98,4 +99,21 @@ it('cannot find the tests that read a value where the shard was handed no whole 
 
     expect(new WholeMap($at, new Remembered())->covering($handed, new HandedOver($own, $at), $own))
         ->toEqual(CoverageMapFile::missingAt($at->absolute(CoverageMapFile::in(Path::of('whole')))));
+});
+
+it('scans the codebase once for the whole map and a run\'s files, and afresh for a run that opened on its own map', function (): void {
+    $at = Unexecutables::project();
+    $reading = new HandedOver(CoverageMap::empty(), $at);
+    $whole = new WholeMap($at, new Remembered());
+    $money = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+        ->reusingCoverage(Handed::maps(Path::of('own'), Path::of('whole')));
+    $other = MutationRequest::of(Paths::of(Path::of('src/Other.php')), WholeSuite::tests())
+        ->reusingCoverage(Handed::maps(Path::of('own'), Path::of('whole')));
+    $shared = CoverageMap::empty();
+
+    expect($whole->selector($money, $reading, $shared))->toBe($whole->selector($money, $reading, $shared))
+        ->and($whole->selector($other, $reading, $shared))->not->toBe($whole->selector($money, $reading, $shared))
+        ->and($whole->selector($money, $reading, Unshared::Coverage))->not->toBe($whole->selector($money, $reading, Unshared::Coverage))
+        ->and($whole->selector(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests()), $reading, $shared))
+        ->not->toBe($whole->selector($money, $reading, $shared));
 });

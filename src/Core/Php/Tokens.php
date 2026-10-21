@@ -18,7 +18,9 @@ use function count;
 
 use Countable;
 
+use function explode;
 use function is_string;
+use function mb_strtolower;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
@@ -63,6 +65,8 @@ final readonly class Tokens implements Countable
      *                                   where it never does
      * @param array<int, list<int>>        $byId   where each token stands, in order, by its id
      * @param array<array-key, list<int>>  $byText where each token stands, in order, by its text
+     * @param array<string, true>          $words  the last segment of each name a token spells, as written and in
+     *                                             lower case
      */
     private function __construct(
         private array $tokens,
@@ -70,6 +74,7 @@ final readonly class Tokens implements Countable
         private array $closing,
         private array $byId,
         private array $byText,
+        private array $words,
     ) {
     }
 
@@ -93,11 +98,13 @@ final readonly class Tokens implements Countable
         $closing = [];
         $byId = [];
         $byText = [];
+        $words = [];
 
         foreach ($tokens as $at => $token) {
             $enclosing[$at] = array_last($open) ?? self::NONE;
             $byId[$token->id][] = $at;
             $byText[$token->text][] = $at;
+            $words += $token->is(Names::TOKENS) ? self::words($token->text) : [];
 
             if ($token->is(self::CLOSES)) {
                 $closing[array_pop($open) ?? self::NONE] = $at;
@@ -108,7 +115,7 @@ final readonly class Tokens implements Countable
             }
         }
 
-        return new self($tokens, $enclosing, $closing + array_fill_keys($open, count($tokens)), $byId, $byText);
+        return new self($tokens, $enclosing, $closing + array_fill_keys($open, count($tokens)), $byId, $byText, $words);
     }
 
     /**
@@ -142,6 +149,17 @@ final readonly class Tokens implements Countable
             fn(int $enclosing, int $at): bool => $enclosing === $opener && $this->tokens[$at]->is($kinds),
             ARRAY_FILTER_USE_BOTH,
         ));
+    }
+
+    /**
+     * Whether a name the file spells ends in this word, as written or in
+     * lower case: `Money`, `App\money` and `\App\MONEY` all end in `money`,
+     * as PHP reads a class's or a function's name, and only the first ends in
+     * `Money`, as PHP reads a constant's.
+     */
+    public function namesWord(string $word): bool
+    {
+        return array_key_exists($word, $this->words);
     }
 
     /** How many tokens there are. */
@@ -235,6 +253,18 @@ final readonly class Tokens implements Countable
         }
 
         return $spelt;
+    }
+
+    /**
+     * The last segment of a name, as written and in lower case.
+     *
+     * @return array<string, true>
+     */
+    private static function words(string $name): array
+    {
+        $last = array_last(explode('\\', $name));
+
+        return [$last => true, mb_strtolower($last) => true];
     }
 
     /**

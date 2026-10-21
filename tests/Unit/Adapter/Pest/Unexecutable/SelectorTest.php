@@ -7,11 +7,16 @@ use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Choice;
 use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Selector;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\PlacedLine;
+use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Php\Symbol;
 use NightWorksIO\MutationGate\Core\Php\SymbolKind;
 use NightWorksIO\MutationGate\Core\Php\Unnamed;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Tests\Support\CoverageMaps;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Unexecutables;
@@ -72,4 +77,28 @@ it('reads only the files still there, and selects the files that hold a covering
 
     expect($selector->choose(Symbol::constant('App\Money', 'INTERNAL'), Path::of('src/Money.php')))
         ->toEqual(Choice::of($run, $run, ambiguous: false));
+});
+
+it('covers the lines of each value one run can judge with the tests of the files that read it and of its fallback, each timed, and leaves the rest as they were', function (): void {
+    $money = Path::of('src/Money.php');
+    $onto = CoverageMap::empty()->covered($money, Line::of(10), TestId::of('P\Tests\InternalSpec::__pest_evaluable_it_runs'))
+        ->timed(TestId::of('P\Tests\InternalSpec::__pest_evaluable_it_runs'), Seconds::of(9.0));
+    $read = selectorOver(Unexecutables::project())->readCoverage(Paths::of($money), $onto);
+    $tests = static fn(int $line): array => array_map(
+        static fn(TestId $test): string => $test->value(),
+        [...$read->testsCovering($money, Line::of($line), Line::of($line))],
+    );
+    $seconds = static fn(string $test): float => ($read->durationOf(TestId::of($test)) instanceof Seconds ? $read->durationOf(TestId::of($test)) : Seconds::of(-1.0))->seconds();
+
+    expect([$tests(5), $tests(6), $tests(7), $tests(10)])->toEqualCanonicalizing([
+        ['P\Tests\MoneySpec::__pest_evaluable_it_reads', 'P\Tests\InternalSpec::__pest_evaluable_it_runs', 'P\Tests\OtherSpec::__pest_evaluable_it_runs_the_other'],
+        [],
+        ['P\Tests\InternalSpec::__pest_evaluable_it_runs', 'P\Tests\OtherSpec::__pest_evaluable_it_runs_the_other'],
+        ['P\Tests\InternalSpec::__pest_evaluable_it_runs'],
+    ])
+        ->and([$seconds('P\Tests\MoneySpec::__pest_evaluable_it_reads'), $seconds('P\Tests\InternalSpec::__pest_evaluable_it_runs'), $seconds('P\Tests\OtherSpec::__pest_evaluable_it_runs_the_other')])
+        ->toBe([0.1, 9.0, 0.3])
+        ->and(array_map(static fn(PlacedLine $line): string => sprintf('%s:%d', $line->file()->value(), $line->line()), [...$read->placedLines()]))
+        ->not->toContain('src/Money.php:6')
+        ->and(selectorOver(Unexecutables::project())->readCoverage(Paths::of(Path::of('src/Gone.php')), $onto))->toEqual($onto);
 });

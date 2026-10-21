@@ -102,10 +102,12 @@ final readonly class Waiting
     /** The child stopped with every process under it, deepest first, and reaped. */
     private function stop(): void
     {
-        $listing = [];
-        exec($this->line(ProcessTable::LISTING), $listing);
-        $under = ProcessTable::parse(implode("\n", $listing))->descendantsOf($this->child);
-        exec($this->line(ProcessTable::killing(...[...$under, $this->child])));
+        ProcessTable::stop($this->child, function (array $command): string {
+            $printed = [];
+            exec($this->line($command), $printed);
+
+            return implode("\n", $printed);
+        });
         $status = 0;
         pcntl_waitpid($this->child, $status);
     }

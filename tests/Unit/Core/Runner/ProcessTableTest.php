@@ -20,3 +20,24 @@ it('stops processes at once, by their ids', function (): void {
     expect(ProcessTable::killing(101, 102))->toBe(['kill', '-KILL', '101', '102'])
         ->and(ProcessTable::LISTING)->toBe(['ps', '-A', '-o', 'pid=', '-o', 'ppid=']);
 });
+
+it('freezes a process, then each process a listing finds under it, until a listing finds no new one, and only then kills them all, deepest first', function (): void {
+    $listings = ["100 1\n101 100\n", "100 1\n101 100\n102 101\n", "100 1\n101 100\n102 101\n"];
+    $ran = [];
+
+    ProcessTable::stop(100, static function (array $command) use (&$listings, &$ran): string {
+        $ran[] = implode(' ', $command);
+
+        return $command === ProcessTable::LISTING ? (string) array_shift($listings) : '';
+    });
+
+    expect($ran)->toBe([
+        'kill -STOP 100',
+        'ps -A -o pid= -o ppid=',
+        'kill -STOP 101',
+        'ps -A -o pid= -o ppid=',
+        'kill -STOP 102',
+        'ps -A -o pid= -o ppid=',
+        'kill -KILL 102 101 100',
+    ]);
+});

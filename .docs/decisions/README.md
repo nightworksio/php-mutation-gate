@@ -53,3 +53,5 @@ There is no separate requirements document, and there are no requirement IDs.
 | [0033](0033-a-files-kills-are-controlled-together-first.md) | A file's kills are controlled together first | Accepted |
 | [0034](0034-a-suite-whose-test-files-pass-alone-need-not-confirm-survivors.md) | A suite whose test files each pass alone need not confirm its survivors, and the gate's own does not | Accepted |
 | [0035](0035-the-reusable-workflow-runs-on-the-runner-its-caller-names.md) | The reusable workflow runs on the runner its caller names, and takes the map another job made | Accepted |
+| [0036](0036-a-kill-only-errors-made-counts-where-its-control-passes.md) | A narrowed kill only errors made counts where its control passes | Accepted |
+| [0037](0037-a-value-is-covered-by-the-tests-that-read-it.md) | A declared value's lines are covered by the tests that read it, so its mutants run in the mutation step | Accepted |

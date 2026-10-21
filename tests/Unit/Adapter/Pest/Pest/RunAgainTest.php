@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\Pest\PestStatus;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
+use NightWorksIO\MutationGate\Adapter\Pest\ShardMap;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Triage;
@@ -92,7 +93,7 @@ it('runs the mutants again in one run of their files with their mutators, naming
 
 it('runs mutants again on the canary group, reading the map the planning job handed the invocation, under the raised limit', function (): void {
     $at = PestCases::patched();
-    $written = sprintf('%s/shared.coverage.php', dirname(PestCases::results($at)));
+    $written = ShardMap::fileFor(PestCases::results($at), Paths::of(Path::of('src/Money.php')));
     $shell = new ShellFake(static fn(Command $command, int $before): Ran => $before === 0
         ? PestCases::listed($command)
         : PestCases::killed($command, $at));
@@ -283,7 +284,7 @@ it('gives a kill run again with every test file the evidence of that run, and no
     'surviving' => [false, true, fn(): Evidence => Evidence::none()],
 ]);
 
-it('runs a mutant a narrowed run killed only by tests that errored again with every test file, before it counts', function (): void {
+it('counts a mutant a run killed only by tests that errored without running it again', function (): void {
     $at = PestCases::project();
     $shell = PestCases::loadedNothing($at, PestRun::errored('n1', PestCases::RUN_ADDS), PestRun::errored('n1', 'T::subtracts'));
 
@@ -292,8 +293,8 @@ it('runs a mutant a narrowed run killed only by tests that errored again with ev
     expect($result instanceof MutationResult ? array_map(
         static fn(Mutant $mutant): MutantStatus => $mutant->status(),
         [...$result->mutants()],
-    ) : $result)->toBe([MutantStatus::Survived])
-        ->and($shell->commands())->toHaveCount(2);
+    ) : $result)->toBe([MutantStatus::Killed])
+        ->and($shell->commands())->toHaveCount(1);
 });
 
 it('counts a mutant a narrowed run killed where a test failed, whatever else errored', function (): void {

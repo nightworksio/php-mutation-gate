@@ -27,3 +27,11 @@ it('is unnamed where nothing named owns it, and names only its kind', function (
         ->and(Unnamed::of(SymbolKind::ClosureParameter)->kind())->toBe(SymbolKind::ClosureParameter)
         ->and(Unnamed::of(SymbolKind::ClosureParameter)->described())->toBe('closure parameter');
 });
+
+it('names a global constant by its fully qualified name, its last segment its name', function (): void {
+    $limit = Symbol::globalConstant('\App\Rates\LIMIT');
+
+    expect([$limit->kind(), $limit->owner(), $limit->name(), $limit->described()])
+        ->toBe([SymbolKind::GlobalConstant, 'app\rates\limit', 'LIMIT', 'global constant App\Rates\LIMIT'])
+        ->and(Symbol::globalConstant('LIMIT')->described())->toBe('global constant LIMIT');
+});

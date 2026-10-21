@@ -11,6 +11,7 @@ use function array_unique;
 use function array_values;
 
 use Closure;
+use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Selector;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -52,6 +53,9 @@ final class Remembered
 
     /** @var array<string, ReplayVerdict> what each replay of a kill's own run, unmutated, said, by its key */
     private array $replays = [];
+
+    /** @var array<string, Selector> each scan of the codebase for the tests that read a value, by what it read */
+    private array $selectors = [];
 
     /** @param Closure(): (TestListing|CannotJudge) $listing */
     public function listing(Withheld $withheld, Suites $suites, Closure $listing): TestListing|CannotJudge
@@ -98,6 +102,22 @@ final class Remembered
         }
 
         return $this->maps[$key];
+    }
+
+    /**
+     * The scan of the codebase that reads a whole map for the files one run
+     * mutates, made once: the run's values are read before it runs, and its
+     * trials read the same scan after it.
+     *
+     * @param Closure(): Selector $scanning
+     */
+    public function selector(string $key, Closure $scanning): Selector
+    {
+        if (! array_key_exists($key, $this->selectors)) {
+            $this->selectors[$key] = $scanning();
+        }
+
+        return $this->selectors[$key];
     }
 
     /**

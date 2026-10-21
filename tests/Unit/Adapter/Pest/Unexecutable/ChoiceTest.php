@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Choice;
 use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Outcome;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 /** Test files tests/T1.php to tests/Tn.php, from a first number. */
 function choiceTests(int $count, int $from = 1): Paths
@@ -72,4 +73,12 @@ it('judges nothing no test reads, and never runs no files, which Pest takes as t
         ->and(Choice::of(Paths::none(), Paths::none(), ambiguous: true)->first($theme))
         ->toEqual(Outcome::unjudged('ambiguous reference; src/Theme.php is covered by 0 test files'))
         ->and(Choice::of(Paths::none(), choiceTests(3), ambiguous: false)->then($theme))->toEqual(Paths::none());
+});
+
+it('runs once the tests that read a followed value with a small fallback, the readers alone past the bound, and none where a trial must judge it', function (): void {
+    expect(Choice::of(choiceTests(2), choiceTests(3, 2), ambiguous: false)->oneRun())->toEqual(choiceTests(4))
+        ->and(Choice::of(choiceTests(2), choiceTests(11, 3), ambiguous: false)->oneRun())->toEqual(choiceTests(2))
+        ->and(Choice::of(choiceTests(2), choiceTests(10, 3), ambiguous: false)->oneRun())->toEqual(choiceTests(12))
+        ->and(Choice::of(choiceTests(2), choiceTests(3), ambiguous: true)->oneRun())->toEqual(NotGiven::value())
+        ->and(Choice::of(Paths::none(), choiceTests(3), ambiguous: false)->oneRun())->toEqual(NotGiven::value());
 });

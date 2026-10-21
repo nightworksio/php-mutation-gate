@@ -6,6 +6,9 @@ namespace NightWorksIO\MutationGate\Adapter\Pest\Unexecutable;
 
 use function array_keys;
 use function array_values;
+
+use Closure;
+
 use function count;
 use function dirname;
 use function file_get_contents;
@@ -13,7 +16,6 @@ use function getmypid;
 use function is_file;
 use function is_string;
 
-use NightWorksIO\MutationGate\Adapter\Pest\Covering;
 use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
 use NightWorksIO\MutationGate\Adapter\Pest\MemoryScan;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
@@ -65,13 +67,14 @@ final readonly class Judging
      * A run's result, with each uncovered mutant on a line that is not
      * executable judged.
      *
-     * @param Covering $coverage the map of every file a line that reads a mutant's value may be in
+     * @param Closure(): Selector $scanning the scan of the codebase that reads the map of every file a line that reads
+     *                                     a mutant's value may be in, made only where a mutant needs it
      */
     public function of(
         MutationResult $result,
         MutationRequest $request,
         string $results,
-        Covering $coverage,
+        Closure $scanning,
     ): MutationResult|CannotJudge {
         $judgedBy = $request->judgedBy();
 
@@ -85,7 +88,7 @@ final readonly class Judging
             return $scan;
         }
 
-        $selector = Selector::over($this->project, $coverage, $request->files());
+        $selector = $scanning();
         $invocation = Invocation::installedIn($this->project->vendor());
         $trial = new Trial(
             $this->project,

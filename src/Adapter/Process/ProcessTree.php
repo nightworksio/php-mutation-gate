@@ -20,12 +20,14 @@ final readonly class ProcessTree
         return new self($pid);
     }
 
-    /** Stops every process under this one, deepest first, and then the process itself. */
+    /** Stops every process under this one, deepest first, and then the process itself (see ProcessTable). */
     public function stop(): void
     {
-        $listing = new Process(ProcessTable::LISTING);
-        $listing->run();
-        $under = ProcessTable::parse($listing->getOutput())->descendantsOf($this->pid);
-        new Process(ProcessTable::killing(...[...$under, $this->pid]))->run();
+        ProcessTable::stop($this->pid, static function (array $command): string {
+            $process = new Process($command);
+            $process->run();
+
+            return $process->getOutput();
+        });
     }
 }

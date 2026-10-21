@@ -249,3 +249,12 @@ it('names each covered line\'s set of tests alike wherever the set recurs, in as
         ->and([...$sets->missed()])->toEqual([Line::of(4)])
         ->and([...$map->lineSets(Path::of('src/Gone.php'))])->toBe([]);
 });
+
+it('covers a line with several tests at once, each once, knowing those it did not', function () use ($ids): void {
+    $map = CoverageMap::empty()
+        ->covered(Path::of('src/Money.php'), Line::of(4), TestId::of('MoneyTest::adds'))
+        ->covered(Path::of('src/Money.php'), Line::of(4), TestId::of('MoneyTest::adds'), TestId::of('RateTest::reads'));
+
+    expect($ids($map->testsCovering(Path::of('src/Money.php'), Line::of(4), Line::of(4))))->toBe(['MoneyTest::adds', 'RateTest::reads'])
+        ->and($ids($map->tests()))->toBe(['MoneyTest::adds', 'RateTest::reads']);
+});

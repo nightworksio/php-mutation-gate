@@ -67,7 +67,9 @@ final readonly class Codebase
         $found = References::none();
 
         foreach ($this->sources as $source) {
-            $found = $found->and($this->through(Reads::of($symbol, $source, $this->hierarchy), $source, $step, $seen));
+            $found = Reads::mayHold($symbol, $source)
+                ? $found->and($this->through(Reads::of($symbol, $source, $this->hierarchy), $source, $step, $seen))
+                : $found;
         }
 
         return $found;

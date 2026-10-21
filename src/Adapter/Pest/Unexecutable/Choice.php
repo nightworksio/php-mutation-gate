@@ -9,6 +9,7 @@ use function count;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function sprintf;
 
@@ -70,6 +71,29 @@ final readonly class Choice
         }
 
         return $others;
+    }
+
+    /**
+     * The test files one run judges the mutant by, where the scan followed
+     * every read and found one: those that read it, with the fallback too
+     * where it is small. A kill by either stands, and a survivor of the
+     * first runs the fallback, so one run of both says what the two would;
+     * none where a read could not be followed or none was found, and only a
+     * trial can judge the mutant.
+     */
+    public function oneRun(): Paths|NotGiven
+    {
+        if ($this->ambiguous || $this->reading->count() === 0) {
+            return NotGiven::value();
+        }
+
+        $run = $this->reading;
+
+        foreach ($this->bounded() ? $this->covering : Paths::none() as $test) {
+            $run = $run->with($test);
+        }
+
+        return $run;
     }
 
     private function bounded(): bool

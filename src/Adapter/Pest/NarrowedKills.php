@@ -19,12 +19,10 @@ use function is_array;
 use function is_int;
 use function is_string;
 
-use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
-use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\Prefix;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\NotGiven;
@@ -38,14 +36,19 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 /**
  * The kills of a run in which each mutant's own run loaded only the test
  * files its covering tests need, as far as its records can vouch for them. A
- * kill is doubtful where no test is named as the killer, where only tests
- * that errored are, or where the records cannot be read. Any other kill of a
- * narrowed own run stands only where its control passes: the tests of the
- * files it loaded, loaded alone, with the file it changes served unmutated
- * through Pest's override as the mutant's copy was (see Control). A file left
- * out can hold what a test needs without a name, such as a hook
- * `pest()->in()` registers or state its loading sets, and a test can fail
- * only while the override serves a file; either would pass as a killer.
+ * kill is doubtful where no test is named as the killer, or where the records
+ * cannot be read. Any other kill of a narrowed own run stands only where the
+ * replay of its run vouches for it, where its order is known (see
+ * PrefixReplay), or else where its control passes: the tests of the files it
+ * loaded, loaded alone, with the file it changes served unmutated through
+ * Pest's override as the mutant's copy was (see Control). A kill only tests
+ * that errored made is judged by its control alone (ADR-0036), so that one
+ * whose control fails is doubted and runs again with every test file, where
+ * a replay that failed would leave it unjudged. A file left out can hold what
+ * a test needs without a name, such as a hook `pest()->in()` registers, state
+ * its loading sets or a helper a test calls by a name built at run time, and
+ * a test can fail only while the override serves a file; either would pass as
+ * a killer, and either fails the control too.
  * Mutants that share Pest's id share their own run, and so its doubt. A
  * kill of a mutant Pest left uncovered is the trial's (ADR-0004, decision 8),
  * which ran no own process of Pest's and first ran its tests alone on the
@@ -74,51 +77,36 @@ final readonly class NarrowedKills
 
     public static function in(MutationResult $result, string $results, Project $project): self
     {
-        $records = Records::in($results);
-        $runs = self::runs($records);
-        $trial = self::uncovered($records);
+        $recorded = RecordedKills::of(Records::in($results));
         $doubtful = [];
         $narrowed = [];
-        $replays = [];
-        $replayed = [];
+        $replaying = [];
 
-        foreach ($result->mutants() as $mutant) {
-            if ($mutant->status() !== MutantStatus::Killed || array_key_exists($mutant->nativeId(), $trial)) {
-                continue;
-            }
+        foreach ($recorded->judged($result->mutants()) as $mutant) {
+            $vouched = $recorded->vouchedFor($mutant);
 
-            $recorded = array_key_exists($mutant->nativeId(), $runs);
-            [$run, $copy, $limit] = $recorded
-                ? $runs[$mutant->nativeId()]
-                : [
-                    OwnRun::of([], [], [], NotGiven::value(), preloaded: false, tests: NotGiven::value()),
-                    '',
-                    Unmeasured::duration(),
-                ];
-
-            if (! $recorded || count($mutant->killers()) === 0 || $run->killedByErrorsOnly()) {
+            if (! is_array($vouched)) {
                 $doubtful[] = $mutant;
 
                 continue;
             }
 
-            if ($run->narrowedTo() === []) {
-                continue;
-            }
-
+            [$run, $copy, $limit] = $vouched;
             $replay = self::replayOf($mutant, $run, $copy, $limit, $project);
 
-            if (! $replay instanceof PrefixReplay) {
-                $set = implode(self::BETWEEN, [$mutant->location()->file()->value(), ...$run->narrowedTo()]);
-                $narrowed[$set][] = $mutant;
+            if ($replay instanceof PrefixReplay) {
+                $replaying[] = [$mutant, $replay, $limit];
 
                 continue;
             }
 
-            $key = implode(self::BETWEEN, [$mutant->location()->file()->value(), $replay->key()]);
-            $replays[$key] = array_key_exists($key, $replays) ? $replays[$key]->alsoFor($limit) : $replay;
-            $replayed[$key][] = $mutant;
+            if ($run->narrowedTo() !== []) {
+                $set = implode(self::BETWEEN, [$mutant->location()->file()->value(), ...$run->narrowedTo()]);
+                $narrowed[$set][] = $mutant;
+            }
         }
+
+        [$replays, $replayed] = self::byOrder($replaying);
 
         return new self($doubtful, $narrowed, $replays, $replayed);
     }
@@ -191,27 +179,33 @@ final readonly class NarrowedKills
         return Mutants::of(...$doubted);
     }
 
-    /** @return array<string, true> each native id Pest left uncovered, so that only the trial judges it */
-    private static function uncovered(Records|CannotJudge $records): array
+    /**
+     * The replay each kill's narrowed own run asks for, by the file its
+     * mutant changes and the key of its order, joined, and the kills each
+     * vouches for, by the same key.
+     *
+     * @param list<array{Mutant, PrefixReplay, Seconds|Unmeasured}> $replaying each kill, its replay and its limit
+     *
+     * @return array{array<string, PrefixReplay>, array<string, list<Mutant>>}
+     */
+    private static function byOrder(array $replaying): array
     {
-        if (! $records instanceof Records) {
-            return [];
+        $replays = [];
+        $replayed = [];
+
+        foreach ($replaying as [$mutant, $replay, $limit]) {
+            $key = implode(self::BETWEEN, [$mutant->location()->file()->value(), $replay->key()]);
+            $replays[$key] = array_key_exists($key, $replays) ? $replays[$key]->alsoFor($limit) : $replay;
+            $replayed[$key][] = $mutant;
         }
 
-        $uncovered = [];
-
-        foreach ($records->planned() as $planned) {
-            if ($records->statusOf($planned) === PestStatus::Uncovered) {
-                $uncovered[$planned->id()] = true;
-            }
-        }
-
-        return $uncovered;
+        return [$replays, $replayed];
     }
 
     /**
-     * The replay of a kill's narrowed own run, where its order is known: the
-     * key of that order, how far it went, and the arguments it started with.
+     * The replay of a kill's narrowed own run, where its order is known and
+     * a test failed an assertion in it: the key of that order, how far it
+     * went, and the arguments it started with.
      */
     private static function replayOf(
         Mutant $mutant,
@@ -220,38 +214,23 @@ final readonly class NarrowedKills
         Seconds|Unmeasured $limit,
         Project $project,
     ): PrefixReplay|NotGiven {
+        if ($run->narrowedTo() === []) {
+            return NotGiven::value();
+        }
+
         $files = Paths::of(...array_map($project->relative(...), $run->narrowedTo()));
         $prefix = $run->prefix($files);
         $key = $prefix instanceof Prefix ? $prefix->key() : NotGiven::value();
         $reach = $run->reach();
         $arguments = $run->arguments();
 
-        return is_string($key) && is_int($reach) && $reach > 0 && is_array($arguments) && $arguments !== []
+        return ! $run->killedByErrorsOnly()
+            && is_string($key)
+            && is_int($reach)
+            && $reach > 0
+            && is_array($arguments)
+            && $arguments !== []
             ? PrefixReplay::of($mutant->location()->file(), $copy, $arguments, $files, $reach, $key, $limit)
             : NotGiven::value();
-    }
-
-    /**
-     * @return array<string, array{OwnRun, string, Seconds|Unmeasured}> what each mutant's own run recorded, its
-     *                                                                   copy, and the seconds Pest allowed it, by
-     *                                                                   native id
-     */
-    private static function runs(Records|CannotJudge $records): array
-    {
-        if (! $records instanceof Records) {
-            return [];
-        }
-
-        $runs = [];
-
-        foreach ($records->planned() as $planned) {
-            $runs[$planned->id()] = [
-                $records->runOf($planned),
-                $planned->mutated()->value(),
-                $records->limitOf($planned),
-            ];
-        }
-
-        return $runs;
     }
 }
