@@ -16,7 +16,8 @@ the tests of the files the run loaded, alone, on the unmutated code, with the
 file served through Pest's override as the mutant's copy was. A helper a
 left-out file declares is missing there too, so the control fails and the
 kill is doubted. A kill with a known order has a replay instead, which fails
-the same way.
+the same way, but a replay that fails leaves its kill unjudged rather than
+doubted.
 
 That doubt was most of the confirmation step. In the gate's own full run on
 `main` after ADR-0035 (run 39476018879), confirmation took 4.86 of
@@ -31,10 +32,11 @@ catch from the files themselves.
 
 ## Decision
 
-1. **A narrowed kill only tests that errored made is judged as any other
-   narrowed kill.** It stands where its replay vouches for it, or else where
-   its control passes. It is doubted, and runs again with every test file,
-   only where that fails.
+1. **A narrowed kill only tests that errored made counts where its control
+   passes**, the check of its set of files on the unmutated code. It is
+   doubted, and runs again with every test file, only where its control
+   fails. It is never replayed, even where its order is known: a failed
+   replay would leave it unjudged, where the run again judges it.
 2. **A kill stays doubtful where its records cannot vouch for it at all:**
    where no test is named as its killer, or where the run left no readable
    record of it.
@@ -57,7 +59,10 @@ catch from the files themselves.
 - The confirmation step runs only for kills the records cannot vouch for and
   for those whose control or replay fails.
 - A kill that a helper missing from a narrowed run made fails its control,
-  so it is still never counted on the narrowed run alone.
+  so it is still never counted on the narrowed run alone, and the run again
+  with every test file judges it.
+- An errors-only kill with a known order runs its control, where any other
+  such kill runs a replay.
 
 ## Related
 

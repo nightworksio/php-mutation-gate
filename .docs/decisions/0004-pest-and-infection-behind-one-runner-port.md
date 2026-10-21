@@ -459,9 +459,9 @@ its parser attributes. Both change when the checkout moves.
      - A narrowed kill counts only where the run can vouch for it:
        - a kill with no test named as its killer, or only tests that errored,
          does not count, as a helper a test calls by a name built at run time
-         leaves. ADR-0036 amends this: a kill only tests that errored made is
-         judged as the kills below are, whose replay or control fails in that
-         case too;
+         leaves. ADR-0036 amends this: a kill only tests that errored made
+         counts where the control below passes, which fails in that case
+         too, and runs again with every test file where it does not;
        - any other, where the run recorded the arguments Pest started it
          with, how many tests it took up to its last killer and the key of
          that order (ADR-0014, decision 16), counts only where a replay of

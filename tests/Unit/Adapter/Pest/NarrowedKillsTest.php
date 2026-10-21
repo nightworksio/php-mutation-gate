@@ -196,6 +196,36 @@ it('doubts a narrowed kill whose set of files the answer leaves out', function (
     expect(array_map(static fn(Mutant $each): string => $each->nativeId(), [...$doubted]))->toBe(['native-2']);
 });
 
+it('judges a narrowed kill only tests that errored made by the control of its files, though its order is known', function () use ($mutant): void {
+    $at = PestCases::project();
+    $loaded = sprintf('%s/tests/ASpec.php', $at->root());
+    $order = OrderDigest::of(TestId::of('T::x'), TestId::of('T::a'))->value();
+    $file = narrowedResults(
+        PestRun::erroredAt('native-1', 'T::a', Placed::at(2, $order, 9)),
+        PestRun::narrowed('native-1', [$loaded]),
+        rtrim(RecordLine::arguments(PestRun::mutated('native-1'), ['vendor/bin/pest', '--bail', '--filter=ASpec', $loaded])),
+        rtrim(RecordLine::limited(PestRun::mutated('native-1'), 2.0)),
+    );
+    $kills = NarrowedKills::in(MutationResult::of(Mutants::of($mutant(1, MutantStatus::Killed, 'T::a')), 0), $file, $at);
+    $replayed = [];
+    $controls = [];
+
+    $kills->unvouched(static function (array $replays) use (&$replayed): array {
+        $replayed = $replays;
+
+        return [];
+    });
+    $doubted = $kills->doubted(WholeSuite::tests(), static function (array $asking) use (&$controls): array {
+        $controls = $asking;
+
+        return [false];
+    });
+
+    expect($replayed)->toBe([])
+        ->and($controls)->toEqual([Control::of(Path::of('src/Money.php'), Paths::of(Path::of($loaded)), WholeSuite::tests())])
+        ->and(array_map(static fn(Mutant $each): string => $each->nativeId(), [...$doubted]))->toBe(['native-1']);
+});
+
 it('replays each narrowed kill whose order is known, once for an order and file within the longer limit of its kills, in place of a control of its files, and leaves unjudged those its replay does not let stand', function (ReplayVerdict $verdict, array $unjudged) use ($mutant): void {
     $at = PestCases::project();
     $loaded = sprintf('%s/tests/ASpec.php', $at->root());

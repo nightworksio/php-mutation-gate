@@ -34,6 +34,9 @@ final class OwnRuns
     /** @var array<string, list<string>> the tests that failed or errored, in order, by the mutated copy they ran on */
     private array $killers = [];
 
+    /** @var array<string, list<string>> the tests that errored, by the mutated copy they ran on */
+    private array $errored = [];
+
     /** @var array<string, MemoryCap> the memory limit a mutant's own process ran out of, by the copy it ran on */
     private array $exhausted = [];
 
@@ -69,6 +72,7 @@ final class OwnRuns
     {
         return OwnRun::of(
             array_key_exists($mutated, $this->killers) ? $this->killers[$mutated] : [],
+            array_key_exists($mutated, $this->errored) ? $this->errored[$mutated] : [],
             array_key_exists($mutated, $this->narrowed) ? $this->narrowed[$mutated] : [],
             array_key_exists($mutated, $this->exhausted) ? $this->exhausted[$mutated] : NotGiven::value(),
             array_key_exists($mutated, $this->preloaded),
@@ -117,6 +121,7 @@ final class OwnRuns
         $test = $record->field(RecordField::Test->value)->text();
         $mutated = $this->mutatedIn($record);
         $this->killers[$mutated][] = $test;
+        $this->errored[$mutated][] = $test;
         $this->placed($mutated, $record);
     }
 

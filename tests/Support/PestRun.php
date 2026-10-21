@@ -80,7 +80,13 @@ final readonly class PestRun
     /** A test that errored in the own process of the mutant with this native id. */
     public static function errored(string $id, string $test): string
     {
-        return self::line(RecordLine::errored(self::mutated($id), $test, Placed::unplaced(self::RUN)));
+        return self::erroredAt($id, $test, Placed::unplaced(self::RUN));
+    }
+
+    /** A test that errored in the own process of the mutant with this native id, standing where it is placed. */
+    public static function erroredAt(string $id, string $test, Placed $placed): string
+    {
+        return self::line(RecordLine::errored(self::mutated($id), $test, $placed));
     }
 
     /** How the failed own process of the mutant with this native id ended, as Pest's parent saw it. */
