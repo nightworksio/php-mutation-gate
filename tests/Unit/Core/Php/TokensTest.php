@@ -151,6 +151,6 @@ it('finds the name a function keyword declares, a semi-reserved word among them,
 it('says whether a name the file spells ends in a word, as written or in lower case, whatever its qualification', function () use ($tokens): void {
     $file = $tokens("<?php\nuse App\\Money as M;\necho \\Other\\Rate::X + constant('Y');\n");
 
-    expect(array_map($file->namesWord(...), ['money', 'Money', 'MONEY', 'm', 'M', 'rate', 'X', 'x', 'constant', 'app', 'y']))
-        ->toBe([true, true, false, true, true, true, true, true, true, false, false]);
+    expect(array_map($file->namesWord(...), ['money', 'Money', 'MONEY', 'm', 'M', 'rate', 'X', 'x', 'constant', 'app', 'y', 'echo', 'use']))
+        ->toBe([true, true, false, true, true, true, true, true, true, false, false, false, false]);
 });
