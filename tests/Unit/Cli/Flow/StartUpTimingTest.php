@@ -22,14 +22,14 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-/** The map of a run where one test covers src/Kernel/Rates.php and src/Money.php. */
+/** The map of a run where one test covers src/Money.php and src/Kernel/Rates.php, in that order. */
 function timingMap(): CoverageMap
 {
     $test = TestId::of('MoneyTest::adds');
 
     return CoverageMap::empty()
-        ->covered(Path::of('src/Kernel/Rates.php'), Line::of(3), $test)
-        ->covered(Path::of('src/Money.php'), Line::of(3), $test);
+        ->covered(Path::of('src/Money.php'), Line::of(3), $test)
+        ->covered(Path::of('src/Kernel/Rates.php'), Line::of(3), $test);
 }
 
 it('times a run of no test on a held unit\'s first file the map holds, never on the path it holds', function (): void {

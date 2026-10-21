@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
-use function array_values;
-
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -31,7 +29,7 @@ final readonly class Sources
             }
         }
 
-        return self::of(Paths::of(...array_values($asking)), $project);
+        return self::of(Paths::of(...$asking), $project);
     }
 
     /**

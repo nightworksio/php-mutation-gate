@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
 use function array_filter;
+use function array_push;
 use function count;
 use function file_get_contents;
 use function getmypid;
@@ -248,10 +249,10 @@ final readonly class MutationRun
                 return $made;
             }
 
-            $asked = [...$asked, ...array_filter(
-                [...$made],
-                fn(MadeMutant $mutant): bool => $this->isAsked($request, $mutant),
-            )];
+            array_push(
+                $asked,
+                ...array_filter([...$made], fn(MadeMutant $mutant): bool => $this->isAsked($request, $mutant)),
+            );
         }
 
         return $asked;

@@ -8,6 +8,7 @@ use function array_any;
 use function array_filter;
 use function array_key_exists;
 use function array_map;
+use function array_push;
 use function dirname;
 use function is_array;
 use function mb_strlen;
@@ -219,7 +220,7 @@ final readonly class PsalmXml
         $names = [];
 
         foreach (self::ofKind($parent, $kind) as $child) {
-            $names = [...$names, ...self::attributed($child, $attribute, $directory)];
+            array_push($names, ...self::attributed($child, $attribute, $directory));
         }
 
         return $names;
