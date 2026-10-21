@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use function array_diff;
 use function array_key_exists;
 use function array_map;
 use function array_values;
+
+use Closure;
+
 use function preg_match_all;
 use function sprintf;
 
@@ -26,6 +30,9 @@ final readonly class ProcessTable
 
     /** The command that stops processes at once, before their ids. */
     private const array KILL = ['kill', '-KILL'];
+
+    /** The command that freezes processes where they stand, so none starts another, before their ids. */
+    private const array FREEZE = ['kill', '-STOP'];
 
     /** @param array<int, list<int>> $children each process's children, by its id */
     private function __construct(private array $children)
@@ -62,12 +69,48 @@ final readonly class ProcessTable
     }
 
     /**
+     * Stops a process with every process under it, so none is left running
+     * on its own: the process frozen first, then each process found under it,
+     * listing by listing until a listing finds none it has not frozen, so no
+     * process can start another between the listing and the kill; then all of
+     * them killed, deepest first.
+     *
+     * @param Closure(list<string>): string $run runs a command, and answers what it printed
+     */
+    public static function stop(int $pid, Closure $run): void
+    {
+        $run(self::signalling(self::FREEZE, $pid));
+        $frozen = [$pid];
+
+        do {
+            $under = self::parse($run(self::LISTING))->descendantsOf($pid);
+            $fresh = array_values(array_diff($under, $frozen));
+            $frozen = [...$frozen, ...$fresh];
+
+            if ($fresh !== []) {
+                $run(self::signalling(self::FREEZE, ...$fresh));
+            }
+        } while ($fresh !== []);
+
+        $run(self::killing(...[...$under, $pid]));
+    }
+
+    /**
      * The command that stops these processes at once.
      *
      * @return list<string>
      */
     public static function killing(int ...$pids): array
     {
-        return [...self::KILL, ...array_map(static fn(int $pid): string => sprintf('%d', $pid), array_values($pids))];
+        return self::signalling(self::KILL, ...$pids);
+    }
+
+    /**
+     * @param  list<string> $command
+     * @return list<string>
+     */
+    private static function signalling(array $command, int ...$pids): array
+    {
+        return [...$command, ...array_map(static fn(int $pid): string => sprintf('%d', $pid), array_values($pids))];
     }
 }
