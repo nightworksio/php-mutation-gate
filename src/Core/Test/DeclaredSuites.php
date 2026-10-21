@@ -146,7 +146,7 @@ final readonly class DeclaredSuites implements IteratorAggregate
     {
         $held = $this->undeclared($holding, 'tests.holding', $declared);
         $names = array_map(static fn(SuiteName $name): string => $name->value(), [...$holding]);
-        $left = array_values(array_diff($declared, $names));
+        $left = [...array_diff($declared, $names)];
 
         return match (true) {
             $held instanceof CannotJudge => $held,

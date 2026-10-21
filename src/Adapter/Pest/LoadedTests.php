@@ -10,7 +10,6 @@ use function array_map;
 use function file_get_contents;
 use function get_declared_classes;
 use function get_included_files;
-use function is_dir;
 use function is_file;
 use function is_string;
 use function is_subclass_of;
@@ -64,8 +63,14 @@ final class LoadedTests
      */
     public static function inThisProcess(string $testDirectory): self
     {
-        $under = self::prefixOf($testDirectory);
-        $inside = static fn(string $file): bool => $under !== '' && str_starts_with($file, $under);
+        $root = realpath($testDirectory);
+
+        if (! is_string($root)) {
+            return new self([], NamedFiles::read([]), []);
+        }
+
+        $under = sprintf('%s/', $root);
+        $inside = static fn(string $file): bool => str_starts_with($file, $under);
         $classes = [];
 
         foreach (get_declared_classes() as $class) {
@@ -141,13 +146,5 @@ final class LoadedTests
         $real = is_file($file) ? realpath($file) : false;
 
         return is_string($real) ? $real : '';
-    }
-
-    /** What every path under a directory begins with, by its real path; none where it is no directory. */
-    private static function prefixOf(string $directory): string
-    {
-        $real = is_dir($directory) ? realpath($directory) : false;
-
-        return is_string($real) ? sprintf('%s/', $real) : '';
     }
 }

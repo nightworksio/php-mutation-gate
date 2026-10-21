@@ -315,6 +315,13 @@ it('cannot judge logs whose counts do not match what they list', function (): vo
         ->toEqual(CannotJudge::because(
             "Infection's logs do not add up, so the gate cannot judge this run. "
             . 'Infection counts 4 mutants in all, but its counts add up to 1.',
+        ))
+        ->and(resultsRead($at, ['killed' => $killed], counts: ['skippedCount' => 1, 'totalMutantsCount' => 5], text: [
+            'Skipped' => [[sprintf('%s/src/Money.php', $at->root()), 12, 'Plus', 's12', 'return $a + $b;', 'return $a - $b;']],
+        ]))
+        ->toEqual(CannotJudge::because(
+            "Infection's logs do not add up, so the gate cannot judge this run. "
+            . 'Infection counts 5 mutants in all, but its counts add up to 2.',
         ));
 });
 

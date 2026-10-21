@@ -10,7 +10,6 @@ use function array_filter;
 use function array_key_exists;
 use function array_map;
 use function array_push;
-use function array_unique;
 use function array_values;
 use function basename;
 use function count;
@@ -197,10 +196,7 @@ final readonly class NamedFiles
 
         while ($at < count($queue)) {
             $leads = array_key_exists($queue[$at], $edges) ? $edges[$queue[$at]] : [];
-            $new = array_values(array_unique(array_filter(
-                $leads,
-                static fn(string $next): bool => ! array_key_exists($next, $reached),
-            )));
+            $new = [...array_filter($leads, static fn(string $next): bool => ! array_key_exists($next, $reached))];
             $reached += array_combine($new, $new);
             array_push($queue, ...$new);
             $at++;

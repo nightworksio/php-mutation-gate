@@ -85,7 +85,7 @@ final readonly class Shape
         $classes = [];
 
         foreach ($tokens->indicesOf(...Tokens::CLASS_LIKE) as $at) {
-            $body = self::braceAfter($tokens, $at, $at + 1);
+            $body = self::braceAfter($tokens, $at, $at);
             $classes = $tokens->is($at - 1, T_DOUBLE_COLON) || $body === Tokens::NONE
                 ? $classes
                 : $classes + [$body => ClassLike::at($tokens, $scope, $at, $body)];

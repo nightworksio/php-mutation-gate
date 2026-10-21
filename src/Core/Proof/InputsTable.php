@@ -91,13 +91,14 @@ final readonly class InputsTable
             }
 
             $commit = $inputs->commit();
-            $mutations += [$inputs->mutation()->value() => true];
+            $mutation = $inputs->mutation()->value();
+            $mutations += [$mutation => $mutation];
             $tests += self::testsOf($inputs);
             $commits += $commit instanceof Revision ? [$commit->name() => true] : [];
         }
 
         return new self(
-            array_map(strval(...), array_keys($mutations)),
+            array_values($mutations),
             array_values($tests),
             array_map(strval(...), array_keys($commits)),
         );

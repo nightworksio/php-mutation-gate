@@ -429,6 +429,14 @@ it('comments on the security survivors in a section before the trees, and lists 
         ->and(Markdown::summary(Verdicts::secured(), $run, Verdicts::monthAgo()))->toContain('- Security scores 0.00%, below its floor of 100.00%.');
 });
 
+it('lists a security survivor on a changed line only among the security survivors', function () use ($run): void {
+    $comment = Markdown::comment(Verdicts::securedOnAChangedLine(), $run);
+
+    expect($comment)->toContain('### Security survivors (1)')
+        ->and($comment)->toContain('### Survivors on changed lines (1)')
+        ->and(substr_count($comment, '<code>src/Auth.php:3</code>'))->toBe(1);
+});
+
 it('cuts each diff it shows, so one mutated line of any length cannot swell the comment past what GitHub takes', function (): void {
     $reach = Reach::nothing(Packages::of(Trees::none()))->withLines(Path::of('src/Money.php'), Lines::of(Line::of(3)));
     $long = sprintf("-%s\n+%s", str_repeat('a', 70_000), str_repeat('b', 70_000));

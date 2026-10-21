@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_filter;
-use function array_values;
 use function explode;
 use function file_get_contents;
 use function file_put_contents;
@@ -91,7 +90,7 @@ final readonly class ReplayRecord
     {
         $text = is_file($file) ? file_get_contents($file) : false;
 
-        return array_values(array_filter($text === false ? [] : explode("\n", $text), json_validate(...)));
+        return [...array_filter($text === false ? [] : explode("\n", $text), json_validate(...))];
     }
 
     /**

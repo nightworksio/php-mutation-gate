@@ -8,7 +8,6 @@ use function array_any;
 use function array_filter;
 use function array_key_exists;
 use function array_map;
-use function array_values;
 use function dirname;
 use function is_array;
 use function mb_strlen;
@@ -204,10 +203,10 @@ final readonly class PsalmXml
     /** @return list<SimpleXMLElement> the children of an element with this name, in order */
     private static function ofKind(SimpleXMLElement $element, string $name): array
     {
-        return array_values(array_filter(
+        return [...array_filter(
             self::childrenOf($element),
             static fn(SimpleXMLElement $child): bool => $child->getName() === $name,
-        ));
+        )];
     }
 
     /** @return list<string> an attribute of each child of this kind, absolute */

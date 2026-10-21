@@ -77,8 +77,8 @@ final readonly class FailedFirst
     /** The failure or error a test case holds; none where it passed. */
     private static function outcomeOf(DOMElement $case): DOMElement|NotGiven
     {
-        foreach ($case->childNodes as $child) {
-            if ($child instanceof DOMElement && in_array($child->tagName, self::OUTCOMES, strict: true)) {
+        for ($child = $case->firstElementChild; $child instanceof DOMElement; $child = $child->nextElementSibling) {
+            if (in_array($child->tagName, self::OUTCOMES, strict: true)) {
                 return $child;
             }
         }

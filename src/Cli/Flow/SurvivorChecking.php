@@ -7,7 +7,6 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 use function array_filter;
 use function array_key_exists;
 use function array_replace;
-use function iterator_to_array;
 
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserHistory;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
@@ -75,7 +74,7 @@ final readonly class SurvivorChecking
     public function checked(Mutants $mutants, MutantIds $passedOver): Checked
     {
         $survivors = Mutants::of(...array_filter(
-            iterator_to_array($mutants, preserve_keys: false),
+            [...$mutants],
             static fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Survived
                 && ! $passedOver->has($mutant->id()),
         ));

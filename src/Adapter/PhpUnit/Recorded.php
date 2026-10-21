@@ -52,7 +52,7 @@ final readonly class Recorded
         $recorded = new self($selected, TestIds::none(), TestIds::none(), TestIds::none(), TestIds::none());
 
         foreach (self::linesOf($results) as $line) {
-            [$mark, $test] = [...explode(Outcome::SEPARATOR, $line, 2), ''];
+            [$mark, $test] = [...explode(Outcome::SEPARATOR, $line), ''];
             $outcome = Outcome::tryFrom($mark);
             $id = TestId::of(rawurldecode($test));
             $recorded = match (true) {
@@ -136,7 +136,7 @@ final readonly class Recorded
      */
     private static function linesOf(string $results): array
     {
-        $lines = is_file($results) ? file($results, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) : false;
+        $lines = is_file($results) ? file($results, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) : [];
 
         return is_array($lines) ? $lines : [];
     }

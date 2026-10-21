@@ -79,7 +79,7 @@ final readonly class MapFileRead
 
         $timed = array_filter($read, static fn(TestId|TimedTest $test): bool => $test instanceof TimedTest);
 
-        return [array_values($tests), $places, array_values($timed)];
+        return [array_values($tests), $places, [...$timed]];
     }
 
     /** The test an entry lists, timed or not. */

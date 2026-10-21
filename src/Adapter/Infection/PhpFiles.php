@@ -55,7 +55,7 @@ final readonly class PhpFiles
      */
     private static function entries(DiskPath $path): array
     {
-        $entries = is_dir($path->value()) ? scandir($path->value()) : false;
+        $entries = is_dir($path->value()) ? scandir($path->value()) : [];
 
         return is_array($entries) ? $entries : [];
     }

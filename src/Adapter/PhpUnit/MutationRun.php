@@ -11,7 +11,6 @@ use function getmypid;
 use function hrtime;
 use function in_array;
 use function is_array;
-use function iterator_to_array;
 
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Forked;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Workforce;
@@ -250,7 +249,7 @@ final readonly class MutationRun
             }
 
             $asked = [...$asked, ...array_filter(
-                iterator_to_array($made, preserve_keys: false),
+                [...$made],
                 fn(MadeMutant $mutant): bool => $this->isAsked($request, $mutant),
             )];
         }
@@ -266,7 +265,7 @@ final readonly class MutationRun
     private function isAsked(MutationRequest $request, MadeMutant $mutant): bool
     {
         $mutators = $request->narrowing()->mutators();
-        $named = iterator_to_array($mutators, preserve_keys: false);
+        $named = [...$mutators];
         $mutator = $mutators->isAll() || in_array($mutant->mutation()->mutator(), $named, strict: true);
         $pruned = $request->narrowing()->pruned()->leavesOut(
             $mutant->location()->file(),

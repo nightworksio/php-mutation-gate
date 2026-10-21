@@ -7,7 +7,6 @@ namespace NightWorksIO\MutationGate\Adapter\GitHub;
 use function array_filter;
 use function array_map;
 use function array_slice;
-use function array_values;
 
 use Closure;
 
@@ -86,16 +85,14 @@ final readonly class Markdown
         $overview = Overview::of($verdict);
         $clusters = $verdict->trees()->clusters();
         $listed = array_filter(
-            iterator_to_array($overview->survivors(), preserve_keys: false),
+            [...$overview->survivors()],
             static fn(JudgedMutant $mutant): bool => ! $overview->isSecurity($mutant),
         );
-        $other = array_values(
-            array_filter($listed, static fn(JudgedMutant $mutant): bool => ! self::isSettled($mutant)),
-        );
-        $changed = array_values(array_filter(
+        $other = [...array_filter($listed, static fn(JudgedMutant $mutant): bool => ! self::isSettled($mutant))];
+        $changed = [...array_filter(
             $listed,
             static fn(JudgedMutant $mutant): bool => self::isSettled($mutant) && $mutant->isOnChangedLine(),
-        ));
+        )];
 
         $folded = Folded::of($changed, $clusters);
         $security = $overview->securitySurvivors();

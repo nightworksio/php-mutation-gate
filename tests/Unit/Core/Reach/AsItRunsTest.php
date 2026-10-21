@@ -53,6 +53,12 @@ it('reads a block scalar as it is written, and runs alike where only the comment
         ->and(AsItRuns::alike($before, $after))->toBeTrue();
 });
 
+it('reads a line of spaces, however few, as a blank line of the block scalar it stands in', function (): void {
+    $text = "steps:\n  - run: |\n      composer test\n  \n      # data\n  - run: composer gate";
+
+    expect(AsItRuns::text(Contents::of($text)))->toBe($text);
+});
+
 it('runs otherwise where a line it would leave out elsewhere is part of a value', function (string $before, string $after): void {
     expect(AsItRuns::alike(Contents::of($before), Contents::of($after)))->toBeFalse();
 })->with([

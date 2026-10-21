@@ -78,7 +78,7 @@ final readonly class NativeMarkers
      */
     private static function entries(string $path): array
     {
-        $entries = is_dir($path) ? scandir($path) : false;
+        $entries = is_dir($path) ? scandir($path) : [];
 
         return is_array($entries) ? $entries : [];
     }

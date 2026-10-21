@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use function array_filter;
 use function array_push;
-use function array_values;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cost\StartUpSamples;
@@ -94,9 +93,9 @@ final readonly class StartUpTiming
      */
     private static function heldBy(CoverageMap $map, Unit $unit): array
     {
-        return array_values(array_filter(
+        return [...array_filter(
             [...$map->files()],
             static fn(Path $file): bool => $file->within($unit->path()) && ! $file->equals($unit->path()),
-        ));
+        )];
     }
 }

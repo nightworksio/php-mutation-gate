@@ -20,6 +20,13 @@ it('finds every class-like body, but not the class a ::class names', function ()
         ->and($shape->classOf(Php::indexOf($source, '{', 3))->name())->toBe('C');
 });
 
+it('takes no brace after a ::class for the body of the class it names', function (): void {
+    $source = Php::source('<?php $made = [Money::class, function () { return 1; }];');
+
+    expect($source->shape()->classes())->toBe([])
+        ->and($source->shape()->isClassBody(Php::indexOf($source, '{')))->toBeFalse();
+});
+
 it('finds each function\'s parameter list and body, and no signature in a function import', function (): void {
     $source = Php::source(<<<'PHP'
         <?php

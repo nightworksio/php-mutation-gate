@@ -268,17 +268,15 @@ final class Verdicts
      */
     public static function secured(): Verdict
     {
-        $survivor = Secured::mutant(Judged::Survived, 3);
-        $refund = Secured::mutant(Judged::Killed, 7, file: 'packages/billing/src/Refund.php');
-        $root = Secured::set('.', Floor::of(100), Unrecorded::floor(), $survivor);
-        $billing = Secured::set('packages/billing', Undeclared::floor(), Floor::of(50), $refund)
-            ->withLowering(Lowered::from(Floor::of(60), 'The refund flow left with its tests.'));
-        $failing = self::failingWith(
-            Secured::tree('src/Auth.php', Package::at(Path::root()), Floor::of(0), $survivor),
-            Secured::tree('packages/billing/src', Package::at(Path::of('packages/billing')), Floor::of(100), $refund),
-        );
+        return self::securedWith(Secured::mutant(Judged::Survived, 3));
+    }
 
-        return $failing->withSets(HeldSets::of($failing->sets()->newCode(), SecurityVerdicts::of($root, $billing)));
+    /** The secured verdict, with its security survivor on a line the change made. */
+    public static function securedOnAChangedLine(): Verdict
+    {
+        $reach = Reach::nothing(Packages::of(Trees::none()))->withLines(Path::of('src/Auth.php'), Lines::of(Line::of(3)));
+
+        return self::securedWith(Secured::mutant(Judged::Survived, 3)->within($reach));
     }
 
     /** A full run that passes, with its one mutant killed and its floor able to rise. */
@@ -415,6 +413,20 @@ final class Verdicts
         return $added === ''
             ? sprintf("@@ @@\n-        %s\n", $removed)
             : sprintf("@@ @@\n-        %s\n+        %s\n", $removed, $added);
+    }
+
+    private static function securedWith(JudgedMutant $survivor): Verdict
+    {
+        $refund = Secured::mutant(Judged::Killed, 7, file: 'packages/billing/src/Refund.php');
+        $root = Secured::set('.', Floor::of(100), Unrecorded::floor(), $survivor);
+        $billing = Secured::set('packages/billing', Undeclared::floor(), Floor::of(50), $refund)
+            ->withLowering(Lowered::from(Floor::of(60), 'The refund flow left with its tests.'));
+        $failing = self::failingWith(
+            Secured::tree('src/Auth.php', Package::at(Path::root()), Floor::of(0), $survivor),
+            Secured::tree('packages/billing/src', Package::at(Path::of('packages/billing')), Floor::of(100), $refund),
+        );
+
+        return $failing->withSets(HeldSets::of($failing->sets()->newCode(), SecurityVerdicts::of($root, $billing)));
     }
 
     /** The failing verdict, with these trees after its own. */

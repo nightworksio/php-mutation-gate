@@ -49,7 +49,7 @@ final readonly class ProjectMemoryLimit
     /** The limit a config the project has sets; none where it sets none, or cannot be read. */
     private static function setIn(Path $config, Contents|CannotJudge $read): PhpUnitMemory|NotGiven
     {
-        $limit = PhpUnitIni::memoryIn($read instanceof Contents ? $read->text() : '');
+        $limit = $read instanceof Contents ? PhpUnitIni::memoryIn($read->text()) : NotGiven::value();
 
         return $limit instanceof MemoryCap ? PhpUnitMemory::of($config, $limit) : $limit;
     }

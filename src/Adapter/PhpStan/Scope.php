@@ -62,7 +62,7 @@ final readonly class Scope
     /** The scope the warm-up kept in this file for the checks; none where it kept none. */
     public static function kept(string $file): self|CannotJudge
     {
-        $kept = is_file($file) ? file_get_contents($file) : false;
+        $kept = is_file($file) ? file_get_contents($file) : null;
 
         return is_string($kept) ? self::dumped($kept) : CannotJudge::because(self::NOT_KEPT);
     }

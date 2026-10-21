@@ -9,7 +9,6 @@ use function array_filter;
 use function array_map;
 use function count;
 use function implode;
-use function iterator_to_array;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Core\Analysis\SurvivorChecks;
@@ -257,14 +256,14 @@ final readonly class Results
     /** Whether a time budget left one of these mutants unjudged. */
     private function leftAny(Mutants $mutants): bool
     {
-        return array_any(iterator_to_array($mutants, preserve_keys: false), OutOfTime::left(...));
+        return array_any([...$mutants], OutOfTime::left(...));
     }
 
     /** The mutants of a unit: those of its file, or of the files inside its held path. */
     private function mutantsOf(Unit $unit, Mutants $mutants): Mutants
     {
         return Mutants::of(...array_filter(
-            iterator_to_array($mutants, preserve_keys: false),
+            [...$mutants],
             static fn(Mutant $mutant): bool => $mutant->location()->file()->within($unit->path()),
         ));
     }
