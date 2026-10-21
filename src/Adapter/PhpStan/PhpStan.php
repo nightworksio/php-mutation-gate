@@ -99,9 +99,6 @@ final readonly class PhpStan implements StaticChecker
 
     private const string UNDUMPED = 'PHPStan could not say which files it analyses (%s).';
 
-    private const string NO_SCOPE = 'PHPStan\'s run over the originals has not said which files it analyses.';
-
-
     private const string UNRESOLVED = 'PHPStan could not say the configuration it runs with (%s).';
 
     private function __construct(private Root $root, private Path|Absent $config, private Processes $processes)
@@ -195,8 +192,7 @@ final readonly class PhpStan implements StaticChecker
      */
     public function checks(MutantChecks $checks, ProcessCount $side): CheckAnswers
     {
-        $kept = is_file($this->scopeFile()) ? file_get_contents($this->scopeFile()) : false;
-        $scope = is_string($kept) ? Scope::dumped($kept) : CannotJudge::because(self::NO_SCOPE);
+        $scope = Scope::kept($this->scopeFile());
         $config = $this->checkConfig();
         $prepared = [];
 

@@ -8,6 +8,7 @@ use function count;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\BoundsOptions;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
@@ -15,13 +16,10 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\NativeMarkers;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
-use NightWorksIO\MutationGate\Core\Config\TighterOptions;
-use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Test\TestsDirectory;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 
 use function sprintf;
@@ -43,12 +41,6 @@ final readonly class Setup
     /** The option that says who runs static analysis over the mutants, which the flows write. */
     public const string STATIC_ANALYSIS = 'staticAnalysis';
 
-    /** The option that holds `timeouts.seconds`, which the flows write. */
-    public const string TIMEOUT = 'timeout';
-
-    /** The option that holds `timeouts.most`, Infection's own `timeout`, which the flows write. */
-    public const string MOST = 'most';
-
     /** The option that holds the registered mutators' classes, which the flows write. */
     public const string MUTATORS = 'mutators';
 
@@ -69,27 +61,20 @@ final readonly class Setup
     public static function of(Options $options): self|Invalid
     {
         $tests = $options->paths(Key::of(self::TESTS));
-        $timeout = $options->number(Key::of(self::TIMEOUT));
-        $most = $options->number(Key::of(self::MOST));
-        $tighter = TighterOptions::read($options);
+        $bounds = BoundsOptions::read($options);
         $allowed = self::allowedIn($options->text(Key::of(self::MARKERS)));
         $analysis = self::analysisIn($options->text(Key::of(self::STATIC_ANALYSIS)));
         $mutators = $options->texts(Key::of(self::MUTATORS));
 
         return match (true) {
             $tests instanceof Problem => Invalid::because($tests),
-            $timeout instanceof Problem => Invalid::because($timeout),
-            $most instanceof Problem => Invalid::because($most),
-            $tighter instanceof Problem => Invalid::because($tighter),
+            $bounds instanceof Problem => Invalid::because($bounds),
             $allowed instanceof Problem => Invalid::because($allowed),
             $analysis instanceof Problem => Invalid::because($analysis),
             $mutators instanceof Problem => Invalid::because($mutators),
             default => new self(
                 $tests instanceof Paths && count($tests) > 0 ? $tests : Paths::of(TestsDirectory::conventional()),
-                LimitBounds::between(
-                    $timeout instanceof NotGiven ? Triage::standard()->limit() : Seconds::of($timeout),
-                    $most instanceof NotGiven ? Triage::standard()->most() : Seconds::of($most),
-                )->tighterFor($tighter),
+                $bounds,
                 $allowed,
                 $analysis,
                 self::bridgesTo($mutators instanceof Listed ? [...$mutators] : []),

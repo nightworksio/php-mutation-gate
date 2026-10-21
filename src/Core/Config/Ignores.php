@@ -116,14 +116,7 @@ final readonly class Ignores implements Part
             $expires = $entry->expires();
 
             if ($expires instanceof Absent || $latest->isBefore($expires)) {
-                $late[] = Problem::at(
-                    sprintf('ignores.entries[%d].expires', $index),
-                    sprintf(
-                        'expected a date by %s, within ignores.maxDays of today, got %s',
-                        $latest->value(),
-                        $expires instanceof Day ? sprintf('"%s"', $expires->value()) : 'nothing',
-                    ),
-                );
+                $late[] = $this->lateAt($index, $latest, $expires);
             }
         }
 
@@ -161,7 +154,26 @@ final readonly class Ignores implements Part
             )
             : PhpCalls::none();
 
-        return $entries->and(PhpCalls::inWith(...[
+        return $entries->and(PhpCalls::inWith(...$this->settings()));
+    }
+
+    /** Why an entry at an index expires too late: after the latest day `maxDays` allows, or never. */
+    private function lateAt(int $index, Day $latest, Day|Absent $expires): Problem
+    {
+        return Problem::at(
+            sprintf('ignores.entries[%d].expires', $index),
+            sprintf(
+                'expected a date by %s, within ignores.maxDays of today, got %s',
+                $latest->value(),
+                $expires instanceof Day ? sprintf('"%s"', $expires->value()) : 'nothing',
+            ),
+        );
+    }
+
+    /** @return list<string> the settings `with()` takes for what this part sets */
+    private function settings(): array
+    {
+        return [
             ...$this->maxDays instanceof Absent ? [] : [sprintf('Ignores::within(%d)', $this->maxDays)],
             ...$this->native instanceof NativeMarkers ? [match ($this->native) {
                 NativeMarkers::Refuse => 'Ignores::refusingNativeMarkers()',
@@ -170,6 +182,6 @@ final readonly class Ignores implements Part
             ...$this->staticEquivalence instanceof Absent ? [] : [
                 $this->staticEquivalence ? 'Equivalence::provenStatically()' : 'Equivalence::notProvenStatically()',
             ],
-        ]));
+        ];
     }
 }

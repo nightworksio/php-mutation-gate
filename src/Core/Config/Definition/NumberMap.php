@@ -58,13 +58,7 @@ final readonly class NumberMap implements Shape
         foreach ($at->entries() as $entryKey => $entry) {
             $key = sprintf('%s', $entryKey);
             $prefix = $this->keyed($key);
-            $reading = $this->origin instanceof PathOrigin && Path::of($prefix)->escapes()
-                ? Reading::refused(Problem::mismatch(
-                    $at->entry($key)->at(),
-                    Location::INSIDE,
-                    json_encode($key, JsonText::FLAGS),
-                ))
-                : $this->number->read($at->entry($key));
+            $reading = $this->entryOf($at, $key, $prefix);
             $number = $reading->value();
             $readings[] = $reading;
 
@@ -93,6 +87,22 @@ final readonly class NumberMap implements Shape
     public function effects(): array
     {
         return [];
+    }
+
+    /**
+     * The number an entry holds; refused where its key names a path outside the layer's directory.
+     *
+     * @return Reading<int|float>
+     */
+    private function entryOf(Node $at, string $key, string $prefix): Reading
+    {
+        return $this->origin instanceof PathOrigin && Path::of($prefix)->escapes()
+            ? Reading::refused(Problem::mismatch(
+                $at->entry($key)->at(),
+                Location::INSIDE,
+                json_encode($key, JsonText::FLAGS),
+            ))
+            : $this->number->read($at->entry($key));
     }
 
     private function keyed(string $key): string

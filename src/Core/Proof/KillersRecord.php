@@ -137,10 +137,9 @@ final readonly class KillersRecord
 
         foreach (self::entriesOf($functions) as $file => $named) {
             foreach (self::entriesOf($named) as $name => $pairs) {
-                $function = $file === ''
-                    ? Nameless::code()
-                    : Enclosing::of(Path::of(sprintf('%s', $file)), sprintf('%s', $name));
+                $function = self::functionAt(sprintf('%s', $file), sprintf('%s', $name));
                 $ranking = self::rankingIn($pairs, $tests);
+
                 if ($function instanceof Enclosing && count($ranking) > 0) {
                     $ranked[] = RankedFunction::of($function, $ranking);
                 }
@@ -148,6 +147,12 @@ final readonly class KillersRecord
         }
 
         return $history->withFunctions(...$ranked);
+    }
+
+    /** The function a ledger names by its file and its name; nameless where it names no file. */
+    private static function functionAt(string $file, string $name): Enclosing|Nameless
+    {
+        return $file === '' ? Nameless::code() : Enclosing::of(Path::of($file), $name);
     }
 
     /**

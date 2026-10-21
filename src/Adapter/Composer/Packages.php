@@ -81,6 +81,20 @@ final readonly class Packages
      */
     private static function related(Disk $disk, array $directories): self|CannotJudge
     {
+        $held = self::manifestsIn($disk, $directories);
+
+        return $held instanceof CannotJudge ? $held : self::secured($held);
+    }
+
+    /**
+     * Each directory's manifest.
+     *
+     * @param non-empty-list<Path> $directories
+     *
+     * @return ByPath<Manifest|Missing>|CannotJudge
+     */
+    private static function manifestsIn(Disk $disk, array $directories): ByPath|CannotJudge
+    {
         $manifests = [];
 
         foreach ($directories as $directory) {
@@ -93,10 +107,19 @@ final readonly class Packages
             $manifests[$directory->value()] = $manifest;
         }
 
-        $held = ByPath::mapping(
+        return ByPath::mapping(
             Paths::of(...$directories),
             static fn(Path $directory): Manifest|Missing => $manifests[$directory->value()],
         );
+    }
+
+    /**
+     * Each package with the floor its manifest declares for its security set.
+     *
+     * @param ByPath<Manifest|Missing> $held each directory's manifest
+     */
+    private static function secured(ByPath $held): self|CannotJudge
+    {
         $named = self::named($held);
         $packages = [];
 

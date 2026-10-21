@@ -78,8 +78,7 @@ final readonly class History
     public static function lastChanged(string $printed, Paths $asked): ByPath
     {
         $wanted = self::byValue($asked);
-        $changed = ByPath::none();
-        $seen = [];
+        $changes = [];
         $at = Instant::at(new DateTimeImmutable('@0'));
 
         foreach (explode("\0", $printed) as $entry) {
@@ -87,12 +86,19 @@ final readonly class History
 
             if (str_starts_with($entry, self::COMMIT)) {
                 $at = Instant::at(new DateTimeImmutable(sprintf('@%s', mb_substr($entry, 1))));
+
+                continue;
             }
 
-            foreach (str_starts_with($entry, self::COMMIT) ? [] : self::owners($entry, $wanted) as $owner) {
-                $changed = array_key_exists($owner, $seen) ? $changed : $changed->with($wanted[$owner], $at);
-                $seen[$owner] = true;
+            foreach (self::owners($entry, $wanted) as $owner) {
+                $changes += [$owner => $at];
             }
+        }
+
+        $changed = ByPath::none();
+
+        foreach ($changes as $owner => $when) {
+            $changed = $changed->with($wanted[$owner], $when);
         }
 
         return $changed;

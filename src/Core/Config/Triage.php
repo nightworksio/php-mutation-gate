@@ -195,11 +195,8 @@ final readonly class Triage implements Part
                 'timeouts',
                 Json::object(
                     Member::of('mode', $this->mode instanceof TimeoutMode ? $this->mode->value : $this->mode),
-                    Member::of(
-                        'seconds',
-                        $this->limit instanceof Seconds ? intval($this->limit->seconds()) : $this->limit,
-                    ),
-                    Member::of('most', $this->most instanceof Seconds ? intval($this->most->seconds()) : $this->most),
+                    Member::of('seconds', WholeSeconds::written($this->limit)),
+                    Member::of('most', WholeSeconds::written($this->most)),
                     Member::of('tighter', $this->tighterWritten()),
                 ),
             ),
@@ -230,10 +227,7 @@ final readonly class Triage implements Part
             ...$this->budget instanceof Seconds
                 ? [sprintf('Budget::of(%s)', PhpCalls::literal($this->budget->written()))]
                 : [],
-            ...$this->mode instanceof TimeoutMode ? [match ($this->mode) {
-                TimeoutMode::Confirm => 'Timeouts::confirmed()',
-                TimeoutMode::Unjudged => 'Timeouts::unjudged()',
-            }] : [],
+            ...$this->mode instanceof TimeoutMode ? [$this->mode->php()] : [],
             ...$this->limit instanceof Seconds
                 ? [sprintf('Timeouts::seconds(%d)', intval($this->limit->seconds()))]
                 : [],

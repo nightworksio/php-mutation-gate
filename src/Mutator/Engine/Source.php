@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Mutator\Engine;
 
 use function array_key_exists;
 use function array_keys;
+use function array_push;
 use function array_values;
 use function iterator_to_array;
 
@@ -87,14 +88,7 @@ final readonly class Source
 
         foreach (array_values($mutators) as $at => $mutator) {
             foreach (array_key_exists($at, $offers) ? $offers[$at] : [] as $node) {
-                $change = $mutator->mutate($node);
-
-                if (! $change instanceof Unchanged) {
-                    $printed = $this->printedWith($tree, $node, $change, $offered, $printer);
-                    $start = Line::of($node->getStartLine());
-                    $edit = Edit::of($start, Line::of($node->getEndLine()), $this->code, $printed);
-                    $changes[] = Change::of($mutator, $edit);
-                }
+                array_push($changes, ...$this->changeOf($mutator, $node, $tree, $offered, $printer));
             }
         }
 
@@ -162,20 +156,42 @@ final readonly class Source
         $offers = [];
 
         foreach (new NodeFinder()->findInstanceOf($tree, Node::class) as $node) {
-            $class = $node::class;
-
-            if (! array_key_exists($class, $handling)) {
-                $handling[$class] = array_keys(iterator_to_array($handlers->handling($node), preserve_keys: true));
+            if ($offered !== Offered::Everywhere && ! $this->inClassMethod($node)) {
+                continue;
             }
 
-            if ($offered === Offered::Everywhere || $this->inClassMethod($node)) {
-                foreach ($handling[$class] as $at) {
-                    $offers[$at][] = $node;
-                }
+            $class = $node::class;
+            $handling[$class] = array_key_exists($class, $handling)
+                ? $handling[$class]
+                : array_keys(iterator_to_array($handlers->handling($node), preserve_keys: true));
+
+            foreach ($handling[$class] as $at) {
+                $offers[$at][] = $node;
             }
         }
 
         return $offers;
+    }
+
+    /**
+     * The change a mutator makes to a node it is offered, printed in a copy
+     * of the tree; none where it leaves the node unchanged.
+     *
+     * @param  list<Node>   $tree
+     * @return list<Change>
+     */
+    private function changeOf(Mutator $mutator, Node $node, array $tree, Offered $offered, Standard $printer): array
+    {
+        $change = $mutator->mutate($node);
+
+        if ($change instanceof Unchanged) {
+            return [];
+        }
+
+        $printed = $this->printedWith($tree, $node, $change, $offered, $printer);
+        $edit = Edit::of(Line::of($node->getStartLine()), Line::of($node->getEndLine()), $this->code, $printed);
+
+        return [Change::of($mutator, $edit)];
     }
 
     /** Whether a node is a class's method or stands inside one. */

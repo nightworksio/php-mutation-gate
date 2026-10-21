@@ -146,15 +146,26 @@ final readonly class Reached
         DecidingLocks $locks,
     ): Sources {
         foreach ($changes instanceof Changes ? $changes : Changes::none() as $change) {
-            $now = $adapters->changes->fileAt($change->path(), Revision::workingTree());
-            $before = $adapters->changes->fileAt($change->previousPath(), $base);
-            $sources = $now instanceof Contents ? $sources->withNow($change->path(), $now) : $sources;
-            $sources = $before instanceof Contents ? $sources->withBefore($change->previousPath(), $before) : $sources;
-            $sources = $before instanceof CannotTell ? $sources : $config->marking($sources, $change, $before);
-            $sources = $locks->marking($sources, $change);
+            $sources = $locks->marking(self::withChange($sources, $change, $base, $adapters, $config), $change);
         }
 
         return $sources;
+    }
+
+    /** The sources with a changed file as it is on disk and as it was at the base, the config marked by it. */
+    private static function withChange(
+        Sources $sources,
+        Change $change,
+        Revision $base,
+        Adapters $adapters,
+        DecidingConfig $config,
+    ): Sources {
+        $now = $adapters->changes->fileAt($change->path(), Revision::workingTree());
+        $before = $adapters->changes->fileAt($change->previousPath(), $base);
+        $sources = $now instanceof Contents ? $sources->withNow($change->path(), $now) : $sources;
+        $sources = $before instanceof Contents ? $sources->withBefore($change->previousPath(), $before) : $sources;
+
+        return $before instanceof CannotTell ? $sources : $config->marking($sources, $change, $before);
     }
 
     /**

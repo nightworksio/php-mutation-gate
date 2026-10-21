@@ -64,8 +64,7 @@ final class LoadedTests
      */
     public static function inThisProcess(string $testDirectory): self
     {
-        $root = is_dir($testDirectory) ? realpath($testDirectory) : false;
-        $under = is_string($root) ? sprintf('%s/', $root) : '';
+        $under = self::prefixOf($testDirectory);
         $inside = static fn(string $file): bool => $under !== '' && str_starts_with($file, $under);
         $classes = [];
 
@@ -142,5 +141,13 @@ final class LoadedTests
         $real = is_file($file) ? realpath($file) : false;
 
         return is_string($real) ? $real : '';
+    }
+
+    /** What every path under a directory begins with, by its real path; none where it is no directory. */
+    private static function prefixOf(string $directory): string
+    {
+        $real = is_dir($directory) ? realpath($directory) : false;
+
+        return is_string($real) ? sprintf('%s/', $real) : '';
     }
 }

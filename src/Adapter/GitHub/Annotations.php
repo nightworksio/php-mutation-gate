@@ -65,6 +65,22 @@ final readonly class Annotations implements Configurable, Reporter
 
     public function report(Verdict $verdict): Written|NotWritten
     {
+        $lines = [...$this->mutantCommands($verdict), ...$this->notices($verdict)];
+        $text = sprintf("%s\n", implode("\n", $lines));
+
+        return $lines === [] || file_put_contents($this->to, $text, FILE_APPEND) !== false
+            ? Written::to($this->to)
+            : NotWritten::because(sprintf('The annotations could not be written to %s.', $this->to));
+    }
+
+    /**
+     * An error for each surviving mutant or cluster in a failing set, then a
+     * warning for each other, the furthest forward first at each level.
+     *
+     * @return list<string>
+     */
+    private function mutantCommands(Verdict $verdict): array
+    {
         $overview = Overview::of($verdict);
         $ranked = Folded::of($overview->survivors(), $verdict->trees()->clusters());
         $order = static fn(JudgedMutant|Cluster $one, JudgedMutant|Cluster $other): int
@@ -82,6 +98,16 @@ final readonly class Annotations implements Configurable, Reporter
                 : [$errors, $this->kept($warnings, $line)];
         }
 
+        return [...$errors, ...$warnings];
+    }
+
+    /**
+     * A notice for each warning of the verdict.
+     *
+     * @return list<string>
+     */
+    private function notices(Verdict $verdict): array
+    {
         $notices = [];
 
         foreach ($verdict->warnings() as $warning) {
@@ -89,13 +115,7 @@ final readonly class Annotations implements Configurable, Reporter
             $notices = $this->kept($notices, $notice);
         }
 
-        $lines = [...$errors, ...$warnings, ...$notices];
-
-        $text = sprintf("%s\n", implode("\n", $lines));
-
-        return $lines === [] || file_put_contents($this->to, $text, FILE_APPEND) !== false
-            ? Written::to($this->to)
-            : NotWritten::because(sprintf('The annotations could not be written to %s.', $this->to));
+        return $notices;
     }
 
     /**

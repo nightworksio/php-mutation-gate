@@ -16,6 +16,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function preg_match;
 use function preg_replace_callback;
+use function sprintf;
 use function str_replace;
 
 /**
@@ -83,17 +84,29 @@ final readonly class Properties
         foreach (explode("\n", str_replace(["\r\n", "\r"], "\n", $text)) as $natural) {
             $line = ltrim($natural, self::BLANK);
 
-            if (! $continuing && ($line === '' || in_array($line[0], self::COMMENT, strict: true))) {
+            if (! $continuing && self::isSkipped($line)) {
                 continue;
             }
 
             $continuing = self::continues($line);
-            $open .= $continuing ? mb_substr($line, 0, -1) : $line;
-            $lines = $continuing ? $lines : [...$lines, $open];
-            $open = $continuing ? $open : '';
+
+            if ($continuing) {
+                $open .= mb_substr($line, 0, -1);
+
+                continue;
+            }
+
+            $lines[] = sprintf('%s%s', $open, $line);
+            $open = '';
         }
 
         return $continuing ? [...$lines, $open] : $lines;
+    }
+
+    /** Whether a line, without the white space it begins with, is blank or a comment. */
+    private static function isSkipped(string $line): bool
+    {
+        return $line === '' || in_array($line[0], self::COMMENT, strict: true);
     }
 
     private static function continues(string $line): bool

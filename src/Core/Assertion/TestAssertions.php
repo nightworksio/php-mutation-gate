@@ -89,9 +89,7 @@ final readonly class TestAssertions
         foreach ($tokens->indicesOf(...Names::TOKENS) as $at) {
             $function = mb_strtolower(Call::nameAt($tokens, $at));
             $description = $at > $described ? self::declared($tokens, $at, $function) : '';
-            $described = $function === self::DESCRIBE && self::isDeclaring($tokens, $at)
-                ? max($described, $tokens->closing($at + 1))
-                : $described;
+            $described = self::describedTo($tokens, $at, $function, $described);
 
             if ($description !== '' && ! array_key_exists($description, $tests)) {
                 $end = AssertionScan::chainEnd($tokens, $tokens->closing($at + 1));
@@ -100,6 +98,14 @@ final readonly class TestAssertions
         }
 
         return $tests;
+    }
+
+    /** Where the `describe()` blocks read so far end, with one that a call at an index declares. */
+    private static function describedTo(Tokens $tokens, int $at, string $function, int $described): int
+    {
+        return $function === self::DESCRIBE && self::isDeclaring($tokens, $at)
+            ? max($described, $tokens->closing($at + 1))
+            : $described;
     }
 
     /** Whether a call at an index declares something by a description, as `it('…', …)` does. */

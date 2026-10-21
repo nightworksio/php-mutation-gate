@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGateDefault;
 
+use function array_filter;
 use function array_map;
+use function array_search;
+use function array_slice;
 use function in_array;
 
 use NightWorksIO\MutationGate\Mutator\Literals;
@@ -50,17 +53,13 @@ final readonly class Returns
             $method = $method->getAttribute(Mutator::PARENT);
         }
 
-        $after = false;
+        $statements = $method instanceof ClassMethod ? self::flattened($method) : [];
+        $at = array_search($return, $statements, strict: true);
 
-        foreach ($method instanceof ClassMethod ? self::flattened($method) : [] as $statement) {
-            if ($after && $statement instanceof Return_) {
-                return true;
-            }
-
-            $after = $after || $statement === $return;
-        }
-
-        return false;
+        return $at !== false && array_filter(
+            array_slice($statements, $at + 1),
+            static fn(Stmt $statement): bool => $statement instanceof Return_,
+        ) !== [];
     }
 
     /**

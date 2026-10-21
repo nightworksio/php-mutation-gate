@@ -70,22 +70,11 @@ final readonly class DeclaredSuites implements IteratorAggregate
         $holding = $listed->heldUnits();
         $judging = $this->undeclared($listed->everyUnit(), 'tests.suites', $declared);
 
-        if ($judging instanceof CannotJudge || ! $holding instanceof Suites) {
-            return $judging instanceof CannotJudge ? $judging : $listed;
-        }
-
-        $held = $this->undeclared($holding, 'tests.holding', $declared);
-
-        if ($held instanceof CannotJudge || ! $listed->everyUnit()->isAll()) {
-            return $held instanceof CannotJudge ? $held : $listed;
-        }
-
-        $names = array_map(static fn(SuiteName $name): string => $name->value(), [...$holding]);
-        $left = array_values(array_diff($declared, $names));
-
-        return $left === []
-            ? CannotJudge::because(self::NONE_LEFT)
-            : JudgingSuites::holding(Suites::listed(...$left), $holding);
+        return match (true) {
+            $judging instanceof CannotJudge => $judging,
+            ! $holding instanceof Suites => $listed,
+            default => $this->holdingListed($listed, $holding, $declared),
+        };
     }
 
     /** Whether one of these suites holds a test's file: any file, where they are every suite. */
@@ -144,5 +133,26 @@ final readonly class DeclaredSuites implements IteratorAggregate
         }
 
         return NotGiven::value();
+    }
+
+    /**
+     * The suites listed, where the holding list names declared suites: where
+     * `tests.suites` lists none, every declared suite it leaves out judges
+     * every unit; or why not.
+     *
+     * @param list<string> $declared
+     */
+    private function holdingListed(JudgingSuites $listed, Suites $holding, array $declared): JudgingSuites|CannotJudge
+    {
+        $held = $this->undeclared($holding, 'tests.holding', $declared);
+        $names = array_map(static fn(SuiteName $name): string => $name->value(), [...$holding]);
+        $left = array_values(array_diff($declared, $names));
+
+        return match (true) {
+            $held instanceof CannotJudge => $held,
+            ! $listed->everyUnit()->isAll() => $listed,
+            $left === [] => CannotJudge::because(self::NONE_LEFT),
+            default => JudgingSuites::holding(Suites::listed(...$left), $holding),
+        };
     }
 }

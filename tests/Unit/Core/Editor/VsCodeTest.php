@@ -23,10 +23,11 @@ function matchedProblems(string $text): array
 {
     $pattern = static fn(string $key): mixed => Decoded::at(VsCode::tasks(), 'tasks', 0, 'problemMatcher', 'pattern', $key);
     $regexp = $pattern('regexp');
+    $matching = sprintf('/%s/', is_string($regexp) ? $regexp : '');
     $read = [];
 
     foreach (explode("\n", rtrim($text, "\n")) as $line) {
-        preg_match(sprintf('/%s/', is_string($regexp) ? $regexp : ''), $line, $groups);
+        preg_match($matching, $line, $groups);
         $named = [];
 
         foreach (['file', 'line', 'column', 'severity', 'message', 'code'] as $name) {

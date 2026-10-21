@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Proof\Key;
 
+use function array_filter;
 use function array_key_exists;
 use function array_map;
 use function count;
@@ -213,8 +214,7 @@ final readonly class ContentKeys
         return Keys::none()->and(...$keys);
     }
 
-    /** Fields as a key reads them, each written with its length in bytes before it. */
-    /** Fields written each with its length before it, so no two lists of fields write alike. */
+    /** Fields as a key reads them, each written with its length in bytes before it, so no two lists write alike. */
     public static function framed(string ...$fields): string
     {
         $framed = '';
@@ -252,13 +252,8 @@ final readonly class ContentKeys
     {
         hash_update($context, self::framed('coverage', 'definitions'));
         self::hashFingerprintsIn($context, $source->definitions());
-        $other = Fingerprints::none();
-
-        foreach ($source->files() as $file) {
-            $other = $file->path()->isPhp() ? $other : $other->with($file);
-        }
-
-        self::hashCodeIn($context, $other, $source->ci());
+        $other = array_filter([...$source->files()], static fn(Fingerprint $file): bool => ! $file->path()->isPhp());
+        self::hashCodeIn($context, Fingerprints::of(...$other), $source->ci());
     }
 
     /** Every file outside the test directories, and every CI definition that runs the gate. */
@@ -313,17 +308,15 @@ final readonly class ContentKeys
     /** A unit's source: its file, or every file inside its held path, each by its digest. */
     private function sourceOf(Unit $unit): Digest
     {
-        $inside = Fingerprints::none();
-
-        foreach ($unit->isHeld() ? $this->code : [] as $fingerprint) {
-            $inside = $fingerprint->path()->within($unit->path()) ? $inside->with($fingerprint) : $inside;
-        }
-
+        $inside = $unit->isHeld() ? array_filter(
+            [...$this->code],
+            static fn(Fingerprint $fingerprint): bool => $fingerprint->path()->within($unit->path()),
+        ) : [];
         $digest = $this->code->digestOf($unit->path());
-        $inside = $digest instanceof Digest ? $inside->with(Fingerprint::of($unit->path(), $digest)) : $inside;
+        $own = $digest instanceof Digest ? [Fingerprint::of($unit->path(), $digest)] : [];
         $context = Digest::hashing();
         hash_update($context, self::framed('source', $unit->path()->value()));
-        self::hashFingerprintsIn($context, $inside);
+        self::hashFingerprintsIn($context, Fingerprints::of(...$inside, ...$own));
 
         return Digest::finished($context);
     }

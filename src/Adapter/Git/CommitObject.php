@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Git;
 
+use function array_search;
+use function array_slice;
 use function explode;
 use function mb_strlen;
 use function mb_substr;
@@ -35,17 +37,26 @@ final readonly class CommitObject
         $tree = CannotTell::because(sprintf(self::NO_TREE, $id));
         $parents = [];
 
-        foreach (explode("\n", $printed) as $line) {
-            if ($line === '') {
-                break;
-            }
-
+        foreach (self::headers($printed) as $line) {
             $tree = str_starts_with($line, self::TREE) ? Tree::parse(self::after(self::TREE, $line)) : $tree;
             $parent = str_starts_with($line, self::PARENT) ? Commit::parse(self::after(self::PARENT, $line)) : null;
             $parents = $parent instanceof Commit ? [...$parents, $parent->revision()] : $parents;
         }
 
         return $tree instanceof Tree ? JudgedCommit::of(Revision::ref($id), $tree, ...$parents) : $tree;
+    }
+
+    /**
+     * The lines before the first blank one.
+     *
+     * @return list<string>
+     */
+    private static function headers(string $printed): array
+    {
+        $lines = explode("\n", $printed);
+        $blank = array_search('', $lines, strict: true);
+
+        return $blank === false ? $lines : array_slice($lines, 0, $blank);
     }
 
     /** What a header line holds after its name. */

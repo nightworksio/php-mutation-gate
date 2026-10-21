@@ -104,7 +104,7 @@ final readonly class Tokens implements Countable
             $enclosing[$at] = array_last($open) ?? self::NONE;
             $byId[$token->id][] = $at;
             $byText[$token->text][] = $at;
-            $words += $token->is(Names::TOKENS) ? self::words($token->text) : [];
+            $words += self::wordsOf($token);
 
             if ($token->is(self::CLOSES)) {
                 $closing[array_pop($open) ?? self::NONE] = $at;
@@ -256,13 +256,17 @@ final readonly class Tokens implements Countable
     }
 
     /**
-     * The last segment of a name, as written and in lower case.
+     * The words a name token adds to the index: its last segment as written and in lower case; none for any other.
      *
      * @return array<string, true>
      */
-    private static function words(string $name): array
+    private static function wordsOf(PhpToken $token): array
     {
-        $last = array_last(explode('\\', $name));
+        if (! $token->is(Names::TOKENS)) {
+            return [];
+        }
+
+        $last = array_last(explode('\\', $token->text));
 
         return [$last => true, mb_strtolower($last) => true];
     }

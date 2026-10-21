@@ -12,6 +12,8 @@ use function implode;
 use NightWorksIO\MutationGate\Core\Assertion\WeaklyAsserted;
 use NightWorksIO\MutationGate\Core\Assertion\WeakTest;
 use NightWorksIO\MutationGate\Core\Format\Fit;
+use NightWorksIO\MutationGate\Core\Removal\Removable;
+use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\NoFinding;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
@@ -41,7 +43,7 @@ final readonly class WeakAssertions
         $entries = [];
 
         foreach ($verdict->trees()->mutants() as $judged) {
-            $finding = $judged instanceof JudgedMutant ? $judged->finding() : NoFinding::survivor();
+            $finding = self::findingOf($judged);
 
             if (! $finding instanceof WeaklyAsserted) {
                 continue;
@@ -96,6 +98,12 @@ final readonly class WeakAssertions
         }
 
         return $entries === [] ? [...$lines, sprintf('%sNone.', TestsText::INDENT)] : $lines;
+    }
+
+    /** What a survivor's tests were found to do; nothing of a kill. */
+    private static function findingOf(JudgedMutant|JudgedKill $judged): WeaklyAsserted|Removable|NoFinding
+    {
+        return $judged instanceof JudgedMutant ? $judged->finding() : NoFinding::survivor();
     }
 
     /** @return WeakEntry */

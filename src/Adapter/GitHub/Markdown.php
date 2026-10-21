@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\GitHub;
 use function array_filter;
 use function array_map;
 use function array_slice;
+use function array_values;
 
 use Closure;
 
@@ -84,22 +85,17 @@ final readonly class Markdown
     {
         $overview = Overview::of($verdict);
         $clusters = $verdict->trees()->clusters();
-        $changed = [];
-        $other = [];
-
-        foreach ($overview->survivors() as $mutant) {
-            if ($overview->isSecurity($mutant)) {
-                continue;
-            }
-
-            if (self::isUnsettled($mutant)) {
-                $other[] = $mutant;
-
-                continue;
-            }
-
-            $changed = $mutant->isOnChangedLine() ? [...$changed, $mutant] : $changed;
-        }
+        $listed = array_filter(
+            iterator_to_array($overview->survivors(), preserve_keys: false),
+            static fn(JudgedMutant $mutant): bool => ! $overview->isSecurity($mutant),
+        );
+        $other = array_values(
+            array_filter($listed, static fn(JudgedMutant $mutant): bool => ! self::isSettled($mutant)),
+        );
+        $changed = array_values(array_filter(
+            $listed,
+            static fn(JudgedMutant $mutant): bool => self::isSettled($mutant) && $mutant->isOnChangedLine(),
+        ));
 
         $folded = Folded::of($changed, $clusters);
         $security = $overview->securitySurvivors();
@@ -358,9 +354,9 @@ final readonly class Markdown
         return array_filter([implode("\n", $reasons)], static fn(string $list): bool => $list !== '');
     }
 
-    /** Whether a mutant is unjudged or flaky, which the comment lists apart from the survivors. */
-    private static function isUnsettled(JudgedMutant $mutant): bool
+    /** Whether a mutant is neither unjudged nor flaky, which the comment lists apart from the survivors. */
+    private static function isSettled(JudgedMutant $mutant): bool
     {
-        return $mutant->judgement() === MutantJudgement::Unjudged || $mutant->judgement() === MutantJudgement::Flaky;
+        return $mutant->judgement() !== MutantJudgement::Unjudged && $mutant->judgement() !== MutantJudgement::Flaky;
     }
 }

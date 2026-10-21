@@ -117,14 +117,19 @@ final readonly class CoverageCommand
             return Failed::because($output, $written);
         }
 
+        self::aside($output, $measured);
+        $output->writeln($written->said(), OutputInterface::OUTPUT_RAW);
+
+        return ExitCode::Passed->value;
+    }
+
+    /** What measuring the map said, aside, where it measured it and said anything. */
+    private static function aside(OutputInterface $output, CoverageRan|CoverageMeasured $measured): void
+    {
         $said = $measured instanceof CoverageMeasured ? $measured->said() : NotGiven::value();
 
         if (is_string($said)) {
             Aside::of($output)->writeln($said, OutputInterface::OUTPUT_RAW);
         }
-
-        $output->writeln($written->said(), OutputInterface::OUTPUT_RAW);
-
-        return ExitCode::Passed->value;
     }
 }

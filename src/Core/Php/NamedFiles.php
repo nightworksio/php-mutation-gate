@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Php;
 
 use function array_any;
+use function array_combine;
+use function array_filter;
 use function array_key_exists;
 use function array_map;
+use function array_push;
+use function array_unique;
 use function array_values;
 use function basename;
 use function count;
@@ -186,23 +190,19 @@ final readonly class NamedFiles
      */
     private function walk(array $edges, array $from): array
     {
-        $reached = [];
-
-        foreach ($from as $file) {
-            $reached[$file] = $file;
-        }
-
+        $reached = array_combine($from, $from);
         $queue = array_values($reached);
+
         $at = 0;
 
         while ($at < count($queue)) {
-            foreach (array_key_exists($queue[$at], $edges) ? $edges[$queue[$at]] : [] as $next) {
-                if (! array_key_exists($next, $reached)) {
-                    $reached[$next] = $next;
-                    $queue[] = $next;
-                }
-            }
-
+            $leads = array_key_exists($queue[$at], $edges) ? $edges[$queue[$at]] : [];
+            $new = array_values(array_unique(array_filter(
+                $leads,
+                static fn(string $next): bool => ! array_key_exists($next, $reached),
+            )));
+            $reached += array_combine($new, $new);
+            array_push($queue, ...$new);
             $at++;
         }
 

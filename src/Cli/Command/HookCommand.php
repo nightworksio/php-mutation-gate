@@ -100,11 +100,7 @@ final readonly class HookCommand
         $said = [];
 
         foreach ($chosen as $hook) {
-            $left = match (true) {
-                $hooks->isShared() => sprintf(Fit::JOINED, self::SHARED_WHERE, self::SHARED_LINE),
-                $hook->occupant($hooks->read($hook)) === Occupant::Someone => self::FOREIGN,
-                default => '',
-            };
+            $left = self::leftAlone($hooks, $hook);
             $written = $left === '' ? $hooks->write($hook, $hook->script($call)) : NotGiven::value();
 
             if ($written instanceof CannotJudge) {
@@ -117,6 +113,20 @@ final readonly class HookCommand
         }
 
         return implode("\n", $said);
+    }
+
+    /**
+     * What is said of a hook the gate may not write, with where it is and
+     * the line that calls the gate from it: in a shared directory of hooks,
+     * or one someone else wrote; nothing where the gate may write it.
+     */
+    private static function leftAlone(Hooks $hooks, Hook $hook): string
+    {
+        return match (true) {
+            $hooks->isShared() => sprintf(Fit::JOINED, self::SHARED_WHERE, self::SHARED_LINE),
+            $hook->occupant($hooks->read($hook)) === Occupant::Someone => self::FOREIGN,
+            default => '',
+        };
     }
 
     /** @return list<Hook> */

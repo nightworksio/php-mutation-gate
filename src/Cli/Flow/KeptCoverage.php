@@ -18,7 +18,6 @@ use NightWorksIO\MutationGate\Core\Coverage\MeasuredAt;
 use NightWorksIO\MutationGate\Core\Coverage\Remeasured;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Missing;
-use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
 use NightWorksIO\MutationGate\Core\Proof\Access;
@@ -31,7 +30,6 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Written;
-use NightWorksIO\MutationGate\Port\ProofStore;
 
 use function sprintf;
 
@@ -78,29 +76,6 @@ final readonly class KeptCoverage
     public static function built(): CoverageRun
     {
         return CoverageRun::of(WholeSuite::tests(), Workspace::coverage());
-    }
-
-    /**
-     * The map kept beside a ledger the run reads, its own scope's first and
-     * then the default branch's, where its own scope's cannot be read; none;
-     * or why the default branch's cannot be read.
-     */
-    public static function fromStore(ProofStore $store, Access $access): StoredCoverage
-    {
-        $scopes = [...$access->reads()];
-        $read = Missing::at(Path::of(Companion::Coverage->value));
-
-        foreach ($scopes as $at => $scope) {
-            $bytes = $store->companion($scope, Companion::Coverage);
-            $read = $bytes instanceof Contents ? CoverageMapFile::kept($bytes->text(), MapLimits::standard()) : $bytes;
-            $from = $at === count($scopes) - 1 ? KeptFrom::DefaultBranch : KeptFrom::OwnScope;
-
-            if ($read instanceof KeptMap) {
-                return StoredCoverage::of($read, $from);
-            }
-        }
-
-        return StoredCoverage::of($read, KeptFrom::DefaultBranch);
     }
 
     /** The map the last round of `watch` left; none; or why it cannot be read. */
@@ -192,7 +167,7 @@ final readonly class KeptCoverage
         );
         $kept = $ownMap
             ? StoredCoverage::of($this->fromWorkspace(), KeptFrom::LastRound)
-            : self::fromStore($this->adapters->proofs, $access);
+            : StoredCoverage::in($this->adapters->proofs, $access);
 
         return $this->measuring($entries, $kept->map(), $kept->from(), $suites);
     }

@@ -133,7 +133,7 @@ final readonly class Selecting
     {
         $standing = $inventory->standing;
         $access = Access::of($standing->runOn()->scope(), $standing->defaultBranch(), Writing::Never);
-        $kept = KeptCoverage::fromStore($this->adapters->proofs, $access)->map();
+        $kept = StoredCoverage::in($this->adapters->proofs, $access)->map();
 
         return match (true) {
             $kept instanceof KeptMap => Read::of($kept->map(), $kept->measuredAt()),

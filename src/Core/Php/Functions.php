@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Php;
 
 use function array_filter;
 use function array_pop;
+use function array_push;
 use function array_values;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -39,16 +40,20 @@ final readonly class Functions
         $pending = [];
 
         foreach ($tokens as $at => $token) {
-            $pending = $token->is(T_FUNCTION) ? [self::nameAfter($read, $at), $token->line] : $pending;
-            $pending = $token->is(';') ? [] : $pending;
+            $pending = match (true) {
+                $token->is(T_FUNCTION) => [self::nameAfter($read, $at), $token->line],
+                $token->is(';') => [],
+                default => $pending,
+            };
 
             if ($token->is(self::OPENS)) {
                 $blocks[] = $pending;
                 $pending = [];
             }
 
-            $closed = $token->is('}') ? array_pop($blocks) ?? [] : [];
-            $spans = $closed !== [] && $closed[0] !== '' ? [...$spans, [$closed[0], $closed[1], $token->line]] : $spans;
+            if ($token->is('}')) {
+                array_push($spans, ...self::spanOf(array_pop($blocks) ?? [], $token->line));
+            }
         }
 
         return new self($spans);
@@ -68,6 +73,18 @@ final readonly class Functions
         $at = $this->innermost($line);
 
         return $at < 0 ? Nameless::code() : Line::of($this->spans[$at][1]);
+    }
+
+    /**
+     * The span of a block that closes on a line: a named function's name, first line and last line; none for any
+     * other block.
+     *
+     * @param  array{}|array{string, int}     $opened what opened the block: a function's name and first line
+     * @return list<array{string, int, int}>
+     */
+    private static function spanOf(array $opened, int $closes): array
+    {
+        return $opened !== [] && $opened[0] !== '' ? [[$opened[0], $opened[1], $closes]] : [];
     }
 
     /** Where among the spans the innermost function a line is in stands; -1 where it is in none. */

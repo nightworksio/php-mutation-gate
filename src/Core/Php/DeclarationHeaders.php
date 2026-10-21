@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Php;
 
+use function array_push;
 use function count;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -57,18 +58,31 @@ final readonly class DeclarationHeaders
                 continue;
             }
 
-            $type = self::declares($tokens, $scope, $from, $at, Tokens::CLASS_LIKE);
-            $declares = $members || $type || self::declares($tokens, $scope, $from, $at, self::OUTSIDE_TYPES);
-            $headers = $declares ? [...$headers, $tokens->spelt($from, $at)] : $headers;
-            $body = $tokens->is($at, '{');
-            $headers = $body && ($type || $tokens->is($from, T_NAMESPACE))
-                ? [...$headers, ...self::within($tokens, $at, $type)]
-                : $headers;
-            $at = $body ? $tokens->closing($at) : $at;
+            array_push($headers, ...self::statement($tokens, $scope, $from, $at, $members));
+            $at = $tokens->is($at, '{') ? $tokens->closing($at) : $at;
             $from = $at + 1;
         }
 
         return $headers;
+    }
+
+    /**
+     * The headers of a statement directly inside a bracket, from one index
+     * to the `;` or `{` that ends it: its own, where it declares, and those
+     * inside its body, where it is a type or a namespace.
+     *
+     * @return list<string>
+     */
+    private static function statement(Tokens $tokens, int $scope, int $from, int $at, bool $members): array
+    {
+        $type = self::declares($tokens, $scope, $from, $at, Tokens::CLASS_LIKE);
+        $declares = $members || $type || self::declares($tokens, $scope, $from, $at, self::OUTSIDE_TYPES);
+        $nested = $tokens->is($at, '{') && ($type || $tokens->is($from, T_NAMESPACE));
+
+        return [
+            ...$declares ? [$tokens->spelt($from, $at)] : [],
+            ...$nested ? self::within($tokens, $at, $type) : [],
+        ];
     }
 
     /**

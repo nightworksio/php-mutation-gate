@@ -59,7 +59,7 @@ final readonly class Batched
 
         while ($batch->count() > 0) {
             $request = $requestFor($batch);
-            $invoked = $this->invoking->invoked($left instanceof Seconds ? $request->within($left) : $request);
+            $invoked = $this->invoking->invoked($this->within($request, $left));
             $queue = array_slice($queue, $batch->count());
             $spent = match (true) {
                 ! $invoked instanceof CannotJudge => $this->doomed($spent, $batch, $invoked),
@@ -106,6 +106,12 @@ final readonly class Batched
     private function left(): Seconds|Unlimited
     {
         return $this->deadline instanceof Deadline ? $this->deadline->left($this->clock->now()) : $this->deadline;
+    }
+
+    /** A batch's request, within the time left where the run has a deadline. */
+    private function within(MutationRequest $request, Seconds|Unlimited $left): MutationRequest
+    {
+        return $left instanceof Seconds ? $request->within($left) : $request;
     }
 
     /** Whether the deadline has passed; never where the run has none. */

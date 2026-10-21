@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Composer;
 
 use function array_any;
+
+use Closure;
+
 use function dirname;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Composer\GateEntry;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -158,8 +162,14 @@ final readonly class ComposerTrees implements TreeSource
     /** @param list<Manifest> $above the manifests at and above the tree, the nearest first */
     private function treeFrom(Path $path, array $above, Package $package): Tree|CannotJudge
     {
-        $declared = $this->declared($above);
-        $newCode = $this->newCode($above);
+        $declared = $this->nearest(
+            $above,
+            static fn(GateEntry $gate): Floor|Exempt|Undeclared|CannotJudge => $gate->floor(),
+        );
+        $newCode = $this->nearest(
+            $above,
+            static fn(GateEntry $gate): Floor|Undeclared|CannotJudge => $gate->newCodeFloor(),
+        );
 
         return match (true) {
             $declared instanceof CannotJudge => $declared,
@@ -195,25 +205,16 @@ final readonly class ComposerTrees implements TreeSource
         return $manifests;
     }
 
-    /** @param list<Manifest> $above */
-    private function declared(array $above): Floor|Exempt|Undeclared|CannotJudge
+    /**
+     * The first floor a manifest declares, the nearest first.
+     *
+     * @param list<Manifest>                                                $above
+     * @param Closure(GateEntry): (Floor|Exempt|Undeclared|CannotJudge) $read
+     */
+    private function nearest(array $above, Closure $read): Floor|Exempt|Undeclared|CannotJudge
     {
         foreach ($above as $manifest) {
-            $floor = $manifest->gate()->floor();
-
-            if (! $floor instanceof Undeclared) {
-                return $floor;
-            }
-        }
-
-        return Undeclared::floor();
-    }
-
-    /** @param list<Manifest> $above */
-    private function newCode(array $above): Floor|Undeclared|CannotJudge
-    {
-        foreach ($above as $manifest) {
-            $floor = $manifest->gate()->newCodeFloor();
+            $floor = $read($manifest->gate());
 
             if (! $floor instanceof Undeclared) {
                 return $floor;

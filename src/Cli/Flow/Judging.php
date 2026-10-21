@@ -43,7 +43,6 @@ use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Removal\Removals;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
-use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Test\DeclaredSuites;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Instant;
@@ -86,14 +85,8 @@ final readonly class Judging
 {
     private const string FAILED = 'The verdict failed, so the commit did not pass.';
 
-    /** Why each tree of a run of the security mutators alone is held to no floor (ADR-0021, decision 20). */
-    private const string UNJUDGED_TREES = '--security judges only the security sets';
-
     /** Why a passing run of the security mutators alone records no commit as passed: its trees were not judged. */
     private const string SECURITY_ONLY = 'A run of the security mutators alone records no commit as passed.';
-
-    /** Why each tree and security set of one suite's run is held to no floor (ADR-0025, decision 9). */
-    private const string UNHELD = '--suite judges no floor';
 
     /** Why a passing run of one suite's tests alone records no commit as passed: no floor held it. */
     private const string SUITE_ONLY = 'A run of one suite\'s tests alone records no commit as passed.';
@@ -195,59 +188,14 @@ final readonly class Judging
     private function grounded(Plan $plan, Results $results, Writing $writing): Assessed|CannotJudge
     {
         $trees = $this->adapters->trees->trees();
+        $holding = new NarrowRunHolding($this->adapters);
         $baseline = new Baselines($this->adapters, $this->settings->floors()->baseline())->committed();
 
         return match (true) {
             $trees instanceof CannotJudge => $trees,
             $baseline instanceof CannotJudge => $baseline,
-            default => $this->assessed($plan, $results, $this->held($trees), $baseline, $writing),
+            default => $this->assessed($plan, $results, $holding->trees($trees), $baseline, $writing),
         };
-    }
-
-    /**
-     * The trees, each exempt in a run of the security mutators alone, which
-     * judges none of them, and in a run of one suite's tests alone, which
-     * holds no floor.
-     */
-    private function held(Trees $trees): Trees
-    {
-        $why = match (true) {
-            $this->adapters->isSecurityOnly() => Exempt::because(self::UNJUDGED_TREES),
-            $this->adapters->isSuiteOnly() => Exempt::because(self::UNHELD),
-            default => NotGiven::value(),
-        };
-
-        if (! $why instanceof Exempt) {
-            return $trees;
-        }
-
-        $exempt = Trees::none();
-
-        foreach ($trees as $tree) {
-            $exempt = $exempt->with($tree->declaring($why));
-        }
-
-        return $exempt;
-    }
-
-    /**
-     * Each package's security set, exempt in a run of one suite's tests alone
-     * that does not make mutants with the security mutators alone, which
-     * holds no floor (ADR-0025, decision 9).
-     */
-    private function secured(SecurityVerdicts $security): SecurityVerdicts
-    {
-        if ($this->adapters->isSecurityOnly() || ! $this->adapters->isSuiteOnly()) {
-            return $security;
-        }
-
-        $exempt = [];
-
-        foreach ($security as $set) {
-            $exempt[] = $set->exempting(Exempt::because(self::UNHELD));
-        }
-
-        return SecurityVerdicts::of(...$exempt);
     }
 
     /**
@@ -302,7 +250,7 @@ final readonly class Judging
         $judged = $fresh->and($proving->proved())->and($carrying->carried())->and($unjudged->results())->and($stopped);
         $equivalents = new StaticEquivalence($this->adapters, $this->settings)->among($judged);
         $verdicts = $this->read($matrix, $judge->judging($matrix)->proving($equivalents->proven)->trees($judged));
-        $security = $this->secured(
+        $security = new NarrowRunHolding($this->adapters)->security(
             $judge->security($verdicts, $this->adapters->security, $this->settings->floors()->security()),
         );
         $unfloored = count(Ratchet::unfloored($verdicts)) + count(Ratchet::securityUnfloored($security));

@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function array_filter;
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Coverage\KeptMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
+use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
@@ -47,11 +49,7 @@ final readonly class Moving
             $moved = $was instanceof Digest && $was->value() === $key->value() ? $moved : [...$moved, $file];
         }
 
-        $gone = [];
-
-        foreach ($kept->keys()->files() as $file) {
-            $gone = $files->has($file) ? $gone : [...$gone, $file];
-        }
+        $gone = array_filter([...$kept->keys()->files()], static fn(Path $file): bool => ! $files->has($file));
 
         $held = $entries->testsIn(Paths::of(...$moved, ...$gone), $map);
         $placed = $entries->testsIn(Paths::of(...$files, ...$gone), $map);

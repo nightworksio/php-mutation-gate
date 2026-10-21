@@ -10,6 +10,7 @@ use function implode;
 use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Matrix\Redundancy;
+use NightWorksIO\MutationGate\Core\Matrix\RemovableTest;
 use NightWorksIO\MutationGate\Core\Matrix\Standing;
 use NightWorksIO\MutationGate\Core\Matrix\TestStandings;
 use NightWorksIO\MutationGate\Core\Matrix\WholeTest;
@@ -119,20 +120,7 @@ final readonly class TestsText
         $lines = [];
 
         foreach (Redundancy::of($verdict)->removable() as $test) {
-            $kills = [];
-
-            foreach ($test as $kill) {
-                $kills[] = sprintf('%s by %s', $kill->mutant()->value(), Fit::plain($kill->keptBy()->value()));
-            }
-
-            $seconds = $test->seconds();
-            $lines[] = sprintf(
-                '%s%s  %s  kills %s',
-                self::INDENT,
-                Fit::plain($test->test()->value()),
-                $seconds instanceof Seconds ? $seconds->preciseText() : self::UNTIMED,
-                $kills === [] ? self::NOTHING : implode(', ', $kills),
-            );
+            $lines[] = self::removableLine($test);
         }
 
         return [
@@ -141,6 +129,26 @@ final readonly class TestsText
             ...$lines === [] ? [sprintf('%s%s', self::INDENT, self::NONE)] : $lines,
             ...self::indented([TestsReport::SMALL]),
         ];
+    }
+
+    /** A removable test, with its time and the kept test that makes each of its kills. */
+    private static function removableLine(RemovableTest $test): string
+    {
+        $kills = [];
+
+        foreach ($test as $kill) {
+            $kills[] = sprintf('%s by %s', $kill->mutant()->value(), Fit::plain($kill->keptBy()->value()));
+        }
+
+        $seconds = $test->seconds();
+
+        return sprintf(
+            '%s%s  %s  kills %s',
+            self::INDENT,
+            Fit::plain($test->test()->value()),
+            $seconds instanceof Seconds ? $seconds->preciseText() : self::UNTIMED,
+            $kills === [] ? self::NOTHING : implode(', ', $kills),
+        );
     }
 
     /**

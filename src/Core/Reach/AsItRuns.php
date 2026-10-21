@@ -8,6 +8,7 @@ use function explode;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\NotGiven;
 
 use function preg_match;
 use function trim;
@@ -65,8 +66,8 @@ final readonly class AsItRuns
 
         foreach ($lines as $line) {
             $indent = DefinitionLine::read($line)->indent();
-            $inBlock = $inBlock && $last instanceof DefinitionLine && self::inBlock($last, $line, $indent);
-            $carried = $last instanceof DefinitionLine && $last->carriedOnBy($indent);
+            $inBlock = self::staysInBlock($inBlock, $last, $line, $indent);
+            $carried = self::carriesOn($last, $indent);
 
             if ($inBlock || self::keptAsWritten($line, $carried)) {
                 $kept[] = $line;
@@ -74,28 +75,56 @@ final readonly class AsItRuns
                 continue;
             }
 
-            if (preg_match(self::COMMENT, $line) === 1) {
-                continue;
+            $read = self::readLine($line, $carried);
+
+            if ($read instanceof Unread) {
+                return $read;
             }
 
-            $read = DefinitionLine::read($line);
-
-            if ($read->role() === LineRole::Unread || $carried) {
-                return Unread::line();
+            if ($read instanceof DefinitionLine) {
+                $kept[] = $line;
+                $last = $read;
+                $inBlock = $read->role() === LineRole::StartsBlock;
             }
-
-            $kept[] = $line;
-            $last = $read;
-            $inBlock = $read->role() === LineRole::StartsBlock;
         }
 
         return $kept;
     }
 
-    /** Whether a line, so indented, is a line of the block scalar a line starts: blank, or written deeper. */
-    private static function inBlock(DefinitionLine $header, string $line, int $indent): bool
+    /**
+     * Whether a line, so indented, is a line of the block scalar the last line read starts, where the line before
+     * was in it: blank, or written deeper.
+     */
+    private static function staysInBlock(
+        bool $inBlock,
+        DefinitionLine|Unread $header,
+        string $line,
+        int $indent,
+    ): bool {
+        return $inBlock
+            && $header instanceof DefinitionLine
+            && (trim($line, ' ') === '' || $indent > $header->indent());
+    }
+
+    /** Whether a line so indented carries on the value of the last line read, where one was read. */
+    private static function carriesOn(DefinitionLine|Unread $last, int $indent): bool
     {
-        return trim($line, ' ') === '' || $indent > $header->indent();
+        return $last instanceof DefinitionLine && $last->carriedOnBy($indent);
+    }
+
+    /**
+     * A line outside every block scalar that is not kept as written, read; nothing for a comment line; unread where
+     * its part cannot be told, or where it would carry on the value of the line before.
+     */
+    private static function readLine(string $line, bool $carried): DefinitionLine|Unread|NotGiven
+    {
+        if (preg_match(self::COMMENT, $line) === 1) {
+            return NotGiven::value();
+        }
+
+        $read = DefinitionLine::read($line);
+
+        return $read->role() === LineRole::Unread || $carried ? Unread::line() : $read;
     }
 
     /**

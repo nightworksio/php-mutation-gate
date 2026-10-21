@@ -110,13 +110,13 @@ final class MutantFile
      */
     public static function serve(string $original, string $mutated, string $guard): void
     {
-        $stat = is_file($original) ? stat($original) : false;
+        $inode = self::inodeOf($original);
 
-        if (! is_array($stat) || in_array('', [$mutated, $guard], strict: true)) {
+        if ($inode === [] || in_array('', [$mutated, $guard], strict: true)) {
             return;
         }
 
-        self::$served = [$stat['dev'], $stat['ino']];
+        self::$served = $inode;
         self::$mutated = $mutated;
         self::$guard = $guard;
         stream_wrapper_unregister(self::PROTOCOL);
@@ -162,7 +162,7 @@ final class MutantFile
 
     public function stream_read(int $count): string|false
     {
-        $read = is_resource($this->handle) ? fread($this->handle, max(1, $count)) : false;
+        $read = $this->onHandle(static fn(mixed $handle): string|false => fread($handle, max(1, $count)));
         $this->drained = in_array($read, ['', false], strict: true);
 
         return $read;
@@ -170,7 +170,7 @@ final class MutantFile
 
     public function stream_write(string $data): int|false
     {
-        return is_resource($this->handle) ? fwrite($this->handle, $data) : false;
+        return $this->onHandle(static fn(mixed $handle): int|false => fwrite($handle, $data));
     }
 
     /** Whether the open file is at its end: once its last read got nothing, as PHP's own wrapper has it. */
@@ -181,30 +181,28 @@ final class MutantFile
 
     public function stream_close(): void
     {
-        if (is_resource($this->handle)) {
-            fclose($this->handle);
-        }
+        $this->onHandle(static fn(mixed $handle): bool => fclose($handle));
     }
 
     /** @return array<int|string, int>|false */
     public function stream_stat(): array|false
     {
-        return is_resource($this->handle) ? fstat($this->handle) : false;
+        return $this->onHandle(static fn(mixed $handle): array|false => fstat($handle));
     }
 
     public function stream_seek(int $offset, int $whence): bool
     {
-        return is_resource($this->handle) && fseek($this->handle, $offset, $whence) === 0;
+        return $this->onHandle(static fn(mixed $handle): bool => fseek($handle, $offset, $whence) === 0);
     }
 
     public function stream_tell(): int|false
     {
-        return is_resource($this->handle) ? ftell($this->handle) : false;
+        return $this->onHandle(static fn(mixed $handle): int|false => ftell($handle));
     }
 
     public function stream_flush(): bool
     {
-        return is_resource($this->handle) && fflush($this->handle);
+        return $this->onHandle(static fn(mixed $handle): bool => fflush($handle));
     }
 
     /** Locks the open file, or, asked with no operation, says that it can, as PHP asks before `LOCK_EX` writes. */
@@ -212,12 +210,12 @@ final class MutantFile
     {
         $locking = $operation & (LOCK_SH | LOCK_EX | LOCK_UN | LOCK_NB);
 
-        return is_resource($this->handle) && ($locking === 0 || flock($this->handle, $locking));
+        return $this->onHandle(static fn(mixed $handle): bool => $locking === 0 || flock($handle, $locking));
     }
 
     public function stream_truncate(int $size): bool
     {
-        return is_resource($this->handle) && ftruncate($this->handle, max(0, $size));
+        return $this->onHandle(static fn(mixed $handle): bool => ftruncate($handle, max(0, $size)));
     }
 
     /**
@@ -226,14 +224,14 @@ final class MutantFile
      */
     public function stream_set_option(int $option, int $value): bool
     {
-        return $option === STREAM_OPTION_BLOCKING && is_resource($this->handle)
-            && stream_set_blocking($this->handle, $value !== 0);
+        return $option === STREAM_OPTION_BLOCKING
+            && $this->onHandle(static fn(mixed $handle): bool => stream_set_blocking($handle, $value !== 0));
     }
 
     /** The open file itself, for `stream_select()`. */
     public function stream_cast(): mixed
     {
-        return is_resource($this->handle) ? $this->handle : false;
+        return $this->onHandle(static fn(mixed $handle): mixed => $handle);
     }
 
     /** @param array{}|array{int, int}|int|string $value no time, the times to touch, the mode, or an owner or group */
@@ -297,23 +295,25 @@ final class MutantFile
 
     public function dir_readdir(): string|false
     {
-        return is_resource($this->handle) ? readdir($this->handle) : false;
+        return $this->onHandle(static fn(mixed $handle): string|false => readdir($handle));
     }
 
     public function dir_rewinddir(): bool
     {
-        if (is_resource($this->handle)) {
-            rewinddir($this->handle);
-        }
+        return $this->onHandle(static function (mixed $handle): bool {
+            rewinddir($handle);
 
-        return is_resource($this->handle);
+            return true;
+        });
     }
 
     public function dir_closedir(): bool
     {
-        if (is_resource($this->handle)) {
-            closedir($this->handle);
-        }
+        $this->onHandle(static function (mixed $handle): bool {
+            closedir($handle);
+
+            return true;
+        });
 
         return true;
     }
@@ -343,9 +343,7 @@ final class MutantFile
     /** Whether a path PHP includes names the file served: the same device and inode, whatever the path's spelling. */
     private function isServed(string $path): bool
     {
-        $stat = $this->natively(static fn(): array|false => is_file($path) ? stat($path) : false);
-
-        return is_array($stat) && [$stat['dev'], $stat['ino']] === self::$served;
+        return $this->natively(static fn(): array => self::inodeOf($path)) === self::$served;
     }
 
     /**
@@ -366,5 +364,30 @@ final class MutantFile
             stream_wrapper_unregister(self::PROTOCOL);
             stream_wrapper_register(self::PROTOCOL, self::class);
         }
+    }
+
+    /**
+     * What an operation on the open file or directory answers; false where none is open.
+     *
+     * @template T
+     *
+     * @param  Closure(resource): T $use
+     * @return T|false
+     */
+    private function onHandle(Closure $use): mixed
+    {
+        return is_resource($this->handle) ? $use($this->handle) : false;
+    }
+
+    /**
+     * The device and the inode of a file, which name it whatever path names it; none where it is no file.
+     *
+     * @return list<int>
+     */
+    private static function inodeOf(string $path): array
+    {
+        $stat = is_file($path) ? stat($path) : false;
+
+        return is_array($stat) ? [$stat['dev'], $stat['ino']] : [];
     }
 }

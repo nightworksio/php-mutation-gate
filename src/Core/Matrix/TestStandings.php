@@ -95,11 +95,9 @@ final readonly class TestStandings implements Countable, IteratorAggregate
                     continue;
                 }
 
-                $tally = array_key_exists($test->value(), $tallies)
-                    ? $tallies[$test->value()]
-                    : [$test, 0, false, false];
+                $tallies += [$test->value() => [$test, 0, false, false]];
                 $outcome = $matrix->outcome($judged, $test);
-                $tallies[$test->value()] = self::tallied($tally, $outcome, self::wasKilled($judged));
+                $tallies[$test->value()] = self::tallied($tallies[$test->value()], $outcome, self::wasKilled($judged));
             }
         }
 

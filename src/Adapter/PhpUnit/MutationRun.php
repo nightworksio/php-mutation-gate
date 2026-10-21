@@ -249,9 +249,10 @@ final readonly class MutationRun
                 return $made;
             }
 
-            foreach ($made as $mutant) {
-                $asked = $this->isAsked($request, $mutant) ? [...$asked, $mutant] : $asked;
-            }
+            $asked = [...$asked, ...array_filter(
+                iterator_to_array($made, preserve_keys: false),
+                fn(MadeMutant $mutant): bool => $this->isAsked($request, $mutant),
+            )];
         }
 
         return $asked;

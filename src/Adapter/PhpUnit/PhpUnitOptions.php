@@ -7,19 +7,16 @@ namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 use function count;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\BoundsOptions;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
-use NightWorksIO\MutationGate\Core\Config\TighterOptions;
-use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\File\Paths;
-use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Test\TestsDirectory;
-use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 
@@ -34,12 +31,6 @@ use NightWorksIO\MutationGate\Mutator\Engine\Engine;
  */
 final readonly class PhpUnitOptions
 {
-    /** The option that holds the least each mutant's run is allowed, `timeouts.seconds`, which the flows write. */
-    public const string TIMEOUT = 'timeout';
-
-    /** The option that holds the most each mutant's run is allowed, `timeouts.most`, which the flows write. */
-    public const string MOST = 'most';
-
     /** The option that holds the mutators' classes, which the flows write. */
     public const string MUTATORS = 'mutators';
 
@@ -56,23 +47,16 @@ final readonly class PhpUnitOptions
     public static function read(Options $options): self|Invalid
     {
         $tests = $options->paths(Key::of(self::TESTS));
-        $timeout = $options->number(Key::of(self::TIMEOUT));
-        $most = $options->number(Key::of(self::MOST));
-        $tighter = TighterOptions::read($options);
+        $bounds = BoundsOptions::read($options);
         $mutators = $options->texts(Key::of(self::MUTATORS));
 
         return match (true) {
             $tests instanceof Problem => Invalid::because($tests),
-            $timeout instanceof Problem => Invalid::because($timeout),
-            $most instanceof Problem => Invalid::because($most),
-            $tighter instanceof Problem => Invalid::because($tighter),
+            $bounds instanceof Problem => Invalid::because($bounds),
             $mutators instanceof Problem => Invalid::because($mutators),
             default => new self(
                 $tests instanceof Paths && count($tests) > 0 ? $tests : Paths::of(TestsDirectory::conventional()),
-                LimitBounds::between(
-                    $timeout instanceof NotGiven ? Triage::standard()->limit() : Seconds::of($timeout),
-                    $most instanceof NotGiven ? Triage::standard()->most() : Seconds::of($most),
-                )->tighterFor($tighter),
+                $bounds,
                 self::engineOf($mutators instanceof Listed ? [...$mutators] : []),
             ),
         };

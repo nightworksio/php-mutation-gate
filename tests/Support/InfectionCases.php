@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
+use function array_any;
+use function array_find;
 use function array_map;
 use function array_slice;
 
@@ -11,6 +13,7 @@ use Closure;
 
 use function dirname;
 use function in_array;
+use function is_string;
 use function iterator_to_array;
 use function mb_strlen;
 use function mb_substr;
@@ -82,21 +85,22 @@ final readonly class InfectionCases
     public static function running(Project $at, array $lists, bool $covers, bool $logs): Closure
     {
         return static function (Command $command) use ($at, $lists, $covers, $logs): Ran {
-            foreach ($command->arguments() as $argument) {
-                if ($covers && str_starts_with($argument, '--log-junit=')) {
-                    InfectionRun::coverage(
-                        dirname(mb_substr($argument, mb_strlen('--log-junit='))),
-                        $at->root(),
-                        ['src/Money.php' => [11 => ['Tests\MoneyTest::adds']]],
-                        ['Tests\MoneyTest' => 0.5],
-                        ['Tests\MoneyTest::adds' => 0.5],
-                    );
-                }
+            $arguments = $command->arguments();
+            $junit = array_find($arguments, static fn(string $argument): bool => str_starts_with($argument, '--log-junit='));
 
-                if ($logs && str_starts_with($argument, '--skip-initial-tests')) {
-                    InfectionRun::log($at->own('logs/infection.json'), $lists);
-                    InfectionRun::text($at->own('logs/infection.log'), []);
-                }
+            if ($covers && is_string($junit)) {
+                InfectionRun::coverage(
+                    dirname(mb_substr($junit, mb_strlen('--log-junit='))),
+                    $at->root(),
+                    ['src/Money.php' => [11 => ['Tests\MoneyTest::adds']]],
+                    ['Tests\MoneyTest' => 0.5],
+                    ['Tests\MoneyTest::adds' => 0.5],
+                );
+            }
+
+            if ($logs && array_any($arguments, static fn(string $argument): bool => str_starts_with($argument, '--skip-initial-tests'))) {
+                InfectionRun::log($at->own('logs/infection.json'), $lists);
+                InfectionRun::text($at->own('logs/infection.log'), []);
             }
 
             return Ran::finished(succeeded: $covers, output: 'said');

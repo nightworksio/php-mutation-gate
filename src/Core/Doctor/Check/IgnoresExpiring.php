@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Doctor\Check;
 
+use function array_push;
+
+use DateTimeImmutable;
+
 use function implode;
 
+use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Expiry;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Doctor\DoctorRun;
@@ -38,29 +43,10 @@ final readonly class IgnoresExpiring
             return Findings::none();
         }
 
-        $now = $run->now();
-
         $found = [];
 
         foreach ($settings->ignores()->entries() as $index => $entry) {
-            $expires = $entry->expires();
-
-            if (! $expires instanceof Day) {
-                continue;
-            }
-
-            $expiry = Expiry::of($expires, $now);
-
-            if ($expiry === Expiry::Lasting) {
-                continue;
-            }
-
-            $found[] = sprintf(
-                self::ENTRY,
-                $index,
-                $expiry === Expiry::Expired ? 'expired on' : 'expires on',
-                $expires->value(),
-            );
+            array_push($found, ...self::noted($index, $entry->expires(), $run->now()));
         }
 
         return $found === []
@@ -72,5 +58,18 @@ final readonly class IgnoresExpiring
                 self::WHY,
                 self::FIX,
             ));
+    }
+
+    /** @return list<string> an entry that expired or expires soon; none for one that lasts, or never expires */
+    private static function noted(int $index, Day|Absent $expires, DateTimeImmutable $now): array
+    {
+        $expiry = $expires instanceof Day ? Expiry::of($expires, $now) : Expiry::Lasting;
+
+        return $expiry === Expiry::Lasting ? [] : [sprintf(
+            self::ENTRY,
+            $index,
+            $expiry === Expiry::Expired ? 'expired on' : 'expires on',
+            $expires->value(),
+        )];
     }
 }

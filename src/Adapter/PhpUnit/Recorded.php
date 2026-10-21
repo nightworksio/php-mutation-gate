@@ -20,7 +20,6 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestMethod;
 
 use function rawurldecode;
-use function str_contains;
 
 /**
  * The tests the extension recorded for one mutant: which started, and how
@@ -50,13 +49,10 @@ final readonly class Recorded
      */
     public static function in(string $results, TestIds $selected): self
     {
-        $lines = is_file($results) ? file($results, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) : [];
         $recorded = new self($selected, TestIds::none(), TestIds::none(), TestIds::none(), TestIds::none());
 
-        foreach (is_array($lines) ? $lines : [] as $line) {
-            [$mark, $test] = str_contains($line, Outcome::SEPARATOR)
-                ? explode(Outcome::SEPARATOR, $line, 2)
-                : [$line, ''];
+        foreach (self::linesOf($results) as $line) {
+            [$mark, $test] = [...explode(Outcome::SEPARATOR, $line, 2), ''];
             $outcome = Outcome::tryFrom($mark);
             $id = TestId::of(rawurldecode($test));
             $recorded = match (true) {
@@ -131,6 +127,18 @@ final readonly class Recorded
     public function skippedEach(): bool
     {
         return $this->ranAny() && count($this->killers()) === 0 && count($this->passed) === 0;
+    }
+
+    /**
+     * The lines a results file holds; none where there is no file.
+     *
+     * @return list<string>
+     */
+    private static function linesOf(string $results): array
+    {
+        $lines = is_file($results) ? file($results, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) : false;
+
+        return is_array($lines) ? $lines : [];
     }
 
     /** These, with each selected test of a class whose `setUpBeforeClass` failed or errored ended as errored. */

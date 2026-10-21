@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Verdict;
 
+use function array_find;
 use function count;
 
 use DateTimeImmutable;
@@ -94,17 +95,13 @@ final readonly class Ignoring
      */
     public function judged(JudgedMutant $mutant): JudgedMutant
     {
-        foreach ($this->applying as $entry) {
-            $ignored = $entry->matches($mutant->mutant())
-                ? $mutant->ignoredBecause(Reason::that($entry->reason()), $entry->namesOne())
-                : $mutant;
+        $leaving = array_find(
+            $this->applying,
+            static fn(Ignored $entry): bool => $entry->matches($mutant->mutant())
+                && self::ignoredBy($mutant, $entry)->judgement() === MutantJudgement::Ignored,
+        );
 
-            if ($ignored->judgement() === MutantJudgement::Ignored) {
-                return $ignored;
-            }
-        }
-
-        return $mutant;
+        return $leaving instanceof Ignored ? self::ignoredBy($mutant, $leaving) : $mutant;
     }
 
     /** Each entry that has expired, with the day, and each that expires within the notice. */
@@ -155,6 +152,12 @@ final readonly class Ignoring
         }
 
         return $failures;
+    }
+
+    /** The mutant as an entry that names it leaves it out, where it does. */
+    private static function ignoredBy(JudgedMutant $mutant, Ignored $entry): JudgedMutant
+    {
+        return $mutant->ignoredBecause(Reason::that($entry->reason()), $entry->namesOne());
     }
 
     /**

@@ -7,7 +7,6 @@ namespace NightWorksIO\MutationGate\Core\Hold;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
-use NightWorksIO\MutationGate\Core\File\Lines;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -85,9 +84,13 @@ final readonly class GroupCoverage
         $missed = [];
 
         foreach ($suite->files() as $file) {
-            $covered = $file->within($path) ? $group->linesCovered($file) : Lines::none();
+            if (! $file->within($path)) {
+                continue;
+            }
 
-            foreach ($file->within($path) ? $suite->linesCovered($file) : [] as $line) {
+            $covered = $group->linesCovered($file);
+
+            foreach ($suite->linesCovered($file) as $line) {
                 if (! $covered->has($line)) {
                     $missed[] = sprintf(self::LINE, $file->value(), $line->number());
                 }
