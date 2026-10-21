@@ -129,7 +129,7 @@ final readonly class NamedFiles
     /** @return list<string> these files, and every file they name, transitively, each once, in the order reached */
     public function reachedFrom(string ...$from): array
     {
-        return $this->walk($this->naming, $from);
+        return $this->walk($this->naming, ...$from);
     }
 
     /**
@@ -149,7 +149,7 @@ final readonly class NamedFiles
             }
         }
 
-        return $this->walk($namedBy, $this->mentioning(...$names));
+        return $this->walk($namedBy, ...$this->mentioning(...$names));
     }
 
     /**
@@ -182,13 +182,11 @@ final readonly class NamedFiles
      * each once, in the order reached.
      *
      * @param  array<string, list<string>> $edges where each file leads, by its path
-     * @param  array<string>               $from
      * @return list<string>
      */
-    private function walk(array $edges, array $from): array
+    private function walk(array $edges, string ...$queue): array
     {
         $reached = [];
-        $queue = array_values($from);
 
         $at = 0;
 
