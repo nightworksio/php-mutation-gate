@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
-use function array_filter;
 use function explode;
 use function file_get_contents;
 use function file_put_contents;
 use function implode;
 use function is_file;
-use function json_validate;
 
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\KillerFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
@@ -90,7 +88,7 @@ final readonly class ReplayRecord
     {
         $text = is_file($file) ? file_get_contents($file) : false;
 
-        return [...array_filter($text === false ? [] : explode("\n", $text), json_validate(...))];
+        return $text === false ? [] : explode("\n", $text);
     }
 
     /**
