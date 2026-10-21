@@ -22,7 +22,6 @@ final readonly class GlobalReads
         T_OBJECT_OPERATOR,
         T_NULLSAFE_OBJECT_OPERATOR,
         T_DOUBLE_COLON,
-        T_FUNCTION,
         T_NEW,
         T_CONST,
         T_USE,

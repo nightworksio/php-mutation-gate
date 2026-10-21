@@ -59,7 +59,7 @@ it('forks a child for each run it claims, and writes how each ended with what it
 })->group(...$holds);
 
 it('stops a child at its limit with every process under it, and says a child a signal ended was ended so', function (): void {
-    $workplace = WarmWorkers::place([WarmWorkers::run(['ACT' => 'stop'], 0.3), WarmWorkers::run(['ACT' => 'kill'])]);
+    $workplace = WarmWorkers::place([WarmWorkers::run(['ACT' => 'stop'], 2.0), WarmWorkers::run(['ACT' => 'kill'])]);
     $script = 'if [ "$ACT" = stop ]; then sleep 30 & echo $! > "$1.under"; sleep 30; else kill -9 $$; fi';
 
     Worker::at($workplace->directory(), 0)->run(WarmWorkers::forking($script, $workplace->out(0)));

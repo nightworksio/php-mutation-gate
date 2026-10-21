@@ -57,3 +57,36 @@ it('cannot follow a constant() of a name not written out', function (): void {
     expect($read->isAmbiguous())->toBeTrue()
         ->and(Php::sites($read))->toBe([]);
 });
+
+it('reads no global constant where its name stands as no value', function (string $code): void {
+    $read = GlobalReads::of(Symbol::globalConstant('LIMIT'), Php::source(sprintf("<?php\n%s\n", $code)));
+
+    expect(Php::sites($read))->toBe([])
+        ->and($read->isAmbiguous())->toBeFalse();
+})->with([
+    'a property' => ['$a->LIMIT;'],
+    'a nullsafe property' => ['$a?->LIMIT;'],
+    'a class constant' => ['Other::LIMIT;'],
+    'a class made without brackets' => ['new LIMIT;'],
+    'a class constant declared' => ['class A { const LIMIT = 1; }'],
+    'an import' => ['use LIMIT;'],
+    'an alias' => ['use Other as LIMIT;'],
+    'a namespace' => ['namespace LIMIT;'],
+    'a type checked' => ['$a instanceof LIMIT;'],
+    'a parent class' => ['class A extends LIMIT {}'],
+    'an interface implemented' => ['class A implements LIMIT {}'],
+    'a class' => ['class LIMIT {}'],
+    'an interface' => ['interface LIMIT {}'],
+    'a trait' => ['trait LIMIT {}'],
+    'an enum' => ['enum LIMIT {}'],
+    'a goto' => ['goto LIMIT;'],
+    'a function' => ['function LIMIT() {}'],
+    'a method named as the lookup' => ["\$a->constant('LIMIT');"],
+    'a static method named as the lookup' => ["Other::constant('LIMIT');"],
+]);
+
+it('reads a global constant through a constant() written fully qualified', function (): void {
+    $read = GlobalReads::of(Symbol::globalConstant('LIMIT'), Php::source("<?php\necho \\constant('LIMIT');\n"));
+
+    expect(Php::sites($read))->toBe(['src/A.php:2']);
+});

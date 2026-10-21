@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Choice;
 use NightWorksIO\MutationGate\Adapter\Pest\Unexecutable\Selector;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\Coverage\PlacedLine;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -97,5 +98,7 @@ it('covers the lines of each value one run can judge with the tests of the files
     ])
         ->and([$seconds('P\Tests\MoneySpec::__pest_evaluable_it_reads'), $seconds('P\Tests\InternalSpec::__pest_evaluable_it_runs'), $seconds('P\Tests\OtherSpec::__pest_evaluable_it_runs_the_other')])
         ->toBe([0.1, 9.0, 0.3])
+        ->and(array_map(static fn(PlacedLine $line): string => sprintf('%s:%d', $line->file()->value(), $line->line()), [...$read->placedLines()]))
+        ->not->toContain('src/Money.php:6')
         ->and(selectorOver(Unexecutables::project())->readCoverage(Paths::of(Path::of('src/Gone.php')), $onto))->toEqual($onto);
 });

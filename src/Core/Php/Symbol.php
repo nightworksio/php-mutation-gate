@@ -55,9 +55,9 @@ final readonly class Symbol
      */
     public static function globalConstant(string $name): self
     {
-        $segments = explode('\\', ltrim($name, '\\'));
+        $owner = ltrim($name, '\\');
 
-        return new self(SymbolKind::GlobalConstant, ltrim($name, '\\'), array_last($segments));
+        return new self(SymbolKind::GlobalConstant, $owner, array_last(explode('\\', $owner)));
     }
 
     /** A plain function's parameter default, by the function's fully qualified name. */
