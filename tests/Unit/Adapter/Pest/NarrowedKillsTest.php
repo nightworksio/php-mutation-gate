@@ -285,3 +285,87 @@ it('replays each narrowed kill whose order is known, once for an order and file 
         ['native-3', MutantStatus::Unjudged, Reason::that(ReplayVerdict::OtherOrder->reason())],
     ]],
 ]);
+
+it('replays the narrowed kills of one order once for each file they change, and those of one file once for each order', function (): void {
+    $at = PestCases::project();
+    $loaded = sprintf('%s/tests/ASpec.php', $at->root());
+    $first = OrderDigest::of(TestId::of('T::x'), TestId::of('T::a'))->value();
+    $second = OrderDigest::of(TestId::of('T::y'), TestId::of('T::a'))->value();
+    $arguments = ['vendor/bin/pest', '--bail', '--filter=ASpec', $loaded];
+    $kill = static fn(string $native, string $order): array => [
+        PestRun::killedAt($native, 'T::a', Placed::at(2, $order, 9)),
+        PestRun::narrowed($native, [$loaded]),
+        rtrim(RecordLine::arguments(PestRun::mutated($native), $arguments)),
+        rtrim(RecordLine::limited(PestRun::mutated($native), 2.0)),
+    ];
+    $file = sprintf('%s/results.jsonl', Scratch::directory());
+    PestRun::write($file, [
+        PestRun::planned('native-1', '/p/src/Money.php', 1, 'Plus', 'a', 'b'),
+        PestRun::planned('native-2', '/p/src/Money.php', 2, 'Plus', 'a', 'b'),
+        PestRun::planned('native-3', '/p/src/Other.php', 3, 'Plus', 'a', 'b'),
+        ...$kill('native-1', $first),
+        ...$kill('native-2', $second),
+        ...$kill('native-3', $first),
+    ]);
+    $killed = static function (string $at, string $native): Mutant {
+        $made = Verdicts::mutant($at, 'Plus', MutatorFamily::Arithmetic, $native);
+
+        return Mutant::of($made->id(), $native, $made->location(), $made->mutation(), MutantStatus::Killed, Unmeasured::duration())
+            ->killedBy(TestIds::of(TestId::of('T::a')));
+    };
+    $kills = NarrowedKills::in(MutationResult::of(Mutants::of(
+        $killed('src/Money.php:1', 'native-1'),
+        $killed('src/Money.php:2', 'native-2'),
+        $killed('src/Other.php:3', 'native-3'),
+    ), 0), $file, $at);
+    $asked = [];
+
+    $kills->unvouched(static function (array $replays) use (&$asked): array {
+        $asked = $replays;
+
+        return array_fill(0, count($replays), ReplayVerdict::Stands);
+    });
+    $files = Paths::of(Path::of('tests/ASpec.php'));
+    $replay = static fn(string $changed, string $native, string $order): PrefixReplay => PrefixReplay::of(
+        Path::of($changed),
+        PestRun::mutated($native),
+        $arguments,
+        $files,
+        2,
+        Prefix::keyOf($files, $order),
+        Seconds::of(2.0),
+    );
+
+    expect($asked)->toEqual([
+        $replay('src/Money.php', 'native-1', $first),
+        $replay('src/Money.php', 'native-2', $second),
+        $replay('src/Other.php', 'native-3', $first),
+    ])
+        ->and($kills->sets())->toBe(3);
+});
+
+it('neither replays nor controls a kill of a run no file narrowed, though its order is known', function () use ($mutant): void {
+    $at = PestCases::project();
+    $order = OrderDigest::of(TestId::of('T::x'), TestId::of('T::a'))->value();
+    $file = narrowedResults(
+        PestRun::killedAt('native-1', 'T::a', Placed::at(2, $order, 9)),
+        rtrim(RecordLine::arguments(PestRun::mutated('native-1'), ['vendor/bin/pest', '--bail'])),
+        rtrim(RecordLine::limited(PestRun::mutated('native-1'), 2.0)),
+    );
+    $kills = NarrowedKills::in(MutationResult::of(Mutants::of($mutant(1, MutantStatus::Killed, 'T::a')), 0), $file, $at);
+    $asked = [];
+    $controls = [];
+
+    $unvouched = $kills->unvouched(static function (array $replays) use (&$asked): array {
+        $asked = $replays;
+
+        return [];
+    });
+    $doubted = $kills->doubted(WholeSuite::tests(), static function (array $asking) use (&$controls): array {
+        $controls = $asking;
+
+        return [];
+    });
+
+    expect([$asked, $controls, [...$unvouched], [...$doubted], $kills->sets()])->toBe([[], [], [], [], 0]);
+});

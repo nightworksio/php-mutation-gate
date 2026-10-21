@@ -34,7 +34,8 @@ it('declares each constant of a named class-like and each backed case, from its 
             private const A = 1, B = [
                 self::A,
             ];
-            public function f(int $x): int { switch ($x) { case 1: return 1; } return self::RATE; }
+            public int $cents = 0;
+            public function f(int $x): int { switch ($x) { case 1: $y = 1; return $y; } return self::RATE; }
         }
         enum Status: string
         {
@@ -47,8 +48,8 @@ it('declares each constant of a named class-like and each backed case, from its 
         'constant App\Money::RATE 5-5',
         'constant App\Money::A 6-6',
         'constant App\Money::B 6-8',
-        'enum case App\Status::Open 13-13',
-        'constant App\Status::DEFAULT 15-15',
+        'enum case App\Status::Open 14-14',
+        'constant App\Status::DEFAULT 16-16',
     ]);
 });
 
@@ -70,4 +71,19 @@ it('declares each global constant a const statement or a define() with its name 
         'global constant App\RATE 7-7',
         'global constant C 10-10',
     ]);
+});
+
+it('declares a global constant from the line of its name to the last of its value, wherever the lines break, and to the end of a file that never ends it', function (): void {
+    expect(declaredValues(<<<'PHP'
+        <?php
+        namespace App;
+        const
+            A
+            = 1 +
+            2
+            , B = 3
+            ;
+        other('D', 4);
+        PHP))->toBe(['global constant App\A 4-6', 'global constant App\B 7-7'])
+        ->and(declaredValues("<?php\nconst A = 1 +\n2"))->toBe(['global constant A 2-3']);
 });

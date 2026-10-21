@@ -52,6 +52,7 @@ it('looks for a read only in a file whose names end in a word the read must spel
         $holds($limit, "<?php\necho FLOOR;"),
         $holds($paid, "<?php\nuse App\\Status as S;\nS::from('p');"),
         $holds($paid, "<?php\necho Money::Paid;"),
+        $holds($paid, "<?php\necho \\App\\STATUS::Paid;"),
         $holds(Symbol::property('App\Money', 'cents', static: false), "<?php\necho 1;"),
-    ])->toBe([true, true, true, false, true, true, false, true, false, true]);
+    ])->toBe([true, true, true, false, true, true, false, true, false, true, true]);
 });

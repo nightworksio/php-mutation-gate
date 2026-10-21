@@ -104,8 +104,7 @@ final readonly class Tokens implements Countable
             $enclosing[$at] = array_last($open) ?? self::NONE;
             $byId[$token->id][] = $at;
             $byText[$token->text][] = $at;
-            $last = $token->is(Names::TOKENS) ? self::lastSegment($token->text) : '';
-            $words += $last === '' ? [] : [$last => true, mb_strtolower($last) => true];
+            $words += $token->is(Names::TOKENS) ? self::words($token->text) : [];
 
             if ($token->is(self::CLOSES)) {
                 $closing[array_pop($open) ?? self::NONE] = $at;
@@ -256,12 +255,16 @@ final readonly class Tokens implements Countable
         return $spelt;
     }
 
-    /** The last segment of a name. */
-    private static function lastSegment(string $name): string
+    /**
+     * The last segment of a name, as written and in lower case.
+     *
+     * @return array<string, true>
+     */
+    private static function words(string $name): array
     {
-        $segments = explode('\\', $name);
+        $last = array_last(explode('\\', $name));
 
-        return array_last($segments);
+        return [$last => true, mb_strtolower($last) => true];
     }
 
     /**

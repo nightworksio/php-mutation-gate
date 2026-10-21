@@ -80,11 +80,11 @@ final readonly class ProcessTable
     public static function stop(int $pid, Closure $run): void
     {
         $run(self::signalling(self::FREEZE, $pid));
-        $frozen = [$pid];
+        $frozen = [];
 
         do {
             $under = self::parse($run(self::LISTING))->descendantsOf($pid);
-            $fresh = array_values(array_diff($under, $frozen));
+            $fresh = array_diff($under, $frozen);
             $frozen = [...$frozen, ...$fresh];
 
             if ($fresh !== []) {

@@ -8,7 +8,6 @@ use function array_filter;
 use function array_key_exists;
 use function array_values;
 use function count;
-use function iterator_to_array;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
@@ -66,7 +65,7 @@ final readonly class RecordedKills
     public function judged(Mutants $mutants): array
     {
         return array_values(array_filter(
-            iterator_to_array($mutants, preserve_keys: false),
+            [...$mutants],
             fn(Mutant $mutant): bool => $mutant->status() === MutantStatus::Killed
                 && ! array_key_exists($mutant->nativeId(), $this->uncovered),
         ));
