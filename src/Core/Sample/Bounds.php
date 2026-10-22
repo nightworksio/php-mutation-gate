@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Sample;
 
-use function max;
-use function min;
 use function sqrt;
 
 /**
@@ -41,7 +39,7 @@ final readonly class Bounds
         $spread = $quantile / (2 * $mutants);
         $half = $quantile * sqrt($share * (1 - $share) / $mutants + $spread * $spread) / $denominator;
 
-        return new self(max(0.0, $centre - $half), min(1.0, $centre + $half));
+        return new self($centre - $half, $centre + $half);
     }
 
     public function lower(): float

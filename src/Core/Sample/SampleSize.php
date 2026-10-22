@@ -32,20 +32,21 @@ final readonly class SampleSize
     }
 
     /**
-     * The units to run of a stratum of so many, holding this share of its
-     * tree's mutants, from the last results of those of them that have one.
+     * The units to run of a stratum of so many, estimated to hold so many of
+     * its tree's mutants, from the last results of those of them that have
+     * one.
      */
-    public function units(int $units, float $share, Spread $last): int
+    public function units(int $units, int $mutants, int $treeMutants, Spread $last): int
     {
         if ($last->units() < 2 || $last->sum()->counted() === 0) {
             return $units;
         }
 
-        if ($share <= 0) {
+        if ($mutants <= 0) {
             return min($units, $this->least);
         }
 
-        $needed = $this->unbounded($share, $last);
+        $needed = $this->unbounded($mutants / $treeMutants, $last);
         $corrected = (int) ceil($needed / (1 + $needed / $units));
 
         return min($units, max($this->least, $corrected));

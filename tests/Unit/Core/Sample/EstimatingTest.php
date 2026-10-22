@@ -91,3 +91,15 @@ it('tallies a sampled file with no judged mutant as holding none', function () u
     expect($estimate instanceof Estimate ? [$estimate->sampledUnits(), $estimate->lower(), $estimate->upper()] : [])
         ->toBe([1, 3_750, 8_750]);
 });
+
+it('tallies every unit of the tree its sample ran', function () use ($trees, $src, $file, $left, $units, $mutants): void {
+    $sample = Sample::drawn('a1b2c3', Confidence::NinetyFive, 2.0)->holding(
+        Units::of($file('src/A.php'), $file('src/B.php')),
+        Unsampled::none()->with($left('src/C.php', 4)),
+    );
+    $estimate = Estimating::of($sample, $trees(), Uncovered::Count)->tree($src(), $units(), $mutants());
+    $score = $estimate instanceof Estimate ? $estimate->score() : null;
+
+    expect($estimate instanceof Estimate ? [$estimate->sampledUnits(), $estimate->exactUnits()] : [])->toBe([2, 0])
+        ->and($score instanceof Score ? $score->hundredths() : 0)->toBe(7_500);
+});

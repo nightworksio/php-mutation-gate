@@ -119,6 +119,9 @@ it('fails the floor case of a sampled tree whose interval holds its floor as und
     $undecided = Xpath::of(JUnit::xml(Sampled::verdict(Floor::of(80))), '//testsuite[@name="src"]/testcase[@name="floor"]/failure/@type');
     $met = Xpath::of(JUnit::xml(Sampled::verdict(Floor::of(60))), '//testsuite[@name="src"]/testcase[@name="floor"]/failure');
 
+    $failures = Xpath::of(JUnit::xml(Sampled::verdict(Floor::of(80))), '//testsuite[@name="src"]/@failures');
+
     expect($undecided)->toBe(['undecided'])
+        ->and($failures)->toBe(['1'])
         ->and($met)->toBe([]);
 });

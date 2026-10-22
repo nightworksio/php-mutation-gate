@@ -83,3 +83,16 @@ it('has nothing to mutate where neither stratum holds a mutant', function () use
         ->and($sampled->upper())->toBe(0)
         ->and($sampled->judgement(Floor::of(80)))->toBe(Judgement::NothingToMutate);
 });
+
+it('counts an exact tree as a census would, where a share in floating point would round past it', function () use ($sample): void {
+    $estimate = Estimate::of(Tally::of(300, 3_000_001), 1, Stratum::none(), $sample());
+    $score = $estimate->score();
+
+    expect($score instanceof Score ? $score->hundredths() : -1)->toBe(0)
+        ->and($estimate->lower())->toBe(0)
+        ->and($estimate->upper())->toBe(0);
+});
+
+it('is sampled where its stratum holds a single unit', function () use ($sample): void {
+    expect(Estimate::of(Tally::of(1, 2), 1, Stratum::of(1, 3, Spread::of()), $sample())->isSampled())->toBeTrue();
+});

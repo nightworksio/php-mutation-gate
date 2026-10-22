@@ -93,10 +93,6 @@ final readonly class Estimating
     /** @param array<string, Tally> $byFile */
     private function tallyOf(Unit $unit, array $byFile): Tally
     {
-        if (! $unit->isHeld()) {
-            return array_key_exists($unit->path()->value(), $byFile) ? $byFile[$unit->path()->value()] : Tally::none();
-        }
-
         $tally = Tally::none();
 
         foreach ($byFile as $file => $counted) {

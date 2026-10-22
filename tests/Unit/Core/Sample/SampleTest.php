@@ -18,6 +18,7 @@ it('draws nothing for a run that is not sampled', function (): void {
 
     expect($sample->isDrawn())->toBeFalse()
         ->and($sample->seed())->toBe('')
+        ->and($sample->margin())->toBe(0.0)
         ->and(count($sample->sampled()))->toBe(0)
         ->and(count($sample->unsampled()))->toBe(0);
 });

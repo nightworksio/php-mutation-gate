@@ -22,7 +22,8 @@ it('sums its units, and reads their share killed as killed over counted', functi
         ->and($spread->sum()->killed())->toBe(22)
         ->and($spread->sum()->counted())->toBe(30)
         ->and($spread->ratio())->toEqualWithDelta(22 / 30, 1e-12)
-        ->and($spread->meanCounted())->toEqualWithDelta(10.0, 1e-12);
+        ->and($spread->meanCounted())->toEqualWithDelta(10.0, 1e-12)
+        ->and(Spread::of(Tally::of(1, 1))->ratio())->toBe(1.0);
 });
 
 it('reads how far each unit lies from what the share gives it, with a degree spent on the share', function (): void {

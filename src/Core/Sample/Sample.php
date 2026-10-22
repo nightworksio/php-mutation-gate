@@ -76,7 +76,7 @@ final readonly class Sample
         return $this->confidence;
     }
 
-    /** The half-width in points each tree's interval was sized for. */
+    /** The half-width in points each tree's interval was sized for; none, 0, where no sample was drawn. */
     public function margin(): float
     {
         return $this->margin;

@@ -79,7 +79,7 @@ final readonly class Stratum
         $mean = $this->sampled->meanCounted();
         $variance = $this->sampled->variance() / ($this->sampled->units() * $mean * $mean);
         $binomial = $share * (1 - $share);
-        $independent = $variance > 0 && $binomial > 0 ? min($counted, $binomial / $variance) : $counted;
+        $independent = $variance > 0 ? min($counted, $binomial / $variance) : $counted;
 
         return $independent / (1 - $this->sampled->units() / $this->units);
     }

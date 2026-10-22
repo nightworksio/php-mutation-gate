@@ -50,20 +50,16 @@ final readonly class Estimate
     /** The lowest score the interval allows, in hundredths, truncated. */
     public function lower(): int
     {
-        $score = $this->score();
-
-        return $this->stratum->units() === 0 || $score instanceof NothingToMutate
-            ? $this->hundredthsOf($score)
+        return $this->stratum->units() === 0
+            ? $this->hundredthsOf($this->score())
             : Percentage::hundredthsOf($this->percentOf($this->stratum->bounds($this->sample->confidence())->lower()));
     }
 
     /** The highest score the interval allows, in hundredths, rounded up. */
     public function upper(): int
     {
-        $score = $this->score();
-
-        return $this->stratum->units() === 0 || $score instanceof NothingToMutate
-            ? $this->hundredthsOf($score)
+        return $this->stratum->units() === 0
+            ? $this->hundredthsOf($this->score())
             : Percentage::hundredthsUp($this->percentOf($this->stratum->bounds($this->sample->confidence())->upper()));
     }
 
@@ -116,7 +112,7 @@ final readonly class Estimate
     /** The tree's score, in percent, where its sampled stratum kills this share of its mutants. */
     private function percentOf(float $share): float
     {
-        $mutants = $this->exact->counted() + $this->stratum->mutants();
+        $mutants = $this->mutants();
         $killed = $this->exact->killed() + $share * $this->stratum->mutants();
 
         return $mutants === 0 ? 0.0 : $killed / $mutants * Percentage::MOST;
@@ -124,9 +120,15 @@ final readonly class Estimate
 
     private function at(int $hundredths): Score|NothingToMutate
     {
-        return $this->exact->counted() + $this->stratum->mutants() === 0
+        return $this->mutants() === 0
             ? NothingToMutate::found()
             : Score::ofHundredths($hundredths);
+    }
+
+    /** The mutants of the tree: those counted exactly, and those its sampled stratum is estimated to hold. */
+    private function mutants(): int
+    {
+        return $this->exact->counted() + $this->stratum->mutants();
     }
 
     private function hundredthsOf(Score|NothingToMutate $score): int

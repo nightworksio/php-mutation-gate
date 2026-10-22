@@ -95,8 +95,7 @@ final readonly class Sampled
 
     /**
      * The sample, holding the draw of one tree's units: of those it runs that
-     * no run knows exactly, sized by the mutants all of them are estimated to
-     * hold.
+     * no run knows exactly, of the units whose mutants can be estimated.
      */
     private function tree(
         Sample $sample,
@@ -106,17 +105,13 @@ final readonly class Sampled
         UnitMutants $estimated,
     ): Sample {
         $candidates = [];
-        $mutants = 0;
 
         foreach ($units as $unit) {
             $candidate = $estimated->candidate($unit);
-            $mutants += $candidate instanceof Candidate ? $candidate->mutants() : 0;
-            $candidates = $candidate instanceof Candidate && $unknown->has($unit->path())
-                ? [...$candidates, $candidate]
-                : $candidates;
+            $candidates = $candidate instanceof Candidate ? [...$candidates, $candidate] : $candidates;
         }
 
-        return $drawing->into($sample, $mutants, ...$candidates);
+        return $drawing->into($sample, $unknown, ...$candidates);
     }
 
     /** The paths of the units a tree holds. */

@@ -65,7 +65,7 @@ final readonly class Spread
     {
         $units = count($this->tallies);
 
-        if ($units < 2 || $this->sum->counted() === 0) {
+        if ($units < 2) {
             return 0.0;
         }
 
