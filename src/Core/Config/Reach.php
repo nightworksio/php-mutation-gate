@@ -22,7 +22,7 @@ use function sprintf;
  * `holds.hotPath`, whether a run given no mode considers every unit,
  * `run.full`, rather than what changed since its last passing commit, and
  * which mutators a reached unit whose content is unchanged leaves out,
- * `pruning`.
+ * `pruning`, and how a sampled run sizes and draws its sample, `sampling`.
  */
 final readonly class Reach implements Part
 {
@@ -38,6 +38,7 @@ final readonly class Reach implements Part
         private bool|Absent $full,
         private Pruning $pruning,
         private Listed|Absent $lockPackages,
+        private Sampling $sampling,
     ) {
     }
 
@@ -53,10 +54,12 @@ final readonly class Reach implements Part
         bool|Absent $full = new Absent(),
         Pruning|Absent $pruning = new Absent(),
         Listed|Absent $lockPackages = new Absent(),
+        Sampling|Absent $sampling = new Absent(),
     ): self {
         $set = $pruning instanceof Pruning ? $pruning : Pruning::of();
+        $drawn = $sampling instanceof Sampling ? $sampling : Sampling::of();
 
-        return new self($packages, $everything, $hotPath, $full, $set, $lockPackages);
+        return new self($packages, $everything, $hotPath, $full, $set, $lockPackages, $drawn);
     }
 
     public static function none(): self
@@ -69,6 +72,7 @@ final readonly class Reach implements Part
         $none = self::none();
 
         $pruning = $none->pruning();
+        $sampling = $none->sampling();
 
         return self::of(
             $none->packages(),
@@ -76,6 +80,7 @@ final readonly class Reach implements Part
             $none->hotPaths()->share(),
             $none->isFullByDefault(),
             Pruning::of($pruning->enabled(), $pruning->window()->mutants(), $pruning->audit()),
+            sampling: Sampling::of($sampling->confidence(), $sampling->margin(), $sampling->minUnits()),
         );
     }
 
@@ -89,6 +94,7 @@ final readonly class Reach implements Part
                 Absent::laid($this->full, $later->full),
                 $this->pruning->over($later->pruning),
                 $this->joinedNames($this->lockPackages, $later->lockPackages),
+                $this->sampling->over($later->sampling),
             )
             : $this;
     }
@@ -137,6 +143,12 @@ final readonly class Reach implements Part
         return $this->pruning;
     }
 
+    /** `sampling`: how a sampled run sizes and draws its sample (ADR-0020). */
+    public function sampling(): Sampling
+    {
+        return $this->sampling;
+    }
+
     public function written(PathOrigin $origin): Json
     {
         return Json::object(
@@ -166,6 +178,7 @@ final readonly class Reach implements Part
             Member::unlessEmpty('holds', Json::object(Member::of('hotPath', $this->hotPath))),
             Member::unlessEmpty('run', Json::object(Member::of('full', $this->full))),
             $this->pruning->written(),
+            $this->sampling->written(),
         );
     }
 
@@ -195,7 +208,7 @@ final readonly class Reach implements Part
 
         $calls = PhpCalls::inWith(...$packages, ...$everything, ...$lockPackages, ...$hotPath, ...$full);
 
-        return $calls->and($this->pruning->php());
+        return $calls->and($this->pruning->php())->and($this->sampling->php());
     }
 
     /**

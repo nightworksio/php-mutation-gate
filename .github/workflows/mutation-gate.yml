@@ -42,7 +42,7 @@ on:
         type: string
         default: ''
       mode:
-        description: auto, full or changed.
+        description: auto, full, changed or sampled.
         type: string
         default: auto
       changed-since:

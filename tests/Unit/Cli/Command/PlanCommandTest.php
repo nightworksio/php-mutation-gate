@@ -247,3 +247,12 @@ it('cannot plan where the planned stage\'s delivery cannot be begun', function (
     expect($planned->code)->toBe(2)
         ->and($planned->errors)->toBe(sprintf("%s/.mutation-gate/delivery/planned/delivery.json could not be written.\n", $project));
 });
+
+it('says what its sample drew where --sample asks, and nothing of a sample otherwise', function () use ($plan): void {
+    $sampled = $plan(FlowCommands::project(), '--full --sample', ScriptedRunner::fixture(), Flows::ci());
+    $whole = $plan(FlowCommands::project(), '--full', ScriptedRunner::fixture(), Flows::ci());
+
+    expect($sampled->code)->toBe(0)
+        ->and($sampled->errors)->toContain('--sample has nothing to sample: every tree is held to 100, or each unit it runs is known exactly.')
+        ->and($whole->errors)->not->toContain('--sample');
+});

@@ -48,6 +48,11 @@ final readonly class SettingsCases
             "window": 500,
             "audit": "7d"
         },
+        "sampling": {
+            "confidence": 95,
+            "margin": 2.0,
+            "minUnits": 30
+        },
         "shards": {
             "seconds": 600,
             "max": 20,
@@ -220,6 +225,7 @@ final readonly class SettingsCases
         'pest' => ['patch' => true, 'canary' => 'canary'],
         'staticCheck' => ['tool' => 'phpstan', 'config' => 'phpstan.dist.neon', 'seconds' => 45, 'before' => true],
         'pruning' => ['enabled' => false, 'window' => 200, 'audit' => '3d'],
+        'sampling' => ['confidence' => 99, 'margin' => 1.5, 'minUnits' => 50, 'seed' => 'release-2026'],
         'local' => ['watchBudget' => '2m', 'prePushBudget' => '90s'],
     ];
 }

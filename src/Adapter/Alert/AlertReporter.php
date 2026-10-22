@@ -47,6 +47,8 @@ final readonly class AlertReporter implements Deferring, Reporter
 
     private const string CUT_SHORT = 'The run\'s budget cut it short, so it alerts nothing.';
 
+    private const string SAMPLED = 'The run was sampled, so it alerts nothing.';
+
     private const string STEADY = 'The default branch did not change state, so there is nothing to alert.';
 
     private function __construct(
@@ -141,8 +143,8 @@ final readonly class AlertReporter implements Deferring, Reporter
     }
 
     /**
-     * The CI run the verdict alerts of: in CI, on the default branch, not cut short, and where the branch changed
-     * state; or why it alerts nothing.
+     * The CI run the verdict alerts of: in CI, on the default branch, not cut short nor sampled, and where the
+     * branch changed state; or why it alerts nothing.
      */
     private function alerting(Verdict $verdict): CiRun|NotWritten
     {
@@ -153,6 +155,7 @@ final readonly class AlertReporter implements Deferring, Reporter
             $run instanceof CannotTell => NotWritten::because($run->why()),
             $verdict->account()->previous() instanceof NoTrend => NotWritten::because(self::OFF_DEFAULT),
             $verdict->wasCutShort() => NotWritten::because(self::CUT_SHORT),
+            $verdict->trees()->sample()->isDrawn() => NotWritten::because(self::SAMPLED),
             count(Alerts::of($verdict)) === 0 => NotWritten::because(self::STEADY),
             default => $run,
         };

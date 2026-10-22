@@ -15,7 +15,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  * A verdict, the lines the run printed beside it (where it wrote, and what
  * it could not write) and the committed baseline it was judged against; and
  * whether the run, having judged, reported and recorded, still cannot pass
- * judgement, as a CI run on a tree held to no floor cannot.
+ * judgement, as a CI run on a tree held to no floor cannot. A verdict that
+ * cannot judge, as one with a sampled tree undecided, exits as one.
  */
 final readonly class Judged
 {
@@ -43,7 +44,7 @@ final readonly class Judged
     public function exitCode(): ExitCode
     {
         return match (true) {
-            $this->refused => ExitCode::CannotJudge,
+            $this->refused, $this->verdict->judgement() === Judgement::CannotJudge => ExitCode::CannotJudge,
             $this->verdict->judgement() === Judgement::Failed => ExitCode::Failed,
             default => ExitCode::Passed,
         };

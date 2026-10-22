@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Report\JUnit;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
+use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
+use NightWorksIO\MutationGate\Tests\Support\Sampled;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 use NightWorksIO\MutationGate\Tests\Support\Xpath;
 
@@ -111,4 +113,12 @@ it('writes a security suite with the floor case of each package\'s set, failing 
         ->and($secured('/testsuites/testsuite[7]/testcase/@classname'))->toBe(['.', 'packages/billing'])
         ->and($secured('/testsuites/testsuite[7]/testcase[1]/failure/@message'))
         ->toBe(['Security scores 0.00%, below its floor of 100.00%.']);
+});
+
+it('fails the floor case of a sampled tree whose interval holds its floor as undecided', function (): void {
+    $undecided = Xpath::of(JUnit::xml(Sampled::verdict(Floor::of(80))), '//testsuite[@name="src"]/testcase[@name="floor"]/failure/@type');
+    $met = Xpath::of(JUnit::xml(Sampled::verdict(Floor::of(60))), '//testsuite[@name="src"]/testcase[@name="floor"]/failure');
+
+    expect($undecided)->toBe(['undecided'])
+        ->and($met)->toBe([]);
 });

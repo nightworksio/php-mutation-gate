@@ -39,3 +39,7 @@ it('cannot judge a verdict it reported and recorded but refuses, whatever it cam
         ->and(new Judged(Verdicts::failing(), [], Baseline::none())->refusing()->saying('x')->exitCode())
         ->toBe(ExitCode::CannotJudge);
 });
+
+it('exits 2 on a verdict that cannot judge, as one with a sampled tree undecided', function (): void {
+    expect(new Judged(Verdicts::named('cannot judge'), [], Baseline::none())->exitCode())->toBe(ExitCode::CannotJudge);
+});

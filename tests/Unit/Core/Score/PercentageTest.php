@@ -95,3 +95,10 @@ it('is none of it, and all of it', function (): void {
     expect(Percentage::none()->hundredths())->toBe(0)
         ->and(Percentage::whole()->hundredths())->toBe(10000);
 });
+
+it('rounds a percent up to hundredths, past the binary noise of multiplying it', function (): void {
+    expect(Percentage::hundredthsUp(83.411))->toBe(8_342)
+        ->and(Percentage::hundredthsUp(83.41))->toBe(8_341)
+        ->and(Percentage::hundredthsUp(0.29))->toBe(29)
+        ->and(Percentage::hundredthsUp(0.0))->toBe(0);
+});

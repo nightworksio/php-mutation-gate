@@ -20,6 +20,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Sample\Estimating;
+use NightWorksIO\MutationGate\Core\Sample\Sample;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -52,6 +54,7 @@ final readonly class Judge
         private Ignoring $ignoring,
         private NamedMutators|NotGiven $only,
         private MutantIds $equivalent,
+        private Sample $sample,
     ) {
     }
 
@@ -73,7 +76,14 @@ final readonly class Judge
             $ignoring,
             NotGiven::value(),
             MutantIds::none(),
+            Sample::none(),
         );
+    }
+
+    /** This judge, estimating each tree from what this sample ran of it (ADR-0020, decisions 23 and 24). */
+    public function sampling(Sample $sample): self
+    {
+        return clone($this, ['sample' => $sample]);
     }
 
     /**
@@ -158,12 +168,15 @@ final readonly class Judge
             $mutants[] = $this->judged($result);
         }
 
+        $judgedUnits = JudgedUnits::of(...$units);
+        $judgedMutants = JudgedMutants::none()->and(...$mutants);
         $verdict = TreeVerdict::judged(
             $tree,
             $this->baseline->floorOf($tree->path()),
-            JudgedUnits::of(...$units),
-            JudgedMutants::none()->and(...$mutants),
+            $judgedUnits,
+            $judgedMutants,
             $this->uncovered,
+            Estimating::of($this->sample, $this->trees, $this->uncovered)->tree($tree, $judgedUnits, $judgedMutants),
         );
         $entry = $this->baseline->entryOf($tree->path());
         $lowering = $entry instanceof Entry ? $entry->lowering() : Unlowered::floor();

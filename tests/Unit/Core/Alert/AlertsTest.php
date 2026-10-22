@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Tests\Support\Previous;
+use NightWorksIO\MutationGate\Tests\Support\Sampled;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 $events = static fn(Verdict $verdict): array => array_map(
@@ -67,4 +68,8 @@ it('tells each alert against the newest entry, with the verdict that made it', f
     expect($alert->verdict())->toBe($verdict)
         ->and($alert->previous()->verdict())->toBe(Judgement::Passed)
         ->and($alert->previous()->floorOf(Path::of('src')))->toEqual(Floor::of(80));
+});
+
+it('alerts nothing for a sampled run', function (): void {
+    expect(Alerts::of(Sampled::verdict(Floor::of(90))->withAccount(Previous::run('passed', floor: 90.0))))->toHaveCount(0);
 });

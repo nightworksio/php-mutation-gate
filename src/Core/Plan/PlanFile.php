@@ -52,7 +52,8 @@ use stdClass;
  * `peak` measured none, and every shard's memory triage reads it so; one
  * without `matrix` records first killers, one without `security` makes
  * mutants with every mutator the run turns on, and one without `suite` has
- * every test judge them. Beside it, outside the digest since they judge
+ * every test judge them; `sample`, where the run is sampled, what its sample
+ * drew. Beside it, outside the digest since they judge
  * nothing, `names` holds the names the runner gives the suite's tests, or
  * `unnamed` why it gave none; a plan with neither was made without asking.
  * A plan that cannot be read, or whose digest does not match what it holds,
@@ -68,6 +69,7 @@ use stdClass;
  * @phpstan-type RunOnWritten array{ref?: string, defaultBranch?: string}
  * @phpstan-type ShardWritten array<string, int|string|float|list<UnitWritten>>
  * @phpstan-import-type Written from PrunedRecord as PrunedWritten
+ * @phpstan-import-type Written from SampleRecord as SampleWritten
  *
  * @phpstan-type ConsideredWritten array{
  *     proved?: list<UnitWritten>,
@@ -91,6 +93,7 @@ use stdClass;
  *     carried?: list<UnitWritten>,
  *     carriedOwn?: list<UnitWritten>,
  *     pruned?: PrunedWritten,
+ *     sample?: SampleWritten,
  *     changed?: array<string, list<int>>,
  *     untested?: array<string, list<int>>,
  *     reach?: list<string>,
@@ -170,6 +173,7 @@ final readonly class PlanFile
             'shards' => array_map(self::shard(...), [...$plan]),
             ...self::considered($plan->considered()),
             ...PrunedRecord::field($plan->considered()->pruned()),
+            ...SampleRecord::field($plan->considered()->sample()),
             ...self::change($plan->considered()),
             ...DigestsRecord::field($plan->digests()),
             ...BriefingRecord::of($plan->briefing()),
@@ -285,7 +289,8 @@ final readonly class PlanFile
                     ->proving(self::unitsIn($file->field(self::PROVED)))
                     ->carrying(self::unitsIn($file->field(self::CARRIED)))
                     ->carryingOwn(self::unitsIn($file->field(self::CARRIED_OWN)))
-                    ->pruning(PrunedRecord::read($file->field(PrunedRecord::FIELD))),
+                    ->pruning(PrunedRecord::read($file->field(PrunedRecord::FIELD)))
+                    ->sampling(SampleRecord::read($file->field(SampleRecord::FIELD))),
             );
         $digests = $file->field(self::DIGESTS);
         $plan = $digests->isPresent() ? $plan->digesting(DigestsRecord::readRun($digests)) : $plan;

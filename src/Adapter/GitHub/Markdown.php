@@ -187,11 +187,14 @@ final readonly class Markdown
     private static function head(Verdict $verdict, Overview $overview, Seconds|NoHistory $lately): array
     {
         return [
-            sprintf('## mutation-gate: %s', $verdict->judgement()->value),
+            $verdict->trees()->sample()->isDrawn()
+                ? sprintf('## mutation-gate: %s, sampled', $verdict->judgement()->value)
+                : sprintf('## mutation-gate: %s', $verdict->judgement()->value),
             SavingsText::of($verdict, $lately),
             implode(' ', [
                 SetText::project($overview->score()),
                 ...$verdict->wasCutShort() ? ['The run stopped before it judged every mutant.'] : [],
+                ...$verdict->trees()->sample()->isDrawn() ? [SetText::SAMPLED] : [],
             ]),
         ];
     }
@@ -265,15 +268,13 @@ final readonly class Markdown
     private static function treeRow(TreeVerdict $tree): string
     {
         $floor = $tree->floor();
-        $score = $tree->score();
-        $base = $tree->base();
 
         return sprintf(
             '| %s | %s | %s | %s | %s |',
             Escape::code($tree->tree()->path()->value()),
             SetText::floor($floor),
-            $floor instanceof Exempt ? '' : Percent::of($score),
-            $score instanceof Score && $base instanceof Score ? Percent::change($base, $score) : '',
+            $floor instanceof Exempt ? '' : SetText::score($tree),
+            SetText::change($tree),
             Escape::text(
                 $floor instanceof Exempt ? sprintf('exempt: %s', $floor->reason()) : $tree->judgement()->value,
             ),

@@ -32,19 +32,31 @@ final readonly class Mode
 
     private const string ONLY_A_RUN = '`last-run` names the commit a run of the gate judged, so only `run` reads it.';
 
-    private function __construct(private string $since)
+    private function __construct(private string $since, private bool $sampled)
     {
     }
 
     public static function full(): self
     {
-        return new self('');
+        return new self('', sampled: false);
     }
 
     /** Change-scoped, since a ref git resolves, `last-passed` or `last-run`. */
     public static function since(string $ref): self
     {
-        return new self($ref);
+        return new self($ref, sampled: false);
+    }
+
+    /** This mode, sampling the units no proof covers. */
+    public function sampled(): self
+    {
+        return new self($this->since, sampled: true);
+    }
+
+    /** Whether the units no proof covers are sampled, as `--sample` asks. */
+    public function isSampled(): bool
+    {
+        return $this->sampled;
     }
 
     /** Whether the change is read since the newest commit of the run's scope whose verdict passed, as by default. */

@@ -48,7 +48,7 @@ HEADS = "refs/heads/"
 # The events `mode: auto` runs in full on (ADR-0005, decision 2).
 FULL = frozenset({"schedule", "workflow_dispatch", "release"})
 
-MODES = frozenset({"auto", "full", "changed"})
+MODES = frozenset({"auto", "full", "changed", "sampled"})
 
 LEDGERS = ".mutation-gate/ledger"
 
@@ -129,10 +129,13 @@ def mode_arguments(
 
     With no base given, a pull request runs from its base, another branch
     from the default branch, and the default branch from the last commit
-    whose verdict passed (ADR-0005, decision 2).
+    whose verdict passed (ADR-0005, decision 2). `sampled` considers what
+    `auto` does, and samples the units no proof covers (ADR-0020, decision 22).
     """
     if mode not in MODES:
-        raise Refused(f"mode is {mode!r}; it is auto, full or changed.")
+        raise Refused(f"mode is {mode!r}; it is auto, full, changed or sampled.")
+    if mode == "sampled":
+        return [*mode_arguments("auto", changed_since, event, ref, payload, default_branch), "--sample"]
     tag = ref.startswith("refs/tags/")
     if mode == "full" or (mode == "auto" and (event in FULL or tag)):
         return ["--full"]

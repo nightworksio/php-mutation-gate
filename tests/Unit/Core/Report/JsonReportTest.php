@@ -47,6 +47,7 @@ use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Killings;
 use NightWorksIO\MutationGate\Tests\Support\PruningCases;
 use NightWorksIO\MutationGate\Tests\Support\Removing;
+use NightWorksIO\MutationGate\Tests\Support\Sampled;
 use NightWorksIO\MutationGate\Tests\Support\Schema;
 use NightWorksIO\MutationGate\Tests\Support\Secured;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
@@ -55,7 +56,24 @@ it('writes everything in the verdict, and what the committed schema describes', 
     $json = JsonReport::encode(Verdicts::named($verdict));
 
     expect(Schema::errors($json, Schema::at('resources/report.schema.json')))->toBe([]);
-})->with(['failing', 'passing', 'empty', 'with a matrix', 'cannot judge', 'proved', 'clustered', 'secured', 'suited', 'unplaced']);
+})->with(['failing', 'passing', 'empty', 'with a matrix', 'cannot judge', 'proved', 'clustered', 'secured', 'suited', 'unplaced', 'sampled']);
+
+it('writes a sampled run\'s sample, and each tree\'s estimate, and neither for a run judged whole', function (): void {
+    $report = JsonReport::encode(Sampled::verdict(Floor::of(80)));
+    $whole = JsonReport::encode(Verdicts::passing());
+
+    expect(Decoded::at($report, 'sample'))->toBe(['seed' => 'a1b2c3', 'confidence' => 95, 'margin' => 2.0])
+        ->and(Decoded::at($report, 'trees', 0, 'estimate'))->toBe([
+            'score' => 75.55,
+            'lower' => 60.7,
+            'upper' => 85.26,
+            'confidence' => 95,
+            'units' => ['sampled' => 3, 'exact' => 5, 'total' => 15],
+        ])
+        ->and(Decoded::at($report, 'trees', 0, 'judgement'))->toBe('undecided')
+        ->and($whole)->not->toContain('"sample"')
+        ->and($whole)->not->toContain('"estimate"');
+});
 
 it('writes what each suite alone kills, and whether it is exact', function (MatrixKind $kind): void {
     $report = JsonReport::encode(Killings::suited($kind));

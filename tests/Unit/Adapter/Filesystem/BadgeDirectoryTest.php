@@ -13,12 +13,14 @@ use NightWorksIO\MutationGate\Core\Report\Badge;
 use NightWorksIO\MutationGate\Core\Report\BadgeColors;
 use NightWorksIO\MutationGate\Core\Report\Trend;
 use NightWorksIO\MutationGate\Core\Report\TrendSvg;
+use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
+use NightWorksIO\MutationGate\Tests\Support\Sampled;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\StoppedClock;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
@@ -115,4 +117,12 @@ it('says there is no history yet where no run knew what it saved', function () u
     BadgeDirectory::at($publish, BadgeColors::defaults(), 'abc123', $clock())->report(Verdicts::failing());
 
     expect(file_get_contents(sprintf('%s/savings.json', $publish)))->toBe(Badge::savings(NoHistory::yet()));
+});
+
+it('updates neither the badge nor the trend for a sampled run', function () use ($clock): void {
+    $publish = sprintf('%s/publish', Scratch::directory());
+
+    expect(BadgeDirectory::at($publish, BadgeColors::defaults(), 'abc123', $clock())->report(Sampled::verdict(Floor::of(60))))
+        ->toEqual(NotWritten::because('A sampled run updates neither the badge nor the trend.'))
+        ->and(is_dir($publish))->toBeFalse();
 });

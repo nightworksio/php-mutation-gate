@@ -42,6 +42,7 @@ use NightWorksIO\MutationGate\Core\Pruning\PruningAccount;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Removal\Removals;
+use NightWorksIO\MutationGate\Core\Report\SetText;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Test\DeclaredSuites;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
@@ -90,6 +91,9 @@ final readonly class Judging
 
     /** Why a passing run of one suite's tests alone records no commit as passed: no floor held it. */
     private const string SUITE_ONLY = 'A run of one suite\'s tests alone records no commit as passed.';
+
+    /** Why a passing sampled run records no commit as passed: it estimated its trees (ADR-0020, decision 29). */
+    private const string SAMPLED = 'A sampled run records no commit as passed.';
 
     /** Why a passing verdict's commit is not recorded as passed: a run from it must still reach what it left. */
     private const string UNJUDGED = 'The run left mutants unjudged, so its commit is not recorded as passed.';
@@ -229,6 +233,8 @@ final readonly class Judging
             $ignoring,
         );
         $judge = $this->adapters->isSecurityOnly() ? $judge->onlyMadeBy($this->adapters->security) : $judge;
+        $sample = $plan->considered()->sample();
+        $judge = $judge->sampling($sample);
         $newest = $ledgers->newest();
         $fresh = PrunedCarry::of($plan->considered()->pruned(), $newest, $plan->digests())->into(Agreement::checked(
             $results->units(),
@@ -252,6 +258,7 @@ final readonly class Judging
         $verdicts = $this->read($matrix, $judge->judging($matrix)->proving($equivalents->proven)->trees($judged));
         $security = new NarrowRunHolding($this->adapters)->security(
             $judge->security($verdicts, $this->adapters->security, $this->settings->floors()->security()),
+            $sample,
         );
         $unfloored = count(Ratchet::unfloored($verdicts)) + count(Ratchet::securityUnfloored($security));
         $committed = $this->resolved($proving, $carrying, $this->committedBefore($plan));
@@ -372,12 +379,20 @@ final readonly class Judging
             : $missed;
         $warnings = new VerdictWarnings($this->adapters, $this->settings);
 
-        return Verdict::of($verdicts, $heldTo)
+        $verdict = Verdict::of($verdicts, $heldTo)
             ->withSets(HeldSets::of($newCode, $security))
             ->withReach($plan->considered()->reach())
             ->withMatrix($matrix)
             ->withWarnings($warnings->of($plan, $verdicts, $shards, $map)->and($warnings->unfloored($security)))
             ->withFailures($failures);
+
+        foreach ($verdicts as $tree) {
+            $verdict = $tree->judgement() === Judgement::Undecided
+                ? $verdict->withCannotJudge(CannotJudge::because(SetText::tree($tree)))
+                : $verdict;
+        }
+
+        return $verdict;
     }
 
     /** Why each held unit its holding tests miss lines of fails. */
@@ -469,6 +484,7 @@ final readonly class Judging
         $passed = match (true) {
             $verdict->judgement() !== Judgement::Passed => CannotTell::because(self::FAILED),
             $unjudged > 0 => CannotTell::because(self::UNJUDGED),
+            $verdict->trees()->sample()->isDrawn() => CannotTell::because(self::SAMPLED),
             $this->adapters->isSecurityOnly() => CannotTell::because(self::SECURITY_ONLY),
             $this->adapters->isSuiteOnly() => CannotTell::because(self::SUITE_ONLY),
             $plan->briefing()->isOnOwnScopeCoverage()

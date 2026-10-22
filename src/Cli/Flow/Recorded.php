@@ -103,9 +103,10 @@ final readonly class Recorded
 
     /**
      * Whether the run judged every unit it considered: no shard's budget
-     * stopped it, no held unit's tests missed its lines, and every unit it ran
-     * left a proof, or carries its pruned mutators' last results (ADR-0005,
-     * decision 2; ADR-0025, decision 1).
+     * stopped it, no sample left a unit out, no held unit's tests missed its
+     * lines, and every unit it ran left a proof, or carries its pruned
+     * mutators' last results (ADR-0005, decision 2; ADR-0020, decision 29;
+     * ADR-0025, decision 1).
      *
      * @param list<array{UnitResult, Proof|NotRecorded}> $recordings
      */
@@ -114,6 +115,7 @@ final readonly class Recorded
         $pruned = $plan->considered()->pruned()->files();
 
         return ! $results->wereCutShort()
+            && ! $plan->considered()->sample()->isDrawn()
             && count($results->misses()) === 0
             && array_all(
                 $recordings,

@@ -33,6 +33,10 @@ use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
+use NightWorksIO\MutationGate\Core\Sample\Candidate;
+use NightWorksIO\MutationGate\Core\Sample\Confidence;
+use NightWorksIO\MutationGate\Core\Sample\Sample;
+use NightWorksIO\MutationGate\Core\Sample\Unsampled;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\SuiteName;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -616,3 +620,19 @@ it('refuses a plan whose suite field is no suite\'s name', function (string $val
     'empty' => ['""', 'the file.suite is not a suite\'s name.'],
     'a number' => ['1', 'the file.suite is not text.'],
 ]);
+
+it('writes what a sampled run\'s sample drew within its digest, and reads it back', function (): void {
+    $empty = planFileEmpty()->on(RunOn::detached(Scope::branch('main')));
+    $plan = $empty->considering(Considered::everything()->sampling(
+        Sample::drawn('a1b2c3', Confidence::NinetyFive, 2.0)->holding(
+            Units::of(Unit::file(Path::of('src/A.php'))),
+            Unsampled::none()->with(Candidate::of(Unit::file(Path::of('src/B.php')), 7, NotGiven::value())),
+        ),
+    ));
+    $written = PlanFile::encode($plan);
+
+    expect($written)->toContain('"sample": {')
+        ->and(PlanFile::decode($written))->toEqual($plan)
+        ->and(PlanFile::digestOf($plan)->value())->not->toBe(PlanFile::digestOf($empty)->value())
+        ->and(PlanFile::encode($empty))->not->toContain('"sample"');
+});

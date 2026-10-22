@@ -1778,6 +1778,35 @@
             },
             "additionalProperties": false
         },
+        "sampling": {
+            "type": "object",
+            "properties": {
+                "confidence": {
+                    "enum": [
+                        90,
+                        95,
+                        99
+                    ],
+                    "default": 95
+                },
+                "margin": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 10,
+                    "default": 2.0
+                },
+                "minUnits": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 30
+                },
+                "seed": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            },
+            "additionalProperties": false
+        },
         "mutators": {
             "type": "object",
             "properties": {

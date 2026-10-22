@@ -232,6 +232,7 @@ final readonly class JUnit
                 sprintf(self::FAILED, 'floor', Xml::text($said), Xml::text(self::listing($said, $survivors, $names))),
                 true,
             ],
+            Judgement::Undecided => [sprintf(self::FAILED, 'undecided', Xml::text($said), Xml::text($said)), true],
             Judgement::Exempt => [sprintf(self::SKIPPED, Xml::text($said)), false],
             Judgement::Passed, Judgement::NothingToMutate => [sprintf(self::OUTPUT, Xml::text($said)), false],
         };

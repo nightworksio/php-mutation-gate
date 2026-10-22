@@ -24,7 +24,13 @@ final readonly class Percent
     {
         return $value instanceof NothingToMutate
             ? NothingToMutate::SAID
-            : sprintf('%s%%', Percentage::points($value->hundredths()));
+            : self::ofHundredths($value->hundredths());
+    }
+
+    /** A number of hundredths of a percent as every report prints a score: `81.37%`. */
+    public static function ofHundredths(int $hundredths): string
+    {
+        return sprintf('%s%%', Percentage::points($hundredths));
     }
 
     /** The change from one score to another, signed, in points: `+1.20`, `-0.05`, `±0.00`. */

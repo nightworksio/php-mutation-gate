@@ -5,15 +5,18 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Sample\Sample;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdicts;
 
 /**
  * What a narrowed run holds to a floor: a run of the security mutators
- * alone judges none of the trees (ADR-0021, decision 20), and a run of one
+ * alone judges none of the trees (ADR-0021, decision 20), a run of one
  * suite's tests alone holds no tree, and no security set, to one (ADR-0025,
- * decision 9).
+ * decision 9), and a sampled run, which estimates its trees, judges no
+ * security set, since the units it left out hold security mutants it did not
+ * run (ADR-0020, as built).
  */
 final readonly class NarrowRunHolding
 {
@@ -22,6 +25,9 @@ final readonly class NarrowRunHolding
 
     /** Why each tree and security set of one suite's run is held to no floor. */
     private const string UNHELD = '--suite judges no floor';
+
+    /** Why each security set of a sampled run is held to no floor. */
+    private const string SAMPLED = '--sample estimates the trees and judges no security set';
 
     public function __construct(private Adapters $adapters)
     {
@@ -56,18 +62,24 @@ final readonly class NarrowRunHolding
     /**
      * Each package's security set, exempt in a run of one suite's tests alone
      * that does not make mutants with the security mutators alone, which
-     * holds no floor (ADR-0025, decision 9).
+     * holds no floor (ADR-0025, decision 9), and in a sampled run.
      */
-    public function security(SecurityVerdicts $security): SecurityVerdicts
+    public function security(SecurityVerdicts $security, Sample $sample): SecurityVerdicts
     {
-        if ($this->adapters->isSecurityOnly() || ! $this->adapters->isSuiteOnly()) {
+        $why = match (true) {
+            $sample->isDrawn() => Exempt::because(self::SAMPLED),
+            $this->adapters->isSuiteOnly() && ! $this->adapters->isSecurityOnly() => Exempt::because(self::UNHELD),
+            default => NotGiven::value(),
+        };
+
+        if (! $why instanceof Exempt) {
             return $security;
         }
 
         $exempt = [];
 
         foreach ($security as $set) {
-            $exempt[] = $set->exempting(Exempt::because(self::UNHELD));
+            $exempt[] = $set->exempting($why);
         }
 
         return SecurityVerdicts::of(...$exempt);

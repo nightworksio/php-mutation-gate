@@ -44,6 +44,7 @@ final readonly class BuilderClasses
         'Reach' => self::BUILDER,
         'Report' => self::BUILDER,
         'Runner' => self::BUILDER,
+        'Sampling' => self::BUILDER,
         'Shards' => self::BUILDER,
         'Source' => self::BUILDER,
         'Survivors' => self::BUILDER,

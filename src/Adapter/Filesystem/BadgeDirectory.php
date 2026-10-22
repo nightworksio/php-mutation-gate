@@ -61,6 +61,8 @@ final readonly class BadgeDirectory implements Reporter
 
     private const string CUT_SHORT = 'A run its budget cut short updates neither the badge nor the trend.';
 
+    private const string SAMPLED = 'A sampled run updates neither the badge nor the trend.';
+
     private function __construct(
         private ReportPath $path,
         private BadgeColors $colors,
@@ -93,8 +95,14 @@ final readonly class BadgeDirectory implements Reporter
 
     public function report(Verdict $verdict): Written|NotWritten
     {
-        if ($verdict->wasCutShort()) {
-            return NotWritten::because(self::CUT_SHORT);
+        $unwritten = match (true) {
+            $verdict->wasCutShort() => NotWritten::because(self::CUT_SHORT),
+            $verdict->trees()->sample()->isDrawn() => NotWritten::because(self::SAMPLED),
+            default => NotGiven::value(),
+        };
+
+        if ($unwritten instanceof NotWritten) {
+            return $unwritten;
         }
 
         $now = $this->clock->now();

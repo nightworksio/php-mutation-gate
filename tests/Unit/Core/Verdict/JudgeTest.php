@@ -29,10 +29,17 @@ use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKill;
 use NightWorksIO\MutationGate\Core\Mutant\ProvedKills;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Sample\Candidate;
+use NightWorksIO\MutationGate\Core\Sample\Census;
+use NightWorksIO\MutationGate\Core\Sample\Confidence;
+use NightWorksIO\MutationGate\Core\Sample\Estimate;
+use NightWorksIO\MutationGate\Core\Sample\Sample;
+use NightWorksIO\MutationGate\Core\Sample\Unsampled;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
 use NightWorksIO\MutationGate\Core\Score\Score;
@@ -47,6 +54,7 @@ use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
+use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\Ignoring;
 use NightWorksIO\MutationGate\Core\Verdict\Judge;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
@@ -356,4 +364,26 @@ it('marks each mutant and kill its unit\'s result carries for a pruned mutator, 
         static fn(JudgedMutant|JudgedKill $judged): string => sprintf('%s %s', $judged->mutant()->location()->start()->number(), $judged->isCarriedPruned() ? 'pruned' : 'run'),
         [...$app->mutants()],
     ))->toBe(['1 run', '2 pruned', '3 pruned']);
+});
+
+it('judges every tree whole, a census, unless a sample estimates it', function () use ($makeJudge, $makeResults): void {
+    foreach ($makeJudge()->trees($makeResults()) as $verdict) {
+        expect($verdict->estimate())->toBeInstanceOf(Census::class);
+    }
+});
+
+it('estimates each tree from what its sample ran of it, and holds it to its floor by the estimate', function () use ($makeJudge, $makeResults): void {
+    $sample = Sample::drawn('a1b2c3', Confidence::NinetyFive, 2.0)->holding(
+        Units::of(Unit::file(Path::of('app/Kernel.php'))),
+        Unsampled::none()->with(Candidate::of(Unit::file(Path::of('app/Console.php')), 8, NotGiven::value())),
+    );
+
+    [$app, $http] = [...$makeJudge()->sampling($sample)->trees($makeResults())];
+    $estimate = $app->estimate();
+
+    expect($estimate)->toBeInstanceOf(Estimate::class)
+        ->and($estimate instanceof Estimate ? [$estimate->sampledUnits(), $estimate->exactUnits(), $estimate->totalUnits()] : [])
+        ->toBe([1, 0, 2])
+        ->and($app->judgement())->toBe(Judgement::Undecided)
+        ->and($http->estimate() instanceof Estimate && ! $http->estimate()->isSampled())->toBeTrue();
 });

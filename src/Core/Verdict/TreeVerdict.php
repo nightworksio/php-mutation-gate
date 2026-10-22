@@ -9,6 +9,8 @@ use NightWorksIO\MutationGate\Core\Baseline\Unlowered;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Sample\Census;
+use NightWorksIO\MutationGate\Core\Sample\Estimate;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
@@ -19,9 +21,11 @@ use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 
 /**
- * One tree judged whole: every unit in it, whether its result was run,
- * proved or carried, every mutant behind the score, and the floor the score
- * was held to, which is the higher of the declared floor and the baseline's.
+ * One tree judged: every unit in it, whether its result was run, proved or
+ * carried, every mutant behind the score, and the floor the score was held
+ * to, which is the higher of the declared floor and the baseline's. A
+ * sampled run's tree is held to its floor by its estimate, and raises none
+ * (ADR-0020, decisions 25 and 29).
  */
 final readonly class TreeVerdict
 {
@@ -33,6 +37,7 @@ final readonly class TreeVerdict
         private Uncovered $uncovered,
         private Score|NothingToMutate|Unrecorded $base,
         private Lowered|Unlowered $lowering,
+        private Estimate|Census $estimate,
     ) {
     }
 
@@ -42,8 +47,24 @@ final readonly class TreeVerdict
         JudgedUnits $units,
         JudgedMutants $mutants,
         Uncovered $uncovered,
+        Estimate|Census $estimate = new Census(),
     ): self {
-        return new self($tree, $baseline, $units, $mutants, $uncovered, Unrecorded::floor(), Unlowered::floor());
+        return new self(
+            $tree,
+            $baseline,
+            $units,
+            $mutants,
+            $uncovered,
+            Unrecorded::floor(),
+            Unlowered::floor(),
+            $estimate,
+        );
+    }
+
+    /** What a sampled run estimated of the tree; a census where the run judged it whole. */
+    public function estimate(): Estimate|Census
+    {
+        return $this->estimate;
     }
 
     /** This verdict, with the score the tree had on the base, for the change against it. */
@@ -133,7 +154,9 @@ final readonly class TreeVerdict
 
     public function judgement(): Judgement
     {
-        return Judgement::of($this->floor(), $this->score());
+        return $this->estimate instanceof Estimate
+            ? $this->estimate->judgement($this->floor())
+            : Judgement::of($this->floor(), $this->score());
     }
 
     /** The mutants the score counts as not killed, those on changed lines first. */
@@ -142,9 +165,11 @@ final readonly class TreeVerdict
         return $this->mutants->survivors($this->uncovered);
     }
 
-    /** The floor the baseline rises to (ADR-0003, decision 6). */
+    /** The floor the baseline rises to (ADR-0003, decision 6); none from a sampled run. */
     public function raised(): Floor|Unraised
     {
-        return HeldFloor::of($this->tree->declared(), $this->baseline)->raisedBy($this->counts(), $this->uncovered);
+        return $this->estimate instanceof Estimate
+            ? Unraised::floor()
+            : HeldFloor::of($this->tree->declared(), $this->baseline)->raisedBy($this->counts(), $this->uncovered);
     }
 }

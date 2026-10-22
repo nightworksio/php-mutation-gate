@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Config\Definition\PruningKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\ReachKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\Reading;
 use NightWorksIO\MutationGate\Core\Config\Definition\ReportsKeys;
+use NightWorksIO\MutationGate\Core\Config\Definition\SamplingKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\Section;
 use NightWorksIO\MutationGate\Core\Config\Definition\SetupKeys;
 use NightWorksIO\MutationGate\Core\Config\Definition\ShardsKeys;
@@ -68,6 +69,7 @@ final readonly class Definition
             ...PestKeys::fields(),
             ...StaticCheckKeys::fields($origin),
             ...PruningKeys::fields(),
+            ...SamplingKeys::fields(),
             ...MutatorsKeys::fields(),
             ...LocalKeys::fields(),
             ...CoverageKeys::fields(),

@@ -42,6 +42,9 @@ final readonly class FlowOptions
 
     public const string FULL = 'full';
 
+    /** The option that has `plan` and `run` sample the units no proof covers (ADR-0020, decision 22). */
+    public const string SAMPLE = 'sample';
+
     public const string COVERAGE = 'coverage';
 
     /** The option naming the directory a command reads what an earlier step left from. */
@@ -90,6 +93,10 @@ final readonly class FlowOptions
 
     private const string ONLY_WHERE = '--only=changed limits the problems output. Add --output=problems.';
 
+    private const string SAMPLE_NARROWED = <<<'SAID'
+        --sample estimates each tree against its floor, and --%s holds the trees to none. Give one of them.
+        SAID;
+
     /** `plan`'s options, which the all-in-one run takes too. */
     public static function planning(Command $command): Command
     {
@@ -100,6 +107,11 @@ final readonly class FlowOptions
                 description: 'Consider what changed since this ref, last-passed (the default) or last-run',
             )
             ->addOption(self::FULL, mode: InputOption::VALUE_NONE, description: 'Consider every unit')
+            ->addOption(
+                self::SAMPLE,
+                mode: InputOption::VALUE_NONE,
+                description: 'Run a sample of the units no proof covers, and estimate each tree\'s score',
+            )
             ->addOption(
                 self::COVERAGE,
                 mode: InputOption::VALUE_REQUIRED,
@@ -194,14 +206,16 @@ final readonly class FlowOptions
     /**
      * The run mode the options ask for: `--full`, or `--changed-since`; with
      * neither, every unit where `run.full` asks for it, and otherwise what
-     * changed since the scope's last passing commit (ADR-0005, decision 2).
+     * changed since the scope's last passing commit (ADR-0005, decision 2);
+     * sampled where `--sample` asks (ADR-0020, decision 22), which no run of
+     * the security mutators or of one suite alone takes.
      */
     public static function mode(InputInterface $input, Settings $settings): Mode|CannotJudge
     {
         $since = self::text($input, self::CHANGED_SINCE);
         $full = $input->hasOption(self::FULL) && $input->getOption(self::FULL) === true;
-
-        return match (true) {
+        $sampled = $input->hasOption(self::SAMPLE) && $input->getOption(self::SAMPLE) === true;
+        $mode = match (true) {
             $full && $since !== '' => CannotJudge::because(
                 '--full and --changed-since ask for different runs. Give one of them.',
             ),
@@ -209,6 +223,13 @@ final readonly class FlowOptions
             $since !== '' => Mode::since($since),
             $settings->reach()->isFullByDefault() => Mode::full(),
             default => Mode::since(Mode::LAST_PASSED),
+        };
+
+        return match (true) {
+            ! $sampled || $mode instanceof CannotJudge => $mode,
+            self::isSecurityOnly($input) => CannotJudge::because(sprintf(self::SAMPLE_NARROWED, self::SECURITY)),
+            self::isSuiteOnly($input) => CannotJudge::because(sprintf(self::SAMPLE_NARROWED, self::SUITE)),
+            default => $mode->sampled(),
         };
     }
 

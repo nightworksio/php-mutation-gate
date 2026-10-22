@@ -8,6 +8,9 @@ use function array_find;
 use function array_map;
 
 use BackedEnum;
+
+use function is_int;
+
 use NightWorksIO\MutationGate\Core\Format\Json;
 use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Member;
@@ -17,7 +20,8 @@ use NightWorksIO\MutationGate\Core\Format\Series;
 use function sprintf;
 
 /**
- * One of a closed set of words, read into the enum case it names.
+ * One of a closed set of words, or of whole numbers, read into the enum case
+ * it names.
  *
  * @template-covariant T of BackedEnum
  *
@@ -43,15 +47,24 @@ final readonly class Enumerated implements Shape
 
     public function read(Node $at): Reading
     {
-        $word = $at->kind() === Kind::Text ? $at->text() : '';
-        $case = array_find($this->cases, static fn(BackedEnum $case): bool => $case->value === $word);
+        $written = match ($at->kind()) {
+            Kind::Text => $at->text(),
+            Kind::Integer => $at->integer(),
+            Kind::Map, Kind::List, Kind::Empty, Kind::Number, Kind::Boolean, Kind::Null, Kind::Nothing => '',
+        };
+        $case = array_find($this->cases, static fn(BackedEnum $case): bool => $case->value === $written);
 
         return $case instanceof BackedEnum ? Reading::of($case) : Reading::refused($at->mismatch($this->expected()));
     }
 
     public function expected(): string
     {
-        $quoted = array_map(static fn(BackedEnum $case): string => sprintf('"%s"', $case->value), $this->cases);
+        $quoted = array_map(
+            static fn(BackedEnum $case): string => is_int($case->value)
+                ? sprintf('%d', $case->value)
+                : sprintf('"%s"', $case->value),
+            $this->cases,
+        );
 
         return Series::or(...$quoted);
     }

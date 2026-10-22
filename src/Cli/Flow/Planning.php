@@ -36,6 +36,7 @@ use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
+use NightWorksIO\MutationGate\Core\Sample\Sample;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -188,29 +189,33 @@ final readonly class Planning
         $carriedOwn = $this->unitsOf($considering->carried())->within($ownOnly);
         $keys = $keying->keysOf($considering->considered());
         $proving = $ledgers->proving($considering->considered(), $keys, $keying->base(), $matrix);
+        $changed = $this->newCode($inventory->standing, $reached);
+        $sample = new Sampled($this->adapters, $this->settings)
+            ->drawn($mode, $inventory, $proving->toRun(), $reached, $changed, $ledgers, $base);
+        $toRun = $sample instanceof Sample ? $sample->running($proving->toRun()) : $proving->toRun();
         $pruned = new PrunedUnits($this->adapters, $this->settings, $this->setup)
-            ->of($base, $ledgers, $proving->toRun(), $keying);
+            ->of($base, $ledgers, $toRun, $keying);
         $opening = $map->suiteDuration();
         $firstRun = new FirstRuns($this->adapters, StartUpSamples::standard())
-            ->measured($map, $ledgers->untimed($proving->toRun(), $this->setup->gate));
+            ->measured($map, $ledgers->untimed($toRun, $this->setup->gate));
         $shards = $this->shardsOf(
-            $proving->toRun(),
+            $toRun,
             $inventory->trees,
             $ledgers,
             $firstRun,
             $cut->opening($opening),
-            $this->riskOrder($reached, $inventory->trees, $ledgers, $proving->toRun()),
+            $this->riskOrder($reached, $inventory->trees, $ledgers, $toRun),
         );
         $shards = $shards instanceof Shards ? $this->opening($shards, $opening) : $shards;
-        $changed = $this->newCode($inventory->standing, $reached);
         $digests = $this->committed(
-            $keying->digestsOf(Units::of(...$proving->toRun(), ...$carriedOwn)),
+            $keying->digestsOf(Units::of(...$toRun, ...$carriedOwn)),
             $inventory->standing->head(),
         );
 
         return match (true) {
             $shards instanceof CannotJudge => $shards,
             $changed instanceof CannotJudge => $changed,
+            $sample instanceof CannotJudge => $sample,
             default => $this->handed(
                 $entryKeys,
                 Plan::of($inventory->standing->head(), $keying->base(), $keys, $shards)
@@ -223,7 +228,8 @@ final readonly class Planning
                             ->proving($this->unitsOf($proving->proved()))
                             ->carrying($this->unitsOf($considering->carried()))
                             ->carryingOwn($carriedOwn)
-                            ->pruning($pruned),
+                            ->pruning($pruned)
+                            ->sampling($sample),
                     )
                     ->naming($this->adapters->runner->names($map->tests(), $this->adapters->withheld)),
                 $map,

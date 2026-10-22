@@ -15,6 +15,8 @@ use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\Cluster\Clusters;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\Sample\Estimate;
+use NightWorksIO\MutationGate\Core\Sample\Sample;
 use Traversable;
 
 /**
@@ -105,6 +107,20 @@ final readonly class TreeVerdicts implements Countable, IteratorAggregate
         }
 
         return $mutants;
+    }
+
+    /** The sample the run drew, which every tree's estimate names; none where the run judged every tree whole. */
+    public function sample(): Sample
+    {
+        foreach ($this->verdicts as $tree) {
+            $estimate = $tree->estimate();
+
+            if ($estimate instanceof Estimate) {
+                return $estimate->sample();
+            }
+        }
+
+        return Sample::none();
     }
 
     public function count(): int

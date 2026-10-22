@@ -673,6 +673,44 @@ needs remain, and the runners' own behaviour shapes each answer.
       `sampling.seed` all **judge or report only**: sampling decides which
       units run, as reach does, never what a unit's result is.
 
+**As built, decisions 22 to 30.**
+
+- `--sample` takes either kind of run: a full run samples every unit no
+  proof covers, and a change-scoped one those it neither reaches nor
+  carries. `mode: sampled` considers what `auto` does, and samples it.
+  `--sample` beside `--security` or `--suite` is refused.
+- A unit is in its tree's sampled stratum unless it is known exactly:
+  its tree is held to 100, by its declared floor or its baseline's, it
+  holds a line of new code, a change-scoped run reaches it, or nothing
+  estimates its mutants, which is a held unit no proof records. Each
+  unit is estimated by its newest proof's count, scored as a verdict
+  scores it, and otherwise by the mutants the gate's own engine makes of
+  its file.
+- A stratum whose units have fewer than two last results runs every
+  unit. The size also covers what as many independent mutants would
+  need, and the design effect is taken as 1 where the units vary less
+  than independent mutants would, so no interval is narrower than the
+  binomial one. The finite-population correction is by the share of the
+  stratum's units sampled, and a stratum sampled whole is exact.
+- The seed of a change-scoped run is the commit its base ref is at, or
+  the ref where git cannot say. The draw ranks each unit by the SHA-256
+  of the seed followed by its path, with nothing between them.
+- The plan file holds the draw under `sample`. `plan` says how many
+  units it sampled, from which seed, for which margin and confidence,
+  or that it has nothing to sample.
+- A tree's sentence reads `app/Http scores about 84.12% (95%:
+  81.37%–86.55%; 212 of 1,904 units sampled, 311 exact) against its
+  floor of 80.00%.`, and an undecided one names the two ways to decide
+  it. A table prints its score as `about 84.12% (81.37%–86.55%)`, with
+  no change against the base. Every report says the run was sampled, and
+  that the project's score counts the mutants it ran.
+- An undecided tree keeps the verdict from judging, and the verdict
+  exits 2 once it has reported and recorded. A sampled run records the
+  proofs of the units it ran, but no passing commit and no run that
+  judged every unit.
+- A sampled run judges no security set: each is exempt, since the units
+  it left out hold security mutants it did not run.
+
 ## Alternatives considered
 
 | Option | Why it lost |

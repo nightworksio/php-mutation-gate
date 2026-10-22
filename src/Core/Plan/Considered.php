@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
+use NightWorksIO\MutationGate\Core\Sample\Sample;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
 /**
@@ -18,8 +19,10 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * matches holds, the units whose newest result is carried because the
  * change does not reach them, those of them that carry only the run's own
  * scope's newest result, since only it judged them as they are (ADR-0005,
- * decision 2), and the mutators the run leaves out of the units it runs
- * whose code is as their newest result recorded it (ADR-0025, decision 1).
+ * decision 2), the mutators the run leaves out of the units it runs
+ * whose code is as their newest result recorded it (ADR-0025, decision 1),
+ * and, for a sampled run, the units its sample runs and leaves out
+ * (ADR-0020, decision 28).
  */
 final readonly class Considered
 {
@@ -31,6 +34,7 @@ final readonly class Considered
         private Changes $untested,
         private Units $carriedOwn,
         private Pruned $pruned,
+        private Sample $sample,
     ) {
     }
 
@@ -45,6 +49,7 @@ final readonly class Considered
             Changes::none(),
             Units::none(),
             Pruned::none(),
+            Sample::none(),
         );
     }
 
@@ -79,6 +84,18 @@ final readonly class Considered
     public function pruning(Pruned $pruned): self
     {
         return clone($this, ['pruned' => $pruned]);
+    }
+
+    /** This, running the units this sample drew of the sampled strata, and leaving the rest out. */
+    public function sampling(Sample $sample): self
+    {
+        return clone($this, ['sample' => $sample]);
+    }
+
+    /** What the run's sample drew; none for a run that is not sampled. */
+    public function sample(): Sample
+    {
+        return $this->sample;
     }
 
     /** The mutators the run leaves out of the units it runs whose code is unchanged; none for a full run. */

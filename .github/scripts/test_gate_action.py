@@ -85,6 +85,13 @@ class Mode(unittest.TestCase):
             action.mode_arguments("full", "main", "pull_request", "refs/pull/12/merge", PULL, "main"), ["--full"]
         )
 
+    def test_sampled_considers_what_auto_does_and_samples_it(self):
+        self.assertEqual(
+            action.mode_arguments("sampled", "", "pull_request", "refs/pull/12/merge", PULL, "main"),
+            [*action.mode_arguments("auto", "", "pull_request", "refs/pull/12/merge", PULL, "main"), "--sample"],
+        )
+        self.assertEqual(action.mode_arguments("sampled", "", "schedule", "refs/heads/main", {}, "main"), ["--full", "--sample"])
+
     def test_refuses_a_mode_it_does_not_know(self):
         with self.assertRaises(action.Refused):
             action.mode_arguments("fast", "", "push", "refs/heads/main", {}, "main")

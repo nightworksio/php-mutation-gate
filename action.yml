@@ -26,7 +26,7 @@ inputs:
     required: false
     default: ''
   mode:
-    description: auto (change-scoped on pull requests and pushes, full on schedules, manual runs, releases and tags), full or changed.
+    description: auto (change-scoped on pull requests and pushes, full on schedules, manual runs, releases and tags), full, changed, or sampled (as auto, sampling the units no proof covers).
     required: false
     default: auto
   changed-since:

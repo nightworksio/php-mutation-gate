@@ -227,6 +227,15 @@ services:
                     - CONTEXT # unchanged lines shown around a change, not letters per edit
                 'NightWorksIO\MutationGate\Core\Format\JsonIndent':
                     - STANDARD # a JSON file's level when it shows none, not a report's indent
+                'NightWorksIO\MutationGate\Core\Config\Sampling':
+                    - MARGIN # points either side a sampled tree's interval is sized for, not work per overhead
+                    - MIN_UNITS # units a sampled stratum runs at least, not days or a preset's list
+                'NightWorksIO\MutationGate\Core\Config\Definition\SamplingKeys':
+                    - WIDEST # points either side a sampled tree's interval may be sized for, not days or presets
+                'NightWorksIO\MutationGate\Core\Sample\Confidence':
+                    - Ninety # a confidence in percent, not days an imported ignore lasts
+                'NightWorksIO\MutationGate\Core\Plan\SampleRecord':
+                    - MUTANTS # an unsampled unit's estimated mutants, not a proof's killed mutants
                 'NightWorksIO\MutationGate\Core\Config\Pruning':
                     - WINDOW # judged mutants a mutator's window holds, not trend entries kept
                     - AUDIT_DAYS # days a pruned result may be carried, not a run status
@@ -521,6 +530,7 @@ services:
                     - KILL_MATRIX # an option of the gate's commands, not the report's name
                     - SECURITY # an option of the gate's commands, not the config section of the same name
                     - SUITE # an option of the gate's commands, not the plan file's field of the same name
+                    - SAMPLE # an option of the gate's commands, not the plan file's field of the same name
                 'NightWorksIO\MutationGate\Cli\Command\TriageCommand':
                     - ORDER # an option of triage, not the Pest plugin's directory of orders
                     - FEWEST # the fewest runs that can disagree, not an exit code

@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Ci\Publication;
 use NightWorksIO\MutationGate\Core\Delivery\Stage;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanEstimates;
+use NightWorksIO\MutationGate\Core\Sample\SampleText;
 use NightWorksIO\MutationGate\Core\Written;
 
 use function sprintf;
@@ -115,6 +116,10 @@ final readonly class PlanCommand
         $aside->writeln(sprintf('Wrote %s, with %d shards.', Workspace::plan()->value(), count($plan)));
         self::estimated($composed, $plan, $aside);
         self::saidIfUnpatched($composed, count($plan), $aside);
+
+        foreach (SampleText::planned($plan->considered()->sample()) as $said) {
+            $aside->writeln($said, OutputInterface::OUTPUT_RAW);
+        }
 
         foreach ($commented as $said) {
             $aside->writeln($said, OutputInterface::OUTPUT_RAW);
