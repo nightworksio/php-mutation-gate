@@ -5,7 +5,8 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Php\TokenAlignment;
 
 /**
- * Where each index of the second stands in the first, from the first index to one past the last.
+ * Where each index of the second stands in the first, from the first index to one past the last, the alignment
+ * raising no warning.
  *
  * @param list<string> $first
  * @param list<string> $second
@@ -14,7 +15,20 @@ use NightWorksIO\MutationGate\Core\Php\TokenAlignment;
  */
 function alignedOnto(array $first, array $second): array
 {
-    $alignment = TokenAlignment::of($first, $second);
+    $raised = [];
+    set_error_handler(static function (int $level, string $message) use (&$raised): bool {
+        $raised[] = $message;
+
+        return true;
+    });
+
+    try {
+        $alignment = TokenAlignment::of($first, $second);
+    } finally {
+        restore_error_handler();
+    }
+
+    expect($raised)->toBe([]);
 
     return array_map($alignment->inFirst(...), range(0, count($second)));
 }

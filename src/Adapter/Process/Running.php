@@ -83,7 +83,6 @@ final class Running
     /**
      * @param resource                   $process
      * @param array<int, resource>       $pipes   each pipe still open, by descriptor
-     * @param array<int, string>         $printed what came through each pipe, by descriptor
      */
     private function __construct(
         private readonly mixed $process,
@@ -93,7 +92,8 @@ final class Running
         private readonly SilenceLimit|NotGiven $silence,
         private Progress|NotGiven $progress,
         private array $pipes,
-        private array $printed = [self::OUTPUT => '', self::ERRORS => ''],
+        private string $printedOut = '',
+        private string $printedErrors = '',
     ) {
     }
 
@@ -267,7 +267,7 @@ final class Running
     {
         foreach ($this->pipes as $descriptor => $pipe) {
             $read = stream_get_contents($pipe);
-            $this->printed[$descriptor] .= is_string($read) ? $read : '';
+            $this->keep($descriptor, is_string($read) ? $read : '');
 
             if (feof($pipe)) {
                 fclose($pipe);
@@ -276,13 +276,25 @@ final class Running
         }
     }
 
+    /** What a pipe printed, kept with what came through it before. */
+    private function keep(int $descriptor, string $read): void
+    {
+        if ($descriptor === self::OUTPUT) {
+            $this->printedOut .= $read;
+
+            return;
+        }
+
+        $this->printedErrors .= $read;
+    }
+
     /** How it ended where it exited: by a signal, or with a code. */
     private function exited(bool $signalled, int $signal, int $code, float $now): Ran
     {
         $this->close();
         $ran = $signalled
-            ? Ran::signalled($signal, $this->output(), $this->printed[self::OUTPUT])
-            : Ran::exited($code, $this->output(), $this->printed[self::OUTPUT]);
+            ? Ran::signalled($signal, $this->output(), $this->printedOut)
+            : Ran::exited($code, $this->output(), $this->printedOut);
 
         return $ran->took($this->since($now));
     }
@@ -294,7 +306,7 @@ final class Running
         proc_terminate($this->process, self::KILL);
         $this->close();
 
-        return $ended($this->output(), $this->printed[self::OUTPUT])->took($this->since($now));
+        return $ended($this->output(), $this->printedOut)->took($this->since($now));
     }
 
     /** What is left in its pipes kept, the pipes closed, and the process reaped. */
@@ -317,6 +329,6 @@ final class Running
 
     private function output(): string
     {
-        return sprintf('%s%s', $this->printed[self::OUTPUT], $this->printed[self::ERRORS]);
+        return sprintf('%s%s', $this->printedOut, $this->printedErrors);
     }
 }
