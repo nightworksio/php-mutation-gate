@@ -42,6 +42,8 @@ final readonly class InfectionSource
         '0.35.4' => '0.35.4',
         '0.35.5' => '0.35.5',
         '0.35.6' => '0.35.5',
+        '0.35.7' => '0.35.5',
+        '0.35.8' => '0.35.5',
     ];
 
     /** The file of include-interceptor the patch changes, relative to its source. */
@@ -68,7 +70,7 @@ final readonly class InfectionSource
      * As a release ships them, from tests/Fixtures. Each file there ends in
      * .phps, so no tool reads it as this repository's code.
      */
-    public static function pristine(string $release = '0.35.6', string $interceptor = '1.0.0'): self
+    public static function pristine(string $release = '0.35.8', string $interceptor = '1.0.0'): self
     {
         return new self(
             Tree::at(sprintf('tests/Fixtures/InfectionSource/%s', self::SHIPS_AS[$release] ?? $release)),
