@@ -50,7 +50,7 @@ final readonly class Enumerated implements Shape
         $written = match ($at->kind()) {
             Kind::Text => $at->text(),
             Kind::Integer => $at->integer(),
-            Kind::Map, Kind::List, Kind::Empty, Kind::Number, Kind::Boolean, Kind::Null, Kind::Nothing => '',
+            Kind::Map, Kind::List, Kind::Empty, Kind::Number, Kind::Boolean, Kind::Null, Kind::Nothing => null,
         };
         $case = array_find($this->cases, static fn(BackedEnum $case): bool => $case->value === $written);
 

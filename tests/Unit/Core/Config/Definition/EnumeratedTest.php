@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Config\Definition\Enumerated;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Runner\MemoryUnit;
 use NightWorksIO\MutationGate\Core\Sample\Confidence;
 use NightWorksIO\MutationGate\Tests\Support\ThreeWords;
 
@@ -36,4 +37,17 @@ it('names, reads and refuses whole numbers as it does words', function (): void 
         ->and($confidences->read($read('{"confidence": 99.0}'))->problems())
         ->toEqual([Problem::at('confidence', 'expected 90, 95 or 99, got 99.0')])
         ->and($confidences->schema()->line())->toBe('{"enum":[90,95,99]}');
+});
+
+it('reads an empty word into the case it names, and refuses what is no word or number', function (): void {
+    $units = Enumerated::of(MemoryUnit::cases());
+    $read = static fn(string $json): Node => Node::config($json)->field('unit');
+
+    expect($units->read($read('{"unit": ""}'))->value())->toBe(MemoryUnit::Bytes)
+        ->and($units->read($read('{"unit": true}'))->problems())
+        ->toEqual([Problem::at('unit', 'expected "", "K", "M" or "G", got true')])
+        ->and($units->read($read('{"unit": {}}'))->problems())
+        ->toEqual([Problem::at('unit', 'expected "", "K", "M" or "G", got a list')])
+        ->and($units->read($read('{"unit": null}'))->problems())
+        ->toEqual([Problem::at('unit', 'expected "", "K", "M" or "G", got null')]);
 });
