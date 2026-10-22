@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Report\SetText;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Sample\Estimate;
+use NightWorksIO\MutationGate\Core\Sample\Spread;
 use NightWorksIO\MutationGate\Core\Sample\Stratum;
 use NightWorksIO\MutationGate\Core\Sample\Tally;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
@@ -131,4 +132,17 @@ it('prints a tree\'s score for a table, and a sampled tree\'s estimate with its 
             Uncovered::Count,
             Estimate::of(Tally::of(1, 2), 1, Stratum::none(), Sampled::sample()),
         )))->toBe('50.00%');
+});
+
+it('says a sampled tree whose units hold no mutant has nothing to mutate', function (): void {
+    $empty = TreeVerdict::judged(
+        Tree::at(Path::of('src'), Floor::of(50), Package::at(Path::root())),
+        Unrecorded::floor(),
+        JudgedUnits::none(),
+        JudgedMutants::none(),
+        Uncovered::Count,
+        Estimate::of(Tally::none(), 0, Stratum::of(2, 0, Spread::of(Tally::none())), Sampled::sample()),
+    );
+
+    expect(SetText::tree($empty))->toBe('src has nothing to mutate.');
 });

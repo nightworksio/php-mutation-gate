@@ -52,10 +52,10 @@ use stdClass;
  * `peak` measured none, and every shard's memory triage reads it so; one
  * without `matrix` records first killers, one without `security` makes
  * mutants with every mutator the run turns on, and one without `suite` has
- * every test judge them; `sample`, where the run is sampled, what its sample
- * drew. Beside it, outside the digest since they judge
- * nothing, `names` holds the names the runner gives the suite's tests, or
- * `unnamed` why it gave none; a plan with neither was made without asking.
+ * every test judge them; `sample`, where the run is sampled, holds what its
+ * sample drew. Beside it, outside the digest since they judge nothing,
+ * `names` holds the names the runner gives the suite's tests, or `unnamed`
+ * why it gave none; a plan with neither was made without asking.
  * A plan that cannot be read, or whose digest does not match what it holds,
  * is refused: a shard never guesses at its units.
  *

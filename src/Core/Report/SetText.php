@@ -172,9 +172,10 @@ final readonly class SetText
     private static function estimated(TreeVerdict $tree, Estimate $estimate): string
     {
         $floor = $tree->floor();
+        $name = Fit::plain($tree->tree()->path()->value());
         $said = sprintf(
             self::ESTIMATED,
-            Fit::plain($tree->tree()->path()->value()),
+            $name,
             Percent::of($estimate->score()),
             $estimate->sample()->confidence()->value,
             Percent::ofHundredths($estimate->lower()),
@@ -185,6 +186,7 @@ final readonly class SetText
         );
 
         return match (true) {
+            $tree->judgement() === Judgement::NothingToMutate => sprintf(self::NOTHING, $name),
             ! $floor instanceof Floor => sprintf(self::ESTIMATED_UNHELD, $said),
             $tree->judgement() === Judgement::Failed => sprintf(self::ESTIMATED_BELOW, $said, Percent::of($floor)),
             $tree->judgement() === Judgement::Undecided => sprintf(self::UNDECIDED, $said, Percent::of($floor)),
