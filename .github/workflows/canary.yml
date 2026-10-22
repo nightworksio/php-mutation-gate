@@ -1,6 +1,6 @@
 # The runner canary: every day, the Runner and StaticChecker contract suites
 # against the newest releases of Pest, Infection, PHPUnit, Mago and PHPStan
-# (ADR-0011, decision 6; ADR-0017, decision 8). The required `runner contracts`
+# (ADR-0011; ADR-0017). The required `runner contracts`
 # job runs the releases the fixtures' locks hold, so a release that breaks a
 # contract reds only this workflow, and a release the package's pin refuses
 # that passes reds it too, naming the line to write.
@@ -104,7 +104,7 @@ jobs:
             tests/Contract/Runner/fixture/vendor/composer/installed.json \
             tests/Contract/Runner/infection-fixture/vendor/composer/installed.json \
             --findings evidence/raw/pins.json
-      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      # The job's evidence, whatever the steps above did (ADR-0019).
       - name: evidence
         if: ${{ !cancelled() }}
         env:

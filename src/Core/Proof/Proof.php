@@ -21,7 +21,7 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
  * reported in full, with their statuses before ignores and floors apply, and
  * the kills a ledger proved, which it keeps no more of than a kill needs.
  * Beside its key it records the digests of its inputs, which say whether its
- * result can stand for other code (ADR-0008, decision 1); a proof of an
+ * result can stand for other code (ADR-0008); a proof of an
  * earlier ledger format records none. A proof of a held unit also records the
  * holding tests that run it, which judge its mutants.
  */

@@ -7,7 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Sample;
 use function min;
 
 /**
- * A tree's sampled stratum (ADR-0020, decisions 23 and 24): the tallies of
+ * A tree's sampled stratum (ADR-0020): the tallies of
  * the units its sample ran, how many units it holds, and how many mutants
  * it is estimated to hold. Its share killed is a ratio estimate, killed
  * over counted summed over the sampled units, and its interval Wilson's on

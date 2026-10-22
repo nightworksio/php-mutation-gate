@@ -21,7 +21,7 @@ use function sprintf;
  * floor that is lower has to carry `lowered`, from the base's floor and with
  * a reason; a tree leaves the file only when its path is no longer a tree,
  * and a security set only when its package's path is no longer a package
- * (ADR-0021, decision 17).
+ * (ADR-0021).
  */
 final readonly class Lowering
 {

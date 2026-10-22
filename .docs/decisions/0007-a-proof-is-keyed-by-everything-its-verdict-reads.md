@@ -43,7 +43,7 @@ has to bring its result with it.
    every mutant's raw record (ADR-0004), with its status before triage, ignores
    and floors are applied. A proof is written only for a unit that ran to the
    end:
-   - no unjudged mutant (ADR-0004), except one that ADR-0004's decision 8 left
+   - no unjudged mutant (ADR-0004), except one that ADR-0004's judging by reference left
      unjudged because of what the code holds: no test references the value,
      or the reference is ambiguous beyond the bound. The same key gives the
      same answer, so such a unit is still proved;
@@ -60,7 +60,7 @@ has to bring its result with it.
    1. **The key's format**, `mutation-gate proof 6`. It changes whenever what
       the key means changes, so an older proof is never read as a newer one.
       Format 2 moved the test files every key reads into the base (items 7
-      and 8), in the same change as ledger format 2 (decision 3), so the one
+      and 8), in the same change as ledger format 2, so the one
       bump covers both. Format 3 added the static analyser to item 4. Format 4
       kept every pin and blank line of a CI definition in item 6, and moved
       `extensions`, `runner.withhold` and `ci.buildkite.step` into item 3.
@@ -75,12 +75,12 @@ has to bring its result with it.
       presets, serialised canonically, with the settings that only judge or
       report left out.
       - In: `runner` with its options, `runner.withhold` (ADR-0004),
-        `runner.memory` (ADR-0004, decision 9),
-        `runner.workers` (ADR-0023, decision 14),
+        `runner.memory` (ADR-0004),
+        `runner.workers` (ADR-0023),
         `pest.patch`, `pest.canary`,
         `timeouts.seconds`, `timeouts.most`, `flaky.confirmSurvivors`,
-        `tests.order` (ADR-0013, decision 4), `tests.suites` and
-        `tests.holding` (ADR-0002, decision 8), `mutators.sets` and
+        `tests.order` (ADR-0013), `tests.suites` and
+        `tests.holding` (ADR-0002), `mutators.sets` and
         `mutators.except` (ADR-0021), `extensions`, the Buildkite step template
         (`ci.buildkite.step`) and the CI files the gate is told of
         (`ci.*.definition`, `ci.gitlab.template`), and what decides the trees and packages (`trees[].path`, `trees[].exclude` (ADR-0016), `treeSource`,
@@ -95,8 +95,8 @@ has to bring its result with it.
         gate runs, or as judging or reporting only, and a test fails when a
         setting is none of them. Only those that affect results are in the
         key. A setting that decides how the gate runs is left out of the key
-        but compared by what a change to the config file reaches (ADR-0005,
-        decision 4): `preset`, `reach.everything`, `run.full`, `ci.plan`,
+        but compared by what a change to the config file reaches
+        (ADR-0005): `preset`, `reach.everything`, `run.full`, `ci.plan`,
         `ci.defaultBranch`, `ci.check`, `ci.trustMergedPullRequests`,
         `proofs.store`, `proofs.ignore`, `proofs.write` and
         `coverage.incremental`. A key no setting declares, outside every
@@ -125,7 +125,7 @@ has to bring its result with it.
         and a test pins the list. Any other setting, including one PHP or an
         extension adds later, is in the digest, so a setting nobody has judged
         re-runs a unit rather than reuses its proof;
-      - the static analyser that checks the mutants (ADR-0020, decision 14):
+      - the static analyser that checks the mutants (ADR-0020):
         its name, exact version and a digest of its config, or `none` where
         `staticCheck.tool` is `none` or the analyser cannot say who it is.
    5. **What is installed**: the digest of `vendor/composer/installed.json`. It
@@ -182,12 +182,12 @@ has to bring its result with it.
         under Pest, for a unit whose tokens hold a class or interface constant,
         a property default, an enum case, a plain function's or closure's
         parameter default or an attribute argument, because any file can come to
-        reference it (ADR-0004, decisions 5 and 8);
+        reference it (ADR-0004);
       - the support those files name, and the support that names in turn,
         matched as in item 7. Matching over-reads on purpose: a word that
         happens to match brings the file in.
    9. **The unit**: its path and, for each of its covered lines, the ids of the
-      tests that cover it. For a unit decision 8 of ADR-0004 applies to, also
+      tests that cover it. For a unit ADR-0004 applies to, also
       the ids of the tests covering each reference line it follows, and of
       those covering its owners' files, for the fallback. If the tests
       covering a line change, the unit is judged again even when no file
@@ -195,7 +195,7 @@ has to bring its result with it.
 
    Items 1 to 7 are the same for every unit of a run. They are the run's
    **base**: hashed once, and its digest recorded with every proof the run
-   establishes (decision 3). A key can only match a proof of its own base.
+   establishes. A key can only match a proof of its own base.
 
    A unit's key is the SHA-256 of these fields, each written as its length in
    bytes, a colon, the field and a line break: the format, the base's digest,
@@ -275,7 +275,7 @@ has to bring its result with it.
      on CircleCI `circleci:<CIRCLE_WORKFLOW_ID>`, and otherwise
      `local:<time of the run>`.
    - `matrix` is `full` where that run recorded every test that kills each
-     mutant (`--kill-matrix=full`, ADR-0014 decision 7). A proof without it
+     mutant (`--kill-matrix=full`, ADR-0014). A proof without it
      holds first killers. Where two proofs share a key, the ledger keeps the
      first, unless only the later has `matrix`.
    - Each proof also keeps the digest of each item of its content key, so
@@ -283,7 +283,7 @@ has to bring its result with it.
      (ADR-0017). The digests are read for that alone, never to match a key.
    - `digests` records the digests of the inputs a result came from, so a
      unit a time budget never started can count by it where they are
-     unchanged (ADR-0008, decision 1): `source`, the unit's file, or every
+     unchanged (ADR-0008): `source`, the unit's file, or every
      file inside its held path; `mutation`, what decides its mutant set
      besides the source: the key's first five inputs (the format, the gate,
      the config, the runner and what is installed), the files that define the
@@ -317,13 +317,13 @@ has to bring its result with it.
      tests report (ADR-0014) need, in as few bytes as a ledger of hundreds of
      thousands of killed mutants can take.
    - A proof of a held unit records as `judging` the indices in the
-     ledger's `tests` of the holding tests that run it (ADR-0005, decision
-     10). A proof without `judging` names none, as a proof of a unit the
-     whole suite judges, or one an earlier gate wrote, does. A proof whose
-     `judging` points past the end of `tests` is dropped.
-   - Each proof records the `base` of the run that established it (decision
-     2), and `bases` lists the bases of the runs that wrote the ledger, the
-     most recent first. A run adds its own base when it writes.
+     ledger's `tests` of the holding tests that run it (ADR-0005). A proof
+     without `judging` names none, as a proof of a unit the whole suite
+     judges, or one an earlier gate wrote, does. A proof whose `judging`
+     points past the end of `tests` is dropped.
+   - Each proof records the `base` of the run that established it, and
+     `bases` lists the bases of the runs that wrote the ledger, the most
+     recent first. A run adds its own base when it writes.
    - Retention is one fixed policy with no setting. The ledger keeps the proofs
      whose base is one of the five in `bases` seen most recently, and of those
      the newest 20,000 as a backstop, since a proof of any other base can
@@ -345,9 +345,9 @@ has to bring its result with it.
      scope's ranking for a mutant or a function both know, and the default
      branch's for one only it knows.
    - `openings` keeps each package's newest opening-run time per runner.
-     `killers` and `openings` only order and cut work (ADR-0013, decisions 2
-     and 7), so losing them costs speed, never a verdict. The `killers`
-     section is part of formats 2 and 3.
+     `killers` and `openings` only order and cut work (ADR-0013), so losing
+     them costs speed, never a verdict. The `killers` section is part of
+     formats 2 and 3.
    - Reading keeps each well-formed entry and drops anything else. An
      unreadable ledger costs a run and never a verdict. A ledger of format 2
      reads as it is, its proofs recording no digests, so none of them counts
@@ -374,16 +374,17 @@ has to bring its result with it.
      (`mutation / verdict` by default), and `ownScopeProofs` is how
      many proofs of this scope's own ledger that verdict used.
      `ownScopeCoverage`, `true` where it is written, says the verdict's plan
-     measured its coverage map against the map this scope keeps (ADR-0023,
-     decision 2). `at` is the instant the verdict passed, in UTC; a record
-     without it does not say, and its verdict never stands for a later commit
-     (ADR-0005, decision 12). A pull request's passing run is trusted on the
+     measured its coverage map against the map this scope keeps
+     (ADR-0023). `at` is the instant the verdict passed, in UTC; a record
+     without it does not say, and its verdict never stands for a later
+     commit (ADR-0005). A pull request's passing run is trusted on the
      default branch only where it used neither, because its own code could
-     have written both, and only as the named check-run shows it. A `passed`
-     that is not such a record, one whose `ownScopeCoverage` is anything but
-     `true` or whose `at` is no instant among them, reads as none.
+     have written both, and only as the named check-run shows it. A
+     `passed` that is not such a record, one whose `ownScopeCoverage` is
+     anything but `true` or whose `at` is no instant among them, reads as
+     none.
    - `lastRun` records the commit this scope's last run judged, the
-     `last-run` base (ADR-0005, decision 2), with `tree`, the tree it held,
+     `last-run` base (ADR-0005), with `tree`, the tree it held,
      and `parents`, the commits it was made from in its order, so a gone
      merge commit can be made again and checked against the tree it held;
      the check-run it reported under; and `kind`, the kind of run it was: `matrix` `full` where it
@@ -446,7 +447,7 @@ has to bring its result with it.
      runs on the default branch carries that `ref` (ADR-0019). A run without credentials, such as a pull request's, opens the
      store read-only and reads the default branch's ledger from
      `publicUrl`, where the bucket policy makes only that prefix public
-     (ADR-0013, decisions 13 to 15).
+     (ADR-0013).
    - **On Cloud Storage and Azure Blob Storage**, the same holds for the
      identity a federation hands the store: it trusts a GitHub environment
      restricted to the default branch, or the verdict workflow's
@@ -492,7 +493,7 @@ has to bring its result with it.
        begun empty so nothing an earlier run left is sent again. The
        re-checked survivors' comment is marked to be written only over the
        comment's planned state, so `deliver` never replaces a verdict with
-       it (ADR-0020 decision 21). Ledgers are
+       it (ADR-0020). Ledgers are
        still read from the store the config names.
      - `deliver` sends what a run that ran the project's code left in its
        delivery directory, `.mutation-gate/delivery` by default. The
@@ -556,7 +557,7 @@ any test. Proofs pay for themselves on:
 - retried and re-run jobs;
 - re-runs of unchanged code;
 - test-only changes elsewhere, except for held units and for units whose
-  values ADR-0004's decision 8 judges, whose keys hold every test file;
+  values ADR-0004 judges by reference, whose keys hold every test file;
 - the scheduled full run, which re-mutates only what moved since the last one.
 
 Reach (ADR-0005), not proofs, is what keeps a pull request small.

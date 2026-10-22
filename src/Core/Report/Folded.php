@@ -14,7 +14,7 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 /**
  * Mutants as a list shows them: a cluster as one item, in the place of the
  * first of its members met, and its other members left out, so one test that
- * would fix several is asked for once (ADR-0022, decision 17).
+ * would fix several is asked for once (ADR-0022).
  */
 final readonly class Folded
 {

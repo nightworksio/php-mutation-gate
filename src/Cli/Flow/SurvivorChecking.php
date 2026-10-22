@@ -36,7 +36,7 @@ use Psr\Clock\ClockInterface;
 
 /**
  * Static analysis's check of a shard's survivors, after their tests
- * (ADR-0020, decisions 9, 11 and 13). The analyser runs once over the
+ * (ADR-0020). The analyser runs once over the
  * original files, then checks each survivor that did not prove flaky, in
  * place of its file, as its runner gives it, with the files it can break
  * where it changes what its file declares and the analyser reads them. A
@@ -45,7 +45,7 @@ use Psr\Clock\ClockInterface;
  * for, stays a survivor, and the checks say why. A survivor printed as its
  * runner prints its mutants is judged against its original printed the same
  * way, which must first analyse as the file itself does. The checks record
- * their time alone (ADR-0020, decision 11), and each round of them is timed
+ * their time alone (ADR-0020), and each round of them is timed
  * on the shard's stopwatch.
  */
 final readonly class SurvivorChecking

@@ -15,7 +15,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use Traversable;
 
 /**
- * What a ledger learned of one analyser (ADR-0020, decision 11): each
+ * What a ledger learned of one analyser (ADR-0020): each
  * mutator's rejection rate, and how long its checks take. Losing it costs
  * speed, never a verdict.
  *

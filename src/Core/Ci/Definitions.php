@@ -38,7 +38,7 @@ final readonly class Definitions
     public const string CIRCLECI = '.circleci/config.yml';
 
     /**
-     * Where the CI keeps its definitions, which shows a project runs it (ADR-0017 decision 1): a file, or a
+     * Where the CI keeps its definitions, which shows a project runs it (ADR-0017): a file, or a
      * directory ending in `/` whose files are definitions; none for plain JSON.
      */
     public static function shownBy(BuiltinCiPlan $plan): string|NotGiven

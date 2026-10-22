@@ -104,7 +104,7 @@ final readonly class Definition
     /**
      * A config file's layer, read as `layer()` reads it; or, where it still
      * writes what a release retired, each such key, with what changed and
-     * the command that changes it (ADR-0026, decision 1).
+     * the command that changes it (ADR-0026).
      */
     public static function file(Json $config, PathOrigin $origin, Migrations $migrations): Layer|Invalid
     {

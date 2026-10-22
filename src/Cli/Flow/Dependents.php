@@ -18,7 +18,7 @@ use NightWorksIO\MutationGate\Core\Php\PhpFile;
 
 /**
  * The files a mutant can break directly, which its check analyses again
- * against it (ADR-0020, decision 7). A mutant that changes what its file
+ * against it (ADR-0020). A mutant that changes what its file
  * declares can break every file that mentions a name the file declares, so
  * those are its dependents, as many as the cap allows; one that changes
  * only bodies breaks none. The project's name graph is read once, the first

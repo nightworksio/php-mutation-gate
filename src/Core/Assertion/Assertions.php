@@ -18,7 +18,7 @@ use Traversable;
  * Every assertion one test makes, in the order it makes them. A test is weak
  * when it makes one at least and every one checks only existence or shape.
  * One the table does not hold, or a test not found, leaves it not assessed
- * (ADR-0025, decision 5).
+ * (ADR-0025).
  *
  * @implements IteratorAggregate<int, Assertion>
  */

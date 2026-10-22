@@ -25,7 +25,7 @@ use function str_starts_with;
  * with every object's keys in byte order. The settings that affect results
  * are the configuration part of a proof's key (ADR-0007); those that decide
  * how the gate runs, which they are among, are what a change to the config
- * file is compared by (ADR-0005, decision 4). A key no setting declares,
+ * file is compared by (ADR-0005). A key no setting declares,
  * outside every setting that declares what it holds, is kept in both, so a
  * key the definition does not know never goes unnoticed.
  */
@@ -67,7 +67,7 @@ final readonly class Canonical
 
     /**
      * The settings that decide how the gate runs, as these settings hold them: every setting but those that
-     * only judge or report, and any key no setting declares (ADR-0005, decision 4).
+     * only judge or report, and any key no setting declares (ADR-0005).
      */
     public static function decidingIn(Settings $settings): string
     {

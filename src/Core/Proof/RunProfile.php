@@ -10,11 +10,11 @@ use NightWorksIO\MutationGate\Core\Test\SuiteName;
 
 /**
  * What a run's results are of, beyond its units: how much of the kill matrix
- * it records (ADR-0014, decision 7), whether it makes mutants with the
- * security mutators alone (ADR-0021, decision 20), and the one suite whose
- * tests alone judge them, where there is one (ADR-0025, decision 9). A run
+ * it records (ADR-0014), whether it makes mutants with the
+ * security mutators alone (ADR-0021), and the one suite whose
+ * tests alone judge them, where there is one (ADR-0025). A run
  * reads its change since its scope's last run only where that run was of
- * the same kind (ADR-0005, decision 2).
+ * the same kind (ADR-0005).
  */
 final readonly class RunProfile
 {

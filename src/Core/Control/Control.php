@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
- * An unmutated control of a mutant's run (ADR-0008, decision 2): these
+ * An unmutated control of a mutant's run (ADR-0008): these
  * tests, in this order, run with the file the mutant changes served
  * unmutated, as the runner served the mutant, and allowed the limit its run
  * was. Two controls of the same file, tests and limit are one control.

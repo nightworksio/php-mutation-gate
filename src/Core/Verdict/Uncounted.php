@@ -11,7 +11,7 @@ use function sprintf;
 
 /**
  * Why a unit a time budget ran out before cannot count by its newest result
- * (ADR-0008, decision 1): that result's mutant set is not the one the code on
+ * (ADR-0008): that result's mutant set is not the one the code on
  * disk makes, or nothing says whether it is. The unit fails the verdict,
  * named with the command that judges it.
  */

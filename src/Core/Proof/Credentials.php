@@ -14,10 +14,10 @@ use NightWorksIO\MutationGate\Core\Config\Listed;
 
 /**
  * The environment variables a proof store reads its credentials from
- * (ADR-0007 decision 5): those it needs to write, every one of a set of
+ * (ADR-0007): those it needs to write, every one of a set of
  * them, where any of several sets will do, and those it reads beside them
  * where they are set. A job without a set it needs opens the store
- * read-only (ADR-0013 decision 14).
+ * read-only (ADR-0013).
  */
 final readonly class Credentials
 {

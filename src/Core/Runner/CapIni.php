@@ -7,7 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 use function sprintf;
 
 /**
- * The ini file a run's memory cap is written as (ADR-0004, decision 9): the
+ * The ini file a run's memory cap is written as (ADR-0004): the
  * cap, and, for a runner that reads a mutant's fatal error from its standard
  * output alone, `display_errors` set to print there. That setting is inert:
  * it decides where an error is shown, never what a test computes.

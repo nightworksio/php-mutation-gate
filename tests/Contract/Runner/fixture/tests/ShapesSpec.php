@@ -5,7 +5,7 @@ declare(strict_types=1);
 use Library\Shapes;
 use NightWorksIO\MutationGate\Attribute\Holds;
 
-// Every shape of Pest test that holds src/Shapes.php (ADR-0004, decision 7).
+// Every shape of Pest test that holds src/Shapes.php (ADR-0004).
 // Each says it ran through seen(), with a label of its own, and asserts
 // nothing a mutant of src/Shapes.php changes.
 

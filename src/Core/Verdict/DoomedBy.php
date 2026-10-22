@@ -6,7 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Verdict;
 
 /**
  * Which floor a survivor fails for certain, so the run it is in cannot pass
- * (ADR-0008, decision 6), as a shard's result spells it.
+ * (ADR-0008), as a shard's result spells it.
  */
 enum DoomedBy: string
 {

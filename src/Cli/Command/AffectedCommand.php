@@ -30,7 +30,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * `affected`: the tests a change can make fail, printed for a plain test run
- * (ADR-0020, decisions 1 to 4), running nothing. The list goes to standard
+ * (ADR-0020), running nothing. The list goes to standard
  * output in the format `--format` names, and the reasons to standard error,
  * but in JSON, which holds them. It exits 0 whenever it answered, and 2 where
  * git cannot say what changed or the format cannot list the tests.

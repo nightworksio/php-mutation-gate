@@ -14,9 +14,9 @@ use NightWorksIO\MutationGate\Core\Verdict\Warnings;
  * it skipped without one. Infection skips a mutant whose covering tests take
  * longer than its timeout, and names it only in a count; those mutants are
  * unjudged, with no id. It may warn of what the run did besides, and name
- * the steps its time went to, where the runner times its own (ADR-0016,
- * decision 19), and give the evidence of its kills (ADR-0014, decision 16),
- * by which a kill no test is named for is judged (ADR-0014, decision 17).
+ * the steps its time went to, where the runner times its own (ADR-0016),
+ * and give the evidence of its kills (ADR-0014), by which a kill no test is
+ * named for is judged (ADR-0014).
  */
 final readonly class MutationResult
 {
@@ -52,7 +52,7 @@ final readonly class MutationResult
         return new self($this->mutants, $this->skipped, $this->warnings->and($warnings), $this->steps, $this->evidence);
     }
 
-    /** What the run warns of beside its mutants, such as a warm worker its guard dropped (ADR-0023, decision 13). */
+    /** What the run warns of beside its mutants, such as a warm worker its guard dropped (ADR-0023). */
     public function warnings(): Warnings
     {
         return $this->warnings;

@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\Test\TestName;
 /**
  * The test files a verdict reads for its tests' assertions, each read once,
  * by its path, with the helpers the files that define the runner declare,
- * such as `tests/Pest.php` (ADR-0025, decision 5).
+ * such as `tests/Pest.php` (ADR-0025).
  */
 final readonly class TestFiles
 {

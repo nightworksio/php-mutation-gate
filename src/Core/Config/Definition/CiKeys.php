@@ -123,7 +123,7 @@ final readonly class CiKeys
 
     /**
      * A CI's section that holds only `definition`, the path of the pipeline file that runs the gate there, which
-     * affects results (ADR-0024 decision 3).
+     * affects results (ADR-0024).
      *
      * @param  Closure(Path|Absent): Ci $build
      * @return Field<Ci>

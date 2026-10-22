@@ -20,7 +20,7 @@ use function str_contains;
 use function str_starts_with;
 
 /**
- * A GitHub Actions job's own federation with Cloud Storage (ADR-0028 decision 2): its OIDC token, which `id-token:
+ * A GitHub Actions job's own federation with Cloud Storage (ADR-0028): its OIDC token, which `id-token:
  * write` lets it ask for, exchanged through the workload identity provider `MUTATION_GATE_GCS_PROVIDER` names and
  * impersonating the service account `MUTATION_GATE_GCS_SERVICE_ACCOUNT` names, as `google-github-actions/auth` sets
  * it up, so no third-party action runs in a job that holds the store's keys. The token is asked for the provider's

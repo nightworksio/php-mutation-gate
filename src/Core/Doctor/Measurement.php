@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 
 /**
  * What `doctor --measure` measured by running the project's suite
- * (ADR-0017, decisions 4 and 9): the whole suite's coverage map, or why the
+ * (ADR-0017): the whole suite's coverage map, or why the
  * run gave none; the units the suite holds, as a run finds them; and how
  * long each unit took, as the ledgers learned it; and the most resident
  * memory the suite's processes held.

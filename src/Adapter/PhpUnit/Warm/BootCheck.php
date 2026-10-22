@@ -29,7 +29,7 @@ use function str_starts_with;
 
 /**
  * The guard a warm worker passes once it has booted, before it forks a
- * child (ADR-0023, decision 13): no socket open, which every child would
+ * child (ADR-0023): no socket open, which every child would
  * share, such as a database connection the bootstrap made, and no file the
  * run mutates loaded, which no child could serve its mutant in place of.
  * Sockets are counted among the process's open files where the system lists

@@ -116,7 +116,7 @@ final readonly class Bridges
 
     /**
      * The bridges to these mutators, less each that stands down beside them
-     * and Pest's `DefaultSet` (ADR-0021, decision 18).
+     * and Pest's `DefaultSet` (ADR-0021).
      */
     public static function to(Enabled $mutators): self
     {

@@ -9,7 +9,7 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 /**
  * The seconds a runner allows one mutant's run where it times each mutant
- * by its tests (ADR-0008, decision 2): a start-up, plus a multiple of the
+ * by its tests (ADR-0008): a start-up, plus a multiple of the
  * covering tests' own time, kept between the bounds. The gate's start-up is
  * the same multiple of how long a run of no test took to start on this
  * machine, where the run measured one, and 5 s where it did not; Infection's

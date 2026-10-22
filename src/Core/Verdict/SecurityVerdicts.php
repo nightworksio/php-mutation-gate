@@ -15,7 +15,7 @@ use IteratorAggregate;
 use Traversable;
 
 /**
- * The security set of each package (ADR-0021, decision 16); none where no
+ * The security set of each package (ADR-0021); none where no
  * security-tagged mutator is turned on.
  *
  * @implements IteratorAggregate<int, SecurityVerdict>

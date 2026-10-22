@@ -15,7 +15,7 @@ use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 use function sprintf;
 
 /**
- * What `--online` could not read (ADR-0017, decision 9): no repository on
+ * What `--online` could not read (ADR-0017): no repository on
  * GitHub to read, or a setting GitHub would not show, each with the
  * permission that shows it. Neither changes whether a run fails.
  */

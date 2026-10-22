@@ -25,12 +25,12 @@ use Traversable;
 
 /**
  * What each suite the project declares alone kills, over a verdict's mutants
- * (ADR-0025, decision 8). A test is in a suite by its file, so a test the
+ * (ADR-0025). A test is in a suite by its file, so a test the
  * runner named no file for is in none. A mutant the score leaves out counts
  * for no suite, and so does one no test of a suite has a known outcome for:
  * a timeout's, a flaky one's, one whose coverage moved, and one no test of
- * the suite ran with, as the tests report leaves them out (ADR-0014,
- * decision 3). A held unit's mutants count only for its group's tests.
+ * the suite ran with, as the tests report leaves them out (ADR-0014). A
+ * held unit's mutants count only for its group's tests.
  *
  * @implements IteratorAggregate<int, SuiteScore>
  */

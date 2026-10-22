@@ -6,8 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Config;
 
 /**
  * A mutator set a preset turns on, and the package that registers it, which a
- * run that finds the set missing names for installing (ADR-0021, decision
- * 12).
+ * run that finds the set missing names for installing (ADR-0021).
  */
 final readonly class PresetSet
 {

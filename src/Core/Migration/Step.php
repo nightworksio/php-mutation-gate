@@ -8,8 +8,8 @@ use NightWorksIO\MutationGate\Core\Format\JsonDocument;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
- * One change a release made to what a config or a baseline writes (ADR-0026,
- * decision 2), applied to the JSON form every format reads into.
+ * One change a release made to what a config or a baseline writes
+ * (ADR-0026), applied to the JSON form every format reads into.
  */
 interface Step
 {
@@ -25,6 +25,6 @@ interface Step
     /** What it changed, as a sentence starts: `` `a.b` became `c.d` ``. */
     public function change(): string;
 
-    /** The builder spelling it retires, and what replaces it, where it names one (decision 3). */
+    /** The builder spelling it retires, and what replaces it, where it names one. */
     public function spelling(): Spelling|NotGiven;
 }

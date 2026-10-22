@@ -10,7 +10,7 @@ use Closure;
 
 /**
  * What stops a budgeted run before its next batch, besides its deadline: a
- * change `watch` sees arrive mid-run (ADR-0010, decision 1). The batches
+ * change `watch` sees arrive mid-run (ADR-0010). The batches
  * already run keep their results; the units no batch took are left
  * unjudged, as when the time runs out. A run with none is stopped only by
  * its deadline.

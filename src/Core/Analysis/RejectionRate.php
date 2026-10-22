@@ -7,8 +7,8 @@ namespace NightWorksIO\MutationGate\Core\Analysis;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
- * How often an analyser rejected one mutator's mutants (ADR-0020, decision
- * 11): of the mutants of it the analyser checked, how many it rejected.
+ * How often an analyser rejected one mutator's mutants (ADR-0020): of the
+ * mutants of it the analyser checked, how many it rejected.
  */
 final readonly class RejectionRate
 {

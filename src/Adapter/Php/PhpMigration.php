@@ -23,7 +23,7 @@ use PhpParser\PrettyPrinter\Standard;
 use function sprintf;
 
 /**
- * A PHP config's migration (ADR-0026, decision 3): parsed, never run. The
+ * A PHP config's migration (ADR-0026): parsed, never run. The
  * links a removal takes out of the chain are cut from the text first (see
  * ChainCuts); each other call a step retires is then rewritten through
  * php-parser's format-preserving printer, which keeps every comment and the
@@ -62,7 +62,7 @@ final readonly class PhpMigration
     /**
      * Why a config that cannot load still calls what a release retired: the
      * first such call, at its line, naming `migrate`; nothing where it calls
-     * none, or cannot be parsed (ADR-0026, decision 1).
+     * none, or cannot be parsed (ADR-0026).
      */
     public static function pending(string $file, string $code, Migrations $migrations): string|NotGiven
     {

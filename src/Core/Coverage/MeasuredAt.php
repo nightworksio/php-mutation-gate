@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 
 /**
- * Where a whole coverage map was measured (ADR-0020, decision 3): the commit
+ * Where a whole coverage map was measured (ADR-0020): the commit
  * checked out, and whether the working tree held changes git had not
  * committed. A map records it as `commit` and `dirty`.
  */

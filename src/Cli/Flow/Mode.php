@@ -19,8 +19,7 @@ use NightWorksIO\MutationGate\Core\Proof\RunProfile;
  * judged, where that run was of the same kind and reported under the same
  * check, with the fetched default branch giving the new code; where there is
  * no such run, it reads the change since the fetched default branch. On the
- * default branch it reads the change since `last-passed` (ADR-0005, decision
- * 2).
+ * default branch it reads the change since `last-passed` (ADR-0005).
  */
 final readonly class Mode
 {

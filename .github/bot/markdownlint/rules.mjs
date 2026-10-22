@@ -1,6 +1,6 @@
 // Prints .github/bot/rules/markdownlint.json: every rule the locked
 // markdownlint applies, with its own description and documentation page
-// (ADR-0019, decision 7). The `hygiene / markdown` job fails while the
+// (ADR-0019). The `hygiene / markdown` job fails while the
 // committed file differs: node .github/bot/markdownlint/rules.mjs > .github/bot/rules/markdownlint.json
 import rules from "./node_modules/markdownlint/lib/rules.mjs";
 

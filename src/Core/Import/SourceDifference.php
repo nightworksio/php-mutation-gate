@@ -13,7 +13,7 @@ use function sprintf;
 
 /**
  * Where the directories an imported config mutates differ from those
- * `phpunit.xml`'s `<source>` includes (ADR-0016, decision 1). The gate's
+ * `phpunit.xml`'s `<source>` includes (ADR-0016). The gate's
  * `trees` replaces the tree source's list whole, so the difference is said
  * rather than merged.
  */

@@ -92,7 +92,7 @@ final readonly class Judging
     /** Why a passing run of one suite's tests alone records no commit as passed: no floor held it. */
     private const string SUITE_ONLY = 'A run of one suite\'s tests alone records no commit as passed.';
 
-    /** Why a passing sampled run records no commit as passed: it estimated its trees (ADR-0020, decision 29). */
+    /** Why a passing sampled run records no commit as passed: it estimated its trees (ADR-0020). */
     private const string SAMPLED = 'A sampled run records no commit as passed.';
 
     /** Why a passing verdict's commit is not recorded as passed: a run from it must still reach what it left. */
@@ -134,7 +134,7 @@ final readonly class Judging
     /**
      * A plan's results judged again as the verdict judged them, reporting
      * nothing and writing no ledger, for a command that explains what a run
-     * found (ADR-0014, decision 12).
+     * found (ADR-0014).
      */
     public function again(Plan $plan, Results $results): Verdict|CannotJudge
     {
@@ -172,7 +172,7 @@ final readonly class Judging
 
     /**
      * The coverage map the plan handed on, kept beside the default branch's
-     * ledger for a run on that branch (ADR-0023, decision 2): where, or why it
+     * ledger for a run on that branch (ADR-0023): where, or why it
      * could not be; nothing for a run that keeps none.
      *
      * @return list<string>
@@ -313,7 +313,7 @@ final readonly class Judging
      * The trees, with their survivors of one cause clustered, each survivor
      * a weak test let through marked, and each removal whose callee may be
      * deleted, from the survivors' own files and their tests' files, each
-     * read once (ADR-0022 decision 15, ADR-0025 decisions 5 to 7, 11 and 12).
+     * read once (ADR-0022, ADR-0025).
      */
     private function read(KillMatrix $matrix, TreeVerdicts $judged): TreeVerdicts
     {
@@ -330,7 +330,7 @@ final readonly class Judging
 
     /**
      * Why a CI run stops on trees and security sets held to no floor
-     * (ADR-0003 decision 9, ADR-0021 decision 17): each tree and set, and the
+     * (ADR-0003, ADR-0021): each tree and set, and the
      * baseline the run measured, ready to commit. The run judges, records and
      * reports before it stops, so nothing it measured is lost.
      */
@@ -453,12 +453,11 @@ final readonly class Judging
     }
 
     /**
-     * The kill matrix of the kind the plan records (ADR-0014, decisions 7
-     * and 9 to 11): over the map the plan handed the verdict, which holds the
-     * lines of every unit it considered, with the names the plan holds for
-     * the tests, the suites the PHPUnit config declares them in, and why a
-     * matrix of first killers holds no more. Without a map it holds each
-     * mutant's killers alone.
+     * The kill matrix of the kind the plan records (ADR-0014): over the map
+     * the plan handed the verdict, which holds the lines of every unit it
+     * considered, with the names the plan holds for the tests, the suites the
+     * PHPUnit config declares them in, and why a matrix of first killers
+     * holds no more. Without a map it holds each mutant's killers alone.
      */
     private function matrixOf(Plan $plan, CoverageMap|CannotJudge $map): KillMatrix
     {

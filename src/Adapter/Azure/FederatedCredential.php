@@ -29,7 +29,7 @@ use function str_contains;
 
 /**
  * The `azure` store's token, from OIDC federation and never from a key
- * (ADR-0028 decision 2): a ready one another CI's federation hands over in
+ * (ADR-0028): a ready one another CI's federation hands over in
  * `MUTATION_GATE_AZURE_TOKEN`, or one Microsoft Entra ID gives for GitHub's
  * own, asked for the audience `api://AzureADTokenExchange` and handed over
  * as a client assertion, with the tenant and client `AZURE_TENANT_ID` and

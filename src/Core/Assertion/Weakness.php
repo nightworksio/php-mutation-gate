@@ -24,8 +24,8 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
  * survivor of the Return value, Literal, Arithmetic, Collection or Unwrap
  * family, and each of its judging tests whose every assertion checks only
  * existence or shape, as the kill matrix names the tests that judge it. A
- * test the runner named no file for is not assessed (ADR-0025, decisions 5
- * and 6). A surviving removal reads its judging tests too (decision 11).
+ * test the runner named no file for is not assessed (ADR-0025). A
+ * surviving removal reads its judging tests too.
  */
 final readonly class Weakness
 {

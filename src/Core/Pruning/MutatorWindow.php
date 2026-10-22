@@ -16,7 +16,7 @@ use function sprintf;
 
 /**
  * What one mutator's newest judged mutants came to under one runner
- * (ADR-0025, decision 2), oldest first, as a `0` for each mutant killed and
+ * (ADR-0025), oldest first, as a `0` for each mutant killed and
  * a `1` for each let through; and the last mutant let through, where one
  * ever was. It keeps no more than the window it was last given.
  */

@@ -28,7 +28,7 @@ use function preg_match;
 use function sprintf;
 
 /**
- * Infection's `source` as the gate's `trees` (ADR-0016, decisions 1 and 3):
+ * Infection's `source` as the gate's `trees` (ADR-0016):
  * one tree per directory, each excluding what `source.excludes` names inside
  * it, each with the imported floor. Without `source.directories`, the trees
  * zero-config found take the floor and the excludes.

@@ -51,7 +51,7 @@ use function var_export;
 
 /**
  * The gate's own `file://` wrapper, which the override registers before
- * Composer's autoloader loads anything (ADR-0023 decision 9). Where PHP
+ * Composer's autoloader loads anything (ADR-0023). Where PHP
  * includes or reads the one file it serves, by any name of that file, it
  * opens the mutated file in its place, and says so in the guard file; every
  * other use of every file it hands to PHP's own wrapper.
@@ -142,12 +142,12 @@ final class MutantFile
 
     /**
      * Opens a file, or the mutated file where PHP includes or reads the file
-     * served, so a test that reads its source sees the mutant (ADR-0021,
-     * decision 19), and says so in the guard file. A file opened to write is
-     * the file itself. A file that is not there is not opened to read it, so
-     * that the only warning is PHP's own. PHP resolves the include path
-     * before it calls a wrapper, handing it the file's full path, so a path
-     * it hands over is opened as it is written.
+     * served, so a test that reads its source sees the mutant (ADR-0021),
+     * and says so in the guard file. A file opened to write is the file
+     * itself. A file that is not there is not opened to read it, so that the
+     * only warning is PHP's own. PHP resolves the include path before it
+     * calls a wrapper, handing it the file's full path, so a path it hands
+     * over is opened as it is written.
      */
     public function stream_open(string $path, string $mode): bool
     {

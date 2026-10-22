@@ -19,9 +19,9 @@ use NightWorksIO\MutationGate\Core\Proof\Scope;
 use function sprintf;
 
 /**
- * The default branch's scope, as a command that holds the gate's keys learns it from its own run (ADR-0007
- * decision 5): the branch the GitHub Actions event payload names, else the one `MUTATION_GATE_DEFAULT_BRANCH`
- * names, since a schedule's payload names none; with neither, none.
+ * The default branch's scope, as a command that holds the gate's keys learns it from its own run (ADR-0007):
+ * the branch the GitHub Actions event payload names, else the one `MUTATION_GATE_DEFAULT_BRANCH` names, since
+ * a schedule's payload names none; with neither, none.
  */
 final readonly class DefaultBranch
 {

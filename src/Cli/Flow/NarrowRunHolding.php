@@ -12,11 +12,11 @@ use NightWorksIO\MutationGate\Core\Verdict\SecurityVerdicts;
 
 /**
  * What a narrowed run holds to a floor: a run of the security mutators
- * alone judges none of the trees (ADR-0021, decision 20), a run of one
- * suite's tests alone holds no tree, and no security set, to one (ADR-0025,
- * decision 9), and a sampled run, which estimates its trees, judges no
- * security set, since the units it left out hold security mutants it did not
- * run (ADR-0020, as built).
+ * alone judges none of the trees (ADR-0021), a run of one
+ * suite's tests alone holds no tree, and no security set, to one
+ * (ADR-0025), and a sampled run, which estimates its trees, judges no
+ * security set, since the units it left out hold security mutants it did
+ * not run (ADR-0020).
  */
 final readonly class NarrowRunHolding
 {
@@ -62,7 +62,7 @@ final readonly class NarrowRunHolding
     /**
      * Each package's security set, exempt in a run of one suite's tests alone
      * that does not make mutants with the security mutators alone, which
-     * holds no floor (ADR-0025, decision 9), and in a sampled run.
+     * holds no floor (ADR-0025), and in a sampled run.
      */
     public function security(SecurityVerdicts $security, Sample $sample): SecurityVerdicts
     {

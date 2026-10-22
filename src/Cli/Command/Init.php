@@ -32,7 +32,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * `init`: a config file holding what should stay fixed of what zero-config
  * found, the preset and the runner, with the trees left to the tree source
- * and listed (ADR-0017, decision 2), and what a full run takes (decision 4).
+ * and listed (ADR-0017), and what a full run takes.
  * With `--from`, or as `import`, an Infection config seeds it too, and every
  * key of that file is said to be imported, left in place or dropped
  * (ADR-0016). It also keeps `.mutation-gate/` out of git.

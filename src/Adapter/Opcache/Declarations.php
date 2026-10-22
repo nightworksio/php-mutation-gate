@@ -12,7 +12,7 @@ use PhpParser\PrettyPrinter\Standard;
 
 /**
  * What a program declares, which its optimized opcodes do not show
- * (ADR-0013, decision 10): the program printed with every function's body
+ * (ADR-0013): the program printed with every function's body
  * taken out, so that what is left is its classes, their constants,
  * properties, cases, attributes and modifiers, every function's signature,
  * and, from each body, the static variables and the classes and closures it

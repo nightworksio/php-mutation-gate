@@ -11,7 +11,7 @@ use function sprintf;
 
 /**
  * The command a delivery is left by under `--deliver-later`, each in a directory of its own, so `deliver` sends
- * each stage's alone and in its own job (ADR-0007 decision 5): the plan's comment in its planned state, the
+ * each stage's alone and in its own job (ADR-0007): the plan's comment in its planned state, the
  * comment while the last run's survivors are re-checked, written only over that planned state, and the verdict's
  * ledger, comment, alerts and export.
  */

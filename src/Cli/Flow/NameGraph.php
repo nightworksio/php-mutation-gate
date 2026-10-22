@@ -13,8 +13,8 @@ use NightWorksIO\MutationGate\Core\Php\PhpFile;
 /**
  * The project's name graph, read from the files on disk: every PHP file of
  * the suite's sources and outside its test directories, each with the files
- * it names. A carried kill follows a change through it (ADR-0008, decision
- * 1), and a check finds a mutant's dependents in it (ADR-0020, decision 7).
+ * it names. A carried kill follows a change through it (ADR-0008), and a
+ * check finds a mutant's dependents in it (ADR-0020).
  */
 final readonly class NameGraph
 {

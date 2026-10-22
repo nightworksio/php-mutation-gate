@@ -11,11 +11,11 @@ use NightWorksIO\MutationGate\Core\Config\Sampling;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
- * What a sample is drawn from, which the author does not choose (ADR-0020,
- * decision 28): `sampling.seed` where it is set; or else, in a change-scoped
- * run, the commit its change's base ref is at, which is the default
- * branch's, and the ref itself where git cannot say; and otherwise the
- * commit the plan is made on.
+ * What a sample is drawn from, which the author does not choose (ADR-0020):
+ * `sampling.seed` where it is set; or else, in a change-scoped run, the
+ * commit its change's base ref is at, which is the default branch's, and the
+ * ref itself where git cannot say; and otherwise the commit the plan is made
+ * on.
  */
 final readonly class SampleSeed
 {

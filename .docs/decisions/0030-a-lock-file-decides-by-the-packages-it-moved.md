@@ -5,9 +5,9 @@
 
 ## Context
 
-ADR-0005, decision 4, rule 1 makes each package's `composer.lock` a file that
+ADR-0005, rule 1 makes each package's `composer.lock` a file that
 decides how the gate runs: "a dependency that moves changes what every mutant
-runs against, and no coverage map shows it". ADR-0008, decision 1 lets no kill
+runs against, and no coverage map shows it". ADR-0008 lets no kill
 carried across commits stand past a change to one. So every change to a lock
 reaches every unit.
 
@@ -27,7 +27,7 @@ its components, the parser, and the analyser with the rules it loads.
    of characters within the vendor or the name, such as `pestphp/*`. A config
    that leaves it out decides by every package, so nothing changes for a
    project that does not set it. The setting decides how the gate runs
-   (ADR-0005, decision 4), and its lists from several layers add up, as
+   (ADR-0005), and its lists from several layers add up, as
    `reach.everything`'s do.
 2. **A change to a package's lock in its place decides only where it moved a
    package the setting names.** The lock is read at the base and now. A
@@ -41,20 +41,20 @@ its components, the parser, and the analyser with the rules it loads.
    Otherwise it decides alike, as a config whose change moved no setting that
    decides does, and reaches nothing by itself. A lock that is added, deleted
    or renamed decides as before.
-3. **A carried kill follows the same rule.** ADR-0008, decision 1 reads the
+3. **A carried kill follows the same rule.** ADR-0008 reads the
    lock at the commit a kill was judged at and now, and a lock that decides
    nothing is followed by the words of its name, as any other file that is not
    PHP is.
 4. **`vendor/composer/installed.json` and the proof key do not change.** A
    committed `installed.json` still decides whole. A proof's key still holds
-   its digest (ADR-0007), so the scheduled full run (ADR-0005, decision 6)
+   its digest (ADR-0007), so the scheduled full run (ADR-0005)
    re-proves every unit after any move of a dependency. That run bounds what a
    narrowed reach could miss.
 5. **The gate's own config lists the packages that decide its verdict**, each
    with its reason in a test that fails where the list and the reasons part.
 
-This supersedes ADR-0005, decision 4, rule 1 for `composer.lock`, and ADR-0008,
-decision 1 for "a package's `composer.lock`", where the setting is set.
+This supersedes ADR-0005, rule 1 for `composer.lock`, and ADR-0008 for "a
+package's `composer.lock`", where the setting is set.
 
 ## Alternatives considered
 
@@ -75,4 +75,4 @@ decision 1 for "a package's `composer.lock`", where the setting is set.
 
 - [ADR-0005](0005-what-a-change-reaches-is-what-is-mutated.md): rule 1, which this narrows for the lock
 - [ADR-0007](0007-a-proof-is-keyed-by-everything-its-verdict-reads.md): the key, which keeps every package
-- [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): decision 1, the carried kills
+- [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): the carried kills

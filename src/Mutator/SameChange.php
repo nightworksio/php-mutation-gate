@@ -8,7 +8,7 @@ use NightWorksIO\MutationGate\Core\Mutant\NamedMutators;
 
 /**
  * A mutator whose change other mutators also make. It names them, and stands
- * down wherever one of them runs that names none (ADR-0021, decision 18).
+ * down wherever one of them runs that names none (ADR-0021).
  */
 interface SameChange
 {

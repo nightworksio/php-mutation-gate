@@ -16,7 +16,7 @@ use NightWorksIO\MutationGate\Core\Proof\Undigested;
  * The files whose units carry only the run's own scope's result, those a
  * `last-run` change reads since its last run but that changed since the ref
  * it falls back to, and the digests of the code on disk that result must
- * still be of (ADR-0005, decision 2). A result stands for such a unit only
+ * still be of (ADR-0005). A result stands for such a unit only
  * where it records the unit's source and what decides its mutant set as they
  * are now; where either differs, or the run took no digests, the unit is
  * reached. A last run only says where to look: what a result is of decides

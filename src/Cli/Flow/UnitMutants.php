@@ -21,11 +21,11 @@ use NightWorksIO\MutationGate\Core\Verdict\Scoring;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 
 /**
- * How many mutants a unit is estimated to hold, for a sample (ADR-0020,
- * decision 23): as many as its newest proof counts, as a verdict scores
- * them, or else as many as the gate's own engine makes of its file. A held
- * unit no proof records, or a file the engine cannot read, is estimated by
- * nothing.
+ * How many mutants a unit is estimated to hold, for a sample
+ * (ADR-0020): as many as its newest proof counts, as a verdict scores
+ * them, or else as many as the gate's own engine makes of its file. A
+ * held unit no proof records, or a file the engine cannot read, is
+ * estimated by nothing.
  */
 final readonly class UnitMutants
 {

@@ -13,11 +13,10 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
- * What the warm workers of one mutation run share (ADR-0023, decisions 12 and
- * 13): the project's autoloader and PHPUnit's config, which each worker boots
- * once, the files the run mutates, which no worker may have loaded once it
- * booted, the time after which no run starts, and every run, in the order
- * they are claimed.
+ * What the warm workers of one mutation run share (ADR-0023): the project's
+ * autoloader and PHPUnit's config, which each worker boots once, the files
+ * the run mutates, which no worker may have loaded once it booted, the time
+ * after which no run starts, and every run, in the order they are claimed.
  */
 final readonly class Job
 {

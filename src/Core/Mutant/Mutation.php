@@ -11,7 +11,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * for it (Pest's mutator class, whose short name several share), the family
  * of that mutator, the unified diff of the change, and the sentence a
  * registered mutator gives its survivors in place of its family's, where it
- * has one (ADR-0021, decision 5).
+ * has one (ADR-0021).
  */
 final readonly class Mutation
 {

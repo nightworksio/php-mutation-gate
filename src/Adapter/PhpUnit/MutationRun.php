@@ -48,14 +48,14 @@ use function strval;
 
 /**
  * Every mutant of a request's files the gate's own engine makes with the
- * enabled mutators (ADR-0023 decision 8), each judged by the tests the
+ * enabled mutators (ADR-0023), each judged by the tests the
  * coverage map says cover its lines, and allowed the standard mutant limit of
  * their time as the map timed it, and the silence limit of the slowest's
- * (ADR-0008, decision 2). Their runs go side by
+ * (ADR-0008). Their runs go side by
  * side, as many at once as the request's processes, each process told its
  * place as paratest tells its workers: each forked from a warm worker where
  * the request's pool asks for that and a worker can fork, and in a fresh
- * process otherwise (ADR-0023, decisions 12 to 14). A mutant no test covers
+ * process otherwise (ADR-0023). A mutant no test covers
  * is uncovered, without a run. A mutant whose run has not started by the
  * request's deadline is skipped with no record. A run again makes only the
  * mutants it names. A mutant that leaves its file as one made before it does
@@ -287,8 +287,8 @@ final readonly class MutationRun
     /**
      * The silence limit of a mutant's run: the standard limit of its slowest
      * covering test's own time, within the bounds of its mutator's silence,
-     * `timeouts.tighter`'s lower floor where it lists the mutator (ADR-0008,
-     * decision 2); none where the map did not time every one of them, as a
+     * `timeouts.tighter`'s lower floor where it lists the mutator
+     * (ADR-0008); none where the map did not time every one of them, as a
      * test of unknown length could be stopped while it runs.
      */
     private function silenceOf(Seconds|Unmeasured $slowest, LimitBounds $bounds): Seconds|NotGiven

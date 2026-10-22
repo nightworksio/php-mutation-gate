@@ -15,7 +15,7 @@ use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 /**
  * The floor a ratcheted set is held to, a tree or a package's security set:
  * the higher of the one declared for it and the one the baseline holds, and
- * the floor its score raises the baseline to (ADR-0003, decisions 6 and 9).
+ * the floor its score raises the baseline to (ADR-0003).
  */
 final readonly class HeldFloor
 {
@@ -47,7 +47,7 @@ final readonly class HeldFloor
      * the set was held to, or where no floor holds it at all. A floor only
      * the declaration holds and the score merely meets is left unrecorded, and
      * so is the floor of a set with an unjudged mutant, which the run did not
-     * judge whole (ADR-0003, decision 4).
+     * judge whole (ADR-0003).
      */
     public function raisedBy(Counts $counts, Uncovered $uncovered): Floor|Unraised
     {

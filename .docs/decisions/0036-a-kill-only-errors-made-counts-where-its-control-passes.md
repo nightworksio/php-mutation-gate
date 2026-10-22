@@ -5,7 +5,7 @@
 
 ## Context
 
-ADR-0004, decision 3 lets a mutant's own run under Pest load only the test
+ADR-0004 lets a mutant's own run under Pest load only the test
 files its covering tests need. Such a kill counts only where the run can
 vouch for it. A kill no test is named for, or one only tests that errored
 made, did not count, "as a helper a test calls by a name built at run time
@@ -42,9 +42,9 @@ catch from the files themselves.
    record of it.
 3. **A kill only tests that errored made in a run that loaded every test file
    counts**, as such a kill under the PHPUnit runner or Infection does. Its
-   kill control (ADR-0014, decision 18) still runs its killers on the
+   kill control (ADR-0014) still runs its killers on the
    unmutated code.
-4. This amends ADR-0004, decision 3's rule that a kill made only by tests that
+4. This amends ADR-0004's rule that a kill made only by tests that
    errored does not count. The rest of that rule stands.
 
 ## Alternatives considered
@@ -66,6 +66,6 @@ catch from the files themselves.
 
 ## Related
 
-- [ADR-0004](0004-pest-and-infection-behind-one-runner-port.md): decision 3, the narrowed run and its doubt
-- [ADR-0014](0014-every-test-is-judged-by-what-it-kills.md): decision 18, kill controls
+- [ADR-0004](0004-pest-and-infection-behind-one-runner-port.md): the narrowed run and its doubt
+- [ADR-0014](0014-every-test-is-judged-by-what-it-kills.md): kill controls
 - [ADR-0034](0034-a-suite-whose-test-files-pass-alone-need-not-confirm-survivors.md): the `test files alone` job

@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
 
 /**
  * What an adapter read about a project for the checks, read-only and without
- * running its code, and the day it read it (ADR-0017, decision 9); and what
+ * running its code, and the day it read it (ADR-0017); and what
  * `--measure` and `--online` found out beyond that. A part nobody read is
  * not given, and the checks that ask for it find nothing.
  */

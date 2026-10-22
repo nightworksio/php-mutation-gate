@@ -35,11 +35,10 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
 - **Both runners mutate php-parser 5 trees**, and both find a mutator by a
   class name that must load in the runner's own process.
 - **`Core`, `Port`, `Config` and `Extension` name nothing outside the
-  package but PHP and `Psr\Clock`** (ADR-0001 decision 5, rule A1), so none
+  package but PHP and `Psr\Clock`** (ADR-0001, rule A1), so none
   of those public layers can name a php-parser node.
-- **Presets are config fragments with a name** (ADR-0008 decision 5), each a
-  typed layer of config laid before the config file (ADR-0002 decisions 1
-  and 5).
+- **Presets are config fragments with a name** (ADR-0008), each a
+  typed layer of config laid before the config file (ADR-0002).
 - **Frameworks and security.** A framework app's riskiest code is framework
   calls: an authorisation check, a validation rule, a transaction. A
   security defence (an escape, a password check, a constant-time comparison)
@@ -54,12 +53,12 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
    `NightWorksIO\MutationGate\Mutator`.**
    - The layers are, in order: `Core`, `Attribute`, `Port`, `Mutator`,
      `Config`, `Extension`, `Adapter\<Name>`, `Cli`. This amends ADR-0001
-     decision 1 from seven layers to eight.
+     from seven layers to eight.
    - The `Mutator` layer, and only it, may name `PhpParser`. This amends
-     ADR-0001 decision 5's first rule, A1 in `ARCHITECTURE.md`.
+     ADR-0001's first rule, A1 in `ARCHITECTURE.md`.
    - `nikic/php-parser` ^5.9 is in `require`, since every runner process
      loads the SDK.
-   - The layer is public API. This amends ADR-0011 decision 7.
+   - The layer is public API. This amends ADR-0011.
 
 2. **The interface.**
 
@@ -74,7 +73,7 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
        /** Its name in reports and ignores, `<set>/<Name>`, such as `laravel/GateAllowsToTrue`. */
        public function name(): MutatorName;
 
-       /** The family whose hint a survivor gets (ADR-0009 decision 7). */
+       /** The family whose hint a survivor gets (ADR-0009). */
        public function family(): MutatorFamily;
 
        /** What it is about, such as `security`. */
@@ -100,16 +99,16 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
    - A mutator whose change other mutators also make implements
      `SameChange` too. Its `madeAlsoBy(): NamedMutators` names them as the
      gate names their mutants: a registered one `<set>/<Name>`, and a
-     runner's own as that runner names it (decision 18).
+     runner's own as that runner names it.
 
 3. **Sets are registered by name, and enabled by config.**
    - `Extensions::withMutators(Name $set, MutatorSet $mutators)` adds an
-     extension point, *mutator set*. This amends ADR-0001 decision 4.
+     extension point, *mutator set*. This amends ADR-0001.
    - `mutators.sets`, a list of set names, `[]` by default plus what presets
      add, turns sets on. `mutators.except`, a list of mutator names, turns
      single ones off.
    - An unknown set the config file names is exit 2 with the nearest name
-     (ADR-0002 decision 6). Installing a package never changes a score by
+     (ADR-0002). Installing a package never changes a score by
      itself.
    - `default` in `mutators.sets` is a config error, exit 2: that set is
      always on, and Pest and Infection run their own mutators in its place.
@@ -150,17 +149,17 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
      before it resolves `mutators`.
    - The runner contract suite runs a registered mutator through each
      bridge under the real runner.
-   - This amends ADR-0004 decisions 3 and 4.
+   - This amends ADR-0004.
 
 5. **A custom mutant looks the same under every runner.**
    - Its name is the SDK name, such as `laravel/GateAllowsToTrue`, under both
      runners. The adapters map a bridge's class back to it.
-   - That name is the mutator's full name in the gate's id (ADR-0004
-     decision 2), in `ignores.entries` (`{"path": …, "mutator":
+   - That name is the mutator's full name in the gate's id (ADR-0004),
+     in `ignores.entries` (`{"path": …, "mutator":
      "laravel/GateAllowsToTrue"}`), and in every report.
-   - Its family and hint are its own. ADR-0009 decision 7's table test covers
+   - Its family and hint are its own. ADR-0009's table test covers
      registered mutators: one with `MutatorFamily::None` says so.
-   - This amends ADR-0004 decision 2, whose full name is otherwise the Pest
+   - This amends ADR-0004, whose full name is otherwise the Pest
      class name or the Infection name.
 
 6. **A mutator may handle nodes one runner never offers.** Under Infection, a
@@ -170,12 +169,12 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
 
 7. **Every input to a custom mutant is keyed.**
    - `mutators.sets` and `mutators.except` **affect results**, in key item 3
-     (ADR-0007 decision 2.3).
+     (ADR-0007).
    - A registering package's version is in `installed.json`, item 5. A set
      inside this package moves with the gate's version, item 2.
    - A mutator class a project keeps under a test directory joins item 7, as
      files that define the runner do.
-   - This amends ADR-0007 decisions 2.3 and 2.7.
+   - This amends ADR-0007.
 
 8. **Authors get a testing kit.**
    `NightWorksIO\MutationGate\Mutator\Testing\Mutates` takes a mutator and a
@@ -184,11 +183,11 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
    tested with it. It is public API.
 
 9. **A mutator is trusted as an extension is.** It comes from Composer's
-   `extra` or the config's `extensions` (ADR-0001 decision 4), and runs in the
+   `extra` or the config's `extensions` (ADR-0001), and runs in the
    runner's process, which already runs the project's tests.
    `--no-extensions` turns off every set but those the first-party packages
    register: the gate's own and the plugins under `plugins/`, which count as
-   first party while they ship here (ADR-0023 decision 8). A mutator's
+   first party while they ship here (ADR-0023). A mutator's
    `handles()` stays narrow, because Pest re-parses a file once per mutation
    per mutator.
 
@@ -228,12 +227,12 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
     - The package's own gate holds four trees at 100: `src`,
       `plugins/laravel/src`, `plugins/symfony/src` and
       `plugins/security/src`. PHPStan, Rector, Pint and the Arch suite read
-      the plugin paths too. This amends ADR-0011 decisions 1 and 3.
+      the plugin paths too. This amends ADR-0011.
 
 12. **Presets turn the sets on by name, softly.**
     - `library` adds `mutators.sets: ["security"]`, `laravel` adds
       `["laravel", "security"]`, and `symfony` adds `["symfony",
-      "security"]`. This amends ADR-0008 decision 5: the presets table gains a
+      "security"]`. This amends ADR-0008: the presets table gains a
       row for mutator sets.
     - A set a preset's layer names and nobody registered is skipped, with one
       warning naming the package to install: *The laravel preset turns on the
@@ -241,7 +240,7 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
       nightworksio/mutation-gate-laravel`*.
     - The same name in the config file is exit 2. The gate names a set only
       as data, never as a class.
-    - This amends ADR-0002 decision 5: which layer an entry comes from decides
+    - This amends ADR-0002: which layer an entry comes from decides
       what a missing name means.
 
 13. **A catalogue mutator matches on syntax and resolved names, and needs no
@@ -256,7 +255,7 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
     - A hint says what is missing in the framework's own terms, such as *No
       test checks that the action is refused when the gate says no*. It is
       fixed text, reviewed as code is, and a survivor gets it in place of its
-      family's sentence (ADR-0009, decision 7).
+      family's sentence (ADR-0009).
 
 14. **The `laravel` set** (`NightWorksIO\MutationGateLaravel\Mutators`).
     "Pest only" marks a node Infection never offers.
@@ -316,10 +315,10 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
       mutator the config turns on, from the `default` set or a set in
       `mutators.sets`, or one that such a mutator's `SameChange` names. The
       mutators `mutators.except` turns off make none, and a mutator that
-      stands down still names the others (decision 18).
+      stands down still names the others.
     - A security mutant counts in its tree as every mutant does.
     - It is also judged in its package's security set, against a floor of its
-      own, as new code is (ADR-0003 decision 8). So a security survivor fails
+      own, as new code is (ADR-0003). So a security survivor fails
       the security floor even where it does not move its tree's score.
     - A package has a security set where its trees hold a security mutant or
       the baseline holds its floor. Where no package has one, one empty set at
@@ -332,15 +331,15 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
       have: `"security": {".": {"floor": 97.5}}`. The map is part of the
       baseline's `"format": 1`, and the file leaves it out where it is empty.
       A package's entry leaves it only when the package is gone. This amends
-      ADR-0003 decisions 3, 6 and 7.
+      ADR-0003.
     - `security.floor`, a number from 0 to 100 with no default, is the
       declared minimum. `extra.mutation-gate.securityFloor` in a package's
       `composer.json` declares it for that package's set in its place. A
       module's manifest that declares it stops the run with exit code 2, as a
-      module shares its package's set (ADR-0005 decision 7).
+      module shares its package's set (ADR-0005).
     - A first CI run with no security floor measures it and hands the entry
-      over, as ADR-0017 decision 6 does for trees. There is no default floor
-      (ADR-0003 decision 9).
+      over, as ADR-0017 does for trees. There is no default floor
+      (ADR-0003).
     - The security mutants on changed lines are already held to the new-code
       floor, 100 by default.
     - `security.floor` and `securityFloor` **judge only**.
@@ -368,8 +367,7 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
       the `default` set and the sets in `mutators.sets`; under Pest, Pest's
       `DefaultSet` and those sets; under Infection, the mutators the
       project's Infection config turns on, its `@default` profile where it
-      turns on none, and those sets, less each mutator pinned by source
-      (decision 19).
+      turns on none, and those sets, less each mutator pinned by source.
     - The three HTML unwraps name the `default` set's and Pest's own unwraps
       of the same function. They stand down for the engine and under Pest,
       and make their mutants under Infection, whose own mutators unwrap none
@@ -388,19 +386,19 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
       `HashEqualsToIdentical`'s is a call to `hash_equals`.
     - Pest's stream wrapper and the gate's PHPUnit runner serve the mutant to
       every open of the file during its run, so the test reads it. This
-      amends ADR-0023 decision 9. Infection serves it to an include only, so
+      amends ADR-0023. Infection serves it to an include only, so
       a mutator pinned by source stands down under Infection.
     - Its hint: *Only a test that reads the source can pin a constant-time
       comparison: one that runs it, then asserts that its file still calls
       `hash_equals`.*
     - `stub` writes that test in Pest's or PHPUnit's style: it calls the
       function, asserts on its result, and asserts that the function's file,
-      found through reflection, still holds the pin. This amends ADR-0015
-      decision 1.
+      found through reflection, still holds the pin. This amends
+      ADR-0015.
 
 20. **`--security` audits the defences alone.**
     - `plan --security` and `run --security` make mutants with the security
-      mutators alone (decision 16), through `MutationRequest::narrowedTo`,
+      mutators alone, through `MutationRequest::narrowedTo`,
       and judge only the security sets. Each tree is shown exempt, as
       `--security judges only the security sets`, and no commit is recorded
       as passed.
@@ -408,12 +406,12 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
       another runner has, makes no mutants. Where none of them runs, the
       runner runs nothing.
     - A plan made with `--security` holds `"security": true` inside its
-      digest, which extends the plan file of ADR-0006 decision 1. Every
+      digest, which extends the plan file of ADR-0006. Every
       shard and the verdict follow it, so an audit can be sharded: `run
       --plan` takes no `--security`, and `verdict` reads it from the plan.
     - `pre-push` and `watch` take no `--security`: `pre-push` makes the
       judgement CI makes (ADR-0010), and `watch` holds new code.
-    - Its results are keyed by the narrowed mutator list (decision 7), so
+    - Its results are keyed by the narrowed mutator list, so
       they never stand in for a whole unit's proof. It teaches the cost model
       nothing, since its units' times are not those of a whole run.
 
@@ -428,7 +426,7 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
     - The PR comment lists security survivors in a section before the trees.
       Annotations rank them after changed lines. A chat alert names a failing
       security set.
-    - This amends ADR-0009 decisions 2 and 3.
+    - This amends ADR-0009.
     - The catalogue is public, and lists defences, not flaws. A survivor in a
       public repository's PR comment points at an untested defence, which is
       the purpose.
@@ -454,7 +452,7 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
 | **Separate repositories from the start** | A version matrix between the gate and its sets before 0.1.0, which ADR-0001 rejected for the runners. |
 | **A path repository in development** | Tests the split for real, but a path repository cannot be published, so the root would need two ways to find one set. |
 | **A missing set always exit 2** | A zero-config run of a Laravel project without the set's package would stop. |
-| **A missing set always skipped** | A misspelt set in the config would silently do nothing, which ADR-0002 decision 6 refuses. |
+| **A missing set always skipped** | A misspelt set in the config would silently do nothing, which ADR-0002 refuses. |
 | **Framework sets opt-in by config only** | Few projects would turn them on, and presets exist to give a framework app sensible defaults. |
 | **Mutators that need a receiver's type**, from a static analyser | Ties mutation to the analyser of ADR-0020 and to the project's analyser config. |
 | **The family sentence only for catalogue mutators** | True, and far less useful than the framework's own terms. |

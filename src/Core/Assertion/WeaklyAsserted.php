@@ -9,7 +9,7 @@ use NightWorksIO\MutationGate\Core\Php\Nameless;
 /**
  * What a survivor an assertion of value would kill says of its tests: those
  * of them that are weak, and the function whose result such an assertion
- * would check (ADR-0025, decisions 6 and 7).
+ * would check (ADR-0025).
  */
 final readonly class WeaklyAsserted
 {

@@ -16,7 +16,7 @@ use NightWorksIO\MutationGate\Core\Reach\AffectedTest;
 use NightWorksIO\MutationGate\Core\Reach\AffectedTests;
 
 /**
- * What `affected` found, for a script (ADR-0020, decision 1): `format`, the
+ * What `affected` found, for a script (ADR-0020): `format`, the
  * `base` the change was read since, the ref asked for or else the commit the
  * map was measured at; the `map`'s `commit` and `dirty`; whether `all` tests
  * are listed; each listed test file with the map's `ids` of it and its

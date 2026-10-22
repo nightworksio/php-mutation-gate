@@ -42,7 +42,7 @@ final readonly class FlowOptions
 
     public const string FULL = 'full';
 
-    /** The option that has `plan` and `run` sample the units no proof covers (ADR-0020, decision 22). */
+    /** The option that has `plan` and `run` sample the units no proof covers (ADR-0020). */
     public const string SAMPLE = 'sample';
 
     public const string COVERAGE = 'coverage';
@@ -64,10 +64,10 @@ final readonly class FlowOptions
 
     public const string ONLY = 'only';
 
-    /** The option that has `plan` and `run` make mutants with the security mutators alone (ADR-0021, decision 20). */
+    /** The option that has `plan` and `run` make mutants with the security mutators alone (ADR-0021). */
     public const string SECURITY = 'security';
 
-    /** The option that has `plan` and `run` judge the mutants by one suite's tests alone (ADR-0025, decision 9). */
+    /** The option that has `plan` and `run` judge the mutants by one suite's tests alone (ADR-0025). */
     public const string SUITE = 'suite';
 
     /** The option that has a command write what it would otherwise print: `baseline --write`, `stub --write`. */
@@ -148,9 +148,9 @@ final readonly class FlowOptions
     }
 
     /**
-     * What the flow runs with, narrowed to the security mutators (ADR-0021,
-     * decision 20) and to one suite's tests (ADR-0025, decision 9) where the
-     * options ask for it, or why it cannot run.
+     * What the flow runs with, narrowed to the security mutators (ADR-0021)
+     * and to one suite's tests (ADR-0025) where the options ask for it, or
+     * why it cannot run.
      */
     public static function narrowed(
         Composed|Invalid|CannotJudge $composed,
@@ -170,7 +170,7 @@ final readonly class FlowOptions
 
     /**
      * The options that print a verdict for an editor, which `run`, `watch`
-     * and `pre-push` take (ADR-0015, decision 6).
+     * and `pre-push` take (ADR-0015).
      */
     public static function editing(Command $command): Command
     {
@@ -206,8 +206,8 @@ final readonly class FlowOptions
     /**
      * The run mode the options ask for: `--full`, or `--changed-since`; with
      * neither, every unit where `run.full` asks for it, and otherwise what
-     * changed since the scope's last passing commit (ADR-0005, decision 2);
-     * sampled where `--sample` asks (ADR-0020, decision 22), which no run of
+     * changed since the scope's last passing commit (ADR-0005);
+     * sampled where `--sample` asks (ADR-0020), which no run of
      * the security mutators or of one suite alone takes.
      */
     public static function mode(InputInterface $input, Settings $settings): Mode|CannotJudge

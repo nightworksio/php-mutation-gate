@@ -11,7 +11,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 
 /**
  * What a PHP file declares that other files read, read from its tokens
- * (ADR-0020, decision 7): each class, interface, trait and enum's header up
+ * (ADR-0020): each class, interface, trait and enum's header up
  * to its body, and every statement of that body up to its own body, which
  * is a method's signature, a property, a constant, an enum case or a trait
  * use; and each function's signature, and each constant, a file or a

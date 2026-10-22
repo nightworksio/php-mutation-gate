@@ -14,7 +14,7 @@ use function preg_split;
 
 /**
  * Where every store keeps a scope's ledger: `<prefix>/<scope>/ledger.json.gz`
- * (ADR-0007 decision 5), and each object beside it (ADR-0023, decision 2),
+ * (ADR-0007), and each object beside it (ADR-0023),
  * under a directory, as a bucket's key, or as a path
  * of a public URL over the bucket, for a scope that is a branch's or a pull
  * request's ref and nothing else. In a URL each segment is percent-encoded

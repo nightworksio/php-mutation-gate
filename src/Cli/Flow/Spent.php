@@ -19,8 +19,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warnings;
  * units its budget ran out before or its doom left, what the runner warned
  * of, the evidence of its kills, the survivor that made its run certain to
  * fail, where one did, and what static analysis's checks of the survivors
- * of its chunks came to, with the survivors they took up (ADR-0008,
- * decision 6).
+ * of its chunks came to, with the survivors they took up (ADR-0008).
  */
 final readonly class Spent
 {
@@ -91,7 +90,7 @@ final readonly class Spent
         );
     }
 
-    /** What was spent, stopped on the survivor that made the run certain to fail (ADR-0008, decision 6). */
+    /** What was spent, stopped on the survivor that made the run certain to fail (ADR-0008). */
     public function doomedBy(Doomed $doomed): self
     {
         return new self(

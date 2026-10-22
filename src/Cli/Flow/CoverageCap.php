@@ -16,8 +16,7 @@ use function sprintf;
 
 /**
  * The memory cap a plan holds the suite's coverage run to: `runner.memory`,
- * or the project's own `memory_limit` where that lifts it (ADR-0004,
- * decision 9).
+ * or the project's own `memory_limit` where that lifts it (ADR-0004).
  */
 final readonly class CoverageCap
 {
@@ -35,7 +34,7 @@ final readonly class CoverageCap
      * The map of the coverage run just run, where the suite, unmutated, held
      * no more than the cap in force in it: `runner.memory`, or the project's
      * own `memory_limit` where that lifts it; or why its mutants cannot be
-     * judged under that cap (ADR-0004, decision 9). The peak is the most
+     * judged under that cap (ADR-0004). The peak is the most
      * resident memory of a process, an upper bound on what `memory_limit`
      * counts. A peak the system does not count, or a map another job wrote,
      * refuses nothing.

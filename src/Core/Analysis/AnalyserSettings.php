@@ -27,7 +27,7 @@ use function str_replace;
 
 /**
  * The configuration a static analyser runs with, as it resolves it from its
- * config files and the environment (ADR-0020, decision 14), written alike on
+ * config files and the environment (ADR-0020), written alike on
  * every machine: each path under the project's root spelt from the root,
  * what differs between machines and runs left out, and each map's keys in
  * order. With it come the files it references, such as a baseline, an

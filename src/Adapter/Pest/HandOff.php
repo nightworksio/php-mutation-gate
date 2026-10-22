@@ -35,7 +35,7 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 /**
  * The hand-off of a patched Pest run's mutants to static analysis before
- * their tests (ADR-0020, decision 12). While Pest runs, each look reads the
+ * their tests (ADR-0020). While Pest runs, each look reads the
  * results file; once the plugin has written every mutant Pest planned, and
  * waits, the hand-off offers each covered mutant that is no twin to the
  * pre-checker, as Pest prints it, behind its covering tests' own time, and

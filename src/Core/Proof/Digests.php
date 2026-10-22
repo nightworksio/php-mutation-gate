@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 
 /**
- * The digests of a run's inputs, as its plan was made (ADR-0008, decision 1):
+ * The digests of a run's inputs, as its plan was made (ADR-0008):
  * what decides every unit's mutant set besides its source, each unit's
  * source, and each test file with the support it reads, and the commit they
  * were taken at, where the working tree held nothing that commit does not. A

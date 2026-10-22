@@ -13,8 +13,8 @@ use function sprintf;
 
 /**
  * The hooks this repository offers the pre-commit framework, in the
- * `.pre-commit-hooks.yaml` at its top (ADR-0024, decision 12). Their ids are
- * public API (ADR-0011, decision 7). The framework has no PHP language: each
+ * `.pre-commit-hooks.yaml` at its top (ADR-0024). Their ids are
+ * public API (ADR-0011). The framework has no PHP language: each
  * hook runs the gate Composer installed in the project, from the top of the
  * working tree, with git's refs in the variables the framework sets.
  */

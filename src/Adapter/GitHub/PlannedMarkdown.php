@@ -20,7 +20,7 @@ use function sprintf;
  * The PR comment's planned state, which the plan posts and the verdict
  * replaces: the units the run mutates and in how many shards, what it is
  * expected to take, and the changed lines no test covers, each list as long
- * as the verdict's (ADR-0009, decision 3, and ADR-0019, decision 11).
+ * as the verdict's (ADR-0009, and ADR-0019).
  */
 final readonly class PlannedMarkdown
 {

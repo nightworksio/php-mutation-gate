@@ -57,7 +57,7 @@ final readonly class ChosenRunner
         return $this->memory;
     }
 
-    /** `runner.workers`: how each mutant's run starts (ADR-0023, decision 14). */
+    /** `runner.workers`: how each mutant's run starts (ADR-0023). */
     public function workers(): Workers
     {
         return $this->workers;

@@ -5,7 +5,7 @@
 
 ## Context
 
-ADR-0008, decision 6 runs a shard that can stop once its run cannot pass in
+ADR-0008 runs a shard that can stop once its run cannot pass in
 chunks of about two minutes of expected work. Each chunk is one runner
 invocation, and each invocation pays its openings: Pest's start for the
 mutation step, the survivors' second runs, the static check and the
@@ -38,7 +38,7 @@ happens, its chunks cost about 40% of it.
 ## Decision
 
 1. **A chunk is about fifteen minutes of the work the cost model expects**,
-   opening run included. Everything else in ADR-0008, decision 6 stands: the
+   opening run included. Everything else in ADR-0008 stands: the
    order, a held unit alone, a chunk that starts with its first unit however
    large, the check after each chunk and the stop at the first doomed
    survivor.
@@ -46,7 +46,7 @@ happens, its chunks cost about 40% of it.
    openings under 3% of a shard. A pull request that cannot pass stops within
    about fifteen minutes of a shard's work.
 
-This supersedes the two minutes of ADR-0008, decision 6.
+This supersedes the two minutes of ADR-0008.
 
 ## Alternatives considered
 
@@ -65,4 +65,4 @@ This supersedes the two minutes of ADR-0008, decision 6.
 ## Related
 
 - [ADR-0006](0006-shards-are-cut-by-learned-cost-and-planned-once.md): the cost model a chunk is measured in
-- [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): decision 6, whose chunk this grows
+- [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): whose chunk this grows

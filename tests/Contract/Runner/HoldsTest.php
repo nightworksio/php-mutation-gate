@@ -26,7 +26,7 @@ $holds = [
 ];
 
 // Which tests Pest runs for a holds: group, over every shape a test can hold a
-// path in (ADR-0004, decision 7): serially, under --parallel, and in a
+// path in (ADR-0004): serially, under --parallel, and in a
 // mutant's own process. Each test in the fixture that runs src/Shapes.php
 // appends its label to the file LIBRARY_TRACE names, with where it ran. The
 // skipped test and the test that covers the line without holding it never do.

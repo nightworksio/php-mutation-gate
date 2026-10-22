@@ -35,7 +35,7 @@ use function sprintf;
  * changes state in CI, each alert goes to the URL in the environment
  * variable that `urlEnv` names; the config's validator refuses a URL written
  * in the config. The webhook's request is signed where a secret is set. A
- * post that fails says so and fails nothing (ADR-0016, decisions 9 to 13).
+ * post that fails says so and fails nothing (ADR-0016).
  */
 final readonly class AlertReporter implements Deferring, Reporter
 {
@@ -109,7 +109,7 @@ final readonly class AlertReporter implements Deferring, Reporter
 
     /**
      * A delivery, with each alert this reporter would send of the verdict now, for `deliver` to post to the URL its
-     * own environment holds (ADR-0007 decision 5); unchanged where it would send none.
+     * own environment holds (ADR-0007); unchanged where it would send none.
      */
     public function deferred(Verdict $verdict, Deferred $delivery): Deferred
     {
@@ -131,7 +131,7 @@ final readonly class AlertReporter implements Deferring, Reporter
 
     /**
      * One body, ready to send, posted to the URL in this reporter's variable, signed where it signs: what
-     * `deliver` sends of an alert a run left for it (ADR-0007 decision 5).
+     * `deliver` sends of an alert a run left for it (ADR-0007).
      */
     public function posted(string $body): Written|NotWritten
     {

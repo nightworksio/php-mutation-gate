@@ -11,7 +11,7 @@ Usage:
   release.py check-tag  refuses TAG where its release line is not
                         gate_action.py's, and writes line= to $GITHUB_OUTPUT
 
-Each refuses with exit code 2 and says why (ADR-0019, decision 15).
+Each refuses with exit code 2 and says why (ADR-0019).
 
 Two halves: the functions below `main` read git, the environment and files,
 and the ones above decide from what they read. The deciding half is what

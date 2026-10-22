@@ -49,8 +49,8 @@ final readonly class UnitResult
 
     /**
      * A unit's result from a proof: these of its mutants reported in full and
-     * of the kills a ledger proved, and the run the proof names (ADR-0015,
-     * decision 8).
+     * of the kills a ledger proved, and the run the proof names
+     * (ADR-0015).
      */
     public static function held(Unit $unit, Origin $origin, Mutants $mutants, ProvedKills $kills, Run $run): self
     {
@@ -70,7 +70,7 @@ final readonly class UnitResult
         return clone($this, ['flaky' => $flaky]);
     }
 
-    /** This result, its unit held by tests of which these run it (ADR-0005, decision 10). */
+    /** This result, its unit held by tests of which these run it (ADR-0005). */
     public function judgedBy(TestIds $judging): self
     {
         return clone($this, ['judging' => $judging]);
@@ -78,8 +78,8 @@ final readonly class UnitResult
 
     /**
      * This result of a run that left some mutators out of its unit, with the
-     * last result's mutants and kills of those mutators carried in (ADR-0025,
-     * decision 1).
+     * last result's mutants and kills of those mutators carried in
+     * (ADR-0025).
      */
     public function carryingPruned(Mutants $mutants, ProvedKills $kills): self
     {

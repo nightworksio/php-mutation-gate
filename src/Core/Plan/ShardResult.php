@@ -89,14 +89,14 @@ final readonly class ShardResult
 
     /**
      * This result, with the units the budget ran out before, or its doom
-     * left, which it never started (ADR-0008, decisions 1 and 6).
+     * left, which it never started (ADR-0008).
      */
     public function withUnjudged(Units $unjudged): self
     {
         return clone($this, ['unjudged' => $unjudged]);
     }
 
-    /** This result, with what static analysis's checks of its survivors came to (ADR-0020, decision 11). */
+    /** This result, with what static analysis's checks of its survivors came to (ADR-0020). */
     public function withChecks(SurvivorChecks $checks): self
     {
         return clone($this, ['checks' => $checks]);
@@ -105,7 +105,7 @@ final readonly class ShardResult
     /**
      * This result, with the survivor that made the run certain to fail, on
      * which the shard stopped, leaving the units it did not run unjudged
-     * (ADR-0008, decision 6).
+     * (ADR-0008).
      */
     public function withDoomed(Doomed|Undoomed $doomed): self
     {

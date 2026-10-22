@@ -4,12 +4,12 @@
 Usage: runner_pins.py <installed.json> [<installed.json> ...] [--findings <file>]
 
 Run by the runner canary once the Runner contract suite has passed against
-the newest releases (ADR-0017, decision 8). Each pinned runner package is held
+the newest releases (ADR-0017). Each pinned runner package is held
 by one line of composer.json: pest-plugin-mutate by its `conflict`, Infection
 by its `require-dev`. For each one a fixture installed, it fails where that
 line refuses the release that passed, naming the line to write, so each
 release is taken by a pull request within a day. With --findings, what it
-found is also written there as the job's evidence (ADR-0019, decision 5).
+found is also written there as the job's evidence (ADR-0019).
 
 Two halves: `satisfies`, `refused` and `line_to_write` decide from text, and
 `main` reads the files.

@@ -11,7 +11,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 /**
  * What a shard measured: the time it spent mutating, from the end of its
  * opening run to its last mutant, which runner spent it, when, and the steps
- * its time went to (ADR-0016, decision 19).
+ * its time went to (ADR-0016).
  */
 final readonly class Measurement
 {

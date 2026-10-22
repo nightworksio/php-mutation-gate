@@ -44,7 +44,7 @@ use function strval;
  * which php-code-coverage leaves out of its map, by the tests that read the
  * value it changes; and on the first line of a statement that spans more,
  * which coverage may not mark run, by the tests that run its other lines
- * (ADR-0004, decision 8). A mutant on any other executable line stays
+ * (ADR-0004). A mutant on any other executable line stays
  * uncovered.
  */
 final readonly class Judging

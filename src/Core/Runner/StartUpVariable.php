@@ -11,7 +11,7 @@ use function sprintf;
 
 /**
  * How a process of a patched runner is told the start-up a run measured,
- * which it lays each mutant's limit on (ADR-0008, decision 2).
+ * which it lays each mutant's limit on (ADR-0008).
  */
 final readonly class StartUpVariable
 {

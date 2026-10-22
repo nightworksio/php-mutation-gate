@@ -6,7 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Test;
 
 /**
  * The name of one `<testsuite>` of the PHPUnit config, which `--suite`
- * narrows a run's tests to (ADR-0025, decision 9).
+ * narrows a run's tests to (ADR-0025).
  */
 final readonly class SuiteName
 {

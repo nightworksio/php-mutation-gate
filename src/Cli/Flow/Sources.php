@@ -12,8 +12,8 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 
 /**
  * The source of each file a survivor that asks for a test is in, read once
- * from the project, for the clusters its survivors form (ADR-0022, decision
- * 15). A file that cannot be read is left out, and clusters nothing.
+ * from the project, for the clusters its survivors form (ADR-0022). A file
+ * that cannot be read is left out, and clusters nothing.
  */
 final readonly class Sources
 {
@@ -34,7 +34,7 @@ final readonly class Sources
 
     /**
      * Each of these files the project holds, such as the test files whose
-     * assertions are read (ADR-0025, decision 5). A file that cannot be read
+     * assertions are read (ADR-0025). A file that cannot be read
      * is left out.
      *
      * @return ByPath<Contents>

@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
 
 /**
  * Whether a unit's fresh result agrees with a proof already under its key
- * (ADR-0007, decision 3; ADR-0008, decision 3). The same key means the same
+ * (ADR-0007; ADR-0008). The same key means the same
  * code, so where the two differ, the mutants that differ are flaky, and
  * neither result is used: the fresh one is not recorded, and the proof goes.
  */

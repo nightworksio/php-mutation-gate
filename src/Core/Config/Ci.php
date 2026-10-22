@@ -171,7 +171,7 @@ final readonly class Ci implements Part
 
     /**
      * `ci.azure.definition`: the pipeline file that runs the gate under Azure DevOps, which reach and the proof key
-     * count as its CI definition (ADR-0024 decision 3).
+     * count as its CI definition (ADR-0024).
      */
     public function azureDefinition(): Path
     {
@@ -180,7 +180,7 @@ final readonly class Ci implements Part
 
     /**
      * `ci.bitbucket.definition`: the pipeline file that runs the gate under Bitbucket Pipelines, which reach and
-     * the proof key count as its CI definition (ADR-0024 decision 3).
+     * the proof key count as its CI definition (ADR-0024).
      */
     public function bitbucketDefinition(): Path
     {
@@ -191,7 +191,7 @@ final readonly class Ci implements Part
 
     /**
      * `ci.jenkins.definition`: the Jenkinsfile that runs the gate under Jenkins, which reach and the proof key count
-     * as its CI definition (ADR-0024 decision 3).
+     * as its CI definition (ADR-0024).
      */
     public function jenkinsDefinition(): Path
     {

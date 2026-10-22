@@ -20,9 +20,8 @@ use NightWorksIO\MutationGate\Port\Reporter;
 
 /**
  * The reporter `sarif`: SARIF 2.1.0, for code scanning, written to the `path`
- * its entry names (ADR-0009, decision 2). Outside CI it also names the
- * repository's root on this machine, for an editor's viewer (ADR-0015,
- * decision 9).
+ * its entry names (ADR-0009). Outside CI it also names the
+ * repository's root on this machine, for an editor's viewer (ADR-0015).
  */
 final readonly class SarifReportFile implements Configurable, Reporter
 {

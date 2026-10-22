@@ -37,8 +37,8 @@ use function sprintf;
  * The reporter `badge`: into `--publish-dir`, `badge.json` for shields.io,
  * the trend, `trend.json` with this verdict's entry appended to the one
  * found there and `trend.svg` drawn from it, and `savings.json`, what the
- * gate saved over the last 30 days (ADR-0017, decision 13). A run its budget cut short
- * updates neither (ADR-0009, decision 5). The command line runs it only for
+ * gate saved over the last 30 days (ADR-0017). A run its budget cut short
+ * updates neither (ADR-0009). The command line runs it only for
  * a verdict in CI on the default branch.
  */
 final readonly class BadgeDirectory implements Reporter

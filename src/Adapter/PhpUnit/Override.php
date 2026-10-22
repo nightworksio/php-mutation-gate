@@ -12,7 +12,7 @@ use function sprintf;
 /**
  * The script PHP prepends to PHPUnit for a mutant, with `auto_prepend_file`:
  * it registers the gate's `file://` wrapper before Composer's autoloader loads
- * anything, `files` autoloads included (ADR-0023 decision 9).
+ * anything, `files` autoloads included (ADR-0023).
  */
 final readonly class Override
 {

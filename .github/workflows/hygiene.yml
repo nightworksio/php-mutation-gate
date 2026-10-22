@@ -2,7 +2,7 @@
 # whole tree.
 # Called by ci.yml; each tool reads its configuration from the repository
 # root, reports in its structured form into evidence/raw, and the evidence
-# step shows every finding as an annotation (ADR-0019, decision 5).
+# step shows every finding as an annotation (ADR-0019).
 name: hygiene
 
 on:
@@ -54,7 +54,7 @@ jobs:
         run: python3 .github/scripts/gate_summary.py hygiene/actionlint
 
   # The workflows and Dependabot's configuration, audited for the ways a
-  # workflow is attacked (ADR-0019, decision 3). The release binary, pinned by
+  # workflow is attacked (ADR-0019). The release binary, pinned by
   # version and by the SHA-256 GitHub lists for the asset. It runs online with
   # the job's read-only token, so the audits that ask GitHub about a pinned
   # action run too.
@@ -238,7 +238,7 @@ jobs:
           node .github/bot/markdownlint/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs \
             --config .github/bot/markdownlint/.markdownlint-cli2.jsonc "**/*.md"
       # The rule table the bot explains markdownlint's findings with is the
-      # locked markdownlint's own (ADR-0019, decision 7).
+      # locked markdownlint's own (ADR-0019).
       - id: table
         if: ${{ !cancelled() }}
         run: node .github/bot/markdownlint/rules.mjs | diff .github/bot/rules/markdownlint.json -
@@ -248,7 +248,7 @@ jobs:
         if: ${{ !cancelled() }}
         run: node --test .github/bot/markdownlint/braces.test.mjs
       # The fix is mechanical, so it is computed here and offered to the pull
-      # request as a patch, never pushed (ADR-0019, decision 8).
+      # request as a patch, never pushed (ADR-0019).
       - name: compute the mechanical fixes
         if: failure() && steps.markdownlint.outcome == 'failure'
         run: |

@@ -27,7 +27,7 @@ use function sprintf;
  *
  * A set only presets turn on is offered rather than chosen: a run that finds
  * nothing registered under its name skips it, where a set the config file or
- * the command line names cannot be judged (ADR-0021, decision 12).
+ * the command line names cannot be judged (ADR-0021).
  */
 final readonly class Mutators
 {

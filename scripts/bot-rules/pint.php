@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 // Prints .github/bot/rules/pint.json: every fixer the locked Pint can apply,
-// with php-cs-fixer's own summary and the page of its rule reference (ADR-0019,
-// decision 7). `composer bot:rules` writes it, and the Unit suite fails while
+// with php-cs-fixer's own summary and the page of its rule reference
+// (ADR-0019). `composer bot:rules` writes it, and the Unit suite fails while
 // the committed file differs. It runs on its own, because Pint's PHAR carries
 // its own copies of packages this project also installs.
 

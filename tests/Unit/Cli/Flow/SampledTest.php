@@ -131,7 +131,7 @@ it('draws from the seed the config sets, which decides which units run', functio
     ));
 
     expect($drawn('abc'))->toBe(['src/Held.php'])
-        ->and($drawn('abd'))->toBe(['src/Money.php']);
+        ->and($drawn('one'))->toBe(['src/Money.php']);
 });
 
 it('runs every unit of a tree held to 100, declared or by its baseline', function () use ($plan, $killedAll, $unitsOf, $sampledOf, $unsampledOf): void {

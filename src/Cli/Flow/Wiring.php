@@ -158,7 +158,7 @@ final readonly class Wiring
     /**
      * Who the analyser is, its config's digest that of the configuration it
      * resolves and every file that references, where it can say them, and
-     * that of its config file where it cannot (ADR-0020, decision 14).
+     * that of its config file where it cannot (ADR-0020).
      */
     private function identified(
         StaticChecker $checker,
@@ -187,15 +187,15 @@ final readonly class Wiring
     /**
      * The runner the config chooses: each told the bounds of each mutant's
      * limit, `timeouts.seconds` and `timeouts.most`, and the mutators whose
-     * silence limit has a lower floor, `timeouts.tighter` (ADR-0008,
-     * decision 2); Infection told that the gate checks its survivors, where
-     * an analyser does, so it runs no static analysis of its own (ADR-0020,
-     * decision 13); and each told the classes of the registered mutators it
-     * makes mutants with (ADR-0021): Pest and Infection those the config
-     * turns on, beside their own, and the PHPUnit runner the `default` set's
-     * and those (ADR-0023, decision 8); and each told the directories the
-     * tests are in, as the PHPUnit config declares them, so a test outside
-     * the conventional `tests` is one the runner lists.
+     * silence limit has a lower floor, `timeouts.tighter` (ADR-0008);
+     * Infection told that the gate checks its survivors, where an analyser
+     * does, so it runs no static analysis of its own (ADR-0020); and each
+     * told the classes of the registered mutators it makes mutants with
+     * (ADR-0021): Pest and Infection those the config turns on, beside
+     * their own, and the PHPUnit runner the `default` set's and those
+     * (ADR-0023); and each told the directories the tests are in, as the
+     * PHPUnit config declares them, so a test outside the conventional
+     * `tests` is one the runner lists.
      */
     private function runnerChoice(
         Settings $settings,
@@ -252,7 +252,7 @@ final readonly class Wiring
 
     /**
      * The static analyser `staticCheck.tool` names, reading `staticCheck.config`
-     * where the config names one (ADR-0020, decision 8): the one zero-config
+     * where the config names one (ADR-0020): the one zero-config
      * finds for `auto`, and none for `none`.
      */
     private function checker(StaticCheck $static, Chosen $chosen): StaticChecker|NoAnalyser|Invalid|CannotJudge
@@ -270,8 +270,8 @@ final readonly class Wiring
 
     /**
      * The store the config names; opened read-only, the default branch's scope alone, which is all a public URL
-     * serves (ADR-0013 decision 13), whether or not the CI and the repository can name that branch; an Azure
-     * container told which scope is the default branch's, which its public container keeps (ADR-0028 decision 4).
+     * serves (ADR-0013), whether or not the CI and the repository can name that branch; an Azure
+     * container told which scope is the default branch's, which its public container keeps (ADR-0028).
      */
     private function configured(
         Settings $settings,
@@ -296,7 +296,7 @@ final readonly class Wiring
     }
 
     /**
-     * Where a run keeps its proofs (ADR-0010, decision 4): in CI, and in a
+     * Where a run keeps its proofs (ADR-0010): in CI, and in a
      * directory store the config names, there; elsewhere, in the local
      * ledgers over the store the config names.
      */

@@ -8,7 +8,7 @@ use NightWorksIO\MutationGate\Tests\Support\Privileged;
 
 // V5: a workflow that issue_comment, pull_request_target or workflow_run
 // starts runs main's copy with a token that can write, so it runs nothing a
-// pull request brings (ADR-0019, decision 3). Its jobs check out main and run
+// pull request brings (ADR-0019). Its jobs check out main and run
 // the stdlib scripts, and a comment's or a pull request's text reaches those
 // only through env.
 

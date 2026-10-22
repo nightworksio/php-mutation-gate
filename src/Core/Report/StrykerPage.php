@@ -67,7 +67,7 @@ final readonly class StrykerPage
 
     /**
      * The page, with what each suite alone kills above the viewer, a line
-     * each, escaped, where there is any to say (ADR-0025, decision 8).
+     * each, escaped, where there is any to say (ADR-0025).
      *
      * @param list<string> $suites
      */

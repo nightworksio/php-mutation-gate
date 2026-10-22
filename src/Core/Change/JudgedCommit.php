@@ -8,7 +8,7 @@ namespace NightWorksIO\MutationGate\Core\Change;
  * A commit a run judged, with the tree it holds and the commits it was made
  * from, so that git can read what it held after the commit itself is gone:
  * as a pull request's merge commit is once a newer push replaces it, where
- * merging its two parents again gives the same tree (ADR-0005, decision 2).
+ * merging its two parents again gives the same tree (ADR-0005).
  */
 final readonly class JudgedCommit
 {

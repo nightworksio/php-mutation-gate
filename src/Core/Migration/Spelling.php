@@ -8,7 +8,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
  * The builder call a step retires from the PHP config, and the one that
- * replaces it with the same arguments, where one does (ADR-0026, decision 2).
+ * replaces it with the same arguments, where one does (ADR-0026).
  */
 final readonly class Spelling
 {

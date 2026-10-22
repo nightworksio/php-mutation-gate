@@ -19,11 +19,11 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
 /**
  * What a run is narrowed to: the mutators it makes mutants with, every one
- * or those `--security` names (ADR-0021, decision 20), the one suite whose
- * tests alone judge them, as `--suite` names it (ADR-0025, decision 9), the
+ * or those `--security` names (ADR-0021), the one suite whose
+ * tests alone judge them, as `--suite` names it (ADR-0025), the
  * suites whose tests judge them otherwise, as `tests.suites` and
  * `tests.holding` list them (ADR-0002), and the mutators it leaves out of the files whose content is unchanged
- * (ADR-0025, decision 1).
+ * (ADR-0025).
  */
 final readonly class Narrowing
 {
@@ -77,7 +77,7 @@ final readonly class Narrowing
 
     /**
      * The suites a run of these tests runs: the one `--suite` names, or those
-     * the config lists for them (ADR-0002, decision 8), every suite by default.
+     * the config lists for them (ADR-0002), every suite by default.
      */
     public function suitesFor(WholeSuite|Group|Filter|TestPaths $tests): Suites
     {
@@ -96,8 +96,8 @@ final readonly class Narrowing
     /**
      * The suites a run of these tests runs where a coverage map the gate
      * wrote picks each mutant's tests: the holding suites too, whose tests
-     * the map keeps only on the lines of the paths they hold (ADR-0005,
-     * decision 9).
+     * the map keeps only on the lines of the paths they hold
+     * (ADR-0005).
      */
     public function mappedSuitesFor(WholeSuite|Group|Filter|TestPaths $tests): Suites
     {

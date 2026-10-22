@@ -17,7 +17,7 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use Traversable;
 
 /**
- * The last run's survivors run again first (ADR-0020, decisions 19 and 20),
+ * The last run's survivors run again first (ADR-0020),
  * in the order they were taken: a signal only, which enters no ledger, no
  * score and no verdict.
  *

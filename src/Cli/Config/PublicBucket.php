@@ -14,10 +14,10 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
- * An object store as a job without its credentials opens it (ADR-0013
- * decisions 13 and 14, ADR-0028 decision 4): `s3`, `gcs` or `azure`,
- * read-only, through the `publicUrl` and under the `prefix` its options name,
- * or reading nothing where they name no URL.
+ * An object store as a job without its credentials opens it (ADR-0013,
+ * ADR-0028): `s3`, `gcs` or `azure`, read-only, through the `publicUrl`
+ * and under the `prefix` its options name, or reading nothing where
+ * they name no URL.
  */
 final readonly class PublicBucket
 {

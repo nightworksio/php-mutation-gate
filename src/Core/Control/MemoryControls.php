@@ -21,16 +21,17 @@ use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
 use function sprintf;
 
 /**
- * The unmutated control of each mutant out of memory (ADR-0004, decision
- * 9): the tests that judge it, those covering its lines as the coverage map
- * names them, and of a held unit only those that hold it, run with its file
- * served unmutated as its mutant was, under the same memory cap, allowed the
+ * The unmutated control of each mutant out of memory (ADR-0004): the tests
+ * that judge it, those covering its lines as the coverage map names them,
+ * and of a held unit only those that hold it, run with its file served
+ * unmutated as its mutant was, under the same memory cap, allowed the
  * standard mutant limit of their time, its peak measured as every runner
  * measures one (see PeakLauncher). Memory triage weighs the mutant against
- * that control (see MemoryTriage): where it finishes under the cap, its peak
- * is the mutant's need. Where the tests fail unmutated too, nothing tells the
- * mutant from its original, and it is unjudged; where they run out of the cap
- * or of time too, or never run, the mutant is too heavy to judge, saying why.
+ * that control (see MemoryTriage): where it finishes under the cap, its
+ * peak is the mutant's need. Where the tests fail unmutated too, nothing
+ * tells the mutant from its original, and it is unjudged; where they run
+ * out of the cap or of time too, or never run, the mutant is too heavy to
+ * judge, saying why.
  */
 final readonly class MemoryControls implements ControlJudge
 {

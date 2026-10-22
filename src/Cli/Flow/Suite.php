@@ -175,7 +175,7 @@ final readonly class Suite
     /**
      * The directories a package's tests are in, as its own PHPUnit config
      * declares them, read as the root's is: what a runner rooted in the
-     * package is told (ADR-0005, decision 7).
+     * package is told (ADR-0005).
      */
     public static function testsIn(Directory $project, Path $package): Paths|CannotJudge
     {
@@ -267,7 +267,7 @@ final readonly class Suite
      * Whether a file is one of the suite's: the configured one's, or in
      * another package's tests. A file a tree holds is source whatever the
      * config says, unless it is a file of test cases kept beside the source,
-     * so every key reads it (ADR-0007, decision 2).
+     * so every key reads it (ADR-0007).
      *
      * @param list<SuiteDirectory> $packages
      */

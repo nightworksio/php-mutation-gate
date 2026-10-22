@@ -14,11 +14,10 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 
 /**
- * What `init` makes beside the config (ADR-0015 decisions 7 and 13, ADR-0017
- * decision 1, ADR-0024 decision 12): the CI definition `--ci` asks for, the
- * editor files `--editor` names and the hooks `--hook` sets up, as the
- * command line or the answers to `init`'s questions settle them; written,
- * or printed with `--dry-run`.
+ * What `init` makes beside the config (ADR-0015, ADR-0017, ADR-0024): the CI
+ * definition `--ci` asks for, the editor files `--editor` names and the
+ * hooks `--hook` sets up, as the command line or the answers to `init`'s
+ * questions settle them; written, or printed with `--dry-run`.
  */
 final readonly class Additions
 {

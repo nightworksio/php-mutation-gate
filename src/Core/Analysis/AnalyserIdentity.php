@@ -7,7 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Analysis;
 use NightWorksIO\MutationGate\Core\File\Digest;
 
 /**
- * Which static analyser checked a mutant (ADR-0020, decisions 6 and 14): its
+ * Which static analyser checked a mutant (ADR-0020): its
  * name, its exact version, and a digest of its config: of the configuration
  * it resolves, with every file that references, where it can say them, and
  * otherwise of its config file. A proof's key holds all of it beside the

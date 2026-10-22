@@ -14,7 +14,7 @@ use function sprintf;
 use function version_compare;
 
 /**
- * The PHP version a CI definition sets up (ADR-0015 decision 16): the
+ * The PHP version a CI definition sets up (ADR-0015): the
  * project's `config.platform.php` where it sets one, else the lowest version
  * `require.php` allows, and never below the lowest the gate runs on.
  */

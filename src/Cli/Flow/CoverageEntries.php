@@ -19,7 +19,7 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 /**
  * The project's test files, each with the key of its coverage entries
- * (ADR-0023, decision 1): over what every entry reads, then the test file,
+ * (ADR-0023): over what every entry reads, then the test file,
  * the files its tests executed by a map, what runs before every test, and
  * every file those name. A test file's tests are those the runner names after
  * it in the map.

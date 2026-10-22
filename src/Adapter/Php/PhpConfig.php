@@ -73,7 +73,7 @@ final readonly class PhpConfig implements ConfigLoader
 
     /**
      * Why a config could not be read: the first call it still makes that a
-     * release retired, with the change and `migrate` (ADR-0026, decision 1),
+     * release retired, with the change and `migrate` (ADR-0026),
      * or else what PHP said.
      */
     private function unread(string $path, string $said): string

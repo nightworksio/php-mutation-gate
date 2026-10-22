@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
  * The files a config file reads beside itself, as its loader finds them
- * without running it (ADR-0005, decision 4): each named, from the project's
+ * without running it (ADR-0005): each named, from the project's
  * root, so that a change to one decides how the gate runs as a change to the
  * config does; or why it reads one it cannot name, such as a path it builds
  * as it runs or a file a call opens, so that every change does.

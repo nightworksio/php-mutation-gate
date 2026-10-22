@@ -8,7 +8,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 
 /**
- * A unit a sample may run (ADR-0020, decision 23): how many mutants it is
+ * A unit a sample may run (ADR-0020): how many mutants it is
  * estimated to hold, and the tally of its last result, where it has one.
  */
 final readonly class Candidate

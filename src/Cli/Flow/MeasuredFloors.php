@@ -18,7 +18,7 @@ use function sprintf;
 /**
  * What `baseline` shows: each tree's and each package's security set's
  * committed floor beside its last measured score, or that a unit of it has
- * no result yet (ADR-0003 decision 6, ADR-0021 decision 17).
+ * no result yet (ADR-0003, ADR-0021).
  */
 final readonly class MeasuredFloors
 {

@@ -6,7 +6,7 @@ Usage: unit.py [<findings file>]
 It runs `unittest` discovery over .github/scripts, as `python3 -m unittest
 discover --start-directory .github/scripts` does, and writes each failed or
 broken test to the findings file, at the line of its own file that failed
-(ADR-0019, decision 5).
+(ADR-0019).
 
 Two halves: `findings` decides from unittest's result, and `main` runs it.
 """

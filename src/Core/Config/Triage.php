@@ -174,7 +174,7 @@ final readonly class Triage implements Part
     /**
      * `tests.suites` and `tests.holding`: the suites whose tests judge every
      * unit, every suite where no layer lists any, and those whose tests judge
-     * only the units they hold (ADR-0002, decision 8).
+     * only the units they hold (ADR-0002).
      */
     public function suites(): JudgingSuites
     {

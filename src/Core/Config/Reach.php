@@ -130,7 +130,7 @@ final readonly class Reach implements Part
 
     /**
      * Whether a run given neither `--full` nor `--changed-since` considers every unit; otherwise it considers what
-     * changed since its scope's last passing commit, `last-passed` (ADR-0005, decision 2).
+     * changed since its scope's last passing commit, `last-passed` (ADR-0005).
      */
     public function isFullByDefault(): bool
     {

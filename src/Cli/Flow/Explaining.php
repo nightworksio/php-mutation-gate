@@ -30,10 +30,10 @@ use function sprintf;
 
 /**
  * `explain`: one mutant, or a cluster of survivors, from the ledgers read and
- * the last run in this checkout, running nothing (ADR-0014, decisions 12 to
- * 14). A mutant the last run holds is explained as its verdict judged it; any
- * other by its newest record, judged as a verdict judges it. A cluster is
- * found by the last run alone, since its verdict is what clusters survivors.
+ * the last run in this checkout, running nothing (ADR-0014). A mutant the
+ * last run holds is explained as its verdict judged it; any other by its
+ * newest record, judged as a verdict judges it. A cluster is found by the
+ * last run alone, since its verdict is what clusters survivors.
  */
 final readonly class Explaining
 {

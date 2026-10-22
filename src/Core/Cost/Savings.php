@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  * did not reach, and proofs the reached units whose key matched. Sharding
  * cut the wait and cost setup and an opening run for each shard past the
  * first. The share of the full run that was measured rather than estimated
- * is said beside it (ADR-0017, decision 11).
+ * is said beside it (ADR-0017).
  */
 final readonly class Savings
 {

@@ -18,7 +18,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use function sprintf;
 
 /**
- * The unmutated control of each timed-out mutant (ADR-0008, decision 2):
+ * The unmutated control of each timed-out mutant (ADR-0008):
  * the tests that judge it, those covering its lines as the coverage map
  * names them, and of a held unit only those that hold it, run with its file
  * served unmutated as its mutant was, allowed the limit its run was. A

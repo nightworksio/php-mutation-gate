@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Proof\LedgerFile;
 use NightWorksIO\MutationGate\Tests\Support\WorkflowFile;
 
 // What the action, the reusable workflow and the release workflow promise a
-// project that runs them (ADR-0011, decision 8; ADR-0019, decision 15), held
+// project that runs them (ADR-0011; ADR-0019), held
 // to the YAML they ship.
 
 /** The reusable workflow's path. */

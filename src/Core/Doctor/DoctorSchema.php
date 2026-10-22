@@ -41,7 +41,7 @@ final readonly class DoctorSchema
             '$schema' => ReportSchema::DRAFT,
             '$id' => sprintf(ReportSchema::ID, 'doctor'),
             'title' => 'mutation-gate doctor',
-            'description' => 'What would fail, or run slowly, before a run does (ADR-0017, decision 9).',
+            'description' => 'What would fail, or run slowly, before a run does (ADR-0017).',
             'type' => 'object',
             'properties' => [
                 'format' => ['const' => DoctorJson::FORMAT],

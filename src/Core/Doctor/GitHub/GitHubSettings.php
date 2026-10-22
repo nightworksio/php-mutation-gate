@@ -8,10 +8,10 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 
 /**
- * What `doctor --online` read of the repository on GitHub (ADR-0017,
- * decision 9): its default branch and the checks it requires, the fork
- * approval policy, and how the gate's workflows run on a schedule. A
- * setting GitHub would not show says why, which the token usually is.
+ * What `doctor --online` read of the repository on GitHub (ADR-0017):
+ * its default branch and the checks it requires, the fork approval
+ * policy, and how the gate's workflows run on a schedule. A setting
+ * GitHub would not show says why, which the token usually is.
  */
 final readonly class GitHubSettings
 {

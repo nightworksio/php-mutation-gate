@@ -26,9 +26,8 @@ use function sprintf;
  * exactly when the gate fails that set, a
  * `run` suite with a test case for each thing that kept the run from judging
  * and each failure that belongs to no floor, and an `ignored` suite with a
- * skipped test case for each mutant an ignore left out, with why (ADR-0008,
- * decision 4). JUnit failures match gate failures one to one (ADR-0009,
- * decision 2).
+ * skipped test case for each mutant an ignore left out, with why
+ * (ADR-0008). JUnit failures match gate failures one to one (ADR-0009).
  */
 final readonly class JUnit
 {

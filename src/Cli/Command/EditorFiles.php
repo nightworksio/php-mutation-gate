@@ -22,10 +22,10 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 
 /**
- * The files `init --editor=vscode` sets VS Code up with (ADR-0015 decision
- * 7): the watch task and the SARIF Viewer's recommendation, each written
- * only where the file is not there, and otherwise printed as what to add.
- * With `--stdout`, both are printed whole.
+ * The files `init --editor=vscode` sets VS Code up with (ADR-0015): the
+ * watch task and the SARIF Viewer's recommendation, each written only
+ * where the file is not there, and otherwise printed as what to add. With
+ * `--stdout`, both are printed whole.
  */
 final readonly class EditorFiles
 {

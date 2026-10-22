@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 
 /**
- * What the JSON report says of a sampled run (ADR-0020, decision 30): each
+ * What the JSON report says of a sampled run (ADR-0020): each
  * tree's `estimate`, its score, its interval, the confidence it is held at
  * and the units behind it, and the run's `sample`, the seed it was drawn
  * from and the confidence and margin it was sized for. A run that was not

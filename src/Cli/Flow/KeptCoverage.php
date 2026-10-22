@@ -34,8 +34,8 @@ use NightWorksIO\MutationGate\Core\Written;
 use function sprintf;
 
 /**
- * The coverage map a run measures against the one kept before it (ADR-0023,
- * decisions 1 to 3): each test file whose entry key is unchanged keeps its
+ * The coverage map a run measures against the one kept before it
+ * (ADR-0023): each test file whose entry key is unchanged keeps its
  * entries, each whose key moved, and each new one, is measured again, and a
  * deleted one's entries are dropped. `plan`, `run` and `coverage` measure
  * against the map the default branch's runs keep beside its ledger, `watch`

@@ -32,11 +32,11 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
  * What of a coverage map the suites the config lists may judge (ADR-0002,
- * decision 8, and ADR-0005, decision 9): the tests of a suite that judges
- * every unit on every line they run, a holding suite's tests only on the
- * lines they run inside the paths they hold, and no test of a suite neither
- * list names. A file of tests is run by its path, which PHPUnit and Pest take
- * in place of `--testsuite`, so the gate sorts the tests by their files.
+ * and ADR-0005): the tests of a suite that judges every unit on every
+ * line they run, a holding suite's tests only on the lines they run
+ * inside the paths they hold, and no test of a suite neither list names.
+ * A file of tests is run by its path, which PHPUnit and Pest take in
+ * place of `--testsuite`, so the gate sorts the tests by their files.
  */
 final readonly class SuiteCoverage
 {

@@ -23,7 +23,7 @@ use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Port\CiPlan;
 
 /**
- * The CI plan `bitbucket` (ADR-0024 decision 1). Bitbucket's parallel steps
+ * The CI plan `bitbucket` (ADR-0024). Bitbucket's parallel steps
  * are fixed in its pipeline, so the plan step cuts `--shards=<n>` to match
  * them, and the plan is printed as the generic JSON. Each step's shard is
  * `BITBUCKET_PARALLEL_STEP` + 1, and a `BITBUCKET_PARALLEL_STEP_COUNT` that

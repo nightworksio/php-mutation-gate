@@ -17,10 +17,10 @@ use function sprintf;
 
 /**
  * A kill history as a file of its own holds it, `"format": 1`: the tests it
- * names and its `killers`, each as a ledger's sections hold them (ADR-0013,
- * decision 2). The plan hands each shard one beside its map, as
- * `killers.json`, and the Pest adapter hands its plugin one. A history orders
- * tests and never decides a result, so it enters no key.
+ * names and its `killers`, each as a ledger's sections hold them
+ * (ADR-0013). The plan hands each shard one beside its map, as
+ * `killers.json`, and the Pest adapter hands its plugin one. A history
+ * orders tests and never decides a result, so it enters no key.
  *
  * @internal the shape of a kill history file
  */

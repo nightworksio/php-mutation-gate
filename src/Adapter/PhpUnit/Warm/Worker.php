@@ -17,7 +17,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use function sprintf;
 
 /**
- * A warm worker (ADR-0023, decisions 12 and 13). Once its script has set PHP
+ * A warm worker (ADR-0023). Once its script has set PHP
  * up and required the autoloader, as PHPUnit's own script does, it boots as
  * PHPUnit boots before it runs: the settings and variables PHPUnit's config
  * sets for PHP, then its bootstrap. Where the boot passes the guard, it claims

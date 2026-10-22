@@ -11,7 +11,7 @@ use NightWorksIO\MutationGate\Core\Score\Percentage;
 use function sprintf;
 
 /**
- * What a plan says of the sample it drew (ADR-0020, decisions 26 to 28): how
+ * What a plan says of the sample it drew (ADR-0020): how
  * many of the units it could sample it runs, from which seed and for which
  * margin and confidence; or, where no unit could be sampled, that the run
  * judges every tree whole. A plan that drew no sample says nothing.

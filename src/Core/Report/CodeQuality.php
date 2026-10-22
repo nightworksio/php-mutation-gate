@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  * The verdict as GitLab's Code Quality JSON, so a merge request shows each
  * mutant counted as not killed on its line: one issue per mutant, under the
  * rule SARIF reports it by, fingerprinted by the gate's id, `major` in a set
- * that failed and `minor` otherwise (ADR-0016, decision 5).
+ * that failed and `minor` otherwise (ADR-0016).
  *
  * @phpstan-type Issue array{
  *     description: string,

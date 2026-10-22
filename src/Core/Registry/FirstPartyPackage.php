@@ -9,7 +9,7 @@ use NightWorksIO\MutationGate\Core\ThisPackage;
 /**
  * The Composer packages this repository ships: the gate, and each plugin under
  * `plugins/`. Their extensions are first party, so `--no-extensions`, which
- * loads no third-party code, still loads them (ADR-0023 decision 8).
+ * loads no third-party code, still loads them (ADR-0023).
  */
 enum FirstPartyPackage: string
 {

@@ -17,7 +17,7 @@ use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 use function sprintf;
 
 /**
- * Measuring the suite under `--measure` (ADR-0017, decisions 4 and 9): a run
+ * Measuring the suite under `--measure` (ADR-0017): a run
  * begins by finding the units and running the whole suite under coverage,
  * so where that fails, or covers nothing, every run fails with it.
  */

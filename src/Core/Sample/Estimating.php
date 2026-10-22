@@ -17,7 +17,7 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
 use NightWorksIO\MutationGate\Core\Verdict\Scoring;
 
 /**
- * A tree of a sampled run estimated (ADR-0020, decisions 23 and 24): the
+ * A tree of a sampled run estimated (ADR-0020): the
  * units its sample ran tallied as its sampled stratum, with those it left
  * out at the mutants each is estimated to hold, and every other unit it
  * judged counted exactly. A tree of a run that was not sampled is a census.

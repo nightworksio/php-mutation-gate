@@ -38,7 +38,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 
 /**
- * What `init` says a full run takes (ADR-0017, decision 4): measured by one
+ * What `init` says a full run takes (ADR-0017): measured by one
  * coverage run of the suite and cut into shards as `shards.seconds` or
  * `shards.target` asks, with the hot paths that weigh on it and the
  * `#[Holds]` that cuts each. The same run shows the suite passes under

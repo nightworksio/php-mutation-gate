@@ -25,9 +25,9 @@ use NightWorksIO\MutationGate\Port\ProofStore;
 use function sprintf;
 
 /**
- * The proof store a command that holds the gate's keys uses, where its own environment locates it (ADR-0007
- * decision 5), built by the gate's own adapters alone, and keeping the default branch's ledger where the store
- * keeps that branch's: on Azure, in the public container, where one is named.
+ * The proof store a command that holds the gate's keys uses, where its own environment locates it (ADR-0007),
+ * built by the gate's own adapters alone, and keeping the default branch's ledger where the store keeps that
+ * branch's: on Azure, in the public container, where one is named.
  */
 final readonly class LocatedStore
 {

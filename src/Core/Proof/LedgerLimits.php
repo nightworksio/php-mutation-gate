@@ -18,7 +18,7 @@ use function sprintf;
 /**
  * How much of a ledger a store reads, so neither an answer without end nor a
  * small gzip stream that inflates without end can hold or end a run: twice
- * what a ledger at the retention cap measures (ADR-0013 decision 13), as
+ * what a ledger at the retention cap measures (ADR-0013), as
  * compressed bytes, as decompressed bytes, and the seconds a read over a
  * network may take.
  */

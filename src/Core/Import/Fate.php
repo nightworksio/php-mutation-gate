@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Import;
 
-/** What becomes of a key of another tool's config when the gate takes over from it (ADR-0016, decision 1). */
+/** What becomes of a key of another tool's config when the gate takes over from it (ADR-0016). */
 enum Fate
 {
     /** The gate's config holds it now, so it can go from the other file. */

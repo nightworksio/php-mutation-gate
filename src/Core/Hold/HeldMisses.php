@@ -18,7 +18,7 @@ use Traversable;
 
 /**
  * The held units whose holding tests miss lines of them the whole suite
- * covers (ADR-0005, decision 10), each once, by its path: none of them is
+ * covers (ADR-0005), each once, by its path: none of them is
  * mutated, and each fails the verdict with the lines it misses.
  *
  * @implements IteratorAggregate<int, NotCovered>

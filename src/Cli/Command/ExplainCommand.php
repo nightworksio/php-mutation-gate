@@ -26,7 +26,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * `explain <id>`: one mutant, or a cluster of survivors, explained from the
  * ledgers and the last run, running nothing, as text or with
- * `--format=json` as its public JSON (ADR-0014, decisions 12 to 15). It
+ * `--format=json` as its public JSON (ADR-0014). It
  * exits 0 once it has explained, and 2 where no record holds the mutant, a
  * prefix names several, or the id is not one. A cluster's id is twelve hex
  * characters too, so the flow tells the two apart by what the last run holds.

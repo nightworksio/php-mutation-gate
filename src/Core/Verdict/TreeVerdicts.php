@@ -52,7 +52,7 @@ final readonly class TreeVerdicts implements Countable, IteratorAggregate
 
     /**
      * These trees, with the survivors of one cause marked with their cluster,
-     * read from each file's source (ADR-0022, decision 15).
+     * read from each file's source (ADR-0022).
      *
      * @param ByPath<Contents> $sources each file of their survivors that can be read, by its path
      */
@@ -67,7 +67,7 @@ final readonly class TreeVerdicts implements Countable, IteratorAggregate
         return new self($clustered);
     }
 
-    /** These trees, with what was found of each survivor (ADR-0025, decision 7). */
+    /** These trees, with what was found of each survivor (ADR-0025). */
     public function found(Findings $findings): self
     {
         $found = [];

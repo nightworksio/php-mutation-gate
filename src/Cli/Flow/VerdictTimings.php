@@ -21,7 +21,7 @@ use function sprintf;
 
 /**
  * A run's timings, as the verdict reads them from the shards' result files
- * and its own clock (ADR-0016, decision 19): each shard whole, from its
+ * and its own clock (ADR-0016): each shard whole, from its
  * start to the instant its result was written, with the steps its time went
  * to, and the verdict from when it began to now. What the run took is
  * estimated, each job's setup taken from `shards.setup`: the wall time from

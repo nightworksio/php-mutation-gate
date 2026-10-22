@@ -58,9 +58,9 @@ Two parts of that do not carry over to a public package.
      `map.json.gz` in the directory `--coverage=<dir>` names: `"format": 1`,
      compact JSON, gzipped, data that reading never runs. A whole map also
      records the commit it was measured at and whether the tree was dirty,
-     as `commit` and `dirty` (ADR-0020, decision 3), and, where
+     as `commit` and `dirty` (ADR-0020), and, where
      `coverage.incremental` is on, each test file's entry key as `keys`
-     (ADR-0023, decision 1); a map without `keys` reads as one whose every
+     (ADR-0023); a map without `keys` reads as one whose every
      entry moved. Each shard's map,
      `.mutation-gate/coverage/shard-<id>/map.json.gz`, holds only the lines of
      the files that shard mutates, with every test and its duration. Where the
@@ -71,21 +71,21 @@ Two parts of that do not carry over to a public package.
      shard is also handed the plan's whole map,
      `.mutation-gate/coverage/map.json.gz`, which its runner reads only to
      find the tests that run a line reading a value a mutant changes, since
-     that line may be in a file the shard does not mutate (ADR-0004,
-     decision 8); the runner's own run reads the shard's map. A shard handed
-     no map mutates nothing and its result cannot judge, since its held
-     units' coverage check (ADR-0005, decision 10) and its timeout triage
-     (ADR-0008) read that map, and a Pest shard that opens on its map cannot
-     judge without the whole map; a verdict whose shard map is missing cannot
-     judge, because the jobs were not handed what the plan wrote.
+     that line may be in a file the shard does not mutate (ADR-0004); the
+     runner's own run reads the shard's map. A shard handed no map mutates
+     nothing and its result cannot judge, since its held units' coverage
+     check (ADR-0005) and its timeout triage (ADR-0008) read that map, and a
+     Pest shard that opens on its map cannot judge without the whole map; a
+     verdict whose shard map is missing cannot judge, because the jobs were
+     not handed what the plan wrote.
    - **`mutation-gate run --plan=<file>`** mutates one shard's units and writes
      `.mutation-gate/results/<id>.json`. That file holds every mutant's record,
      each unit's content key and what the shard measured; and, under
      `covered`, each held unit its group covers, with the group's tests that
-     run it as `judging` (ADR-0005, decision 10). A result without `covered`
+     run it as `judging` (ADR-0005). A result without `covered`
      reads as naming no such tests.
      - The shard is `--shard=<id>` or, without it, the one the CI's
-       environment names (decision 5).
+       environment names.
      - It exits 0 once its result file is written, whatever its mutants did,
        because the verdict judges them. A runner's *cannot judge* is written
        into the result file with the runner's output, so the verdict reports
@@ -98,12 +98,11 @@ Two parts of that do not carry over to a public package.
      - writes the reports (ADR-0009) and the updated ledger (ADR-0007).
 
    A shard never re-cuts. The plan records the commit it was made on, the
-   run's ref, whether it is a pull request and the default branch (decision
-   5). `run` and `verdict` with a plan take all four from it, and a shard
-   running on a different checkout stops with exit code 2.
-   `mutation-gate`, or `mutation-gate run` without `--plan`, does all three in
-   one process and takes the options of `plan`, and `verdict`'s
-   `--publish-dir`.
+   run's ref, whether it is a pull request and the default branch. `run`
+   and `verdict` with a plan take all four from it, and a shard running on
+   a different checkout stops with exit code 2. `mutation-gate`, or
+   `mutation-gate run` without `--plan`, does all three in one process and
+   takes the options of `plan`, and `verdict`'s `--publish-dir`.
 
 2. **The verdict is the one check a branch protects.** It reads the result
    files, not the CI's job statuses. A shard that crashed, was cancelled or
@@ -124,14 +123,14 @@ Two parts of that do not carry over to a public package.
      shards is the total cost over that size, rounded up. The cut makes the
      costliest shard as cheap as any cut in path order into at most that many
      shards can, using fewer where more would cost no less, and no shard is
-     empty unless `--shards` fixes the count (decision 5).
+     empty unless `--shards` fixes the count.
    - **Or a target wall time sets the count.** With `shards.target` (a
      duration) set, the number of shards is the smallest that fits a shard's
      overhead, its opening run plus `shards.setup`, and its share of the cost
      into the target. The cut within that count is the same. A layer of config
      that sets both `shards.target` and `shards.seconds` stops with exit code
      2, and one a later layer sets replaces the other an earlier layer set
-     (ADR-0013, decisions 6 to 9).
+     (ADR-0013).
    - There are never more than `shards.max` shards (an integer, 20 by default).
      Past that limit, shards grow instead, and a target that needs more says
      so in a warning.
@@ -149,7 +148,7 @@ Two parts of that do not carry over to a public package.
      of its opening run to its last mutant, and shared among its units. Each
      unit's share is in proportion to its mutants' durations:
      - from Pest, the durations the plugin records, and for a mutant judged
-       by reference (ADR-0004, decision 8) the time of its judging runs;
+       by reference (ADR-0004) the time of its judging runs;
      - from Infection, which reports none, each mutant's stand-in, the JUnit
        time of the tests that cover its line.
 
@@ -159,7 +158,7 @@ Two parts of that do not carry over to a public package.
      The weight was fitted by predicting the gate's own third full self-gate
      run from the two before it, against last-value, max-of-k and other
      weights. One of those two runs predates the per-mutant limit of
-     ADR-0008 decision 2, so the weight is refitted from three runs after
+     ADR-0008, so the weight is refitted from three runs after
      it once a third lands. A share from another runner or another release
      of the gate, or with no timing held, replaces it as it is. A unit that
      was proved rather than run keeps its last timing.
@@ -175,10 +174,10 @@ Two parts of that do not carry over to a public package.
      the runner, the gate that measured it and the time of measurement. They are not committed: they
      describe the CI's machines, not the code, and they change on every run.
      Beside them the ledger keeps each package's newest opening-run time per
-     runner, which the shard count of a target wall time uses (ADR-0013,
-     decision 7).
+     runner, which the shard count of a target wall time uses
+     (ADR-0013).
    - **Cold start.** A unit with no timing is estimated from what the plan
-     measured of its first run. The gate's own engine (ADR-0023, decision 8)
+     measured of its first run. The gate's own engine (ADR-0023)
      counts, with the `default` set, the mutants that start on each line of
      each of the unit's files; a plan whose every unit is timed counts nothing
      and runs nothing. It counts them without making them, one for each mutator
@@ -188,7 +187,7 @@ Two parts of that do not carry over to a public package.
      line; one no test covers costs nothing. The unit's cost is the sum, spread
      over the processes the runner runs at once. A mutant's run starting is the
      fastest of three runs of no test, each started as the runner starts a
-     mutant's own run (ADR-0004, decision 1), serving the first file the engine
+     mutant's own run (ADR-0004), serving the first file the engine
      counted unchanged. The processes are the runner's parallelism on the
      plan's machine: each shard's runner is taken to be like the plan's, and
      `plan` says how many mutants at once it took them to run.

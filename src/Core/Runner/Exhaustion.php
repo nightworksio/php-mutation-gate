@@ -11,7 +11,7 @@ use function preg_match;
 /**
  * PHP's fatal error for a process that ran out of its `memory_limit`, which
  * names the limit in bytes: the one sign both runners leave of a process the
- * memory cap stopped (ADR-0004, decision 9).
+ * memory cap stopped (ADR-0004).
  */
 final readonly class Exhaustion
 {

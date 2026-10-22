@@ -20,7 +20,7 @@ use function sprintf;
  * anonymous reads. An anonymous request that names no service version, as
  * this one does, is answered 409 by an account whose
  * `AllowBlobPublicAccess` is off, whatever the container's access level,
- * and otherwise with something else (ADR-0028 decision 4).
+ * and otherwise with something else (ADR-0028).
  */
 final readonly class PublicAccess
 {

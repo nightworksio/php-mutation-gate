@@ -36,7 +36,7 @@ use function sprintf;
 use Symfony\Component\Yaml\Yaml;
 
 /**
- * The files `migrate` moves forward (ADR-0026, decisions 4 and 5): the
+ * The files `migrate` moves forward (ADR-0026): the
  * config, in the format its extension names, and the baseline the config
  * names, or the one at its standard path while the config does not read.
  * It runs nothing of the project's: a PHP config is parsed, never

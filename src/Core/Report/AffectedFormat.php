@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report;
 
-/** How `affected` prints the tests it lists (ADR-0020, decision 1). */
+/** How `affected` prints the tests it lists (ADR-0020). */
 enum AffectedFormat: string
 {
     /** One test file a line, for PHPUnit's `--test-files-file`. */

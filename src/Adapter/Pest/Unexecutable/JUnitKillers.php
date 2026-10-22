@@ -24,7 +24,7 @@ use function str_replace;
 
 /**
  * The tests a trial's JUnit log says failed or errored, which killed its
- * mutant (ADR-0014, decision 17), each as the coverage map names it. Pest
+ * mutant (ADR-0014), each as the coverage map names it. Pest
  * logs a test of its own with `::` in its `file`, under its class without
  * Pest's `P\`, and by its description, of which Pest makes the method
  * `__pest_evaluable_<description>`: every `_` doubled, every space an `_`,

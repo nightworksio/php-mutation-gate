@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Change\JudgedCommit;
  * made from, so a gone merge commit can be made again: the check-run it
  * reported under and the kind of run it was. The scope's next run of the same kind reads its change
  * since this commit, and carries the results of every unit that change does
- * not reach (ADR-0005, decision 2; ADR-0008, decision 1).
+ * not reach (ADR-0005; ADR-0008).
  */
 final readonly class LastRun
 {

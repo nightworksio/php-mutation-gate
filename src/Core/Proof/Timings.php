@@ -25,7 +25,7 @@ use Traversable;
  * before the one held is dropped, and one measured at the same instant or
  * later replaces it. What a run learns is first smoothed over what was held:
  * an exponentially weighted moving average of a unit's measurements by the
- * same runner (ADR-0006, decision 4).
+ * same runner (ADR-0006).
  *
  * @implements IteratorAggregate<int, Timing>
  */

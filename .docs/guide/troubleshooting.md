@@ -2,8 +2,8 @@
 
 Every refusal, failure and warning the gate prints ends with a link to its
 section here. The section is named by the message's slug, which never changes
-meaning once released (ADR-0018, decision 8). `mutation-gate doctor` finds most
-of these before a run does (ADR-0017, decision 9).
+meaning once released (ADR-0018). `mutation-gate doctor` finds most
+of these before a run does (ADR-0017).
 
 ## no-coverage-driver
 
@@ -29,7 +29,7 @@ collects with pcov wherever both are loaded.
 
 `opcache.enable_cli` is on, or `opcache.file_cache` names a directory. OPcache
 could then serve a file's original in place of its mutant, so a mutant judged
-by reference is left unjudged (ADR-0004, decision 8).
+by reference is left unjudged (ADR-0004).
 
 Set `opcache.enable_cli=0` and `opcache.file_cache=` in the php.ini the runner's
 PHP loads.
@@ -88,13 +88,13 @@ writes both into a config and says how each key maps.
 The source or the runner's config holds a runner's own ignore marker, such as
 `@pest-mutate-ignore` or `@infection-ignore-all`, and `ignores.native` is
 `refuse`, as it is by default. A marker hides mutants with no reason and no
-end, so a run refuses it (ADR-0008, decision 4). `doctor` lists each marker
+end, so a run refuses it (ADR-0008). `doctor` lists each marker
 with its file, its line and the function it is in.
 
 Replace each marker with the `ignores.entries` entry `doctor` shows for it,
 and write why no test can tell its mutants apart. To adopt the gate first and
 replace the markers later, set `ignores.native: allow`: every run then says
-how many markers hide mutants (ADR-0017, decision 7).
+how many markers hide mutants (ADR-0017).
 
 ## infection-unpatched
 
@@ -104,7 +104,7 @@ five times its covering tests' time under `timeouts.most`, with no
 `timeouts.seconds` floor, so a mutant whose tests take a fraction of a second
 can run out of time on a busy runner, and its kill then rests on an
 unmutated control run under that same short limit. Every run says so in its
-report (ADR-0008, decision 2).
+report (ADR-0008).
 
 Add `@php vendor/bin/mutation-gate infection:patch` to `post-install-cmd` and
 `post-update-cmd` in `composer.json`, and run `composer install`. The patch
@@ -135,7 +135,7 @@ Remove `"symlink": false` from that repository's `options`, or set it to
 ## ignores-expiring
 
 An entry of `ignores.entries` has expired, or expires within 14 days
-(ADR-0008, decision 4). An ignore lasts only as long as its reason, so it has
+(ADR-0008). An ignore lasts only as long as its reason, so it has
 an end, and its mutants count again once it passes.
 
 Check each entry's reason again. Where it still holds, move `expires` later.
@@ -145,7 +145,7 @@ Where a test can now tell the mutants apart, remove the entry.
 
 A tree has no floor in the config, and the baseline records none for it.
 There is no default floor, so the first CI run measures such a tree, offers
-the baseline it measured, and fails (ADR-0017, decision 6). Where no CI
+the baseline it measured, and fails (ADR-0017). Where no CI
 definition runs the gate yet, this is advice.
 
 Declare a floor for the tree, as `trees: [{path: src, floor: 80}]`, or
@@ -194,11 +194,11 @@ Collect coverage where the gate runs, with `XDEBUG_MODE=coverage` or
 
 ## hot-path-unheld
 
-Most of the suite runs through a file, and nothing holds it (ADR-0005,
-decision 11). Each of its mutants runs most of the suite, which costs time
-and never a verdict. `doctor --measure` finds it over the coverage run it
-measured. The time at stake is what the ledgers learned the file takes, or
-else what its covering tests take once, for each of its mutants.
+Most of the suite runs through a file, and nothing holds it (ADR-0005).
+Each of its mutants runs most of the suite, which costs time and never a
+verdict. `doctor --measure` finds it over the coverage run it measured.
+The time at stake is what the ledgers learned the file takes, or else what
+its covering tests take once, for each of its mutants.
 
 Hold it with the tests that assert what it does: `#[Holds('<path>')]` on
 them, or the `holds:<path>` group under Pest.
@@ -259,7 +259,7 @@ server, set `GITHUB_SERVER_URL` and `GITHUB_API_URL`.
 
 `runner.memory` is `-1`, so no PHP process of a mutation run has a memory
 cap. A mutant that runs away with memory then takes the machine down, with
-every mutant still to run on it (ADR-0004, decision 9).
+every mutant still to run on it (ADR-0004).
 
 Set `runner.memory` above what the suite needs, such as `1G`.
 `doctor --measure` says what the suite needs.
@@ -303,7 +303,7 @@ Clone the whole history. On GitHub Actions, give `actions/checkout`
 ## warm-boot-refused
 
 The last run's warm workers forked nothing, so each mutant ran in a fresh
-process and paid the whole boot again (ADR-0023, decision 13). A warm worker
+process and paid the whole boot again (ADR-0023). A warm worker
 boots the autoloader and the bootstrap once and forks a child for each
 mutant. It refuses a boot that leaves a socket open, such as a database
 connection, which every child would share; one that started PHPUnit's

@@ -15,7 +15,7 @@ use function var_export;
  * there, what shape it has, or what value it holds. It holds every
  * assertion of PHPUnit's `Assert` and `TestCase` and every expectation of
  * Pest, and a test proves it does. An assertion it does not hold, such as a
- * project's own, is unclassified (ADR-0025, decision 5).
+ * project's own, is unclassified (ADR-0025).
  */
 final readonly class AssertionTable
 {

@@ -23,7 +23,7 @@ use NightWorksIO\MutationGate\Extension\Configurable;
 use NightWorksIO\MutationGate\Port\CiPlan;
 
 /**
- * The CI plan `jenkins` (ADR-0024 decision 1). The plan is printed as the
+ * The CI plan `jenkins` (ADR-0024). The plan is printed as the
  * generic JSON, which the Jenkinsfile reads with `readJSON` and turns into
  * the map of closures it hands to `parallel`, one per shard, each of which
  * names its shard in `SHARD`, as WhichShard reads it on every CI. Jenkins does not name the default branch;
@@ -82,7 +82,7 @@ final readonly class JenkinsPlan implements CiPlan, Configurable
 
     /**
      * Nothing of Jenkins' own: a build holds only the credentials its Jenkinsfile binds, which a project adds to
-     * `runner.withhold` (ADR-0024 decision 5).
+     * `runner.withhold` (ADR-0024).
      */
     public static function withheld(): Withheld
     {

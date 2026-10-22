@@ -7,7 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Analysis;
 use NightWorksIO\MutationGate\Core\File\Contents;
 
 /**
- * A mutant as a static analyser checks it (ADR-0020, decision 9): its text,
+ * A mutant as a static analyser checks it (ADR-0020): its text,
  * which the analyser reads in place of its file, and the original it is
  * judged against. That is the file as written, where the mutant's text is
  * the file changed where the mutation changed it, as Infection's and the

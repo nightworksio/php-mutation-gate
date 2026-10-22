@@ -42,10 +42,10 @@ use function sprintf;
 
 /**
  * `stub`: a failing test for a survivor or an uncovered mutant, or for a
- * cluster's first survivor, found as `explain` finds it (ADR-0015, decisions
- * 1 to 5). It follows the nearest test file that covers the mutant, and is
- * added to it; with none, the runner's style, in a new file under the first
- * test directory, at the source's path from its tree.
+ * cluster's first survivor, found as `explain` finds it (ADR-0015). It
+ * follows the nearest test file that covers the mutant, and is added to it;
+ * with none, the runner's style, in a new file under the first test
+ * directory, at the source's path from its tree.
  */
 final readonly class Stubbing
 {
@@ -122,7 +122,7 @@ final readonly class Stubbing
 
     /**
      * What a test that reads the source must find to kill the mutant, where
-     * its mutator is a registered one pinned by source (ADR-0021, decision 19).
+     * its mutator is a registered one pinned by source (ADR-0021).
      */
     private function pinOf(JudgedMutant $mutant): SourcePin|NotGiven
     {

@@ -24,7 +24,7 @@ $holds = [
 ];
 
 // Patched Pest hands every mutant it planned to the gate's static analysis
-// before the first one runs (ADR-0020, decision 12), and runs none the gate
+// before the first one runs (ADR-0020), and runs none the gate
 // rejects. Looped.php's `while (false)` pair, rejected here, never runs, and
 // neither twin starts a process; the pair of `['x']` runs as ever.
 

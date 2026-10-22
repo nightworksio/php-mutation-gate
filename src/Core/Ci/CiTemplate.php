@@ -16,7 +16,7 @@ use function sprintf;
 
 /**
  * A CI definition `init --ci` renders, by its template's file under the
- * package's `resources/ci/` (ADR-0015 decisions 13 and 14), and where it
+ * package's `resources/ci/` (ADR-0015), and where it
  * goes: written to a file of its own, or printed to be added to one the CI
  * already reads.
  */
@@ -135,7 +135,7 @@ enum CiTemplate: string
     }
 
     /**
-     * What holds the proof store's keys for the verdicts that write the ledger (ADR-0024 decision 4): on Bitbucket,
+     * What holds the proof store's keys for the verdicts that write the ledger (ADR-0024): on Bitbucket,
      * the deployment environment they deploy to; on Jenkins, the credentials they bind.
      */
     public static function keyHolder(): string

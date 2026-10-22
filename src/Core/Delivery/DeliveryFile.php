@@ -26,7 +26,7 @@ use NightWorksIO\MutationGate\Core\Proof\Scope;
 use function sprintf;
 
 /**
- * A delivery as `delivery.json` holds it, format 1 (ADR-0007 decision 5). It
+ * A delivery as `delivery.json` holds it, format 1 (ADR-0007). It
  * holds payloads, and the scope of the ledger beside it, alone: a key it does
  * not know, such as a store, a bucket, a URL, an endpoint or the name of a
  * variable, is refused, never followed, so the run that wrote it cannot

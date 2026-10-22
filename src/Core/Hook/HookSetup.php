@@ -9,9 +9,9 @@ use function implode;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
- * Where `init --hook` sets the gate's hooks up (ADR-0017 decision 1, ADR-0024
- * decision 12): in git's own hooks, as `hook install` writes them, in a hook
- * framework's config, or nowhere.
+ * Where `init --hook` sets the gate's hooks up (ADR-0017, ADR-0024): in git's
+ * own hooks, as `hook install` writes them, in a hook framework's config, or
+ * nowhere.
  */
 enum HookSetup: string
 {

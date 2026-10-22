@@ -2,12 +2,12 @@ name: mutation-gate
 
 # The sharded gate, called with workflow_call: a plan job, one job per shard, a
 # verdict job, which is the check a branch protects, and on the default branch
-# a job that publishes the badge and trend (ADR-0011, decision 8).
+# a job that publishes the badge and trend (ADR-0011).
 #
 # The plan, the shards and the verdict run the project's own code, so they
 # hold no secret and no token that can write. What needs a credential happens
 # in a job that runs none of it, from the gate's own installation at this
-# workflow's commit (ADR-0007, decision 5):
+# workflow's commit (ADR-0007):
 # - fetch reads the default branch's ledger with a key that can read nothing
 #   else, and hands it to the plan and the verdict as an artifact;
 # - deliver-plan posts the pull request comment's planned state the plan left;
@@ -307,7 +307,7 @@ jobs:
           path: ${{ env.LEDGERS }}
           merge-multiple: true
       # The map the job that ran the suite under coverage wrote, so the plan
-      # runs no suite of its own (ADR-0006, decision 1).
+      # runs no suite of its own (ADR-0006).
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: inputs.coverage != ''
         with:
@@ -406,7 +406,7 @@ jobs:
     timeout-minutes: 360
     permissions:
       contents: read
-    # ADR-0008, decision 6: once a shard's result names a survivor under
+    # ADR-0008: once a shard's result names a survivor under
     # `doomed`, its job fails, and fail-fast cancels the other shards. The
     # verdict reads each shard that left no result beside a doomed one as
     # stopped too.
@@ -466,7 +466,7 @@ jobs:
         run: python3 "${GATE_ACTION}/resources/action/gate_action.py" doomed
 
   # On a pull request, the last run's survivors run again beside the shards,
-  # for a signal within minutes (ADR-0020, decisions 19 to 21). It runs the
+  # for a signal within minutes (ADR-0020). It runs the
   # project's code, as a shard does, so it holds no secret and no token, and
   # leaves the comment's "survivors re-checked" state for deliver-survivors.
   # It writes no ledger, and the verdict judges nothing it found.
@@ -674,7 +674,7 @@ jobs:
             NAMED="$(gh api "repos/${GITHUB_REPOSITORY}" --jq .default_branch)"
           fi
           echo "name=${NAMED}" >> "${GITHUB_OUTPUT}"
-      # The trend appends to what was published last time (ADR-0009, decision 5).
+      # The trend appends to what was published last time (ADR-0009).
       - name: Restore what was published last time
         env:
           GH_TOKEN: ${{ github.token }}
@@ -847,7 +847,7 @@ jobs:
   # never from an input. The job installs and runs none of the project's code:
   # it runs the gate from its own installation at this workflow's commit, and
   # the store's whole location comes from the repository's variables, never
-  # from the delivery (ADR-0007, decision 5).
+  # from the delivery (ADR-0007).
   deliver:
     name: deliver
     environment:
@@ -919,7 +919,7 @@ jobs:
   # The badge and the trend, pushed through the contents API to the branch
   # `mutation-gate` with this job's own token, so GitHub signs each commit. It
   # runs only for the default branch itself, and it is the only job that may
-  # write (ADR-0009, decision 5).
+  # write (ADR-0009).
   publish:
     name: publish
     needs: [plan, verdict]

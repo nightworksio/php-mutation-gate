@@ -11,7 +11,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use function sprintf;
 
 /**
- * A kill needs evidence (ADR-0014, decision 17). A mutant a runner reports
+ * A kill needs evidence (ADR-0014). A mutant a runner reports
  * killed, once the runner has run again what it doubts, stands where a test
  * is named as its killer, or where its process ended by a signal or by a
  * fatal error PHP recorded in it. Any other kill is unjudged, and its reason

@@ -20,7 +20,7 @@ use function sprintf;
 /**
  * A ledger per scope, as one object of a cloud's object API,
  * `<prefix>/<scope>/ledger.json.gz`, read and written with the token the API
- * hands out (ADR-0028 decision 1). An object that is not there is an empty
+ * hands out (ADR-0028). An object that is not there is an empty
  * ledger. One that cannot be read, or a token that cannot be had, is
  * unreadable, which costs a run and never a verdict, and says why.
  */

@@ -20,7 +20,7 @@ use function sprintf;
  * What a run took and saved, in the one headline every summary shows: the
  * console's last line, a line of the step summary, and the PR comment's line
  * under the verdict. It carries no money, which stays in the cost section
- * (ADR-0017, decision 13).
+ * (ADR-0017).
  */
 final readonly class SavingsText
 {

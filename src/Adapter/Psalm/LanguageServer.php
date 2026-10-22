@@ -25,7 +25,7 @@ use Symfony\Component\Process\Process;
 
 /**
  * Psalm's language server, `psalm-language-server`, spoken to over its
- * standard streams (ADR-0020, decision 7). It opens a file with the text the
+ * standard streams (ADR-0020). It opens a file with the text the
  * gate gives it, or changes an open file's text, and analyses it as it
  * reads the message, publishing the file's diagnostics with the version of
  * the text it read, where the file is one it analyses, and nothing where it

@@ -4,8 +4,7 @@
 # The project at the commit its file pins, into the directory, refused unless
 # the archive of its whole tree has the SHA-256 the file pins: git archive
 # with every export-ignore and export-subst switched off, since a project's
-# .gitattributes may leave its tests out of every archive (ADR-0017,
-# decision 14).
+# .gitattributes may leave its tests out of every archive (ADR-0017).
 set -euo pipefail
 project=$1
 directory=$2

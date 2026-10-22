@@ -24,7 +24,7 @@ use function sprintf;
  * The `tests` report's third section: each weak test that let survivors
  * through, what it asserts, those survivors, and the assertion of value
  * that would kill them, in the test's own style, on the result of the
- * function around the first of them (ADR-0025, decisions 6 and 7).
+ * function around the first of them (ADR-0025).
  *
  * @phpstan-type WeakEntry array{test: string, assertions: list<string>, survivors: list<string>, assert: string}
  */

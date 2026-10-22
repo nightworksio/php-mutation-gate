@@ -11,7 +11,7 @@ use Composer\Plugin\Capable;
 use Composer\Plugin\PluginInterface;
 
 /**
- * The Composer plugin that adds `composer mutate` (ADR-0024, decision 11).
+ * The Composer plugin that adds `composer mutate` (ADR-0024).
  * It is optional: a non-interactive install that does not allow it skips it
  * quietly, and the gate itself needs no plugin.
  */

@@ -22,10 +22,10 @@ use NightWorksIO\MutationGate\Mutator\Engine\MadeMutant;
 
 /**
  * The mutants the gate's own engine made, checked by static analysis before
- * their tests, in the gate, before any run forks (ADR-0020, decisions 11 and
- * 12): each covered mutant is offered, with the file as the engine wrote it
- * and its covering tests' own time; one the analyser rejects is killed by
- * static analysis, in no time, and never runs; the rest run.
+ * their tests, in the gate, before any run forks (ADR-0020): each covered
+ * mutant is offered, with the file as the engine wrote it and its covering
+ * tests' own time; one the analyser rejects is killed by static analysis, in
+ * no time, and never runs; the rest run.
  */
 final readonly class PreChecked
 {

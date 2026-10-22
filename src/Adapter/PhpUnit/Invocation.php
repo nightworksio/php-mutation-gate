@@ -29,7 +29,7 @@ use function sprintf;
 /**
  * PHPUnit, as the gate starts it.
  *
- * - For one mutant (ADR-0023 decision 9): opcache off, so no cached original
+ * - For one mutant (ADR-0023): opcache off, so no cached original
  *   runs in the mutated file's place and no mutated file is cached for a
  *   later run; the override prepended; the extension recording each test;
  *   only the covering tests selected; and stopped at the first test that
@@ -80,7 +80,7 @@ final readonly class Invocation
     }
 
     /**
-     * A warm worker (ADR-0023, decision 12), its PHP started as a mutant's own
+     * A warm worker (ADR-0023), its PHP started as a mutant's own
      * run starts it, running the worker's script on the project's autoloader
      * in a place of a workplace, and writing its output, and its children's,
      * to files.

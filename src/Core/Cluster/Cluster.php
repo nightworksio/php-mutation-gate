@@ -13,12 +13,12 @@ use function usort;
 /**
  * Survivors with one cause, shown as one item: its members by line then id,
  * the first of them its representative, whose hint it gives and for which
- * `stub` writes the one test (ADR-0022, decisions 15 to 17). Every member
+ * `stub` writes the one test (ADR-0022). Every member
  * still counts in the score.
  */
 final readonly class Cluster
 {
-    /** The command that writes one failing test for a whole cluster (ADR-0015, decision 1). */
+    /** The command that writes one failing test for a whole cluster (ADR-0015). */
     private const string STUB = 'vendor/bin/mutation-gate stub %s';
 
     private function __construct(

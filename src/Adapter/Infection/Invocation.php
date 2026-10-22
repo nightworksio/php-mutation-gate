@@ -103,7 +103,7 @@ final readonly class Invocation
     }
 
     /**
-     * An unmutated control's run (ADR-0008, decision 2): PHPUnit with the
+     * An unmutated control's run (ADR-0008): PHPUnit with the
      * project's PHPUnit, on a config shaped as Infection shapes a mutant's
      * (see StartUpConfig), whose one suite holds the control's test files,
      * with the project's extra arguments and a filter that selects its tests

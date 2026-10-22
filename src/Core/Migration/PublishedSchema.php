@@ -18,7 +18,7 @@ use function sprintf;
 
 /**
  * The `$schema` a JSON config names, moved to the current release line's
- * published schema where it names another line's (ADR-0026, decision 3). A local
+ * published schema where it names another line's (ADR-0026). A local
  * path, such as the one `init` writes into `vendor`, is the installed
  * release's own, and stays.
  */

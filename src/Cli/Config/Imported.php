@@ -24,7 +24,7 @@ use NightWorksIO\MutationGate\Core\Import\SourceDifference;
 use function sprintf;
 
 /**
- * An Infection config taken over (ADR-0016, decision 1): the gate's config
+ * An Infection config taken over (ADR-0016): the gate's config
  * it seeds over what zero-config found, what became of each of its keys,
  * and where the directories it names differ from `phpunit.xml`'s `<source>`.
  */

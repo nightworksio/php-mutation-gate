@@ -8,7 +8,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
  * What a runner minute costs a team, as `costs.perRunnerMinute` gives it,
- * which prices every figure of a run's cost (ADR-0016, decision 7).
+ * which prices every figure of a run's cost (ADR-0016).
  */
 final readonly class Rate
 {

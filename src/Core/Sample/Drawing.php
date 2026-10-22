@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 
 /**
  * A tree's sampled stratum split into the units its sample runs and those
- * it leaves out (ADR-0020, decisions 27 and 28): the stratum's share of the
+ * it leaves out (ADR-0020): the stratum's share of the
  * tree's mutants and its candidates' last results size it, and the first
  * units the draw ranks fill it.
  */

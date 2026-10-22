@@ -7,7 +7,7 @@ Usage:
   bench.py time <times> <result file> -- <command...>
 
 Run by `bench.yml` once the project is prepared at its pinned commit
-(ADR-0017, decisions 14 to 17). `run` runs every arm of the project once a
+(ADR-0017). `run` runs every arm of the project once a
 round, in turn, so no arm has the machine to itself at a quieter time, each
 from a cold start: what an arm leaves is removed before it runs. It keeps each
 arm's report and wall time in the out directory, taking the report from the
@@ -31,7 +31,7 @@ file and the step summary:
 - each arm's mutants per file and status, from its first round;
 - each mutant the arms named under `same` judge otherwise, or one of them
   lacks. Those arms mutate with the same tool and mutators, so a difference
-  the gate's own statuses do not explain fails the benchmark (decision 17).
+  the gate's own statuses do not explain fails the benchmark.
 
 `time` runs one command that many times and keeps the median of its wall
 time with the range, as `Pest start-up` measures what starting Pest costs.

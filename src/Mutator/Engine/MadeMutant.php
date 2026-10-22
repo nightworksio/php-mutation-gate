@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 
 /**
- * A mutant the gate's own engine made (ADR-0023 decision 8): its id, where it
+ * A mutant the gate's own engine made (ADR-0023): its id, where it
  * stands, its mutator and diff, and the whole file with it in place, which
  * the override serves in the original's place.
  *

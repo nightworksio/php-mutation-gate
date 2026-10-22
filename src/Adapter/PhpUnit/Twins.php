@@ -19,7 +19,7 @@ use function sprintf;
 
 /**
  * The mutants the engine made that leave their file as one made before them
- * does (ADR-0025, decision 13): one program, so one run judges the first,
+ * does (ADR-0025): one program, so one run judges the first,
  * and each twin takes its verdict, run in no time.
  */
 final readonly class Twins

@@ -21,7 +21,7 @@ use function stripslashes;
  * PHPUnit method by its name, or a Pest `it` or `test` by its description,
  * with the calls chained after it. A test inside a `describe()` is described
  * by it, so a bare description does not find it. A test the file does not
- * hold is not assessed (ADR-0025, decision 5).
+ * hold is not assessed (ADR-0025).
  */
 final readonly class TestAssertions
 {

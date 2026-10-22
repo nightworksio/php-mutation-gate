@@ -20,7 +20,7 @@ use function sprintf;
 /**
  * The last run in this checkout: the plan it left in the workspace and its
  * shards' results, judged again as its verdict judged them, reporting
- * nothing and writing no ledger (ADR-0014, decision 12). `plan` and a run
+ * nothing and writing no ledger (ADR-0014). `plan` and a run
  * in one process both leave their plan there.
  */
 final readonly class LastRun

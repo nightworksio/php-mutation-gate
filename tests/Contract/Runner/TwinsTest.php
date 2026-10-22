@@ -25,7 +25,7 @@ $holds = [
 ];
 
 // Patched Pest runs one of the mutants that leave a file alike, and the
-// adapter judges the rest by that run (ADR-0025, decision 13). Looped.php
+// adapter judges the rest by that run (ADR-0025). Looped.php
 // holds two such pairs: `while (true)` made `while (false)` by two mutators,
 // and either item of `['x', 'x']` removed.
 

@@ -22,7 +22,7 @@ use Traversable;
 
 /**
  * Which tests killed each mutant first, and the mutants of each named
- * function, how often, keeping the five most of each (ADR-0013, decision 2).
+ * function, how often, keeping the five most of each (ADR-0013).
  * A mutant the history has never seen takes its function's. The gate's
  * mutant id holds no line, so a mutant keeps its history when code above it
  * moves. Each is kept in the order it last learned something, the newest

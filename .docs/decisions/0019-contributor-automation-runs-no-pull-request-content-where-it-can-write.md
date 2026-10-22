@@ -99,7 +99,7 @@ by probes on 2026-09-30:
 
 3. **The rules every bot workflow keeps.**
    - **`workflow_run` handles no pull request data.** It writes the default
-     branch's cache (the probe), so its one job is the relay of decision 4.
+     branch's cache (the probe), so its one job is the relay of numbers.
    - **`issue_comment` and `pull_request_target` run no tool over pull
      request content.** They carry a write token and secrets, so they read
      a pull request only as data: through the API, or from git objects at a
@@ -112,7 +112,7 @@ by probes on 2026-09-30:
    - **`permissions: {}` at the workflow level,** and each job asks for
      exactly what it writes.
    - **Commands count only from `created` comments.** Comments by bots are
-     ignored, except the App's own relay marker (decision 4). `concurrency`
+     ignored, except the App's own relay marker. `concurrency`
      is set per pull request.
    - **A test reads every workflow** and fails when a job started by
      `pull_request_target`, `issue_comment` or `workflow_run` has a step
@@ -136,11 +136,11 @@ by probes on 2026-09-30:
      comment to an *explaining…* state that carries
      `<!-- mutation-gate-bot: run=<id> sha=<sha> -->`. A comment written by
      the App starts workflows.
-   - **Where the work happens.** Evidence parsing and posting (decisions 6
-     to 12) run on `issue_comment` (`edited`), whose cache is read-only.
-     They act only on the App's own comment carrying the marker, and read
-     the run again by its id.
-   - **One more job.** The re-run of infrastructure failures (decision 9)
+   - **Where the work happens.** Evidence parsing and posting run on
+     `issue_comment` (`edited`), whose cache is read-only. They act only
+     on the App's own comment carrying the marker, and read the run again
+     by its id.
+   - **One more job.** The re-run of infrastructure failures
      runs in the relay too, because it reads only job metadata.
 
 ### What the bot knows
@@ -149,7 +149,7 @@ by probes on 2026-09-30:
    - Each job in `ci.yml` asks its tool for machine-readable output.
    - A stdlib converter turns that output into `evidence/<job>.json`, with
      `format`, `job`, `tool` and `findings: [{path, line, rule, detail}]`.
-   - Where the fix is mechanical, the job adds `fix.patch` (decision 8).
+   - Where the fix is mechanical, the job adds `fix.patch`.
    - All of it is uploaded as the artifact `evidence`.
    - A test fails when a job in `ci.yml` has no evidence producer.
 
@@ -165,7 +165,7 @@ by probes on 2026-09-30:
      - `path`: it must be a file the pull request changed, checked against
        the API's list at the run's head SHA;
      - `line`: an integer;
-     - `rule`: it must be in `main`'s vocabulary (decision 7).
+     - `rule`: it must be in `main`'s vocabulary.
    - Free text from evidence, such as a PHPStan message or an assertion
      message, is never rendered by the bot. The pull request's own job shows
      it, as an annotation it writes itself with no privilege.
@@ -196,7 +196,7 @@ by probes on 2026-09-30:
 
 8. **It explains each failure exactly, and fixes what is mechanical.**
    - **What each gate shows.** The sticky comment lists, per failed gate,
-     its cause from decision 7's tables, at the validated `path:line`, with
+     its cause from `main`'s tables, at the validated `path:line`, with
      the rule's explanation and link.
 
      | Gate | Shown | Mechanical fix |
@@ -216,7 +216,7 @@ by probes on 2026-09-30:
      itself runs the fix commands and adds `fix.patch` to its evidence.
    - **Always proposed.** The comment shows the patch as suggested changes
      for hunks inside the diff, and as a collapsed patch for the rest.
-   - **Committed only on `/fix`** (decision 13), and only for a branch in
+   - **Committed only on `/fix`**, and only for a branch in
      this repository. Every hunk must touch a file the pull request already
      changes (or `composer.json`, for normalize), under a size cap. The App
      makes one commit, `style: apply the fixes CI computed`, whose body
@@ -241,9 +241,9 @@ by probes on 2026-09-30:
       event:
       - waiting for a maintainer to start CI (the run's `action_required`
         status);
-      - title conventional (decision 12);
-      - every gate green, each red one expanded as decision 8 says;
-      - new code tested (the gate's comment, decision 11);
+      - title conventional;
+      - every gate green, each red one explained;
+      - new code tested (the gate's comment);
       - a `Spec:` line, when the pull request touches a path the spec map
         covers;
       - ready for review.
@@ -258,7 +258,7 @@ by probes on 2026-09-30:
     - Ticked items collapse.
 
 11. **Missing tests are the gate's to report, and it reports them early.**
-    - The gate's own sticky comment (ADR-0009 decision 3) gains a
+    - The gate's own sticky comment (ADR-0009) gains a
       **planned** state, posted by the `plan` job. It holds:
       - the units to be mutated;
       - the estimate (ADR-0017);
@@ -293,7 +293,7 @@ by probes on 2026-09-30:
 
     | Command | Does | Who |
     |---------|------|-----|
-    | `/fix` | Commits decision 8's patch | write access, or the pull request's author |
+    | `/fix` | Commits the mechanical fix's patch | write access, or the pull request's author |
     | `/update` | GitHub merges the base into the head (update-branch, merge method, with the expected head SHA). GitHub makes and signs the merge commit, `commitlint` exempts subjects that start with "Merge", and the squash erases it. `/rebase` does the same and says why | write access, or the pull request's author |
     | `/retest` | Re-runs the failed jobs of the latest CI run on the current head, never one awaiting approval, at most three times per head SHA | write access, or the pull request's author |
     | `/docs <words>` | Searches a heading index generated from `.docs/`, and replies with at most three links and no prose. The words are reduced to `[a-z0-9]+` tokens | anyone |
@@ -337,7 +337,7 @@ by probes on 2026-09-30:
 16. **An OIDC role that can write a ledger never trusts a bare `ref`.**
     - Where the ledger's store is reached through an OIDC role (S3, as the
       approved S1 setup does, and the `gcs` and `azure` stores, whose only
-      credential is a federated one: ADR-0028 decision 3), the role that can write the default branch's
+      credential is a federated one: ADR-0028), the role that can write the default branch's
       prefix trusts either:
       - a GitHub environment whose deployment-branch policy allows the
         default branch only, and which only the verdict job uses; or
@@ -378,7 +378,7 @@ by probes on 2026-09-30:
 | **Closing stale issues and pull requests** | Real reports would close unanswered. The backlog is read by a person. |
 | **Predicting which gates a pull request will trip** | The fast gates report within minutes, sooner than a prediction could be read. The one slow answer worth having early is the gate's planned state. |
 | **release-drafter** | It needs labels, its autolabeler runs under `pull_request_target`, and it ignores conventional commits. |
-| **release-please** | The bot would create the tag, unsigned, which ADR-0011 decision 9 refuses. |
+| **release-please** | The bot would create the tag, unsigned, which ADR-0011 refuses. |
 | **OIDC roles trusting `ref: refs/heads/main`** | Every default-branch job would be trusted, including ones that read pull request data. |
 
 ## Consequences

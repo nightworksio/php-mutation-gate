@@ -36,19 +36,18 @@ use function sprintf;
 use function str_replace;
 
 /**
- * One failing test for a mutant or a cluster, in a style (ADR-0015, decision
- * 4): comments that hold each mutant's heading and diff, its hint and the
- * call to the function around it, one assertion scaffold for each family, or
- * for a mutator pinned by source a call and a read of the function's file
- * (ADR-0021, decision 19), an assertion of value a weak test could make
- * (ADR-0025, decision 6); then the
- * line that fails until the test is filled in; then the `ignores.entries`
- * item that is the other way out (decision 5). A test for a held unit holds
- * it too, so the tests that hold it still cover it (ADR-0005, decision 9): a
- * Pest test joins its holding group, and a PHPUnit test carries `#[Holds]`,
- * with PHPUnit's `#[Group]` beside it where the runner reads each `#[Holds]`
- * as its test files load, since that runner cannot add a group to a class it
- * did not build.
+ * One failing test for a mutant or a cluster, in a style (ADR-0015):
+ * comments that hold each mutant's heading and diff, its hint and the call
+ * to the function around it, one assertion scaffold for each family, or for
+ * a mutator pinned by source a call and a read of the function's file
+ * (ADR-0021), an assertion of value a weak test could make (ADR-0025); then
+ * the line that fails until the test is filled in; then the
+ * `ignores.entries` item that is the other way out. A test for
+ * a held unit holds it too, so the tests that hold it still cover it
+ * (ADR-0005): a Pest test joins its holding group, and a PHPUnit test
+ * carries `#[Holds]`, with PHPUnit's `#[Group]` beside it where the runner
+ * reads each `#[Holds]` as its test files load, since that runner cannot add
+ * a group to a class it did not build.
  */
 final readonly class StubText
 {

@@ -26,7 +26,7 @@ use function trim;
  * values this reader cannot bound line by line (DefinitionLine), it is read
  * whole, every line kept. Every other change is a change to how the gate
  * runs: a proof's key (ADR-0007, key item 6) and what the change reaches
- * (ADR-0005, decision 4) move with it.
+ * (ADR-0005) move with it.
  */
 final readonly class AsItRuns
 {

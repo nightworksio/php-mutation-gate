@@ -17,7 +17,7 @@ use Traversable;
 
 /**
  * Weak tests, each once with its data set rows folded in, as its name
- * says (ADR-0014, decision 6), in the order they were found.
+ * says (ADR-0014), in the order they were found.
  *
  * @implements IteratorAggregate<int, WeakTest>
  */

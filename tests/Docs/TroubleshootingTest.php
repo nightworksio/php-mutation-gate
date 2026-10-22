@@ -5,7 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
-// ADR-0018, decision 8: every slug has a section of the troubleshooting guide,
+// ADR-0018: every slug has a section of the troubleshooting guide,
 // and every section a slug, so no printed link lands nowhere.
 
 /** @return list<string> every section the guide heads with `## `, in order */

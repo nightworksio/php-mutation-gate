@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
  * A kill's evidence as a shard result writes it in its mutant's record
- * (ADR-0014, decision 16): `prefix`, with `at`, the position its run's first
+ * (ADR-0014): `prefix`, with `at`, the position its run's first
  * failing test held, from one, and `key`, twelve hex digits, where the
  * runner gave one; and `ended`, with `code`, `signalled` and `fatal`, whether
  * PHP recorded a fatal error, where the runner read them, and `tail`, the

@@ -20,15 +20,15 @@ use Symfony\Component\Process\Process;
 
 /**
  * How a mutant's own process ended, as Pest's parent process saw it once
- * the process failed, which is how Pest tells a mutant tested (ADR-0014,
- * decision 16): the code it exited with and whether a signal ended it,
+ * the process failed, which is how Pest tells a mutant tested
+ * (ADR-0014): the code it exited with and whether a signal ended it,
  * recorded by the mutant's mutated copy where the gate names a results
- * file; and, where collecting its tests failed on a test's missing dataset,
- * that test as its killer (see CollectionKiller). What it printed is never
- * recorded: this process does not hold the values the gate withholds, so it
- * cannot screen it for them, and the results file sits in the workspace a
- * CI may upload. A killer it names is the id of a test this process
- * collected, not text the run printed.
+ * file; and, where collecting its tests failed on a test's missing
+ * dataset, that test as its killer (see CollectionKiller). What it
+ * printed is never recorded: this process does not hold the values the
+ * gate withholds, so it cannot screen it for them, and the results file
+ * sits in the workspace a CI may upload. A killer it names is the id of
+ * a test this process collected, not text the run printed.
  */
 final readonly class Ending
 {

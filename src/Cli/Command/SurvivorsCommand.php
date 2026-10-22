@@ -29,7 +29,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * `mutation-gate survivors [--plan=<file>]`: on a pull request, the last
  * run's survivors run again before the shards, for a signal within minutes
- * (ADR-0020, decisions 19 to 21). It re-checks what the plan reaches, or,
+ * (ADR-0020). It re-checks what the plan reaches, or,
  * without one, what a plan made as `plan` makes one would; it writes the
  * comment over its planned state and the step summary, and says on standard
  * output how many still survive and what became of each. It writes no

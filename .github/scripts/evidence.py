@@ -8,7 +8,7 @@ Run as a job's last step but one, whatever the steps before it did. It reads
 the gate's entry in .github/gates.json, the raw output each of its steps left
 where the entry says (a path from the repository root, evidence/raw/ for most),
 and the outcome of each step from STEPS (the job's `toJSON(steps)`). It writes
-evidence/<gate>.json (ADR-0019, decision 5):
+evidence/<gate>.json (ADR-0019):
 
     {"format": 1, "job": <gate>, "tool": [<tool>, ...],
      "findings": [{"tool", "path", "line", "rule", "detail"}, ...]}

@@ -16,7 +16,7 @@ use PHPUnit\TextUI\ShellExitCodeCalculator;
 
 /**
  * The tests a mutant's own run names as its killers where it failed with no
- * test failing or erroring (ADR-0014, decision 17): each test that raised an
+ * test failing or erroring (ADR-0014): each test that raised an
  * issue of a kind its configuration fails the run on (see IssueKind), as
  * PHPUnit's own result counts it. A run that passed, or one a test failed
  * or errored in, whose killers are named as they fail, names none here; so

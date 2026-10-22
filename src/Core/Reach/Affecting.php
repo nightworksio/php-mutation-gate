@@ -19,7 +19,7 @@ use function sprintf;
 
 /**
  * ADR-0005's rules read backwards, for the tests a change can make fail
- * (ADR-0020, decision 2); the first that matches a changed path decides for
+ * (ADR-0020); the first that matches a changed path decides for
  * it:
  *
  * 1. a file that decides how the gate runs reaches every test, unless a

@@ -39,7 +39,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
 /**
  * The gate's own report, `"format": 1`: everything in the verdict, as JSON a
  * program reads. `resources/report.schema.json` describes it, and it is
- * public API (ADR-0009, decision 2).
+ * public API (ADR-0009).
  *
  * @phpstan-import-type MutantEntry from MutantJson
  * @phpstan-import-type EstimateEntry from EstimateJson
@@ -199,7 +199,7 @@ final readonly class JsonReport
 
     /**
      * What each suite the PHPUnit config declares alone kills; none, with
-     * why, where the runner named no test (ADR-0025, decision 8).
+     * why, where the runner named no test (ADR-0025).
      *
      * @return array{suites: list<SuiteEntry>, suitesUnscored?: string}
      */

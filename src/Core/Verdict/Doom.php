@@ -16,15 +16,15 @@ use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
 /**
- * Whether a pull request's run is already certain to fail (ADR-0008,
- * decision 6), as the verdict will judge its mutants: a survivor that did
- * not prove flaky and that no ignore leaves out, in a tree held to 100, the
- * higher of its declared floor and the baseline's; or on a line the change
- * added or modified, where the new-code floor that line is held to, its
- * tree's own or the run's, is 100. A score of whole hundredths below 100 is
- * all one survivor leaves, so either floor fails. A survivor static
- * analysis proved equivalent is no survivor to the verdict, so it dooms
- * nothing; one static analysis killed is a survivor no more.
+ * Whether a pull request's run is already certain to fail (ADR-0008), as
+ * the verdict will judge its mutants: a survivor that did not prove flaky
+ * and that no ignore leaves out, in a tree held to 100, the higher of its
+ * declared floor and the baseline's; or on a line the change added or
+ * modified, where the new-code floor that line is held to, its tree's own
+ * or the run's, is 100. A score of whole hundredths below 100 is all one
+ * survivor leaves, so either floor fails. A survivor static analysis
+ * proved equivalent is no survivor to the verdict, so it dooms nothing;
+ * one static analysis killed is a survivor no more.
  */
 final readonly class Doom
 {

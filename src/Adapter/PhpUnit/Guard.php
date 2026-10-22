@@ -16,10 +16,10 @@ use NightWorksIO\MutationGate\Core\Runner\Opcache;
 use function sprintf;
 
 /**
- * What a mutant's run says of itself in the guard file (ADR-0004 decision
- * 8): the wrapper, in any process of the run, that it served the mutated
- * file, and the extension that opcache could have served a cached original
- * in its place. A run that served no mutated file, or could have served a
+ * What a mutant's run says of itself in the guard file (ADR-0004): the
+ * wrapper, in any process of the run, that it served the mutated file,
+ * and the extension that opcache could have served a cached original in
+ * its place. A run that served no mutated file, or could have served a
  * cached original, says nothing of the mutant.
  */
 final readonly class Guard

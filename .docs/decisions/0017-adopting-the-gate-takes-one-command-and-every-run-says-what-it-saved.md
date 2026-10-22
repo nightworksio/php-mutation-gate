@@ -12,39 +12,39 @@ makes the suite better.
 The path a new user walks, read at source:
 
 - **Install.** `composer.json` declares `conflict: pestphp/pest-plugin-mutate
-  <5.0.2 || >5.0.2` (ADR-0004 decision 3). A project on any other
+  <5.0.2 || >5.0.2` (ADR-0004). A project on any other
   pest-plugin-mutate release cannot install, and Composer's message names
   only the conflict.
 - **The first run with no config.** Runner, preset and trees come from
-  zero-config (ADR-0002 decision 5).
+  zero-config (ADR-0002).
   - Laravel's default `phpunit.xml` has `<source><include>app`.
   - Symfony's recipe writes `phpunit.dist.xml`, with `<source><include>src`
     (read on `symfony/demo`).
   - PHPUnit looks for `phpunit.xml`, then `phpunit.dist.xml`, then
-    `phpunit.xml.dist`. ADR-0002 decision 5 names only the first and the
+    `phpunit.xml.dist`. ADR-0002 names only the first and the
     last.
 - **What stops a first run.** Each of these is found only once the run meets
   it:
   - no coverage driver;
   - a suite that is red under coverage;
   - both runners installed;
-  - a native ignore marker (ADR-0008 decision 4).
+  - a native ignore marker (ADR-0008).
 - **How long a first run takes.** A full run of a medium project takes most
-  of an hour. Its only estimate is lines of code × 0.2 s (ADR-0006
-  decision 4), which is far off wherever every test boots a framework.
-  Nothing shows progress.
+  of an hour. Its only estimate is lines of code × 0.2 s (ADR-0006),
+  which is far off wherever every test boots a framework. Nothing shows
+  progress.
 - **What `init` writes.** It writes "exactly what zero-config found"
-  (ADR-0002 decision 2). A written `trees` replaces the tree source's whole
-  list (ADR-0002 decision 5). So a directory added to `<source>` later, or a
+  (ADR-0002). A written `trees` replaces the tree source's whole
+  list (ADR-0002). So a directory added to `<source>` later, or a
   module that discovery finds, is never mutated, and nothing says so.
 - **The first CI run.** With no baseline committed, a tree has no floor, and
-  CI stops with exit code 2 (ADR-0003 decision 9). The user then needs a
+  CI stops with exit code 2 (ADR-0003). The user then needs a
   full local run to produce the file.
 - **Setup takes several commands.** `init` has grown `--format`, `--ci`,
   `--editor` and `--from` (ADR-0002, ADR-0015, ADR-0016), each a command of
   its own to know about.
 - **What a run saved.** The run's cost is a collapsed section at the end of
-  the PR comment (ADR-0016 decision 8). The gate's claim, that reach and
+  the PR comment (ADR-0016). The gate's claim, that reach and
   proofs make mutation testing affordable, is not shown where anyone
   reads it.
 - **What the plain tool would cost.** No figure compares the gate with plain
@@ -52,13 +52,12 @@ The path a new user walks, read at source:
 
 What the gate can know about time, measured:
 
-- each unit's timing, kept for proved and carried units too (ADR-0006
-  decision 4);
+- each unit's timing, kept for proved and carried units too (ADR-0006);
 - each shard's opening run (ADR-0013);
-- which units reach carried and which proofs covered (ADR-0003 decision 4,
+- which units reach carried and which proofs covered (ADR-0003,
   ADR-0007);
 - on GitHub, every job's start and end, through the API, with the
-  `actions: read` the verdict already holds (ADR-0011 decision 8).
+  `actions: read` the verdict already holds (ADR-0011).
 
 What it cannot measure: what holding, test order or the equivalence skip
 would have cost without them.
@@ -81,13 +80,12 @@ would have cost without them.
        `--ci` with no value takes the detected CI;
      - whether to import an `infection.json5` it found (`--from`,
        ADR-0016);
-     - what to do with native markers it found (`--native=allow|refuse`,
-       decision 7);
+     - what to do with native markers it found (`--native=allow|refuse`);
      - where to set the pre-push hook up
        (`--hook[=git|captainhook|grumphp|pre-commit|none]`, `--no-hook`): a
        hook framework whose config the project holds is offered first, then
-       git's own hooks, which `--hook` alone names (ADR-0024 decision 12);
-     - whether to add `composer mutate` (ADR-0024 decision 11), last, and
+       git's own hooks, which `--hook` alone names (ADR-0024);
+     - whether to add `composer mutate` (ADR-0024), last, and
        only of a person at a terminal: a yes prints the two Composer
        commands that add the plugin and the root script that needs none,
        and changes no file.
@@ -98,13 +96,13 @@ would have cost without them.
      installed and `--runner` is absent. The CI is the detected one, or none
      written. An Infection config found is imported. Markers stay refused.
      No hook is installed.
-   - It writes the config (decision 2), the CI definition (ADR-0015
-     decisions 13–16), `.gitignore`'s line, the hook when asked, and VS Code's
-     files with `--editor` (ADR-0015). It never overwrites a file.
+   - It writes the config, the CI definition (ADR-0015),
+     `.gitignore`'s line, the hook when asked, and VS Code's files with
+     `--editor` (ADR-0015). It never overwrites a file.
    - `--dry-run`, or its other name `--stdout` (ADR-0015), prints every
      file instead of writing it, the config and the `.gitignore` line among
      them.
-   - It ends with the estimate of decision 4 and the next three commands to
+   - It ends with the first-run estimate and the next three commands to
      run: `doctor`, the first run, and `git add` of the files it wrote.
 
 2. **`init` writes only what should stay fixed.** The config it writes holds:
@@ -118,11 +116,11 @@ would have cost without them.
    as a comment in PHP, YAML and NEON, and in `init`'s output for JSON, which
    has no comments. `config:show` prints the effective config. Adopting the
    file still changes nothing until somebody edits it. This supersedes
-   ADR-0002 decision 2's "a starting file holding exactly what zero-config
+   ADR-0002's "a starting file holding exactly what zero-config
    found".
 
 3. **Zero-config reads the PHPUnit config PHPUnit reads**: `phpunit.xml`,
-   else `phpunit.dist.xml`, else `phpunit.xml.dist`. ADR-0002 decision 5
+   else `phpunit.dist.xml`, else `phpunit.xml.dist`. ADR-0002
    names the three.
 
 4. **The first-run estimate comes from one coverage run.**
@@ -133,26 +131,26 @@ would have cost without them.
      - the wall time of a full run cut as `shards.seconds` or
        `shards.target` asks (ADR-0013), its runner time, and what the
        estimate rests on;
-     - the hot paths that dominate the estimate (ADR-0005 decision 11),
+     - the hot paths that dominate the estimate (ADR-0005),
        each with the `#[Holds]` that would cut it.
    - The estimate is one figure. A range needs the error between estimate
-     and result that the benchmark of decisions 14–17 measures.
+     and result that the benchmark measures.
    - The same run proves the suite passes under coverage and that a driver
      works. A failure is reported then, with its fix, rather than as a first
      *cannot judge*.
    - `--no-measure` skips the run and estimates from lines of code, as
      `--dry-run`, which runs nothing, does.
-   - The cost model's cold start is ADR-0006 decision 4's measured first
+   - The cost model's cold start is ADR-0006's measured first
      run: the mutants the gate's own engine counts on each covered line,
      each costing a mutant's run starting and its covering tests' time,
      spread over the processes the runner runs at once. Lines of code ×
      `costs.secondsPerLine` remains the cold start where nothing was
      measured. Costs decide placement only, so a wrong estimate costs time,
-     never a verdict. ADR-0015 decision 15 picks the GitHub shape from the
+     never a verdict. ADR-0015 picks the GitHub shape from the
      lines-of-code estimate.
 
 5. **A run shows its progress and an ETA.**
-   - Progress is counted by batch and shard (ADR-0008 decision 1). Inside
+   - Progress is counted by batch and shard (ADR-0008). Inside
      one runner invocation, only the runner sees progress.
    - The ETA comes from the cost model, and says when it is estimated
      rather than measured.
@@ -162,8 +160,8 @@ would have cost without them.
 
 6. **A first CI run with no floor measures first, then refuses.**
    - The run mutates as any run does.
-   - The verdict still exits 2 for each tree with no floor (ADR-0003
-     decision 9), and there is still no default floor.
+   - The verdict still exits 2 for each tree with no floor (ADR-0003),
+     and there is still no default floor.
    - Its message, step summary and PR comment carry the exact
      `mutation-gate.baseline.json` it measured. The verdict writes it to
      `.mutation-gate/baseline.measured.json`. The reusable workflow uploads
@@ -173,10 +171,10 @@ would have cost without them.
    - A run cut short by its budget offers no file, as it never raises a
      floor (ADR-0008).
 
-   This refines ADR-0003 decision 9: CI now measures before it refuses.
+   This refines ADR-0003: CI now measures before it refuses.
 
 7. **Native markers stay refused, and adoption gets a visible bridge.**
-   - `ignores.native: refuse` stays the default (ADR-0008 decision 4).
+   - `ignores.native: refuse` stays the default (ADR-0008).
    - `init` asks when it finds markers. *Allow for now* writes
      `ignores.native: allow`.
    - Under `allow`, every run prints *N native markers hide mutants with no
@@ -186,8 +184,8 @@ would have cost without them.
      a person to write.
 
 8. **The runner pin stays exact, and a daily job keeps it current.**
-   - The `conflict` on untested runner releases stays (ADR-0004 decision 3,
-     ADR-0011 decision 10).
+   - The `conflict` on untested runner releases stays (ADR-0004,
+     ADR-0011).
    - A daily scheduled job, the runner canary, runs the Runner contract
      suite against the newest releases of `pestphp/pest-plugin-mutate` and
      `infection/infection`, each freed from the package's pin. It fails,
@@ -211,7 +209,7 @@ would have cost without them.
      files, git's config and whether the clone is shallow, the runner's PHP
      as it describes itself, and what `.mutation-gate/` holds from earlier
      runs: timings and the ledger. A shallow clone is `shallow-clone`, *slow*.
-   - `--measure` adds the coverage run of decision 4. It runs the whole
+   - `--measure` adds the coverage run of the first-run estimate. It runs the whole
      suite once, finds the units as a run does, and writes no map. Where
      measuring fails, `coverage-run-failed` says why. Where the run covers
      no line, `coverage-empty` says so. Both are *will fail*.
@@ -227,7 +225,7 @@ would have cost without them.
      - Its findings are advice: `verdict-not-required` where neither a
        ruleset nor branch protection requires `ci.check` on the default
        branch; `fork-approval-weak` short of approval for all outside
-       contributors (ADR-0019 decision 3); and `schedule-not-running` where
+       contributors (ADR-0019); and `schedule-not-running` where
        a GitHub workflow that runs the gate is disabled for inactivity, or
        ran on no schedule in the last 8 days.
      - A setting GitHub does not show is `online-unread`, naming the
@@ -242,16 +240,16 @@ would have cost without them.
      - the troubleshooting slug and link of ADR-0018.
    - It exits 1 when any finding will fail, and 0 otherwise.
      `--format=text|json` chooses the output. The JSON is public API
-     (ADR-0011 decision 7): `{"format": 1, "failsARun", "findings": [{"slug",
+     (ADR-0011): `{"format": 1, "failsARun", "findings": [{"slug",
      "severity", "found", "why", "fix", "seconds", "link"}]}`, where `seconds`
      is the time at stake and only a *slow* finding has it. Its schema is
      generated from the same enums and committed at
      `resources/doctor.schema.json`.
-   - Beside the checks of decision 10, it finds a config every command
+   - Beside the checks above, it finds a config every command
      refuses (`config-refused`) and a runner's PHP that cannot describe itself
      (`php-not-read`), both *will fail*.
    - It never edits a file, as `hook install` never overwrites a hook
-     (ADR-0010 decision 3).
+     (ADR-0010).
    - `plan` and a one-process run begin with the same checks, one line for
      each *will fail* and *slow* finding. Users meet them without knowing
      `doctor` exists. The checks are the core's `Diagnosis`, over what an
@@ -269,28 +267,28 @@ would have cost without them.
     |-------|----------|
     | No coverage driver in the PHP the runner uses | will fail |
     | Xdebug loaded in a mode other than `coverage` or `off`, or Xdebug as the driver where pcov is available | slow |
-    | `opcache.enable_cli` or `opcache.file_cache` on, which leaves mutants judged by reference unjudged (ADR-0004 decision 8) | will fail |
+    | `opcache.enable_cli` or `opcache.file_cache` on, which leaves mutants judged by reference unjudged (ADR-0004) | will fail |
     | Both runners installed, and no `runner` | will fail |
     | No tree found | will fail |
-    | A tree with no floor and no baseline, where a CI definition runs the gate; advice where none does | will fail (decision 6) |
-    | Native markers under `refuse` | will fail (decision 7) |
+    | A tree with no floor and no baseline, where a CI definition runs the gate; advice where none does | will fail |
+    | Native markers under `refuse` | will fail |
     | A mirrored path repository (`symlink: false`) holding a tree | will fail |
     | `pest.patch: true` with an installed pest-plugin-mutate that does not carry `pest:patch`, which `post-install-cmd` and `post-update-cmd` apply | will fail |
     | Pest with more than one shard in the recorded timings, and no `pest.patch` | slow: the opening run × (shards − 1) |
-    | A hot path nothing holds (ADR-0005 decision 11), under `--measure` | slow: its units' timings, or else its covering tests' time |
-    | A ledger past the compressed limit a run reads (ADR-0013 decision 13), or at its proof cap with under 50% hits over its last 10 runs | slow |
-    | The gate's own `memory_limit` under what its ledgers may need (ADR-0013 decision 13), where its command could not raise it | will fail |
-    | One file outside the tests that invalidated most proofs in recent runs, found by comparing the digests of each item of the key, which every proof keeps (ADR-0007 decision 3) | slow |
+    | A hot path nothing holds (ADR-0005), under `--measure` | slow: its units' timings, or else its covering tests' time |
+    | A ledger past the compressed limit a run reads (ADR-0013), or at its proof cap with under 50% hits over its last 10 runs | slow |
+    | The gate's own `memory_limit` under what its ledgers may need (ADR-0013), where its command could not raise it | will fail |
+    | One file outside the tests that invalidated most proofs in recent runs, found by comparing the digests of each item of the key, which every proof keeps (ADR-0007) | slow |
     | A GitHub workflow that checks out without `fetch-depth: 0` | slow: everything is reached |
     | A GitHub workflow with no `schedule`, `cache: false` on the directory store, the action pinned by tag, or `persist-credentials` left on | advice |
-    | Ignores expired or expiring within 14 days (ADR-0008 decision 4) | advice |
+    | Ignores expired or expiring within 14 days (ADR-0008) | advice |
     | `.mutation-gate/` not in `.gitignore` | advice |
-    | A tree outside `sonar.sources` in `sonar-project.properties`, while a `sonar` report is listed (ADR-0028 decision 10) | advice |
+    | A tree outside `sonar.sources` in `sonar-project.properties`, while a `sonar` report is listed (ADR-0028) | advice |
     | An `infection.json5` with `minMsi` or native ignores | advice: `init --from` (ADR-0016) |
     | Infection as the runner, its installed Infection without `infection:patch` (ADR-0004) | advice |
-    | `runner.memory` at `-1`, a PHPUnit config whose `memory_limit` lifts the cap, or, under `--measure`, a suite that held over half the cap (ADR-0004 decision 9) | advice |
+    | `runner.memory` at `-1`, a PHPUnit config whose `memory_limit` lifts the cap, or, under `--measure`, a suite that held over half the cap (ADR-0004) | advice |
 
-    The size threshold is the limit ADR-0013 decision 13 sets, twice what a
+    The size threshold is the limit ADR-0013 sets, twice what a
     ledger at the retention cap measures, so a ledger past it is one no run
     reads. The hit threshold, 50% over 10 runs, is recalibrated from the
     benchmark.
@@ -312,21 +310,21 @@ would have cost without them.
     - Holding, test order and the equivalence skip are not counted, because
       nothing measures what they would have cost without them.
     - Each figure carries its estimated share: units with no timing are
-      estimated as decision 4 says.
+      estimated as the first-run estimate is.
     - A run with no timings says *no history yet*, never *saved 0*.
-    - Figures against plain Pest or Infection come only from the benchmark
-      (decisions 14–17).
+    - Figures against plain Pest or Infection come only from the
+      benchmark.
 
 12. **What a run spent is measured where the CI allows it.**
     - On GitHub, the verdict, and the one-step action, read the start and end
       of every job in their run and attempt through the API. That gives
       exact runner time per job, and wall time.
-    - Elsewhere it is the flows' own timings (ADR-0016 decision 19) plus
+    - Elsewhere it is the flows' own timings (ADR-0016) plus
       `shards.setup` per job (ADR-0013), labelled *estimated*.
     - The figure is *runner time*. GitHub rounds each job up to a whole
       minute for billing, and the output does not claim to be a bill.
 
-    This refines ADR-0016 decision 6, which takes `shards.setup`
+    This refines ADR-0016, which takes `shards.setup`
     everywhere.
 
 13. **One headline line says it, wherever a summary is shown.**
@@ -335,7 +333,7 @@ would have cost without them.
       wait by 38m and cost 3m of setup.*
     - It is the console's last line, a line of the step summary, and the PR
       comment's line directly under the verdict. It is not collapsed.
-      ADR-0016 decision 8's collapsed section keeps the breakdown and the
+      ADR-0016's collapsed section keeps the breakdown and the
       money.
     - An unsharded run leaves out the sharding clause. A runner time the CI
       did not measure reads *14m runner time (estimated)*. A run with no
@@ -349,7 +347,7 @@ would have cost without them.
       whole percent, truncated.
     - On the default branch:
       - each `trend.json` entry gains `runnerSeconds` and `fullRunSeconds`
-        (ADR-0009 decision 5);
+        (ADR-0009);
       - the step summary shows the total of the last 30 days, under the
         headline: *In the last 30 days the gate saved 41h of runner time.*
         Each run counts its full one-job run less its runner time, never
@@ -448,9 +446,9 @@ would have cost without them.
     - It reports each in the form `init --from` uses (ADR-0016):
       - `--min=N` becomes N as each tree's declared floor, as `minMsi` does;
       - `--covered-only` becomes `uncovered: exclude`;
-      - markers go through decision 7;
+      - markers stay refused, with the adoption bridge;
       - `covers()` and `mutates()` no longer narrow which tests judge a
-        mutant (ADR-0004 decision 3), so scores can move, and the report
+        mutant (ADR-0004), so scores can move, and the report
         says which way.
     - The settings go into the config `init` writes. Scripts and CI files are
       never edited, and the lines to remove are printed.
@@ -465,7 +463,7 @@ would have cost without them.
 | **A snapshot less `trees`** | Copied defaults stop following the package's defaults. |
 | **Estimating from lines of code alone** | Instant, and far off on framework apps, where the estimate matters most. |
 | **The first CI run refusing before it mutates** | Fails fast, and then demands a full local run to produce the file. |
-| **Holding every tree to new code only until a baseline exists** | Every tree would be exempt until someone acted, which is the default floor ADR-0003 decision 9 refuses. |
+| **Holding every tree to new code only until a baseline exists** | Every tree would be exempt until someone acted, which is the default floor ADR-0003 refuses. |
 | **`allow` for native markers under zero-config** | Writing a config file would then change behaviour, which `init`'s rule forbids. |
 | **A runner pin widened to the major, refused at runtime** | A runner's patch release would turn a user's CI red, where the `conflict` lets Composer hold the runner back. |
 | **`doctor --fix`** | It would edit files the gate did not write. |

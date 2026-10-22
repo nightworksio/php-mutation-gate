@@ -27,7 +27,7 @@ use NightWorksIO\MutationGate\Core\Test\TestNames;
 
 /**
  * What of a unit's newest result still stands for the code on disk, for a
- * unit a time budget ran out before (ADR-0008, decision 1), judged against
+ * unit a time budget ran out before (ADR-0008), judged against
  * the digests of this run's inputs, its base, the names of its tests and its
  * coverage map. A result stands for the unit only where its source and what
  * decides its mutant set are unchanged; then each of its mutants stands, or
@@ -74,7 +74,7 @@ final readonly class Carrying
     /**
      * Whether a mutant of a result that stands for its unit stands too, or is
      * unjudged, and why. A timeout or a mutant out of memory is unjudged,
-     * since triage can count it as a kill (ADR-0008; ADR-0004, decision 9); a
+     * since triage can count it as a kill (ADR-0008; ADR-0004); a
      * skipped mutant stands, since nothing counts it as one. A kill by static
      * analysis stands as a kill does, by the file its finding sits in.
      */

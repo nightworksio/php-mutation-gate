@@ -15,8 +15,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 /**
  * The account of a run beside its verdict: when each part began and how
  * long it took, what it cost, what it saved, the runs `trend.json` held
- * from before it (ADR-0016, decisions 6 and 19, and ADR-0017, decision 11),
- * and what pruning did (ADR-0025, decision 4).
+ * from before it (ADR-0016, and ADR-0017),
+ * and what pruning did (ADR-0025).
  * A run the flows gave no timings says nothing of its cost.
  */
 final readonly class RunAccount
@@ -57,7 +57,7 @@ final readonly class RunAccount
         return clone($this, ['savings' => $savings]);
     }
 
-    /** This account, with what pruning did in the run (ADR-0025, decision 4). */
+    /** This account, with what pruning did in the run (ADR-0025). */
     public function withPruning(PruningAccount $pruning): self
     {
         return clone($this, ['pruning' => $pruning]);

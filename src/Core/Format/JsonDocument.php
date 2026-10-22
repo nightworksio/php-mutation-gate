@@ -19,10 +19,10 @@ use function sprintf;
 use function str_contains;
 
 /**
- * A JSON object as its file writes it, edited key by key (ADR-0026,
- * decision 3): each edit changes the bytes of the keys and values it
- * touches, and leaves every other byte, the file's whitespace and its key
- * order among them, as it was.
+ * A JSON object as its file writes it, edited key by key (ADR-0026):
+ * each edit changes the bytes of the keys and values it touches, and
+ * leaves every other byte, the file's whitespace and its key order
+ * among them, as it was.
  */
 final readonly class JsonDocument
 {

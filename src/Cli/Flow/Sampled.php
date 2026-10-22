@@ -23,13 +23,13 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\HeldFloor;
 
 /**
- * What a sampled run's plan draws of the units no proof covers (ADR-0020,
- * decisions 22 to 28). A unit is in its tree's sampled stratum unless it is
- * known exactly: its tree is held to a floor of 100, it holds a line of new
- * code, a change-scoped run reaches it, or nothing estimates the mutants it
- * holds, which is a held unit no proof records. Each unit is estimated to
- * hold as many mutants as its newest proof counts, or else as many as the
- * gate's own engine makes of its file. The seed is `sampling.seed`, or the
+ * What a sampled run's plan draws of the units no proof covers (ADR-0020).
+ * A unit is in its tree's sampled stratum unless it is known exactly: its
+ * tree is held to a floor of 100, it holds a line of new code, a
+ * change-scoped run reaches it, or nothing estimates the mutants it holds,
+ * which is a held unit no proof records. Each unit is estimated to hold as
+ * many mutants as its newest proof counts, or else as many as the gate's
+ * own engine makes of its file. The seed is `sampling.seed`, or the
  * change's base commit in a change-scoped run and the plan's commit
  * otherwise.
  */

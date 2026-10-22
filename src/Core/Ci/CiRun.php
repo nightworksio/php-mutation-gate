@@ -15,7 +15,7 @@ use function sprintf;
 /**
  * A CI run as an alert and a trace name it: the repository as owner/name,
  * the full ref it ran on, the full commit, the link to the run, and the
- * pipeline or workflow it ran in (ADR-0016, decisions 12 and 16).
+ * pipeline or workflow it ran in (ADR-0016).
  */
 final readonly class CiRun
 {
@@ -119,7 +119,7 @@ final readonly class CiRun
     }
 
     /**
-     * The run as a proof names it (ADR-0007 decision 3): `github:<run id>/<attempt>`, `gitlab:<pipeline id>`,
+     * The run as a proof names it (ADR-0007): `github:<run id>/<attempt>`, `gitlab:<pipeline id>`,
      * `buildkite:<build id>`, `circleci:<workflow id>`, `azure:<build id>`, `bitbucket:<build number>` or
      * `jenkins:<build tag>`; empty where the CI numbers none.
      */

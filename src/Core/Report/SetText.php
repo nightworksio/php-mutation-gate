@@ -26,7 +26,7 @@ use function sprintf;
  * against its floor, that it has nothing to mutate, or why it is exempt, and
  * for a tree, its change against the base. A sampled tree's score is an
  * estimate, said with its interval and how much of the tree was sampled
- * (ADR-0020, decision 30).
+ * (ADR-0020).
  */
 final readonly class SetText
 {

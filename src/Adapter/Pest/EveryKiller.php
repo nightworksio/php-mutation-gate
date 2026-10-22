@@ -9,11 +9,10 @@ use function is_string;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 
 /**
- * A mutant's own process's arguments under a full kill matrix (ADR-0014,
- * decision 7): pest-plugin-mutate starts each with `--bail`, which stops it
- * at its first failing test, so the plugin drops it there, every covering
- * test runs, and each that fails is recorded. Every other run keeps its
- * arguments.
+ * A mutant's own process's arguments under a full kill matrix (ADR-0014):
+ * pest-plugin-mutate starts each with `--bail`, which stops it at its first
+ * failing test, so the plugin drops it there, every covering test runs, and
+ * each that fails is recorded. Every other run keeps its arguments.
  */
 final readonly class EveryKiller
 {

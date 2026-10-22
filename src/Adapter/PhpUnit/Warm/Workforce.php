@@ -41,7 +41,7 @@ use function trim;
 use function unlink;
 
 /**
- * A mutation run's warm workers (ADR-0023, decisions 12 to 14): one in each
+ * A mutation run's warm workers (ADR-0023): one in each
  * of the request's places, side by side, each booting once and claiming the
  * runs in turn from a workplace made for this run alone, so nothing an
  * earlier run left there is read as this one's. Once they are done, each run

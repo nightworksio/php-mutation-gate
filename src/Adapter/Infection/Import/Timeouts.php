@@ -15,7 +15,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 use function sprintf;
 
-/** Infection's `timeout` and `timeoutsAsEscaped` as the gate's `timeouts` (ADR-0016, decision 1). */
+/** Infection's `timeout` and `timeoutsAsEscaped` as the gate's `timeouts` (ADR-0016). */
 final readonly class Timeouts
 {
     private const string SECONDS = 'timeouts.seconds: %d';

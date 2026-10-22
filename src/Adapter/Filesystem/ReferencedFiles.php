@@ -22,7 +22,7 @@ use SplFileInfo;
 
 /**
  * The contents of the files a static analyser's configuration references
- * (ADR-0020, decision 14), each by its digest: a file referenced, and every
+ * (ADR-0020), each by its digest: a file referenced, and every
  * file under a directory referenced, found without following a linked
  * directory. Each is named as the project spells it, under its root, so a
  * digest of them is the same on every machine; a file outside the root keeps

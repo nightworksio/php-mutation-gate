@@ -11,8 +11,7 @@ use function sprintf;
 /**
  * A whole test as its JUnit entry names it: the file it is in and its
  * description, such as `tests/Unit/MoneyTest.php::it adds`. The rows of a
- * data set fold into it, and it is what the reports judge (ADR-0014,
- * decision 6).
+ * data set fold into it, and it is what the reports judge (ADR-0014).
  */
 final readonly class TestName
 {

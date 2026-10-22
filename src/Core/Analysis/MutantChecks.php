@@ -10,7 +10,7 @@ use IteratorAggregate;
 use Traversable;
 
 /**
- * Mutants an analyser checks in one go, in order (ADR-0020, decision 12):
+ * Mutants an analyser checks in one go, in order (ADR-0020):
  * side by side where it can run several checks at once.
  *
  * @implements IteratorAggregate<int, MutantCheck>

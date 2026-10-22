@@ -21,7 +21,7 @@ use Traversable;
 /**
  * What a runner names each test of its coverage by: the id a coverage map
  * keys a test by, and the test or data set row its JUnit entry names
- * (ADR-0014, decision 6).
+ * (ADR-0014).
  *
  * @implements IteratorAggregate<TestId, TestName|TestRow>
  */

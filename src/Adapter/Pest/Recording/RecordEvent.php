@@ -13,7 +13,7 @@ enum RecordEvent: string
     /**
      * A mutant Pest made that leaves its file as one made before it does, which
      * the patched generation loop keeps out of Pest's run, with the fields of a
-     * planned one (ADR-0025, decision 13).
+     * planned one (ADR-0025).
      */
     case Twin = 'twin';
 

@@ -17,7 +17,7 @@ use function sprintf;
 
 /**
  * The mutators a run with a base leaves out of the units it runs whose code
- * is as their newest result recorded it (ADR-0025, decisions 1 to 3), by what
+ * is as their newest result recorded it (ADR-0025), by what
  * every ledger read learned of each mutator, carrying no result older than
  * `pruning.audit`.
  */
@@ -27,7 +27,7 @@ final readonly class PrunedUnits
     {
     }
 
-    /** What a run since this base leaves out; nothing for a full run, which is the audit (ADR-0025, decision 3). */
+    /** What a run since this base leaves out; nothing for a full run, which is the audit (ADR-0025). */
     public function of(ChangeBase|CannotTell $base, Ledgers $ledgers, Units $toRun, Keying $keying): Pruned
     {
         if (! $base instanceof ChangeBase) {

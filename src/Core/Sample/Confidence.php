@@ -6,7 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Sample;
 
 /**
  * How sure a sampled run's interval is to hold a tree's true score,
- * `sampling.confidence`: 90, 95 or 99 percent (ADR-0020, decision 24).
+ * `sampling.confidence`: 90, 95 or 99 percent (ADR-0020).
  */
 enum Confidence: int
 {

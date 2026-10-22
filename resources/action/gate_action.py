@@ -45,7 +45,7 @@ TRUSTED = frozenset({"push", "schedule", "workflow_dispatch"})
 # Where a ref names a branch.
 HEADS = "refs/heads/"
 
-# The events `mode: auto` runs in full on (ADR-0005, decision 2).
+# The events `mode: auto` runs in full on (ADR-0005).
 FULL = frozenset({"schedule", "workflow_dispatch", "release"})
 
 MODES = frozenset({"auto", "full", "changed", "sampled"})
@@ -78,7 +78,7 @@ EXIT_CODES = {0: "passed", 1: "failed", 2: "cannot-judge"}
 # it does not patch, which then runs with its own limit for each mutant.
 UNSUPPORTED_RELEASE = 1
 # The section of a shard's result that names the survivor it stopped on once
-# its run could not pass (ADR-0008, decision 6), and the fields it names it by.
+# its run could not pass (ADR-0008), and the fields it names it by.
 DOOMED = "doomed"
 DOOMED_UNIT = "unit"
 DOOMED_MUTANT = "mutant"
@@ -129,8 +129,8 @@ def mode_arguments(
 
     With no base given, a pull request runs from its base, another branch
     from the default branch, and the default branch from the last commit
-    whose verdict passed (ADR-0005, decision 2). `sampled` considers what
-    `auto` does, and samples the units no proof covers (ADR-0020, decision 22).
+    whose verdict passed (ADR-0005). `sampled` considers what
+    `auto` does, and samples the units no proof covers (ADR-0020).
     """
     if mode not in MODES:
         raise Refused(f"mode is {mode!r}; it is auto, full, changed or sampled.")
@@ -254,7 +254,7 @@ def doomed(result: dict) -> str | None:
     return (
         f"Shard stopped: survivor {found.get(DOOMED_MUTANT, '?')} in {found.get(DOOMED_UNIT, '?')} "
         f"leaves {found.get(DOOMED_TREE, '?')} below its floor of {found.get(DOOMED_FLOOR, '?')}, "
-        "so the run cannot pass and the other shards stop (ADR-0008, decision 6)."
+        "so the run cannot pass and the other shards stop (ADR-0008)."
     )
 
 

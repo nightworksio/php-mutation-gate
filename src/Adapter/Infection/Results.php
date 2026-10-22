@@ -48,7 +48,7 @@ use function usort;
  * carries the tests that killed it; one killed by static analysis, a
  * timeout or an error carries none. A mutant killed or errored whose output
  * holds PHP's fatal error for exactly the gate's memory cap is out of memory
- * (ADR-0004, decision 9). Under a cap, one whose process PHPUnit says ended
+ * (ADR-0004). Under a cap, one whose process PHPUnit says ended
  * mid-test where PHP's errors were visibly hidden, as the project's PHPUnit
  * config sets `display_errors` or as PHPUnit's own word says, is out of memory
  * with no limit known, which memory triage never counts as a kill.

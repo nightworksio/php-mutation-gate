@@ -89,7 +89,7 @@ final readonly class Floors implements Part
         return $this->newCode instanceof Floor ? $this->newCode : Floor::whole();
     }
 
-    /** `security.floor`, which declares none by default (ADR-0021, decision 17) */
+    /** `security.floor`, which declares none by default (ADR-0021) */
     public function security(): Floor|Undeclared
     {
         return $this->security instanceof Floor ? $this->security : Undeclared::floor();

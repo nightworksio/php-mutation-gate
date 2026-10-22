@@ -10,8 +10,8 @@ use function sqrt;
 
 /**
  * Where a share most likely lies, from 0 for none to 1 for all: Wilson's
- * score interval about an observed share of so many mutants (ADR-0020,
- * decision 24), or the one share an exact count gives.
+ * score interval about an observed share of so many mutants (ADR-0020),
+ * or the one share an exact count gives.
  */
 final readonly class Bounds
 {

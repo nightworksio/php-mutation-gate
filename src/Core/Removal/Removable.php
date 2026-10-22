@@ -9,7 +9,7 @@ use NightWorksIO\MutationGate\Core\Php\Declared;
 /**
  * What a surviving removal says where its callee is pseudo-tested and its
  * tests assert things, only not this: the callee, which may be deleted if
- * nothing outside the tests needs it (ADR-0025, decisions 11 and 12).
+ * nothing outside the tests needs it (ADR-0025).
  */
 final readonly class Removable
 {

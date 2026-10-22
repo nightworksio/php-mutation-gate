@@ -82,7 +82,7 @@ final readonly class Command
 
     /**
      * This command, its PHP processes scanning the memory cap's directory
-     * too, after those they scan already (ADR-0004, decision 9).
+     * too, after those they scan already (ADR-0004).
      */
     public function scanning(DiskPath $directory): self
     {

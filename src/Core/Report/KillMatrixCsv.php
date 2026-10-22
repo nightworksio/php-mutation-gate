@@ -20,8 +20,8 @@ use function sprintf;
  * one record per mutant and covering test, produced one at a time so a
  * large matrix is written as it is read. `status` is the gate's judgement,
  * `source` whether the mutant's unit was run, proved or carried, and
- * `outcome` what is known of the test with the mutant in place (ADR-0014,
- * decisions 9 and 10).
+ * `outcome` what is known of the test with the mutant in place
+ * (ADR-0014).
  */
 final readonly class KillMatrixCsv
 {

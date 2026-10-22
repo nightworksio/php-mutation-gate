@@ -12,12 +12,11 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use function sprintf;
 
 /**
- * What `pre-commit` prints, and `pre-push` before its verdict (ADR-0015,
- * decisions 10 to 12): each tree the change reaches, with its score against
- * its floor and its change against the base, or that it is not measured yet;
- * how many reached units have no local result for what is on disk; and how
- * many of their files hold changes that are not staged, which the scores
- * include.
+ * What `pre-commit` prints, and `pre-push` before its verdict (ADR-0015):
+ * each tree the change reaches, with its score against its floor and its
+ * change against the base, or that it is not measured yet; how many reached
+ * units have no local result for what is on disk; and how many of their
+ * files hold changes that are not staged, which the scores include.
  */
 final readonly class ScoreChangeText
 {

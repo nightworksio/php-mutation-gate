@@ -17,7 +17,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * What the `gcs` store's options say, as the definition reads them with
  * their defaults: the `bucket`, the `prefix`, and the `publicUrl` a job
  * without credentials reads the default branch's ledger from
- * (ADR-0028 decisions 1 and 4).
+ * (ADR-0028).
  */
 final readonly class GcsOptions
 {

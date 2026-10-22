@@ -21,13 +21,13 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 use Symfony\Component\Console\Input\InputInterface;
 
 /**
- * What `doctor --measure` adds by running the project's suite (ADR-0017,
- * decisions 4 and 9): the adapters a run builds, the units a run finds, one
- * coverage run of the whole suite, withholding what a run withholds, and the
- * timings the ledgers learned, with the most resident memory the suite's
- * processes held. It writes no coverage map. Where a run could
- * not get as far as the coverage run, the measurement says why; an invalid
- * config it leaves to the check that reports it.
+ * What `doctor --measure` adds by running the project's suite (ADR-0017):
+ * the adapters a run builds, the units a run finds, one coverage run of the
+ * whole suite, withholding what a run withholds, and the timings the
+ * ledgers learned, with the most resident memory the suite's processes
+ * held. It writes no coverage map. Where a run could not get as far as the
+ * coverage run, the measurement says why; an invalid config it leaves to
+ * the check that reports it.
  */
 final readonly class Measure
 {

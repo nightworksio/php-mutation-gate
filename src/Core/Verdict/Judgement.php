@@ -24,7 +24,7 @@ enum Judgement: string
     case NothingToMutate = 'nothing-to-mutate';
     case Exempt = 'exempt';
     case CannotJudge = 'cannot-judge';
-    /** A sampled run's estimate whose interval holds its floor, which neither passes nor fails (ADR-0020, d25). */
+    /** A sampled run's estimate whose interval holds its floor, which neither passes nor fails (ADR-0020). */
     case Undecided = 'undecided';
 
     /** A score held to a floor. With no floor anywhere the score passes; a run in CI refuses that before it judges. */

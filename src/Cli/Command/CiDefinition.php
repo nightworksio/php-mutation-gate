@@ -37,13 +37,13 @@ use NightWorksIO\MutationGate\Extension\Extensions;
 use function sprintf;
 
 /**
- * `init --ci`: the CI definition that runs the gate (ADR-0015 decisions 13
- * to 16). Each of the CI's templates, from the package's `resources/ci/`, is
- * filled in with what the project shows: the PHP version, the default
- * branch, the runner and the gate's own release. It is written where no file
- * is, printed for a file the CI already reads, which `init` never edits, or,
- * with `--stdout`, printed whole. On GitHub, a full run estimated to fit one
- * shard gets the one-step action, and a larger one the reusable workflow.
+ * `init --ci`: the CI definition that runs the gate (ADR-0015). Each of the
+ * CI's templates, from the package's `resources/ci/`, is filled in with what
+ * the project shows: the PHP version, the default branch, the runner and the
+ * gate's own release. It is written where no file is, printed for a file the
+ * CI already reads, which `init` never edits, or, with `--stdout`, printed
+ * whole. On GitHub, a full run estimated to fit one shard gets the one-step
+ * action, and a larger one the reusable workflow.
  */
 final readonly class CiDefinition
 {
@@ -66,13 +66,13 @@ final readonly class CiDefinition
     private const string UNBRANCHED
         = 'Set ci.defaultBranch to %s in the config, the branch the definition is written for: this CI names none.';
 
-    /** Why a CI's cache keeps no ledger safe, where any branch can write any key (ADR-0007 decision 5). */
+    /** Why a CI's cache keeps no ledger safe, where any branch can write any key (ADR-0007). */
     private const string NO_BOUNDARY = <<<'SAID'
         Any branch can save a cache under any key on %1$s, so a branch can plant proofs that %2$s's runs then trust.
         Keep the ledger in S3 with credentials only %2$s's runs hold, and drop the cache steps.
         SAID;
 
-    /** The CIs whose plan names no default branch, so `init` names the one it writes for (ADR-0024 decision 2). */
+    /** The CIs whose plan names no default branch, so `init` names the one it writes for (ADR-0024). */
     private const array BRANCHED_BY_CONFIG = [BuiltinCiPlan::Azure, BuiltinCiPlan::Bitbucket, BuiltinCiPlan::Jenkins];
 
     /** @param Directory $templates where each template is, by its file under it */
@@ -190,7 +190,7 @@ final readonly class CiDefinition
     }
 
     /**
-     * What `init` adds to a config it writes for this CI (ADR-0024 decision 2): for Buildkite and Azure DevOps,
+     * What `init` adds to a config it writes for this CI (ADR-0024): for Buildkite and Azure DevOps,
      * the file of the gate's jobs it writes, as the definition; for each CI whose plan names no default branch,
      * the one the project has.
      */

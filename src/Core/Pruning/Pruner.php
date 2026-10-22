@@ -22,7 +22,7 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 
 /**
  * Which mutators a run with a base leaves out of which of the units it runs
- * (ADR-0025, decisions 1 to 3): the mutators of its runner whose newest
+ * (ADR-0025): the mutators of its runner whose newest
  * judged mutants let nothing through, less those never pruned, in each file
  * whose newest full result is of its code and mutant set as they are now
  * and was made since the audit's start. A run with no base, a held unit, a

@@ -53,8 +53,8 @@ use function sprintf;
  * mutators whose mutants are security mutants, the mutators a run makes
  * mutants with, every one or the security mutators `--security` narrows it
  * to (ADR-0021), the suite whose tests alone judge them, where `--suite`
- * names one (ADR-0025), and what proves a survivor equivalent (ADR-0013,
- * decision 10).
+ * names one (ADR-0025), and what proves a survivor equivalent
+ * (ADR-0013).
  */
 final readonly class Adapters
 {
@@ -92,7 +92,7 @@ final readonly class Adapters
     ) {
     }
 
-    /** The same, where the config file reads these files beside itself (ADR-0005, decision 4). */
+    /** The same, where the config file reads these files beside itself (ADR-0005). */
     public function readingConfig(ConfigReads $reads): self
     {
         return clone($this, ['configReads' => $reads]);
@@ -106,7 +106,7 @@ final readonly class Adapters
 
     /**
      * The same, its runs making mutants with the security mutators alone, as
-     * `--security` asks (ADR-0021, decision 20); or why there are none to make
+     * `--security` asks (ADR-0021); or why there are none to make
      * them with.
      */
     public function securityOnly(): self|CannotJudge
@@ -120,7 +120,7 @@ final readonly class Adapters
 
     /**
      * The same, its runs' mutants judged by one suite's tests alone, as
-     * `--suite` asks (ADR-0025, decision 9); or why that suite cannot judge
+     * `--suite` asks (ADR-0025); or why that suite cannot judge
      * them: the PHPUnit config declares no suite of its name.
      */
     public function inSuite(SuiteName $suite): self|CannotJudge
@@ -143,7 +143,7 @@ final readonly class Adapters
 
     /**
      * The same, its runs' mutants judged by the suites `tests.suites` and
-     * `tests.holding` list (ADR-0002, decision 8), as the PHPUnit config
+     * `tests.holding` list (ADR-0002), as the PHPUnit config
      * declares them; or why they cannot judge them. It reads the config only
      * where a list names a suite.
      */

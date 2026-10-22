@@ -14,7 +14,7 @@ use Traversable;
 
 /**
  * The units a sample left out, each with the mutants it is estimated to
- * hold, which its tree's estimate counts (ADR-0020, decision 23).
+ * hold, which its tree's estimate counts (ADR-0020).
  *
  * @implements IteratorAggregate<int, Candidate>
  */

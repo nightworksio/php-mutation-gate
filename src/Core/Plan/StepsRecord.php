@@ -15,7 +15,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
  * The steps a shard's time went to, as its result holds them under
- * `measured.steps` (ADR-0016, decision 19): each its `step`, the seconds
+ * `measured.steps` (ADR-0016): each its `step`, the seconds
  * after the shard began that it started, `since`, the seconds it took, and,
  * where it handled more than one, how many as `count`. A shard that timed no
  * step holds none.

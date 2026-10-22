@@ -13,7 +13,7 @@ use function sprintf;
  * The webhook's `X-Mutation-Gate-Signature`: `t=<unix seconds>,sha256=<HMAC>`,
  * the HMAC-SHA256 of `<t>.<body>` under the team's secret. A receiver
  * recomputes it and rejects a `t` more than 5 minutes off its own clock, so a
- * captured post cannot be replayed (ADR-0016, decision 12).
+ * captured post cannot be replayed (ADR-0016).
  */
 final readonly class Signature
 {

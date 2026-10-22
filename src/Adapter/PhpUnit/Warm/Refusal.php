@@ -17,7 +17,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
  * Why a warm worker forks nothing, so its runs are left to fresh processes
- * (ADR-0023, decisions 13 and 14): a boot the guard refused, which the run
+ * (ADR-0023): a boot the guard refused, which the run
  * warns of, or a PHP that cannot fork, which leaves `runner.workers` at
  * `fresh` as its default does and warns of nothing.
  */

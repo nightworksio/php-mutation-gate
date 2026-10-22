@@ -6,7 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 
 /**
  * How much room a memory cap must leave above what the unmutated suite held
- * for the cap's stop to count as a kill (ADR-0004, decision 9). A cap that
+ * for the cap's stop to count as a kill (ADR-0004). A cap that
  * holds at least twice the suite's peak leaves it: a mutant stopped by that
  * cap needed far more than its suite, so it ran away. Under it, a mutant
  * the cap stopped may have needed only a little more than the suite did,

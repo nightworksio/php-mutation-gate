@@ -1,5 +1,5 @@
 # The commands comments run: /update, /rebase and /retest on a pull request,
-# and /docs on an issue or a pull request (ADR-0019, decision 13).
+# and /docs on an issue or a pull request (ADR-0019).
 # issue_comment runs main's workflow with a token that can write, so every
 # comment is read as hostile. Only main is checked out, only the stdlib
 # scripts run, the comment reaches them through env alone, and each job holds

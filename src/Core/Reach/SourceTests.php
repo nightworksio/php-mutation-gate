@@ -17,7 +17,7 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 use function sprintf;
 
 /**
- * The tests a changed source file can make fail (ADR-0020, decision 2): a
+ * The tests a changed source file can make fail (ADR-0020): a
  * changed or deleted file reaches the tests that run any of its lines, as it
  * was and as it is, and those {@see ReadingTests} finds read what it
  * declares; a new file reaches the tests that name what it declares,

@@ -46,7 +46,7 @@ use function var_export;
  * enough not to be a word the text holds anyway. Text from a process is
  * screened for them whole, never redacted in part: where any of them, in any
  * form a test prints a value in, or anything shaped like a credential,
- * appears in it, none of it is kept (ADR-0014, decision 16).
+ * appears in it, none of it is kept (ADR-0014).
  *
  * A value's pieces are the value trimmed, each of its lines, each string in
  * it where it is JSON, each of its words and each word's part after an `=`,

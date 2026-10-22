@@ -21,7 +21,7 @@ use function strval;
 
 /**
  * The key of each test file's coverage entries, which a kept map records as
- * `keys` (ADR-0023, decision 1): one digest over what the entries could
+ * `keys` (ADR-0023): one digest over what the entries could
  * depend on. An entry whose key is unchanged is reused, and one whose key
  * moved, or that has none, is measured again.
  */

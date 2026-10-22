@@ -27,10 +27,10 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 
 /**
- * The config `init --hook` sets a hook manager up with (ADR-0024, decision
- * 12): written where the manager reads none, and otherwise printed as what
- * to add to the one it reads; with `--stdout`, printed whole. Each manager
- * calls the gate Composer linked into the project.
+ * The config `init --hook` sets a hook manager up with (ADR-0024): written
+ * where the manager reads none, and otherwise printed as what to add to
+ * the one it reads; with `--stdout`, printed whole. Each manager calls the
+ * gate Composer linked into the project.
  */
 final readonly class HookFrameworkFiles
 {

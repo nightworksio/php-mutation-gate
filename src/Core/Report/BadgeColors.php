@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Score\Score;
 
 /**
  * `badge.colors`: each shields.io colour with the lowest score that earns it,
- * and red below them all (ADR-0009, decision 5).
+ * and red below them all (ADR-0009).
  */
 final readonly class BadgeColors
 {

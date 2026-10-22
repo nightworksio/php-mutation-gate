@@ -20,7 +20,7 @@ use Traversable;
 
 /**
  * The mutators whose mutants hang most, whose silence limit has a lower
- * floor than `timeouts.seconds` (ADR-0008, decision 2): `timeouts.tighter`.
+ * floor than `timeouts.seconds` (ADR-0008): `timeouts.tighter`.
  * Each is named by its short name, the last part of the name a runner gives
  * it, after its last `\` or `/`, so one name covers Pest's class, the
  * default set's `default/<Name>` and Infection's own.

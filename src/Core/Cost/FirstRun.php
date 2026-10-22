@@ -19,7 +19,7 @@ use NightWorksIO\MutationGate\Core\Unit\Unit;
  * What the plan measured that a cost model can estimate a unit by before any
  * shard has timed it: the coverage run's map, where the gate's own engine
  * makes each file's mutants, how long a mutant's own run takes to start, and
- * how many mutants the runner runs at once (ADR-0006, decision 4). Each
+ * how many mutants the runner runs at once (ADR-0006). Each
  * counted file's time is reckoned once, as the run is made.
  */
 final readonly class FirstRun

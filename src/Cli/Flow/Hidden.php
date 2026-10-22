@@ -13,10 +13,10 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
- * The evidence of a shard's kills as its result keeps it (ADR-0014,
- * decision 16): of each of its mutants killed as it ends, what a process
- * printed screened for the secrets the gate withholds before its tail is
- * cut, and kept only where none is in it, so none reaches the result.
+ * The evidence of a shard's kills as its result keeps it (ADR-0014): of
+ * each of its mutants killed as it ends, what a process printed screened
+ * for the secrets the gate withholds before its tail is cut, and kept
+ * only where none is in it, so none reaches the result.
  */
 final readonly class Hidden
 {

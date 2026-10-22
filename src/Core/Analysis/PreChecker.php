@@ -8,7 +8,7 @@ use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 
 /**
  * What checks a run's mutants with static analysis before their tests,
- * where that pays (ADR-0020, decisions 11 and 12). A runner asks it once
+ * where that pays (ADR-0020). A runner asks it once
  * for the mutants it made, before any runs, and runs none it rejects: each
  * is killed by static analysis.
  */

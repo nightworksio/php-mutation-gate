@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 // Prints .github/bot/rules/rector.json: every rule the locked Rector ships,
-// with Rector's own description and the page of its rule reference (ADR-0019,
-// decision 7). `composer bot:rules` writes it, and the Unit suite fails while
+// with Rector's own description and the page of its rule reference
+// (ADR-0019). `composer bot:rules` writes it, and the Unit suite fails while
 // the committed file differs.
 
 $rector = dirname(__DIR__, 2) . '/vendor/rector/rector';

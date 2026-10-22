@@ -41,16 +41,16 @@ use function usleep;
 /**
  * Programs compiled by opcache in a child `php` that reads no php.ini, so no
  * setting of the project's can run code in it or change what the optimizer
- * does, with each program's optimized opcodes dumped (ADR-0013, decision
- * 10). Each program is written to a directory of its own, in one for the
- * process, whose calls come one at a time, and compiled there, many to a
- * child and children side by side, and all of it is taken away once they
- * are compiled. Opcache caches no file changed in the last two seconds
- * unless told to, and these were all just written. A program that fails in
- * a child shared with others is compiled again in a child of its own: PHP
- * declares a program's functions as it compiles it, so a second program
- * declaring one of them fails beside the first, and a child that stops on a
- * compile error fails every program it holds.
+ * does, with each program's optimized opcodes dumped (ADR-0013). Each
+ * program is written to a directory of its own, in one for the process,
+ * whose calls come one at a time, and compiled there, many to a child
+ * and children side by side, and all of it is taken away once they are
+ * compiled. Opcache caches no file changed in the last two seconds
+ * unless told to, and these were all just written. A program that fails
+ * in a child shared with others is compiled again in a child of its own:
+ * PHP declares a program's functions as it compiles it, so a second
+ * program declaring one of them fails beside the first, and a child that
+ * stops on a compile error fails every program it holds.
  */
 final readonly class Compiler
 {

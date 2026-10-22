@@ -17,7 +17,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * `tests`: the tests report on the console, from the last run in this
  * checkout judged again with the ledgers and the coverage map it left,
- * running and writing nothing (ADR-0014, decision 5). It exits 0 whatever
+ * running and writing nothing (ADR-0014). It exits 0 whatever
  * the report finds, since a test can have value mutation cannot see, and 2
  * where there is no last run, or it cannot be read.
  */

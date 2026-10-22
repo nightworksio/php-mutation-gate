@@ -9,8 +9,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 
 /**
  * One change of the default branch's state, with the verdict that made it
- * and the newest trend entry it is told against (ADR-0016, decisions 10
- * and 12).
+ * and the newest trend entry it is told against (ADR-0016).
  */
 final readonly class Alert
 {

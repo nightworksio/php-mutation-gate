@@ -25,7 +25,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Origin;
 use function sprintf;
 
 /**
- * What `explain` prints (ADR-0014, decision 12): each mutant's heading, its
+ * What `explain` prints (ADR-0014): each mutant's heading, its
  * diff, why it stands as it does and what its tests miss; each covering test
  * with its outcome and time, and the judging tests where they differ; a
  * limit it ran out of; how the last run took its unit and why; its history;
@@ -104,7 +104,7 @@ final readonly class ExplanationText
 
     /**
      * Each test that covers it, with what it did with the mutant in place
-     * and how long it runs on its own (ADR-0014, decision 10).
+     * and how long it runs on its own (ADR-0014).
      *
      * @return list<string>
      */
@@ -131,7 +131,7 @@ final readonly class ExplanationText
     /**
      * The tests that judge it, where they are not the tests that cover it:
      * those the verdict names, or the group or filter that holds its unit
-     * (ADR-0004, decision 8).
+     * (ADR-0004).
      *
      * @return list<string>
      */

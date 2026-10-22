@@ -7,8 +7,8 @@ namespace NightWorksIO\MutationGate\Core\Mutant;
 use function sprintf;
 
 /**
- * What a time budget ran out before, leaving a mutant unjudged (ADR-0008,
- * decision 1), each saying so with the command that judges it. A result
+ * What a time budget ran out before, leaving a mutant unjudged
+ * (ADR-0008), each saying so with the command that judges it. A result
  * records it by its value.
  */
 enum OutOfTime: string

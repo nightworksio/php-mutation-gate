@@ -27,7 +27,7 @@ use function sprintf;
 
 /**
  * Why an expression of a config, other than an include, reaches what the gate
- * cannot name without running it (ADR-0005, decision 4): a function outside
+ * cannot name without running it (ADR-0005): a function outside
  * those that read nothing, a class outside the gate's builder, a call by a
  * name held as it runs, `eval` or a shell command. Every other expression
  * reads nothing by itself.

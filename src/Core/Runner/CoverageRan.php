@@ -11,7 +11,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
  * this job, which left the runner's own reports in a directory under the
  * names the runner's coverage run gives them. A runner's report can be code
  * that reading it runs, so it is read only in the job that wrote it
- * (ADR-0006, decision 1).
+ * (ADR-0006).
  */
 final readonly class CoverageRan
 {

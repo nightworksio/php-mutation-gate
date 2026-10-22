@@ -18,9 +18,9 @@ use Traversable;
 
 /**
  * What a ledger learned of each mutator's newest judged mutants, by the
- * runner that made them and the mutator's name (ADR-0025, decisions 2 and
- * 4): the windows that decide which mutators are pruned. Losing it disables
- * pruning, never a verdict.
+ * runner that made them and the mutator's name (ADR-0025): the windows that
+ * decide which mutators are pruned. Losing it disables pruning, never a
+ * verdict.
  *
  * @implements IteratorAggregate<string, array<string, MutatorWindow>>
  */

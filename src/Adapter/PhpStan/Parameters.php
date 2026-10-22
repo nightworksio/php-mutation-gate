@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Format\Node;
 
 /**
  * The configuration PHPStan runs with, read from what `dump-parameters`
- * prints (ADR-0020, decision 14): its parameters less those that differ
+ * prints (ADR-0020): its parameters less those that differ
  * between machines and runs, and every file they name that PHPStan reads
  * besides the code.
  */

@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Score\Percentage;
 
 /**
  * How many units of a tree's sampled stratum a sample runs for its interval
- * to be about `sampling.margin` points either side (ADR-0020, decision 27):
+ * to be about `sampling.margin` points either side (ADR-0020):
  * sized from the between-unit variance of the stratum's last results, and
  * at least as many as as many independent mutants would need, corrected
  * for the stratum's size, at least `sampling.minUnits`, and at most every

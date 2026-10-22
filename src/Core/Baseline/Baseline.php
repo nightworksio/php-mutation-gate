@@ -26,7 +26,7 @@ use Traversable;
 /**
  * The committed floors: one per tree, keyed by the tree's path from the
  * root, and one per package's security set, keyed by the package's path
- * (ADR-0021, decision 17), each kept in byte order of those paths. It holds
+ * (ADR-0021), each kept in byte order of those paths. It holds
  * floors and nothing else, so it changes only when a floor moves.
  *
  * @implements IteratorAggregate<int, Entry>

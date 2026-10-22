@@ -20,7 +20,7 @@ use Traversable;
  * When each part of a run began and how long it took, from the flows' clock
  * and the shards' result files, and what the whole run took: the one set of
  * numbers the console, the JSON report, the cost and OpenTelemetry all read
- * (ADR-0016, decisions 18 and 19).
+ * (ADR-0016).
  */
 final readonly class RunTimings
 {
@@ -81,7 +81,7 @@ final readonly class RunTimings
     /**
      * The trace every job of the run adds its spans to, with nothing passed
      * between them: the first 16 bytes of `sha256("mutation-gate:" + run)`,
-     * in lowercase hex (ADR-0016, decision 15).
+     * in lowercase hex (ADR-0016).
      */
     public function traceId(): string
     {

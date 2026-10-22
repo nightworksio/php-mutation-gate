@@ -20,8 +20,7 @@ use function str_starts_with;
 /**
  * A cluster's id: `k` and 11 lowercase hex characters of a SHA-256 over its
  * members' ids, sorted, one to a line. The `k` is no hex digit, so a cluster's
- * id never reads as a mutant's id, nor as a prefix of one (ADR-0022, decision
- * 17).
+ * id never reads as a mutant's id, nor as a prefix of one (ADR-0022).
  */
 final readonly class ClusterId
 {

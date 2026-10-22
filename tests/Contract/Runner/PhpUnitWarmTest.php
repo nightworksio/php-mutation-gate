@@ -35,7 +35,7 @@ use NightWorksIO\MutationGate\Tests\Support\PhpUnitScan;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
-// What warm workers do with a real PHPUnit (ADR-0023, decisions 12 to 14),
+// What warm workers do with a real PHPUnit (ADR-0023),
 // at the lowest and the highest PHPUnit the runner contracts install: each
 // mutant run in a child forked from a booted worker comes to the verdict a
 // fresh process gives it, no child's state reaches the next, and a boot the

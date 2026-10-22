@@ -94,7 +94,7 @@ final readonly class MutatorSettings
      * of every mutator, the whole block, or Infection's default profile where
      * the project's turns on nothing, and every bridge to a registered mutator
      * the config turns on, less those that stand down beside Infection's own
-     * (ADR-0021, decision 18); none where there is neither. For a run that names
+     * (ADR-0021); none where there is neither. For a run that names
      * mutators, only those, a bridged one by its bridge's class, with the
      * project's settings for each, and its global ignores.
      *

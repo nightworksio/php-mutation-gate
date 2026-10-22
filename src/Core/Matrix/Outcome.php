@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Matrix;
 
-/** What is known of one covering test with one mutant in place (ADR-0014, decision 10). */
+/** What is known of one covering test with one mutant in place (ADR-0014). */
 enum Outcome: string
 {
     /** The test failed with the mutant in place. */

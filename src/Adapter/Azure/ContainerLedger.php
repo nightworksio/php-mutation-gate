@@ -35,10 +35,10 @@ use function sprintf;
  * The proof store `azure`: one block blob per scope,
  * `<prefix>/<scope>/ledger.json.gz`, in a container of an Azure storage
  * account, read with a GET and written with a PUT of the Blob service, each
- * carrying the token OIDC federation gives (ADR-0028 decisions 1 and 2).
+ * carrying the token OIDC federation gives (ADR-0028).
  * The default branch's scope is kept in the `publicContainer`, where one is
  * named and the default branch is known, so a job without credentials can
- * read it; every other scope is kept in the private container (decision 4).
+ * read it; every other scope is kept in the private container.
  */
 final readonly class ContainerLedger implements ObjectStore, ProofStore
 {

@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 /**
- * What a mutant's limit is kept between (ADR-0008, decision 2): never less
+ * What a mutant's limit is kept between (ADR-0008): never less
  * than the floor, `timeouts.seconds`, and never more than the most,
  * `timeouts.most`; the mutators whose silence limit has a lower floor,
  * `timeouts.tighter`; and how long a run of no test took to start on this

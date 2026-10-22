@@ -16,8 +16,8 @@ use NightWorksIO\MutationGate\Core\Sample\Confidence;
 use function sprintf;
 
 /**
- * How a sampled run sizes and draws its sample (ADR-0020, decisions 24, 27
- * and 28): `sampling.confidence`, `sampling.margin`, `sampling.minUnits` and
+ * How a sampled run sizes and draws its sample (ADR-0020):
+ * `sampling.confidence`, `sampling.margin`, `sampling.minUnits` and
  * `sampling.seed`, which the `Reach` part holds, as they decide which units
  * run, as reach does. Each judges or reports only.
  */
@@ -66,7 +66,7 @@ final readonly class Sampling
     /** `sampling.margin`: the half-width in points each tree's interval is sized for. */
     public function margin(): float
     {
-        return $this->margin instanceof Absent ? self::MARGIN : (float) $this->margin;
+        return $this->margin instanceof Absent ? self::MARGIN : $this->margin;
     }
 
     /** `sampling.minUnits`: the fewest units a tree's sampled stratum runs. */

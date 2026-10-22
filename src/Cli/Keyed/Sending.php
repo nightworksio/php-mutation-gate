@@ -46,7 +46,7 @@ use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
- * What `deliver` does with a delivery (ADR-0007 decision 5): it writes the
+ * What `deliver` does with a delivery (ADR-0007): it writes the
  * ledger to the store its own environment locates through the
  * `MUTATION_GATE_STORE` variables, where they name one, and sends the comment, each alert and the
  * OTLP export where its own environment says, with the credentials its own

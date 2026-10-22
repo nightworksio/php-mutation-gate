@@ -23,7 +23,7 @@ interface ConfigLoader
      * The files the config file reads beside itself, found without running
      * it, each named from the project's root; none where its format reads
      * no other file; or why it reads one that cannot be named, which makes
-     * every change decide how the gate runs (ADR-0005, decision 4).
+     * every change decide how the gate runs (ADR-0005).
      */
     public function reads(ConfigFile $file): ConfigReads;
 }

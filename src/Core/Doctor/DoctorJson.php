@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
 
 /**
  * `doctor --format=json`: every finding, with its slug and link, and whether
- * any would fail a run. Public API (ADR-0011, decision 7), described by
+ * any would fail a run. Public API (ADR-0011), described by
  * `resources/doctor.schema.json`.
  */
 final readonly class DoctorJson

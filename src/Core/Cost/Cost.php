@@ -9,8 +9,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 /**
  * What a run cost: the wall and runner time the plan expected, the same two
  * as measured, and the cost-model time of every unit reach carried or a
- * proof covered, each priced where the team gives a rate (ADR-0016,
- * decisions 6 and 7).
+ * proof covered, each priced where the team gives a rate (ADR-0016).
  */
 final readonly class Cost
 {

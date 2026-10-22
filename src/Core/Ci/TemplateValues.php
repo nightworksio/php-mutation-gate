@@ -16,14 +16,14 @@ use function sprintf;
 use function strtr;
 
 /**
- * What `init --ci` fills into a CI definition's template (ADR-0015 decision
- * 16), each where the template writes `%%<name>%%`: the PHP version, the
- * default branch, the gate's pin and version, the runner, the check to
- * require, the file of the gate's jobs the CI's own definition pulls in,
- * where it has one, the variables the S3 store reads, and what holds the
- * proof store's keys on Bitbucket and Jenkins. A template lands in YAML,
- * Groovy and shell lines, so each value that comes from the project holds no
- * character any of them would read as more than text.
+ * What `init --ci` fills into a CI definition's template (ADR-0015), each
+ * where the template writes `%%<name>%%`: the PHP version, the default
+ * branch, the gate's pin and version, the runner, the check to require, the
+ * file of the gate's jobs the CI's own definition pulls in, where it has
+ * one, the variables the S3 store reads, and what holds the proof store's
+ * keys on Bitbucket and Jenkins. A template lands in YAML, Groovy and shell
+ * lines, so each value that comes from the project holds no character any
+ * of them would read as more than text.
  */
 final readonly class TemplateValues
 {

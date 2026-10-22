@@ -9,7 +9,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
  * The steps of one runner's run, each timed from when the run began, on a
- * clock the runner reads (ADR-0016, decision 19).
+ * clock the runner reads (ADR-0016).
  */
 final readonly class Laps
 {

@@ -52,13 +52,13 @@ use function sprintf;
  * survivors, the unjudged and flaky mutants, the ignored mutants with why,
  * why the run could not judge, the failures, the warnings, the floors that
  * can rise, and a link to the run. The comment holds up to 20 security
- * survivors, in a section before the trees (ADR-0021, decision 21), up to 20
+ * survivors, in a section before the trees (ADR-0021), up to 20
  * other survivors on changed lines, each with its diff, hint and reproduce
  * command, up to 20 other unjudged and flaky mutants, and up to 20 ignored
  * mutants; the summary lists
  * every mutant counted as not killed and every ignored one in a table each
- * (ADR-0009, decision 3; ADR-0008, decision 4). A cluster of survivors is one item of either, with
- * its members' diffs, one hint and its stub command (ADR-0022, decision 17).
+ * (ADR-0009; ADR-0008). A cluster of survivors is one item of either, with
+ * its members' diffs, one hint and its stub command (ADR-0022).
  */
 final readonly class Markdown
 {
@@ -231,7 +231,7 @@ final readonly class Markdown
     /**
      * What each suite alone kills, as a table, then why its scores are lower
      * bounds where they are; that none can be scored; or nothing, where the
-     * config declares fewer than two suites (ADR-0025, decision 8).
+     * config declares fewer than two suites (ADR-0025).
      *
      * @return list<string>
      */
@@ -282,7 +282,7 @@ final readonly class Markdown
     }
 
     /**
-     * The mutants an ignore left out, up to this many, each with why (ADR-0008, decision 4).
+     * The mutants an ignore left out, up to this many, each with why (ADR-0008).
      *
      * @return list<string>
      */

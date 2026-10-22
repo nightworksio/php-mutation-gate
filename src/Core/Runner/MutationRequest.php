@@ -65,7 +65,7 @@ final readonly class MutationRequest
     /**
      * This request over these files alone, narrowed so, and nothing left out:
      * how a request asks for some mutators only, or one suite's tests only
-     * (ADR-0025, decision 9), and how a run again makes some of its mutants
+     * (ADR-0025), and how a run again makes some of its mutants
      * once more, keeping its narrowing but for the mutators, judged, covered,
      * withheld, capped, timed and ordered as this request is.
      */

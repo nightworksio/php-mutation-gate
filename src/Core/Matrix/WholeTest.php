@@ -18,7 +18,7 @@ use Traversable;
 
 /**
  * A whole test, with its data set rows folded in: useless only when every
- * row is (ADR-0014, decision 6). A test with no data set is its own one row.
+ * row is (ADR-0014). A test with no data set is its own one row.
  *
  * @implements IteratorAggregate<int, TestStanding>
  */

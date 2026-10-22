@@ -17,7 +17,7 @@ use NightWorksIO\MutationGate\Core\Unit\UnitRecord;
 
 /**
  * What a sampled run's plan drew, as the plan file holds it under `sample`
- * (ADR-0020, decision 28): the seed, the confidence and the margin in
+ * (ADR-0020): the seed, the confidence and the margin in
  * points, the units of the sampled strata it runs, and those it leaves out,
  * each written as a unit is, with the mutants it is estimated to hold. A
  * plan that samples nothing holds no such field, and one whose field is not

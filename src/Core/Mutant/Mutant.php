@@ -96,7 +96,7 @@ final readonly class Mutant
     /**
      * This mutant, left without a result: by a time budget that ran out
      * before this, or for this reason, as a run that stopped once it could
-     * not pass leaves it (ADR-0008, decisions 1 and 6).
+     * not pass leaves it (ADR-0008).
      */
     public function unjudged(OutOfTime|Reason $why): self
     {

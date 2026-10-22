@@ -42,8 +42,7 @@ interface ChangeSource
      * A revision git can read for a commit a run judged: the commit itself,
      * or, where it is gone, the tree merging its two parents again gives,
      * only where that tree is the one the commit held; or why there is none,
-     * so that what changed since it is read from elsewhere (ADR-0005,
-     * decision 2).
+     * so that what changed since it is read from elsewhere (ADR-0005).
      */
     public function readable(JudgedCommit $judged): Revision|CannotTell;
 

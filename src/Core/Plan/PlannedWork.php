@@ -17,8 +17,7 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * What a plan sets a run to do, as the PR comment shows it before the
  * verdict replaces it: the units its shards mutate, what the run is
  * expected to take, how much of that estimate rests on measured timings,
- * and the changed lines no test covers (ADR-0009, decision 3, and ADR-0019,
- * decision 11).
+ * and the changed lines no test covers (ADR-0009, and ADR-0019).
  */
 final readonly class PlannedWork
 {

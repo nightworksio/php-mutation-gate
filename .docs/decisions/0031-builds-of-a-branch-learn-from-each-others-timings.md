@@ -5,7 +5,7 @@
 
 ## Context
 
-ADR-0006, decision 4 says "a timing counts only for the gate that measured
+ADR-0006 says "a timing counts only for the gate that measured
 it", a branch build by its name and commit. Composer names a branch build in
 a detached checkout by its commit, `dev-7fe21685…`, so every commit of the
 gate's own repository is a release of its own. No run of the gate's own CI
@@ -15,7 +15,7 @@ The estimates were the cold start's. In run 39378485071 the planner gave each
 of 40 shards 22 to 40 minutes, and they took 19 to 135. The wall time follows
 the slowest shard.
 
-Read against that run's results, its own shares (decision 4: a shard's time
+Read against that run's results, its own shares (ADR-0006: a shard's time
 shared among its units by their mutants' durations) would cut 20 shards in
 path order whose longest takes 100 minutes and shortest 65. A cut by each
 unit's exact time would give 90 and 79.
@@ -33,7 +33,7 @@ unit's exact time would give 90 and 79.
 3. **The gate's own config cuts at most 20 shards**, the runner cap of its
    plan, so that a full run is one wave of shards.
 
-This supersedes ADR-0006, decision 4, "a timing counts only for the gate that
+This supersedes ADR-0006, "a timing counts only for the gate that
 measured it", for builds of a branch.
 
 ## Alternatives considered
@@ -51,4 +51,4 @@ measured it", for builds of a branch.
 
 ## Related
 
-- [ADR-0006](0006-shards-are-cut-by-learned-cost-and-planned-once.md): decision 4, which this narrows for builds of a branch
+- [ADR-0006](0006-shards-are-cut-by-learned-cost-and-planned-once.md): which this narrows for builds of a branch

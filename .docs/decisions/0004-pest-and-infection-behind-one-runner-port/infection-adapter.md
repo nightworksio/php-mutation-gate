@@ -1,4 +1,4 @@
-# ADR-0004, decision 4: the Infection adapter
+# ADR-0004: the Infection adapter
 
 The Infection adapter (`infection/infection` ~0.35.0, with PHPUnit 12 or 13),
 as [ADR-0004](../0004-pest-and-infection-behind-one-runner-port.md) decides
@@ -63,7 +63,7 @@ it in its fourth decision.
     generated file lives under `.mutation-gate/`.
   - Where the config turns on registered mutators, `bootstrap` names the
     file of their bridges, which loads the project's own bootstrap, and
-    `mutators` turns each bridge on (ADR-0021, decision 4).
+    `mutators` turns each bridge on (ADR-0021).
   - `source.directories` are the directories of the files the run mutates.
   - `logs.json` and `logs.text` point into `.mutation-gate/infection/logs/`,
     and every other log is off.
@@ -79,12 +79,12 @@ it in its fourth decision.
   places in Infection and one in its include-interceptor, each marked with a
   `// mutation-gate infection:patch:` comment:
   - `MutantProcessContainerFactory` allows each mutant the gate's standard
-    limit (ADR-0008, decision 2) of Infection's own time for its covering
+    limit (ADR-0008) of Infection's own time for its covering
     tests, between `MUTATION_GATE_MUTANT_FLOOR` and Infection's `timeout`,
     in place of Infection's 5 s plus five times that time under `timeout`.
   - `MutationTestingRunner` skips no mutant for the time its tests take.
   - `MutantProcessContainerFactory` also watches each mutant's run for its
-    silence limit (ADR-0008, decision 2): the same rule, of its slowest
+    silence limit (ADR-0008): the same rule, of its slowest
     covering test class's time, as Infection times each test by its whole
     class, between the same bounds; none where a covering class is
     untimed. `ParallelProcessRunner`, as it checks each run's timeout,

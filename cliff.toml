@@ -1,5 +1,5 @@
 # CHANGELOG.md in Keep a Changelog's layout, from main's squash commits, one
-# per pull request (ADR-0019, decision 9). The release workflow writes each
+# per pull request (ADR-0019). The release workflow writes each
 # version's section, and the maintainer edits it before the tag.
 
 [changelog]

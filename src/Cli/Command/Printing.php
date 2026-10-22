@@ -15,7 +15,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  * How a command prints its verdict: the console's report, or, with
  * `--output=problems`, one line per result for an editor's problem matcher,
  * after the line a background matcher waits for before the run; with
- * `--only=changed`, only the results on changed lines (ADR-0015, decision 6).
+ * `--only=changed`, only the results on changed lines (ADR-0015).
  */
 final readonly class Printing
 {

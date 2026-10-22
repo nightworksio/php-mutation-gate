@@ -21,7 +21,7 @@ use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
  * for its path in the ledgers the run reads, the default branch's and its own
  * scope's; a unit whose file changed since the ref a `last-run` change falls
  * back to carries its own scope's alone, since only its own scope judged it
- * as it is (ADR-0005, decision 2). A unit with none to carry is treated as
+ * as it is (ADR-0005). A unit with none to carry is treated as
  * reached, so a change-scoped run on an empty ledger is a full one.
  */
 final readonly class Considering

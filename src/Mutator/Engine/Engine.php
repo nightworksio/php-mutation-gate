@@ -24,7 +24,7 @@ use function usort;
 
 /**
  * The gate's own mutation engine, which native runners take their mutants
- * from (ADR-0023 decision 8). Every mutator is offered every node it handles
+ * from (ADR-0023). Every mutator is offered every node it handles
  * anywhere in a file, as Pest offers them, and each change is printed by
  * php-parser's format-preserving printer, so only the changed node's lines
  * differ and the diff is exact. A change that prints the same code is no
@@ -46,7 +46,7 @@ final readonly class Engine
 
     /**
      * Every mutant of the file, in the order of their lines, each with the
-     * gate's id (ADR-0004 decision 2). A file that does not parse cannot be
+     * gate's id (ADR-0004). A file that does not parse cannot be
      * judged.
      */
     public function mutantsOf(Path $file, Contents $code): MadeMutants|CannotJudge

@@ -28,7 +28,7 @@ use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 /**
  * A project whose PHPUnit config declares three suites: Unit, whose tests
  * judge every unit; Process, whose tests judge only the units they hold; and
- * Arch, which judges nothing (ADR-0002, decision 8).
+ * Arch, which judges nothing (ADR-0002).
  */
 final readonly class HoldingSuites
 {

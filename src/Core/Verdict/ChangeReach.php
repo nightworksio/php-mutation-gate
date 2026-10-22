@@ -29,7 +29,7 @@ use function sprintf;
 
 /**
  * What a change since the commit a result was established at reaches of the
- * kills it holds (ADR-0008, decision 1): every file that names, as
+ * kills it holds (ADR-0008): every file that names, as
  * {@see NamedFiles} links files, what a changed file declares, then or now,
  * and every file that names what those declare in turn. A kill whose unit,
  * a test that killed it, or the file a static analyser's finding sits in, is

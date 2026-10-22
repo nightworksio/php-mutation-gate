@@ -11,7 +11,7 @@ use function strcmp;
 use function usort;
 
 /**
- * The order a sample takes a tree's units in (ADR-0020, decision 28): by
+ * The order a sample takes a tree's units in (ADR-0020): by
  * the SHA-256 of the seed followed by the unit's path, a digest rather than
  * a random number, so the same seed always draws the same units.
  */

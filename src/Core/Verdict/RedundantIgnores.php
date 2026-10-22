@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantIds;
 use function sprintf;
 
 /**
- * The ignores a proof makes redundant (ADR-0013, decision 12): each entry
+ * The ignores a proof makes redundant (ADR-0013): each entry
  * that leaves mutants out, every one of them a survivor proven equivalent.
  * It still leaves them out, and a notice says it can go. It never fails the
  * run, so a PHP whose optimizer proves less cannot turn a clean run red.

@@ -71,10 +71,9 @@ use function sprintf;
  * orders its tests as though no test had killed anything yet, and one whose
  * history cannot be read does too, and warns of it. A pull request's shard
  * runs in chunks, and stops once a survivor makes its run certain to fail,
- * naming that survivor in its result (ADR-0008, decision 6). Each kill's
+ * naming that survivor in its result (ADR-0008). Each kill's
  * evidence the runner gave is left beside its mutant, what a process printed
- * kept only where it holds no secret the gate withholds (ADR-0014,
- * decision 16).
+ * kept only where it holds no secret the gate withholds (ADR-0014).
  */
 final readonly class Running
 {
@@ -124,7 +123,7 @@ final readonly class Running
      * Every shard of a plan, as {@see runAll()} runs them, stopping at a
      * deadline set before it, which several runs of one process share. Once
      * a shard stops because the run cannot pass, no later shard runs, and
-     * the verdict reads each as stopped (ADR-0008, decision 6).
+     * the verdict reads each as stopped (ADR-0008).
      */
     public function runAllBy(Plan $plan, Path $results, Deadline|Unlimited $deadline): Written|CannotJudge
     {
@@ -144,7 +143,7 @@ final readonly class Running
         return Written::to($results->value());
     }
 
-    /** When this process must stop: its budget from now, or never where it has none (ADR-0008, decision 1). */
+    /** When this process must stop: its budget from now, or never where it has none (ADR-0008). */
     public function deadline(): Deadline|Unlimited
     {
         $budget = $this->settings->triage()->budget();
@@ -225,7 +224,7 @@ final readonly class Running
      * cannot pass runs in chunks, and the units after the chunk that doomed
      * it are unjudged too, and static analysis checks each chunk's survivors
      * before its doom is judged. Each kill with no evidence is unjudged
-     * (ADR-0014, decision 17). Static analysis then checks the survivors no
+     * (ADR-0014). Static analysis then checks the survivors no
      * chunk's check took up, in the time left, the analyser warmed up once
      * for the shard.
      */
@@ -347,7 +346,7 @@ final readonly class Running
 
     /**
      * What the ledgers the plan reads learned of the shard's analyser: its
-     * own scope's first, then the default branch's (ADR-0020, decision 11);
+     * own scope's first, then the default branch's (ADR-0020);
      * nothing where no analyser is wired.
      */
     private function known(Plan $plan): AnalyserHistory

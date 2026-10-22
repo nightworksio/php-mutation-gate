@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  * as a mutant's results file a line is added to as each test starts and
  * ends. The silence is counted from the file's last growth, so what the
  * process does before the file first grows is held only to its deadline
- * (ADR-0008, decision 2).
+ * (ADR-0008).
  */
 final readonly class SilenceLimit
 {

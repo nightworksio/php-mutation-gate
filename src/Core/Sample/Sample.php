@@ -7,7 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Sample;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
 /**
- * What a sampled run's plan drew (ADR-0020, decisions 22 to 28): the seed
+ * What a sampled run's plan drew (ADR-0020): the seed
  * the draw ranked units by, the confidence and margin it was sized for, the
  * units of each tree's sampled stratum it runs, and those it leaves out with
  * the mutants each is estimated to hold. A run that was not sampled drew

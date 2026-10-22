@@ -33,7 +33,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * `mutation-gate deliver [--from=<dir>]`: sends what a run that ran the
  * project's code left in `.mutation-gate/delivery`, with credentials that run
- * never held (ADR-0007 decision 5). It runs from the gate's own installation,
+ * never held (ADR-0007). It runs from the gate's own installation,
  * before any extension is found and with no config read, so it loads none of
  * the project's code. It decides which scope it may write from its own run
  * before it reads the delivery, which it reads as JSON within the ledger's

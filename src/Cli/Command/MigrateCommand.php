@@ -26,7 +26,7 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * `migrate [--config=<path>] [--write]` (ADR-0026, decision 5): the diff of
+ * `migrate [--config=<path>] [--write]` (ADR-0026): the diff of
  * every file it would move forward, the config and the baseline, written
  * only with `--write`. Exit 0 where every file is current or written, 1
  * where a migration is pending without `--write` or a hand edit is left,

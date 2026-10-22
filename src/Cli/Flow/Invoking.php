@@ -96,7 +96,7 @@ final readonly class Invoking
 
     /**
      * The survivors proven equivalent, where `equivalence.static` asks
-     * (ADR-0013, decision 10), timed: no test can tell one from its
+     * (ADR-0013), timed: no test can tell one from its
      * original, so none runs again, and none dooms the run (see Doom). The
      * verdict proves the survivors again itself.
      */
@@ -153,7 +153,7 @@ final readonly class Invoking
 
     /**
      * Survivor confirmation (ADR-0008): each survivor run once more, alone,
-     * in a fresh process (ADR-0023, decision 14) and by the same tests, where
+     * in a fresh process (ADR-0023) and by the same tests, where
      * `flaky.confirmSurvivors` asks for it, unless it is proven equivalent.
      * Those killed the second time are flaky, and those the time left had no
      * room for are unjudged.

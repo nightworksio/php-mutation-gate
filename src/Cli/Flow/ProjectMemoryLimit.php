@@ -17,7 +17,7 @@ use NightWorksIO\MutationGate\Core\Runner\PhpUnitIni;
 
 /**
  * The `memory_limit` the project sets itself, in the first of the PHPUnit
- * configs the runner runs with that the project has (ADR-0004, decision 9):
+ * configs the runner runs with that the project has (ADR-0004):
  * those in the root for Pest and PHPUnit, and in `phpUnit.configDir` for
  * Infection.
  * PHPUnit sets it after PHP has read `runner.memory`'s cap, so where it is

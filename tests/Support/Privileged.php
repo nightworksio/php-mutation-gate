@@ -17,7 +17,7 @@ use Symfony\Component\Yaml\Yaml;
 
 /**
  * The workflows an event starts from main with a token that can write, read
- * as the bot's rules judge them (ADR-0019, decision 3).
+ * as the bot's rules judge them (ADR-0019).
  *
  * @phpstan-type Step array{uses: string, run: string, with: array<array-key, Node>}
  * @phpstan-type Job array{permissions: bool, calls: bool, steps: list<Step>}

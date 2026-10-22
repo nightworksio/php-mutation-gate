@@ -14,7 +14,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Failures;
 use NightWorksIO\MutationGate\Core\Verdict\Undoomed;
 
 /**
- * How a run's shards stopped once it could not pass (ADR-0008, decision 6):
+ * How a run's shards stopped once it could not pass (ADR-0008):
  * each shard that stopped on a survivor, with the units it did not run, and
  * every unit of a shard that left no result beside one, as a shard the CI
  * cancelled then leaves none. The verdict reads those units as stopped only

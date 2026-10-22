@@ -16,7 +16,7 @@ use function sprintf;
  * The innermost named function or method a line is in, read from its file's
  * tokens: its name, its parameters' names, and the class it is a method of,
  * so a test can call it with its parameters' names as placeholders
- * (ADR-0015, decision 4). A closure has no name, so a line inside one is in
+ * (ADR-0015). A closure has no name, so a line inside one is in
  * the function around it.
  */
 final readonly class Enclosing

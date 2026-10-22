@@ -28,13 +28,13 @@ $holds = [
     'holds:src/Core/Coverage/OwnTime.php',
 ];
 
-// What every runner finds of an unmutated control (ADR-0008, decision 2):
+// What every runner finds of an unmutated control (ADR-0008):
 // Money's test that adds two amounts, run with src/Money.php served unmutated
 // by the means the runner serves a mutant's file, allowed a limit, its peak
-// measured by the launcher every runner starts it through (ADR-0004,
-// decision 9). Each runs
-// against the fake (RunnerFake) and every adapter whose library is installed,
-// as the rest of the runner contract does (see RunnerTest).
+// measured by the launcher every runner starts it through (ADR-0004).
+// Each runs against the fake (RunnerFake) and every adapter whose
+// library is installed, as the rest of the runner contract does (see
+// RunnerTest).
 
 afterEach(function (): void {
     Scratch::sweep();

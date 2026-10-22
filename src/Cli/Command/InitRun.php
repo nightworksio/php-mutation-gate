@@ -32,9 +32,8 @@ use Symfony\Component\Console\Input\InputInterface;
  * One `init`: where no config is here, the questions detection leaves open,
  * asked in their order; then the config, the CI definition, the editor's
  * files and the hooks, each made where it is asked for and not there; then
- * what a full run takes (ADR-0017, decision 4), and what to run next
- * (decision 1). With a config here, it makes only what the command line
- * asks for, and asks nothing.
+ * what a full run takes (ADR-0017), and what to run next. With a config
+ * here, it makes only what the command line asks for, and asks nothing.
  */
 final readonly class InitRun
 {

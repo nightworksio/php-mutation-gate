@@ -16,10 +16,10 @@ use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 
 /**
- * Checks an analyser runs as processes of their own, side by side (ADR-0020,
- * decision 12): for each check, the command that analyses it, or the answer
- * it has without one, out of scope or why it cannot run. Once the commands
- * have run, each answer stands in its check's place.
+ * Checks an analyser runs as processes of their own, side by side
+ * (ADR-0020): for each check, the command that analyses it, or the answer it
+ * has without one, out of scope or why it cannot run. Once the commands have
+ * run, each answer stands in its check's place.
  */
 final readonly class CheckBatch
 {

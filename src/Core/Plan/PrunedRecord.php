@@ -16,7 +16,7 @@ use NightWorksIO\MutationGate\Core\Pruning\Pruned;
 
 /**
  * The mutators a plan's run leaves out of which units it runs, as the plan
- * file holds them under `pruned` (ADR-0025, decision 1): a list of two
+ * file holds them under `pruned` (ADR-0025): a list of two
  * lists, the mutators by the runner's names for them, then the units'
  * paths. A plan that prunes nothing holds no such field, and one whose
  * field is not so shaped is refused, since every shard must leave out the

@@ -11,7 +11,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
 /**
- * What a static analyser is asked about one mutant (ADR-0020, decision 6):
+ * What a static analyser is asked about one mutant (ADR-0020):
  * the mutant, analysed in place of its original file; the files that depend
  * on the original, analysed again, unchanged, against the mutant; the
  * variables the analyser runs without, which are the runner's; and how long

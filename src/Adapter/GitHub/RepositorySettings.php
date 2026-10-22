@@ -19,7 +19,7 @@ use function sprintf;
 
 /**
  * What `doctor --online` reads of a repository through GitHub's API
- * (ADR-0017, decision 9): its default branch; the check-runs that branch
+ * (ADR-0017): its default branch; the check-runs that branch
  * requires, by its rulesets and by branch protection; the fork approval
  * policy; and how the workflows that run the gate ran on a schedule. Each
  * setting GitHub would not show says why, and the others are still read.

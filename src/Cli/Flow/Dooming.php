@@ -14,15 +14,15 @@ use NightWorksIO\MutationGate\Core\Verdict\Undoomed;
 use Psr\Clock\ClockInterface;
 
 /**
- * Whether a shard of a plan stops once its run cannot pass (ADR-0008,
- * decision 6), and by what it judges that: a pull request's run, which the
- * verdict holds to its trees' floors and the new code's, judged over the
- * trees, the committed baseline, the lines the plan's change reached, the
- * new-code floor and the config's ignores, as the verdict judges them. A
- * survivor static analysis clears dooms nothing (see Batched). A run of the
+ * Whether a shard of a plan stops once its run cannot pass (ADR-0008), and
+ * by what it judges that: a pull request's run, which the verdict holds to
+ * its trees' floors and the new code's, judged over the trees, the
+ * committed baseline, the lines the plan's change reached, the new-code
+ * floor and the config's ignores, as the verdict judges them. A survivor
+ * static analysis clears dooms nothing (see Batched). A run of the
  * security mutators alone or of one suite's tests alone holds no tree to a
- * floor, so it runs to its end, as any other run does, and as one does whose
- * trees or baseline cannot be read.
+ * floor, so it runs to its end, as any other run does, and as one does
+ * whose trees or baseline cannot be read.
  */
 final readonly class Dooming
 {

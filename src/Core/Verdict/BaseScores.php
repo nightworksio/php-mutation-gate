@@ -16,11 +16,11 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
 /**
- * Each tree's score on the base, for its change against the base (ADR-0009,
- * decision 3; ADR-0015, decision 11): the tree judged over the newest result
- * of every one of its units in the default branch's ledger. A tree with a
- * unit that has no result there has no base score, so no change is shown for
- * it rather than a wrong one.
+ * Each tree's score on the base, for its change against the base (ADR-0009;
+ * ADR-0015): the tree judged over the newest result of every one of its
+ * units in the default branch's ledger. A tree with a unit that has no
+ * result there has no base score, so no change is shown for it rather than a
+ * wrong one.
  */
 final readonly class BaseScores
 {

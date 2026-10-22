@@ -5,7 +5,7 @@ Usage: attribution_check.py <base_sha> <head_sha> [--body-on-stdin] [--findings 
 
 Two halves: `_read` asks git, and `attributed` decides from text. With
 --findings, what it refused is also written there as the job's evidence
-(ADR-0019, decision 5).
+(ADR-0019).
 
 Every pattern is anchored to the start of a line with no leading whitespace, so
 prose that quotes a forbidden line, indented, can name it without being refused.

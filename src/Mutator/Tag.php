@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Mutator;
 
-/** What a mutator is about, such as `security`, which a run can judge apart (ADR-0021 decision 16). */
+/** What a mutator is about, such as `security`, which a run can judge apart (ADR-0021). */
 final readonly class Tag
 {
     private const string SECURITY = 'security';

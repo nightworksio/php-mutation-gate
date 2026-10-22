@@ -90,7 +90,7 @@ final readonly class Shard
         return $this->label;
     }
 
-    /** The shard with its units in this order, the riskiest first (ADR-0008, decision 1). */
+    /** The shard with its units in this order, the riskiest first (ADR-0008). */
     public function ordered(RiskOrder $order): self
     {
         return clone($this, ['units' => $order->ordered($this->units)]);

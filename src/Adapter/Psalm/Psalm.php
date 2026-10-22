@@ -47,18 +47,18 @@ use Symfony\Component\Process\Exception\RuntimeException;
 use Symfony\Component\Process\Process;
 
 /**
- * Psalm, asked about a mutant through its language server (ADR-0020,
- * decisions 6 and 7): the server, started once and kept warm, reads the
- * mutant as its original's changed text, and each dependent the check lists
- * that Psalm analyses with its own text again, so it re-analyses those files
- * against the mutant, and the original's text is sent back after. The run
- * over the originals is Psalm's command line, reporting every file it
- * analyses, its baseline set aside, so a finding a baseline hides is never
- * read as new; a check reports what the server published of each file it
- * sent, and those findings for every other file. A mutant of a file outside
- * the `<projectFiles>` of the project's `psalm.xml`, or among their
- * `<ignoreFiles>`, or one whose original the server publishes nothing for,
- * is out of its scope.
+ * Psalm, asked about a mutant through its language server (ADR-0020):
+ * the server, started once and kept warm, reads the mutant as its
+ * original's changed text, and each dependent the check lists that
+ * Psalm analyses with its own text again, so it re-analyses those files
+ * against the mutant, and the original's text is sent back after. The
+ * run over the originals is Psalm's command line, reporting every file
+ * it analyses, its baseline set aside, so a finding a baseline hides is
+ * never read as new; a check reports what the server published of each
+ * file it sent, and those findings for every other file. A mutant of a
+ * file outside the `<projectFiles>` of the project's `psalm.xml`, or
+ * among their `<ignoreFiles>`, or one whose original the server
+ * publishes nothing for, is out of its scope.
  */
 final class Psalm implements StaticChecker
 {

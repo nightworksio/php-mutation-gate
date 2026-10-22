@@ -16,10 +16,10 @@ use NightWorksIO\MutationGate\Core\Runner\Uncapped;
 use function sprintf;
 
 /**
- * The directory of the ini file that caps a run's memory (ADR-0004, decision
- * 9), for every PHP process of each mutant's run to scan: PHPUnit, and each
- * process it runs a test in. It prints each error on the standard output, so
- * a mutant's fatal error for the cap is read wherever a project's PHP shows
+ * The directory of the ini file that caps a run's memory (ADR-0004), for
+ * every PHP process of each mutant's run to scan: PHPUnit, and each process
+ * it runs a test in. It prints each error on the standard output, so a
+ * mutant's fatal error for the cap is read wherever a project's PHP shows
  * errors nowhere. It is in the adapter's own directory of the gate's
  * workspace, one for each process of the gate, so two runs in one checkout
  * never share it, and it is removed when the run is done.

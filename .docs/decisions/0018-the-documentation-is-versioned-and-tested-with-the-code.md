@@ -11,7 +11,7 @@ adopt the gate from. What exists, read at source and through GitHub's API:
 - **The README is the design.** The decisions index says: "Together with the
   README, the ADRs are the whole of this package's design." The README holds
   the full configuration reference, the environment variables, the files, and
-  CI setups for five CIs. ADR-0002 decision 6 names it as the home of the
+  CI setups for five CIs. ADR-0002 names it as the home of the
   configuration reference.
 - **The ADRs live in `.docs/decisions/`,** and `.gitattributes`
   export-ignores `/.docs`, so nothing under it ships in the package.
@@ -31,12 +31,12 @@ adopt the gate from. What exists, read at source and through GitHub's API:
 - **Merging.** It is squash only. The squash commit takes the pull request's
   title as its subject and its body as its message, so the body, and any
   `Spec:` trailer in it, lands on `main`.
-- **Releases.** ADR-0011 decision 9: each release is a signed tag on `main`
+- **Releases.** ADR-0011: each release is a signed tag on `main`
   and a GitHub release with notes drawn from the conventional commits.
 - **Docs and code already disagree.** The README and ADR-0002 named two of
-  the three PHPUnit config files the code reads (ADR-0017 decision 3).
+  the three PHPUnit config files the code reads (ADR-0017).
 - **The HTML reporter inlines Stryker's `mutation-testing-elements` viewer**
-  (ADR-0009 decision 4). It is Apache-2.0, and every HTML report a user
+  (ADR-0009). It is Apache-2.0, and every HTML report a user
   publishes redistributes it. Apache-2.0 section 4 asks for a copy of the
   licence, and any NOTICE, with each redistribution.
 - **The tooling.** Material for MkDocs entered maintenance mode on
@@ -69,26 +69,26 @@ adopt the gate from. What exists, read at source and through GitHub's API:
                        pre-push-and-watch.md, editors.md, sarif-in-code-scanning.md,
                        badge-and-trend.md, equivalent-mutants.md, monorepo-modules.md
        performance.md  drivers, holds, pest.patch, shards, proofs.ignore
-       troubleshooting.md  one section per message slug (decision 8)
+       troubleshooting.md  one section per message slug
        faq.md
        migrating/      from-infection.md, from-pest-mutate.md
        extending/      writing-an-adapter.md, writing-a-preset.md
      reference/        configuration.md, cli.md, report-json.md,
-                       action-and-workflow.md (generated, decision 5);
+                       action-and-workflow.md (generated);
                        environment.md, files.md, exit-codes.md (written by hand)
    ```
 
    - Users read `.docs/guide/` and `.docs/reference/`. Contributors read
      `.docs/decisions/` and `ARCHITECTURE.md`.
    - `/.docs` stays export-ignored. The package ships no docs, and every link
-     the gate prints points at GitHub (decision 8).
+     the gate prints points at GitHub.
 
 3. **Path-based handling follows the one directory.**
    - `scope` keeps counting `.docs/` as documentation, so a docs-only change
      skips the PHP gates. `.docs/reference/` is the exception once the
      reference moves there: it counts as code, as `README.md` does today,
-     because the config tests move with it (decision 4).
-   - The Docs suite of decision 7 runs in a job of its own, `docs`, on every
+     because the config tests move with it.
+   - The Docs suite runs in a job of its own, `docs`, on every
      change, as `rules` does, and it is required.
    - typos, lychee and markdownlint already read `.docs/`, and their
      configurations stay as they are.
@@ -97,7 +97,7 @@ adopt the gate from. What exists, read at source and through GitHub's API:
 
 4. **The README becomes the front door.**
    - It holds what the gate is, the benchmark's table (ADR-0017), a quick
-     start (decision 17), and one screen per CI linking into
+     start, and one screen per CI linking into
      `.docs/guide/ci/`.
    - The configuration reference, the environment variables and the files
      move to `.docs/reference/`. That move is part of the documentation built
@@ -106,7 +106,7 @@ adopt the gate from. What exists, read at source and through GitHub's API:
      definitions' test, the README examples' contract test and the builder's
      test) move with them in that same change, so no test ever reads a page
      that no longer holds what it checks.
-   - This amends ADR-0002 decision 6, which names the README's configuration
+   - This amends ADR-0002, which names the README's configuration
      reference, and the decisions index: the README and `.docs/reference/`
      are, with the ADRs, the whole of the design.
 
@@ -115,7 +115,7 @@ adopt the gate from. What exists, read at source and through GitHub's API:
 
    | Page | Generated from |
    |------|----------------|
-   | `configuration.md` | the config definitions ADR-0002 decision 7 generates the schema from: key, type, default, whether it affects results (ADR-0007), the ADR that decides it, and the version it arrived in. Every definition carries a description, an ADR and a version, and a definition without one fails the build. |
+   | `configuration.md` | the config definitions ADR-0002 generates the schema from: key, type, default, whether it affects results (ADR-0007), the ADR that decides it, and the version it arrived in. Every definition carries a description, an ADR and a version, and a definition without one fails the build. |
    | `cli.md` | the Symfony Console definitions: commands, arguments, options and exit codes |
    | `report-json.md` | `resources/report.schema.json` (ADR-0009) |
    | `action-and-workflow.md` | `action.yml` and the reusable workflow's `workflow_call` block: inputs, outputs, secrets and jobs |
@@ -130,8 +130,7 @@ adopt the gate from. What exists, read at source and through GitHub's API:
    - Every reference entry carries *since*, and a guide says *since 1.x*
      where it matters.
    - A reader on a release reads `tree/v<version>/.docs/`. The README says
-     so, and every link the gate prints is pinned to its own version
-     (decision 8).
+     so, and every link the gate prints is pinned to its own version.
 
 ### Keeping the docs true
 
@@ -147,7 +146,7 @@ adopt the gate from. What exists, read at source and through GitHub's API:
      - **JSON** blocks are validated against the published schemas;
      - **workflow YAML** goes through actionlint, and GitLab, Buildkite and
        CircleCI YAML through each provider's published JSON Schema, offline
-       (ADR-0015 decision 17);
+       (ADR-0015);
      - **shell transcripts** (`$ vendor/bin/mutation-gate …` with its output)
        run in fixture projects (one Laravel, one Symfony, one library), with
        times and other volatile parts normalised;
@@ -169,7 +168,7 @@ adopt the gate from. What exists, read at source and through GitHub's API:
    - A test fails when a slug has no section, or a section has no slug.
    - `doctor`'s findings use the same slugs (ADR-0017).
    - Slugs are words, not the requirement IDs ADR-0011 refuses. They are
-     public API (ADR-0011 decision 7).
+     public API (ADR-0011).
 
 ### The changelog and releases
 
@@ -192,7 +191,7 @@ adopt the gate from. What exists, read at source and through GitHub's API:
       the README groups it, rather than a list of every commit before the
       first release. Generation starts after 0.1.0.
     - The contributor bot drafts that pull request, and the maintainer signs
-      the tag (ADR-0019, decision 15).
+      the tag (ADR-0019).
 
 ### The repository's files
 
@@ -212,7 +211,7 @@ adopt the gate from. What exists, read at source and through GitHub's API:
     - `Spec:` is asked for in the pull request body, which becomes the
       squash commit's message.
     - Contributors are not required to sign commits. `main` receives only
-      squash commits, which GitHub signs. ADR-0011 decision 9's "every
+      squash commits, which GitHub signs. ADR-0011's "every
       commit is signed" means every commit on `main`.
 
 12. **SECURITY.md sends reports through GitHub.**
@@ -222,7 +221,7 @@ adopt the gate from. What exists, read at source and through GitHub's API:
       major, the previous major's last minor gets security fixes for six
       months.
     - **In scope:** the package, the action and the reusable workflow,
-      including the ledger's trust boundaries (ADR-0007 decision 5).
+      including the ledger's trust boundaries (ADR-0007).
     - **Response:** acknowledgement within three working days. Fixes are
       published as GitHub security advisories, with a CVE.
 
@@ -231,8 +230,7 @@ adopt the gate from. What exists, read at source and through GitHub's API:
 
 14. **Issues use forms, and pull requests use one template.**
     - **Bug:** asks for `mutation-gate --version`, `config:show`, the runner
-      and PHP versions, the CI, and the full message with its slug
-      (decision 8).
+      and PHP versions, the CI, and the full message with its slug.
     - **Feature request:** asks for the problem before the proposal.
     - **Blank issues are off.** `config.yml` sends security reports to the
       private form and questions to the docs. Discussions stay off.
@@ -254,7 +252,7 @@ adopt the gate from. What exists, read at source and through GitHub's API:
       naming the viewer, its version, Apache-2.0 and the licence's URL.
     - A test fails when the vendored version changes and the notices do not.
 
-    This amends ADR-0009 decision 4, where the licence ships with the
+    This amends ADR-0009, where the licence ships with the
     package only.
 
 17. **The README's front page.**
@@ -266,8 +264,7 @@ adopt the gate from. What exists, read at source and through GitHub's API:
         `mutation-gate` branch;
       - the OpenSSF Scorecard;
       - the licence.
-    - **The quick start** is three commands, and a tested transcript
-      (decision 7):
+    - **The quick start** is three commands, and a tested transcript:
       - `composer require --dev nightworksio/mutation-gate -W`;
       - `vendor/bin/mutation-gate init`;
       - `vendor/bin/mutation-gate`.
@@ -289,7 +286,7 @@ adopt the gate from. What exists, read at source and through GitHub's API:
 | **The README as the whole reference, with guides beside it** | A 700-line front page, and guides that repeat parts of it. |
 | **Only the configuration reference generated** | The CLI and the action's reference drift. |
 | **A reference written wholly by hand** | Drift, as the PHPUnit config names already showed. |
-| **A docs site with a version switcher** | Needs the site that decision 1 declines. |
+| **A docs site with a version switcher** | Needs a site; the docs are plain Markdown rendered by GitHub. |
 | **A `docs` branch following the latest release** | A second branch to keep in step, and a behaviour change could not carry its docs in the same pull request. |
 | **Testing config and JSON blocks only** | CLI output and setup pages would rot. |
 | **Link checks alone** | Examples rot silently. |

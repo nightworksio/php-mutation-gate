@@ -62,7 +62,7 @@ final readonly class Sources
     /**
      * These, where a changed file that decides how the gate runs decides it
      * as it did at the base, such as a config whose change leaves every
-     * setting that affects results as it was (ADR-0005, decision 4).
+     * setting that affects results as it was (ADR-0005).
      */
     public function decidingAlike(Path $path): self
     {
@@ -73,7 +73,7 @@ final readonly class Sources
      * Whether a change to a file that decides how the gate runs leaves it
      * deciding as it did at the base: a change to the file in its place, never
      * one that renames, moves, adds or deletes it, which decides anew where
-     * the gate looks (ADR-0005, decision 4).
+     * the gate looks (ADR-0005).
      */
     public function decidesAlike(Change $change): bool
     {

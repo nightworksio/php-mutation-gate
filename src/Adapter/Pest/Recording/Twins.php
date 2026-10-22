@@ -13,7 +13,7 @@ use function sprintf;
 
 /**
  * The mutants Pest made that leave their file as one it made before them
- * does (ADR-0025, decision 13). Pest names each mutated copy by a digest of
+ * does (ADR-0025). Pest names each mutated copy by a digest of
  * its whole source, so two mutants of one file with the same copy are one
  * program. Where the gate records the run, the patched generation loop keeps
  * each such mutant out of Pest's run, and the plugin records it beside those

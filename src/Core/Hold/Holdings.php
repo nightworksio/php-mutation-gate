@@ -118,7 +118,7 @@ final readonly class Holdings
      * The holds written only in the suites `tests.holding` lists, each with
      * the tests that hold its path there: a holding the suites that judge
      * every unit list no test of, and the holding suites list some
-     * (ADR-0005, decision 9). Each path must be one `units()` accepts.
+     * (ADR-0005). Each path must be one `units()` accepts.
      */
     public function additions(TestListing $judging, TestListing $holdingSuites): Additions
     {

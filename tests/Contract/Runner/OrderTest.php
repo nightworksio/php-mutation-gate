@@ -36,7 +36,7 @@ $holds = [
     'holds:src/Adapter/Pest',
 ];
 
-// The likely killers first (ADR-0013, decision 3), under Pest's real runs. In
+// The likely killers first (ADR-0013), under Pest's real runs. In
 // the fixture's MoneySpec a second test kills a change to Money::add after the
 // first, so where the order runs it first, it is the one named as the killer.
 // Ordering changes when a killer is found, never whether: a survivor stays one

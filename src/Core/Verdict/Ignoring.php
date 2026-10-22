@@ -23,7 +23,7 @@ use NightWorksIO\MutationGate\Core\Time\Day;
 use function sprintf;
 
 /**
- * The config's ignores, applied at verdict time (ADR-0008, decision 4): an
+ * The config's ignores, applied at verdict time (ADR-0008): an
  * entry that has not expired leaves each survivor and uncovered mutant it
  * names out of the score, with its reason. An expired one stops applying and
  * is named with the day it expired, one that expires soon is named in
@@ -122,7 +122,7 @@ final readonly class Ignoring
 
     /**
      * A notice of each entry that still applies and leaves out only
-     * survivors proven equivalent (ADR-0013, decision 12).
+     * survivors proven equivalent (ADR-0013).
      */
     public function redundant(TreeVerdicts $verdicts, MutantIds $proven): Warnings
     {
@@ -132,12 +132,12 @@ final readonly class Ignoring
     /**
      * Each entry that still applies but names no mutant it could leave out,
      * a survivor, an uncovered mutant, or one an ignore left out or a proof
-     * found equivalent (ADR-0013, decision 12); none where a unit has no
+     * found equivalent (ADR-0013); none where a unit has no
      * result, as the failures of the units that did not run say, or a mutant
      * is unjudged, since either could hold the mutant an entry names. A run
      * that made mutants with some mutators alone, as `--security` does,
      * checks only the entries that name one of those mutators: of any other,
-     * it made no mutant to match (ADR-0021, decision 20).
+     * it made no mutant to match (ADR-0021).
      */
     public function stale(TreeVerdicts $verdicts, Failures $unrun, Mutators $made): Failures
     {

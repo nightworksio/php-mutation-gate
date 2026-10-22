@@ -27,7 +27,7 @@ use NightWorksIO\MutationGate\Core\Written;
 
 /**
  * The delivery a command under `--deliver-later` leaves for `deliver`, in its stage's directory under
- * `.mutation-gate/delivery` (ADR-0007 decision 5): `delivery.json`, begun empty so nothing an earlier run left there
+ * `.mutation-gate/delivery` (ADR-0007): `delivery.json`, begun empty so nothing an earlier run left there
  * is sent again and added to as the run goes, and the ledger, `ledger.json.gz`, and each object a store keeps
  * beside a ledger, such as the coverage map, `coverage.json.gz`, beside it.
  */

@@ -23,7 +23,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Undoomed;
 use Psr\Clock\ClockInterface;
 
 /**
- * A shard's units run in batches (ADR-0008, decisions 1 and 6), in the
+ * A shard's units run in batches (ADR-0008), in the
  * order the plan lists them, riskiest first: each batch fits the time left,
  * where the run has a deadline, and its chunk, where the run stops once it
  * cannot pass. The batches run until the next does not fit, the time is up,

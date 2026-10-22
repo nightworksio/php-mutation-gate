@@ -14,7 +14,7 @@ use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 enum MutantJudgement: string
 {
     case Killed = 'killed';
-    /** A static analyser rejected it, which counts as killed (ADR-0020, decision 10). */
+    /** A static analyser rejected it, which counts as killed (ADR-0020). */
     case KilledByStaticAnalysis = 'killed-by-static-analysis';
     /** The mutant crashed the tests. */
     case Errored = 'errored';
@@ -64,7 +64,7 @@ enum MutantJudgement: string
     /**
      * Whether a test is what a mutant so judged asks for: a survivor, or an
      * uncovered mutant, which `stub` writes one for and a cluster holds
-     * (ADR-0015, decision 1).
+     * (ADR-0015).
      */
     public function asksForATest(): bool
     {

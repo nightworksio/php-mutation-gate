@@ -26,7 +26,7 @@ use function sprintf;
 /**
  * What changed since each commit the carried results of a run were
  * established at, read once for each commit however many results share it
- * (ADR-0008, decision 1): what the change reaches of their kills, or why git
+ * (ADR-0008): what the change reaches of their kills, or why git
  * cannot say what changed.
  */
 final readonly class ChangesSince

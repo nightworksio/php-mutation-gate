@@ -48,7 +48,7 @@ final readonly class PlannedMutant
 
     /**
      * This mutant, kept out of Pest's run as the twin of one made before it
-     * that leaves its file as it does (ADR-0025, decision 13).
+     * that leaves its file as it does (ADR-0025).
      */
     public function asTwin(): self
     {

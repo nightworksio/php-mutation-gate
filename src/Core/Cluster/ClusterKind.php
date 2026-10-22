@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Cluster;
 
-/** The rule that put survivors in one cluster (ADR-0022, decision 15). */
+/** The rule that put survivors in one cluster (ADR-0022). */
 enum ClusterKind: string
 {
     /** Their changes overlap within one statement, so one boundary test kills them all. */

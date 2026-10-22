@@ -14,7 +14,7 @@ use Traversable;
 
 /**
  * What a ledger learned of each analyser that checked mutants in its scope
- * (ADR-0020, decision 11), by the analyser's name.
+ * (ADR-0020), by the analyser's name.
  *
  * @implements IteratorAggregate<int, AnalyserHistory>
  */

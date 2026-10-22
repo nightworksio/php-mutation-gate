@@ -22,7 +22,7 @@ use function sprintf;
 /**
  * Spans and metrics as OTLP/HTTP JSON, by OpenTelemetry's JSON mapping: a
  * 64-bit integer, a time among them, as a decimal string, and trace and span
- * ids as lowercase hex (ADR-0016, decision 14).
+ * ids as lowercase hex (ADR-0016).
  *
  * @phpstan-type KeyValue array{key: string, value: array{stringValue: string}|array{intValue: string}}
  */

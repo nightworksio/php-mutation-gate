@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use function sprintf;
 
 /**
- * A check's limit, `staticCheck.seconds` (ADR-0020, decision 8), counted
+ * A check's limit, `staticCheck.seconds` (ADR-0020), counted
  * from the check's start on the monotonic clock, as Mago spends it over
  * the listing of its files and the analysis.
  */

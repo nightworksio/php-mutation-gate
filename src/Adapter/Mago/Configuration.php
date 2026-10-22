@@ -15,8 +15,8 @@ use function sprintf;
 
 /**
  * The configuration Mago runs with, as `mago config` prints it in JSON,
- * merged from its config file, the environment and its defaults (ADR-0020,
- * decision 14), without the sections for its other commands, and with the
+ * merged from its config file, the environment and its defaults
+ * (ADR-0020), without the sections for its other commands, and with the
  * files it names besides the code: its config file, the analyser's
  * baseline, and the sources it includes and patches.
  */

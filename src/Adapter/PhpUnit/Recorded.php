@@ -94,9 +94,9 @@ final readonly class Recorded
 
     /**
      * Where the first of its killers stood in the order its tests started,
-     * from one, keyed by that order up to the last of them (ADR-0014,
-     * decision 16); none where no killer started, as one a failed
-     * `setUpBeforeClass` errored does not.
+     * from one, keyed by that order up to the last of them (ADR-0014);
+     * none where no killer started, as one a failed `setUpBeforeClass`
+     * errored does not.
      */
     public function prefix(): Prefix|NotGiven
     {

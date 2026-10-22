@@ -49,12 +49,12 @@ use function sprintf;
 
 /**
  * Mago, asked about a mutant with `--substitute`, the option its authors
- * built for mutation testing (ADR-0020, decisions 6 and 7): the mutant
+ * built for mutation testing (ADR-0020): the mutant
  * stands in for its original while Mago analyses the whole workspace, in
  * one thread, with the config passed on every run. Mago analyses a
  * substitute outside the paths it is configured with too, so a mutant of
  * such a file is left unchecked, and says so. The gate runs the binary
- * Composer's package downloaded, and never downloads it itself (decision 18).
+ * Composer's package downloaded, and never downloads it itself.
  */
 final readonly class Mago implements StaticChecker
 {

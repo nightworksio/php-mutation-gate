@@ -14,7 +14,7 @@ use function sprintf;
  * What VS Code reads to show survivors as Problems: a background task that
  * runs `watch --output=problems`, with the one problem matcher that reads its
  * lines, and the SARIF Viewer recommended for the `sarif` report. `init
- * --editor=vscode` writes these (ADR-0015, decisions 6 and 7).
+ * --editor=vscode` writes these (ADR-0015).
  */
 final readonly class VsCode
 {

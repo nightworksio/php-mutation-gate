@@ -37,11 +37,11 @@ use function sprintf;
  * Every shard's result, read from the files the shards left. The verdict
  * requires one for every shard in the plan: a shard that crashed, was
  * cancelled or never started left none, and the verdict cannot judge,
- * unless another shard stopped once the run could not pass (ADR-0008,
- * decision 6). Then the run's other shards may have been cancelled, and
- * their units are stopped, as the units the doomed shard did not run are,
- * since the verdict fails whatever they come to. Nor can it judge a shard
- * whose runner skipped mutants it kept no record of: they are unjudged, and
+ * unless another shard stopped once the run could not pass (ADR-0008).
+ * Then the run's other shards may have been cancelled, and their units
+ * are stopped, as the units the doomed shard did not run are, since the
+ * verdict fails whatever they come to. Nor can it judge a shard whose
+ * runner skipped mutants it kept no record of: they are unjudged, and
  * belong to no unit.
  */
 final readonly class Results
@@ -145,7 +145,7 @@ final readonly class Results
         return $misses;
     }
 
-    /** Every shard's units its time budget ran out before (ADR-0008, decision 1), but a doomed shard's. */
+    /** Every shard's units its time budget ran out before (ADR-0008), but a doomed shard's. */
     public function unjudged(): Units
     {
         $unjudged = Units::none();
@@ -157,7 +157,7 @@ final readonly class Results
         return $unjudged->except($this->stopped->units());
     }
 
-    /** How the shards stopped once the run could not pass, where one did (ADR-0008, decision 6). */
+    /** How the shards stopped once the run could not pass, where one did (ADR-0008). */
     public function stopped(): Stopped
     {
         return $this->stopped;
@@ -167,7 +167,7 @@ final readonly class Results
      * Whether a shard stopped before it judged everything: its time budget
      * ran out before a unit or left a mutant unjudged, or it stopped once the
      * run could not pass before a unit, or beside a shard that left no result
-     * (ADR-0008, decisions 1 and 6).
+     * (ADR-0008).
      */
     public function wereCutShort(): bool
     {
@@ -191,7 +191,7 @@ final readonly class Results
         return $warnings;
     }
 
-    /** What static analysis's checks of every shard's survivors came to, together (ADR-0020, decision 11). */
+    /** What static analysis's checks of every shard's survivors came to, together (ADR-0020). */
     public function checks(): SurvivorChecks
     {
         $checks = SurvivorChecks::none();

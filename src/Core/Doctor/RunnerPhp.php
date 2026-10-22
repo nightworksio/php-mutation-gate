@@ -74,7 +74,7 @@ final readonly class RunnerPhp
     /**
      * This PHP, as a runner starts each mutant's run on it with opcache off
      * on its command line, so opcache serves nothing, whatever its settings
-     * (ADR-0023, decision 9).
+     * (ADR-0023).
      */
     public function turningOpcacheOff(): self
     {

@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\Test\TestName;
 /**
  * A test whose every assertion checks only that something is there, or its
  * shape, and those assertions. Only a test its runner names is read, so a
- * weak test has a name: its file and description (ADR-0014, decision 6).
+ * weak test has a name: its file and description (ADR-0014).
  */
 final readonly class WeakTest
 {

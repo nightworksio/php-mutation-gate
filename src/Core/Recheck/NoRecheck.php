@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Recheck;
 
 /**
- * Why a run re-checks no survivors first, in one line (ADR-0020, decision
- * 19). A run that plans and judges in one process says so only where a
- * pull request's run would expect a re-check: where the branch has no
- * earlier run, or its last run left no survivor.
+ * Why a run re-checks no survivors first, in one line (ADR-0020). A run
+ * that plans and judges in one process says so only where a pull
+ * request's run would expect a re-check: where the branch has no earlier
+ * run, or its last run left no survivor.
  */
 final readonly class NoRecheck
 {

@@ -6,7 +6,7 @@
 ## Context
 
 php-code-coverage marks no line of a class constant or an enum case run, so
-Pest leaves every mutant there uncovered. ADR-0004, decision 8 judges such a
+Pest leaves every mutant there uncovered. ADR-0004 judges such a
 mutant in a trial. The trial runs the test files that read the value, found by
 a scan of the codebase, and then a small fallback of the test files that
 cover the value's file. Each mutant is its own Pest process, one after
@@ -30,14 +30,14 @@ it is the one that loaded the file, which need not read the value.
    files the run mutates. The lines run from the value's name to the end of
    its value.
 2. **The tests are those of the test files one run judges the mutant by**:
-   the test files that read the value, found by decision 8's scan, with the
+   the test files that read the value, found by the scan, with the
    fallback too where it holds at most 10 files. A kill by either stands in a
    trial, and a survivor of the first runs the fallback, so one run of both
    reaches the verdict the trial would. Each is timed as the plan's whole map
    timed it.
 3. **A value the scan cannot fully follow keeps its trial.** Where a read is
    ambiguous, or no read is found, its lines are left as they were, and
-   decision 8 judges its mutants as before. A property's default, a
+   ADR-0004 judges its mutants by reference as before. A property's default, a
    parameter's default and an attribute's argument keep their trials too.
 4. **Global constants are read by name.** A name that stands as a value is a
    read where the file may resolve it to the constant: through its
@@ -50,9 +50,9 @@ it is the one that loaded the file, which need not read the value.
 6. **One scan serves the run and its trials.** The map Pest opens on is
    written for each set of files a run mutates.
 
-This amends ADR-0004, decision 8 for a patched shard that opens on a map the
-plan handed over. A run that measures its own coverage keeps decision 8 as it
-stands.
+This amends ADR-0004 for a patched shard that opens on a map the
+plan handed over. A run that measures its own coverage keeps ADR-0004's judging by
+reference as it stands.
 
 ## Alternatives considered
 
@@ -72,6 +72,6 @@ stands.
 
 ## Related
 
-- [ADR-0004](0004-pest-and-infection-behind-one-runner-port.md): decision 8, trials
+- [ADR-0004](0004-pest-and-infection-behind-one-runner-port.md): trials
 - [ADR-0006](0006-shards-are-cut-by-learned-cost-and-planned-once.md): the shard's own map and the plan's whole map
 - [ADR-0036](0036-a-kill-only-errors-made-counts-where-its-control-passes.md): narrowed kills

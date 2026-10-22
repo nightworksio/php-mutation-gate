@@ -24,7 +24,7 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 /**
  * The seconds a patched Pest allows one mutant, read in Pest's parent
- * process: the standard mutant limit (ADR-0008, decision 2) of its covering
+ * process: the standard mutant limit (ADR-0008) of its covering
  * tests' own time, as the coverage map Pest loaded timed them, within the
  * bounds the gate names. A covering test the map did not time leaves the
  * floor.
@@ -85,10 +85,9 @@ final class MutantTime
      * The silence limit of a mutant's own run, its covering tests named by
      * their ids, by its mutator's class: the standard limit of the slowest
      * one's own time, within the bounds the gate names, with the lower floor
-     * `timeouts.tighter` gives the mutator where it lists it (ADR-0008,
-     * decision 2); none where the gate names no bounds or the map timed not
-     * every one of them, as a test of unknown length could be stopped while
-     * it runs.
+     * `timeouts.tighter` gives the mutator where it lists it (ADR-0008);
+     * none where the gate names no bounds or the map timed not every one of
+     * them, as a test of unknown length could be stopped while it runs.
      *
      * @param list<string> $tests
      */

@@ -18,8 +18,8 @@ use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 use function sprintf;
 
 /**
- * A ledger past the compressed limit a run reads a ledger to (ADR-0017,
- * decision 10; ADR-0013, decision 13), which no run reads.
+ * A ledger past the compressed limit a run reads a ledger to (ADR-0017;
+ * ADR-0013), which no run reads.
  */
 final readonly class LedgerSize
 {

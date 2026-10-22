@@ -21,7 +21,7 @@ use function sprintf;
 
 /**
  * The PR comment while the last run's survivors are re-checked, between its
- * planned state and the verdict (ADR-0020, decision 20): how many still
+ * planned state and the verdict (ADR-0020): how many still
  * survive, each that does with its diff, hint and reproduce command, and
  * each the run made no mutant for again, each list as long as the verdict's.
  */

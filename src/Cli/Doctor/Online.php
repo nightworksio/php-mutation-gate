@@ -34,7 +34,7 @@ use function sprintf;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
- * What `doctor --online` adds by asking GitHub (ADR-0017, decision 9). The
+ * What `doctor --online` adds by asking GitHub (ADR-0017). The
  * repository is the one `GITHUB_REPOSITORY` names, else the one git's origin
  * remote is on GitHub's host, `GITHUB_SERVER_URL`'s or github.com. It asks
  * with `GITHUB_TOKEN`, else `GH_TOKEN`, at `GITHUB_API_URL` or GitHub's own

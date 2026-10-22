@@ -1,8 +1,8 @@
 # The gate installed into another project and driven as its user drives it:
 # warm workers on a pinned PHPUnit library, and composer mutate and the hook
 # recipes through the real hook managers. Called by ci.yml, on a change to the
-# code; each job leaves its evidence as the jobs of ci.yml do (ADR-0019,
-# decision 5).
+# code; each job leaves its evidence as the jobs of ci.yml do
+# (ADR-0019).
 name: end-to-end
 
 on:
@@ -20,7 +20,7 @@ env:
   PHP_VERSION: '8.5'
 
 jobs:
-  # Warm workers against fresh processes (ADR-0023, decisions 12 to 14): the
+  # Warm workers against fresh processes (ADR-0023): the
   # gate run on a pinned PHPUnit library, lcobucci/jwt, on one coverage map,
   # once with `runner.workers: fresh` and once with `fork`, at the PHPUnit the
   # PHPUnit runner's fixture locks. The step summary holds what each run took.
@@ -139,7 +139,7 @@ jobs:
             done
           fi
           python3 "${measure}" judge "${runs[@]}" --findings "${GITHUB_WORKSPACE}/evidence/raw/warm-workers.json"
-      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      # The job's evidence, whatever the steps above did (ADR-0019).
       - name: evidence
         if: ${{ !cancelled() }}
         env:
@@ -156,7 +156,7 @@ jobs:
         if: failure()
         run: python3 .github/scripts/gate_summary.py end-to-end/warm-workers
 
-  # ADR-0024, decisions 11 to 13: composer mutate through the plugin, and
+  # ADR-0024: composer mutate through the plugin, and
   # init --hook's recipes, run by the real hook managers, committing and
   # pushing through each.
   hook-managers:
@@ -188,7 +188,7 @@ jobs:
           mkdir -p "${RUNNER_TEMP}/hooks"
           python3 .github/scripts/hook_managers.py . "${RUNNER_TEMP}/hooks" "${RUNNER_TEMP}/pre-commit.pyz" \
             --findings evidence/raw/hook-managers.json
-      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      # The job's evidence, whatever the steps above did (ADR-0019).
       - name: evidence
         if: ${{ !cancelled() }}
         env:

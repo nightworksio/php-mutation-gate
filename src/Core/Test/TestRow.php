@@ -8,7 +8,7 @@ use function sprintf;
 
 /**
  * One row of a test's data set, which folds into its test: the test is
- * useless only when every row is (ADR-0014, decision 6).
+ * useless only when every row is (ADR-0014).
  */
 final readonly class TestRow
 {

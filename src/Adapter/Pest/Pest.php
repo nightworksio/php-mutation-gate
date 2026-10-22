@@ -267,7 +267,7 @@ final readonly class Pest implements Runner
     /**
      * A mutant as a static analyser checks it: Pest prints each mutant whole,
      * so its text is its diff put onto the original printed as Pest prints
-     * it, which it is judged against (ADR-0020, decision 9).
+     * it, which it is judged against (ADR-0020).
      */
     public function checkable(Mutant $mutant): Checkable|CannotJudge
     {

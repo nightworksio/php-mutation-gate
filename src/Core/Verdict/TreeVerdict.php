@@ -25,7 +25,7 @@ use NightWorksIO\MutationGate\Core\Tree\Tree;
  * carried, every mutant behind the score, and the floor the score was held
  * to, which is the higher of the declared floor and the baseline's. A
  * sampled run's tree is held to its floor by its estimate, and raises none
- * (ADR-0020, decisions 25 and 29).
+ * (ADR-0020).
  */
 final readonly class TreeVerdict
 {
@@ -81,7 +81,7 @@ final readonly class TreeVerdict
 
     /**
      * This verdict, with its survivors of one cause marked with their
-     * cluster, read from each file's source (ADR-0022, decision 15).
+     * cluster, read from each file's source (ADR-0022).
      *
      * @param ByPath<Contents> $sources each file of its survivors that can be read, by its path
      */
@@ -90,7 +90,7 @@ final readonly class TreeVerdict
         return clone($this, ['mutants' => $this->mutants->clustered($this->uncovered, $sources)]);
     }
 
-    /** This verdict, with what was found of each survivor (ADR-0025, decision 7). */
+    /** This verdict, with what was found of each survivor (ADR-0025). */
     public function found(Findings $findings): self
     {
         return clone($this, ['mutants' => $this->mutants->found($findings)]);
@@ -165,7 +165,7 @@ final readonly class TreeVerdict
         return $this->mutants->survivors($this->uncovered);
     }
 
-    /** The floor the baseline rises to (ADR-0003, decision 6); none from a sampled run. */
+    /** The floor the baseline rises to (ADR-0003); none from a sampled run. */
     public function raised(): Floor|Unraised
     {
         return $this->estimate instanceof Estimate

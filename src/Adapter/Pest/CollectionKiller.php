@@ -21,7 +21,7 @@ use function sprintf;
 
 /**
  * The test a mutant's own run names as its killer where collecting its tests
- * failed before any ran (ADR-0014, decision 17): Pest's `DatasetMissing`
+ * failed before any ran (ADR-0014): Pest's `DatasetMissing`
  * names the test, by its description and its file, whose dataset gave no
  * case. Its id is a test this process collected unmutated: the class Pest
  * made of that file here and the method of that class Pest made of that

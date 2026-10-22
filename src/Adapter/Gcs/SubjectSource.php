@@ -23,7 +23,7 @@ use function trim;
  * Where an external-account file says the CI's own token is: a file, or a
  * URL asked with the headers the file names, as `google-github-actions/auth`
  * writes it; and, for a JSON one, the field that holds it
- * (ADR-0028 decision 2).
+ * (ADR-0028).
  */
 final readonly class SubjectSource
 {

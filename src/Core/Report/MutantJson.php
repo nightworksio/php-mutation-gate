@@ -22,7 +22,7 @@ use NightWorksIO\MutationGate\Core\Verdict\NoFinding;
 /**
  * One mutant as the JSON report and `explain --json` write it: where it is,
  * what it changed, how it was judged and why, the tests that cover, judged
- * and killed it, and what applies only to some (ADR-0009, decision 2).
+ * and killed it, and what applies only to some (ADR-0009).
  *
  * @phpstan-import-type RejectionWritten from MutantRecord
  *
@@ -55,7 +55,7 @@ use NightWorksIO\MutationGate\Core\Verdict\NoFinding;
 final readonly class MutantJson
 {
     /**
-     * One mutant, with its tests by their places in the table (ADR-0014, decision 9).
+     * One mutant, with its tests by their places in the table (ADR-0014).
      *
      * @return MutantEntry
      */

@@ -13,12 +13,12 @@ use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 
 /**
- * A tree's score as a sampled run estimates it (ADR-0020, decisions 23 to
- * 25): its exact stratum's mutants, counted, and its sampled stratum's,
- * estimated, weighted by their mutants, with the sampled stratum's interval
- * scaled by its share of the tree's mutants. The lower bound is truncated to
- * hundredths and the upper rounded up, so neither flatters. A tree with no
- * sampled stratum is its exact score, with no interval either side.
+ * A tree's score as a sampled run estimates it (ADR-0020): its exact
+ * stratum's mutants, counted, and its sampled stratum's, estimated,
+ * weighted by their mutants, with the sampled stratum's interval scaled
+ * by its share of the tree's mutants. The lower bound is truncated to
+ * hundredths and the upper rounded up, so neither flatters. A tree with
+ * no sampled stratum is its exact score, with no interval either side.
  */
 final readonly class Estimate
 {

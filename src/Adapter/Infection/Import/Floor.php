@@ -19,7 +19,7 @@ use function sprintf;
 
 /**
  * Infection's `minMsi` and `minCoveredMsi` as the floor every imported tree
- * declares (ADR-0016, decision 2): truncated to two decimals, as the policy
+ * declares (ADR-0016): truncated to two decimals, as the policy
  * minimum rather than a baseline, since nothing was measured. `minCoveredMsi`
  * leaves uncovered mutants out of the score, and is the floor where `minMsi`
  * is not set.

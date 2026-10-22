@@ -17,7 +17,7 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use function sprintf;
 
 /**
- * The test file a stub follows (ADR-0015, decision 2): of the files whose
+ * The test file a stub follows (ADR-0015): of the files whose
  * tests cover the mutant, the one named for its class, as `MoneyTest.php`
  * is for `Money.php`; else the one that holds the most of them; the first
  * by path among equals. A test its runner names no file for is in none.

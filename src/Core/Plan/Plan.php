@@ -93,7 +93,7 @@ final readonly class Plan implements Countable, IteratorAggregate
         return $this->base;
     }
 
-    /** This plan, with the digests of the run's inputs, each proof recording its share (ADR-0008, decision 1). */
+    /** This plan, with the digests of the run's inputs, each proof recording its share (ADR-0008). */
     public function digesting(Digests $digests): self
     {
         return clone($this, ['digests' => $digests]);
@@ -126,7 +126,7 @@ final readonly class Plan implements Countable, IteratorAggregate
     /**
      * This plan, with the names the runner gives the suite's tests, or why
      * it could not give them. Naming runs once a run, never in a shard, and
-     * judges nothing (ADR-0014, decision 6).
+     * judges nothing (ADR-0014).
      */
     public function naming(TestNames|CannotJudge $names): self
     {

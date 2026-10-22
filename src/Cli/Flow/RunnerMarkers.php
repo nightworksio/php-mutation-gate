@@ -20,11 +20,11 @@ use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use function sprintf;
 
 /**
- * The runner's own ignore markers in the files a run mutates (ADR-0008,
- * decision 4). They hide mutants with no reason and no end, so under
- * `ignores.native: refuse` a plan stops before anything is mutated, listing
- * each with the `ignores.entries` entry that replaces it; under `allow` the
- * verdict says how many there are.
+ * The runner's own ignore markers in the files a run mutates
+ * (ADR-0008). They hide mutants with no reason and no end, so under
+ * `ignores.native: refuse` a plan stops before anything is mutated,
+ * listing each with the `ignores.entries` entry that replaces it; under
+ * `allow` the verdict says how many there are.
  */
 final readonly class RunnerMarkers
 {

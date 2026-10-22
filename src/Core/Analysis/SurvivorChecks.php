@@ -28,10 +28,10 @@ use function sprintf;
 use Traversable;
 
 /**
- * What static analysis's checks of survivors came to (ADR-0020, decisions 9
- * and 11): the time each analyser's checks took, and each survivor it left
- * unchecked, with why. The run warns once for each reason, with how many
- * survivors it left and the first of their files.
+ * What static analysis's checks of survivors came to (ADR-0020): the time
+ * each analyser's checks took, and each survivor it left unchecked, with
+ * why. The run warns once for each reason, with how many survivors it left
+ * and the first of their files.
  *
  * @implements IteratorAggregate<int, UncheckedSurvivor>
  */

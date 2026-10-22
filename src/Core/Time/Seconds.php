@@ -100,7 +100,7 @@ final readonly class Seconds
 
     /**
      * The duration as a report says it, to the nearest unit it shows: `45s`
-     * under a minute, then `6m`, then `1h 41m` (ADR-0017, decision 13).
+     * under a minute, then `6m`, then `1h 41m` (ADR-0017).
      */
     public function text(): string
     {

@@ -17,7 +17,7 @@ use NightWorksIO\MutationGate\Port\TreeSource;
 
 /**
  * The chosen runner's own ignore markers in the trees zero-config found,
- * which `init` asks about (ADR-0017, decision 7); none where the trees or
+ * which `init` asks about (ADR-0017); none where the trees or
  * the runner cannot be had, which the config `init` writes then says.
  */
 final readonly class FoundMarkers

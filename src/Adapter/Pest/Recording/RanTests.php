@@ -10,7 +10,7 @@ use function file_put_contents;
  * How many tests a mutant's own process ran, counted as each finishes and
  * written once, as a `ran` line of the mutant's killer file (see
  * KillerFile), when PHPUnit ends the run, which it does
- * whether or not its filter selected a test (ADR-0004, decision 9). A
+ * whether or not its filter selected a test (ADR-0004). A
  * process that never ends its run, as one stopped or crashed does, writes
  * no count.
  */

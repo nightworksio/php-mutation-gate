@@ -18,11 +18,10 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
  * runs, why it reached what it did, the units a proof whose key still
  * matches holds, the units whose newest result is carried because the
  * change does not reach them, those of them that carry only the run's own
- * scope's newest result, since only it judged them as they are (ADR-0005,
- * decision 2), the mutators the run leaves out of the units it runs whose
- * code is as their newest result recorded it (ADR-0025, decision 1), and,
- * for a sampled run, the units its sample runs and leaves out (ADR-0020,
- * decision 28).
+ * scope's newest result, since only it judged them as they are
+ * (ADR-0005), the mutators the run leaves out of the units it runs whose
+ * code is as their newest result recorded it (ADR-0025), and, for a
+ * sampled run, the units its sample runs and leaves out (ADR-0020).
  */
 final readonly class Considered
 {

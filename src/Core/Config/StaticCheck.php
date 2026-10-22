@@ -16,14 +16,13 @@ use function sprintf;
 
 /**
  * The static analyser that may kill a mutant, and the config it reads
- * (ADR-0020, decision 8): `staticCheck`. The analyser is chosen as any other
+ * (ADR-0020): `staticCheck`. The analyser is chosen as any other
  * adapter is, by a name or a class. `auto` takes the first one installed and
  * configured, and `none` turns checking off; both are names, not adapters.
  * Without a config, the analyser discovers its own. One check may take
  * `staticCheck.seconds`, and so may Psalm's language server to start.
  * `staticCheck.before` also checks a mutant before its tests where that pays;
- * off by default, so only the tests' survivors are checked (ADR-0020,
- * decision 11).
+ * off by default, so only the tests' survivors are checked (ADR-0020).
  */
 final readonly class StaticCheck implements Part
 {

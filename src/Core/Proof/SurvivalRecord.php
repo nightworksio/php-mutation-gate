@@ -15,7 +15,7 @@ use function sprintf;
 
 /**
  * What a ledger learned of each mutator's newest judged mutants, as its
- * optional `survival` section holds it (ADR-0025, decision 4): by the
+ * optional `survival` section holds it (ADR-0025): by the
  * runner's name, then the mutator's, the outcomes of its window as a `0` for
  * each mutant killed and a `1` for each let through, oldest first, and the
  * id of the last mutant let through, where one ever was.

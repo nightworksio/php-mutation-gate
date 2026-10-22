@@ -28,8 +28,8 @@ use function sprintf;
  * What an alert says, in groups under a heading, for a chat to lay out: the
  * failing trees with floor, score and previous score, the failures no floor
  * decides and at most five survivors; why the run cannot judge; each tree
- * again after a recovery; or each lowered floor with its reason (ADR-0016,
- * decision 12). Whatever the project wrote is cut to 120 characters.
+ * again after a recovery; or each lowered floor with its reason
+ * (ADR-0016). Whatever the project wrote is cut to 120 characters.
  */
 final readonly class AlertLines
 {
@@ -94,7 +94,7 @@ final readonly class AlertLines
     }
 
     /**
-     * Each package's security set that failed, with its score and floor (ADR-0021, decision 21).
+     * Each package's security set that failed, with its score and floor (ADR-0021).
      *
      * @return list<string>
      */

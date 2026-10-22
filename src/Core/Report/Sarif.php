@@ -18,12 +18,12 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  * as not killed. A result is an error when its mutant is in a set that
  * failed, and a warning otherwise. Each ignored mutant is a note, suppressed
  * with why it is ignored: externally by the config, in source by a runner's
- * own marker (ADR-0008, decision 4). The gate's id is its partial fingerprint,
+ * own marker (ADR-0008). The gate's id is its partial fingerprint,
  * so a result is matched across commits when code above it moves
- * (ADR-0009, decision 2). A mutant in a cluster stays a result of its own,
- * so no fingerprint moves, and names its cluster (ADR-0022, decision 17).
+ * (ADR-0009). A mutant in a cluster stays a result of its own,
+ * so no fingerprint moves, and names its cluster (ADR-0022).
  * A security mutant's result says so, and is an error when its package's
- * security set fails (ADR-0021, decision 21).
+ * security set fails (ADR-0021).
  *
  * @phpstan-type Result array{
  *     ruleId: value-of<ResultRule>,

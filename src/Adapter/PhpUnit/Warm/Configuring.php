@@ -21,12 +21,12 @@ use function version_compare;
 
 /**
  * PHPUnit's configuration loader and PHP settings handler, built as the
- * installed PHPUnit builds them, for a worker's boot (ADR-0023, decision
- * 12). From PHPUnit 13.4 each is told where to emit what it reports, and a
- * boot tells them an emitter of its own, which nothing hears: each child's
+ * installed PHPUnit builds them, for a worker's boot (ADR-0023). From
+ * PHPUnit 13.4 each is told where to emit what it reports, and a boot
+ * tells them an emitter of its own, which nothing hears: each child's
  * PHPUnit loads the configuration again and reports it there, once. Before
  * 13.4 each emits through PHPUnit's event facade, which the guard then finds
- * started (decision 13).
+ * started.
  */
 final readonly class Configuring
 {
