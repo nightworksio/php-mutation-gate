@@ -39,10 +39,12 @@ it('keeps each suite\'s tests in its directory under the tests directory, at its
         "path: functional\n",
         'checks/Functional.suite.yml',
         "path: Functional\nmodules:\n  enabled: [Asserts]\n",
+        'checks/Api.suite.dist.yml',
+        "path: api\n",
     );
 
     expect($suite instanceof TestSuite ? $suite->paths() : $suite)
-        ->toEqual(Paths::of(Path::of('checks/Functional'), Path::of('checks/inlined'), Path::of('checks/Unit')))
+        ->toEqual(Paths::of(Path::of('checks/api'), Path::of('checks/Functional'), Path::of('checks/inlined'), Path::of('checks/Unit')))
         ->and($suite instanceof TestSuite ? $suite->suites() : $suite)->toEqual(DeclaredSuites::none())
         ->and($suite instanceof TestSuite ? $suite->conventionalDirectory() : $suite)->toEqual(SuiteDirectory::of(Path::of('checks'), 'Test.php'))
         ->and($suite instanceof TestSuite && $suite->holdsTestCase(Path::of('checks/Unit/MoneyTest.php')))->toBeTrue()
@@ -60,6 +62,16 @@ it('leaves out a suite that serves the application from another process, and eve
         ->and($everywhere instanceof TestSuite ? $everywhere->paths() : $everywhere)->toEqual(Paths::of(Path::of('tests')))
         ->and($everywhere instanceof TestSuite ? $everywhere->elsewhere() : $everywhere)->toBe(['Unit'])
         ->and(($unit = codeceptionSuite('{}', 'tests/Unit.suite.yml', '{}')) instanceof TestSuite ? $unit->elsewhere() : $unit)->toBe([]);
+});
+
+it('names the suites it leaves out in the order of their names, wherever they are declared', function (): void {
+    $suite = codeceptionSuite(
+        "suites:\n  Web:\n    modules:\n      enabled: [WebDriver]\n  Browse:\n    modules:\n      enabled: [PhpBrowser]\n",
+        'tests/Api.suite.yml',
+        "modules:\n  enabled: [PhpBrowser]\n",
+    );
+
+    expect($suite instanceof TestSuite ? $suite->elsewhere() : $suite)->toBe(['Api', 'Browse', 'Web']);
 });
 
 it('keeps the tests in tests where the config declares no suite, or there is no config', function (): void {
