@@ -116,7 +116,7 @@ final class TestFiles implements TestLayout
     private function all(): array
     {
         if ($this->walked === []) {
-            $this->walked = [PhpFiles::in($this->installation, $this->installation->tests(), Paths::none())];
+            $this->walked = [PhpFiles::in($this->installation, $this->installation->tests())];
         }
 
         return $this->walked[0];

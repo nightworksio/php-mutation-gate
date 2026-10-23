@@ -9,6 +9,7 @@ use function file_put_contents;
 use function is_dir;
 use function is_file;
 use function is_link;
+use function is_string;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -123,12 +124,24 @@ final readonly class Project
      */
     public function written(string $name, string $contents): string|CannotJudge
     {
+        $file = $this->fresh($name);
+
+        return is_string($file) && file_put_contents($file, $contents) === false
+            ? CannotJudge::because(sprintf(self::UNWRITTEN, $file))
+            : $file;
+    }
+
+    /**
+     * A file of the adapter's own that a run the gate starts writes: its
+     * directory made, and no earlier run's file, nor a link, left in its
+     * place; or why it cannot be.
+     */
+    public function fresh(string $name): string|CannotJudge
+    {
         $file = $this->own($name);
         $made = is_dir(dirname($file)) || (! is_file(dirname($file)) && mkdir(dirname($file), recursive: true));
-        $unlinked = ! is_link($file) || unlink($file);
+        $gone = !is_file($file) && !is_link($file) || unlink($file);
 
-        return $made && $unlinked && ! is_dir($file) && file_put_contents($file, $contents) !== false
-            ? $file
-            : CannotJudge::because(sprintf(self::UNWRITTEN, $file));
+        return $made && $gone && ! is_dir($file) ? $file : CannotJudge::because(sprintf(self::UNWRITTEN, $file));
     }
 }

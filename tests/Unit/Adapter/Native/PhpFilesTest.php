@@ -30,3 +30,18 @@ it('lists a PHP file itself and every PHP file a directory holds, once each, in 
 
     expect(array_map(static fn(Path $file): string => $file->value(), $files))->toBe(['src/B.php', 'src/a/A.php']);
 });
+
+it('lists many files in byte order, whatever order the directory hands them over in', function (): void {
+    $root = Scratch::directory();
+    $names = array_map(static fn(int $n): string => sprintf('src/%s.php', hash('sha256', (string) $n)), range(1, 24));
+
+    foreach ($names as $name) {
+        Scratch::write($root, $name, '<?php');
+    }
+
+    sort($names);
+    $project = Project::at($root, Paths::none(), Path::of('vendor'), Path::of('.mutation-gate'), BuiltinRunner::PhpUnit);
+
+    expect(array_map(static fn(Path $file): string => $file->value(), PhpFiles::in($project, Paths::of(Path::of('src')), Paths::none())))
+        ->toBe($names);
+});

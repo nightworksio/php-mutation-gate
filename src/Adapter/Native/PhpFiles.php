@@ -17,8 +17,6 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 
-use function sort;
-
 /** The PHP files some paths of a project name, each file itself or every PHP file a directory holds, in byte order. */
 final readonly class PhpFiles
 {
@@ -66,8 +64,6 @@ final readonly class PhpFiles
                 $files[] = $pathname;
             }
         }
-
-        sort($files);
 
         return $files;
     }

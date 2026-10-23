@@ -164,7 +164,7 @@ final readonly class NativeRunner implements Runner
     /** These suites' tests and their groups, as the framework lists them into a file; or why it lists none. */
     public function listing(Withheld $withheld, Suites $suites): TestListing|CannotJudge
     {
-        $file = $this->project->written(self::LISTING, '');
+        $file = $this->project->fresh(self::LISTING);
 
         return $file instanceof CannotJudge
             ? $file

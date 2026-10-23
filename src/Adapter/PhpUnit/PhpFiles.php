@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
-use function array_any;
-use function array_filter;
 use function array_values;
 use function is_dir;
 use function is_file;
@@ -17,13 +15,11 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 
-use function sort;
-
 /** The PHP files some paths of a project name, each file itself or every PHP file a directory holds, in byte order. */
 final readonly class PhpFiles
 {
-    /** @return list<Path> each as a path of the project, but those inside a path left out */
-    public static function in(Installation $installation, Paths $paths, Paths $leftOut): array
+    /** @return list<Path> each as a path of the project */
+    public static function in(Installation $installation, Paths $paths): array
     {
         $found = [];
 
@@ -35,12 +31,7 @@ final readonly class PhpFiles
 
         ksort($found);
 
-        $left = [...$leftOut];
-
-        return array_values(array_filter(
-            $found,
-            static fn(Path $file): bool => ! array_any($left, static fn(Path $out): bool => $file->within($out)),
-        ));
+        return array_values($found);
     }
 
     /** @return list<string> the path itself where it is a PHP file, or every PHP file a directory holds */
@@ -66,8 +57,6 @@ final readonly class PhpFiles
                 $files[] = $pathname;
             }
         }
-
-        sort($files);
 
         return $files;
     }

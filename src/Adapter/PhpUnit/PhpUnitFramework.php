@@ -7,7 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 use function array_map;
 use function dirname;
 use function file_get_contents;
-use function is_string;
+use function is_file;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
@@ -154,9 +154,9 @@ final readonly class PhpUnitFramework implements Framework
     public function listing(Shell $shell, Withheld $withheld, Suites $suites, string $file): TestListing|CannotJudge
     {
         $ran = $shell->run(Command::php(...$this->commandLine->listing($suites, $file))->withholding($withheld));
-        $xml = file_get_contents($file);
+        $xml = is_file($file) ? file_get_contents($file) : false;
 
-        return PhpUnitTestList::listedIn($ran, is_string($xml) ? $xml : '', $file, Program::PhpUnit);
+        return PhpUnitTestList::listedIn($ran, $xml, $file, Program::PhpUnit);
     }
 
     /** As PHPUnit prints a premature end of its process (ADR-0004). */

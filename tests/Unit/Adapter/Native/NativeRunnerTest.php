@@ -189,6 +189,16 @@ it('lists no test where it cannot write the file PHPUnit lists them into, starti
         ->and($shell->commands())->toBe([]);
 });
 
+it('lists no test an earlier run left in its file, where PHPUnit writes none', function (): void {
+    $project = phpUnitRunnerProject();
+    $written = $project->written('listing', TestLists::of(['Tests\MoneyTest::testAdds'], []));
+    $listing = phpUnitRunner($project, PhpUnitShellFake::answering(Ran::finished(succeeded: true, output: 'wrote nothing')))
+        ->listing(Withheld::standard(), Suites::all());
+
+    expect($written)->toBe($project->own('listing'))
+        ->and($listing)->toBeInstanceOf(CannotJudge::class);
+});
+
 it('cannot list the tests where PHPUnit fails', function (): void {
     $project = phpUnitRunnerProject();
     $listing = phpUnitRunner($project, PhpUnitShellFake::answering(Ran::finished(succeeded: false, output: 'broken')))

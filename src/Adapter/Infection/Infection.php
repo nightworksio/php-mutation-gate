@@ -8,7 +8,6 @@ use function count;
 use function file_get_contents;
 use function getenv;
 use function is_file;
-use function is_string;
 
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
 use NightWorksIO\MutationGate\Core\Analysis\NoPreCheck;
@@ -168,7 +167,7 @@ final readonly class Infection implements Runner
         );
         $xml = is_file($file) ? file_get_contents($file) : false;
 
-        return PhpUnitTestList::listedIn($ran, is_string($xml) ? $xml : '', $file, Program::PhpUnit);
+        return PhpUnitTestList::listedIn($ran, $xml, $file, Program::PhpUnit);
     }
 
     /**

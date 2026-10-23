@@ -6,7 +6,6 @@ namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function file_get_contents;
 use function is_file;
-use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitTestList;
@@ -34,6 +33,6 @@ final readonly class Listed
         $ran = $shell->run(Invocation::installedIn($project->vendor())->listing($withheld, $suites, $file));
         $xml = is_file($file) ? file_get_contents($file) : false;
 
-        return PhpUnitTestList::listedIn($ran, is_string($xml) ? $xml : '', $file, Program::Pest);
+        return PhpUnitTestList::listedIn($ran, $xml, $file, Program::Pest);
     }
 }

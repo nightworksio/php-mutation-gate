@@ -65,3 +65,24 @@ it('writes a file of its own in place of a link there, dangling or not, and neve
         ->and(file_exists(sprintf('%s/planted.txt', $scratch)))->toBeFalse()
         ->and((string) file_get_contents(sprintf('%s/kept.txt', $scratch)))->toBe('kept');
 });
+
+it('readies a file of its own for a run to write, with no earlier file or link left there, or says it cannot', function () use ($at): void {
+    $scratch = Scratch::directory();
+    $project = $at(sprintf('%s/project', $scratch));
+    $stale = $project->written('stale.txt', 'an earlier run\'s');
+    Scratch::write($scratch, 'kept.txt', 'kept');
+    symlink(sprintf('%s/kept.txt', $scratch), $project->own('linked.txt'));
+    mkdir($project->own('taken'));
+
+    expect($project->fresh('stale.txt'))->toBe($stale)
+        ->and(file_exists($project->own('stale.txt')))->toBeFalse()
+        ->and($project->fresh('linked.txt'))->toBe($project->own('linked.txt'))
+        ->and(is_link($project->own('linked.txt')))->toBeFalse()
+        ->and((string) file_get_contents(sprintf('%s/kept.txt', $scratch)))->toBe('kept')
+        ->and($project->fresh('new/b.txt'))->toBe($project->own('new/b.txt'))
+        ->and(is_dir(dirname($project->own('new/b.txt'))))->toBeTrue()
+        ->and($project->fresh('taken'))->toEqual(CannotJudge::because(sprintf(
+            'The gate cannot write %s, which the run it starts reads.',
+            $project->own('taken'),
+        )));
+});

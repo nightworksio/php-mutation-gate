@@ -55,14 +55,15 @@ it('reads a list of no test and no group as an empty listing', function (): void
     expect($listing instanceof CannotJudge ? $listing : [count($listing->tests()), count($listing->groups())])->toBe([0, 0]);
 });
 
-it('cannot judge a run that failed, a file that is empty or no XML, or XML that is no list of tests', function (
+it('cannot judge a run that failed, a file that is not there, empty or no XML, or XML that is no list of tests', function (
     bool $succeeded,
-    string $xml,
+    string|false $xml,
 ): void {
     expect(PhpUnitTestList::listedIn(Ran::finished(succeeded: $succeeded, output: 'Fatal error'), $xml, '/w/tests.xml', Program::Pest))
         ->toEqual(CannotJudge::because("Pest did not list the tests of the suite: /w/tests.xml holds no list of tests. It said:\nFatal error"));
 })->with([
     'a failed run, though the file holds a list' => [false, PHPUNIT_TEST_LIST],
+    'no file' => [true, false],
     'an empty file' => [true, ''],
     'no XML' => [true, 'not XML'],
     'XML that is no list of tests' => [true, '<?xml version="1.0"?><phpunit/>'],
