@@ -41,13 +41,16 @@ it('writes a file of its own, with its directory made, or says it cannot', funct
     $project = $at(Scratch::directory());
     $written = $project->written('a/b.txt', 'text');
     Scratch::write($project->root(), '.gate/phpunit/c', 'a file where the directory goes');
+    $long = str_repeat('x', 300);
     set_error_handler(static fn(): bool => true);
     $blocked = $project->written('c/d.txt', 'text');
+    $unwritable = $project->written($long, 'text');
     restore_error_handler();
 
     expect($written)->toBe($project->own('a/b.txt'))
         ->and((string) file_get_contents($project->own('a/b.txt')))->toBe('text')
-        ->and($blocked)->toBeInstanceOf(CannotJudge::class);
+        ->and($blocked)->toBeInstanceOf(CannotJudge::class)
+        ->and($unwritable)->toEqual(CannotJudge::because(sprintf('The gate cannot write %s, which the run it starts reads.', $project->own($long))));
 });
 
 it('writes a file of its own in place of a link there, dangling or not, and never through it', function () use ($at): void {
