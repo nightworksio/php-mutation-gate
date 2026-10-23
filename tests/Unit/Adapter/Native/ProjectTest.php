@@ -76,6 +76,7 @@ it('readies a file of its own for a run to write, with no earlier file or link l
     Scratch::write($scratch, 'kept.txt', 'kept');
     symlink(sprintf('%s/kept.txt', $scratch), $project->own('linked.txt'));
     mkdir($project->own('taken'));
+    Scratch::write($project->root(), '.gate/phpunit/filed', 'a file where the directory goes');
 
     expect($project->fresh('stale.txt'))->toBe($stale)
         ->and(file_exists($project->own('stale.txt')))->toBeFalse()
@@ -87,5 +88,9 @@ it('readies a file of its own for a run to write, with no earlier file or link l
         ->and($project->fresh('taken'))->toEqual(CannotJudge::because(sprintf(
             'The gate cannot write %s, which the run it starts reads.',
             $project->own('taken'),
+        )))
+        ->and($project->fresh('filed/b.txt'))->toEqual(CannotJudge::because(sprintf(
+            'The gate cannot write %s, which the run it starts reads.',
+            $project->own('filed/b.txt'),
         )));
 });
