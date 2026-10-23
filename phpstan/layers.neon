@@ -307,6 +307,8 @@ parameters:
                 - src/Adapter/Pest/Grouping/HoldsGroups.php
                 # The plugin names each test from the class Pest built for it (ADR-0014).
                 - src/Adapter/Pest/Recording/Naming.php
+                # PhpSpec's extension reads #[Holds] from the spec and the example PhpSpec hands it (ADR-0027).
+                - src/Adapter/PhpSpec/Example.php
 
     disallowedSuperglobals:
         # --- B6: the environment, read the other way -----------------------------

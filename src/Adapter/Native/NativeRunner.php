@@ -154,12 +154,12 @@ final readonly class NativeRunner implements Runner
     /**
      * `#[Holds]` is read as groups, the gate lays each mutant's limit itself
      * and can raise it, and each shard reads the map the plan handed on. It
-     * stops each mutant at its first failing test, and runs a mutant per
-     * core at once (ADR-0023).
+     * stops each mutant at its first failing test, runs a mutant per core at
+     * once (ADR-0023), and its tests are in the style its framework's are.
      */
     public function behaviour(): RunnerBehaviour
     {
-        return RunnerBehaviour::standard()->runningPerCore();
+        return RunnerBehaviour::standard()->runningPerCore()->writingTestsIn($this->framework->testStyle());
     }
 
     /** These suites' tests and their groups, as the framework lists them into a file; or why it lists none. */

@@ -113,6 +113,7 @@ use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveEcho;
+use NightWorksIO\MutationGate\Tests\Support\NativePhpSpec;
 use NightWorksIO\MutationGate\Tests\Support\NativePhpUnit;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Wirings;
@@ -639,6 +640,24 @@ it('tells the PHPUnit runner the bounds of each mutant\'s limit, timeouts.second
             Configs::options((string) json_encode(['timeout' => 45.0, 'most' => 90.0, 'mutators' => $mutators])),
             BuiltinRunner::PhpUnit,
             NativePhpUnit::framework(...),
+            ComposerVendor::of('.'),
+            new CapDirectory(),
+            new LocalProcesses(new SystemClock()),
+        ));
+})->group(...$holds);
+
+it('tells the PhpSpec runner the bounds of each mutant\'s limit and the mutators of the default set, as it tells the PHPUnit runner', function (): void {
+    $registry = new DefaultExtension()->extend(Wirings::registry());
+    $set = $registry->registered(ExtensionPoint::MutatorSet, MutatorSet::defaultName());
+    $mutators = $set instanceof MutatorSet ? [...$set] : [];
+    $adapters = new Wiring($registry, Variables::of([]), Wirings::detected())
+        ->adapters(Flows::settings(Runner::phpspec(), Timeouts::seconds(45), Timeouts::most(90)), Directory::at(Flows::project()));
+
+    expect($mutators)->not->toBe([])
+        ->and($adapters instanceof Adapters ? $adapters->runner : $adapters)->toEqual(NativeRunner::fromOptions(
+            Configs::options((string) json_encode(['tests' => ['spec'], 'timeout' => 45.0, 'most' => 90.0, 'mutators' => $mutators])),
+            BuiltinRunner::PhpSpec,
+            NativePhpSpec::framework(...),
             ComposerVendor::of('.'),
             new CapDirectory(),
             new LocalProcesses(new SystemClock()),

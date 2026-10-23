@@ -35,6 +35,12 @@ final readonly class SuiteDirectory
         return new self(TestsDirectory::conventional(), self::SUFFIX);
     }
 
+    /** The same directory inside a package, spelt from the project's root, with the same suffix. */
+    public function inPackage(Path $package): self
+    {
+        return new self($package->child($this->path), $this->suffix);
+    }
+
     /** The directory itself. */
     public function path(): Path
     {

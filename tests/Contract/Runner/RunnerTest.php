@@ -127,6 +127,7 @@ $onDisk = [
     'pest' => fn(): Library => Library::installed('pest'),
     'infection' => fn(): Library => Library::installed('infection'),
     'phpunit' => fn(): Library => Library::installed('phpunit'),
+    'phpspec' => fn(): Library => Library::installed('phpspec'),
 ];
 
 $libraries = ['the fake' => fn(): Library => Library::fake(), ...$onDisk];
@@ -157,12 +158,12 @@ it('behaves consistently: every key reads only groups of its suite', function (L
     'pest patched' => fn(): Library => Library::installed('pest patched'),
 ])->group(...$holds);
 
-it('lists the group that holds a path, with its tests, and the canary, among the suite\'s groups', function (Library $library): void {
+it('lists the group that holds a path, with its tests, and the canary where its tests hold it, among the suite\'s groups', function (Library $library): void {
     $groups = $library->runner()->listing(Withheld::standard(), Suites::all());
 
     expect($groups instanceof TestListing && $groups->groups()->has(Group::named('holds:src/Held.php')))->toBeTrue()
         ->and($groups instanceof TestListing ? count($groups->inGroup(Group::named('holds:src/Held.php'))) : 0)->toBeGreaterThan(0)
-        ->and($groups instanceof TestListing && $groups->groups()->has(Library::canary()))->toBeTrue();
+        ->and($groups instanceof TestListing && $groups->groups()->has(Library::canary()))->toBe($library->isCanaried());
 })->with($libraries)->group(...$holds);
 
 it('times a run of no test, started as a mutant\'s own run', function (Library $library): void {
@@ -729,3 +730,7 @@ it('cannot judge a directory that holds no project it can run', function (Librar
     expect($library->runner()->rootedAt(Path::of('src'), $library->packageTests()))->toBeInstanceOf(CannotJudge::class)
         ->and($library->outside()->rootedAt(Path::of('nowhere'), $library->packageTests()))->toBeInstanceOf(CannotJudge::class);
 })->with($libraries)->group(...$holds);
+
+it('has the PhpSpec library installed wherever the PhpSpec runner contracts run', function (): void {
+    expect(Library::isPhpSpecInstalled())->toBeTrue();
+})->skip(fn(): bool => getenv('RUNNER_CONTRACTS') !== 'phpspec', 'only the PhpSpec runner contracts job installs its library')->group(...$holds);

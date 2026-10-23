@@ -39,14 +39,17 @@ class Outputs(unittest.TestCase):
     def test_runs_only_the_legs_whose_adapter_or_fixture_changed(self):
         cases = {
             "src/Adapter/Pest/Plugin.php": ["pest"],
-            "src/Attribute/Holds.php": ["pest"],
+            "src/Attribute/Holds.php": ["pest", "phpspec"],
             "tests/Contract/Runner/fixture/src/Money.php": ["pest"],
             "src/Adapter/Infection/Infection.php": ["infection-12", "infection-13"],
             "tests/Contract/Runner/infection-fixture/composer.lock": ["infection-12", "infection-13"],
-            "src/Adapter/Native/NativeRunner.php": ["phpunit"],
-            "src/Core/Native/Framework.php": ["phpunit"],
+            "src/Adapter/Native/NativeRunner.php": ["phpspec", "phpunit"],
+            "src/Core/Native/Framework.php": ["phpspec", "phpunit"],
             "src/Adapter/PhpUnit/PhpUnitFramework.php": ["phpunit"],
             "bin/mutation-gate-worker": ["phpunit"],
+            "src/Adapter/PhpSpec/PhpSpecFramework.php": ["phpspec"],
+            "bin/mutation-gate-phpspec": ["phpspec"],
+            "tests/Contract/Runner/phpspec-fixture/composer.lock": ["phpspec"],
             "src/Adapter/PhpStan/PhpStan.php": ["analysers"],
             "src/Core/Analysis/MutantCheck.php": ["analysers"],
             "tests/Contract/StaticChecker/StaticCheckerTest.php": ["analysers"],
@@ -55,7 +58,7 @@ class Outputs(unittest.TestCase):
             self.assertEqual(legs(scope.outputs("pull_request", [path])), expected, path)
 
     def test_runs_every_runner_leg_for_the_runner_contract_itself_and_its_other_fixtures(self):
-        runners = ["infection-12", "infection-13", "pest", "phpunit"]
+        runners = ["infection-12", "infection-13", "pest", "phpspec", "phpunit"]
         for path in ("tests/Contract/Runner/KillsTest.php", "tests/Contract/Runner/stall/a.php"):
             self.assertEqual(legs(scope.outputs("pull_request", [path])), runners, path)
 
@@ -86,6 +89,7 @@ class Outputs(unittest.TestCase):
         for path in measured:
             self.assertEqual(scope.outputs("pull_request", [path])["warm"], "true", path)
         self.assertEqual(scope.outputs("pull_request", ["src/Adapter/Pest/Pest.php"])["warm"], "false")
+        self.assertEqual(scope.outputs("pull_request", ["src/Adapter/PhpSpec/Launch.php"])["warm"], "false")
 
     def test_takes_a_file_for_a_directory_only_where_it_is_one(self):
         self.assertEqual(legs(scope.outputs("pull_request", ["src/Adapter/PestLike.php"])), [])

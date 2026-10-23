@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Project\SuiteConfig;
 use NightWorksIO\MutationGate\Cli\Flow\Suite;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -25,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Tree\Package;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
+use NightWorksIO\MutationGate\Tests\Support\ReadSuite;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -59,7 +61,7 @@ function suiteOf(array $files, Fingerprints $listed): Suite
         Tree::at(Path::of('src'), Floor::of(50), Package::at(Path::root())),
         Tree::at(Path::of('packages/a/src'), Floor::of(50), Package::at(Path::of('packages/a'))),
     );
-    $suite = Suite::read($trees, $listed, Directory::at($project));
+    $suite = ReadSuite::of($trees, $listed, Directory::at($project));
 
     return $suite instanceof Suite ? $suite : throw new RuntimeException($suite->why());
 }
@@ -108,7 +110,7 @@ it('cannot judge a test file it cannot read', function () use ($listed): void {
     $project = Scratch::directory();
     Scratch::write($project, 'tests/Nested.php/Inside.php', "<?php\n");
 
-    expect(Suite::read(Flows::trees(), $listed('tests/Nested.php'), Directory::at($project)))
+    expect(ReadSuite::of(Flows::trees(), $listed('tests/Nested.php'), Directory::at($project)))
         ->toEqual(CannotJudge::because(sprintf('%s/tests/Nested.php could not be read.', $project)));
 });
 
@@ -220,9 +222,9 @@ it('cannot judge a suite whose PHPUnit config cannot be read', function () use (
     $unreadable = Scratch::directory();
     mkdir(sprintf('%s/phpunit.xml', $unreadable));
 
-    expect(Suite::read(Flows::trees(), $listed(), Directory::at($project)))
+    expect(ReadSuite::of(Flows::trees(), $listed(), Directory::at($project)))
         ->toEqual(CannotJudge::because('phpunit.xml is not XML, so the test suite it declares cannot be read.'))
-        ->and(Suite::read(Flows::trees(), $listed(), Directory::at($unreadable)))
+        ->and(ReadSuite::of(Flows::trees(), $listed(), Directory::at($unreadable)))
         ->toEqual(CannotJudge::because(sprintf('%s/phpunit.xml could not be read.', $unreadable)));
 });
 
@@ -246,6 +248,19 @@ it('keeps a file a tree holds apart as source, though the config keeps its tests
         ->and($read->outside())->toEqual($listed('phpunit.xml', 'src/Money.php'));
 });
 
+it('reads the tests of every package, however many there are', function () use ($listed): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'packages/a/tests/LimitTest.php', "<?php\n");
+    Scratch::write($project, 'packages/b/tests/RateTest.php', "<?php\n");
+    $trees = Trees::of(
+        Tree::at(Path::of('packages/a/src'), Floor::of(50), Package::at(Path::of('packages/a'))),
+        Tree::at(Path::of('packages/b/src'), Floor::of(50), Package::at(Path::of('packages/b'))),
+    );
+    $read = ReadSuite::of($trees, $listed('packages/a/tests/LimitTest.php', 'packages/b/tests/RateTest.php'), Directory::at($project));
+
+    expect($read instanceof Suite ? $read->outside() : $read)->toEqual(Fingerprints::none());
+});
+
 it('reads the tests of a package from its own PHPUnit config, wildcards expanded, and the conventional ones where it has none', function (): void {
     $project = Scratch::directory();
     Scratch::write($project, 'phpunit.xml', '<phpunit><testsuites><testsuite name="Root"><directory>root-tests</directory></testsuite></testsuites></phpunit>');
@@ -263,9 +278,9 @@ it('reads the tests of a package from its own PHPUnit config, wildcards expanded
     Scratch::write($project, 'packages/plain/composer.json', '{}');
     Scratch::write($project, 'packages/broken/phpunit.xml', '<phpunit><testsuites>');
 
-    expect(Suite::testsIn(Directory::at($project), Path::of('packages/billing')))
+    expect(Suite::testsIn(Directory::at($project), Path::of('packages/billing'), SuiteConfig::PhpUnit))
         ->toEqual(Paths::of(Path::of('spec'), Path::of('modules/ledger/spec')))
-        ->and(Suite::testsIn(Directory::at($project), Path::of('packages/plain')))->toEqual(Paths::of(Path::of('tests')))
-        ->and(Suite::testsIn(Directory::at($project), Path::of('packages/broken')))
+        ->and(Suite::testsIn(Directory::at($project), Path::of('packages/plain'), SuiteConfig::PhpUnit))->toEqual(Paths::of(Path::of('tests')))
+        ->and(Suite::testsIn(Directory::at($project), Path::of('packages/broken'), SuiteConfig::PhpUnit))
         ->toEqual(CannotJudge::because('phpunit.xml is not XML, so the test suite it declares cannot be read.'));
 });

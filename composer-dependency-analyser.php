@@ -44,6 +44,7 @@ return (new Configuration())
     ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/interceptor')
     ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/twins')
     ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/phpunit-fixture')
+    ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/phpspec-fixture')
     ->addPathToExclude(__DIR__ . '/tests/Contract/StaticChecker/fixture')
     ->ignoreErrorsOnPackages(
         [
@@ -63,6 +64,10 @@ return (new Configuration())
             // S2 — conflict-only: it fails resolution when a dependency has a
             // published advisory, and ships no code to name.
             'roave/security-advisories',
+            // A floor only: PhpSpec's dispatcher implements these contracts,
+            // and their releases before 3.5 declare implicitly nullable
+            // parameters, which PHP 8.4 deprecates.
+            'symfony/event-dispatcher-contracts',
         ],
         [ErrorType::UNUSED_DEPENDENCY],
     )
@@ -92,6 +97,15 @@ return (new Configuration())
     // contract, and load only in Infection's own process, where
     // infection/infection has installed it (ADR-0021).
     ->ignoreErrorsOnPackages(['infection/mutator'], [ErrorType::DEV_DEPENDENCY_IN_PROD])
+    // The PhpSpec adapter runs only in a project that runs PhpSpec, which
+    // installs it; its launcher and extension load only in PhpSpec's own
+    // process. composer.json suggests it.
+    ->ignoreErrorsOnPackages(['phpspec/phpspec'], [ErrorType::DEV_DEPENDENCY_IN_PROD])
+    // PhpSpec's own dependency, installed wherever phpspec/phpspec is: its
+    // events reach the extension's listeners as its dispatcher's subscribers.
+    // The package's own development holds it at the Symfony releases the
+    // package supports.
+    ->ignoreErrorsOnPackages(['symfony/event-dispatcher'], [ErrorType::DEV_DEPENDENCY_IN_PROD])
     // Infection's own dependencies, installed wherever infection/infection
     // is: the tests a patched Infection hands the gate's silence limit are its
     // test framework adapter's, and the diff its mutant holds is deferred,

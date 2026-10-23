@@ -11,7 +11,6 @@ use DateTimeImmutable;
 use function implode;
 use function is_array;
 
-use NightWorksIO\MutationGate\Adapter\Project\PhpUnitSuite;
 use NightWorksIO\MutationGate\Core\Assertion\TestFiles;
 use NightWorksIO\MutationGate\Core\Assertion\Weakness;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
@@ -44,7 +43,6 @@ use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Removal\Removals;
 use NightWorksIO\MutationGate\Core\Report\SetText;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
-use NightWorksIO\MutationGate\Core\Test\DeclaredSuites;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
@@ -462,10 +460,9 @@ final readonly class Judging
     private function matrixOf(Plan $plan, CoverageMap|CannotJudge $map): KillMatrix
     {
         $names = $plan->names();
-        $configured = Suite::configured($this->adapters->project);
         $matrix = KillMatrix::of($plan->briefing()->matrix(), $map instanceof CoverageMap ? $map : CoverageMap::empty())
             ->cannotBeFull($this->adapters->runner->behaviour()->whyNotFull())
-            ->grouping($configured instanceof PhpUnitSuite ? $configured->suites() : DeclaredSuites::none());
+            ->grouping($this->adapters->suite->suites());
 
         return $names instanceof TestNames ? $matrix->named($names) : $matrix;
     }

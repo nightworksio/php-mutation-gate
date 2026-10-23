@@ -89,7 +89,11 @@ final readonly class Since
         $read = match (true) {
             $trees instanceof CannotJudge => $trees,
             $files instanceof CannotTell => CannotJudge::because($files->why()),
-            default => $this->graphOf(Suite::read($trees, $files, $this->adapters->project), $trees, $files),
+            default => $this->graphOf(
+                Suite::read($trees, $files, $this->adapters->project, $this->adapters->suite),
+                $trees,
+                $files,
+            ),
         };
 
         return $read instanceof CannotJudge ? CannotJudge::because(sprintf(self::UNREAD, $read->why())) : $read;

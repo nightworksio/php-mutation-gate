@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Matrix\NotFull;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Parallelism;
 use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Test\Group;
@@ -22,7 +23,8 @@ it('lists holds as groups, has no group in every key and opens no shard of its o
 });
 
 it('writes its tests in the style it is told', function (): void {
-    expect(RunnerBehaviour::standard()->writingTestsIn(AssertionStyle::Pest)->testStyle())->toBe(AssertionStyle::Pest);
+    expect(RunnerBehaviour::standard()->writingTestsIn(AssertionStyle::Pest)->testStyle())->toBe(AssertionStyle::Pest)
+        ->and(RunnerBehaviour::standard()->writingTestsIn(NotGiven::value())->testStyle())->toEqual(NotGiven::value());
 });
 
 it('says each way it behaves otherwise, and nothing more', function (): void {

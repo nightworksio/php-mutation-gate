@@ -55,6 +55,9 @@ it('chooses the runner that is installed', function (array $installed, BuiltinRu
     'Pest' => [['pestphp/pest', 'pestphp/pest-plugin-mutate', 'phpunit/phpunit'], BuiltinRunner::Pest],
     'Infection' => [['infection/infection', 'phpunit/phpunit'], BuiltinRunner::Infection],
     'PHPUnit alone' => [['phpunit/phpunit'], BuiltinRunner::PhpUnit],
+    'PhpSpec alone' => [['phpspec/phpspec', 'phpunit/php-code-coverage'], BuiltinRunner::PhpSpec],
+    'PhpSpec under Infection' => [['infection/infection', 'phpspec/phpspec'], BuiltinRunner::Infection],
+    'PHPUnit and PhpSpec under Infection' => [['infection/infection', 'phpunit/phpunit', 'phpspec/phpspec'], BuiltinRunner::Infection],
 ]);
 
 it('asks for a choice when both runners are installed', function () use ($detected): void {
@@ -65,9 +68,32 @@ it('asks for a choice when both runners are installed', function () use ($detect
         ));
 });
 
+it('asks for a choice when both PHPUnit and PhpSpec are installed, and neither Pest nor Infection', function () use ($detected): void {
+    expect($detected('', ['phpunit/phpunit', 'phpspec/phpspec'])->runner())
+        ->toEqual(CannotJudge::because(
+            'Both phpunit/phpunit and phpspec/phpspec are installed. '
+        . 'Choose one: set runner in the config, or pass --runner.',
+        ));
+});
+
+it('names the runners a person must choose between, or none where zero-config chooses', function (array $installed, array $choices) use ($detected): void {
+    expect($detected('', $installed)->choices())->toBe($choices);
+})->with([
+    'Pest\'s plugin and Infection' => [['infection/infection', 'pestphp/pest-plugin-mutate'], [BuiltinRunner::Pest, BuiltinRunner::Infection]],
+    'PHPUnit and PhpSpec' => [['phpunit/phpunit', 'phpspec/phpspec'], [BuiltinRunner::PhpUnit, BuiltinRunner::PhpSpec]],
+    'PHPUnit and PhpSpec under Infection' => [['infection/infection', 'phpunit/phpunit', 'phpspec/phpspec'], []],
+    'PHPUnit alone' => [['phpunit/phpunit'], []],
+]);
+
+it('names no runner to choose between where nothing lists what is installed', function (): void {
+    $project = Scratch::directory();
+
+    expect(new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project)))->choices())->toBe([]);
+});
+
 it('cannot judge without a runner installed', function () use ($detected): void {
     expect($detected('', ['symfony/console'])->runner())->toEqual(CannotJudge::because(
-        'None of pestphp/pest-plugin-mutate, infection/infection and phpunit/phpunit is installed, '
+        'None of pestphp/pest-plugin-mutate, infection/infection, phpunit/phpunit and phpspec/phpspec is installed, '
         . 'so nothing can mutate. Install one of them.',
     ));
 });

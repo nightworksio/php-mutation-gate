@@ -13,6 +13,7 @@ use function is_string;
 use function mkdir;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Composer\Autoloader;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -30,9 +31,6 @@ use function unlink;
  */
 final readonly class Project
 {
-    /** Composer's autoloader, in the vendor directory. */
-    private const string AUTOLOADER = 'autoload.php';
-
     private const string UNWRITTEN = 'The gate cannot write %s, which the run it starts reads.';
 
     private function __construct(
@@ -93,7 +91,7 @@ final readonly class Project
     /** Composer's autoloader in the vendor directory the framework is installed in. */
     public function autoloader(): string
     {
-        return $this->absolute($this->vendor->child(Path::of(self::AUTOLOADER)));
+        return $this->absolute(Autoloader::fileIn($this->vendor));
     }
 
 

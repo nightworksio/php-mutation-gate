@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Project;
 
-use function array_any;
 use function array_values;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -24,13 +23,11 @@ use function sprintf;
 use function trim;
 
 /**
- * The test suite the project's PHPUnit config declares: the `<directory>`
- * and `<file>` of every `<testsuite>`, less each `<exclude>`, as PHPUnit
- * itself, and the runners over it, read them, each directory with the suffix
- * that tells its files of test cases, and each `<testsuite>` by its name. A
- * `<directory>` with a wildcard is each directory it matches, as PHPUnit
- * expands it. Without a config, or one whose directories are none, the tests
- * are in the conventional directory.
+ * The test suite a PHPUnit config declares: the `<directory>` and `<file>` of
+ * every `<testsuite>`, less each `<exclude>`, as PHPUnit itself, and the
+ * runners over it, read them, each directory with the suffix that tells its
+ * files of test cases, and each `<testsuite>` by its name. A `<directory>`
+ * with a wildcard is each directory it matches, as PHPUnit expands it.
  */
 final readonly class PhpUnitSuite
 {
@@ -51,23 +48,8 @@ final readonly class PhpUnitSuite
 
     private const string NOT_XML = '%s is not XML, so the test suite it declares cannot be read.';
 
-    /** @param non-empty-list<SuiteDirectory> $directories */
-    private function __construct(
-        private array $directories,
-        private Paths $files,
-        private Paths $excluded,
-        private DeclaredSuites $suites,
-    ) {
-    }
-
-    /** The tests in the conventional directory, and nothing left out, in no suite of a name. */
-    public static function conventional(): self
-    {
-        return new self([SuiteDirectory::conventional()], Paths::none(), Paths::none(), DeclaredSuites::none());
-    }
-
     /** The suite a PHPUnit config, read from this file, declares, its wildcards expanded by a glob. */
-    public static function declaredIn(Contents $config, Path $file, DirectoryGlob $glob): self|CannotJudge
+    public static function declaredIn(Contents $config, Path $file, DirectoryGlob $glob): TestSuite|CannotJudge
     {
         $xml = simplexml_load_string($config->text(), options: Xml::QUIET);
 
@@ -75,60 +57,13 @@ final readonly class PhpUnitSuite
             return CannotJudge::because(sprintf(self::NOT_XML, $file->value()));
         }
 
-        $directories = self::directoriesIn($xml, self::DIRECTORIES, $glob);
-
-        return new self(
-            $directories === [] ? [SuiteDirectory::conventional()] : $directories,
+        return TestSuite::of(
+            self::directoriesIn($xml, self::DIRECTORIES, $glob),
+            SuiteDirectory::conventional(),
             self::pathsIn($xml, self::FILES),
             self::excludedIn($xml, self::EXCLUDED, $glob),
             self::suitesIn($xml, $glob),
         );
-    }
-
-    /** Whether a file is one of the suite's: in a test directory or named, and not left out. */
-    public function holds(Path $file): bool
-    {
-        return ($this->files->has($file) || array_any(
-            $this->directories,
-            static fn(SuiteDirectory $directory): bool => $directory->holds($file),
-        )) && ! $this->excludes($file);
-    }
-
-    /** Whether a file is one of the suite's files of test cases: named, or with its directory's suffix. */
-    public function holdsTestCase(Path $file): bool
-    {
-        return $this->holds($file) && ($this->files->has($file) || array_any(
-            $this->directories,
-            static fn(SuiteDirectory $directory): bool => $directory->holdsTestCase($file),
-        ));
-    }
-
-    /**
-     * The directories the tests are in, each with the suffix of its files of test cases.
-     *
-     * @return non-empty-list<SuiteDirectory>
-     */
-    public function directories(): array
-    {
-        return $this->directories;
-    }
-
-    /** Where the tests are: each directory once, in the order the config names them. */
-    public function paths(): Paths
-    {
-        $paths = Paths::none();
-
-        foreach ($this->directories as $directory) {
-            $paths = $paths->with($directory->path());
-        }
-
-        return $paths;
-    }
-
-    /** Each `<testsuite>` the config declares, by its name, in its order (ADR-0025). */
-    public function suites(): DeclaredSuites
-    {
-        return $this->suites;
     }
 
     /** Each `<testsuite>` of a config, by its name, with its own directories, files and excludes. */
@@ -201,10 +136,5 @@ final readonly class PhpUnitSuite
         }
 
         return Paths::of(...$paths);
-    }
-
-    private function excludes(Path $file): bool
-    {
-        return array_any([...$this->excluded], static fn(Path $excluded): bool => $file->within($excluded));
     }
 }

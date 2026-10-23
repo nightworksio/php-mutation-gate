@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Project\DirectoryGlob;
-use NightWorksIO\MutationGate\Adapter\Project\PhpUnitSuite;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
@@ -12,24 +10,25 @@ use NightWorksIO\MutationGate\Cli\Flow\Stubbing;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Absent;
-use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Stub\Stub;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
@@ -73,20 +72,18 @@ it('offers the ignore as a PHP config writes one where the project has no config
         ->toContain("\n    // Ignore::mutant('49e02fb39669', because: ''),\n");
 });
 
-it('cannot place a test with no covering file where the trees or the PHPUnit config cannot be read', function (string $broken): void {
-    $project = Flows::project();
+it('writes no stub where the runner\'s tests are in no style a stub is written in, as PhpSpec\'s specs are', function (): void {
+    $runner = RunnerFake::ofTheFixture()->behaving(RunnerBehaviour::standard()->writingTestsIn(NotGiven::value()));
+    $stub = stubbingOf(Flows::project(), $runner);
 
-    if ($broken === 'config') {
-        Scratch::write($project, 'phpunit.xml', '<phpunit');
-    }
+    expect($stub instanceof CannotJudge ? $stub->why() : $stub)->toBe('stub writes Pest and PHPUnit tests, and the runner\'s tests are neither.');
+});
 
-    $stub = $broken === 'trees' ? stubbingOf($project, new TreeSourceFake(CannotJudge::because('No trees.'))) : stubbingOf($project);
+it('cannot place a test with no covering file where the trees cannot be read', function (): void {
+    $stub = stubbingOf(Flows::project(), new TreeSourceFake(CannotJudge::because('No trees.')));
 
-    $suite = PhpUnitSuite::declaredIn(Contents::of('<phpunit'), Path::of('phpunit.xml'), DirectoryGlob::from(Root::here()));
-    $unread = $suite instanceof CannotJudge ? $suite->why() : 'a suite';
-
-    expect($stub instanceof CannotJudge ? $stub->why() : $stub)->toBe($broken === 'trees' ? 'No trees.' : $unread);
-})->with(['trees', 'config']);
+    expect($stub instanceof CannotJudge ? $stub->why() : $stub)->toBe('No trees.');
+});
 
 /** A stub for a survivor of the security set's constant-time mutator, with these mutators registered and turned on. */
 function stubbingPinned(Enabled $mutators): Stub|CannotJudge

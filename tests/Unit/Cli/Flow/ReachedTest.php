@@ -42,6 +42,7 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\JudgedCommits;
 use NightWorksIO\MutationGate\Tests\Support\Locks;
+use NightWorksIO\MutationGate\Tests\Support\ReadSuite;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 
 afterEach(function (): void {
@@ -112,7 +113,7 @@ function reachedReading(
 /** The suite the checkout lists, as the project holds it. */
 function reachedSuite(ChangeSourceFake $checkout, Adapters $adapters): Suite
 {
-    $suite = Suite::read(Flows::trees(), $checkout->fingerprints(), $adapters->project);
+    $suite = ReadSuite::of(Flows::trees(), $checkout->fingerprints(), $adapters->project);
 
     return $suite instanceof Suite ? $suite : throw new RuntimeException($suite->why());
 }

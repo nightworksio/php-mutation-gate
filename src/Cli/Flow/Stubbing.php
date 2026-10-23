@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
-use NightWorksIO\MutationGate\Adapter\Project\PhpUnitSuite;
 use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
@@ -53,6 +52,8 @@ final readonly class Stubbing
         %s holds %s tests, so a %s test cannot go in it. Leave out --style to write one in its style.
         SAID;
 
+    private const string UNWRITTEN = 'stub writes Pest and PHPUnit tests, and the runner\'s tests are neither.';
+
     public function __construct(private Composed $composed)
     {
     }
@@ -74,8 +75,23 @@ final readonly class Stubbing
             : $checked;
     }
 
+    /** The stub, where the runner's tests are in a style a stub is written in; or why there is none. */
     private function stubbed(Subject $subject, Explanation $explanation, AssertionStyle|Absent $asked): Stub|CannotJudge
     {
+        $runs = $this->composed->adapters->runner->behaviour()->testStyle();
+
+        return $runs instanceof NotGiven
+            ? CannotJudge::because(self::UNWRITTEN)
+            : $this->styled($subject, $explanation, $asked, $runs);
+    }
+
+    /** The stub, following the nearest covering test file, or in the runner's style where none covers it. */
+    private function styled(
+        Subject $subject,
+        Explanation $explanation,
+        AssertionStyle|Absent $asked,
+        AssertionStyle $runs,
+    ): Stub|CannotJudge {
         $nearest = $this->nearest($subject, $explanation);
         $target = $nearest instanceof TestFile ? $nearest : $this->placed($subject);
 
@@ -83,9 +99,7 @@ final readonly class Stubbing
             return $target;
         }
 
-        $followed = $target instanceof TestFile
-            ? $target->style()
-            : $this->composed->adapters->runner->behaviour()->testStyle();
+        $followed = $target instanceof TestFile ? $target->style() : $runs;
         $style = $asked instanceof AssertionStyle ? $asked : $followed;
 
         if ($target instanceof TestFile && $style !== $followed) {
@@ -157,11 +171,11 @@ final readonly class Stubbing
      */
     private function placed(Subject $subject): TestFile|Path|CannotJudge
     {
-        $suite = Suite::configured($this->composed->adapters->project);
+        $suite = $this->composed->adapters->suite;
         $trees = $this->composed->adapters->trees->trees();
 
-        if (! $suite instanceof PhpUnitSuite || $trees instanceof CannotJudge) {
-            return $suite instanceof CannotJudge ? $suite : $trees;
+        if ($trees instanceof CannotJudge) {
+            return $trees;
         }
 
         $source = $subject->first()->mutant()->location()->file();

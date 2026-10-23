@@ -48,6 +48,18 @@ final readonly class Filter
         return $this->compilable($this->pattern) || $this->compilable(sprintf(self::WRAPPED, $this->pattern));
     }
 
+    /**
+     * Whether the filter selects a test, by its id, as PHPUnit reads the
+     * pattern: as written where PCRE compiles it, and wrapped where it does
+     * not. One it cannot compile either way selects no test.
+     */
+    public function selects(TestId $test): bool
+    {
+        $expression = $this->compilable($this->pattern) ? $this->pattern : sprintf(self::WRAPPED, $this->pattern);
+
+        return $this->compilable($expression) && preg_match($expression, $test->value()) === 1;
+    }
+
     /** Whether PCRE compiles the expression; one it cannot is also raised as a warning the answer makes needless. */
     private function compilable(string $expression): bool
     {

@@ -18,7 +18,8 @@ use NightWorksIO\MutationGate\Adapter\Infection\StaticAnalysis;
 use NightWorksIO\MutationGate\Adapter\Native\NativeOptions;
 use NightWorksIO\MutationGate\Adapter\Opcache\Prover;
 use NightWorksIO\MutationGate\Adapter\Pest\PestOptions;
-use NightWorksIO\MutationGate\Adapter\Project\PhpUnitSuite;
+use NightWorksIO\MutationGate\Adapter\Project\SuiteConfig;
+use NightWorksIO\MutationGate\Adapter\Project\TestSuite;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\Config\DeclaredTrees;
 use NightWorksIO\MutationGate\Cli\Config\Detected;
@@ -103,8 +104,8 @@ final readonly class Wiring
         $chosen = new Chosen($this->extensions);
         $source = BuiltinVersionControl::in($this->environment)->named();
         $checker = $this->checker($settings->staticCheck(), $chosen);
-        $suite = Suite::configured($project);
-        $runner = $suite instanceof PhpUnitSuite
+        $suite = Suite::configured($project, SuiteConfig::ofRunner($settings->runner()->choice()->use()->value()));
+        $runner = $suite instanceof TestSuite
             ? $chosen->runner($this->runnerChoice($settings, $checker, $mutators, $suite))
             : $suite;
         $found = $chosen->treeSource($settings->treeSource());
@@ -117,6 +118,7 @@ final readonly class Wiring
         $proofs = $this->kept($settings, $this->configured($settings, $chosen, $ci, $repository));
 
         return match (true) {
+            ! $suite instanceof TestSuite => $suite,
             ! $runner instanceof Runner => $runner,
             $checker instanceof Invalid, $checker instanceof CannotJudge => $checker,
             ! $trees instanceof TreeSource => $trees,
@@ -127,6 +129,7 @@ final readonly class Wiring
             ! $repository instanceof Repository => $repository,
             default => new Adapters(
                 $runner,
+                $suite,
                 $checker,
                 $checker instanceof StaticChecker ? $this->identified($checker, $withheld, $project) : $checker,
                 $trees,
@@ -201,7 +204,7 @@ final readonly class Wiring
         Settings $settings,
         StaticChecker|NoAnalyser|Invalid|CannotJudge $checker,
         EnabledMutators $mutators,
-        PhpUnitSuite $suite,
+        TestSuite $suite,
     ): Choice {
         $runner = $settings->runner()->choice();
         $use = $runner->use()->value();
@@ -224,7 +227,8 @@ final readonly class Wiring
 
         return match (true) {
             $use === BuiltinRunner::Infection->value => Choice::of($use, $runner->options()->over($infection)),
-            $use === BuiltinRunner::PhpUnit->value => Choice::of($use, $runner->options()->over($native)),
+            $use === BuiltinRunner::PhpUnit->value,
+            $use === BuiltinRunner::PhpSpec->value => Choice::of($use, $runner->options()->over($native)),
             $use === BuiltinRunner::Pest->value => Choice::of(
                 $use,
                 $runner->options()->over(Json::object(...[
@@ -238,7 +242,7 @@ final readonly class Wiring
     }
 
     /** The directories a suite's tests are in, as a runner's `tests` option holds them. */
-    private function testsOf(PhpUnitSuite $suite): Json
+    private function testsOf(TestSuite $suite): Json
     {
         $tests = [];
 

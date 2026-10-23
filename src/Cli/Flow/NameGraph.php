@@ -30,7 +30,7 @@ final readonly class NameGraph
         $suite = match (true) {
             $trees instanceof CannotJudge => $trees,
             $files instanceof CannotTell => CannotJudge::because($files->why()),
-            default => Suite::read($trees, $files, $this->adapters->project),
+            default => Suite::read($trees, $files, $this->adapters->project, $this->adapters->suite),
         };
 
         return $suite instanceof Suite ? $this->of($suite) : $suite;

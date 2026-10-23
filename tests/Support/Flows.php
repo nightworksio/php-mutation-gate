@@ -6,9 +6,12 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Opcache\Prover;
+use NightWorksIO\MutationGate\Adapter\Project\SuiteConfig;
+use NightWorksIO\MutationGate\Adapter\Project\TestSuite;
 use NightWorksIO\MutationGate\Cli\Flow\Adapters;
 use NightWorksIO\MutationGate\Cli\Flow\DecidingConfig;
 use NightWorksIO\MutationGate\Cli\Flow\Setup;
+use NightWorksIO\MutationGate\Cli\Flow\Suite;
 use NightWorksIO\MutationGate\Cli\Flow\Workspace;
 use NightWorksIO\MutationGate\Config\Floor as NewCodeFloor;
 use NightWorksIO\MutationGate\Config\Gate;
@@ -180,6 +183,7 @@ final readonly class Flows
 
         return new Adapters(
             self::given(Runner::class, RunnerFake::ofTheFixture(), $ports),
+            self::given(TestSuite::class, self::suiteOf($project), $ports),
             $checker,
             $checker instanceof StaticChecker ? $checker->identity($withheld) : $checker,
             self::given(TreeSource::class, new TreeSourceFake(self::trees()), $ports),
@@ -229,6 +233,14 @@ final readonly class Flows
         $lost = CannotTell::because('git is not installed.');
 
         return new RepositoryFake($lost, $lost, $lost, $lost);
+    }
+
+    /** The suite a project's PHPUnit config declares, as the wiring reads it; the conventional one where it cannot be read. */
+    private static function suiteOf(string $project): TestSuite
+    {
+        $suite = Suite::configured(Directory::at($project), SuiteConfig::PhpUnit);
+
+        return $suite instanceof TestSuite ? $suite : SuiteConfig::PhpUnit->conventional();
     }
 
     /**

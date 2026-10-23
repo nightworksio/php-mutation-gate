@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Native\Project;
 use NightWorksIO\MutationGate\Adapter\Native\TestFiles;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Extension;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnitFramework;
+use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Coverage\Fresh;
@@ -71,7 +72,8 @@ it('is PHPUnit, run as the phpunit runner, defined by the PHPUnit config in the 
     expect($framework->program())->toBe(Program::PhpUnit)
         ->and($framework->runner())->toBe(BuiltinRunner::PhpUnit)
         ->and($framework->definitions())->toEqual(Paths::of(Path::of('phpunit.xml'), Path::of('phpunit.dist.xml'), Path::of('phpunit.xml.dist')))
-        ->and($framework->tests())->toBeInstanceOf(TestFiles::class);
+        ->and($framework->tests())->toBeInstanceOf(TestFiles::class)
+        ->and($framework->testStyle())->toBe(AssertionStyle::PhpUnit);
 });
 
 it('names the packages it drives at a version the runner supports, and cannot judge an older PHPUnit', function (): void {

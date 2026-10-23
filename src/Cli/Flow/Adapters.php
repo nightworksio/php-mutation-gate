@@ -10,7 +10,7 @@ use function in_array;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Opcache\Prover;
-use NightWorksIO\MutationGate\Adapter\Project\PhpUnitSuite;
+use NightWorksIO\MutationGate\Adapter\Project\TestSuite;
 use NightWorksIO\MutationGate\Core\Analysis\AnalyserIdentity;
 use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -70,6 +70,7 @@ final readonly class Adapters
 
     public function __construct(
         public Runner $runner,
+        public TestSuite $suite,
         public StaticChecker|NoAnalyser $checker,
         public AnalyserIdentity|NoAnalyser|CannotJudge $analyser,
         public TreeSource $trees,
@@ -126,11 +127,6 @@ final readonly class Adapters
     public function inSuite(SuiteName $suite): self|CannotJudge
     {
         $declared = $this->declared();
-
-        if ($declared instanceof CannotJudge) {
-            return $declared;
-        }
-
         $asked = Fit::plain($suite->value());
 
         return match (true) {
@@ -143,14 +139,12 @@ final readonly class Adapters
 
     /**
      * The same, its runs' mutants judged by the suites `tests.suites` and
-     * `tests.holding` list (ADR-0002), as the PHPUnit config
-     * declares them; or why they cannot judge them. It reads the config only
-     * where a list names a suite.
+     * `tests.holding` list (ADR-0002), as the config declares them; or why
+     * they cannot judge them.
      */
     public function judgedAmong(JudgingSuites $listed): self|CannotJudge
     {
-        $configured = $listed->namesAny() ? Suite::configured($this->project) : $listed;
-        $resolved = $configured instanceof PhpUnitSuite ? $configured->suites()->listing($listed) : $configured;
+        $resolved = $listed->namesAny() ? $this->suite->suites()->listing($listed) : $listed;
 
         return $resolved instanceof JudgingSuites
             ? clone($this, ['narrowing' => $this->narrowing->amongSuites($resolved)])
@@ -197,21 +191,15 @@ final readonly class Adapters
     }
 
     /**
-     * The name of each suite the PHPUnit config declares; or why the config cannot be read.
+     * The name of each suite the config declares.
      *
-     * @return list<string>|CannotJudge
+     * @return list<string>
      */
-    private function declared(): array|CannotJudge
+    private function declared(): array
     {
-        $configured = Suite::configured($this->project);
-
-        if ($configured instanceof CannotJudge) {
-            return $configured;
-        }
-
         $declared = [];
 
-        foreach ($configured->suites() as $each) {
+        foreach ($this->suite->suites() as $each) {
             $declared[] = $each->name();
         }
 

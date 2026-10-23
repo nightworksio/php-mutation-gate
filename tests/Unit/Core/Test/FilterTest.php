@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\Test\Filter;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 
 it('holds its pattern', function (): void {
     expect(Filter::matching('KernelTest|BootTest')->pattern())->toBe('KernelTest|BootTest');
@@ -30,3 +31,15 @@ it('raises nothing of its own while it finds a pattern PCRE cannot compile', fun
     expect(Filter::matching('(')->compiles())->toBeFalse()
         ->and(error_get_last())->toBeNull();
 });
+
+it('selects a name as PHPUnit reads the pattern: as written where it compiles, wrapped and caseless where it does not', function (string $pattern, string $name, bool $selected): void {
+    expect(Filter::matching($pattern)->selects(TestId::of($name)))->toBe($selected);
+})->with([
+    'wrapped, matching' => ['MoneySpec::it_adds', 'spec\MoneySpec::it_adds_two', true],
+    'wrapped, caseless' => ['moneyspec', 'spec\MoneySpec::it_adds', true],
+    'wrapped, not matching' => ['it_rounds$', 'spec\MoneySpec::it_adds', false],
+    'as written, matching' => ['/::it_adds$/', 'spec\MoneySpec::it_adds', true],
+    'as written, case and all' => ['/moneyspec/', 'spec\MoneySpec::it_adds', false],
+    'nothing' => ['(?!)', 'spec\MoneySpec::it_adds', false],
+    'compiling neither way' => ['(', 'spec\MoneySpec::it_adds(', false],
+]);

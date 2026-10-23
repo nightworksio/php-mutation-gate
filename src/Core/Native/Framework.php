@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Native;
 
+use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -99,4 +100,7 @@ interface Framework
 
     /** Where its tests are. */
     public function tests(): TestLayout;
+
+    /** The style its tests are written in, as a stub of one is; none where it is no style a stub is written in. */
+    public function testStyle(): AssertionStyle|NotGiven;
 }

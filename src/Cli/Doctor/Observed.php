@@ -104,8 +104,8 @@ final readonly class Observed
 
     /**
      * The PHP the chosen runner starts, with the runner's own options, withholding what every run withholds and
-     * every CI's credentials, even where the config cannot be used. The PHPUnit runner turns opcache off on each
-     * mutant's command line.
+     * every CI's credentials, even where the config cannot be used. A runner of the gate's own mutants turns opcache
+     * off on each mutant's command line.
      */
     private function phpOf(Settings|Invalid|CannotJudge $settings): RunnerPhp|CannotJudge
     {
@@ -117,9 +117,9 @@ final readonly class Observed
         $own = $runner === BuiltinRunner::Infection->value ? OwnConfig::in($this->infectionProject()) : [];
         $php = $this->php->describe($withheld, ...($own instanceof OwnConfig ? $own->phpOptions() : []));
 
-        return $php instanceof RunnerPhp && $runner === BuiltinRunner::PhpUnit->value
-            ? $php->turningOpcacheOff()
-            : $php;
+        $native = BuiltinRunner::tryFrom($runner)?->makesItsOwnMutants() === false;
+
+        return $php instanceof RunnerPhp && $native ? $php->turningOpcacheOff() : $php;
     }
 
     private function trees(Settings $settings): Trees|Invalid|CannotJudge
