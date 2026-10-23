@@ -10,6 +10,7 @@
             "exclude": [
                 "src/Adapter/Pest/Bridged.php",
                 "src/Adapter/Pest/Grouping/HoldsGroups.php",
+                "src/Adapter/Pest/Order/Option.php",
                 "src/Adapter/Pest/Order/Reordering.php",
                 "src/Adapter/Pest/Order/Seed.php",
                 "src/Adapter/Pest/Plugin.php",
