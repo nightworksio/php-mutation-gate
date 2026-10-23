@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
 use function array_map;
-use function dirname;
 use function file_get_contents;
 use function is_file;
 
@@ -33,8 +32,7 @@ use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
-
-use function sprintf;
+use NightWorksIO\MutationGate\Core\ThisPackage;
 
 /**
  * PHPUnit, as the native runner runs it (ADR-0023): installed in the
@@ -45,10 +43,7 @@ use function sprintf;
 final readonly class PhpUnitFramework implements Framework
 {
     /** The warm worker's script, in this package's own directory. */
-    private const string WORKER = '%s/bin/mutation-gate-worker';
-
-    /** How many directories up from this file the package's own directory is. */
-    private const int PACKAGE = 3;
+    private const string WORKER = 'mutation-gate-worker';
 
     private const string UNPLACED
         = 'A test that covers it has a line break in its name, and no test file found holds every test that covers it.';
@@ -110,7 +105,7 @@ final readonly class PhpUnitFramework implements Framework
 
     public function workerScript(): string
     {
-        return sprintf(self::WORKER, dirname(__DIR__, self::PACKAGE));
+        return ThisPackage::script(self::WORKER);
     }
 
     /**

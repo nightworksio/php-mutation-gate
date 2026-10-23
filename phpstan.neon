@@ -25,6 +25,7 @@ parameters:
         - phpstan
         - bin/mutation-gate
         - bin/mutation-gate-worker
+        - bin/mutation-gate-phpspec
 
     # The runner contract suite's fixture is a project of its own, with its own
     # dependencies, written as a user's library is rather than to these rules.
@@ -40,6 +41,7 @@ parameters:
             - tests/Contract/Runner/interceptor
             - tests/Contract/Runner/twins
             - tests/Contract/Runner/phpunit-fixture
+            - tests/Contract/Runner/phpspec-fixture
             - tests/Contract/StaticChecker/fixture
 
     # Pest's own annotation, corrected. See the stub.
@@ -120,6 +122,15 @@ parameters:
                 # inert for a CI runner's log (Adapter\Console\InertOutput).
                 - Symfony\Component\Console\Output\ConsoleOutput
                 - Symfony\Component\Console\Output\StreamOutput
+                # PhpSpec's skip, which a maintainer throws to skip an example
+                # before anything of it runs (Adapter\PhpSpec\Selecting).
+                - PhpSpec\Exception\Example\SkippingException
+                # PhpSpec's base of a spec, which the specs the PhpSpec
+                # runner's own tests read extend, as a project's do.
+                - PhpSpec\ObjectBehavior
+                # php-code-coverage's base of a driver, which the fake the
+                # PhpSpec runner's coverage is tested with extends.
+                - SebastianBergmann\CodeCoverage\Driver\Driver
         # A named argument is how a call site says which of two strings is which.
         noNamedArgument:
             enabled: false
@@ -172,6 +183,7 @@ services:
                 - src/Adapter/Console/InertOutput.php # Symfony's OutputInterface hands write() its messages untyped
                 - src/Adapter/Console/InertStream.php # Symfony's OutputInterface hands write() its messages untyped
                 - src/Adapter/Console/Messages.php # Symfony's OutputInterface hands write() its messages untyped
+                - src/Adapter/PhpSpec/Extension.php # PhpSpec's Extension takes its config's parameters untyped
                 - tests/Support/Bucket.php
                 - tests/Support/Cloud.php # Symfony's MockHttpClient hands a responder request options untyped
                 - tests/Support/Commands.php
@@ -257,8 +269,13 @@ services:
                 'NightWorksIO\MutationGate\Core\Php\ReachedFiles':
                     - BITS # the bits of a byte, not a seed's first byte
                     - BIT # each bit of a byte by its place, not an exit code, a status or a length
-                'NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnitFramework':
-                    - PACKAGE # directories from the framework's file up to the package's own, not a word's edits
+                'NightWorksIO\MutationGate\Adapter\PhpSpec\CommandLine':
+                    - RUN # PhpSpec's own command and options, not a record's field or a verdict's origin
+                    - STOP # PhpSpec's option, spelt as PHPUnit's is
+                'NightWorksIO\MutationGate\Adapter\PhpSpec\Selecting':
+                    - FIRST # a maintainer's priority above PhpSpec's own, not a poll's microseconds
+                'NightWorksIO\MutationGate\Core\ThisPackage':
+                    - OWN # directories from this file up to the package's own, not an exit code
                 'NightWorksIO\MutationGate\Adapter\Native\Warm\Workforce':
                     - SLACK # seconds a warm worker may take past its last run, not the ledger's limit
                 'NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan':

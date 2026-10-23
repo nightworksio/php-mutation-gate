@@ -227,7 +227,8 @@ final readonly class Wiring
 
         return match (true) {
             $use === BuiltinRunner::Infection->value => Choice::of($use, $runner->options()->over($infection)),
-            $use === BuiltinRunner::PhpUnit->value => Choice::of($use, $runner->options()->over($native)),
+            $use === BuiltinRunner::PhpUnit->value,
+            $use === BuiltinRunner::PhpSpec->value => Choice::of($use, $runner->options()->over($native)),
             $use === BuiltinRunner::Pest->value => Choice::of(
                 $use,
                 $runner->options()->over(Json::object(...[

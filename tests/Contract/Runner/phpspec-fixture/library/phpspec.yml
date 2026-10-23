@@ -1,0 +1,8 @@
+# The specs are in tests/ and plugins/stock/tests/, so each library's test
+# files have the same paths whatever runs them.
+suites:
+  library:
+    spec_prefix: tests
+  stock:
+    spec_path: plugins/stock
+    spec_prefix: tests

@@ -19,8 +19,8 @@ use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Infection\ProcessShell as InfectionShell;
 use NightWorksIO\MutationGate\Adapter\Infection\Project as InfectionProject;
 use NightWorksIO\MutationGate\Adapter\Native\NativeRunner;
-use NightWorksIO\MutationGate\Adapter\Native\ProcessShell as PhpUnitShell;
-use NightWorksIO\MutationGate\Adapter\Native\Project as PhpUnitProject;
+use NightWorksIO\MutationGate\Adapter\Native\ProcessShell as NativeShell;
+use NightWorksIO\MutationGate\Adapter\Native\Project as NativeProject;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell;
@@ -57,6 +57,7 @@ use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Port\Runner;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
+use NightWorksIO\MutationGate\Tests\Support\NativePhpSpec;
 use NightWorksIO\MutationGate\Tests\Support\NativePhpUnit;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 use NightWorksIO\MutationGateDefault\DefaultExtension;
@@ -95,6 +96,13 @@ final class Library
      * runner contracts steps install.
      */
     public const string PHPUNIT_DIRECTORY = 'tests/Contract/Runner/phpunit-fixture/library';
+
+    /**
+     * The PhpSpec runner's library, the same code, specified by PhpSpec, in
+     * the PhpSpec runner's fixture, whose vendor directory, one level up, its
+     * own runner contracts steps install.
+     */
+    public const string PHPSPEC_DIRECTORY = 'tests/Contract/Runner/phpspec-fixture/library';
 
     public const string CANARY = 'mutation-canary';
 
@@ -174,7 +182,7 @@ final class Library
     ];
 
     /** @var array<string, array{string, MutatorFamily}> the default set's mutator for each change, and its family */
-    private const array PHPUNIT = [
+    private const array NATIVE = [
         'adds' => ['default/PlusToMinus', MutatorFamily::Arithmetic],
         'large' => ['default/GreaterToGreaterOrEqual', MutatorFamily::Boundary],
         'unused' => ['default/MinusToPlus', MutatorFamily::Arithmetic],
@@ -211,6 +219,12 @@ final class Library
         'Nowhere\\GoneTest::gone' => 'Nowhere\\GoneTest::gone',
     ];
 
+    /** @var array<string, string> what the PhpSpec runner names each example it is asked, by the example's id */
+    private const array PHPSPEC_NAMES = [
+        'tests\\MoneySpec::it_adds_two_amounts' => 'tests/MoneySpec.php::it_adds_two_amounts',
+        'Nowhere\\GoneTest::gone' => 'Nowhere\\GoneTest::gone',
+    ];
+
     /** @var array<string, MutationResult|CannotJudge> each real run's answer, by library and request */
     private static array $runs = [];
 
@@ -226,6 +240,9 @@ final class Library
      * @param list<string>                                 $markers      where the runner's own ignore markers are,
      *                                                                   which a runner without any finds none of
      * @param string                                       $prints       what the runner prints of a mutant it runs
+     * @param SuiteConfig                                  $suite        the config the library's tests are read from
+     * @param bool                                         $canaried     whether the library's tests hold the canary
+     *                                                                   group, which only a runner with groups has
      */
     private function __construct(
         private readonly string $name,
@@ -239,6 +256,8 @@ final class Library
         private readonly string $root,
         private readonly array $markers = [self::MARKER],
         private readonly string $prints = 'src/Money.php',
+        private readonly SuiteConfig $suite = SuiteConfig::PhpUnit,
+        private readonly bool $canaried = true,
     ) {
     }
 
@@ -317,11 +336,11 @@ final class Library
     {
         $root = Tree::at(self::PHPUNIT_DIRECTORY);
         $phpunit = static function (string $root) use ($kept): NativeRunner {
-            $project = PhpUnitProject::at($root, self::testsIn($root), Path::of('../vendor'), Path::of('.mutation-gate'), BuiltinRunner::PhpUnit);
+            $project = NativeProject::at($root, self::testsIn($root), Path::of('../vendor'), Path::of('.mutation-gate'), BuiltinRunner::PhpUnit);
 
             return new NativeRunner(
                 $project,
-                new PhpUnitShell(new LocalProcesses(new SystemClock()), $root, getenv()),
+                new NativeShell(new LocalProcesses(new SystemClock()), $root, getenv()),
                 NativePhpUnit::in($project),
                 self::defaultSet(),
                 $kept,
@@ -332,7 +351,7 @@ final class Library
         return new self(
             $name,
             $phpunit($root),
-            self::PHPUNIT,
+            self::NATIVE,
             endsReported: true,
             defining: Paths::of(Path::of('phpunit.xml')),
             naming: self::INFECTION_NAMES,
@@ -347,6 +366,56 @@ final class Library
     public static function isPhpUnitInstalled(): bool
     {
         return is_dir(Tree::at(sprintf('%s/../vendor', self::PHPUNIT_DIRECTORY)));
+    }
+
+    /**
+     * The PhpSpec runner over its installed library, making its mutants with
+     * the default set, keeping each mutant's limit within the standard
+     * bounds. It has no ignore marker of its own and no canary group, and
+     * prints what PhpSpec printed, its tally last.
+     */
+    public static function phpspec(): self
+    {
+        return self::phpspecWithin(Triage::standard()->bounds(), 'phpspec');
+    }
+
+    /** The PhpSpec runner over its installed library, keeping each mutant's limit within these bounds, by this name. */
+    public static function phpspecWithin(LimitBounds $kept, string $name): self
+    {
+        $root = Tree::at(self::PHPSPEC_DIRECTORY);
+        $phpspec = static function (string $root) use ($kept): NativeRunner {
+            $project = NativeProject::at($root, self::testsIn($root, SuiteConfig::PhpSpec), Path::of('../vendor'), Path::of('.mutation-gate'), BuiltinRunner::PhpSpec);
+
+            return new NativeRunner(
+                $project,
+                new NativeShell(new LocalProcesses(new SystemClock()), $root, getenv()),
+                NativePhpSpec::in($project),
+                self::defaultSet(),
+                $kept,
+                new CapDirectory(),
+            );
+        };
+
+        return new self(
+            $name,
+            $phpspec($root),
+            self::NATIVE,
+            endsReported: true,
+            defining: Paths::of(Path::of('phpspec.yml')),
+            naming: self::PHPSPEC_NAMES,
+            outside: $phpspec(dirname($root)),
+            package: Path::of(basename($root)),
+            root: $root,
+            markers: [],
+            prints: 'examples',
+            suite: SuiteConfig::PhpSpec,
+            canaried: false,
+        );
+    }
+
+    public static function isPhpSpecInstalled(): bool
+    {
+        return is_dir(Tree::at(sprintf('%s/../vendor', self::PHPSPEC_DIRECTORY)));
     }
 
     /** The Pest adapter over the installed library, with `pest:patch` off or on. */
@@ -383,6 +452,7 @@ final class Library
             $runner === 'pest patched' && self::isInstalled() => self::pest(Patching::on(self::canary())),
             $runner === 'infection' && self::isInfectionInstalled() => self::infection(Seconds::of(10.0)),
             $runner === 'phpunit' && self::isPhpUnitInstalled() => self::phpunit(),
+            $runner === 'phpspec' && self::isPhpSpecInstalled() => self::phpspec(),
             default => Assert::markTestSkipped(sprintf('the runner contracts job for %s installs its library', $runner)),
         };
     }
@@ -443,6 +513,12 @@ final class Library
     public function defining(): Paths
     {
         return $this->defining;
+    }
+
+    /** Whether the library's tests hold the canary group, as those of every runner with groups do. */
+    public function isCanaried(): bool
+    {
+        return $this->canaried;
     }
 
     /** Whether the runner reports how long each mutant it ran took; Infection's logs do not. */
@@ -538,14 +614,14 @@ final class Library
 
     /**
      * The directories the library's tests are in, as the CLI reads them from
-     * its own PHPUnit config for a runner rooted in it from the directory
+     * its own runner's config for a runner rooted in it from the directory
      * around it; the conventional one for the fake, which reads no config.
      */
     public function packageTests(): Paths
     {
         $tests = $this->root === ''
             ? Paths::of(Path::of('tests'))
-            : Suite::testsIn(Directory::at(dirname($this->root)), $this->package, SuiteConfig::PhpUnit);
+            : Suite::testsIn(Directory::at(dirname($this->root)), $this->package, $this->suite);
 
         return $tests instanceof Paths ? $tests : throw new RuntimeException($tests->why());
     }
@@ -572,10 +648,10 @@ final class Library
         );
     }
 
-    /** The directories the tests of a library at a root are in, as the flows read them from its PHPUnit config. */
-    private static function testsIn(string $root): Paths
+    /** The directories the tests of a library at a root are in, as the flows read them from its runner's config. */
+    private static function testsIn(string $root, SuiteConfig $config = SuiteConfig::PhpUnit): Paths
     {
-        $suite = Suite::configured(Directory::at($root), SuiteConfig::PhpUnit);
+        $suite = Suite::configured(Directory::at($root), $config);
 
         return $suite instanceof TestSuite ? $suite->paths() : throw new RuntimeException($suite->why());
     }

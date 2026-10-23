@@ -96,6 +96,10 @@ it('runs every mutant\'s process of a phpunit run, and of a reproduction, under 
     $capped(Library::phpunit());
 })->skip(fn(): bool => ! Library::isPhpUnitInstalled(), 'the PHPUnit runner contracts steps install its library')->group(...$holds);
 
+it('runs every mutant\'s process of a phpspec run, and of a reproduction, under the cap', function () use ($capped): void {
+    $capped(Library::phpspec());
+})->skip(fn(): bool => ! Library::isPhpSpecInstalled(), 'the PhpSpec runner contracts steps install its library')->group(...$holds);
+
 /**
  * The status and limit of each mutant of Money::add a run under a 64M cap
  * gives, while each mutant's own process holds memory until PHP stops it, as
@@ -198,3 +202,23 @@ it('reads a phpunit mutant out of the cap as out of memory where PHP\'s own ini 
     expect(array_unique($hogged(Library::phpunit(), 'cap', MemoryCap::SCAN_DIR, sprintf('%s%s', PATH_SEPARATOR, $production))))
         ->toBe(['out-of-memory 64M']);
 })->skip(fn(): bool => ! Library::isPhpUnitInstalled(), 'the PHPUnit runner contracts steps install its library')->group(...$holds);
+
+it('reads a phpspec mutant whose own process ran out of the cap as out of memory, and of its own limit as killed', function () use (
+    $hogged,
+): void {
+    $library = Library::phpspec();
+
+    expect(array_unique($hogged($library, 'cap')))->toBe(['out-of-memory 64M'])
+        ->and(array_unique($hogged($library, '48M')))->toBe(['killed unlimited']);
+})->skip(fn(): bool => ! Library::isPhpSpecInstalled(), 'the PhpSpec runner contracts steps install its library')->group(...$holds);
+
+it('reads a phpspec mutant out of the cap as out of memory where PHP\'s own ini shows errors nowhere', function () use (
+    $hogged,
+): void {
+    $production = sprintf('%s/production', Scratch::directory());
+    mkdir($production);
+    file_put_contents(sprintf('%s/errors.ini', $production), "display_errors=0\n");
+
+    expect(array_unique($hogged(Library::phpspec(), 'cap', MemoryCap::SCAN_DIR, sprintf('%s%s', PATH_SEPARATOR, $production))))
+        ->toBe(['out-of-memory 64M']);
+})->skip(fn(): bool => ! Library::isPhpSpecInstalled(), 'the PhpSpec runner contracts steps install its library')->group(...$holds);

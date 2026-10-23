@@ -1,0 +1,25 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+// The PhpSpec runner's launcher (ADR-0027), which the gate starts in place
+// of PhpSpec's own script, on the PHP a mutant's run starts on, with the
+// override prepended, in the project's root: the project's autoloader, what
+// the gate tells it, then PhpSpec's own arguments. It loads the gate's
+// extension into PhpSpec before PhpSpec reads the project's config.
+
+use NightWorksIO\MutationGate\Adapter\PhpSpec\Launch;
+
+$given = is_array($_SERVER['argv']) ? $_SERVER['argv'] : [];
+$arguments = [];
+
+foreach ($given as $argument) {
+    $arguments[] = is_string($argument) ? $argument : '';
+}
+
+[$script, $autoloader] = [...$arguments, '', ''];
+
+require $autoloader;
+
+exit(Launch::run($script, $autoloader, array_slice($arguments, 2)));

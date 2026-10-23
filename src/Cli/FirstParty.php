@@ -48,6 +48,8 @@ use NightWorksIO\MutationGate\Adapter\Mago\Mago;
 use NightWorksIO\MutationGate\Adapter\Native\NativeRunner;
 use NightWorksIO\MutationGate\Adapter\Otlp\OtlpReporter;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
+use NightWorksIO\MutationGate\Adapter\PhpSpec\Installation as PhpSpecInstallation;
+use NightWorksIO\MutationGate\Adapter\PhpSpec\PhpSpecFramework;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Installation;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnitFramework;
@@ -249,6 +251,20 @@ final readonly class FirstParty implements Extension
                     BuiltinRunner::PhpUnit,
                     static fn(string $root, Path $vendor, TestLayout $tests): PhpUnitFramework => new PhpUnitFramework(
                         Installation::at($root, $vendor),
+                        $tests,
+                    ),
+                    ComposerVendor::of(self::HERE),
+                    new CapDirectory(),
+                    $processes,
+                ),
+            )
+            ->withRunner(
+                BuiltinRunner::PhpSpec->named(),
+                static fn(Options $options): NativeRunner|Invalid => NativeRunner::fromOptions(
+                    $options,
+                    BuiltinRunner::PhpSpec,
+                    static fn(string $root, Path $vendor, TestLayout $tests): PhpSpecFramework => new PhpSpecFramework(
+                        PhpSpecInstallation::at($root, $vendor),
                         $tests,
                     ),
                     ComposerVendor::of(self::HERE),

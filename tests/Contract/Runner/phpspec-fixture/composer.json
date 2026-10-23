@@ -1,0 +1,28 @@
+{
+    "name": "nightworksio/mutation-gate-phpspec-fixture",
+    "description": "The PhpSpec runner's library, beside the gate's source: in library/, the code every runner's contract mutates, specified by PhpSpec.",
+    "license": "MIT",
+    "type": "project",
+    "require": {
+        "php": "^8.5",
+        "phpspec/phpspec": "^8.2",
+        "phpunit/php-code-coverage": "^14.3"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "autoload": {
+        "psr-4": {
+            "Beside\\": "library/beside/",
+            "Library\\": "library/src/",
+            "NightWorksIO\\MutationGate\\": "../../../../src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "tests\\": "library/tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    }
+}

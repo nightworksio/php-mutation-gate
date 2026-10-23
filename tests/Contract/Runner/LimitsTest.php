@@ -180,6 +180,17 @@ it('stops a mutant\'s run at the lower floor timeouts.tighter gives its mutator,
     'forked from a warm worker' => [Workers::Fork],
 ])->skip(fn(): bool => ! Library::isPhpUnitInstalled() || ! function_exists('pcntl_fork'), 'the runner contracts steps install the PHPUnit library, on a PHP that forks')->group(...$holds);
 
+it('stops a mutant\'s run at the lower floor timeouts.tighter gives its mutator, with PhpSpec', function (): void {
+    $library = Library::phpspecWithin(RunnerContracts::tighterBounds('PostDecrementToPostIncrement'), 'phpspec, drains tighter');
+    $result = $library->runner()->mutate(MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('drains'))));
+
+    expect(RunnerContracts::tighterSilenced($result))->toHaveCount(1)
+        ->and(RunnerContracts::tighterSilenced($result)[0][0])->toBe(MutantStatus::TimedOut)
+        ->and(RunnerContracts::tighterSilenced($result)[0][1])->toBeLessThan(9.5)
+        ->and(RunnerContracts::tighterSilenced($result)[0][2])->toBe(Reason::silent(Seconds::of(7.0))->text());
+})->skip(fn(): bool => ! Library::isPhpSpecInstalled(), 'the PhpSpec runner contracts steps install its library')->group(...$holds);
+
 // A floor of a millisecond is less than any covering test takes, so a
 // limit the floor capped would stop each mutant's run before its tests end.
 it('judges a mutant whose covering tests take longer than the floor, rather than stopping it at the floor, with PHPUnit', function (): void {
@@ -190,6 +201,15 @@ it('judges a mutant whose covering tests take longer than the floor, rather than
 
     expect($result instanceof MutationResult ? Library::records($result->mutants()) : [])->toBe($library->expected('adds'));
 })->skip(fn(): bool => ! Library::isPhpUnitInstalled(), 'the PHPUnit runner contracts steps install its library')->group(...$holds);
+
+it('judges a mutant whose covering examples take longer than the floor, rather than stopping it at the floor, with PhpSpec', function (): void {
+    $library = Library::phpspecWithin(LimitBounds::between(Seconds::of(0.001), Seconds::of(300.0)), 'phpspec under a floor of a millisecond');
+    $request = MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests())
+        ->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators($library->mutators('adds')));
+    $result = $library->mutate('adds', $request);
+
+    expect($result instanceof MutationResult ? Library::records($result->mutants()) : [])->toBe($library->expected('adds'));
+})->skip(fn(): bool => ! Library::isPhpSpecInstalled(), 'the PhpSpec runner contracts steps install its library')->group(...$holds);
 
 it('judges a mutant whose covering tests take longer than the floor, rather than stopping it at the floor, with patched Pest', function (): void {
     Patch::applyIn(Library::vendor());

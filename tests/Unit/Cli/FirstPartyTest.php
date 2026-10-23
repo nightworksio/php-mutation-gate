@@ -82,6 +82,7 @@ use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\Repository;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
+use NightWorksIO\MutationGate\Tests\Support\NativePhpSpec;
 use NightWorksIO\MutationGate\Tests\Support\NativePhpUnit;
 
 $registry = static fn(): Extensions => new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)));
@@ -208,6 +209,14 @@ it('registers the PHPUnit runner, in the vendor directory Composer installed the
     expect(Lookup::in($registry())->runner(Name::of('phpunit'), Options::none()))
         ->toEqual(NativeRunner::fromOptions(Options::none(), BuiltinRunner::PhpUnit, NativePhpUnit::framework(...), ComposerVendor::of('.'), new CapDirectory(), new LocalProcesses(new SystemClock())))
         ->and(Lookup::in($registry())->runner(Name::of('phpunit'), Configs::options('{"timeout": "ten"}')))->toBeInstanceOf(Invalid::class);
+});
+
+it('registers the PhpSpec runner, in the vendor directory Composer installed the project into, from the options the flows write', function () use (
+    $registry,
+): void {
+    expect(Lookup::in($registry())->runner(Name::of('phpspec'), Options::none()))
+        ->toEqual(NativeRunner::fromOptions(Options::none(), BuiltinRunner::PhpSpec, NativePhpSpec::framework(...), ComposerVendor::of('.'), new CapDirectory(), new LocalProcesses(new SystemClock())))
+        ->and(Lookup::in($registry())->runner(Name::of('phpspec'), Configs::options('{"timeout": "ten"}')))->toBeInstanceOf(Invalid::class);
 });
 
 it('registers the console, every file report, GitHub\'s three and the badge by name', function () use ($registry): void {

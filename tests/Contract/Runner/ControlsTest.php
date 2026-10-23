@@ -51,6 +51,7 @@ $processes = [
     'pest' => [fn(): Library => Library::installed('pest'), 'P\Tests\MoneySpec::__pest_evaluable_it_adds_two_amounts'],
     'infection' => [fn(): Library => Library::installed('infection'), 'Tests\MoneySpec::addsTwoAmounts'],
     'phpunit' => [fn(): Library => Library::installed('phpunit'), 'Tests\MoneySpec::addsTwoAmounts'],
+    'phpspec' => [fn(): Library => Library::installed('phpspec'), 'tests\MoneySpec::it_adds_two_amounts'],
 ];
 
 $libraries = ['the fake' => [fn(): Library => Library::fake(), 'MoneyTest::adds'], ...$processes];
