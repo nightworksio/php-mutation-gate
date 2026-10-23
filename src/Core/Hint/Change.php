@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Hint;
 
+use function array_diff_assoc;
 use function array_filter;
 use function array_find_key;
+use function array_keys;
 use function array_map;
 use function array_pop;
 use function array_reverse;
@@ -217,13 +219,9 @@ final readonly class Change
      */
     private static function sharedPrefix(array $one, array $other): int
     {
-        $shared = 0;
+        $differ = array_keys(array_diff_assoc($one, $other));
 
-        while ($shared < count($one) && $shared < count($other) && $one[$shared]->text === $other[$shared]->text) {
-            ++$shared;
-        }
-
-        return $shared;
+        return $differ === [] ? count($one) : $differ[0];
     }
 
     /** The original's code from one token to before another, as it is written. */
