@@ -1,7 +1,8 @@
 # The benchmark (ADR-0017): each pinned project, prepared
 # here and never changed upstream, run by every arm on one GitHub-hosted
 # machine, interleaved, three times; each arm's mutants reconciled per file
-# and status. On demand and monthly, never on pull requests. On demand, the
+# and status. Each project's warm full, PR replay and unchanged re-run
+# scenarios run in a job of their own. On demand and monthly, never on pull requests. On demand, the
 # runners suite instead times the gate's own shards on each runner its
 # reusable workflow's `runs-on` may name.
 name: bench
@@ -128,6 +129,109 @@ jobs:
           name: bench-${{ env.PROJECT }}
           path: |
             bench/results/${{ env.PROJECT }}.json
+            ${{ runner.temp }}/bench
+          if-no-files-found: error
+          retention-days: 90
+
+  # lcobucci/jwt's scenarios past a cold full run (bench_scenarios.py): each
+  # gate arm's warm full run and unchanged re-run, three times, and its
+  # replay of the last 20 merged pull requests, against plain Infection run
+  # on each pull request's change with its own --git-diff-lines. A job of
+  # its own, as the cold arms fill theirs.
+  jwt-scenarios:
+    name: lcobucci/jwt scenarios
+    if: inputs.suite != 'runners'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 360
+    env:
+      PROJECT: jwt
+      COMPOSER_ROOT_VERSION: "5.6.0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+          extensions: pcntl, sodium
+          ini-values: zend.assertions=1
+      - name: the project at its pinned commit and tree
+        run: bench/fetch.sh "bench/${PROJECT}.json" "${RUNNER_TEMP}/${PROJECT}"
+      - name: prepare it
+        working-directory: ${{ runner.temp }}/${{ env.PROJECT }}
+        run: '"${GITHUB_WORKSPACE}/bench/${PROJECT}.sh"'
+      - name: run every scenario
+        run: |
+          python3 .github/scripts/bench_scenarios.py run "bench/${PROJECT}.json" "${RUNNER_TEMP}/${PROJECT}" \
+            "${RUNNER_TEMP}/bench" --rounds 3 --arm-seconds 2400
+      - name: report the scenarios
+        if: ${{ always() }}
+        run: |
+          python3 .github/scripts/bench_scenarios.py report "bench/${PROJECT}.json" "${RUNNER_TEMP}/bench" \
+            "bench/results/${PROJECT}-scenarios.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ always() }}
+        with:
+          name: bench-${{ env.PROJECT }}-scenarios
+          path: |
+            bench/results/${{ env.PROJECT }}-scenarios.json
+            ${{ runner.temp }}/bench
+          if-no-files-found: error
+          retention-days: 90
+
+  # pinkary.com's scenarios, as lcobucci/jwt's, over app/Actions with its
+  # Pest, on the MySQL its own CI tests against. Plain Pest has no option
+  # that mutates a change alone, so the replay runs the gate arm only.
+  pinkary-scenarios:
+    name: pinkary.com scenarios
+    if: inputs.suite != 'runners'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 360
+    env:
+      PROJECT: pinkary
+    services:
+      mysql:
+        image: mysql:8.4@sha256:6ea90827b1100f8f2ae306a539f86d2c264a26ed435a2a9f75551dd5c3aeb242
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+          MYSQL_DATABASE: testing
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+          extensions: pcntl, sodium, pdo_mysql
+      - name: the project at its pinned commit and tree
+        run: bench/fetch.sh "bench/${PROJECT}.json" "${RUNNER_TEMP}/${PROJECT}"
+      - name: prepare it
+        working-directory: ${{ runner.temp }}/${{ env.PROJECT }}
+        run: '"${GITHUB_WORKSPACE}/bench/${PROJECT}.sh"'
+      - name: run every scenario
+        run: |
+          python3 .github/scripts/bench_scenarios.py run "bench/${PROJECT}.json" "${RUNNER_TEMP}/${PROJECT}" \
+            "${RUNNER_TEMP}/bench" --rounds 3 --arm-seconds 2400
+      - name: report the scenarios
+        if: ${{ always() }}
+        run: |
+          python3 .github/scripts/bench_scenarios.py report "bench/${PROJECT}.json" "${RUNNER_TEMP}/bench" \
+            "bench/results/${PROJECT}-scenarios.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ always() }}
+        with:
+          name: bench-${{ env.PROJECT }}-scenarios
+          path: |
+            bench/results/${{ env.PROJECT }}-scenarios.json
             ${{ runner.temp }}/bench
           if-no-files-found: error
           retention-days: 90
