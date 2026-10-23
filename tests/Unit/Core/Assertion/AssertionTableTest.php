@@ -234,10 +234,39 @@ it('classifies PhpSpec\'s matchers by what they check, negated or not, and in an
     'a call a collaborator expects' => ['shouldBeCalled', AssertionKind::Value],
 ]);
 
+it('classifies each type, class, count and scalar matcher as a shape, negated or not', function (string $keyword): void {
+    expect([
+        AssertionTable::phpSpec(Call::of(sprintf('should%s', ucfirst($keyword)))),
+        AssertionTable::phpSpec(Call::of(sprintf('shouldNot%s', ucfirst($keyword)))),
+    ])->toBe([AssertionKind::Shape, AssertionKind::Shape]);
+})->with([
+    'haveType', 'beAnInstanceOf', 'returnAnInstanceOf', 'implement', 'haveCount', 'beArray', 'beBool', 'beBoolean',
+    'beCallable', 'beCountable', 'beDouble', 'beFloat', 'beReal', 'beInt', 'beInteger', 'beLong', 'beIterable',
+    'beNumeric', 'beObject', 'beResource', 'beScalar', 'beString',
+]);
+
+it('classifies each matcher of a value as one, and as a check that something is there where it is negated on null', function (string $keyword, AssertionKind $negatedOnNull): void {
+    expect([
+        AssertionTable::phpSpec(Call::of(sprintf('should%s', ucfirst($keyword)), '3')),
+        AssertionTable::phpSpec(Call::of(sprintf('shouldNot%s', ucfirst($keyword)), 'null')),
+    ])->toBe([AssertionKind::Value, $negatedOnNull]);
+})->with([
+    ['return', AssertionKind::Existence], ['be', AssertionKind::Existence], ['equal', AssertionKind::Existence],
+    ['beEqualTo', AssertionKind::Existence], ['beLike', AssertionKind::Existence],
+    ['equalApproximately', AssertionKind::Value], ['returnApproximately', AssertionKind::Value],
+    ['beApproximately', AssertionKind::Value], ['beEqualToApproximately', AssertionKind::Value],
+    ['haveKeyWithValue', AssertionKind::Value], ['contain', AssertionKind::Value], ['startWith', AssertionKind::Value],
+    ['endWith', AssertionKind::Value], ['match', AssertionKind::Value], ['iterateAs', AssertionKind::Value],
+    ['yield', AssertionKind::Value], ['iterateLike', AssertionKind::Value], ['yieldLike', AssertionKind::Value],
+    ['startIteratingAs', AssertionKind::Value], ['startYielding', AssertionKind::Value], ['throw', AssertionKind::Value],
+    ['trigger', AssertionKind::Value],
+]);
+
 it('holds no matcher a call that is none names, nor one named like no matcher PhpSpec builds in', function (): void {
     expect(AssertionTable::phpSpec(Call::of('add')))->toEqual(Unclassified::assertion())
         ->and(AssertionTable::phpSpec(Call::of('should')))->toEqual(Unclassified::assertion())
         ->and(AssertionTable::phpSpec(Call::of('shouldBe')))->toBe(AssertionKind::Value)
+        ->and(AssertionTable::phpSpec(Call::of('shouldHave')))->toEqual(Unclassified::assertion())
         ->and(AssertionTable::phpSpec(Call::of('shouldContainMoney')))->toEqual(Unclassified::assertion())
         ->and(AssertionTable::keyword(Call::of('shouldNotReturn')))->toBe('return')
         ->and(AssertionTable::keyword(Call::of('beConstructedWith')))->toBe('');

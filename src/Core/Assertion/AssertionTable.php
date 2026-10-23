@@ -570,21 +570,16 @@ final readonly class AssertionTable
 
     /**
      * PhpSpec's matchers of a value, a string, a traversable's items, an
-     * exception or an error. `AssertionStyle::PhpSpec` suggests one of them,
-     * `shouldReturn`.
+     * exception or an error, but those whose name starts with `be` or `have`,
+     * which check a value as its object-state matchers do. `AssertionStyle::PhpSpec`
+     * suggests one of them, `shouldReturn`.
      */
     private const array PHPSPEC_VALUE = [
         'return',
         'be',
         'equal',
-        'beEqualTo',
-        'beLike',
-        'beNull',
-        'beApproximately',
-        'beEqualToApproximately',
         'equalApproximately',
         'returnApproximately',
-        'haveKeyWithValue',
         'contain',
         'startWith',
         'endWith',
@@ -684,7 +679,6 @@ final readonly class AssertionTable
         $negated = str_starts_with(mb_strtolower($call->name()), mb_strtolower(self::SHOULD_NOT));
 
         return match (true) {
-            $keyword === '' => Unclassified::assertion(),
             $negated && self::names(self::PHPSPEC_NEGATED_EXISTENCE, $keyword),
             $negated && self::names(self::PHPSPEC_NEGATED_ON_NULL, $keyword) && $call->first() === self::null()
                 => AssertionKind::Existence,

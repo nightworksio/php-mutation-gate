@@ -37,16 +37,19 @@ final class CartSpec extends ObjectBehavior
 
     public function it_fills(): void
     {
+        $this->items()->shouldHaveCount(1);
         $this->filled();
     }
 
     public function it_is_money(): void
     {
+        $this->items()->shouldHaveCount(1);
         $this->total()->shouldBeMoney();
     }
 
     public function it_holds_none(): void
     {
+        $this->items()->shouldHaveCount(1);
         $this->items()->shouldContainNothing();
     }
 

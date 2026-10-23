@@ -25,9 +25,7 @@ final readonly class SpecCall
     public static function checked(Call $call, Spec $spec, bool $helper): array
     {
         $keyword = AssertionTable::keyword($call);
-        $kind = $keyword === '' || $spec->hasMatcher($keyword)
-            ? Unclassified::assertion()
-            : AssertionTable::phpSpec($call);
+        $kind = $spec->hasMatcher($keyword) ? Unclassified::assertion() : AssertionTable::phpSpec($call);
         $assertion = $kind instanceof AssertionKind
             ? Assertion::of(sprintf(AssertionScan::CHAINED, $call->name()), $kind, AssertionStyle::PhpSpec)
             : $kind;

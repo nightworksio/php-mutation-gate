@@ -97,8 +97,9 @@ final readonly class TestAssertions
             $described = self::describedTo($tokens, $at, $function, $described);
 
             if ($description !== '' && ! array_key_exists($description, $tests)) {
-                $end = AssertionScan::chainEnd($tokens, $tokens->closing($at + 1));
-                $tests[$description] = AssertionScan::between($tokens, $helpers, $at + 1, $end, Nameless::code());
+                $arguments = $at + 1;
+                $end = AssertionScan::chainEnd($tokens, $tokens->closing($arguments));
+                $tests[$description] = AssertionScan::between($tokens, $helpers, $arguments, $end, Nameless::code());
             }
         }
 
