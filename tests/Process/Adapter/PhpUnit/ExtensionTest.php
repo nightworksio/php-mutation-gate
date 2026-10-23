@@ -9,10 +9,6 @@ use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 use Symfony\Component\Process\Process;
 
-$holds = [
-    'holds:src/Adapter/PhpUnit/Extension.php',
-];
-
 afterEach(function (): void {
     Scratch::sweep();
 });
@@ -62,8 +58,8 @@ it('records each test of the PHPUnit it is started in, to the results file its v
         Outcome::Started->line('ProbeTest::testPasses'),
         Outcome::Passed->line('ProbeTest::testPasses'),
     ));
-})->group(...$holds);
+});
 
 it('says in the guard file that opcache could serve an original where opcache is on, and nothing where it is off', function (): void {
     expect([extensionRecorded('1')[1], extensionRecorded('0')[1]])->toBe(["cached\n", '']);
-})->group(...$holds);
+});
