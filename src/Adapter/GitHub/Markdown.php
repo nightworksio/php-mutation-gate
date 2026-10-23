@@ -298,7 +298,8 @@ final readonly class Markdown
     }
 
     /**
-     * The obstacles, failures, warnings and floors that can rise, then the line that points at the run's HTML report.
+     * The obstacles, failures, warnings and floors that can rise, then the line that points at the run's HTML report,
+     * which a document leaves out where it is empty.
      *
      * @return list<string>
      */
@@ -315,7 +316,7 @@ final readonly class Markdown
             ...self::section('Failures', self::bullets($verdict->failures())),
             ...self::section('Warnings', self::bullets($verdict->warnings())),
             ...self::section('Floors that can rise', $raised === [] ? [] : [implode("\n", $raised), self::RAISE]),
-            ...$report === '' ? [] : [$report],
+            $report,
         ];
     }
 
