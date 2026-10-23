@@ -366,19 +366,29 @@ would have cost without them.
 
 14. **Four open-source projects, pinned, prepared in this repository.**
 
-    | Slot | Project | Runner and size (on 2026-09-30) |
-    |------|---------|---------------------------------|
-    | Small library | `lcobucci/jwt` | PHPUnit 13 and Infection 0.35 with its own `infection.json.dist`; 73 source and 68 test files |
-    | Large library | `Roave/BetterReflection` | PHPUnit 13 with `infection.json.dist`; 145 source and 279 test files |
-    | Laravel app | `pinkary-project/pinkary.com` | Pest ^5.2.1; 178 app and 152 test files |
-    | Symfony app | `symfony/demo` | PHPUnit (moved to 12 or 13 by the harness); 34 source and 12 test files |
+    | Slot | Project | Runner and size (on 2026-09-30) | What the arms mutate |
+    |------|---------|---------------------------------|----------------------|
+    | Small library | `lcobucci/jwt` | PHPUnit 13 and Infection 0.35 with its own `infection.json.dist`; 73 source and 68 test files | `src` |
+    | Large library | `Roave/BetterReflection` | PHPUnit 13 with `infection.json.dist`; 145 source and 279 test files | `src/SourceLocator/Type`, 29 files, judged by the whole suite |
+    | Laravel app | `pinkary-project/pinkary.com` | Pest ^5.2.1; 178 app and 152 test files | `app/Actions` |
+    | Symfony app | `symfony/demo` | PHPUnit 11, moved to the PHPUnit 13 and Infection 0.35 the gate locks by the harness; 34 source and 12 test files | `src` |
 
     - Each is pinned to a commit and prepared by harness steps under
       `bench/`: a `composer require --dev` of the gate and, where needed, a
       runner bump. Nothing is changed upstream.
-    - Each is first probed to install on PHP 8.5 with its suite passing
-      under pcov. A project that fails the probe is replaced by the
-      alternate for its slot: `azjezz/psl` for the large library.
+    - Each passed its probe: it installs on PHP 8.5 and its suite passes
+      under pcov. The large library's alternate, `azjezz/psl`, stands in for
+      a project that fails it, so it is not needed.
+    - Where three rounds of every arm over a whole project do not fit a
+      job's five hours, the arms mutate one directory of it, judged by its
+      whole suite. Plain Infection takes it as `--filter`, and the gate as
+      the rest of the tree excluded (ADR-0016). BetterReflection's whole
+      `src` does not fit; its `src/SourceLocator/Type` does.
+    - Where the project's own Infection config cannot run, the harness takes
+      out only what stops it, and the arm says so. BetterReflection's names
+      PHPStan, which reports two errors at the pinned commit, so Infection
+      refuses to start. `symfony/demo` has no Infection config, so one is
+      written: `src`, with Infection's default mutators.
     - `filamentphp/filament`, a Pest monorepo, joins once ecosystem
       discovery is built.
     - `bench/` is export-ignored.
@@ -388,7 +398,11 @@ would have cost without them.
       - plain: `pest --mutate --parallel`, or `infection --threads=max`
         with the project's own config;
       - the gate in one job;
-      - the gate sharded at `shards.seconds`, as a matrix;
+      - the gate sharded at the `shards.seconds` its config has, planned
+        once, each shard on a machine of its own and the verdict on one
+        more. Its wall time is the plan's, the slowest shard's and the
+        verdict's; its runner time adds every shard's. Each is also shown
+        with every machine's setup, since each sets the project up again;
       - where the project's runner is Infection, the gate in one job with
         its own engine and forked PHPUnit workers (ADR-0023). Its mutants
         are its own, so it is compared by count per file, never reconciled
@@ -415,11 +429,15 @@ would have cost without them.
 
 16. **It runs on GitHub-hosted runners, on demand and monthly.**
     - It is `bench.yml` in this repository, on `workflow_dispatch` and a
-      monthly schedule, never on pull requests.
+      monthly schedule, never on pull requests. It calls
+      `bench-project.yml` once for each project, whose jobs each fetch the
+      project and prepare it with `bench/prepare.sh`.
     - All arms of one project run in one job on one machine, interleaved,
-      three times. The result is the median with its range.
-    - The sharded arm runs as a matrix, and says it ran on separate
-      machines.
+      three times. The result is the median with its range. The scenarios
+      past a cold full run take a job of their own.
+    - The sharded arm runs as a plan job, a matrix of one job a shard, each
+      shard three times from the one plan, and a verdict job that judges
+      each round. It says how many machines it ran on.
     - The runner's CPU model and memory are recorded.
     - A scenario over five hours is dropped, because a job has six.
 
@@ -428,7 +446,10 @@ would have cost without them.
       gate's commit, the PHP and runner versions, and the CPU.
     - **Same work:** each arm's mutant counts per file and status go into a
       reconciliation table. A difference the gate's statuses do not explain
-      (triage, confirmation) fails the benchmark.
+      (triage, confirmation) fails the benchmark. Plain Infection skips a
+      mutant whose tests take longer than its timeout, and its JSON log
+      only counts those; its text log names each, so they are matched with
+      the gate's by file, line and mutator, and the skip explains them.
     - **Plain at its best:** in parallel, under pcov, with the project's own
       config.
     - **Spread, not best-of:** the median of three, with the range.
@@ -436,11 +457,16 @@ would have cost without them.
       the gate is slower, such as a cold full run, which confirms survivors
       and triages timeouts.
     - **Generated:** the README's table is rendered from
-      `bench/results/<gate version>.json`, and a test fails when the README
-      differs. The table links the workflow run and the raw file. Numbers
-      reach the README through a pull request, never by a hand edit.
-    - **Reproducible:** `composer bench -- <project>` runs the same harness
-      locally.
+      `bench/results/<gate version>.json`, the newest by the date it holds,
+      and a test fails when the README differs. The gate version is what
+      `git describe --tags --always` says of the commit measured. The
+      workflow's publish job writes that file and the README rendered from
+      it as an artifact; the table links the workflow run and the raw file.
+      Numbers reach the README through a pull request that commits both,
+      never by a hand edit.
+    - **Reproducible:** `composer bench -- <project> [cold|scenarios|sharded]`
+      runs the same harness locally, the sharded arm's shards one after
+      another.
 
 ### Migration
 

@@ -6,11 +6,12 @@
     "tree": "6d867830ac3b1c80d34e831f25afc8237887a63c1d89940eccbb7d547fa7b0a6",
     "arms": {
         "infection": {
-            "said": "plain Infection, unpatched, --threads=max, with the project's own infection.json.dist, a JSON log added",
+            "said": "plain Infection, unpatched, --threads=max, with the project's own infection.json.dist, a JSON and a text log added",
             "report": "infection",
             "clean": [
                 "infection.txt",
-                "bench-infection-log.json"
+                "bench-infection-log.json",
+                "bench-infection.txt"
             ],
             "command": [
                 "vendor/bin/infection",
@@ -18,9 +19,11 @@
                 "--threads=max",
                 "--no-progress",
                 "--no-interaction",
-                "--log-verbosity=all"
+                "--log-verbosity=all",
+                "--logger-text=bench-infection.txt"
             ],
             "log": "bench-infection-log.json",
+            "text": "bench-infection.txt",
             "directory": "../jwt-plain"
         },
         "gate-infection": {
@@ -68,6 +71,10 @@
         "infection",
         "gate-infection"
     ],
+    "sharded": {
+        "arm": "gate-infection",
+        "said": "the gate-infection arm sharded at its shards.seconds, each shard on a machine of its own"
+    },
     "scenarios": {
         "week": "c98179c75efa95f2f72d9266d871415c51801ac9",
         "replay": [

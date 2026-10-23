@@ -1,0 +1,174 @@
+{
+    "project": "Roave/BetterReflection",
+    "version": "6.76.x",
+    "repository": "https://github.com/Roave/BetterReflection.git",
+    "commit": "562bc979e9bdffbb8e57f379fa42de3f175c8856",
+    "tree": "eec0e286c3ce2579bf96a1d6e4bddde4b4191d0ea749bab2fdc407d06e2d8c4f",
+    "arms": {
+        "infection": {
+            "said": "plain Infection, unpatched, --threads=max --filter=src/SourceLocator/Type/, with the project's own infection.json.dist without its PHPStan, a JSON and a text log added",
+            "report": "infection",
+            "clean": [
+                "infection.txt",
+                "bench-infection-log.json",
+                "bench-infection.txt"
+            ],
+            "command": [
+                "vendor/bin/infection",
+                "--configuration=bench-plain-infection.json",
+                "--threads=max",
+                "--filter=src/SourceLocator/Type/",
+                "--no-progress",
+                "--no-interaction",
+                "--log-verbosity=all",
+                "--logger-text=bench-infection.txt"
+            ],
+            "log": "bench-infection-log.json",
+            "text": "bench-infection.txt",
+            "directory": "../betterreflection-plain"
+        },
+        "gate-infection": {
+            "said": "the gate in one job, mutating src/SourceLocator/Type with Infection under infection:patch and the project's own mutators and ignores",
+            "report": "gate",
+            "clean": [
+                ".mutation-gate"
+            ],
+            "command": [
+                "vendor/bin/mutation-gate",
+                "run",
+                "--no-interaction",
+                "--config=bench-infection.json",
+                "--report=json:{report}"
+            ],
+            "copy": {
+                "mutation-gate.baseline.json": "bench-baseline.json"
+            },
+            "keep": [
+                ".mutation-gate"
+            ]
+        },
+        "gate-phpunit": {
+            "said": "the gate in one job, mutating src/SourceLocator/Type with its own engine and forked PHPUnit workers",
+            "report": "gate",
+            "clean": [
+                ".mutation-gate"
+            ],
+            "command": [
+                "vendor/bin/mutation-gate",
+                "run",
+                "--no-interaction",
+                "--config=bench-phpunit.json",
+                "--report=json:{report}"
+            ],
+            "copy": {
+                "mutation-gate.baseline.json": "bench-baseline.json"
+            },
+            "keep": [
+                ".mutation-gate"
+            ]
+        }
+    },
+    "same": [
+        "infection",
+        "gate-infection"
+    ],
+    "sharded": {
+        "arm": "gate-infection",
+        "said": "the gate-infection arm sharded at its shards.seconds, each shard on a machine of its own"
+    },
+    "scenarios": {
+        "week": "16c3e975f6ffbde125d8ab3ba42bb26976e45ba0",
+        "replay": [
+            {
+                "pull": 1573,
+                "base": "07cf57fa08c7568ea99cf5c320f5af70cd4fb17e",
+                "merge": "cdac5671539e3a83521ff656d89e35bf2ea7a28f"
+            },
+            {
+                "pull": 1575,
+                "base": "cffcbd3e9a4f1e6036e5e642e2fc3a896a475a13",
+                "merge": "b0e5a52dcf719430ba9e37372314ab1ac9d97d46"
+            },
+            {
+                "pull": 1576,
+                "base": "4544aa708a9a244df108db5a4b8942b0fc7b4ad9",
+                "merge": "fc5e6dc221f84d9b0360e8dba716681c285e584b"
+            },
+            {
+                "pull": 1577,
+                "base": "4d6c058090ade3120a60565b05cd43b3ed408a8a",
+                "merge": "488ad95f55ee465d838ad4aa66515c6d105c0ca4"
+            },
+            {
+                "pull": 1579,
+                "base": "b2ba772c47b99ff31f137f0b1536ba7b7236c9b9",
+                "merge": "a6a93a3bd7681627f2750bfa8f41e586d32dc67d"
+            },
+            {
+                "pull": 1581,
+                "base": "fce3a6b46352e6cdc6a5ec2cdc8c4f13231d7cb7",
+                "merge": "9359a09df09108ac6d49dc6700b27cb4a10bae0f"
+            },
+            {
+                "pull": 1582,
+                "base": "9359a09df09108ac6d49dc6700b27cb4a10bae0f",
+                "merge": "225e396b12434a5ce995c9ea0105fd3acda3a575"
+            },
+            {
+                "pull": 1583,
+                "base": "225e396b12434a5ce995c9ea0105fd3acda3a575",
+                "merge": "e6682dde8c678e3f0e1eca72bdaa93539fc24e93"
+            },
+            {
+                "pull": 1584,
+                "base": "e6682dde8c678e3f0e1eca72bdaa93539fc24e93",
+                "merge": "ca42fa241a633a3a5cf6c0e7d872d40207c1a0a4"
+            },
+            {
+                "pull": 1585,
+                "base": "5dcf7f5705a4f8edd906f68fb6d8a28ba4012c3c",
+                "merge": "f9e50b227de86c3ce12e1e1b685d53f9210ffa7f"
+            },
+            {
+                "pull": 1587,
+                "base": "f9e50b227de86c3ce12e1e1b685d53f9210ffa7f",
+                "merge": "935771c931d6802c1b2a1d57868c0a21aace63bb"
+            },
+            {
+                "pull": 1588,
+                "base": "935771c931d6802c1b2a1d57868c0a21aace63bb",
+                "merge": "101b7d6c20048e046dcd74939149a435a7b9a47b"
+            },
+            {
+                "pull": 1586,
+                "base": "3b9eb00f39a07d5fadfda465c72c64878537b99a",
+                "merge": "76b224f120578ed156a211f04d59a5f418a2b3c0"
+            },
+            {
+                "pull": 1591,
+                "base": "76b224f120578ed156a211f04d59a5f418a2b3c0",
+                "merge": "2f0733872e61ca22020214e1069fd0070819cae8"
+            },
+            {
+                "pull": 1590,
+                "base": "2f0733872e61ca22020214e1069fd0070819cae8",
+                "merge": "e413f155aeb6503314b85a376f5632c1001727eb"
+            },
+            {
+                "pull": 1592,
+                "base": "e413f155aeb6503314b85a376f5632c1001727eb",
+                "merge": "a06830811014840b6b0ee5d9295df1121fb56bd0"
+            },
+            {
+                "pull": 1593,
+                "base": "a06830811014840b6b0ee5d9295df1121fb56bd0",
+                "merge": "b68eed282302be0278a2615ccb4448a9c9d1d4c3"
+            }
+        ],
+        "gate": [
+            "gate-infection",
+            "gate-phpunit"
+        ],
+        "diff": "infection"
+    }
+}

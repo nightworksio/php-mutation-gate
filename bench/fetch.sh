@@ -19,7 +19,11 @@ test "$(git -C "${source}" rev-parse HEAD)" = "${commit}"
 # A repository's info/attributes is read before its tree's own.
 printf '* -export-ignore -export-subst\n' > "${source}/.git/info/attributes"
 git -C "${source}" archive --format=tar HEAD > "${directory}.tar"
-sha256sum --check --strict <<<"${tree}  ${directory}.tar"
+archived=$(sha256sum < "${directory}.tar" | cut -d ' ' -f 1)
+if [ "${archived}" != "${tree}" ]; then
+  echo "The archive of ${commit} has the SHA-256 ${archived}, and ${project} pins ${tree}." >&2
+  exit 1
+fi
 mkdir -p "${directory}"
 tar xf "${directory}.tar" -C "${directory}"
 rm -rf "${source}" "${directory}.tar"

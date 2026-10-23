@@ -55,7 +55,6 @@ import subprocess
 import sys
 import tarfile
 import tempfile
-import time
 from pathlib import Path
 
 import bench
@@ -189,18 +188,6 @@ def published(directory: Path) -> None:
     git(directory, "symbolic-ref", "refs/remotes/origin/HEAD", f"refs/remotes/origin/{MAIN}")
 
 
-def ran(command: list[str], place: Path, environment: dict, seconds: float | None) -> tuple[float, int | str]:
-    started = time.monotonic()
-    process = subprocess.Popen(command, cwd=place, env=environment, start_new_session=True)
-    stopped = False
-    try:
-        process.wait(timeout=seconds)
-    except subprocess.TimeoutExpired:
-        stopped = True
-        bench.stop(process)
-    return time.monotonic() - started, bench.ended(process.returncode, stopped)
-
-
 def name_of(step: dict, at: int) -> str:
     return f"{step['scenario']}-{step['pull'] if 'pull' in step else at}"
 
@@ -244,7 +231,7 @@ class Checkout:
 def run(project: dict, directory: Path, out: Path, rounds: int, arm_seconds: float | None = None) -> None:
     """Every gate arm's scenarios, and the plain arm's runs of each pull request's change where it has one."""
     out.mkdir(parents=True, exist_ok=True)
-    environment = {name: value for name, value in os.environ.items() if name not in ("CI", "GITHUB_ACTIONS")}
+    environment = bench.local()
     work = Path(tempfile.mkdtemp(prefix="bench-scenarios-"))
     source = Source(project["repository"], work / "source")
     tracked = set(git(directory, "ls-files", "-z").split("\0")) - {""}
@@ -274,7 +261,7 @@ def run(project: dict, directory: Path, out: Path, rounds: int, arm_seconds: flo
                 label = name_of(step, at)
                 report = out / f"{name}-{label}.json"
                 command = [bench.fill(part, report) for part in arm["command"]] + options
-                seconds, exit_code = ran(command, directory, environment, arm_seconds)
+                seconds, exit_code = bench.ran(command, directory, environment, arm_seconds)
                 if step["timed"]:
                     (out / f"{name}-{label}.time").write_text(json.dumps({"seconds": seconds, "exit": exit_code}))
                 print(f"{name}, {label}{'' if step['timed'] else ' (untimed)'}: {seconds:.1f} s, exit {exit_code}",
@@ -309,7 +296,7 @@ def diffed(project: dict, directory: Path, out: Path, source: Source, kept: set[
         report = out / f"{name}-{label}.json"
         command = [bench.fill(part, report) for part in arm["command"]]
         command += ["--git-diff-lines", f"--git-diff-base={base}"]
-        seconds, exit_code = ran(command, place, environment, arm_seconds)
+        seconds, exit_code = bench.ran(command, place, environment, arm_seconds)
         if arm.get("log") and (place / arm["log"]).exists():
             shutil.move(place / arm["log"], report)
         (out / f"{name}-{label}.time").write_text(json.dumps({"seconds": seconds, "exit": exit_code}))

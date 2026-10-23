@@ -1,0 +1,311 @@
+# One pinned project of the benchmark (ADR-0017), called by bench.yml once
+# for each. Every job fetches the project at its pinned commit and prepares
+# it with bench/prepare.sh, since each runs on a machine of its own:
+#
+# - cold: every arm of bench/<project>.json on one machine, interleaved,
+#   three times, each arm's mutants reconciled per file and status;
+# - scenarios: each gate arm's warm full run, unchanged re-run and pull
+#   request replay, and the plain arm's run of each pull request's change
+#   where its tool has an option for one;
+# - sharded: the gate arm `sharded` names, planned once, each shard of the
+#   plan on a machine of its own three times, and each round judged.
+name: bench project
+
+on:
+  workflow_call:
+    inputs:
+      project:
+        description: the project's file name in bench/, without .json.
+        type: string
+        required: true
+      extensions:
+        description: the PHP extensions the project's suite needs besides pcov.
+        type: string
+        default: pcntl, sodium
+      ini-values:
+        description: the php.ini values the project's suite needs.
+        type: string
+        default: ''
+      root-version:
+        description: the version Composer gives the project, where its archive holds none.
+        type: string
+        default: ''
+      mysql:
+        description: whether the project's suite runs on the MySQL its own CI tests against.
+        type: boolean
+        default: false
+
+permissions: {}
+
+env:
+  PHP_VERSION: '8.5'
+  PROJECT: ${{ inputs.project }}
+  COMPOSER_ROOT_VERSION: ${{ inputs.root-version }}
+
+jobs:
+  cold:
+    name: cold
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 300
+    services:
+      mysql:
+        # An empty image starts no service.
+        image: ${{ inputs.mysql && 'mysql:8.4@sha256:6ea90827b1100f8f2ae306a539f86d2c264a26ed435a2a9f75551dd5c3aeb242' || '' }}
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+          MYSQL_DATABASE: testing
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+          extensions: ${{ inputs.extensions }}
+          ini-values: ${{ inputs.ini-values }}
+      - name: the project at its pinned commit, prepared
+        run: bench/prepare.sh "${PROJECT}" "${RUNNER_TEMP}/${PROJECT}"
+      - name: run every arm, interleaved, three times
+        run: |
+          python3 .github/scripts/bench.py run "bench/${PROJECT}.json" "${RUNNER_TEMP}/${PROJECT}" \
+            "${RUNNER_TEMP}/bench" --rounds 3 --arm-seconds 2400
+      - name: reconcile the arms
+        if: ${{ always() }}
+        run: |
+          python3 .github/scripts/bench.py reconcile "bench/${PROJECT}.json" "${RUNNER_TEMP}/${PROJECT}" \
+            "${RUNNER_TEMP}/bench" "bench/results/${PROJECT}.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ always() }}
+        with:
+          name: bench-${{ env.PROJECT }}
+          path: ${{ runner.temp }}/bench
+          if-no-files-found: error
+          retention-days: 90
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ always() }}
+        with:
+          name: bench-result-${{ env.PROJECT }}
+          path: bench/results/${{ env.PROJECT }}.json
+          if-no-files-found: error
+          retention-days: 90
+
+  # A job of its own, as the cold arms fill theirs.
+  scenarios:
+    name: scenarios
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 360
+    services:
+      mysql:
+        image: ${{ inputs.mysql && 'mysql:8.4@sha256:6ea90827b1100f8f2ae306a539f86d2c264a26ed435a2a9f75551dd5c3aeb242' || '' }}
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+          MYSQL_DATABASE: testing
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+          extensions: ${{ inputs.extensions }}
+          ini-values: ${{ inputs.ini-values }}
+      - name: the project at its pinned commit, prepared
+        run: bench/prepare.sh "${PROJECT}" "${RUNNER_TEMP}/${PROJECT}"
+      - name: run every scenario
+        run: |
+          python3 .github/scripts/bench_scenarios.py run "bench/${PROJECT}.json" "${RUNNER_TEMP}/${PROJECT}" \
+            "${RUNNER_TEMP}/bench" --rounds 3 --arm-seconds 2400
+      - name: report the scenarios
+        if: ${{ always() }}
+        run: |
+          python3 .github/scripts/bench_scenarios.py report "bench/${PROJECT}.json" "${RUNNER_TEMP}/bench" \
+            "bench/results/${PROJECT}-scenarios.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ always() }}
+        with:
+          name: bench-${{ env.PROJECT }}-scenarios
+          path: ${{ runner.temp }}/bench
+          if-no-files-found: error
+          retention-days: 90
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ always() }}
+        with:
+          name: bench-result-${{ env.PROJECT }}-scenarios
+          path: bench/results/${{ env.PROJECT }}-scenarios.json
+          if-no-files-found: error
+          retention-days: 90
+
+  # The plan, from a cold start, and the coverage it measured, for the shards.
+  sharded-plan:
+    name: sharded / plan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 60
+    outputs:
+      shards: ${{ steps.plan.outputs.shards }}
+    services:
+      mysql:
+        image: ${{ inputs.mysql && 'mysql:8.4@sha256:6ea90827b1100f8f2ae306a539f86d2c264a26ed435a2a9f75551dd5c3aeb242' || '' }}
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+          MYSQL_DATABASE: testing
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+          extensions: ${{ inputs.extensions }}
+          ini-values: ${{ inputs.ini-values }}
+      - name: the project at its pinned commit, prepared, timed as this machine's setup
+        run: |
+          python3 .github/scripts/bench_sharded.py setup "${RUNNER_TEMP}/bench" plan -- \
+            bench/prepare.sh "${PROJECT}" "${RUNNER_TEMP}/${PROJECT}"
+      - name: plan every mutant
+        id: plan
+        run: python3 .github/scripts/bench_sharded.py plan "bench/${PROJECT}.json" "${RUNNER_TEMP}/${PROJECT}" "${RUNNER_TEMP}/bench"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bench-${{ env.PROJECT }}-sharded-plan
+          path: ${{ runner.temp }}/bench
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  sharded:
+    name: sharded / shard ${{ matrix.shard }}
+    needs: sharded-plan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.sharded-plan.outputs.shards) }}
+    services:
+      mysql:
+        image: ${{ inputs.mysql && 'mysql:8.4@sha256:6ea90827b1100f8f2ae306a539f86d2c264a26ed435a2a9f75551dd5c3aeb242' || '' }}
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+          MYSQL_DATABASE: testing
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+          extensions: ${{ inputs.extensions }}
+          ini-values: ${{ inputs.ini-values }}
+      - name: the project at its pinned commit, prepared, timed as this machine's setup
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          python3 .github/scripts/bench_sharded.py setup "${RUNNER_TEMP}/bench" "shard-${SHARD}" -- \
+            bench/prepare.sh "${PROJECT}" "${RUNNER_TEMP}/${PROJECT}"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: bench-${{ env.PROJECT }}-sharded-plan
+          path: ${{ runner.temp }}/plan
+      - name: run this shard three times
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          python3 .github/scripts/bench_sharded.py shard "bench/${PROJECT}.json" "${RUNNER_TEMP}/${PROJECT}" \
+            "${RUNNER_TEMP}/bench" "${SHARD}" --planned "${RUNNER_TEMP}/plan/planned" --rounds 3 --arm-seconds 2400
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ always() }}
+        with:
+          name: bench-${{ env.PROJECT }}-shard-${{ matrix.shard }}
+          path: ${{ runner.temp }}/bench
+          if-no-files-found: error
+          retention-days: 90
+
+  sharded-verdict:
+    name: sharded / verdict
+    needs: [sharded-plan, sharded]
+    if: ${{ always() && needs.sharded-plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 60
+    services:
+      mysql:
+        image: ${{ inputs.mysql && 'mysql:8.4@sha256:6ea90827b1100f8f2ae306a539f86d2c264a26ed435a2a9f75551dd5c3aeb242' || '' }}
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+          MYSQL_DATABASE: testing
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: pcov
+          extensions: ${{ inputs.extensions }}
+          ini-values: ${{ inputs.ini-values }}
+      - name: the project at its pinned commit, prepared, timed as this machine's setup
+        run: |
+          python3 .github/scripts/bench_sharded.py setup "${RUNNER_TEMP}/bench" verdict -- \
+            bench/prepare.sh "${PROJECT}" "${RUNNER_TEMP}/${PROJECT}"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: bench-${{ env.PROJECT }}-sharded-plan
+          path: ${{ runner.temp }}/bench
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: bench-${{ env.PROJECT }}-shard-*
+          path: ${{ runner.temp }}/bench
+          merge-multiple: true
+      - name: judge each round
+        run: |
+          python3 .github/scripts/bench_sharded.py verdict "bench/${PROJECT}.json" "${RUNNER_TEMP}/${PROJECT}" \
+            "${RUNNER_TEMP}/bench" --planned "${RUNNER_TEMP}/bench/planned" --rounds 3
+      - name: report the sharded arm
+        if: ${{ always() }}
+        run: |
+          python3 .github/scripts/bench_sharded.py report "bench/${PROJECT}.json" "${RUNNER_TEMP}/bench" \
+            "bench/results/${PROJECT}-sharded.json" --rounds 3
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ always() }}
+        with:
+          name: bench-${{ env.PROJECT }}-sharded
+          path: |
+            ${{ runner.temp }}/bench
+            !${{ runner.temp }}/bench/planned
+          if-no-files-found: error
+          retention-days: 90
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ always() }}
+        with:
+          name: bench-result-${{ env.PROJECT }}-sharded
+          path: bench/results/${{ env.PROJECT }}-sharded.json
+          if-no-files-found: error
+          retention-days: 90

@@ -89,6 +89,42 @@ class Pairs(unittest.TestCase):
         self.assertEqual([(each["plain"], each["gate"]) for each in bench.pairs(plain, gate)], [("killed", "absent")])
 
 
+INFECTION_PRINTED = f"""Escaped mutants:
+================
+
+1) {ROOT}/src/Money.php:5    [M] Plus [ID] 1a
+
+Skipped mutants:
+================
+
+1) {ROOT}/src/Money.php:3    [M] Plus [ID] 2b
+2) {ROOT}/src/Money.php:3    [M] Plus [ID] 3c
+
+Timed Out mutants:
+==================
+
+1) {ROOT}/src/Money.php:7    [M] Minus [ID] 4d
+"""
+
+
+class Skipped(unittest.TestCase):
+    def test_reads_only_the_mutants_infection_lists_as_skipped(self):
+        self.assertEqual(
+            [(each["file"], each["line"], each["mutator"], each["status"], each["outcome"])
+             for each in bench.skipped(INFECTION_PRINTED, ROOT)],
+            [("src/Money.php", 3, "Plus", "skipped", "other"), ("src/Money.php", 3, "Plus", "skipped", "other")],
+        )
+
+    def test_matches_each_skipped_mutant_with_one_of_the_gate_s_by_line_and_mutator_and_explains_it(self):
+        plain = bench.skipped(INFECTION_PRINTED, ROOT) + bench.outcome({"killed": [infection_entry(4)]}, "infection",
+                                                                       ROOT)
+        gate = bench.outcome({"mutants": [gate_mutant(3, "survived"), gate_mutant(4, "killed")]}, "gate", ROOT)
+        self.assertEqual(
+            [(each["line"], each["plain"], each["gate"], each["explained"]) for each in bench.pairs(plain, gate)],
+            [(3, "skipped", "survived", True), (3, "skipped", "absent", False)],
+        )
+
+
 PEST_PRINTED = """
   ..x.-t
 

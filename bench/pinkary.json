@@ -44,6 +44,10 @@
         "pest",
         "gate-pest"
     ],
+    "sharded": {
+        "arm": "gate-pest",
+        "said": "the gate-pest arm sharded at its shards.seconds, each shard on a machine of its own"
+    },
     "scenarios": {
         "week": "eeb8a060fb35216692493b4cb978b3438013e71a",
         "replay": [

@@ -1,0 +1,148 @@
+{
+    "project": "symfony/demo",
+    "version": "main",
+    "repository": "https://github.com/symfony/demo.git",
+    "commit": "8d2e2ef75c3e18df173d8bf2379a14abb58c4c31",
+    "tree": "4dc102a6776ad02eccd3cc2ed405903eb944991f4cdfada3ce06bcc071c8b785",
+    "arms": {
+        "infection": {
+            "said": "plain Infection, unpatched, --threads=max, with a config of src and Infection's default mutators, as the demo has none of its own, a JSON and a text log added",
+            "report": "infection",
+            "clean": [
+                "infection.txt",
+                "bench-infection-log.json",
+                "bench-infection.txt"
+            ],
+            "command": [
+                "vendor/bin/infection",
+                "--configuration=bench-plain-infection.json",
+                "--threads=max",
+                "--no-progress",
+                "--no-interaction",
+                "--log-verbosity=all",
+                "--logger-text=bench-infection.txt"
+            ],
+            "log": "bench-infection-log.json",
+            "text": "bench-infection.txt",
+            "directory": "../symfony-demo-plain"
+        },
+        "gate-infection": {
+            "said": "the gate in one job, mutating with Infection under infection:patch and that config's mutators",
+            "report": "gate",
+            "clean": [
+                ".mutation-gate"
+            ],
+            "command": [
+                "vendor/bin/mutation-gate",
+                "run",
+                "--no-interaction",
+                "--config=bench-infection.json",
+                "--report=json:{report}"
+            ],
+            "copy": {
+                "mutation-gate.baseline.json": "bench-baseline.json"
+            },
+            "keep": [
+                ".mutation-gate"
+            ]
+        },
+        "gate-phpunit": {
+            "said": "the gate in one job, mutating with its own engine and forked PHPUnit workers",
+            "report": "gate",
+            "clean": [
+                ".mutation-gate"
+            ],
+            "command": [
+                "vendor/bin/mutation-gate",
+                "run",
+                "--no-interaction",
+                "--config=bench-phpunit.json",
+                "--report=json:{report}"
+            ],
+            "copy": {
+                "mutation-gate.baseline.json": "bench-baseline.json"
+            },
+            "keep": [
+                ".mutation-gate"
+            ]
+        }
+    },
+    "same": [
+        "infection",
+        "gate-infection"
+    ],
+    "sharded": {
+        "arm": "gate-infection",
+        "said": "the gate-infection arm sharded at its shards.seconds, each shard on a machine of its own"
+    },
+    "scenarios": {
+        "week": "920d86dc809f837543cb519d3df5b364a2c36577",
+        "replay": [
+            {
+                "pull": 1644,
+                "base": "98203dc70650986c7e961170418158f5f3897a9c",
+                "merge": "781e485625b91cd4aecc4bd40ecd3118965e76f8"
+            },
+            {
+                "pull": 1650,
+                "base": "781e485625b91cd4aecc4bd40ecd3118965e76f8",
+                "merge": "0287dc2ba6df7c332d05575885b497cbb807c380"
+            },
+            {
+                "pull": 1657,
+                "base": "0287dc2ba6df7c332d05575885b497cbb807c380",
+                "merge": "83d4ac1bf80c8fe055bc36ee5b0ba3c8d655a101"
+            },
+            {
+                "pull": 1660,
+                "base": "83d4ac1bf80c8fe055bc36ee5b0ba3c8d655a101",
+                "merge": "21bbf961130b40f9346ba753a03be5abd74a7ac3"
+            },
+            {
+                "pull": 1661,
+                "base": "21bbf961130b40f9346ba753a03be5abd74a7ac3",
+                "merge": "f5556d4c4119caeea782bdd6fc040185a6e8efdd"
+            },
+            {
+                "pull": 1658,
+                "base": "f5556d4c4119caeea782bdd6fc040185a6e8efdd",
+                "merge": "8f84bf89426f47125010cbf2d4c6a920787bf482"
+            },
+            {
+                "pull": 1669,
+                "base": "8f84bf89426f47125010cbf2d4c6a920787bf482",
+                "merge": "03fe25671b720b15103a2ff26934e94c87bd4d82"
+            },
+            {
+                "pull": 1671,
+                "base": "03fe25671b720b15103a2ff26934e94c87bd4d82",
+                "merge": "9aa2557d9b2ac65e7270573536a9c43047a5e239"
+            },
+            {
+                "pull": 1535,
+                "base": "9aa2557d9b2ac65e7270573536a9c43047a5e239",
+                "merge": "9360968296eb3d096d6fe6fcfdc5d9a9dddc70af"
+            },
+            {
+                "pull": 1466,
+                "base": "9360968296eb3d096d6fe6fcfdc5d9a9dddc70af",
+                "merge": "a348540342e6b0e570a1aff2522410ff3a2ee20e"
+            },
+            {
+                "pull": 1675,
+                "base": "920d86dc809f837543cb519d3df5b364a2c36577",
+                "merge": "4bf5f5b7c9d8ef9da8123ee965795236149ff66a"
+            },
+            {
+                "pull": 1624,
+                "base": "4bf5f5b7c9d8ef9da8123ee965795236149ff66a",
+                "merge": "8d2e2ef75c3e18df173d8bf2379a14abb58c4c31"
+            }
+        ],
+        "gate": [
+            "gate-infection",
+            "gate-phpunit"
+        ],
+        "diff": "infection"
+    }
+}
