@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Codeception;
 
 use function array_diff;
-use function array_values;
 use function get_included_files;
 
 use NightWorksIO\MutationGate\Core\Native\Candidate;
@@ -43,7 +42,7 @@ final class Covering
     public function ended(float $took): void
     {
         $loaded = get_included_files();
-        $this->coverage->filter()->includeFiles($this->own->among(array_values(array_diff($loaded, $this->told))));
+        $this->coverage->filter()->includeFiles($this->own->among(array_diff($loaded, $this->told)));
         $this->told = $loaded;
         $append = true;
         $this->coverage->stop($append, null, null, null, $took);

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Project;
 
 use function array_any;
-use function array_values;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -66,8 +65,12 @@ final readonly class TestSuite
         );
     }
 
-    /** These tests, leaving out every test of these suites, which serve the application from another process. */
-    public function leaving(string ...$suites): self
+    /**
+     * These tests, leaving out every test of these suites, which serve the application from another process.
+     *
+     * @param list<string> $suites
+     */
+    public function leaving(array $suites): self
     {
         return new self(
             $this->directories,
@@ -75,7 +78,7 @@ final readonly class TestSuite
             $this->files,
             $this->excluded,
             $this->suites,
-            [...$this->elsewhere, ...array_values($suites)],
+            [...$this->elsewhere, ...$suites],
         );
     }
 

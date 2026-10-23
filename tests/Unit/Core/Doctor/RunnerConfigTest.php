@@ -16,8 +16,8 @@ it('says nothing where nobody read the runner\'s config', function (): void {
 
 it('keeps the PHPUnit config\'s memory_limit and the suites served elsewhere, whatever order they come in', function (): void {
     $memory = PhpUnitMemory::of(Path::of('phpunit.xml'), MemoryCap::of(2, MemoryUnit::Gigabytes));
-    $first = RunnerConfig::none()->withPhpUnitMemory($memory)->withSuitesElsewhere('Acceptance', 'Api');
-    $second = RunnerConfig::none()->withSuitesElsewhere('Acceptance', 'Api')->withPhpUnitMemory($memory);
+    $first = RunnerConfig::none()->withPhpUnitMemory($memory)->withSuitesElsewhere(['Acceptance', 'Api']);
+    $second = RunnerConfig::none()->withSuitesElsewhere(['Acceptance', 'Api'])->withPhpUnitMemory($memory);
 
     expect([$first->phpUnitMemory(), $first->suitesElsewhere()])->toBe([$memory, ['Acceptance', 'Api']])
         ->and([$second->phpUnitMemory(), $second->suitesElsewhere()])->toBe([$memory, ['Acceptance', 'Api']]);

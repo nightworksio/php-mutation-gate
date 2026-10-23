@@ -31,7 +31,7 @@ it('keeps each file it is given, whatever order they come in', function (): void
     $baseline = Baseline::none();
     $sonar = SonarSources::of(Path::of('src'));
     $warm = WarmRefusal::of('The boot left 1 socket open once bootstrap.php ran.');
-    $runner = RunnerConfig::none()->withSuitesElsewhere('Acceptance');
+    $runner = RunnerConfig::none()->withSuitesElsewhere(['Acceptance']);
     $files = ProjectFiles::none()
         ->withRunnerConfig($runner)
         ->withWarmRefusal($warm)

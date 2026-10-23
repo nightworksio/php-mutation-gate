@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Doctor\Severity;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
 it('names the suites the gate runs no test of, as they serve the application from another process, and what to do', function (): void {
-    $observed = Observations::none()->withFiles(ProjectFiles::none()->withRunnerConfig(RunnerConfig::none()->withSuitesElsewhere('Acceptance', 'Api')));
+    $observed = Observations::none()->withFiles(ProjectFiles::none()->withRunnerConfig(RunnerConfig::none()->withSuitesElsewhere(['Acceptance', 'Api'])));
 
     expect(SuitesElsewhere::in($observed))->toEqual(Findings::of(Finding::of(
         Slug::SuiteServedElsewhere,

@@ -107,7 +107,7 @@ final readonly class CodeceptionSuite
             Paths::none(),
             Paths::none(),
             DeclaredSuites::none(),
-        )->leaving(...$elsewhere);
+        )->leaving($elsewhere);
     }
 
     /** Whether a suite, or the config every suite takes, serves the application from another process. */

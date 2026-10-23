@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Doctor;
 
-use function array_values;
-
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
@@ -32,10 +30,14 @@ final readonly class RunnerConfig
         return new self($memory, $this->elsewhere);
     }
 
-    /** This, with these suites, which serve the application from another process. */
-    public function withSuitesElsewhere(string ...$suites): self
+    /**
+     * This, with these suites, which serve the application from another process.
+     *
+     * @param list<string> $suites
+     */
+    public function withSuitesElsewhere(array $suites): self
     {
-        return new self($this->phpUnitMemory, array_values($suites));
+        return new self($this->phpUnitMemory, $suites);
     }
 
     public function phpUnitMemory(): PhpUnitMemory|NotGiven

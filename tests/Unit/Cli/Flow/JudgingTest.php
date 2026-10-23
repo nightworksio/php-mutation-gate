@@ -332,7 +332,7 @@ it('warns of each mutator set a preset turns on that is not installed', function
 it('warns of the suites whose tests the gate runs none of, as they serve the application from another process', function () use ($makeReporting, $makeJudged): void {
     $reporting = $makeReporting();
     $judged = $makeJudged();
-    $suite = TestSuite::conventional(SuiteDirectory::conventional())->leaving('Acceptance', 'Api');
+    $suite = TestSuite::conventional(SuiteDirectory::conventional())->leaving(['Acceptance', 'Api']);
 
     $verdict = JudgingRuns::verdictOf($judged(
         Planned::twoShards(),

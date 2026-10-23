@@ -42,6 +42,6 @@ it('names the suites it leaves out for serving the application from another proc
     $suite = TestSuite::conventional(SuiteDirectory::conventional());
 
     expect($suite->elsewhere())->toBe([])
-        ->and($suite->leaving('Acceptance')->leaving('Api', 'Browser')->elsewhere())->toBe(['Acceptance', 'Api', 'Browser'])
-        ->and($suite->leaving('Acceptance')->directories())->toEqual($suite->directories());
+        ->and($suite->leaving(['Acceptance'])->leaving(['Api', 'Browser'])->elsewhere())->toBe(['Acceptance', 'Api', 'Browser'])
+        ->and($suite->leaving(['Acceptance'])->directories())->toEqual($suite->directories());
 });

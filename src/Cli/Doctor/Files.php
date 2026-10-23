@@ -109,7 +109,7 @@ final readonly class Files
             ? Suite::configured($this->project, SuiteConfig::ofRunner($settings->runner()->choice()->use()->value()))
             : $settings;
 
-        return $suite instanceof TestSuite ? $config->withSuitesElsewhere(...$suite->elsewhere()) : $config;
+        return $suite instanceof TestSuite ? $config->withSuitesElsewhere($suite->elsewhere()) : $config;
     }
 
     /** Every CI definition that names the gate, which a definition that runs it does. */
