@@ -98,6 +98,9 @@ parameters:
             # An option read that the command does not define is a mistake in the
             # code that reads it, never something a caller can answer.
             - Symfony\Component\Console\Exception\InvalidArgumentException
+            # Thrown from a mutant's own process's shutdown, to end that process
+            # failed; nothing is meant to catch it.
+            - NightWorksIO\MutationGate\Adapter\Pest\Recording\EndedInTest
 
     # D11 is this repository's own rule, which scopes its one exemption with allowIn.
     shipmonkRules:

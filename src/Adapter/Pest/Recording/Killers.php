@@ -35,9 +35,6 @@ use PHPUnit\Event\UnknownSubscriberTypeException;
  */
 final readonly class Killers
 {
-    /** The code a mutant's own process ends with where it ended as a test ran: a failed run, as PHPUnit's is. */
-    public const int ENDED_IN_TEST = 1;
-
     private function __construct(private string $results, private string $mutated, private RunOrder $order)
     {
     }
@@ -139,21 +136,35 @@ final readonly class Killers
     }
 
     /**
-     * Where the process ends as a test runs, before the run ended, writes that
-     * test as one that errored, where it stood, and says so: a test the
-     * process ended in never passed, and is named its killer (ADR-0014).
+     * Where killers are named in this process, as it ends: see ended().
+     *
+     * @throws EndedInTest
      */
-    public function endedInTest(): bool
+    public static function endedIn(self|Off $killers): void
+    {
+        if ($killers instanceof self) {
+            $killers->ended();
+        }
+    }
+
+    /**
+     * Where the process ends as a test runs, before the run ended, writes that
+     * test as one that errored, where it stood, and throws: a test the
+     * process ended in never passed, and is named its killer (ADR-0014).
+     *
+     * @throws EndedInTest
+     */
+    public function ended(): void
     {
         $running = $this->order->running();
 
         if ($running instanceof NotGiven) {
-            return false;
+            return;
         }
 
         $this->erroredBy($running);
 
-        return true;
+        throw EndedInTest::in($running);
     }
 
     /** Writes a test, and where it stood, to the mutant's killer file, as Pest's own process records it. */

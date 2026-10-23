@@ -351,10 +351,10 @@ running it: why is this mutant here, and has it always been?
         starts, and writes the position and digest with each failing test,
         and the arguments that process started with. Where that process
         ends as a test runs, before PHPUnit ends its run, as `exit`, `die`
-        or a fatal error ends it, the plugin writes that test as erroring,
-        with its position and digest, and ends the process with code 1, a
-        failed run, whatever code it would have ended with: a test its
-        process ended in never passed. Pest's adapter replays
+        or a fatal error ends it, the plugin's shutdown function writes that
+        test as erroring, with its position and digest, and throws an
+        exception nothing catches, which fails the process whatever code it
+        would have ended with: a test its process ended in never passed. Pest's adapter replays
         a narrowed run by them, stopped after its last failing test, and
         lets its kill stand only where the replay's order gives the same
         `key` (ADR-0004).

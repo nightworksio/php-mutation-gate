@@ -14,6 +14,7 @@ use function is_string;
 use NightWorksIO\MutationGate\Adapter\Pest\Grouping\HoldsGroups;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Reordering;
 use NightWorksIO\MutationGate\Adapter\Pest\Order\Seeder;
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\EndedInTest;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Guard;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Killers;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Naming;
@@ -86,9 +87,11 @@ final class Plugin implements Bootable, HandlesArguments
     /**
      * Writes what the guard saw, where one watches this run, and the names of
      * the tests, where the adapter asked for them; then, in a mutant's own
-     * process that ends as a test runs, names that test its killer and fails
-     * the process, which may have exited with 0: PHP calls it once the
-     * process ends.
+     * process that ends as a test runs, names that test its killer and throws,
+     * which fails the process, though it may have exited with 0: PHP calls it
+     * once the process ends.
+     *
+     * @throws EndedInTest
      */
     public function finish(): void
     {
@@ -101,9 +104,7 @@ final class Plugin implements Bootable, HandlesArguments
             $this->naming->write(get_declared_classes());
         }
 
-        if ($this->killers instanceof Killers && $this->killers->endedInTest()) {
-            exit(Killers::ENDED_IN_TEST);
-        }
+        Killers::endedIn($this->killers);
     }
 
     public function recorder(): Recorder|Off
