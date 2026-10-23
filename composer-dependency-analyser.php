@@ -64,6 +64,10 @@ return (new Configuration())
             // S2 — conflict-only: it fails resolution when a dependency has a
             // published advisory, and ships no code to name.
             'roave/security-advisories',
+            // A floor only: PhpSpec's dispatcher implements these contracts,
+            // and their releases before 3.5 declare implicitly nullable
+            // parameters, which PHP 8.4 deprecates.
+            'symfony/event-dispatcher-contracts',
         ],
         [ErrorType::UNUSED_DEPENDENCY],
     )
