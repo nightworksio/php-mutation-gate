@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Native;
 
-use function in_array;
+use function array_flip;
+use function array_key_exists;
 
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\Filter;
@@ -19,7 +20,7 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
  */
 final readonly class Selected
 {
-    /** @param list<string>|NotGiven $files by their paths on disk */
+    /** @param array<array-key, int>|NotGiven $files each by its path on disk, as a key */
     private function __construct(
         private TestIds|NotGiven $tests,
         private Group|NotGiven $group,
@@ -40,7 +41,9 @@ final readonly class Selected
         Filter|NotGiven $filter,
         array|NotGiven $files,
     ): self {
-        return new self($tests, $group, $filter, $files, listing: false);
+        $byPath = $files instanceof NotGiven ? $files : array_flip($files);
+
+        return new self($tests, $group, $filter, $byPath, listing: false);
     }
 
     /** No test, for a run that lists the suite's tests and runs none. */
@@ -55,6 +58,6 @@ final readonly class Selected
             && ($this->tests instanceof NotGiven || $this->tests->has($test->id()))
             && ($this->group instanceof NotGiven || $test->isIn($this->group))
             && ($this->filter instanceof NotGiven || $this->filter->selects($test->id()))
-            && ($this->files instanceof NotGiven || in_array($test->file(), $this->files, strict: true));
+            && ($this->files instanceof NotGiven || array_key_exists($test->file(), $this->files));
     }
 }

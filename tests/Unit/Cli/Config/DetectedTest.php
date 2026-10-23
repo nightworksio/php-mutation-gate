@@ -57,6 +57,7 @@ it('chooses the runner that is installed', function (array $installed, BuiltinRu
     'PHPUnit alone' => [['phpunit/phpunit'], BuiltinRunner::PhpUnit],
     'PhpSpec alone' => [['phpspec/phpspec', 'phpunit/php-code-coverage'], BuiltinRunner::PhpSpec],
     'PhpSpec under Infection' => [['infection/infection', 'phpspec/phpspec'], BuiltinRunner::Infection],
+    'PHPUnit and PhpSpec under Infection' => [['infection/infection', 'phpunit/phpunit', 'phpspec/phpspec'], BuiltinRunner::Infection],
 ]);
 
 it('asks for a choice when both runners are installed', function () use ($detected): void {
