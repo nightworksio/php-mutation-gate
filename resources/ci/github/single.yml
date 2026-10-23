@@ -48,6 +48,7 @@ jobs:
       name: ${{ contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event_name) && github.ref == 'refs/heads/%%branch%%' && '%%keys%%' || '' }}
     permissions:
       contents: read
+      actions: read
       pull-requests: write
       id-token: write
     steps:

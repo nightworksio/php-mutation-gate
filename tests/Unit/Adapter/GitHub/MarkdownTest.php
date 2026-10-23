@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\GitHub\HtmlReport;
 use NightWorksIO\MutationGate\Adapter\GitHub\Markdown;
 use NightWorksIO\MutationGate\Adapter\GitHub\MarkdownItems;
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
@@ -56,11 +57,10 @@ use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 $run = 'https://github.com/octo/gate/actions/runs/7';
 
-it('writes the sticky comment: the verdict, trees, new code, survivors on changed lines, unjudged and flaky, the ignored, failures, warnings and the run', function () use ($run): void {
+it('writes the sticky comment: the verdict, trees, new code, survivors on changed lines, unjudged and flaky, the ignored, failures, warnings and the run', function (): void {
     $survivor = Verdicts::survivor();
     $id = static fn(int $at): string => iterator_to_array(Verdicts::everyJudgement(), preserve_keys: false)[$at]->mutant()->id()->value();
-
-    expect(Markdown::comment(Verdicts::failing(), $run))->toBe(implode("\n\n", [
+    expect(Markdown::comment(Verdicts::failing()))->toBe(implode("\n\n", [
         '<!-- mutation-gate -->',
         '## mutation-gate: failed',
         'The project scores 44.44%.',
@@ -98,12 +98,12 @@ it('writes the sticky comment: the verdict, trees, new code, survivors on change
         '- The ignore of 3f9a1c2b7d04 matched no mutant. Remove it.',
         '### Warnings',
         '- src/Kernel.php is run by 412 of 430 tests and nothing holds it.',
-        sprintf("[The run](%s) keeps the HTML report among its artifacts.\n", $run),
+        sprintf("%s\n", HtmlReport::SLOT),
     ]));
 });
 
 it('says the run cannot judge, and why, before its failures', function (): void {
-    $comment = Markdown::comment(Verdicts::named('cannot judge'), '');
+    $comment = Markdown::comment(Verdicts::named('cannot judge'));
 
     expect($comment)->toStartWith("<!-- mutation-gate -->\n\n## mutation-gate: cannot-judge\n")
         ->and($comment)->toContain(sprintf(
@@ -113,14 +113,15 @@ it('says the run cannot judge, and why, before its failures', function (): void 
 });
 
 it('writes the comment of a passing run, with the floors that can rise and a run cut short', function (): void {
-    expect(Markdown::comment(Verdicts::passing()->cutShort(), ''))->toBe(implode("\n\n", [
+    expect(Markdown::comment(Verdicts::passing()->cutShort()))->toBe(implode("\n\n", [
         '<!-- mutation-gate -->',
         '## mutation-gate: passed',
         'The project scores 100.00%. The run stopped before it judged every mutant.',
         "| Tree | Floor | Score | Against the base | Result |\n|---|---|---|---|---|\n| <code>src</code> | 80.00% | 100.00% |  | passed |",
         '### Floors that can rise',
         '- <code>src</code> to 100.00%',
-        "Raise them with `vendor/bin/mutation-gate baseline --write`, and commit the baseline.\n",
+        'Raise them with `vendor/bin/mutation-gate baseline --write`, and commit the baseline.',
+        sprintf("%s\n", HtmlReport::SLOT),
     ]));
 });
 
@@ -136,7 +137,7 @@ it('comments on up to 20 survivors on changed lines, 20 unjudged or flaky and 20
         $mutants[] = JudgedMutant::of(Verdicts::mutant(sprintf('src/Log.php:%d', $line), 'Plus', MutatorFamily::None, ''), MutantJudgement::Ignored);
     }
 
-    $comment = Markdown::comment(Verdicts::of(Floor::of(80), ...$mutants), '');
+    $comment = Markdown::comment(Verdicts::of(Floor::of(80), ...$mutants));
 
     expect(substr_count($comment, '<details>'))->toBe(20)
         ->and(substr_count($comment, '| <code>src/Order.php:'))->toBe(20)
@@ -181,7 +182,7 @@ it('writes what each suite alone kills in the step summary, and never in the com
         ->toContain('| <code>unit</code> | 3 | 2 | 66.66% |')
         ->and(Markdown::summary(Killings::unplaced(), $run, Verdicts::monthAgo()))
         ->toContain("### Suites\n\nThe runner named no test, so no suite can be scored.")
-        ->and(Markdown::comment($verdict, $run))->not->toContain('Suites');
+        ->and(Markdown::comment($verdict))->not->toContain('Suites');
 });
 
 it('writes a hostile suite\'s name in the step summary as inert text in one table cell', function () use ($run): void {
@@ -270,7 +271,7 @@ it('lets no reason the config wrote become markup, a mention or a new cell', fun
         MutantJudgement::Ignored,
     );
 
-    expect(Markdown::comment(Verdicts::of(Floor::of(80), $ignored), ''))
+    expect(Markdown::comment(Verdicts::of(Floor::of(80), $ignored)))
         ->toContain(sprintf('| <code>src/Log.php:3</code> | Plus | <code>%s</code> | a &#124; b &lt;script&gt; &#64;octocat |', $ignored->mutant()->id()->value()));
 });
 
@@ -279,7 +280,7 @@ it('lets no output of a kill left unjudged for want of evidence become markup, a
     $killed = Mutant::of($base->id(), $base->nativeId(), $base->location(), $base->mutation(), MutantStatus::Killed, Seconds::of(0.1));
     $ended = Ended::of(1, signalled: false, printed: "<script>alert(1)</script> | [x](https://evil) @octocat\n::error::forged");
     $unjudged = [...Unevidenced::judged(Mutants::of($killed), Evidences::none()->with($killed->id(), Evidence::none()->withEnded($ended)))][0];
-    $comment = Markdown::comment(Verdicts::of(Floor::of(80), JudgedMutant::of($unjudged, MutantJudgement::Unjudged)), '');
+    $comment = Markdown::comment(Verdicts::of(Floor::of(80), JudgedMutant::of($unjudged, MutantJudgement::Unjudged)));
 
     expect($comment)->not->toContain('<script')
         ->and($comment)->not->toContain('@octocat')
@@ -293,7 +294,7 @@ it('lets nothing the project wrote become markup, a link, a mention or a new cel
         Verdicts::mutant('src/<img src=x>|@octocat.php:3', '[x](https://evil)', MutatorFamily::None, "@@ @@\n-a ~~~ </details>\n+b\n"),
         MutantJudgement::Flaky,
     )->judgedBy(TestIds::of(TestId::of('it @octocat </code><script>')));
-    $comment = Markdown::comment(Verdicts::of(Floor::of(80), $hostile), '');
+    $comment = Markdown::comment(Verdicts::of(Floor::of(80), $hostile));
 
     expect($comment)->not->toContain('<img')
         ->and($comment)->not->toContain('<script')
@@ -308,23 +309,22 @@ it('lets nothing the project wrote become markup, a link, a mention or a new cel
         )]);
 });
 
-it('says what the run took and saved under the verdict, and folds what it cost into the comment\'s end', function () use ($run): void {
-    $comment = Markdown::comment(Verdicts::named('accounted'), $run);
-
+it('says what the run took and saved under the verdict, and folds what it cost into the comment\'s end', function (): void {
+    $comment = Markdown::comment(Verdicts::named('accounted'));
     expect($comment)->toStartWith(sprintf(
         "%s\n\n## mutation-gate: failed\n\n%s\n\nThe project scores 44.44%%.",
         Markdown::MARKER,
         SavingsText::of(Verdicts::named('accounted'), NoHistory::yet()),
     ))
         ->and($comment)->toEndWith(sprintf("\n\n%s\n", CostText::of(Verdicts::named('accounted'))))
-        ->and(Markdown::comment(Verdicts::failing(), $run))->not->toContain('What this run cost');
+        ->and(Markdown::comment(Verdicts::failing()))->not->toContain('What this run cost');
 });
 
 it('says under the verdict what pruning left out, in the comment and the step summary alike', function () use ($run): void {
     $verdict = Verdicts::failing()->withAccount(Verdicts::account()->withPruning(PruningCases::account()));
     $pruned = "\nPruned: 2 mutators on 1 unit; 3 mutants carried from runs of the last 7 days.\n\nThe project scores 44.44%.";
 
-    expect(Markdown::comment($verdict, $run))->toContain($pruned)
+    expect(Markdown::comment($verdict))->toContain($pruned)
         ->and(Markdown::summary($verdict, $run, Verdicts::monthAgo()))->toContain($pruned);
 });
 
@@ -375,7 +375,7 @@ function clusterDetails(Cluster $cluster): string
 it('comments on a cluster as one item, with its members\' diffs, one hint and its stub command', function (): void {
     [$expression, $gap] = commentedClusters();
 
-    expect(Markdown::comment(Clustered::verdict(), ''))->toContain(implode("\n\n", [
+    expect(Markdown::comment(Clustered::verdict()))->toContain(implode("\n\n", [
         '### Survivors on changed lines (6)',
         clusterDetails($expression),
         clusterDetails($gap),
@@ -391,7 +391,7 @@ it('counts a cluster as one item toward the comment\'s 20, and the survivors in 
         $mutants[] = JudgedMutant::of(Verdicts::mutant(sprintf('src/Price.php:%d', $line), 'Plus', MutatorFamily::None, ''), MutantJudgement::Survived)->within($reach);
     }
 
-    $comment = Markdown::comment(Verdicts::of(Floor::of(80), ...$mutants), '');
+    $comment = Markdown::comment(Verdicts::of(Floor::of(80), ...$mutants));
 
     expect($comment)->toContain('### Survivors on changed lines (26)')
         ->and(substr_count($comment, '<details>'))->toBe(20)
@@ -423,7 +423,7 @@ it('writes a cluster as one row of the step summary, with its size and its stub 
 });
 
 it('comments on the security survivors in a section before the trees, and lists each security set with the new code', function () use ($run): void {
-    $comment = Markdown::comment(Verdicts::secured(), $run);
+    $comment = Markdown::comment(Verdicts::secured());
     $section = strpos($comment, '### Security survivors (1)');
     $trees = strpos($comment, '| Tree | Floor | Score | Against the base | Result |');
 
@@ -436,9 +436,8 @@ it('comments on the security survivors in a section before the trees, and lists 
         ->and(Markdown::summary(Verdicts::secured(), $run, Verdicts::monthAgo()))->toContain('- Security scores 0.00%, below its floor of 100.00%.');
 });
 
-it('lists a security survivor on a changed line only among the security survivors', function () use ($run): void {
-    $comment = Markdown::comment(Verdicts::securedOnAChangedLine(), $run);
-
+it('lists a security survivor on a changed line only among the security survivors', function (): void {
+    $comment = Markdown::comment(Verdicts::securedOnAChangedLine());
     expect($comment)->toContain('### Security survivors (1)')
         ->and($comment)->toContain('### Survivors on changed lines (1)')
         ->and(substr_count($comment, '<code>src/Auth.php:3</code>'))->toBe(1);
@@ -448,7 +447,7 @@ it('cuts each diff it shows, so one mutated line of any length cannot swell the 
     $reach = Reach::nothing(Packages::of(Trees::none()))->withLines(Path::of('src/Money.php'), Lines::of(Line::of(3)));
     $long = sprintf("-%s\n+%s", str_repeat('a', 70_000), str_repeat('b', 70_000));
     $huge = JudgedMutant::of(Verdicts::mutant('src/Money.php:3', 'Plus', MutatorFamily::None, $long), MutantJudgement::Survived)->within($reach);
-    $comment = Markdown::comment(Verdicts::of(Floor::of(80), $huge), '');
+    $comment = Markdown::comment(Verdicts::of(Floor::of(80), $huge));
 
     expect(mb_strlen($comment))->toBeLessThanOrEqual(Markdown::COMMENT_CHARACTERS)
         ->and($comment)->toContain(sprintf("~~~diff\n-%s…\n~~~", str_repeat('a', 1_498)))
@@ -466,7 +465,7 @@ it('fits the comment into what GitHub takes, showing half as many mutants each t
         $mutants[] = JudgedMutant::of(Verdicts::mutant(sprintf('src/%s.php:%d', str_repeat('Order', 600), $line), 'Plus', MutatorFamily::None, ''), MutantJudgement::Flaky);
     }
 
-    $comment = Markdown::comment(Verdicts::of(Floor::of(80), ...$mutants), '');
+    $comment = Markdown::comment(Verdicts::of(Floor::of(80), ...$mutants));
     $shown = substr_count($comment, '<details>');
 
     expect(mb_strlen($comment))->toBeLessThanOrEqual(Markdown::COMMENT_CHARACTERS)
@@ -484,7 +483,7 @@ it('stops cutting the comment once it shows no mutant, even where what is left i
         JudgedMutants::of(JudgedMutant::of(Verdicts::mutant(sprintf('%s/Money.php:3', $path), 'Plus', MutatorFamily::None, ''), MutantJudgement::Flaky)),
         Uncovered::Count,
     );
-    $comment = Markdown::comment(Verdict::of(TreeVerdicts::of($tree)), '');
+    $comment = Markdown::comment(Verdict::of(TreeVerdicts::of($tree)));
 
     expect($comment)->toContain('And 1 more; the JSON report lists every one.')
         ->and($comment)->not->toContain('| Mutant | Mutator |');
@@ -496,7 +495,7 @@ it('cuts the hint of each mutant it shows, in a block or a row, so one cannot sw
     $judged = JudgedMutant::of(Verdicts::mutant('src/Money.php:3', 'Plus', MutatorFamily::None, ''), MutantJudgement::from($judgement))
         ->within($reach)
         ->judgedBy($tests);
-    $comment = Markdown::comment(Verdicts::of(Floor::of(80), $judged), '');
+    $comment = Markdown::comment(Verdicts::of(Floor::of(80), $judged));
 
     expect(mb_strlen($comment))->toBeLessThanOrEqual(Markdown::COMMENT_CHARACTERS)
         ->and($comment)->toContain('src/Money.php:3')
@@ -510,7 +509,7 @@ it('keeps a comment of exactly what GitHub takes whole, and cuts one a character
         Floor::of(80),
         JudgedMutant::of(Verdicts::mutant('src/Money.php:3', 'Plus', MutatorFamily::None, ''), MutantJudgement::Flaky),
         JudgedMutant::of(Verdicts::mutant(sprintf('src/%s.php:4', str_repeat('é', $length)), 'Plus', MutatorFamily::None, ''), MutantJudgement::Flaky),
-    ), '');
+    ));
     $fits = $gitHubTakes - (mb_strlen($comment(2)) - 2);
     $whole = $comment($fits);
 
@@ -528,12 +527,12 @@ it('marks a survivor its unit\'s last result gave because the plan pruned its mu
 });
 
 it('heads the comment of a sampled run as sampled, and prints each sampled tree\'s estimate', function (): void {
-    $comment = Markdown::comment(Sampled::verdict(Floor::of(60)), '');
+    $comment = Markdown::comment(Sampled::verdict(Floor::of(60)));
 
     expect($comment)->toContain('## mutation-gate: passed, sampled')
         ->and($comment)->toContain(SetText::SAMPLED)
         ->and($comment)->toContain('| <code>src</code> | 60.00% | about 75.55% (60.70%–85.26%) |  | passed |')
-        ->and(Markdown::comment(Verdicts::passing(), ''))->not->toContain('sampled');
+        ->and(Markdown::comment(Verdicts::passing()))->not->toContain('sampled');
 });
 
 it('compares a sampled run\'s tree with the base only where the run knew it exactly', function (): void {
@@ -547,7 +546,7 @@ it('compares a sampled run\'s tree with the base only where the run knew it exac
     )->comparedWith(Score::ofHundredths(4_000));
     $sampled = Sampled::tree(Floor::of(60), 'app')->comparedWith(Score::ofHundredths(4_000));
 
-    expect(Markdown::comment(Verdict::of(TreeVerdicts::of($exact, $sampled)), ''))
+    expect(Markdown::comment(Verdict::of(TreeVerdicts::of($exact, $sampled))))
         ->toContain('| <code>src</code> | 50.00% | 50.00% | +10.00 | passed |')
         ->toContain('| <code>app</code> | 60.00% | about 75.55% (60.70%–85.26%) |  | passed |');
 });

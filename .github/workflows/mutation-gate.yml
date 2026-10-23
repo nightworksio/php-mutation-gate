@@ -13,8 +13,9 @@ name: mutation-gate
 # - deliver-plan posts the pull request comment's planned state the plan left;
 # - deliver-survivors posts its "survivors re-checked" state, which the
 #   survivors job, beside the shards, left on a pull request;
-# - deliver posts the comment the verdict left, and on a trusted run writes the
-#   ledger, sends the alerts and exports the trace.
+# - deliver posts the comment the verdict left, linking the HTML report the
+#   verdict uploaded unarchived, and on a trusted run writes the ledger, sends
+#   the alerts and exports the trace.
 #
 # The shard jobs run the action from this workflow's own commit, which each
 # checks out at job.workflow_sha, so the workflow and the action are always
@@ -765,7 +766,8 @@ jobs:
           code=0
           mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
           "${GATE}" verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results \
-            --report=json:.mutation-gate/action/report.json --deliver-later "${arguments[@]}" || code=$?
+            --report=json:.mutation-gate/action/report.json --report=html:.mutation-gate/action/html \
+            --deliver-later "${arguments[@]}" || code=$?
           echo "code=${code}" >> "${GITHUB_OUTPUT}"
       # The verdict leaves this scope's ledger and kept coverage map in its
       # delivery; the directory store is this cache, which needs no key, so
@@ -810,6 +812,18 @@ jobs:
           if [ -f "${DELIVERY}/verdict/delivery.json" ]; then
             echo "left=true" >> "${GITHUB_OUTPUT}"
           fi
+      # The HTML report, unarchived under the name the comment's link finds it
+      # by, so the link opens the page itself; deliver runs after this job.
+      - name: Name the HTML report as the comment links it
+        if: ${{ !cancelled() && hashFiles('.mutation-gate/action/html/index.html') != '' }}
+        run: cp .mutation-gate/action/html/index.html .mutation-gate/action/mutation-gate-report.html
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() && hashFiles('.mutation-gate/action/mutation-gate-report.html') != '' }}
+        with:
+          path: .mutation-gate/action/mutation-gate-report.html
+          archive: false
+          include-hidden-files: true
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() && steps.outputs.outputs.report_files != '' }}
         with:
@@ -858,9 +872,11 @@ jobs:
     runs-on: ${{ startsWith(inputs.runs-on, '[') && fromJSON(inputs.runs-on) || inputs.runs-on }}
     timeout-minutes: 15
     # id-token: write, as fetch has it, for a store that signs in through
-    # GitHub's OIDC.
+    # GitHub's OIDC; actions: read, to find the run's HTML report the comment
+    # links.
     permissions:
       contents: read
+      actions: read
       pull-requests: write
       id-token: write
     steps:

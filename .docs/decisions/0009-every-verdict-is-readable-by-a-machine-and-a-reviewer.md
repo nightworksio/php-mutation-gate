@@ -191,7 +191,8 @@ sees the same verdict.
        where the plan has no units; the units, folded as
        `<details><summary>Units (12)</summary>`; *Changed lines no test
        covers (3)* as a heading over one `path:line` a line; and the link to
-       the run. Each list is cut like the verdict's. The plan file holds the
+       the run, which says the verdict links the HTML report and that until
+       then there is none. Each list is cut like the verdict's. The plan file holds the
        untested lines as `untested`. The flows write the state with
        `PullRequestComment::planned(PlannedWork)`, where `PlannedWork` holds
        the plan, its estimate, the share of the estimate that was measured,
@@ -207,7 +208,7 @@ sees the same verdict.
        - unjudged and flaky mutants;
        - warnings;
        - floors that must or can rise (ADR-0003);
-       - a link to the run and its HTML report;
+       - a link to the run's HTML report and to the run;
        - the run's cost, collapsed (ADR-0016).
 
        In that order: the marker; a heading with the verdict and the
@@ -217,7 +218,22 @@ sees the same verdict.
        with its diff, hint and reproduce command; a table of the unjudged and
        flaky mutants; the failures; the warnings; the floors that can rise
        with `vendor/bin/mutation-gate baseline --write`; the link; and the
-       cost. A list longer than 20 says how many more there are. GitHub takes
+       cost.
+     - **The link to the HTML report.** Every run of the action and the
+       reusable workflow writes the HTML report with its verdict and uploads
+       its `index.html` unarchived, as the artifact
+       `mutation-gate-report.html`. GitHub serves an unarchived artifact as
+       the file itself, inline, so the link opens the page. The comment is
+       rendered with a slot, `<!-- mutation-gate: html report -->`, which
+       `PullRequestComment` fills as it writes the comment: it finds that
+       artifact among its own run's with `actions: read` and links
+       `<run>/artifacts/<id>`, *[The HTML report](…) of [this run](…).* A
+       comment updated in place thus always links the run that wrote it.
+       Where the run holds no such artifact, it has expired, or its artifacts
+       cannot be read, the line says so and links the run instead: *This run
+       left no HTML report to link: no artifact of it is named
+       `mutation-gate-report.html`, so the verdict wrote none or it was not
+       uploaded.* A list longer than 20 says how many more there are. GitHub takes
        at most 65,536 characters in a comment, so where the comment would hold
        more, each list shows half as many entries, and again, down to none,
        each saying how many it left out. Each diff and hint shows at most
