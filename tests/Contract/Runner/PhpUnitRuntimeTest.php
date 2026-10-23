@@ -8,9 +8,8 @@ use NightWorksIO\MutationGate\Adapter\Native\MutantRun;
 use NightWorksIO\MutationGate\Adapter\Native\Override;
 use NightWorksIO\MutationGate\Adapter\Native\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\Native\Project;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Installation;
+use NightWorksIO\MutationGate\Adapter\Native\TestFiles;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Installed;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\TestFiles;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -251,7 +250,7 @@ it('measures which tests run each line and how long each took, and places and na
     $lines = file($project->absolute(Path::of('src/Tally.php')));
     $sum = Line::of((int) array_search("        return \$a + \$b;\n", is_array($lines) ? $lines : [], strict: true) + 1);
     $adding = $map instanceof CoverageMap ? $map->testsCovering(Path::of('src/Tally.php'), $sum, $sum) : TestIds::none();
-    $files = new TestFiles(Installation::at($project->root(), $project->tests(), $project->vendor()))->declaring($adding);
+    $files = new TestFiles($project)->declaring($adding);
     $row = TestId::of("Tests\\TallySpec::addsEachPair#one\nplus one");
 
     expect(array_map(static fn(TestId $test): string => $test->value(), [...$adding]))

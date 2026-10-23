@@ -32,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Native\Framework;
 use NightWorksIO\MutationGate\Core\Native\Selection;
 use NightWorksIO\MutationGate\Core\Native\Shell;
+use NightWorksIO\MutationGate\Core\Native\TestLayout;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CapFiles;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRan;
@@ -104,8 +105,8 @@ final readonly class NativeRunner implements Runner
      * NativeOptions), writing its memory cap with these files and running
      * through these processes.
      *
-     * @param Closure(string, Paths, Path): Framework $framework the framework in a root, with its tests in these
-     *                                                           directories, installed in this vendor directory
+     * @param Closure(string, Path, TestLayout): Framework $framework the framework in a root, installed in this vendor
+     *                                                               directory, its tests laid out so
      */
     public static function fromOptions(
         Options $options,
@@ -127,7 +128,7 @@ final readonly class NativeRunner implements Runner
         return new self(
             $project,
             $shell,
-            $framework(self::ROOT, $read->tests(), $vendor),
+            $framework(self::ROOT, $vendor, new TestFiles($project)),
             $read->engine(),
             $read->bounds(),
             $files,
@@ -307,7 +308,7 @@ final readonly class NativeRunner implements Runner
     public function rootedAt(Path $package, Paths $tests): self|CannotJudge
     {
         $project = $this->project->in($package, $tests);
-        $framework = $this->framework->in($package, $tests);
+        $framework = $this->framework->in($package, new TestFiles($project));
 
         return $framework->isInstalled()
             ? new self(

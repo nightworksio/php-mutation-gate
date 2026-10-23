@@ -51,7 +51,7 @@ final readonly class WithoutWorkers implements Framework
         return $this->framework->isInstalled();
     }
 
-    public function in(Path $package, Paths $tests): self
+    public function in(Path $package, TestLayout $tests): self
     {
         return new self($this->framework->in($package, $tests));
     }

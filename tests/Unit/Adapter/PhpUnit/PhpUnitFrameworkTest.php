@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Native\Project;
+use NightWorksIO\MutationGate\Adapter\Native\TestFiles;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Extension;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Installation;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnitFramework;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\TestFiles;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Coverage\Fresh;
@@ -38,6 +38,7 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\Test\TestPaths;
 use NightWorksIO\MutationGate\Core\Test\WholeSuite;
+use NightWorksIO\MutationGate\Tests\Support\NativePhpUnit;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitShellFake;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\TestLists;
@@ -59,7 +60,7 @@ function phpUnitFramework(string $version = ''): PhpUnitFramework
         ]]));
     }
 
-    return new PhpUnitFramework(Installation::at($root, Paths::of(Path::of('tests')), Path::of('vendor')));
+    return NativePhpUnit::in(Project::at($root, Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'), BuiltinRunner::PhpUnit));
 }
 
 $request = static fn(): MutationRequest => MutationRequest::of(Paths::of(Path::of('src/Money.php')), WholeSuite::tests());
@@ -85,7 +86,7 @@ it('runs the script and the config the project installed, and boots its warm wor
     $root = Scratch::directory();
     Scratch::write($root, 'vendor/bin/phpunit', '<?php');
     Scratch::write($root, 'phpunit.xml', '<phpunit><php><ini name="display_errors" value="0"/></php></phpunit>');
-    $framework = new PhpUnitFramework(Installation::at($root, Paths::of(Path::of('tests')), Path::of('vendor')));
+    $framework = NativePhpUnit::in(Project::at($root, Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'), BuiltinRunner::PhpUnit));
     $real = (string) realpath($root);
 
     expect($framework->isInstalled())->toBeTrue()
@@ -100,10 +101,15 @@ it('runs the script and the config the project installed, and boots its warm wor
 it('is PHPUnit in a package where Composer installed it there, and not one where it did not', function (): void {
     $root = Scratch::directory();
     Scratch::write($root, 'packages/billing/vendor/bin/phpunit', '<?php');
-    $framework = new PhpUnitFramework(Installation::at($root, Paths::of(Path::of('tests')), Path::of('vendor')));
+    $framework = NativePhpUnit::in(Project::at($root, Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'), BuiltinRunner::PhpUnit));
 
-    expect($framework->in(Path::of('packages/billing'), Paths::of(Path::of('spec')))->isInstalled())->toBeTrue()
-        ->and($framework->in(Path::of('packages/none'), Paths::none())->isInstalled())->toBeFalse()
+    $layout = static fn(string $package): TestFiles => new TestFiles(
+        Project::at(sprintf('%s/%s', $root, $package), Paths::none(), Path::of('vendor'), Path::of('.mutation-gate'), BuiltinRunner::PhpUnit),
+    );
+
+    expect($framework->in(Path::of('packages/billing'), $layout('packages/billing'))->isInstalled())->toBeTrue()
+        ->and($framework->in(Path::of('packages/none'), $layout('packages/none'))->isInstalled())->toBeFalse()
+        ->and($framework->in(Path::of('packages/billing'), $layout('packages/billing'))->tests())->toEqual($layout('packages/billing'))
         ->and($framework->isInstalled())->toBeFalse();
 });
 
@@ -117,7 +123,7 @@ it('selects the covering tests by their ids, exactly, where PHPUnit reads each b
 it('selects the covering tests by the files that declare their classes where an id has a line break, or says no file places them', function (): void {
     $root = (string) realpath(Scratch::directory());
     Scratch::write($root, 'tests/MoneyTest.php', "<?php\nnamespace Tests;\nfinal class MoneyTest {}");
-    $framework = new PhpUnitFramework(Installation::at($root, Paths::of(Path::of('tests')), Path::of('vendor')));
+    $framework = NativePhpUnit::in(Project::at($root, Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'), BuiltinRunner::PhpUnit));
     $placed = $framework->selection(TestIds::of(TestId::of("Tests\\MoneyTest::testAdds#a\nb")));
     $unplaced = $framework->selection(TestIds::of(TestId::of("Tests\\GoneTest::testGoes#a\nb")));
 

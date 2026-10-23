@@ -122,10 +122,10 @@ the test process never reaches that process.
 
 7. **Where it lives in the code.** `Adapter\Native` holds the runner every
    framework shares: the override, each mutant's files and run, the coverage
-   map it reads and the warm workers of ADR-0023. Each framework is a
-   `Core\Native\Framework`, which says how it is started, how it selects,
-   lists and names its tests, and how its warm worker boots, where it has
-   one. `Adapter\PhpUnit`, `Adapter\Codeception`, `Adapter\PhpSpec` and
+   map it reads, the test files that declare each test, and the warm workers
+   of ADR-0023. Each framework is a `Core\Native\Framework`, which says how
+   it is started, how it selects and lists its tests, and how its warm
+   worker boots, where it has one. `Adapter\PhpUnit`, `Adapter\Codeception`, `Adapter\PhpSpec` and
    `Adapter\Testo` each hold theirs, with its extension or plugin class. An
    adapter names no other adapter (ADR-0001), so the runner names only the
    `Core` interface, and the Cli hands it the framework a config names. No

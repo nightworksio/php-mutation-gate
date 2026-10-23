@@ -9,7 +9,6 @@ use function is_file;
 
 use NightWorksIO\MutationGate\Core\Composer\Installed as InstalledPackages;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ErrorDisplay;
@@ -19,46 +18,34 @@ use NightWorksIO\MutationGate\Core\Runner\PhpUnitIni;
 use function realpath;
 use function sprintf;
 
-/** PHPUnit as a project installed it: the project's root, its test directories, and the vendor directory it is in. */
+/** PHPUnit as a project installed it: the project's root, and the vendor directory it is in. */
 final readonly class Installation
 {
     /** PHPUnit's script, in the vendor directory's `bin`. */
     private const string PHPUNIT = 'bin/phpunit';
 
-    private function __construct(private Root $root, private Paths $tests, private Path $vendor)
+    private function __construct(private Root $root, private Path $vendor)
     {
     }
 
     /** PHPUnit in the project at a directory, held as its real path, or as it is named where it is not there. */
-    public static function at(string $root, Paths $tests, Path $vendor): self
+    public static function at(string $root, Path $vendor): self
     {
         $real = realpath($root);
 
-        return new self(Root::of($real === false ? $root : $real), $tests, $vendor);
+        return new self(Root::of($real === false ? $root : $real), $vendor);
     }
 
-    /** PHPUnit in a directory of this project, with its tests in these, and its vendor directory named as here. */
-    public function in(Path $directory, Paths $tests): self
+    /** PHPUnit in a directory of this project, its vendor directory named as here. */
+    public function in(Path $directory): self
     {
-        return self::at($this->absolute($directory), $tests, $this->vendor);
-    }
-
-    /** The directories the project's tests are in. */
-    public function tests(): Paths
-    {
-        return $this->tests;
+        return self::at($this->absolute($directory), $this->vendor);
     }
 
     /** Where a path of the project is on disk. */
     public function absolute(Path $path): string
     {
         return $this->root->at($path)->value();
-    }
-
-    /** A file on disk as a path of the project. */
-    public function relative(string $file): Path
-    {
-        return $this->root->relative($file);
     }
 
     public function phpunit(): string

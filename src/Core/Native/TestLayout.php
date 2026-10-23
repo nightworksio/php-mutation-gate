@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Native;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Test\TestClassFiles;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
 
@@ -25,6 +26,9 @@ interface TestLayout
 
     /** Each test by its file and the description the framework gives it. */
     public function names(TestIds $tests): TestNames;
+
+    /** The files that declare the classes of these tests. */
+    public function declaring(TestIds $tests): TestClassFiles;
 
     /** These tests and every test they depend on, in turn. */
     public function withDependencies(TestIds $tests): TestIds;

@@ -53,13 +53,10 @@ final readonly class PhpUnitFramework implements Framework
     private const string UNPLACED
         = 'A test that covers it has a line break in its name, and no test file found holds every test that covers it.';
 
-    private TestFiles $tests;
-
     private CommandLine $commandLine;
 
-    public function __construct(private Installation $installation)
+    public function __construct(private Installation $installation, private TestLayout $tests)
     {
-        $this->tests = new TestFiles($installation);
         $history = Installed::historyIn($installation->installed());
         $this->commandLine = new CommandLine($installation->phpunit(), $history);
     }
@@ -85,9 +82,9 @@ final readonly class PhpUnitFramework implements Framework
         return $this->installation->hasPhpUnit();
     }
 
-    public function in(Path $package, Paths $tests): self
+    public function in(Path $package, TestLayout $tests): self
     {
-        return new self($this->installation->in($package, $tests));
+        return new self($this->installation->in($package), $tests);
     }
 
     /** The PHPUnit config in the project's root, whichever name it has. */

@@ -40,8 +40,8 @@ interface Framework
     /** Whether the framework is installed in the project's vendor directory. */
     public function isInstalled(): bool;
 
-    /** The framework in a package's directory, as a path from the project's root, with its tests in these. */
-    public function in(Path $package, Paths $tests): self;
+    /** The framework in a package's directory, as a path from the project's root, its tests laid out so. */
+    public function in(Path $package, TestLayout $tests): self;
 
     /** The files that define how it runs, as paths from the project's root. */
     public function definitions(): Paths;

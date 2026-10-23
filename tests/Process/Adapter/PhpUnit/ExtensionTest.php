@@ -29,7 +29,7 @@ function extensionRecorded(string $opcache): array
     Scratch::write(
         $directory,
         'ProbeTest.php',
-        "<?php\n\nfinal class ProbeTest extends PHPUnit\\Framework\\TestCase\n{\n    public function testPasses(): void\n    {\n        self::assertTrue(true);\n    }\n}\n",
+        "<?php\n\nfinal class ProbeTest extends PHPUnit\\Framework\\TestCase\n{\n    public function testPasses(): void\n    {\n        \$this->expectNotToPerformAssertions();\n    }\n}\n",
     );
     $results = sprintf('%s/results.txt', $directory);
     $guard = sprintf('%s/guard.txt', $directory);
