@@ -99,7 +99,9 @@ return (new Configuration())
     ->ignoreErrorsOnPackages(['phpspec/phpspec'], [ErrorType::DEV_DEPENDENCY_IN_PROD])
     // PhpSpec's own dependency, installed wherever phpspec/phpspec is: its
     // events reach the extension's listeners as its dispatcher's subscribers.
-    ->ignoreErrorsOnPackages(['symfony/event-dispatcher'], [ErrorType::SHADOW_DEPENDENCY])
+    // The package's own development holds it at the Symfony releases the
+    // package supports.
+    ->ignoreErrorsOnPackages(['symfony/event-dispatcher'], [ErrorType::DEV_DEPENDENCY_IN_PROD])
     // Infection's own dependencies, installed wherever infection/infection
     // is: the tests a patched Infection hands the gate's silence limit are its
     // test framework adapter's, and the diff its mutant holds is deferred,
