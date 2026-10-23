@@ -71,7 +71,7 @@ final readonly class TokenAlignment
             [$reached, $done] = self::step($reached, $step, $first, $second);
 
             if ($done) {
-                return $trace;
+                break;
             }
         }
 
