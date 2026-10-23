@@ -35,11 +35,14 @@ use function sprintf;
  */
 final readonly class Detected
 {
-    /** Why two runners installed side by side leave the choice to a person. */
-    private const string BOTH = 'Both %s and %s are installed. Choose one: set runner in the config, or pass --runner.';
+    /** Two runners installed side by side. */
+    private const string BOTH = 'Both %s and %s are installed.';
 
-    /** Why more runners than two installed side by side leave the choice to a person. */
-    private const string SEVERAL = '%s and %s are installed. Choose one: set runner in the config, or pass --runner.';
+    /** More runners than two installed side by side. */
+    private const string SEVERAL = '%s and %s are installed.';
+
+    /** Why runners installed side by side leave the choice to a person. */
+    private const string CHOOSE = '%s Choose one: set runner in the config, or pass --runner.';
 
     /** Why Pest alone, without its mutation plugin, leaves nothing to mutate with. */
     private const string PEST_WITHOUT_PLUGIN
@@ -133,6 +136,21 @@ final readonly class Detected
         return $installed instanceof Installed ? $this->choicesIn($installed) : [];
     }
 
+    /**
+     * That these runners are each installed, which zero-config chooses none of.
+     *
+     * @param list<BuiltinRunner> $choices two or more
+     */
+    public static function together(array $choices): string
+    {
+        $names = array_map(static fn(BuiltinRunner $runner): string => $runner->package()->value, $choices);
+        $last = (string) array_pop($names);
+
+        $said = count($names) === 1 ? self::BOTH : self::SEVERAL;
+
+        return sprintf($said, implode(', ', $names), $last);
+    }
+
     /** @return list<BuiltinRunner> */
     private function choicesIn(Installed $installed): array
     {
@@ -175,28 +193,13 @@ final readonly class Detected
         return $manifest instanceof Manifest && $manifest->requires()->has($package->value);
     }
 
-    /**
-     * Why zero-config chooses none of these runners, each installed.
-     *
-     * @param list<BuiltinRunner> $choices two or more
-     */
-    private function chooseBetween(array $choices): CannotJudge
-    {
-        $names = array_map(static fn(BuiltinRunner $runner): string => $runner->package()->value, $choices);
-        $last = (string) array_pop($names);
-
-        $said = count($names) === 1 ? self::BOTH : self::SEVERAL;
-
-        return CannotJudge::because(sprintf($said, implode(', ', $names), $last));
-    }
-
     private function runnerIn(Installed $installed): BuiltinRunner|CannotJudge
     {
         $choices = $this->choicesIn($installed);
         $native = $this->nativeIn($installed);
 
         return match (true) {
-            $choices !== [] => $this->chooseBetween($choices),
+            $choices !== [] => CannotJudge::because(sprintf(self::CHOOSE, self::together($choices))),
             $installed->has(Package::PestMutate->value) => BuiltinRunner::Pest,
             $installed->has(Package::Infection->value) => BuiltinRunner::Infection,
             $installed->has(Package::Pest->value) => CannotJudge::because(
