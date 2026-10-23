@@ -35,7 +35,6 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Native\Command;
 use NightWorksIO\MutationGate\Core\Native\Outcome;
 use NightWorksIO\MutationGate\Core\Native\Variable;
-use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -170,7 +169,7 @@ it('behaves as a standard runner: holds as groups, a limit it can raise, the map
 
     expect(phpUnitRunner($project, $shell)->behaviour())
         ->toEqual(RunnerBehaviour::standard()->runningPerCore()->writingTestsIn(AssertionStyle::PhpUnit))
-        ->and($phpspec->behaviour())->toEqual(RunnerBehaviour::standard()->runningPerCore()->writingTestsIn(NotGiven::value()));
+        ->and($phpspec->behaviour())->toEqual(RunnerBehaviour::standard()->runningPerCore()->writingTestsIn(AssertionStyle::PhpSpec));
 });
 
 it('lists the tests of some suites and their groups as PHPUnit lists them into a file of its own', function (): void {

@@ -82,6 +82,41 @@ final readonly class Enclosing
     }
 
     /**
+     * The call a spec of its class makes to it, on the object the spec
+     * describes (ADR-0015): `$this->fits($amount)`, or
+     * `$this->beConstructedWith($items)` for a constructor; a function, which
+     * no object holds, is called as it is.
+     */
+    public function described(): string
+    {
+        $arguments = implode(', ', $this->parameters);
+
+        return match (true) {
+            $this->class instanceof Nameless => sprintf('%s(%s)', $this->name, $arguments),
+            $this->constructs() => sprintf('$this->beConstructedWith(%s)', $arguments),
+            default => sprintf('$this->%s(%s)', $this->name, $arguments),
+        };
+    }
+
+    /** Whether it is a constructor, which a test calls with `new`. */
+    public function constructs(): bool
+    {
+        return $this->name === self::CONSTRUCTOR;
+    }
+
+    /**
+     * What a spec calls to expect it to throw, on the object the spec
+     * describes: `during('fits', [$amount])`, or `duringInstantiation()` for
+     * a constructor, once it is constructed with its arguments.
+     */
+    public function during(): string
+    {
+        return $this->constructs()
+            ? 'duringInstantiation()'
+            : sprintf("during('%s', [%s])", $this->name, implode(', ', $this->parameters));
+    }
+
+    /**
      * What a test reflects it with, to find the file it is in:
      * `new \ReflectionFunction('fits')`, or
      * `new \ReflectionMethod(Cart::class, 'fits')` for a method.

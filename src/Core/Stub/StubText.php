@@ -44,10 +44,11 @@ use function str_replace;
  * the line that fails until the test is filled in; then the
  * `ignores.entries` item that is the other way out. A test for
  * a held unit holds it too, so the tests that hold it still cover it
- * (ADR-0005): a Pest test joins its holding group, and a PHPUnit test
- * carries `#[Holds]`, with PHPUnit's `#[Group]` beside it where the runner
- * reads each `#[Holds]` as its test files load, since that runner cannot add
- * a group to a class it did not build.
+ * (ADR-0005): a Pest test joins its holding group, and a PHPUnit test or a
+ * PhpSpec example carries `#[Holds]`, a PHPUnit test with PHPUnit's
+ * `#[Group]` beside it where the runner reads each `#[Holds]` as its test
+ * files load, since that runner cannot add a group to a class it did not
+ * build.
  */
 final readonly class StubText
 {
@@ -71,9 +72,11 @@ final readonly class StubText
             ...self::comments([self::IGNORE, ...self::ignores($subject, $config)]),
         ];
 
-        return $style === AssertionStyle::Pest
-            ? self::pest($subject, $body)
-            : self::phpUnit($subject, $body, $runner);
+        return match ($style) {
+            AssertionStyle::Pest => self::pest($subject, $body),
+            AssertionStyle::PhpUnit => self::phpUnit($subject, $body, $runner),
+            AssertionStyle::PhpSpec => self::phpSpec($subject, $body),
+        };
     }
 
     /** What the test kills: `mutant 49e02fb39669`, or `cluster c1de8298b6e2`. */
@@ -167,9 +170,11 @@ final readonly class StubText
             $first->hint()->text(),
         ));
 
-        return $style === AssertionStyle::Pest
-            ? sprintf('expect(true)->toBeFalse(%s);', $message)
-            : sprintf('$this->fail(%s);', $message);
+        return match ($style) {
+            AssertionStyle::Pest => sprintf('expect(true)->toBeFalse(%s);', $message),
+            AssertionStyle::PhpUnit => sprintf('$this->fail(%s);', $message),
+            AssertionStyle::PhpSpec => sprintf('throw new %s(%s);', AssertionStyle::FAILURE, $message),
+        };
     }
 
     /**
@@ -207,20 +212,36 @@ final readonly class StubText
     private static function phpUnit(Subject $subject, array $body, RunnerBehaviour $runner): string
     {
         $unit = $subject->unit();
-        $holds = $unit->isHeld()
-            ? sprintf(self::ATTRIBUTE, HoldsReader::HOLDS, PhpCalls::literal($unit->path()->value()))
-            : '';
         $group = $unit->isHeld() && $runner->holdsAsLoaded()
             ? sprintf(self::ATTRIBUTE, HoldsReader::GROUP, PhpCalls::literal(self::holding($unit)))
             : '';
 
         return sprintf(
             "%s%spublic function testKills%s(): void\n{\n%s\n}",
-            $holds,
+            self::holds($unit),
             $group,
             str_replace(' ', '', mb_ucfirst(self::named($subject))),
             self::indented($body, MutantText::INDENT),
         );
+    }
+
+    /** @param list<string> $body */
+    private static function phpSpec(Subject $subject, array $body): string
+    {
+        return sprintf(
+            "%spublic function it_kills_%s(): void\n{\n%s\n}",
+            self::holds($subject->unit()),
+            str_replace(' ', '_', self::named($subject)),
+            self::indented($body, MutantText::INDENT),
+        );
+    }
+
+    /** The `#[Holds]` a test of a held unit carries; none for a unit nobody holds. */
+    private static function holds(Unit $unit): string
+    {
+        return $unit->isHeld()
+            ? sprintf(self::ATTRIBUTE, HoldsReader::HOLDS, PhpCalls::literal($unit->path()->value()))
+            : '';
     }
 
     /** The name of the group of the tests that hold a unit. */

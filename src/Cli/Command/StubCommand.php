@@ -39,7 +39,7 @@ final readonly class StubCommand
 {
     private const string STYLE = 'style';
 
-    private const string UNKNOWN_STYLE = '--style is %s; stub writes pest or phpunit.';
+    private const string UNKNOWN_STYLE = '--style is %s; stub writes pest, phpunit or phpspec.';
 
     public static function command(Composition $composition): Command
     {
@@ -53,7 +53,7 @@ final readonly class StubCommand
             ->addOption(
                 self::STYLE,
                 mode: InputOption::VALUE_REQUIRED,
-                description: 'pest or phpunit, instead of the style of the nearest covering test',
+                description: 'pest, phpunit or phpspec, instead of the style of the nearest covering test',
             )
             ->addOption(
                 FlowOptions::WRITE,

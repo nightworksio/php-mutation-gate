@@ -40,10 +40,18 @@ final readonly class Stub
         return new self($file->path(), $test, $file->with($test), new: false, for: $for);
     }
 
-    /** A test in a new file of its own, in a style, for the mutant or cluster named so. */
-    public static function created(Path $file, string $test, AssertionStyle $style, string $for): self
-    {
-        return new self($file, $test, TestFile::created($file, $test, $style), new: true, for: $for);
+    /**
+     * A test in a new file of its own, in a style, for the mutant or cluster
+     * named so, in a project whose code under test is in this namespace.
+     */
+    public static function created(
+        Path $file,
+        string $test,
+        AssertionStyle $style,
+        string $namespace,
+        string $for,
+    ): self {
+        return new self($file, $test, TestFile::created($file, $test, $style, $namespace), new: true, for: $for);
     }
 
     public function file(): Path

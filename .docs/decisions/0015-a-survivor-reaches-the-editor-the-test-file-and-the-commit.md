@@ -59,28 +59,29 @@ one of those values the gate can know or check.
    - The id is looked up as `explain` looks it up (ADR-0014).
 
 2. **The stub follows the nearest covering test file's style.**
-   - It copies that file's kind (Pest closures or a PHPUnit class), its
-     namespace and base class, and its use of `covers()`, `#[CoversClass]` or
-     `#[Holds]`.
+   - It copies that file's kind (Pest closures, a PHPUnit class or a
+     PhpSpec spec), its namespace and base class, and its use of `covers()`,
+     `#[CoversClass]` or `#[Holds]`.
    - A stub for a held unit carries the same `#[Holds]` or
      `->group('holds:…')`, so the group's coverage check still passes
      (ADR-0005).
    - With no covering test, as for an uncovered mutant, the runner decides:
-     Pest writes a Pest test and Infection a PHPUnit class, in the first
-     `<testsuites>` directory.
-   - `--style=pest|phpunit` overrides both.
+     Pest writes a Pest test, PhpSpec a spec, and Infection and the PHPUnit
+     runner a PHPUnit class, in the first test directory.
+   - `--style=pest|phpunit|phpspec` overrides both.
 
 3. **A stub is printed unless `--write` is given.**
    - With `--write`, it is appended to the nearest covering test file: a
-     Pest test at the end of the file, a PHPUnit method before the class's
-     closing brace, found by tokens.
+     Pest test at the end of the file, a PHPUnit method or a PhpSpec example
+     before the class's closing brace, found by tokens.
    - With no covering file, `--write` creates
      `<test directory>/<source path>/<SourceClass>Test.php`.
    - `--write` never overwrites a file, and prints the file it touched.
 
 4. **A stub fails until it is filled in.**
-   - PHPUnit's calls `$this->fail(…)`, and Pest's
-     `expect(true)->toBeFalse(…)`. The message names the mutant and its hint.
+   - PHPUnit's calls `$this->fail(…)`, Pest's `expect(true)->toBeFalse(…)`,
+     and PhpSpec's throws PhpSpec's `FailureException(…)`. The message names
+     the mutant and its hint.
    - A comment above the failing line holds the diff and the hint, then the
      call to the enclosing function, with its parameters' names as
      placeholders.
@@ -90,6 +91,10 @@ one of those values the gate can know or check.
      - Removed call: an assertion on the call's effect.
      - Exception: `toThrow(<the thrown class>)`.
      - Other families: one assertion on the enclosing function's result.
+   - A spec's scaffold matches on the object the spec describes: it calls
+     the enclosing method on `$this` (`$this->fits($amount)->shouldReturn(…)`),
+     expects a throw with `shouldThrow(<the thrown class>)->during('fits', […])`,
+     or `duringInstantiation()` once `beConstructedWith(…)` constructs it.
    - A stub cannot be committed half-done: the suite goes red, and the gate
      says *cannot judge* until it is finished.
 
@@ -103,19 +108,26 @@ one of those values the gate can know or check.
    - `Core\Stub\Nearest` picks the covering file. The file named for
      the class (`MoneyTest.php` for `Money.php`) wins. Otherwise the file
      with the most covering tests wins, then the first by path.
-     `Core\Stub\TestFile` reads its kind from its tokens: a file that
-     declares a named class is PHPUnit's. It adds a method before that
+     `Core\Stub\TestFile` reads its kind from its tokens: a file whose
+     named class extends `ObjectBehavior` is a PhpSpec spec, and one that
+     declares another named class is PHPUnit's. It adds a method before that
      class's closing brace, or a closure at the end.
    - Without a covering file, the stub goes under the first `<testsuites>`
      directory, at the source's path from its tree, named for its class
      with that directory's suffix (`tests/Unit/Domain/MoneyTest.php`). A
      file already there is added to, in its own kind. `RunnerBehaviour::testStyle()`
      says which style the runner's tests are written in: Pest for Pest,
-     PHPUnit for every other runner.
+     PhpSpec for PhpSpec, none for Codeception, whose Cests are in no style
+     a stub is written in, so `stub` exits 2 under it, and PHPUnit for every
+     other runner.
    - A `--style` that the target file is not written in is exit 2.
    - The stub is printed under a comment naming its file: the test that
      `--write` adds, or the whole of a new file. A new PHPUnit file is a
-     class named for the file, extending `TestCase`, in no namespace.
+     class named for the file, extending `TestCase`, in no namespace. A new
+     spec is a class named for the file, extending `ObjectBehavior`, in
+     PhpSpec's namespace for the class it describes: `spec\` and the
+     namespace the mutant's file declares (`spec\Shop` for `Shop\Cart`),
+     PhpSpec's default prefix.
    - `Core\Php\Enclosing` writes the call with parameter names as
      placeholders. A function is called by name, a constructor with
      `new`, a static method on its class, and any other method on an
@@ -125,7 +137,9 @@ one of those values the gate can know or check.
      as `? >`, so no line ends a comment early.
    - A held unit's stub holds it: `->group('holds:…')` on a Pest test, and
      `#[Holds('…')]` on a PHPUnit method, with `#[Group('holds:…')]`
-     beside it where Pest runs the class (ADR-0005).
+     beside it where Pest runs the class, or on a PhpSpec example, which the
+     PhpSpec runner reads by reflection (ADR-0005, ADR-0027). A PhpSpec
+     example is named `it_kills_mutant_<id>` or `it_kills_cluster_<id>`.
    - A weak test that let the mutant through gets its assertion of value,
      in that test's own style (ADR-0025).
    - The ignore is written as the project's config writes one:

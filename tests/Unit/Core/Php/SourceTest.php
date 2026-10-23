@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Php\ClassLike;
+use NightWorksIO\MutationGate\Core\Php\Source;
 use NightWorksIO\MutationGate\Core\Php\Symbol;
 use NightWorksIO\MutationGate\Tests\Support\Php;
 
@@ -17,6 +18,14 @@ it('is a test or a source file at a path, read by its significant tokens', funct
         ->and(Php::source('<?php')->isTest())->toBeFalse()
         ->and($source->tokens()->count())->toBe(5)
         ->and($source->lineOf(Php::indexOf($source, 'A')))->toEqual(Line::of(3));
+});
+
+it('reads the scope a file\'s code ends in from its contents alone', function (): void {
+    $scope = Source::scopeOf(Contents::of("<?php\n// a comment\nnamespace Shop\\Cart;\n\nfinal class Line {}\n"));
+
+    expect($scope->namespace())->toBe('Shop\\Cart')
+        ->and($scope->declared('Line'))->toBe('Shop\\Cart\\Line')
+        ->and(Source::scopeOf(Contents::of('<?php'))->namespace())->toBe('');
 });
 
 it('says what a token stands in, and the class around it', function (): void {

@@ -25,4 +25,5 @@ it('suggests an assertion of value on the result of the function around the surv
     'Pest, in a function' => [AssertionStyle::Pest, 'fits', 'expect(fits(…))->toBe(<expected>)'],
     'Pest, outside any' => [AssertionStyle::Pest, fn(): Nameless => Nameless::code(), 'expect(…)->toBe(<expected>)'],
     'PHPUnit, outside any' => [AssertionStyle::PhpUnit, fn(): Nameless => Nameless::code(), Weakly::PHPUNIT_OUTSIDE],
+    'PhpSpec, in a method' => [AssertionStyle::PhpSpec, 'fits', '$this->fits(…)->shouldReturn(<expected>)'],
 ]);

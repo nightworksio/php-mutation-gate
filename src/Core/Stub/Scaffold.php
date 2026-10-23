@@ -18,7 +18,8 @@ use function sprintf;
 
 /**
  * The fixed assertion scaffold a stub offers for one mutator family, in a
- * test's style, on the call to the function around the mutant (ADR-0015):
+ * test's style, on the call to the function around the mutant, which a spec
+ * makes on the object it describes (ADR-0015):
  * two cases for a boundary, the value a function returns, the effect of a
  * removed call, the exception a test expects, and otherwise one assertion
  * on the function's result; and, for a mutant only a test that reads the
@@ -48,6 +49,12 @@ final readonly class Scaffold
     /** What a scaffold asserts on where a removed call's effect is the project's to name. */
     private const string EFFECT = '/* what it changes */';
 
+    /** What a spec calls, on the object it describes, where the mutant is in no named method. */
+    private const string UNDESCRIBED = '$this->/* the method that runs it */()';
+
+    /** What a spec matches on, on the object it describes, where a removed call's effect is the project's to name. */
+    private const string SHOWN = '$this->/* the method that shows what it changes */()';
+
     /** What a scaffold expects where the diff names no exception. */
     private const string EXCEPTION = '/* the exception */';
 
@@ -58,11 +65,25 @@ final readonly class Scaffold
 
     private const string PEST_READ = 'expect(file_get_contents(%s))->toContain(%s);';
 
+    private const string PHPSPEC_READ
+        = "if (! str_contains((string) file_get_contents(%s), %s)) { throw new %s('%s'); }";
+
+    /** Why a spec that reads the source fails, where the source no longer holds what it reads. */
+    private const string UNREAD = 'The file no longer holds it.';
+
     private const string PHPUNIT_READ = '$this->assertStringContainsString(%s, (string) file_get_contents(%s));';
 
     private const string PEST = 'expect(%s)->toBe(/* %s */);';
 
     private const string PHPUNIT = '$this->assertSame(/* %s */, %s);';
+
+    private const string PHPSPEC = '%s->shouldReturn(/* %s */);';
+
+    /** A spec's expectation that the object it describes throws, during a call. */
+    private const string SHOULD_THROW = '$this->shouldThrow(%s)->%s;';
+
+    /** What a spec expects to throw during, where the mutant is in no named function. */
+    private const string UNTHROWN = 'during(/* the method that runs it */)';
 
     /**
      * The scaffold's lines for a mutant, in a style, as a stub writes them.
@@ -71,7 +92,7 @@ final readonly class Scaffold
      */
     public static function of(Mutant $mutant, Enclosing|Nameless $function, AssertionStyle $style): array
     {
-        $call = $function instanceof Enclosing ? $function->call() : self::UNCALLED;
+        $call = self::call($function, $style);
         $change = Change::of($mutant->mutation()->diff());
 
         return match ($mutant->mutation()->family()) {
@@ -83,9 +104,9 @@ final readonly class Scaffold
             MutatorFamily::ReturnValue => [self::RETURNED, self::asserted($style, $call, self::EXPECTED)],
             MutatorFamily::RemovedCall => [
                 sprintf(self::REMOVED, self::callee($change)),
-                self::asserted($style, self::EFFECT, self::EXPECTED),
+                self::asserted($style, $style === AssertionStyle::PhpSpec ? self::SHOWN : self::EFFECT, self::EXPECTED),
             ],
-            MutatorFamily::Exception => [self::THROWN, ...self::thrown($style, $call, self::exception($change))],
+            MutatorFamily::Exception => [self::THROWN, ...self::thrown($style, $function, self::exception($change))],
             MutatorFamily::Condition,
             MutatorFamily::Logical,
             MutatorFamily::Arithmetic,
@@ -107,7 +128,7 @@ final readonly class Scaffold
      */
     public static function pinned(SourcePin $pin, Enclosing|Nameless $function, AssertionStyle $style): array
     {
-        $call = $function instanceof Enclosing ? $function->call() : self::UNCALLED;
+        $call = self::call($function, $style);
         $file = $function instanceof Enclosing
             ? sprintf('(%s)->getFileName()', $function->reflected())
             : self::UNREFLECTED;
@@ -116,30 +137,74 @@ final readonly class Scaffold
         return [
             self::READ,
             self::asserted($style, $call, self::EXPECTED),
-            $style === AssertionStyle::Pest
-                ? sprintf(self::PEST_READ, $file, $expected)
-                : sprintf(self::PHPUNIT_READ, $expected, $file),
+            match ($style) {
+                AssertionStyle::Pest => sprintf(self::PEST_READ, $file, $expected),
+                AssertionStyle::PhpUnit => sprintf(self::PHPUNIT_READ, $expected, $file),
+                AssertionStyle::PhpSpec => sprintf(
+                    self::PHPSPEC_READ,
+                    $file,
+                    $expected,
+                    AssertionStyle::FAILURE,
+                    self::UNREAD,
+                ),
+            },
         ];
+    }
+
+    /** The call a test in a style makes to the function around the mutant; a placeholder where it is in none. */
+    private static function call(Enclosing|Nameless $function, AssertionStyle $style): string
+    {
+        $spec = $style === AssertionStyle::PhpSpec;
+
+        return match (true) {
+            $function instanceof Nameless => $spec ? self::UNDESCRIBED : self::UNCALLED,
+            $spec => $function->described(),
+            default => $function->call(),
+        };
     }
 
     /** An assertion of a value on a subject, in a style, the value left as a placeholder that says what it is. */
     private static function asserted(AssertionStyle $style, string $subject, string $expected): string
     {
-        return $style === AssertionStyle::Pest
-            ? sprintf(self::PEST, $subject, $expected)
-            : sprintf(self::PHPUNIT, $expected, $subject);
+        return match ($style) {
+            AssertionStyle::Pest => sprintf(self::PEST, $subject, $expected),
+            AssertionStyle::PhpUnit => sprintf(self::PHPUNIT, $expected, $subject),
+            AssertionStyle::PhpSpec => sprintf(self::PHPSPEC, $subject, $expected),
+        };
     }
 
     /**
-     * The expectation that a call throws an exception, in a style.
+     * The expectation that the function around the mutant throws an
+     * exception, in a style; a spec constructs the object it describes first
+     * where that function is its constructor.
      *
      * @return list<string>
      */
-    private static function thrown(AssertionStyle $style, string $call, string $exception): array
+    private static function thrown(AssertionStyle $style, Enclosing|Nameless $function, string $exception): array
     {
-        return $style === AssertionStyle::Pest
-            ? [sprintf('expect(fn () => %s)->toThrow(%s);', $call, $exception)]
-            : [sprintf('$this->expectException(%s);', $exception), sprintf('%s;', $call)];
+        $call = self::call($function, $style);
+
+        return match ($style) {
+            AssertionStyle::Pest => [sprintf('expect(fn () => %s)->toThrow(%s);', $call, $exception)],
+            AssertionStyle::PhpUnit => [sprintf('$this->expectException(%s);', $exception), sprintf('%s;', $call)],
+            AssertionStyle::PhpSpec => self::shouldThrow($function, $exception),
+        };
+    }
+
+    /**
+     * A spec's expectation that the object it describes throws an exception
+     * during the function around the mutant.
+     *
+     * @return list<string>
+     */
+    private static function shouldThrow(Enclosing|Nameless $function, string $exception): array
+    {
+        $during = $function instanceof Enclosing ? $function->during() : self::UNTHROWN;
+        $expected = sprintf(self::SHOULD_THROW, $exception, $during);
+
+        return $function instanceof Enclosing && $function->constructs()
+            ? [sprintf('%s;', $function->described()), $expected]
+            : [$expected];
     }
 
     /** The call the mutant removed, as `save()`; the whole removed statement where it names no call. */

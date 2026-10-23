@@ -19,6 +19,7 @@ use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Kind;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Runner\PhpSpecConfig;
 use NightWorksIO\MutationGate\Core\Test\DeclaredSuites;
 use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 
@@ -46,8 +47,6 @@ final readonly class PhpSpecSuite
     /** Where a suite's specs are under, where it names nothing: PhpSpec's defaults. */
     private const string SPEC_PATH = '.';
 
-    private const string SPEC_PREFIX = 'spec';
-
     /** What PhpSpec reads in a suite's setting as the directory of its config, which the gate reads in the root. */
     private const string CONFIG_DIRECTORY = '%paths.config%';
 
@@ -59,7 +58,7 @@ final readonly class PhpSpecSuite
     /** The specs where nothing configures them: `spec`, in the project's root. */
     public static function conventional(): TestSuite
     {
-        return TestSuite::conventional(self::under(self::SPEC_PATH, self::SPEC_PREFIX));
+        return TestSuite::conventional(self::under(self::SPEC_PATH, PhpSpecConfig::SPEC_PREFIX));
     }
 
     /** The specs a PhpSpec config, read from this file, declares. */
@@ -76,14 +75,14 @@ final readonly class PhpSpecSuite
         foreach (Lenient::entries($read->field('suites')) as $suite) {
             $directories[] = self::under(
                 self::setting($suite->field('spec_path'), self::SPEC_PATH),
-                self::setting($suite->field('spec_prefix'), self::SPEC_PREFIX),
+                self::setting($suite->field('spec_prefix'), PhpSpecConfig::SPEC_PREFIX),
                 self::within($suite),
             );
         }
 
         return TestSuite::of(
             $directories,
-            self::under(self::SPEC_PATH, self::SPEC_PREFIX),
+            self::under(self::SPEC_PATH, PhpSpecConfig::SPEC_PREFIX),
             Paths::none(),
             Paths::none(),
             DeclaredSuites::none(),

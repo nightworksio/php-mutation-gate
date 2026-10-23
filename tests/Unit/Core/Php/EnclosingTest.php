@@ -125,6 +125,18 @@ it('calls a constructor with new, a static method on its class, and any other me
         ->and($called(37))->toBe('$cart->items()');
 });
 
+it('calls, as a spec does, a method on the object it describes, constructs that object, and calls a function as it is', function () use ($file): void {
+    $spec = static function (int $line) use ($file): array {
+        $enclosing = Enclosing::in(Contents::of($file), Line::of($line));
+
+        return $enclosing instanceof Enclosing ? [$enclosing->described(), $enclosing->during(), $enclosing->constructs()] : [];
+    };
+
+    expect($spec(32))->toBe(['$this->fits($amount, $limit)', "during('fits', [\$amount, \$limit])", false])
+        ->and($spec(18))->toBe(['$this->beConstructedWith($items)', 'duringInstantiation()', true])
+        ->and($spec(7))->toBe(['free($amount, $rest, $more)', "during('free', [\$amount, \$rest, \$more])", false]);
+});
+
 it('calls a method static whatever modifiers stand between static and function, on its class, its trait or its enum, a semi-reserved name among them', function () use ($called): void {
     expect($called(57))->toBe('Shelf::a($x)')
         ->and($called(62))->toBe('Shelf::b($x)')

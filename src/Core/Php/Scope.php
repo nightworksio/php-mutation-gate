@@ -70,6 +70,12 @@ final readonly class Scope
         return new self($this->namespace, $imports);
     }
 
+    /** The namespace it is inside; none at the top. */
+    public function namespace(): string
+    {
+        return $this->namespace;
+    }
+
     /** A class or function declared here, fully qualified. */
     public function declared(string $name): string
     {

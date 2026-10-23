@@ -113,7 +113,7 @@ it('exits 2 for a style the file it goes in is not written in, and for one it do
 
     expect([$mixed->code, $mixed->errors])
         ->toBe([2, "tests/MoneyTest.php holds pest tests, so a phpunit test cannot go in it. Leave out --style to write one in its style.\n"])
-        ->and([$unknown->code, $unknown->errors])->toBe([2, "--style is spec; stub writes pest or phpunit.\n"])
+        ->and([$unknown->code, $unknown->errors])->toBe([2, "--style is spec; stub writes pest, phpunit or phpspec.\n"])
         ->and($pest->code)->toBe(0);
 });
 
@@ -122,6 +122,41 @@ it('writes a new file in the style asked for, where none is there', function () 
 
     expect($stubbed->output)->toStartWith("// A new file, tests/HeldTest.php:\n\n<?php\n\ndeclare(strict_types=1);\n\nit('kills mutant 8705b7dc7d27', function (): void {\n")
         ->and($stubbed->output)->toEndWith("\n})->group('holds:src/Held.php');\n");
+});
+
+it('writes a new spec of the class it describes, in PhpSpec\'s namespace for it, where --style asks for one', function () use ($ran): void {
+    $project = FlowCommands::project();
+    Scratch::write($project, 'src/Held.php', "<?php\n\nnamespace Shop;\n\nfinal class Held\n{\n}\n");
+    $stubbed = FlowCommands::run(StubCommand::command($ran($project)), 'id=8705b7 --style=phpspec');
+
+    expect($stubbed->output)->toStartWith(<<<'PHP'
+        // A new file, tests/HeldTest.php:
+
+        <?php
+
+        declare(strict_types=1);
+
+        namespace spec\Shop;
+
+        use PhpSpec\ObjectBehavior;
+
+        final class HeldTest extends ObjectBehavior
+        {
+            #[\NightWorksIO\MutationGate\Attribute\Holds('src/Held.php')]
+            public function it_kills_mutant_8705b7dc7d27(): void
+
+        PHP)
+        ->and($stubbed->output)->toContain("\n        throw new \\PhpSpec\\Exception\\Example\\FailureException('Mutant 8705b7dc7d27, ");
+});
+
+it('writes a new spec in PhpSpec\'s own namespace where the mutant\'s file is gone', function () use ($ran): void {
+    $project = FlowCommands::project();
+    $composition = $ran($project);
+    unlink(sprintf('%s/src/Held.php', $project));
+
+    $stubbed = FlowCommands::run(StubCommand::command($composition), 'id=8705b7 --style=phpspec');
+
+    expect($stubbed->output)->toContain("\n\nnamespace spec;\n\nuse PhpSpec\\ObjectBehavior;\n");
 });
 
 it('exits 2 where the file it goes in cannot be written', function () use ($ran): void {

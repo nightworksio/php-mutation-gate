@@ -35,6 +35,10 @@ return RectorConfig::configure()
             // their names, and names nothing of the attribute layer (A5) or of PHPUnit (A1).
             __DIR__ . '/src/Core/Php/HoldsReader.php',
             __DIR__ . '/src/Core/Php/DependsReader.php',
+            // Core writes PhpSpec's exception into a spec by its name, and names nothing of PhpSpec (A1).
+            __DIR__ . '/src/Core/Assertion/AssertionStyle.php',
+            // A spec's parent as each file spells it, which a class constant would spell one way.
+            __DIR__ . '/tests/Unit/Core/Stub/TestFileTest.php',
         ],
         // Pest binds a closure in a dataset to the test case before calling it,
         // and the closure of a static method cannot be bound.
