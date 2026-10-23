@@ -24,6 +24,8 @@ const PEST_CART_TEST = 'tests/Fixtures/Assertion/cart.pest.txt';
 
 const PHPUNIT_CART_TEST = 'tests/Fixtures/Assertion/cart.phpunit.txt';
 
+const PHPSPEC_CART_SPEC = 'tests/Fixtures/Assertion/cart.phpspec.txt';
+
 /**
  * The assertions of a test as written, each with what it checks, and whether they are weak.
  *
@@ -48,6 +50,25 @@ it('reads a Pest test\'s expectations in order, with each negation', function ()
         ['->not->toBeNull() existence', '->toBeInt() shape', '->toBeInstanceOf() shape', '->not->toHaveCount() shape'],
         true,
     ]);
+});
+
+it('reads a spec\'s examples by their matchers, on the object it describes and on its collaborators, calls to that object asserting nothing', function (string $example, array $read): void {
+    expect(readAssertions(PHPSPEC_CART_SPEC, $example))->toBe($read);
+})->with([
+    'a type and a value that is there' => ['it_is_initializable', [['->shouldHaveType() shape', '->shouldNotBe() existence'], true]],
+    'a value beside a count' => ['it_fits', [['->shouldReturn() value', '->shouldHaveCount() shape'], false]],
+    'a call a collaborator expects' => ['it_logs', [['->shouldBeCalled() value'], false]],
+    'an exception during a call' => ['it_refuses', [['->shouldThrow() value'], false]],
+]);
+
+it('leaves a spec\'s example not assessed where it calls a helper the spec declares, a matcher it names, or one no table holds', function (string $example): void {
+    expect(readAssertions(PHPSPEC_CART_SPEC, $example))->toBe([[], false]);
+})->with(['it_fills', 'it_is_money', 'it_holds_none']);
+
+it('reads a class that is no spec as PHPUnit\'s, where a call on $this is a helper\'s', function (): void {
+    $file = str_replace('extends ObjectBehavior', 'extends TestCase', (string) file_get_contents(Tree::at(PHPSPEC_CART_SPEC)));
+
+    expect(readAssertions($file, 'it_fits'))->toBe([[], false]);
 });
 
 it('reads a test as weak only when every assertion checks existence or shape', function (string $file, string $description, array $read): void {

@@ -108,6 +108,30 @@ The ledger knows every mutant's result per unit and per mutator
    - **Shape:** `assertIsArray`, `assertIsString`, `assertInstanceOf`,
      `assertCount`, and Pest's `->toBeArray()`, `->toBeInstanceOf()` and
      `->toHaveCount()`.
+   - **PhpSpec's matchers**, each written `should…` or `shouldNot…` on the
+     object a spec describes, on what one of its calls returns, or on a
+     collaborator:
+     - existence: `->shouldNotBe(null)`, `->shouldNotReturn(null)`,
+       `->shouldNotEqual(null)`, `->shouldNotBeLike(null)` and
+       `->shouldNotBeNull()`, and `->shouldHaveKey()`, which takes no
+       value. PhpSpec has no null matcher of its own.
+     - shape: the type matchers (`->shouldHaveType()`,
+       `->shouldBeAnInstanceOf()`, `->shouldReturnAnInstanceOf()`,
+       `->shouldImplement()`), `->shouldHaveCount()`, and the scalar
+       matchers (`->shouldBeString()`, `->shouldBeArray()` and the rest).
+     - value: the identity matchers (`->shouldReturn()`, `->shouldBe()`,
+       `->shouldEqual()`, `->shouldBeEqualTo()`), `->shouldBeLike()`, the
+       approximately matchers, `->shouldBeNull()`,
+       `->shouldHaveKeyWithValue()`, `->shouldContain()`,
+       `->shouldStartWith()`, `->shouldEndWith()`, `->shouldMatch()`, the
+       iterate matchers, `->shouldThrow()` and `->shouldTrigger()`; and the
+       object-state matchers, `->shouldBeActive()` of `isActive()` and
+       `->shouldHaveItems()` of `hasItems()`, of which a collaborator's
+       `->shouldBeCalled()` is one by its name.
+     - A matcher the spec's `getMatchers()` names by its key is the
+       project's own, and leaves the example not assessed. One an
+       extension registers is read by its name: as an object-state matcher
+       where it begins with `be` or `have`, unclassified otherwise.
    - **Value:**
      - `assertSame`, `assertEquals`, and Pest's `->toBe()` and `->toEqual()`;
      - a key or a property handed its value, such as `->toHaveKey('total',
@@ -138,12 +162,14 @@ The ledger knows every mutant's result per unit and per mutator
      `$this->checks->total()`. A test that checks a value only through one
      may be named weak.
    - A table test fails when a supported PHPUnit release declares an
-     assertion the table does not classify, or when the installed Pest
-     does.
+     assertion the table does not classify, or when the installed Pest or
+     PhpSpec does.
    - `Core\Assertion\AssertionTable` holds the table, by name in any
      case, as PHP calls methods and functions:
      - every assertion of PHPUnit's `Assert` and `TestCase`, its
-       `expect…` methods among them, and every Pest expectation;
+       `expect…` methods among them, every Pest expectation, and every
+       matcher PhpSpec builds in, read from the keywords its matchers'
+       sources answer to;
      - `AssertionTableTest` reads PHPUnit's methods from a file pinned
        per supported release, 12.5.8, 12.5.37, 13.0.0 and 13.3.4, and
        the installed PHPUnit and Pest by reflection. It fails on an
@@ -157,7 +183,7 @@ The ledger knows every mutant's result per unit and per mutator
        existence, whatever the same expectation is unnegated.
    - `TestAssertions` reads a file's tokens once, and holds each test's
      assertions:
-     - a PHPUnit method by its name;
+     - a PHPUnit method or a PhpSpec example by its name;
      - a Pest `it` or `test` by its description, with the calls chained
        after it, so a test's `->throws()` counts as a value;
      - a Pest test inside a `describe()`, however deep and however the
@@ -168,7 +194,13 @@ The ledger knows every mutant's result per unit and per mutator
      - `assert…` and `expect…` as methods or functions, a qualified name
        such as `\PHPUnit\Framework\assertSame` by its last segment;
      - each call chained after `expect()`, where `->not` negates the
-       expectation after it.
+       expectation after it;
+     - in a spec, a class that extends `ObjectBehavior` (`Core\Php\Spec`),
+       each `should…` method call as a matcher, and a call on `$this` of a
+       method the file does not declare as a call to the object the spec
+       describes, which asserts nothing (`Core\Assertion\SpecCall`). A
+       call on `$this` of a method the spec declares is a helper's, and
+       leaves the example not assessed.
      A function or method declared inside a test's body, such as an
      anonymous class's, is not a call.
 

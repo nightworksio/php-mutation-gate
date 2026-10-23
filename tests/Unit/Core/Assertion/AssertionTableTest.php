@@ -8,6 +8,7 @@ use NightWorksIO\MutationGate\Core\Assertion\Call;
 use NightWorksIO\MutationGate\Core\Assertion\Unclassified;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 use Pest\Mixins\Expectation;
+use PhpSpec\Matcher\IdentityMatcher;
 use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Runner\Version;
@@ -168,6 +169,78 @@ it('classifies every expectation the installed Pest declares', function (): void
     ));
 
     expect($unclassified)->toBe([]);
+});
+
+/**
+ * The keywords each matcher PhpSpec builds in answers to, as their sources
+ * spell them: in a list of keywords, in a list a name is checked against, or
+ * compared with the name.
+ *
+ * @return list<string>
+ */
+function phpSpecKeywords(): array
+{
+    $keywords = [];
+
+    $files = glob(sprintf('%s/*Matcher.php', dirname((string) new ReflectionClass(IdentityMatcher::class)->getFileName())));
+
+    foreach (is_array($files) ? $files : [] as $file) {
+        $source = (string) file_get_contents($file);
+        preg_match_all('/\$keywords = \[([^\]]*)\]|in_array\(\$name, \[([^\]]*)\]|\'(\w+)\' === \$name/', $source, $found);
+        preg_match_all('/\'(\w+)\'/', implode(' ', [...$found[1], ...$found[2]]), $listed);
+        $keywords = [...$keywords, ...$listed[1], ...array_filter($found[3], static fn(string $word): bool => $word !== '')];
+    }
+
+    return array_values(array_unique($keywords));
+}
+
+it('classifies every matcher the installed PhpSpec builds in, negated or not', function (): void {
+    $keywords = phpSpecKeywords();
+    $unclassified = [];
+
+    foreach ($keywords as $keyword) {
+        foreach (['should', 'shouldNot'] as $should) {
+            $matcher = sprintf('%s%s', $should, ucfirst($keyword));
+            $unclassified = AssertionTable::phpSpec(Call::of($matcher)) instanceof Unclassified ? [...$unclassified, $matcher] : $unclassified;
+        }
+    }
+
+    expect($unclassified)->toBe([])
+        ->and($keywords)->toContain('return', 'haveType', 'beLike', 'throw');
+});
+
+it('classifies PhpSpec\'s matchers by what they check, negated or not, and in any case', function (string $matcher, AssertionKind $kind, string ...$arguments): void {
+    expect(AssertionTable::phpSpec(Call::of($matcher, ...$arguments)))->toBe($kind);
+})->with([
+    'return' => ['shouldReturn', AssertionKind::Value, '3'],
+    'return, in another case' => ['SHOULDRETURN', AssertionKind::Value, '3'],
+    'not return null' => ['shouldNotReturn', AssertionKind::Existence, 'null'],
+    'not be null' => ['shouldNotBe', AssertionKind::Existence, 'NULL'],
+    'not be like null' => ['shouldNotBeLike', AssertionKind::Existence, 'null'],
+    'not return a value' => ['shouldNotReturn', AssertionKind::Value, '3'],
+    'return null' => ['shouldReturn', AssertionKind::Value, 'null'],
+    'not null' => ['shouldNotBeNull', AssertionKind::Existence],
+    'null' => ['shouldBeNull', AssertionKind::Value],
+    'a key' => ['shouldHaveKey', AssertionKind::Existence, "'total'"],
+    'a key with its value' => ['shouldHaveKeyWithValue', AssertionKind::Value, "'total'", '100'],
+    'type' => ['shouldHaveType', AssertionKind::Shape, 'Cart::class'],
+    'instance' => ['shouldBeAnInstanceOf', AssertionKind::Shape, 'Cart::class'],
+    'count' => ['shouldHaveCount', AssertionKind::Shape, '2'],
+    'a string' => ['shouldBeString', AssertionKind::Shape],
+    'not a string' => ['shouldNotBeString', AssertionKind::Shape],
+    'throw' => ['shouldThrow', AssertionKind::Value, 'InvalidArgumentException::class'],
+    'an object\'s state' => ['shouldBeActive', AssertionKind::Value],
+    'an object\'s state, negated' => ['shouldNotHaveItems', AssertionKind::Value],
+    'a call a collaborator expects' => ['shouldBeCalled', AssertionKind::Value],
+]);
+
+it('holds no matcher a call that is none names, nor one named like no matcher PhpSpec builds in', function (): void {
+    expect(AssertionTable::phpSpec(Call::of('add')))->toEqual(Unclassified::assertion())
+        ->and(AssertionTable::phpSpec(Call::of('should')))->toEqual(Unclassified::assertion())
+        ->and(AssertionTable::phpSpec(Call::of('shouldBe')))->toBe(AssertionKind::Value)
+        ->and(AssertionTable::phpSpec(Call::of('shouldContainMoney')))->toEqual(Unclassified::assertion())
+        ->and(AssertionTable::keyword(Call::of('shouldNotReturn')))->toBe('return')
+        ->and(AssertionTable::keyword(Call::of('beConstructedWith')))->toBe('');
 });
 
 it('classifies PHPUnit\'s assertions by what they check, in any case', function (string $assertion, AssertionKind $kind, string ...$arguments): void {
