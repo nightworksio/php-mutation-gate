@@ -11,14 +11,13 @@ use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Bytes;
-use NightWorksIO\MutationGate\Core\Php\Names;
+use NightWorksIO\MutationGate\Core\Php\Spec;
 use NightWorksIO\MutationGate\Core\Php\Tokens;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
 use NightWorksIO\MutationGate\Core\Runner\PhpSpecConfig;
 
 use function rtrim;
 use function sprintf;
-use function str_ends_with;
 
 /**
  * A test file a stub follows and is added to (ADR-0015):
@@ -52,12 +51,6 @@ final readonly class TestFile
 
         SPEC;
 
-    /** How far past the `class` keyword `extends` stands, after the class's name. */
-    private const int EXTENDS = 2;
-
-    /** The class a spec extends, which PhpSpec runs its examples on. */
-    private const string SPEC = 'ObjectBehavior';
-
     private function __construct(private Path $path, private string $text, private int $closing, private bool $spec)
     {
     }
@@ -70,7 +63,7 @@ final readonly class TestFile
 
         foreach ($tokens->indicesOf(T_CLASS) as $class) {
             $named = $closing === Tokens::NONE && $tokens->is($class + 1, T_STRING);
-            $spec = $named ? self::isSpec($tokens, $class) : $spec;
+            $spec = $named ? Spec::extendedAt($tokens, $class) : $spec;
             $closing = $named ? self::closingOf($tokens, $class) : $closing;
         }
 
@@ -125,16 +118,6 @@ final readonly class TestFile
             self::indented($test),
             Bytes::from($this->text, $this->closing),
         );
-    }
-
-    /** Whether the class a keyword declares extends PhpSpec's `ObjectBehavior`, by its name. */
-    private static function isSpec(Tokens $tokens, int $class): bool
-    {
-        $extends = $class + self::EXTENDS;
-
-        return $tokens->is($extends, T_EXTENDS)
-            && $tokens->is($extends + 1, ...Names::UNRELATIVE)
-            && str_ends_with(sprintf('\\%s', $tokens->text($extends + 1)), sprintf('\\%s', self::SPEC));
     }
 
     /** Where the body of the class a keyword declares closes, as a byte offset. */

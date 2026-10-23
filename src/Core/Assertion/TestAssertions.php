@@ -10,7 +10,10 @@ use function mb_strtolower;
 use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\Php\Body;
+use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Php\Names;
+use NightWorksIO\MutationGate\Core\Php\Spec;
 use NightWorksIO\MutationGate\Core\Php\Tokens;
 
 use function sprintf;
@@ -18,7 +21,8 @@ use function stripslashes;
 
 /**
  * The assertions of each test a file holds, read from its tokens once: a
- * PHPUnit method by its name, or a Pest `it` or `test` by its description,
+ * PHPUnit method or a PhpSpec example by its name, or a Pest `it` or `test`
+ * by its description,
  * with the calls chained after it. A test inside a `describe()` is described
  * by it, so a bare description does not find it. A test the file does not
  * hold is not assessed (ADR-0025).
@@ -43,8 +47,9 @@ final readonly class TestAssertions
     {
         $tokens = Tokens::in($file);
         $helpers = Helpers::declaredIn($tokens)->and($shared);
+        $spec = Spec::in($tokens);
 
-        return new self(self::methods($tokens, $helpers), self::pestTests($tokens, $helpers));
+        return new self(self::methods($tokens, $helpers, $spec), self::pestTests($tokens, $helpers));
     }
 
     /** The assertions of the test described so: a method of that name, or a Pest test of that description. */
@@ -62,7 +67,7 @@ final readonly class TestAssertions
     /**
      * @return array<string, Assertions> each method's assertions, the first of a name, by its name in lower case
      */
-    private static function methods(Tokens $tokens, Helpers $helpers): array
+    private static function methods(Tokens $tokens, Helpers $helpers, Spec|Nameless $spec): array
     {
         $methods = [];
 
@@ -71,7 +76,7 @@ final readonly class TestAssertions
             $name = $named === Tokens::NONE ? '' : mb_strtolower($tokens->text($named));
 
             if ($name !== '' && ! array_key_exists($name, $methods)) {
-                $methods[$name] = self::bodyAfter($tokens, $helpers, $named);
+                $methods[$name] = self::bodyAfter($tokens, $helpers, $named, $spec);
             }
         }
 
@@ -92,8 +97,9 @@ final readonly class TestAssertions
             $described = self::describedTo($tokens, $at, $function, $described);
 
             if ($description !== '' && ! array_key_exists($description, $tests)) {
-                $end = AssertionScan::chainEnd($tokens, $tokens->closing($at + 1));
-                $tests[$description] = AssertionScan::between($tokens, $helpers, $at + 1, $end);
+                $arguments = $at + 1;
+                $end = AssertionScan::chainEnd($tokens, $tokens->closing($arguments));
+                $tests[$description] = AssertionScan::between($tokens, $helpers, $arguments, $end, Nameless::code());
             }
         }
 
@@ -129,24 +135,12 @@ final readonly class TestAssertions
      * declaration a `;` ends bodiless.
      *
      */
-    private static function bodyAfter(Tokens $tokens, Helpers $helpers, int $from): Assertions
+    private static function bodyAfter(Tokens $tokens, Helpers $helpers, int $from, Spec|Nameless $spec): Assertions
     {
-        $opener = self::nextBrace($tokens, $from);
+        $opener = Body::after($tokens, $from);
 
         return $opener === Tokens::NONE
             ? Assertions::notAssessed()
-            : AssertionScan::between($tokens, $helpers, $opener, $tokens->closing($opener));
-    }
-
-    /** The `{` that opens the body declared after an index; nowhere where a `;` ends it bodiless first. */
-    private static function nextBrace(Tokens $tokens, int $from): int
-    {
-        for ($at = $from; $at < $tokens->count() && ! $tokens->is($at, ';'); ++$at) {
-            if ($tokens->is($at, '{')) {
-                return $at;
-            }
-        }
-
-        return Tokens::NONE;
+            : AssertionScan::between($tokens, $helpers, $opener, $tokens->closing($opener), $spec);
     }
 }

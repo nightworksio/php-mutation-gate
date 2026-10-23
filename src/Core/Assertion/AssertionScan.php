@@ -8,8 +8,10 @@ use function array_push;
 use function count;
 use function mb_strtolower;
 
+use NightWorksIO\MutationGate\Core\Php\Nameless;
 use NightWorksIO\MutationGate\Core\Php\Names;
 use NightWorksIO\MutationGate\Core\Php\OwnMember;
+use NightWorksIO\MutationGate\Core\Php\Spec;
 use NightWorksIO\MutationGate\Core\Php\Tokens;
 
 use function sprintf;
@@ -19,19 +21,23 @@ use function str_starts_with;
  * The assertions made between two tokens: PHPUnit's `assert…` and
  * `expect…` calls, as methods or functions, qualified or not, and each call
  * chained after Pest's `expect()`, with `->not` before it where it is
- * negated, and a test's `->throws()`. An assertion the table does not hold,
- * a chained call that is neither an expectation nor a change of subject, or
- * a call of a helper the file declares leaves the test not assessed.
+ * negated, and a test's `->throws()`. In a spec, each `should…` matcher, on
+ * the object the spec describes or on what one of its calls returns, and a
+ * call on `$this` of a method the file does not declare is a call to the
+ * object the spec describes, which asserts nothing. An assertion the table
+ * does not hold, a matcher the spec names as its own, a chained call that
+ * is neither an expectation nor a change of subject, or a call of a helper
+ * the file declares leaves the test not assessed.
  */
 final readonly class AssertionScan
 {
+    /** A call chained after another, as an assertion writes it. */
+    public const string CHAINED = '->%s()';
     private const string EXPECT = 'expect';
 
     private const string ASSERT = 'assert';
 
     private const string NOT = 'not';
-
-    private const string PEST = '->%s()';
 
     private const string PEST_NEGATED = '->not->%s()';
 
@@ -41,17 +47,22 @@ final readonly class AssertionScan
      */
     private const int CALL_OPENS = 3;
 
-    private function __construct(private Tokens $tokens, private Helpers $helpers)
+    private function __construct(private Tokens $tokens, private Helpers $helpers, private Spec|Nameless $spec)
     {
     }
 
     /**
-     * The assertions made from one index to another, among a file's tokens
-     * and the helpers a test may call.
+     * The assertions made from one index to another, among a file's tokens,
+     * the helpers a test may call, and the spec the file is, where it is one.
      */
-    public static function between(Tokens $tokens, Helpers $helpers, int $from, int $to): Assertions
-    {
-        $scan = new self($tokens, $helpers);
+    public static function between(
+        Tokens $tokens,
+        Helpers $helpers,
+        int $from,
+        int $to,
+        Spec|Nameless $spec,
+    ): Assertions {
+        $scan = new self($tokens, $helpers, $spec);
         $assertions = Assertions::of();
 
         for ($at = $from; $at <= $to; ++$at) {
@@ -109,9 +120,15 @@ final readonly class AssertionScan
 
         $name = mb_strtolower(Call::nameAt($this->tokens, $at));
         $member = self::isMember($this->tokens, $at);
+        $spec = $this->spec;
 
         return match (true) {
             $this->declares($at) => [],
+            $spec instanceof Spec && $member => SpecCall::checked(
+                Call::at($this->tokens, $at),
+                $spec,
+                $this->ownHelper($at),
+            ),
             ! $member && $name === self::EXPECT => $this->chained($this->tokens->closing($at + 1)),
             str_starts_with($name, self::ASSERT), str_starts_with($name, self::EXPECT) => [
                 $this->phpUnit(Call::at($this->tokens, $at)),
@@ -120,6 +137,13 @@ final readonly class AssertionScan
             $member => $this->pestTest(Call::at($this->tokens, $at)),
             default => [],
         };
+    }
+
+    /** Whether a call at an index is on the object itself, of a helper the file or the runner's files declare. */
+    private function ownHelper(int $at): bool
+    {
+        return OwnMember::calledAt($this->tokens, $at - 1)
+            && $this->helpers->has(mb_strtolower(Call::nameAt($this->tokens, $at)));
     }
 
     /** Whether the name at an index is declared there, as `function name(` or `function &name(` write it. */
@@ -149,7 +173,7 @@ final readonly class AssertionScan
     private function pestTest(Call $call): array
     {
         return AssertionTable::pestTest($call) instanceof AssertionKind
-            ? [Assertion::of(sprintf(self::PEST, $call->name()), AssertionKind::Value, AssertionStyle::Pest)]
+            ? [Assertion::of(sprintf(self::CHAINED, $call->name()), AssertionKind::Value, AssertionStyle::Pest)]
             : [];
     }
 
@@ -200,7 +224,7 @@ final readonly class AssertionScan
     {
         $kind = AssertionTable::pest($call, $negated);
 
-        $written = sprintf($negated ? self::PEST_NEGATED : self::PEST, $call->name());
+        $written = sprintf($negated ? self::PEST_NEGATED : self::CHAINED, $call->name());
 
         return $kind instanceof AssertionKind ? Assertion::of($written, $kind, AssertionStyle::Pest) : $kind;
     }

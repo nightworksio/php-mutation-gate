@@ -1,0 +1,65 @@
+<?php
+
+namespace spec\Shop;
+
+use PhpSpec\ObjectBehavior;
+use Shop\Logger;
+
+final class CartSpec extends ObjectBehavior
+{
+    public function let(Logger $logger): void
+    {
+        $this->beConstructedWith($logger);
+    }
+
+    public function it_is_initializable(): void
+    {
+        $this->shouldHaveType(\Shop\Cart::class);
+        $this->items()->shouldNotBe(null);
+    }
+
+    public function it_fits(): void
+    {
+        $this->fits(1, 2)->shouldReturn(true);
+        $this->items()->shouldHaveCount(0);
+    }
+
+    public function it_logs(Logger $logger): void
+    {
+        $logger->log('added')->shouldBeCalled();
+        $this->add(1);
+    }
+
+    public function it_refuses(): void
+    {
+        $this->shouldThrow(\InvalidArgumentException::class)->during('add', [-1]);
+    }
+
+    public function it_fills(): void
+    {
+        $this->items()->shouldHaveCount(1);
+        $this->filled();
+    }
+
+    public function it_is_money(): void
+    {
+        $this->items()->shouldHaveCount(1);
+        $this->total()->shouldBeMoney();
+    }
+
+    public function it_holds_none(): void
+    {
+        $this->items()->shouldHaveCount(1);
+        $this->items()->shouldContainNothing();
+    }
+
+    public function getMatchers(): array
+    {
+        return ['beMoney' => static fn($subject): bool => true];
+    }
+
+    private function filled(): void
+    {
+        $this->add(3)->shouldReturn(3);
+    }
+}

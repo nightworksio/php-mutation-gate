@@ -4,18 +4,23 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Assertion;
 
+use function array_any;
 use function array_change_key_case;
 use function array_flip;
 use function array_key_exists;
+use function mb_strlen;
 use function mb_strtolower;
+use function mb_substr;
+use function str_starts_with;
 use function var_export;
 
 /**
  * The fixed table of assertions, by what they check: that something is
  * there, what shape it has, or what value it holds. It holds every
- * assertion of PHPUnit's `Assert` and `TestCase` and every expectation of
- * Pest, and a test proves it does. An assertion it does not hold, such as a
- * project's own, is unclassified (ADR-0025).
+ * assertion of PHPUnit's `Assert` and `TestCase`, every expectation of
+ * Pest and every matcher PhpSpec builds in, and a test proves it does. An
+ * assertion it does not hold, such as a project's own, is unclassified
+ * (ADR-0025).
  */
 final readonly class AssertionTable
 {
@@ -522,6 +527,80 @@ final readonly class AssertionTable
         'wasPrepared',
     ];
 
+    /** What every PhpSpec matcher's name begins with, as a spec calls it. */
+    private const string SHOULD = 'should';
+
+    /** What a negated PhpSpec matcher's name begins with. */
+    private const string SHOULD_NOT = 'shouldNot';
+
+    /** PhpSpec's matchers that something is there: a key, whatever its value. */
+    private const array PHPSPEC_EXISTENCE = ['haveKey'];
+
+    /** PhpSpec's matchers of a value whose negation asserts only that something is there. */
+    private const array PHPSPEC_NEGATED_EXISTENCE = ['beNull'];
+
+    /** PhpSpec's matchers of a value that, negated on `null`, assert only that something is there. */
+    private const array PHPSPEC_NEGATED_ON_NULL = ['return', 'be', 'equal', 'beEqualTo', 'beLike'];
+
+    /** PhpSpec's matchers of a type, a class or a size: its type matchers, its count and its scalar matchers. */
+    private const array PHPSPEC_SHAPE = [
+        'haveType',
+        'beAnInstanceOf',
+        'returnAnInstanceOf',
+        'implement',
+        'haveCount',
+        'beArray',
+        'beBool',
+        'beBoolean',
+        'beCallable',
+        'beCountable',
+        'beDouble',
+        'beFloat',
+        'beReal',
+        'beInt',
+        'beInteger',
+        'beLong',
+        'beIterable',
+        'beNumeric',
+        'beObject',
+        'beResource',
+        'beScalar',
+        'beString',
+    ];
+
+    /**
+     * PhpSpec's matchers of a value, a string, a traversable's items, an
+     * exception or an error, but those whose name starts with `be` or `have`,
+     * which check a value as its object-state matchers do. `AssertionStyle::PhpSpec`
+     * suggests one of them, `shouldReturn`.
+     */
+    private const array PHPSPEC_VALUE = [
+        'return',
+        'be',
+        'equal',
+        'equalApproximately',
+        'returnApproximately',
+        'contain',
+        'startWith',
+        'endWith',
+        'match',
+        'iterateAs',
+        'yield',
+        'iterateLike',
+        'yieldLike',
+        'startIteratingAs',
+        'startYielding',
+        'throw',
+        'trigger',
+    ];
+
+    /**
+     * What PhpSpec's object-state matchers begin with, each of a predicate's
+     * value: `beActive()` checks `isActive()`, and `haveItems()` checks
+     * `hasItems()`.
+     */
+    private const array PHPSPEC_STATE = ['be', 'have'];
+
     /** Pest's expectations of a value whose negation asserts only that something is there. */
     private const array PEST_NEGATED_EXISTENCE = [
         'toBeNull',
@@ -588,6 +667,45 @@ final readonly class AssertionTable
         };
     }
 
+    /**
+     * What one of PhpSpec's matchers checks, written `should…` or
+     * `shouldNot…`: `shouldNotBe(null)` only that something is. A name no
+     * other matcher holds that begins as an object-state matcher's checks a
+     * predicate's value.
+     */
+    public static function phpSpec(Call $call): AssertionKind|Unclassified
+    {
+        $keyword = self::keyword($call);
+        $negated = str_starts_with(mb_strtolower($call->name()), mb_strtolower(self::SHOULD_NOT));
+
+        return match (true) {
+            $negated && self::names(self::PHPSPEC_NEGATED_EXISTENCE, $keyword),
+            $negated && self::names(self::PHPSPEC_NEGATED_ON_NULL, $keyword) && $call->first() === self::null()
+                => AssertionKind::Existence,
+            self::names(self::PHPSPEC_EXISTENCE, $keyword) => AssertionKind::Existence,
+            self::names(self::PHPSPEC_SHAPE, $keyword) => AssertionKind::Shape,
+            self::names(self::PHPSPEC_VALUE, $keyword) => AssertionKind::Value,
+            self::isState($keyword) => AssertionKind::Value,
+            default => Unclassified::assertion(),
+        };
+    }
+
+    /**
+     * The matcher a PhpSpec call names, past its `should` or `shouldNot`, in
+     * lower case: `return` for `shouldReturn`; none for a call no matcher is.
+     */
+    public static function keyword(Call $call): string
+    {
+        $name = mb_strtolower($call->name());
+        $negated = mb_strtolower(self::SHOULD_NOT);
+
+        return match (true) {
+            str_starts_with($name, $negated) => mb_substr($name, mb_strlen($negated)),
+            str_starts_with($name, self::SHOULD) => mb_substr($name, mb_strlen(self::SHOULD)),
+            default => '',
+        };
+    }
+
     /** What a call a Pest test chains after itself checks: an expected exception, or nothing the table holds. */
     public static function pestTest(Call $call): AssertionKind|Unclassified
     {
@@ -614,6 +732,26 @@ final readonly class AssertionTable
     private static function holds(array $names, Call $call): bool
     {
         return array_key_exists(mb_strtolower($call->name()), array_change_key_case(array_flip($names)));
+    }
+
+    /**
+     * Whether a list holds a matcher's keyword, in any case.
+     *
+     * @param list<string> $names
+     */
+    private static function names(array $names, string $keyword): bool
+    {
+        return self::holds($names, Call::of($keyword));
+    }
+
+    /** Whether a keyword names one of PhpSpec's object-state matchers: `be` or `have`, then a predicate's name. */
+    private static function isState(string $keyword): bool
+    {
+        return array_any(
+            self::PHPSPEC_STATE,
+            static fn(string $prefix): bool => mb_strlen($keyword) > mb_strlen($prefix)
+                && str_starts_with($keyword, $prefix),
+        );
     }
 
     /** PHP's `true`, as a test writes it and `Call::first()` reads it. */
