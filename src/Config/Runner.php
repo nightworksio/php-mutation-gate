@@ -40,6 +40,12 @@ final readonly class Runner
         return self::uses(BuiltinRunner::PhpSpec->value);
     }
 
+    /** The gate's own Codeception runner, on the gate's own mutants (ADR-0027). */
+    public static function codeception(): self
+    {
+        return self::uses(BuiltinRunner::Codeception->value);
+    }
+
     /** A runner another extension registers by name, or a class, with its options. */
     public static function uses(string $runner, Option ...$options): self
     {

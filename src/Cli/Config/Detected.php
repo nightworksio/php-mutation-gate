@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Config;
 
 use function array_any;
+use function array_map;
+use function array_pop;
+use function count;
+use function implode;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Cli\ComposerVendor;
@@ -33,6 +37,9 @@ final readonly class Detected
 {
     /** Why two runners installed side by side leave the choice to a person. */
     private const string BOTH = 'Both %s and %s are installed. Choose one: set runner in the config, or pass --runner.';
+
+    /** Why more runners than two installed side by side leave the choice to a person. */
+    private const string SEVERAL = '%s and %s are installed. Choose one: set runner in the config, or pass --runner.';
 
     /** Why Pest alone, without its mutation plugin, leaves nothing to mutate with. */
     private const string PEST_WITHOUT_PLUGIN
@@ -72,8 +79,8 @@ final readonly class Detected
     /**
      * Pest when its mutation plugin is installed, Infection when Infection
      * is, and both is a choice to make; where neither is, and Pest is not,
-     * PHPUnit or PhpSpec, whichever alone is installed, and both is a choice
-     * to make (ADR-0023, ADR-0027).
+     * the one native framework the project uses, and more than one is a
+     * choice to make (ADR-0023, ADR-0027).
      */
     public function runner(): BuiltinRunner|CannotJudge
     {
@@ -113,8 +120,9 @@ final readonly class Detected
 
     /**
      * The runners a person must choose between, since zero-config chooses
-     * neither: Pest's mutation plugin and Infection, both installed; or,
-     * where neither is and Pest is not, PHPUnit and PhpSpec, both installed.
+     * none: Pest's mutation plugin and Infection, both installed; or, where
+     * neither is and Pest is not, the native frameworks the project uses,
+     * where it uses more than one.
      *
      * @return list<BuiltinRunner> none where zero-config chooses, or nothing is installed
      */
@@ -130,39 +138,80 @@ final readonly class Detected
     {
         $pest = $installed->has(Package::PestMutate->value);
         $infection = $installed->has(Package::Infection->value);
-        $native = ! $pest && ! $infection && ! $installed->has(Package::Pest->value);
-        $both = $native && $installed->has(Package::PhpUnit->value) && $installed->has(Package::PhpSpec->value);
+        $native = $pest || $infection || $installed->has(Package::Pest->value) ? [] : $this->nativeIn($installed);
 
         return match (true) {
             $pest && $infection => [BuiltinRunner::Pest, BuiltinRunner::Infection],
-            $both => [BuiltinRunner::PhpUnit, BuiltinRunner::PhpSpec],
+            count($native) > 1 => $native,
             default => [],
         };
+    }
+
+    /**
+     * The native frameworks the project uses: each one installed, but
+     * PHPUnit beside Codeception, which installs it, only where the project
+     * requires PHPUnit itself.
+     *
+     * @return list<BuiltinRunner>
+     */
+    private function nativeIn(Installed $installed): array
+    {
+        $codeception = $installed->has(Package::Codeception->value);
+        $phpunit = $installed->has(Package::PhpUnit->value) && (! $codeception || $this->requires(Package::PhpUnit));
+
+        return [
+            ...$phpunit ? [BuiltinRunner::PhpUnit] : [],
+            ...$installed->has(Package::PhpSpec->value) ? [BuiltinRunner::PhpSpec] : [],
+            ...$codeception ? [BuiltinRunner::Codeception] : [],
+        ];
+    }
+
+    /** Whether the project's `composer.json` requires a package, to run or be developed; not where it is unread. */
+    private function requires(Package $package): bool
+    {
+        $contents = $this->project->read(Manifest::fileIn(Path::root()));
+        $manifest = $contents instanceof Contents ? Manifest::decode($contents, Path::root()) : $contents;
+
+        return $manifest instanceof Manifest && $manifest->requires()->has($package->value);
+    }
+
+    /**
+     * Why zero-config chooses none of these runners, each installed.
+     *
+     * @param list<BuiltinRunner> $choices two or more
+     */
+    private static function chooseBetween(array $choices): CannotJudge
+    {
+        $names = array_map(static fn(BuiltinRunner $runner): string => $runner->package()->value, $choices);
+        $last = (string) array_pop($names);
+
+        return CannotJudge::because(
+            count($names) === 1
+                ? sprintf(self::BOTH, implode('', $names), $last)
+                : sprintf(self::SEVERAL, implode(', ', $names), $last),
+        );
     }
 
     private function runnerIn(Installed $installed): BuiltinRunner|CannotJudge
     {
         $choices = $this->choicesIn($installed);
+        $native = $this->nativeIn($installed);
 
         return match (true) {
-            $choices !== [] => CannotJudge::because(sprintf(
-                self::BOTH,
-                $choices[0]->package()->value,
-                $choices[1]->package()->value,
-            )),
+            $choices !== [] => self::chooseBetween($choices),
             $installed->has(Package::PestMutate->value) => BuiltinRunner::Pest,
             $installed->has(Package::Infection->value) => BuiltinRunner::Infection,
             $installed->has(Package::Pest->value) => CannotJudge::because(
                 sprintf(self::PEST_WITHOUT_PLUGIN, Package::Pest->value, Package::PestMutate->value),
             ),
-            $installed->has(Package::PhpUnit->value) => BuiltinRunner::PhpUnit,
-            $installed->has(Package::PhpSpec->value) => BuiltinRunner::PhpSpec,
+            $native !== [] => $native[0],
             default => CannotJudge::because(sprintf(
-                'None of %s, %s, %s and %s is installed, so nothing can mutate. Install one of them.',
+                'None of %s, %s, %s, %s and %s is installed, so nothing can mutate. Install one of them.',
                 Package::PestMutate->value,
                 Package::Infection->value,
                 Package::PhpUnit->value,
                 Package::PhpSpec->value,
+                Package::Codeception->value,
             )),
         };
     }

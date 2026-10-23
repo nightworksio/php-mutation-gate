@@ -18,6 +18,7 @@ enum Package: string
     case PhpUnit = 'phpunit/phpunit';
     case CodeCoverage = 'phpunit/php-code-coverage';
     case PhpSpec = 'phpspec/phpspec';
+    case Codeception = 'codeception/codeception';
     case PhpStan = 'phpstan/phpstan';
     case Mago = 'carthage-software/mago';
     case Laravel = 'laravel/framework';

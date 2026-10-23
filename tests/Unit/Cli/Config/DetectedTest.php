@@ -58,7 +58,35 @@ it('chooses the runner that is installed', function (array $installed, BuiltinRu
     'PhpSpec alone' => [['phpspec/phpspec', 'phpunit/php-code-coverage'], BuiltinRunner::PhpSpec],
     'PhpSpec under Infection' => [['infection/infection', 'phpspec/phpspec'], BuiltinRunner::Infection],
     'PHPUnit and PhpSpec under Infection' => [['infection/infection', 'phpunit/phpunit', 'phpspec/phpspec'], BuiltinRunner::Infection],
+    'Codeception, with the PHPUnit it installs' => [['codeception/codeception', 'phpunit/phpunit'], BuiltinRunner::Codeception],
+    'Codeception under Pest' => [['pestphp/pest', 'pestphp/pest-plugin-mutate', 'codeception/codeception'], BuiltinRunner::Pest],
 ]);
+
+it('chooses Codeception beside PHPUnit where only Codeception\'s requirement installs PHPUnit', function () use ($detected): void {
+    expect($detected('{"require-dev": {"codeception/codeception": "^5.3"}}', ['codeception/codeception', 'phpunit/phpunit'])->runner())
+        ->toBe(BuiltinRunner::Codeception);
+});
+
+it('asks for a choice where the project requires PHPUnit itself beside Codeception', function (string $manifest) use ($detected): void {
+    expect($detected($manifest, ['codeception/codeception', 'phpunit/phpunit'])->runner())
+        ->toEqual(CannotJudge::because(
+            'Both phpunit/phpunit and codeception/codeception are installed. '
+        . 'Choose one: set runner in the config, or pass --runner.',
+        ));
+})->with([
+    'to be developed' => ['{"require-dev": {"phpunit/phpunit": "^13.2", "codeception/codeception": "^5.3"}}'],
+    'to run' => ['{"require": {"phpunit/phpunit": "^13.2"}}'],
+]);
+
+it('asks for a choice between every native framework the project uses', function () use ($detected): void {
+    expect($detected('{"require-dev": {"phpunit/phpunit": "^13.2"}}', ['phpunit/phpunit', 'phpspec/phpspec', 'codeception/codeception'])->runner())
+        ->toEqual(CannotJudge::because(
+            'phpunit/phpunit, phpspec/phpspec and codeception/codeception are installed. '
+        . 'Choose one: set runner in the config, or pass --runner.',
+        ))
+        ->and($detected('{"require-dev": {"phpunit/phpunit": "^13.2"}}', ['phpunit/phpunit', 'phpspec/phpspec', 'codeception/codeception'])->choices())
+        ->toBe([BuiltinRunner::PhpUnit, BuiltinRunner::PhpSpec, BuiltinRunner::Codeception]);
+});
 
 it('asks for a choice when both runners are installed', function () use ($detected): void {
     expect($detected('', ['infection/infection', 'pestphp/pest-plugin-mutate'])->runner())
@@ -93,7 +121,7 @@ it('names no runner to choose between where nothing lists what is installed', fu
 
 it('cannot judge without a runner installed', function () use ($detected): void {
     expect($detected('', ['symfony/console'])->runner())->toEqual(CannotJudge::because(
-        'None of pestphp/pest-plugin-mutate, infection/infection, phpunit/phpunit and phpspec/phpspec is installed, '
+        'None of pestphp/pest-plugin-mutate, infection/infection, phpunit/phpunit, phpspec/phpspec and codeception/codeception is installed, '
         . 'so nothing can mutate. Install one of them.',
     ));
 });

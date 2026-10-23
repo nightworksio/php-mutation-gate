@@ -17,8 +17,9 @@ enum Program
     case Infection;
     case PhpUnit;
     case PhpSpec;
+    case Codeception;
 
-    /** What a person calls it: Pest, Infection, PHPUnit or PhpSpec. */
+    /** What a person calls it: Pest, Infection, PHPUnit, PhpSpec or Codeception. */
     public function title(): string
     {
         return match ($this) {
@@ -26,6 +27,7 @@ enum Program
             self::Infection => 'Infection',
             self::PhpUnit => 'PHPUnit',
             self::PhpSpec => 'PhpSpec',
+            self::Codeception => 'Codeception',
         };
     }
 }
