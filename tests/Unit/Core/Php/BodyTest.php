@@ -14,5 +14,6 @@ it('finds the brace that opens a declaration\'s body, and none where a semicolon
     expect(Body::after($tokens, $functions[0]))->toBe(Tokens::NONE)
         ->and($tokens->text($total))->toBe('{')
         ->and($tokens->text($total + 1))->toBe('return')
+        ->and(Body::after($tokens, $total))->toBe($total)
         ->and(Body::after($tokens, $tokens->count()))->toBe(Tokens::NONE);
 });

@@ -10,9 +10,9 @@ final readonly class Body
     /** The `{` that opens the body declared after an index; none where a `;` ends it bodiless first. */
     public static function after(Tokens $tokens, int $from): int
     {
-        for ($at = $from; $at < $tokens->count() && ! $tokens->is($at, ';'); ++$at) {
-            if ($tokens->is($at, '{')) {
-                return $at;
+        foreach ($tokens->indicesOf('{', ';') as $at) {
+            if ($at >= $from) {
+                return $tokens->is($at, '{') ? $at : Tokens::NONE;
             }
         }
 
