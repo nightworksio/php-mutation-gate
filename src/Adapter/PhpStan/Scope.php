@@ -20,7 +20,7 @@ use function sprintf;
 
 /**
  * The files PHPStan analyses, as `phpstan dump-parameters --json` gives
- * them (ADR-0020, decision 7): under one of its `paths`, and under none of
+ * them (ADR-0020): under one of its `paths`, and under none of
  * its `excludePaths`, each a file, a directory, or a pattern PHPStan
  * matches with `fnmatch`. Every one is absolute, as PHPStan resolves it.
  */

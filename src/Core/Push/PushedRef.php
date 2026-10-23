@@ -48,7 +48,7 @@ final readonly class PushedRef
     /**
      * What the change is read since: the commit the remote holds, or, for a
      * ref the remote does not hold yet, the default branch, whose merge base
-     * the change is read from (ADR-0010, decision 2).
+     * the change is read from (ADR-0010).
      */
     public function base(Revision $defaultBranch): Revision
     {

@@ -7,7 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Test;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
- * Which `<testsuite>`s' tests judge a run's mutants (ADR-0002, decision 8):
+ * Which `<testsuite>`s' tests judge a run's mutants (ADR-0002):
  * the suites whose tests judge every unit, as `tests.suites` lists them, and
  * the suites whose tests judge only the units they hold, as `tests.holding`
  * lists them. A run of the whole suite, or of some test files, runs the

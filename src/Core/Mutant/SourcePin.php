@@ -9,7 +9,7 @@ use function sprintf;
 /**
  * What a test that reads the source must find there to kill a mutant no
  * behavioural test can: a call to a function, by its name, as `hash_equals(`
- * (ADR-0021, decision 19).
+ * (ADR-0021).
  */
 final readonly class SourcePin
 {

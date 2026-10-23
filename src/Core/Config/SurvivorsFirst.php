@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Survivors;
 /**
  * `survivorsFirst.max`: how many of the last run's survivors a pull request's
  * run re-checks before its shards, those on changed lines first; none at `0`
- * (ADR-0020, decision 19).
+ * (ADR-0020).
  */
 final readonly class SurvivorsFirst
 {

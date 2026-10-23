@@ -43,12 +43,11 @@ use NightWorksIO\MutationGate\Tests\Support\PhpUnitScan;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 
-// What the PHPUnit runner's pieces do with a real PHPUnit (ADR-0023 decisions
-// 9 and 10), over the quirks of a project's tests in phpunit-fixture/, which
-// the runner contracts job installs at the lowest and the highest PHPUnit the
-// runner supports:
-// PHPUnit started with the override, the extension and the covering tests'
-// ids or files, the extension's records read back into each mutant's
+// What the PHPUnit runner's pieces do with a real PHPUnit (ADR-0023), over
+// the quirks of a project's tests in phpunit-fixture/, which the runner
+// contracts job installs at the lowest and the highest PHPUnit the runner
+// supports: PHPUnit started with the override, the extension and the covering
+// tests' ids or files, the extension's records read back into each mutant's
 // verdict, and the suite run under coverage into a map.
 
 /** The library the PHPUnit runner mutates. */

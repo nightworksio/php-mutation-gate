@@ -29,7 +29,7 @@ use function strval;
 use function unlink;
 
 /**
- * Unmutated controls as the PHPUnit runner runs them (ADR-0008, decision 2):
+ * Unmutated controls as the PHPUnit runner runs them (ADR-0008):
  * each a mutant that changes nothing, its file as the project holds it,
  * served through the override as a mutant's is (see ControlMutant), its tests
  * and every test they depend on run as a mutant's are, under the request's memory cap and stopped at its

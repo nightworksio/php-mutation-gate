@@ -44,7 +44,7 @@ use function sprintf;
  * a mutant whose own process had loaded its file before the mutant was in
  * place, because its tests ran the original code; and a survivor whose own
  * process said it ran no test, because nothing judged it. Each kill keeps
- * the evidence its own run recorded (ADR-0014, decision 16).
+ * the evidence its own run recorded (ADR-0014).
  */
 final readonly class Interpretation
 {
@@ -117,7 +117,7 @@ final readonly class Interpretation
     }
 
     /**
-     * The evidence of a kill (ADR-0014, decision 16): how far its own run
+     * The evidence of a kill (ADR-0014): how far its own run
      * went, keyed by the test files it was narrowed to, or by none where it
      * loaded every one; and, where it names no killer, how its process
      * ended. None of a mutant that is not killed, or that shares its mutated
@@ -145,8 +145,8 @@ final readonly class Interpretation
      * A mutant's status as Pest ended it, or killed where Pest timed it out
      * after its own process recorded a failing test, as one that runs on
      * past its limit after its first failure under a full kill matrix does
-     * (ADR-0014, decision 7); a kill whose process ran out of exactly the
-     * gate's memory cap is out of memory (ADR-0004, decision 9).
+     * (ADR-0014); a kill whose process ran out of exactly the
+     * gate's memory cap is out of memory (ADR-0004).
      */
     private function statusOf(PlannedMutant $planned, Records $records): MutantStatus
     {
@@ -200,7 +200,7 @@ final readonly class Interpretation
 
     /**
      * A mutant whose mutated copy static analysis rejected before its tests,
-     * killed by it (ADR-0020, decision 12), whether Pest ran it or not; as it
+     * killed by it (ADR-0020), whether Pest ran it or not; as it
      * was otherwise.
      */
     private function rejected(Mutant $mutant, PlannedMutant $planned): Mutant

@@ -11,7 +11,7 @@ use function preg_match;
 use function sprintf;
 
 /**
- * The gate's own release as a CI definition pins it (ADR-0015 decision 14):
+ * The gate's own release as a CI definition pins it (ADR-0015):
  * the commit Composer installed it from, with its version, read from the
  * project's `vendor/composer/installed.json`. A gate Composer did not
  * install, such as its own checkout, pins nothing, and says so.

@@ -5,22 +5,20 @@
 
 ## Context
 
-The config and the baseline are committed, and both are public API (ADR-0011
-decision 7). A setting is deprecated with a warning for at least one minor
-release and removed only in a major (ADR-0011 decision 7). A project on an
-older major needs a way to its successor's config that does not mean reading
-a changelog key by key.
+The config and the baseline are committed, and both are public API
+(ADR-0011). A setting is deprecated with a warning for at least one minor
+release and removed only in a major (ADR-0011). A project on an older major
+needs a way to its successor's config that does not mean reading a changelog
+key by key.
 
 What exists to build on:
 
 - **The config has no version marker.** JSON's `$schema` names the release
   line in its URL (`…/php-mutation-gate/v0.1/resources/mutation-gate.schema.json`,
-  ADR-0002 decision 3). The baseline has `"format": 1` (ADR-0003
-  decision 3).
+  ADR-0002). The baseline has `"format": 1` (ADR-0003).
 - **Every format reads into one form.** Each config file, in any of the four
-  formats, is read through the same definition (ADR-0002 decision 1), and an
-  unknown key is an error that names the nearest known key (ADR-0002
-  decision 6).
+  formats, is read through the same definition (ADR-0002), and an
+  unknown key is an error that names the nearest known key (ADR-0002).
 - **The formats differ in what a rewrite keeps.**
   - `config:show --format=…` writes any format from the effective config,
     and writes no comments.
@@ -29,8 +27,8 @@ What exists to build on:
   - `symfony/yaml` and `nette/neon` parse into plain PHP values, which hold
     no comments, so a file they write back has none.
 - **The ledger needs no migration.** A ledger of another format is not read,
-  and the verdict warns so, which costs a run and never a verdict (ADR-0007
-  decision 3).
+  and the verdict warns so, which costs a run and never a verdict
+  (ADR-0007).
 
 ## Decision
 
@@ -42,7 +40,7 @@ What exists to build on:
      `<new key>` in <version>: run `mutation-gate migrate`*.
    - No file carries a version key.
 
-   This amends ADR-0002 decision 6.
+   This amends ADR-0002.
 
 2. **A migration is data: typed steps in `Core`.**
    - The steps are `Rename(from, to)`, `Move(from, to)`, `MapValue(key, old,
@@ -56,10 +54,10 @@ What exists to build on:
    - Each step may also name the builder spelling it retires and, for a
      rename or a move, the one that replaces it, such as `Reach::everything`
      becoming `Reach::all` with the same arguments. A PHP config is changed
-     through these spellings alone (decision 3).
-   - The steps apply to the JSON form every format reads into (ADR-0002
-     decision 1), before the definition reads it, so one step serves the JSON,
-     YAML and NEON formats.
+     through these spellings alone.
+   - The steps apply to the JSON form every format reads into (ADR-0002),
+     before the definition reads it, so one step serves the JSON, YAML and
+     NEON formats.
    - A step that still applies once every step has run, such as a rename
      whose new key is already written, is left for a hand edit.
    - Each step has a fixture per format, and a test that the migrated file
@@ -90,16 +88,16 @@ What exists to build on:
    The PHP config is parsed, never included, so migrating it runs none of it.
    This needs `nikic/php-parser` in `require`, as ADR-0021 puts it. A PHP
    config that cannot load because it calls a spelling a step retired fails
-   with that step's error from decision 1.
+   with that step's error.
 
 4. **The baseline migrates too.** A change of the baseline's `format` is
    migrated by the same command and the same kind of step. The ledger is not
-   migrated (ADR-0007 decision 3).
+   migrated (ADR-0007).
 
 5. **`mutation-gate migrate [--config=<path>] [--write]` shows before it
    writes.**
    - It prints a unified diff of every file it would change, and writes only
-     with `--write`, as `baseline --write` does (ADR-0003 decision 6).
+     with `--write`, as `baseline --write` does (ADR-0003).
    - Exit 0 when every file is current or has been written.
    - Exit 1 when a migration is pending and `--write` was not given, so CI
      can check that nothing is behind, and when a hand edit is left, with
@@ -107,8 +105,7 @@ What exists to build on:
    - Exit 2 when the named file is not a config the gate can read.
    - It writes only the config and the baseline, and nothing else.
 
-   The command is public API. This amends ADR-0002 decision 2 and ADR-0011
-   decision 7.
+   The command is public API. This amends ADR-0002 and ADR-0011.
 
 6. **The machinery is tested with synthetic old keys.** Its steps, the
    format-preserving PHP edit and the command are part of the first release,

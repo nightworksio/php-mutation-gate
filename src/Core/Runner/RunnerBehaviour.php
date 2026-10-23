@@ -54,7 +54,7 @@ final readonly class RunnerBehaviour
         return clone($this, ['writes' => $style]);
     }
 
-    /** The style the runner's tests are written in, which a stub with no covering test takes (ADR-0015, decision 2). */
+    /** The style the runner's tests are written in, which a stub with no covering test takes (ADR-0015). */
     public function testStyle(): AssertionStyle
     {
         return $this->writes;

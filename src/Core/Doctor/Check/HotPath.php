@@ -21,8 +21,8 @@ use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 use function sprintf;
 
 /**
- * A hot path nothing holds, under `--measure` (ADR-0005, decision 11;
- * ADR-0017, decision 10): a file most of the suite runs through, found over
+ * A hot path nothing holds, under `--measure` (ADR-0005;
+ * ADR-0017): a file most of the suite runs through, found over
  * the map the measured run gave and the units a run finds held. Only a
  * measured run can say what is held, since the groups that hold are the ones
  * the runner lists. The time at stake is what the ledgers learned the file

@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Pruning;
 
 /**
- * What one judged mutant came to, for its mutator's window (ADR-0025,
- * decision 2): killed, in any way, or let through, as a survivor, a flaky,
- * an unjudged or an uncovered mutant is.
+ * What one judged mutant came to, for its mutator's window (ADR-0025):
+ * killed, in any way, or let through, as a survivor, a flaky, an unjudged
+ * or an uncovered mutant is.
  */
 final readonly class Outcome
 {

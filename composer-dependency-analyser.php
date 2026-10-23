@@ -102,7 +102,7 @@ return (new Configuration())
     )
     ->ignoreErrorsOnExtension('ext-dom', [ErrorType::DEV_DEPENDENCY_IN_PROD])
     // A warm worker forks each mutant only where the PHP the runner starts
-    // loads pcntl, and runs each fresh otherwise (ADR-0023, decision 14);
+    // loads pcntl, and runs each fresh otherwise (ADR-0023);
     // composer.json suggests it.
     ->ignoreErrorsOnExtension('ext-pcntl', [ErrorType::DEV_DEPENDENCY_IN_PROD])
     // A directory's test of a write that fails part way takes the process's

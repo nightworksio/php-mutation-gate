@@ -24,7 +24,7 @@ use function sprintf;
  * first for every class, which loads nothing itself and keeps the call stack
  * that asked, with how many files were loaded by then. The file loaded next
  * is the one the autoloader that answers loads for the class, so the line of
- * the bootstrap whose call loaded a file can be named (ADR-0023, decision 13).
+ * the bootstrap whose call loaded a file can be named (ADR-0023).
  * A file loaded other than through an autoloader is named by the bootstrap
  * alone.
  */

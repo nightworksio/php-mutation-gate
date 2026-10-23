@@ -6,10 +6,10 @@ use NightWorksIO\MutationGate\Tests\Support\Layer;
 use NightWorksIO\MutationGate\Tests\Support\Source;
 
 // A kill's evidence holds the end of what the project's own code printed
-// (ADR-0014, decision 16), which is text an attacker can write: markdown,
+// (ADR-0014), which is text an attacker can write: markdown,
 // mentions, HTML and workflow commands. It is carried from the runners to the
 // shard result and written there as JSON. It reaches a report only as the
-// reason of a kill left unjudged for want of evidence (ADR-0014, decision 17,
+// reason of a kill left unjudged for want of evidence (ADR-0014,
 // see Unevidenced), which every renderer keeps as text, as it keeps any other
 // reason: MarkdownTest and ConsoleReportTest hold that with a hostile tail. A
 // renderer that takes the evidence on keeps the project's text as text first,
@@ -69,7 +69,7 @@ it('keeps a kill\'s evidence, which holds what project code printed, out of ever
     $added = array_values(array_diff($holders, EVIDENCE_HOLDERS));
 
     expect($added)->toBe([], sprintf(
-        "These name a kill's evidence or read it from a result:\n  %s\n\nIts tail is what the project's code printed, so an attacker writes it. Render it only as text, never as markdown, a mention, HTML or a workflow command, test that with a hostile tail, and then add the file here (ADR-0014, decision 16).",
+        "These name a kill's evidence or read it from a result:\n  %s\n\nIts tail is what the project's code printed, so an attacker writes it. Render it only as text, never as markdown, a mention, HTML or a workflow command, test that with a hostile tail, and then add the file here (ADR-0014).",
         implode("\n  ", $added),
     ))->and(array_values(array_diff(EVIDENCE_HOLDERS, $holders)))->toBe([]);
 });

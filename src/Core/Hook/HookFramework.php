@@ -6,7 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Hook;
 
 /**
  * A hook manager `init --hook` sets the gate up in, by the name it takes
- * (ADR-0024, decision 12). Each calls the gate's CLI from its own config,
+ * (ADR-0024). Each calls the gate's CLI from its own config,
  * which `init` writes only where the manager reads none.
  */
 enum HookFramework: string

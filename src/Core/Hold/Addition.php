@@ -9,10 +9,10 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 /**
- * A hold written only in the suites `tests.holding` lists (ADR-0005,
- * decision 9): the path it holds, the tests that hold it there, and the
- * declaration as its author wrote it. It adds those tests to the judges of
- * the path's lines they run, and narrows nothing.
+ * A hold written only in the suites `tests.holding` lists (ADR-0005):
+ * the path it holds, the tests that hold it there, and the declaration
+ * as its author wrote it. It adds those tests to the judges of the
+ * path's lines they run, and narrows nothing.
  */
 final readonly class Addition
 {

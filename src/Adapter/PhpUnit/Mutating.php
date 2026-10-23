@@ -42,7 +42,7 @@ use function sprintf;
 
 /**
  * A run of the gate's own mutants through PHPUnit, as the PHPUnit runner
- * makes one (ADR-0023, decisions 8 to 10): the mutants of a request's files,
+ * makes one (ADR-0023): the mutants of a request's files,
  * each judged by the tests that cover it under the memory cap, by the map the
  * request reads. A request judged by the whole suite that reuses the map
  * another job handed on reads that map; any other has PHPUnit run the tests

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The commands a pull request's comments run (ADR-0019, decision 13).
+"""The commands a pull request's comments run (ADR-0019).
 
 Usage: bot_command.py decide|refuse|update|retest|docs
 

@@ -8,9 +8,9 @@ use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 
 /**
  * How a runner looks for the tests that kill each mutant: the order it runs
- * the mutant's covering tests in (ADR-0013, decision 3), and whether it stops
+ * the mutant's covering tests in (ADR-0013), and whether it stops
  * at the first that fails or runs every one and records each that fails, a
- * full kill matrix (ADR-0014, decision 7). The order decides which test is
+ * full kill matrix (ADR-0014). The order decides which test is
  * found first, so it matters only where the run stops there.
  */
 final readonly class KillSearch

@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\Reporter;
 
 /**
- * A reporter whose sending needs a credential, under `--deliver-later` (ADR-0007 decision 5): what it would send is
+ * A reporter whose sending needs a credential, under `--deliver-later` (ADR-0007): what it would send is
  * added to the run's delivery, for `deliver` to send.
  */
 final readonly class DeliveredReport implements Reporter

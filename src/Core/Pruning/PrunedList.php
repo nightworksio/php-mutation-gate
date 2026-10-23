@@ -18,7 +18,7 @@ use function sprintf;
 
 /**
  * The mutators a run leaves out of the files whose content is unchanged
- * (ADR-0025, decision 1), as the list beside the run's results that the gate
+ * (ADR-0025), as the list beside the run's results that the gate
  * writes and a patched runner reads, in its own process, before it makes a
  * mutant. It is a JSON list of two lists: the mutators, by the runner's names
  * for them, and the files, as the runner finds them, from the project's root.

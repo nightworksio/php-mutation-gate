@@ -53,7 +53,7 @@ use function sprintf;
  * own options, `cache` in a project above the file's; the invalid file, and a mutant id
  * read as a number, read into the problems the gate finds in them; a
  * file that is broken or not there cannot be judged; and the valid file,
- * which names no other file, reads none beside itself (ADR-0005, decision 4).
+ * which names no other file, reads none beside itself (ADR-0005).
  */
 final readonly class ConfigLoaderContract
 {

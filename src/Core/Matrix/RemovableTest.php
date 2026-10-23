@@ -16,7 +16,7 @@ use Traversable;
 
 /**
  * A whole test outside the kept set, what it costs, and for each mutant it
- * kills, the kept test that kills it too (ADR-0014, decision 8).
+ * kills, the kept test that kills it too (ADR-0014).
  *
  * @implements IteratorAggregate<int, KeptKill>
  */

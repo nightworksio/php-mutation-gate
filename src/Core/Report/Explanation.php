@@ -13,11 +13,11 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnit;
 
 /**
- * One mutant explained from what the gate keeps, running nothing (ADR-0014,
- * decisions 12 and 13): as the last run judged it, or as its newest record
- * holds it where the last run does not; the tests that cover it and what
- * each did; how the last run took its unit and why; and every record the
- * ledgers read hold of it.
+ * One mutant explained from what the gate keeps, running nothing
+ * (ADR-0014): as the last run judged it, or as its newest record holds it
+ * where the last run does not; the tests that cover it and what each did;
+ * how the last run took its unit and why; and every record the ledgers read
+ * hold of it.
  */
 final readonly class Explanation
 {

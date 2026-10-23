@@ -16,7 +16,7 @@ use function sprintf;
 /**
  * Whether a mutator that let no mutant through lately is pruned on unchanged
  * code, how many of its newest mutants say so, and how old a result it
- * carries may be (ADR-0025, decisions 2 to 4): `pruning`, which the `Reach`
+ * carries may be (ADR-0025): `pruning`, which the `Reach`
  * part holds, as it decides which mutants a reached unit makes.
  */
 final readonly class Pruning

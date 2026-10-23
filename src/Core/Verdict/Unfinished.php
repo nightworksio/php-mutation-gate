@@ -9,7 +9,7 @@ use NightWorksIO\MutationGate\Core\Mutant\OutOfTime;
 use function sprintf;
 
 /**
- * The units with a mutant a time budget left unjudged (ADR-0008, decision 1):
+ * The units with a mutant a time budget left unjudged (ADR-0008):
  * a timeout it had no time to run again, a survivor it had no time to
  * confirm, or a mutant of a carried result that no longer stands. Each counts
  * as not killed, and each unit fails the verdict, since a budgeted run never

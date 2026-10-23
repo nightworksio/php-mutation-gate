@@ -7,7 +7,7 @@ Reads the title and body from PR_TITLE and PR_BODY, and the changed paths
 from git. It fails where the body names a `Spec:` that is no decision in
 .docs/decisions, or where a breaking title (`feat!:`) has no *Migration*
 section, because the squash merge makes the body main's commit message
-(ADR-0019, decision 12). It never fails for its suggestions: a conventional
+(ADR-0019). It never fails for its suggestions: a conventional
 title built from the changed paths where the title is not conventional, and
 the decisions .github/spec-map.json maps the changed paths to where the body
 has no `Spec:` line. With --findings, both are written as the job's evidence.

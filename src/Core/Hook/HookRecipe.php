@@ -15,10 +15,10 @@ use function sprintf;
 
 /**
  * What each hook manager runs to call the gate, as `init --hook` writes it
- * into the manager's config or prints it to add there (ADR-0024, decision
- * 12): CaptainHook's actions, GrumPHP's shell task, and the pre-commit
- * framework's hooks from this repository, pinned to the gate's own commit.
- * No code of the gate depends on any of them.
+ * into the manager's config or prints it to add there (ADR-0024):
+ * CaptainHook's actions, GrumPHP's shell task, and the pre-commit
+ * framework's hooks from this repository, pinned to the gate's own
+ * commit. No code of the gate depends on any of them.
  */
 final readonly class HookRecipe
 {

@@ -15,7 +15,7 @@ use function usort;
 
 /**
  * What the mutants a run judged itself came to, for their mutators' windows
- * (ADR-0025, decision 2), in the order of their ids so every run that judged
+ * (ADR-0025), in the order of their ids so every run that judged
  * the same mutants learns the same: a kill of any kind, by a test, by static
  * analysis, by a timeout, by the memory cap or by an error, counts as killed;
  * a survivor, a flaky, an unjudged or an uncovered mutant let the change

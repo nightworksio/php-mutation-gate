@@ -17,7 +17,7 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
  * repository, ref, commit and run, the verdict, each tree's floor, score and
  * previous score with its lowered floor where it went down, and why the run
  * cannot judge. A field a tree has no value for is left out. Its schema is
- * `resources/webhook.schema.json` (ADR-0016, decision 12).
+ * `resources/webhook.schema.json` (ADR-0016).
  *
  * @phpstan-type Lowering array{from: float, reason?: string}
  * @phpstan-type TreeEntry array{path: string, floor?: float, score?: float, previous?: float, lowered?: Lowering}

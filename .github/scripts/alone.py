@@ -4,14 +4,14 @@
 Usage: alone.py <checkout> --findings <file>
 
 Run by `test files alone`. A mutant's own run loads only the test files its
-covering tests need (ADR-0004, decision 9), and a kill those files cannot
+covering tests need (ADR-0004), and a kill those files cannot
 vouch for runs again with every test file, which costs a whole suite's start
 for each. A test file that fails alone, because it leans on what another
 file declares or leaves behind, makes every narrowed kill of its tests
 doubtful. So each test file of the suites that judge and of the Process
 suite, which holds, is run alone in a Pest of its own, several side by side;
 the findings file names each that failed, with the end of what it printed
-(ADR-0019, decision 5).
+(ADR-0019).
 
 Two halves: `test_files` and `judge` decide from paths and text alone, and
 `main` runs Pest.

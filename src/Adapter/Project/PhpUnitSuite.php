@@ -125,7 +125,7 @@ final readonly class PhpUnitSuite
         return $paths;
     }
 
-    /** Each `<testsuite>` the config declares, by its name, in its order (ADR-0025, decision 8). */
+    /** Each `<testsuite>` the config declares, by its name, in its order (ADR-0025). */
     public function suites(): DeclaredSuites
     {
         return $this->suites;

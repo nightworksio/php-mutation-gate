@@ -63,8 +63,8 @@ use function sprintf;
  * did (see Evidence), from what it printed and the JUnit log it writes beside
  * the guard. A kill names as its killer the first test that log says
  * failed or errored, or every one under a full kill matrix (see
- * JUnitKillers), and gives how its run ended where it names none (ADR-0014,
- * decision 17).
+ * JUnitKillers), and gives how its run ended where it names none
+ * (ADR-0014).
  */
 final class Trial
 {

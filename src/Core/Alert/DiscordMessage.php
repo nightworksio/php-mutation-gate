@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Format\JsonText;
  * An alert as a Discord message: one embed, red for a failure, green for a
  * recovery and grey otherwise, titled and linked to the run, its groups in
  * the description. It lets nothing mention anyone, and each part is cut to
- * Discord's limit (ADR-0016, decision 12).
+ * Discord's limit (ADR-0016).
  */
 final readonly class DiscordMessage
 {

@@ -14,7 +14,7 @@ namespace NightWorksIO\MutationGate\Core\Mutant;
 enum MutantStatus: string
 {
     case Killed = 'killed';
-    /** A static analyser rejected it, by an error its original does not have (ADR-0020, decision 10). */
+    /** A static analyser rejected it, by an error its original does not have (ADR-0020). */
     case KilledByStaticAnalysis = 'killed-by-static-analysis';
     case Survived = 'survived';
     case Uncovered = 'uncovered';
@@ -24,17 +24,16 @@ enum MutantStatus: string
     case IgnoredByMarker = 'ignored-by-marker';
     case Skipped = 'skipped';
 
-    /** Its process ran out of the memory `runner.memory` caps it at (ADR-0004, decision 9). */
+    /** Its process ran out of the memory `runner.memory` caps it at (ADR-0004). */
     case OutOfMemory = 'out-of-memory';
 
     /**
      * The status as a run's answer about the mutant: a kill by static
      * analysis and a kill by a test as one, since whether the analyser
      * checked a mutant before its tests or after them is the run's placement,
-     * not the code (ADR-0020, decision 11). Survivor confirmation reads it,
+     * not the code (ADR-0020). Survivor confirmation reads it,
      * so a survivor killed either way the second time is flaky, and so does
-     * the agreement check, which compares two runs' answers (ADR-0007,
-     * decision 3).
+     * the agreement check, which compares two runs' answers (ADR-0007).
      */
     public function answer(): self
     {

@@ -20,7 +20,7 @@ use NightWorksIO\MutationGate\Core\Tree\Package;
 /**
  * One package's security set judged whole: every security mutant of its
  * trees, which also count in their trees, held to the higher of the floor
- * declared for it and the baseline's (ADR-0021, decisions 16 and 17).
+ * declared for it and the baseline's (ADR-0021).
  */
 final readonly class SecurityVerdict
 {
@@ -50,7 +50,7 @@ final readonly class SecurityVerdict
 
     /**
      * This verdict, held to no floor and raising none, for this reason: as a
-     * run of one suite's tests alone holds none (ADR-0025, decision 9).
+     * run of one suite's tests alone holds none (ADR-0025).
      */
     public function exempting(Exempt $exempt): self
     {
@@ -123,7 +123,7 @@ final readonly class SecurityVerdict
         return $this->mutants->survivors($this->uncovered);
     }
 
-    /** The floor the baseline rises to (ADR-0003, decision 6). */
+    /** The floor the baseline rises to (ADR-0003). */
     public function raised(): Floor|Unraised
     {
         return $this->held()->raisedBy($this->counts(), $this->uncovered);

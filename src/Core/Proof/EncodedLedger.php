@@ -13,8 +13,8 @@ use function sprintf;
 
 /**
  * A ledger as it is written: what {@see LedgerRetention::standard()} keeps,
- * gzipped, and within the limits a run reads a ledger to (ADR-0013 decision
- * 13). Retention caps proofs, not bytes, so a project whose units hold many
+ * gzipped, and within the limits a run reads a ledger to (ADR-0013).
+ * Retention caps proofs, not bytes, so a project whose units hold many
  * mutants can reach the limits first; then the oldest proofs of those kept
  * are dropped until the ledger is within them, and the run says so.
  */

@@ -159,7 +159,7 @@ The first release is tagged when every row says *yes*.
 | | `affected`: the tests a change can reach, for plain test runs | yes | [0020](.docs/decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
 | | A static analyser (Mago, PHPStan or Psalm) kills the mutants it rejects, before their tests where that saves time | yes | [0020](.docs/decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
 | | A new push re-checks the previous survivors first, for a signal within minutes | yes | [0020](.docs/decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
-| | A sampled mode for huge repositories: each tree estimated with a confidence interval, judged on its bounds | not yet | [0020](.docs/decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
+| | A sampled mode for huge repositories: each tree estimated with a confidence interval, judged on its bounds | yes | [0020](.docs/decisions/0020-a-change-lists-its-tests-an-analyser-can-kill-and-a-huge-repository-can-be-sampled.md) |
 | | Coverage re-measured only for the tests whose inputs moved | yes | [0023](.docs/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
 | | Every core of a shard's runner busy, and one warm worker per core for native runners | yes | [0023](.docs/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
 | | Mutators that never let a mutant through are pruned on unchanged code, and audited weekly | yes | [0025](.docs/decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md) |

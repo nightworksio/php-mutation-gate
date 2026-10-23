@@ -5,7 +5,7 @@
 
 ## Context
 
-ADR-0011, decision 8 gives the reusable workflow the action's inputs less
+ADR-0011 gives the reusable workflow the action's inputs less
 `shard`. Each of its jobs ran on `ubuntu-latest`, written into the workflow.
 A project could not run the gate on an Arm runner, a larger runner, or its own
 runners, without copying the workflow.
@@ -18,7 +18,7 @@ A proof key holds the architecture the runner's PHP reports (ADR-0007), so
 the plan, the shards, the survivors job and the verdict judge alike only on
 one kind of machine.
 
-ADR-0006, decision 1 lets the job that runs the suite under coverage hand the
+ADR-0006 lets the job that runs the suite under coverage hand the
 plan its map. The workflow takes that map as an artifact of the run, which it
 names in an input of its own, `coverage`.
 
@@ -64,7 +64,7 @@ names in an input of its own, `coverage`.
 
 ## Related
 
-- [ADR-0006](0006-shards-are-cut-by-learned-cost-and-planned-once.md): decision 1, the map handed to the plan
+- [ADR-0006](0006-shards-are-cut-by-learned-cost-and-planned-once.md): the map handed to the plan
 - [ADR-0007](0007-a-proof-is-keyed-by-everything-its-verdict-reads.md): what a proof's key holds
-- [ADR-0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): decision 8, the reusable workflow's inputs
+- [ADR-0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): the reusable workflow's inputs
 - [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): `bench.yml`

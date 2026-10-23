@@ -1,6 +1,6 @@
 """The heading index `/docs` searches: every heading of `.docs`, and its anchor.
 
-The deciding half of `/docs` (ADR-0019, decision 13). The words a comment
+The deciding half of `/docs` (ADR-0019). The words a comment
 asks with are reduced to `[a-z0-9]+` tokens before anything reads them, and
 the reply holds only links to headings of `main`'s own documentation.
 """

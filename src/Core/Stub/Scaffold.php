@@ -18,11 +18,11 @@ use function sprintf;
 
 /**
  * The fixed assertion scaffold a stub offers for one mutator family, in a
- * test's style, on the call to the function around the mutant (ADR-0015,
- * decision 4): two cases for a boundary, the value a function returns, the
- * effect of a removed call, the exception a test expects, and otherwise one
- * assertion on the function's result; and, for a mutant only a test that
- * reads the source kills, that assertion then a read of the function's file.
+ * test's style, on the call to the function around the mutant (ADR-0015):
+ * two cases for a boundary, the value a function returns, the effect of a
+ * removed call, the exception a test expects, and otherwise one assertion
+ * on the function's result; and, for a mutant only a test that reads the
+ * source kills, that assertion then a read of the function's file.
  */
 final readonly class Scaffold
 {
@@ -100,7 +100,7 @@ final readonly class Scaffold
 
     /**
      * The scaffold's lines for a mutant only a test that reads the source
-     * kills (ADR-0021, decision 19): a call that covers its code, then the
+     * kills (ADR-0021): a call that covers its code, then the
      * assertion that its file still holds what the pin names.
      *
      * @return list<string>

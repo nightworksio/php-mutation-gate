@@ -23,17 +23,17 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 use function sprintf;
 
 /**
- * The unmutated control of each kill a test is named for (ADR-0014,
- * decision 18): the tests that killed it, run with its file served
- * unmutated as its mutant was, allowed the standard mutant limit of their
- * time as the coverage map timed them. A file's kills are first controlled
- * together, by one control of every test that killed any of them, and where
- * it passes every one of them stands (ADR-0033). Where it does not, each
- * kill is controlled on its own, once for each file and set of killers, and
- * stands only where its own passes; where that fails, runs out of the limit
- * or never runs, nothing tells the mutant from its original, and it is
- * unjudged, saying why. A kill no test is named for has no control: its
- * evidence judges it (see Unevidenced).
+ * The unmutated control of each kill a test is named for (ADR-0014):
+ * the tests that killed it, run with its file served unmutated as its
+ * mutant was, allowed the standard mutant limit of their time as the
+ * coverage map timed them. A file's kills are first controlled
+ * together, by one control of every test that killed any of them, and
+ * where it passes every one of them stands (ADR-0033). Where it does
+ * not, each kill is controlled on its own, once for each file and set
+ * of killers, and stands only where its own passes; where that fails,
+ * runs out of the limit or never runs, nothing tells the mutant from
+ * its original, and it is unjudged, saying why. A kill no test is named
+ * for has no control: its evidence judges it (see Unevidenced).
  */
 final readonly class KillControls implements ControlJudge
 {

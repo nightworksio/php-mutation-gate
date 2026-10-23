@@ -15,7 +15,7 @@ use NightWorksIO\MutationGate\Port\Reporter;
 
 /**
  * The reporter `json`: the gate's own JSON report (`"format": 1`), written to
- * the `path` its entry names (ADR-0009, decision 2).
+ * the `path` its entry names (ADR-0009).
  */
 final readonly class JsonReportFile implements Configurable, Reporter
 {

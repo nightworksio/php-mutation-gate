@@ -16,7 +16,7 @@ use NightWorksIO\MutationGate\Core\Runner\FatalError;
 
 /**
  * How a kill that names no killer ended, as far as Infection's log tells
- * (ADR-0014, decision 16): what its process printed, where the log holds
+ * (ADR-0014): what its process printed, where the log holds
  * it, and whether PHP's record of a fatal error is in that (see
  * FatalError). Infection logs neither the code the process exited with nor
  * whether a signal ended it, nor the order its tests ran in, so those are

@@ -14,11 +14,11 @@ use NightWorksIO\MutationGate\Port\StaticChecker;
 use Psr\Clock\ClockInterface;
 
 /**
- * The static analyser's one run over a shard's original files (ADR-0020,
- * decision 11), timed, made the first time a check of its survivors asks for
- * it and kept for every check after: the checks of each chunk's survivors,
- * where the run stops once it cannot pass, and the check of the rest once the
- * run is done. Where the run fails, no survivor can be checked.
+ * The static analyser's one run over a shard's original files (ADR-0020),
+ * timed, made the first time a check of its survivors asks for it and kept
+ * for every check after: the checks of each chunk's survivors, where the run
+ * stops once it cannot pass, and the check of the rest once the run is done.
+ * Where the run fails, no survivor can be checked.
  */
 final class AnalyserWarmUp
 {

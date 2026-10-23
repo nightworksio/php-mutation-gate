@@ -17,13 +17,13 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 use function sprintf;
 
 /**
- * A group must cover what it holds before it may judge it (ADR-0005,
- * decision 10). Before a shard mutates a held unit, its holding tests run
- * alone under coverage, and every line of it the whole suite covers, as the
- * map the plan handed the shard says, must be among theirs. A held unit they
- * miss lines of is not mutated, and fails the verdict; tests that do not pass
- * on their own cannot judge. Of a held unit they cover, the tests of theirs
- * that run it are kept: they are the tests that judge its mutants.
+ * A group must cover what it holds before it may judge it (ADR-0005).
+ * Before a shard mutates a held unit, its holding tests run alone under
+ * coverage, and every line of it the whole suite covers, as the map the
+ * plan handed the shard says, must be among theirs. A held unit they miss
+ * lines of is not mutated, and fails the verdict; tests that do not pass
+ * on their own cannot judge. Of a held unit they cover, the tests of
+ * theirs that run it are kept: they are the tests that judge its mutants.
  */
 final readonly class HeldCoverage
 {

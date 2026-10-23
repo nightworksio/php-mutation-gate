@@ -9,7 +9,7 @@ use NightWorksIO\MutationGate\Tests\Support\Tree;
 use Symfony\Component\Process\Process;
 
 // V1–V4: the bot explains every CI job from tables in main, never in words of
-// its own (ADR-0019, decisions 5 and 7). So the tables are held to the
+// its own (ADR-0019). So the tables are held to the
 // workflows, to the tools' recorded output, and to the tools themselves.
 
 /** The rule tables of .github/bot/rules, by the tool each explains. */

@@ -25,7 +25,7 @@ enum MutatorFamily: string
 
     /**
      * Whether an assertion of value would see its change, and not one of
-     * existence or shape alone (ADR-0025, decision 6).
+     * existence or shape alone (ADR-0025).
      */
     public function isSeenByValue(): bool
     {

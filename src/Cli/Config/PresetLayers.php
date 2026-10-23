@@ -22,7 +22,7 @@ use NightWorksIO\MutationGate\Extension\Extensions;
 use function sprintf;
 
 /**
- * The layers of the presets a config names, in order (ADR-0002, decision 5),
+ * The layers of the presets a config names, in order (ADR-0002),
  * and a problem at the path it names each at for each that nothing registers
  * or whose layer does not read as a config.
  */
@@ -122,8 +122,8 @@ final readonly class PresetLayers
 
     /**
      * A preset's layer as it was built, where what it writes reads back as a
-     * config, so the mutator sets it offers stay offered (ADR-0021, decision
-     * 12); every problem with it otherwise.
+     * config, so the mutator sets it offers stay offered (ADR-0021); every
+     * problem with it otherwise.
      */
     private static function judged(Layer $preset): Layer|Invalid
     {

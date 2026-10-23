@@ -21,7 +21,7 @@ use NightWorksIO\MutationGate\Mutator\Engine\MadeMutant;
 use function sprintf;
 
 /**
- * An unmutated control as the PHPUnit runner runs it (ADR-0008, decision 2):
+ * An unmutated control as the PHPUnit runner runs it (ADR-0008):
  * a mutant that changes nothing, its file as the project holds it, which the
  * override serves in the original's place as it serves a mutant's, so the
  * control's run and the mutant's differ in the mutation alone. Its id is made

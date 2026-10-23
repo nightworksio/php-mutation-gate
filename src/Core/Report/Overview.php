@@ -67,7 +67,7 @@ final readonly class Overview
         return $this->uncovered;
     }
 
-    /** The score over every mutant of the project, by the same formula as a tree's (ADR-0009, decision 5). */
+    /** The score over every mutant of the project, by the same formula as a tree's (ADR-0009). */
     public function score(): Score|NothingToMutate
     {
         return $this->verdict->trees()->mutants()->counts()->score($this->uncovered);
@@ -81,7 +81,7 @@ final readonly class Overview
 
     /**
      * Every mutant an ignore left out of the score, by the config or by a
-     * runner's own marker, which every report lists (ADR-0008, decision 4).
+     * runner's own marker, which every report lists (ADR-0008).
      *
      * @return list<JudgedMutant>
      */
@@ -91,7 +91,7 @@ final readonly class Overview
     }
 
     /**
-     * Every mutant a proof found equivalent (ADR-0013, decision 12).
+     * Every mutant a proof found equivalent (ADR-0013).
      *
      * @return list<JudgedMutant>
      */
@@ -106,7 +106,7 @@ final readonly class Overview
         return array_key_exists($mutant->mutant()->id()->key(), $this->failing);
     }
 
-    /** Whether a mutant is a security mutant, which its package's security set holds (ADR-0021, decision 16). */
+    /** Whether a mutant is a security mutant, which its package's security set holds (ADR-0021). */
     public function isSecurity(JudgedMutant $mutant): bool
     {
         return array_key_exists($mutant->mutant()->id()->key(), $this->security);

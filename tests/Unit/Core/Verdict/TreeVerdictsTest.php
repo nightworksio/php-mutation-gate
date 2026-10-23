@@ -7,6 +7,11 @@ use NightWorksIO\MutationGate\Core\Cluster\ClusterKind;
 use NightWorksIO\MutationGate\Core\Cluster\Membership;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Sample\Confidence;
+use NightWorksIO\MutationGate\Core\Sample\Estimate;
+use NightWorksIO\MutationGate\Core\Sample\Sample;
+use NightWorksIO\MutationGate\Core\Sample\Stratum;
+use NightWorksIO\MutationGate\Core\Sample\Tally;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
@@ -89,4 +94,20 @@ it('clusters the survivors of every tree once, and answers with their clusters',
         ->and(array_map(static fn(JudgedMutant $judged): bool => $judged->cluster() instanceof Membership, Clustered::listed($clustered->mutants())))
         ->toBe([true, true, true, false, true, true, true])
         ->and($clustered)->toHaveCount(1);
+});
+
+it('names the sample its trees were estimated from, and none where they were judged whole', function () use ($verdict): void {
+    $sample = Sample::drawn('a1b2c3', Confidence::NinetyFive, 2.0);
+    $estimated = TreeVerdict::judged(
+        Tree::at(Path::of('app'), Undeclared::floor(), Package::at(Path::root())),
+        Unrecorded::floor(),
+        JudgedUnits::none(),
+        JudgedMutants::none(),
+        Uncovered::Count,
+        Estimate::of(Tally::none(), 0, Stratum::none(), $sample),
+    );
+
+    expect(TreeVerdicts::of($verdict('src'), $estimated)->sample())->toBe($sample)
+        ->and(TreeVerdicts::of($verdict('src'))->sample()->isDrawn())->toBeFalse()
+        ->and(TreeVerdicts::none()->sample()->isDrawn())->toBeFalse();
 });

@@ -29,7 +29,7 @@ use PHPUnit\Event\UnknownSubscriberTypeException;
  * the first test a mutant has names the one that killed it. It logs PHP's
  * errors in that process to a file of the mutant's own, which the recorder
  * reads for a fatal error Pest's own handling would lose, such as running
- * out of memory (ADR-0004, decision 9). A test or config that sets
+ * out of memory (ADR-0004). A test or config that sets
  * `error_log` itself logs elsewhere.
  */
 final readonly class Killers

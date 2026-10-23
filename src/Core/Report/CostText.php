@@ -17,7 +17,7 @@ use function sprintf;
  * What a run cost, as the collapsed section at the end of the PR comment
  * shows it: the planned and measured wall and runner time, what reach and
  * proofs spared, whether setup was estimated, and money where the team gives
- * a rate (ADR-0016, decisions 6 to 8).
+ * a rate (ADR-0016).
  */
 final readonly class CostText
 {

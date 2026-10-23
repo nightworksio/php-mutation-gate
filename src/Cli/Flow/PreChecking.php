@@ -30,16 +30,16 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use Psr\Clock\ClockInterface;
 
 /**
- * Static analysis's check of a run's mutants before their tests (ADR-0020,
- * decisions 11 and 12). Of the mutants a runner offers, it checks those
- * `PreCheck` says pay, by what the ledgers and this run have learned of
- * their mutators, side by side, against the originals' findings from the
- * shard's one warm-up, or, for a runner that prints its mutants, the
- * print's, where that analyses as the file does. A mutant with an error its
- * original does not have is rejected, and never runs. Each check teaches its
- * mutator's rejection rate and the time a check takes, which the shard's
- * results carry to the ledger. A check that cannot run, or is out of the
- * analyser's scope, leaves its mutant to its tests.
+ * Static analysis's check of a run's mutants before their tests
+ * (ADR-0020). Of the mutants a runner offers, it checks those `PreCheck`
+ * says pay, by what the ledgers and this run have learned of their
+ * mutators, side by side, against the originals' findings from the shard's
+ * one warm-up, or, for a runner that prints its mutants, the print's,
+ * where that analyses as the file does. A mutant with an error its
+ * original does not have is rejected, and never runs. Each check teaches
+ * its mutator's rejection rate and the time a check takes, which the
+ * shard's results carry to the ledger. A check that cannot run, or is out
+ * of the analyser's scope, leaves its mutant to its tests.
  */
 final class PreChecking implements PreChecker
 {

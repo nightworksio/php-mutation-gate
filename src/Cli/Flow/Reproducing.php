@@ -22,8 +22,8 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 /**
  * `reproduce`: the newest record the readable ledgers hold of a mutant, its
  * own scope's first, run again on its own by the tests that judge its unit
- * now, allowed the configured time limit (ADR-0004 decision 6), withholding
- * what a run withholds and under the memory cap a run has (decision 9). A
+ * now, allowed the configured time limit (ADR-0004), withholding
+ * what a run withholds and under the memory cap a run has. A
  * unit no holding names is judged by the whole suite, as a run judges it.
  */
 final readonly class Reproducing

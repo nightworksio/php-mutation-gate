@@ -33,7 +33,7 @@ use function str_starts_with;
  * The external-account credentials file Workload Identity Federation reads,
  * as `google-github-actions/auth` writes it: the CI's token, where to
  * exchange it at Google's security token service, and the service account
- * to impersonate, where it names one (ADR-0028 decision 2). Only the `file`
+ * to impersonate, where it names one (ADR-0028). Only the `file`
  * and `url` credential sources are read, which are what CI identity
  * providers write. A file that holds a service-account key, or any other
  * long-lived credential, is refused.

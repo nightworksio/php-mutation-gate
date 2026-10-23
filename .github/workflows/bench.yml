@@ -1,4 +1,4 @@
-# The benchmark (ADR-0017, decisions 14 to 17): each pinned project, prepared
+# The benchmark (ADR-0017): each pinned project, prepared
 # here and never changed upstream, run by every arm on one GitHub-hosted
 # machine, interleaved, three times; each arm's mutants reconciled per file
 # and status. On demand and monthly, never on pull requests. On demand, the

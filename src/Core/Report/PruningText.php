@@ -15,7 +15,7 @@ use function sprintf;
 
 /**
  * What pruning did, in the line the console, the step summary and the pull
- * request comment show under the run's headline (ADR-0025, decision 4):
+ * request comment show under the run's headline (ADR-0025):
  * `Pruned: 4 mutators on 212 units; 3,180 mutants carried from runs of the
  * last 7 days.` Nothing where the run pruned nothing.
  */

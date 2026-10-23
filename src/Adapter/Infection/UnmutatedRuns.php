@@ -23,15 +23,15 @@ use function sprintf;
 use function strval;
 
 /**
- * Unmutated controls as the Infection runner runs them (ADR-0008, decision
- * 2): each control's tests with every test they depend on, in a suite of
- * the files that declare their classes and selected by their ids, on a
- * config shaped as Infection shapes a mutant's, whose bootstrap serves an unchanged copy of its file through
- * Infection's include interceptor (see StartUpConfig), under the request's
- * memory cap and allowed its limit; side by side in the request's pool, none
- * started once the request's deadline has passed. Its
- * tests' time is the time its process took, and its peak what the launcher
- * it starts through measured (see PeakLauncher).
+ * Unmutated controls as the Infection runner runs them (ADR-0008): each
+ * control's tests with every test they depend on, in a suite of the files
+ * that declare their classes and selected by their ids, on a config shaped
+ * as Infection shapes a mutant's, whose bootstrap serves an unchanged copy
+ * of its file through Infection's include interceptor (see StartUpConfig),
+ * under the request's memory cap and allowed its limit; side by side in
+ * the request's pool, none started once the request's deadline has passed.
+ * Its tests' time is the time its process took, and its peak what the
+ * launcher it starts through measured (see PeakLauncher).
  */
 final readonly class UnmutatedRuns
 {

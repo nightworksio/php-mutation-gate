@@ -40,13 +40,13 @@ running it: why is this mutant here, and has it always been?
 
 1. **The first killer travels in the proof.** A killed mutant's record in a
    proof keeps `killedBy`: the first killer's test id, or every failing test's
-   id under a full kill matrix (decision 7). A shard's result carries the ids
+   id under a full kill matrix. A shard's result carries the ids
    in each mutant's full record. The ledger keeps them as the fourth element
-   of the killed tuple, as indices into its list of tests (ADR-0007, decision
-   3). The agreement check of ADR-0007 compares statuses only and never
-   `killedBy`, because the first killer depends on the order (ADR-0013). So
-   any run can report on the whole project from the newest proof of each
-   unit, not only on what it ran.
+   of the killed tuple, as indices into its list of tests (ADR-0007). The
+   agreement check of ADR-0007 compares statuses only and never `killedBy`,
+   because the first killer depends on the order (ADR-0013). So any run can
+   report on the whole project from the newest proof of each unit, not only
+   on what it ran.
 
 2. **The `tests` report names useless tests, in two tiers.**
    - **Kills nothing it covers:** every judged mutant the test covers
@@ -64,7 +64,7 @@ running it: why is this mutant here, and has it always been?
    Unjudged, flaky, too-slow-to-judge and too-heavy-to-judge mutants are left
    out. A test that covers only left-out
    mutants is *not assessed*. A held unit is judged only over its holding
-   group (ADR-0005 decision 9). A covering test outside the group never ran with
+   group (ADR-0005). A covering test outside the group never ran with
    the unit's mutants, so its cells are `not-run` and it is not judged over
    them.
 
@@ -74,13 +74,13 @@ running it: why is this mutant here, and has it always been?
 
 5. **The report is a file and a command, and never fails anything.**
    - A built-in report, `tests`, writes JSON at its `path` and a Markdown
-     twin beside it (`build/tests.json` and `build/tests.md`). It holds this
-     decision's useless tests and decision 8's redundant ones.
+     twin beside it (`build/tests.json` and `build/tests.md`). It holds the
+     useless tests and the redundant ones.
    - `mutation-gate tests` prints the same from the ledgers and the stored
      coverage map, and mutates nothing.
    - Both exit 0 whatever they find. A test can have value that mutation
      cannot see (a template, a query, a contract), as a hot path's cost does
-     not make a verdict wrong (ADR-0005 decision 11).
+     not make a verdict wrong (ADR-0005).
    - **The JSON, `"format": 1`,** lists only the useless and removable tests.
      Its schema is generated as the report's is, and committed at
      `resources/tests.schema.json`:
@@ -97,24 +97,23 @@ running it: why is this mutant here, and has it always been?
      *Kills nothing it covers*, *Never the first to kill*, headed as a
      suspicion, and *Removable*, with each test's time and, per kill, the
      kept test that makes it too. Every name in it is escaped as the PR
-     comment escapes it (ADR-0009 decision 3).
+     comment escapes it (ADR-0009).
    - The verdict value carries the test-level data this needs: each test with
-     the mutants it covers and those it killed (ADR-0009 decision 1).
-   - **As built.**
-     - `TestsReport` is the report's one home, in three forms over a
-       verdict: `json()`, `markdown()` and `text()`, which `mutation-gate
-       tests` prints on the console with each test on one plain line.
-     - Where the verdict holds no coverage, every form says so in place of
-       the useless tests: the JSON's optional `noCoverage` holds the
-       sentence, and the useless list is empty. Without a full kill matrix
-       every form says why in place of the removable tests: a run of first
-       killers, or Infection, which stops each mutant at its first failing
-       test.
-     - `mutation-gate tests` prints `text()` over the last run, judged again
-       as `explain` judges it (decision 12): the plan and results the run
-       left, the ledgers, and the coverage map the plan handed the verdict.
-       Where no run has left a plan, it exits 2 and says to run the gate
-       first.
+     the mutants it covers and those it killed (ADR-0009).
+   - `TestsReport` is the report's one home, in three forms over a
+     verdict: `json()`, `markdown()` and `text()`, which `mutation-gate
+     tests` prints on the console with each test on one plain line.
+   - Where the verdict holds no coverage, every form says so in place of
+     the useless tests: the JSON's optional `noCoverage` holds the
+     sentence, and the useless list is empty. Without a full kill matrix
+     every form says why in place of the removable tests: a run of first
+     killers, or Infection, which stops each mutant at its first failing
+     test.
+   - `mutation-gate tests` prints `text()` over the last run, judged again
+     as `explain` judges it: the plan and results the run
+     left, the ledgers, and the coverage map the plan handed the verdict.
+     Where no run has left a plan, it exits 2 and says to run the gate
+     first.
 
 6. **A test is a test method or a Pest test, with its dataset rows folded
    in.** It is useless only when every row is. The JSON lists each row. A
@@ -167,10 +166,10 @@ running it: why is this mutant here, and has it always been?
      is killed by the tests that failed.
    - `plan` takes the option too, and the plan holds it as `"matrix": "full"`
      within its digest, so every shard and the verdict run as the plan asks.
-   - Each proof records whether its run recorded every killer (ADR-0007,
-     decision 3). A full run proves and carries a unit only from such a
-     proof, so its matrix holds every killer of each mutant it judges. An
-     ordinary run takes either.
+   - Each proof records whether its run recorded every killer
+     (ADR-0007). A full run proves and carries a unit only from such a
+     proof, so its matrix holds every killer of each mutant it judges.
+     An ordinary run takes either.
    - It costs about a second mutation run of every killed mutant's covering
      tests, so it is for a scheduled job, never a pull request.
    - Under Infection the option is refused with exit code 2: *a full kill
@@ -188,7 +187,7 @@ running it: why is this mutant here, and has it always been?
      smallest.
    - **What is always kept.** A test that is the only one covering some line
      of a tree, and a test in a `holds:` group whose removal would leave the
-     group short of the coverage ADR-0005 decision 10 checks. The report says
+     group short of the coverage ADR-0005 checks. The report says
      it judges mutation kills only.
    - **A test no coverage run timed** is taken to run as long as the slowest
      one that was, so it is kept last among equals. Removability rests on
@@ -251,14 +250,14 @@ running it: why is this mutant here, and has it always been?
 12. **`mutation-gate explain <mutant>` explains one mutant, offline.** It reads
     the ledgers, the last run's results and the coverage map, and runs
     nothing. It prints:
-    - the diff, and the family's hint (ADR-0009 decision 7);
-    - each covering test with its outcome (decision 10) and its time;
+    - the diff, and the family's hint (ADR-0009);
+    - each covering test with its outcome and its time;
     - the judging tests, where they differ from the covering ones
-      (ADR-0004 decision 8);
+      (ADR-0004);
     - for a timeout, the limit and the triage (ADR-0008);
     - any ignore that matches it, and any proof of equivalence (ADR-0013);
     - why its unit was run, proved or carried, which is the reach reason;
-    - its history (decision 13);
+    - its history;
     - and last, the `reproduce` command.
 
 13. **A mutant's history is every proof that holds it.** `explain` lists each
@@ -275,30 +274,29 @@ running it: why is this mutant here, and has it always been?
 15. **`explain` prints text, or JSON with `--format=json`.** The console, HTML
     and JSON reports give the `explain` command beside `reproduce`. Annotations
     and the PR comment keep `reproduce` alone, for space.
-    - **As built.**
-      - The last run is the plan and the results in the workspace, which
-        `plan` and a run in one process both leave. `Judging::again()`
-        judges them as the verdict did, reporting nothing and writing no
-        ledger. A mutant the last run holds is explained as that verdict
-        judged it; any other by its newest record, with only the killers
-        it names as its tests, and a `Unit:` line that says why.
-      - `ExplanationText` and `ExplanationJson` are its two forms. The text
-        reuses `MutantText`'s heading, diff, reason, hint and `Removable:`
-        line. Each JSON entry holds the `json` report's own mutant entry,
-        with its covering tests as `tests`, each with its `outcome`.
-        `resources/explain.schema.json` describes it.
-      - An id that begins with `k` is a cluster's (ADR-0022, decision 17),
-        and any other a mutant's or a prefix of one. A cluster is explained
-        as the last run found it: its heading, hint and stub command, then
-        each member. A cluster id the last run names no cluster by is exit
-        2, as is one where there is no last run to read.
-      - An id with no record is exit 2, with the sentence `reproduce` gives:
-        run the gate on the code that has the mutant to record it.
+    - The last run is the plan and the results in the workspace, which
+      `plan` and a run in one process both leave. `Judging::again()`
+      judges them as the verdict did, reporting nothing and writing no
+      ledger. A mutant the last run holds is explained as that verdict
+      judged it; any other by its newest record, with only the killers
+      it names as its tests, and a `Unit:` line that says why.
+    - `ExplanationText` and `ExplanationJson` are its two forms. The text
+      reuses `MutantText`'s heading, diff, reason, hint and `Removable:`
+      line. Each JSON entry holds the `json` report's own mutant entry,
+      with its covering tests as `tests`, each with its `outcome`.
+      `resources/explain.schema.json` describes it.
+    - An id that begins with `k` is a cluster's (ADR-0022),
+      and any other a mutant's or a prefix of one. A cluster is explained
+      as the last run found it: its heading, hint and stub command, then
+      each member. A cluster id the last run names no cluster by is exit
+      2, as is one where there is no last run to read.
+    - An id with no record is exit 2, with the sentence `reproduce` gives:
+      run the gate on the code that has the mutant to record it.
 
 16. **A shard result keeps the evidence of each kill.**
     Each killed mutant's record in `results/<id>.json` may hold two fields
     beside the record's own. Neither is read by a verdict, a proof or a report;
-    the shard judges a kill no test is named for by them (decision 17).
+    the shard judges a kill no test is named for by them.
     - `prefix: {at, key?}`: how far the mutant's own run went. `at` is the
       position, from 1, of its first failing test in the order the run took
       its tests in, which is how many tests a run that stops at its first
@@ -354,7 +352,7 @@ running it: why is this mutant here, and has it always been?
         and the arguments that process started with. Pest's adapter replays
         a narrowed run by them, stopped after its last failing test, and
         lets its kill stand only where the replay's order gives the same
-        `key` (ADR-0004, decision 3).
+        `key` (ADR-0004).
         With `pest.patch` on, Pest's parent writes how a failed own process
         ended: its code and signal, never what it printed. That process does
         not hold the withheld values to screen with, and its results file sits
@@ -365,7 +363,7 @@ running it: why is this mutant here, and has it always been?
         or whose killers came from more than one process, has no evidence,
         since which run went how far cannot be told. A kill run again with
         every test file has the evidence of that run.
-      - A trial (ADR-0004, decision 8) names the tests its JUnit log says
+      - A trial (ADR-0004) names the tests its JUnit log says
         failed or errored as its kill's killers, and, where it names none,
         gives how its run ended: its code, whether a signal ended it, what it
         printed and a fatal error PHP printed among it.
@@ -378,8 +376,8 @@ running it: why is this mutant here, and has it always been?
       malformed is refused.
 
 17. **A kill needs evidence.** A shard judges each kill its runner reports,
-    once the runner has run again what it doubts (ADR-0004, decision 3), by
-    its evidence (decision 16):
+    once the runner has run again what it doubts (ADR-0004), by
+    its evidence:
     - A kill stands where a test is named as its killer, where a signal ended
       its process, or where PHP recorded a fatal error in it.
     - A run that fails with no test failing or erroring names as its
@@ -393,8 +391,8 @@ running it: why is this mutant here, and has it always been?
       failed, names as its killer the test whose dataset it broke, where
       the failure names that test (Pest's `DatasetMissing`: the test's
       dataset gave no case). The kill stands only where that test, run
-      unmutated, is collected and passes, as decision 18 checks every
-      named killer, so the unmutated suite collects cleanly where the
+      unmutated, is collected and passes, as every named killer is
+      checked on the original, so the unmutated suite collects cleanly where the
       mutant's does not.
     - Any other kill is unjudged. Its reason says how its process ended: the
       code it exited with, where the runner read one, and the tail of what it
@@ -409,7 +407,7 @@ running it: why is this mutant here, and has it always been?
     for stands only where its killers pass on the unmutated code, served as
     its mutant was, so that a test that fails only while the runner serves a
     file, or fails on its own, is never read as a kill:
-    - Each such kill gets one unmutated control (ADR-0008, decision 2): its
+    - Each such kill gets one unmutated control (ADR-0008): its
       killers, with every test they depend on through PHPUnit's
       `#[Depends]` attributes (PHPUnit skips a test whose dependency did not
       run before it), run with its file served unmutated by the means the
@@ -424,9 +422,9 @@ running it: why is this mutant here, and has it always been?
       out of its limit or never runs, the kill is unjudged, and its reason
       says which. Under a time budget a kill whose control does not fit in
       the time left is unjudged, and more time judges it.
-    - A kill no test is named for has no control; its evidence judges it
-      (decision 17). Infection names a killer only under `infection:patch`,
-      so an unpatched Infection's kills are judged by their evidence alone.
+    - A kill no test is named for has no control; its evidence judges it.
+      Infection names a killer only under `infection:patch`, so an
+      unpatched Infection's kills are judged by their evidence alone.
 
 ## Alternatives considered
 

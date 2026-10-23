@@ -8,7 +8,7 @@ use NightWorksIO\MutationGate\Core\Config\TestOrder;
 
 /**
  * The order a runner is asked to run each mutant's covering tests in
- * (ADR-0013, decision 3): its own, or the likely killers first by a kill
+ * (ADR-0013): its own, or the likely killers first by a kill
  * history and the rest fastest first. Ordering changes when a mutant's killer
  * is found, never whether it is.
  */

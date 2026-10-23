@@ -17,7 +17,7 @@ Run by `what changed`. It prints the job's outputs, one `name=value` per line:
 
 Only a pull request is narrowed. A push to main, a scheduled run, or a run
 with no base to compare against runs every gate, so a break a pull request's
-narrowed run missed shows on main within one merge (ADR-0019, decision 1).
+narrowed run missed shows on main within one merge (ADR-0019).
 
 Two halves: `outputs` decides from the event and the paths, and `main` reads
 them and prints.

@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Unevidenced;
 use NightWorksIO\MutationGate\Core\Report\ClusterText;
 use NightWorksIO\MutationGate\Core\Report\MutantText;
 use NightWorksIO\MutationGate\Core\Report\SavingsText;
+use NightWorksIO\MutationGate\Core\Report\SetText;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -29,6 +30,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Clustered;
 use NightWorksIO\MutationGate\Tests\Support\Killings;
+use NightWorksIO\MutationGate\Tests\Support\Sampled;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Console\Output\StreamOutput;
@@ -248,4 +250,12 @@ it('reaches a coloured console with a hostile test name and diff, but none of th
         ->and($said)->toContain(sprintf('return 0; // %s', $shown))
         ->and($said)->not->toContain("\e")
         ->and($said)->not->toContain("\x07");
+});
+
+it('says a run was sampled, and prints each sampled tree\'s estimate', function () use ($printed): void {
+    $said = $printed(Sampled::verdict(Floor::of(60)));
+
+    expect($said)->toContain(implode("\n", ['The project scores 50.00%.', SetText::SAMPLED]))
+        ->and($said)->toContain('  src scores about 75.55% (95%: 60.70%–85.26%; 3 of 15 units sampled, 5 exact) against its floor of 60.00%.')
+        ->and($printed(Verdicts::passing()))->not->toContain(SetText::SAMPLED);
 });

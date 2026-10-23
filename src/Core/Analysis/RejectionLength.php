@@ -8,10 +8,10 @@ use NightWorksIO\MutationGate\Core\Format\Fit;
 
 /**
  * How long a rejection's code and message may be where a record keeps them
- * (ADR-0020, decision 10). A record exists to explain a kill, and every
+ * (ADR-0020). A record exists to explain a kill, and every
  * shard's results, every proof and the JSON report hold it, so a custom
  * rule's unbounded message must not grow them without bound. A cut ends in
- * `…`. The finding itself is compared whole (decision 9); only what is
+ * `…`. The finding itself is compared whole; only what is
  * recorded of it is cut.
  */
 final readonly class RejectionLength

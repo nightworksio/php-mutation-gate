@@ -7,7 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Ci;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
- * Which GitHub definition `init --ci=github` writes (ADR-0015 decision 15):
+ * Which GitHub definition `init --ci=github` writes (ADR-0015):
  * the one-step action, where a full run is estimated to fit one shard's
  * `shards.seconds`, or the reusable workflow, which shards it.
  */

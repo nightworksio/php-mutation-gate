@@ -46,6 +46,7 @@ final readonly class ChangeSourceFake implements ChangeSource
      * @param array<string, Changes>               $from      what changed from each of these revisions itself, by name
      * @param array<string, Tree>                  $rebuilt   each gone commit whose merge makes again a tree, by name
      * @param list<string>                         $unknown   the commits git cannot say what they were made of, by name
+     * @param array<string, string>                $commits   the commit each ref is at, by the ref's name, where it is not its own
      */
     public function __construct(
         private Revision $base,
@@ -57,7 +58,25 @@ final readonly class ChangeSourceFake implements ChangeSource
         private array $from = [],
         private array $rebuilt = [],
         private array $unknown = [],
+        private array $commits = [],
     ) {
+    }
+
+    /** This repository, where this ref is at this commit. */
+    public function resolving(Revision $ref, string $commit): self
+    {
+        return new self(
+            $this->base,
+            $this->changes,
+            $this->files,
+            $this->changedAt,
+            $this->unchanged,
+            $this->alike,
+            $this->from,
+            $this->rebuilt,
+            $this->unknown,
+            [...$this->commits, $ref->name() => $commit],
+        );
     }
 
     /** This repository, where git cannot say what this commit was made of. */
@@ -73,6 +92,7 @@ final readonly class ChangeSourceFake implements ChangeSource
             $this->from,
             $this->rebuilt,
             [...$this->unknown, $commit->name()],
+            $this->commits,
         );
     }
 
@@ -92,6 +112,7 @@ final readonly class ChangeSourceFake implements ChangeSource
             [...$this->from, $tree->id() => $changes],
             [...$this->rebuilt, $commit->name() => $tree],
             $this->unknown,
+            $this->commits,
         );
     }
 
@@ -108,19 +129,20 @@ final readonly class ChangeSourceFake implements ChangeSource
             [...$this->from, $commit->name() => $changes],
             $this->rebuilt,
             $this->unknown,
+            $this->commits,
         );
     }
 
     /** This repository, where the same changed since this revision as since its base. */
     public function alsoFrom(Revision $revision): self
     {
-        return new self($this->base, $this->changes, $this->files, $this->changedAt, $this->unchanged, [...$this->alike, $revision->name()], $this->from, $this->rebuilt, $this->unknown);
+        return new self($this->base, $this->changes, $this->files, $this->changedAt, $this->unchanged, [...$this->alike, $revision->name()], $this->from, $this->rebuilt, $this->unknown, $this->commits);
     }
 
     /** This repository, where nothing changed since this revision, as at the commit HEAD is at. */
     public function unchangedSince(Revision $revision): self
     {
-        return new self($this->base, $this->changes, $this->files, $this->changedAt, [...$this->unchanged, $revision->name()], $this->alike, $this->from, $this->rebuilt, $this->unknown);
+        return new self($this->base, $this->changes, $this->files, $this->changedAt, [...$this->unchanged, $revision->name()], $this->alike, $this->from, $this->rebuilt, $this->unknown, $this->commits);
     }
 
     /** The repository of the contract suite's fixture: a base, and a working tree that changed one line and added a file. */
@@ -163,7 +185,7 @@ final readonly class ChangeSourceFake implements ChangeSource
     {
         return in_array($commit->name(), $this->unknown, strict: true)
             ? CannotTell::because(sprintf('%s is not a revision this repository has.', $commit->name()))
-            : JudgedCommits::of($commit->name());
+            : JudgedCommits::of($this->commits[$commit->name()] ?? $commit->name());
     }
 
     /**

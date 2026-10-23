@@ -24,7 +24,7 @@ use function preg_match;
  * by the mutated copy it ran on, as {@see Records} reads them. Two mutants
  * that leave the same source share their copy, so what their runs recorded
  * is kept together. Where each killer stood in its run's order, and how a
- * failed run ended, is the evidence of a kill (ADR-0014, decision 16).
+ * failed run ended, is the evidence of a kill (ADR-0014).
  */
 final class OwnRuns
 {

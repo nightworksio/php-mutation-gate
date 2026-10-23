@@ -14,11 +14,11 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 
 /**
  * What a file of the repository is to a kill carried across commits
- * (ADR-0008, decision 1), where a change to it cannot be followed by name:
+ * (ADR-0008), where a change to it cannot be followed by name:
  * one whose change decides how the gate runs, so that nothing judged before
  * it can stand for the code after it, or one Composer's autoloader loads in
  * every process, which acts on code that never names it. The files that
- * decide are those the layout names (ADR-0005, decision 4, rule 1), and each
+ * decide are those the layout names (ADR-0005, rule 1), and each
  * package's `composer.lock`, which pins what the runner and its plugins are,
  * where its change moved a package that decides (ADR-0030).
  */

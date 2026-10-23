@@ -51,7 +51,7 @@ use function sprintf;
  *    package it drives, and the digest of the PHP it runs on; and the
  *    identity of the static analyser that checks its mutants, its name,
  *    version and config's digest, of the configuration it resolves with every
- *    file that references, or that none does (ADR-0020, decision 14).
+ *    file that references, or that none does (ADR-0020).
  * 5. The digest of `vendor/composer/installed.json`.
  * 6. Every file outside the test directories, by its digest, less the
  *    exceptions.
@@ -109,7 +109,7 @@ final readonly class ContentKeys
     }
 
     /**
-     * What every coverage entry's key reads (ADR-0023, decision 1): the first
+     * What every coverage entry's key reads (ADR-0023): the first
      * five inputs, the files that define the runner, every file outside the
      * test directories that is no PHP source, and every CI definition that
      * runs the gate. A source file is read by the entries that execute it or
@@ -133,12 +133,12 @@ final readonly class ContentKeys
     }
 
     /**
-     * The digests of the run's inputs a proof records its share of (ADR-0008,
-     * decision 1): what decides a unit's mutant set besides its source, which
+     * The digests of the run's inputs a proof records its share of
+     * (ADR-0008): what decides a unit's mutant set besides its source, which
      * is the first five inputs, the files that define the runner and what of
-     * the test directories every key reads; the source of each of these units;
-     * and each file of test cases, with the support it reads outside what
-     * every key reads.
+     * the test directories every key reads; the source of each of these
+     * units; and each file of test cases, with the support it reads outside
+     * what every key reads.
      */
     public function digestsOf(Units $units): Digests
     {

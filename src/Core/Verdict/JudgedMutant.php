@@ -24,10 +24,10 @@ use function sprintf;
  */
 final readonly class JudgedMutant
 {
-    /** The command that runs one mutant again, which every report prints beside it (ADR-0009, decision 6). */
+    /** The command that runs one mutant again, which every report prints beside it (ADR-0009). */
     public const string REPRODUCE = 'vendor/bin/mutation-gate reproduce %s';
 
-    /** The command that explains one mutant or cluster without running anything (ADR-0014, decision 12). */
+    /** The command that explains one mutant or cluster without running anything (ADR-0014). */
     public const string EXPLAIN = 'vendor/bin/mutation-gate explain %s';
 
     private function __construct(
@@ -44,7 +44,7 @@ final readonly class JudgedMutant
 
     /**
      * A mutant as judged; carried where its unit's last result gave it
-     * because the plan pruned its mutator (ADR-0025, decision 1).
+     * because the plan pruned its mutator (ADR-0025).
      */
     public static function of(Mutant $mutant, MutantJudgement $judgement, bool $carriedPruned = false): self
     {
@@ -80,13 +80,13 @@ final readonly class JudgedMutant
         return clone($this, ['hint' => $hint]);
     }
 
-    /** This mutant, in a cluster of survivors with one cause (ADR-0022, decision 15). */
+    /** This mutant, in a cluster of survivors with one cause (ADR-0022). */
     public function inCluster(Membership $cluster): self
     {
         return clone($this, ['cluster' => $cluster]);
     }
 
-    /** This mutant, with what the gate found beyond its hint's first sentence (ADR-0025, decision 7). */
+    /** This mutant, with what the gate found beyond its hint's first sentence (ADR-0025). */
     public function found(WeaklyAsserted|Removable $finding): self
     {
         return clone($this, ['finding' => $finding]);
@@ -95,7 +95,7 @@ final readonly class JudgedMutant
     /**
      * This mutant, proven equivalent where it survived: its compiled code is
      * the original's. A mutant judged otherwise stays as it was, so a kill
-     * never becomes a pass (ADR-0013, decision 10).
+     * never becomes a pass (ADR-0013).
      */
     public function provenEquivalent(): self
     {
@@ -108,8 +108,8 @@ final readonly class JudgedMutant
      * This mutant, left out of the score by an ignore with this reason where
      * it is a survivor or uncovered, or, by an ignore that names it by its
      * id, where it is unjudged because the file it mutates was loaded before
-     * it was in place; a mutant judged otherwise stays as it was (ADR-0008,
-     * decision 4).
+     * it was in place; a mutant judged otherwise stays as it was
+     * (ADR-0008).
      */
     public function ignoredBecause(Reason $reason, bool $byItsId): self
     {

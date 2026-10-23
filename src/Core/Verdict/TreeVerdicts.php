@@ -15,6 +15,8 @@ use IteratorAggregate;
 use NightWorksIO\MutationGate\Core\Cluster\Clusters;
 use NightWorksIO\MutationGate\Core\File\ByPath;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\Sample\Estimate;
+use NightWorksIO\MutationGate\Core\Sample\Sample;
 use Traversable;
 
 /**
@@ -50,7 +52,7 @@ final readonly class TreeVerdicts implements Countable, IteratorAggregate
 
     /**
      * These trees, with the survivors of one cause marked with their cluster,
-     * read from each file's source (ADR-0022, decision 15).
+     * read from each file's source (ADR-0022).
      *
      * @param ByPath<Contents> $sources each file of their survivors that can be read, by its path
      */
@@ -65,7 +67,7 @@ final readonly class TreeVerdicts implements Countable, IteratorAggregate
         return new self($clustered);
     }
 
-    /** These trees, with what was found of each survivor (ADR-0025, decision 7). */
+    /** These trees, with what was found of each survivor (ADR-0025). */
     public function found(Findings $findings): self
     {
         $found = [];
@@ -105,6 +107,20 @@ final readonly class TreeVerdicts implements Countable, IteratorAggregate
         }
 
         return $mutants;
+    }
+
+    /** The sample the run drew, which every tree's estimate names; none where the run judged every tree whole. */
+    public function sample(): Sample
+    {
+        foreach ($this->verdicts as $tree) {
+            $estimate = $tree->estimate();
+
+            if ($estimate instanceof Estimate) {
+                return $estimate->sample();
+            }
+        }
+
+        return Sample::none();
     }
 
     public function count(): int

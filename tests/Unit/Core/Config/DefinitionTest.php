@@ -45,8 +45,8 @@ it('declares every setting as affecting results, as deciding how the gate runs, 
     $decides = Effect::DecidesHowTheGateRuns;
     $judges = Effect::JudgesOrReportsOnly;
 
-    // ADR-0007 decision 2.3: what affects results is in a proof's key, and
-    // every other setting is left out of it. ADR-0005 decision 4: a change
+    // ADR-0007: what affects results is in a proof's key, and
+    // every other setting is left out of it. ADR-0005: a change
     // to any setting but one that only judges or reports reaches everything,
     // so each judge here was reviewed as unable to change a proof or a reach.
     expect(Definition::effects())->toBe([
@@ -143,6 +143,10 @@ it('declares every setting as affecting results, as deciding how the gate runs, 
         'pruning.enabled' => $results,
         'pruning.window' => $results,
         'pruning.audit' => $judges,
+        'sampling.confidence' => $judges,
+        'sampling.margin' => $judges,
+        'sampling.minUnits' => $judges,
+        'sampling.seed' => $judges,
         'mutators.sets' => $results,
         'mutators.except' => $results,
         'local.watchBudget' => $judges,

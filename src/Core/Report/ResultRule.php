@@ -11,7 +11,7 @@ use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 /**
  * The rule a tool that lists results reports a mutant counted as not killed
  * under: SARIF's rules, GitLab's check names and the problems output's
- * (ADR-0009, decision 2).
+ * (ADR-0009).
  */
 enum ResultRule: string
 {

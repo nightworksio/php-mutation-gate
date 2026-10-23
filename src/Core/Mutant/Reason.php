@@ -13,15 +13,14 @@ use function str_ends_with;
 /**
  * Why a mutant stands as it does, in the sentence a report prints beside it:
  * why a runner left it unjudged, and the time budget that ran out before it,
- * where one did (ADR-0008, decision 1), or why the config ignores it
- * (decision 4).
+ * where one did (ADR-0008), or why the config ignores it.
  */
 final readonly class Reason
 {
     /**
      * Why a mutant of a line that is not executable is unjudged where no test
      * reads its value (ADR-0004), which a test that references the value
-     * judges (ADR-0015, decision 1).
+     * judges (ADR-0015).
      */
     public const string UNREACHED = 'no test reaches this value';
 
@@ -29,15 +28,15 @@ final readonly class Reason
      * Why a mutant is unjudged where its own run had loaded the file it
      * mutates before Pest's override could put the mutant in its place
      * (ADR-0004), as the ledger keeps it after the file's name. It holds on
-     * every run, and an ignore by the mutant's id can leave it out (ADR-0008,
-     * decision 4).
+     * every run, and an ignore by the mutant's id can leave it out
+     * (ADR-0008).
      */
     private const string PRELOADED = ' was loaded before the mutant was in place, so its tests ran the original code';
 
     /**
      * Why a mutant timed out before its limit: no test of its run finished
      * for its silence limit, the standard limit of its slowest test's own
-     * time (ADR-0008, decision 2).
+     * time (ADR-0008).
      */
     private const string SILENT = 'No test finished for %s, its silence limit, so its run was stopped.';
 

@@ -64,7 +64,7 @@ one of those values the gate can know or check.
      `#[Holds]`.
    - A stub for a held unit carries the same `#[Holds]` or
      `->group('holds:…')`, so the group's coverage check still passes
-     (ADR-0005 decision 10).
+     (ADR-0005).
    - With no covering test, as for an uncovered mutant, the runner decides:
      Pest writes a Pest test and Infection a PHPUnit class, in the first
      `<testsuites>` directory.
@@ -84,7 +84,7 @@ one of those values the gate can know or check.
    - A comment above the failing line holds the diff and the hint, then the
      call to the enclosing function, with its parameters' names as
      placeholders.
-   - One fixed assertion scaffold per family (ADR-0009 decision 7):
+   - One fixed assertion scaffold per family (ADR-0009):
      - Boundary: two cases, at the boundary and one step either side of it.
      - Return value: `toBe(/* expected */)` on the returned value.
      - Removed call: an assertion on the call's effect.
@@ -96,42 +96,41 @@ one of those values the gate can know or check.
 5. **A stub also offers the ignore.** Its last comment holds the exact
    `ignores.entries` item for the mutant, with `reason` left for a person to
    write. That is the other legitimate outcome, when no test can kill it.
-   - **As built.**
-     - `Core\Stub\Unstubbable` decides what a mutant asks for, and words
-       the next step from its hint. A flaky mutant points at `triage`, an
-       unjudged one whose value no test reaches asks for a test that
-       references it, and any other unjudged one asks for a run first.
-     - `Core\Stub\Nearest` picks the covering file. The file named for
-       the class (`MoneyTest.php` for `Money.php`) wins. Otherwise the file
-       with the most covering tests wins, then the first by path.
-       `Core\Stub\TestFile` reads its kind from its tokens: a file that
-       declares a named class is PHPUnit's. It adds a method before that
-       class's closing brace, or a closure at the end.
-     - Without a covering file, the stub goes under the first `<testsuites>`
-       directory, at the source's path from its tree, named for its class
-       with that directory's suffix (`tests/Unit/Domain/MoneyTest.php`). A
-       file already there is added to, in its own kind. `RunnerBehaviour::testStyle()`
-       says which style the runner's tests are written in: Pest for Pest,
-       PHPUnit for every other runner.
-     - A `--style` that the target file is not written in is exit 2.
-     - The stub is printed under a comment naming its file: the test that
-       `--write` adds, or the whole of a new file. A new PHPUnit file is a
-       class named for the file, extending `TestCase`, in no namespace.
-     - `Core\Php\Enclosing` writes the call with parameter names as
-       placeholders. A function is called by name, a constructor with
-       `new`, a static method on its class, and any other method on an
-       object named for the class (`$cart->fits($amount, $limit)`).
-     - Each scaffold is a comment, so the file parses, and the one failing
-       line is code. The comments drop control characters, and write `?>`
-       as `? >`, so no line ends a comment early.
-     - A held unit's stub holds it: `->group('holds:…')` on a Pest test, and
-       `#[Holds('…')]` on a PHPUnit method, with `#[Group('holds:…')]`
-       beside it where Pest runs the class (ADR-0005, decision 9).
-     - A weak test that let the mutant through gets its assertion of value,
-       in that test's own style (ADR-0025, decision 6).
-     - The ignore is written as the project's config writes one:
-       `Ignore::mutant(…)` for a PHP config, or where there is none, and a
-       JSON object otherwise. A cluster gets one item per member.
+   - `Core\Stub\Unstubbable` decides what a mutant asks for, and words
+     the next step from its hint. A flaky mutant points at `triage`, an
+     unjudged one whose value no test reaches asks for a test that
+     references it, and any other unjudged one asks for a run first.
+   - `Core\Stub\Nearest` picks the covering file. The file named for
+     the class (`MoneyTest.php` for `Money.php`) wins. Otherwise the file
+     with the most covering tests wins, then the first by path.
+     `Core\Stub\TestFile` reads its kind from its tokens: a file that
+     declares a named class is PHPUnit's. It adds a method before that
+     class's closing brace, or a closure at the end.
+   - Without a covering file, the stub goes under the first `<testsuites>`
+     directory, at the source's path from its tree, named for its class
+     with that directory's suffix (`tests/Unit/Domain/MoneyTest.php`). A
+     file already there is added to, in its own kind. `RunnerBehaviour::testStyle()`
+     says which style the runner's tests are written in: Pest for Pest,
+     PHPUnit for every other runner.
+   - A `--style` that the target file is not written in is exit 2.
+   - The stub is printed under a comment naming its file: the test that
+     `--write` adds, or the whole of a new file. A new PHPUnit file is a
+     class named for the file, extending `TestCase`, in no namespace.
+   - `Core\Php\Enclosing` writes the call with parameter names as
+     placeholders. A function is called by name, a constructor with
+     `new`, a static method on its class, and any other method on an
+     object named for the class (`$cart->fits($amount, $limit)`).
+   - Each scaffold is a comment, so the file parses, and the one failing
+     line is code. The comments drop control characters, and write `?>`
+     as `? >`, so no line ends a comment early.
+   - A held unit's stub holds it: `->group('holds:…')` on a Pest test, and
+     `#[Holds('…')]` on a PHPUnit method, with `#[Group('holds:…')]`
+     beside it where Pest runs the class (ADR-0005).
+   - A weak test that let the mutant through gets its assertion of value,
+     in that test's own style (ADR-0025).
+   - The ignore is written as the project's config writes one:
+     `Ignore::mutant(…)` for a PHP config, or where there is none, and a
+     JSON object otherwise. A cluster gets one item per member.
 
 6. **Editors read SARIF, and a problems output.**
    - The `sarif` report is unchanged (ADR-0009).
@@ -144,31 +143,30 @@ one of those values the gate can know or check.
 
    - Each judgement is framed by a line `mutation-gate: judging` before it
      and `mutation-gate: judged` after it, for background matchers.
-   - `<col>` is where the mutant starts, from the file's tokens (decision 9),
+   - `<col>` is where the mutant starts, from the file's tokens,
      and the message is SARIF's, with any line break read as a space so each
      result stays on one line. It is the reporter `problems`, whose option
      `only: "changed"` is what `--only=changed` sets.
-   - The line format is public API (ADR-0011 decision 7).
+   - The line format is public API (ADR-0011).
    - **The first step of the build proves** that PhpStorm's Qodana plugin
      opens a SARIF 2.1.0 log the gate wrote, through *Open Local Report*, and
      lists its results. If it does not, the README's PhpStorm recipe is an
      External Tool running `--output=problems` with an output filter.
-   - **As built.**
-     - `run` takes `--output=problems` and `--only=changed`. `--only`
-       takes `changed` alone, and only beside `--output=problems`; any other
-       value is exit 2, before anything runs.
-     - `Problems::PATTERN` is the line as a problem matcher reads it, with
-       `Problems::GROUPS` naming its file, line, column, severity, message
-       and code groups. The code is the rule, and the mutant id stays in the
-       message. A test runs the pattern over every line the output writes.
-     - Each message is one plain line (`Fit::plain`), and each path and the
-       id of the run a proved or carried result names keeps its text but
-       drops every control character (`Fit::verbatim`): no line break, escape
-       or other control character, so neither a file's name nor a ledger's
-       run starts a line a matcher reads as a result.
-     - The Qodana plugin is not part of the build, so the README's PhpStorm
-       recipe is the External Tool, with the output filter
-       `$FILE_PATH$:$LINE$:$COLUMN$`.
+   - `run` takes `--output=problems` and `--only=changed`. `--only`
+     takes `changed` alone, and only beside `--output=problems`; any other
+     value is exit 2, before anything runs.
+   - `Problems::PATTERN` is the line as a problem matcher reads it, with
+     `Problems::GROUPS` naming its file, line, column, severity, message
+     and code groups. The code is the rule, and the mutant id stays in the
+     message. A test runs the pattern over every line the output writes.
+   - Each message is one plain line (`Fit::plain`), and each path and the
+     id of the run a proved or carried result names keeps its text but
+     drops every control character (`Fit::verbatim`): no line break, escape
+     or other control character, so neither a file's name nor a ledger's
+     run starts a line a matcher reads as a result.
+   - The Qodana plugin is not part of the build, so the README's PhpStorm
+     recipe is the External Tool, with the output filter
+     `$FILE_PATH$:$LINE$:$COLUMN$`.
 
 7. **`init --editor=vscode` wires VS Code.**
    - It writes `.vscode/tasks.json` with a `mutation-gate: watch` background
@@ -176,9 +174,9 @@ one of those values the gate can know or check.
    - It writes `.vscode/extensions.json` recommending the SARIF Viewer.
    - It writes each file only where none exists, and otherwise prints the
      block to add, as `hook install` leaves an existing hook alone
-     (ADR-0010 decision 3).
-   - PhpStorm gets a README recipe (decision 6).
-   - **As built.** `Core\Editor\VsCode` holds what it writes: `tasks()`, the
+     (ADR-0010).
+   - PhpStorm gets a README recipe.
+   - `Core\Editor\VsCode` holds what it writes: `tasks()`, the
      whole `tasks.json`; `task()`, the block to add to one that exists; and
      `extensions()`. The task runs `vendor/bin/mutation-gate watch
      --output=problems` in the background. Its matcher's owner and source
@@ -187,7 +185,7 @@ one of those values the gate can know or check.
      lines.
 
 8. **Editors show what CI shows.**
-   - They get SARIF's four rules (ADR-0009 decision 2).
+   - They get SARIF's four rules (ADR-0009).
    - A mutant in a failing set is an *error*, and everything else a
      *warning*.
    - Proved and carried survivors are included, marked with the run they came
@@ -201,7 +199,7 @@ one of those values the gate can know or check.
      `originalUriBaseIds.SRCROOT`, a `file://` URI. The viewer resolves
      relative paths against it, and code scanning ignores it.
    - Columns come from the file's tokens, as the HTML report computes them
-     (ADR-0009 decision 4). A mutant the gate cannot place spans its line.
+     (ADR-0009). A mutant the gate cannot place spans its line.
 
 10. **An optional pre-commit hook shows the score change, runs nothing and
     never blocks.**
@@ -212,17 +210,16 @@ one of those values the gate can know or check.
     - It always exits 0.
     - `hook install --pre-commit` adds it. `hook install` alone still
       installs the pre-push hook only.
-    - `pre-push` prints the same table before its verdict (ADR-0010
-      decision 2).
+    - `pre-push` prints the same table before its verdict (ADR-0010).
     - This supersedes ADR-0010's rejection of a pre-commit hook. That
       rejection was about a slow hook that blocks partial commits, and this
       hook is neither slow nor blocking.
 
 11. **The change is against the merge base with the default branch.**
     - Each tree is completed by carried results from the local ledger and
-      the default branch's ledger (ADR-0003 decision 4).
-    - This is the "change against the base" the PR comment shows (ADR-0009
-      decision 3), so the number seen at a commit is the number the pull
+      the default branch's ledger (ADR-0003).
+    - This is the "change against the base" the PR comment shows
+    (ADR-0009), so the number seen at a commit is the number the pull
       request will show.
     - Each tree's floor is shown beside its score, so the headroom is
       visible too.
@@ -274,7 +271,7 @@ one of those values the gate can know or check.
       - the PHP version: `config.platform.php`, else the lowest version
         `require.php` allows, at least 8.5;
       - the runner;
-      - the ledger cache for that CI, keyed as ADR-0007 decision 4 says;
+      - the ledger cache for that CI, keyed as ADR-0007 says;
       - the twice-weekly schedule (ADR-0013).
     - **Left for the user**, each as a comment:
       - an image with the PHP version and pcov, for GitLab, Buildkite and
@@ -286,7 +283,7 @@ one of those values the gate can know or check.
     - The branch-protection step is printed with the exact check to require:
       `mutation testing` for the one-step action, `mutation / verdict` for
       the reusable workflow.
-    - **As built.** The one-step action's job is named for `ci.check`,
+    - The one-step action's job is named for `ci.check`,
       `mutation / verdict` by default, so its check-run is the one a merged
       pull request's verdict is trusted by; `init` prints that check for both
       definitions. Every value the project gives a template is checked to
@@ -294,7 +291,7 @@ one of those values the gate can know or check.
 
 17. **The templates are checked in the package's CI.**
     - The GitHub template runs through `actionlint`, and is the shape the
-      package dogfoods (ADR-0011 decision 8).
+      package dogfoods (ADR-0011).
     - The GitLab, Buildkite and CircleCI templates are validated against
       each provider's published JSON Schema, fetched at a pinned commit and
       held to its SHA-256 digest.

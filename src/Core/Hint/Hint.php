@@ -35,7 +35,7 @@ use function sprintf;
 /**
  * What the tests miss about one mutant, in one sentence filled in from its
  * diff and from the function around it, naming up to three of the tests that
- * judge it (ADR-0009, decision 7).
+ * judge it (ADR-0009).
  */
 final readonly class Hint
 {

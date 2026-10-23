@@ -35,7 +35,7 @@ use NightWorksIO\MutationGate\Core\Doctor\Check\Xdebug;
 
 /**
  * Every check `doctor` runs, and `plan` and a one-process `run` begin with,
- * over what an adapter observed (ADR-0017, decisions 9 and 10).
+ * over what an adapter observed (ADR-0017).
  */
 final readonly class Diagnosis
 {

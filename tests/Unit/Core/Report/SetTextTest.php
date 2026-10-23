@@ -5,6 +5,10 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Report\SetText;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Sample\Estimate;
+use NightWorksIO\MutationGate\Core\Sample\Spread;
+use NightWorksIO\MutationGate\Core\Sample\Stratum;
+use NightWorksIO\MutationGate\Core\Sample\Tally;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
@@ -19,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\NewCodeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Tests\Support\Judged;
+use NightWorksIO\MutationGate\Tests\Support\Sampled;
 use NightWorksIO\MutationGate\Tests\Support\Secured;
 
 $tree = static fn(Floor|Exempt|Undeclared $floor, JudgedMutants $mutants): TreeVerdict => TreeVerdict::judged(
@@ -93,4 +98,51 @@ it('says a tree\'s, a package\'s and an exempt reason\'s text as one plain line,
     expect(SetText::tree($hostile))->toBe('src/[31mred x is exempt: Replaced[0m later')
         ->and(SetText::securityName(Secured::set("packages/\e[2Jbilling", Floor::of(100), Unrecorded::floor())))
         ->toBe('Security in packages/[2Jbilling');
+});
+
+it('says a sampled tree\'s estimate, its interval and how much of it was sampled, against its floor', function (Floor|Undeclared $floor, string $said): void {
+    expect(SetText::tree(Sampled::tree($floor)))->toBe($said);
+})->with([
+    'met' => [fn(): Floor => Floor::of(60), 'src scores about 75.55% (95%: 60.70%–85.26%; 3 of 15 units sampled, 5 exact) against its floor of 60.00%.'],
+    'below' => [fn(): Floor => Floor::of(90), 'src scores about 75.55% (95%: 60.70%–85.26%; 3 of 15 units sampled, 5 exact), below its floor of 90.00%.'],
+    'undecided' => [fn(): Floor => Floor::of(80), 'src scores about 75.55% (95%: 60.70%–85.26%; 3 of 15 units sampled, 5 exact), and its floor of 80.00% lies within it: a smaller sampling.margin, or a full run, decides it.'],
+    'no floor' => [fn(): Undeclared => Undeclared::floor(), 'src scores about 75.55% (95%: 60.70%–85.26%; 3 of 15 units sampled, 5 exact), and no floor holds it.'],
+]);
+
+it('says a tree a sampled run knew exactly as any tree\'s', function (): void {
+    $exact = TreeVerdict::judged(
+        Tree::at(Path::of('src'), Floor::of(50), Package::at(Path::root())),
+        Unrecorded::floor(),
+        JudgedUnits::none(),
+        Judged::mutants(MutantJudgement::Killed, MutantJudgement::Survived),
+        Uncovered::Count,
+        Estimate::of(Tally::of(1, 2), 1, Stratum::none(), Sampled::sample()),
+    );
+
+    expect(SetText::tree($exact))->toBe('src scores 50.00% against its floor of 50.00%.');
+});
+
+it('prints a tree\'s score for a table, and a sampled tree\'s estimate with its interval', function (): void {
+    expect(SetText::score(Sampled::tree(Floor::of(80))))->toBe('about 75.55% (60.70%–85.26%)')
+        ->and(SetText::score(TreeVerdict::judged(
+            Tree::at(Path::of('src'), Floor::of(50), Package::at(Path::root())),
+            Unrecorded::floor(),
+            JudgedUnits::none(),
+            Judged::mutants(MutantJudgement::Killed, MutantJudgement::Survived),
+            Uncovered::Count,
+            Estimate::of(Tally::of(1, 2), 1, Stratum::none(), Sampled::sample()),
+        )))->toBe('50.00%');
+});
+
+it('says a sampled tree whose units hold no mutant has nothing to mutate', function (): void {
+    $empty = TreeVerdict::judged(
+        Tree::at(Path::of('src'), Floor::of(50), Package::at(Path::root())),
+        Unrecorded::floor(),
+        JudgedUnits::none(),
+        JudgedMutants::none(),
+        Uncovered::Count,
+        Estimate::of(Tally::none(), 0, Stratum::of(2, 0, Spread::of(Tally::none())), Sampled::sample()),
+    );
+
+    expect(SetText::tree($empty))->toBe('src has nothing to mutate.');
 });

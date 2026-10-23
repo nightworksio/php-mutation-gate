@@ -20,6 +20,8 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Sample\Estimating;
+use NightWorksIO\MutationGate\Core\Sample\Sample;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -35,10 +37,9 @@ use function sprintf;
  * carried, against the higher of its declared floor and its baseline's; and,
  * in a change-scoped run, the mutants on the lines the change added or
  * modified against the floor for new code. Each unit keeps the run whose
- * proof it came from (ADR-0015, decision 8), and each mutant is judged by
+ * proof it came from (ADR-0015), and each mutant is judged by
  * the tests the kill matrix says cover it, of a held unit only those its
- * holding tests that run it are among (ADR-0004 decision 5, ADR-0005
- * decision 10).
+ * holding tests that run it are among (ADR-0004, ADR-0005).
  */
 final readonly class Judge
 {
@@ -52,6 +53,7 @@ final readonly class Judge
         private Ignoring $ignoring,
         private NamedMutators|NotGiven $only,
         private MutantIds $equivalent,
+        private Sample $sample,
     ) {
     }
 
@@ -73,13 +75,19 @@ final readonly class Judge
             $ignoring,
             NotGiven::value(),
             MutantIds::none(),
+            Sample::none(),
         );
+    }
+
+    /** This judge, estimating each tree from what this sample ran of it (ADR-0020). */
+    public function sampling(Sample $sample): self
+    {
+        return clone($this, ['sample' => $sample]);
     }
 
     /**
      * This judge, keeping only the mutants and kills these mutators made, as
-     * a run of the security mutators alone judges its units (ADR-0021,
-     * decision 20).
+     * a run of the security mutators alone judges its units (ADR-0021).
      */
     public function onlyMadeBy(NamedMutators $mutators): self
     {
@@ -88,7 +96,7 @@ final readonly class Judge
 
     /**
      * This judge, with the survivors among these ids proven equivalent
-     * (ADR-0013, decision 10); none are proven without them.
+     * (ADR-0013); none are proven without them.
      */
     public function proving(MutantIds $equivalent): self
     {
@@ -136,7 +144,7 @@ final readonly class Judge
         return $this->mutable(array_values($sets), $floor);
     }
 
-    /** The security set of each package (ADR-0021, decision 16), of the mutants these mutators made. */
+    /** The security set of each package (ADR-0021), of the mutants these mutators made. */
     public function security(TreeVerdicts $verdicts, NamedMutators $mutators, Floor|Undeclared $floor): SecurityVerdicts
     {
         return SecurityJudge::of($this->baseline, $this->uncovered, $floor)->judged($verdicts, $mutators);
@@ -158,12 +166,15 @@ final readonly class Judge
             $mutants[] = $this->judged($result);
         }
 
+        $judgedUnits = JudgedUnits::of(...$units);
+        $judgedMutants = JudgedMutants::none()->and(...$mutants);
         $verdict = TreeVerdict::judged(
             $tree,
             $this->baseline->floorOf($tree->path()),
-            JudgedUnits::of(...$units),
-            JudgedMutants::none()->and(...$mutants),
+            $judgedUnits,
+            $judgedMutants,
             $this->uncovered,
+            Estimating::of($this->sample, $this->trees, $this->uncovered)->tree($tree, $judgedUnits, $judgedMutants),
         );
         $entry = $this->baseline->entryOf($tree->path());
         $lowering = $entry instanceof Entry ? $entry->lowering() : Unlowered::floor();

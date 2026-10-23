@@ -34,7 +34,7 @@ use function str_ends_with;
 use function strpbrk;
 
 /**
- * Infection's `ignore` patterns as `ignores.entries` (ADR-0016, decision 4).
+ * Infection's `ignore` patterns as `ignores.entries` (ADR-0016).
  * A pattern over a class, or a method or line of it, becomes an entry for the
  * class's whole file, and one over a whole namespace, `Acme\Legacy\*`, an
  * entry for its directory. Under a mutator it names that mutator; under a

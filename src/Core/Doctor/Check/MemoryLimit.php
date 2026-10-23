@@ -19,7 +19,7 @@ use function sprintf;
 
 /**
  * A memory_limit for the gate's own process under what its ledgers may need
- * (ADR-0013 decision 13), which the gate's command raises where PHP lets it:
+ * (ADR-0013), which the gate's command raises where PHP lets it:
  * past it, PHP stops a run over a ledger that large.
  */
 final readonly class MemoryLimit

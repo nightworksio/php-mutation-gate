@@ -145,7 +145,7 @@ it('keeps every test file inert as it loads', function (): void {
 
     // G10
     expect($offenders)->toBe([], sprintf(
-        "These test files run code as they load:\n  %s\n\nA mutant's narrowed run loads every test file that is not inert, so each one slows the run of every mutant. Keep the top to declarations, imports, Pest's registrations and variables assigned what runs nothing: make a value that calls a closure the tests call, and loop inside the test over what a call lists (G10, ADR-0004 decision 9).",
+        "These test files run code as they load:\n  %s\n\nA mutant's narrowed run loads every test file that is not inert, so each one slows the run of every mutant. Keep the top to declarations, imports, Pest's registrations and variables assigned what runs nothing: make a value that calls a closure the tests call, and loop inside the test over what a call lists (G10, ADR-0004).",
         implode("\n  ", $offenders),
     ));
 });

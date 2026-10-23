@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 /**
- * The tests a change can make fail (ADR-0020, decisions 1 and 2): each test
+ * The tests a change can make fail (ADR-0020): each test
  * file with the coverage map's tests in it the change reaches and why, or
  * every test file of the suite where some reason reaches every test; the
  * changed source files no test runs or reads; and the reasons that list no

@@ -21,7 +21,7 @@ use function sprintf;
 
 /**
  * `infection:patch`: the changes to Infection that bring its mutant limit
- * onto the gate's (ADR-0008, decision 2), applied only to the Infection
+ * onto the gate's (ADR-0008), applied only to the Infection
  * releases whose places it was checked against (see Release).
  * - Each mutant is allowed the standard mutant limit of its covering tests'
  *   own time, within the bounds the gate names (see MutantTime), not

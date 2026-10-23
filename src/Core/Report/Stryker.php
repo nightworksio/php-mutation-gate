@@ -32,7 +32,7 @@ use stdClass;
  * Stryker's viewer reads. The viewer computes its own score, so each mutant is
  * given the viewer status the gate's score treats the same way, and the page
  * shows the gate's score; the gate's own judgement goes in `statusReason`
- * (ADR-0009, decision 4).
+ * (ADR-0009).
  *
  * @phpstan-type Place array{line: int, column: int}
  * @phpstan-type MutantEntry array{

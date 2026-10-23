@@ -9,7 +9,7 @@ use NightWorksIO\MutationGate\Core\Config\Absent;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 
 /**
- * The project's default branch (ADR-0006 decision 5): `ci.defaultBranch`
+ * The project's default branch (ADR-0006): `ci.defaultBranch`
  * where the config sets it, then the first branch that is detected, such as
  * the CI's or the one git's `origin/HEAD` points at, and `main` where nothing
  * names one.

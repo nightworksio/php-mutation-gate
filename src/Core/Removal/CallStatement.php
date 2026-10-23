@@ -17,7 +17,7 @@ use NightWorksIO\MutationGate\Core\Php\Undeclared;
  * A statement that is one call and nothing else, whose callee a name leads
  * to: `$this->m(…);`, `self::m(…);`, `static::m(…);`, `Name::m(…);` or
  * `f(…);`. Any other statement, a chain or a call on another object among
- * them, calls nothing a removal can suggest deleting (ADR-0025, decision 11).
+ * them, calls nothing a removal can suggest deleting (ADR-0025).
  */
 final readonly class CallStatement
 {

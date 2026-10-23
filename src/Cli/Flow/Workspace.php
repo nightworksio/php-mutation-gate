@@ -52,7 +52,7 @@ final readonly class Workspace
     /**
      * Where a run of one unit that a hold from the holding suites holds leaves
      * the whole suite's map, before the gate keeps each holding test on the
-     * lines of what it holds alone (ADR-0005, decision 9).
+     * lines of what it holds alone (ADR-0005).
      */
     public static function suiteCoverage(): Path
     {

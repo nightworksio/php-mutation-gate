@@ -8,7 +8,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 
 /**
  * A reporter whose sending needs a credential, which under `--deliver-later` leaves its payload for `deliver`
- * rather than send it (ADR-0007 decision 5).
+ * rather than send it (ADR-0007).
  */
 interface Deferring
 {

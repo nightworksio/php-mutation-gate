@@ -57,13 +57,13 @@ use NightWorksIO\MutationGate\Port\Runner;
 use function sprintf;
 
 /**
- * The gate's own PHPUnit runner behind the Runner port (ADR-0023, decisions 8
- * to 10): the gate makes each mutant with its own engine, and PHPUnit runs
- * the tests that cover it, a mutant per core at once, each in a process of
- * its own, served through the gate's override and recorded by its extension, so
- * the gate is installed in the project's vendor directory. It runs in the
- * project's root, and allows each mutant's run the standard mutant limit
- * within `timeouts.seconds` and `timeouts.most` (ADR-0008, decision 2).
+ * The gate's own PHPUnit runner behind the Runner port (ADR-0023): the gate
+ * makes each mutant with its own engine, and PHPUnit runs the tests that
+ * cover it, a mutant per core at once, each in a process of its own, served
+ * through the gate's override and recorded by its extension, so the gate is
+ * installed in the project's vendor directory. It runs in the project's root,
+ * and allows each mutant's run the standard mutant limit within
+ * `timeouts.seconds` and `timeouts.most` (ADR-0008).
  */
 final readonly class PhpUnit implements Runner
 {
@@ -140,7 +140,7 @@ final readonly class PhpUnit implements Runner
      * PHPUnit lists `#[Holds]` as groups, the gate lays each mutant's limit
      * itself and can raise it, and each shard reads the map the plan handed
      * on. It stops each mutant at its first failing test, and runs a mutant
-     * per core at once (ADR-0023, decisions 5 and 12).
+     * per core at once (ADR-0023).
      */
     public function behaviour(): RunnerBehaviour
     {

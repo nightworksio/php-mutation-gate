@@ -15,8 +15,8 @@ use PHPUnit\Runner\Extension\ParameterCollection;
 use PHPUnit\TextUI\Configuration\Configuration;
 
 /**
- * The PHPUnit extension the gate starts PHPUnit with for a mutant (ADR-0023
- * decision 9): it records how far each test got to the file
+ * The PHPUnit extension the gate starts PHPUnit with for a mutant
+ * (ADR-0023): it records how far each test got to the file
  * `MUTATION_GATE_RESULTS` names, and says in the file `MUTATION_GATE_GUARD`
  * names whether opcache could serve a cached original in place of the
  * mutated file. It does nothing where they name none.

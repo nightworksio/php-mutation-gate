@@ -22,11 +22,11 @@ use Traversable;
 /**
  * `trend.json`: one entry per verdict on the default branch, with its commit,
  * its time, what it judged, the project's score and each tree's, each tree's
- * floor (ADR-0016, decision 10), and the run's runner time and the time a
- * full one-job run would take where the run knew them (ADR-0017, decision
- * 13), keeping the newest 500. A set with nothing to mutate has no score in
- * its entry, and a tree held to no floor no floor. Reading drops an entry
- * that is not in shape rather than repair it.
+ * floor (ADR-0016), and the run's runner time and the time a
+ * full one-job run would take where the run knew them (ADR-0017), keeping
+ * the newest 500. A set with nothing to mutate has no score in its entry,
+ * and a tree held to no floor no floor. Reading drops an entry that is not
+ * in shape rather than repair it.
  *
  * @phpstan-import-type Entry from TrendRecord
  */

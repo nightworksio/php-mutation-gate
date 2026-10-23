@@ -29,13 +29,13 @@ use function sprintf;
  * The registered mutators a config turns on (ADR-0021): those of each set
  * `mutators.sets` names, less the ones `mutators.except` turns off. A set
  * only a preset offers that nobody registered is skipped with a warning
- * naming its package (ADR-0021, decision 12). Any other set nobody
+ * naming its package (ADR-0021). Any other set nobody
  * registered, or a mutator to turn off that neither those sets nor
  * the `default` set holds, cannot be judged, and says which name was most
  * likely meant. A runner that makes its own mutants takes these beside its
  * own, so a mutator to turn off that only the `default` set holds would turn
  * nothing off there, and the config is refused. The gate's own engine takes
- * them beside the `default` set's (ADR-0023, decision 8).
+ * them beside the `default` set's (ADR-0023).
  */
 final readonly class EnabledMutators
 {
@@ -103,7 +103,7 @@ final readonly class EnabledMutators
 
     /**
      * The `default` set's mutators and those the config turns on, less each
-     * that stands down beside them (ADR-0021, decision 18), which the gate's
+     * that stands down beside them (ADR-0021), which the gate's
      * own engine makes mutants with.
      */
     public function forTheEngine(): Enabled
@@ -114,10 +114,10 @@ final readonly class EnabledMutators
     }
 
     /**
-     * The mutators whose mutants are security mutants (ADR-0021, decision
-     * 16): each security-tagged mutator of the `default` set and those the
-     * config turns on, and each other one its `SameChange` names, whether or
-     * not it stands down.
+     * The mutators whose mutants are security mutants (ADR-0021): each
+     * security-tagged mutator of the `default` set and those the config
+     * turns on, and each other one its `SameChange` names, whether or not
+     * it stands down.
      */
     public function security(): NamedMutators
     {

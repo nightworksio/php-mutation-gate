@@ -12,7 +12,7 @@ show. The maintainer's decisions for this package are:
 - it runs PHPStan at max and keeps its core isolated with arch tests;
 - it ships a composite GitHub Action (`action.yml`) in the same repository;
 - it has no release at all until every feature the README lists is in
-  (ADR-0013, decision 17).
+  (ADR-0013).
 
 The package also takes the code-quality, testing, tooling and architecture
 standards of the in-house project whose gate it generalises, reusing whatever
@@ -48,7 +48,7 @@ about Laravel, NativePHP or the project's modules, and does not.
    - The runner is Pest.
    - The package's CI calls its own reusable workflow from the same commit
      (`uses: ./.github/workflows/mutation-gate.yml`), whose shard jobs run the
-     action from that commit too (decision 8). Every change to the gate, the
+     action from that commit too. Every change to the gate, the
      action or the workflow is judged by the version it introduces.
    - The verdict job is a required check.
    - A weekly scheduled full run is part of it (ADR-0005).
@@ -82,7 +82,7 @@ about Laravel, NativePHP or the project's modules, and does not.
    | `require-dev`: ergebnis/composer-normalize, ergebnis/phpstan-rules, laravel/pint, pestphp/pest, pestphp/pest-plugin-arch, phpstan/phpstan and its strict and deprecation rules, rector/rector, roave/security-advisories, shipmonk/composer-dependency-analyser, shipmonk/phpstan-rules, spaze/phpstan-disallowed-calls, tomasvotruba/cognitive-complexity, tomasvotruba/type-coverage | at the versions the in-house project locks | **Copied** | Generic PHP tooling |
    | `require-dev`: larastan/larastan, pestphp/pest-plugin-laravel, monolog/monolog, saloonphp/saloon and the project's own packages | | **Not applicable** | Laravel, NativePHP or in-house code. The package adds infection/infection, symfony/yaml, nette/neon and async-aws/s3 instead, to test its adapters. |
    | `config` | `allow-plugins`, `optimize-autoloader`, `platform.php: 8.5.0`, `sort-packages`, `process-timeout: 0` | **Copied** | |
-   | `phpstan.neon` | Decision 2, plus larastan | **Adapted** | Less larastan. Paths are `src`, `tests`, `phpstan` and `bin`. |
+   | `phpstan.neon` | The in-house static analysis, plus larastan | **Adapted** | Less larastan. Paths are `src`, `tests`, `phpstan` and `bin`. |
    | spaze disallowed lists | the clock, randomness, the filesystem, `sleep`, `passthru` and `shell_exec`, `ini_set`, superglobals, reflection, non-`mb_` string functions, `else`/`elseif`, bare exceptions, Laravel helpers and an HTTP client's TLS switch | **Adapted** | Scoped with `allowIn` to the layers of ADR-0001: the filesystem, the standard streams, processes, the network, the environment, the system clock and waiting only in adapters and `Cli`, and no random numbers anywhere in `src`. The Laravel helpers and the TLS switch have nothing to bind to. |
    | Own PHPStan rules, generic: NoBroadCatchRule, NoDynamicAccessRule, NoEmptyRule, NoLateStaticBindingRule, NoMagicMethodRule, NoMagicNumberRule, NoManyMethodsRule (20 methods), NoManyReturnsRule (3 returns), NoNestedTernaryRule (with `??` on a subscript), NoPositionalBooleanArgumentRule, PreferSprintfOverConcatRule, PreferSprintfOverInterpolationRule, NoWeakenedTlsRule | in the project's own rules directory | **Copied** | Generic, into `phpstan/Rules/`. The interpolation rule's message loses its mention of a translator. |
    | NoOutputRule | `echo` and `print` only in tests | **Adapted** | No `echo` or `print` anywhere in `src`. The CLI and the console reporter write through `symfony/console`'s output. |
@@ -94,7 +94,7 @@ about Laravel, NativePHP or the project's modules, and does not.
    | Deptrac, composer-require-checker, composer-unused | none | **Not applicable** | The in-house project uses none of them. Pest arch and the dependency analyser cover the same ground. |
    | Pest arch presets | `arch()->preset()->php()`, `->preset()->security()` | **Copied** | |
    | Hand-written arch rules | framework and boundary bans, ambient calls kept out of the kernel, bare exceptions, vague suffixes, `Interface`/`Abstract` affixes, exception naming, closed sets as enums, every class final, no debugging calls | **Adapted** | The framework and boundary bans and the ambient-call ban become the layer rules of ADR-0001, with the ambient ban on `Core`. The others are copied. |
-   | The module API test | outcomes, no nullable returns, no arrays, primitives only in named constructors, no `mixed`, over each module's API namespace | **Adapted** | Applied to the public API of decision 7, and the ban on nullable types widened to all of `Core` |
+   | The module API test | outcomes, no nullable returns, no arrays, primitives only in named constructors, no `mixed`, over each module's API namespace | **Adapted** | Applied to the public API, and the ban on nullable types widened to all of `Core` |
    | The module boundaries test | generated from module kinds | **Not applicable** | There are no modules. ADR-0001's layer rules take its place. |
    | The test conventions test | no mocking foreign types, `expect()` only, no committed `->only()` and no reason-less `->skip()`, behavioural test names, no duplicate helpers | **Copied** | |
    | The comments test | comments state the current situation (markers such as *previously* and *TODO* refused), docblocks only where a type cannot speak, said once, about a symbol | **Copied** | As `CommentsTest` |
@@ -116,7 +116,7 @@ about Laravel, NativePHP or the project's modules, and does not.
    | `.editorconfig`, `.gitattributes` | `/.github export-ignore` | **Adapted** | A library's archive is what users download, so `tests`, `.docs`, `phpstan`, `.github` and the other dotfiles are `export-ignore` as well. |
    | CodeQL | `codeql.yml`, `analyze` required | **Adapted** | CodeQL has no PHP analysis. It runs for the workflows, the reusable workflow and `action.yml`. |
    | OpenSSF Scorecard | `scorecard.yml` | **Copied** | A public package is what Scorecard exists for |
-   | Mutation jobs | a scope job, a matrix of shards and an aggregating job, driven by the in-house script | **Adapted** | They become this package's reusable workflow: plan, shards and verdict (decision 8) |
+   | Mutation jobs | a scope job, a matrix of shards and an aggregating job, driven by the in-house script | **Adapted** | They become this package's reusable workflow: plan, shards and verdict |
 
 4. **The code conventions, and what enforces each here.** The rule IDs are this
    package's own, held in `ARCHITECTURE.md`.
@@ -133,7 +133,7 @@ about Laravel, NativePHP or the project's modules, and does not.
    | Primitives only in named constructors | arch (D2) |
    | No `mixed` in public signatures | arch (D3), with type coverage at 100 |
    | Comments state current fact | `CommentsTest` (K1) and review |
-   | No requirement IDs in comments or test names | The widened ID check (decision 3) and arch (H7) |
+   | No requirement IDs in comments or test names | The widened ID check and arch (H7) |
    | At most 20 methods per class, constructor included | NoManyMethodsRule (H3), alongside at most three returns per function (H8) and cognitive complexity of 8 per function and 30 per class |
    | Every class final, readonly where it can be; no magic numbers; no vague suffixes | arch (D7), NoMagicNumberRule (D6), arch (H1) |
 
@@ -217,7 +217,7 @@ about Laravel, NativePHP or the project's modules, and does not.
      | `php-version` | string | `8.5` |
      | `runner` | `pest`, `infection` or a registered name | none: the config's, or zero-config's |
      | `shard` | shard id | none: the whole gate runs |
-     | `mode` | `auto`, `full` or `changed` | `auto`: change-scoped on pull requests and pushes, full on schedules, manual dispatches, releases and tags (ADR-0005 decision 2) |
+     | `mode` | `auto`, `full` or `changed` | `auto`: change-scoped on pull requests and pushes, full on schedules, manual dispatches, releases and tags (ADR-0005) |
      | `changed-since` | a git ref, or `last-passed` | the pull request's base on `pull_request`, the default branch on any other branch, `last-passed` on the default branch; used only when the mode is change-scoped |
      | `budget` | duration | none |
      | `reports` | `<name>:<path>` lines, each added as `--report` | none |
@@ -248,23 +248,24 @@ about Laravel, NativePHP or the project's modules, and does not.
        defaults. ADR-0035 adds two of its own: `coverage`, the map another
        job made, and `runs-on`, the runner every job runs on.
      - **Secrets** come from two environments, never from the caller, and
-       reach only jobs that run none of the project's code (ADR-0007,
-       decision 5). `mutation-gate-read`, with no branch policy, holds
+       reach only jobs that run none of the project's code (ADR-0007).
+       `mutation-gate-read`, with no branch policy, holds
        `MUTATION_GATE_READ_AWS_ACCESS_KEY_ID` and
-       `MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY`, a key that reads the default
-       branch's prefix alone, for `fetch`. `mutation-gate-store`, whose
-       deployment-branch policy admits the default branch alone, holds
-       `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `AWS_SESSION_TOKEN`,
-       which write the store, and `MUTATION_GATE_SLACK_URL`,
+       `MUTATION_GATE_READ_AWS_SECRET_ACCESS_KEY`, a key that reads the
+       default branch's prefix alone, for `fetch`.
+       `mutation-gate-store`, whose deployment-branch policy admits the
+       default branch alone, holds `AWS_ACCESS_KEY_ID`,
+       `AWS_SECRET_ACCESS_KEY` and `AWS_SESSION_TOKEN`, which write the
+       store, and `MUTATION_GATE_SLACK_URL`,
        `MUTATION_GATE_DISCORD_URL`, `MUTATION_GATE_WEBHOOK_URL`,
        `MUTATION_GATE_WEBHOOK_SECRET`, `OTEL_EXPORTER_OTLP_ENDPOINT` and
-       `OTEL_EXPORTER_OTLP_HEADERS`, which alert and trace (ADR-0016), for
-       `deliver` on a trusted run. The store's location comes from the
-       repository variables `MUTATION_GATE_STORE` and `MUTATION_GATE_STORE_*`.
-       ADR-0029 supersedes "never from the caller": a caller passes each of
-       these by name, since a called job reads an environment's secret only
-       under a name its caller passes, and the values stay in the two
-       environments.
+       `OTEL_EXPORTER_OTLP_HEADERS`, which alert and trace (ADR-0016),
+       for `deliver` on a trusted run. The store's location comes from
+       the repository variables `MUTATION_GATE_STORE` and
+       `MUTATION_GATE_STORE_*`. ADR-0029 supersedes "never from the
+       caller": a caller passes each of these by name, since a called
+       job reads an environment's secret only under a name its caller
+       passes, and the values stay in the two environments.
      - **Outputs** are `verdict`, `scores` and `plan`, as the action's. The
        reports are uploaded as the artifact `mutation-gate-reports`, and a
        baseline measured for trees with no floor as `mutation-gate-baseline`
@@ -286,7 +287,7 @@ about Laravel, NativePHP or the project's modules, and does not.
        - `survivors`, on a pull request, beside the shards, runs `mutation-gate
          survivors --plan --deliver-later` after the setup the plan has,
          patching Pest where the config asks, and uploads the delivery it
-         left (ADR-0020, decision 21); `deliver-survivors` installs the gate as
+         left (ADR-0020); `deliver-survivors` installs the gate as
          `fetch` does and delivers it, which writes the comment over its
          planned state alone;
        - `shard`, one matrix job per shard, checks out the calling repository,
@@ -330,10 +331,10 @@ about Laravel, NativePHP or the project's modules, and does not.
      the tag of the release's line to it: `vMAJOR.MINOR` while the major is 0
      (`v0.1`), and `vMAJOR` from 1.0.0.
    - **Dogfooding.** The package's own CI runs its self-gate through the local
-     reusable workflow, whose shard jobs run the action from the same commit
-     (decision 1). So the workflow and the action's shard mode are exercised on
-     every pull request by the code in that pull request. The action's one-job
-     mode runs the same setup steps and the same CLI.
+     reusable workflow, whose shard jobs run the action from the same commit.
+     So the workflow and the action's shard mode are exercised on every pull
+     request by the code in that pull request. The action's one-job mode runs
+     the same setup steps and the same CLI.
 
 9. **Commits and releases.**
    - **Every commit:**
@@ -346,7 +347,7 @@ about Laravel, NativePHP or the project's modules, and does not.
      `Spec: 0006`, or several numbers. The commit-msg hook checks that each
      number is an ADR in `.docs/decisions`.
    - **The first release is 0.1.0, and the only one planned.** It holds every
-     feature the README lists (ADR-0013, decision 17), and is tagged only when
+     feature the README lists (ADR-0013), and is tagged only when
      each is implemented, tested, gated at 100% and documented in the README.
      Nothing is tagged before that: no release candidates. Until then a
      project can require `dev-main`.

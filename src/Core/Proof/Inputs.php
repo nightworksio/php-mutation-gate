@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 
 /**
  * What a proof records of the inputs its result came from, beside its key
- * (ADR-0008, decision 1): the digest of the unit's source, of what decides its
+ * (ADR-0008): the digest of the unit's source, of what decides its
  * mutant set besides it, and of each test file that killed one of its
  * mutants, with the support that file reads; and the commit they were taken
  * at, where the working tree held nothing that commit does not.

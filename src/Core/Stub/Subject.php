@@ -16,7 +16,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Survivors;
 
 /**
  * What a stub is written for: a survivor or an uncovered mutant, or the first
- * survivor of a cluster with every member (ADR-0022, decision 16); the
+ * survivor of a cluster with every member (ADR-0022); the
  * function its code is in; its unit, which says what judges it; and what a
  * test that reads the source must find, where only such a test kills it.
  */
@@ -47,7 +47,7 @@ final readonly class Subject
     /**
      * This subject, whose first mutant's mutator is pinned by source: only a
      * test that runs the code and then reads its file kills its mutants
-     * (ADR-0021, decision 19).
+     * (ADR-0021).
      */
     public function pinned(SourcePin $pin): self
     {

@@ -9,7 +9,7 @@ namespace NightWorksIO\MutationGate\Core\Config;
  * the key a proof is stored under. One that decides how the gate runs, such
  * as what a change reaches, where proofs are read from or which of them are
  * trusted, is not in the key, but a change to it leaves no proof carried
- * across it (ADR-0005, decision 4). One that only judges or reports changes
+ * across it (ADR-0005). One that only judges or reports changes
  * neither, so changing it re-runs nothing.
  */
 enum Effect: string

@@ -57,7 +57,7 @@ use function unlink;
 
 /**
  * PHPStan, asked about a mutant in the mode its authors built for editors
- * (ADR-0020, decisions 6 and 7): `--tmp-file` stands the mutant in for its
+ * (ADR-0020): `--tmp-file` stands the mutant in for its
  * original. It reads a config of the gate's own, which includes the
  * project's, analyses in one process, and does not report an ignore that
  * matched nothing. The warm-up analyses every file the config names and

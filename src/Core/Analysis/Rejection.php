@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Analysis;
 
 /**
- * Why a static analyser killed a mutant (ADR-0020, decision 10): the
+ * Why a static analyser killed a mutant (ADR-0020): the
  * analyser that rejected it, and the error it found that the original does
  * not have, in the file it sits in. A mutant's record keeps it, in a shard's
  * results and in a proof, so a proved kill by static analysis can still say

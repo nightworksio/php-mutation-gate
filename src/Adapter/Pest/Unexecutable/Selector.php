@@ -146,7 +146,7 @@ final readonly class Selector
     /**
      * How long a run of the tests in some files is allowed: the standard
      * mutant limit of their own time, as the map timed them, kept between
-     * the bounds (ADR-0008, decision 2).
+     * the bounds (ADR-0008).
      */
     public function limitOf(Paths $files, LimitBounds $bounds): Seconds
     {

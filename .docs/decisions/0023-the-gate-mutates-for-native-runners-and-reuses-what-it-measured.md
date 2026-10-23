@@ -11,20 +11,20 @@ follows was read in the vendored sources (pest-plugin-mutate 5.0.2, Pest
 manual.
 
 - **Coverage is measured whole.** Every plan runs the suite under coverage,
-  or reads the map another job wrote (ADR-0006 decision 1). Under Pest,
+  or reads the map another job wrote (ADR-0006). Under Pest,
   every shard also runs its own opening suite unless `pest.patch` is on
-  (ADR-0004 decision 3). On a large suite that coverage run is often the
+  (ADR-0004). On a large suite that coverage run is often the
   largest fixed cost of a pull request.
 - **Both runners already use every core within one invocation.** Pest keeps
   a pool of `processes` slots under `--parallel`, by default the core count
   `fidry/cpu-core-counter` gives, and starts the next mutant's child as soon
   as a slot frees. Infection takes `--threads=<n>`. The idle cores are
   *between* invocations: a shard runs each held unit as an invocation of its
-  own (ADR-0006 decision 3), and ADR-0004 decision 8's judging runs, survivor
+  own (ADR-0006), and ADR-0004's judging runs, survivor
   confirmation and the static-analysis checks of ADR-0020 run one after
   another.
 - **One Pest `--mutate` runs per checkout.** Pest writes its opening
-  coverage to a fixed path (ADR-0004 decision 3), and its mutated files
+  coverage to a fixed path (ADR-0004), and its mutated files
   under its own vendor directory.
 - **Every mutant runs in a fresh PHP process.** Pest starts `vendor/bin/pest`
   per mutant, and its mutate plugin serves the mutated file through an
@@ -37,7 +37,7 @@ manual.
 - **PHP cannot unload or redefine a class.** A process that has loaded the
   original file cannot load its mutant. That is why each mutant gets a
   fresh process, and why the gate already guards against a file *loaded
-  before the override* (ADR-0004 decision 8). Booting once and running many
+  before the override* (ADR-0004). Booting once and running many
   mutants therefore needs either a fork per mutant, or mutant schemata:
   every mutant of a file compiled into one version, switched by a variable
   (Untch, Offutt and Harrold, 1993). `pcntl`, which forks, is available only
@@ -65,7 +65,7 @@ manual.
    - The key of a test file's entries reads the file, every file its tests
      executed by the map, what runs before every test and the files that
      define the runner under the test directories, every file all of those
-     name, followed name by name (ADR-0007 decision 2, item 7's matching,
+     name, followed name by name (ADR-0007, item 7's matching,
      over sources as well as support), and what every key's base reads: the
      gate, the runner's identity, the config, `installed.json`, the files
      that define the runner, every CI definition, and every file outside the
@@ -89,25 +89,25 @@ manual.
      re-measured: the gate cannot see what a template makes a test execute.
    - `coverage.incremental`, a boolean, `true` by default, judges only: an
      entry is reused only under its own key, so reuse never changes what a
-     proof's key reads. Item 9 of the key (ADR-0007 decision 2) already
+     proof's key reads. Item 9 of the key (ADR-0007) already
      holds each covered line's test ids.
 
 2. **The map is kept beside the ledger, under the ledger's rules.**
    - The ProofStore port reads and keeps a named companion object per scope,
-     beside the ledger, with the ledger's read and write rules (ADR-0007
-     decision 4). The coverage map is one: `<scope>/coverage.json.gz`, the
-     gate's format-1 map with a key per test entry and the `commit` and
-     `dirty` fields of ADR-0020. The static analyser's cache is another
+     beside the ledger, with the ledger's read and write rules (ADR-0007).
+     The coverage map is one: `<scope>/coverage.json.gz`, the gate's
+     format-1 map with a key per test entry and the `commit` and `dirty`
+     fields of ADR-0020. The static analyser's cache is another
      (ADR-0020).
    - A run reads the map its own scope keeps first, and the default
      branch's where its own scope keeps none it can read. Every run that
      writes proofs keeps its map in its own scope, from its verdict, as it
      writes its ledger, so the default branch's scope is kept only by runs
      on that branch. A map measured in a dirty working tree is not kept. A
-     map is data, never PHP (ADR-0006 decision 1).
+     map is data, never PHP (ADR-0006).
    - A pull request's runs execute its code while the suite is measured, so
      its own scope's map is the pull request's own data, as its own
-     scope's proofs are (ADR-0007, decision 3). Its code can write any map
+     scope's proofs are (ADR-0007). Its code can write any map
      it likes there. The map names the tests that cover each line, which
      choose the tests that judge a mutant, and each test's duration, which
      sets a mutant's limit (ADR-0004) and timeout triage (ADR-0008). A
@@ -117,7 +117,7 @@ manual.
      pull request never touches, whose entry keys never move, so they
      outlive a revert of the code that wrote them, and the pull request's
      final diff passes on kills no test made.
-   - The `passed` rule contains it (ADR-0007, decision 3). A verdict whose
+   - The `passed` rule contains it (ADR-0007). A verdict whose
      plan measured against its own scope's map records that in `passed`,
      and such a pass, like one that used a proof of its own scope, is never
      trusted on the default branch. So the forgery can only pass the pull
@@ -130,8 +130,7 @@ manual.
      or 31,000,000 unpacked, twice the gate's own map, is neither read nor
      kept, and the run that would keep it says so; the next run measures
      every test.
-   - This amends ADR-0001 decision 2's `ProofStore` row and ADR-0007
-     decision 4.
+   - This amends ADR-0001's `ProofStore` row and ADR-0007.
 
 3. **Only some tests are measured, through the existing coverage method.**
    - The Runner port's `coverage(CoverageRun|CoverageRead)` takes a subset
@@ -142,27 +141,27 @@ manual.
    - **A subset of single tests** narrows by test id: `--test-id-filter-file`
      for Infection, or `--filter` on a PHPUnit release without it, and
      `--filter` for Pest where a file's entries are mixed.
-   - A test of a suite `tests.holding` lists (ADR-0002, decision 8) is
+   - A test of a suite `tests.holding` lists (ADR-0002) is
      measured among those suites, and its entry keeps only the lines it runs
-     inside the paths it holds (ADR-0005, decision 9).
+     inside the paths it holds (ADR-0005).
    - The gate merges the partial map into the kept one: re-measured entries
      are replaced, a deleted test file's entries are dropped, and each
      untouched test keeps its recorded duration. For a subset of test files,
      the re-measured entries are those of the tests the port's `testsIn`
      names for those files. The merged map records where it was measured.
    - The Runner contract suite asserts that the merged map equals a full
-     run's on its fixture library (ADR-0004 decision 7).
+     run's on its fixture library (ADR-0004).
 
 4. **The gate writes each runner's own coverage input from its map.**
    - For Infection: `coverage-xml/index.xml`, one file per source with its
      `covered by` lists, and a JUnit file with each test's time. A contract
      test proves that Infection judges the same mutants from a written
      directory as from PHPUnit's own. This extends the directory ADR-0004
-     decision 4 already writes from a handed-over map.
+     already writes from a handed-over map.
    - For Pest: the `--coverage-php` file `pest.patch` reads. Without
      `pest.patch`, Pest still runs its opening suite, and `doctor` says what
-     that costs (ADR-0017 decision 10).
-   - This amends ADR-0004 decisions 1, 3 and 4, and ADR-0006 decision 1.
+     that costs (ADR-0017).
+   - This amends ADR-0004, and ADR-0006.
 
 ### Every core
 
@@ -173,13 +172,13 @@ manual.
    - Workers take the next piece as cores free up. Each invocation is given
      a process count, a long one more, and the queue's small pieces fill
      the cores a finishing invocation leaves.
-   - This amends ADR-0006 decision 3: a shard runs its invocations side by
+   - This amends ADR-0006: a shard runs its invocations side by
      side.
    - A runner starts its processes through the `Processes` port: one run to
      its end, or several side by side, each started in a free place
      and none started once the time given to start them has passed. `Cli`
      builds its one adapter, local processes through `symfony/process`, and
-     hands it to the first-party runners. This amends ADR-0001 decision 2:
+     hands it to the first-party runners. This amends ADR-0001:
      there are eleven ports.
    - The PHPUnit runner judges its mutants side by side in batches, and the
      Pest runner tries its unexecutable mutants side by side, each run
@@ -199,8 +198,8 @@ manual.
      Pest invocations run side by side. Without it, Pest invocations stay
      serial, and `plan` says so once.
    - Judging runs, confirmations and checks are separate processes already.
-   - `--processes` is still never passed to Pest (ADR-0004 decision 3).
-     This amends ADR-0004 decision 3 with the patch's work directory.
+   - `--processes` is still never passed to Pest (ADR-0004).
+     This amends ADR-0004 with the patch's work directory.
 
 7. **The pool counts the cores the process is allowed.**
    - `run.processes`: `auto` (default) or an integer. `auto` is the
@@ -208,9 +207,8 @@ manual.
      cores, as `fidry/cpu-core-counter` answers.
    - The pool never runs more processes than that across its workers.
    - It judges only: how many processes run never changes a mutant's result,
-     since timeouts are triaged against measured test time (ADR-0008
-     decision 2).
-   - The JSON report's `run` section (ADR-0016 decision 18) shows each
+     since timeouts are triaged against measured test time (ADR-0008).
+   - The JSON report's `run` section (ADR-0016) shows each
      shard's pieces' summed time over its wall time.
 
 ### The gate's own mutants
@@ -262,10 +260,10 @@ manual.
      the mutated file from before Composer's autoloader loads anything,
      `files` autoloads included, wherever PHP includes or reads the file by
      any path that names it, so a test that reads the source sees the mutant
-     (ADR-0021 decision 19). It falls back to the real file for every other
+     (ADR-0021). It falls back to the real file for every other
      path, and for an open that writes. The file and the mutated file each
      have a variable of their own.
-   - ADR-0004 decision 8's guards check it: the wrapper writes to the file
+   - ADR-0004's guards check it: the wrapper writes to the file
      `MUTATION_GATE_GUARD` names each time it serves the mutated file, in any
      of the run's processes, and the extension writes there where opcache
      could serve a cached original. A run that served nothing, or could have
@@ -293,15 +291,15 @@ manual.
      it unjudged, and so does a run whose every test was skipped or marked
      incomplete, with what PHPUnit said where it failed the run.
    - The gate enforces the timeout on the process: a mutant's run is allowed
-     the standard mutant limit (ADR-0008, decision 2), three times the
+     the standard mutant limit (ADR-0008), three times the
      shard's measured start-up plus three times its covering tests' own
      time, as the coverage map timed them, kept between `timeouts.seconds`
      and `timeouts.most`, which the flows hand the runner;
      `timeouts.seconds` alone where a covering test is untimed. A run again
-     takes the most the flows give it in place of `timeouts.most` (ADR-0008
-     decision 2).
+     takes the most the flows give it in place of `timeouts.most`
+     (ADR-0008).
    - A run that selects its tests by their ids is also stopped at its
-     silence limit (ADR-0008, decision 2): the same rule, of its slowest
+     silence limit (ADR-0008): the same rule, of its slowest
      covering test's own time, where every covering test is timed. The
      silence is counted from the last line the extension added to the
      results file, as a test started or ended, so a run's start before its
@@ -310,7 +308,7 @@ manual.
      no silence limit. A mutant stopped there timed out, at its own limit,
      with a reason naming the silence limit.
    - Each mutant's PHPUnit, and every process it starts, runs under the
-     memory cap (ADR-0004 decision 9): the cap's ini, in the runner's own
+     memory cap (ADR-0004): the cap's ini, in the runner's own
      directory, also sets `display_errors=stdout`, and the run's
      `PHP_INI_SCAN_DIR` names its directory after those the gate's own
      names, or PHP's own where it names none. A run that killed the mutant,
@@ -330,11 +328,11 @@ manual.
     - **Coverage:** `--coverage-php`, read as the Pest adapter reads it, with
       each test's duration from the map's own test results, and partial runs
       through `--group` or `--filter`, with pcov collecting from the
-      project's root, less its vendor directory, as for Pest (ADR-0004,
-      decision 3). The project's PHPUnit loads the gate's
-      extension, so the gate is installed in the project's vendor directory,
-      and the map is written and read by one php-code-coverage. That matters:
-      a map one php-code-coverage release writes can be one another refuses.
+      project's root, less its vendor directory, as for Pest (ADR-0004).
+      The project's PHPUnit loads the gate's extension, so the gate is
+      installed in the project's vendor directory, and the map is
+      written and read by one php-code-coverage. That matters: a map one
+      php-code-coverage release writes can be one another refuses.
     - **Selection:** a mutant's covering tests by their ids, or, where PHPUnit
       cannot read an id back from a line, such as a data set's name with a
       line break, by the test files that declare their classes, found by
@@ -355,21 +353,18 @@ manual.
     - **Markers:** none of its own; `ignores.entries` is the one way to
       ignore a mutant it makes.
     - **Kills:** the first killer from events, and `--kill-matrix=full` by
-      leaving out `--stop-on-error` and `--stop-on-failure` (ADR-0014
-      decision 7).
-    - **Costs:** learned from the gate's own process timings (ADR-0006
-      decision 4).
+      leaving out `--stop-on-error` and `--stop-on-failure` (ADR-0014).
+    - **Costs:** learned from the gate's own process timings (ADR-0006).
     - `Adapter\PhpUnit` holds the extension, the runner and the override. No
       port changes. It behaves as `RunnerBehaviour::standard()` says: it lists
       `#[Holds]` as groups, can raise a limit, reads the map the plan handed
-      each shard, and runs a mutant on each core at once (decisions 5 and
-      12).
+      each shard, and runs a mutant on each core at once.
 
 11. **Zero-config chooses the PHPUnit runner only where nothing else fits.**
     - `runner: phpunit` is chosen only when neither Pest's mutate plugin nor
       Infection is installed, and PHPUnit is. With Infection installed it
       stays Infection, and with both runners installed the refusal of
-      ADR-0002 decision 5 applies.
+      ADR-0002 applies.
     - With Pest installed but not its mutate plugin, zero-config refuses (exit
       code 2) and names the plugin to install: PHPUnit cannot run a Pest
       suite. With none of the three installed, the refusal names all three.
@@ -378,8 +373,8 @@ manual.
       fires for it.
     - `init` asks, and suggests `phpunit` for a PHPUnit project with no
       Infection config.
-    - This amends ADR-0001 decision 2's runner row, ADR-0002 decision 5, and
-      ADR-0011 decision 10 (the PHPUnit versions supported).
+    - This amends ADR-0001's runner row, ADR-0002, and
+      ADR-0011 (the PHPUnit versions supported).
 
 ### Warm workers
 
@@ -392,7 +387,7 @@ manual.
       claim. The `Processes` port starts the workers as it starts any run,
       and no port changes.
     - A worker is `bin/mutation-gate-worker`, started as a mutant's own run
-      starts PHP, with the override registered at start (decision 9). It
+      starts PHP, with the override registered at start. It
       boots as PHPUnit's own script does: the autoloader, PHPUnit's
       configuration and its PHP settings, then the configured bootstrap.
     - For each mutant it forks a child, which takes on the variables that
@@ -443,16 +438,15 @@ manual.
     - `runner.workers`: `fork` (the default) or `fresh`. Under a runner that
       is not native, and on a PHP that cannot fork, every mutant runs in a
       fresh process whatever it says.
-    - It affects results and is in key item 3 (ADR-0007 decision 2.3), since
-      a boot's state is a new source of state, as test order is (ADR-0013
-      decision 4).
-    - Survivor confirmation (ADR-0008 decision 3) always runs in a fresh
+    - It affects results and is in key item 3 (ADR-0007), since
+      a boot's state is a new source of state, as test order is (ADR-0013).
+    - Survivor confirmation (ADR-0008) always runs in a fresh
       process, so a survivor a warm boot made shows up as flaky.
     - CI's `warm workers` job runs the gate with each setting on a pinned
       PHPUnit library, `lcobucci/jwt`, and says what each run took. Where
       they disagree it runs each setting twice more, and fails where every
       forked run gives a mutant one verdict and every fresh run another. The benchmark's Symfony
-      project (ADR-0017 decision 14) measures the boot's share of a mutant's
+      project (ADR-0017) measures the boot's share of a mutant's
       time once the benchmark lands.
 
 ## Alternatives considered

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Assertion;
 
-/** What an assertion checks (ADR-0025, decision 5). */
+/** What an assertion checks (ADR-0025). */
 enum AssertionKind: string
 {
     /** That something is there, or is not: `assertNotNull`, `->toBeTruthy()`. */

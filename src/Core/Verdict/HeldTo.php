@@ -22,10 +22,10 @@ enum HeldTo
     case TreesAndNewCode;
     case NewCode;
 
-    /** The security sets alone, as `--security` holds a run of the security mutators (ADR-0021, decision 20). */
+    /** The security sets alone, as `--security` holds a run of the security mutators (ADR-0021). */
     case Security;
 
-    /** No floor, as `--suite` holds a run of one suite's tests alone (ADR-0025, decision 9). */
+    /** No floor, as `--suite` holds a run of one suite's tests alone (ADR-0025). */
     case Nothing;
 
     /**

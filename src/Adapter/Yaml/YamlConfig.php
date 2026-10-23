@@ -59,7 +59,7 @@ final readonly class YamlConfig implements ConfigLoader
 
     /**
      * A YAML config as `migrate` would write it, written again from its
-     * migrated form, which keeps none of its comments (ADR-0026, decision 3);
+     * migrated form, which keeps none of its comments (ADR-0026);
      * or why it cannot be read.
      */
     public function migrated(string $shown, string $text, Migrations $migrations): Migrated|CannotJudge

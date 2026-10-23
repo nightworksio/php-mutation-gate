@@ -102,7 +102,7 @@ final readonly class ProjectFiles
         return clone($this, ['sonarSources' => $sources]);
     }
 
-    /** These, with why the last run's warm workers forked nothing (ADR-0023, decision 13). */
+    /** These, with why the last run's warm workers forked nothing (ADR-0023). */
     public function withWarmRefusal(WarmRefusal $refusal): self
     {
         return clone($this, ['warmRefusal' => $refusal]);

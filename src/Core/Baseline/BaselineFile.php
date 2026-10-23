@@ -62,7 +62,7 @@ final readonly class BaselineFile
 
         JSON;
 
-    /** The packages' security entries, where there are any (ADR-0021, decision 17). */
+    /** The packages' security entries, where there are any (ADR-0021). */
     private const string SECURITY = <<<'JSON'
         ,
             "security": {%s}

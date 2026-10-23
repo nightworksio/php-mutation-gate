@@ -90,7 +90,7 @@ final readonly class MarkdownItems
 
     /**
      * Ignored mutants as a table: where, mutator, the gate's id and why it is
-     * ignored (ADR-0008, decision 4).
+     * ignored (ADR-0008).
      *
      * @param  list<JudgedMutant> $mutants
      * @return list<string>

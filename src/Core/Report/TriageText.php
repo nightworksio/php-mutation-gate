@@ -18,7 +18,7 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use function sprintf;
 
 /**
- * What `triage` found over its runs (ADR-0008, decision 3): each mutant that
+ * What `triage` found over its runs (ADR-0008): each mutant that
  * varied, where it is and what made it, with the runs that gave it each
  * status and the tests that killed it in them, and its reproduce command;
  * then how many of the mutants varied.

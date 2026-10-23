@@ -22,9 +22,9 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * `doctor`: what would fail, or run slowly, before a run does (ADR-0017,
- * decision 9). It reads and never writes, runs none of the project's code
- * unless `--measure` asks it to run the suite once, reads GitHub only when
+ * `doctor`: what would fail, or run slowly, before a run does (ADR-0017).
+ * It reads and never writes, runs none of the project's code unless
+ * `--measure` asks it to run the suite once, reads GitHub only when
  * `--online` asks it to, and exits 1 when anything would fail a run.
  */
 final readonly class Doctor

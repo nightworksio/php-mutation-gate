@@ -20,7 +20,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 use function sprintf;
 
 /**
- * What a plan expects its run to take (ADR-0006, decision 4): each shard's
+ * What a plan expects its run to take (ADR-0006): each shard's
  * units, opening run and `shards.setup`, and what the estimate rests on,
  * learned from earlier shards, measured from the plan's first run, or
  * guessed from `costs.secondsPerLine`. A shard of no units is no job.
@@ -170,8 +170,7 @@ final readonly class PlanEstimates
     /**
      * Where any unit's estimate rests on what the plan measured of its first
      * run, a line saying the runners the shards run on are taken to run as
-     * many mutants at once as the machine the plan ran on (ADR-0006,
-     * decision 4).
+     * many mutants at once as the machine the plan ran on (ADR-0006).
      *
      * @return list<string>
      */
@@ -188,10 +187,10 @@ final readonly class PlanEstimates
 
     /**
      * Where `shards.target` asks for a wall time the longest shard cannot
-     * meet, a warning that says what stops it: `shards.max` (ADR-0013,
-     * decision 6), or, short of it, shards that would each cost less than
-     * twice their overhead or a unit no cut splits (decision 7); none where
-     * it is met or there is no target.
+     * meet, a warning that says what stops it: `shards.max` (ADR-0013),
+     * or, short of it, shards that would each cost less than twice their
+     * overhead or a unit no cut splits; none where it is met
+     * or there is no target.
      */
     private function unmet(Seconds|Absent $target, int $most): Warnings
     {

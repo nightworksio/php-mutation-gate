@@ -9,7 +9,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 
 /**
- * Memory triage (ADR-0004, decision 9): a mutant whose process ran out of
+ * Memory triage (ADR-0004): a mutant whose process ran out of
  * the memory cap, whose judging tests, run unmutated under the same cap and
  * served as it was, finished under that cap, needed far more than its tests
  * and ran away, and is killed by the memory cap; any other, and one whose

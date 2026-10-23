@@ -35,13 +35,13 @@ use NightWorksIO\MutationGate\Core\Written;
  * unit that ran to the end, at the base its keys were built on, what each
  * shard taught the cost model, where it made mutants with every mutator and
  * judged them by every test, so that a narrowed run never stands in for a
- * unit's time (ADR-0021 decision 20, ADR-0025 decision 9), the time each
+ * unit's time (ADR-0021, ADR-0025), the time each
  * analyser's checks of the shards' survivors took, where the verdict
  * passed, the commit it judged, the check-run it reported under and how many
  * proofs of the scope's own ledger it used, and, where the run judged every
  * unit it considered and git can say what the commit it judged was made of,
- * that commit as the scope's last run, which any other run removes (ADR-0007,
- * decision 3).
+ * that commit as the scope's last run, which any other run removes
+ * (ADR-0007).
  */
 final readonly class Recorded
 {
@@ -103,9 +103,10 @@ final readonly class Recorded
 
     /**
      * Whether the run judged every unit it considered: no shard's budget
-     * stopped it, no held unit's tests missed its lines, and every unit it ran
-     * left a proof, or carries its pruned mutators' last results (ADR-0005,
-     * decision 2; ADR-0025, decision 1).
+     * stopped it, no sample left a unit out, no held unit's tests missed its
+     * lines, and every unit it ran left a proof, or carries its pruned
+     * mutators' last results (ADR-0005; ADR-0020;
+     * ADR-0025).
      *
      * @param list<array{UnitResult, Proof|NotRecorded}> $recordings
      */
@@ -114,6 +115,7 @@ final readonly class Recorded
         $pruned = $plan->considered()->pruned()->files();
 
         return ! $results->wereCutShort()
+            && ! $plan->considered()->sample()->isDrawn()
             && count($results->misses()) === 0
             && array_all(
                 $recordings,
@@ -125,7 +127,7 @@ final readonly class Recorded
     /**
      * The ledger, having learned what each mutant the run judged itself came
      * to, by its runner and mutator, which decides what later runs prune
-     * (ADR-0025, decision 2).
+     * (ADR-0025).
      */
     private function survived(Ledger $ledger, UnitResults $fresh): Ledger
     {
@@ -170,7 +172,7 @@ final readonly class Recorded
     /**
      * The ledger, having learned the first killer of every mutant the shards
      * killed, in the function it is in, and keeping the killers of functions
-     * only in the files that still exist (ADR-0013, decision 2).
+     * only in the files that still exist (ADR-0013).
      */
     private function taught(Ledger|CannotJudge $ledger, UnitResults $fresh): Ledger|CannotJudge
     {

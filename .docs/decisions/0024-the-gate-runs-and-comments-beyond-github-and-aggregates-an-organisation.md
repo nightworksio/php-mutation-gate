@@ -9,14 +9,13 @@ The gate plans, runs and judges on GitHub Actions, GitLab CI, Buildkite,
 CircleCI and a JSON plan (ADR-0006). It comments and annotates only on
 GitHub (ADR-0009). It is started from the command line, git's hooks
 (ADR-0010) or CI. Its default branch publishes a badge, a trend and its
-savings to a data branch (ADR-0009 decision 5, ADR-0017 decision 13). Four
+savings to a data branch (ADR-0009, ADR-0017). Four
 gaps remain, and the facts that shape each, read in each platform's
 documentation, are these.
 
 - **Three more CIs.** A plan becomes jobs, a job learns its shard, the run
   names its ref, whether it is a pull request and its default branch, and a
-  cache is either a trust boundary or not (ADR-0006 decision 5, ADR-0007
-  decision 5).
+  cache is either a trust boundary or not (ADR-0006, ADR-0007).
 
   | | Bitbucket Pipelines | Azure DevOps | Jenkins |
   |---|---|---|---|
@@ -110,19 +109,19 @@ documentation, are these.
      `CHANGE_ID`, and a tag, `TAG_NAME`, has no scope, as on Bitbucket. Only
      a multibranch project sets these, so the Jenkinsfile runs from one.
    - **Bitbucket Pipelines.** Parallelism is fixed in the pipeline, as on
-     CircleCI (ADR-0006 decision 5): `plan --shards=<N>`, and each step's
+     CircleCI (ADR-0006): `plan --shards=<N>`, and each step's
      shard is `BITBUCKET_PARALLEL_STEP` plus 1. The verdicts of the default
      branch's pipeline and of the custom pipeline `mutation-full`, the full
      run, are each the last ordinary step, deploying to the environment
-     that holds the store's keys (decision 4), because a `final` step cannot
+     that holds the store's keys, because a `final` step cannot
      deploy. After a failed shard Bitbucket skips such a verdict, and the
      pipeline is red with no *cannot judge* report, and while one such
      verdict deploys, Bitbucket pauses any other at its own. A pull request's
      verdict is the `final` step. The README also shows the
      dynamic-pipelines form for Premium workspaces.
 
-   This amends ADR-0006 decision 5, whose two tables gain a row for each, and
-   ADR-0007 decision 3, whose list of the run a proof names gains three
+   This amends ADR-0006, whose two tables gain a row for each, and
+   ADR-0007, whose list of the run a proof names gains three
    entries.
 
    | CI | Ref | Pull request | Default branch | The run a proof names |
@@ -133,7 +132,7 @@ documentation, are these.
 
 2. **None of the three names its default branch, so `ci.defaultBranch`
    decides**, and failing that git's `origin/HEAD`, and failing that `main`,
-   as for the JSON plan and CircleCI (ADR-0006 decision 5). `init --ci` for
+   as for the JSON plan and CircleCI (ADR-0006). `init --ci` for
    these three writes `ci.defaultBranch` into the config it writes, and
    where a config is kept that does not set it, says to set it to the branch
    the template is written for.
@@ -148,7 +147,7 @@ documentation, are these.
    only. Where the named file is a template another pipeline takes in, as
    `init --ci=azure` writes it, that other pipeline is outside the key: a
    change to it, such as its PHP image, reaches nothing, as with Buildkite's
-   uploading pipeline. This amends ADR-0005 decision 4.
+   uploading pipeline. This amends ADR-0005.
 
 4. **Each template keeps the ledger where its CI draws a trust boundary.**
    - **Azure DevOps:** the directory store in the `Cache@2` task, keyed by the
@@ -160,10 +159,10 @@ documentation, are these.
    - **Bitbucket and Jenkins:** an S3-compatible store (or any store whose
      writes need credentials), with credentials only default-branch builds
      hold. Bitbucket's caches are shared by every branch and Jenkins has
-     none, so neither is a boundary. This is ADR-0007 decision 5's reasoning
+     none, so neither is a boundary. This is ADR-0007's reasoning
      for Buildkite and CircleCI.
    - **Bitbucket's credentials** are variables of the deployment environment
-     `mutation-gate-store`, which only the deploying verdicts of decision 1
+     `mutation-gate-store`, which only the deploying verdicts
      name. Restricted to the default branch, which takes Premium, it is the
      boundary; without that restriction any branch whose pipeline names it
      gets the keys, and the template and README say so. Every other step,
@@ -179,45 +178,44 @@ documentation, are these.
      step holds no keys and reads the default branch's ledger through
      `proofs.store.with.publicUrl`.
 
-   This amends ADR-0007 decision 5.
+   This amends ADR-0007.
 
 5. **What the runners never see grows with these CIs.** Azure's
    `SYSTEM_ACCESSTOKEN`, the `AZURE_DEVOPS_EXT_PAT` that `az devops` reads,
    and Bitbucket's `BITBUCKET_STEP_OIDC_TOKEN` join what every run withholds
    from the runner
-   (`CiPlan::withheld`, ADR-0004 decision 3), as do the comment tokens of
-   decision 7. Jenkins hands a build no credential of its own, so its plan
+   (`CiPlan::withheld`, ADR-0004), as do the comment tokens. Jenkins hands a build no credential of its own, so its plan
    adds none. A project adds any other Bitbucket or Jenkins credential it
    passes to `runner.withhold`.
 
 6. **`init --ci=bitbucket|azure|jenkins` writes a pinned template**, by the
-   rules of ADR-0015 decisions 13 to 17. Azure's and Bitbucket's templates
+   rules of ADR-0015. Azure's and Bitbucket's templates
    are validated against each provider's published schema, which the test
    fetches from its URL into the system's temporary directory and holds to a
    SHA-256 digest, failing, never skipping, where the fetch fails or the
    digest differs. Azure's URL names the commit it is read at; Bitbucket's
    names no version, so the digest says when it changed.
    Jenkins publishes no schema for a Jenkinsfile, so its template is held by
-   its snapshot test alone. This amends ADR-0015 decisions 13 to 17.
+   its snapshot test alone. This amends ADR-0015.
    - **Azure DevOps.** `init --ci=azure` writes the gate's jobs as a template,
      `.azure/mutation-gate.yml`, and prints the `- template:` line that takes
-     them into the pipeline Azure runs, which it never edits (ADR-0015
-     decision 13). A config `init` writes names that template as
-     `ci.azure.definition`, as it names Buildkite's pipeline, and where a
-     config is kept, `init` says to. `Cache@2` saves only from a job that
-     succeeds, so a last job, run whatever the verdict decided, saves the
-     ledger the verdict wrote.
+     them into the pipeline Azure runs, which it never edits (ADR-0015).
+     A config `init` writes names that template as
+     `ci.azure.definition`, as it names Buildkite's pipeline, and where
+     a config is kept, `init` says to. `Cache@2` saves only from a job
+     that succeeds, so a last job, run whatever the verdict decided,
+     saves the ledger the verdict wrote.
    - **Bitbucket Pipelines.** `init --ci=bitbucket` prints the pipelines to
      add to `bitbucket-pipelines.yml`, which it never edits: the default
      branch's, every pull request's and `mutation-full`'s, each a plan step,
-     four parallel shard steps and the verdict of decision 1, each step
+     four parallel shard steps and the verdict, each step
      cloning the full history. A config `init` writes sets
-     `ci.defaultBranch` (decision 2).
+     `ci.defaultBranch`.
    - **Jenkins.** `init --ci=jenkins` prints the declarative pipeline to add
      to the Jenkinsfile `ci.jenkins.definition` names, which it never edits:
-     a plan stage, the shards of decision 1 and the verdict, with a `cron`
+     a plan stage, the shards and the verdict, with a `cron`
      trigger for the full run on the default branch. A config `init` writes
-     sets `ci.defaultBranch` (decision 2).
+     sets `ci.defaultBranch`.
 
 ### Comments beyond GitHub
 
@@ -227,29 +225,29 @@ documentation, are these.
      version in the template, and never the merge request's `vendor`.
    - It reads the verdict job's JSON report as untrusted data. Only fields
      valid against `resources/report.schema.json` are rendered, and each is
-     escaped as ADR-0009 decision 3 escapes everything the project wrote.
+     escaped as ADR-0009 escapes everything the project wrote.
    - The token is a masked CI variable passed to that job alone. The verdict
      job never has it, and the runners withhold it everywhere else.
-   - This is ADR-0019 decision 4's relay pattern, serving users' CIs too.
-     This amends ADR-0019 decision 4.
+   - This is ADR-0019's relay pattern, serving users' CIs too.
+     This amends ADR-0019.
    - The token for GitLab is a project access token with the scope `api` and
      the lowest role that can post merge request notes. The build's first
      step proves which role that is, starting with Reporter. For Bitbucket it
      is a repository access token with `pullrequest:write` only.
 
 8. **Each platform's own surface stands for GitHub's line annotations.**
-   - **GitLab:** the `gitlab` Code Quality report (ADR-0016 decision 5), in the
+   - **GitLab:** the `gitlab` Code Quality report (ADR-0016), in the
      merge request widget on every tier and on the diff on Ultimate. No line
      notes are posted.
    - **Bitbucket:** a Code Insights report, `mutation-gate`, of type `BUG`,
      `FAILED` when the verdict fails. It carries one annotation per mutant
      counted as not killed, at most 1,000, ranked as GitHub's annotations
-     are (ADR-0009 decision 3). The verdict job posts it through the
+     are (ADR-0009). The verdict job posts it through the
      pipeline's credential-free proxy, which holds no token to leak.
 
 9. **The comment has its planned state here too.** The pipeline runs the
    `mutation-comment` job after `plan`, where it reads the plan's JSON and
-   posts the planned state (ADR-0019 decision 11). It runs again after the
+   posts the planned state (ADR-0019). It runs again after the
    verdict, where it posts the judged state.
 
 10. **Mentions, forks and config.**
@@ -259,14 +257,14 @@ documentation, are these.
       owners) are parsed on GitLab.
     - A fork's pipeline runs in the fork on GitLab, and not at all on
       Bitbucket, with none of the parent's variables. No comment is posted,
-      and the job says why, as GitHub's reporter does (ADR-0009 decision 3).
+      and the job says why, as GitHub's reporter does (ADR-0009).
     - `reports` gains `gitlab-comment` and `bitbucket-comment`, each with
       `with.tokenEnv` (`MUTATION_GATE_GITLAB_TOKEN` and
       `MUTATION_GATE_BITBUCKET_TOKEN` by default), and `bitbucket-insights`.
       A literal token in the config is refused, as a webhook URL is
-      (ADR-0016 decision 11). They report only.
+      (ADR-0016). They report only.
 
-    This amends ADR-0009 decisions 1 and 3, and ADR-0016 decision 11.
+    This amends ADR-0009, and ADR-0016.
 
 ### Composer and hook managers
 
@@ -301,7 +299,7 @@ documentation, are these.
       --stdin={$STDIN}`, and a `pre-commit` action `vendor/bin/mutation-gate
       pre-commit`.
     - **GrumPHP:** a `shell` task running `vendor/bin/mutation-gate
-      pre-commit`, which never blocks (ADR-0015 decision 10). GrumPHP has no
+      pre-commit`, which never blocks (ADR-0015). GrumPHP has no
       `pre-push`, and the README says so.
     - **pre-commit:** the repository carries `.pre-commit-hooks.yaml`, with
       the hooks `mutation-gate-pre-push` (`stages: [pre-push]`, `language:
@@ -310,20 +308,20 @@ documentation, are these.
       `mutation-gate-pre-commit`. Each needs pre-commit 4.4.0, the first
       release with `language: unsupported`. The config `init` writes pins
       the repository to the gate's commit, as a CI definition pins it
-      (ADR-0015 decision 14), installs both hook types through
+      (ADR-0015), installs both hook types through
       `default_install_hook_types`, and sets a hook's `entry` where Composer
       links the gate elsewhere.
     - No code of the gate depends on any hook manager's classes.
     - `init --hook=captainhook|grumphp|pre-commit` writes the manager's
       config where the manager reads none, and otherwise prints the block to
-      add (ADR-0010 decision 3); for GrumPHP, any of the six files it looks
+      add (ADR-0010); for GrumPHP, any of the six files it looks
       for counts. It then names the command that installs the manager's
       hooks.
 
-    This amends ADR-0010 decision 3 and ADR-0017 decision 1.
+    This amends ADR-0010 and ADR-0017.
 
 13. **`pre-push` reads its refs from three places.** Git's hook input on stdin
-    (ADR-0010 decision 2), `--stdin=<text>` for CaptainHook's placeholder,
+    (ADR-0010), `--stdin=<text>` for CaptainHook's placeholder,
     and, where there is neither, `PRE_COMMIT_FROM_REF` and
     `PRE_COMMIT_TO_REF`. Each is parsed into the same refs. Where the remote
     holds none of a ref's history, the framework sets only
@@ -331,7 +329,7 @@ documentation, are these.
     read as a new ref at the commit the working tree is at. Each line must
     be a local ref, a local SHA, a remote ref and a remote SHA, the SHAs in
     hex, and anything else is refused. The `.pre-commit-hooks.yaml` hook ids
-    are public API. This amends ADR-0010 decision 2 and ADR-0011 decision 7.
+    are public API. This amends ADR-0010 and ADR-0011.
 
 ### An organisation's view
 
@@ -349,7 +347,7 @@ documentation, are these.
     - The page loads nothing at view time. It shows, per repository, the
       verdict, the score, the trees below their floors and the time saved in
       the last 30 days, with sparklines drawn as SVG by the trend renderer
-      (ADR-0009 decision 5), in tables that sort.
+      (ADR-0009), in tables that sort.
     - The command lives in `Cli`, reads through `Adapter\GitHub`, and
       aggregates in `Core`.
 
@@ -362,13 +360,13 @@ documentation, are these.
     ```
 
     `savings.last30Days` is in seconds. Its format is public API. This amends
-    ADR-0009 decision 5 and ADR-0011 decision 7.
+    ADR-0009 and ADR-0011.
 
 16. **A public site never shows a private repository.** Private and internal
     repositories are left out unless `--include-private` is given. Then
     `dashboard` refuses to render unless the Pages site is private, which it
     reads from the Pages API. The token reads contents only. This amends
-    ADR-0011 decision 8.
+    ADR-0011.
 
 ## Alternatives considered
 

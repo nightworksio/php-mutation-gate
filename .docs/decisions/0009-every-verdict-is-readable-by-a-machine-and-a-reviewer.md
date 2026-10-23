@@ -43,8 +43,7 @@ sees the same verdict.
    Which reporters run, each registered by its name in the package's own
    extension (ADR-0001):
    - **The console** (`console`) always. With `--output=problems` it prints
-     one line per result for editors instead of its table (ADR-0015,
-     decision 6).
+     one line per result for editors instead of its table (ADR-0015).
      Every line the gate's console writes, to standard output or standard
      error, starts no command in a CI runner's log. Split at `\r\n`, `\r`
      and `\n`, as the runners split it, a line whose trimmed text starts with
@@ -56,7 +55,7 @@ sees the same verdict.
      is printed `## [`. Text from outside inside a line, such as the
      analyser's rejection, is also one plain line with no control or format
      character. Two kinds of output are written past the console: the gate's
-     own commands, the annotations with their encoding (decision 3) and the
+     own commands, the annotations with their encoding and the
      Azure plan's output variable; and a plan printed for a CI to read, JSON
      with each `#` written `\u0023`, which every reader decodes back and no
      log reads a command in.
@@ -74,7 +73,7 @@ sees the same verdict.
      `pull_request` event when `GITHUB_TOKEN` is set, as the package's action
      and reusable workflow set it.
    - **The badge and the trend** (`badge`) when the verdict runs in CI on the
-     default branch (decision 5).
+     default branch.
    - **Chat alerts,** `slack`, `discord` and `webhook`, when listed in
      `reports` and the verdict runs in CI on the default branch and changes
      its state, and **OpenTelemetry**, `otlp`, when listed (ADR-0016).
@@ -142,7 +141,7 @@ sees the same verdict.
    - **SARIF 2.1.0** (`sarif`).
      - One run, with the tool named `mutation-gate`. Paths are relative to
        the repository. A local run (`CI` unset) also gives the absolute root
-       as `originalUriBaseIds.SRCROOT`, for editors (ADR-0015, decision 9).
+       as `originalUriBaseIds.SRCROOT`, for editors (ADR-0015).
      - Four rules: `survived`, `uncovered`, `unjudged` and `flaky`. The
        `unjudged` rule reports unjudged mutants and those too slow or too
        heavy to judge. A mutant proven equivalent is not a result (ADR-0013).
@@ -168,7 +167,7 @@ sees the same verdict.
      title names the gate's judgement and the mutator, as *Mutant survived:
      LessThan*. Where the mutant's record gives a reason, such as why it
      was left unjudged, the message starts with it, before the hint, as the
-     step summary's row does. Each warning of the verdict (decision 1) is a notice. GitHub
+     step summary's row does. Each warning of the verdict is a notice. GitHub
      keeps at most 10 error, 10 warning and 10 notice annotations per step, and
      50 per job, and drops the rest silently. So the gate writes all its
      annotations from one step, at most 10 of each, ranked: changed lines
@@ -404,11 +403,11 @@ sees the same verdict.
 
    The judging tests are named as *It is judged by `A`, `B`, `C` and n more.*
 
-   **As built.** The verdict takes a mutant's judging tests from the kill
+   The verdict takes a mutant's judging tests from the kill
    matrix: the tests that cover its line and those its record names as
    killers. For a held unit it keeps those of them its holding tests that
    run it are among, as the shard's result or the unit's proof lists them
-   (ADR-0005, decision 10). A held unit's result that lists none, from a
+   (ADR-0005). A held unit's result that lists none, from a
    proof an earlier gate wrote, names none.
 
 ## Alternatives considered

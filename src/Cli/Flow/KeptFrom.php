@@ -6,7 +6,7 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 /**
  * Where the coverage map a run measures against was kept, each case named as
- * the line that says how it was measured names it (ADR-0023, decision 2).
+ * the line that says how it was measured names it (ADR-0023).
  */
 enum KeptFrom: string
 {

@@ -25,7 +25,7 @@ use function trim;
  * `composer mutate [args]`: runs `vendor/bin/mutation-gate [args]`, by the
  * bin directory Composer links commands into, with no time limit, and exits
  * as the gate does; where the project has not installed the gate, it says
- * how to, and exits 2 (ADR-0024, decision 11). Its arguments are handed on as
+ * how to, and exits 2 (ADR-0024). Its arguments are handed on as
  * the command line spells them, as Composer hands a script's on.
  */
 final class MutateCommand extends BaseCommand

@@ -35,7 +35,7 @@ use NightWorksIO\MutationGate\Port\Processes;
  *   run in it. What the command sets, it gets.
  * - Where the command scans a memory cap's directory, its PHP processes scan
  *   it after the directories the inherited `PHP_INI_SCAN_DIR` names, or
- *   PHP's own where it names none (ADR-0004, decision 9).
+ *   PHP's own where it names none (ADR-0004).
  * - At its deadline it is stopped, and so is every process it started, as
  *   it is where it has made no progress for its silence limit.
  * - A process that cannot start, or fails while running, ends as a failure,

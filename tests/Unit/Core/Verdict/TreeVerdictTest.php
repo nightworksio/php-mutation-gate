@@ -7,6 +7,13 @@ use NightWorksIO\MutationGate\Core\Baseline\Unlowered;
 use NightWorksIO\MutationGate\Core\Cluster\Membership;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Sample\Census;
+use NightWorksIO\MutationGate\Core\Sample\Confidence;
+use NightWorksIO\MutationGate\Core\Sample\Estimate;
+use NightWorksIO\MutationGate\Core\Sample\Sample;
+use NightWorksIO\MutationGate\Core\Sample\Spread;
+use NightWorksIO\MutationGate\Core\Sample\Stratum;
+use NightWorksIO\MutationGate\Core\Sample\Tally;
 use NightWorksIO\MutationGate\Core\Score\Exempt;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Score;
@@ -173,3 +180,26 @@ it('clusters its survivors as it counts uncovered ones, and keeps the rest', fun
     'counted' => [Uncovered::Count, true],
     'left out of the score' => [Uncovered::Exclude, false],
 ]);
+
+it('is a census unless a sample estimated it', function () use ($judged, $makeThreeOfFour): void {
+    expect($judged(Floor::of(80), Unrecorded::floor(), $makeThreeOfFour())->estimate())->toBeInstanceOf(Census::class);
+});
+
+it('holds a sampled tree to its floor by its estimate, and raises no floor from it', function () use ($tree, $makeThreeOfFour): void {
+    $sample = Sample::drawn('a1b2c3', Confidence::NinetyFive, 2.0);
+    $estimate = Estimate::of(
+        Tally::of(3, 4),
+        1,
+        Stratum::of(10, 100, Spread::of(Tally::of(8, 10), Tally::of(5, 10), Tally::of(9, 10))),
+        $sample,
+    );
+    $verdict = TreeVerdict::judged($tree(Floor::of(60)), Unrecorded::floor(), JudgedUnits::none(), $makeThreeOfFour(), Uncovered::Count, $estimate);
+    $exact = TreeVerdict::judged($tree(Floor::of(60)), Unrecorded::floor(), JudgedUnits::none(), $makeThreeOfFour(), Uncovered::Count, Estimate::of(Tally::of(3, 4), 1, Stratum::none(), $sample));
+
+    expect($verdict->estimate())->toBe($estimate)
+        ->and($verdict->judgement())->toBe(Judgement::Undecided)
+        ->and($verdict->raised())->toEqual(Unraised::floor())
+        ->and($verdict->score())->toEqual(Score::ofHundredths(7_500))
+        ->and($exact->judgement())->toBe(Judgement::Passed)
+        ->and($exact->raised())->toEqual(Unraised::floor());
+});

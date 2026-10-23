@@ -3,7 +3,7 @@
 
 Usage: hook_managers.py <gate checkout> <work directory> <pre-commit zipapp> --findings <file>
 
-Run by `hook managers` (ADR-0024, decisions 11 to 13). It builds one small
+Run by `hook managers` (ADR-0024). It builds one small
 PHPUnit project that requires this checkout's gate and its Composer plugin
 through path repositories, with CaptainHook and GrumPHP installed and
 GrumPHP's Composer plugin off. In it, `composer mutate` must run the gate
@@ -23,7 +23,7 @@ pre-commit framework's config is pointed at this checkout's commit, whose
 `.pre-commit-hooks.yaml` it reads. The job's environment says it is CI, which
 the gate would read; every command runs without the CI's variables, as a
 developer's machine does. The findings file holds each expectation that did
-not hold, with the end of what the command printed (ADR-0019, decision 5).
+not hold, with the end of what the command printed (ADR-0019).
 
 Two halves: `judge` and `local_repository` decide from text alone, and
 `main` runs the commands.

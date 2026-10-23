@@ -34,7 +34,7 @@ final readonly class ProjectPhpUnit
     /**
      * Where the config has PHP print errors: the last `display_errors` its
      * `<php>` sets, which PHPUnit sets as it starts, over the cap's ini
-     * (ADR-0004, decision 9); none where it sets none or is not XML.
+     * (ADR-0004); none where it sets none or is not XML.
      */
     public static function display(Project $project, OwnConfig $config): ErrorDisplay|NotGiven
     {

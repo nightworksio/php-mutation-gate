@@ -12,13 +12,13 @@ use function str_starts_with;
 
 /**
  * A program's optimized opcodes, as opcache dumps them, with what tells two
- * copies of one program apart and nothing else taken out (ADR-0013,
- * decision 10): the path the program was compiled at, wherever the dump
- * names its file or directory. The lines each function spans and the line
- * in each closure's name are kept, since a program can read them, as an
- * exception's line or a closure's name, and a literal the program writes is
- * kept as it is, so a mutant that moves code or changes a literal never
- * compares equal.
+ * copies of one program apart and nothing else taken out (ADR-0013):
+ * the path the program was compiled at, wherever the dump names its
+ * file or directory. The lines each function spans and the line in each
+ * closure's name are kept, since a program can read them, as an
+ * exception's line or a closure's name, and a literal the program
+ * writes is kept as it is, so a mutant that moves code or changes a
+ * literal never compares equal.
  */
 final readonly class Opcodes
 {

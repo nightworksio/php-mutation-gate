@@ -39,7 +39,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * in place on every run, passing runs included. A run that cannot comment,
  * such as a fork's, whose token GitHub makes read-only, says why and fails
  * nothing; the step summary carries the same content. The plan job writes
- * it first in its planned state (ADR-0009, decision 3).
+ * it first in its planned state (ADR-0009).
  */
 final readonly class PullRequestComment implements Configurable, Deferring, Reporter
 {
@@ -138,7 +138,7 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
 
     /**
      * The comment in its planned state, which the plan job writes before the
-     * verdict replaces it (ADR-0019, decision 11).
+     * verdict replaces it (ADR-0019).
      */
     public function planned(PlannedWork $work): Written|NotWritten
     {
@@ -147,7 +147,7 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
 
     /**
      * A delivery, with the comment's markdown, where the run is a pull request's, for `deliver` to write with the
-     * token its own environment holds (ADR-0007 decision 5); unchanged on any other run.
+     * token its own environment holds (ADR-0007); unchanged on any other run.
      */
     public function deferred(Verdict $verdict, Delivery $delivery): Delivery
     {
@@ -167,7 +167,7 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
     /**
      * The comment while the last run's survivors are re-checked, written only
      * over its planned state, so a verdict already written is never replaced
-     * (ADR-0020, decision 21).
+     * (ADR-0020).
      */
     public function rechecked(Rechecked $rechecked): Written|NotWritten
     {
@@ -193,7 +193,7 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
 
     /**
      * The sticky comment, holding this, written or updated in place: what `deliver` writes of a comment a run left
-     * for it (ADR-0007 decision 5).
+     * for it (ADR-0007).
      */
     public function write(string $markdown): Written|NotWritten
     {

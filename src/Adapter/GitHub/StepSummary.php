@@ -28,7 +28,7 @@ use function sprintf;
 /**
  * The reporter `github-summary`: the verdict appended to the step summary
  * `GITHUB_STEP_SUMMARY` names, with every mutant counted as not killed in one
- * table, as much of it as one step's summary holds (ADR-0009, decision 3).
+ * table, as much of it as one step's summary holds (ADR-0009).
  */
 final readonly class StepSummary implements Reporter
 {
@@ -70,7 +70,7 @@ final readonly class StepSummary implements Reporter
     /**
      * The last run's survivors re-checked, appended as the comment shows
      * them, so a fork's pull request, which cannot be commented on, sees them
-     * too (ADR-0020, decision 21).
+     * too (ADR-0020).
      */
     public function rechecked(Rechecked $rechecked): Written|NotWritten
     {

@@ -26,7 +26,7 @@ use NightWorksIO\MutationGate\Core\Reach\TestPlaces;
 use function sprintf;
 
 /**
- * `affected`: the tests a change can make fail (ADR-0020, decisions 1 to 3),
+ * `affected`: the tests a change can make fail (ADR-0020),
  * from the gate's own coverage map, in a directory or else the one the
  * default branch's runs keep, and git, running nothing. The change is
  * every change since the commit the map was measured at, and with

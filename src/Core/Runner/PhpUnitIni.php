@@ -20,7 +20,7 @@ use function trim;
 /**
  * What a PHPUnit config, as text, sets with `<ini>` under `<php>`, which
  * PHPUnit sets as it starts: after PHP has read its ini files, and so over
- * them, the memory cap's included (ADR-0004, decision 9).
+ * them, the memory cap's included (ADR-0004).
  */
 final readonly class PhpUnitIni
 {

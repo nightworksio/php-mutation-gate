@@ -23,7 +23,7 @@ use function sprintf;
  * report in the `mutation-testing-report-schema` format as
  * `mutation-report.json`, and `index.html`, a page that shows it with
  * Stryker's viewer inlined, so it loads nothing from a network
- * (ADR-0009, decision 4).
+ * (ADR-0009).
  */
 final readonly class HtmlReportDirectory implements Configurable, Reporter
 {

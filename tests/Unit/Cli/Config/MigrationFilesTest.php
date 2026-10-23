@@ -33,7 +33,7 @@ afterEach(function (): void {
 });
 
 /**
- * A release with one step of each kind (ADR-0026, decision 6): made-up keys
+ * A release with one step of each kind (ADR-0026): made-up keys
  * moved to real ones, so a migrated file reads with no problem.
  */
 function migrationEverySteps(): Migrations

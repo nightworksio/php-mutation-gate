@@ -38,7 +38,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Survivors;
 
 /**
  * The last run's survivors run again first, on a branch of its own
- * (ADR-0020, decisions 19 to 21): of the newest proof in the run's own scope
+ * (ADR-0020): of the newest proof in the run's own scope
  * of each unit the plan reaches, the mutants the comment lists as not killed,
  * judged as the verdict judges them, those on the change's lines first, at
  * most `survivorsFirst.max`. Each file's run makes the mutants of their

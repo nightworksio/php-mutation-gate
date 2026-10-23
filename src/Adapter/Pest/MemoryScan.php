@@ -18,11 +18,11 @@ use NightWorksIO\MutationGate\Core\Runner\Uncapped;
 use function sprintf;
 
 /**
- * The directory of the ini file that caps a run's memory (ADR-0004, decision
- * 9), for every PHP process of the run to scan: Pest, each mutant's own
- * process, and each run of a mutant judged by reference. It is beside the
- * run's results, one for each process of the gate, so two runs in one
- * checkout never share it, and it is removed when the run is done.
+ * The directory of the ini file that caps a run's memory (ADR-0004), for
+ * every PHP process of the run to scan: Pest, each mutant's own process, and
+ * each run of a mutant judged by reference. It is beside the run's results,
+ * one for each process of the gate, so two runs in one checkout never share
+ * it, and it is removed when the run is done.
  */
 final readonly class MemoryScan
 {

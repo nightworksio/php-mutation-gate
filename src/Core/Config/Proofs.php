@@ -104,7 +104,7 @@ final readonly class Proofs implements Part
     /**
      * Whether a run measures again only the test files whose coverage could
      * have moved, keeping the rest from the map kept beside the ledger
-     * (ADR-0023, decision 1): `coverage.incremental`, yes where nothing says.
+     * (ADR-0023): `coverage.incremental`, yes where nothing says.
      */
     public function incrementalCoverage(): bool
     {

@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 /**
  * One `<testsuite>` of the project's PHPUnit config, by its name: its
  * directories and files, less each `<exclude>`. Pest runs on the same config,
- * so its suites are these too (ADR-0025, decision 8).
+ * so its suites are these too (ADR-0025).
  */
 final readonly class DeclaredSuite
 {

@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 /**
  * An object whose named parts each move to a key of their own. A part it
  * does not name stays where it was, and a scalar cannot be split: either is
- * left for a hand edit (ADR-0026, decision 2).
+ * left for a hand edit (ADR-0026).
  */
 final readonly class Split implements Step
 {
@@ -27,7 +27,7 @@ final readonly class Split implements Step
         return new self(KeyPath::of($from), [$part, ...array_values($more)], NotGiven::value());
     }
 
-    /** This split, retiring a builder call, which a hand edit replaces (ADR-0026, decision 3). */
+    /** This split, retiring a builder call, which a hand edit replaces (ADR-0026). */
     public function spelt(Spelling $spelling): self
     {
         return new self($this->from, $this->parts, $spelling);

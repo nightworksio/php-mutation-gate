@@ -62,7 +62,7 @@ jobs:
         run: python3 .github/scripts/gate_summary.py scope
 
   # The deciding half of every script under .github/scripts and of the
-  # action's script, tested without a runner (ADR-0019, decision 1).
+  # action's script, tested without a runner (ADR-0019).
   scripts:
     name: scripts
     runs-on: ubuntu-latest
@@ -73,7 +73,7 @@ jobs:
           persist-credentials: false
       - id: unittest
         run: python3 .github/scripts/unit.py evidence/raw/scripts.json
-      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      # The job's evidence, whatever the steps above did (ADR-0019).
       - name: evidence
         if: ${{ !cancelled() }}
         env:
@@ -123,7 +123,7 @@ jobs:
       - uses: ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda # 4.0.0
       - id: alone
         run: python3 .github/scripts/alone.py . --findings evidence/raw/alone.json
-      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      # The job's evidence, whatever the steps above did (ADR-0019).
       - name: evidence
         if: ${{ !cancelled() }}
         env:
@@ -160,7 +160,7 @@ jobs:
         run: |
           mkdir -p evidence/raw
           vendor/bin/pest --testsuite=Arch --log-junit=evidence/raw/rules.xml
-      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      # The job's evidence, whatever the steps above did (ADR-0019).
       - name: evidence
         if: ${{ !cancelled() }}
         env:
@@ -209,7 +209,7 @@ jobs:
       - id: guards-ci
         if: ${{ !cancelled() }}
         run: composer test:guards:ci -- --log-junit=evidence/raw/guards-ci.xml
-      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      # The job's evidence, whatever the steps above did (ADR-0019).
       - name: evidence
         if: ${{ !cancelled() }}
         env:
@@ -261,7 +261,7 @@ jobs:
       # Cheapest first, so a misplaced brace fails in seconds rather than after
       # the analyser has walked the tree. Each tool reports in its structured
       # form, into evidence/raw, and the evidence step shows every finding as an
-      # annotation (ADR-0019, decision 5).
+      # annotation (ADR-0019).
       # Each plugin's composer.json is checked on its own too, as it will be
       # once the plugin leaves (A8).
       - id: validate
@@ -285,7 +285,7 @@ jobs:
       - id: deps
         run: composer deps -- --format=junit > evidence/raw/deps.xml
       # The fixes that are mechanical, computed here and offered to the pull
-      # request as a patch, never pushed (ADR-0019, decision 8).
+      # request as a patch, never pushed (ADR-0019).
       - name: compute the mechanical fixes
         if: failure() && (steps.normalize.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.refactor.outcome == 'failure')
         run: |
@@ -293,7 +293,7 @@ jobs:
           composer lint:fix
           composer normalize
           git diff > evidence/checks.fix.patch
-      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      # The job's evidence, whatever the steps above did (ADR-0019).
       - name: evidence
         if: ${{ !cancelled() }}
         env:
@@ -342,7 +342,7 @@ jobs:
           ln -f .mutation-gate/ran/coverage.php "${report}"
           composer test:report
       # The gate's own map, read from the PHP report in the job that wrote it,
-      # since reading a runner's report can run code (ADR-0006, decision 1).
+      # since reading a runner's report can run code (ADR-0006).
       - id: map
         run: php bin/mutation-gate coverage --from=.mutation-gate/ran --into=.mutation-gate/map
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -382,7 +382,7 @@ jobs:
             coverage/junit.xml
           if-no-files-found: error
           retention-days: 1
-      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      # The job's evidence, whatever the steps above did (ADR-0019).
       - name: evidence
         if: ${{ !cancelled() }}
         env:
@@ -444,7 +444,7 @@ jobs:
         with:
           path: /tmp/mutation-gate-schema-*.json
           key: schemas-${{ hashFiles('tests/Unit/Core/Ci/CiTemplateTest.php', 'tests/Unit/Core/Report/SarifTest.php') }}-${{ github.run_id }}-${{ github.job }}
-      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      # The job's evidence, whatever the steps above did (ADR-0019).
       - name: evidence
         if: ${{ !cancelled() }}
         env:
@@ -468,10 +468,10 @@ jobs:
   # is a project of its own, installed at the highest releases its committed
   # lock holds, which Dependabot moves, and at the lowest its manifest allows,
   # which no new release changes. So a leg reds only for a change in this
-  # repository; the runner canary runs the newest releases (ADR-0017,
-  # decision 8). The suite runs serially: a Pest started under paratest would
-  # take itself for one of its workers. `runner contracts`, the check main
-  # requires, reads every leg's log.
+  # repository; the runner canary runs the newest releases (ADR-0017). The
+  # suite runs serially: a Pest started under paratest would take itself for
+  # one of its workers. `runner contracts`, the check main requires, reads
+  # every leg's log.
   runner-contract:
     name: runner contract
     needs: scope
@@ -607,7 +607,7 @@ jobs:
           composer update --no-interaction --no-progress "${others[@]}"
           composer show | grep -E "^(${PACKAGES}) "
       # Mago's package downloads its binary the first time it runs, which the
-      # gate itself never does (ADR-0020, decision 18).
+      # gate itself never does (ADR-0020).
       - name: download Mago's binary
         if: matrix.runner == 'analysers'
         working-directory: ${{ steps.fixture.outputs.dir }}
@@ -687,7 +687,7 @@ jobs:
             echo "::error title=runner contracts::A leg of runner contract ended ${LEGS}. Its own log says why."
             exit 1
           fi
-      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      # The job's evidence, whatever the steps above did (ADR-0019).
       - name: evidence
         if: ${{ !cancelled() }}
         env:
@@ -803,7 +803,7 @@ jobs:
           FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
         id: count
         run: bash .github/scripts/sonar_gate.sh
-      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      # The job's evidence, whatever the steps above did (ADR-0019).
       - name: evidence
         if: ${{ !cancelled() }}
         env:
@@ -821,7 +821,7 @@ jobs:
         run: python3 .github/scripts/gate_summary.py gate
 
   # Every job's evidence, gathered into the one artifact `evidence` the bot
-  # reads when the run is over (ADR-0019, decision 5). A job that did not run
+  # reads when the run is over (ADR-0019). A job that did not run
   # left none.
   evidence:
     name: evidence

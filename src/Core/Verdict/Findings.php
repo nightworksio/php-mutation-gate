@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\Removal\Removable;
 /**
  * What the gate found beyond each survivor's first hint, by the survivor's
  * id: the weak tests that let it through, or a callee it may be deleted
- * with (ADR-0025, decisions 6, 7, 11 and 12).
+ * with (ADR-0025).
  */
 final readonly class Findings
 {

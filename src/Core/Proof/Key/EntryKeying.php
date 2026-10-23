@@ -19,7 +19,7 @@ use NightWorksIO\MutationGate\Core\Php\ReachedFiles;
 use function sprintf;
 
 /**
- * The key of a test file's coverage entries (ADR-0023, decision 1): one
+ * The key of a test file's coverage entries (ADR-0023): one
  * SHA-256 over what every entry reads, then each file the entries can depend
  * on, by its digest: the test file, the files its tests executed, what runs
  * before every test, and every file those name, transitively, through the

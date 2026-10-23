@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Score;
 
+use function ceil;
 use function floor;
 use function intdiv;
 use function round;
@@ -72,6 +73,12 @@ final readonly class Percentage
     public static function hundredthsOf(int|float $percent): int
     {
         return (int) floor(round($percent * self::HUNDREDTHS_PER_PERCENT, self::NOISE));
+    }
+
+    /** A percent in hundredths, rounded up rather than truncated, whether or not it is between 0 and 100. */
+    public static function hundredthsUp(int|float $percent): int
+    {
+        return (int) ceil(round($percent * self::HUNDREDTHS_PER_PERCENT, self::NOISE));
     }
 
     /** A number of hundredths as points with two decimals, `83.41` or `0.05`, where it is not below zero. */

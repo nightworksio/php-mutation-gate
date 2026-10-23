@@ -21,7 +21,7 @@ use function strval;
  * cluster: first their changes overlapping within one statement, then, among
  * the rest, one family in one function judged by the same tests. A cluster
  * holds two survivors at least, and a survivor is in one at most. A file
- * that cannot be read clusters nothing (ADR-0022, decision 15).
+ * that cannot be read clusters nothing (ADR-0022).
  */
 final readonly class Clustering
 {

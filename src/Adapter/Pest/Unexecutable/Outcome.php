@@ -20,7 +20,7 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 /**
  * What one run of a mutant against the tests that read its value found, and
  * why it found nothing where it did; of a kill, the tests that killed it,
- * and, where none is named, how its run ended (ADR-0014, decision 17).
+ * and, where none is named, how its run ended (ADR-0014).
  */
 final readonly class Outcome
 {
@@ -77,7 +77,7 @@ final readonly class Outcome
         return clone($this, ['limit' => $limit]);
     }
 
-    /** This outcome, of tests that took this long on their own, unmutated (ADR-0008, decision 2). */
+    /** This outcome, of tests that took this long on their own, unmutated (ADR-0008). */
     public function needing(Seconds|Unmeasured $need): self
     {
         return clone($this, ['need' => $need]);

@@ -14,7 +14,7 @@ use NightWorksIO\MutationGate\Core\Verdict\UnitResult;
 use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
 
 /**
- * What pruning did in a run, for every report (ADR-0025, decision 4): the
+ * What pruning did in a run, for every report (ADR-0025): the
  * mutators it pruned, the window each was judged over and the last mutant
  * each let through, where one ever did; how many units it pruned them in;
  * how many mutants it carried from runs of the last `pruning.audit`; and the

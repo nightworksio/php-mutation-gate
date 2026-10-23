@@ -27,10 +27,10 @@ use function sprintf;
 use Traversable;
 
 /**
- * Every hold written only in the suites `tests.holding` lists (ADR-0005,
- * decision 9). A holding suite's test is kept in a coverage map only on the
- * lines it runs inside the paths it holds, where it judges as any covering
- * test does, and each hold must run a line of what it holds.
+ * Every hold written only in the suites `tests.holding` lists (ADR-0005). A
+ * holding suite's test is kept in a coverage map only on the lines it runs
+ * inside the paths it holds, where it judges as any covering test does, and
+ * each hold must run a line of what it holds.
  *
  * @implements IteratorAggregate<int, Addition>
  */

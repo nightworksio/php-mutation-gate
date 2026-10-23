@@ -14,7 +14,8 @@ use NightWorksIO\MutationGate\Core\Score\Undeclared;
  * What became of a set of mutants held to a floor. A set with nothing to
  * mutate passes, and says so rather than showing 100%. An exempt tree is not
  * mutated, and is printed with its reason. Only a whole verdict cannot judge,
- * never one set.
+ * never one set; a sampled tree whose interval holds its floor is undecided,
+ * which keeps the whole verdict from judging.
  */
 enum Judgement: string
 {
@@ -23,6 +24,8 @@ enum Judgement: string
     case NothingToMutate = 'nothing-to-mutate';
     case Exempt = 'exempt';
     case CannotJudge = 'cannot-judge';
+    /** A sampled run's estimate whose interval holds its floor, which neither passes nor fails (ADR-0020). */
+    case Undecided = 'undecided';
 
     /** A score held to a floor. With no floor anywhere the score passes; a run in CI refuses that before it judges. */
     public static function of(Floor|Exempt|Undeclared $floor, Score|NothingToMutate $score): self

@@ -31,8 +31,7 @@ use function sprintf;
 /**
  * The proof store `gcs`: one object per scope, `<prefix>/<scope>/ledger.json.gz`,
  * in a Cloud Storage bucket, read with a GET and written with a PUT of its
- * XML API, each carrying the token OIDC federation gives (ADR-0028
- * decisions 1 and 2).
+ * XML API, each carrying the token OIDC federation gives (ADR-0028).
  */
 final readonly class BucketLedger implements ObjectStore, ProofStore
 {

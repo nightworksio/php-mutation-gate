@@ -1,5 +1,5 @@
 {
-  "$comment": "PHPStan identifiers, one line each in this repository's words, with phpstan.org's page; this package's own identifiers name their ARCHITECTURE.md row (ADR-0019, decision 7). Written by hand: PHPStan ships no descriptions.",
+  "$comment": "PHPStan identifiers, one line each in this repository's words, with phpstan.org's page; this package's own identifiers name their ARCHITECTURE.md row (ADR-0019). Written by hand: PHPStan ships no descriptions.",
   "rules": {
     "argument.missing": {
       "says": "A call leaves out an argument the function needs.",

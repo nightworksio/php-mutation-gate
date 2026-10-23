@@ -15,7 +15,7 @@ use NightWorksIO\MutationGate\Core\Score\Score;
 use function sprintf;
 
 /**
- * What every report says of the suites (ADR-0025, decisions 8 and 10): each
+ * What every report says of the suites (ADR-0025): each
  * suite's score, *at least* where it is a lower bound, and why it is one;
  * or that the runner named no test, so none can be put in a suite. The
  * suites are shown where the PHPUnit config declares two or more: one

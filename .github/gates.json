@@ -1,5 +1,5 @@
 {
-  "$comment": "Every CI job, what it checks, how to reproduce and fix it, what evidence it leaves, and what each rule its tools report beyond .github/bot/rules means (ADR-0019, decisions 5 and 7). A job of a called workflow is named <caller>/<job>. tests/Arch/TheGatesAreExplainedTest.php holds this file to the workflows.",
+  "$comment": "Every CI job, what it checks, how to reproduce and fix it, what evidence it leaves, and what each rule its tools report beyond .github/bot/rules means (ADR-0019). A job of a called workflow is named <caller>/<job>. tests/Arch/TheGatesAreExplainedTest.php holds this file to the workflows.",
   "format": 1,
   "gates": {
     "scope": {
@@ -71,7 +71,7 @@
     },
     "alone": {
       "check": "test files alone",
-      "checks": "Every test file of the Unit, Process and Plugins suites passes when it runs alone, in a Pest of its own, on the unmutated code, so that a mutant's run narrowed to the test files its covering tests need can vouch for its kills (ADR-0004, decision 9).",
+      "checks": "Every test file of the Unit, Process and Plugins suites passes when it runs alone, in a Pest of its own, on the unmutated code, so that a mutant's run narrowed to the test files its covering tests need can vouch for its kills (ADR-0004).",
       "reproduce": "python3 .github/scripts/alone.py . --findings <file>, after composer install",
       "evidence": [
         {"step": "alone", "tool": "alone", "raw": "evidence/raw/alone.json"}
@@ -204,7 +204,7 @@
     },
     "end-to-end/warm-workers": {
       "check": "end-to-end / warm workers",
-      "checks": "The gate run on a pinned lcobucci/jwt with runner.workers fresh and with fork, on one coverage map, and each twice more where they disagree: no mutant gets one verdict from every forked run and another from every fresh run, and the step summary says what each run took (ADR-0023, decisions 12 to 14).",
+      "checks": "The gate run on a pinned lcobucci/jwt with runner.workers fresh and with fork, on one coverage map, and each twice more where they disagree: no mutant gets one verdict from every forked run and another from every fresh run, and the step summary says what each run took (ADR-0023).",
       "reproduce": "Install lcobucci/jwt at the tag and commit the job pins with this checkout's gate, run vendor/bin/mutation-gate coverage, then vendor/bin/mutation-gate run with each of runner.workers fresh and fork, each with --report=json:<file>, and python3 .github/scripts/warm_measure.py judge --fresh <report> <seconds> --fork <report> <seconds> --findings <file>",
       "evidence": [
         {"step": "measure", "tool": "warm", "raw": "evidence/raw/warm-workers.json"}
@@ -216,7 +216,7 @@
     },
     "end-to-end/hook-managers": {
       "check": "end-to-end / hook managers",
-      "checks": "composer mutate through this checkout's Composer plugin runs the gate with the arguments given and exits as it does, and a project that does not allow the plugin installs without it; and the gate set up by init --hook in real CaptainHook, GrumPHP and pre-commit framework repositories, from this checkout's gate and its .pre-commit-hooks.yaml: a commit through each manager's pre-commit hook passes, and through CaptainHook and the pre-commit framework a push whose new code is killed passes while one whose new code no test covers is refused with the gate's failed verdict (ADR-0024, decisions 11 to 13).",
+      "checks": "composer mutate through this checkout's Composer plugin runs the gate with the arguments given and exits as it does, and a project that does not allow the plugin installs without it; and the gate set up by init --hook in real CaptainHook, GrumPHP and pre-commit framework repositories, from this checkout's gate and its .pre-commit-hooks.yaml: a commit through each manager's pre-commit hook passes, and through CaptainHook and the pre-commit framework a push whose new code is killed passes while one whose new code no test covers is refused with the gate's failed verdict (ADR-0024).",
       "reproduce": "python3 .github/scripts/hook_managers.py . <an empty directory> <pre-commit's zipapp> --findings <file>, with Composer, PHP with pcov and git on the PATH",
       "evidence": [
         {"step": "managers", "tool": "hooks", "raw": "evidence/raw/hook-managers.json"}
@@ -229,7 +229,7 @@
     },
     "runner-canary": {
       "check": "runner canary",
-      "checks": "Every day, ADR-0004's Runner contract suite and ADR-0020's StaticChecker contract suite against the newest releases of Pest, Infection, PHPUnit, Mago and PHPStan, the pinned pest-plugin-mutate and Infection freed from the package's pin; then that composer.json takes each pinned release that passed (ADR-0017, decision 8). It is not required: a new release reds it alone.",
+      "checks": "Every day, ADR-0004's Runner contract suite and ADR-0020's StaticChecker contract suite against the newest releases of Pest, Infection, PHPUnit, Mago and PHPStan, the pinned pest-plugin-mutate and Infection freed from the package's pin; then that composer.json takes each pinned release that passed (ADR-0017). It is not required: a new release reds it alone.",
       "reproduce": "gh workflow run canary.yml, or install each fixture library with no lock as the job does and run vendor/bin/pest --testsuite=Contract with RUNNER_CANARY=1; then python3 .github/scripts/runner_pins.py with each fixture's vendor/composer/installed.json",
       "evidence": [
         {"step": "pest-newest", "tool": "pest", "raw": "evidence/raw/pest-newest.xml"},

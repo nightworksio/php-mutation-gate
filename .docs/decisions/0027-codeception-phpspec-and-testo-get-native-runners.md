@@ -8,7 +8,7 @@
 Three PHP test frameworks besides PHPUnit and Pest have users who want a
 mutation gate: Codeception, PhpSpec and Testo. Infection runs each of them
 through an adapter package of its own. The gate's Infection adapter does not:
-it refuses a `testFramework` other than `phpunit` (ADR-0004 decision 4), and
+it refuses a `testFramework` other than `phpunit` (ADR-0004), and
 ADR-0004 rejected reaching them through Infection, because their coverage and
 group listing are not PHPUnit's, and nothing in the gate's reach, holds or
 proof key is checked against them.
@@ -53,7 +53,7 @@ the test process never reaches that process.
    command>`, ADR-0023's override, so the mutated file is served before
    Composer's autoloader loads anything, `files` autoloads included. Testo's
    own Infection bridge serves its mutants the same way. The guards of
-   ADR-0004 decision 8, *loaded before the override* and *never loaded*,
+   ADR-0004, *loaded before the override* and *never loaded*,
    apply unchanged. No framework's bootstrap is edited.
 
 3. **Codeception: suites that run in the test process.**
@@ -68,7 +68,7 @@ the test process never reaches that process.
      `test.error`, enabled for the run, which writes to the file
      `MUTATION_GATE_RESULTS` names.
    - **Groups and holds** are Codeception's `#[Group]` and `holds:` config
-     groups (ADR-0005 decision 9).
+     groups (ADR-0005).
    - **Coverage** is `--coverage-phpunit`, per test, and each test's time
      comes from `--xml`.
    - **A full kill matrix** runs without `--fail-fast`.
@@ -98,8 +98,8 @@ the test process never reaches that process.
 5. **Testo: supported at 1.0, pinned exactly.**
    - **The pin.** `composer.json` declares a `conflict` outside the Testo
      releases the Runner contract suite has passed, as it does for
-     pest-plugin-mutate (ADR-0004 decision 3), and the daily runner canary
-     (ADR-0017 decision 8) names the `conflict` line to write when a newer
+     pest-plugin-mutate (ADR-0004), and the daily runner canary
+     (ADR-0017) names the `conflict` line to write when a newer
      release passes.
    - **The first failure.** A gate Testo plugin answers the first failing
      `TestFinished` by cancelling the tests that remain (`CancelTest`). The
@@ -116,23 +116,23 @@ the test process never reaches that process.
    nor `infection/infection` is installed and exactly one of the three
    frameworks is, by the same rule ADR-0023 gives the native PHPUnit runner.
    A project with two frameworks, such as Codeception beside PHPUnit, sets
-   `runner`, and `init` asks. This amends ADR-0002 decision 5's runner row.
-   The runner is in the proof key, as every runner's identity is (ADR-0007
-   decision 2.4), and each native runner takes `runner.workers` (ADR-0023).
+   `runner`, and `init` asks. This amends ADR-0002's runner row.
+   The runner is in the proof key, as every runner's identity is
+   (ADR-0007), and each native runner takes `runner.workers` (ADR-0023).
 
 7. **Where it lives in the code.** `Adapter\Codeception`, `Adapter\PhpSpec`
    and `Adapter\Testo` each hold the runner and its extension or plugin
    class. An adapter names no other adapter (ADR-0001), so what they share,
    the override and the fork server of ADR-0023, is either a `Core` value or
    a piece the Cli hands each adapter. No port changes. The Runner contract
-   suite (ADR-0004 decision 7) runs its fixture library against each of them,
+   suite (ADR-0004) runs its fixture library against each of them,
    with each framework's own holds and group cases, and CI runs it against
    the lowest and highest supported release of each framework (ADR-0011).
 
 8. **Supported versions.** Codeception ^5.3, PhpSpec ^8.2 and Testo at the
-   exact releases its `conflict` allows join ADR-0011 decision 10's table,
+   exact releases its `conflict` allows join ADR-0011's table,
    each tested at its lowest and highest supported release. This amends
-   ADR-0011 decision 10.
+   ADR-0011.
 
 ## Alternatives considered
 

@@ -14,7 +14,7 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 /**
  * What a runner is asked to run for a coverage map: the whole suite, one
  * group, the tests a filter names, or the tests of some files, which a kept
- * map is measured again for (ADR-0023, decision 3), under coverage, across
+ * map is measured again for (ADR-0023), under coverage, across
  * some processes, withholding what the tests may not see, leaving the map in
  * a directory.
  */

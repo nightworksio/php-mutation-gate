@@ -15,7 +15,7 @@ use function sprintf;
 /**
  * A kill a ledger proved, as a verdict counts it: killed, or unjudged where it
  * was carried for a unit a time budget ran out before and no longer stands
- * (ADR-0008, decision 1), and on a changed line or not. It is never a
+ * (ADR-0008), and on a changed line or not. It is never a
  * survivor, so nothing that lists survivors meets one.
  */
 final readonly class JudgedKill
@@ -26,7 +26,7 @@ final readonly class JudgedKill
 
     /**
      * A kill a ledger proved; carried where its unit's last result gave it
-     * because the plan pruned its mutator (ADR-0025, decision 1).
+     * because the plan pruned its mutator (ADR-0025).
      */
     public static function of(ProvedKill $kill, bool $carriedPruned = false): self
     {

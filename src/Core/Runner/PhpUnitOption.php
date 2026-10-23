@@ -92,7 +92,7 @@ enum PhpUnitOption: string
 
     /**
      * The option that keeps a run to these suites' tests, as `tests.suites`
-     * lists them (ADR-0002) or `--suite` names one (ADR-0025, decision 9);
+     * lists them (ADR-0002) or `--suite` names one (ADR-0025);
      * none where the run runs every suite.
      *
      * @return list<string>

@@ -14,10 +14,10 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 
 /**
- * `explain --format=json` (ADR-0014, decision 15): what the text says, each
+ * `explain --format=json` (ADR-0014): what the text says, each
  * under its own key, `"format": 1`. Each mutant is the entry the `json`
  * report gives it, its `coveredBy` and `killedBy` pointing into its own
- * `tests`. Public API (ADR-0011, decision 7), described by
+ * `tests`. Public API (ADR-0011), described by
  * `resources/explain.schema.json`.
  *
  * @phpstan-import-type MutantEntry from MutantJson

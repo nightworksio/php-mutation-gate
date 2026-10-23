@@ -18,7 +18,7 @@ use function rtrim;
 use function sprintf;
 
 /**
- * A test file a stub follows and is added to (ADR-0015, decisions 2 and 3):
+ * A test file a stub follows and is added to (ADR-0015):
  * a PHPUnit class, whose new test goes before the class's closing brace,
  * found by tokens; or Pest's closures, whose new test goes at the end.
  */

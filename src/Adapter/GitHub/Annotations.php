@@ -35,9 +35,9 @@ use function usort;
  * error in a set that failed and a warning elsewhere; each warning of the
  * verdict is a notice. GitHub keeps 10 of each level per step and 50 per job
  * and drops the rest silently, so the gate writes at most 10 of each from its
- * one step, ranked: changed lines first, then sets that failed (ADR-0009,
- * decision 3). A cluster of survivors is one annotation, at its first member
- * (ADR-0022, decision 17). The step summary lists them all.
+ * one step, ranked: changed lines first, then sets that failed (ADR-0009). A
+ * cluster of survivors is one annotation, at its first member (ADR-0022).
+ * The step summary lists them all.
  */
 final readonly class Annotations implements Configurable, Reporter
 {
@@ -120,7 +120,7 @@ final readonly class Annotations implements Configurable, Reporter
 
     /**
      * How far forward a mutant or cluster goes, compared in order: on a
-     * changed line, then a security mutant (ADR-0021, decision 21), then in a
+     * changed line, then a security mutant (ADR-0021), then in a
      * set that failed; a cluster is each where any member is.
      *
      * @return array{int, int, int} 1 where it is, 0 where it is not

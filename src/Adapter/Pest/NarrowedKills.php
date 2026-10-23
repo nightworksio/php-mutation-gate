@@ -50,7 +50,7 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  * a test can fail only while the override serves a file; either would pass as
  * a killer, and either fails the control too.
  * Mutants that share Pest's id share their own run, and so its doubt. A
- * kill of a mutant Pest left uncovered is the trial's (ADR-0004, decision 8),
+ * kill of a mutant Pest left uncovered is the trial's (ADR-0004),
  * which ran no own process of Pest's and first ran its tests alone on the
  * unmutated code, served as its mutant is, so it is never doubted.
  */

@@ -39,9 +39,10 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
 /**
  * The gate's own report, `"format": 1`: everything in the verdict, as JSON a
  * program reads. `resources/report.schema.json` describes it, and it is
- * public API (ADR-0009, decision 2).
+ * public API (ADR-0009).
  *
  * @phpstan-import-type MutantEntry from MutantJson
+ * @phpstan-import-type EstimateEntry from EstimateJson
  *
  * @phpstan-type Numbers array<string, int>
  * @phpstan-type TestEntry array{id: string, name: string, file?: string, row?: string, seconds?: float}
@@ -56,6 +57,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *     score?: float,
  *     base?: float,
  *     raised?: float,
+ *     estimate?: EstimateEntry,
  *     judgement: string,
  *     counts: Numbers,
  *     units: list<UnitEntry>,
@@ -97,6 +99,7 @@ final readonly class JsonReport
             'format' => self::FORMAT,
             'judgement' => $verdict->judgement()->value,
             'cutShort' => $verdict->wasCutShort(),
+            ...EstimateJson::sample($verdict->trees()->sample()),
             'uncovered' => $overview->uncovered()->value,
             ...self::scored($overview->score()),
             'counts' => self::counts($verdict->trees()->mutants()->counts()),
@@ -186,6 +189,7 @@ final readonly class JsonReport
             ...self::scored($tree->score()),
             ...$base instanceof Score ? ['base' => self::percent($base)] : [],
             ...$raised instanceof Floor ? ['raised' => self::percent($raised)] : [],
+            ...EstimateJson::tree($tree),
             'judgement' => $tree->judgement()->value,
             'counts' => self::counts($tree->counts()),
             'units' => self::each($tree->units(), self::unit(...)),
@@ -195,7 +199,7 @@ final readonly class JsonReport
 
     /**
      * What each suite the PHPUnit config declares alone kills; none, with
-     * why, where the runner named no test (ADR-0025, decision 8).
+     * why, where the runner named no test (ADR-0025).
      *
      * @return array{suites: list<SuiteEntry>, suitesUnscored?: string}
      */

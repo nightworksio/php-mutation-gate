@@ -20,8 +20,8 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 /**
  * What the records of a run say of its kills: the own run each mutant's
  * process recorded, with its copy and the seconds Pest allowed it, and which
- * mutants Pest left uncovered, whose kills are the trial's (ADR-0004,
- * decision 8). Records that cannot be read say nothing of any.
+ * mutants Pest left uncovered, whose kills are the trial's (ADR-0004).
+ * Records that cannot be read say nothing of any.
  */
 final readonly class RecordedKills
 {

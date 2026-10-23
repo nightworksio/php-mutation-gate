@@ -30,7 +30,7 @@ use function sprintf;
  * What the Pest plugin writes in Pest's own process once every mutant is
  * made and before any runs: each mutant's order, from the kill history the
  * adapter planned and the opening run's coverage map, where the mutant's own
- * process reads it (ADR-0013, decision 3). Where it has no map, it writes
+ * process reads it (ADR-0013). Where it has no map, it writes
  * none, and each mutant runs its tests in Pest's own order.
  */
 final readonly class Seeder

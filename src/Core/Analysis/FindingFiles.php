@@ -11,7 +11,7 @@ use NightWorksIO\MutationGate\Core\File\Root;
 
 /**
  * The files an analyser's findings sit in, as the project spells them
- * (ADR-0020, decision 10): each path the analyser names, made relative to
+ * (ADR-0020): each path the analyser names, made relative to
  * the project's root and normalised, and a mutant's own file named as the
  * original it stands in for. A file outside the root is spelt as the
  * analyser names it, normalised.

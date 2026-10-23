@@ -12,12 +12,12 @@ use function sprintf;
 use function trim;
 
 /**
- * The script every runner starts an unmutated control through (ADR-0004,
- * decision 9): it runs the control's command with its own input and output,
- * waits for it, writes the most memory any process under it held, as
- * `getrusage` counts the processes it waited for, to the file it is told
- * first, and exits as the command did. It knows nothing of the runner, so
- * each measures alike (see MaxRss).
+ * The script every runner starts an unmutated control through (ADR-0004):
+ * it runs the control's command with its own input and output, waits for
+ * it, writes the most memory any process under it held, as `getrusage`
+ * counts the processes it waited for, to the file it is told first, and
+ * exits as the command did. It knows nothing of the runner, so each
+ * measures alike (see MaxRss).
  */
 final readonly class PeakLauncher
 {

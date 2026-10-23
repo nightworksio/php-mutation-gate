@@ -28,7 +28,7 @@ use NightWorksIO\MutationGate\Tests\Support\ShardedPlan;
 use Symfony\Component\Yaml\Yaml;
 
 /**
- * Each provider's published JSON Schema, fetched at a pinned commit and held to its SHA-256 (ADR-0015 decision 17),
+ * Each provider's published JSON Schema, fetched at a pinned commit and held to its SHA-256 (ADR-0015),
  * by the directory that holds its templates:
  *
  * - github: SchemaStore's github-workflow.json (Apache-2.0), beside actionlint in CI;
@@ -38,7 +38,7 @@ use Symfony\Component\Yaml\Yaml;
  * - azure: microsoft/azure-pipelines-vscode's service-schema.json (MIT);
  * - bitbucket: Bitbucket's published schema, which pins no version, so its digest says when it changed.
  *
- * Jenkins publishes no schema for a Jenkinsfile, so its template is held by its snapshot alone (ADR-0024 decision 6).
+ * Jenkins publishes no schema for a Jenkinsfile, so its template is held by its snapshot alone (ADR-0024).
  */
 const CI_SCHEMAS = [
     'github' => [

@@ -27,7 +27,7 @@ use PhpParser\Node\Name\FullyQualified;
 use function sprintf;
 
 /**
- * A call in a PHP config that a step retires (ADR-0026, decision 3): a
+ * A call in a PHP config that a step retires (ADR-0026): a
  * static call of a builder class, its name resolved through the file's
  * imports, or a method called along `Gate`'s chain.
  */

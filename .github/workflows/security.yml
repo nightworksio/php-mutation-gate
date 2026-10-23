@@ -82,7 +82,7 @@ jobs:
             exit 1
           fi
           echo "::notice::gitleaks ${tag} is ${age} days old; this scanned with ${GITLEAKS_VERSION}. Raise GITLEAKS_VERSION and GITLEAKS_SHA256 in .github/workflows/security.yml when convenient."
-      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      # The job's evidence, whatever the steps above did (ADR-0019).
       - name: evidence
         if: ${{ !cancelled() }}
         env:
@@ -117,7 +117,7 @@ jobs:
             --format=json
             --output=evidence/raw/osv-scanner.json
             ./
-      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      # The job's evidence, whatever the steps above did (ADR-0019).
       - name: evidence
         if: ${{ !cancelled() }}
         env:

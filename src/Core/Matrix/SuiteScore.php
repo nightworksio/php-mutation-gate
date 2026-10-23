@@ -9,9 +9,9 @@ use NightWorksIO\MutationGate\Core\Score\Score;
 
 /**
  * What one suite alone kills: of the mutants its tests cover, how many one
- * of them killed (ADR-0025, decision 8). It is exact under a full kill
+ * of them killed (ADR-0025). It is exact under a full kill
  * matrix, and otherwise a lower bound, read from first killers, which the
- * reports show as *at least*. It is reported, never judged (decision 10).
+ * reports show as *at least*. It is reported, never judged.
  */
 final readonly class SuiteScore
 {

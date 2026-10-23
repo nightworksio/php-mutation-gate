@@ -15,7 +15,7 @@ use NightWorksIO\MutationGate\Port\Reporter;
 
 /**
  * The reporter `kill-matrix`: the kill matrix as CSV, one record per mutant and
- * covering test, streamed to the `path` its entry names (ADR-0014, decision 9).
+ * covering test, streamed to the `path` its entry names (ADR-0014).
  */
 final readonly class KillMatrixFile implements Configurable, Reporter
 {

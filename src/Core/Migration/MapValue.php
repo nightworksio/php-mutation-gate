@@ -29,7 +29,7 @@ final readonly class MapValue implements Step
         );
     }
 
-    /** This change, made to the literal argument of a builder call (ADR-0026, decision 3). */
+    /** This change, made to the literal argument of a builder call (ADR-0026). */
     public function spelt(Spelling $spelling): self
     {
         return new self($this->key, $this->old, $this->new, $spelling);

@@ -3,7 +3,7 @@
 
 declare(strict_types=1);
 
-// A warm worker of the PHPUnit runner (ADR-0023, decisions 12 and 13), which
+// A warm worker of the PHPUnit runner (ADR-0023), which
 // the gate starts on the PHP a mutant's run starts on, with the override
 // prepended, in the project's root: the project's autoloader, the workplace
 // and the worker's place among the workers, in that order. It sets PHP up as

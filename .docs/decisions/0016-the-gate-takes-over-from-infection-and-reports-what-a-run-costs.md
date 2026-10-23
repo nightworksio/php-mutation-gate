@@ -11,7 +11,7 @@ Operating the gate raises four needs its reports do not yet meet.
   `infection.json5`. The Infection adapter already starts from that file and
   keeps what the runner owns: `mutators` with their profiles and settings,
   `bootstrap`, `phpUnit`, `initialTestsPhpOptions` and
-  `testFrameworkExtraArgs` (ADR-0004 decision 4). The rest either becomes
+  `testFrameworkExtraArgs` (ADR-0004). The rest either becomes
   something of the gate's or is refused by it:
   - `minMsi` is a floor;
   - `source` decides the trees;
@@ -56,27 +56,27 @@ Operating the gate raises four needs its reports do not yet meet.
 
 1. **`init --from=<file>` starts the gate's config from an Infection config.**
    - It reads `infection.json5`, `infection.json` or a `.dist` of either.
-   - It writes the gate's config in `--format`, as `init` does (ADR-0002
-     decision 2), seeded from that file as well as from zero-config.
+   - It writes the gate's config in `--format`, as `init` does
+     (ADR-0002), seeded from that file as well as from zero-config.
    - It prints every key of the file with *imported as*, *stays in
      infection.json5* or *dropped, because*.
    - It never rewrites the Infection file, because a JSON5 rewrite loses
      its comments. It prints the keys to delete instead.
    - `mutation-gate import <file>` is the same command.
    - A `testFramework` other than `phpunit` stops it with exit code 2 before
-     anything is written (ADR-0004 decision 4).
+     anything is written (ADR-0004).
 
    | `infection.json5` | Becomes |
    |-------------------|---------|
-   | `source.directories` | `trees[].path`, one tree per directory. `trees` replaces the tree source's list whole (ADR-0002 decision 5), and the report says where `phpunit.xml`'s `<source>` differs |
-   | `source.excludes` | `trees[].exclude` of the tree holding each (decision 3) |
-   | `minMsi`, `minCoveredMsi` | `trees[].floor`, and `uncovered` (decision 2) |
+   | `source.directories` | `trees[].path`, one tree per directory. `trees` replaces the tree source's list whole (ADR-0002), and the report says where `phpunit.xml`'s `<source>` differs |
+   | `source.excludes` | `trees[].exclude` of the tree holding each |
+   | `minMsi`, `minCoveredMsi` | `trees[].floor`, and `uncovered` |
    | `timeout` | `timeouts.seconds` |
    | `timeoutsAsEscaped: true` | `timeouts.mode: unjudged` |
-   | `mutators.<Name>.ignore`, `global-ignore`, `ignoreSourceCodeByRegex`, `global-ignoreSourceCodeByRegex` | `ignores.entries`, or `ignores.native: allow` (decision 4) |
+   | `mutators.<Name>.ignore`, `global-ignore`, `ignoreSourceCodeByRegex`, `global-ignoreSourceCodeByRegex` | `ignores.entries`, or `ignores.native: allow` |
    | `logs.html`, `logs.stryker.report` | a `reports` entry `html` |
    | `logs.json` | a `reports` entry `json`, as a suggestion. The gate's JSON is its own format |
-   | `logs.gitlab` | a `reports` entry `gitlab` (decision 5) |
+   | `logs.gitlab` | a `reports` entry `gitlab` |
    | `logs.github` | dropped: annotations are automatic under GitHub Actions (ADR-0009) |
    | `logs.stryker.badge` | dropped: the gate publishes its own badge (ADR-0009) |
    | `logs.text`, `logs.summary`, `logs.summaryJson`, `logs.perMutator`, `logs.debug` | dropped: the gate owns `logs.json` and `logs.text` in the config it generates |
@@ -86,7 +86,7 @@ Operating the gate raises four needs its reports do not yet meet.
    | `mutators` profiles and settings, `bootstrap`, `phpUnit`, `initialTestsPhpOptions`, `testFrameworkExtraArgs`, `staticAnalysisTool`, `staticAnalysisToolOptions` | stays in the file; the adapter reads it |
 
 2. **`minMsi` becomes each tree's declared floor.** It is truncated to two
-   decimals, and it is the policy minimum of ADR-0003 decision 2, not a
+   decimals, and it is the policy minimum of ADR-0003, not a
    baseline entry, because nothing was measured.
    - `minCoveredMsi` sets `uncovered: exclude` and, when `minMsi` is absent,
      the floor.
@@ -102,12 +102,12 @@ Operating the gate raises four needs its reports do not yet meet.
    - A file a tree's exclude matches belongs to no tree. It is not mutated,
      counted or reached as a unit.
    - An exclude that matches no file in its tree stops the run with exit
-     code 2, as a misspelt key does (ADR-0002 decision 6), because it would
+     code 2, as a misspelt key does (ADR-0002), because it would
      otherwise do nothing silently.
    - The PHP builder takes it as `Tree::at('src', floor: 90, excluding:
      ['src/Legacy/**'])`.
    - It decides what the tree is, so it affects results and is in the proof
-     key beside `trees[].path` (ADR-0007 decision 2.3). The phpunit tree
+     key beside `trees[].path` (ADR-0007). The phpunit tree
      source's `<source><exclude>` keeps working as before.
 
 4. **Infection's ignores are converted where they map, and allowed where they
@@ -123,7 +123,7 @@ Operating the gate raises four needs its reports do not yet meet.
      or namespace, so it stays native.
    - **`global-ignore` and a profile's ignores become one entry per family**
      the profile holds whole, and one per other mutator of it by name,
-     because a gate ignore names a mutator or a family (ADR-0008 decision 4).
+     because a gate ignore names a mutator or a family (ADR-0008).
      The installed Infection's own profile list says which mutators each
      profile holds; `global-ignore` holds them all, those of no family among
      them.
@@ -150,7 +150,7 @@ Operating the gate raises four needs its reports do not yet meet.
    - `severity` is `major` for a mutant in a failing set, and `minor`
      otherwise.
    - GitLab's merge request widget then shows survivors per line, the view
-     ADR-0009 decision 3 gives GitHub through annotations.
+     ADR-0009 gives GitHub through annotations.
 
 6. **A run's cost is its time, planned and measured, and what it was spared.**
    - **Planned:** the wall time and runner-minutes the plan expects. That is
@@ -166,14 +166,14 @@ Operating the gate raises four needs its reports do not yet meet.
 7. **Money is shown only when the team gives a rate.**
    `costs.perRunnerMinute` is `{amount, currency}`, and unset by default.
    When it is set, each time figure is shown with its price. It sits under
-   `costs`, which the proof key leaves out (ADR-0007 decision 2.3).
+   `costs`, which the proof key leaves out (ADR-0007).
    The flows hand the verdict the rate as a `Core\Cost\Rate`, and the cost
    is priced with `Cost::pricedAt(Rate)`. The config's `Price` stays with
    the config, since nothing a verdict carries names a config type.
 
 8. **The cost appears once, out of the way.**
    - It is a collapsed `<details>` section at the end of the sticky PR
-     comment (ADR-0009 decision 3). What the run saved is one line directly
+     comment (ADR-0009). What the run saved is one line directly
      under the verdict, outside it (ADR-0017).
    - The step summary and the console each give one line.
    - The JSON report gains a `cost` object.
@@ -191,7 +191,7 @@ Operating the gate raises four needs its reports do not yet meet.
      rate is set.
 
 9. **Chat alerts are reporters: `slack`, `discord` and `webhook`.**
-   - They are built-in `Reporter` adapters (ADR-0009 decision 1). They send
+   - They are built-in `Reporter` adapters (ADR-0009). They send
      with `symfony/http-client`, which is already required (ADR-0001).
    - A failed post says so, and never changes the exit code.
 
@@ -201,8 +201,7 @@ Operating the gate raises four needs its reports do not yet meet.
         floor;
       - *cannot judge*;
       - *recovered*: the first pass after either;
-      - *floor lowered*: a baseline `lowered` entry landed (ADR-0003
-        decision 7).
+      - *floor lowered*: a baseline `lowered` entry landed (ADR-0003).
     - **A verdict that cannot judge says so itself.** The flows add each
       reason with `Verdict::withCannotJudge(CannotJudge)`, and any one makes
       the verdict's judgement `cannot-judge`, whatever its trees scored.
@@ -211,7 +210,7 @@ Operating the gate raises four needs its reports do not yet meet.
       report as `cannotJudge`, and JUnit as a failing case of type
       `cannot-judge` in its `run` suite.
     - **The previous state** comes from the newest entry of `trend.json`,
-      which gains a `verdict` field (ADR-0009 decision 5). It is restored
+      which gains a `verdict` field (ADR-0009). It is restored
       into `--publish-dir` as the badge is.
     - With no previous state, only a failure alerts.
     - **How a change is read.** Each `trend.json` entry also records each
@@ -227,10 +226,10 @@ Operating the gate raises four needs its reports do not yet meet.
 
       One verdict may alert twice, a lowered floor beside the recovery it
       brought. `Alerts::of(Verdict)` gives them. It reads the trend the flows
-      hand the verdict on the default branch (ADR-0017 decision 13), and a
+      hand the verdict on the default branch (ADR-0017), and a
       verdict with none alerts nothing.
     - A run cut short by its budget never alerts, as it never updates the
-      badge (ADR-0009 decision 5).
+      badge (ADR-0009).
     - Pull requests never alert. Their authors have the sticky comment.
 
 11. **A webhook URL comes from the environment, never from the config.**
@@ -242,7 +241,7 @@ Operating the gate raises four needs its reports do not yet meet.
     - A literal `url` in `with` is refused by the config's definition, and the message
       names the variable to use.
     - The reusable workflow takes these as optional secrets, passed to its
-      `verdict` job only, with `MUTATION_GATE_WEBHOOK_SECRET` (decision 12).
+      `verdict` job only, with `MUTATION_GATE_WEBHOOK_SECRET`.
       The action reads them from its `deliver` step's `env`.
 
 12. **Each alert is one short summary, rendered three ways.**
@@ -314,13 +313,13 @@ Operating the gate raises four needs its reports do not yet meet.
 
 15. **One trace per CI run, across its jobs, and metrics from the verdict.**
     - **The trace id** is the first 16 bytes of `sha256("mutation-gate:" +
-      run)`, where `run` is the run a proof names (ADR-0007 decision 3). So
+      run)`, where `run` is the run a proof names (ADR-0007). So
       the plan job, every shard job and the verdict job add spans to the same
       trace, with nothing passed between them.
     - **Span ids** are derived the same way from the trace id and the span's
       path. The gate draws no random number (ADR-0001).
     - **Spans:** `plan`, `shard <n>` with a child for each step its time
-      went to (decision 19), named by the step and begun when it began, and
+      went to, named by the step and begun when it began, and
       `verdict`.
     - **Metrics, emitted by the verdict:**
       - `mutation_gate.score`, a gauge per tree and for new code;
@@ -352,9 +351,9 @@ Operating the gate raises four needs its reports do not yet meet.
     - The reusable workflow takes `OTEL_EXPORTER_OTLP_ENDPOINT` and
       `OTEL_EXPORTER_OTLP_HEADERS` as optional secrets, passed to every job,
       because every job adds spans.
-    - **As built.** The verdict job sends every span, since the verdict
-      holds each phase's timings, and the trace id ties them to the run as
-      decision 15 intends. It sends `/v1/traces` only for a timed run, and
+    - The verdict job sends every span, since the verdict
+      holds each phase's timings, and the trace id ties them to the run, one
+      trace per CI run. It sends `/v1/traces` only for a timed run, and
       `/v1/metrics` always, stamped with the clock's time.
       - With neither `with.endpoint` nor the variable set, the endpoint is
         `http://localhost:4318`, OpenTelemetry's default.
@@ -368,7 +367,7 @@ Operating the gate raises four needs its reports do not yet meet.
         wrote or not. A vendor may put its key in the userinfo, the path or
         the query.
       - A signal's path goes before any query the endpoint holds.
-    - **Attributes as built.**
+    - **Attributes.**
       - Spans carry the four conventional ones where the CI names them.
         They also carry `mutation_gate.mode`, `change` or `full`, and a
         shard's spans carry `mutation_gate.shard`.
@@ -389,7 +388,7 @@ Operating the gate raises four needs its reports do not yet meet.
     - the runner-minutes;
     - the trace id.
 
-    The `cost` object of decision 8 sits beside it. A team without a
+    The `cost` object sits beside it. A team without a
     collector reads the same numbers from a file CI already keeps.
 
     Its shape: `{"id", "traceId", "phases": {"plan"?: {"start",
@@ -398,7 +397,7 @@ Operating the gate raises four needs its reports do not yet meet.
     "units": {"run", "proved",
     "carried"}, "wallSeconds", "runnerSeconds", "measured"}`. `start` is an
     instant in UTC, as `2026-09-30T11:50:00Z`, and `measured` is false where
-    the runner time is estimated from `shards.setup` (ADR-0017 decision 12).
+    the runner time is estimated from `shards.setup` (ADR-0017).
     `run`, `cost` and `savings` are left out where the flows gave the
     verdict no timings.
 
@@ -406,7 +405,7 @@ Operating the gate raises four needs its reports do not yet meet.
     - The flows read the PSR-20 clock (ADR-0001), and the verdict carries a
       `RunTimings` value.
     - Shards write their timings into their result files, which already hold
-      what the shard measured (ADR-0006 decision 1), and the verdict merges
+      what the shard measured (ADR-0006), and the verdict merges
       them: each shard from its start, the instant its result was written
       less what it spent, with its steps, and the verdict from when it began.
       What the run took is estimated, each job's setup from `shards.setup`:

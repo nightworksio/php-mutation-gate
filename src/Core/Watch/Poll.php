@@ -6,7 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Watch;
 
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
-/** How often `watch` looks at the files it polls: once a second (ADR-0010, decision 1). */
+/** How often `watch` looks at the files it polls: once a second (ADR-0010). */
 final readonly class Poll
 {
     /** The wait between looks, in seconds. */

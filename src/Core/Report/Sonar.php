@@ -23,7 +23,7 @@ use function sprintf;
  * `sonar.externalIssuesReportPaths`: five rules of the engine
  * `mutation-gate`, and an issue for every mutant the score counts as not
  * killed, at its file, lines and columns, with SARIF's message
- * (ADR-0028, decisions 7 to 9). An issue leaves its effort out, so
+ * (ADR-0028). An issue leaves its effort out, so
  * SonarQube's default of none applies.
  *
  * @phpstan-type Range array{startLine: int, endLine?: int, startColumn?: int, endColumn?: int}
@@ -77,7 +77,7 @@ final readonly class Sonar
      * How many issues the report holds under each directory at the root,
      * in the order their first issue comes, which says how many SonarQube
      * drops where `sonar.sources` leaves a directory out; nothing where it
-     * holds none (ADR-0028, decision 10).
+     * holds none (ADR-0028).
      */
     public static function tally(Verdict $verdict): string
     {

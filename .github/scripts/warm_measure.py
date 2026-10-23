@@ -8,7 +8,7 @@ Usage:
 
 Run by `warm workers` once it has run the gate on the same project and
 coverage map with `runner.workers: fresh` and with `fork`, each writing the
-JSON report (ADR-0023, decisions 12 to 14). `suspects` prints how many mutants
+JSON report (ADR-0023). `suspects` prints how many mutants
 the forked run judged otherwise than the fresh one, so the job knows to run
 each mode again. `judge` writes the first runs' wall time and the time their
 mutants took to the step summary, and fails where every forked run gives a
@@ -16,7 +16,7 @@ mutant one verdict and every fresh run another, naming the mutant. A mutant
 the runs of one mode disagree on is named in the summary as unsettled, and
 fails nothing: a verdict that comes and goes in either mode cannot be pinned
 on forking. The findings file
-holds the failing mutants as the job's evidence (ADR-0019, decision 5).
+holds the failing mutants as the job's evidence (ADR-0019).
 
 Two halves: `verdicts`, `disagreements`, `unsettled` and `table` decide from
 the reports, and `main` reads the files.

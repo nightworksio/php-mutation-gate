@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 /**
  * The static analysers this package brings, each by the name
  * `staticCheck.tool` chooses it with, in the order `auto` asks about them
- * (ADR-0020, decision 8): Mago leads, being the fastest to check one mutant
+ * (ADR-0020): Mago leads, being the fastest to check one mutant
  * with. An extension may register others by names of its own.
  */
 enum BuiltinAnalyser: string

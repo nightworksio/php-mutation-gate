@@ -8,10 +8,10 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 /**
- * How a runner runs a request's mutants (ADR-0023, decisions 5 and 12): this
+ * How a runner runs a request's mutants (ADR-0023): this
  * many at once, each started as `runner.workers` says, and how long a run of
  * no test took to start on this machine, where the run measured it, which
- * each mutant's limit is laid on (ADR-0008, decision 2).
+ * each mutant's limit is laid on (ADR-0008).
  */
 final readonly class Pool
 {

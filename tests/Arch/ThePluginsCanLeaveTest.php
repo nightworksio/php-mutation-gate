@@ -15,7 +15,7 @@ use NightWorksIO\MutationGate\Tests\Support\Tree;
 // A6–A8, over each plugin under plugins/: a first-party set that is a package
 // in all but publication, and leaves by moving its directory (ADR-0021); and
 // the Composer plugin, a package of its own published from its directory
-// (ADR-0024, decision 11), which names Composer's plugin API in place of the
+// (ADR-0024), which names Composer's plugin API in place of the
 // mutator SDK, and registers no extension.
 
 /** The package this repository's own code is. */

@@ -5,7 +5,7 @@ Usage: commit_lint.py <base_sha> <head_sha> [--title <pull request title>] [--fi
 
 The title is checked because a squash merge makes it the subject of the commit
 that lands on main. With --findings, what failed is also written there as the
-job's evidence (ADR-0019, decision 5).
+job's evidence (ADR-0019).
 
 Two halves: `_read` asks git, and `unconventional` decides from what git said.
 """

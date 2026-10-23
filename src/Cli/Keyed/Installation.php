@@ -12,7 +12,7 @@ use function sprintf;
 
 /**
  * Where the gate was started from, which a command that holds the gate's keys checks before anything else
- * (ADR-0007 decision 5): it starts only from the gate's own installation, never through Composer's proxy, which
+ * (ADR-0007): it starts only from the gate's own installation, never through Composer's proxy, which
  * names the autoloader it was started through, and never from the working directory's `vendor`, the project's.
  */
 final readonly class Installation

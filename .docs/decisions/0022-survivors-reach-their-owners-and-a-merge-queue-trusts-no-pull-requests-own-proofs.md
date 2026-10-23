@@ -9,7 +9,7 @@ Four needs remain once a verdict is right and fast. Each is about who the
 verdict reaches and how.
 
 - **Survivors have owners.** A pull request's comment lists survivors
-  (ADR-0009 decision 3), but not who is asked to act on them. GitHub's
+  (ADR-0009), but not who is asked to act on them. GitHub's
   CODEOWNERS already says who owns each path. As GitHub documents it:
   - the file is read from `.github/`, the root or `docs/`, the first found,
     and it must be on the pull request's base branch;
@@ -33,7 +33,7 @@ verdict reaches and how.
     base branch lands the group's exact commit, or the exact suffix of the
     group's branch name.
 - **A pull request's own scope cannot be trusted by the default branch**
-  (ADR-0007 decisions 3 to 5). Its own workflow can write anything there. A
+  (ADR-0007). Its own workflow can write anything there. A
   pull request's passing run is trusted on the default branch only as its
   `passed` record says: through the `ci.check` check-run, and with no proofs
   of its own scope used.
@@ -55,7 +55,7 @@ verdict reaches and how.
   - PHP-Scoper cannot make a scoped Composer plugin work, because Composer
     does not load the scoped aliases.
   - Pest finds plugins through `extra.pest.plugins` in the project's
-    installed packages (ADR-0004 decision 3), which a PHAR is not.
+    installed packages (ADR-0004), which a PHAR is not.
   - GitHub's artifact attestations sign SLSA provenance with Sigstore, are
     checked with `gh attestation verify`, are free for public repositories,
     and can be pushed to a container registry beside an image.
@@ -106,13 +106,13 @@ verdict reaches and how.
    - Owners are the one place the comment writes a mention. An owner token
      is printed only if it matches `@user` or `@org/team` exactly. An email
      owner is printed as plain text. Everything else the project wrote stays
-     escaped (ADR-0009 decision 3).
+     escaped (ADR-0009).
 
 4. **An owner can have a floor of its own.**
    - `owners.floors` maps an owner, such as `@acme/payments`, to a number
      from 0 to 100. Empty by default.
    - It is a declared minimum, judged over every unit the owner owns across
-     the project, with carried results completing it (ADR-0003 decision 4).
+     the project, with carried results completing it (ADR-0003).
      A score below it fails the run with exit code 1, and the message names
      the owner group, its floor and its score.
    - It has no baseline and does not ratchet. Ownership moves often, and a
@@ -127,7 +127,7 @@ verdict reaches and how.
      gains `owners: [{owners: ["@acme/payments"], score, floor, judgement,
      counts, mutants}]`.
    - `owners.mention` and `owners.floors` judge or report only, and are not
-     in the proof key (ADR-0007 decision 2.3).
+     in the proof key (ADR-0007).
    - `Core` holds the ownership: a pure parser of CODEOWNERS text and a
      matcher, with no I/O, tested over fixtures that include every
      documented exception. The Cli reads the file at the base. No port
@@ -139,22 +139,21 @@ verdict reaches and how.
    - The CiPlan port's `runOn()` reads a `merge_group` event as a *merge
      group*, from the event payload. It is judged like a pull request from
      `merge_group.base_sha`: change-scoped reach (ADR-0005), and the new-code
-     floor over the group's changed lines (ADR-0003 decision 8).
+     floor over the group's changed lines (ADR-0003).
    - It has **no proof scope of its own**. It reads the default branch's
-     ledger and writes none, as a run on a detached `HEAD` does (ADR-0006
-     decision 5).
+     ledger and writes none, as a run on a detached `HEAD` does
+     (ADR-0006).
    - `baseline.improvement` reports rather than requires, since nothing can
      commit to a group.
-   - This amends ADR-0006 decision 5's ref table with a row for merge groups.
+   - This amends ADR-0006's ref table with a row for merge groups.
 
 7. **A group reuses what a pull request proved only through the tree and the
    check-run.**
    - When the group's head tree equals the head tree of the pull request it
      was built for, and that pull request's `ci.check` check-run passed on
-     that head with a `passed` record of `ownScopeProofs: 0` (ADR-0007
-     decision 3), the group reaches nothing and passes without mutating.
-     That is the case when the pull request was up to date and first in the
-     queue.
+     that head with a `passed` record of `ownScopeProofs: 0` (ADR-0007),
+     the group reaches nothing and passes without mutating. That is the
+     case when the pull request was up to date and first in the queue.
    - Otherwise the run is change-scoped from `base_sha`, carrying from the
      default branch's ledger, so only the combination is judged.
    - The pull request is found from the group's head ref once the first
@@ -165,7 +164,7 @@ verdict reaches and how.
 
 8. **After the queue merges, the push to the default branch reaches nothing
    the queue proved.**
-   - ADR-0005 decision 5 extends to groups: a pushed commit whose tree
+   - ADR-0005 extends to groups: a pushed commit whose tree
      equals a merge group's head tree, whose `ci.check` passed with no
      own-scope proofs, reaches nothing.
    - Trees are compared, so the rule holds whether GitHub lands the group's
@@ -173,13 +172,13 @@ verdict reaches and how.
 
 9. **The action, the reusable workflow and `init --ci` handle `merge_group`.**
    - `mode: auto` is change-scoped on `merge_group`, from
-     `merge_group.base_sha` (ADR-0005 decision 2).
+     `merge_group.base_sha` (ADR-0005).
    - `init --ci=github` always writes the `merge_group:` trigger, which
-     fires only where a queue is on (ADR-0015 decision 16).
+     fires only where a queue is on (ADR-0015).
    - The required check stays the one `ci.check` names.
    - A group writes no ledger. An OIDC role that can write the default
      branch's prefix trusts `job_workflow_ref` at the default branch or an
-     environment restricted to it (ADR-0019 decision 16), which no
+     environment restricted to it (ADR-0019), which no
      `gh-readonly-queue/` run matches. The first step of the build proves
      that a `merge_group` run cannot save into the default branch's cache
      scope. If it can, the reusable workflow skips its cache save on
@@ -210,13 +209,13 @@ verdict reaches and how.
       (ADR-0001, ADR-0021).
     - The PHAR loads the project's `vendor/autoload.php` after its own, so
       extensions and mutator sets are found through the project's
-      `installed.json` as usual (ADR-0001 decision 4).
+      `installed.json` as usual (ADR-0001).
     - A project that also has `nightworksio/mutation-gate` installed is exit
       2: *this project installs the gate with Composer; run
       `vendor/bin/mutation-gate`*. Two copies of the same classes cannot
       coexist.
     - Under the PHAR, key item 2 (the gate's version and source reference,
-      ADR-0007 decision 2) comes from the version built into the PHAR,
+      ADR-0007) comes from the version built into the PHAR,
       because `installed.json` is not in it.
 
 12. **The PHAR is signed twice: an attestation and a GPG signature.**
@@ -249,20 +248,20 @@ verdict reaches and how.
 14. **Only the verified release job publishes them, and every pull request
     builds the PHAR.**
     - `release.yml` builds the PHAR and the image after the signed-tag checks
-      and the full gate (ADR-0019 decision 15), in one job with
+      and the full gate (ADR-0019), in one job with
       `contents: write`, `packages: write`, `id-token: write` and
       `attestations: write`, run only for a verified `v*` tag.
     - The build is reproducible: a fixed scoper prefix, and Box's
       `timestamp` set to the tag commit's time. The PHAR carries its own
       version and source reference, which `init --ci` uses for the gate's own
-      pin (ADR-0015 decision 14).
+      pin (ADR-0015).
     - A required `phar` job builds the PHAR on every pull request and runs a
       smoke suite, publishing nothing: `--version`, `config:schema` equal to
       the committed schema, an Infection fixture's verdict, and the Pest
       refusal.
-    - This amends ADR-0011 decisions 6 (the `phar` job), 8 (two more ways to
+    - This amends ADR-0011 (the `phar` job), 8 (two more ways to
       get the gate), 9 (what a release publishes) and 10 (the image's PHP),
-      and ADR-0019 decision 15.
+      and ADR-0019.
 
 ### Clusters
 
@@ -276,36 +275,35 @@ verdict reaches and how.
     - Each cluster is labelled with its rule. The second can over-group,
       which is why it is labelled.
     - `Core` computes clusters over the verdict's mutants, their spans
-      (columns from tokens, ADR-0009 decision 4), the enclosing function
+      (columns from tokens, ADR-0009), the enclosing function
       and the judging tests. It is always on, and reports only.
-    - **As built.**
-      - A cluster holds survived and uncovered mutants that the score
-        counts, since those are what `stub` writes a test for. It holds two
-        at least, and a survivor is in one at most.
-      - One expression is applied first, and one gap among the rest, so a
-        survivor that both rules take is in its expression.
-      - A span is the tokens the mutant's diff changed, found on its lines.
-        It lies within one statement when no `;`, `{` or `}` is among them,
-        but for a `;` that ends them. A mutant with no such span, such as a
-        change that only adds, is in no expression. Overlap is read through:
-        where a overlaps b and b overlaps c, all three are one cluster.
-      - A gap also needs one judgement. Its function is the innermost named
-        one, told apart from another of the same name by the line it begins
-        on. A closure is part of the function around it. Code in no
-        function, and a mutator of no family, is in no gap.
-      - The verdict flow clusters once, after it judges the trees. It reads
-        from the project the file of each survivor that asks for a test. A
-        file it cannot read clusters nothing. `TreeVerdicts::clustered()` marks each member,
-        which `JudgedMutant::cluster()` answers, and every report reads
-        `TreeVerdicts::clusters()`.
+    - A cluster holds survived and uncovered mutants that the score
+      counts, since those are what `stub` writes a test for. It holds two
+      at least, and a survivor is in one at most.
+    - One expression is applied first, and one gap among the rest, so a
+      survivor that both rules take is in its expression.
+    - A span is the tokens the mutant's diff changed, found on its lines.
+      It lies within one statement when no `;`, `{` or `}` is among them,
+      but for a `;` that ends them. A mutant with no such span, such as a
+      change that only adds, is in no expression. Overlap is read through:
+      where a overlaps b and b overlaps c, all three are one cluster.
+    - A gap also needs one judgement. Its function is the innermost named
+      one, told apart from another of the same name by the line it begins
+      on. A closure is part of the function around it. Code in no
+      function, and a mutator of no family, is in no gap.
+    - The verdict flow clusters once, after it judges the trees. It reads
+      from the project the file of each survivor that asks for a test. A
+      file it cannot read clusters nothing. `TreeVerdicts::clustered()` marks each member,
+      which `JudgedMutant::cluster()` answers, and every report reads
+      `TreeVerdicts::clusters()`.
 
 16. **A cluster offers one test.**
-    - `stub` for a cluster (ADR-0015 decision 1) writes one test for the
+    - `stub` for a cluster (ADR-0015) writes one test for the
       cluster's first survivor, by line then id. Its comment lists every
       member's diff, and it carries one assertion scaffold per family
       present.
-    - The stub fails until it is filled in (ADR-0015 decision 4).
-    - **As built.** `stub <cluster id>` writes the one test, through
+    - The stub fails until it is filled in (ADR-0015).
+    - `stub <cluster id>` writes the one test, through
       `Core\Stub\StubText`. Every report prints a cluster's `stub` and
       `explain` commands, and `ClusterId::parse` reads its id and refuses a
       mutant id.
@@ -325,21 +323,20 @@ verdict reaches and how.
       hex digit, so the id never reads as a mutant id, which is always 12
       hex characters, nor as the prefix of one that `explain` and
       `reproduce` accept.
-    - **As built.**
-      - A cluster with any member on a changed line is listed among the
-        survivors on changed lines, with every member. The section's
-        heading still counts the mutants.
-      - A cluster's hint says why one test may kill them all, then gives
-        its representative's hint.
-      - The step summary's last column is `Command`: a mutant's reproduce
-        command, or a cluster's stub command.
-      - A cluster's annotation is titled like `Mutant cluster: 3 survivors,
-        one expression`. It is an error where any member is in a set that
-        failed, and it ranks as a changed line where any member is on one.
-      - The JSON report always has `clusters`, which is empty where there
-        are none. A mutant has `cluster` only where it is a member.
-      - The id's SHA-256 is taken over the sorted member ids, one to a
-        line.
+    - A cluster with any member on a changed line is listed among the
+      survivors on changed lines, with every member. The section's
+      heading still counts the mutants.
+    - A cluster's hint says why one test may kill them all, then gives
+      its representative's hint.
+    - The step summary's last column is `Command`: a mutant's reproduce
+      command, or a cluster's stub command.
+    - A cluster's annotation is titled like `Mutant cluster: 3 survivors,
+      one expression`. It is an error where any member is in a set that
+      failed, and it ranks as a changed line where any member is on one.
+    - The JSON report always has `clusters`, which is empty where there
+      are none. A mutant has `cluster` only where it is a member.
+    - The id's SHA-256 is taken over the sorted member ids, one to a
+      line.
 
 ## Alternatives considered
 

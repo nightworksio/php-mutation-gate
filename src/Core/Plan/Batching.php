@@ -10,8 +10,8 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 
 /**
  * The next runner invocation of a run that goes in batches: a budgeted run
- * (ADR-0008, decision 1), and a pull request's shard that stops once its
- * verdict cannot pass (decision 6). Units are taken in the order given: a
+ * (ADR-0008), and a pull request's shard that stops once its
+ * verdict cannot pass. Units are taken in the order given: a
  * held unit alone, against the tests that hold it, and otherwise as many
  * units in a row as fit the time left and the chunk, since every invocation
  * pays the runner's opening run. Where the first unit does not fit the time
@@ -32,7 +32,7 @@ final readonly class Batching
         return new self($opening, Unlimited::time());
     }
 
-    /** The chunk a shard that can stop once it cannot pass runs its units in (ADR-0008, decision 6). */
+    /** The chunk a shard that can stop once it cannot pass runs its units in (ADR-0008). */
     public static function chunk(): Seconds
     {
         return Seconds::minutes(self::CHUNK_MINUTES);

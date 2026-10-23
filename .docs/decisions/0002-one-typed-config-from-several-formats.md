@@ -69,7 +69,7 @@ cannot.
      `mutation-gate.neon`.
    - Two of them present is an error (exit code 2), not a precedence rule,
      because a second file somebody forgot is a second answer nobody reads.
-   - None present is zero-config (decision 5).
+   - None present is zero-config.
 
    `mutation-gate init --format=php|json|yaml|neon` (default `php`) writes a
    starting file holding what should stay fixed: the detected `runner` and
@@ -224,7 +224,7 @@ cannot.
    - The layer an entry comes from can decide what it means. A mutator set
      only presets turn on is skipped with a warning where nothing registers
      it, and the same set named in the config file or on the command line is
-     exit code 2 (ADR-0021, decision 12).
+     exit code 2 (ADR-0021).
    - `trees` is the exception: a layer that sets it replaces the list whole, so
      declaring trees never adds them to the ones `phpunit.xml` or a preset
      found.
@@ -284,7 +284,7 @@ cannot.
      hold with `#[Holds]` or a `holds:` group (ADR-0005), each once and at
      least one, never one `tests.suites` also lists. A hold written in one
      of these suites adds judges to what it holds rather than replacing
-     them (ADR-0005, decision 9): its tests judge the held path's mutants
+     them (ADR-0005): its tests judge the held path's mutants
      beside the tests the other suites already judge them by. They judge no
      other unit's mutants, so they are in no other unit's covering tests.
      Where `tests.suites` lists none, every declared suite `tests.holding`
@@ -293,9 +293,8 @@ cannot.
      tests that start real processes, out of every mutant's run but those
      of the units it exists to test, and loses none of the mutants those
      tests kill.
-   - Both keys affect results, so they are in the proof key (ADR-0007
-     decision 2.3). `--suite` names one suite over both (ADR-0025, decision
-     9).
+   - Both keys affect results, so they are in the proof key (ADR-0007).
+     `--suite` names one suite over both (ADR-0025).
 
 ## Alternatives considered
 

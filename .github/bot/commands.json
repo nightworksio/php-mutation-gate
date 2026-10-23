@@ -1,5 +1,5 @@
 {
-  "$comment": "Every word the bot's commands reply with (ADR-0019, decision 13). A {name} is filled only with a value bot_command.py has validated. .github/scripts/test_bot_command.py fails where a reply the script sends is missing here, or a reply here is never sent.",
+  "$comment": "Every word the bot's commands reply with (ADR-0019). A {name} is filled only with a value bot_command.py has validated. .github/scripts/test_bot_command.py fails where a reply the script sends is missing here, or a reply here is never sent.",
   "who": "someone with write access to this repository, or this pull request's author",
   "replies": {
     "refused": "`/{command}` may be run only by {who}.",

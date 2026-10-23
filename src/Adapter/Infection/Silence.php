@@ -24,7 +24,7 @@ use Symfony\Component\Process\Process;
 
 /**
  * The silence limit of each mutant's run, kept in a patched Infection's
- * process (see Patch, ADR-0008 decision 2): a run that has printed nothing
+ * process (see Patch, ADR-0008): a run that has printed nothing
  * for its limit since it last printed is stopped, as one at its whole limit
  * is, and the stop is recorded, by the mutant, in the file the gate names.
  * The test framework prints its header once it has loaded every test, and a

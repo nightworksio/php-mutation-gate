@@ -25,10 +25,10 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 /**
  * One alert posted within 10 seconds, or reported unsent: a 429 or a 5xx is
  * tried once more after its `Retry-After`, up to 30 seconds, and then the
- * reporter says *not written* with the status and the body (ADR-0016,
- * decision 13). A redirect is not followed, so the body and its signature
- * go nowhere but the URL given, and a failure never repeats that URL, which
- * holds the chat's credential.
+ * reporter says *not written* with the status and the body (ADR-0016). A
+ * redirect is not followed, so the body and its signature go nowhere but
+ * the URL given, and a failure never repeats that URL, which holds the
+ * chat's credential.
  */
 final readonly class Delivery
 {

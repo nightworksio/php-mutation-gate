@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Analysis;
 
 /**
- * Why static analysis left a survivor unchecked (ADR-0020, decisions 7, 9
- * and 11): the survivor stays a survivor, and the run warns once for each
- * reason. A shard's result records it by its value.
+ * Why static analysis left a survivor unchecked (ADR-0020): the survivor
+ * stays a survivor, and the run warns once for each reason. A shard's
+ * result records it by its value.
  */
 enum Unchecked: string
 {

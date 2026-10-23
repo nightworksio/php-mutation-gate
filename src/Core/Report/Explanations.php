@@ -14,7 +14,7 @@ use Traversable;
 
 /**
  * What `explain` explains: one mutant, or a cluster of survivors with each
- * of its members (ADR-0022, decision 17).
+ * of its members (ADR-0022).
  *
  * @implements IteratorAggregate<int, Explanation>
  */
@@ -36,7 +36,7 @@ final readonly class Explanations implements IteratorAggregate
         return new self($cluster, [$first, ...array_values($more)]);
     }
 
-    /** The mutant explained, or a cluster's first survivor, which `stub` writes for (ADR-0022, decision 16). */
+    /** The mutant explained, or a cluster's first survivor, which `stub` writes for (ADR-0022). */
     public function first(): Explanation
     {
         return $this->explanations[0];

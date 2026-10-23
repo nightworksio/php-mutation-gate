@@ -15,7 +15,7 @@ use Traversable;
 
 /**
  * What kept a run from judging honestly, in the order it was met. Any one of
- * them makes the verdict *cannot judge* (ADR-0016, decision 10).
+ * them makes the verdict *cannot judge* (ADR-0016).
  *
  * @implements IteratorAggregate<int, CannotJudge>
  */

@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
 /**
  * A shallow clone, which holds only the newest commits: git cannot say what
- * changed since an older one (ADR-0005, decision 3; ADR-0008, decision 1).
+ * changed since an older one (ADR-0005; ADR-0008).
  */
 final readonly class ShallowClone
 {

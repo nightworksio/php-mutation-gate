@@ -19,7 +19,7 @@ use function sprintf;
 /**
  * The last run's survivors run again first, as the log shows them: how many
  * still survive, then one line each, in the order they were taken, with its
- * place, its mutator and its id (ADR-0020, decision 20). What a ledger holds
+ * place, its mutator and its id (ADR-0020). What a ledger holds
  * is text from outside, so each line is plain and starts no CI command.
  */
 final readonly class RecheckedText

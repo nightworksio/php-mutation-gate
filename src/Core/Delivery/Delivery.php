@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
  * What a run that ran the project's code leaves for `deliver`, which holds the credentials and runs none of that
- * code (ADR-0007 decision 5): payloads only, each ready to send. Where each goes, and with which credential, is
+ * code (ADR-0007): payloads only, each ready to send. Where each goes, and with which credential, is
  * `deliver`'s own environment's to say, never the delivery's.
  */
 final readonly class Delivery
@@ -48,7 +48,7 @@ final readonly class Delivery
 
     /**
      * This delivery, with the pull request comment's markdown, to be written only over the comment's planned state,
-     * so a verdict already written is never replaced (ADR-0020 decision 21).
+     * so a verdict already written is never replaced (ADR-0020).
      */
     public function withCommentOverPlanned(string $markdown): self
     {

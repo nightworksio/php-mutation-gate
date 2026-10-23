@@ -104,7 +104,7 @@ final readonly class TriageKeys
      * `tests`: the order each mutant's covering tests run in, the suites
      * whose tests judge every unit, and those whose tests judge only the
      * units they hold, each list once a name and at least one where it is
-     * written, and no suite in both (ADR-0002, decision 8).
+     * written, and no suite in both (ADR-0002).
      *
      * @return Section<Layer>
      */

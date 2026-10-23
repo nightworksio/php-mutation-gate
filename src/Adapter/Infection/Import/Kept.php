@@ -9,7 +9,7 @@ use NightWorksIO\MutationGate\Core\Import\Carried;
 /**
  * The top-level keys of Infection's config an import leaves where they are:
  * what the Infection adapter goes on reading, or the gate overrides, stays;
- * what the gate does in its own way is dropped (ADR-0016, decision 1).
+ * what the gate does in its own way is dropped (ADR-0016).
  */
 enum Kept
 {

@@ -16,7 +16,7 @@ $autoload = array_key_exists('_composer_autoload_path', $GLOBALS) && is_string($
     : sprintf('%s/vendor/autoload.php', dirname(__DIR__));
 require $autoload;
 
-// The gate's own process, and no other, is given the memory its ledgers may need (ADR-0013 decision 13), where
+// The gate's own process, and no other, is given the memory its ledgers may need (ADR-0013), where
 // PHP lets it set its own; doctor says where it does not.
 $memory = LedgerMemory::standard();
 
@@ -28,8 +28,8 @@ $output = new InertOutput();
 
 $input = new ArgvInput();
 
-// deliver and fetch hold the gate's keys, so they start before any extension is found or config read (ADR-0007
-// decision 5).
+// deliver and fetch hold the gate's keys, so they start before any extension is found or config read
+// (ADR-0007).
 $installation = Installation::of(
     (string) getcwd(),
     dirname($autoload),

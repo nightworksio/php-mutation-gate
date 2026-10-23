@@ -14,7 +14,7 @@ use NightWorksIO\MutationGate\Core\Time\Instant;
  * its coverage map was measured against the map the scope keeps, and when
  * the verdict passed, where the record says so. A
  * passing run of another scope is trusted only where it used neither, which
- * its own code could have written (ADR-0007, decision 3).
+ * its own code could have written (ADR-0007).
  */
 final readonly class Passed
 {

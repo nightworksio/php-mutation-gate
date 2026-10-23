@@ -26,7 +26,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 
 /**
- * What `init --ci` is asked for (ADR-0015 decision 13, ADR-0017 decision 1):
+ * What `init --ci` is asked for (ADR-0015, ADR-0017):
  * the CI named, or with `--ci` alone the one the project's files show; for
  * GitHub, the one-step action or the reusable workflow where `--single` or
  * `--sharded` picks one; and with `--stdout`, the files printed rather than

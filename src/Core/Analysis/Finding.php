@@ -7,7 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Analysis;
 use NightWorksIO\MutationGate\Core\File\Path;
 
 /**
- * One thing a static analyser reports (ADR-0020, decision 9): the file it
+ * One thing a static analyser reports (ADR-0020): the file it
  * sits in, as the project spells it; its code, which PHPStan calls its
  * identifier, Mago its code and Psalm its type; its message; and whether it
  * is an error rather than a lesser level. Its line is not kept, since a

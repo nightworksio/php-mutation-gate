@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * What a change-scoped run reads its change since: a ref, whose merge base
  * with HEAD the change is read from, and, for `last-run`, the commit its
  * scope's last run of the same kind judged, which the change is read from
- * itself (ADR-0005, decision 2). The ref still gives the run's new code, and
+ * itself (ADR-0005). The ref still gives the run's new code, and
  * every file changed since it carries only the run's own scope's results.
  */
 final readonly class ChangeBase

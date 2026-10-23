@@ -21,7 +21,7 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Extension\Extensions;
 
 /**
- * What zero-config found, as `init` writes it (ADR-0017, decision 2): the
+ * What zero-config found, as `init` writes it (ADR-0017): the
  * preset and the runner, which stay fixed once written, and the trees,
  * which `init` lists rather than writes, so a run finds them again.
  */

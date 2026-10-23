@@ -7,7 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Cost;
 /**
  * One shard's time, as its result file records it: when it began, how long
  * it took, and the steps its time went to, each from when it began
- * (ADR-0016, decision 19).
+ * (ADR-0016).
  */
 final readonly class ShardTiming
 {

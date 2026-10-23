@@ -72,7 +72,7 @@ interface Runner
     /**
      * The tests of a map that these test files hold, by the runner's own rules
      * for naming a test after its file: the entries a run of those files
-     * measures again (ADR-0023, decision 3). A test the runner cannot place
+     * measures again (ADR-0023). A test the runner cannot place
      * in a file is not among them.
      */
     public function testsIn(Paths $files, CoverageMap $map): TestIds|CannotJudge;
@@ -94,13 +94,13 @@ interface Runner
      * names the tests that killed each mutant it kills, and gives the evidence
      * of its kills, as far as it saw it run, through
      * `MutationResult::withEvidence()`, leaving out what it cannot tell
-     * (ADR-0014, decision 16). A kill that names no killer stands only where
+     * (ADR-0014). A kill that names no killer stands only where
      * its ending says a signal or a fatal error PHP recorded ended it, and is
-     * unjudged otherwise (ADR-0014, decision 17). A runner that can keep a
+     * unjudged otherwise (ADR-0014). A runner that can keep a
      * mutant from its run asks the pre-checker once, before any mutant runs,
      * and runs none it rejects: each is killed by static analysis, with its
-     * rejection (ADR-0020, decisions 11 and 12). One that cannot leaves every
-     * check until after the tests (decision 13).
+     * rejection (ADR-0020). One that cannot leaves every
+     * check until after the tests.
      */
     public function mutate(
         MutationRequest $request,
@@ -108,7 +108,7 @@ interface Runner
     ): MutationResult|CannotJudge;
 
     /**
-     * What each of these unmutated controls finds (ADR-0008, decision 2):
+     * What each of these unmutated controls finds (ADR-0008):
      * its tests, in its order, run as the request runs a mutant's, withheld,
      * capped and in its pool, with its file served unmutated by the means the
      * runner serves a mutant's file, so a test that fails only while a file is
@@ -119,7 +119,7 @@ interface Runner
     public function controls(MutationRequest $request, Controls $controls): ControlRuns|CannotJudge;
 
     /**
-     * A mutant as a static analyser checks it (ADR-0020, decision 9): its
+     * A mutant as a static analyser checks it (ADR-0020): its
      * text, from its diff put onto the file it was made from, and the original
      * it is judged against, the file as written or the file printed as the
      * runner prints its mutants. One whose text cannot be had is left
@@ -142,7 +142,7 @@ interface Runner
      * mutator, judged, withheld and capped as the request says, allowed no
      * more than this where the runner lays a limit, and matched back by the gate's id,
      * with what the runner printed. The tests never see the variables
-     * withheld (ADR-0004 decision 6).
+     * withheld (ADR-0004).
      */
     public function reproduce(
         Reproducible $mutant,
@@ -177,7 +177,7 @@ interface Runner
      * root: its vendor and the gate's directory are the package's, and its
      * tests are in these directories, which the CLI reads from the package's
      * own PHPUnit config. A directory that holds no project the runner can
-     * run cannot be judged (ADR-0005, decision 7).
+     * run cannot be judged (ADR-0005).
      */
     public function rootedAt(Path $package, Paths $tests): self|CannotJudge;
 }

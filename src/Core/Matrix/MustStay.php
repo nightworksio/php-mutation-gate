@@ -17,7 +17,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  * The whole tests no removal may take: each that alone covers a line, and
  * each that alone among its holding group covers a line of what the group
  * holds, whose removal would leave the group short of the coverage it must
- * have (ADR-0014, decision 8, and ADR-0005, decision 10).
+ * have (ADR-0014, and ADR-0005).
  */
 final readonly class MustStay
 {

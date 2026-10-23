@@ -63,7 +63,7 @@ it('offers plan\'s options: a ref to change since, a full run, a coverage map, a
         ->and($definition->getOption('coverage')->isValueRequired())->toBeTrue()
         ->and($definition->getOption('shards')->isValueRequired())->toBeTrue()
         ->and($definition->getOption('kill-matrix')->isValueRequired())->toBeTrue()
-        ->and(array_keys($definition->getOptions()))->toBe(['changed-since', 'full', 'coverage', 'shards', 'kill-matrix', 'security', 'suite', 'deliver-later']);
+        ->and(array_keys($definition->getOptions()))->toBe(['changed-since', 'full', 'sample', 'coverage', 'shards', 'kill-matrix', 'security', 'suite', 'deliver-later']);
 });
 
 it('considers what changed since the last commit that passed unless asked otherwise, or run.full asks for every unit', function (array $options, bool $fullByDefault, Mode $mode, bool $full) use (
@@ -81,6 +81,25 @@ it('considers what changed since the last commit that passed unless asked otherw
     '--changed-since, where run.full is true' => [['--changed-since' => 'origin/main'], true, fn(): Mode => Mode::since('origin/main'), false],
     'last-run' => [['--changed-since' => 'last-run'], false, fn(): Mode => Mode::since('last-run'), false],
 ]);
+
+it('samples the run it asks for where --sample asks', function (array $options, Mode $mode) use ($given): void {
+    expect(FlowOptions::mode($given($options), Flows::settings()))->toEqual($mode)
+        ->and($given(['--sample' => true])->getOption('sample'))->toBeTrue();
+})->with([
+    'a full run' => [['--full' => true, '--sample' => true], fn(): Mode => Mode::full()->sampled()],
+    'a change-scoped run' => [['--changed-since' => 'origin/main', '--sample' => true], fn(): Mode => Mode::since('origin/main')->sampled()],
+    'by default' => [['--sample' => true], fn(): Mode => Mode::since('last-passed')->sampled()],
+]);
+
+it('refuses a sample beside the security mutators alone or one suite alone, and keeps another refusal first', function () use ($given): void {
+    expect(FlowOptions::mode($given(['--sample' => true, '--security' => true]), Flows::settings()))
+        ->toEqual(CannotJudge::because("--sample estimates each tree against its floor, and --security holds the trees to none. Give one of them."))
+        ->and(FlowOptions::mode($given(['--sample' => true, '--suite' => 'Unit']), Flows::settings()))
+        ->toEqual(CannotJudge::because("--sample estimates each tree against its floor, and --suite holds the trees to none. Give one of them."))
+        ->and(FlowOptions::mode($given(['--sample' => true, '--full' => true, '--changed-since' => 'main']), Flows::settings()))
+        ->toEqual(CannotJudge::because('--full and --changed-since ask for different runs. Give one of them.'))
+        ->and(FlowOptions::mode($given(['--security' => true]), Flows::settings()))->toEqual(Mode::since('last-passed'));
+});
 
 it('refuses a full run and a change-scoped one asked for together', function () use ($given): void {
     expect(FlowOptions::mode($given(['--full' => true, '--changed-since' => 'origin/main']), Flows::settings()))

@@ -26,9 +26,9 @@ use function sprintf;
  * passed stands for what is there now, so a plan need run nothing: it passed
  * under the run's own check, its record says when, every path the change
  * since it touched, as it is and as it was, is no PHP file and lies outside
- * every directory of tests, none decides how the gate runs (ADR-0005,
- * decision 4, rule 1) or is the baseline, and no ignore that applied when it
- * passed has expired since. Anything else, and the plan runs as ever.
+ * every directory of tests, none decides how the gate runs (ADR-0005, rule
+ * 1) or is the baseline, and no ignore that applied when it passed has
+ * expired since. Anything else, and the plan runs as ever.
  */
 final readonly class Unchanging
 {

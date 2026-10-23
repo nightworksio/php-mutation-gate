@@ -28,11 +28,11 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 
 /**
  * The score change the working tree makes against the merge base with the
- * default branch, from what the ledgers hold, running nothing (ADR-0015,
- * decisions 10 to 12). A reached unit is judged by the local result keyed to
- * what is on disk, and otherwise carries the newest result the ledgers hold
- * for it, and is counted as unjudged. The keys come from the coverage map the
- * last local run left, so where there is none, no score is shown.
+ * default branch, from what the ledgers hold, running nothing (ADR-0015). A
+ * reached unit is judged by the local result keyed to what is on disk, and
+ * otherwise carries the newest result the ledgers hold for it, and is
+ * counted as unjudged. The keys come from the coverage map the last local
+ * run left, so where there is none, no score is shown.
  */
 final readonly class ScoreChanging
 {

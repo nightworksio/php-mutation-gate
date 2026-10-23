@@ -25,11 +25,11 @@ use function sprintf;
  * How units are cut into shards, in path order. By size, the number of
  * shards is each package's cost over `shards.seconds`, rounded up, and never
  * more than `shards.max` in all: past that, shards grow instead. To a target
- * wall time, as `shards.target` asks (ADR-0013, decision 6), the count is the
+ * wall time, as `shards.target` asks (ADR-0013), the count is the
  * smallest whose shards each fit their overhead, the opening run and
  * `shards.setup`, and their share of the cost into the target, and the cut
  * within it is by size. Either way, no package is cut into shards whose
- * share of its cost is below twice their overhead (ADR-0013, decision 7).
+ * share of its cost is below twice their overhead (ADR-0013).
  * Exactly, as `--shards=<n>` asks, there are n shards,
  * and those the units do not fill are empty and say so. Packages never share a shard, because a shard runs in
  * one package's directory; floors may, because the verdict adds up each

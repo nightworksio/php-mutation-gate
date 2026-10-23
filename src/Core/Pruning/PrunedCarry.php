@@ -22,7 +22,7 @@ use NightWorksIO\MutationGate\Core\Verdict\UnitResults;
 
 /**
  * The last results a run carries for the mutators it left out of a unit
- * (ADR-0025, decision 1): of each unit the plan prunes, the newest full
+ * (ADR-0025): of each unit the plan prunes, the newest full
  * result's mutants and kills of the pruned mutators, carried by mutant id,
  * where that result is still of the unit's code and mutant set; never a
  * mutant the run made itself, as a runner that is not patched makes them

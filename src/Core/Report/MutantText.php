@@ -41,19 +41,19 @@ final readonly class MutantText
     /** How far the lines under a heading are indented. */
     public const string INDENT = '    ';
 
-    /** The line that names the callee a surviving removal may be deleted with (ADR-0025, decision 12). */
+    /** The line that names the callee a surviving removal may be deleted with (ADR-0025). */
     private const string REMOVABLE = 'Removable: %s()';
 
     private const string CHANGED = ', on a changed line';
 
-    /** The mark of a result its unit's last result gave because the plan pruned its mutator (ADR-0025, decision 1). */
+    /** The mark of a result its unit's last result gave because the plan pruned its mutator (ADR-0025). */
     private const string PRUNED = ', carried (pruned)';
 
     private const string MESSAGE = 'Mutant %s: %s. %s Reproduce: %s';
 
     /**
      * The line that names the tests that judged a mutant, by the names their
-     * runner gave them (ADR-0014, decision 6); none where none are named.
+     * runner gave them (ADR-0014); none where none are named.
      *
      * @return list<string>
      */
@@ -182,7 +182,7 @@ final readonly class MutantText
 
     /**
      * What its tests miss, and the callee it may be deleted with where the
-     * gate found one (ADR-0025, decision 12).
+     * gate found one (ADR-0025).
      *
      * @return list<string>
      */

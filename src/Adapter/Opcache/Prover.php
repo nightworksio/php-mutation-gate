@@ -15,7 +15,7 @@ use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use function sprintf;
 
 /**
- * Which mutants are their original program (ADR-0013, decision 10): those
+ * Which mutants are their original program (ADR-0013): those
  * that compile to their original's optimized opcodes and declare what it
  * declares. Each original is compiled once however many of its mutants are
  * checked, and declarations are compared only for a mutant whose opcodes

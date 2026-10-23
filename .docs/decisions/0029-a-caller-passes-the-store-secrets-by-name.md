@@ -38,7 +38,7 @@ environment, the environment's value wins over the value the caller passed.
    so.
 3. **The values stay in the environments.** Only `fetch` reads the read key,
    in `mutation-gate-read`. Only `deliver` reads the rest, in
-   `mutation-gate-store`, on a trusted run (ADR-0007, decision 5). No job that
+   `mutation-gate-store`, on a trusted run (ADR-0007). No job that
    runs the project's code reads a secret, so a shard never holds one, though
    every job of the called workflow sees the names. The guide keeps saying
    the secrets go in the environments, never in the repository: a repository

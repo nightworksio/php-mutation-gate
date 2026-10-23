@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Mutant\RunnerMutatorName;
 
 /**
  * The mutators a run leaves out of the files whose content is unchanged
- * since their newest full result (ADR-0025, decisions 1 and 2): the runner
+ * since their newest full result (ADR-0025): the runner
  * makes no mutant of those mutators in those files, and the gate carries
  * their last results instead.
  */

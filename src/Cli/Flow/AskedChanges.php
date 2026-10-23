@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
- * The change `affected` is asked about (ADR-0020, decision 3): every change
+ * The change `affected` is asked about (ADR-0020): every change
  * since the commit the coverage map was measured at, and every change since
  * the ref asked for besides. A path both changed is taken as it changed since
  * the map's commit, which is what the map's lines are of; each change was

@@ -17,9 +17,9 @@ use NightWorksIO\MutationGate\Core\NotGiven;
  * What the `azure` store's options say, as the definition reads them with
  * their defaults: the storage `account`, the private `container`, the
  * `prefix`, the `publicContainer` the default branch's scope is kept in, and
- * the `publicUrl` a job without credentials reads it from (ADR-0028
- * decisions 1 and 4). It has no option for an account key or a shared access
- * signature, so a config that gives one names a key the store does not know.
+ * the `publicUrl` a job without credentials reads it from (ADR-0028). It has
+ * no option for an account key or a shared access signature, so a config
+ * that gives one names a key the store does not know.
  */
 final readonly class ContainerOptions
 {

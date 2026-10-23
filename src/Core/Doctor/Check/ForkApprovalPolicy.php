@@ -16,7 +16,7 @@ use function sprintf;
 
 /**
  * Workflows of pull requests from forks that run without a maintainer's
- * approval (ADR-0017, decision 9; ADR-0019, decision 3): anything short of
+ * approval (ADR-0017; ADR-0019): anything short of
  * approval for every outside contributor.
  */
 final readonly class ForkApprovalPolicy

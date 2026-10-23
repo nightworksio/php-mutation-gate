@@ -16,7 +16,7 @@ use NightWorksIO\MutationGate\Core\ThisPackage;
 use function sprintf;
 
 /**
- * Git's own pre-push hook as `init --hook` sets it up (ADR-0017, decision 1):
+ * Git's own pre-push hook as `init --hook` sets it up (ADR-0017):
  * written as `hook install` writes it, or printed whole with `--dry-run`.
  */
 final readonly class GitHooks

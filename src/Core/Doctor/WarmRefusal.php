@@ -11,7 +11,7 @@ use NightWorksIO\MutationGate\Core\File\Workspace;
 /**
  * Why the last run's warm workers forked nothing, as the PHPUnit runner keeps
  * it in its directory of the gate's: the guard's reason, naming the bootstrap
- * file, and its line where PHP can tell (ADR-0023, decision 13).
+ * file, and its line where PHP can tell (ADR-0023).
  */
 final readonly class WarmRefusal
 {

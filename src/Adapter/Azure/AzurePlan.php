@@ -28,7 +28,7 @@ use NightWorksIO\MutationGate\Port\CiPlan;
 use function sprintf;
 
 /**
- * The CI plan `azure` (ADR-0024 decision 1). The plan job sets the output
+ * The CI plan `azure` (ADR-0024). The plan job sets the output
  * variable `matrix` to the matrix the `mutation` job's `strategy: matrix`
  * reads, one leg per shard, `s1`, `s2`, …, each setting `SHARD`. Azure makes
  * at least one job, so a plan with no shards is one leg, `none`, whose

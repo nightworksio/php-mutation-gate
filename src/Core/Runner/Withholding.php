@@ -8,7 +8,7 @@ use function preg_match;
 
 /**
  * The environment a child process starts in without these variables
- * (ADR-0004, decision 3; ADR-0020, decision 18): every variable it would
+ * (ADR-0004; ADR-0020): every variable it would
  * inherit, each withheld one as false, which is how Symfony's process leaves
  * a variable out. Every variable is named, since Symfony's process on its
  * own inherits only those PHP started with.

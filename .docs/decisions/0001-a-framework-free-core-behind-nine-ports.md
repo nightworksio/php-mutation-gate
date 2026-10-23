@@ -71,7 +71,7 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
      Its flows ask the ports in order and hand their answers to the core.
 
 2. **The eleven ports, and what each one answers.** Every method returns a value
-   or an outcome. None throws across the port (see decision 6).
+   or an outcome. None throws across the port.
 
    | Port | Answers | First adapters |
    |------|---------|----------------|
@@ -79,7 +79,7 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
    | `TreeSource` | Which trees exist, the floor each one declares, and which package each belongs to | `phpunit` (`phpunit.xml` `<source>`) and `composer` (autoload paths), each reading declared floors from manifests (ADR-0002, ADR-0005) |
    | `CostModel` | What a unit costs a runner in seconds, and what a finished shard teaches it | Learned timings, lines × seconds per line (ADR-0006) |
    | `ProofStore` | The ledgers of proved results this run may read, and where to write the new one, with the companions each scope keeps beside its ledger (ADR-0023) | Directory, S3-compatible (ADR-0007); Google Cloud Storage, Azure Blob (ADR-0028) |
-   | `CiPlan` | A plan in a CI's own format; the CI definitions that run the gate; and the run's ref, whether it is a pull request, and the default branch. Which shard a job is, the core reads from `--shard` or the job's environment on every CI (ADR-0006 decision 5) | GitHub, GitLab, Buildkite, CircleCI, JSON (ADR-0006); Bitbucket Pipelines, Azure DevOps, Jenkins (ADR-0024) |
+   | `CiPlan` | A plan in a CI's own format; the CI definitions that run the gate; and the run's ref, whether it is a pull request, and the default branch. Which shard a job is, the core reads from `--shard` or the job's environment on every CI (ADR-0006) | GitHub, GitLab, Buildkite, CircleCI, JSON (ADR-0006); Bitbucket Pipelines, Azure DevOps, Jenkins (ADR-0024) |
    | `Reporter` | Writing a verdict for one audience | Console, JSON, JUnit, SARIF, HTML, GitHub annotations and step summary, PR comment, badge and trend (ADR-0009) |
    | `ChangeSource` | The repository as version control sees it: what changed since a base and on which lines, every file with a digest of its content and the time it last changed, and files as they were at the base, one or many read together | git, with GitHub as a source for the base (ADR-0005) |
    | `Repository` | Where the checkout stands: the commit it is at, whether the working tree holds anything that commit does not, the branch it is on or that its `HEAD` is detached, and the branch the remote calls its default | git (ADR-0006) |
@@ -100,7 +100,7 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
    process takes an optional `ProcessWatch`, looked at each time the adapter
    looks at the running process and never after it ends, so a runner can
    answer a hand-off its process waits on, as Pest waits for the static
-   checks before its mutants run (ADR-0020, decision 12). The port's contract
+   checks before its mutants run (ADR-0020). The port's contract
    suite runs a program that waits on a file only its watch writes.
 
 3. **The seed's seams map onto the ports, and do not survive as names.**
@@ -164,8 +164,8 @@ arch tests keep the core isolated. This ADR fixes where the lines run.
    - A config may also name extension classes directly, in `extensions`
      (ADR-0002).
    - `--no-extensions`, accepted by every command, loads the first-party
-     extensions alone, the gate's own and its first-party plugins' (ADR-0023
-     decision 8): no other package's through Composer discovery, and nothing
+     extensions alone, the gate's own and its first-party plugins'
+     (ADR-0023): no other package's through Composer discovery, and nothing
      the config names in `extensions`. It is for telling a fault in the gate
      from a fault in an extension.
 

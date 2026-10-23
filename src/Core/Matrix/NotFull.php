@@ -9,7 +9,7 @@ enum NotFull
 {
     /** The run recorded first killers; `run --kill-matrix=full` records every killer. */
     case FirstKillers;
-    /** The runner is Infection, which stops each mutant at its first failing test (ADR-0014, decision 7). */
+    /** The runner is Infection, which stops each mutant at its first failing test (ADR-0014). */
     case Infection;
 
     private const string NEEDS = 'Needs a full kill matrix: run `mutation-gate run --kill-matrix=full`.';

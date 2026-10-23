@@ -18,7 +18,7 @@ use function sprintf;
 
 /**
  * The `gcs` store's token, from OIDC federation and never from a key
- * (ADR-0028 decision 2): a ready one another CI's federation hands over in
+ * (ADR-0028): a ready one another CI's federation hands over in
  * `MUTATION_GATE_GCS_TOKEN`, or one exchanged for the CI's own: a GitHub
  * Actions job's through the provider and service account the environment
  * names (GitHubIdentity), else through the external-account file

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Order;
 
 /**
- * How much a unit risks, in the order a budgeted run takes units (ADR-0008,
- * decision 1): the first case first.
+ * How much a unit risks, in the order a budgeted run takes units
+ * (ADR-0008): the first case first.
  */
 enum Risk
 {

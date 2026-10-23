@@ -6,15 +6,15 @@ namespace NightWorksIO\MutationGate\Core\Verdict;
 
 /**
  * Whether a mutant of a result carried for a unit a time budget ran out
- * before still stands for the code on disk, or is unjudged, and why (ADR-0008,
- * decision 1). A mutant the score counts as not killed stands, which can only
- * make the verdict stricter. A kill stands only where each test that killed
- * it is unchanged, with the support it reads, and either the whole base is
- * unchanged or nothing that changed since reaches its unit or those tests by
- * a name they use: a mutated run can reach code the unmutated run never did,
- * so no narrower bound than what the code names holds. A kill by static
- * analysis stands as a kill does, the file its finding sits in taking the
- * place of the tests.
+ * before still stands for the code on disk, or is unjudged, and why
+ * (ADR-0008). A mutant the score counts as not killed stands, which can only
+ * make the verdict stricter. A kill stands only where each test that killed it
+ * is unchanged, with the support it reads, and either the whole base is
+ * unchanged or nothing that changed since reaches its unit or those tests by a
+ * name they use: a mutated run can reach code the unmutated run never did, so
+ * no narrower bound than what the code names holds. A kill by static analysis
+ * stands as a kill does, the file its finding sits in taking the place of the
+ * tests.
  */
 enum Carry
 {

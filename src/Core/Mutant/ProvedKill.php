@@ -15,7 +15,7 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
  * of a killed mutant, so it has no native id, family, diff or duration; what
  * reads one says what it needs of those, rather than read a placeholder. A
  * kill carried for a unit a time budget ran out before may no longer stand,
- * and is then unjudged, saying why (ADR-0008, decision 1).
+ * and is then unjudged, saying why (ADR-0008).
  */
 final readonly class ProvedKill
 {
@@ -43,7 +43,7 @@ final readonly class ProvedKill
     /**
      * This kill, no longer standing: a time budget ran out before this run
      * judged it again, or the run stopped, for this reason, once it could not
-     * pass (ADR-0008, decisions 1 and 6).
+     * pass (ADR-0008).
      */
     public function unjudged(OutOfTime|Reason $why): self
     {

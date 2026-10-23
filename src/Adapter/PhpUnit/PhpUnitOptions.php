@@ -26,7 +26,7 @@ use NightWorksIO\MutationGate\Mutator\Engine\Engine;
  * by default; `timeout` and `most`, the floor and the most of each mutant's
  * limit, `timeouts.seconds` and `timeouts.most`, their own defaults where
  * none is written; and `mutators`, the classes of the mutators the gate makes
- * its mutants with (ADR-0023, decision 8). Without a mutator, the runner can
+ * its mutants with (ADR-0023). Without a mutator, the runner can
  * make no mutant, and says why.
  */
 final readonly class PhpUnitOptions

@@ -20,7 +20,7 @@ use NightWorksIO\MutationGate\Core\Tree\Trees;
 /**
  * The files `watch` polls, those in a tree and those in a test directory,
  * each by the digest of what it holds, so a file written again as it was
- * changes nothing (ADR-0010, decision 1).
+ * changes nothing (ADR-0010).
  */
 final readonly class Watched
 {

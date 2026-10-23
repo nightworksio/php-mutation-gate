@@ -18,14 +18,14 @@ use Traversable;
 
 /**
  * What a verdict on the default branch alerts, against the newest entry of
- * the trend the flows handed it (ADR-0016, decision 10):
+ * the trend the flows handed it (ADR-0016):
  * - *failed* when it failed and the entry did not, or there is no entry;
  * - *cannot judge* when it cannot judge and the entry judged;
  * - *recovered* when it passed and the entry failed or could not judge;
  * - *floor lowered* when a tree's floor is below the entry's, once.
  *
- * A verdict with no trend, off the default branch, or cut short by its
- * budget alerts nothing.
+ * A verdict with no trend, off the default branch, cut short by its
+ * budget, or sampled, alerts nothing.
  *
  * @implements IteratorAggregate<int, Alert>
  */
@@ -40,7 +40,7 @@ final readonly class Alerts implements Countable, IteratorAggregate
     {
         $trend = $verdict->account()->previous();
 
-        if ($trend instanceof NoTrend || $verdict->wasCutShort()) {
+        if ($trend instanceof NoTrend || $verdict->wasCutShort() || $verdict->trees()->sample()->isDrawn()) {
             return new self([]);
         }
 

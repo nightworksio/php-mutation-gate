@@ -1,6 +1,6 @@
 # A pull request's record and its text: the commits, the title and the body.
 # It runs on `edited` as well, so a title or body that is fixed is checked at
-# once, and it runs no PHP (ADR-0019, decision 12). The squash merge makes the
+# once, and it runs no PHP (ADR-0019). The squash merge makes the
 # title and the body main's commit, which is why they are held here.
 name: pr
 
@@ -43,7 +43,7 @@ jobs:
           printf '%s\n\n%s\n' "${PR_TITLE}" "${PR_BODY}" \
             | python3 .github/scripts/attribution_check.py "${BASE_SHA}" "${HEAD_SHA}" --body-on-stdin \
               --findings evidence/raw/attribution.json
-      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      # The job's evidence, whatever the steps above did (ADR-0019).
       - name: evidence
         if: ${{ !cancelled() }}
         env:
@@ -80,7 +80,7 @@ jobs:
           mkdir -p evidence/raw
           python3 .github/scripts/commit_lint.py "${BASE_SHA}" "${HEAD_SHA}" --title "${PR_TITLE}" \
             --findings evidence/raw/commitlint.json
-      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      # The job's evidence, whatever the steps above did (ADR-0019).
       - name: evidence
         if: ${{ !cancelled() }}
         env:
@@ -121,7 +121,7 @@ jobs:
         run: |
           mkdir -p evidence/raw
           python3 .github/scripts/pr_text.py "${BASE_SHA}" "${HEAD_SHA}" --findings evidence/raw/description.json
-      # The job's evidence, whatever the steps above did (ADR-0019, decision 5).
+      # The job's evidence, whatever the steps above did (ADR-0019).
       - name: evidence
         if: ${{ !cancelled() }}
         env:
@@ -139,7 +139,7 @@ jobs:
         run: python3 .github/scripts/gate_summary.py description
 
   # Every job's evidence, gathered into the one artifact `evidence` of this
-  # run, which the bot reads beside the ci run's (ADR-0019, decision 5).
+  # run, which the bot reads beside the ci run's (ADR-0019).
   pr-evidence:
     name: pr evidence
     needs: [attribution, commitlint, description]

@@ -12,7 +12,7 @@ use function preg_match;
  * where it logs it, and after the time in brackets where it logs it to a
  * file. PHPUnit's `Fatal error: Premature end of PHP process`,
  * which it prints after an `exit` as after a fatal error, is PHPUnit's word,
- * not PHP's, and is none (ADR-0014, decision 17).
+ * not PHP's, and is none (ADR-0014).
  */
 final readonly class FatalError
 {

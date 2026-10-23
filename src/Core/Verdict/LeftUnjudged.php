@@ -13,8 +13,8 @@ use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
 /**
- * The units a time budget ran out before (ADR-0008, decision 1), or a run
- * stopped before once it could not pass (decision 6), as the verdict counts
+ * The units a time budget ran out before (ADR-0008), or a run
+ * stopped before once it could not pass, as the verdict counts
  * them. A unit whose newest result in the ledgers is of the source and
  * mutant set the code on disk makes counts by it: each of its mutants
  * stands, or is unjudged, as {@see Carrying} says, and an unjudged one

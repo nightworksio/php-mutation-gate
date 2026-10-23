@@ -7,7 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Analysis;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
-/** How long an analyser's checks took (ADR-0020, decision 11): how many it made, and their seconds together. */
+/** How long an analyser's checks took (ADR-0020): how many it made, and their seconds together. */
 final readonly class CheckTime
 {
     private function __construct(private int $checks, private Seconds $seconds)

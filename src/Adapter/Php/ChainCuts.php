@@ -25,12 +25,12 @@ use function str_starts_with;
 use function usort;
 
 /**
- * What a removal takes out of a PHP config, cut from its text (ADR-0026,
- * decision 3): a method of `Gate` a step removes, a `with()` argument one
- * removes, and a `with()` every argument of which one does. Cutting the
- * text, rather than printing the chain again, keeps each comment that
- * stands beside what goes: what stands on its own line goes with that line,
- * and what shares its line goes alone, with its comma.
+ * What a removal takes out of a PHP config, cut from its text (ADR-0026):
+ * a method of `Gate` a step removes, a `with()` argument one removes, and
+ * a `with()` every argument of which one does. Cutting the text, rather
+ * than printing the chain again, keeps each comment that stands beside
+ * what goes: what stands on its own line goes with that line, and what
+ * shares its line goes alone, with its comma.
  */
 final readonly class ChainCuts
 {

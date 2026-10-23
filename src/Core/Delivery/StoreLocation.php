@@ -25,7 +25,7 @@ use function sprintf;
 
 /**
  * The variables `deliver` and `fetch` read the proof store's whole location from, which the workflow sets and no
- * run of the project's code writes (ADR-0007 decision 5): the store, and each option of where it is. No delivery
+ * run of the project's code writes (ADR-0007): the store, and each option of where it is. No delivery
  * names any of them, so no run that ran the project's code chooses the bucket, the account or the host a credential
  * goes to.
  */

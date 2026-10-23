@@ -45,7 +45,7 @@ use function trim;
  *
  * - Where opcache could have served a cached original, or the wrapper never
  *   served the mutated file in any of the run's processes, it is unjudged:
- *   the run says nothing of the mutant (ADR-0004 decision 8).
+ *   the run says nothing of the mutant (ADR-0004).
  * - A test that fails or errors kills it, and so does a test that started and
  *   neither finished nor was skipped or marked incomplete, whose process died
  *   as it ran, and a `setUpBeforeClass` that fails or errors, which kills it
@@ -57,7 +57,7 @@ use function trim;
  *   so is one where PHPUnit says its process ended mid-test and PHP's errors
  *   were visibly hidden, as PHPUnit says it hid them or as the project's
  *   config shows them nowhere, with no limit known, which memory triage
- *   never counts as a kill (ADR-0004, decision 9).
+ *   never counts as a kill (ADR-0004).
  * - A run that fails before any test started errored: the mutant broke
  *   PHPUnit itself, such as by a fatal error as its file loaded.
  * - A run that fails with no test failing is unjudged, with what PHPUnit
@@ -215,7 +215,7 @@ final readonly class MutantRun
 
     /**
      * The evidence of a killed mutant's kill, as the run it was judged by
-     * recorded it (ADR-0014, decision 16): where its first killer stood in
+     * recorded it (ADR-0014): where its first killer stood in
      * the order its tests started; and, where no test the run selected is
      * credited with the kill, how its process ended. A mutant it did not
      * kill has none.

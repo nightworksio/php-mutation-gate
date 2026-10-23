@@ -18,9 +18,9 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
 use Traversable;
 
 /**
- * The held units whose holding tests cover them (ADR-0005, decision 10),
+ * The held units whose holding tests cover them (ADR-0005),
  * each once, by its path, with the holding tests that run any of it: the
- * tests that judge its mutants (ADR-0004, decision 5).
+ * tests that judge its mutants (ADR-0004).
  *
  * @implements IteratorAggregate<int, Covered>
  */

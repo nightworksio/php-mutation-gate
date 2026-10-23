@@ -7,7 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Ci;
 use NightWorksIO\MutationGate\Core\Written;
 
 /**
- * A plan in a CI's own format, and where it goes (ADR-0006 decision 5): the
+ * A plan in a CI's own format, and where it goes (ADR-0006): the
  * text, the file, and whether it is printed, written or appended there. A CI
  * plan says what and where; the command writes it.
  */

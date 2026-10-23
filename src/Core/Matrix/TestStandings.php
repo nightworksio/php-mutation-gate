@@ -27,7 +27,7 @@ use Traversable;
  * a killed mutant it ran behind another's first kill in, a suspicion; and a
  * mutant that passed it, nothing caught. A timeout's, a flaky mutant's, and
  * one never run are left out, and a held unit's mutants count only for
- * its group's tests (ADR-0014, decisions 2 and 3).
+ * its group's tests (ADR-0014).
  *
  * @implements IteratorAggregate<int, WholeTest>
  */

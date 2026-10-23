@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\Format\Bytes;
 
 /**
  * The memory the gate's own process needs to read and write ledgers as large
- * as a run reads (ADR-0013 decision 13): what PHP's own default gives the
+ * as a run reads (ADR-0013): what PHP's own default gives the
  * rest of a run, and so many bytes for each byte of that largest ledger,
  * decompressed. A run holds at most two ledgers, the default branch's and
  * its own, and writes one.

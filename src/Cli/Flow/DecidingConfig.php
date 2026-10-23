@@ -26,13 +26,14 @@ use NightWorksIO\MutationGate\Core\Written;
 use function sprintf;
 
 /**
- * The config file a run reads, as it decides how the gate runs (ADR-0005,
- * decision 4): a change to it in its place decides nothing where every
+ * The config file a run reads, as it decides how the gate runs
+ * (ADR-0005): a change to it in its place decides nothing where every
  * setting but those that only judge or report, and any key no setting
  * declares, reads the same at the base as now, the command line laid over
- * both. Its version at the base is read from a copy in the gate's directory,
- * and the copy is removed once read. Where either version cannot be read, or
- * the change renamed, moved, added or deleted the file, it decides.
+ * both. Its version at the base is read from a copy in the gate's
+ * directory, and the copy is removed once read. Where either version
+ * cannot be read, or the change renamed, moved, added or deleted the
+ * file, it decides.
  */
 final readonly class DecidingConfig
 {

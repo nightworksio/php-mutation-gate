@@ -12,9 +12,8 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 /**
  * What a run reads its coverage map from, the line that says how it was
  * measured, where one does, and whether it was measured against the map its
- * own scope keeps, which its own code could have written (ADR-0023, decision
- * 2), so its verdict counts as one that used its own scope (ADR-0007,
- * decision 3).
+ * own scope keeps, which its own code could have written (ADR-0023), so its
+ * verdict counts as one that used its own scope (ADR-0007).
  */
 final readonly class CoverageMeasured
 {

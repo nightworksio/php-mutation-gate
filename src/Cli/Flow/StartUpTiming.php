@@ -21,10 +21,10 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 /**
  * How long a mutant's own run takes to start on this machine: the fastest of
  * a few runs of no test, each started as the runner starts a mutant's run
- * of a file, its mutant the file unchanged (ADR-0006, decision 4). A plan
- * weighs units by it; a run lays each mutant's limit on it (ADR-0008,
- * decision 2), measuring once, before its first mutant, on the machine its
- * mutants run on.
+ * of a file, its mutant the file unchanged (ADR-0006). A plan
+ * weighs units by it; a run lays each mutant's limit on it (ADR-0008),
+ * measuring once, before its first mutant, on the machine its mutants run
+ * on.
  */
 final readonly class StartUpTiming
 {

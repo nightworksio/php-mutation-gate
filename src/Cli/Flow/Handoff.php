@@ -34,12 +34,11 @@ use function sprintf;
 /**
  * What a plan hands each shard: its coverage, as the gate's own map of every
  * test and its duration and the lines of the files that shard mutates alone,
- * and beside it the kill history of those files' functions (ADR-0013,
- * decision 2); every shard the plan's whole map, which its runner reads only
- * to find the tests that run a line reading a value a mutant changes (ADR-0006,
- * decision 1); and the verdict the lines of every unit the plan considered,
- * for the kill matrix (ADR-0014, decision 11). A runner's own map, which may
- * be code, never leaves the job that read it.
+ * and beside it the kill history of those files' functions (ADR-0013); every
+ * shard the plan's whole map, which its runner reads only to find the tests
+ * that run a line reading a value a mutant changes (ADR-0006); and the verdict
+ * the lines of every unit the plan considered, for the kill matrix (ADR-0014).
+ * A runner's own map, which may be code, never leaves the job that read it.
  */
 final readonly class Handoff
 {

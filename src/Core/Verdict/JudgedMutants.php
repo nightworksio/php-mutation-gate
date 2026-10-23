@@ -108,7 +108,7 @@ final readonly class JudgedMutants implements Countable, IteratorAggregate
     /**
      * Every mutant, the survivors and uncovered mutants the score counts
      * that share one cause marked with their cluster, read from each file's
-     * source (ADR-0022, decision 15).
+     * source (ADR-0022).
      *
      * @param ByPath<Contents> $sources each mutated file that can be read, by its path
      */
@@ -135,7 +135,7 @@ final readonly class JudgedMutants implements Countable, IteratorAggregate
         return new self($marked, $this->kills);
     }
 
-    /** Every mutant, each survivor with what was found of it (ADR-0025, decision 7). */
+    /** Every mutant, each survivor with what was found of it (ADR-0025). */
     public function found(Findings $findings): self
     {
         $marked = [];

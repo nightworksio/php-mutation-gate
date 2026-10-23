@@ -24,12 +24,12 @@ use function sprintf;
 use function usleep;
 
 /**
- * The gate's verdicts on the mutants a patched Pest planned (ADR-0020,
- * decision 12): once the plugin has written every planned mutant, it waits
- * for this file beside the results, in which the gate names the mutated copy
- * of each mutant static analysis rejected, one to a line, and none where it
- * rejected none. Pest then runs none of them: each is tested without a run,
- * and the gate reads it as killed by static analysis.
+ * The gate's verdicts on the mutants a patched Pest planned (ADR-0020):
+ * once the plugin has written every planned mutant, it waits for this file
+ * beside the results, in which the gate names the mutated copy of each
+ * mutant static analysis rejected, one to a line, and none where it
+ * rejected none. Pest then runs none of them: each is tested without a
+ * run, and the gate reads it as killed by static analysis.
  */
 final class Verdicts
 {

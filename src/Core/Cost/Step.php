@@ -6,7 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Cost;
 
 /**
  * One kind of work a shard's time goes to, as its result file names it
- * (ADR-0016, decision 19), whichever runner does it: each runs one after
+ * (ADR-0016), whichever runner does it: each runs one after
  * another within the shard, and a runner names those it does.
  */
 enum Step: string
@@ -36,7 +36,7 @@ enum Step: string
     /** Reading the map of every file a mutant's value may be read in, for the trials. */
     case TrialCoverage = 'trial coverage';
 
-    /** The trials of mutants the runner left uncovered on lines that are not executable (ADR-0004, decision 8). */
+    /** The trials of mutants the runner left uncovered on lines that are not executable (ADR-0004). */
     case Trials = 'trials';
 
     /** The runs of a narrowed kill's test files alone on the unmutated code, one for each set of files. */
@@ -54,7 +54,7 @@ enum Step: string
     /** The run again of each survivor, alone, in a fresh process (ADR-0008). */
     case Survivors = 'survivors';
 
-    /** The unmutated control of each timed-out mutant's tests, under its limit (ADR-0008, decision 2). */
+    /** The unmutated control of each timed-out mutant's tests, under its limit (ADR-0008). */
     case Controls = 'controls';
 
     /** Static analysis's checks of the shard's survivors. */

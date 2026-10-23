@@ -12,7 +12,7 @@ use function str_starts_with;
 
 /**
  * A mutant's id as a command line takes it: all twelve hex characters, or
- * the first six or more of them (ADR-0014 decision 14).
+ * the first six or more of them (ADR-0014).
  */
 final readonly class IdPrefix
 {

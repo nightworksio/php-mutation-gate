@@ -69,7 +69,7 @@ final readonly class Detected
     /**
      * Pest when its mutation plugin is installed, Infection when Infection
      * is, and both is a choice to make; PHPUnit where neither is but PHPUnit
-     * is, and Pest is not (ADR-0023, decision 11).
+     * is, and Pest is not (ADR-0023).
      */
     public function runner(): BuiltinRunner|CannotJudge
     {

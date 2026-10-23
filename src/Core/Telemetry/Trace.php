@@ -17,7 +17,7 @@ use function sprintf;
  * A run's spans: `plan`, `shard <n>` with a child for each step its time
  * went to, named by the step, and `verdict`, each measured, in one trace whose id the run
  * names. A span's id is the first 8 bytes of `sha256(<trace id>/<path>)`,
- * so the gate draws no random number (ADR-0016, decision 15).
+ * so the gate draws no random number (ADR-0016).
  */
 final readonly class Trace
 {

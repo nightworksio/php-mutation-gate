@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 
 /**
  * A unit's mutants over runs of it repeated as `triage` repeats them
- * (ADR-0008, decision 3), each run's mutants by their gate ids. A mutant
+ * (ADR-0008), each run's mutants by their gate ids. A mutant
  * varied where its runs did not all give one status, or some runs did not
  * make it; which tests killed it may differ without its varying.
  */

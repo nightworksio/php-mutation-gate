@@ -94,7 +94,7 @@ final readonly class Measured
         return $this->unmeasured;
     }
 
-    /** Each package's security set whose every tree was measured (ADR-0021, decision 17). */
+    /** Each package's security set whose every tree was measured (ADR-0021). */
     public function security(): SecurityVerdicts
     {
         return $this->security;

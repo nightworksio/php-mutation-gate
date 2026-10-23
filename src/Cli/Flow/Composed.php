@@ -26,7 +26,7 @@ final readonly class Composed
     ) {
     }
 
-    /** The same, with a run's budget this long, as `watch` and `pre-push` set their own (ADR-0010, decision 4). */
+    /** The same, with a run's budget this long, as `watch` and `pre-push` set their own (ADR-0010). */
     public function budgeted(Seconds $budget): self|Invalid
     {
         $settings = Settings::settled(
@@ -41,7 +41,7 @@ final readonly class Composed
 
     /**
      * The same, its runs making mutants with the security mutators alone, as
-     * `--security` asks (ADR-0021, decision 20); or why there are none to make
+     * `--security` asks (ADR-0021); or why there are none to make
      * them with.
      */
     public function securityOnly(): self|CannotJudge
@@ -55,7 +55,7 @@ final readonly class Composed
 
     /**
      * The same, its runs' mutants judged by one suite's tests alone, as
-     * `--suite` asks (ADR-0025, decision 9); or why that suite cannot judge
+     * `--suite` asks (ADR-0025); or why that suite cannot judge
      * them.
      */
     public function inSuite(SuiteName $suite): self|CannotJudge
@@ -69,7 +69,7 @@ final readonly class Composed
 
     /**
      * The same, leaving its ledger and what each reporter whose sending needs a credential would send in this
-     * delivery, for `deliver`, as `--deliver-later` asks (ADR-0007 decision 5); ledgers are still read from the store
+     * delivery, for `deliver`, as `--deliver-later` asks (ADR-0007); ledgers are still read from the store
      * the config names.
      */
     public function deliveringLater(DeliveryDirectory $delivery): self

@@ -19,7 +19,7 @@ use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 use function sprintf;
 
 /**
- * The memory cap each mutant's process runs under (ADR-0004, decision 9):
+ * The memory cap each mutant's process runs under (ADR-0004):
  * none at all; one the project's PHPUnit config lifts, since PHPUnit sets its
  * own `memory_limit` after PHP reads the cap; and, under `--measure`, one the
  * suite itself comes near.

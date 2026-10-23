@@ -6,8 +6,8 @@ namespace NightWorksIO\MutationGate\Core\Verdict;
 
 /**
  * The sets a verdict judges beside its trees, each against a floor of its
- * own: the new-code sets of a change-scoped run (ADR-0003, decision 8), and
- * each package's security set (ADR-0021, decision 16).
+ * own: the new-code sets of a change-scoped run (ADR-0003), and
+ * each package's security set (ADR-0021).
  */
 final readonly class HeldSets
 {

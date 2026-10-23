@@ -13,9 +13,8 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 /**
  * The tests the runner lists, once over the suites whose tests judge every
  * unit and once over those whose tests judge only the units they hold, where
- * the config lists any (ADR-0002, decision 8): a hold the first lists no test
- * of, and the second does, adds judges and narrows nothing (ADR-0005,
- * decision 9).
+ * the config lists any (ADR-0002): a hold the first lists no test
+ * of, and the second does, adds judges and narrows nothing (ADR-0005).
  */
 final readonly class Listings
 {

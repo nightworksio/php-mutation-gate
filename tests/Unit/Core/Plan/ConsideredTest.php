@@ -12,6 +12,8 @@ use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Reach\Reason;
 use NightWorksIO\MutationGate\Core\Reach\Reasons;
+use NightWorksIO\MutationGate\Core\Sample\Confidence;
+use NightWorksIO\MutationGate\Core\Sample\Sample;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
@@ -53,4 +55,14 @@ it('reaches the lines each change added or modified, over the packages it is giv
         ->and($lines->changedLines(Path::of('src/New.php')))->toEqual(Lines::of(Line::of(1)))
         ->and($lines->changedLines(Path::of('src/Other.php')))->toEqual(Lines::of())
         ->and(Considered::everything()->lines($packages))->toEqual(Reach::nothing($packages));
+});
+
+it('samples nothing until told what its sample drew, keeping everything else', function (): void {
+    $sample = Sample::drawn('a1b2c3', Confidence::NinetyFive, 2.0);
+    $proved = Units::of(Unit::file(Path::of('src/A.php')));
+    $sampled = Considered::everything()->proving($proved)->sampling($sample);
+
+    expect(Considered::everything()->sample()->isDrawn())->toBeFalse()
+        ->and($sampled->sample())->toBe($sample)
+        ->and($sampled->proved())->toBe($proved);
 });

@@ -22,7 +22,7 @@ final readonly class JudgedUnit
         return new self($unit, $origin, ThisRun::result());
     }
 
-    /** This unit, with its result from the proof this run established (ADR-0015, decision 8). */
+    /** This unit, with its result from the proof this run established (ADR-0015). */
     public function withRun(Run $run): self
     {
         return clone($this, ['run' => $run]);

@@ -11,7 +11,7 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
 
 use function sprintf;
 
-/** How long one of PHPStan's checks may take, `staticCheck.seconds` (ADR-0020, decision 8), or no limit. */
+/** How long one of PHPStan's checks may take, `staticCheck.seconds` (ADR-0020), or no limit. */
 final readonly class CheckLimit
 {
     /** Why a check stopped at its limit cannot judge. */

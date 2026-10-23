@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
 /**
- * Who runs static analysis over Infection's mutants (ADR-0020, decision 13):
+ * Who runs static analysis over Infection's mutants (ADR-0020):
  * Infection, with the tool the project's config names, or the gate, which
  * checks the survivors itself where `staticCheck.tool` chooses an analyser.
  * The config the gate writes keeps the project's static analysis keys only

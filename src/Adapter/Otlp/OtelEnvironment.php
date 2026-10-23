@@ -19,7 +19,7 @@ use function trim;
 /**
  * What OpenTelemetry's own variables say: where to export, with which
  * headers, and the resource's name and attributes. Each list is
- * `key=value,key=value`, its values percent-encoded (ADR-0016, decision 17).
+ * `key=value,key=value`, its values percent-encoded (ADR-0016).
  */
 final readonly class OtelEnvironment
 {

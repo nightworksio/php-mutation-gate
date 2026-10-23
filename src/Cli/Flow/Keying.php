@@ -80,7 +80,7 @@ final readonly class Keying
     }
 
     /**
-     * What every coverage entry's key reads (ADR-0023, decision 1), as the
+     * What every coverage entry's key reads (ADR-0023), as the
      * project stands; or why it cannot be read.
      */
     public static function coverageBaseOf(
@@ -152,10 +152,10 @@ final readonly class Keying
     }
 
     /**
-     * The config as it affects results (ADR-0007, decision 2.3), and what a
+     * The config as it affects results (ADR-0007), and what a
      * narrowed run is narrowed to, the mutators it makes mutants with and the
      * suite whose tests judge them, so its proofs never stand in for a whole
-     * unit's (ADR-0021 decision 20, ADR-0025 decision 9).
+     * unit's (ADR-0021, ADR-0025).
      */
     private static function config(Settings $settings, Narrowing $narrowing): string
     {
@@ -172,7 +172,7 @@ final readonly class Keying
 
     /**
      * The analyser that checks the run's mutants, which joins key item 4
-     * (ADR-0020, decision 14); none where none is chosen, or where the one
+     * (ADR-0020); none where none is chosen, or where the one
      * chosen cannot say what it is, since it then checks nothing.
      */
     private static function analyser(Adapters $adapters): AnalyserIdentity|NoAnalyser
@@ -223,7 +223,7 @@ final readonly class Keying
     /**
      * The test files that declare a registered mutator the config turns on,
      * which every key reads, as it does the files that define the runner
-     * (ADR-0021, decision 7).
+     * (ADR-0021).
      */
     private static function declaring(Adapters $adapters, Suite $suite): Paths
     {

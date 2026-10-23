@@ -15,7 +15,7 @@ use Psr\Clock\ClockInterface;
 
 /**
  * The steps a shard's time went to, as the flows time them on the PSR-20
- * clock (ADR-0016, decision 19), each from when the shard began.
+ * clock (ADR-0016), each from when the shard began.
  */
 final class Stopwatch
 {

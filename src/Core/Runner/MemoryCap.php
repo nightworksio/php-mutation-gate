@@ -16,7 +16,7 @@ use function sprintf;
 /**
  * `runner.memory`: the memory each process that runs a mutant may use, as
  * PHP's `memory_limit` writes it, bytes or a whole number of K, M or G, or
- * `-1` for no cap (ADR-0004, decision 9). A mutant that runs away with
+ * `-1` for no cap (ADR-0004). A mutant that runs away with
  * memory then stops alone, rather than taking the machine with it.
  */
 final readonly class MemoryCap

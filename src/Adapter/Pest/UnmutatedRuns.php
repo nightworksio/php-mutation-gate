@@ -28,7 +28,7 @@ use function sprintf;
 use function strval;
 
 /**
- * Unmutated controls as Pest runs them (ADR-0008, decision 2): each
+ * Unmutated controls as Pest runs them (ADR-0008): each
  * control's tests, selected by Pest's filter of their ids where it fits and
  * by the tests that judge the request otherwise, as a mutant's own run
  * selects them, with its file served unmutated through Pest's override (see

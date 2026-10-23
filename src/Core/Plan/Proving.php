@@ -74,7 +74,7 @@ final readonly class Proving
     /**
      * The proof under a key, the default branch's before the run's own; none
      * where the two disagree, since the same code then gave two answers and
-     * neither is used (ADR-0007, decision 3).
+     * neither is used (ADR-0007).
      */
     private static function proofOf(Digest|Unkeyed $key, Proofs $defaultBranch, Proofs $own): Proof|Unproved|Unkeyed
     {

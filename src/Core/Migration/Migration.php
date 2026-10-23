@@ -10,7 +10,7 @@ use IteratorAggregate;
 use Traversable;
 
 /**
- * What one release changed in what a file writes (ADR-0026, decision 2).
+ * What one release changed in what a file writes (ADR-0026).
  *
  * @implements IteratorAggregate<int, Step>
  */

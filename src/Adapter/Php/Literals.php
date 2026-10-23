@@ -20,7 +20,7 @@ use PhpParser\Node\Scalar\Float_;
 use PhpParser\Node\Scalar\Int_;
 use PhpParser\Node\Scalar\String_;
 
-/** The literal arguments of a builder call, read and rewritten as a value's change asks (ADR-0026, decision 3). */
+/** The literal arguments of a builder call, read and rewritten as a value's change asks (ADR-0026). */
 final readonly class Literals
 {
     /**

@@ -25,8 +25,8 @@ use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
  * place: the run's coverage map for run and proved units, whose keys hold
  * each covered line's tests, and each proof's own tests for carried ones;
  * the killers each mutant's record names; the names the runner gives its
- * tests (ADR-0014, decisions 9 to 11); and the suites the project declares
- * them in (ADR-0025, decision 8).
+ * tests (ADR-0014); and the suites the project declares
+ * them in (ADR-0025).
  */
 final readonly class KillMatrix
 {
@@ -85,7 +85,7 @@ final readonly class KillMatrix
         return clone($this, ['names' => $names]);
     }
 
-    /** This matrix, with the suites the project declares its tests in (ADR-0025, decision 8). */
+    /** This matrix, with the suites the project declares its tests in (ADR-0025). */
     public function grouping(DeclaredSuites $suites): self
     {
         return clone($this, ['suites' => $suites]);

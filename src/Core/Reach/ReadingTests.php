@@ -24,7 +24,7 @@ use function sprintf;
  * The tests that read what a changed source file declares where coverage
  * cannot see it run: a class or interface constant, an enum case, a
  * property default or a parameter default, as the file is and as it was,
- * found by ADR-0004 decision 8's scan. A test that reads one is listed
+ * found by ADR-0004's scan. A test that reads one is listed
  * whole; a read in source lists the tests that run its line; a read in
  * test support lists the tests that use it; and a read no name can show
  * lists every test.

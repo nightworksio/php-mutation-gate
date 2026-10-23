@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 
 /**
  * What `doctor` was asked to find out beyond what it reads offline
- * (ADR-0017, decision 9): what running the suite measured, under
+ * (ADR-0017): what running the suite measured, under
  * `--measure`, and the repository's settings on GitHub, under `--online`,
  * or why no repository on GitHub was found.
  */

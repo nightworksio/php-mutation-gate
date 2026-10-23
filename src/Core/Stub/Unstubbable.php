@@ -14,7 +14,7 @@ use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use function sprintf;
 
 /**
- * Whether a test is what a mutant asks for (ADR-0015, decision 1): a
+ * Whether a test is what a mutant asks for (ADR-0015): a
  * survivor and an uncovered mutant are stubbed. A flaky, unjudged or too
  * slow or heavy mutant gets the next step instead, and a killed, ignored
  * or proven equivalent one has nothing to stub.

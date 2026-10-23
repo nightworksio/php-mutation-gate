@@ -17,10 +17,10 @@ use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Port\ProofStore;
 
 /**
- * The proofs a run outside CI keeps (ADR-0010, decision 4): its own ledgers
+ * The proofs a run outside CI keeps (ADR-0010): its own ledgers
  * in a directory, read together with the store the config names, which it
  * never writes. What a machine judged stays on it, and what CI proved still
- * completes each tree (ADR-0015, decision 11).
+ * completes each tree (ADR-0015).
  */
 final readonly class LocalLedgers implements ProofStore
 {

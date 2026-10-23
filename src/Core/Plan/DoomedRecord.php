@@ -15,12 +15,12 @@ use NightWorksIO\MutationGate\Core\Verdict\DoomedBy;
 use NightWorksIO\MutationGate\Core\Verdict\Undoomed;
 
 /**
- * The survivor a shard stopped on once its run could not pass (ADR-0008,
- * decision 6), as the shard's result holds it under `doomed`: `unit`, the
- * path of the unit it is a mutant of, `mutant`, its id, `tree`, the path of
- * the tree that holds that unit, `floor`, the floor of 100 it fails, and
- * `why`, which floor that is, `tree` or `newCode`. A shard that ran to its
- * end holds none. A CI step that cancels the run's other shards reads it.
+ * The survivor a shard stopped on once its run could not pass (ADR-0008),
+ * as the shard's result holds it under `doomed`: `unit`, the path of the
+ * unit it is a mutant of, `mutant`, its id, `tree`, the path of the tree
+ * that holds that unit, `floor`, the floor of 100 it fails, and `why`,
+ * which floor that is, `tree` or `newCode`. A shard that ran to its end
+ * holds none. A CI step that cancels the run's other shards reads it.
  *
  * @internal the shape of a shard result's `doomed`
  */

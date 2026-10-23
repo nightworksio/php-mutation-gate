@@ -51,7 +51,7 @@ final readonly class Effective
     /**
      * The settings that decide how the gate runs, serialised canonically,
      * where a config file holds what this copy holds, as it stood at a base
-     * a change is read since (ADR-0005, decision 4); or why they cannot be
+     * a change is read since (ADR-0005); or why they cannot be
      * read.
      */
     public function decidingOf(CommandLine $given, ConfigFile $copy): string|Invalid|CannotJudge
@@ -65,7 +65,7 @@ final readonly class Effective
      * The files the config file a run reads reads beside itself, as the
      * loader of its format finds them without running it; none where the run
      * reads no config file; or why they cannot be named, where the file
-     * cannot be found or its format has no loader (ADR-0005, decision 4).
+     * cannot be found or its format has no loader (ADR-0005).
      */
     public function reads(CommandLine $given): ConfigReads
     {

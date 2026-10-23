@@ -20,7 +20,7 @@ use NightWorksIO\MutationGate\Core\Import\Import;
 use function sprintf;
 
 /**
- * Infection's `logs` as the gate's `reports` (ADR-0016, decision 1): its
+ * Infection's `logs` as the gate's `reports` (ADR-0016): its
  * HTML report, or the Stryker dashboard's, as the gate's HTML report, and
  * its GitLab Code Quality file as the gate's. The gate writes every other
  * log of Infection's itself, in the config it generates for each run.

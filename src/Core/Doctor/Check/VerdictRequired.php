@@ -19,7 +19,7 @@ use function sprintf;
 
 /**
  * The default branch not requiring the verdict's check-run, `ci.check`
- * (ADR-0017, decision 9): by a ruleset or by branch protection.
+ * (ADR-0017): by a ruleset or by branch protection.
  */
 final readonly class VerdictRequired
 {

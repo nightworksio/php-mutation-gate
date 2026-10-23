@@ -120,3 +120,11 @@ it('cannot name the commit a run judged for a command that only lists what a cha
     expect(Mode::since(Mode::LAST_RUN)->base(modeLedgers('p1')))
         ->toEqual(CannotTell::because('`last-run` names the commit a run of the gate judged, so only `run` reads it.'));
 });
+
+it('samples neither a full run nor a change-scoped one until asked, keeping what it considers', function (): void {
+    expect(Mode::full()->isSampled())->toBeFalse()
+        ->and(Mode::since('origin/main')->isSampled())->toBeFalse()
+        ->and(Mode::full()->sampled()->isSampled())->toBeTrue()
+        ->and(Mode::full()->sampled()->isFull())->toBeTrue()
+        ->and(Mode::since(Mode::LAST_PASSED)->sampled()->isSinceLastPassed())->toBeTrue();
+});

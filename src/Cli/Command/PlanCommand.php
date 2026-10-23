@@ -21,6 +21,7 @@ use NightWorksIO\MutationGate\Core\Ci\Publication;
 use NightWorksIO\MutationGate\Core\Delivery\Stage;
 use NightWorksIO\MutationGate\Core\Plan\Plan;
 use NightWorksIO\MutationGate\Core\Plan\PlanEstimates;
+use NightWorksIO\MutationGate\Core\Sample\SampleText;
 use NightWorksIO\MutationGate\Core\Written;
 
 use function sprintf;
@@ -32,7 +33,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * `mutation-gate plan`: works out the reach, drops proved units, cuts the
  * shards, writes `.mutation-gate/plan.json`, hands the plan to the CI and
- * writes the pull request comment in its planned state (ADR-0009, decision 3).
+ * writes the pull request comment in its planned state (ADR-0009).
  * What it wrote it says on standard error, since a CI may read the plan's
  * own document from standard output.
  */
@@ -115,6 +116,10 @@ final readonly class PlanCommand
         $aside->writeln(sprintf('Wrote %s, with %d shards.', Workspace::plan()->value(), count($plan)));
         self::estimated($composed, $plan, $aside);
         self::saidIfUnpatched($composed, count($plan), $aside);
+
+        foreach (SampleText::planned($plan->considered()->sample()) as $said) {
+            $aside->writeln($said, OutputInterface::OUTPUT_RAW);
+        }
 
         foreach ($commented as $said) {
             $aside->writeln($said, OutputInterface::OUTPUT_RAW);

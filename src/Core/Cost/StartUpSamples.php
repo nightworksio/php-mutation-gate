@@ -7,7 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Cost;
 /**
  * How many times the plan times a mutant's own run starting, taking the
  * fastest: one run on a busy machine is noisy, and the fastest of a few is
- * the least noisy estimate of a fixed cost (ADR-0006, decision 4).
+ * the least noisy estimate of a fixed cost (ADR-0006).
  */
 final readonly class StartUpSamples
 {

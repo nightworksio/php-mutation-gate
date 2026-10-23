@@ -58,11 +58,11 @@ final readonly class DeclaredSuites implements IteratorAggregate
     }
 
     /**
-     * The suites `tests.suites` and `tests.holding` list (ADR-0002, decision
-     * 8), where this config declares each: where `tests.suites` lists none,
-     * every declared suite `tests.holding` leaves out judges every unit. Or
-     * why not: a listed name it does not declare, or a holding list that
-     * leaves no suite to judge every unit.
+     * The suites `tests.suites` and `tests.holding` list (ADR-0002), where
+     * this config declares each: where `tests.suites` lists none, every
+     * declared suite `tests.holding` leaves out judges every unit. Or why
+     * not: a listed name it does not declare, or a holding list that leaves
+     * no suite to judge every unit.
      */
     public function listing(JudgingSuites $listed): JudgingSuites|CannotJudge
     {

@@ -29,7 +29,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  * The reporter `problems`, which `--output=problems` prints in place of the
  * console's table: one line per result for an editor, then the line that
  * ends the judgement. `judging()` prints the line that begins it, before
- * the run (ADR-0015, decision 6).
+ * the run (ADR-0015).
  */
 final readonly class ProblemsReport implements Configurable, Reporter
 {

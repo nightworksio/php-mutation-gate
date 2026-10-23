@@ -24,7 +24,7 @@ enum BuiltinStore: string
     }
 
     /**
-     * The environment variables the store reads its credentials from (ADR-0007 decision 5), and nothing else,
+     * The environment variables the store reads its credentials from (ADR-0007), and nothing else,
      * those it needs to write first: none for a directory.
      *
      * @return Listed<string>
@@ -35,9 +35,9 @@ enum BuiltinStore: string
     }
 
     /**
-     * What the store needs to write, and reads besides (ADR-0007 decision 5): nothing for a directory; for S3,
+     * What the store needs to write, and reads besides (ADR-0007): nothing for a directory; for S3,
      * the access key's id and secret, and a session token and a role to assume where they are set; for Cloud
-     * Storage and Azure, what their federation reads, or a ready token (ADR-0028 decision 2).
+     * Storage and Azure, what their federation reads, or a ready token (ADR-0028).
      */
     public function credentials(): Credentials
     {

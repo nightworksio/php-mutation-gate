@@ -22,7 +22,7 @@ use NightWorksIO\MutationGate\Core\Test\TestIds;
  * memory limit it ran out of, where it did, whether it had loaded the
  * original file before the mutant was in its place, and how many tests it
  * ran, where it said; and the evidence of its kill: where its killers stood
- * in its order, and how it ended (ADR-0014, decision 16). Any two mutants
+ * in its order, and how it ended (ADR-0014). Any two mutants
  * that leave the same source share their mutated copy, and so this, even
  * under different mutators.
  */

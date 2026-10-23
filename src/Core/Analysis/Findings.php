@@ -23,7 +23,7 @@ use Traversable;
 
 /**
  * What a static analyser reports about some files, in the order it reported
- * it (ADR-0020, decision 9).
+ * it (ADR-0020).
  *
  * @implements IteratorAggregate<int, Finding>
  */

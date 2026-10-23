@@ -18,8 +18,8 @@ final readonly class Timing
     /**
      * The weight a unit's newest measurement takes in its smoothed timing;
      * the timing held takes the rest. It is the value that predicted the
-     * gate's own third full CI run best from the two before it (ADR-0006,
-     * decision 4).
+     * gate's own third full CI run best from the two before it
+     * (ADR-0006).
      */
     public const float NEWEST = 0.9;
 

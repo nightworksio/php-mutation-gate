@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
  * What a run takes: the wall time from its first job's start to its last
  * job's end, and the runner time every job spent together, measured where
  * the CI tells and estimated from `shards.setup` where it does not
- * (ADR-0016, decision 6, and ADR-0017, decision 12).
+ * (ADR-0016, and ADR-0017).
  */
 final readonly class RunTime
 {

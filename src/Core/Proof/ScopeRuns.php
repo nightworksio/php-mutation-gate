@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\Change\CannotTell;
  * What a scope's ledger holds of its runs, beside their proofs: the newest
  * commit whose verdict passed, the `last-passed` base, and the newest whose
  * run judged every unit it considered and was the last to write the ledger,
- * the `last-run` base (ADR-0005, decision 2).
+ * the `last-run` base (ADR-0005).
  */
 final readonly class ScopeRuns
 {

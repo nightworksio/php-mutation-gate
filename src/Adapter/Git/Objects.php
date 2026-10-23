@@ -22,7 +22,7 @@ use function trim;
  * The objects git holds, as the gate reads them: the commit or tree a
  * revision names, each resolved once, what a commit was made of, and a
  * revision git can read for a commit a run judged, made again from its
- * parents where it is gone (ADR-0005, decision 2).
+ * parents where it is gone (ADR-0005).
  */
 final class Objects
 {

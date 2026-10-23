@@ -14,7 +14,7 @@ use NightWorksIO\MutationGate\Core\Php\Tokens;
  * The functions and methods a test may call to assert for it: those its own
  * file declares, and those the files that define the runner declare, such
  * as `tests/Pest.php`. A test that calls one is not assessed, since the
- * helper may assert what the test does not (ADR-0025, decision 5).
+ * helper may assert what the test does not (ADR-0025).
  */
 final readonly class Helpers
 {

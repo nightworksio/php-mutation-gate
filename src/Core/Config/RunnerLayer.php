@@ -71,7 +71,7 @@ final readonly class RunnerLayer
         return $this->memory instanceof MemoryCap ? $this->memory : MemoryCap::standard();
     }
 
-    /** How the layer has each mutant's run start, or forking where it says nothing (ADR-0023, decision 14). */
+    /** How the layer has each mutant's run start, or forking where it says nothing (ADR-0023). */
     public function workers(): Workers
     {
         return $this->workers instanceof Workers ? $this->workers : Workers::Fork;

@@ -63,7 +63,7 @@ presets for Laravel, Symfony and plain libraries.
        (`vendor/bin/mutation-gate run --budget=<duration>`);
      - keeps its unit out of the ledger (ADR-0007), and the run's commit out
        of its `lastRun`, which the run removes, so the scope's next `last-run`
-       change is read since the default branch again (ADR-0005, decision 2);
+       change is read since the default branch again (ADR-0005);
      - means its tree's floor is never raised by this run;
      - fails the verdict, naming its unit.
 
@@ -71,7 +71,7 @@ presets for Laravel, Symfony and plain libraries.
      unit was mutated, before its timeout could run again, or before its
      survival could be confirmed.
    - **Units the budget never started.** Each proof records, beside its key,
-     the digests of its inputs (ADR-0007, decision 3): the unit's source,
+     the digests of its inputs (ADR-0007): the unit's source,
      what decides its mutant set besides the source (the gate, the config,
      the runner, what is installed, the files that define the runner and the
      test bootstrap every key reads), and each test file that killed one of
@@ -94,19 +94,18 @@ presets for Laravel, Symfony and plain libraries.
          keys are built on (ADR-0007). The base leaves out what the key's
          exceptions leave out, such as `proofs.ignore`'s files, so a kill
          stands across a change to one of those; or
-       - nothing that changed since the commit the result records (ADR-0007,
-         decision 3) reaches the kill's unit or a test that killed it by a
-         name. What changed is git's diff from that commit itself to the
-         working tree, read once for each commit however many results share
-         it. A changed file reaches every file that names a class,
-         interface, trait, enum or function it declares, then or now, by the
-         name PHP resolves in that file's namespace and imports, spelt in
-         code or as a fully qualified name in a string, or a constant it
-         declares, by its last segment; and every file that names what those
-         declare in turn. A `use function` or `use const` imports a name and
-         declares none. A mutated run can reach code the unmutated run never
-         did, so nothing narrower than what the code names bounds what a kill
-         depended on.
+       - nothing that changed since the commit the result records (ADR-0007)
+         reaches the kill's unit or a test that killed it by a name. What
+         changed is git's diff from that commit itself to the working tree,
+         read once for each commit however many results share it. A changed
+         file reaches every file that names a class, interface, trait, enum
+         or function it declares, then or now, by the name PHP resolves in
+         that file's namespace and imports, spelt in code or as a fully
+         qualified name in a string, or a constant it declares, by its last
+         segment; and every file that names what those declare in turn. A
+         `use function` or `use const` imports a name and declares none. A
+         mutated run can reach code the unmutated run never did, so nothing
+         narrower than what the code names bounds what a kill depended on.
 
        A file that is not PHP is named by the words of its name, so a change
        to it reaches the PHP files whose strings spell one of those words, as
@@ -115,13 +114,14 @@ presets for Laravel, Symfony and plain libraries.
        code when it is loaded, as a file that requires `data/rates.php`
        spells `rates`. A change the gate cannot follow by name reaches every
        kill: one to a file that decides how the gate runs (ADR-0005,
-       decision 4, rule 1, which names the runner's definitions, each
-       package's `composer.json`, the gate's config, and what the presets and
-       `reach.everything` name), or to a package's `composer.lock`, which
-       ADR-0030 narrows to a move of a package `reach.lockPackages` names; and one
-       to a file any `composer.json` of the repository lists under `files` in
-       its `autoload` or `autoload-dev`, which Composer's autoloader loads in
-       every process, whatever names it.
+       rule 1, which names the runner's definitions, each package's
+       `composer.json`, the gate's config, and what the presets and
+       `reach.everything` name), or to a package's `composer.lock`,
+       which ADR-0030 narrows to a move of a package
+       `reach.lockPackages` names; and one to a file any `composer.json`
+       of the repository lists under `files` in its `autoload` or
+       `autoload-dev`, which Composer's autoloader loads in every
+       process, whatever names it.
 
        A kill is unjudged, and the verdict warns why, where its killer is
        unknown, changed or gone; where its result records no commit, since
@@ -141,21 +141,21 @@ presets for Laravel, Symfony and plain libraries.
      - a timeout or a crash, which can count as a kill but names no test that
        caused it, is unjudged;
      - a kill by static analysis stands as a kill does, with the file the
-       analyser's finding sits in, which its result records (ADR-0020,
-       decision 10), in place of the tests that killed it: where the result
-       was established at this run's base, or where nothing that changed
-       since the commit it records reaches its unit or that file by a name.
-       The mutant's file and the finding's are what the rejection depended
-       on. The analyser, its version and the digest of the configuration it
-       runs with, with every file that configuration references, such as a
-       baseline, an included config or a bootstrap file, are in the mutation
-       digest (ADR-0020, decision 14), so a result established before a
-       change to any of them does not count. Where the analyser cannot say
-       its configuration, its config file's digest stands for it, and a
-       change to another file it reads is not followed. One whose result
-       records no finding, as a kill Infection reports, or whose finding
-       sits in a file outside the repository, whose changes git does not
-       say, is unjudged.
+       analyser's finding sits in, which its result records (ADR-0020), in
+       place of the tests that killed it: where the result was established
+       at this run's base, or where nothing that changed since the commit
+       it records reaches its unit or that file by a name. The mutant's
+       file and the finding's are what the rejection depended on. The
+       analyser, its version and the digest of the configuration it runs
+       with, with every file that configuration references, such as a
+       baseline, an included config or a bootstrap file, are in the
+       mutation digest (ADR-0020), so a result established before a change
+       to any of them does not count. Where the analyser cannot say its
+       configuration, its config file's digest stands for it, and a change
+       to another file it reads is not followed. One whose result records
+       no finding, as a kill Infection reports, or whose finding sits in a
+       file outside the repository, whose changes git does not say, is
+       unjudged.
 
      The one assumption left is ADR-0007's: a test's outcome depends on the
      files it reads, not on state another test in the same process leaves
@@ -188,7 +188,7 @@ presets for Laravel, Symfony and plain libraries.
    times a run of no test, started as the runner starts a mutant's own run
    of the shard's first file (a unit's own file, or the first file the map
    knows inside a held unit), its mutant the file unchanged: the fastest of
-   three, as the plan times one (ADR-0006, decision 4), on the machine its
+   three, as the plan times one (ADR-0006), on the machine its
    mutants run on. Every limit of that run, its controls' too, is laid on
    it, times the same k: a busy runner stretches what a run spends before
    its first test as it stretches the tests, and what it spends depends on
@@ -273,11 +273,11 @@ presets for Laravel, Symfony and plain libraries.
    under the request's memory cap, allowed the limit the mutant's run was.
    Each runner runs it through `Runner::controls()`, side by side in the
    request's pool where the runner runs processes so, and two mutants of the
-   same file, tests and limit share one. A mutant judged by a trial (ADR-0004,
-   decision 8), which no coverage marks, has run that control already: the
-   trial's run of its tests on their own, unmutated, under the same limit.
-   The map's time of the tests only sets the limit; the triage weighs the
-   timeout against the control:
+   same file, tests and limit share one. A mutant judged by a trial
+   (ADR-0004), which no coverage marks, has run that control already: the
+   trial's run of its tests on their own, unmutated, under the same limit. The
+   map's time of the tests only sets the limit; the triage weighs the timeout
+   against the control:
    - **The control finished within the limit.** The tests passed unmutated,
      served as the mutant was, inside the limit the mutant ran out of, so the
      mutant broke something (a loop that never ends, say), and it is
@@ -315,10 +315,10 @@ presets for Laravel, Symfony and plain libraries.
      paid once rather than once for each file and mutator.
      `flaky.confirmSurvivors` is a boolean, `true` by default; ADR-0034 says
      when a project may turn it off. A mutant
-     judged by reference (ADR-0004, decision 8) is run again through those
+     judged by reference (ADR-0004) is run again through those
      same steps, against its judging tests. The confirming run takes the
      runner's own test order, whatever `tests.order` says, and a survivor
-     proven equivalent is not run again (ADR-0013, decisions 4 and 10).
+     proven equivalent is not run again (ADR-0013).
      Each shard confirms its own survivors, by the tests that judged their
      unit, and its result file lists the flaky mutants' ids under `flaky`
      for the verdict.
@@ -338,8 +338,8 @@ presets for Laravel, Symfony and plain libraries.
      `--order=runner|killers-first`, `tests.order` by default, chooses the
      order of each mutant's tests, to hunt a kill an order made (ADR-0013);
      killers first reads the history every ledger holds of the unit's files.
-     Its mutants judged by reference run through ADR-0004's decision 8 each
-     time. It exits 1 where a mutant varied, 0 where none did, and 2 where
+     Its mutants judged by reference run through ADR-0004's judging by reference
+     each time. It exits 1 where a mutant varied, 0 where none did, and 2 where
      the unit cannot be run. This is the tool for a kill that might be flaky.
      A flaky kill cannot be told from a real one without re-running every
      killed mutant, and the gate does not do that unasked.
@@ -381,11 +381,11 @@ presets for Laravel, Symfony and plain libraries.
      PHPStan's `reportUnmatchedIgnoredErrors` does. Otherwise dead ignores would
      pile up, and one could come back to life and hide a new mutant. An
      ignore that matches a mutant proven equivalent is not stale: it still
-     applies, and a notice says it can go (ADR-0013, decision 12). A run
+     applies, and a notice says it can go (ADR-0013). A run
      narrowed to some mutators, as `--security` is, checks only the ignores
      that name one of them by its full name: an ignore of any other mutator,
      of a family, or of a mutant's id may name a mutant that run never made
-     (ADR-0021 decision 20).
+     (ADR-0021).
    - **Native markers are refused by default.** These are `@pest-mutate-ignore`
      and `@infection-ignore-all` in source, and `ignore` or
      `ignoreSourceCodeByRegex` under `mutators` in `infection.json5`. With
@@ -408,10 +408,9 @@ presets for Laravel, Symfony and plain libraries.
        the class it names>", "mutator": "<its mutator>", "reason": "…"}`.
    - **`ignores.native: allow` lets a project migrate.** `init --from`
      converts Infection's `ignore` patterns into entries, and sets `allow`
-     only for the regex ignores that have no equivalent (ADR-0016,
-     decision 4). `init` asks before it sets `allow` for markers it finds,
-     and every run under `allow` says how many markers hide mutants
-     (ADR-0017).
+     only for the regex ignores that have no equivalent (ADR-0016). `init`
+     asks before it sets `allow` for markers it finds, and every run under
+     `allow` says how many markers hide mutants (ADR-0017).
      - Pest's marker, `@infection-ignore-all` and `ignore` stop the runner
        generating the mutant at all. The report counts the markers it found,
        and says it cannot count what they hide.
@@ -449,11 +448,11 @@ presets for Laravel, Symfony and plain libraries.
      baseline cannot be read. A run on a branch, a tag or a schedule also
      runs to its end, since later runs build on what it records.
    - **Doomed.** The run is certain to fail once one of its mutants is a
-     survivor the verdict will count. It did not prove flaky when run again
-     (decision 3), no ignore leaves it out (decision 4), and static analysis
-     does not clear it: where `equivalence.static` is true it is not proven
-     equivalent (ADR-0013), and where a static check runs (ADR-0020), its
-     check does not kill it. And one of two floors holds it at 100:
+     survivor the verdict will count. It did not prove flaky when run again,
+     no ignore leaves it out, and static analysis does not clear it: where
+     `equivalence.static` is true it is not proven equivalent (ADR-0013),
+     and where a static check runs (ADR-0020), its check does not kill it.
+     And one of two floors holds it at 100:
      - its tree's floor, the higher of the declared one and the baseline's;
      - or, for a mutant on a line the change added or modified, the new-code
        floor that line is held to, its tree's own or `newCode.floor`.
@@ -462,7 +461,7 @@ presets for Laravel, Symfony and plain libraries.
      verdict fails whatever the other mutants come to.
    - **Chunks.** A runner orders the mutants of one invocation itself, so
      the gate can stop only between invocations. A shard that can stop runs
-     its units in the plan's order, riskiest first (decision 1). It runs them
+     its units in the plan's order, riskiest first. It runs them
      in chunks of about two minutes of the work the cost model expects
      (ADR-0006), opening run included. A held unit runs alone, as in a
      budgeted run, and a chunk always starts with its first unit, however
@@ -483,14 +482,13 @@ presets for Laravel, Symfony and plain libraries.
      - `why`: `tree` or `newCode`.
 
      The units the shard did not run are unjudged, as a budget leaves them:
-     - each counts by its newest result where that result stands
-       (decision 1);
+     - each counts by its newest result where that result stands;
      - a mutant of it whose result does not stand is unjudged;
      - none reaches the ledger.
 
      The verdict fails, naming the survivor and its floor for each shard
      that stopped. A run that left a unit unrun removes its `lastRun`, as a
-     budgeted run does (ADR-0005, decision 2). A run in one process runs no
+     budgeted run does (ADR-0005). A run in one process runs no
      shard after one that stopped.
    - **The other shards.** A CI may cancel the run's other shards once a
      shard's result names a survivor under `doomed`. The step that cancels

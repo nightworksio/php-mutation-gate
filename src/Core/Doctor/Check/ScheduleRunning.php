@@ -20,7 +20,7 @@ use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 use function sprintf;
 
 /**
- * No scheduled run of the gate in the last 8 days (ADR-0017, decision 9),
+ * No scheduled run of the gate in the last 8 days (ADR-0017),
  * where a GitHub workflow runs it: one GitHub disabled after 60 days without
  * activity, or none that ran on a schedule. The scheduled run keeps the default branch's ledger
  * and the survivors' list current, so every pull request starts from them.

@@ -38,9 +38,9 @@ The same repository has two more needs.
 ## Decision
 
 1. **A unit is what a verdict and a proof are about.** It is either one source
-   file in a tree, or a path a holding group judges (decision 9), mutated as one
+   file in a tree, or a path a holding group judges, mutated as one
    unit against that group. A path held only from the suites `tests.holding`
-   lists stays the source files of its tree, each its own unit (decision 9).
+   lists stays the source files of its tree, each its own unit.
 
 2. **Two modes.**
    - **Full**: every unit is considered, as `--full` asks, and as a run asked
@@ -51,13 +51,13 @@ The same repository has two more needs.
        `last-run`.
      - A run asked for no mode reads its change since `last-passed`, unless
        `run.full` is `true` (it is `false` by default). `run.full` decides how
-       the gate runs but no result, so it is compared, not keyed (ADR-0007,
-       decision 2).
+       the gate runs but no result, so it is compared, not keyed
+       (ADR-0007).
      - `last-passed` means the newest commit of this scope whose verdict
        passed, which the ledger records (ADR-0007). With none recorded, the run
        is full.
      - `last-run` means the commit this scope's last run judged, which the
-       ledger records beside it (ADR-0007, decision 3), for a run off the
+       ledger records beside it (ADR-0007), for a run off the
        default branch:
        - the change is read from that commit itself, not from a merge base,
          so a history rewritten since is still diffed file by file. Where
@@ -155,7 +155,7 @@ The same repository has two more needs.
       `autoload-dev` is not one of these, though Composer's autoloader loads it in every
       process: a change to it changes no other file's code, so it reaches
       what rules 2 to 5 say of it. It leaves every kill a time budget would
-      carry across it unjudged instead (ADR-0008, decision 1).
+      carry across it unjudged instead (ADR-0008).
 
       A root file reaches every package. The CI definition that runs the gate
       is one of these files: under GitHub Actions the workflow
@@ -179,7 +179,7 @@ The same repository has two more needs.
         over it. That compares the settings that affect results (key item
         3), the settings that decide how the gate runs without changing a
         result, such as `reach.everything`, `ci.check` or `proofs.store`
-        (ADR-0007, decision 2), and any key no setting declares. A change
+        (ADR-0007), and any key no setting declares. A change
         to a floor, an ignore, a report or another setting that only judges
         or reports reaches nothing: every proof still stands, and the verdict
         judges the carried results by the settings as they are now. Where
@@ -201,15 +201,15 @@ The same repository has two more needs.
    2. **A changed source file in a tree reaches that unit.**
    3. **A changed test reaches every unit its tests execute**, according to the
       coverage map.
-      - A changed test inside a module's directory (decision 7) also reaches
+      - A changed test inside a module's directory also reaches
         every tree of that module.
-      - A changed test in a suite `tests.holding` lists (ADR-0002, decision 8)
+      - A changed test in a suite `tests.holding` lists (ADR-0002)
         reaches what it executes inside the paths it holds, which is all the
-        map keeps of it (decision 9).
+        map keeps of it.
       - A test that asserts less changes no line of the code it judged. The map
         is the only way to find that code again.
       - A deleted test, or no map to read, reaches everything in its package.
-        A package's units are judged by its own suite alone (decision 7), so
+        A package's units are judged by its own suite alone, so
         no other package's verdict reads that test.
    4. **Changed test support reaches the tests that use it.** Test support is a
       file under a test directory that is not a file of test cases, such as a
@@ -223,7 +223,7 @@ The same repository has two more needs.
    5. **Anything else reaches nothing by itself**: documentation, templates,
       translations, the lock file, other CI files. The content key still covers
       these files (ADR-0007). A unit reached for another reason is therefore
-      run again when they moved, and the scheduled full run (decision 6) catches
+      run again when they moved, and the scheduled full run catches
       the rest.
 
    Where git cannot say what changed, everything is reached.
@@ -295,7 +295,7 @@ The same repository has two more needs.
        by default, and from the root `composer.json`'s `path` repositories that
        hold a PHPUnit config.
      - A package reads no config file of its own. The root config applies to
-       every package, the tree source (decision 8) finds its trees in its own
+       every package, the tree source finds its trees in its own
        directory, and its manifest declares floors with the same
        `extra.mutation-gate` keys a module uses. The root baseline holds every
        package's trees.
@@ -312,7 +312,7 @@ The same repository has two more needs.
    default, reads `phpunit.xml`'s `<source>` and falls back to the preset's
    trees (ADR-0002); `composer` takes one tree per `autoload` path of the
    project's `composer.json`, and of each package's. Declared floors come from
-   manifests as in decision 7. A layout the built-ins do not read is an
+   manifests as for monorepos. A layout the built-ins do not read is an
    extension, not a fork.
 
 9. **Holding tests: a path can be judged by the tests that hold it.**
@@ -325,7 +325,7 @@ The same repository has two more needs.
        `describe()`, which holds every test inside it at any depth. Groups
        work too: `->group('holds:<path>')` on one test or one `describe`,
        or `pest()->group('holds:<path>')` for a whole file, which makes the
-       file one every narrowed run loads (ADR-0004, decision 9). The package's
+       file one every narrowed run loads (ADR-0004). The package's
        Pest plugin turns each `#[Holds]` into the matching group before Pest
        builds the test (ADR-0004), so Pest selects both kinds the same way.
      - In PHPUnit classes: `#[Holds]` on a class or a method, or PHPUnit's own
@@ -368,15 +368,14 @@ The same repository has two more needs.
 
      Each message names the group form to use instead. A held test
      chained with `->depends()` on a test outside its group is not refused:
-     PHPUnit skips it, it covers nothing, and the coverage check of decision
-     10 names the lines the group then misses.
+     PHPUnit skips it, it covers nothing, and the group's coverage check names the lines the group then misses.
    - **What the path must be.** It has to be a tree, or a file or directory that
      exists inside one, spelt as the repository spells it. Anything else stops
      the run with exit code 2. A misspelt path would otherwise be mutated
      against the whole suite, correct and slow, with no sign the declaration
      was never read.
    - **How a held path runs.** Where any test that holds it is in a suite
-     whose tests judge every unit (`tests.suites`, ADR-0002 decision 8), it is
+     whose tests judge every unit (`tests.suites`, ADR-0002), it is
      one unit, mutated against its holding tests alone, those in the suites
      `tests.holding` lists among them, and never with the shared coverage map.
      For Pest that is `--group`. For Infection it is the group or, for
@@ -394,9 +393,9 @@ The same repository has two more needs.
        of their tests only on the lines it runs inside the paths it holds.
        There it is a covering test like any other, in everything that reads
        the map: what a change reaches (rule 3), the test files the key reads
-       (ADR-0007, decision 2), the coverage input the gate writes for the
-       runner (ADR-0023, decision 4), the shard's result and the proof's
-       `judging` (ADR-0007, decision 3). A run of mutants that any of these
+       (ADR-0007), the coverage input the gate writes for the
+       runner (ADR-0023), the shard's result and the proof's
+       `judging` (ADR-0007). A run of mutants that any of these
        tests judges runs the holding suites too. A holding suite's test is on
        no other path's lines, so it judges no other unit.
      - The gate reads which tests hold a path, and in which suites, from the
@@ -435,8 +434,8 @@ The same repository has two more needs.
 
     The tests of the group that run any line of a path it covers are the
     tests that judge its mutants. The shard's result lists them as `covered`,
-    and the unit's proof keeps them as `judging` (ADR-0007, decision 3), so a
-    proved or carried result names them as a run does (ADR-0009, decision 7).
+    and the unit's proof keeps them as `judging` (ADR-0007), so a
+    proved or carried result names them as a run does (ADR-0009).
 
 11. **A path every test runs through, and nothing holds, is named.** After the
     coverage run, a warning names each source file whose lines are executed by
@@ -446,7 +445,7 @@ The same repository has two more needs.
     adds judges and narrows nothing, so it leaves the cost as it was. The warning appears in the console, the step summary and the PR comment
     (ADR-0009): *`src/Kernel.php` is run by 412 of 430 tests and nothing holds
     it; each of its mutants runs most of the suite.* The verdict finds them in
-    the coverage map the plan hands it (ADR-0014, decision 11), among the
+    the coverage map the plan hands it (ADR-0014), among the
     files of the units the run considered. It is a warning, not a failure,
     because the verdict stays correct and only its cost is at stake.
 

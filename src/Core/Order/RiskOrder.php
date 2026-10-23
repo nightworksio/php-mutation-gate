@@ -24,7 +24,7 @@ use NightWorksIO\MutationGate\Core\Verdict\MutantTriage;
 use function usort;
 
 /**
- * The order a budgeted run takes units in (ADR-0008, decision 1): by risk,
+ * The order a budgeted run takes units in (ADR-0008): by risk,
  * the riskiest first; among the units of least risk, the most recently
  * changed first; and by path between units otherwise tied.
  */

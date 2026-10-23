@@ -14,7 +14,7 @@ use function usort;
 
 /**
  * How many of a mutant's dependents a check analyses again against it
- * (ADR-0020, decision 7): the first in path order, so the same mutant
+ * (ADR-0020): the first in path order, so the same mutant
  * always sends the same files. A dependent past the cap is not analysed
  * against the mutant, which can leave a mutant unkilled; it never kills one.
  */

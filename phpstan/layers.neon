@@ -152,7 +152,7 @@ parameters:
                 - src/Adapter/*
                 - src/Cli/*
                 - tests/*
-                # A warm worker's child is told its mutant's variables in its own process (ADR-0023, decision 12).
+                # A warm worker's child is told its mutant's variables in its own process (ADR-0023).
                 - bin/mutation-gate-worker
 
         # --- B7: waiting is an adapter's -----------------------------------------
@@ -214,7 +214,7 @@ parameters:
                 # inert settings that do so (ADR-0004).
                 - src/Adapter/Pest/Recording/Killers.php
                 # A warm worker's script sets the time zone PHPUnit's own script sets where PHP sets none, in its
-                # own process, which the gate starts for it and no test boots (ADR-0023, decision 12).
+                # own process, which the gate starts for it and no test boots (ADR-0023).
                 - bin/mutation-gate-worker
 
         # The extension keys each entry by its call, so a second 'ini_set()' would replace the one above; the

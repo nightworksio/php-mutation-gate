@@ -21,7 +21,7 @@ use Symfony\Component\Process\Process;
 
 /**
  * The silence limit of each mutant's own run, kept in Pest's parent
- * process (ADR-0008, decision 2): a run no test of which has finished for
+ * process (ADR-0008): a run no test of which has finished for
  * its limit since its tests began is stopped, as one at its whole limit is,
  * and the stop is recorded by the mutant's mutated copy. Each own run tells
  * of its progress on its error output (see Recording\Heartbeat): once as

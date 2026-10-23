@@ -34,18 +34,18 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * `mutation-gate watch` judges what each save reaches (ADR-0010, decision
- * 1). It polls the files of the trees and the test directories by their
- * digests, once each wait, and on a change runs a round: change-scoped since
+ * `mutation-gate watch` judges what each save reaches (ADR-0010). It
+ * polls the files of the trees and the test directories by their digests,
+ * once each wait, and on a change runs a round: change-scoped since
  * `HEAD`, judged on the new-code floor over everything changed since then
  * and showing each tree against its floor without holding it, under
  * `local.watchBudget`, with proofs in the local ledger leaving out what
- * is judged already. A change that arrives mid-round stops it before its next
- * batch; what it judged is kept, and the next round starts at once. The
- * coverage map is built in the first round and kept: a change to tests or
- * test support measures the tests it touched again, and a change that
- * reaches everything builds it again. It never writes the baseline, and it
- * runs until it is stopped.
+ * is judged already. A change that arrives mid-round stops it before its
+ * next batch; what it judged is kept, and the next round starts at once.
+ * The coverage map is built in the first round and kept: a change to
+ * tests or test support measures the tests it touched again, and a change
+ * that reaches everything builds it again. It never writes the baseline,
+ * and it runs until it is stopped.
  */
 final readonly class WatchCommand
 {

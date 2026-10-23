@@ -27,7 +27,7 @@ use function sprintf;
  * and the holds written only in the holding suites, which add judges to what
  * they hold. Under Pest, whose plugin turns each `#[Holds]` into a group, the
  * groups Pest lists are the holdings, once every path the tokens find is
- * among them (ADR-0005, decision 9).
+ * among them (ADR-0005).
  */
 final readonly class Inventory
 {

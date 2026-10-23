@@ -43,10 +43,9 @@ The pieces already exist in the design:
      branch keeps. Each round after measures again the test files whose
      entries' keys moved against the map the last round left, so a changed
      test, its support or a source its tests executed is measured again, and
-     a change that every key reads measures every test (ADR-0023,
-     decision 1).
-   - **Proofs.** Results go into the local ledger, the directory store of
-     decision 4, so reverting an edit costs nothing: its key is proved already.
+     a change that every key reads measures every test (ADR-0023).
+   - **Proofs.** Results go into the local ledger, the directory store
+     CI uses too, so reverting an edit costs nothing: its key is proved already.
    - **Verdict.** Watch mode judges the new-code floor over everything changed
      since `HEAD`. It shows tree scores with carried results, but does not
      enforce them. It never writes the baseline.
@@ -62,13 +61,13 @@ The pieces already exist in the design:
      new-code floor and the floors of the trees the change reaches, with
      carried results completing each tree (ADR-0003). Before its verdict it
      prints each reached tree's score change against the merge base with the
-     default branch (ADR-0015, decision 10).
+     default branch (ADR-0015).
    - **Exit code.** Non-zero blocks the push. That covers new code below its
      floor, a tree below its floor, and unjudged mutants, because a run that ran
      out of time or could not reach them did not judge them (ADR-0008). The
      message gives each unjudged mutant's reason and what would judge it: more
      time (`mutation-gate run --changed-since=<base>`), a test that reaches the
-     value (ADR-0004, decision 8), or an ignore with its reason. Git's own `git
+     value (ADR-0004), or an ignore with its reason. Git's own `git
      push --no-verify` skips the hook, and the gate adds no bypass of its own.
    - **Proofs.** The local ledger makes a second push of the same code
      immediate.
@@ -87,14 +86,14 @@ The pieces already exist in the design:
    script can call it instead. `hook install --pre-commit` also writes a
    `pre-commit` hook, by the same rules, which calls
    `vendor/bin/mutation-gate pre-commit`: it runs nothing and never blocks
-   (ADR-0015, decision 10).
+   (ADR-0015).
 
 4. **Local runs share CI's code paths.** `watch` and `pre-push` are the same
    plan, run and verdict steps (ADR-0006), in one process, with the console
    reporter. Pre-push blocks on an unjudged mutant, as every budgeted run
    does: a mutant a budget left unjudged, or a unit the budget never started
    whose newest result cannot stand for the code on disk, fails the verdict
-   (ADR-0008, decision 1). So a push the hook lets through has had every
+   (ADR-0008). So a push the hook lets through has had every
    mutant the change reaches judged. A kill proved at an earlier commit
    stands where nothing that changed since reaches it by a name the code
    uses, so a push waits only on the kills its change can have undone.
@@ -107,7 +106,7 @@ The pieces already exist in the design:
      each ledger the run reads is the local one together with that store's
      ledger of the same scope, which the run never writes. So what a machine
      judged stays on it, and what CI proved on the default branch still
-     completes each tree (ADR-0015, decision 11).
+     completes each tree (ADR-0015).
 
 ## Alternatives considered
 

@@ -19,11 +19,13 @@ use NightWorksIO\MutationGate\Core\Delivery\AlertPost;
 use NightWorksIO\MutationGate\Core\Delivery\Delivery as Deferred;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\Previous;
+use NightWorksIO\MutationGate\Tests\Support\Sampled;
 use NightWorksIO\MutationGate\Tests\Support\StoppedClock;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -147,6 +149,11 @@ it('sends nothing, and says why, where there is nothing to send or nowhere to se
         fn(): Variables => Variables::of(['CI' => 'true', 'GITHUB_ACTIONS' => 'true', 'MUTATION_GATE_SLACK_URL' => 'https://hooks.example/slack']),
         fn(): Verdict => Verdicts::failing()->withAccount(Previous::run('passed'))->cutShort(),
         'The run\'s budget cut it short, so it alerts nothing.',
+    ],
+    'sampled' => [
+        fn(): Variables => Variables::of(['CI' => 'true', 'GITHUB_ACTIONS' => 'true', 'MUTATION_GATE_SLACK_URL' => 'https://hooks.example/slack']),
+        fn(): Verdict => Sampled::verdict(Floor::of(90))->withAccount(Previous::run('passed')),
+        'The run was sampled, so it alerts nothing.',
     ],
     'no change' => [
         fn(): Variables => Variables::of(['CI' => 'true', 'GITHUB_ACTIONS' => 'true', 'MUTATION_GATE_SLACK_URL' => 'https://hooks.example/slack']),

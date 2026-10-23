@@ -31,3 +31,8 @@ it('prints the change from one score to another, signed, in points', function (i
     'down by points' => [9_000, 7_000, '-20.00'],
     'unchanged' => [8_000, 8_000, '±0.00'],
 ]);
+
+it('prints hundredths of a percent as a score is printed', function (): void {
+    expect(Percent::ofHundredths(8_137))->toBe('81.37%')
+        ->and(Percent::ofHundredths(5))->toBe('0.05%');
+});

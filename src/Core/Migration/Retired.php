@@ -9,7 +9,7 @@ use function sprintf;
 /** A step, and the version whose release made it. */
 final readonly class Retired
 {
-    /** What a file that still writes it is told (ADR-0026, decision 1). */
+    /** What a file that still writes it is told (ADR-0026). */
     private const string PENDING = '%s in %s: run `mutation-gate migrate`';
 
     /** What a file is told where `migrate` cannot make the change. */

@@ -23,7 +23,7 @@ use function usort;
 
 /**
  * A mutant's unified diff, put back onto the file it was made from to give
- * the mutant's own text (ADR-0020, decision 9). A runner's diff holds no
+ * the mutant's own text (ADR-0020). A runner's diff holds no
  * line numbers, so each hunk is placed where its context and removed lines
  * stand in the file: the first hunk at the place nearest the mutant's line,
  * each later one at the first place after the one before. Where the mutant's

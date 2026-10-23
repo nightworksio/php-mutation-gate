@@ -18,7 +18,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Verdict;
  * Every test that covers or killed a mutant of a verdict, or of one mutant
  * explained, each once, in the order the mutants first name them, so a
  * report can list the tests once and point at them by their place
- * (ADR-0014, decision 9).
+ * (ADR-0014).
  */
 final readonly class TestTable
 {

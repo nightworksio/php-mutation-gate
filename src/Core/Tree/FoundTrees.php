@@ -12,7 +12,7 @@ use function sprintf;
 
 /**
  * The trees zero-config found, which `init` lists rather than writes
- * (ADR-0017, decision 2): a run finds them again, so a tree added later is
+ * (ADR-0017): a run finds them again, so a tree added later is
  * judged with no edit to the config. PHP, YAML and NEON configs list them in
  * a comment; for JSON, which holds none, `init` says them.
  */

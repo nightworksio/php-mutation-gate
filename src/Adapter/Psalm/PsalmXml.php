@@ -35,12 +35,12 @@ use function strpbrk;
 use function trim;
 
 /**
- * A project's Psalm config, `psalm.xml`, as Psalm reads it (ADR-0020,
- * decisions 7 and 14): the files it analyses, its `<projectFiles>` less their
- * `<ignoreFiles>`; and the configuration it runs with, which Psalm prints no
- * command for, read from the file itself, with the files it names: its
- * baseline, its autoloader, its stubs, its file plugins and the configs it
- * includes. Every path in it is spelt from the config's own directory.
+ * A project's Psalm config, `psalm.xml`, as Psalm reads it (ADR-0020): the
+ * files it analyses, its `<projectFiles>` less their `<ignoreFiles>`; and the
+ * configuration it runs with, which Psalm prints no command for, read from
+ * the file itself, with the files it names: its baseline, its autoloader, its
+ * stubs, its file plugins and the configs it includes. Every path in it is
+ * spelt from the config's own directory.
  */
 final readonly class PsalmXml
 {

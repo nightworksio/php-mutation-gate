@@ -17,7 +17,7 @@ use Traversable;
 /**
  * The `<testsuite>`s of the PHPUnit config whose tests a run runs: every
  * suite, or these by name, as `tests.suites` lists them (ADR-0002) or
- * `--suite` names one (ADR-0025, decision 9).
+ * `--suite` names one (ADR-0025).
  *
  * @implements IteratorAggregate<int, SuiteName>
  */

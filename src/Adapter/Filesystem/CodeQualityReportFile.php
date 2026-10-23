@@ -15,7 +15,7 @@ use NightWorksIO\MutationGate\Port\Reporter;
 
 /**
  * The reporter `gitlab`: GitLab's Code Quality JSON, an issue per mutant counted
- * as not killed, written to the `path` its entry names (ADR-0016, decision 5).
+ * as not killed, written to the `path` its entry names (ADR-0016).
  */
 final readonly class CodeQualityReportFile implements Configurable, Reporter
 {

@@ -15,7 +15,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 /**
  * One verdict as `trend.json` recorded it: its judgement, and each tree's
  * floor and score, where the entry holds them. An entry written before the
- * trend held judgements and floors has neither (ADR-0016, decision 10).
+ * trend held judgements and floors has neither (ADR-0016).
  */
 final readonly class TrendEntry
 {

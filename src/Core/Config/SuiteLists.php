@@ -12,9 +12,9 @@ use NightWorksIO\MutationGate\Core\Test\Suites;
 use function sprintf;
 
 /**
- * `tests.suites` and `tests.holding` as a layer writes them (ADR-0002,
- * decision 8): the names of the suites whose tests judge every unit, and of
- * those whose tests judge only the units they hold, each where it is set.
+ * `tests.suites` and `tests.holding` as a layer writes them (ADR-0002): the
+ * names of the suites whose tests judge every unit, and of those whose
+ * tests judge only the units they hold, each where it is set.
  */
 final readonly class SuiteLists
 {

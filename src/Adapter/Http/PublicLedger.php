@@ -29,15 +29,15 @@ use function sprintf;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
- * A store a job without its credentials opens read-only (ADR-0013 decisions
- * 13 and 14): the default branch's ledger is read with an anonymous GET from
- * the public URL the store's options name, at
- * `<publicUrl>/<prefix>/<scope>/ledger.json.gz`, each segment percent-encoded,
- * and none is written. No other scope is public, so none other is asked for,
- * and where no public URL is named, nothing is. A 404 is a scope with no
- * ledger yet. Any other answer, a request that fails or outlasts the limits'
- * seconds, a body past their bytes, or one that is no ledger this gate reads,
- * is unreadable, and says why.
+ * A store a job without its credentials opens read-only (ADR-0013): the
+ * default branch's ledger is read with an anonymous GET from the public URL
+ * the store's options name, at
+ * `<publicUrl>/<prefix>/<scope>/ledger.json.gz`, each segment
+ * percent-encoded, and none is written. No other scope is public, so none
+ * other is asked for, and where no public URL is named, nothing is. A 404 is
+ * a scope with no ledger yet. Any other answer, a request that fails or
+ * outlasts the limits' seconds, a body past their bytes, or one that is no
+ * ledger this gate reads, is unreadable, and says why.
  */
 final readonly class PublicLedger implements ProofStore
 {

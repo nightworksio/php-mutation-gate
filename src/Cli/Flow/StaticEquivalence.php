@@ -26,8 +26,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Warnings;
 
 /**
  * Which survivors are their original program, where `equivalence.static`
- * asks (ADR-0013, decisions 10 and 11). Each is its runner's mutant as a
- * static analyser checks it (ADR-0020, decision 9), beside its original as
+ * asks (ADR-0013). Each is its runner's mutant as a
+ * static analyser checks it (ADR-0020), beside its original as
  * written, or printed as its runner prints its mutants, so it reads only the
  * checkout. A survivor whose file cannot be read, or whose change does not
  * go back onto it, is proven nothing. Where opcache dumps nothing, none is

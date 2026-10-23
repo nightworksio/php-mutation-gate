@@ -3,7 +3,7 @@
 
 Usage: gate_summary.py <gate>
 
-Run as a job's last step, on failure only (ADR-0019, decision 7). It writes the
+Run as a job's last step, on failure only (ADR-0019). It writes the
 gate's entry to the step summary and as an error annotation, which needs no
 privilege, so a fork's pull request reads it too.
 

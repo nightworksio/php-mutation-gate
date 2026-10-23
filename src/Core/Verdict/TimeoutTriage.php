@@ -10,7 +10,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
- * Timeout triage (ADR-0008, decision 2): a timed-out mutant whose judging
+ * Timeout triage (ADR-0008): a timed-out mutant whose judging
  * tests, run unmutated under the same limit and served as it was, finished
  * within that limit broke something, and is killed by timeout; any other,
  * and one whose tests never ran so, is too slow to judge. The time of that

@@ -11,8 +11,8 @@ use function sprintf;
 /**
  * The style a test asserts in: PHPUnit's `assert…` calls, or Pest's
  * expectations chained after `expect()`. Pest runs PHPUnit test classes too,
- * so a style belongs to an assertion, never to a runner (ADR-0025, decision 6).
- * Its value is the word `stub --style` takes for it (ADR-0015, decision 2).
+ * so a style belongs to an assertion, never to a runner (ADR-0025).
+ * Its value is the word `stub --style` takes for it (ADR-0015).
  */
 enum AssertionStyle: string
 {

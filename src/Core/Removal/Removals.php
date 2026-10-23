@@ -28,7 +28,7 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 
 /**
  * The surviving removals that suggest deleting what they call, where four
- * facts hold together (ADR-0025, decision 11):
+ * facts hold together (ADR-0025):
  *
  * - a Removed-call mutant survived, so it is covered;
  * - it removed a whole statement that is one call, whose callee its file's

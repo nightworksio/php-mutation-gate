@@ -16,7 +16,7 @@ use NightWorksIO\MutationGate\Core\Proof\Key\Exceptions;
 use NightWorksIO\MutationGate\Core\Test\Role;
 
 /**
- * The files every coverage entry's key reads (ADR-0023, decision 1): under
+ * The files every coverage entry's key reads (ADR-0023): under
  * the test directories, what runs before any test and the files that define
  * the runner; outside them, the config, the files that define the runner,
  * every CI definition, and every file that is no PHP source and that no key

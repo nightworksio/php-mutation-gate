@@ -12,10 +12,10 @@ use NightWorksIO\MutationGate\Core\Score\Floor;
 use function sprintf;
 
 /**
- * The survivor that makes a pull request's run certain to fail (ADR-0008,
- * decision 6): its unit, its id, the tree that holds it, the floor of 100 it
- * fails and which floor that is. The shard it is in stops there, and the
- * verdict fails naming it.
+ * The survivor that makes a pull request's run certain to fail (ADR-0008):
+ * its unit, its id, the tree that holds it, the floor of 100 it fails and
+ * which floor that is. The shard it is in stops there, and the verdict fails
+ * naming it.
  */
 final readonly class Doomed
 {

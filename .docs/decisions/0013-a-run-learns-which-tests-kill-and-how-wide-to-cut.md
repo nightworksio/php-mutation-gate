@@ -63,7 +63,7 @@ decides are accepted for that release too.
      inherits. Once the child ends, the plugin in Pest's own process writes
      each id to the results file with the mutated file Pest serves. The
      adapter joins each line to its mutant by the mutated file's path
-     (`Mutation::$modifiedSourcePath`). ADR-0004's decision 3 records the
+     (`Mutation::$modifiedSourcePath`). ADR-0004's Pest adapter records the
      plugin's jobs in a child.
    - **Infection.** The adapter reads the failing test's id from each
      killed mutant's `processOutput` in `logs.json`.
@@ -74,12 +74,12 @@ decides are accepted for that release too.
 2. **A killer history, kept in the ledger, predicts the next killer.**
    - **What it holds.** For each mutant id, the tests that killed it and how
      often, keeping the five most frequent. For each enclosing function (the
-     one a hint names, ADR-0009 decision 7), the same, summed over its
+     one a hint names, ADR-0009), the same, summed over its
      mutants. A mutant seen for the first time takes its function's history.
-     The gate's id holds no line number (ADR-0004 decision 2), so the history
+     The gate's id holds no line number (ADR-0004), so the history
      survives code above it moving.
    - **Where it lives.** A `killers` section of each scope's ledger, within
-     format 2 (ADR-0007 decision 3): each ranking a list of `[test, kills]`
+     format 2 (ADR-0007): each ranking a list of `[test, kills]`
      pairs, most kills first, `test` an index into the ledger's `tests`. A
      run reads its own scope's and the default branch's, as it reads
      timings, with its own scope's ranking where both know a mutant or a
@@ -115,7 +115,7 @@ decides are accepted for that release too.
      `--cache-directory=<the copy> --record-test-run-history
      --order-by=defects,duration-ascending`. PHPUnit writes its history back
      into the copy, so the order stays as it was written for a replay of the
-     run to take again (ADR-0004, decision 3), which names the mutant's copy
+     run to take again (ADR-0004), which names the mutant's copy
      in `MUTATION_GATE_ORDER_OF` in place of `PEST_MUTATION_FILE`. PHPUnit deprecates the bare
      `duration`, and a project that fails its run on PHPUnit's deprecations
      would see every mutant run in an order fail.
@@ -159,9 +159,9 @@ decides are accepted for that release too.
    tests do not depend on each other's order, a new order changes when that
    happens and never whether. In a suite whose tests do, any new order can move
    a result, as adding a test can.
-   - `tests.order` affects results, so it is in the proof key (ADR-0007
-     decision 2.3). The history is not: it decides only the order.
-   - Survivor confirmation (ADR-0008 decision 3) runs with no history, in
+   - `tests.order` affects results, so it is in the proof key (ADR-0007).
+     The history is not: it decides only the order.
+   - Survivor confirmation (ADR-0008) runs with no history, in
      the runner's own order. A survivor that the new order made shows up
      there as flaky.
    - `triage` takes `--order=runner|killers-first`, `tests.order` by
@@ -182,16 +182,16 @@ decides are accepted for that release too.
    - **One rule at a time.** Unset, `shards.seconds` decides as before. A
      layer of config that sets both stops with exit code 2, naming both keys.
      One a later layer sets replaces the other an earlier layer set
-     (ADR-0002, decision 5).
+     (ADR-0002).
    - **A target `shards.max` stops short is said.** Where the longest shard,
      with its opening run and setup, is still expected past the target at
      `shards.max` shards, `plan` warns, naming the target, the most shards and
      the longest shard's time.
    - `shards.target` judges or reports only, like the other `shards` keys
-     (ADR-0007 decision 2.3).
+     (ADR-0007).
    - **Both rules stop at the floor.** By `shards.seconds` or to
      `shards.target`, no package is cut into more shards than leave each a
-     share of its cost at least twice the shard's overhead (decision 7). The
+     share of its cost at least twice the shard's overhead. The
      count the rule gives is lowered to that many, and a package whose whole
      cost is below twice the overhead runs in one shard. `--shards=<n>` is not
      lowered: a count asked for is cut as asked.
@@ -200,7 +200,7 @@ decides are accepted for that release too.
    setup.**
    - **The opening run.** Each shard's result records how long its runner's
      opening run took. The ledger keeps the newest figure per package and
-     runner, in an `openings` section (ADR-0007 decision 3). With the Pest
+     runner, in an `openings` section (ADR-0007). With the Pest
      patch the opening run is the canary group (ADR-0004), so it is short.
      With no measurement, it is the coverage run's own duration.
    - **The setup.** Checkout and `composer install` run before the gate
@@ -208,21 +208,21 @@ decides are accepted for that release too.
      by default, stands for them, in a cut by size as in a cut to a target.
    - **A shard earns its overhead.** A shard whose share of the cost is below
      twice its overhead spends more than a third of its job starting up, so
-     the cut never makes one (decision 6).
+     the cut never makes one.
 
 8. **A target the plan cannot meet is a warning.** When the target needs more
    than `shards.max` shards, or the overhead alone exceeds it, the plan cuts
    `shards.max` shards and warns. When it cuts fewer and the longest shard
    still misses the target, because more shards would fall below the floor
-   (decision 7) or would split a unit, it warns and says so. The warning gives the expected wall time
+ or would split a unit, it warns and says so. The warning gives the expected wall time
    and the count the target would need, in the console, the step summary and
-   the PR comment. Costs decide placement only (ADR-0006 decision 4), so a
+   the PR comment. Costs decide placement only (ADR-0006), so a
    missed target never changes a verdict.
 
 9. **The target applies to estimates too, and never becomes a budget.**
-   - A unit with no timing is estimated from lines of code (ADR-0006
-     decision 4), and the target applies to that estimate as it applies to
-     measurements. The plan prints what share of its cost is estimated.
+   - A unit with no timing is estimated from lines of code (ADR-0006), and
+     the target applies to that estimate as it applies to measurements.
+     The plan prints what share of its cost is estimated.
    - `--shards=<n>` wins over the target, with a notice when a target is set,
      as on CircleCI, whose plan always passes it. GitHub's limit of 256 jobs
      per matrix stays a cap.
@@ -267,7 +267,7 @@ decides are accepted for that release too.
       where one stands in code outside any function or class, any of the
       file.
     - **The mutated file.** It is the survivor as its runner gives it to a
-      static analyser (ADR-0020, decision 9): the file as written with its
+      static analyser (ADR-0020): the file as written with its
       change made, or under Pest, compared with the original printed as
       Pest prints it. Every survivor in the verdict is checked, whether run,
       proved or carried, and an ignored one too. One whose change does not
@@ -276,12 +276,12 @@ decides are accepted for that release too.
       never become a pass. A test that reads source text rather than running
       it, such as a Pest `arch()` test, had its chance before the mutant
       survived. Each shard proves its own survivors after each invocation,
-      before survivor confirmation (ADR-0008 decision 3), only to leave the
+      before survivor confirmation (ADR-0008), only to leave the
       proven ones out of it, which is the time it saves, and out of the
-      search for a survivor that dooms a pull request's run (ADR-0008
-      decision 6); it judges nothing by that.
+      search for a survivor that dooms a pull request's run (ADR-0008);
+      it judges nothing by that.
     - **Scoring.** A proven mutant is left out of the score as an ignored
-      one is (ADR-0003 decision 1). It is listed in every report as
+      one is (ADR-0003). It is listed in every report as
       *equivalent, proven* (ADR-0009).
     - **Where it runs.** The check is applied at verdict time, as ignores and
       timeout triage are, by an adapter the `Cli` owns and injects into the
@@ -293,7 +293,7 @@ decides are accepted for that release too.
 
 11. **`equivalence.static` turns the check on, and it is on by default.** It
     is a boolean, `true` by default, and it judges or reports only
-    (ADR-0007 decision 2.3). Where opcache cannot be loaded, the verdict
+    (ADR-0007). Where opcache cannot be loaded, the verdict
     prints *no mutant was checked for equivalence: opcache is not
     available* and scores as it would with the check off.
 
@@ -301,7 +301,7 @@ decides are accepted for that release too.
     `ignores.entries` item that leaves out only mutants proven equivalent
     still applies, and a notice says *the ignore of <entry> leaves out only
     mutants proven equivalent: this ignore can go*. It
-    never fails the run (ADR-0008 decision 4), so a PHP upgrade that changes
+    never fails the run (ADR-0008), so a PHP upgrade that changes
     the optimizer cannot turn a clean run red.
 
 13. **A run without credentials reads the default branch's proofs from a
@@ -327,10 +327,11 @@ decides are accepted for that release too.
       other status, a redirect, which it never follows, no answer within 60
       seconds, no connection, a body past 11 MB, one that inflates past
       38 MB, or one that holds no ledger of a format the gate reads. The run
-      judges without it, which costs a run and never a verdict (ADR-0007
-      decision 3). S3 answers 403, not 404, for a missing key where the
-      reader may not list the bucket, so until the default branch's first run
-      writes its ledger, a run warns that it is unreadable (HTTP 403).
+      judges without it, which costs a run and never a verdict
+      (ADR-0007). S3 answers 403, not 404, for a missing key where the
+      reader may not list the bucket, so until the default branch's
+      first run writes its ledger, a run warns that it is unreadable
+      (HTTP 403).
     - **The limits.** The byte limits are twice what a ledger at the
       retention cap measures. That ledger holds 20,000 proofs over 2,000
       files, each with eight killed mutants of two killers each, one
@@ -365,10 +366,10 @@ decides are accepted for that release too.
       `<prefix>/refs/heads/<default branch>/*` and nothing else. On Cloud
       Storage, a managed folder at that prefix that `allUsers` may read does
       the same; on Azure Blob Storage, the store writes the default branch's
-      scope to a container of its own at the `Blob` access level (ADR-0028
-      decision 4).
+      scope to a container of its own at the `Blob` access level
+      (ADR-0028).
     - **Writing.** Writing still needs the credentials only default-branch
-      runs hold (ADR-0007 decision 5).
+      runs hold (ADR-0007).
 
 14. **A store with no write credentials opens read-only.** It says once:
     *read-only: no credentials; this run's proofs are not kept*. The run
@@ -386,11 +387,11 @@ decides are accepted for that release too.
     request's own merge commit. A fork's verdict is therefore as trustworthy
     as GitHub's fork policy makes any required check. The README says to
     require approval before outside contributors' workflows run.
-    `pull_request_target` stays unsupported (ADR-0009 decision 3).
+    `pull_request_target` stays unsupported (ADR-0009).
 
 16. **The documented GitHub schedule runs twice a week** (`'0 3 * * 1,4'`).
     Every restore refreshes a cache entry, so a quiet week keeps the default
-    branch's ledger. ADR-0005 decision 6 asks for a full run at least weekly,
+    branch's ledger. ADR-0005 asks for a full run at least weekly,
     and this meets it.
 
 17. **0.1.0 is tagged when every feature the README lists is built.** The
@@ -418,14 +419,14 @@ decides are accepted for that release too.
 | **Ignoring per-shard overhead** | Over-shards small runs, which is the waste the setting removes. |
 | **Exit 2 when the target cannot be met** | A slow week would fail CI over a planning preference. |
 | **Keeping `shards.seconds` while most of the cost is estimated** | Two rules active in one project, depending on what the ledger holds. |
-| **A per-shard budget of the target less overhead** | Every misestimate becomes unjudged mutants and a failed run, which ties verdicts to cost estimates. ADR-0006 decision 4 rules that out. |
+| **A per-shard budget of the target less overhead** | Every misestimate becomes unjudged mutants and a failed run, which ties verdicts to cost estimates. ADR-0006 rules that out. |
 | **A table of AST patterns known to be equivalent** | Each pattern is a proof somebody has to write, test and keep true. |
 | **PHPStan type facts** | Brings PHPStan and the project's own PHPStan config into the verdict. This row is about proving equivalence. ADR-0020 does bring a static analyser and its config into the verdict, keyed, to *kill* a mutant the analyser rejects, and departs from this reasoning there. |
 | **Skipping proven mutants in later Infection runs** through generated `ignore` lines | Infection's `ignore` matches by class, method and line, so it can drop another mutant of the same mutator on that line, which would then never be judged. |
 | **Generating mutants in the gate, to prove them before a run** | The gate would need a mutator engine matching each runner's exactly. ADR-0001 leaves mutating to the runner. For Pest and Infection this stands. ADR-0023 supersedes it for native runners, whose mutants the gate makes itself. |
 | **Counting a proven mutant as survived and only marking it** | A floor of 100 would stay out of reach for code with a genuine equivalent. |
 | **A port for equivalence provers** | A public interface for a feature with one known implementation. ADR-0020's `StaticChecker` port answers whether a mutant is invalid, not whether it is equivalent, and this check stays outside it. |
-| **Recording *equivalent* in the proof** | Puts a gate judgement into the raw record, which ADR-0007 decision 1 keeps free of judgement. |
+| **Recording *equivalent* in the proof** | Puts a gate judgement into the raw record, which ADR-0007 keeps free of judgement. |
 | **`equivalence.static` off by default** | Nothing has shipped, so no one has a score an upgrade could surprise. |
 | **Treating a redundant ignore as stale** | Couples CI to opcache's optimizer: a PHP upgrade could fail a clean run. |
 | **Publishing the ledger to the `mutation-gate` data branch** | A ledger of up to 20,000 proofs would be rewritten into git history on every default-branch run. |

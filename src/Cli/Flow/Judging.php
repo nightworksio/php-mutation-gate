@@ -42,6 +42,7 @@ use NightWorksIO\MutationGate\Core\Pruning\PruningAccount;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Removal\Removals;
+use NightWorksIO\MutationGate\Core\Report\SetText;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Test\DeclaredSuites;
 use NightWorksIO\MutationGate\Core\Test\TestNames;
@@ -91,6 +92,9 @@ final readonly class Judging
     /** Why a passing run of one suite's tests alone records no commit as passed: no floor held it. */
     private const string SUITE_ONLY = 'A run of one suite\'s tests alone records no commit as passed.';
 
+    /** Why a passing sampled run records no commit as passed: it estimated its trees (ADR-0020). */
+    private const string SAMPLED = 'A sampled run records no commit as passed.';
+
     /** Why a passing verdict's commit is not recorded as passed: a run from it must still reach what it left. */
     private const string UNJUDGED = 'The run left mutants unjudged, so its commit is not recorded as passed.';
 
@@ -130,7 +134,7 @@ final readonly class Judging
     /**
      * A plan's results judged again as the verdict judged them, reporting
      * nothing and writing no ledger, for a command that explains what a run
-     * found (ADR-0014, decision 12).
+     * found (ADR-0014).
      */
     public function again(Plan $plan, Results $results): Verdict|CannotJudge
     {
@@ -168,7 +172,7 @@ final readonly class Judging
 
     /**
      * The coverage map the plan handed on, kept beside the default branch's
-     * ledger for a run on that branch (ADR-0023, decision 2): where, or why it
+     * ledger for a run on that branch (ADR-0023): where, or why it
      * could not be; nothing for a run that keeps none.
      *
      * @return list<string>
@@ -229,6 +233,8 @@ final readonly class Judging
             $ignoring,
         );
         $judge = $this->adapters->isSecurityOnly() ? $judge->onlyMadeBy($this->adapters->security) : $judge;
+        $sample = $plan->considered()->sample();
+        $judge = $judge->sampling($sample);
         $newest = $ledgers->newest();
         $fresh = PrunedCarry::of($plan->considered()->pruned(), $newest, $plan->digests())->into(Agreement::checked(
             $results->units(),
@@ -252,6 +258,7 @@ final readonly class Judging
         $verdicts = $this->read($matrix, $judge->judging($matrix)->proving($equivalents->proven)->trees($judged));
         $security = new NarrowRunHolding($this->adapters)->security(
             $judge->security($verdicts, $this->adapters->security, $this->settings->floors()->security()),
+            $sample,
         );
         $unfloored = count(Ratchet::unfloored($verdicts)) + count(Ratchet::securityUnfloored($security));
         $committed = $this->resolved($proving, $carrying, $this->committedBefore($plan));
@@ -306,7 +313,7 @@ final readonly class Judging
      * The trees, with their survivors of one cause clustered, each survivor
      * a weak test let through marked, and each removal whose callee may be
      * deleted, from the survivors' own files and their tests' files, each
-     * read once (ADR-0022 decision 15, ADR-0025 decisions 5 to 7, 11 and 12).
+     * read once (ADR-0022, ADR-0025).
      */
     private function read(KillMatrix $matrix, TreeVerdicts $judged): TreeVerdicts
     {
@@ -323,7 +330,7 @@ final readonly class Judging
 
     /**
      * Why a CI run stops on trees and security sets held to no floor
-     * (ADR-0003 decision 9, ADR-0021 decision 17): each tree and set, and the
+     * (ADR-0003, ADR-0021): each tree and set, and the
      * baseline the run measured, ready to commit. The run judges, records and
      * reports before it stops, so nothing it measured is lost.
      */
@@ -372,12 +379,20 @@ final readonly class Judging
             : $missed;
         $warnings = new VerdictWarnings($this->adapters, $this->settings);
 
-        return Verdict::of($verdicts, $heldTo)
+        $verdict = Verdict::of($verdicts, $heldTo)
             ->withSets(HeldSets::of($newCode, $security))
             ->withReach($plan->considered()->reach())
             ->withMatrix($matrix)
             ->withWarnings($warnings->of($plan, $verdicts, $shards, $map)->and($warnings->unfloored($security)))
             ->withFailures($failures);
+
+        foreach ($verdicts as $tree) {
+            $verdict = $tree->judgement() === Judgement::Undecided
+                ? $verdict->withCannotJudge(CannotJudge::because(SetText::tree($tree)))
+                : $verdict;
+        }
+
+        return $verdict;
     }
 
     /** Why each held unit its holding tests miss lines of fails. */
@@ -438,12 +453,11 @@ final readonly class Judging
     }
 
     /**
-     * The kill matrix of the kind the plan records (ADR-0014, decisions 7
-     * and 9 to 11): over the map the plan handed the verdict, which holds the
-     * lines of every unit it considered, with the names the plan holds for
-     * the tests, the suites the PHPUnit config declares them in, and why a
-     * matrix of first killers holds no more. Without a map it holds each
-     * mutant's killers alone.
+     * The kill matrix of the kind the plan records (ADR-0014): over the map
+     * the plan handed the verdict, which holds the lines of every unit it
+     * considered, with the names the plan holds for the tests, the suites the
+     * PHPUnit config declares them in, and why a matrix of first killers
+     * holds no more. Without a map it holds each mutant's killers alone.
      */
     private function matrixOf(Plan $plan, CoverageMap|CannotJudge $map): KillMatrix
     {
@@ -469,6 +483,7 @@ final readonly class Judging
         $passed = match (true) {
             $verdict->judgement() !== Judgement::Passed => CannotTell::because(self::FAILED),
             $unjudged > 0 => CannotTell::because(self::UNJUDGED),
+            $verdict->trees()->sample()->isDrawn() => CannotTell::because(self::SAMPLED),
             $this->adapters->isSecurityOnly() => CannotTell::because(self::SECURITY_ONLY),
             $this->adapters->isSuiteOnly() => CannotTell::because(self::SUITE_ONLY),
             $plan->briefing()->isOnOwnScopeCoverage()

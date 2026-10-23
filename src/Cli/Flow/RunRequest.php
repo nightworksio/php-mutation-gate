@@ -15,8 +15,8 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 
 /**
  * A mutation request as every run makes one, and every reproduction of a
- * run's mutant (ADR-0004, decisions 6 and 9): these files by these tests,
- * with the mutators the run is narrowed to (ADR-0021, decision 20),
+ * run's mutant (ADR-0004): these files by these tests,
+ * with the mutators the run is narrowed to (ADR-0021),
  * withholding what the run withholds, under the memory cap the config sets,
  * each mutant started as `runner.workers` says, one at a time.
  * What decides a mutant's outcome is set here once, so a run and its

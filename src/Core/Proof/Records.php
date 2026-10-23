@@ -19,7 +19,7 @@ use function usort;
 /**
  * Every record the ledgers read hold of the mutants an id or a prefix of one
  * names: each proof that holds one, with the mutant as it proved it, the
- * newest first. A mutant's history is its records (ADR-0014 decision 13).
+ * newest first. A mutant's history is its records (ADR-0014).
  *
  * @implements IteratorAggregate<int, Recorded>
  */

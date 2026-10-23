@@ -11,9 +11,10 @@ use NightWorksIO\MutationGate\Mutator\Mutator;
 
 /**
  * A mutator's changes to a snippet of PHP under each runner, as the bridges
- * the gate writes make them, without either runner installed (ADR-0021
- * decision 8). Each node is offered with its names resolved, in a
- * `resolvedName` attribute, and its `parent` set, as both runners offer it.
+ * the gate writes make them, without either runner installed
+ * (ADR-0021). Each node is offered with its names resolved, in a
+ * `resolvedName` attribute, and its `parent` set, as both runners offer
+ * it.
  */
 final readonly class Mutates
 {

@@ -50,7 +50,7 @@ final readonly class VerdictWarnings
         return $this->listed($plan, $verdicts, $raised);
     }
 
-    /** Outside CI, a warning for each security set held to no floor (ADR-0021, decision 17). */
+    /** Outside CI, a warning for each security set held to no floor (ADR-0021). */
     public function unfloored(SecurityVerdicts $security): Warnings
     {
         $warnings = Warnings::none();
@@ -98,7 +98,7 @@ final readonly class VerdictWarnings
     /**
      * These warnings, and one for each file most of the suite runs through
      * that no held unit of the plan holds, past `holds.hotPath` of its tests
-     * (ADR-0005, decision 11): each of its mutants runs most of the suite.
+     * (ADR-0005): each of its mutants runs most of the suite.
      */
     private function hotPathsIn(Plan $plan, CoverageMap $map, Warnings $warnings): Warnings
     {

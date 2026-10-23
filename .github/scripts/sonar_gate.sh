@@ -6,7 +6,7 @@
 # Reads from the environment: SONAR_TOKEN; SCAN and TESTS, the results of the
 # `sonar` and `tests` jobs; EVENT; and on a pull request PR, AUTHOR and FORK.
 # Where it finds issues, it writes their counts to evidence/raw/sonar.json, the
-# job's evidence (ADR-0019, decision 5).
+# job's evidence (ADR-0019).
 set -euo pipefail
 
 project=$(sed -n 's/^sonar\.projectKey=//p' sonar-project.properties)

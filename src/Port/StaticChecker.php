@@ -17,9 +17,9 @@ use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 
 /**
- * A static analyser, asked about one mutant at a time (ADR-0020, decision 6):
+ * A static analyser, asked about one mutant at a time (ADR-0020):
  * Mago, PHPStan, Psalm, or one an extension adds. Every process it starts
- * runs without the variables withheld from the runner (decision 18). A check
+ * runs without the variables withheld from the runner. A check
  * that cannot run leaves the mutant to its tests; it never kills it. Whether
  * a mutant's findings reject it is the core's to say.
  */
@@ -64,8 +64,8 @@ interface StaticChecker
     /**
      * These mutants, each checked as check() checks one, side by side up to
      * this many at once where the analyser can run checks apart, and in turn
-     * where it cannot: each answer in the place of its check (ADR-0020,
-     * decision 12).
+     * where it cannot: each answer in the place of its check
+     * (ADR-0020).
      */
     public function checks(MutantChecks $checks, ProcessCount $side): CheckAnswers;
 }

@@ -18,14 +18,14 @@ use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use function sprintf;
 
 /**
- * The tests `affected` lists, as a pipe reads them (ADR-0020, decisions 1 and
- * 4): each test file, a line each or each ended by a NUL byte, which no path
- * holds; or each test id, a line each, where PHPUnit can read every one back
- * and every file listed holds some; and the reasons, a line each, for
- * standard error. A CI log reads what the gate prints, so no entry of a list
- * may read there as a command: making it inert would change it, so the list
- * is refused, naming the JSON, which holds every entry as a string. Each
- * reason is one plain line, made inert (Fit, Inert).
+ * The tests `affected` lists, as a pipe reads them (ADR-0020): each test
+ * file, a line each or each ended by a NUL byte, which no path holds; or each
+ * test id, a line each, where PHPUnit can read every one back and every file
+ * listed holds some; and the reasons, a line each, for standard error. A CI
+ * log reads what the gate prints, so no entry of a list may read there as a
+ * command: making it inert would change it, so the list is refused, naming
+ * the JSON, which holds every entry as a string. Each reason is one plain
+ * line, made inert (Fit, Inert).
  */
 final readonly class AffectedText
 {

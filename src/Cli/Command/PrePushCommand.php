@@ -51,12 +51,12 @@ use function trim;
  * arguments and the refs git is about to push on standard input; a hook
  * manager that reads them itself hands them on through `--stdin`, as
  * CaptainHook does, or in the variables the pre-commit framework sets
- * (ADR-0024, decision 13). For each
+ * (ADR-0024). For each
  * base a pushed ref is read since, the commit the remote holds or, for a new
  * ref, the merge base with the default branch, it runs change-scoped under
  * `local.prePushBudget`, prints each reached tree's score change, then the
  * verdict, and exits as the worst verdict does: anything but 0 blocks the
- * push, an unjudged mutant included (ADR-0010, decision 2).
+ * push, an unjudged mutant included (ADR-0010).
  */
 final readonly class PrePushCommand
 {
@@ -225,7 +225,7 @@ final readonly class PrePushCommand
         return new Running($this->composed->adapters, $this->composed->settings, $this->composed->setup);
     }
 
-    /** Each reached tree's score change, as `pre-commit` prints it (ADR-0015, decision 10). */
+    /** Each reached tree's score change, as `pre-commit` prints it (ADR-0015). */
     private function scoreChange(): void
     {
         $composed = $this->composed;

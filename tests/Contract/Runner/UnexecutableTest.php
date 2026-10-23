@@ -34,7 +34,7 @@ $holds = [
 
 // A mutant on a line php-code-coverage leaves out of its map, which Pest calls
 // uncovered, judged by the tests that read the value it changes, each run
-// through Pest's own override (ADR-0004, decision 8). Pest's runs are real.
+// through Pest's own override (ADR-0004). Pest's runs are real.
 
 /** Each mutant of the fixture's unexecutable values under the whole suite, by where it is: its status and reason. */
 const UNEXECUTABLE_JUDGED = [

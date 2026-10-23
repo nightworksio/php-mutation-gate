@@ -25,9 +25,14 @@ use NightWorksIO\MutationGate\Core\Report\ClusterText;
 use NightWorksIO\MutationGate\Core\Report\CostText;
 use NightWorksIO\MutationGate\Core\Report\Escape;
 use NightWorksIO\MutationGate\Core\Report\SavingsText;
+use NightWorksIO\MutationGate\Core\Report\SetText;
 use NightWorksIO\MutationGate\Core\Report\Trend;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Sample\Estimate;
+use NightWorksIO\MutationGate\Core\Sample\Stratum;
+use NightWorksIO\MutationGate\Core\Sample\Tally;
 use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -43,8 +48,10 @@ use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
 use NightWorksIO\MutationGate\Core\Verdict\Verdict;
 use NightWorksIO\MutationGate\Tests\Support\Clustered;
+use NightWorksIO\MutationGate\Tests\Support\Judged;
 use NightWorksIO\MutationGate\Tests\Support\Killings;
 use NightWorksIO\MutationGate\Tests\Support\PruningCases;
+use NightWorksIO\MutationGate\Tests\Support\Sampled;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
 
 $run = 'https://github.com/octo/gate/actions/runs/7';
@@ -518,4 +525,29 @@ it('marks a survivor its unit\'s last result gave because the plan pruned its mu
 
     expect(implode("\n", MarkdownItems::table([$carried], 1)))->toContain('| LessToLessOrEqual | survived, carried (pruned) |')
         ->and(implode("\n", MarkdownItems::details([$carried], 1)))->toContain('LessToLessOrEqual, survived, carried (pruned)</summary>');
+});
+
+it('heads the comment of a sampled run as sampled, and prints each sampled tree\'s estimate', function (): void {
+    $comment = Markdown::comment(Sampled::verdict(Floor::of(60)), '');
+
+    expect($comment)->toContain('## mutation-gate: passed, sampled')
+        ->and($comment)->toContain(SetText::SAMPLED)
+        ->and($comment)->toContain('| <code>src</code> | 60.00% | about 75.55% (60.70%–85.26%) |  | passed |')
+        ->and(Markdown::comment(Verdicts::passing(), ''))->not->toContain('sampled');
+});
+
+it('compares a sampled run\'s tree with the base only where the run knew it exactly', function (): void {
+    $exact = TreeVerdict::judged(
+        Tree::at(Path::of('src'), Floor::of(50), Package::at(Path::root())),
+        Unrecorded::floor(),
+        JudgedUnits::none(),
+        Judged::mutants(MutantJudgement::Killed, MutantJudgement::Survived),
+        Uncovered::Count,
+        Estimate::of(Tally::of(1, 2), 1, Stratum::none(), Sampled::sample()),
+    )->comparedWith(Score::ofHundredths(4_000));
+    $sampled = Sampled::tree(Floor::of(60), 'app')->comparedWith(Score::ofHundredths(4_000));
+
+    expect(Markdown::comment(Verdict::of(TreeVerdicts::of($exact, $sampled)), ''))
+        ->toContain('| <code>src</code> | 50.00% | 50.00% | +10.00 | passed |')
+        ->toContain('| <code>app</code> | 60.00% | about 75.55% (60.70%–85.26%) |  | passed |');
 });

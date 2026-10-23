@@ -17,7 +17,7 @@ use Symfony\Component\Console\Question\ChoiceQuestion;
 use Symfony\Component\Console\Question\ConfirmationQuestion;
 
 /**
- * How `init` asks what detection cannot settle (ADR-0017, decision 1): at
+ * How `init` asks what detection cannot settle (ADR-0017): at
  * the console, each question offering the detected answer as its default.
  * With `--no-interaction`, with no terminal, or with `CI` set, it asks
  * nothing, and each question takes its default.

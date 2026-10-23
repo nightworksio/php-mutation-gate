@@ -15,29 +15,39 @@ use function sprintf;
 
 /**
  * A number in a range, kept as it is written: a whole number stays whole.
+ * Its least is allowed, or, for a number that must be above it, refused.
  *
  * @implements Shape<int|float>
  */
 final readonly class Number implements Shape
 {
-    private function __construct(private int|float $least, private int|float|Absent $most)
-    {
+    private function __construct(
+        private int|float $least,
+        private int|float|Absent $most,
+        private bool $leastAllowed,
+    ) {
     }
 
     public static function between(int|float $least, int|float $most): self
     {
-        return new self($least, $most);
+        return new self($least, $most, leastAllowed: true);
+    }
+
+    /** A number above one, which it may not be, and at most another. */
+    public static function aboveAndAtMost(int|float $least, int|float $most): self
+    {
+        return new self($least, $most, leastAllowed: false);
     }
 
     /** A percentage: a number from 0 to 100. */
     public static function percent(): self
     {
-        return new self(0, Floor::whole()->written());
+        return new self(0, Floor::whole()->written(), leastAllowed: true);
     }
 
     public static function atLeast(int|float $least): self
     {
-        return new self($least, Absent::setting());
+        return new self($least, Absent::setting(), leastAllowed: true);
     }
 
     public function read(Node $at): Reading
@@ -49,21 +59,24 @@ final readonly class Number implements Shape
                 => Absent::setting(),
         };
 
-        return ! $number instanceof Absent && $number >= $this->least && $this->fits($number)
+        return ! $number instanceof Absent && $this->above($number) && $this->fits($number)
             ? Reading::of($number)
             : Reading::refused($at->mismatch($this->expected()));
     }
 
     public function expected(): string
     {
-        return $this->most instanceof Absent
-            ? sprintf('a number of at least %s', $this->least)
-            : sprintf('a number from %s to %s', $this->least, $this->most);
+        return match (true) {
+            $this->most instanceof Absent => sprintf('a number of at least %s', $this->least),
+            $this->leastAllowed => sprintf('a number from %s to %s', $this->least, $this->most),
+            default => sprintf('a number above %s and at most %s', $this->least, $this->most),
+        };
     }
 
     public function schema(): Json
     {
-        $schema = Json::object(Member::of('type', 'number'))->with(Member::of('minimum', $this->least));
+        $schema = Json::object(Member::of('type', 'number'))
+            ->with(Member::of($this->leastAllowed ? 'minimum' : 'exclusiveMinimum', $this->least));
 
         return $this->most instanceof Absent ? $schema : $schema->with(Member::of('maximum', $this->most));
     }
@@ -71,6 +84,11 @@ final readonly class Number implements Shape
     public function effects(): array
     {
         return [];
+    }
+
+    private function above(int|float $number): bool
+    {
+        return $this->leastAllowed ? $number >= $this->least : $number > $this->least;
     }
 
     private function fits(int|float $number): bool

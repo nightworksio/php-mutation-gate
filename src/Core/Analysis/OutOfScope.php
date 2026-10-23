@@ -8,7 +8,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 
 /**
  * A file the analyser does not analyse, as it is outside the paths its
- * config names (ADR-0020, decision 7). A mutant of it is left to its tests,
+ * config names (ADR-0020). A mutant of it is left to its tests,
  * unchecked, and the run says so.
  */
 final readonly class OutOfScope

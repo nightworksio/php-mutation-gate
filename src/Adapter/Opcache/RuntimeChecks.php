@@ -32,7 +32,7 @@ use PhpParser\ParserFactory;
  * function the answer flows. A mutant that changes the function, method or
  * closure such a check is in, the constant, property or case of a class it
  * is in, or, where it is in code outside any, anything in the program, is
- * never proven equivalent (ADR-0013, decision 10).
+ * never proven equivalent (ADR-0013).
  */
 final readonly class RuntimeChecks
 {

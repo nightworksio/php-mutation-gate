@@ -27,7 +27,7 @@ use function sprintf;
  * The proof each unit a run judged leaves under its key, or why it leaves
  * none: a unit that did not run to the end, one with no key, and one the
  * run left some mutators out of, which carries their last results and so is
- * of no single run (ADR-0007, decision 1; ADR-0025, decision 1).
+ * of no single run (ADR-0007; ADR-0025).
  */
 final readonly class Recordings
 {

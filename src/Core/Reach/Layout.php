@@ -95,7 +95,7 @@ final readonly class Layout
      * This layout, where the config file reads these files beside itself:
      * each decides how the gate runs as the config does, spelt from the
      * repository's directory; and where it reads one it cannot name, every
-     * file does, for that reason (ADR-0005, decision 4).
+     * file does, for that reason (ADR-0005).
      */
     public function readByTheConfig(ConfigReads $reads): self
     {

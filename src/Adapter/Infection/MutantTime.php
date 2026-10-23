@@ -24,7 +24,7 @@ use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 /**
  * The seconds a patched Infection allows one mutant, read in Infection's
- * process (see Patch): the standard mutant limit (ADR-0008, decision 2) of
+ * process (see Patch): the standard mutant limit (ADR-0008) of
  * its covering tests' own time, as Infection timed them, laid on the
  * start-up the gate's run measured, between the floor
  * the gate names and Infection's `timeout`, which the gate sets to

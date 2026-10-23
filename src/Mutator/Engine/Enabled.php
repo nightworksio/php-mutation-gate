@@ -82,7 +82,7 @@ final readonly class Enabled implements Countable, IteratorAggregate
     }
 
     /**
-     * These, less each that stands down (ADR-0021, decision 18): one that
+     * These, less each that stands down (ADR-0021): one that
      * names a mutator making its change, where that mutator is among a
      * runner's own that run, or is one of these that names none.
      */

@@ -35,10 +35,10 @@ use Symfony\Component\Console\Input\InputOption;
 
 /**
  * What `init` asks, in the order it asks, where detection and the command
- * line leave the answer open (ADR-0017 decision 1, ADR-0024 decisions 11 and
- * 12): the runner, the CI, an Infection config's import, native markers, the
- * hooks and the Composer plugin. Each offers what detection found as its
- * default; nobody asked, each takes the default the decision names.
+ * line leave the answer open (ADR-0017, ADR-0024): the runner, the CI, an
+ * Infection config's import, native markers, the hooks and the Composer
+ * plugin. Each offers what detection found as its default; nobody asked,
+ * each takes the default the decision names.
  */
 final readonly class InitQuestions
 {

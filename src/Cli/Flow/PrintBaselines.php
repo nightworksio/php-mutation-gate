@@ -26,7 +26,7 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 
 /**
  * What each mutant's original analyses to, for a check before the tests
- * (ADR-0020, decision 9): the warm-up's findings for a file as written, and
+ * (ADR-0020): the warm-up's findings for a file as written, and
  * for one its runner prints, the print's, checked once for each file, side by
  * side, where they are the warm-up's. A file whose print analyses otherwise
  * leaves its mutants to their tests.

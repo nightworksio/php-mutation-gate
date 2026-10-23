@@ -18,6 +18,32 @@
         "cutShort": {
             "type": "boolean"
         },
+        "sample": {
+            "type": "object",
+            "properties": {
+                "seed": {
+                    "type": "string"
+                },
+                "confidence": {
+                    "enum": [
+                        90,
+                        95,
+                        99
+                    ]
+                },
+                "margin": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                }
+            },
+            "required": [
+                "seed",
+                "confidence",
+                "margin"
+            ],
+            "additionalProperties": false
+        },
         "uncovered": {
             "enum": [
                 "count",
@@ -151,13 +177,71 @@
                         "minimum": 0,
                         "maximum": 100
                     },
+                    "estimate": {
+                        "type": "object",
+                        "properties": {
+                            "score": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100
+                            },
+                            "lower": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100
+                            },
+                            "upper": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 100
+                            },
+                            "confidence": {
+                                "enum": [
+                                    90,
+                                    95,
+                                    99
+                                ]
+                            },
+                            "units": {
+                                "type": "object",
+                                "properties": {
+                                    "sampled": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                    },
+                                    "exact": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                    },
+                                    "total": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                    }
+                                },
+                                "required": [
+                                    "sampled",
+                                    "exact",
+                                    "total"
+                                ],
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "lower",
+                            "upper",
+                            "confidence",
+                            "units"
+                        ],
+                        "additionalProperties": false
+                    },
                     "judgement": {
                         "enum": [
                             "passed",
                             "failed",
                             "nothing-to-mutate",
                             "exempt",
-                            "cannot-judge"
+                            "cannot-judge",
+                            "undecided"
                         ]
                     },
                     "counts": {

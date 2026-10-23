@@ -24,6 +24,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutantRecord;
 use NightWorksIO\MutationGate\Core\Mutant\MutantStatus;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Sample\Confidence;
 use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
@@ -50,9 +51,15 @@ use function sprintf;
  *     additionalProperties: bool,
  * }
  * @phpstan-type Listed array{type: string, items: Leaf}
+ * @phpstan-type Grouped array{
+ *     type: string,
+ *     properties: array<string, Leaf|Flat>,
+ *     required: list<string>,
+ *     additionalProperties: bool,
+ * }
  * @phpstan-type Shallow array{
  *     type: string,
- *     properties: array<string, Leaf|Flat|Listed>,
+ *     properties: array<string, Leaf|Flat|Grouped|Listed>,
  *     required: list<string>,
  *     additionalProperties: bool,
  * }
@@ -141,6 +148,11 @@ final readonly class ReportSchema
                 'format' => ['const' => JsonReport::FORMAT],
                 'judgement' => self::oneOf(Judgement::Passed, Judgement::Failed, Judgement::CannotJudge),
                 'cutShort' => self::FLAG,
+                'sample' => self::object([
+                    'seed' => self::TEXT,
+                    'confidence' => self::oneOf(...Confidence::cases()),
+                    'margin' => self::PERCENT,
+                ], []),
                 'uncovered' => self::oneOf(...Uncovered::cases()),
                 'score' => self::PERCENT,
                 'counts' => self::counts(),
@@ -199,7 +211,7 @@ final readonly class ReportSchema
                     'auditSeconds' => self::SECONDS,
                     'savedSeconds' => self::SECONDS,
                 ], []),
-            ], ['score', 'suitesUnscored', 'run', 'cost', 'savings', 'pruning']),
+            ], ['sample', 'score', 'suitesUnscored', 'run', 'cost', 'savings', 'pruning']),
         ]);
     }
 
@@ -330,11 +342,21 @@ final readonly class ReportSchema
             'score' => self::PERCENT,
             'base' => self::PERCENT,
             'raised' => self::PERCENT,
+            'estimate' => self::object([
+                'score' => self::PERCENT,
+                'lower' => self::PERCENT,
+                'upper' => self::PERCENT,
+                'confidence' => self::oneOf(...Confidence::cases()),
+                'units' => self::object(
+                    ['sampled' => self::WHOLE, 'exact' => self::WHOLE, 'total' => self::WHOLE],
+                    [],
+                ),
+            ], ['score']),
             'judgement' => self::oneOf(...Judgement::cases()),
             'counts' => self::counts(),
             'units' => self::listOf(self::unit([])),
             'mutants' => self::listOf(self::ID_SPELLING),
-        ], ['declared', 'exempt', 'baseline', 'floor', 'score', 'base', 'raised']);
+        ], ['declared', 'exempt', 'baseline', 'floor', 'score', 'base', 'raised', 'estimate']);
     }
 
     /** @return Shallow */

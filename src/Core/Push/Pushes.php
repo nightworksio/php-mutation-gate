@@ -28,8 +28,8 @@ use function trim;
 /**
  * The refs git is about to push, from the lines it hands the `pre-push` hook:
  * one line per ref, `<local ref> <local commit> <remote ref> <remote commit>`,
- * each commit named by its full object name in hex (ADR-0010 decision 2,
- * ADR-0024 decision 13). The lines reach the gate on standard input, through
+ * each commit named by its full object name in hex (ADR-0010,
+ * ADR-0024). The lines reach the gate on standard input, through
  * `--stdin`, or rebuilt from what the pre-commit framework sets.
  *
  * @implements IteratorAggregate<int, PushedRef>

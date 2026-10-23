@@ -99,7 +99,7 @@ final readonly class Bridges
     /**
      * The bridges to these mutators, less each pinned by source: Infection
      * shows a mutant only to an include, so no test that reads the file sees
-     * it (ADR-0021, decision 19).
+     * it (ADR-0021).
      */
     public static function to(Enabled $mutators): self
     {
@@ -116,7 +116,7 @@ final readonly class Bridges
 
     /**
      * These bridges, less each to a mutator that stands down beside them and
-     * the mutators of Infection's own that run (ADR-0021, decision 18).
+     * the mutators of Infection's own that run (ADR-0021).
      */
     public function besides(NamedMutators $own): self
     {
@@ -148,9 +148,9 @@ final readonly class Bridges
 
     /**
      * The named mutators Infection runs: those of its own, and those bridged
-     * that do not stand down beside the named ones of its own (ADR-0021,
-     * decision 18). A named mutator that stands down, or that only another
-     * runner has, is left out.
+     * that do not stand down beside the named ones of its own (ADR-0021).
+     * A named mutator that stands down, or that only another runner has,
+     * is left out.
      *
      * @return list<string>
      */

@@ -20,7 +20,7 @@ interface Mutator
     /** Its name in reports and ignores, `<set>/<Name>`, such as `laravel/GateAllowsToTrue`. */
     public function name(): MutatorName;
 
-    /** The family whose hint a survivor gets (ADR-0009 decision 7). */
+    /** The family whose hint a survivor gets (ADR-0009). */
     public function family(): MutatorFamily;
 
     /** What it is about, such as `security`. */

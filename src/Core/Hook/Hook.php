@@ -12,9 +12,9 @@ use function sprintf;
 use function str_contains;
 
 /**
- * A git hook the gate installs (ADR-0010, decision 3). `pre-push` judges the
+ * A git hook the gate installs (ADR-0010). `pre-push` judges the
  * commits being pushed and blocks a push that fails; `pre-commit` shows the
- * score change, runs nothing and never blocks (ADR-0015, decision 10).
+ * score change, runs nothing and never blocks (ADR-0015).
  */
 enum Hook: string
 {

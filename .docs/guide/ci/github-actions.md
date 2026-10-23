@@ -67,7 +67,7 @@ jobs:
 | `php-version` | `8.5` |
 | `runner` | the config's, or the one installed |
 | `shard` | none: the whole gate runs |
-| `mode` | `auto`: change-scoped on pull requests and pushes, full on schedules, manual runs, releases and tags; or `full`, or `changed` |
+| `mode` | `auto`: change-scoped on pull requests and pushes, full on schedules, manual runs, releases and tags; or `full`, or `changed`, or `sampled`: what `auto` considers, with the units no run knows exactly sampled, as `--sample` asks |
 | `changed-since` | the pull request's base on `pull_request`, the default branch on any other branch, `last-passed` on the default branch; used when the mode is change-scoped |
 | `budget` | none |
 | `reports` | none; `<name>:<path>` lines, such as `sarif:build/mutation.sarif` |

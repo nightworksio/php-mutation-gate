@@ -5,7 +5,7 @@
 
 ## Context
 
-ADR-0014, decision 18 gives each kill a test is named for an unmutated
+ADR-0014 gives each kill a test is named for an unmutated
 control: its killers, run with its file served as its mutant was, once for
 each file and set of killers. The control guards against three things: a
 killer that fails on its own, one that fails only while the runner serves a
@@ -24,14 +24,14 @@ failed only while Pest's override served a file.
    unmutated as its mutants were, allowed the standard mutant limit of their
    time. Where it passes, every kill of the file a test is named for stands.
 2. **Where it does not pass, each kill is controlled on its own**, as
-   ADR-0014, decision 18 says, once for each set of killers, and stands only
+   ADR-0014 says, once for each set of killers, and stands only
    where its own control passes. A kill whose own control is the file's
    control is judged by that control's run.
 3. **The time budget leaves a kill unjudged** where the time left had no room
    for its file's control, or for its own where it needed one.
 
-This supersedes "once for each file and set of killers" in ADR-0014,
-decision 18, as the first control of a kill.
+This supersedes "once for each file and set of killers" in ADR-0014, as
+the first control of a kill.
 
 ## Alternatives considered
 
@@ -45,9 +45,9 @@ decision 18, as the first control of a kill.
 - A full run starts about one control per file with kills, not one per set of
   killers. Where tests of a file fail together but pass apart, the per-kill
   controls still judge each kill as before, at the price of one more run.
-- Every runner is held to it, as ADR-0014, decision 18 holds them.
+- Every runner is held to it, as ADR-0014 holds them.
 
 ## Related
 
-- [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): decision 2, the unmutated control
-- [ADR-0014](0014-every-test-is-judged-by-what-it-kills.md): decision 18, which this groups by file
+- [ADR-0008](0008-a-run-spends-its-time-on-the-riskiest-code-first.md): the unmutated control
+- [ADR-0014](0014-every-test-is-judged-by-what-it-kills.md): which this groups by file

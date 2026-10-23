@@ -8,8 +8,8 @@ use NightWorksIO\MutationGate\Core\File\Paths;
 
 /**
  * Some test files, which a coverage run is narrowed to: the tests a change
- * moved, measured again while every other entry of the map is kept (ADR-0010,
- * decision 1; ADR-0023, decision 3).
+ * moved, measured again while every other entry of the map is kept (ADR-0010;
+ * ADR-0023).
  */
 final readonly class TestPaths
 {

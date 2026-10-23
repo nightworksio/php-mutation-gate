@@ -25,9 +25,8 @@ use stdClass;
 /**
  * The JSON report's `run`, `cost`, `savings` and `pruning`: the run's
  * timings, what it cost, and what it saved, each left out where the flows gave
- * the verdict no timings (ADR-0016, decisions 8 and 18, and ADR-0017, decision
- * 13); and what pruning left out, left out where it left nothing out
- * (ADR-0025, decision 4).
+ * the verdict no timings (ADR-0016, and ADR-0017); and what pruning left out,
+ * left out where it left nothing out (ADR-0025).
  *
  * @phpstan-type Timed array{start: string, seconds: float}
  * @phpstan-type Shard array{

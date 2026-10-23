@@ -24,7 +24,7 @@ use Traversable;
 
 /**
  * Mutators by the runner's names for them, sorted, such as those pruned or
- * those never pruned (ADR-0025, decision 2).
+ * those never pruned (ADR-0025).
  *
  * @implements IteratorAggregate<int, string>
  */

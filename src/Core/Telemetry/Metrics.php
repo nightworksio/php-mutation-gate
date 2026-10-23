@@ -21,7 +21,7 @@ use function sprintf;
  * score, the mutants by status, the units by how their result came, each
  * phase's duration, each shard's and its steps', and the runner minutes, the last two for a timed run
  * only. No attribute names a mutant or a file, so there are at most as many
- * points as trees times statuses (ADR-0016, decisions 15 and 16).
+ * points as trees times statuses (ADR-0016).
  */
 final readonly class Metrics
 {

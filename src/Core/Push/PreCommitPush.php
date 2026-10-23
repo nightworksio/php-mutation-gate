@@ -14,7 +14,7 @@ use function str_repeat;
 
 /**
  * The push the pre-commit framework runs a `pre-push` hook for, as git's
- * line for it (ADR-0024, decision 13). The framework reads git's lines
+ * line for it (ADR-0024). The framework reads git's lines
  * itself, and hands a hook the first ref that sends commits: the commit the
  * remote holds, or the parent of the first commit it does not, as
  * `PRE_COMMIT_FROM_REF`, and the commit pushed as `PRE_COMMIT_TO_REF`. Where

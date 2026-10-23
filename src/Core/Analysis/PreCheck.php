@@ -9,8 +9,8 @@ use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unmeasured;
 
 /**
- * Whether a mutant is also checked before its tests, where it pays (ADR-0020,
- * decision 11). Every survivor is checked after them whatever this says.
+ * Whether a mutant is also checked before its tests, where it pays
+ * (ADR-0020). Every survivor is checked after them whatever this says.
  *
  * - A mutator is checked before the tests until its history holds this many
  *   checks of it, which is how its rate is learned.

@@ -21,11 +21,10 @@ use function sort;
 use function sprintf;
 
 /**
- * What `init` says to do once it has set the project up (ADR-0017 decision
- * 1, ADR-0024 decision 11): `doctor`, the first run, and `git add` of the
- * files it wrote; and, where a person asked for `composer mutate`, the two
- * Composer commands that add the plugin, and the root script that needs
- * none.
+ * What `init` says to do once it has set the project up (ADR-0017,
+ * ADR-0024): `doctor`, the first run, and `git add` of the files it wrote;
+ * and, where a person asked for `composer mutate`, the two Composer
+ * commands that add the plugin, and the root script that needs none.
  */
 final readonly class NextSteps
 {

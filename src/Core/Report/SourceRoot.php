@@ -16,7 +16,7 @@ use function trim;
 /**
  * Where the repository sits on this machine, as the `file://` URI an
  * editor's SARIF viewer resolves the report's relative paths against
- * (ADR-0015, decision 9).
+ * (ADR-0015).
  */
 final readonly class SourceRoot
 {

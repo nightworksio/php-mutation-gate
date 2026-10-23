@@ -44,7 +44,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * OTLP/HTTP JSON, posted to `/v1/traces` and `/v1/metrics` under the
  * endpoint `with.endpoint` or OpenTelemetry's own variables name. Each post
  * takes at most 5 seconds and is not tried again; a failed one is *not
- * written* (ADR-0016, decisions 14 to 17). `OTEL_EXPORTER_OTLP_HEADERS`,
+ * written* (ADR-0016). `OTEL_EXPORTER_OTLP_HEADERS`,
  * which may hold a collector's key, go only to the endpoint
  * `OTEL_EXPORTER_OTLP_ENDPOINT` names.
  */
@@ -124,7 +124,7 @@ final readonly class OtlpReporter implements Deferring, Reporter
 
     /**
      * A delivery, with the trace and the metrics this reporter would export of the verdict now, for `deliver` to
-     * export with the headers its own environment holds (ADR-0007 decision 5).
+     * export with the headers its own environment holds (ADR-0007).
      */
     public function deferred(Verdict $verdict, Delivery $delivery): Delivery
     {
@@ -133,7 +133,7 @@ final readonly class OtlpReporter implements Deferring, Reporter
 
     /**
      * The trace, where there is one, and the metrics a run left for `deliver`, posted as `report` posts its own
-     * (ADR-0007 decision 5).
+     * (ADR-0007).
      */
     public function exported(OtlpPost $otlp): Written|NotWritten
     {

@@ -12,7 +12,7 @@ use NightWorksIO\MutationGate\Core\Mutant\Reason;
 /**
  * One mutant run again on its own, as the runner judged it this time, or why
  * the run made no such mutant, with what the runner printed doing so
- * (ADR-0004 decision 6).
+ * (ADR-0004).
  */
 final readonly class Reproduction
 {

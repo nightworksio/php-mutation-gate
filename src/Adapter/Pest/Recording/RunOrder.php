@@ -9,7 +9,7 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 
 /**
  * The order a mutant's own process started its tests in, counted and
- * digested as each starts (ADR-0014, decision 16). A test fails or errors
+ * digested as each starts (ADR-0014). A test fails or errors
  * while it runs, after it started and before the next does, so a killer
  * that is the test started last stands where the count does; whatever
  * else is named a killer, as a class whose set-up failed, stands nowhere.

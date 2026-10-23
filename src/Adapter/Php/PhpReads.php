@@ -27,7 +27,7 @@ use function sprintf;
 
 /**
  * What a `mutation-gate.php` reads beside itself, read from its code and
- * never run (ADR-0005, decision 4). A `require` or `include` of a literal
+ * never run (ADR-0005). A `require` or `include` of a literal
  * path, or of `__DIR__` and a literal, names that file wherever PHP looks for
  * it, and what that file reads is read in turn. An include of a path built
  * as it runs, or of one outside the project, names none, and nor does any

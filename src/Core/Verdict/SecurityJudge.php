@@ -19,7 +19,7 @@ use NightWorksIO\MutationGate\Core\Score\Unrecorded;
 use NightWorksIO\MutationGate\Core\Tree\Package;
 
 /**
- * Judges each package's security set (ADR-0021, decisions 16 and 17): the
+ * Judges each package's security set (ADR-0021): the
  * mutants of its trees the security mutators made, held to the higher of
  * the floor its manifest declares, or else `security.floor`, and its
  * baseline entry's. A package is judged where it holds a security mutant or

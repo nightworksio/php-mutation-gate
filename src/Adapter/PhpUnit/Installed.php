@@ -22,7 +22,7 @@ use function sprintf;
 /**
  * The exact versions of the packages the PHPUnit runner drives, as Composer
  * installed them, where PHPUnit is one the runner can drive: its floor or
- * later, the first with `--test-id-filter-file` (ADR-0023 decision 9). A
+ * later, the first with `--test-id-filter-file` (ADR-0023). A
  * version that is not a release, such as a branch, is taken as it is.
  */
 final readonly class Installed

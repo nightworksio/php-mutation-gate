@@ -60,7 +60,7 @@ final readonly class Reporting
 
     /**
      * The same, leaving what each reporter whose sending needs a credential would send in this delivery, for
-     * `deliver` to send, as `--deliver-later` asks (ADR-0007 decision 5): the comment is chosen on a pull request
+     * `deliver` to send, as `--deliver-later` asks (ADR-0007): the comment is chosen on a pull request
      * whether or not this run holds a token.
      */
     public function deliveringLater(DeliveryDirectory $delivery): self
@@ -86,7 +86,7 @@ final readonly class Reporting
 
     /**
      * The sticky comment in its planned state, written before any shard runs
-     * (ADR-0009, decision 3): what each comment the run chooses said of it,
+     * (ADR-0009): what each comment the run chooses said of it,
      * written or not; nothing where the run chooses no comment.
      *
      * @return list<string>|Invalid|CannotJudge
@@ -116,7 +116,7 @@ final readonly class Reporting
     }
 
     /**
-     * The last run's survivors re-checked (ADR-0020, decision 21): what the
+     * The last run's survivors re-checked (ADR-0020): what the
      * sticky comment, over its planned state alone, and the step summary
      * said of them, written, left in the delivery under `--deliver-later`, or
      * not; nothing where the run chooses neither;

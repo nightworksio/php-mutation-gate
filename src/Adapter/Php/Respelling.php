@@ -25,7 +25,7 @@ use PhpParser\NodeVisitorAbstract;
 use function sprintf;
 
 /**
- * Each call a step retires, rewritten in place (ADR-0026, decision 3): a
+ * Each call a step retires, rewritten in place (ADR-0026): a
  * rename or a move gives it the new spelling with the same arguments, its
  * class left as the file writes it where the class stays, a removal takes it
  * out of `with()`, and a value's change

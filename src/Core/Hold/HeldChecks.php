@@ -7,7 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Hold;
 /**
  * What running each held unit's holding tests alone under coverage found:
  * the units they miss lines of, which are not mutated, and those they cover,
- * with the tests of theirs that run each (ADR-0005, decision 10).
+ * with the tests of theirs that run each (ADR-0005).
  */
 final readonly class HeldChecks
 {
