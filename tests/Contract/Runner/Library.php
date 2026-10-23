@@ -57,6 +57,7 @@ use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Port\Runner;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
+use NightWorksIO\MutationGate\Tests\Support\NativeCodeception;
 use NightWorksIO\MutationGate\Tests\Support\NativePhpSpec;
 use NightWorksIO\MutationGate\Tests\Support\NativePhpUnit;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
@@ -73,6 +74,8 @@ use RuntimeException;
 
 use function sort;
 use function sprintf;
+use function strlen;
+use function substr;
 
 /**
  * The fixture library the runner contract suite mutates, as one runner names
@@ -103,6 +106,13 @@ final class Library
      * own runner contracts steps install.
      */
     public const string PHPSPEC_DIRECTORY = 'tests/Contract/Runner/phpspec-fixture/library';
+
+    /**
+     * The Codeception runner's library, the same code, tested by Codeception
+     * as unit tests and a Cest, in the Codeception runner's fixture, whose
+     * vendor directory, one level up, its own runner contracts steps install.
+     */
+    public const string CODECEPTION_DIRECTORY = 'tests/Contract/Runner/codeception-fixture/library';
 
     public const string CANARY = 'mutation-canary';
 
@@ -225,6 +235,15 @@ final class Library
         'Nowhere\\GoneTest::gone' => 'Nowhere\\GoneTest::gone',
     ];
 
+    /** @var array<string, string> what the Codeception runner names each test it is asked, by the test's id */
+    private const array CODECEPTION_NAMES = [
+        'Tests\\MoneyTest::testAddsTwoAmounts' => 'tests/MoneyTest.php::testAddsTwoAmounts',
+        'Nowhere\\GoneTest::gone' => 'Nowhere\\GoneTest::gone',
+    ];
+
+    /** What every other library's test files end in, which Codeception's unit tests end in `Test.php` for. */
+    private const string SPEC = 'Spec.php';
+
     /** @var array<string, MutationResult|CannotJudge> each real run's answer, by library and request */
     private static array $runs = [];
 
@@ -243,6 +262,7 @@ final class Library
      * @param SuiteConfig                                  $suite        the config the library's tests are read from
      * @param bool                                         $canaried     whether the library's tests hold the canary
      *                                                                   group, which only a runner with groups has
+     * @param string                                       $suffix       what the library's test files end in
      */
     private function __construct(
         private readonly string $name,
@@ -258,6 +278,7 @@ final class Library
         private readonly string $prints = 'src/Money.php',
         private readonly SuiteConfig $suite = SuiteConfig::PhpUnit,
         private readonly bool $canaried = true,
+        private readonly string $suffix = self::SPEC,
     ) {
     }
 
@@ -418,6 +439,57 @@ final class Library
         return is_dir(Tree::at(sprintf('%s/../vendor', self::PHPSPEC_DIRECTORY)));
     }
 
+    /**
+     * The Codeception runner over its installed library, making its mutants
+     * with the default set, keeping each mutant's limit within the standard
+     * bounds. It has no ignore marker of its own, prints what Codeception
+     * printed, its tally last, and names its test files as Codeception's unit
+     * tests are named.
+     */
+    public static function codeception(): self
+    {
+        return self::codeceptionWithin(Triage::standard()->bounds(), 'codeception');
+    }
+
+    /** The Codeception runner over its installed library, keeping each mutant's limit within these bounds, by this name. */
+    public static function codeceptionWithin(LimitBounds $kept, string $name): self
+    {
+        $root = Tree::at(self::CODECEPTION_DIRECTORY);
+        $codeception = static function (string $root) use ($kept): NativeRunner {
+            $project = NativeProject::at($root, self::testsIn($root, SuiteConfig::Codeception), Path::of('../vendor'), Path::of('.mutation-gate'), BuiltinRunner::Codeception);
+
+            return new NativeRunner(
+                $project,
+                new NativeShell(new LocalProcesses(new SystemClock()), $root, getenv()),
+                NativeCodeception::in($project),
+                self::defaultSet(),
+                $kept,
+                new CapDirectory(),
+            );
+        };
+
+        return new self(
+            $name,
+            $codeception($root),
+            self::NATIVE,
+            endsReported: true,
+            defining: Paths::of(Path::of('codeception.yml')),
+            naming: self::CODECEPTION_NAMES,
+            outside: $codeception(dirname($root)),
+            package: Path::of(basename($root)),
+            root: $root,
+            markers: [],
+            prints: 'Tests: ',
+            suite: SuiteConfig::Codeception,
+            suffix: 'Test.php',
+        );
+    }
+
+    public static function isCodeceptionInstalled(): bool
+    {
+        return is_dir(Tree::at(sprintf('%s/../vendor', self::CODECEPTION_DIRECTORY)));
+    }
+
     /** The Pest adapter over the installed library, with `pest:patch` off or on. */
     public static function pest(Patching $patching): self
     {
@@ -453,6 +525,7 @@ final class Library
             $runner === 'infection' && self::isInfectionInstalled() => self::infection(Seconds::of(10.0)),
             $runner === 'phpunit' && self::isPhpUnitInstalled() => self::phpunit(),
             $runner === 'phpspec' && self::isPhpSpecInstalled() => self::phpspec(),
+            $runner === 'codeception' && self::isCodeceptionInstalled() => self::codeception(),
             default => Assert::markTestSkipped(sprintf('the runner contracts job for %s installs its library', $runner)),
         };
     }
@@ -519,6 +592,12 @@ final class Library
     public function isCanaried(): bool
     {
         return $this->canaried;
+    }
+
+    /** The library's test file every other library names by this path, which ends in `Spec.php`. */
+    public function testFile(string $spec): Path
+    {
+        return Path::of(sprintf('%s%s', substr($spec, 0, -strlen(self::SPEC)), $this->suffix));
     }
 
     /** Whether the runner reports how long each mutant it ran took; Infection's logs do not. */

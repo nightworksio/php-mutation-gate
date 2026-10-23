@@ -309,6 +309,8 @@ parameters:
                 - src/Adapter/Pest/Recording/Naming.php
                 # PhpSpec's extension reads #[Holds] from the spec and the example PhpSpec hands it (ADR-0027).
                 - src/Adapter/PhpSpec/Example.php
+                # Codeception's extension reads #[Holds] from the test's class and method Codeception hands it (ADR-0027).
+                - src/Adapter/Codeception/Test.php
 
     disallowedSuperglobals:
         # --- B6: the environment, read the other way -----------------------------

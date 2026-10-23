@@ -21,8 +21,9 @@ afterEach(function (): void {
 function codeceptionSuite(string $config, string ...$files): TestSuite|CannotJudge
 {
     $root = Scratch::directory();
+    $counter = count($files);
 
-    for ($each = 0; $each < count($files); $each += 2) {
+    for ($each = 0; $each < $counter; $each += 2) {
         Scratch::write($root, $files[$each], $files[$each + 1]);
     }
 
@@ -54,7 +55,10 @@ it('leaves out a suite that serves the application from another process, and eve
     $everywhere = codeceptionSuite("modules:\n  enabled: [WebDriver]\n", 'tests/Unit.suite.yml', '{}');
 
     expect($suite instanceof TestSuite ? $suite->paths() : $suite)->toEqual(Paths::of(Path::of('tests/Unit')))
-        ->and($everywhere instanceof TestSuite ? $everywhere->paths() : $everywhere)->toEqual(Paths::of(Path::of('tests')));
+        ->and($suite instanceof TestSuite ? $suite->elsewhere() : $suite)->toBe(['Acceptance'])
+        ->and($everywhere instanceof TestSuite ? $everywhere->paths() : $everywhere)->toEqual(Paths::of(Path::of('tests')))
+        ->and($everywhere instanceof TestSuite ? $everywhere->elsewhere() : $everywhere)->toBe(['Unit'])
+        ->and(($unit = codeceptionSuite('{}', 'tests/Unit.suite.yml', '{}')) instanceof TestSuite ? $unit->elsewhere() : $unit)->toBe([]);
 });
 
 it('keeps the tests in tests where the config declares no suite, or there is no config', function (): void {

@@ -40,7 +40,10 @@ sentence saying what the tests miss.
   - **Infection**: `infection/infection` ~0.35.0, with PHPUnit 12 or 13;
   - **PHPUnit** on its own: `phpunit/phpunit` 13.2 or later;
   - **PhpSpec**: `phpspec/phpspec` 8.2 or later, with
-    `phpunit/php-code-coverage` 14.
+    `phpunit/php-code-coverage` 14;
+  - **Codeception**: `codeception/codeception` 5.3.6 or later, with
+    `phpunit/php-code-coverage` 14, for the suites that run in the test's
+    own process.
 
   Infection and the PHPUnit runner do not run Pest suites, so a Pest project
   uses Pest's own mutation testing.
@@ -165,7 +168,7 @@ The first release is tagged when every row says *yes*.
 | | Coverage re-measured only for the tests whose inputs moved | yes | [0023](.docs/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
 | | Every core of a shard's runner busy, and one warm worker per core for native runners | yes | [0023](.docs/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
 | | Mutators that never let a mutant through are pruned on unchanged code, and audited weekly | yes | [0025](.docs/decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md) |
-| | Mutants that leave their file alike run once and share one verdict, under Pest and the PHPUnit and PhpSpec runners | yes | [0025](.docs/decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md) |
+| | Mutants that leave their file alike run once and share one verdict, under Pest and the PHPUnit, PhpSpec and Codeception runners | yes | [0025](.docs/decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md) |
 | | Merge queues: a `merge_group` run judges what will land, trusting no pull request's own proofs | not yet | [0022](.docs/decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md) |
 | **Reporting** | JSON, JUnit and SARIF, and line annotations on GitHub | yes | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | | A useless-test report: tests that cover code and kill none of it | yes | [0014](.docs/decisions/0014-every-test-is-judged-by-what-it-kills.md) |
@@ -174,8 +177,8 @@ The first release is tagged when every row says *yes*.
 | | Holding tests: Pest `holds:` groups and a `#[Holds]` attribute, a check that a group covers what it holds, and a warning for code every test runs through that nothing holds | yes | [0005](.docs/decisions/0005-what-a-change-reaches-is-what-is-mutated.md) |
 | | Infection as well as Pest | yes | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md) |
 | | A native runner for PHPUnit, on the gate's own mutants | yes | [0023](.docs/decisions/0023-the-gate-mutates-for-native-runners-and-reuses-what-it-measured.md) |
-| | A native runner for PhpSpec, on the gate's own mutants | yes | [0027](.docs/decisions/0027-codeception-phpspec-and-testo-get-native-runners.md) |
-| | Native runners for Codeception and Testo | not yet | [0027](.docs/decisions/0027-codeception-phpspec-and-testo-get-native-runners.md) |
+| | Native runners for PhpSpec and Codeception, on the gate's own mutants | yes | [0027](.docs/decisions/0027-codeception-phpspec-and-testo-get-native-runners.md) |
+| | A native runner for Testo | not yet | [0027](.docs/decisions/0027-codeception-phpspec-and-testo-get-native-runners.md) |
 | | Weak assertions, found and paired with the survivors they let through | yes | [0025](.docs/decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md) |
 | | A score per test suite | yes | [0025](.docs/decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md) |
 | | Survivors grouped by code owner, with owners mentioned and floors per owner | not yet | [0022](.docs/decisions/0022-survivors-reach-their-owners-and-a-merge-queue-trusts-no-pull-requests-own-proofs.md) |

@@ -180,7 +180,7 @@ final readonly class Detected
      *
      * @param list<BuiltinRunner> $choices two or more
      */
-    private static function chooseBetween(array $choices): CannotJudge
+    private function chooseBetween(array $choices): CannotJudge
     {
         $names = array_map(static fn(BuiltinRunner $runner): string => $runner->package()->value, $choices);
         $last = (string) array_pop($names);
@@ -198,7 +198,7 @@ final readonly class Detected
         $native = $this->nativeIn($installed);
 
         return match (true) {
-            $choices !== [] => self::chooseBetween($choices),
+            $choices !== [] => $this->chooseBetween($choices),
             $installed->has(Package::PestMutate->value) => BuiltinRunner::Pest,
             $installed->has(Package::Infection->value) => BuiltinRunner::Infection,
             $installed->has(Package::Pest->value) => CannotJudge::because(

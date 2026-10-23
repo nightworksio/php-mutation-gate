@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Doctor\Measurement;
 use NightWorksIO\MutationGate\Core\Doctor\Observations;
 use NightWorksIO\MutationGate\Core\Doctor\PhpUnitMemory;
 use NightWorksIO\MutationGate\Core\Doctor\ProjectFiles;
+use NightWorksIO\MutationGate\Core\Doctor\RunnerConfig;
 use NightWorksIO\MutationGate\Core\Doctor\Severity;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Proof\Timings;
@@ -25,7 +26,7 @@ $capped = static fn(string $memory): Observations => Observations::none()
     ->withSettings(Configs::settings(['runner' => ['use' => 'pest', 'memory' => $memory]]));
 
 $lifting = static fn(Observations $observed, MemoryCap $limit): Observations => $observed
-    ->withFiles(ProjectFiles::none()->withPhpUnitMemory(PhpUnitMemory::of(Path::of('phpunit.xml.dist'), $limit)));
+    ->withFiles(ProjectFiles::none()->withRunnerConfig(RunnerConfig::none()->withPhpUnitMemory(PhpUnitMemory::of(Path::of('phpunit.xml.dist'), $limit))));
 
 $peaking = static fn(Observations $observed, MemoryCap $peak): Observations => $observed->withAsked(
     Asked::nothing()->withMeasurement(Measurement::of(CoverageMap::empty(), Units::none(), Timings::none())->peakingAt($peak)),

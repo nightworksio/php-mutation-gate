@@ -23,6 +23,10 @@
 /tests/Contract/Runner/phpunit-fixture/library/.phpunit.result.cache
 /tests/Contract/Runner/phpspec-fixture/vendor/
 /tests/Contract/Runner/phpspec-fixture/library/.mutation-gate/
+/tests/Contract/Runner/codeception-fixture/vendor/
+/tests/Contract/Runner/codeception-fixture/library/.mutation-gate/
+/tests/Contract/Runner/codeception-fixture/library/.codeception/
+/tests/Contract/Runner/codeception-fixture/library/tests/_generated/
 
 # What the bot's evidence steps write, what installs the markdownlint they run,
 # and what Python compiles of the scripts it runs.

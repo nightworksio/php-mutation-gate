@@ -63,7 +63,7 @@ final readonly class Memory
         $cap = $settings->runner()->memory();
 
         return $cap->caps()
-            ? self::lifted($cap, $observed->files()->phpUnitMemory())
+            ? self::lifted($cap, $observed->files()->runnerConfig()->phpUnitMemory())
                 ->and(self::near($cap, $observed->asked()->measurement()))
             : self::advice(Slug::MemoryUncapped, self::UNCAPPED, self::UNCAPPED_WHY, self::UNCAPPED_FIX);
     }

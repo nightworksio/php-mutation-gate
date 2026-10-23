@@ -25,7 +25,7 @@ them and prints.
 import json
 import sys
 
-RUNNERS = ("pest", "infection-13", "infection-12", "phpunit", "phpspec", "analysers")
+RUNNERS = ("pest", "infection-13", "infection-12", "phpunit", "phpspec", "codeception", "analysers")
 
 # Paths that are code although they read as documentation: ARCHITECTURE.md
 # holds the rule tables the Guards suite reads, .docs/reference/ the config
@@ -90,6 +90,15 @@ NATIVE_PHPSPEC = (
     "tests/Contract/Runner/phpspec-fixture/",
 )
 
+# The Codeception framework the native runner drives, and the attribute its
+# tests read.
+NATIVE_CODECEPTION = (
+    *NATIVE,
+    "src/Adapter/Codeception/",
+    "src/Attribute/",
+    "tests/Contract/Runner/codeception-fixture/",
+)
+
 # Each leg's own subjects, beside SHARED.
 LEGS = {
     "pest": ("src/Adapter/Pest/", "src/Attribute/", "tests/Contract/Runner/fixture/"),
@@ -97,6 +106,7 @@ LEGS = {
     "infection-12": INFECTION,
     "phpunit": NATIVE_PHPUNIT,
     "phpspec": NATIVE_PHPSPEC,
+    "codeception": NATIVE_CODECEPTION,
     "analysers": (
         "src/Adapter/PhpStan/",
         "src/Adapter/Psalm/",
@@ -114,6 +124,7 @@ OWN_FIXTURES = (
     "tests/Contract/Runner/infection-fixture/",
     "tests/Contract/Runner/phpunit-fixture/",
     "tests/Contract/Runner/phpspec-fixture/",
+    "tests/Contract/Runner/codeception-fixture/",
 )
 
 # What `warm workers` measures, beside SHARED.

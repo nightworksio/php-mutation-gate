@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
+use NightWorksIO\MutationGate\Adapter\Project\TestSuite;
 use NightWorksIO\MutationGate\Cli\ExitCode;
 use NightWorksIO\MutationGate\Cli\Flow\Handoff;
 use NightWorksIO\MutationGate\Cli\Flow\Judged;
@@ -49,6 +50,7 @@ use NightWorksIO\MutationGate\Core\Reach\Reasons;
 use NightWorksIO\MutationGate\Core\Report\JsonReport;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Undeclared;
+use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedKill;
@@ -325,6 +327,24 @@ it('warns of each mutator set a preset turns on that is not installed', function
     ));
 
     expect(JudgingRuns::texts($verdict->warnings()))->toContain($skipped->text());
+});
+
+it('warns of the suites whose tests the gate runs none of, as they serve the application from another process', function () use ($makeReporting, $makeJudged): void {
+    $reporting = $makeReporting();
+    $judged = $makeJudged();
+    $suite = TestSuite::conventional(SuiteDirectory::conventional())->leaving('Acceptance', 'Api');
+
+    $verdict = JudgingRuns::verdictOf($judged(
+        Planned::twoShards(),
+        Flows::adapters(Flows::project(), [], $suite),
+        JudgingRuns::settings(),
+        $reporting(new ReporterFake()),
+    ));
+
+    expect(JudgingRuns::texts($verdict->warnings()))->toContain(
+        "The suites Acceptance, Api serve the application from another process, where a mutant cannot be served,\n"
+        . 'so the gate runs none of their tests: a line only they run reads as uncovered.',
+    );
 });
 
 it('says in the verdict why a ledger could not be read, before what else it warns of', function () use (

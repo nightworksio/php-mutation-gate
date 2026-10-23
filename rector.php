@@ -50,6 +50,7 @@ return RectorConfig::configure()
         __DIR__ . '/tests/Contract/Runner/twins',
         __DIR__ . '/tests/Contract/Runner/phpunit-fixture',
         __DIR__ . '/tests/Contract/Runner/phpspec-fixture',
+        __DIR__ . '/tests/Contract/Runner/codeception-fixture',
         // The static checker contract suite's fixture holds mutants, which are wrong on purpose.
         __DIR__ . '/tests/Contract/StaticChecker/fixture',
     ])

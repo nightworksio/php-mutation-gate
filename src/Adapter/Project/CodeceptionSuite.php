@@ -45,8 +45,8 @@ use Symfony\Component\Yaml\Yaml;
  * config sets under `suites`, and those of a `<name>.suite.yml` or
  * `<name>.suite.dist.yml` in the tests directory. A suite that serves the
  * application from another process holds no test the gate runs (see
- * CodeceptionSuiteSettings). Codeception runs every suite in one run, so
- * none is declared by its name.
+ * CodeceptionSuiteSettings), and is named among the suites it leaves out.
+ * Codeception runs every suite in one run, so none is declared by its name.
  */
 final readonly class CodeceptionSuite
 {
@@ -84,13 +84,20 @@ final readonly class CodeceptionSuite
         $named = Lenient::text($config->field('paths')->field('tests'));
         $tests = $named === '' ? TestsDirectory::conventional() : Path::of($named);
         $directories = [];
+        $elsewhere = [];
 
         foreach (self::suitesOf($config, $root->at($tests)->value()) as $name => $settings) {
             if ($settings instanceof CannotJudge) {
                 return $settings;
             }
 
-            $directories = [...$directories, ...self::suiteDirectories($config, $tests, $name, $settings)];
+            if (self::servedElsewhere($config, $settings)) {
+                $elsewhere[] = $name;
+
+                continue;
+            }
+
+            $directories = [...$directories, ...self::suiteDirectories($tests, $name, $settings)];
         }
 
         return TestSuite::of(
@@ -99,23 +106,26 @@ final readonly class CodeceptionSuite
             Paths::none(),
             Paths::none(),
             DeclaredSuites::none(),
-        );
+        )->leaving(...$elsewhere);
+    }
+
+    /** Whether a suite, or the config every suite takes, serves the application from another process. */
+    private static function servedElsewhere(Node $config, Node $settings): bool
+    {
+        return CodeceptionSuiteSettings::servesElsewhere($config)
+            || CodeceptionSuiteSettings::servesElsewhere($settings);
     }
 
     /**
-     * A suite's directories, at its path or its name under the tests
-     * directory; none where it or the config serves the application from
-     * another process.
+     * A suite's directories, at its path or its name under the tests directory.
      *
-     * @return list<SuiteDirectory>
+     * @return non-empty-list<SuiteDirectory>
      */
-    private static function suiteDirectories(Node $config, Path $tests, string $name, Node $settings): array
+    private static function suiteDirectories(Path $tests, string $name, Node $settings): array
     {
         $path = Lenient::text($settings->field('path'));
-        $elsewhere = CodeceptionSuiteSettings::servesElsewhere($config)
-            || CodeceptionSuiteSettings::servesElsewhere($settings);
 
-        return $elsewhere ? [] : self::under($tests->child(Path::of($path === '' ? $name : $path)));
+        return self::under($tests->child(Path::of($path === '' ? $name : $path)));
     }
 
     /**

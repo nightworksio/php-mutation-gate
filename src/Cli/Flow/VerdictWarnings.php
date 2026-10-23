@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function implode;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\Settings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
@@ -22,8 +24,9 @@ use function sprintf;
  * runs through that nothing holds, or why the kill matrix holds killers
  * alone; each tree held to no floor outside CI; the runner's own ignore
  * markers the config lets through; why the tests go by their ids; each
- * mutator set a preset turns on that is not installed; and what the shards
- * warn of.
+ * mutator set a preset turns on that is not installed; the suites whose
+ * tests the gate runs none of, as they serve the application from another
+ * process; and what the shards warn of.
  */
 final readonly class VerdictWarnings
 {
@@ -32,6 +35,11 @@ final readonly class VerdictWarnings
     private const string UNNAMED = 'The reports name each test by its coverage id. %s';
 
     private const string UNFLOORED = '%s has no floor yet. Run mutation-gate baseline --write and commit %s.';
+
+    private const string ELSEWHERE = <<<'SAID'
+        The suites %s serve the application from another process, where a mutant cannot be served,
+        so the gate runs none of their tests: a line only they run reads as uncovered.
+        SAID;
 
     private const string SECURITY_UNFLOORED
         = 'The security set of %s has no floor yet. Run mutation-gate baseline --write and commit %s.';
@@ -68,13 +76,18 @@ final readonly class VerdictWarnings
 
     /**
      * Each tree held to no floor, the runner's own ignore markers the config
-     * lets through, why the tests go by their ids where the plan holds no
-     * names for them, and what the shards warn of.
+     * lets through, the suites the gate runs no test of, why the tests go by
+     * their ids where the plan holds no names for them, and what the shards
+     * warn of.
      */
     private function listed(Plan $plan, TreeVerdicts $verdicts, Warnings $shards): Warnings
     {
         $warnings = new RunnerMarkers($this->adapters, $this->settings)->allowed($plan)
             ->and($this->adapters->skippedSets);
+        $elsewhere = $this->adapters->suite->elsewhere();
+        $warnings = $elsewhere === []
+            ? $warnings
+            : $warnings->with(Warning::that(sprintf(self::ELSEWHERE, implode(', ', $elsewhere))));
         $names = $plan->names();
         $warnings = $names instanceof CannotJudge
             ? $warnings->with(Warning::that(sprintf(self::UNNAMED, $names->why())))

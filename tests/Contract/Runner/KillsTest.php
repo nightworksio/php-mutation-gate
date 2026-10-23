@@ -211,6 +211,18 @@ it('names the example a mutant ended the process in as its killer, and so gives 
         ->and($mutants === [] ? null : $evidence->of($mutants[0]->id())->ended())->toBeInstanceOf(NotGiven::class);
 })->skip(fn(): bool => ! Library::isPhpSpecInstalled(), 'the PhpSpec runner contracts steps install its library')->group(...$holds);
 
+it('names the test a mutant ended the process in as its killer, and so gives no ending, with Codeception', function (): void {
+    $library = Library::codeception();
+    [$mutants, $evidence] = RunnerContracts::crashed(Library::CODECEPTION_DIRECTORY, ['src/Crash.php' => 'src/Crash.php', 'tests/CrashTest.php' => 'codeception/CrashTest.php'], static fn(): MutationResult|CannotJudge => $library->runner()->mutate(RunnerContracts::crashRequest($library)));
+    $killers = $mutants === [] ? [] : array_map(static fn(TestId $test): string => $test->value(), [...$mutants[0]->killers()]);
+    $prefix = $mutants === [] ? NotGiven::value() : $evidence->of($mutants[0]->id())->prefix();
+
+    expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::Killed])
+        ->and($killers)->toBe(['Tests\\CrashTest::testSettlesACodeOfNone'])
+        ->and($prefix instanceof Prefix ? $prefix->position() : 0)->toBe(1)
+        ->and($mutants === [] ? null : $evidence->of($mutants[0]->id())->ended())->toBeInstanceOf(NotGiven::class);
+})->skip(fn(): bool => ! Library::isCodeceptionInstalled(), 'the Codeception runner contracts steps install its library')->group(...$holds);
+
 it('gives a kill that names no killer what its process printed, and no code or signal, which Infection does not log', function (): void {
     $library = Library::infection(Seconds::of(10.0));
     [$mutants, $evidence] = RunnerContracts::crashed(Library::INFECTION_DIRECTORY, ['src/Crash.php' => 'src/Crash.php', 'tests/CrashSpec.php' => 'phpunit/CrashSpec.php'], static fn(): MutationResult|CannotJudge => $library->runner()->mutate(RunnerContracts::crashRequest($library)));
@@ -286,3 +298,33 @@ it('stops a mutant\'s run where no example of it starts or ends for its silence 
         ))
         ->each->toStartWith('No test finished for ');
 })->skip(fn(): bool => ! Library::isPhpSpecInstalled(), 'the PhpSpec runner contracts steps install its library')->group(...$holds);
+
+it('stops a mutant\'s run where no test of it starts or ends for its silence limit, short of its own limit, with Codeception', function (): void {
+    $source = Tree::at(sprintf('%s/src/Stall.php', Library::CODECEPTION_DIRECTORY));
+    $spec = Tree::at(sprintf('%s/tests/StallTest.php', Library::CODECEPTION_DIRECTORY));
+    copy(Tree::at('tests/Contract/Runner/stall/src/Stall.php'), $source);
+    copy(Tree::at('tests/Contract/Runner/stall/codeception/StallTest.php'), $spec);
+    $library = Library::codeceptionWithin(LimitBounds::between(Seconds::of(1.0), Seconds::of(300.0)), 'codeception under a floor of a second');
+
+    try {
+        $result = $library->runner()->mutate(MutationRequest::of(Paths::of(Path::of('src/Stall.php')), WholeSuite::tests())
+            ->narrowedTo(Paths::of(Path::of('src/Stall.php')), Narrowing::none()->toMutators($library->mutators('drains'))));
+    } finally {
+        unlink($source);
+        unlink($spec);
+    }
+
+    $mutants = $result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false) : [];
+    $seconds = static fn(Seconds|MemoryCap|Unmeasured $time): float => $time instanceof Seconds ? $time->seconds() : 0.0;
+
+    expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::TimedOut])
+        ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->limit()), $mutants))
+        ->each->toBeGreaterThan(11.0)
+        ->and(array_map(static fn(Mutant $mutant): float => $seconds($mutant->duration()), $mutants))
+        ->each->toBeGreaterThan(7.0)->toBeLessThan(11.0)
+        ->and(array_map(
+            static fn(Mutant $mutant): string => $mutant->reason() instanceof Reason ? $mutant->reason()->text() : '',
+            $mutants,
+        ))
+        ->each->toStartWith('No test finished for ');
+})->skip(fn(): bool => ! Library::isCodeceptionInstalled(), 'the Codeception runner contracts steps install its library')->group(...$holds);

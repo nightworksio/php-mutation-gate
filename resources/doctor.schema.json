@@ -50,6 +50,7 @@
                             "warm-boot-refused",
                             "anonymous-reads-refused",
                             "outside-sonar-sources",
+                            "suite-served-elsewhere",
                             "survived",
                             "uncovered",
                             "unjudged",

@@ -42,6 +42,7 @@ parameters:
             - tests/Contract/Runner/twins
             - tests/Contract/Runner/phpunit-fixture
             - tests/Contract/Runner/phpspec-fixture
+            - tests/Contract/Runner/codeception-fixture
             - tests/Contract/StaticChecker/fixture
 
     # Pest's own annotation, corrected. See the stub.
@@ -128,6 +129,12 @@ parameters:
                 # PhpSpec's base of a spec, which the specs the PhpSpec
                 # runner's own tests read extend, as a project's do.
                 - PhpSpec\ObjectBehavior
+                # Codeception's base of an extension, which the gate's
+                # Codeception extension must extend to be enabled for a run.
+                - Codeception\Extension
+                # Codeception's base of a unit test, which the unit test the
+                # Codeception runner's own tests read extends, as a project's do.
+                - Codeception\Test\Unit
                 # php-code-coverage's base of a driver, which the fake the
                 # PhpSpec runner's coverage is tested with extends.
                 - SebastianBergmann\CodeCoverage\Driver\Driver
@@ -184,6 +191,8 @@ services:
                 - src/Adapter/Console/InertStream.php # Symfony's OutputInterface hands write() its messages untyped
                 - src/Adapter/Console/Messages.php # Symfony's OutputInterface hands write() its messages untyped
                 - src/Adapter/PhpSpec/Extension.php # PhpSpec's Extension takes its config's parameters untyped
+                - src/Adapter/Codeception/Extension.php # Codeception hands an extension its settings and options untyped
+                - src/Adapter/Codeception/Told.php # Codeception hands an extension its settings untyped
                 - tests/Support/Bucket.php
                 - tests/Support/Cloud.php # Symfony's MockHttpClient hands a responder request options untyped
                 - tests/Support/Commands.php
@@ -272,6 +281,8 @@ services:
                 'NightWorksIO\MutationGate\Adapter\PhpSpec\CommandLine':
                     - RUN # PhpSpec's own command and options, not a record's field or a verdict's origin
                     - STOP # PhpSpec's option, spelt as PHPUnit's is
+                'NightWorksIO\MutationGate\Adapter\Codeception\CommandLine':
+                    - RUN # Codeception's own command and options, not a record's field or a verdict's origin
                 'NightWorksIO\MutationGate\Adapter\PhpSpec\Selecting':
                     - FIRST # a maintainer's priority above PhpSpec's own, not a poll's microseconds
                 'NightWorksIO\MutationGate\Core\ThisPackage':

@@ -13,6 +13,13 @@ use NightWorksIO\MutationGate\Tests\Support\Tree;
 /** The files that name what they refuse in order to refuse it. */
 const THAT_NAME_WHAT_THEY_REFUSE = ['tests/Arch/HowATestIsWrittenTest.php', 'tests/Guards/EveryRuleRefusesAViolationTest.php'];
 
+/** Where Codeception's own tests of the runner contract's library are, written as Codeception has them written. */
+const CODECEPTION_TESTS = [
+    'tests/Contract/Runner/codeception-fixture/',
+    'tests/Contract/Runner/crash/codeception/',
+    'tests/Contract/Runner/stall/codeception/',
+];
+
 /**
  * Every test file, the package's and each plugin's, by its path relative to
  * the repository, with its text.
@@ -24,7 +31,9 @@ function testFiles(): array
     $found = [];
 
     foreach ([...Tree::filesUnder('tests', 'Test.php'), ...Tree::filesUnder('plugins', 'Test.php')] as $path) {
-        if (! in_array($path, THAT_NAME_WHAT_THEY_REFUSE, strict: true)) {
+        $codeception = array_any(CODECEPTION_TESTS, static fn(string $directory): bool => str_starts_with($path, $directory));
+
+        if (! $codeception && ! in_array($path, THAT_NAME_WHAT_THEY_REFUSE, strict: true)) {
             $found[$path] = (string) file_get_contents(Tree::at($path));
         }
     }

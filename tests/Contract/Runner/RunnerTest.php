@@ -128,6 +128,7 @@ $onDisk = [
     'infection' => fn(): Library => Library::installed('infection'),
     'phpunit' => fn(): Library => Library::installed('phpunit'),
     'phpspec' => fn(): Library => Library::installed('phpspec'),
+    'codeception' => fn(): Library => Library::installed('codeception'),
 ];
 
 $libraries = ['the fake' => fn(): Library => Library::fake(), ...$onDisk];
@@ -528,7 +529,7 @@ it('names the test files that judge a covered file, and none for an uncovered on
     $covered = $map instanceof CoverageMap ? $library->runner()->judges(Path::of('src/Money.php'), $map) : $map;
     $uncovered = $map instanceof CoverageMap ? $library->runner()->judges(Path::of('src/Nowhere.php'), $map) : $map;
 
-    expect($covered)->toEqual(Paths::of(Path::of('tests/DrainSpec.php'), Path::of('tests/MoneySpec.php')))
+    expect($covered)->toEqual(Paths::of($library->testFile('tests/DrainSpec.php'), $library->testFile('tests/MoneySpec.php')))
         ->and($uncovered)->toEqual(Paths::none());
 })->with($libraries)->group(...$holds);
 
@@ -538,7 +539,7 @@ it('measures a tree outside src/ that the project names as source, naming the te
     $map = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));
     $judges = $map instanceof CoverageMap ? $library->runner()->judges(Path::of('beside/Ledger.php'), $map) : $map;
 
-    expect($judges)->toEqual(Paths::of(Path::of('tests/LedgerSpec.php')));
+    expect($judges)->toEqual(Paths::of($library->testFile('tests/LedgerSpec.php')));
 })->with($onDisk)->group(...$holds);
 
 // A testsuite directory with a wildcard is each directory it matches, as
@@ -549,7 +550,7 @@ it('names a test file in a testsuite directory the config gives as a glob as one
     $map = $library->runner()->coverage(CoverageRun::of(WholeSuite::tests(), Path::of('.mutation-gate/coverage')));
     $judges = $map instanceof CoverageMap ? $library->runner()->judges(Path::of('beside/Stock.php'), $map) : $map;
 
-    expect($judges)->toEqual(Paths::of(Path::of('plugins/stock/tests/StockSpec.php')));
+    expect($judges)->toEqual(Paths::of($library->testFile('plugins/stock/tests/StockSpec.php')));
 })->with($onDisk)->group(...$holds);
 
 it('keeps its map beside a pull request\'s ledger, and reads it back first, from that scope, as a full run\'s', function (Library $library): void {
@@ -723,13 +724,17 @@ it('judges by the tests a package\'s own PHPUnit config names when rooted in it 
         ? $rooted->judges(Path::of('beside/Stock.php'), $map)
         : $map;
 
-    expect($judges)->toEqual(Paths::of(Path::of('plugins/stock/tests/StockSpec.php')));
+    expect($judges)->toEqual(Paths::of($library->testFile('plugins/stock/tests/StockSpec.php')));
 })->with($onDisk)->group(...$holds);
 
 it('cannot judge a directory that holds no project it can run', function (Library $library): void {
     expect($library->runner()->rootedAt(Path::of('src'), $library->packageTests()))->toBeInstanceOf(CannotJudge::class)
         ->and($library->outside()->rootedAt(Path::of('nowhere'), $library->packageTests()))->toBeInstanceOf(CannotJudge::class);
 })->with($libraries)->group(...$holds);
+
+it('has the Codeception library installed wherever the Codeception runner contracts run', function (): void {
+    expect(Library::isCodeceptionInstalled())->toBeTrue();
+})->skip(fn(): bool => getenv('RUNNER_CONTRACTS') !== 'codeception', 'only the Codeception runner contracts job installs its library')->group(...$holds);
 
 it('has the PhpSpec library installed wherever the PhpSpec runner contracts run', function (): void {
     expect(Library::isPhpSpecInstalled())->toBeTrue();

@@ -14,8 +14,11 @@ use NightWorksIO\MutationGate\Adapter\Infection\Importable;
 use NightWorksIO\MutationGate\Adapter\Infection\OwnConfig;
 use NightWorksIO\MutationGate\Adapter\Infection\Patch as InfectionPatch;
 use NightWorksIO\MutationGate\Adapter\Pest\Patch as PestPatch;
+use NightWorksIO\MutationGate\Adapter\Project\SuiteConfig;
+use NightWorksIO\MutationGate\Adapter\Project\TestSuite;
 use NightWorksIO\MutationGate\Cli\ComposerVendor;
 use NightWorksIO\MutationGate\Cli\Flow\ProjectMemoryLimit;
+use NightWorksIO\MutationGate\Cli\Flow\Suite;
 use NightWorksIO\MutationGate\Core\Baseline\Baseline;
 use NightWorksIO\MutationGate\Core\Baseline\BaselineFile;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -29,6 +32,7 @@ use NightWorksIO\MutationGate\Core\Doctor\InfectionConfig;
 use NightWorksIO\MutationGate\Core\Doctor\Patched;
 use NightWorksIO\MutationGate\Core\Doctor\PhpUnitMemory;
 use NightWorksIO\MutationGate\Core\Doctor\ProjectFiles;
+use NightWorksIO\MutationGate\Core\Doctor\RunnerConfig;
 use NightWorksIO\MutationGate\Core\Doctor\SonarSources;
 use NightWorksIO\MutationGate\Core\Doctor\WarmRefusal;
 use NightWorksIO\MutationGate\Core\File\GitIgnore;
@@ -49,9 +53,10 @@ use function trim;
 /**
  * What `doctor` reads of the project's own files: its `.gitignore`, its
  * Infection config, how its `composer.json` installs its packages, the CI
- * definitions that run the gate, the baseline the config names, whether git
- * cloned it shallow, why the last run's warm workers forked nothing, and
- * whether its Infection and pest-plugin-mutate carry the gate's patches.
+ * definitions that run the gate, the baseline the config names, what the
+ * runner's own config says, whether git cloned it shallow, why the last
+ * run's warm workers forked nothing, and whether its Infection and
+ * pest-plugin-mutate carry the gate's patches.
  */
 final readonly class Files
 {
@@ -77,8 +82,7 @@ final readonly class Files
         $files = $composer instanceof ComposerSetup ? $files->withComposer($composer) : $files;
         $infection = $this->infection();
         $files = $infection instanceof InfectionConfig ? $files->withInfection($infection) : $files;
-        $memory = ProjectMemoryLimit::in($this->project, PhpUnitConfig::candidatesIn(Path::root()));
-        $files = $memory instanceof PhpUnitMemory ? $files->withPhpUnitMemory($memory) : $files;
+        $files = $files->withRunnerConfig($this->runnerConfig($settings));
         $files = $this->git->isShallow() === true ? $files->shallow() : $files;
         $sonar = SonarSources::in(Properties::decode($this->text(Path::of(SonarSources::FILE))));
         $files = $sonar instanceof SonarSources ? $files->withSonarSources($sonar) : $files;
@@ -90,6 +94,23 @@ final readonly class Files
             : $files;
     }
 
+
+    /**
+     * The `memory_limit` the project's PHPUnit config sets, and the suites of
+     * the runner's config that serve the application from another process.
+     */
+    private function runnerConfig(Settings|Invalid|CannotJudge $settings): RunnerConfig
+    {
+        $memory = ProjectMemoryLimit::in($this->project, PhpUnitConfig::candidatesIn(Path::root()));
+        $config = $memory instanceof PhpUnitMemory
+            ? RunnerConfig::none()->withPhpUnitMemory($memory)
+            : RunnerConfig::none();
+        $suite = $settings instanceof Settings
+            ? Suite::configured($this->project, SuiteConfig::ofRunner($settings->runner()->choice()->use()->value()))
+            : $settings;
+
+        return $suite instanceof TestSuite ? $config->withSuitesElsewhere(...$suite->elsewhere()) : $config;
+    }
 
     /** Every CI definition that names the gate, which a definition that runs it does. */
     private function runningTheGate(): Paths

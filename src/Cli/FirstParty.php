@@ -19,6 +19,8 @@ use NightWorksIO\MutationGate\Adapter\Azure\ContainerLedger;
 use NightWorksIO\MutationGate\Adapter\Bitbucket\BitbucketPlan;
 use NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan;
 use NightWorksIO\MutationGate\Adapter\CircleCi\CircleCiPlan;
+use NightWorksIO\MutationGate\Adapter\Codeception\CodeceptionFramework;
+use NightWorksIO\MutationGate\Adapter\Codeception\Installation as CodeceptionInstallation;
 use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
 use NightWorksIO\MutationGate\Adapter\Console\ProblemsReport;
 use NightWorksIO\MutationGate\Adapter\Filesystem\BadgeDirectory;
@@ -267,6 +269,18 @@ final readonly class FirstParty implements Extension
                         PhpSpecInstallation::at($root, $vendor),
                         $tests,
                     ),
+                    ComposerVendor::of(self::HERE),
+                    new CapDirectory(),
+                    $processes,
+                ),
+            )
+            ->withRunner(
+                BuiltinRunner::Codeception->named(),
+                static fn(Options $options): NativeRunner|Invalid => NativeRunner::fromOptions(
+                    $options,
+                    BuiltinRunner::Codeception,
+                    static fn(string $root, Path $vendor, TestLayout $tests): CodeceptionFramework
+                        => new CodeceptionFramework(CodeceptionInstallation::at($root, $vendor), $tests),
                     ComposerVendor::of(self::HERE),
                     new CapDirectory(),
                     $processes,
