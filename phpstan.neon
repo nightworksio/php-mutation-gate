@@ -159,7 +159,7 @@ services:
         class: NightWorksIO\MutationGate\PHPStan\Rules\NoMixedOutsideDecodersRule
         arguments:
             protocols:
-                - src/Adapter/PhpUnit/MutantFile.php # PHP hands a stream wrapper resources, which have no native type
+                - src/Adapter/Native/MutantFile.php # PHP hands a stream wrapper resources, which have no native type
                 - src/Adapter/Process/Running.php # proc_open answers a process resource, which has no native type
             decoders:
                 - src/Core/Format/Node.php
@@ -242,7 +242,7 @@ services:
                 'NightWorksIO\MutationGate\Core\Delivery\DeliveryFile':
                     - LEDGER_KEY # a key of the delivery, not the workspace's directory
                     - OTLP # a key of the delivery, not the reporter's name
-                'NightWorksIO\MutationGate\Adapter\PhpUnit\MutationRun':
+                'NightWorksIO\MutationGate\Adapter\Native\MutationRun':
                     - RUNS_PER_PLACE # mutant runs a place queues per batch, not a span id's length
                 'NightWorksIO\MutationGate\Adapter\Process\Running':
                     - DESCRIPTORS # proc_open's descriptor kinds, not a record's field
@@ -252,14 +252,14 @@ services:
                 'NightWorksIO\MutationGate\Core\Proof\PassedRecord':
                     - COMMIT # a field of a passed commit's record, not of a proof's digests
                     - CHECK # a field of a passed commit's record, not of the last run's
-                'NightWorksIO\MutationGate\Adapter\PhpUnit\Command':
+                'NightWorksIO\MutationGate\Core\Native\Command':
                     - WRITING # the shell's flag that takes its script, not git's flag that takes a setting
                 'NightWorksIO\MutationGate\Core\Php\ReachedFiles':
                     - BITS # the bits of a byte, not a seed's first byte
                     - BIT # each bit of a byte by its place, not an exit code, a status or a length
-                'NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Worker':
-                    - PACKAGE # directories from the worker's file up to the package's own, not a status record
-                'NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Workforce':
+                'NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnitFramework':
+                    - PACKAGE # directories from the framework's file up to the package's own, not a word's edits
+                'NightWorksIO\MutationGate\Adapter\Native\Warm\Workforce':
                     - SLACK # seconds a warm worker may take past its last run, not the ledger's limit
                 'NightWorksIO\MutationGate\Adapter\Buildkite\BuildkitePlan':
                     - TRUSTED_SOURCES # Buildkite's build.source values, not another CI's event names
@@ -394,7 +394,7 @@ services:
                     - INDENT # a NEON indent
                 'NightWorksIO\MutationGate\Adapter\Pest\Diff':
                     - INDENT # a line of Pest's diff
-                'NightWorksIO\MutationGate\Adapter\PhpUnit\MutantFile':
+                'NightWorksIO\MutationGate\Adapter\Native\MutantFile':
                     - PROTOCOL # the file:// stream protocol
                 'NightWorksIO\MutationGate\Mutator\Literals':
                     - 'TRUE' # PHP's constant, not Infection's setting
@@ -497,7 +497,7 @@ services:
                 'NightWorksIO\MutationGate\Adapter\Pest\PestOptions':
                     - TESTS # a key of the runner's options
                     - MUTATORS # a key of the runner's options
-                'NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnitOptions':
+                'NightWorksIO\MutationGate\Adapter\Native\NativeOptions':
                     - TESTS # a key of the runner's options
                     - MUTATORS # a key of the runner's options
                 'NightWorksIO\MutationGate\Core\Config\BoundsOptions':
@@ -644,7 +644,7 @@ services:
         class: NightWorksIO\MutationGate\PHPStan\Rules\NoManyMethodsRule
         arguments:
             allowIn:
-                - src/Adapter/PhpUnit/MutantFile.php # PHP's streamWrapper protocol
+                - src/Adapter/Native/MutantFile.php # PHP's streamWrapper protocol
         tags:
             - phpstan.rules.rule
     # D11, in place of shipmonk's enforceReadonlyPublicProperty, with the files
@@ -653,7 +653,7 @@ services:
         class: NightWorksIO\MutationGate\PHPStan\Rules\ReadonlyPublicPropertyRule
         arguments:
             allowIn:
-                - src/Adapter/PhpUnit/MutantFile.php # PHP writes $context from global scope
+                - src/Adapter/Native/MutantFile.php # PHP writes $context from global scope
         tags:
             - phpstan.rules.rule
     # H5, one class per node type

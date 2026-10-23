@@ -1,0 +1,169 @@
+<?php
+
+declare(strict_types=1);
+
+namespace NightWorksIO\MutationGate\Adapter\Native;
+
+use function array_slice;
+use function count;
+use function explode;
+use function file;
+use function is_array;
+use function is_file;
+
+use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
+use NightWorksIO\MutationGate\Core\Mutant\Prefix;
+use NightWorksIO\MutationGate\Core\Native\Outcome;
+use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestMethod;
+
+use function rawurldecode;
+
+/**
+ * The tests the framework's recorder recorded for one mutant: which started,
+ * and how each test ended: finished, skipped or marked incomplete. A test the
+ * run selected whose class's `setUpBeforeClass` failed or errored ended so
+ * too. The tests that killed it are those that failed or errored, and each
+ * that started and never ended, since its process died as it ran. The kill is
+ * credited only to those of them the run selected.
+ */
+final readonly class Recorded
+{
+    private function __construct(
+        private TestIds $selected,
+        private TestIds $started,
+        private TestIds $finished,
+        private TestIds $failed,
+        private TestIds $passed,
+    ) {
+    }
+
+    /**
+     * What a results file records of the tests a run selected; a file that is
+     * not there records nothing. A test the run did not select, which ran as
+     * it shares a file with one it did, kills where it fails, though the kill
+     * is not credited to it, and ends as neither where it passes: its pass
+     * says nothing of the mutant.
+     */
+    public static function in(string $results, TestIds $selected): self
+    {
+        $recorded = new self($selected, TestIds::none(), TestIds::none(), TestIds::none(), TestIds::none());
+
+        foreach (self::linesOf($results) as $line) {
+            [$mark, $test] = [...explode(Outcome::SEPARATOR, $line), ''];
+            $outcome = Outcome::tryFrom($mark);
+            $id = TestId::of(rawurldecode($test));
+            $recorded = match (true) {
+                $outcome === Outcome::ClassFailed => $recorded->withClass($id->value()),
+                $outcome === Outcome::Passed && ! $selected->has($id) => $recorded->with(Outcome::Neither, $id),
+                $outcome instanceof Outcome => $recorded->with($outcome, $id),
+                default => $recorded,
+            };
+        }
+
+        return $recorded;
+    }
+
+    /** Every test that failed or errored, and every test that started and never ended. */
+    public function killers(): TestIds
+    {
+        return $this->failed->and($this->started->without($this->finished));
+    }
+
+    /**
+     * The killers the run selected, to which the kill is credited. A test it
+     * ran only as it shares a file with one it selected covers no line of the
+     * mutant, so the kill matrix is not told it killed one.
+     */
+    public function credited(): TestIds
+    {
+        return $this->killers()->among($this->selected);
+    }
+
+    /**
+     * The tests the run selected that failed or errored, to which a kill is
+     * credited where the run was stopped: a test it stopped as it ran never
+     * ended, which says nothing of the mutant.
+     */
+    public function creditedFailures(): TestIds
+    {
+        return $this->failed->among($this->selected);
+    }
+
+    /**
+     * Where the first of its killers stood in the order its tests started,
+     * from one, keyed by that order up to the last of them (ADR-0014);
+     * none where no killer started, as one a failed `setUpBeforeClass`
+     * errored does not.
+     */
+    public function prefix(): Prefix|NotGiven
+    {
+        $killers = $this->killers();
+        $order = [];
+        $first = 0;
+        $last = 0;
+
+        foreach ($this->started as $test) {
+            $order[] = $test;
+            $killed = $killers->has($test);
+            $first = $killed && $first === 0 ? count($order) : $first;
+            $last = $killed ? count($order) : $last;
+        }
+
+        $digest = OrderDigest::of(...array_slice($order, 0, $last))->value();
+
+        return $first === 0 ? NotGiven::value() : Prefix::keyedAt($first, Prefix::keyOf(Paths::none(), $digest));
+    }
+
+    /** Whether any test started or finished. */
+    public function ranAny(): bool
+    {
+        return count($this->started) + count($this->finished) > 0;
+    }
+
+    /** Whether every test that ran finished neither passed, failed nor errored, such as skipped. */
+    public function skippedEach(): bool
+    {
+        return $this->ranAny() && count($this->killers()) === 0 && count($this->passed) === 0;
+    }
+
+    /**
+     * The lines a results file holds; none where there is no file.
+     *
+     * @return list<string>
+     */
+    private static function linesOf(string $results): array
+    {
+        $lines = is_file($results) ? file($results, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) : [];
+
+        return is_array($lines) ? $lines : [];
+    }
+
+    /** These, with each selected test of a class whose `setUpBeforeClass` failed or errored ended as errored. */
+    private function withClass(string $class): self
+    {
+        $recorded = $this;
+
+        foreach ($this->selected as $test) {
+            $recorded = TestMethod::classOf($test) === $class ? $recorded->with(Outcome::Errored, $test) : $recorded;
+        }
+
+        return $recorded;
+    }
+
+    private function with(Outcome $outcome, TestId $test): self
+    {
+        return $outcome === Outcome::Started
+            ? new self($this->selected, $this->started->with($test), $this->finished, $this->failed, $this->passed)
+            : new self(
+                $this->selected,
+                $this->started,
+                $this->finished->with($test),
+                $outcome->kills() ? $this->failed->with($test) : $this->failed,
+                $outcome === Outcome::Passed ? $this->passed->with($test) : $this->passed,
+            );
+    }
+}

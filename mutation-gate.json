@@ -20,7 +20,7 @@
                 "src/Adapter/Pest/Recording/Placed.php",
                 "src/Adapter/Pest/Recording/RanTests.php",
                 "src/Adapter/Pest/Recording/ReplayStop.php",
-                "src/Adapter/PhpUnit/MutantFile.php",
+                "src/Adapter/Native/MutantFile.php",
                 "src/Core/Mutant/OrderDigest.php"
             ]
         },

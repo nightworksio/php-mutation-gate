@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\PhpUnit\MutantFile;
+use NightWorksIO\MutationGate\Adapter\Native\MutantFile;
 use NightWorksIO\MutationGate\Adapter\Process\Running;
+use NightWorksIO\MutationGate\Core\Native\Guard;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Environment;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCommand;
@@ -127,7 +128,7 @@ it('starts a program while a stream wrapper stands in for files, as a mutant\'s 
     $directory = (string) realpath(Scratch::directory());
     Scratch::write($directory, 'Served.php', '<?php');
     Scratch::write($directory, 'guard.txt', '');
-    MutantFile::serve(sprintf('%s/Served.php', $directory), sprintf('%s/Served.php', $directory), sprintf('%s/guard.txt', $directory));
+    MutantFile::serve(sprintf('%s/Served.php', $directory), sprintf('%s/Served.php', $directory), sprintf('%s/guard.txt', $directory), Guard::SERVED);
 
     expect($ended($started('echo "ran";'))->output())->toBe('ran');
 })->group(...$holds);

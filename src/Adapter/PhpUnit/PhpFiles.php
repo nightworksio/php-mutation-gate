@@ -23,13 +23,13 @@ use function sort;
 final readonly class PhpFiles
 {
     /** @return list<Path> each as a path of the project, but those inside a path left out */
-    public static function in(Project $project, Paths $paths, Paths $leftOut): array
+    public static function in(Installation $installation, Paths $paths, Paths $leftOut): array
     {
         $found = [];
 
         foreach ($paths as $path) {
-            foreach (self::onDisk($project->absolute($path)) as $file) {
-                $found[$file] = $project->relative($file);
+            foreach (self::onDisk($installation->absolute($path)) as $file) {
+                $found[$file] = $installation->relative($file);
             }
         }
 

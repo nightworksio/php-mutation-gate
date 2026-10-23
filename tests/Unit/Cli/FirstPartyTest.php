@@ -35,11 +35,11 @@ use NightWorksIO\MutationGate\Adapter\Jenkins\JenkinsPlan;
 use NightWorksIO\MutationGate\Adapter\Json\JsonConfig;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Adapter\Mago\Mago;
+use NightWorksIO\MutationGate\Adapter\Native\NativeRunner;
 use NightWorksIO\MutationGate\Adapter\Neon\NeonConfig;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\Php\PhpConfig;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnit;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Project\AutoloadTrees;
 use NightWorksIO\MutationGate\Adapter\Project\PhpUnitTrees;
@@ -57,6 +57,7 @@ use NightWorksIO\MutationGate\Core\Ci\CiEnvironment;
 use NightWorksIO\MutationGate\Core\Ci\CiMarker;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\BuiltinCiPlan;
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Choice;
 use NightWorksIO\MutationGate\Core\Config\Ci;
 use NightWorksIO\MutationGate\Core\Config\Definition\Builtins;
@@ -81,6 +82,7 @@ use NightWorksIO\MutationGate\Port\ChangeSource;
 use NightWorksIO\MutationGate\Port\Repository;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
+use NightWorksIO\MutationGate\Tests\Support\NativePhpUnit;
 
 $registry = static fn(): Extensions => new FirstParty()->extend(new Extensions(Origin::of(ThisPackage::COMPOSER)));
 
@@ -204,7 +206,7 @@ it('registers the PHPUnit runner, in the vendor directory Composer installed the
     $registry,
 ): void {
     expect(Lookup::in($registry())->runner(Name::of('phpunit'), Options::none()))
-        ->toEqual(PhpUnit::fromOptions(Options::none(), ComposerVendor::of('.'), new CapDirectory(), new LocalProcesses(new SystemClock())))
+        ->toEqual(NativeRunner::fromOptions(Options::none(), BuiltinRunner::PhpUnit, NativePhpUnit::framework(...), ComposerVendor::of('.'), new CapDirectory(), new LocalProcesses(new SystemClock())))
         ->and(Lookup::in($registry())->runner(Name::of('phpunit'), Configs::options('{"timeout": "ten"}')))->toBeInstanceOf(Invalid::class);
 });
 

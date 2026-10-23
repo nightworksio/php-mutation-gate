@@ -120,11 +120,16 @@ the test process never reaches that process.
    The runner is in the proof key, as every runner's identity is
    (ADR-0007), and each native runner takes `runner.workers` (ADR-0023).
 
-7. **Where it lives in the code.** `Adapter\Codeception`, `Adapter\PhpSpec`
-   and `Adapter\Testo` each hold the runner and its extension or plugin
-   class. An adapter names no other adapter (ADR-0001), so what they share,
-   the override and the fork server of ADR-0023, is either a `Core` value or
-   a piece the Cli hands each adapter. No port changes. The Runner contract
+7. **Where it lives in the code.** `Adapter\Native` holds the runner every
+   framework shares: the override, each mutant's files and run, the coverage
+   map it reads and the warm workers of ADR-0023. Each framework is a
+   `Core\Native\Framework`, which says how it is started, how it selects,
+   lists and names its tests, and how its warm worker boots, where it has
+   one. `Adapter\PhpUnit`, `Adapter\Codeception`, `Adapter\PhpSpec` and
+   `Adapter\Testo` each hold theirs, with its extension or plugin class. An
+   adapter names no other adapter (ADR-0001), so the runner names only the
+   `Core` interface, and the Cli hands it the framework a config names. No
+   port changes. The Runner contract
    suite (ADR-0004) runs its fixture library against each of them,
    with each framework's own holds and group cases, and CI runs it against
    the lowest and highest supported release of each framework (ADR-0011).

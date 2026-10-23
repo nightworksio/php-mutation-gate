@@ -6,8 +6,8 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 
 use function array_fill;
 
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Job;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\WarmRun;
+use NightWorksIO\MutationGate\Adapter\Native\Warm\Job;
+use NightWorksIO\MutationGate\Adapter\Native\Warm\WarmRun;
 use NightWorksIO\MutationGate\Core\NotGiven;
 
 /** The jobs the tests of a warm worker's claims hand it. */

@@ -3,8 +3,9 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Git\Command;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\MutantFile;
+use NightWorksIO\MutationGate\Adapter\Native\MutantFile;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Native\Guard;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Tests\Support\FileWrapper;
 use NightWorksIO\MutationGate\Tests\Support\Repository;
@@ -50,7 +51,7 @@ it('feeds git where a stream wrapper of PHP code serves file://, as Pest\'s does
     $guard = sprintf('%s/guard.txt', Scratch::directory());
     file_put_contents($copy, '<?php');
     file_put_contents($guard, '');
-    MutantFile::serve(__FILE__, $copy, $guard);
+    MutantFile::serve(__FILE__, $copy, $guard, Guard::SERVED);
 
     expect(FileWrapper::changed())->toBeTrue()
         ->and(Command::in($root)->feed(['hash-object', '--stdin'], "hello\n"))->toBe("ce013625030ba8dba906f756967f9e9ca394464a\n");

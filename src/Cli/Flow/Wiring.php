@@ -15,9 +15,9 @@ use NightWorksIO\MutationGate\Adapter\GitHub\PassedPullRequests;
 use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
 use NightWorksIO\MutationGate\Adapter\Infection\Setup;
 use NightWorksIO\MutationGate\Adapter\Infection\StaticAnalysis;
+use NightWorksIO\MutationGate\Adapter\Native\NativeOptions;
 use NightWorksIO\MutationGate\Adapter\Opcache\Prover;
 use NightWorksIO\MutationGate\Adapter\Pest\PestOptions;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnitOptions;
 use NightWorksIO\MutationGate\Adapter\Project\PhpUnitSuite;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\Config\DeclaredTrees;
@@ -217,9 +217,9 @@ final readonly class Wiring
                 : [],
         ]);
         $native = Json::object(...[
-            Member::of(PhpUnitOptions::TESTS, $tests),
+            Member::of(NativeOptions::TESTS, $tests),
             ...$bounds,
-            Member::of(PhpUnitOptions::MUTATORS, Json::items(...$mutators->forTheEngine()->classes())),
+            Member::of(NativeOptions::MUTATORS, Json::items(...$mutators->forTheEngine()->classes())),
         ]);
 
         return match (true) {

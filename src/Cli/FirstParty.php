@@ -45,10 +45,12 @@ use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Jenkins\JenkinsPlan;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
 use NightWorksIO\MutationGate\Adapter\Mago\Mago;
+use NightWorksIO\MutationGate\Adapter\Native\NativeRunner;
 use NightWorksIO\MutationGate\Adapter\Otlp\OtlpReporter;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnit;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\Installation;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnitFramework;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Psalm\Psalm;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
@@ -68,6 +70,8 @@ use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Listed;
 use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
 use NightWorksIO\MutationGate\Extension\Extension;
@@ -240,8 +244,12 @@ final readonly class FirstParty implements Extension
             )
             ->withRunner(
                 BuiltinRunner::PhpUnit->named(),
-                static fn(Options $options): PhpUnit|Invalid => PhpUnit::fromOptions(
+                static fn(Options $options): NativeRunner|Invalid => NativeRunner::fromOptions(
                     $options,
+                    BuiltinRunner::PhpUnit,
+                    static fn(string $root, Paths $tests, Path $vendor): PhpUnitFramework => new PhpUnitFramework(
+                        Installation::at($root, $tests, $vendor),
+                    ),
                     ComposerVendor::of(self::HERE),
                     new CapDirectory(),
                     $processes,

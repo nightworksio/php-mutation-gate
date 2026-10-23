@@ -12,11 +12,13 @@ declare(strict_types=1);
 // as that script runs it. What runs only in a child, or only in this process
 // before the worker boots, is here.
 
-use NightWorksIO\MutationGate\Adapter\PhpUnit\MutantFile;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Forking;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Refusal;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\WarmRun;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Worker;
+use NightWorksIO\MutationGate\Adapter\Native\MutantFile;
+use NightWorksIO\MutationGate\Adapter\Native\Warm\Forking;
+use NightWorksIO\MutationGate\Adapter\Native\Warm\Refusal;
+use NightWorksIO\MutationGate\Adapter\Native\Warm\WarmRun;
+use NightWorksIO\MutationGate\Adapter\Native\Warm\Worker;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\PhpUnitBoot;
+use NightWorksIO\MutationGate\Core\Native\Guard;
 use PHPUnit\TextUI\Application;
 
 $given = is_array($_SERVER['argv']) ? $_SERVER['argv'] : [];
@@ -42,7 +44,7 @@ if (! function_exists('pcntl_fork')) {
     exit($worker->refused(Refusal::unforkable('The PHP the runner starts cannot fork: pcntl is not loaded.')));
 }
 
-exit($worker->run(new class implements Forking {
+exit($worker->run(new PhpUnitBoot(), new class implements Forking {
     public function forked(WarmRun $run): int
     {
         $child = pcntl_fork();
@@ -57,7 +59,7 @@ exit($worker->run(new class implements Forking {
             $_SERVER[$name] = $value;
         }
 
-        MutantFile::serve($run->original(), $run->mutated(), $run->guard());
+        MutantFile::serve($run->original(), $run->mutated(), $run->guard(), Guard::SERVED);
         $_SERVER['argv'] = $run->argv();
         $_SERVER['argc'] = count($run->argv());
 

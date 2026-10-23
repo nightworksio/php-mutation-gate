@@ -9,27 +9,29 @@ use function array_slice;
 
 use Closure;
 
+use function dirname;
 use function file_get_contents;
 use function file_put_contents;
 use function in_array;
 use function is_int;
 
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Command;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Shell;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Claims;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\End;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Job;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Printed;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Refusal;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\WarmRun;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Worker;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Workplace;
+use NightWorksIO\MutationGate\Adapter\Native\Warm\Claims;
+use NightWorksIO\MutationGate\Adapter\Native\Warm\End;
+use NightWorksIO\MutationGate\Adapter\Native\Warm\Job;
+use NightWorksIO\MutationGate\Adapter\Native\Warm\Printed;
+use NightWorksIO\MutationGate\Adapter\Native\Warm\Refusal;
+use NightWorksIO\MutationGate\Adapter\Native\Warm\WarmRun;
+use NightWorksIO\MutationGate\Adapter\Native\Warm\Workplace;
+use NightWorksIO\MutationGate\Core\Native\Command;
+use NightWorksIO\MutationGate\Core\Native\Shell;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
+
+use function sprintf;
 
 /**
  * A shell whose warm workers fork nothing: each worker it is given claims the
@@ -83,7 +85,7 @@ final class PhpUnitWorkersFake implements Shell
 
         foreach ($commands as $command) {
             $this->commands[] = $command;
-            $at = array_search(Worker::script(), $command->arguments(), strict: true);
+            $at = array_search($this->worker(), $command->arguments(), strict: true);
             $ends[] = is_int($at) ? $this->worked($command, $at) : ($this->fresh)($command);
         }
 
@@ -125,7 +127,7 @@ final class PhpUnitWorkersFake implements Shell
         $started = [];
 
         foreach ($this->commands as $command) {
-            $isWorker = in_array(Worker::script(), $command->arguments(), strict: true);
+            $isWorker = in_array($this->worker(), $command->arguments(), strict: true);
             $started = $isWorker === $worker ? [...$started, $command] : $started;
         }
 
@@ -164,5 +166,11 @@ final class PhpUnitWorkersFake implements Shell
         }
 
         return Ran::exited(0, '');
+    }
+
+    /** The warm worker's script PHPUnit's workers run, in this package's own directory. */
+    private function worker(): string
+    {
+        return sprintf('%s/bin/mutation-gate-worker', dirname(__DIR__, 2));
     }
 }

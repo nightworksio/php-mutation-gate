@@ -3,7 +3,8 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Extension;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Variable;
+use NightWorksIO\MutationGate\Core\Native\Variable;
+use NightWorksIO\MutationGate\Core\Runner\Opcache;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use PHPUnit\Runner\Extension\ExtensionFacade;
 use PHPUnit\Runner\Extension\ParameterCollection;
@@ -30,3 +31,16 @@ it('says nothing in the guard file where opcache is off on the command line', fu
 
     expect(is_file($guard))->toBeFalse();
 })->skip(fn(): bool => (bool) ini_get('opcache.enable_cli'), 'only a PHP with opcache off on the command line');
+
+it('notes in the guard file that opcache could serve an original, and only where it could and a file is named', function (): void {
+    $file = sprintf('%s/guard.txt', Scratch::directory());
+    Extension::noting($file, Opcache::ofCommandLine('0'));
+    Extension::noting(file: false, opcache: Opcache::ofCommandLine('1'));
+    Extension::noting('', Opcache::ofCommandLine('1'));
+    $untouched = is_file($file);
+    Extension::noting($file, Opcache::ofCommandLine('1'));
+    Extension::noting($file, Opcache::ofCommandLine('1'));
+
+    expect($untouched)->toBeFalse()
+        ->and(file($file, FILE_IGNORE_NEW_LINES))->toBe(['cached', 'cached']);
+});

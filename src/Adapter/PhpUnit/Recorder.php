@@ -11,6 +11,7 @@ use function is_string;
 
 use const LOCK_EX;
 
+use NightWorksIO\MutationGate\Core\Native\Outcome;
 use PHPUnit\Event\EventFacadeIsSealedException;
 use PHPUnit\Event\Facade;
 use PHPUnit\Event\UnknownSubscriberTypeException;

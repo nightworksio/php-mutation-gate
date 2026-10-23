@@ -19,9 +19,9 @@ use NightWorksIO\MutationGate\Adapter\Http\HttpExchange;
 use NightWorksIO\MutationGate\Adapter\Http\PublicLedger;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Json\JsonPlan;
+use NightWorksIO\MutationGate\Adapter\Native\NativeRunner;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest as PestRunner;
 use NightWorksIO\MutationGate\Adapter\PhpStan\PhpStan;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnit;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Adapter\S3\BucketLedger;
@@ -47,6 +47,7 @@ use NightWorksIO\MutationGate\Core\Analysis\NoAnalyser;
 use NightWorksIO\MutationGate\Core\Analysis\Rejection;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
 use NightWorksIO\MutationGate\Core\Config\Key;
 use NightWorksIO\MutationGate\Core\Config\Name;
@@ -112,6 +113,7 @@ use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\RemoveEcho;
+use NightWorksIO\MutationGate\Tests\Support\NativePhpUnit;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Wirings;
 use NightWorksIO\MutationGateDefault\DefaultExtension;
@@ -633,8 +635,10 @@ it('tells the PHPUnit runner the bounds of each mutant\'s limit, timeouts.second
         ->adapters(Flows::settings(Runner::phpunit(), Timeouts::seconds(45), Timeouts::most(90)), Directory::at(Flows::project()));
 
     expect($mutators)->not->toBe([])
-        ->and($adapters instanceof Adapters ? $adapters->runner : $adapters)->toEqual(PhpUnit::fromOptions(
+        ->and($adapters instanceof Adapters ? $adapters->runner : $adapters)->toEqual(NativeRunner::fromOptions(
             Configs::options((string) json_encode(['timeout' => 45.0, 'most' => 90.0, 'mutators' => $mutators])),
+            BuiltinRunner::PhpUnit,
+            NativePhpUnit::framework(...),
             ComposerVendor::of('.'),
             new CapDirectory(),
             new LocalProcesses(new SystemClock()),
@@ -644,7 +648,7 @@ it('tells the PHPUnit runner the bounds of each mutant\'s limit, timeouts.second
 it('tells the PHPUnit runner no mutator where no extension registers the default set', function (): void {
     $runner = wiredOf(Flows::settings(Runner::phpunit()), Variables::of([]))->runner;
 
-    expect($runner)->toBeInstanceOf(PhpUnit::class)
+    expect($runner)->toBeInstanceOf(NativeRunner::class)
         ->and($runner->mutate(MutationRequest::of(Paths::none(), WholeSuite::tests())))
         ->toEqual(CannotJudge::because('The phpunit runner makes its mutants with the default mutator set, and no extension registers one.'));
 })->group(...$holds);
@@ -673,8 +677,10 @@ it('tells each runner its timeouts and the classes of the registered mutators th
             new CapDirectory(),
             new LocalProcesses(new SystemClock()),
         ))
-        ->and($phpunit instanceof Adapters ? $phpunit->runner : $phpunit)->toEqual(PhpUnit::fromOptions(
+        ->and($phpunit instanceof Adapters ? $phpunit->runner : $phpunit)->toEqual(NativeRunner::fromOptions(
             Configs::options((string) json_encode(['timeout' => 45.0, 'most' => 90.0, 'mutators' => $native])),
+            BuiltinRunner::PhpUnit,
+            NativePhpUnit::framework(...),
             ComposerVendor::of('.'),
             new CapDirectory(),
             new LocalProcesses(new SystemClock()),
@@ -697,11 +703,13 @@ it('tells the PHPUnit runner the default set\'s mutators less one mutators.excep
     $phpunit = $wired(Runner::phpunit());
     $pest = $wired(Runner::pest());
 
-    expect($phpunit instanceof Adapters ? $phpunit->runner : $phpunit)->toEqual(PhpUnit::fromOptions(
+    expect($phpunit instanceof Adapters ? $phpunit->runner : $phpunit)->toEqual(NativeRunner::fromOptions(
         Configs::options((string) json_encode([
             'timeout' => 45.0,
             'mutators' => array_map(static fn(object $mutator): string => $mutator::class, array_slice($mutators, 1)),
         ])),
+        BuiltinRunner::PhpUnit,
+        NativePhpUnit::framework(...),
         ComposerVendor::of('.'),
         new CapDirectory(),
         new LocalProcesses(new SystemClock()),
@@ -739,8 +747,10 @@ it('tells each runner the test directories the PHPUnit config declares, each glo
         new CapDirectory(),
         new LocalProcesses(new SystemClock()),
     ))
-        ->and($phpunit instanceof Adapters ? $phpunit->runner : $phpunit)->toEqual(PhpUnit::fromOptions(
+        ->and($phpunit instanceof Adapters ? $phpunit->runner : $phpunit)->toEqual(NativeRunner::fromOptions(
             Configs::options($options(...$declared)),
+            BuiltinRunner::PhpUnit,
+            NativePhpUnit::framework(...),
             ComposerVendor::of('.'),
             new CapDirectory(),
             new LocalProcesses(new SystemClock()),
