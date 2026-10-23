@@ -104,7 +104,7 @@ it('runs PhpSpec on its own arguments, with the gate\'s extension loaded, and an
 
     expect($listed)->toBe(0)
         ->and(json_decode((string) file_get_contents($listing), associative: true))
-        ->toBe(['examples' => [sprintf('%s::it_passes', $class), sprintf('%s::it_fails', $class)], 'groups' => []])
+        ->toBe(['listed' => [sprintf('%s::it_passes', $class), sprintf('%s::it_fails', $class)], 'groups' => []])
         ->and($failed)->toBe(1)
         ->and($filtered)->toBe(0);
 });

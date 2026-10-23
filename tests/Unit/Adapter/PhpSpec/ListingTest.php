@@ -24,7 +24,7 @@ it('writes every example it saw, in order, and each holding group\'s examples, o
 
     expect($unwritten)->toBeFalse()
         ->and(json_decode((string) file_get_contents($file), associative: true))->toBe([
-            'examples' => [PhpSpecExamples::id('it_is_held_by_its_spec'), PhpSpecExamples::id('it_is_held_by_its_own_path_too')],
+            'listed' => [PhpSpecExamples::id('it_is_held_by_its_spec'), PhpSpecExamples::id('it_is_held_by_its_own_path_too')],
             'groups' => [
                 'holds:src/Money.php' => [PhpSpecExamples::id('it_is_held_by_its_spec'), PhpSpecExamples::id('it_is_held_by_its_own_path_too')],
                 'holds:src/Held.php' => [PhpSpecExamples::id('it_is_held_by_its_own_path_too')],
@@ -36,5 +36,5 @@ it('writes an empty list where the suite held no example', function (): void {
     $file = sprintf('%s/listing.json', Scratch::directory());
     new Listing($file)->written();
 
-    expect(json_decode((string) file_get_contents($file), associative: true))->toBe(['examples' => [], 'groups' => []]);
+    expect(json_decode((string) file_get_contents($file), associative: true))->toBe(['listed' => [], 'groups' => []]);
 });

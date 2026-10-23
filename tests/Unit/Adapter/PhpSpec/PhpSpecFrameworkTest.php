@@ -118,7 +118,7 @@ it('lists every example and its holding groups as the launcher wrote them, throu
     $framework = NativePhpSpec::in(phpSpecProject($root));
     $file = sprintf('%s/listing.json', Scratch::directory());
     $shell = new PhpUnitShellFake(static function () use ($file): Ran {
-        file_put_contents($file, (string) json_encode(['examples' => ['spec\A::it_a', 'spec\B::it_b'], 'groups' => ['holds:src/A.php' => ['spec\A::it_a']]]));
+        file_put_contents($file, (string) json_encode(['listed' => ['spec\A::it_a', 'spec\B::it_b'], 'groups' => ['holds:src/A.php' => ['spec\A::it_a']]]));
 
         return Ran::finished(succeeded: true, output: '2 examples (2 skipped)');
     });
@@ -143,10 +143,10 @@ it('cannot judge where PhpSpec failed, wrote no list, or wrote one with no examp
     $listing = $framework->listing($shell, Withheld::standard(), Suites::all(), $file);
 
     expect($listing instanceof CannotJudge ? $listing->why() : $listing)
-        ->toBe(sprintf("PhpSpec did not list the examples of the suite: %s holds no list of them. It said:\nPhpSpec said this", $file));
+        ->toBe(sprintf("PhpSpec did not list the tests of the suite: %s holds no list of them. It said:\nPhpSpec said this", $file));
 })->with([
-    'failed' => [false, '{"examples":[]}'],
+    'failed' => [false, '{"listed":[]}'],
     'wrote nothing' => [true, ''],
     'wrote no JSON' => [true, 'not json'],
-    'wrote no examples' => [true, '{"groups":{}}'],
+    'wrote no tests' => [true, '{"groups":{}}'],
 ]);

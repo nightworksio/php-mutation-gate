@@ -3,21 +3,22 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\PhpSpec\NotSelected;
-use NightWorksIO\MutationGate\Adapter\PhpSpec\Selected;
 use NightWorksIO\MutationGate\Adapter\PhpSpec\Selecting;
+use NightWorksIO\MutationGate\Core\Native\Selected;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Tests\Fixtures\PhpSpec\HeldSpec;
 use NightWorksIO\MutationGate\Tests\Support\PhpSpecExamples;
 use PhpSpec\Exception\Example\SkippingException;
 use PhpSpec\Runner\CollaboratorManager;
 use PhpSpec\Runner\MatcherManager;
 
-$selecting = static fn(): Selecting => new Selecting(new Selected(
-    [PhpSpecExamples::id('it_is_held_by_its_spec')],
+$selecting = static fn(): Selecting => new Selecting(Selected::narrowedTo(
+    TestIds::of(TestId::of(PhpSpecExamples::id('it_is_held_by_its_spec'))),
     NotGiven::value(),
     NotGiven::value(),
     NotGiven::value(),
-    listing: false,
 ));
 
 /** Whether a maintainer that prepares an example of HeldSpec, then tears it down, lets it run. */

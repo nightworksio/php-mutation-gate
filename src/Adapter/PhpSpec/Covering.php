@@ -8,6 +8,8 @@ use function array_slice;
 use function count;
 use function get_included_files;
 
+use NightWorksIO\MutationGate\Core\Native\OwnFiles;
+use NightWorksIO\MutationGate\Core\Native\Selected;
 use PhpSpec\Event\ExampleEvent;
 use SebastianBergmann\CodeCoverage\CodeCoverage;
 use SebastianBergmann\CodeCoverage\Serialization\Serializer;
@@ -46,7 +48,7 @@ final class Covering implements EventSubscriberInterface
         $example = Example::of($event->getExample());
 
         if ($this->selected->selects($example)) {
-            $this->coverage->start($example->id());
+            $this->coverage->start($example->key());
         }
     }
 

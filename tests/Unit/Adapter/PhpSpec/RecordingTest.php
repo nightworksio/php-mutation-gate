@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\PhpSpec\Recording;
-use NightWorksIO\MutationGate\Adapter\PhpSpec\Selected;
+use NightWorksIO\MutationGate\Core\Native\Selected;
 use NightWorksIO\MutationGate\Core\NotGiven;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Tests\Support\PhpSpecExamples;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use PhpSpec\Event\ExampleEvent;
@@ -17,7 +19,7 @@ afterEach(function (): void {
 function recorded(int ...$results): string
 {
     $file = sprintf('%s/results.txt', Scratch::directory());
-    $selected = new Selected([PhpSpecExamples::id('it_is_held_by_its_spec')], NotGiven::value(), NotGiven::value(), NotGiven::value(), listing: false);
+    $selected = Selected::narrowedTo(TestIds::of(TestId::of(PhpSpecExamples::id('it_is_held_by_its_spec'))), NotGiven::value(), NotGiven::value(), NotGiven::value());
     $recording = new Recording($file, $selected);
 
     foreach ($results as $result) {

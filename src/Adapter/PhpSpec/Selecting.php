@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\PhpSpec;
 
+use NightWorksIO\MutationGate\Core\Native\Selected;
 use PhpSpec\Loader\Node\ExampleNode;
 use PhpSpec\Runner\CollaboratorManager;
 use PhpSpec\Runner\Maintainer\Maintainer;

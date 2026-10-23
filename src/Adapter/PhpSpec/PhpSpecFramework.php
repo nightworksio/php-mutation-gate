@@ -14,6 +14,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Native\Command;
 use NightWorksIO\MutationGate\Core\Native\Framework;
+use NightWorksIO\MutationGate\Core\Native\ListedTests;
 use NightWorksIO\MutationGate\Core\Native\Selection;
 use NightWorksIO\MutationGate\Core\Native\Shell;
 use NightWorksIO\MutationGate\Core\Native\TestLayout;
@@ -137,7 +138,7 @@ final readonly class PhpSpecFramework implements Framework
     {
         $ran = $shell->run(Command::php(...$this->commandLine->listing($file))->withholding($withheld));
 
-        return ListedExamples::in($ran, is_file($file) ? file_get_contents($file) : false, $file);
+        return ListedTests::read($ran, is_file($file) ? file_get_contents($file) : false, $file, Program::PhpSpec);
     }
 
     /** PhpSpec says nothing of its process ending mid-example beyond what PHP says. */

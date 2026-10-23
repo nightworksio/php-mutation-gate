@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Adapter\PhpSpec;
 use function file_put_contents;
 
 use NightWorksIO\MutationGate\Core\Native\Outcome;
+use NightWorksIO\MutationGate\Core\Native\Selected;
 use PhpSpec\Event\ExampleEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
@@ -34,7 +35,7 @@ final readonly class Recording implements EventSubscriberInterface
         $example = Example::of($event->getExample());
 
         if ($this->selected->selects($example)) {
-            $this->write(Outcome::Started->line($example->id()));
+            $this->write(Outcome::Started->line($example->key()));
         }
     }
 
@@ -43,7 +44,7 @@ final readonly class Recording implements EventSubscriberInterface
         $example = Example::of($event->getExample());
 
         if ($this->selected->selects($example)) {
-            $this->write($this->outcomeOf($event->getResult())->line($example->id()));
+            $this->write($this->outcomeOf($event->getResult())->line($example->key()));
         }
     }
 

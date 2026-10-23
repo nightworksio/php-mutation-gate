@@ -10,7 +10,7 @@ use function dirname;
 use function getcwd;
 
 use NightWorksIO\MutationGate\Core\Composer\Package;
-use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Native\OwnFiles;
 use PhpSpec\Console\Application;
 use Symfony\Component\Console\Input\ArgvInput;
 
@@ -30,8 +30,7 @@ final readonly class Launch
     public static function run(string $script, string $autoloader, array $arguments): int
     {
         $told = Told::from($arguments);
-        $root = getcwd();
-        $own = OwnFiles::under($root === false ? Path::root()->value() : $root, dirname($autoloader));
+        $own = OwnFiles::under((string) getcwd(), dirname($autoloader));
         $phpspec = new Application((string) InstalledVersions::getPrettyVersion(Package::PhpSpec->value));
         new Extension($told, $own)->load($phpspec->getContainer(), []);
         $phpspec->setAutoExit(boolean: false);

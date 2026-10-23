@@ -5,12 +5,12 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Native\CoverageFile;
 use NightWorksIO\MutationGate\Adapter\Native\Project;
 use NightWorksIO\MutationGate\Adapter\PhpSpec\Covering;
-use NightWorksIO\MutationGate\Adapter\PhpSpec\OwnFiles;
-use NightWorksIO\MutationGate\Adapter\PhpSpec\Selected;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Native\OwnFiles;
+use NightWorksIO\MutationGate\Core\Native\Selected;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -46,8 +46,8 @@ it('maps the lines of the project\'s own files each selected example ran, with i
         [sprintf('%s/%s', $root, $first) => [2 => 1], sprintf('%s/%s', $root, $vendored) => [2 => 1]],
         [sprintf('%s/%s', $root, $second) => [2 => 1]],
     ]);
-    $everything = new Selected(NotGiven::value(), NotGiven::value(), NotGiven::value(), NotGiven::value(), listing: false);
-    $nothing = new Selected([], NotGiven::value(), NotGiven::value(), NotGiven::value(), listing: false);
+    $everything = Selected::narrowedTo(NotGiven::value(), NotGiven::value(), NotGiven::value(), NotGiven::value());
+    $nothing = Selected::narrowedTo(TestIds::none(), NotGiven::value(), NotGiven::value(), NotGiven::value());
     $covering = new Covering($map, new CodeCoverage($driver, new Filter()), $everything, $own);
     $skipping = new Covering($map, new CodeCoverage($driver, new Filter()), $nothing, $own);
     $skipping->started(PhpSpecExamples::event('it_is_held_by_its_spec'));

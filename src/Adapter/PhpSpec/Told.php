@@ -11,9 +11,12 @@ use function file;
 use function is_array;
 use function is_file;
 
+use NightWorksIO\MutationGate\Core\Native\Selected;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 
 use function realpath;
 
@@ -65,13 +68,12 @@ final readonly class Told
         $filter = $this->last(LaunchOption::Filter);
         $specs = $this->told[LaunchOption::Spec->value];
 
-        return new Selected(
+        return $this->listing() instanceof NotGiven ? Selected::narrowedTo(
             $this->examples(),
             $group instanceof NotGiven ? $group : Group::named($group),
             $filter instanceof NotGiven ? $filter : Filter::matching($filter),
             $specs === [] ? NotGiven::value() : array_map($this->real(...), $specs),
-            ! $this->listing() instanceof NotGiven,
-        );
+        ) : Selected::listing();
     }
 
     /** The file to write the run's coverage to, or none where the run measures none. */
@@ -86,8 +88,8 @@ final readonly class Told
         return $this->last(LaunchOption::Listing);
     }
 
-    /** @return list<string>|NotGiven the examples the examples file lists, by id, or none where none is named */
-    private function examples(): array|NotGiven
+    /** The examples the examples file lists, by id; none where it names no file. */
+    private function examples(): TestIds|NotGiven
     {
         $file = $this->last(LaunchOption::Examples);
         $lines = $file instanceof NotGiven || ! is_file($file)
@@ -96,8 +98,8 @@ final readonly class Told
 
         return match (true) {
             $file instanceof NotGiven => $file,
-            is_array($lines) => $lines,
-            default => [],
+            is_array($lines) => TestIds::of(...array_map(TestId::of(...), $lines)),
+            default => TestIds::none(),
         };
     }
 

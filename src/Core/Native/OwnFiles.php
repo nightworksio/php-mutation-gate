@@ -2,19 +2,21 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Adapter\PhpSpec;
+namespace NightWorksIO\MutationGate\Core\Native;
 
 use function array_filter;
 use function array_values;
-use function realpath;
+
+use NightWorksIO\MutationGate\Core\File\Path;
+
 use function sprintf;
 use function str_starts_with;
 
 /**
  * The project's own files among those PHP loaded: those under its root but
  * outside its vendor directory, as pcov collects from them where the native
- * runner sets it (see PcovReach), so a coverage map measured with any driver
- * reaches the same files.
+ * runner sets it (see PcovReach), so a coverage map a framework's extension
+ * measures with any driver reaches the same files.
  */
 final readonly class OwnFiles
 {
@@ -24,14 +26,14 @@ final readonly class OwnFiles
     {
     }
 
-    /** Under a project's root, less its vendor directory, each by its real path where it is there. */
+    /** Under a project's root, less its vendor directory, each absolute, with each `..` taken back. */
     public static function under(string $root, string $vendor): self
     {
-        return new self(self::directory($root), self::directory($vendor));
+        return new self(self::within($root), self::within($vendor));
     }
 
     /**
-     * @param list<string> $loaded files by their real paths, as PHP lists those it loaded
+     * @param list<string> $loaded files, as PHP lists those it loaded
      *
      * @return list<string>
      */
@@ -43,10 +45,9 @@ final readonly class OwnFiles
         ));
     }
 
-    private static function directory(string $directory): string
+    /** What a path inside a directory starts with: the directory as PHP lists a file it loaded from it. */
+    private static function within(string $directory): string
     {
-        $real = realpath($directory);
-
-        return sprintf(self::WITHIN, $real === false ? $directory : $real);
+        return sprintf(self::WITHIN, Path::of($directory)->collapsed()->value());
     }
 }

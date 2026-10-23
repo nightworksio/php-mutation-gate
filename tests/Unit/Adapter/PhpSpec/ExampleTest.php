@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\PhpSpec\Example;
 use NightWorksIO\MutationGate\Core\Test\Group;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Tests\Support\PhpSpecExamples;
 
 it('names an example by its spec\'s class and its method, in the file its spec is declared in', function (): void {
     $example = Example::of(PhpSpecExamples::held('it_is_held_by_its_spec'));
 
-    expect($example->id())->toBe(PhpSpecExamples::id('it_is_held_by_its_spec'))
+    expect($example->id())->toEqual(TestId::of(PhpSpecExamples::id('it_is_held_by_its_spec')))
         ->and($example->file())->toBe((string) realpath(sprintf('%s/Fixtures/PhpSpec/HeldSpec.php', dirname(__DIR__, 3))));
 });
 

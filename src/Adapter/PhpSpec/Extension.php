@@ -10,6 +10,8 @@ use function ini_get;
 use function is_string;
 
 use NightWorksIO\MutationGate\Core\Native\Guard;
+use NightWorksIO\MutationGate\Core\Native\OwnFiles;
+use NightWorksIO\MutationGate\Core\Native\Selected;
 use NightWorksIO\MutationGate\Core\Native\Variable;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
