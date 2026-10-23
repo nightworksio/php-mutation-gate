@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Format\Lenient;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CodeceptionSuiteSettings;
 use NightWorksIO\MutationGate\Core\Test\DeclaredSuites;
 use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
@@ -172,7 +173,7 @@ final readonly class CodeceptionSuite
 
     private static function read(string $file): Node|CannotJudge
     {
-        $text = is_file($file) ? file_get_contents($file) : false;
+        $text = is_file($file) ? file_get_contents($file) : NotGiven::value();
 
         return is_string($text)
             ? self::yaml($text, basename($file))

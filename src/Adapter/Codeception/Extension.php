@@ -179,18 +179,21 @@ final class Extension extends CodeceptionExtension
         }
     }
 
-    /** The coverage of each selected test, over the project's own files, where the run is told a file for it. */
+    /**
+     * The coverage of each selected test, over the project's own files, where the run is told a file for it and
+     * the vendor directory whose files it leaves out.
+     */
     private function covering(Told $told): Covering|NotGiven
     {
         $map = $told->coverage();
         $vendor = $told->vendor();
 
-        if ($map instanceof NotGiven) {
-            return $map;
+        if ($map instanceof NotGiven || $vendor instanceof NotGiven) {
+            return NotGiven::value();
         }
 
         $filter = new Filter();
-        $own = OwnFiles::under((string) getcwd(), $vendor instanceof NotGiven ? '' : $vendor);
+        $own = OwnFiles::under((string) getcwd(), $vendor);
 
         return new Covering($map, new CodeCoverage(new Selector()->select($filter), $filter), $own);
     }

@@ -44,6 +44,7 @@ it('keeps each suite\'s tests in its directory under the tests directory, at its
     expect($suite instanceof TestSuite ? $suite->paths() : $suite)
         ->toEqual(Paths::of(Path::of('checks/Functional'), Path::of('checks/inlined'), Path::of('checks/Unit')))
         ->and($suite instanceof TestSuite ? $suite->suites() : $suite)->toEqual(DeclaredSuites::none())
+        ->and($suite instanceof TestSuite ? $suite->conventionalDirectory() : $suite)->toEqual(SuiteDirectory::of(Path::of('checks'), 'Test.php'))
         ->and($suite instanceof TestSuite && $suite->holdsTestCase(Path::of('checks/Unit/MoneyTest.php')))->toBeTrue()
         ->and($suite instanceof TestSuite && $suite->holdsTestCase(Path::of('checks/Functional/MoneyCest.php')))->toBeTrue()
         ->and($suite instanceof TestSuite && $suite->holdsTestCase(Path::of('checks/inlined/BuyCept.php')))->toBeTrue()
@@ -65,6 +66,7 @@ it('keeps the tests in tests where the config declares no suite, or there is no 
     $suite = codeceptionSuite('namespace: Tests');
 
     expect($suite instanceof TestSuite ? $suite->paths() : $suite)->toEqual(Paths::of(Path::of('tests')))
+        ->and(CodeceptionSuite::conventional()->conventionalDirectory())->toEqual(SuiteDirectory::of(Path::of('tests'), 'Test.php'))
         ->and(CodeceptionSuite::conventional()->directories())->toEqual([
             SuiteDirectory::of(Path::of('tests'), 'Test.php'),
             SuiteDirectory::of(Path::of('tests'), 'Cest.php'),

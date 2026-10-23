@@ -185,11 +185,9 @@ final readonly class Detected
         $names = array_map(static fn(BuiltinRunner $runner): string => $runner->package()->value, $choices);
         $last = (string) array_pop($names);
 
-        return CannotJudge::because(
-            count($names) === 1
-                ? sprintf(self::BOTH, implode('', $names), $last)
-                : sprintf(self::SEVERAL, implode(', ', $names), $last),
-        );
+        $said = count($names) === 1 ? self::BOTH : self::SEVERAL;
+
+        return CannotJudge::because(sprintf($said, implode(', ', $names), $last));
     }
 
     private function runnerIn(Installed $installed): BuiltinRunner|CannotJudge

@@ -124,9 +124,10 @@ it('lists every test of an in-process suite and its groups once the run is done,
         ]);
 });
 
-it('writes nothing once the run is done where it is told neither a listing nor a coverage map', function (): void {
+it('writes nothing once the run is done where it is told neither a listing nor a coverage map, nor a map with no vendor directory', function (): void {
     $root = Scratch::directory();
     selectingTheFirst($root)->written();
+    selectingTheFirst($root, [Option::Coverage->value => sprintf('%s/coverage.php', $root)])->written();
 
     expect(glob(sprintf('%s/*', $root)))->toBe([sprintf('%s/selected.txt', $root)]);
 });

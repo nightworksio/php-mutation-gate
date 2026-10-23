@@ -37,13 +37,14 @@ final readonly class CodeceptionSuiteSettings
 
     /**
      * The modules an enabled module's entry names: itself, by name or as
-     * the key of its settings, and those its settings say it depends on.
+     * the key of its settings, and those its settings say it depends on;
+     * an entry of settings names no module by its text.
      *
      * @return list<string>
      */
     private static function namedBy(Node $module): array
     {
-        $named = Lenient::text($module) === '' ? [] : [Lenient::text($module)];
+        $named = [Lenient::text($module)];
 
         foreach (Lenient::entries($module) as $name => $settings) {
             $named = [...$named, sprintf('%s', $name), Lenient::text($settings->field('depends'))];
