@@ -167,6 +167,13 @@ it('writes the step summary with every mutant counted as not killed in one table
         ->and($summary)->toEndWith(sprintf("[The run](%s) keeps the HTML report among its artifacts.\n", $run));
 });
 
+it('names no run in a step summary of a run it does not know', function () use ($run): void {
+    $named = Markdown::summary(Verdicts::failing(), $run, Verdicts::monthAgo());
+
+    expect(Markdown::summary(Verdicts::failing(), '', Verdicts::monthAgo()))
+        ->toBe(str_replace(sprintf("\n\n[The run](%s) keeps the HTML report among its artifacts.", $run), '', $named));
+});
+
 it('writes what each suite alone kills in the step summary, and never in the comment', function () use ($run): void {
     $verdict = Killings::suited(MatrixKind::FirstKiller);
 
