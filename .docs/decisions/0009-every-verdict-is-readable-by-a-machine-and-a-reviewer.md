@@ -227,8 +227,9 @@ sees the same verdict.
        rendered with a slot, `<!-- mutation-gate: html report -->`, which
        `PullRequestComment` fills as it writes the comment: it finds that
        artifact among its own run's with `actions: read` and links
-       `<run>/artifacts/<id>`, *[The HTML report](…) of [this run](…).* A
-       comment updated in place thus always links the run that wrote it.
+       `<run>/artifacts/<id>` in the line *The HTML report of this run*, each
+       half a link. A comment updated in place thus always links the run that
+       wrote it.
        Where the run holds no such artifact, it has expired, or its artifacts
        cannot be read, the line says so and links the run instead: *This run
        left no HTML report to link: no artifact of it is named
