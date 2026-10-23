@@ -92,15 +92,20 @@ final readonly class Told
     private function examples(): TestIds|NotGiven
     {
         $file = $this->last(LaunchOption::Examples);
-        $lines = $file instanceof NotGiven || ! is_file($file)
-            ? false
-            : file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
 
         return match (true) {
             $file instanceof NotGiven => $file,
-            is_array($lines) => TestIds::of(...array_map(TestId::of(...), $lines)),
+            is_file($file) => $this->listedIn($file),
             default => TestIds::none(),
         };
+    }
+
+    /** The tests a file lists, by id, a line each. */
+    private function listedIn(string $file): TestIds
+    {
+        $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+
+        return TestIds::of(...array_map(TestId::of(...), is_array($lines) ? $lines : []));
     }
 
     /** A spec file named on the command line, by its real path, as PHP names the file a class is declared in. */

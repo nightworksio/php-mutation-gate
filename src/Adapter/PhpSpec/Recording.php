@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\PhpSpec;
 
+use function array_key_exists;
 use function file_put_contents;
 
 use NightWorksIO\MutationGate\Core\Native\Outcome;
@@ -20,6 +21,13 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
  */
 final readonly class Recording implements EventSubscriberInterface
 {
+    /** How each result PhpSpec gives an example that passed, failed or broke ended; any other ended neither way. */
+    private const array OUTCOMES = [
+        ExampleEvent::PASSED => Outcome::Passed,
+        ExampleEvent::FAILED => Outcome::Failed,
+        ExampleEvent::BROKEN => Outcome::Errored,
+    ];
+
     public function __construct(private string $results, private Selected $selected)
     {
     }
@@ -50,12 +58,7 @@ final readonly class Recording implements EventSubscriberInterface
 
     private function outcomeOf(int $result): Outcome
     {
-        return match ($result) {
-            ExampleEvent::PASSED => Outcome::Passed,
-            ExampleEvent::FAILED => Outcome::Failed,
-            ExampleEvent::BROKEN => Outcome::Errored,
-            default => Outcome::Neither,
-        };
+        return array_key_exists($result, self::OUTCOMES) ? self::OUTCOMES[$result] : Outcome::Neither;
     }
 
     private function write(string $line): void
