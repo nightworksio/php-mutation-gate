@@ -29,6 +29,12 @@ use PHPUnit\Metadata\MetadataCollection;
  */
 final readonly class PhpUnitEvents
 {
+    /** The id PHPUnit gives the test running it. */
+    public static function runningId(): string
+    {
+        return TestMethodBuilder::fromCallStack()->id();
+    }
+
     /** Emits that the test running it is about to be prepared. */
     public static function started(Facade $events): void
     {

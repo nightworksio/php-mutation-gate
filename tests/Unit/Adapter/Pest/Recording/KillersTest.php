@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Pest\Recording\EndedInTest;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\KillerFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Killers;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Loaded;
@@ -11,6 +12,8 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RunIssues;
+use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Tests\Support\Beats;
 use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitEvents;
@@ -37,11 +40,13 @@ it('names no killer unless the adapter names a results file and Pest a mutated c
         ->and(Killers::fromEnvironment([]))->toBe(Off::NamingKillers);
 });
 
-it('names no killer where PHPUnit takes no more subscribers', function (): void {
+it('names no killer where PHPUnit takes no more subscribers, and ends without naming one', function (): void {
     $sealed = new Facade();
     $sealed->seal();
+    $killers = Killers::listening('/r/results.jsonl', '/tmp/m', $sealed, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat());
 
-    expect(Killers::listening('/r/results.jsonl', '/tmp/m', $sealed, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat()))->toBe(Off::NamingKillers);
+    expect($killers)->toBe(Off::NamingKillers)
+        ->and(static fn() => Killers::endedIn($killers))->not->toThrow(EndedInTest::class);
 });
 
 it('writes each killer as a line of its own in the file of the mutated copy it ran on, and none in the results', function (): void {
@@ -143,3 +148,54 @@ it('names as killers, once PHPUnit ends its run, the tests whose issues failed i
         KillerFile::ran(0),
     ));
 });
+
+it('names the test running as its process ends as one that errored, where it stood, and throws', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    $events = new Facade();
+    $killers = Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat());
+    $test = PhpUnitEvents::runningId();
+
+    PhpUnitEvents::started($events);
+    $ended = static function () use ($killers): void {
+        Killers::endedIn($killers);
+    };
+
+    expect($ended)->toThrow(EndedInTest::in($test))
+        ->and($ended)->not->toThrow(EndedInTest::class)
+        ->and(file_get_contents(KillerFile::beside($results, '/tmp/mutations/abc')))->toBe(KillerFile::line(
+            RecordEvent::Errored,
+            $test,
+            Placed::at(1, OrderDigest::of(TestId::of($test))->value(), (int) getmypid()),
+        ));
+});
+
+it('names no test where its process ends between tests, once a test was named a killer, or once the run ended', function (Closure $then): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    $events = new Facade();
+    $killers = Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat());
+
+    $ended = static function () use ($killers): void {
+        Killers::endedIn($killers);
+    };
+
+    $ended();
+    PhpUnitEvents::started($events);
+    $then($events, $killers);
+
+    $file = KillerFile::beside($results, '/tmp/mutations/abc');
+
+    expect($ended)->not->toThrow(EndedInTest::class)
+        ->and(str_contains(is_file($file) ? (string) file_get_contents($file) : '', RecordEvent::Errored->value))->toBeFalse();
+})->with([
+    'the test finished' => [static function (Facade $events): void {
+        PhpUnitEvents::finished($events);
+    }],
+    'the test was named a killer' => [static function (Facade $events, Killers|Off $killers): void {
+        if ($killers instanceof Killers) {
+            $killers->killedBy('T::adds');
+        }
+    }],
+    'the run ended' => [static function (Facade $events): void {
+        PhpUnitEvents::executionFinished($events);
+    }],
+]);

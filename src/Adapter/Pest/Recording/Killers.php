@@ -13,6 +13,7 @@ use function is_string;
 use function is_writable;
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\InertSetting;
 use PHPUnit\Event\EventFacadeIsSealedException;
 use PHPUnit\Event\Facade;
@@ -92,7 +93,7 @@ final readonly class Killers
                 new OnPreparationStarted($killers->order),
                 new OnFailed($killers),
                 new OnErrored($killers),
-                new OnTestFinished($ran, $heartbeat),
+                new OnTestFinished($ran, $heartbeat, $killers->order),
                 new OnExecutionStarted($heartbeat),
                 new OnExecutionFinished($ran, $killers, $issues),
             );
@@ -128,10 +129,49 @@ final readonly class Killers
         $this->write(RecordEvent::Errored, $test);
     }
 
+    /** The run ended: no test runs after it. */
+    public function runEnded(): void
+    {
+        $this->order->stopped();
+    }
+
+    /**
+     * Where killers are named in this process, as it ends: see ended().
+     *
+     * @throws EndedInTest
+     */
+    public static function endedIn(self|Off $killers): void
+    {
+        if ($killers instanceof self) {
+            $killers->ended();
+        }
+    }
+
+    /**
+     * Where the process ends as a test runs, before the run ended, writes that
+     * test as one that errored, where it stood, and throws: a test the
+     * process ended in never passed, and is named its killer (ADR-0014).
+     *
+     * @throws EndedInTest
+     */
+    public function ended(): void
+    {
+        $running = $this->order->running();
+
+        if ($running instanceof NotGiven) {
+            return;
+        }
+
+        $this->erroredBy($running);
+
+        throw EndedInTest::in($running);
+    }
+
     /** Writes a test, and where it stood, to the mutant's killer file, as Pest's own process records it. */
     private function write(RecordEvent $event, string $test): void
     {
         $this->append(KillerFile::line($event, $test, $this->order->placed($test)));
+        $this->order->stopped();
     }
 
     private function append(string $line): void

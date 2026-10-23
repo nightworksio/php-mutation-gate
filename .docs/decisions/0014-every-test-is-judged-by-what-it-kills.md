@@ -349,7 +349,12 @@ running it: why is this mutant here, and has it always been?
         error PHP printed among it.
       - Pest's plugin counts and digests the tests each mutant's own process
         starts, and writes the position and digest with each failing test,
-        and the arguments that process started with. Pest's adapter replays
+        and the arguments that process started with. Where that process
+        ends as a test runs, before PHPUnit ends its run, as `exit`, `die`
+        or a fatal error ends it, the plugin's shutdown function writes that
+        test as erroring, with its position and digest, and throws an
+        exception nothing catches, which fails the process whatever code it
+        would have ended with: a test its process ended in never passed. Pest's adapter replays
         a narrowed run by them, stopped after its last failing test, and
         lets its kill stand only where the replay's order gives the same
         `key` (ADR-0004).
@@ -380,6 +385,13 @@ running it: why is this mutant here, and has it always been?
     its evidence:
     - A kill stands where a test is named as its killer, where a signal ended
       its process, or where PHP recorded a fatal error in it.
+    - A test that is running when its process ends, by `exit`, `die` or a
+      fatal error, is named as its killer by each runner that sees which
+      test runs: Pest's plugin, and the extensions of the PHPUnit, PhpSpec
+      and Codeception runners (ADR-0023, ADR-0027). Decision 18 checks it on
+      the original, so a test that ends its process unmutated too is never
+      read as a kill. A runner that cannot see it, as Infection, names none,
+      and its evidence judges the kill.
     - A run that fails with no test failing or erroring names as its
       killers the tests that raised an issue its runner's configuration
       fails the run on: a warning, notice or deprecation, a risky,
