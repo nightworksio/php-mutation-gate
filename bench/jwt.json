@@ -67,5 +67,90 @@
     "same": [
         "infection",
         "gate-infection"
-    ]
+    ],
+    "scenarios": {
+        "week": "c98179c75efa95f2f72d9266d871415c51801ac9",
+        "replay": [
+            {
+                "pull": 1063,
+                "base": "ba53d9ea012be8fbbcbc8e20b1a7987ba941ed06",
+                "merge": "f7b7fb9bfacb256b1080e5dda9ce872d8769d63e"
+            },
+            {
+                "pull": 1064,
+                "base": "f3543c89b1819b61c81766e6fe2b6f9c795c28de",
+                "merge": "9b679ba7850a7b55e3263ad84c1634f0a037f8c9"
+            },
+            {
+                "pull": 1071,
+                "base": "0188202c52aad2ceae79d82ea1a798a1908ea8fb",
+                "merge": "a0cf6aa6286e98665151bc12db329ed7bfda45fc"
+            },
+            {
+                "pull": 1073,
+                "base": "deecbb671b1e65d0cceac1ea8dd2ae630530e8d0",
+                "merge": "9594d549b1aba7d95776ee554fa7168a520406ee"
+            },
+            {
+                "pull": 1077,
+                "base": "9b1378099336f8183835f13f91e5e294c6391056",
+                "merge": "15bbe9278c19789e8ef534f8c60172d255b6b8dc"
+            },
+            {
+                "pull": 1080,
+                "base": "15bbe9278c19789e8ef534f8c60172d255b6b8dc",
+                "merge": "60f66c32778aef0e55f8ca4dcdddf6f4302103ed"
+            },
+            {
+                "pull": 1083,
+                "base": "8cf07832ba8ae4db0e9f5fc3a71eb607d59ae611",
+                "merge": "d7a5a02705c97d11fb68c0227da9feb68c354ed4"
+            },
+            {
+                "pull": 1088,
+                "base": "67c2a94bbb73868386fcfdb1da177fb38c8d8b34",
+                "merge": "db7aa1e108ae2f864afaaa0db5a29e5b67874697"
+            },
+            {
+                "pull": 1093,
+                "base": "890560f4000a089afe30b30df09d4e5b74246e61",
+                "merge": "18ffde82412e1d019d90a121ef86f103588b62d0"
+            },
+            {
+                "pull": 1092,
+                "base": "18ffde82412e1d019d90a121ef86f103588b62d0",
+                "merge": "f1040bd27b0ba03c8a2741d63295b39a84d24fc8"
+            },
+            {
+                "pull": 1095,
+                "base": "f1040bd27b0ba03c8a2741d63295b39a84d24fc8",
+                "merge": "325ada77612886e7561d72cf4c1f9ce27101236d"
+            },
+            {
+                "pull": 1096,
+                "base": "325ada77612886e7561d72cf4c1f9ce27101236d",
+                "merge": "e748b40a35413e2ee1695b655da0d267a1c652a6"
+            },
+            {
+                "pull": 1097,
+                "base": "e748b40a35413e2ee1695b655da0d267a1c652a6",
+                "merge": "905c5f09ec2f6abdc50344d544e07ddeb5874f11"
+            },
+            {
+                "pull": 1103,
+                "base": "a835af59b030d3f2967725697cf88300f579088e",
+                "merge": "c98179c75efa95f2f72d9266d871415c51801ac9"
+            },
+            {
+                "pull": 1133,
+                "base": "c98179c75efa95f2f72d9266d871415c51801ac9",
+                "merge": "bb3e9f21e4196e8afc41def81ef649c164bca25e"
+            }
+        ],
+        "gate": [
+            "gate-infection",
+            "gate-phpunit"
+        ],
+        "diff": "infection"
+    }
 }

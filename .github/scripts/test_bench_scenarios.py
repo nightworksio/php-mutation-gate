@@ -1,0 +1,218 @@
+"""The benchmark's scenarios: python3 -m unittest discover .github/scripts"""
+import json
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+import bench_scenarios
+
+PROJECT = {
+    "project": "acme/money",
+    "version": "1.0.0",
+    "commit": "p" * 40,
+    "scenarios": {
+        "week": "w" * 40,
+        "replay": [
+            {"pull": 1, "base": "a" * 40, "merge": "b" * 40},
+            {"pull": 2, "base": "a" * 40, "merge": "c" * 40},
+            {"pull": 3, "base": "d" * 40, "merge": "e" * 40},
+        ],
+        "gate": ["gate"],
+    },
+}
+
+
+class Deciding(unittest.TestCase):
+    def test_takes_the_value_at_a_share_of_the_sorted_values_by_the_nearest_rank(self):
+        self.assertEqual(bench_scenarios.percentile([5.0, 1.0, 3.0, 2.0, 4.0], 0.9), 5.0)
+        self.assertEqual(bench_scenarios.percentile([float(each) for each in range(1, 21)], 0.9), 18.0)
+        self.assertEqual(bench_scenarios.percentile([7.0], 0.9), 7.0)
+        self.assertEqual(bench_scenarios.percentile([], 0.9), 0.0)
+
+    def test_owns_each_file_the_preparation_wrote_or_changed_and_none_it_left(self):
+        prepared = {"composer.json": b"bench", "src/A.php": b"a", "bench-plain.json": b"{}"}
+        pristine = {"composer.json": b"project", "src/A.php": b"a"}
+        self.assertEqual(bench_scenarios.owned(prepared, pristine), {"composer.json", "bench-plain.json"})
+
+    def test_writes_every_file_of_a_commit_and_removes_every_other_tracked_one_but_those_it_owns(self):
+        written, removed = bench_scenarios.laid(
+            tracked={"composer.json", "src/A.php", "src/Gone.php", "tests/ATest.php"},
+            tree={"composer.json", "src/A.php", "src/New.php"},
+            kept={"composer.json", "tests/ATest.php"},
+        )
+        self.assertEqual(written, {"src/A.php", "src/New.php"})
+        self.assertEqual(removed, {"src/Gone.php"})
+
+    def test_plans_each_arm_s_runs_in_order(self):
+        steps = [
+            (step["scenario"], step["at"][:1], step["branch"], step["full"], step["timed"], step.get("fresh", False))
+            for step in bench_scenarios.plan(PROJECT)
+        ]
+        self.assertEqual(steps, [
+            ("warm", "w", "main", True, False, True),
+            ("warm", "p", "main", True, True, False),
+            ("unchanged", "p", "main", True, True, False),
+            ("replay", "a", "main", True, False, True),
+            ("replay", "b", "pull-1", False, True, False),
+            ("replay", "c", "pull-2", False, True, False),
+            ("replay", "d", "main", False, False, False),
+            ("replay", "e", "pull-3", False, True, False),
+        ])
+
+    def test_replays_with_no_pull_request_as_warm_and_unchanged_alone(self):
+        project = {**PROJECT, "scenarios": {**PROJECT["scenarios"], "replay": []}}
+        self.assertEqual([step["scenario"] for step in bench_scenarios.plan(project)], ["warm", "warm", "unchanged"])
+
+    def test_gives_a_replay_s_median_and_p90_of_the_pulls_that_reached_a_verdict_and_names_the_rest(self):
+        runs = [{"seconds": 10.0, "exit": 0}, {"seconds": 30.0, "exit": 1}, {"seconds": 20.0, "exit": 0},
+                {"seconds": 99.0, "exit": 2}, {"seconds": 5.0, "exit": "stopped"}]
+        self.assertEqual(bench_scenarios.replayed(runs),
+                         {"pulls": 5, "judged": 3, "median": 20.0, "p90": 30.0, "otherwise": [2, "stopped"]})
+
+    def test_tabulates_each_arm_s_scenarios(self):
+        wall = {"median": 12.0, "min": 11.0, "max": 14.0}
+        arms = {
+            "gate": {"warm": wall, "unchanged": {"median": 2.0, "min": 2.0, "max": 3.0},
+                     "replay": {"pulls": 3, "judged": 2, "median": 4.0, "p90": 6.0, "otherwise": [2]}},
+            "infection": {"replay": {"pulls": 3, "judged": 3, "median": 40.0, "p90": 60.0, "otherwise": []}},
+        }
+        text = bench_scenarios.summary(PROJECT, arms)
+        self.assertIn("| gate | 12.0 s (11.0–14.0) | 2.0 s (2.0–3.0) | 4.0 s | 6.0 s | 1 of 3 |", text)
+        self.assertIn("| infection | - | - | 40.0 s | 60.0 s | 0 of 3 |", text)
+        self.assertIn("the last 3 merged pull requests", text)
+
+
+def git(directory: Path, *arguments: str) -> str:
+    return subprocess.run(["git", "-C", str(directory), *arguments], check=True, capture_output=True,
+                          text=True).stdout.strip()
+
+
+def commit(directory: Path, files: dict[str, str], message: str) -> str:
+    for path in list(git(directory, "ls-files").splitlines()):
+        if path not in files:
+            (directory / path).unlink()
+    for path, text in files.items():
+        (directory / path).parent.mkdir(parents=True, exist_ok=True)
+        (directory / path).write_text(text)
+    git(directory, "add", "--all")
+    git(directory, "-c", "user.name=t", "-c", "user.email=t@localhost", "commit", "--quiet", "--message", message)
+    return git(directory, "rev-parse", "HEAD")
+
+
+# A gate that says, for each run, the branch it ran on, the project's commit
+# the checkout holds, its options, whether it found its ledger, and the
+# preparation's file; and leaves a ledger.
+FAKE_GATE = """
+import json, pathlib, subprocess, sys
+head = subprocess.run(['git', 'log', '-1', '--format=%s'], capture_output=True, text=True).stdout.strip()
+branch = subprocess.run(['git', 'branch', '--show-current'], capture_output=True, text=True).stdout.strip()
+origin = subprocess.run(['git', 'rev-parse', 'origin/HEAD'], capture_output=True, text=True).stdout.strip()
+ledger = pathlib.Path('.mutation-gate/ledger')
+said = {'branch': branch, 'head': head, 'options': sys.argv[2:], 'ledger': ledger.read_text() if ledger.exists() else '',
+        'owned': pathlib.Path('composer.json').read_text(), 'files': sorted(p.name for p in pathlib.Path('src').glob('*')),
+        'origin': origin}
+with open(sys.argv[1], 'a') as log:
+    log.write(json.dumps(said) + '\\n')
+ledger.parent.mkdir(exist_ok=True)
+ledger.write_text(head)
+"""
+
+
+class Running(unittest.TestCase):
+    def test_runs_each_scenario_on_the_project_s_commits_laid_over_the_prepared_one(self):
+        with tempfile.TemporaryDirectory() as work:
+            upstream, project, out = Path(work) / "upstream", Path(work) / "project", Path(work) / "out"
+            upstream.mkdir()
+            git(upstream, "init", "--quiet")
+            git(upstream, "config", "uploadpack.allowAnySHA1InWant", "true")
+            week = commit(upstream, {"composer.json": "project", "src/A.php": "a1"}, "week")
+            base = commit(upstream, {"composer.json": "project", "src/A.php": "a2", "src/Old.php": "o"}, "base")
+            merged = commit(upstream, {"composer.json": "project", "src/A.php": "a3"}, "merged")
+            pinned = commit(upstream, {"composer.json": "project", "src/A.php": "a4"}, "pinned")
+            project.mkdir()
+            git(project, "init", "--quiet")
+            commit(project, {"composer.json": "bench", "src/A.php": "a4", ".gitignore": ".mutation-gate/\n"},
+                   "prepared")
+            log = Path(work) / "runs.jsonl"
+            gate = Path(work) / "gate.py"
+            gate.write_text(FAKE_GATE)
+            described = {
+                "project": "acme/money", "version": "1.0.0", "commit": pinned, "repository": f"file://{upstream}",
+                "arms": {"gate": {"said": "the gate", "report": "gate",
+                                  "command": [sys.executable, str(gate), str(log)]}},
+                "scenarios": {"week": week, "replay": [{"pull": 7, "base": base, "merge": merged}], "gate": ["gate"]},
+            }
+            bench_scenarios.run(described, project, out, rounds=2)
+            runs = [json.loads(line) for line in log.read_text().splitlines()]
+            self.assertEqual([(each["branch"], each["head"], each["options"][:1]) for each in runs], [
+                ("main", week, ["--full"]),
+                ("main", pinned, ["--full"]),
+                ("main", pinned, ["--full"]),
+                ("main", pinned, ["--full"]),
+                ("main", pinned, ["--full"]),
+                ("main", base, ["--full"]),
+                ("pull-7", merged, [f"--changed-since={runs[6]['origin']}"]),
+            ])
+            self.assertEqual([each["ledger"] for each in runs], ["", week, week, pinned, pinned, "", base])
+            self.assertEqual({each["owned"] for each in runs}, {"bench"})
+            self.assertEqual(runs[5]["files"], ["A.php", "Old.php"])
+            self.assertEqual(runs[6]["files"], ["A.php"])
+            self.assertEqual(runs[5]["origin"], runs[6]["origin"])
+            self.assertEqual(git(project, "log", "-1", "--format=%s", runs[6]["origin"]), base)
+            self.assertEqual(git(project, "log", "-1", "--format=%s", "main"), "prepared")
+            self.assertEqual(sorted(path.name for path in out.glob("*.time")), [
+                "gate-replay-7.time", "gate-unchanged-1.time", "gate-unchanged-2.time", "gate-warm-1.time",
+                "gate-warm-2.time",
+            ])
+
+    def test_runs_the_plain_arm_on_each_pull_request_s_change_from_its_base_with_its_own_diff_option(self):
+        with tempfile.TemporaryDirectory() as work:
+            upstream, plain, out = Path(work) / "upstream", Path(work) / "project-plain", Path(work) / "out"
+            upstream.mkdir()
+            git(upstream, "init", "--quiet")
+            git(upstream, "config", "uploadpack.allowAnySHA1InWant", "true")
+            base = commit(upstream, {"composer.json": "project", "src/A.php": "a1"}, "base")
+            merged = commit(upstream, {"composer.json": "project", "src/A.php": "a2"}, "merged")
+            plain.mkdir()
+            git(plain, "init", "--quiet")
+            commit(plain, {"composer.json": "bench", "src/A.php": "a2"}, "prepared")
+            said = Path(work) / "said.json"
+            told = "import json, sys, subprocess; json.dump({'argv': sys.argv[1:], 'head': subprocess.run(['git', 'log', '-1', '--format=%s'], capture_output=True, text=True).stdout.strip()}, open(sys.argv[1], 'w'))"
+            described = {
+                "repository": f"file://{upstream}",
+                "arms": {"infection": {"said": "plain", "directory": "../project-plain",
+                                       "command": [sys.executable, "-c", told, str(said)]}},
+                "scenarios": {"diff": "infection", "replay": [{"pull": 9, "base": base, "merge": merged}]},
+            }
+            source = bench_scenarios.Source(described["repository"], Path(work) / "source")
+            bench_scenarios.diffed(described, Path(work) / "project", out, source, {"composer.json"}, {}, None)
+            run = json.loads(said.read_text())
+            self.assertEqual(run["head"], merged)
+            self.assertEqual(run["argv"][1], "--git-diff-lines")
+            self.assertEqual(git(plain, "log", "-1", "--format=%s", run["argv"][2].removeprefix("--git-diff-base=")), base)
+            self.assertEqual(json.loads((out / "infection-replay-9.time").read_text())["exit"], 0)
+            self.assertEqual((plain / "composer.json").read_text(), "bench")
+
+    def test_reports_each_arm_s_scenarios_and_fails_where_a_timed_run_reached_no_verdict(self):
+        with tempfile.TemporaryDirectory() as work:
+            out, result = Path(work) / "out", Path(work) / "result.json"
+            out.mkdir()
+            for name, seconds, code in (("gate-warm-1", 10.0, 0), ("gate-warm-2", 12.0, 1),
+                                        ("gate-unchanged-1", 2.0, 0), ("gate-replay-1", 3.0, 0),
+                                        ("infection-replay-1", 30.0, 0)):
+                (out / f"{name}.time").write_text(json.dumps({"seconds": seconds, "exit": code}))
+            described = {**PROJECT, "arms": {"gate": {"said": "the gate"}, "infection": {"said": "plain"}},
+                         "scenarios": {**PROJECT["scenarios"], "diff": "infection"}}
+            self.assertEqual(bench_scenarios.report(described, out, result), 0)
+            written = json.loads(result.read_text())
+            self.assertEqual(written["arms"]["gate"]["warm"]["median"], 11.0)
+            self.assertEqual(written["arms"]["gate"]["replay"]["judged"], 1)
+            self.assertEqual(written["arms"]["infection"]["replay"]["median"], 30.0)
+            (out / "gate-unchanged-2.time").write_text(json.dumps({"seconds": 1.0, "exit": "stopped"}))
+            self.assertEqual(bench_scenarios.report(described, out, result), 1)
+
+
+if __name__ == "__main__":
+    unittest.main()

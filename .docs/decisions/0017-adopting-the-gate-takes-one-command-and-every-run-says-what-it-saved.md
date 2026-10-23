@@ -400,13 +400,18 @@ would have cost without them.
       untested and uncovered mutants, so its others are reconciled by count.
     - **The scenarios:**
       - *cold full*: an empty ledger and no timings;
-      - *warm full*: a full run a week of the project's real commits after
-        the last one;
-      - *PR replay*: the project's last 20 merged pull requests, each run
-        change-scoped from its base with the base's ledger, reported as
-        median and p90. Where the runner is Infection, it is also compared
-        with Infection's own `--git-diff-lines`;
+      - *warm full*: a full run at the pinned commit on the ledger of a full
+        run at the newest commit a week or more older;
+      - *PR replay*: the project's last 20 merged pull requests, or those
+        of them whose code runs on the packages the preparation installs
+        (15 for `lcobucci/jwt`, whose older ones predate its PHPUnit 13
+        support), each run change-scoped from its base with the ledger the
+        default branch's runs left there, reported as median and p90. Where
+        the runner is Infection, it is also compared with Infection's own
+        `--git-diff-lines`;
       - *unchanged re-run*, labelled as the trivial case it is.
+    - Each scenario's commits are laid over the prepared project, whose
+      packages stay as its preparation installed them.
 
 16. **It runs on GitHub-hosted runners, on demand and monthly.**
     - It is `bench.yml` in this repository, on `workflow_dispatch` and a
