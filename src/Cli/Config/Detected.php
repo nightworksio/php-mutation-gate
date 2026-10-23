@@ -139,12 +139,12 @@ final readonly class Detected
     /**
      * That these runners are each installed, which zero-config chooses none of.
      *
-     * @param list<BuiltinRunner> $choices two or more
+     * @param non-empty-list<BuiltinRunner> $choices two or more
      */
     public static function together(array $choices): string
     {
         $names = array_map(static fn(BuiltinRunner $runner): string => $runner->package()->value, $choices);
-        $last = (string) array_pop($names);
+        $last = array_pop($names);
 
         $said = count($names) === 1 ? self::BOTH : self::SEVERAL;
 
