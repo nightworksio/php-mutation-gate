@@ -1,0 +1,17 @@
+includes:
+    - ../phpstan.neon
+
+parameters:
+    reportUnmatchedIgnoredErrors: false
+    ignoreErrors:
+        - identifier: mutationGate.longLine
+        - identifier: mutationGate.listLayout
+        - identifier: disallowed.class
+        - identifier: disallowed.constant
+        - identifier: disallowed.function
+        - identifier: disallowed.namespace
+        - identifier: disallowed.variable
+        - identifier: mutationGate.dynamicAccess
+        - identifier: mutationGate.manyMethods
+        - identifier: mutationGate.publicPropertyNotReadonly
+        - identifier: mutationGate.unneededLiteralExemption

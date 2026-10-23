@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Php;
 
 use function array_key_exists;
 use function count;
+use function range;
 
 /**
  * Which token of one text each token of another stands for, where the two
@@ -52,7 +53,8 @@ final readonly class TokenAlignment
 
     /**
      * How far along the first each diagonal reached before each step of the
-     * diff, up to the step that reaches the end of both.
+     * diff, up to the step that reaches the end of both, which no more steps
+     * than the two hold tokens between them can miss.
      *
      * @param list<string> $first
      * @param list<string> $second
@@ -63,11 +65,14 @@ final readonly class TokenAlignment
     {
         $reached = self::START;
         $trace = [];
-        $done = false;
 
-        for ($step = 0; ! $done; $step++) {
+        foreach (range(0, count($first) + count($second)) as $step) {
             $trace[] = $reached;
             [$reached, $done] = self::step($reached, $step, $first, $second);
+
+            if ($done) {
+                break;
+            }
         }
 
         return $trace;
