@@ -60,23 +60,40 @@ final readonly class Spec
     }
 
     /**
-     * The keys of what `getMatchers()` returns: each string in its body
-     * before a `=>`; none where the tokens declare no `getMatchers()`.
+     * The keys of the array `getMatchers()` returns: each string directly in
+     * the array a `return` of its body gives, before a `=>`; none where the
+     * tokens declare no `getMatchers()`.
      *
      * @return array<string, true>
      */
     private static function matchersIn(Tokens $tokens): array
     {
         $body = self::matchersBody($tokens);
-        $ends = $body === Tokens::NONE ? Tokens::NONE : $tokens->closing($body);
         $matchers = [];
 
-        foreach ($tokens->indicesOf(T_CONSTANT_ENCAPSED_STRING) as $at) {
-            $keyed = $at > $body && $at < $ends && $tokens->is($at + 1, T_DOUBLE_ARROW);
-            $matchers = $keyed ? [...$matchers, self::unquoted($tokens->text($at)) => true] : $matchers;
+        foreach ($body === Tokens::NONE ? [] : $tokens->inside($body, T_RETURN) as $returned) {
+            $matchers = [...$matchers, ...self::keysOf($tokens, $returned + 1)];
         }
 
         return $matchers;
+    }
+
+    /**
+     * Each string directly in the array that opens at an index, before a
+     * `=>`; none where no array opens there.
+     *
+     * @return array<string, true>
+     */
+    private static function keysOf(Tokens $tokens, int $array): array
+    {
+        $keys = [];
+
+        foreach ($tokens->is($array, '[') ? $tokens->inside($array, T_CONSTANT_ENCAPSED_STRING) : [] as $at) {
+            $keyed = $tokens->is($at + 1, T_DOUBLE_ARROW);
+            $keys = $keyed ? [...$keys, self::unquoted($tokens->text($at)) => true] : $keys;
+        }
+
+        return $keys;
     }
 
     /** Where the body of the first `getMatchers()` the tokens declare opens; none where they declare none. */
