@@ -60,6 +60,6 @@ it('records each test of the PHPUnit it is started in, to the results file its v
     ));
 });
 
-it('says in the guard file that opcache could serve an original where opcache is on, and nothing where it is off', function (): void {
-    expect([extensionRecorded('1')[1], extensionRecorded('0')[1]])->toBe(["cached\n", '']);
+it('says in the guard file whether opcache could serve an original, with opcache on and off', function (): void {
+    expect([extensionRecorded('1')[1], extensionRecorded('0')[1]])->toBe(["cached\n", "uncached\n"]);
 });

@@ -33,13 +33,11 @@ final readonly class Extension implements PhpUnitExtension
         self::noting(getenv(Variable::Guard->value), Opcache::ofCommandLine(ini_get(Opcache::CLI)));
     }
 
-    /** Says in the guard file, where one is named, that opcache could serve a cached original. */
+    /** Says in the guard file, where one is named, whether opcache could serve a cached original. */
     public static function noting(string|false $file, Opcache $opcache): void
     {
-        $note = Guard::noting($opcache);
-
-        if (is_string($file) && $file !== '' && is_string($note)) {
-            file_put_contents($file, $note, FILE_APPEND | LOCK_EX);
+        if (is_string($file) && $file !== '') {
+            file_put_contents($file, Guard::noting($opcache), FILE_APPEND | LOCK_EX);
         }
     }
 }
