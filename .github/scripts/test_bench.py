@@ -83,6 +83,21 @@ class Pairs(unittest.TestCase):
         )
         self.assertEqual([each["explained"] for each in bench.pairs(plain, gate)], [True, True])
 
+    def test_explains_an_uncovered_mutant_only_where_the_plain_arm_leaves_them_out(self):
+        gate = bench.outcome({"mutants": [gate_mutant(3, "uncovered")]}, "gate", ROOT)
+        self.assertEqual([each["explained"] for each in bench.pairs([], gate, left_out=True)], [True])
+        self.assertEqual([each["explained"] for each in bench.pairs([], gate)], [False])
+
+    def test_explains_a_mutant_of_the_gate_s_own_sets_the_plain_arm_lacks(self):
+        gate = bench.outcome({"mutants": [gate_mutant(3, "survived", mutator="symfony/RemoveFlush")]}, "gate", ROOT)
+        self.assertEqual([(each["plain"], each["explained"]) for each in bench.pairs([], gate)], [("absent", True)])
+
+    def test_leaves_uncovered_mutants_out_for_plain_infection_unless_it_asks_for_them(self):
+        infection = {"report": "infection", "command": ["vendor/bin/infection"]}
+        self.assertTrue(bench.leaves_uncovered_out(infection))
+        self.assertFalse(bench.leaves_uncovered_out({**infection, "command": ["infection", "--with-uncovered"]}))
+        self.assertFalse(bench.leaves_uncovered_out({"report": "pest", "command": ["pest"]}))
+
     def test_names_a_mutant_one_arm_lacks(self):
         plain = bench.outcome({"killed": [infection_entry(3), infection_entry(3)]}, "infection", ROOT)
         gate = bench.outcome({"mutants": [gate_mutant(3, "killed")]}, "gate", ROOT)

@@ -18,7 +18,15 @@ composer require --dev --no-interaction --no-progress --no-update \
   'nightworksio/mutation-gate:@dev'
 composer update --no-interaction --no-progress --with-all-dependencies
 composer show | grep -E '^(phpunit/phpunit|infection/infection|nightworksio/mutation-gate) '
-printf '.mutation-gate/\nbench-*.json\nbench-*.txt\ninfection.txt\n' >> .gitignore
+printf '.mutation-gate/\nbench-*.json\nbench-*.txt\ninfection.txt\ndata/database_test?*.sqlite\n' >> .gitignore
+# The suite writes to one SQLite file, and processes that share it lock each
+# other out, which fails tests a mutant never touched. Each process runs on a
+# copy of its own, by the TEST_TOKEN Infection and the gate give each of
+# their workers, as a parallel run of any suite on one database needs.
+printf 'DATABASE_URL="sqlite:///%%kernel.project_dir%%/data/database_test${TEST_TOKEN:-}.sqlite"\n' > .env.test.local
+for token in $(seq 0 64); do
+  cp data/database_test.sqlite "data/database_test${token}.sqlite"
+done
 bench_baselines src
 printf '{"source": {"directories": ["src"]}, "mutators": {"@default": true}}\n' > infection.json
 printf '{"runner": {"use": "infection"}, "trees": [{"path": "src"}]}\n' > bench-infection.json

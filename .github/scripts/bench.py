@@ -29,7 +29,8 @@ alone, and its mutants are matched with the gate's by file, line and mutator. `r
 file and the step summary:
 
 - each arm's wall time, as the median of the rounds with their range;
-- each arm's mutants per file and status, from its first round;
+- each arm's mutants per file and status, from the first round that left
+  a report;
 - each mutant the arms named under `same` judge otherwise, or one of them
   lacks. Those arms mutate with the same tool and mutators, so a difference
   the gate's own statuses do not explain fails the benchmark. A mutant plain
@@ -91,6 +92,10 @@ EXPLAINING_JUDGEMENTS = {"flaky", "equivalent"}
 # its text log names each, with no diff. The gate runs it, so the difference
 # is Infection's own.
 SKIPPED = "skipped"
+
+# How a mutator of one of the gate's own sets is named, `<set>/<Name>`
+# (ADR-0021): the plain tool has no such mutator, so it lacks its mutants.
+GATE_SET = "/"
 INFECTION_SKIPPED = re.compile(r"^\d+\) (\S+):(\d+)\s+\[M\] (\S+) \[ID\] \S+$")
 
 
@@ -220,14 +225,22 @@ def unskipped(plain: list[dict], gate: list[dict]) -> tuple[list[dict], list[dic
     return found, [each for each in plain if each["status"] != SKIPPED], left
 
 
-def pairs(plain: list[dict], gate: list[dict], named_only: bool = False) -> list[dict]:
+def leaves_uncovered_out(arm: dict) -> bool:
+    """Whether a plain arm makes no mutant on a line no test covers: Infection, unless `--with-uncovered` asks."""
+    return arm["report"] == "infection" and "--with-uncovered" not in arm["command"]
+
+
+def pairs(plain: list[dict], gate: list[dict], named_only: bool = False, left_out: bool = False) -> list[dict]:
     """
     Each mutant two arms of the same tool judge otherwise, or one lacks, and
     whether the gate explains it. Where the plain arm names only its escaped
     and uncovered mutants, as plain Pest does, the gate's are matched with
     those by file, line and mutator, and a gate mutant it does not name is
     one it killed or timed out. A mutant plain Infection skipped is matched
-    by file, line and mutator, and Infection's skip explains it.
+    by file, line and mutator, and Infection's skip explains it. A gate
+    mutant the plain arm lacks is explained where a mutator of the gate's
+    own sets made it, or where it is uncovered and the plain arm leaves
+    uncovered mutants out.
     """
     if named_only:
         gate = [mutant for mutant in gate if mutant["outcome"] in ("escaped", "uncovered")]
@@ -248,7 +261,9 @@ def pairs(plain: list[dict], gate: list[dict], named_only: bool = False) -> list
             explained = bool(one and other) and (
                 (one["outcome"], other["status"]) in EXPLAINED
                 or other.get("judgement") in EXPLAINING_JUDGEMENTS
-            )
+            ) or (one is None and other is not None and (
+                GATE_SET in other["mutator"] or (left_out and other["outcome"] == "uncovered")
+            ))
             found.append({
                 "file": each[0],
                 "line": each[1],
@@ -291,7 +306,7 @@ def summary(project: dict, arms: dict[str, dict], differences: list[dict], machi
             + f" | {', '.join(str(code) for code in arm['exits'])} |"
         )
     order = ", ".join(OUTCOMES)
-    lines += ["", f"Each arm's mutants per file, from its first round (generated, then {order}):", ""]
+    lines += ["", f"Each arm's mutants per file, from its first round that left a report (generated, then {order}):", ""]
     lines += ["| file | " + " | ".join(names) + " |", "|---|" + "---|" * len(names)]
     files = sorted({file for arm in arms.values() for file in arm["files"] if file != "total"})
     for file in files:
@@ -436,7 +451,9 @@ def reconcile(project: dict, out: Path, result: Path, root: str) -> int:
     for name, arm in project["arms"].items():
         times = sorted(out.glob(f"{name}-*.time"), key=lambda path: int(path.stem.rsplit("-", 1)[1]))
         runs = [json.loads(path.read_text()) for path in times]
-        report = report_of(out, name, arm, 1)
+        rounds = [int(path.stem.rsplit("-", 1)[1]) for path in times]
+        at = next((each for each in rounds if report_of(out, name, arm, each).exists()), 1)
+        report = report_of(out, name, arm, at)
         place = str((Path(root) / arm.get("directory", ".")).resolve())
         totals = None
         if not report.exists():
@@ -445,18 +462,20 @@ def reconcile(project: dict, out: Path, result: Path, root: str) -> int:
             first[name], totals = pest(report.read_text(encoding="utf-8", errors="replace"))
         else:
             first[name] = outcome(json.loads(report.read_text()), arm["report"], place)
-            text = out / f"{name}-1.txt"
+            text = out / f"{name}-{at}.txt"
             if arm.get("text") and text.exists():
                 first[name] += skipped(text.read_text(encoding="utf-8", errors="replace"), place)
         arms[name] = {
             "said": arm["said"],
             "wall": spread([each["seconds"] for each in runs]),
             "exits": [each["exit"] for each in runs],
+            "counted": at,
             "files": tally(first[name], totals),
         }
     same = project.get("same", [])
     named_only = any(project["arms"][name]["report"] == "pest" for name in same)
-    differences = pairs(first[same[0]], first[same[1]], named_only) if len(same) == 2 else []
+    left_out = bool(same) and leaves_uncovered_out(project["arms"][same[0]])
+    differences = pairs(first[same[0]], first[same[1]], named_only, left_out) if len(same) == 2 else []
     found = machine()
     result.parent.mkdir(parents=True, exist_ok=True)
     result.write_text(json.dumps({

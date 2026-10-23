@@ -389,6 +389,11 @@ would have cost without them.
       PHPStan, which reports two errors at the pinned commit, so Infection
       refuses to start. `symfony/demo` has no Infection config, so one is
       written: `src`, with Infection's default mutators.
+    - Where a project's suite cannot run in parallel as it stands, the
+      harness makes it, as a team running it in parallel would.
+      `symfony/demo`'s suite writes to one SQLite file, which processes that
+      share it lock each other out of, so each worker runs on a copy of its
+      own, by the `TEST_TOKEN` Infection and the gate give it.
     - `filamentphp/filament`, a Pest monorepo, joins once ecosystem
       discovery is built.
     - `bench/` is export-ignored.
@@ -449,7 +454,11 @@ would have cost without them.
       (triage, confirmation) fails the benchmark. Plain Infection skips a
       mutant whose tests take longer than its timeout, and its JSON log
       only counts those; its text log names each, so they are matched with
-      the gate's by file, line and mutator, and the skip explains them.
+      the gate's by file, line and mutator, and the skip explains them. A
+      gate mutant the plain arm lacks is explained where a mutator of the
+      gate's own sets made it (ADR-0021), or where it is uncovered and plain
+      Infection, without `--with-uncovered`, makes no mutant on a line no
+      test covers.
     - **Plain at its best:** in parallel, under pcov, with the project's own
       config.
     - **Spread, not best-of:** the median of three, with the range.
