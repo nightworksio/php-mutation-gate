@@ -39,17 +39,19 @@ class Outputs(unittest.TestCase):
     def test_runs_only_the_legs_whose_adapter_or_fixture_changed(self):
         cases = {
             "src/Adapter/Pest/Plugin.php": ["pest"],
-            "src/Attribute/Holds.php": ["pest", "phpspec"],
+            "src/Attribute/Holds.php": ["codeception", "pest", "phpspec"],
             "tests/Contract/Runner/fixture/src/Money.php": ["pest"],
             "src/Adapter/Infection/Infection.php": ["infection-12", "infection-13"],
             "tests/Contract/Runner/infection-fixture/composer.lock": ["infection-12", "infection-13"],
-            "src/Adapter/Native/NativeRunner.php": ["phpspec", "phpunit"],
-            "src/Core/Native/Framework.php": ["phpspec", "phpunit"],
+            "src/Adapter/Native/NativeRunner.php": ["codeception", "phpspec", "phpunit"],
+            "src/Core/Native/Framework.php": ["codeception", "phpspec", "phpunit"],
             "src/Adapter/PhpUnit/PhpUnitFramework.php": ["phpunit"],
             "bin/mutation-gate-worker": ["phpunit"],
             "src/Adapter/PhpSpec/PhpSpecFramework.php": ["phpspec"],
             "bin/mutation-gate-phpspec": ["phpspec"],
             "tests/Contract/Runner/phpspec-fixture/composer.lock": ["phpspec"],
+            "src/Adapter/Codeception/CodeceptionFramework.php": ["codeception"],
+            "tests/Contract/Runner/codeception-fixture/composer.lock": ["codeception"],
             "src/Adapter/PhpStan/PhpStan.php": ["analysers"],
             "src/Core/Analysis/MutantCheck.php": ["analysers"],
             "tests/Contract/StaticChecker/StaticCheckerTest.php": ["analysers"],
@@ -58,7 +60,7 @@ class Outputs(unittest.TestCase):
             self.assertEqual(legs(scope.outputs("pull_request", [path])), expected, path)
 
     def test_runs_every_runner_leg_for_the_runner_contract_itself_and_its_other_fixtures(self):
-        runners = ["infection-12", "infection-13", "pest", "phpspec", "phpunit"]
+        runners = ["codeception", "infection-12", "infection-13", "pest", "phpspec", "phpunit"]
         for path in ("tests/Contract/Runner/KillsTest.php", "tests/Contract/Runner/stall/a.php"):
             self.assertEqual(legs(scope.outputs("pull_request", [path])), runners, path)
 

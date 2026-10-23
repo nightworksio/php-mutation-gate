@@ -20,11 +20,12 @@ afterEach(function (): void {
 
 /**
  * What init's first questions write on its command line, and what they
- * print, in a project of these installed packages at a console holding these
- * answers, a line each.
+ * print, in a project that requires PHPUnit itself, of these installed
+ * packages, at a console holding these answers, a line each.
  */
 $firstAnswered = static function (array $installed, string $answers, bool $interactive = true, bool $runnerChosen = false): array {
     $project = Scratch::directory();
+    Scratch::write($project, 'composer.json', '{"require-dev": {"phpunit/phpunit": "^13.2"}}');
     Scratch::write($project, 'vendor/composer/installed.json', (string) json_encode([
         'packages' => array_map(static fn(mixed $name): array => ['name' => $name], $installed),
     ]));
@@ -51,6 +52,15 @@ it('asks which of the two installed runners mutates, and writes the one chosen',
 
     expect($written)->toBe('{"runner":"phpspec"}')
         ->and($printed)->toContain('Both phpunit/phpunit and phpspec/phpspec are installed. Which runner mutates? [phpunit]');
+});
+
+it('names each of more than two installed runners it asks between', function () use ($firstAnswered): void {
+    [$written, $printed] = $firstAnswered(['phpunit/phpunit', 'phpspec/phpspec', 'codeception/codeception'], "codeception\nnone");
+
+    expect($written)->toBe('{"runner":"codeception"}')
+        ->and($printed)->toContain(
+            'phpunit/phpunit, phpspec/phpspec and codeception/codeception are installed. Which runner mutates? [phpunit]',
+        );
 });
 
 it('takes the first runner where a person presses Enter', function () use ($firstAnswered): void {

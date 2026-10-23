@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Doctor\ComposerSetup;
 use NightWorksIO\MutationGate\Core\Doctor\InfectionConfig;
 use NightWorksIO\MutationGate\Core\Doctor\ProjectFiles;
+use NightWorksIO\MutationGate\Core\Doctor\RunnerConfig;
 use NightWorksIO\MutationGate\Core\Doctor\SonarSources;
 use NightWorksIO\MutationGate\Core\Doctor\WarmRefusal;
 use NightWorksIO\MutationGate\Core\File\GitIgnore;
@@ -18,7 +19,8 @@ it('gives no file it was not given', function (): void {
     $none = ProjectFiles::none();
 
     expect([$none->gitIgnore(), $none->infection(), $none->composer(), $none->runningTheGate(), $none->baseline(), $none->sonarSources(), $none->warmRefusal()])
-        ->toEqual(array_fill(0, 7, NotGiven::value()));
+        ->toEqual(array_fill(0, 7, NotGiven::value()))
+        ->and($none->runnerConfig())->toEqual(RunnerConfig::none());
 });
 
 it('keeps each file it is given, whatever order they come in', function (): void {
@@ -29,7 +31,9 @@ it('keeps each file it is given, whatever order they come in', function (): void
     $baseline = Baseline::none();
     $sonar = SonarSources::of(Path::of('src'));
     $warm = WarmRefusal::of('The boot left 1 socket open once bootstrap.php ran.');
+    $runner = RunnerConfig::none()->withSuitesElsewhere(['Acceptance']);
     $files = ProjectFiles::none()
+        ->withRunnerConfig($runner)
         ->withWarmRefusal($warm)
         ->withSonarSources($sonar)
         ->withBaseline($baseline)
@@ -40,5 +44,6 @@ it('keeps each file it is given, whatever order they come in', function (): void
 
     expect([$files->gitIgnore(), $files->infection(), $files->composer(), $files->runningTheGate(), $files->baseline(), $files->sonarSources(), $files->warmRefusal()])
         ->toBe([$gitIgnore, $infection, $composer, $running, $baseline, $sonar, $warm])
+        ->and($files->runnerConfig())->toBe($runner)
         ->and(ProjectFiles::none()->withBaseline(CannotJudge::because('unreadable'))->baseline())->toEqual(CannotJudge::because('unreadable'));
 });

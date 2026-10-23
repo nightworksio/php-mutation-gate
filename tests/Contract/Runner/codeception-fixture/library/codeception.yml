@@ -1,0 +1,15 @@
+# The tests are in tests/ and plugins/stock/tests/, so each library's test
+# files have the same directories whatever runs them.
+namespace: CodeceptionLibrary
+support_namespace: ''
+paths:
+  tests: .
+  output: .codeception
+  support: tests
+  data: tests
+suites:
+  library:
+    path: tests
+    actor: Tester
+  stock:
+    path: plugins/stock/tests

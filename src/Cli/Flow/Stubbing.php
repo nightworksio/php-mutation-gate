@@ -52,7 +52,7 @@ final readonly class Stubbing
         %s holds %s tests, so a %s test cannot go in it. Leave out --style to write one in its style.
         SAID;
 
-    private const string UNWRITTEN = 'stub writes Pest and PHPUnit tests, and the runner\'s tests are neither.';
+    private const string UNWRITTEN = 'stub writes Pest and PHPUnit tests, and none for this runner.';
 
     public function __construct(private Composed $composed)
     {

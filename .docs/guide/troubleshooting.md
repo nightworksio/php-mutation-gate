@@ -342,6 +342,19 @@ The survivors in that tree never reach SonarQube.
 
 Add the tree to `sonar.sources`, or leave it out of the gate's trees.
 
+## suite-served-elsewhere
+
+A suite of the runner's config serves the application from another process:
+under Codeception, a suite whose modules include PhpBrowser or WebDriver, by
+name, by class or through another module's `depends`, or that sets
+`coverage.remote`. A mutant is served only in the test's own process, so the
+gate runs none of that suite's tests, and a line only they run reads as
+uncovered. Each run's verdict names the suites too.
+
+Cover what only those suites run with tests in a suite that runs in the test
+process, such as a unit or functional suite, or leave that code out of the
+trees.
+
 ## survived
 
 The tests that run the mutant's line all passed with it in place, so none of

@@ -169,10 +169,24 @@ it('observes the memory_limit the first PHPUnit config sets, and none it cannot 
     mkdir(sprintf('%s/phpunit.xml', $unreadable));
     $php = sprintf('%s/php', FakePhp::printing(Described::output([], [])));
 
-    expect(Doctored::observed($setting, $php)->of(CommandLine::nothing())->files()->phpUnitMemory())
+    expect(Doctored::observed($setting, $php)->of(CommandLine::nothing())->files()->runnerConfig()->phpUnitMemory())
         ->toEqual(PhpUnitMemory::of(Path::of('phpunit.dist.xml'), MemoryCap::of(2, MemoryUnit::Gigabytes)))
-        ->and(Doctored::observed($unreadable, $php)->of(CommandLine::nothing())->files()->phpUnitMemory())
+        ->and(Doctored::observed($unreadable, $php)->of(CommandLine::nothing())->files()->runnerConfig()->phpUnitMemory())
         ->toEqual(NotGiven::value());
+})->group(...$holds);
+
+it('observes the Codeception suites that serve the application from another process, under the codeception runner alone', function (): void {
+    $project = Scratch::copy('tests/Fixtures/Projects/Library');
+    Scratch::write($project, 'codeception.yml', "suites:\n  Unit: {}\n  Acceptance:\n    modules:\n      enabled: [PhpBrowser]\n");
+    Scratch::write($project, 'mutation-gate.json', '{"runner": "codeception"}');
+    $phpunit = Scratch::copy('tests/Fixtures/Projects/Library');
+    Scratch::write($phpunit, 'codeception.yml', "suites:\n  Acceptance:\n    modules:\n      enabled: [PhpBrowser]\n");
+    $php = sprintf('%s/php', FakePhp::printing(Described::output([], [])));
+
+    expect(Doctored::observed($project, $php)->of(CommandLine::nothing())->files()->runnerConfig()->suitesElsewhere())
+        ->toBe(['Acceptance'])
+        ->and(Doctored::observed($phpunit, $php)->of(CommandLine::nothing())->files()->runnerConfig()->suitesElsewhere())
+        ->toBe([]);
 })->group(...$holds);
 
 it('observes the paths sonar.sources names, and none where sonar-project.properties names none', function (): void {

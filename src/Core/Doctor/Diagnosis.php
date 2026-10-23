@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Doctor\Check\Runners;
 use NightWorksIO\MutationGate\Core\Doctor\Check\ScheduleRunning;
 use NightWorksIO\MutationGate\Core\Doctor\Check\ShallowClone;
 use NightWorksIO\MutationGate\Core\Doctor\Check\SonarDrops;
+use NightWorksIO\MutationGate\Core\Doctor\Check\SuitesElsewhere;
 use NightWorksIO\MutationGate\Core\Doctor\Check\TreeFloors;
 use NightWorksIO\MutationGate\Core\Doctor\Check\TreesFound;
 use NightWorksIO\MutationGate\Core\Doctor\Check\VerdictRequired;
@@ -57,6 +58,7 @@ final readonly class Diagnosis
             MirroredRepository::in($observed),
             Workspace::in($observed),
             SonarDrops::in($observed),
+            SuitesElsewhere::in($observed),
             IgnoresExpiring::in($observed),
             InfectionImport::in($observed),
             InfectionUnpatched::in($observed),

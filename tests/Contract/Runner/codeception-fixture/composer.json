@@ -1,0 +1,30 @@
+{
+    "name": "nightworksio/mutation-gate-codeception-fixture",
+    "description": "The Codeception runner's library, beside the gate's source: in library/, the code every runner's contract mutates, tested by Codeception. It requires the Symfony console the gate requires, which a project's Codeception shares with the gate.",
+    "license": "MIT",
+    "type": "project",
+    "require": {
+        "php": "^8.5",
+        "codeception/codeception": "^5.3.6",
+        "phpunit/php-code-coverage": "^14.3",
+        "symfony/console": "^7.4 || ^8.0"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "autoload": {
+        "psr-4": {
+            "Beside\\": "library/beside/",
+            "Library\\": "library/src/",
+            "NightWorksIO\\MutationGate\\": "../../../../src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "CodeceptionLibrary\\": "library/tests/",
+            "CodeceptionLibrary\\Stock\\": "library/plugins/stock/tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    }
+}

@@ -13,8 +13,9 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 /**
  * What the project's own files say, as far as the checks ask them: its
  * `.gitignore`, its Infection config, how its `composer.json` installs its
- * packages, which CI definitions run the gate, its baseline, and whether its
- * clone holds the whole of its history. A file nobody read is not given.
+ * packages, which CI definitions run the gate, its baseline, what its
+ * runner's own config says, and whether its clone holds the whole of its
+ * history. A file nobody read is not given.
  */
 final readonly class ProjectFiles
 {
@@ -24,7 +25,7 @@ final readonly class ProjectFiles
         private ComposerSetup|NotGiven $composer,
         private Paths|NotGiven $runningTheGate,
         private Baseline|CannotJudge|NotGiven $baseline,
-        private PhpUnitMemory|NotGiven $phpUnitMemory,
+        private RunnerConfig $runnerConfig,
         private bool $shallow,
         private SonarSources|NotGiven $sonarSources,
         private WarmRefusal|NotGiven $warmRefusal,
@@ -41,7 +42,7 @@ final readonly class ProjectFiles
             $none,
             $none,
             $none,
-            $none,
+            RunnerConfig::none(),
             shallow: false,
             sonarSources: $none,
             warmRefusal: $none,
@@ -78,10 +79,10 @@ final readonly class ProjectFiles
         return clone($this, ['baseline' => $baseline]);
     }
 
-    /** These, with the `memory_limit` the project's PHPUnit config sets, where it sets one. */
-    public function withPhpUnitMemory(PhpUnitMemory $memory): self
+    /** These, with what the runner's own config says. */
+    public function withRunnerConfig(RunnerConfig $config): self
     {
-        return clone($this, ['phpUnitMemory' => $memory]);
+        return clone($this, ['runnerConfig' => $config]);
     }
 
     /** These, from a shallow clone: one that holds only the newest commits, and not the history before them. */
@@ -138,9 +139,9 @@ final readonly class ProjectFiles
         return $this->baseline;
     }
 
-    public function phpUnitMemory(): PhpUnitMemory|NotGiven
+    public function runnerConfig(): RunnerConfig
     {
-        return $this->phpUnitMemory;
+        return $this->runnerConfig;
     }
 
     public function sonarSources(): SonarSources|NotGiven

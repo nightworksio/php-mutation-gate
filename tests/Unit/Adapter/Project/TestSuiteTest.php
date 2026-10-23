@@ -37,3 +37,11 @@ it('holds the tests of the directories and files it names, less those it leaves 
         ->and($suite->holdsTestCase(Path::of('checks/SmokeCheck.php')))->toBeTrue()
         ->and($suite->holds(Path::of('tests/Unit/fixture/Money.php')))->toBeFalse();
 });
+
+it('names the suites it leaves out for serving the application from another process, after those it named already, and none at first', function (): void {
+    $suite = TestSuite::conventional(SuiteDirectory::conventional());
+
+    expect($suite->elsewhere())->toBe([])
+        ->and($suite->leaving(['Acceptance'])->leaving(['Api', 'Browser'])->elsewhere())->toBe(['Acceptance', 'Api', 'Browser'])
+        ->and($suite->leaving(['Acceptance'])->directories())->toEqual($suite->directories());
+});

@@ -74,3 +74,12 @@ it('reads the class an id\'s test is in as the test method it runs names it', fu
 it('spells a test method\'s id from its class and method', function (): void {
     expect(TestMethod::id('Tests\MoneyTest', 'testAdds'))->toEqual(TestId::of('Tests\MoneyTest::testAdds'));
 });
+
+it('spells a row\'s id from its test method\'s and the row\'s number or name, which it reads back as that row', function (): void {
+    $row = TestMethod::row(TestMethod::id('Tests\MoneyTest', 'testAdds'), 'one');
+    $read = TestMethod::of($row);
+
+    expect($row)->toEqual(TestId::of('Tests\MoneyTest::testAdds#one'))
+        ->and($read instanceof TestMethod ? $read->method() : $read)->toBe('testAdds')
+        ->and(TestMethod::row(TestId::of('A::b'), '0'))->toEqual(TestId::of('A::b#0'));
+});

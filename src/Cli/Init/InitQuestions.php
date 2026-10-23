@@ -47,7 +47,7 @@ final readonly class InitQuestions
 
     private const string NONE = 'none';
 
-    private const string RUNNER = 'Both %s and %s are installed. Which runner mutates?';
+    private const string RUNNER = '%s Which runner mutates?';
 
     private const string CI = 'Which CI runs the gate? init writes its definition.';
 
@@ -165,7 +165,7 @@ final readonly class InitQuestions
         }
 
         $runners = array_map(static fn(BuiltinRunner $runner): string => $runner->value, $choices);
-        $question = sprintf(self::RUNNER, $choices[0]->package()->value, $choices[1]->package()->value);
+        $question = sprintf(self::RUNNER, Detected::together($choices));
 
         return $this->asking->choice($question, $runners, $runners[0]);
     }

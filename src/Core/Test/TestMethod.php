@@ -24,6 +24,9 @@ final readonly class TestMethod
 {
     /** What separates a test method from its class. */
     public const string SEPARATOR = '::';
+
+    /** A row of a data set: the test method's id and the row's number or name. */
+    public const string ROW = '%s#%s';
     /** The class, the method and, where there is one, the data set's number or name. */
     private const string ID = '/^(?<class>.*?)::(?<method>[^#]+)(?:#(?:(?<number>\d+)|(?<name>.*)))?$/sD';
 
@@ -39,6 +42,12 @@ final readonly class TestMethod
     public static function id(string $class, string $method): TestId
     {
         return TestId::of(sprintf('%s%s%s', $class, self::SEPARATOR, $method));
+    }
+
+    /** A row of a test method's data set, by its number or its name: `<class>::<method>#<row>`. */
+    public static function row(TestId $method, string $row): TestId
+    {
+        return TestId::of(sprintf(self::ROW, $method->value(), $row));
     }
 
     /** The test method an id runs; the id itself where it names none, such as a `.phpt` file's. */

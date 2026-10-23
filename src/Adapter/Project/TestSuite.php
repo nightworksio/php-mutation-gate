@@ -14,15 +14,18 @@ use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 /**
  * The test suite a project's test framework config declares (see
  * SuiteConfig): its test directories, each with the suffix that tells its
- * files of test cases, the files it names, those it leaves out, and its
- * suites by their names. Without a config, or one whose directories are
- * none, the tests are in the framework's conventional directory.
+ * files of test cases, the files it names, those it leaves out, its
+ * suites by their names, and those of its suites the gate runs none of the
+ * tests of, as they serve the application from another process. Without a
+ * config, or one whose directories are none, the tests are in the
+ * framework's conventional directory.
  */
 final readonly class TestSuite
 {
     /**
      * @param non-empty-list<SuiteDirectory> $directories
      * @param SuiteDirectory                 $conventional where the framework keeps tests when nothing says otherwise
+     * @param list<string>                   $elsewhere    the suites that serve the application from another process
      */
     private function __construct(
         private array $directories,
@@ -30,6 +33,7 @@ final readonly class TestSuite
         private Paths $files,
         private Paths $excluded,
         private DeclaredSuites $suites,
+        private array $elsewhere = [],
     ) {
     }
 
@@ -59,6 +63,33 @@ final readonly class TestSuite
             $excluded,
             $suites,
         );
+    }
+
+    /**
+     * These tests, leaving out every test of these suites, which serve the application from another process.
+     *
+     * @param list<string> $suites
+     */
+    public function leaving(array $suites): self
+    {
+        return new self(
+            $this->directories,
+            $this->conventional,
+            $this->files,
+            $this->excluded,
+            $this->suites,
+            [...$this->elsewhere, ...$suites],
+        );
+    }
+
+    /**
+     * The suites whose tests the gate runs none of, as they serve the application from another process.
+     *
+     * @return list<string>
+     */
+    public function elsewhere(): array
+    {
+        return $this->elsewhere;
     }
 
     /** Where the framework keeps tests when nothing it configures says otherwise, as every other package does. */

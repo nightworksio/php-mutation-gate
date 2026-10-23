@@ -56,27 +56,42 @@ the test process never reaches that process.
    ADR-0004, *loaded before the override* and *never loaded*,
    apply unchanged. No framework's bootstrap is edited.
 
-3. **Codeception: suites that run in the test process.**
-   - **Scope.** A suite whose enabled modules serve the application from
-     another process (PhpBrowser, WebDriver, and remote coverage through
-     `c3`) is refused per suite: *cannot judge: suite `acceptance` runs the
-     application in another process, where a mutant cannot be served*.
-     `doctor` names such a suite, and `trees` can leave its code out.
-   - **Selection.** A mutant runs its covering tests exactly, as the group
-     `-o "groups: mutation-gate: [<path:method>, …]"` with `-g mutation-gate`.
-   - **The first killer** comes from a gate extension on `test.fail` and
-     `test.error`, enabled for the run, which writes to the file
-     `MUTATION_GATE_RESULTS` names.
-   - **Groups and holds** are Codeception's `#[Group]` and `holds:` config
-     groups (ADR-0005).
-   - **Coverage** is `--coverage-phpunit`, per test, and each test's time
-     comes from `--xml`.
+3. **Codeception: suites that run in the test process, selected by the
+   gate's extension.**
+   - **The extension.** Each run starts Codeception's own `codecept run`
+     with the gate's extension enabled for that run (`--ext`) and its
+     settings given as an override (`--override "extensions: config:
+     <class>: <JSON>"`). The project's config is read as it is written. One
+     run spans every suite.
+   - **Scope.** A suite whose modules serve the application from another
+     process (PhpBrowser or WebDriver, by name, by class or through another
+     module's `depends`, or remote coverage through `coverage.remote`) holds
+     no test the gate runs: the extension skips each of its tests, its
+     directories hold none of the suite's tests, and every run's verdict and
+     `doctor` name it. `trees` can leave its code out.
+   - **Selection.** The extension skips every test the run does not select
+     as Codeception starts it, by setting its metadata's skip, before its
+     `_before`, its modules or the test run; Codeception counts it as
+     skipped. A mutant's run selects its covering tests exactly, by their
+     ids, from a file: a unit test as `Class::method`, with `#` and its data
+     set's name, and a Cest as `Class::method`, with `#` and its example's
+     index.
+   - **The first killer** comes from the extension on `test.fail` and
+     `test.error`, recorded to the file `MUTATION_GATE_RESULTS` names, and
+     each test's time from `test.end`.
+   - **Groups and holds** are Codeception's groups, and a `#[Holds]` on a
+     test class or method puts its tests in the holding group (ADR-0005),
+     which the extension reads by reflection in Codeception's process.
+   - **Coverage.** The extension measures the lines each selected test runs
+     in the project's own files with php-code-coverage 14, and writes the map
+     in the format the native runner reads from PHPUnit, each test's time
+     with it.
+   - **Memory.** Codeception sets its own process's `memory_limit` from its
+     `settings.memory_limit`, `1024M` unless its config says otherwise, so a
+     mutant's run passes the gate's cap there.
    - **A full kill matrix** runs without `--fail-fast`.
-   - The first step of the build proves that the gate's extension can be
-     enabled from the command line for one run, or through `-o
-     "extensions: …"`, that one run can span several suites, and that per-test
-     coverage keeps its attribution in unit suites. If one run cannot span
-     suites, a mutant runs once per suite that holds its covering tests.
+   - **Listing.** A run that selects no test lists every test of the
+     in-process suites and its groups to a file.
 
 4. **PhpSpec: the gate's launcher loads an extension that selects the examples.**
    - **The launcher.** The runner starts the gate's launcher,
@@ -145,7 +160,7 @@ the test process never reaches that process.
    with each framework's own holds and group cases, and CI runs it against
    the lowest and highest supported release of each framework (ADR-0011).
 
-8. **Supported versions.** Codeception ^5.3, PhpSpec ^8.2 with
+8. **Supported versions.** Codeception ^5.3.6 and PhpSpec ^8.2, each with
    php-code-coverage ^14, and Testo at the exact releases its `conflict`
    allows join ADR-0011's table,
    each tested at its lowest and highest supported release. This amends
@@ -158,6 +173,8 @@ the test process never reaches that process.
 | **Infection's mutants, with the gate driving the tests** | Infection makes and runs its mutants itself, and its generation is `@internal` on a 0.x release. There is no way in. |
 | **Each framework's own bootstrap setting to serve the mutant** (Codeception's `--bootstrap`, PhpSpec's `bootstrap`), as Infection's adapters do | Three code paths instead of one, and a class Composer's `files` autoload loads before a bootstrap escapes the override. |
 | **Every Codeception suite**, as Infection's adapter runs them | A suite that serves the application from another process judges the original code while claiming to judge the mutant. |
+| **Codeception's own groups for selection** (`--override "groups: …"` with `-g`) and its `--coverage-phpunit` and `--xml` for coverage and times | The extension that records each test is needed either way. Selecting, measuring and listing there too reads one set of ids and writes the map the native runner already reads from the PhpSpec runner, where Codeception's XML coverage and report would each need a reader of their own. |
+| **Skipping a test from `test.before`** | Codeception counts a test skipped there as failed, so every mutant's run would fail; at `test.start` it counts it as skipped. |
 | **One PhpSpec process per covering spec file, always** | No extension to depend on. A mutant covered by ten specs pays ten PhpSpec boots. It stays the fallback. |
 | **The whole PhpSpec suite per mutant**, as Infection's adapter runs it | No better than Infection, and far slower than selecting examples. |
 | **Skipping an example from `beforeExample`** | PhpSpec dispatches it outside the example's own handling, so an exception thrown there breaks the run instead of skipping the example. |
@@ -173,8 +190,9 @@ the first killer, a full kill matrix, learned costs, and exact selection of the
 covering tests, which is finer than Infection's adapters give for Codeception
 and PhpSpec.
 
-**Out-of-process suites are refused by name.** A Codeception suite that drives
-the application from outside is never judged by a mutant it cannot reach.
+**Out-of-process suites are left out by name.** A Codeception suite that
+drives the application from outside is never judged by a mutant it cannot
+reach, and the verdict and `doctor` say which suites those are.
 
 **Testo's churn is the canary's problem.** A new Testo release reaches users
 only once the contract suite passes on it.

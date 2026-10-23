@@ -14,7 +14,6 @@ use function array_map;
 use function array_values;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
-use NightWorksIO\MutationGate\Adapter\Project\DirectoryGlob;
 use NightWorksIO\MutationGate\Adapter\Project\SuiteConfig;
 use NightWorksIO\MutationGate\Adapter\Project\TestSuite;
 use NightWorksIO\MutationGate\Core\CannotJudge;
@@ -195,7 +194,7 @@ final readonly class Suite
             $contents = $project->read($candidate);
 
             if ($contents instanceof Contents) {
-                return $config->declaredIn($contents, $candidate, DirectoryGlob::from($project->root()));
+                return $config->declaredIn($contents, $candidate, $project->root());
             }
 
             if ($contents instanceof CannotJudge) {

@@ -45,6 +45,7 @@ return (new Configuration())
     ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/twins')
     ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/phpunit-fixture')
     ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/phpspec-fixture')
+    ->addPathToExclude(__DIR__ . '/tests/Contract/Runner/codeception-fixture')
     ->addPathToExclude(__DIR__ . '/tests/Contract/StaticChecker/fixture')
     ->ignoreErrorsOnPackages(
         [
@@ -101,6 +102,10 @@ return (new Configuration())
     // installs it; its launcher and extension load only in PhpSpec's own
     // process. composer.json suggests it.
     ->ignoreErrorsOnPackages(['phpspec/phpspec'], [ErrorType::DEV_DEPENDENCY_IN_PROD])
+    // The Codeception adapter runs only in a project that runs Codeception,
+    // which installs it; its extension loads only in Codeception's own
+    // process. composer.json suggests it.
+    ->ignoreErrorsOnPackages(['codeception/codeception'], [ErrorType::DEV_DEPENDENCY_IN_PROD])
     // PhpSpec's own dependency, installed wherever phpspec/phpspec is: its
     // events reach the extension's listeners as its dispatcher's subscribers.
     // The package's own development holds it at the Symfony releases the
