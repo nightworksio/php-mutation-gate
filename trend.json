@@ -575,6 +575,29 @@
                 "plugins/symfony/src": 96.35
             },
             "runnerSeconds": 29525.514643907547
+        },
+        {
+            "commit": "7a7f14a59cd967c7ff89584510376ac5fe57247f",
+            "time": "2026-10-23T14:32:05Z",
+            "verdict": "passed",
+            "score": 96.85,
+            "trees": {
+                "src": 96.84,
+                "plugins/composer/src": 92.59,
+                "plugins/default/src": 99.6,
+                "plugins/laravel/src": 94.76,
+                "plugins/security/src": 91.78,
+                "plugins/symfony/src": 96.35
+            },
+            "floors": {
+                "src": 84.05,
+                "plugins/composer/src": 92.59,
+                "plugins/default/src": 99.6,
+                "plugins/laravel/src": 93.33,
+                "plugins/security/src": 91.78,
+                "plugins/symfony/src": 96.35
+            },
+            "runnerSeconds": 28683.820295095444
         }
     ]
 }
