@@ -117,6 +117,9 @@ with open(sys.argv[1], 'a') as log:
     log.write(json.dumps(said) + '\\n')
 ledger.parent.mkdir(exist_ok=True)
 ledger.write_text(head)
+cache = pathlib.Path('.phpunit.cache/test-results')
+cache.parent.mkdir(exist_ok=True)
+cache.write_text(head)
 """
 
 
@@ -162,6 +165,7 @@ class Running(unittest.TestCase):
             self.assertEqual(runs[5]["origin"], runs[6]["origin"])
             self.assertEqual(git(project, "log", "-1", "--format=%s", runs[6]["origin"]), base)
             self.assertEqual(git(project, "log", "-1", "--format=%s", "main"), "prepared")
+            self.assertNotIn(".phpunit.cache", git(project, "log", "--all", "--format=", "--name-only"))
             self.assertEqual(sorted(path.name for path in out.glob("*.time")), [
                 "gate-replay-7.time", "gate-unchanged-1.time", "gate-unchanged-2.time", "gate-warm-1.time",
                 "gate-warm-2.time",

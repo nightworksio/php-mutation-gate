@@ -7,6 +7,8 @@ set -euo pipefail
 source "${GITHUB_WORKSPACE}/bench/gate.sh"
 repository=$(jq -cn --arg url "${GITHUB_WORKSPACE}" '{type: "path", url: $url, options: {symlink: true}}')
 composer config repositories.gate "${repository}"
+# laravel/vet refuses a package it cannot fetch over https, as the gate from this checkout is.
+composer config allow-plugins.laravel/vet false
 composer install --no-interaction --no-progress
 composer require --dev --no-interaction --no-progress 'nightworksio/mutation-gate:@dev'
 composer show | grep -E '^(pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit|nightworksio/mutation-gate) '

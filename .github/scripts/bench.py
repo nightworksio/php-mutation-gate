@@ -90,7 +90,7 @@ def changed(diff: str) -> tuple[str, ...]:
     return tuple(
         f"{line[0]}{line[1:].strip()}"
         for line in diff.splitlines()
-        if line[:1] in "+-" and not line.startswith(("+++", "---"))
+        if line[:1] in ("+", "-") and not line.startswith(("+++", "---"))
     )
 
 

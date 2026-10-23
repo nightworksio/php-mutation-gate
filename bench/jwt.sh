@@ -26,7 +26,8 @@ sed -e 's/failOnRisky="true"/failOnRisky="true" failOnPhpunitWarning="false" fai
   -e 's/ *beStrictAboutTodoAnnotatedTests="true"//' phpunit.xml.dist > phpunit.xml
 printf 'vendor/\n.mutation-gate/\nbench-*.json\ninfection.txt\n' > .gitignore
 bench_baselines src
-printf '{"runner": {"use": "infection"}, "trees": [{"path": "src"}]}\n' > bench-infection.json
+# Infection's own ignores stand, as plain Infection honours them, so both arms make the same mutants.
+printf '{"runner": {"use": "infection"}, "trees": [{"path": "src"}], "ignores": {"native": "allow"}}\n' > bench-infection.json
 printf '{"runner": {"use": "phpunit", "workers": "fork"}, "trees": [{"path": "src"}]}\n' > bench-phpunit.json
 # Plain Infection writes its JSON log only where its config names one.
 jq '.logs.json = "bench-infection-log.json"' infection.json.dist > bench-plain-infection.json

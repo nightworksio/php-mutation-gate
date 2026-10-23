@@ -24,7 +24,7 @@
             "directory": "../jwt-plain"
         },
         "gate-infection": {
-            "said": "the gate in one job, mutating with Infection under infection:patch and the project's own mutators",
+            "said": "the gate in one job, mutating with Infection under infection:patch and the project's own mutators and ignores",
             "report": "gate",
             "clean": [
                 ".mutation-gate"
