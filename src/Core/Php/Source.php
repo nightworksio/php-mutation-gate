@@ -54,6 +54,12 @@ final readonly class Source
         return new self($path, $test, $tokens, $scope, Shape::of($tokens, $scope));
     }
 
+    /** The scope a file's code ends in: the namespace it declares last, and what that imports. */
+    public static function scopeOf(Contents $contents): Scope
+    {
+        return TopLevel::of(self::significant($contents))->scope();
+    }
+
     public function path(): Path
     {
         return $this->path;

@@ -193,7 +193,7 @@ final readonly class Stubbing
         $file = $subject->first()->mutant()->location()->file();
         $source = $this->composed->adapters->project->read($file);
 
-        return $source instanceof Contents ? Source::read($file, $source, test: false)->scope()->namespace() : '';
+        return $source instanceof Contents ? Source::scopeOf($source)->namespace() : '';
     }
 
     /** The format of the project's config, which an ignore is written in; PHP, as `init` writes, where it has none. */
