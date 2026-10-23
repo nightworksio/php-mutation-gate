@@ -87,7 +87,10 @@ function takenErrorHandlers(): array
  */
 function launched(array $arguments): int
 {
-    $exit = Launch::run('mutation-gate-phpspec', Tree::at('vendor/autoload.php'), $arguments);
+    $launch = Launch::of(Tree::at('vendor/autoload.php'), $arguments);
+    $phpspec = $launch->phpspec();
+    $phpspec->setAutoExit(boolean: false);
+    $exit = $phpspec->run($launch->input('mutation-gate-phpspec'));
     $found = true;
 
     foreach (takenErrorHandlers() as $handler) {
@@ -113,4 +116,11 @@ it('runs PhpSpec on its own arguments, with the gate\'s extension loaded, and an
         ->toBe(['listed' => [sprintf('%s::it_passes', $class), sprintf('%s::it_fails', $class)], 'groups' => []])
         ->and($failed)->toBe(1)
         ->and($filtered)->toBe(0);
+});
+
+it('hands PhpSpec its own arguments behind the launcher\'s script, with the gate\'s taken out', function (): void {
+    $input = Launch::of(Tree::at('vendor/autoload.php'), ['run', '--quiet', LaunchOption::Filter->with('passes$'), 'spec'])
+        ->input('mutation-gate-phpspec');
+
+    expect((string) $input)->toBe('run --quiet spec');
 });

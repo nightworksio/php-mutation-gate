@@ -22,4 +22,6 @@ foreach ($given as $argument) {
 
 require $autoloader;
 
-exit(Launch::run($script, $autoloader, array_slice($arguments, 2)));
+$launch = Launch::of($autoloader, array_slice($arguments, 2));
+
+exit($launch->phpspec()->run($launch->input($script)));

@@ -76,6 +76,21 @@ it('asks for a choice when both PHPUnit and PhpSpec are installed, and neither P
         ));
 });
 
+it('names the runners a person must choose between, or none where zero-config chooses', function (array $installed, array $choices) use ($detected): void {
+    expect($detected('', $installed)->choices())->toBe($choices);
+})->with([
+    'Pest\'s plugin and Infection' => [['infection/infection', 'pestphp/pest-plugin-mutate'], [BuiltinRunner::Pest, BuiltinRunner::Infection]],
+    'PHPUnit and PhpSpec' => [['phpunit/phpunit', 'phpspec/phpspec'], [BuiltinRunner::PhpUnit, BuiltinRunner::PhpSpec]],
+    'PHPUnit and PhpSpec under Infection' => [['infection/infection', 'phpunit/phpunit', 'phpspec/phpspec'], []],
+    'PHPUnit alone' => [['phpunit/phpunit'], []],
+]);
+
+it('names no runner to choose between where nothing lists what is installed', function (): void {
+    $project = Scratch::directory();
+
+    expect(new Detected(Directory::at($project), Directory::at(sprintf('%s/vendor', $project)))->choices())->toBe([]);
+});
+
 it('cannot judge without a runner installed', function () use ($detected): void {
     expect($detected('', ['symfony/console'])->runner())->toEqual(CannotJudge::because(
         'None of pestphp/pest-plugin-mutate, infection/infection, phpunit/phpunit and phpspec/phpspec is installed, '

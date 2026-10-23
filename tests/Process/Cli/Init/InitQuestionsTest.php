@@ -66,7 +66,7 @@ it('asks which runner mutates where both are installed, and writes the one chose
     $ran = Commands::answering($project, 'init', ['--no-measure' => true, '--format' => 'json'], ['infection', 'none', 'none', 'no']);
 
     expect($ran->code)->toBe(0)
-        ->and($ran->errors)->toContain('Both Pest\'s mutation plugin and Infection are installed. Which runner mutates?')
+        ->and($ran->errors)->toContain('Both pestphp/pest-plugin-mutate and infection/infection are installed. Which runner mutates?')
         ->and(json_decode(questionedFile($project, 'mutation-gate.json'), associative: true))->toMatchArray(['runner' => 'infection']);
 });
 

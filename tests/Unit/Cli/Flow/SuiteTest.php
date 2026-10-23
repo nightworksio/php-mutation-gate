@@ -248,6 +248,19 @@ it('keeps a file a tree holds apart as source, though the config keeps its tests
         ->and($read->outside())->toEqual($listed('phpunit.xml', 'src/Money.php'));
 });
 
+it('reads the tests of every package, however many there are', function () use ($listed): void {
+    $project = Scratch::directory();
+    Scratch::write($project, 'packages/a/tests/LimitTest.php', "<?php\n");
+    Scratch::write($project, 'packages/b/tests/RateTest.php', "<?php\n");
+    $trees = Trees::of(
+        Tree::at(Path::of('packages/a/src'), Floor::of(50), Package::at(Path::of('packages/a'))),
+        Tree::at(Path::of('packages/b/src'), Floor::of(50), Package::at(Path::of('packages/b'))),
+    );
+    $read = ReadSuite::of($trees, $listed('packages/a/tests/LimitTest.php', 'packages/b/tests/RateTest.php'), Directory::at($project));
+
+    expect($read instanceof Suite ? $read->outside() : $read)->toEqual(Fingerprints::none());
+});
+
 it('reads the tests of a package from its own PHPUnit config, wildcards expanded, and the conventional ones where it has none', function (): void {
     $project = Scratch::directory();
     Scratch::write($project, 'phpunit.xml', '<phpunit><testsuites><testsuite name="Root"><directory>root-tests</directory></testsuite></testsuites></phpunit>');

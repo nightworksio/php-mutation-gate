@@ -47,7 +47,7 @@ final readonly class InitQuestions
 
     private const string NONE = 'none';
 
-    private const string RUNNER = 'Both Pest\'s mutation plugin and Infection are installed. Which runner mutates?';
+    private const string RUNNER = 'Both %s and %s are installed. Which runner mutates?';
 
     private const string CI = 'Which CI runs the gate? init writes its definition.';
 
@@ -158,13 +158,16 @@ final readonly class InitQuestions
     /** The runner a person chose where two are installed and nothing chooses one; none where nobody is asked. */
     private function runner(bool $chosen): string|NotGiven
     {
-        $runners = array_map(static fn(BuiltinRunner $runner): string => $runner->value, $this->detected->choices());
+        $choices = $this->detected->choices();
 
-        if ($chosen || $runners === [] || ! $this->asking->isInteractive()) {
+        if ($chosen || $choices === [] || ! $this->asking->isInteractive()) {
             return NotGiven::value();
         }
 
-        return $this->asking->choice(self::RUNNER, $runners, $runners[0]);
+        $runners = array_map(static fn(BuiltinRunner $runner): string => $runner->value, $choices);
+        $question = sprintf(self::RUNNER, $choices[0]->package()->value, $choices[1]->package()->value);
+
+        return $this->asking->choice($question, $runners, $runners[0]);
     }
 
     /**
