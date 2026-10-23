@@ -114,8 +114,10 @@ def plan(project: dict) -> list[dict]:
 
 
 def git(directory: Path, *arguments: str) -> str:
-    return subprocess.run(["git", "-C", str(directory), *arguments], check=True, capture_output=True,
-                          text=True).stdout
+    done = subprocess.run(["git", "-C", str(directory), *arguments], capture_output=True, text=True)
+    if done.returncode != 0:
+        raise RuntimeError(f"git {' '.join(arguments)} in {directory} failed: {done.stderr.strip()}")
+    return done.stdout
 
 
 def committed(directory: Path, message: str) -> str:
@@ -176,7 +178,9 @@ def overlay(directory: Path, tree: Path, kept: set[str]) -> None:
 
 
 def checkout(directory: Path, branch: str, start: str) -> None:
-    git(directory, "checkout", "--quiet", "-B", branch, start)
+    """The branch at this commit, with nothing a run left that the repository neither tracks nor ignores."""
+    git(directory, "checkout", "--quiet", "--force", "-B", branch, start)
+    git(directory, "clean", "--quiet", "--force", "-d")
 
 
 def published(directory: Path) -> None:

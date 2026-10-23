@@ -46,6 +46,12 @@ class Outcome(unittest.TestCase):
         self.assertEqual((found[0]["mutator"], found[0]["diff"]), ("Plus", ("-return $a + $b;", "+return $a - $b;")))
 
 
+    def test_reads_a_blank_line_of_a_diff_as_no_change(self):
+        diff = "--- Original\n+++ New\n@@ @@\n-        return $a + $b;\n\n+        return $a - $b;\n"
+        found = bench.outcome({"mutants": [{**gate_mutant(3, "killed"), "diff": diff}]}, "gate", ROOT)
+        self.assertEqual(found[0]["diff"], ("-return $a + $b;", "+return $a - $b;"))
+
+
 class Tally(unittest.TestCase):
     def test_counts_each_file_and_the_whole_run(self):
         found = bench.outcome({"killed": [infection_entry(3)], "escaped": [infection_entry(4)]}, "infection", ROOT)
