@@ -111,6 +111,7 @@ it('reads a class that extends another, or nothing, as PHPUnit\'s', function (st
     'one named like a spec\'s parent' => ['final class CartTest extends MyObjectBehavior'],
     'nothing' => ['final class CartTest'],
     'an interface, extends after it' => ['final class CartTest implements ObjectBehavior'],
+    'one of its own namespace' => ['final class CartTest extends namespace\\ObjectBehavior'],
 ]);
 
 it('writes a new spec named for the file, in PhpSpec\'s namespace for the class it describes, or its own at the top', function (string $namespace, string $declared): void {

@@ -131,10 +131,10 @@ final readonly class TestFile
     private static function isSpec(Tokens $tokens, int $class): bool
     {
         $extends = $class + self::EXTENDS;
-        $named = $tokens->is($extends + 1, ...Names::UNRELATIVE) ? $tokens->text($extends + 1) : '';
 
         return $tokens->is($extends, T_EXTENDS)
-            && ($named === self::SPEC || str_ends_with($named, sprintf('\\%s', self::SPEC)));
+            && $tokens->is($extends + 1, ...Names::UNRELATIVE)
+            && str_ends_with(sprintf('\\%s', $tokens->text($extends + 1)), sprintf('\\%s', self::SPEC));
     }
 
     /** Where the body of the class a keyword declares closes, as a byte offset. */
