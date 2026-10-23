@@ -65,7 +65,7 @@ jobs:
       mysql: true
 
   # Roave/BetterReflection, the large library: its src/SourceLocator/Type,
-  # as lcobucci/jwt's arms run it.
+  # as lcobucci/jwt's arms run it, on the PHP its own Infection job sets up.
   betterreflection:
     name: Roave/BetterReflection
     if: inputs.suite != 'runners'
@@ -74,6 +74,8 @@ jobs:
     uses: ./.github/workflows/bench-project.yml # zizmor: ignore[self-repository]
     with:
       project: betterreflection
+      extensions: pcntl, sodium, intl
+      ini-values: memory_limit=-1, zend.assertions=1
 
   # symfony/demo, the Symfony app, on the PHPUnit and Infection the gate
   # locks, with an Infection config of its src, as lcobucci/jwt's arms run it.
@@ -85,7 +87,8 @@ jobs:
     uses: ./.github/workflows/bench-project.yml # zizmor: ignore[self-repository]
     with:
       project: symfony-demo
-      extensions: pcntl, sodium, pdo_sqlite
+      # The extensions its own test workflow sets up, and pcntl for the gate's workers.
+      extensions: pcntl, intl, mbstring, pdo_sqlite, zip
 
   # Every project's results in one file named for the gate's version, and the
   # README's table rendered from it, both kept for a pull request to commit.
