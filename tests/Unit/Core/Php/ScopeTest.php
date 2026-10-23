@@ -16,7 +16,9 @@ it('declares a name in the global namespace as it is written', function (): void
 });
 
 it('declares a name inside its namespace', function (): void {
-    expect(Scope::global()->inside('App\Domain')->declared('Money'))->toBe('App\Domain\Money');
+    expect(Scope::global()->inside('App\Domain')->declared('Money'))->toBe('App\Domain\Money')
+        ->and(Scope::global()->inside('App\Domain')->namespace())->toBe('App\Domain')
+        ->and(Scope::global()->namespace())->toBe('');
 });
 
 it('reads a fully qualified name as itself', function (): void {

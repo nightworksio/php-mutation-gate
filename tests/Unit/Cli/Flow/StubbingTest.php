@@ -72,11 +72,11 @@ it('offers the ignore as a PHP config writes one where the project has no config
         ->toContain("\n    // Ignore::mutant('49e02fb39669', because: ''),\n");
 });
 
-it('writes no stub where the runner\'s tests are in no style a stub is written in, as PhpSpec\'s and Codeception\'s are', function (): void {
+it('writes no stub where the runner\'s tests are in no style a stub is written in, as Codeception\'s are', function (): void {
     $runner = RunnerFake::ofTheFixture()->behaving(RunnerBehaviour::standard()->writingTestsIn(NotGiven::value()));
     $stub = stubbingOf(Flows::project(), $runner);
 
-    expect($stub instanceof CannotJudge ? $stub->why() : $stub)->toBe('stub writes Pest and PHPUnit tests, and none for this runner.');
+    expect($stub instanceof CannotJudge ? $stub->why() : $stub)->toBe('stub writes Pest, PHPUnit and PhpSpec tests, and none for this runner.');
 });
 
 it('cannot place a test with no covering file where the trees cannot be read', function (): void {

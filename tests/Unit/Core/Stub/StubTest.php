@@ -21,7 +21,7 @@ it('adds a test to the file it follows, and prints it under the file it goes in'
 });
 
 it('writes a new file of its own, and prints the whole of it', function () use ($test): void {
-    $stub = Stub::created(Path::of('tests/Unit/MoneyTest.php'), $test, AssertionStyle::Pest, 'cluster c1de8298b6e2');
+    $stub = Stub::created(Path::of('tests/Unit/MoneyTest.php'), $test, AssertionStyle::Pest, 'Shop', 'cluster c1de8298b6e2');
 
     expect($stub->isNew())->toBeTrue()
         ->and($stub->contents())->toBe(sprintf("<?php\n\ndeclare(strict_types=1);\n\n%s\n", $test))

@@ -22,6 +22,9 @@ enum PhpSpecConfig: string
     case HiddenYaml = '.phpspec.yaml';
     case YamlDist = 'phpspec.yaml.dist';
 
+    /** What PhpSpec keeps specs under, in a namespace and a directory, where a suite names nothing else. */
+    public const string SPEC_PREFIX = 'spec';
+
     /** Where each name would be in a directory, in PhpSpec's order. */
     public static function candidatesIn(Path $directory): Paths
     {

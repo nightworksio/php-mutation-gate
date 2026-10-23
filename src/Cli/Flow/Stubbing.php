@@ -17,6 +17,7 @@ use NightWorksIO\MutationGate\Core\Mutant\SourcePin;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Php\Enclosing;
 use NightWorksIO\MutationGate\Core\Php\Nameless;
+use NightWorksIO\MutationGate\Core\Php\Source;
 use NightWorksIO\MutationGate\Core\Proof\Ambiguous;
 use NightWorksIO\MutationGate\Core\Proof\NoRecord;
 use NightWorksIO\MutationGate\Core\Report\Explanation;
@@ -52,7 +53,7 @@ final readonly class Stubbing
         %s holds %s tests, so a %s test cannot go in it. Leave out --style to write one in its style.
         SAID;
 
-    private const string UNWRITTEN = 'stub writes Pest and PHPUnit tests, and none for this runner.';
+    private const string UNWRITTEN = 'stub writes Pest, PHPUnit and PhpSpec tests, and none for this runner.';
 
     public function __construct(private Composed $composed)
     {
@@ -113,7 +114,7 @@ final readonly class Stubbing
 
         return $target instanceof TestFile
             ? Stub::into($target, $test, $for)
-            : Stub::created($target, $test, $style, $for);
+            : Stub::created($target, $test, $style, $this->namespaceOf($subject), $for);
     }
 
     /** The mutant, the function around it, and the tests that judge its unit; for a cluster, every member. */
@@ -184,6 +185,15 @@ final readonly class Stubbing
         $there = $this->read($file);
 
         return $there instanceof TestFile ? $there : $file;
+    }
+
+    /** The namespace the mutant's file declares its code in; none where it declares none, or cannot be read. */
+    private function namespaceOf(Subject $subject): string
+    {
+        $file = $subject->first()->mutant()->location()->file();
+        $source = $this->composed->adapters->project->read($file);
+
+        return $source instanceof Contents ? Source::read($file, $source, test: false)->scope()->namespace() : '';
     }
 
     /** The format of the project's config, which an ignore is written in; PHP, as `init` writes, where it has none. */

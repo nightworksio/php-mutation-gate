@@ -187,7 +187,7 @@ The first release is tagged when every row says *yes*.
 | **Local use** | Watch mode and a pre-push hook | yes | [0010](.docs/decisions/0010-the-gate-runs-while-you-work-and-before-you-push.md) |
 | | A score change before each commit, from a hook that runs nothing and never blocks | yes | [0015](.docs/decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
 | | Survivors inline in VS Code and PhpStorm | yes | [0015](.docs/decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
-| | `stub`: a failing Pest or PHPUnit test to fill in, for a survivor | yes | [0015](.docs/decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
+| | `stub`: a failing Pest or PHPUnit test or PhpSpec example to fill in, for a survivor | yes | [0015](.docs/decisions/0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md) |
 | | One command that reproduces each survivor | yes | [0004](.docs/decisions/0004-pest-and-infection-behind-one-runner-port.md), [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | | For each survivor, what the tests miss | yes | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | | `explain`: a mutant's diff, tests, their outcomes and its history, without running it | yes | [0014](.docs/decisions/0014-every-test-is-judged-by-what-it-kills.md) |

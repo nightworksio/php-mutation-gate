@@ -109,6 +109,19 @@ it('writes a PHPUnit method that holds the unit, and offers the ignore as a PHP 
         ->and($text)->not->toContain('$cart->');
 });
 
+it('writes a PhpSpec example that holds the unit with #[Holds] alone, matches on the object it describes, and fails', function () use ($survivor, $makeHeld, $makeWhole, $fits): void {
+    $mutant = $survivor();
+    $id = $mutant->mutant()->id()->value();
+    $held = StubText::of(Subject::of($mutant, $fits(), $makeHeld()), AssertionStyle::PhpSpec, Format::Json, RunnerBehaviour::standard()->holdingAsLoaded());
+    $whole = StubText::of(Subject::of($mutant, $fits(), $makeWhole()), AssertionStyle::PhpSpec, Format::Json, RunnerBehaviour::standard());
+
+    expect($held)->toStartWith(sprintf("#[\\NightWorksIO\\MutationGate\\Attribute\\Holds('src/Cart.php')]\npublic function it_kills_mutant_%s(): void\n{\n    // src/Cart.php:7", $id))
+        ->and($held)->toContain("\n    // \$this->fits(\$amount, \$limit)->shouldReturn(/* at the boundary */);\n")
+        ->and($held)->toContain(sprintf("\n    throw new \\PhpSpec\\Exception\\Example\\FailureException('Mutant %s, survived: ", $id))
+        ->and($held)->toEndWith(sprintf("\n    // {\"mutant\":\"%s\",\"reason\":\"\"}\n}", $id))
+        ->and($whole)->toStartWith(sprintf('public function it_kills_mutant_%s(): void', $id));
+});
+
 it('puts a PHPUnit method in the holding group beside its #[Holds] where the runner reads #[Holds] as its files load', function () use ($survivor, $makeHeld): void {
     $held = $makeHeld();
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Native\Project;
 use NightWorksIO\MutationGate\Adapter\Native\TestFiles;
 use NightWorksIO\MutationGate\Adapter\PhpSpec\PhpSpecFramework;
+use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -70,7 +71,7 @@ it('names the packages it drives at a version the runner supports, and cannot ju
         ->and(phpSpecFramework('8.1.0')->versions())->toBeInstanceOf(CannotJudge::class);
 });
 
-it('runs the gate\'s launcher, which reads no config of PHP\'s settings and boots no warm worker', function (): void {
+it('runs the gate\'s launcher, which reads no config of PHP\'s settings and boots no warm worker, and writes specs', function (): void {
     $framework = phpSpecFramework();
 
     expect($framework->script())->toBe(Tree::at('bin/mutation-gate-phpspec'))
@@ -79,7 +80,7 @@ it('runs the gate\'s launcher, which reads no config of PHP\'s settings and boot
         ->and($framework->config())->toEqual(NotGiven::value())
         ->and($framework->workerScript())->toEqual(NotGiven::value())
         ->and($framework->endedHidden('PHP Fatal error: Allowed memory size exhausted', configuredToHide: true))->toBeFalse()
-        ->and($framework->testStyle())->toEqual(NotGiven::value());
+        ->and($framework->testStyle())->toBe(AssertionStyle::PhpSpec);
 });
 
 it('is PhpSpec where Composer installed its script, and in a package where Composer installed it there', function (): void {

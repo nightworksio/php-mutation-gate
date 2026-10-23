@@ -99,3 +99,60 @@ it('runs the code, then reads its file for what the pin names, where only a test
             "expect(file_get_contents(/* the file it changes */))->toContain('hash_equals(');",
         ]);
 });
+
+/** The constructor of `Cart`, as a spec constructs the object it describes. */
+$made = static fn(): Enclosing|Nameless => Enclosing::in(Contents::of(<<<'PHP'
+    <?php
+
+    final class Cart
+    {
+        public function __construct(int $limit)
+        {
+            throw new \InvalidArgumentException('none');
+        }
+    }
+    PHP), Line::of(7));
+
+it('matches on the object a spec describes, through the method around the mutant or one to name', function () use ($fits): void {
+    $boundary = Verdicts::mutant('src/Cart.php:7', 'LessThan', MutatorFamily::Boundary, Verdicts::diff('return $amount < $limit;', 'return $amount <= $limit;'));
+    $removed = Verdicts::mutant('src/Cart.php:7', 'MethodCallRemoval', MutatorFamily::RemovedCall, Verdicts::diff('$this->log->write($order);', ''));
+
+    expect(Scaffold::of($boundary, $fits(), AssertionStyle::PhpSpec))->toBe([
+        'Call it at the boundary, then one step past it:',
+        '$this->fits($amount, $limit)->shouldReturn(/* at the boundary */);',
+        '$this->fits($amount, $limit)->shouldReturn(/* one step past it */);',
+    ])
+        ->and(Scaffold::of($boundary, Nameless::code(), AssertionStyle::PhpSpec)[1])
+        ->toBe('$this->/* the method that runs it */()->shouldReturn(/* at the boundary */);')
+        ->and(Scaffold::of($removed, $fits(), AssertionStyle::PhpSpec))->toBe([
+            'Assert on what write() does, which every test passes without:',
+            '$this->/* the method that shows what it changes */()->shouldReturn(/* expected */);',
+        ]);
+});
+
+it('expects the object a spec describes to throw during the method around the mutant, or as it is constructed', function () use ($fits, $made): void {
+    $thrown = Verdicts::mutant('src/Cart.php:7', 'Throw_', MutatorFamily::Exception, Verdicts::diff('throw new \InvalidArgumentException($amount);', ''));
+
+    expect(Scaffold::of($thrown, $fits(), AssertionStyle::PhpSpec))->toBe([
+        'Expect the exception it throws:',
+        "\$this->shouldThrow(\\InvalidArgumentException::class)->during('fits', [\$amount, \$limit]);",
+    ])
+        ->and(Scaffold::of($thrown, $made(), AssertionStyle::PhpSpec))->toBe([
+            'Expect the exception it throws:',
+            '$this->beConstructedWith($limit);',
+            '$this->shouldThrow(\InvalidArgumentException::class)->duringInstantiation();',
+        ])
+        ->and(Scaffold::of($thrown, Nameless::code(), AssertionStyle::PhpSpec))->toBe([
+            'Expect the exception it throws:',
+            '$this->shouldThrow(\InvalidArgumentException::class)->during(/* the method that runs it */);',
+        ]);
+});
+
+it('runs the method in a spec, then fails the example where the file no longer holds what the pin names', function () use ($fits): void {
+    expect(Scaffold::pinned(SourcePin::call('hash_equals'), $fits(), AssertionStyle::PhpSpec))->toBe([
+        'Run it, then read the file it is in, which the mutant changes:',
+        '$this->fits($amount, $limit)->shouldReturn(/* expected */);',
+        "if (! str_contains((string) file_get_contents((new \\ReflectionMethod(Cart::class, 'fits'))->getFileName()), 'hash_equals(')) "
+            . "{ throw new \\PhpSpec\\Exception\\Example\\FailureException('The file no longer holds it.'); }",
+    ]);
+});

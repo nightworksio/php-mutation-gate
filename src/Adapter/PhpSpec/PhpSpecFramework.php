@@ -8,6 +8,7 @@ use function array_map;
 use function file_get_contents;
 use function is_file;
 
+use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -152,9 +153,9 @@ final readonly class PhpSpecFramework implements Framework
         return $this->tests;
     }
 
-    /** PhpSpec's specs, which are in no style a stub is written in. */
-    public function testStyle(): NotGiven
+    /** PhpSpec's specs, whose examples match on the object they describe. */
+    public function testStyle(): AssertionStyle
     {
-        return NotGiven::value();
+        return AssertionStyle::PhpSpec;
     }
 }
