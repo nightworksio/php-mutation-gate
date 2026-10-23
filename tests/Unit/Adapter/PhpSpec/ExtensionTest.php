@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Adapter\PhpSpec\Listing;
 use NightWorksIO\MutationGate\Adapter\PhpSpec\Recording;
 use NightWorksIO\MutationGate\Adapter\PhpSpec\Selecting;
 use NightWorksIO\MutationGate\Adapter\PhpSpec\Told;
+use NightWorksIO\MutationGate\Core\Native\Guard;
 use NightWorksIO\MutationGate\Core\Native\OwnFiles;
 use NightWorksIO\MutationGate\Core\Native\Variable;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
@@ -67,23 +68,22 @@ it('measures the selected examples\' coverage where it is told a file to write i
         ->and(loadedUnder('event_dispatcher.listeners', [LaunchOption::Coverage->with('')]))->toBe([]);
 })->skip(fn(): bool => ! extension_loaded('pcov') && ! extension_loaded('xdebug'), 'only a PHP with a coverage driver');
 
-it('says nothing in the guard file where opcache is off on the command line', function (): void {
+it('notes in the guard file whether opcache on its command line could serve an original', function (): void {
     $guard = sprintf('%s/guard.txt', Scratch::directory());
     putenv(sprintf('%s=%s', Variable::Guard->value, $guard));
     loadedUnder('runner.maintainers', ['run']);
 
-    expect(is_file($guard))->toBeFalse();
-})->skip(fn(): bool => (bool) ini_get('opcache.enable_cli'), 'only a PHP with opcache off on the command line');
+    expect(is_file($guard) ? file_get_contents($guard) : '')->toBe(Guard::noting(Opcache::ofCommandLine(ini_get('opcache.enable_cli'))));
+});
 
-it('notes in the guard file that opcache could serve an original, and only where it could and a file is named', function (): void {
+it('notes in the guard file whether opcache could serve an original, after what it holds, only where a file is named', function (): void {
     $file = sprintf('%s/guard.txt', Scratch::directory());
-    Extension::noting($file, Opcache::ofCommandLine('0'));
     Extension::noting(file: false, opcache: Opcache::ofCommandLine('1'));
     Extension::noting('', Opcache::ofCommandLine('1'));
     $untouched = is_file($file);
-    Extension::noting($file, Opcache::ofCommandLine('1'));
+    Extension::noting($file, Opcache::ofCommandLine('0'));
     Extension::noting($file, Opcache::ofCommandLine('1'));
 
     expect($untouched)->toBeFalse()
-        ->and(file($file, FILE_IGNORE_NEW_LINES))->toBe(['cached', 'cached']);
+        ->and(file($file, FILE_IGNORE_NEW_LINES))->toBe(['uncached', 'cached']);
 });
