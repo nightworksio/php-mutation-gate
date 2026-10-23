@@ -11,7 +11,8 @@ Run by `bench.yml` once the project is prepared at its pinned commit
 round, in turn, so no arm has the machine to itself at a quieter time, each
 from a cold start: what an arm leaves is removed before it runs. It keeps each
 arm's report and wall time in the out directory, taking the report from the
-file an arm's `log` names where the tool writes it to a path of its config.
+file an arm's `log` names where the tool writes it to a path of its config,
+and the text log from the file its `text` names.
 An arm whose `stdout` is set has what it printed kept as its report, as plain
 Pest's is. An arm runs in the project directory, or in the copy its
 `directory` names, as a plain arm runs in a copy the gate's `infection:patch`
@@ -28,10 +29,12 @@ alone, and its mutants are matched with the gate's by file, line and mutator. `r
 file and the step summary:
 
 - each arm's wall time, as the median of the rounds with their range;
-- each arm's mutants per file and status, from its first round;
+- each arm's mutants per file and status, from the first round that left
+  a report;
 - each mutant the arms named under `same` judge otherwise, or one of them
   lacks. Those arms mutate with the same tool and mutators, so a difference
-  the gate's own statuses do not explain fails the benchmark.
+  the gate's own statuses do not explain fails the benchmark. A mutant plain
+  Infection skipped, which its text log names, is explained by the skip.
 
 `time` runs one command that many times and keeps the median of its wall
 time with the range, as `Pest start-up` measures what starting Pest costs.
@@ -83,6 +86,17 @@ EXPLAINED = {
     ("escaped", "killed-by-static-analysis"),
 }
 EXPLAINING_JUDGEMENTS = {"flaky", "equivalent"}
+
+# Infection's status of a mutant it never ran, since the tests that cover it
+# took longer than its timeout to run once. Its JSON log only counts them;
+# its text log names each, with no diff. The gate runs it, so the difference
+# is Infection's own.
+SKIPPED = "skipped"
+
+# How a mutator of one of the gate's own sets is named, `<set>/<Name>`
+# (ADR-0021): the plain tool has no such mutator, so it lacks its mutants.
+GATE_SET = "/"
+INFECTION_SKIPPED = re.compile(r"^\d+\) (\S+):(\d+)\s+\[M\] (\S+) \[ID\] \S+$")
 
 
 def changed(diff: str) -> tuple[str, ...]:
@@ -162,6 +176,22 @@ def outcome(report: dict, kind: str, root: str) -> list[dict]:
     return found
 
 
+def skipped(printed: str, root: str) -> list[dict]:
+    """The mutants Infection's text log lists as skipped, by file, line and mutator."""
+    found: list[dict] = []
+    listing = False
+    for line in printed.splitlines():
+        if line.endswith("mutants:"):
+            listing = line == "Skipped mutants:"
+            continue
+        named = INFECTION_SKIPPED.match(line) if listing else None
+        if named:
+            file, at, mutator = named.groups()
+            found.append({"file": relative(file, root), "line": int(at), "mutator": mutator, "diff": (),
+                          "status": SKIPPED, "outcome": "other"})
+    return found
+
+
 def tally(mutants: list[dict], totals: dict[str, int] | None = None) -> dict[str, dict[str, int]]:
     """Each file's mutants by outcome, with the whole run under `total`, or the totals the tool counted."""
     counts: dict[str, dict[str, int]] = {}
@@ -179,16 +209,42 @@ def key(mutant: dict, by_diff: bool) -> tuple:
     return (mutant["file"], mutant["line"], mutant["mutator"], mutant["diff"] if by_diff else ())
 
 
-def pairs(plain: list[dict], gate: list[dict], named_only: bool = False) -> list[dict]:
+def unskipped(plain: list[dict], gate: list[dict]) -> tuple[list[dict], list[dict], list[dict]]:
+    """
+    Each mutant plain Infection skipped, matched with the gate's by file, line
+    and mutator, since its text log gives no diff: the difference each makes,
+    explained, and the mutants of both arms left to match by their diffs.
+    """
+    left = list(gate)
+    found = []
+    for mutant in (each for each in plain if each["status"] == SKIPPED):
+        at = next((index for index, other in enumerate(left) if key(other, False) == key(mutant, False)), None)
+        other = left.pop(at) if at is not None else None
+        found.append({"file": mutant["file"], "line": mutant["line"], "mutator": mutant["mutator"], "plain": SKIPPED,
+                      "gate": other["status"] if other else "absent", "explained": other is not None})
+    return found, [each for each in plain if each["status"] != SKIPPED], left
+
+
+def leaves_uncovered_out(arm: dict) -> bool:
+    """Whether a plain arm makes no mutant on a line no test covers: Infection, unless `--with-uncovered` asks."""
+    return arm["report"] == "infection" and "--with-uncovered" not in arm["command"]
+
+
+def pairs(plain: list[dict], gate: list[dict], named_only: bool = False, left_out: bool = False) -> list[dict]:
     """
     Each mutant two arms of the same tool judge otherwise, or one lacks, and
     whether the gate explains it. Where the plain arm names only its escaped
     and uncovered mutants, as plain Pest does, the gate's are matched with
     those by file, line and mutator, and a gate mutant it does not name is
-    one it killed or timed out.
+    one it killed or timed out. A mutant plain Infection skipped is matched
+    by file, line and mutator, and Infection's skip explains it. A gate
+    mutant the plain arm lacks is explained where a mutator of the gate's
+    own sets made it, or where it is uncovered and the plain arm leaves
+    uncovered mutants out.
     """
     if named_only:
         gate = [mutant for mutant in gate if mutant["outcome"] in ("escaped", "uncovered")]
+    skips, plain, gate = unskipped(plain, gate)
     left: dict[tuple, list[dict]] = {}
     right: dict[tuple, list[dict]] = {}
     for mutants, by in ((plain, left), (gate, right)):
@@ -205,7 +261,9 @@ def pairs(plain: list[dict], gate: list[dict], named_only: bool = False) -> list
             explained = bool(one and other) and (
                 (one["outcome"], other["status"]) in EXPLAINED
                 or other.get("judgement") in EXPLAINING_JUDGEMENTS
-            )
+            ) or (one is None and other is not None and (
+                GATE_SET in other["mutator"] or (left_out and other["outcome"] == "uncovered")
+            ))
             found.append({
                 "file": each[0],
                 "line": each[1],
@@ -214,7 +272,7 @@ def pairs(plain: list[dict], gate: list[dict], named_only: bool = False) -> list
                 "gate": other["status"] if other else "absent",
                 "explained": explained,
             })
-    return found
+    return sorted([*skips, *found], key=lambda each: (each["file"], each["line"], each["mutator"]))
 
 
 def spread(seconds: list[float]) -> dict:
@@ -248,7 +306,7 @@ def summary(project: dict, arms: dict[str, dict], differences: list[dict], machi
             + f" | {', '.join(str(code) for code in arm['exits'])} |"
         )
     order = ", ".join(OUTCOMES)
-    lines += ["", f"Each arm's mutants per file, from its first round (generated, then {order}):", ""]
+    lines += ["", f"Each arm's mutants per file, from its first round that left a report (generated, then {order}):", ""]
     lines += ["| file | " + " | ".join(names) + " |", "|---|" + "---|" * len(names)]
     files = sorted({file for arm in arms.values() for file in arm["files"] if file != "total"})
     for file in files:
@@ -328,6 +386,25 @@ def ended(returncode: int | None, stopped: bool) -> int | str:
     return "stopped" if stopped or returncode is None else returncode
 
 
+def local() -> dict[str, str]:
+    """This process's environment without CI's variables, so each tool runs as it would on a laptop."""
+    return {name: value for name, value in os.environ.items() if name not in ("CI", "GITHUB_ACTIONS")}
+
+
+def ran(command: list[str], place: Path, environment: dict, seconds: float | None,
+        stdout=None) -> tuple[float, int | str]:
+    """One command run in its own session, stopped with it after that long; its wall time and how it ended."""
+    started = time.monotonic()
+    process = subprocess.Popen(command, cwd=place, env=environment, start_new_session=True, stdout=stdout)
+    stopped = False
+    try:
+        process.wait(timeout=seconds)
+    except subprocess.TimeoutExpired:
+        stopped = True
+        stop(process)
+    return time.monotonic() - started, ended(process.returncode, stopped)
+
+
 def kept(place: Path, arm: dict, out: Path, name: str, at: int) -> None:
     """The paths an arm keeps, copied beside its report, each as it was when the round ended."""
     for each in arm.get("keep", []):
@@ -343,7 +420,7 @@ def kept(place: Path, arm: dict, out: Path, name: str, at: int) -> None:
 def run(project: dict, directory: Path, out: Path, rounds: int, arm_seconds: float | None = None) -> None:
     """Every arm once a round, in turn, each from a cold start, its report and wall time kept."""
     out.mkdir(parents=True, exist_ok=True)
-    environment = {name: value for name, value in os.environ.items() if name not in ("CI", "GITHUB_ACTIONS")}
+    environment = local()
     for at in range(1, rounds + 1):
         for name, arm in project["arms"].items():
             report = report_of(out, name, arm, at)
@@ -354,22 +431,15 @@ def run(project: dict, directory: Path, out: Path, rounds: int, arm_seconds: flo
                 removed(place / each)
             for to, source in arm.get("copy", {}).items():
                 shutil.copyfile(place / source, place / to)
-            started = time.monotonic()
             command = [fill(part, report) for part in arm["command"]]
-            stopped = False
             with open(report if arm.get("stdout") else os.devnull, "w", encoding="utf-8") as printed:
-                process = subprocess.Popen(command, cwd=place, env=environment, start_new_session=True,
-                                           stdout=printed if arm.get("stdout") else None)
-                try:
-                    process.wait(timeout=arm_seconds)
-                except subprocess.TimeoutExpired:
-                    stopped = True
-                    stop(process)
-            seconds = time.monotonic() - started
+                seconds, exit_code = ran(command, place, environment, arm_seconds,
+                                         printed if arm.get("stdout") else None)
             if arm.get("log") and (place / arm["log"]).exists():
                 shutil.move(place / arm["log"], report)
+            if arm.get("text") and (place / arm["text"]).exists():
+                shutil.move(place / arm["text"], out / f"{name}-{at}.txt")
             kept(place, arm, out, name, at)
-            exit_code = ended(process.returncode, stopped)
             (out / f"{name}-{at}.time").write_text(json.dumps({"seconds": seconds, "exit": exit_code}))
             print(f"{name}, round {at}: {seconds:.1f} s, exit {exit_code}", flush=True)
 
@@ -381,7 +451,9 @@ def reconcile(project: dict, out: Path, result: Path, root: str) -> int:
     for name, arm in project["arms"].items():
         times = sorted(out.glob(f"{name}-*.time"), key=lambda path: int(path.stem.rsplit("-", 1)[1]))
         runs = [json.loads(path.read_text()) for path in times]
-        report = report_of(out, name, arm, 1)
+        rounds = [int(path.stem.rsplit("-", 1)[1]) for path in times]
+        at = next((each for each in rounds if report_of(out, name, arm, each).exists()), 1)
+        report = report_of(out, name, arm, at)
         place = str((Path(root) / arm.get("directory", ".")).resolve())
         totals = None
         if not report.exists():
@@ -390,15 +462,20 @@ def reconcile(project: dict, out: Path, result: Path, root: str) -> int:
             first[name], totals = pest(report.read_text(encoding="utf-8", errors="replace"))
         else:
             first[name] = outcome(json.loads(report.read_text()), arm["report"], place)
+            text = out / f"{name}-{at}.txt"
+            if arm.get("text") and text.exists():
+                first[name] += skipped(text.read_text(encoding="utf-8", errors="replace"), place)
         arms[name] = {
             "said": arm["said"],
             "wall": spread([each["seconds"] for each in runs]),
             "exits": [each["exit"] for each in runs],
+            "counted": at,
             "files": tally(first[name], totals),
         }
     same = project.get("same", [])
     named_only = any(project["arms"][name]["report"] == "pest" for name in same)
-    differences = pairs(first[same[0]], first[same[1]], named_only) if len(same) == 2 else []
+    left_out = bool(same) and leaves_uncovered_out(project["arms"][same[0]])
+    differences = pairs(first[same[0]], first[same[1]], named_only, left_out) if len(same) == 2 else []
     found = machine()
     result.parent.mkdir(parents=True, exist_ok=True)
     result.write_text(json.dumps({

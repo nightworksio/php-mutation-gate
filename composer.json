@@ -161,6 +161,7 @@
             "@php bin/mutation-gate pest:patch"
         ],
         "analyse": "phpstan analyse --memory-limit=1G",
+        "bench": "bash scripts/bench.sh",
         "bot:rules": [
             "@php scripts/bot-rules/pint.php > .github/bot/rules/pint.json",
             "@php scripts/bot-rules/rector.php > .github/bot/rules/rector.json"
@@ -190,6 +191,7 @@
         "test:report": "sh scripts/coverage.sh --coverage-clover=coverage/clover.xml --log-junit=coverage/junit.xml"
     },
     "scripts-descriptions": {
+        "bench": "Runs the benchmark on one pinned project here, as bench.yml runs it: composer bench -- <project> [cold|scenarios|sharded] (ADR-0017).",
         "ci": "The PHP gates CI runs, in the order CI runs them, but for the lowest dependencies, which would rewrite vendor, and mutation, which runs in CI only. The hygiene, security and commit checks run in CI as well.",
         "report:schema": "Writes resources/report.schema.json, resources/tests.schema.json, resources/doctor.schema.json, resources/webhook.schema.json and resources/explain.schema.json, the JSON Schemas of the json and tests reports, of doctor's JSON, of the webhook and of explain's JSON, from their own definitions.",
         "test": "Every suite but Guards, in parallel.",

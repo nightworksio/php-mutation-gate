@@ -24,7 +24,7 @@ composer show | grep -E '^(phpunit/phpunit|infection/infection|nightworksio/muta
 # attributes and refuses `beStrictAboutTodoAnnotatedTests`.
 sed -e 's/failOnRisky="true"/failOnRisky="true" failOnPhpunitWarning="false" failOnPhpunitDeprecation="false"/' \
   -e 's/ *beStrictAboutTodoAnnotatedTests="true"//' phpunit.xml.dist > phpunit.xml
-printf 'vendor/\n.mutation-gate/\nbench-*.json\ninfection.txt\n' > .gitignore
+printf 'vendor/\n.mutation-gate/\nbench-*.json\nbench-*.txt\ninfection.txt\n' > .gitignore
 bench_baselines src
 # Infection's own ignores stand, as plain Infection honours them, so both arms make the same mutants.
 printf '{"runner": {"use": "infection"}, "trees": [{"path": "src"}], "ignores": {"native": "allow"}}\n' > bench-infection.json

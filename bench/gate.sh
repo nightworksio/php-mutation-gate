@@ -5,7 +5,9 @@
 # path repository, the files the gate's arms run with, a commit of it all,
 # and a copy for the plain arm made before the gate patches its runner.
 #   bench_baselines <tree>...   floors of 0, so a score never fails a gate arm
-#   bench_commit <message>      git init and one commit, as a checkout is
+#   bench_commit <message>      git init and one commit, as a checkout is, the
+#                               same commit on every machine that prepares the
+#                               same files, as a sharded plan's shards need
 #   bench_plain_copy            the copy the plain arm runs in
 set -euo pipefail
 
@@ -26,7 +28,8 @@ bench_baselines() {
 bench_commit() {
   git init --quiet
   git add --all
-  git -c user.name=bench -c user.email=bench@localhost commit --quiet --message "$1"
+  GIT_AUTHOR_DATE=2000-01-01T00:00:00Z GIT_COMMITTER_DATE=2000-01-01T00:00:00Z \
+    git -c user.name=bench -c user.email=bench@localhost commit --quiet --message "$1"
 }
 
 bench_plain_copy() {

@@ -74,6 +74,11 @@ Leave these to CI:
 - `sonarcloud` and `gate`, which ask SonarCloud;
 - `analyze`, CodeQL's analysis of the workflows.
 
+The benchmark, `bench.yml`, runs on demand and monthly (ADR-0017).
+`composer bench -- <project> [cold|scenarios|sharded]` runs one project of it
+here, which takes hours and needs what the project's suite needs, such as
+MySQL for `pinkary`.
+
 ## Commits and pull requests
 
 - **Conventional subjects.** Every commit subject, and the pull request's

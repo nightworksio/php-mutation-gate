@@ -83,10 +83,61 @@ class Pairs(unittest.TestCase):
         )
         self.assertEqual([each["explained"] for each in bench.pairs(plain, gate)], [True, True])
 
+    def test_explains_an_uncovered_mutant_only_where_the_plain_arm_leaves_them_out(self):
+        gate = bench.outcome({"mutants": [gate_mutant(3, "uncovered")]}, "gate", ROOT)
+        self.assertEqual([each["explained"] for each in bench.pairs([], gate, left_out=True)], [True])
+        self.assertEqual([each["explained"] for each in bench.pairs([], gate)], [False])
+
+    def test_explains_a_mutant_of_the_gate_s_own_sets_the_plain_arm_lacks(self):
+        gate = bench.outcome({"mutants": [gate_mutant(3, "survived", mutator="symfony/RemoveFlush")]}, "gate", ROOT)
+        self.assertEqual([(each["plain"], each["explained"]) for each in bench.pairs([], gate)], [("absent", True)])
+
+    def test_leaves_uncovered_mutants_out_for_plain_infection_unless_it_asks_for_them(self):
+        infection = {"report": "infection", "command": ["vendor/bin/infection"]}
+        self.assertTrue(bench.leaves_uncovered_out(infection))
+        self.assertFalse(bench.leaves_uncovered_out({**infection, "command": ["infection", "--with-uncovered"]}))
+        self.assertFalse(bench.leaves_uncovered_out({"report": "pest", "command": ["pest"]}))
+
     def test_names_a_mutant_one_arm_lacks(self):
         plain = bench.outcome({"killed": [infection_entry(3), infection_entry(3)]}, "infection", ROOT)
         gate = bench.outcome({"mutants": [gate_mutant(3, "killed")]}, "gate", ROOT)
         self.assertEqual([(each["plain"], each["gate"]) for each in bench.pairs(plain, gate)], [("killed", "absent")])
+
+
+INFECTION_PRINTED = f"""Escaped mutants:
+================
+
+1) {ROOT}/src/Money.php:5    [M] Plus [ID] 1a
+
+Skipped mutants:
+================
+
+1) {ROOT}/src/Money.php:3    [M] Plus [ID] 2b
+2) {ROOT}/src/Money.php:3    [M] Plus [ID] 3c
+
+Timed Out mutants:
+==================
+
+1) {ROOT}/src/Money.php:7    [M] Minus [ID] 4d
+"""
+
+
+class Skipped(unittest.TestCase):
+    def test_reads_only_the_mutants_infection_lists_as_skipped(self):
+        self.assertEqual(
+            [(each["file"], each["line"], each["mutator"], each["status"], each["outcome"])
+             for each in bench.skipped(INFECTION_PRINTED, ROOT)],
+            [("src/Money.php", 3, "Plus", "skipped", "other"), ("src/Money.php", 3, "Plus", "skipped", "other")],
+        )
+
+    def test_matches_each_skipped_mutant_with_one_of_the_gate_s_by_line_and_mutator_and_explains_it(self):
+        plain = bench.skipped(INFECTION_PRINTED, ROOT) + bench.outcome({"killed": [infection_entry(4)]}, "infection",
+                                                                       ROOT)
+        gate = bench.outcome({"mutants": [gate_mutant(3, "survived"), gate_mutant(4, "killed")]}, "gate", ROOT)
+        self.assertEqual(
+            [(each["line"], each["plain"], each["gate"], each["explained"]) for each in bench.pairs(plain, gate)],
+            [(3, "skipped", "survived", True), (3, "skipped", "absent", False)],
+        )
 
 
 PEST_PRINTED = """
