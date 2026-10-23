@@ -23,7 +23,7 @@ the `shards.seconds` that config has, the default where it sets none.
 - `shard` runs one shard of that plan once a round, each round from the
   state `--planned` names, and keeps its result and wall time;
 - `verdict` judges each round's results of every shard from that state,
-  timed, its report kept;
+  laid where the gate keeps them in the project, timed, its report kept;
 - `report` writes the result file and the step summary.
 
 A round's wall time is the plan's, the slowest shard's and the verdict's;
@@ -148,8 +148,9 @@ def verdict(project: dict, directory: Path, out: Path, planned_state: Path, roun
         restored(project, directory, planned_state)
         report = out / f"gate-sharded-{each}.json"
         results = out / f"results-{each}"
-        results.mkdir(exist_ok=True)
-        command = gate(project, "verdict", f"--plan={PLAN}", f"--results={results}", f"--report=json:{report}")
+        if results.is_dir():
+            shutil.copytree(results, directory / RESULTS)
+        command = gate(project, "verdict", f"--plan={PLAN}", f"--results={RESULTS}", f"--report=json:{report}")
         seconds, exit_code = run(command, directory)
         timed(out, f"verdict-{each}", seconds, exit_code)
 
@@ -218,8 +219,8 @@ def summary(project: dict, arm: dict) -> str:
     return "\n".join([
         f"## {project['project']} {project['version']}: the gate sharded",
         "",
-        f"{arm['said']}: {arm['shards']} shards, each on a machine of its own, and the plan and the verdict on "
-        "one each.",
+        f"{arm['said']}: {arm['shards']} shard{'' if arm['shards'] == 1 else 's'}, each on a machine of its own, "
+        "and the plan and the verdict on one each.",
         "",
         "| | median (range) |",
         "|---|---:|",

@@ -7,9 +7,9 @@
 # its cold arms, interleaved, and their reconciliation (`cold`, the
 # default), its scenarios (`scenarios`), or its sharded arm with each shard
 # run here in turn (`sharded`), each BENCH_ROUNDS times, 3 where it is
-# unset. The result is written to bench/results/, as the workflow's job
-# writes it. A project whose suite needs a service, as pinkary.com's needs
-# MySQL, needs it running here.
+# unset. The result is written to results/ in that directory, as the
+# workflow's job writes it. A project whose suite needs a service, as
+# pinkary.com's needs MySQL, needs it running here.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 usage="Usage: composer bench -- <project> [cold|scenarios|sharded], the project one of: $(
@@ -31,11 +31,11 @@ scripts="${root}/.github/scripts"
 case "${stage}" in
   cold)
     python3 "${scripts}/bench.py" run "${file}" "${directory}" "${out}" --rounds "${rounds}"
-    python3 "${scripts}/bench.py" reconcile "${file}" "${directory}" "${out}" "${root}/bench/results/${project}.json"
+    python3 "${scripts}/bench.py" reconcile "${file}" "${directory}" "${out}" "${work}/results/${project}.json"
     ;;
   scenarios)
     python3 "${scripts}/bench_scenarios.py" run "${file}" "${directory}" "${out}" --rounds "${rounds}"
-    python3 "${scripts}/bench_scenarios.py" report "${file}" "${out}" "${root}/bench/results/${project}-scenarios.json"
+    python3 "${scripts}/bench_scenarios.py" report "${file}" "${out}" "${work}/results/${project}-scenarios.json"
     ;;
   sharded)
     python3 "${scripts}/bench_sharded.py" plan "${file}" "${directory}" "${out}"
@@ -45,7 +45,7 @@ case "${stage}" in
     done
     python3 "${scripts}/bench_sharded.py" verdict "${file}" "${directory}" "${out}" --planned "${out}/planned" \
       --rounds "${rounds}"
-    python3 "${scripts}/bench_sharded.py" report "${file}" "${out}" "${root}/bench/results/${project}-sharded.json" \
+    python3 "${scripts}/bench_sharded.py" report "${file}" "${out}" "${work}/results/${project}-sharded.json" \
       --rounds "${rounds}"
     ;;
 esac

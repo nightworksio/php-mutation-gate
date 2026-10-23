@@ -73,7 +73,7 @@
     ],
     "sharded": {
         "arm": "gate-infection",
-        "said": "the gate-infection arm sharded at its shards.seconds, each shard on a machine of its own"
+        "said": "the gate-infection arm, sharded at the shards.seconds of its config"
     },
     "scenarios": {
         "week": "c98179c75efa95f2f72d9266d871415c51801ac9",

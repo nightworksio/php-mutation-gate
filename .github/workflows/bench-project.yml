@@ -79,7 +79,7 @@ jobs:
         if: ${{ always() }}
         run: |
           python3 .github/scripts/bench.py reconcile "bench/${PROJECT}.json" "${RUNNER_TEMP}/${PROJECT}" \
-            "${RUNNER_TEMP}/bench" "bench/results/${PROJECT}.json"
+            "${RUNNER_TEMP}/bench" "${RUNNER_TEMP}/results/${PROJECT}.json"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ always() }}
         with:
@@ -91,7 +91,7 @@ jobs:
         if: ${{ always() }}
         with:
           name: bench-result-${{ env.PROJECT }}
-          path: bench/results/${{ env.PROJECT }}.json
+          path: ${{ runner.temp }}/results/${{ env.PROJECT }}.json
           if-no-files-found: error
           retention-days: 90
 
@@ -131,7 +131,7 @@ jobs:
         if: ${{ always() }}
         run: |
           python3 .github/scripts/bench_scenarios.py report "bench/${PROJECT}.json" "${RUNNER_TEMP}/bench" \
-            "bench/results/${PROJECT}-scenarios.json"
+            "${RUNNER_TEMP}/results/${PROJECT}-scenarios.json"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ always() }}
         with:
@@ -143,7 +143,7 @@ jobs:
         if: ${{ always() }}
         with:
           name: bench-result-${{ env.PROJECT }}-scenarios
-          path: bench/results/${{ env.PROJECT }}-scenarios.json
+          path: ${{ runner.temp }}/results/${{ env.PROJECT }}-scenarios.json
           if-no-files-found: error
           retention-days: 90
 
@@ -292,7 +292,7 @@ jobs:
         if: ${{ always() }}
         run: |
           python3 .github/scripts/bench_sharded.py report "bench/${PROJECT}.json" "${RUNNER_TEMP}/bench" \
-            "bench/results/${PROJECT}-sharded.json" --rounds 3
+            "${RUNNER_TEMP}/results/${PROJECT}-sharded.json" --rounds 3
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ always() }}
         with:
@@ -306,6 +306,6 @@ jobs:
         if: ${{ always() }}
         with:
           name: bench-result-${{ env.PROJECT }}-sharded
-          path: bench/results/${{ env.PROJECT }}-sharded.json
+          path: ${{ runner.temp }}/results/${{ env.PROJECT }}-sharded.json
           if-no-files-found: error
           retention-days: 90

@@ -109,7 +109,7 @@ class Running(unittest.TestCase):
             runs = [json.loads(line) for line in gate.with_suffix(".log").read_text().splitlines()]
             self.assertEqual([each["command"] for each in runs], ["plan", "run", "run", "run", "run", "verdict", "verdict"])
             self.assertEqual({each["config"] for each in runs}, {"bench-infection.json"})
-            self.assertEqual({tuple(each["results"]) for each in runs}, {()})
+            self.assertEqual([each["results"] for each in runs], [[]] * 5 + [["1.json", "2.json"]] * 2)
             self.assertEqual(sorted(path.name for path in (out / "results-2").iterdir()), ["1.json", "2.json"])
             self.assertTrue((directory / "baseline.json").exists())
             result = Path(work) / "result.json"
