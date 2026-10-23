@@ -63,7 +63,7 @@ const CI_SCHEMAS = [
     ],
     'bitbucket' => [
         'https://api.bitbucket.org/schemas/pipelines-configuration',
-        'aac75428d2fbb18d921d7d2a5d3e2099f43302be12b95498b9061f3b34f95b17',
+        'b37319267d9922bd9f0a5142d657551ae844e136fa205068c8660622d66bcf64',
     ],
 ];
 
