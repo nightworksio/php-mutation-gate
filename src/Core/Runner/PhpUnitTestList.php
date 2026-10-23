@@ -8,6 +8,7 @@ use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Format\Xml;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -45,7 +46,9 @@ final readonly class PhpUnitTestList
         string $file,
         Program $program,
     ): TestListing|CannotJudge {
-        $list = $ran->succeeded() && is_string($xml) ? simplexml_load_string($xml, options: Xml::QUIET) : false;
+        $list = $ran->succeeded() && is_string($xml)
+            ? simplexml_load_string($xml, options: Xml::QUIET)
+            : NotGiven::value();
 
         if (! $list instanceof SimpleXMLElement || $list->getName() !== 'testSuite') {
             return CannotJudge::because(sprintf(self::UNREAD, $program->title(), $file, $ran->output()));
