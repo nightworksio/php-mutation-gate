@@ -54,6 +54,15 @@ it('names the matchers of its own its getMatchers() keys, in any case, and none 
         ->toBe([true, true, false, false]);
 });
 
+it('names no matcher of its own where getMatchers() returns no array, or nothing', function (string $body): void {
+    $spec = specOf(sprintf("<?php\n\nfinal class CartSpec extends ObjectBehavior\n{\n    public function getMatchers(): array\n    {\n        %s\n    }\n}\n", $body));
+
+    expect($spec instanceof Spec && $spec->hasMatcher('beMoney'))->toBeFalse();
+})->with([
+    'another call' => ["return array_merge(['beMoney' => fn(): bool => true]);"],
+    'no return' => ["\$matchers = ['beMoney' => fn(): bool => true];"],
+]);
+
 it('names no matcher of its own where it declares no getMatchers()', function (): void {
     $spec = specOf("<?php\n\nfinal class CartSpec extends ObjectBehavior\n{\n    public function it_adds(): void\n    {\n        \$this->totals(['beMoney' => 3]);\n    }\n}\n");
 
