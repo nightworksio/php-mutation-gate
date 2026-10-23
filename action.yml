@@ -49,6 +49,7 @@ inputs:
     description: >-
       true to send what a run of the action left: the pull request comment, and a store's ledger where the job's
       environment names one. Use it in a job of its own that needs the run's job; it runs none of the project's code.
+      The job needs pull-requests: write to comment, and actions: read for the comment to link the run's HTML report.
     required: false
     default: 'false'
 
@@ -266,7 +267,8 @@ runs:
         code=0
         mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
         "${GATE}" verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results \
-          --report=json:.mutation-gate/action/report.json --deliver-later "${arguments[@]}" || code=$?
+          --report=json:.mutation-gate/action/report.json --report=html:.mutation-gate/action/html \
+          --deliver-later "${arguments[@]}" || code=$?
         echo "code=${code}" >> "${GITHUB_OUTPUT}"
 
     # Only the verdict writes a ledger, and only for the run's own scope where
@@ -300,6 +302,22 @@ runs:
       with:
         path: ${{ steps.resolve.outputs.own_dir }}
         key: ${{ steps.resolve.outputs.own_prefix }}${{ hashFiles(format('{0}/ledger.json.gz', steps.resolve.outputs.own_dir), format('{0}/coverage.json.gz', steps.resolve.outputs.own_dir)) }}
+
+    # The HTML report, unarchived under the name the comment's link finds it
+    # by, so the link opens the page itself, uploaded before the job that
+    # runs this action with `deliver: true` writes the comment.
+    - name: Name the HTML report as the comment links it
+      if: ${{ !cancelled() && inputs.deliver != 'true' && inputs.shard == '' && hashFiles('.mutation-gate/action/html/index.html') != '' }}
+      shell: bash
+      run: cp .mutation-gate/action/html/index.html .mutation-gate/action/mutation-gate-report.html
+    - name: Keep the HTML report the comment links
+      if: ${{ !cancelled() && inputs.deliver != 'true' && inputs.shard == '' && hashFiles('.mutation-gate/action/mutation-gate-report.html') != '' }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        path: .mutation-gate/action/mutation-gate-report.html
+        archive: false
+        include-hidden-files: true
+        if-no-files-found: ignore
 
     # What the plan, the re-check and the verdict left for a credential, for
     # the job that runs this action with `deliver: true`.

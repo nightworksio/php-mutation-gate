@@ -39,7 +39,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * in place on every run, passing runs included. A run that cannot comment,
  * such as a fork's, whose token GitHub makes read-only, says why and fails
  * nothing; the step summary carries the same content. The plan job writes
- * it first in its planned state (ADR-0009).
+ * it first in its planned state, and the verdict's links the run's HTML
+ * report, found as the comment is written (ADR-0009).
  */
 final readonly class PullRequestComment implements Configurable, Deferring, Reporter
 {
@@ -64,6 +65,7 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
         private PullRequestNumber|NotGiven $commentedOn,
         private string $run,
         private string $identity,
+        private HtmlReport $report,
     ) {
     }
 
@@ -94,18 +96,22 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
             default => $commentedOn,
         };
 
+        $api = Api::at($client, $read('GITHUB_API_URL'), $read('GITHUB_TOKEN'));
+        $run = sprintf(
+            '%s/%s/actions/runs/%s',
+            $read('GITHUB_SERVER_URL') === '' ? 'https://github.com' : $read('GITHUB_SERVER_URL'),
+            $read('GITHUB_REPOSITORY'),
+            $read('GITHUB_RUN_ID'),
+        );
+
         return new self(
-            Api::at($client, $read('GITHUB_API_URL'), $read('GITHUB_TOKEN')),
+            $api,
             $read('GITHUB_REPOSITORY'),
             $target,
             $commentedOn,
-            sprintf(
-                '%s/%s/actions/runs/%s',
-                $read('GITHUB_SERVER_URL') === '' ? 'https://github.com' : $read('GITHUB_SERVER_URL'),
-                $read('GITHUB_REPOSITORY'),
-                $read('GITHUB_RUN_ID'),
-            ),
+            $run,
             $identity,
+            HtmlReport::of($api, $read('GITHUB_REPOSITORY'), $read('GITHUB_RUN_ID'), $run),
         );
     }
 
@@ -133,7 +139,7 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
 
     public function report(Verdict $verdict): Written|NotWritten
     {
-        return $this->write(Markdown::comment($verdict, $this->run));
+        return $this->write(Markdown::comment($verdict));
     }
 
     /**
@@ -153,7 +159,7 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
     {
         return $this->commentedOn instanceof NotGiven
             ? $delivery
-            : $delivery->withComment(Markdown::comment($verdict, $this->run));
+            : $delivery->withComment(Markdown::comment($verdict));
     }
 
     /** A delivery, with the comment in its planned state, where the run is a pull request's, for `deliver` to write. */
@@ -209,7 +215,6 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
             return $number;
         }
 
-        $body = ['body' => $markdown];
         $existing = StickyComment::in($this->api, $this->repository)->on($number, $this->identity);
         $id = $existing instanceof Answer ? $existing->number('id') : 0;
         $planned = $existing instanceof Answer && str_contains($existing->text('body'), $this->plannedHeading());
@@ -217,6 +222,8 @@ final readonly class PullRequestComment implements Configurable, Deferring, Repo
         if ($overPlanned && ! $planned) {
             return NotWritten::because(self::NOT_PLANNED);
         }
+
+        $body = ['body' => $this->report->into($markdown)];
 
         $answer = $id === 0
             ? $this->api->send('POST', sprintf(self::COMMENTS, $this->repository, $number->value()), $body)

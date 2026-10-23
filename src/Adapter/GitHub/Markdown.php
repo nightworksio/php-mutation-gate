@@ -78,9 +78,10 @@ final readonly class Markdown
 
     /**
      * The sticky comment: within what GitHub takes, showing half as many of each list's entries each time until it
-     * fits, none at the last.
+     * fits, none at the last. It ends where the line that links the run's HTML report goes, which is found as the
+     * comment is written.
      */
-    public static function comment(Verdict $verdict, string $run): string
+    public static function comment(Verdict $verdict): string
     {
         $overview = Overview::of($verdict);
         $clusters = $verdict->trees()->clusters();
@@ -114,7 +115,7 @@ final readonly class Markdown
                 MarkdownItems::table(array_slice($other, 0, $shown), count($other)),
             ),
             ...self::ignored($overview, $shown),
-            ...self::tail($verdict, $run),
+            ...self::tail($verdict, HtmlReport::SLOT),
             CostText::of($verdict),
         ]);
 
@@ -134,7 +135,7 @@ final readonly class Markdown
         $overview = Overview::of($verdict);
         $items = Folded::of($overview->survivors(), $verdict->trees()->clusters());
         $head = self::head($verdict, $overview, $verdict->account()->savedSince($since));
-        $tail = self::tail($verdict, $run);
+        $tail = self::tail($verdict, $run === '' ? '' : sprintf(self::RUN, $run));
         $document = static fn(int $shown): string => self::document([
             ...$head,
             ...self::sets($verdict),
@@ -296,8 +297,13 @@ final readonly class Markdown
         );
     }
 
-    /** @return list<string> */
-    private static function tail(Verdict $verdict, string $run): array
+    /**
+     * The obstacles, failures, warnings and floors that can rise, then the line that points at the run's HTML report,
+     * which a document leaves out where it is empty.
+     *
+     * @return list<string>
+     */
+    private static function tail(Verdict $verdict, string $report): array
     {
         $raised = [];
 
@@ -310,7 +316,7 @@ final readonly class Markdown
             ...self::section('Failures', self::bullets($verdict->failures())),
             ...self::section('Warnings', self::bullets($verdict->warnings())),
             ...self::section('Floors that can rise', $raised === [] ? [] : [implode("\n", $raised), self::RAISE]),
-            ...$run === '' ? [] : [sprintf(self::RUN, $run)],
+            $report,
         ];
     }
 

@@ -150,7 +150,7 @@ $reporters = [
     'the pull request comment' => fn(): Reporter => PullRequestComment::inRun(
         ['GITHUB_EVENT_NAME' => 'pull_request', 'GITHUB_TOKEN' => 'secret', 'GITHUB_REPOSITORY' => 'octo/gate'],
         $pullRequest(),
-        new MockHttpClient([new JsonMockResponse([]), new JsonMockResponse(['html_url' => 'https://github.com/octo/gate/pull/12'])]),
+        new MockHttpClient([new JsonMockResponse([]), new JsonMockResponse(['artifacts' => []]), new JsonMockResponse(['html_url' => 'https://github.com/octo/gate/pull/12'])]),
         'gate-bot',
     ),
     'Slack' => fn(): Reporter => $alerting(Channel::Slack),

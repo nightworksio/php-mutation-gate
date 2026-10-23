@@ -319,12 +319,12 @@ it('writes a comment left over the planned state only over it, so a verdict alre
         'Wrote https://github.com/octo/gate/pull/7#issuecomment-5.',
     ],
     'over a verdict' => [
-        fn(): string => Markdown::comment(Verdicts::failing(), ''),
+        fn(): string => Markdown::comment(Verdicts::failing()),
         fn(): Delivery => Delivery::none()->withCommentOverPlanned('## Re-checked'),
         'The pull request comment is no longer in its planned state, so the re-checked survivors leave it as it is.',
     ],
     'a verdict over a verdict' => [
-        fn(): string => Markdown::comment(Verdicts::failing(), ''),
+        fn(): string => Markdown::comment(Verdicts::failing()),
         fn(): Delivery => Delivery::none()->withComment('## Passed'),
         'Wrote https://github.com/octo/gate/pull/7#issuecomment-5.',
     ],

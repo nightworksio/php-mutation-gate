@@ -27,8 +27,9 @@ final readonly class PlannedMarkdown
     /** The heading the comment holds while it is in its planned state, which only the verdict replaces. */
     public const string HEADING = '## mutation-gate: planned';
 
-    /** The link to the run, which replaces the comment with its verdict. */
-    public const string RUN = '[The run](%s) replaces this with its verdict.';
+    /** The link to the run, which replaces the comment with its verdict, and only then has an HTML report to link. */
+    public const string RUN
+        = '[The run](%s) replaces this with its verdict, which links the HTML report; until then there is none.';
 
     private const string MUTATING = 'Mutating %s in %s: about %s wall, %s runner time (%d%% measured).';
 

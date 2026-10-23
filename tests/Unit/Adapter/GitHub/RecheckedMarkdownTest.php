@@ -23,7 +23,7 @@ it('writes the comment between planned and the verdict: how many still survive, 
         ...MarkdownItems::details([Verdicts::survivor()], 1),
         '### Gone (1)',
         sprintf('- <code>src/Cart.php:4</code> Plus <code>%s</code>', $gone),
-        "[The run](https://github.com/octo/gate/actions/runs/7) replaces this with its verdict.\n",
+        "[The run](https://github.com/octo/gate/actions/runs/7) replaces this with its verdict, which links the HTML report; until then there is none.\n",
     ]));
 });
 

@@ -52,6 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: read # the comment links the run's HTML report
       pull-requests: write
       id-token: write # only for a store that signs in through OIDC
     steps:
@@ -282,7 +283,12 @@ These reporters run on their own under GitHub Actions
 - **`github-summary`**: the step summary, with every mutant counted as not
   killed.
 - **`github-comment`**: one sticky comment on the pull request, updated in
-  place. It needs `GITHUB_TOKEN` and `pull-requests: write`.
+  place. It needs `GITHUB_TOKEN` and `pull-requests: write`. Its verdict
+  links the run's HTML report: the artifact `mutation-gate-report.html`,
+  which the action and the reusable workflow upload unarchived, so the link
+  opens the page. It is found as the comment is written, with
+  `actions: read`, so a comment updated in place links the run that wrote
+  it. Where the run holds no such artifact, the comment says why instead.
 - **`badge`**: on the default branch, `badge.json`, `trend.json`, `trend.svg`
   and `savings.json` in `--publish-dir` (`.mutation-gate/publish` by
   default). Publishing that directory is up to your workflow. Published to a

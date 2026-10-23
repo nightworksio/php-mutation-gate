@@ -38,7 +38,7 @@ it('says what the run mutates, what it should take, and the lines no test covers
         - <code>src/1.php:14</code>
         - <code>src/2.php:3</code>
 
-        [The run](https://github.example/octo/gate/actions/runs/7) replaces this with its verdict.
+        [The run](https://github.example/octo/gate/actions/runs/7) replaces this with its verdict, which links the HTML report; until then there is none.
 
         MD);
 });

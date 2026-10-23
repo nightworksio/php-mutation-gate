@@ -31,6 +31,12 @@ final readonly class Answer
         return Lenient::text($this->at($keys));
     }
 
+    /** Whether the value at a path of keys is true; false where it is anything else, or there is none. */
+    public function isTrue(string ...$keys): bool
+    {
+        return Lenient::boolean($this->at($keys), otherwise: false);
+    }
+
     /** The number at a path of keys, or 0 where there is none. */
     public function number(string ...$keys): int
     {
