@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\Analysis\Checkable;
+use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Invalid;
@@ -34,6 +35,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Native\Command;
 use NightWorksIO\MutationGate\Core\Native\Outcome;
 use NightWorksIO\MutationGate\Core\Native\Variable;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRead;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
@@ -64,6 +66,7 @@ use NightWorksIO\MutationGate\Tests\Support\Described;
 use NightWorksIO\MutationGate\Tests\Support\FirstMutant;
 use NightWorksIO\MutationGate\Tests\Support\MoneyCoverage;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
+use NightWorksIO\MutationGate\Tests\Support\NativePhpSpec;
 use NightWorksIO\MutationGate\Tests\Support\NativePhpUnit;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitShellFake;
 use NightWorksIO\MutationGate\Tests\Support\PreCheckerFake;
@@ -160,9 +163,14 @@ it('cannot name a PHPUnit it cannot drive, or a PHP that does not describe itsel
         ->and(phpUnitRunner($silent, $shell)->identity(Withheld::standard()))->toEqual(Platform::ofRunner('Segmentation fault'));
 });
 
-it('behaves as a standard runner: holds as groups, a limit it can raise, the map the plan handed on, a mutant per core at once', function (): void {
-    expect(phpUnitRunner(phpUnitRunnerProject(), PhpUnitShellFake::answering(Ran::finished(succeeded: true, output: '')))->behaviour())
-        ->toEqual(RunnerBehaviour::standard()->runningPerCore());
+it('behaves as a standard runner: holds as groups, a limit it can raise, the map the plan handed on, a mutant per core at once, its tests in its framework\'s style', function (): void {
+    $project = phpUnitRunnerProject();
+    $shell = PhpUnitShellFake::answering(Ran::finished(succeeded: true, output: ''));
+    $phpspec = new NativeRunner($project, $shell, NativePhpSpec::in($project), Engine::with(new PlusToMinus()), LimitBounds::between(Seconds::of(5.0), Seconds::of(6.0)), new CapDirectory());
+
+    expect(phpUnitRunner($project, $shell)->behaviour())
+        ->toEqual(RunnerBehaviour::standard()->runningPerCore()->writingTestsIn(AssertionStyle::PhpUnit))
+        ->and($phpspec->behaviour())->toEqual(RunnerBehaviour::standard()->runningPerCore()->writingTestsIn(NotGiven::value()));
 });
 
 it('lists the tests of some suites and their groups as PHPUnit lists them into a file of its own', function (): void {

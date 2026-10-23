@@ -8,6 +8,7 @@ use function array_map;
 use function file_get_contents;
 use function is_file;
 
+use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -160,5 +161,11 @@ final readonly class PhpUnitFramework implements Framework
     public function tests(): TestLayout
     {
         return $this->tests;
+    }
+
+    /** PHPUnit's test classes. */
+    public function testStyle(): AssertionStyle
+    {
+        return AssertionStyle::PhpUnit;
     }
 }

@@ -730,3 +730,7 @@ it('cannot judge a directory that holds no project it can run', function (Librar
     expect($library->runner()->rootedAt(Path::of('src'), $library->packageTests()))->toBeInstanceOf(CannotJudge::class)
         ->and($library->outside()->rootedAt(Path::of('nowhere'), $library->packageTests()))->toBeInstanceOf(CannotJudge::class);
 })->with($libraries)->group(...$holds);
+
+it('has the PhpSpec library installed wherever the PhpSpec runner contracts run', function (): void {
+    expect(Library::isPhpSpecInstalled())->toBeTrue();
+})->skip(fn(): bool => getenv('RUNNER_CONTRACTS') !== 'phpspec', 'only the PhpSpec runner contracts job installs its library')->group(...$holds);

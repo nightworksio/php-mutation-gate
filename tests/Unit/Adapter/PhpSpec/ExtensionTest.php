@@ -36,7 +36,7 @@ function loadedUnder(string $tag, array $arguments): array
     $classes = [];
 
     foreach ($container->getByTag($tag) as $service) {
-        $classes[] = is_object($service) ? $service::class : get_debug_type($service);
+        $classes[] = get_debug_type($service);
     }
 
     return $classes;

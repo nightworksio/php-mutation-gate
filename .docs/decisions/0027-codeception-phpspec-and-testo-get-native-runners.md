@@ -78,22 +78,33 @@ the test process never reaches that process.
      coverage keeps its attribution in unit suites. If one run cannot span
      suites, a mutant runs once per suite that holds its covering tests.
 
-4. **PhpSpec: a gate extension selects the examples.**
-   - **Selection.** A gate PhpSpec extension, enabled in a generated config
-     that imports the project's own, reads the covering examples from a file
-     the environment names, and skips every other example in
-     `beforeExample`.
-   - **The first killer** comes from `afterExample`, and each example's time
-     from `ExampleEvent::getTime()`.
-   - **Holds.** PhpSpec has no groups. The gate reads `#[Holds]` on a spec
-     class or an example method from tokens, and the same extension applies
-     it.
-   - **Coverage** comes through `friends-of-phpspec/phpspec-code-coverage`.
-     The adapter refuses a php-code-coverage release that extension cannot
-     drive, and says which one it needs.
-   - The first step of the build proves that an extension can skip an example
-     from `beforeExample`. If it cannot, a mutant runs once per covering spec
-     file (`run spec/FooSpec.php`), stopping at the first failure.
+4. **PhpSpec: the gate's launcher loads an extension that selects the examples.**
+   - **The launcher.** The runner starts the gate's launcher,
+     `bin/mutation-gate-phpspec`, in place of PhpSpec's own script, with the
+     project's autoloader. It takes off the options the gate tells it
+     (`--mutation-gate-*`), loads the gate's extension into PhpSpec's
+     container before PhpSpec reads the project's config, and runs PhpSpec's
+     `run` on the rest. The project's config is read as it is written.
+   - **Selection.** The extension's maintainer prepares every example first,
+     above PhpSpec's own, and skips each one the run does not select by
+     throwing PhpSpec's `SkippingException`, before its `let` or its
+     collaborators run. PhpSpec dispatches `beforeExample` outside an
+     example's own handling, where an exception breaks the run, so the skip
+     is a maintainer's. A mutant's run selects its covering examples exactly,
+     by their ids, `Class::method`, from a file.
+   - **The first killer** comes from `afterExample`, recorded to the file
+     `MUTATION_GATE_RESULTS` names, and each example's time from
+     `ExampleEvent::getTime()`.
+   - **Holds.** PhpSpec has no groups. A `#[Holds]` on a spec class or an
+     example method puts its examples in the holding group, which the
+     extension reads by reflection in PhpSpec's process, as Pest's filter
+     does in Pest's.
+   - **Coverage.** The extension measures the lines each selected example
+     runs in the project's own files with php-code-coverage 14, and writes
+     the map in the format the native runner reads from PHPUnit, each
+     example's time with it.
+   - **Listing.** A run that selects no example lists every example and its
+     holding groups to a file.
 
 5. **Testo: supported at 1.0, pinned exactly.**
    - **The pin.** `composer.json` declares a `conflict` outside the Testo
@@ -134,8 +145,9 @@ the test process never reaches that process.
    with each framework's own holds and group cases, and CI runs it against
    the lowest and highest supported release of each framework (ADR-0011).
 
-8. **Supported versions.** Codeception ^5.3, PhpSpec ^8.2 and Testo at the
-   exact releases its `conflict` allows join ADR-0011's table,
+8. **Supported versions.** Codeception ^5.3, PhpSpec ^8.2 with
+   php-code-coverage ^14, and Testo at the exact releases its `conflict`
+   allows join ADR-0011's table,
    each tested at its lowest and highest supported release. This amends
    ADR-0011.
 
@@ -148,6 +160,9 @@ the test process never reaches that process.
 | **Every Codeception suite**, as Infection's adapter runs them | A suite that serves the application from another process judges the original code while claiming to judge the mutant. |
 | **One PhpSpec process per covering spec file, always** | No extension to depend on. A mutant covered by ten specs pays ten PhpSpec boots. It stays the fallback. |
 | **The whole PhpSpec suite per mutant**, as Infection's adapter runs it | No better than Infection, and far slower than selecting examples. |
+| **Skipping an example from `beforeExample`** | PhpSpec dispatches it outside the example's own handling, so an exception thrown there breaks the run instead of skipping the example. |
+| **A generated PhpSpec config that enables the extension** | PhpSpec reads one config and imports none, so a generated one would have to copy the project's suites and extensions; the launcher loads the extension beside the project's own config. |
+| **Coverage through `friends-of-phpspec/phpspec-code-coverage`** | Its 7.0 allows php-code-coverage up to 11, whose map the native runner does not read; the extension measures with 14, the release the PHPUnit runner reads. |
 | **Testo only through Infection until it reaches 1.0** | No churn to absorb. The pin and the canary already turn churn into a failed canary, never a user's failed run. |
 | **A native runner whenever its framework is installed** | Every Infection user's scores would move on upgrade. |
 

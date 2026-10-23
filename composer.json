@@ -90,6 +90,7 @@
         "infection/infection": "To mutate with Infection (~0.35.0) and PHPUnit 12 or 13, through the Infection adapter",
         "nette/neon": "To read a mutation-gate.neon config",
         "pestphp/pest": "To mutate with Pest (^5.1), through the Pest adapter and its plugin",
+        "phpspec/phpspec": "To mutate with PhpSpec (^8.2), through the PhpSpec runner, which measures its coverage with phpunit/php-code-coverage (^14)",
         "symfony/yaml": "To read a mutation-gate.yaml config"
     },
     "minimum-stability": "stable",

@@ -25,7 +25,7 @@ them and prints.
 import json
 import sys
 
-RUNNERS = ("pest", "infection-13", "infection-12", "phpunit", "analysers")
+RUNNERS = ("pest", "infection-13", "infection-12", "phpunit", "phpspec", "analysers")
 
 # Paths that are code although they read as documentation: ARCHITECTURE.md
 # holds the rule tables the Guards suite reads, .docs/reference/ the config
@@ -69,13 +69,25 @@ SHARED = (
 
 INFECTION = ("src/Adapter/Infection/", "tests/Contract/Runner/infection-fixture/")
 
-# The native runner, the PHPUnit framework it drives, and its warm worker.
+# The native runner, which drives each framework that has no runner of its own.
+NATIVE = ("src/Adapter/Native/", "src/Core/Native/")
+
+# The PHPUnit framework the native runner drives, and its warm worker.
 NATIVE_PHPUNIT = (
-    "src/Adapter/Native/",
-    "src/Core/Native/",
+    *NATIVE,
     "src/Adapter/PhpUnit/",
     "bin/mutation-gate-worker",
     "tests/Contract/Runner/phpunit-fixture/",
+)
+
+# The PhpSpec framework the native runner drives, its launcher, and the
+# attribute its examples read.
+NATIVE_PHPSPEC = (
+    *NATIVE,
+    "src/Adapter/PhpSpec/",
+    "src/Attribute/",
+    "bin/mutation-gate-phpspec",
+    "tests/Contract/Runner/phpspec-fixture/",
 )
 
 # Each leg's own subjects, beside SHARED.
@@ -84,6 +96,7 @@ LEGS = {
     "infection-13": INFECTION,
     "infection-12": INFECTION,
     "phpunit": NATIVE_PHPUNIT,
+    "phpspec": NATIVE_PHPSPEC,
     "analysers": (
         "src/Adapter/PhpStan/",
         "src/Adapter/Psalm/",
@@ -100,6 +113,7 @@ OWN_FIXTURES = (
     "tests/Contract/Runner/fixture/",
     "tests/Contract/Runner/infection-fixture/",
     "tests/Contract/Runner/phpunit-fixture/",
+    "tests/Contract/Runner/phpspec-fixture/",
 )
 
 # What `warm workers` measures, beside SHARED.

@@ -15,17 +15,20 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Proof\Ledger;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
 use NightWorksIO\MutationGate\Core\Proof\Run;
 use NightWorksIO\MutationGate\Core\Proof\Scope;
 use NightWorksIO\MutationGate\Core\Registry\Origin;
+use NightWorksIO\MutationGate\Core\Runner\RunnerBehaviour;
 use NightWorksIO\MutationGate\Core\Stub\Stub;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 use NightWorksIO\MutationGate\Extension\Extensions;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Fakes\ProofStoreFake;
+use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
 use NightWorksIO\MutationGate\Tests\Fakes\TreeSourceFake;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Moment;
@@ -67,6 +70,13 @@ it('offers the ignore as a PHP config writes one where the project has no config
 
     expect($stub instanceof Stub ? $stub->printed() : $stub)
         ->toContain("\n    // Ignore::mutant('49e02fb39669', because: ''),\n");
+});
+
+it('writes no stub where the runner\'s tests are in no style a stub is written in, as PhpSpec\'s specs are', function (): void {
+    $runner = RunnerFake::ofTheFixture()->behaving(RunnerBehaviour::standard()->writingTestsIn(NotGiven::value()));
+    $stub = stubbingOf(Flows::project(), $runner);
+
+    expect($stub instanceof CannotJudge ? $stub->why() : $stub)->toBe('stub writes Pest and PHPUnit tests, and the runner\'s tests are neither.');
 });
 
 it('cannot place a test with no covering file where the trees cannot be read', function (): void {

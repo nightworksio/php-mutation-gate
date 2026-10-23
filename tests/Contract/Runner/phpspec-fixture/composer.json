@@ -1,12 +1,13 @@
 {
     "name": "nightworksio/mutation-gate-phpspec-fixture",
-    "description": "The PhpSpec runner's library, beside the gate's source: in library/, the code every runner's contract mutates, specified by PhpSpec.",
+    "description": "The PhpSpec runner's library, beside the gate's source: in library/, the code every runner's contract mutates, specified by PhpSpec. It requires the Symfony console the gate requires, which a project's PhpSpec shares with the gate.",
     "license": "MIT",
     "type": "project",
     "require": {
         "php": "^8.5",
         "phpspec/phpspec": "^8.2",
-        "phpunit/php-code-coverage": "^14.3"
+        "phpunit/php-code-coverage": "^14.3",
+        "symfony/console": "^7.4 || ^8.0"
     },
     "minimum-stability": "stable",
     "prefer-stable": true,

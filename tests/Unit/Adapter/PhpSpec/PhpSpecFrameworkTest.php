@@ -78,7 +78,8 @@ it('runs the gate\'s launcher, which reads no config of PHP\'s settings and boot
         ->and($framework->errorDisplay())->toEqual(NotGiven::value())
         ->and($framework->config())->toEqual(NotGiven::value())
         ->and($framework->workerScript())->toEqual(NotGiven::value())
-        ->and($framework->endedHidden('PHP Fatal error: Allowed memory size exhausted', configuredToHide: true))->toBeFalse();
+        ->and($framework->endedHidden('PHP Fatal error: Allowed memory size exhausted', configuredToHide: true))->toBeFalse()
+        ->and($framework->testStyle())->toEqual(NotGiven::value());
 });
 
 it('is PhpSpec where Composer installed its script, and in a package where Composer installed it there', function (): void {

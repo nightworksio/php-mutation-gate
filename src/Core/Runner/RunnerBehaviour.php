@@ -7,6 +7,7 @@ namespace NightWorksIO\MutationGate\Core\Runner;
 use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Matrix\NotFull;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Groups;
 
@@ -27,7 +28,7 @@ final readonly class RunnerBehaviour
         private bool $opensEachShard,
         private NotFull $whyNotFull,
         private Parallelism $parallelism,
-        private AssertionStyle $writes,
+        private AssertionStyle|NotGiven $writes,
     ) {
     }
 
@@ -48,14 +49,20 @@ final readonly class RunnerBehaviour
         );
     }
 
-    /** This behaviour, whose runner's own tests are written in this style, as a stub with no test to follow is. */
-    public function writingTestsIn(AssertionStyle $style): self
+    /**
+     * This behaviour, whose runner's own tests are written in this style, as
+     * a stub with no test to follow is; or in none a stub is written in.
+     */
+    public function writingTestsIn(AssertionStyle|NotGiven $style): self
     {
         return clone($this, ['writes' => $style]);
     }
 
-    /** The style the runner's tests are written in, which a stub with no covering test takes (ADR-0015). */
-    public function testStyle(): AssertionStyle
+    /**
+     * The style the runner's tests are written in, which a stub with no
+     * covering test takes (ADR-0015); none where no stub is written in it.
+     */
+    public function testStyle(): AssertionStyle|NotGiven
     {
         return $this->writes;
     }

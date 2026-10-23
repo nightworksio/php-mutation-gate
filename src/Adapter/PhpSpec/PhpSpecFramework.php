@@ -7,14 +7,11 @@ namespace NightWorksIO\MutationGate\Adapter\PhpSpec;
 use function array_map;
 use function file_get_contents;
 use function is_file;
-use function is_string;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
-use NightWorksIO\MutationGate\Core\Format\Lenient;
-use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Native\Command;
 use NightWorksIO\MutationGate\Core\Native\Framework;
 use NightWorksIO\MutationGate\Core\Native\Selection;
@@ -25,17 +22,13 @@ use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
 use NightWorksIO\MutationGate\Core\Runner\PhpSpecConfig;
 use NightWorksIO\MutationGate\Core\Runner\Program;
-use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Runner\Withheld;
-use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\Suites;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestListing;
 use NightWorksIO\MutationGate\Core\ThisPackage;
-
-use function sprintf;
 
 /**
  * PhpSpec, as the native runner runs it (ADR-0027): installed in the
@@ -52,11 +45,6 @@ final readonly class PhpSpecFramework implements Framework
 
     /** The file a mutant's run lists the examples it selects in. */
     private const string EXAMPLES = 'examples.txt';
-
-    private const string UNREAD = <<<'SAID'
-        PhpSpec did not list the examples of the suite: %s holds no list of them. It said:
-        %s
-        SAID;
 
     private CommandLine $commandLine;
 
@@ -149,7 +137,7 @@ final readonly class PhpSpecFramework implements Framework
     {
         $ran = $shell->run(Command::php(...$this->commandLine->listing($file))->withholding($withheld));
 
-        return $this->listed($ran, is_file($file) ? file_get_contents($file) : false, $file);
+        return ListedExamples::in($ran, is_file($file) ? file_get_contents($file) : false, $file);
     }
 
     /** PhpSpec says nothing of its process ending mid-example beyond what PHP says. */
@@ -163,29 +151,9 @@ final readonly class PhpSpecFramework implements Framework
         return $this->tests;
     }
 
-    /** The listing a run wrote to a file, as the file reads; or why there is none. */
-    private function listed(Ran $ran, string|false $json, string $file): TestListing|CannotJudge
+    /** PhpSpec's specs, which are in no style a stub is written in. */
+    public function testStyle(): NotGiven
     {
-        $read = $ran->succeeded() && is_string($json) ? Node::decode($json) : NotGiven::value();
-
-        if ($read instanceof NotGiven || ! Lenient::holdsMembers($read->field(Listing::EXAMPLES))) {
-            return CannotJudge::because(sprintf(self::UNREAD, $file, $ran->output()));
-        }
-
-        $listing = TestListing::of($this->idsIn($read->field(Listing::EXAMPLES)));
-
-        foreach (Lenient::entries($read->field(Listing::GROUPS)) as $name => $ids) {
-            $listing = $listing->grouping(Group::named(sprintf('%s', $name)), $this->idsIn($ids));
-        }
-
-        return $listing;
-    }
-
-    private function idsIn(Node $place): TestIds
-    {
-        return TestIds::of(...array_map(
-            static fn(Node $id): TestId => TestId::of(Lenient::text($id)),
-            Lenient::items($place),
-        ));
+        return NotGiven::value();
     }
 }

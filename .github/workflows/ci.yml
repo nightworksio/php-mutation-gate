@@ -483,7 +483,7 @@ jobs:
       matrix:
         # The runners whose legs this run reaches, every one where `what
         # changed` could not say.
-        runner: ${{ fromJSON(needs.scope.outputs.runners || '["pest", "infection-13", "infection-12", "phpunit", "analysers"]') }}
+        runner: ${{ fromJSON(needs.scope.outputs.runners || '["pest", "infection-13", "infection-12", "phpunit", "phpspec", "analysers"]') }}
         resolution: [highest, lowest]
     env:
       LEG: ${{ matrix.runner }}-${{ matrix.resolution }}
@@ -520,6 +520,11 @@ jobs:
       #   in a user's project the gate and PHPUnit share one vendor directory,
       #   so one php-code-coverage writes and reads each map; here there are
       #   two, and a map one release writes can be one another refuses.
+      # - phpspec: the PhpSpec runner's fixture, whose library/ specifies the
+      #   code every runner's contract mutates with PhpSpec, at the highest
+      #   PhpSpec its lock holds and the lowest the runner supports (ADR-0027).
+      #   Its lowest is pinned to the package's php-code-coverage, as the
+      #   PHPUnit fixture's is, for the same reason.
       # - analysers: Mago, PHPStan and Psalm, each at its lowest with every
       #   other package raised again to the highest that allows them, as a
       #   project requiring that analyser installs it: Psalm 6.14.0's lowest
@@ -543,6 +548,9 @@ jobs:
           phpunit)
             dir=tests/Contract/Runner/phpunit-fixture filter=PhpUnit contracts=phpunit analysers='' lowest=coverage
             packages="${coverage}" ;;
+          phpspec)
+            dir=tests/Contract/Runner/phpspec-fixture filter=PhpSpec contracts=phpspec analysers='' lowest=coverage
+            packages='phpspec/phpspec|phpunit/php-code-coverage' ;;
           analysers)
             dir=tests/Contract/StaticChecker/fixture filter=StaticChecker contracts='' analysers=1 lowest=analysers
             packages='carthage-software/mago|phpstan/phpstan|vimeo/psalm' ;;

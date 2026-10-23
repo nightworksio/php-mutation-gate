@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Tests\Support;
 
+use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -114,5 +115,10 @@ final readonly class WithoutWorkers implements Framework
     public function tests(): TestLayout
     {
         return $this->framework->tests();
+    }
+
+    public function testStyle(): AssertionStyle|NotGiven
+    {
+        return $this->framework->testStyle();
     }
 }
