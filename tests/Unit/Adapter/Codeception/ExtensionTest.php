@@ -124,17 +124,24 @@ it('records nothing where the gate names no results file, or an empty one', func
 it('lists every test of an in-process suite and its groups once the run is done, running none, where it is told a file', function (): void {
     $listing = sprintf('%s/listing.json', Scratch::directory());
     $extension = new Extension([Option::Listing->value => $listing], []);
-    $skips = [skipOf($extension, 'testIsHeldByItsCase'), skipOf($extension, 'testIsHeldByItsOwnPathToo', 'WebDriver')];
+    $skips = [
+        skipOf($extension, 'testIsHeldByItsCase'),
+        skipOf($extension, 'testIsHeldByItsOwnPathToo'),
+        skipOf($extension, 'testIsHeldByItsOwnPathToo', 'WebDriver'),
+    ];
     $unwritten = is_file($listing);
     $extension->written();
+    $case = CodeceptionTests::id('testIsHeldByItsCase');
+    $path = CodeceptionTests::id('testIsHeldByItsOwnPathToo');
 
-    expect($skips)->toBe(['The gate runs only the tests it selects.', 'The gate runs only the tests it selects.'])
+    expect($skips)->toBe(array_fill(0, 3, 'The gate runs only the tests it selects.'))
         ->and($unwritten)->toBeFalse()
         ->and(json_decode((string) file_get_contents($listing), associative: true))->toBe([
-            'listed' => [CodeceptionTests::id('testIsHeldByItsCase')],
+            'listed' => [$case, $path],
             'groups' => [
-                'fast' => [CodeceptionTests::id('testIsHeldByItsCase')],
-                'holds:src/Money.php' => [CodeceptionTests::id('testIsHeldByItsCase')],
+                'fast' => [$case, $path],
+                'holds:src/Money.php' => [$case, $path],
+                'holds:src/Held.php' => [$path],
             ],
         ]);
 });

@@ -31,10 +31,13 @@ it('names a Cest\'s test by its class and method, and an example by its index', 
         ->and($groups(Test::of(CodeceptionTests::cest())))->toBe(['holds:src/Held.php']);
 });
 
-it('names a Cept by its file\'s name and its own, in no group', function () use ($groups): void {
+it('names a Cept by its file\'s name and its own, in the groups it declares', function () use ($groups): void {
     $cept = Test::of(CodeceptionTests::cept());
+    $grouped = CodeceptionTests::cept();
+    $grouped->getMetadata()->setGroups(['smoke', 'slow']);
 
     expect($cept->key())->toBe('SignInCept.php:signs in')
         ->and($cept->file())->toBe('/project/tests/SignInCept.php')
-        ->and($groups($cept))->toBe([]);
+        ->and($groups($cept))->toBe([])
+        ->and($groups(Test::of($grouped)))->toBe(['smoke', 'slow']);
 });
