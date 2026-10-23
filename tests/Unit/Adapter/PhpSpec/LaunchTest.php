@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\PhpSpec\Launch;
 use NightWorksIO\MutationGate\Adapter\PhpSpec\LaunchOption;
+use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 use PhpSpec\Runner\Maintainer\ErrorMaintainer;
 
+beforeEach(function (): void {
+    GateEnvironment::clear();
+});
+
 afterEach(function (): void {
+    GateEnvironment::restore();
     putenv('SHELL_VERBOSITY');
     unset($_ENV['SHELL_VERBOSITY'], $_SERVER['SHELL_VERBOSITY']);
     Scratch::sweep();

@@ -33,7 +33,7 @@ final readonly class OwnFiles
     }
 
     /**
-     * @param list<string> $loaded files, as PHP lists those it loaded
+     * @param array<array-key, string> $loaded files, as PHP lists those it loaded
      *
      * @return list<string>
      */

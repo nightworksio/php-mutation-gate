@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\PhpSpec;
 
 use function array_map;
-use function array_values;
 
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
@@ -46,13 +45,13 @@ final readonly class CommandLine
     /** @return list<string> a mutant's run that selects its examples so, judged as the request asks */
     public function mutant(string $selection, MutationRequest $request): array
     {
-        return $this->run($selection, $request->search()->matrix(), ...$this->judgedBy($request->judgedBy()));
+        return $this->run($selection, $request->search()->matrix(), $this->judgedBy($request->judgedBy()));
     }
 
     /** @return list<string> a run of no example, started as a mutant's own run is, passing with none run */
     public function startUp(string $selection): array
     {
-        return $this->run($selection, MatrixKind::FirstKiller, ...$this->judgedBy(Filter::nothing()));
+        return $this->run($selection, MatrixKind::FirstKiller, $this->judgedBy(Filter::nothing()));
     }
 
     /** @return list<string> the examples a coverage run asks for, their map written to this file */
@@ -73,14 +72,18 @@ final readonly class CommandLine
         return [$this->launcher, $this->autoloader, LaunchOption::Listing->with($file), ...self::RUN];
     }
 
-    /** @return list<string> the launcher with its selection, stopped at the first failure unless the matrix is full */
-    private function run(string $selection, MatrixKind $matrix, string ...$options): array
+    /**
+     * @param list<string> $options
+     *
+     * @return list<string> the launcher with its selection, stopped at the first failure unless the matrix is full
+     */
+    private function run(string $selection, MatrixKind $matrix, array $options): array
     {
         return [
             $this->launcher,
             $this->autoloader,
             $selection,
-            ...array_values($options),
+            ...$options,
             ...self::RUN,
             ...$matrix === MatrixKind::Full ? [] : [self::STOP],
         ];

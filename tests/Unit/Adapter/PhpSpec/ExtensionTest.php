@@ -13,12 +13,16 @@ use NightWorksIO\MutationGate\Core\Native\Guard;
 use NightWorksIO\MutationGate\Core\Native\OwnFiles;
 use NightWorksIO\MutationGate\Core\Native\Variable;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
+use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use PhpSpec\ServiceContainer\IndexedServiceContainer;
 
+beforeEach(function (): void {
+    GateEnvironment::clear();
+});
+
 afterEach(function (): void {
-    putenv(Variable::Results->value);
-    putenv(Variable::Guard->value);
+    GateEnvironment::restore();
     Scratch::sweep();
 });
 

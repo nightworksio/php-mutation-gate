@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\PhpSpec;
 
 use function array_diff;
-use function array_values;
 use function get_included_files;
 
 use NightWorksIO\MutationGate\Core\Native\OwnFiles;
@@ -56,7 +55,7 @@ final class Covering implements EventSubscriberInterface
     {
         if ($this->selected->selects(Example::of($event->getExample()))) {
             $loaded = get_included_files();
-            $this->coverage->filter()->includeFiles($this->own->among(array_values(array_diff($loaded, $this->told))));
+            $this->coverage->filter()->includeFiles($this->own->among(array_diff($loaded, $this->told)));
             $this->told = $loaded;
             $append = true;
             $this->coverage->stop($append, null, null, null, $event->getTime());

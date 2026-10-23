@@ -13,7 +13,7 @@ use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 
 $suiteOf = static fn(string $config): TestSuite|CannotJudge => PhpSpecSuite::declaredIn(Contents::of($config), Path::of('phpspec.yml'));
 
-it('keeps each suite\'s specs under its spec path, prefix and namespace less its PSR-4 prefix, as PhpSpec\'s locator does, in files ending in Spec.php', function () use ($suiteOf): void {
+it('keeps each suite\'s specs under its spec path, prefix and namespace less its PSR-4 prefix, each read without its outer separators, as PhpSpec\'s locator does, in files ending in Spec.php', function () use ($suiteOf): void {
     $suite = $suiteOf(<<<'YAML'
         suites:
           billing:
@@ -33,6 +33,9 @@ it('keeps each suite\'s specs under its spec path, prefix and namespace less its
           elsewhere:
             namespace: Elsewhere
             psr4_prefix: Other
+          wrapped:
+            namespace: '\Wrapped\Money\'
+            psr4_prefix: '\Wrapped\'
         YAML);
 
     expect($suite instanceof TestSuite ? $suite->directories() : $suite)->toEqual([
@@ -41,6 +44,7 @@ it('keeps each suite\'s specs under its spec path, prefix and namespace less its
         SuiteDirectory::of(Path::of('spec/Plain'), 'Spec.php'),
         SuiteDirectory::of(Path::of('.'), 'Spec.php'),
         SuiteDirectory::of(Path::of('spec/Elsewhere'), 'Spec.php'),
+        SuiteDirectory::of(Path::of('spec/Money'), 'Spec.php'),
     ])
         ->and($suite instanceof TestSuite ? $suite->suites() : $suite)->toEqual(DeclaredSuites::none())
         ->and($suite instanceof TestSuite && $suite->holdsTestCase(Path::of('spec/Plain/MoneySpec.php')))->toBeTrue()

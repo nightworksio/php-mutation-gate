@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Native;
 
 use function array_any;
-use function array_values;
 
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
@@ -17,8 +16,8 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 final readonly class Candidate
 {
     /**
-     * @param non-empty-string $id
-     * @param list<Group>      $groups
+     * @param non-empty-string         $id
+     * @param array<array-key, Group> $groups
      */
     private function __construct(private string $id, private string $file, private array $groups)
     {
@@ -31,7 +30,7 @@ final readonly class Candidate
      */
     public static function of(string $id, string $file, Group ...$groups): self
     {
-        return new self($id, $file, array_values($groups));
+        return new self($id, $file, $groups);
     }
 
     public function id(): TestId
@@ -55,7 +54,7 @@ final readonly class Candidate
         return $this->file;
     }
 
-    /** @return list<Group> */
+    /** @return array<array-key, Group> */
     public function groups(): array
     {
         return $this->groups;
