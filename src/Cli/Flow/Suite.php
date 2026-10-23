@@ -15,7 +15,8 @@ use function array_values;
 
 use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Project\DirectoryGlob;
-use NightWorksIO\MutationGate\Adapter\Project\PhpUnitSuite;
+use NightWorksIO\MutationGate\Adapter\Project\SuiteConfig;
+use NightWorksIO\MutationGate\Adapter\Project\TestSuite;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Fingerprint;
@@ -28,11 +29,9 @@ use NightWorksIO\MutationGate\Core\Php\PhpFile;
 use NightWorksIO\MutationGate\Core\Proof\Key\TestFile;
 use NightWorksIO\MutationGate\Core\Proof\Key\TestFiles;
 use NightWorksIO\MutationGate\Core\Reach\Sources;
-use NightWorksIO\MutationGate\Core\Runner\PhpUnitConfig;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\SuiteDirectory;
 use NightWorksIO\MutationGate\Core\Test\Suites;
-use NightWorksIO\MutationGate\Core\Test\TestsDirectory;
 use NightWorksIO\MutationGate\Core\Tree\Tree;
 use NightWorksIO\MutationGate\Core\Tree\Trees;
 
@@ -48,7 +47,7 @@ final readonly class Suite
 {
     /** @param array<string, Contents> $contents each test file's contents, by its path */
     private function __construct(
-        private PhpUnitSuite $configured,
+        private TestSuite $configured,
         private TestFiles $files,
         private Sources $sources,
         private Fingerprints $outside,
@@ -56,11 +55,46 @@ final readonly class Suite
     ) {
     }
 
-    public static function read(Trees $trees, Fingerprints $files, Directory $project): self|CannotJudge
-    {
-        $configured = self::configured($project);
+    /** The suite of the test files the configured suite and every other package's tests hold. */
+    public static function read(
+        Trees $trees,
+        Fingerprints $files,
+        Directory $project,
+        TestSuite $configured,
+    ): self|CannotJudge {
+        $packages = self::packageTestsOf($trees, $configured->conventionalDirectory());
+        $read = [];
+        $contentsOf = [];
+        $sources = Sources::none();
+        $outside = Fingerprints::none();
 
-        return $configured instanceof PhpUnitSuite ? self::readIn($trees, $files, $project, $configured) : $configured;
+        foreach ($files as $file) {
+            if (! self::isIn($file->path(), $configured, $packages, $trees)) {
+                $outside = $outside->with($file);
+
+                continue;
+            }
+
+            $contents = $project->read($file->path());
+
+            if ($contents instanceof CannotJudge) {
+                return $contents;
+            }
+
+            if ($contents instanceof Contents) {
+                $read[] = self::testFile($file, $contents, $configured, $packages);
+                $contentsOf[$file->path()->value()] = $contents;
+                $sources = $sources->withNow($file->path(), $contents);
+            }
+        }
+
+        return new self(
+            $configured,
+            TestFiles::of(...$read),
+            $sources,
+            $outside,
+            $contentsOf,
+        );
     }
 
     /**
@@ -155,13 +189,13 @@ final readonly class Suite
      * wildcards expanded from the project's root; the conventional one where
      * it has none.
      */
-    public static function configured(Directory $project): PhpUnitSuite|CannotJudge
+    public static function configured(Directory $project, SuiteConfig $config): TestSuite|CannotJudge
     {
-        foreach (PhpUnitConfig::candidatesIn(Path::root()) as $candidate) {
+        foreach ($config->candidatesIn(Path::root()) as $candidate) {
             $contents = $project->read($candidate);
 
             if ($contents instanceof Contents) {
-                return PhpUnitSuite::declaredIn($contents, $candidate, DirectoryGlob::from($project->root()));
+                return $config->declaredIn($contents, $candidate, DirectoryGlob::from($project->root()));
             }
 
             if ($contents instanceof CannotJudge) {
@@ -169,61 +203,19 @@ final readonly class Suite
             }
         }
 
-        return PhpUnitSuite::conventional();
+        return $config->conventional();
     }
 
     /**
-     * The directories a package's tests are in, as its own PHPUnit config
-     * declares them, read as the root's is: what a runner rooted in the
-     * package is told (ADR-0005).
+     * The directories a package's tests are in, as its own config declares
+     * them, read as the root's is: what a runner rooted in the package is
+     * told (ADR-0005).
      */
-    public static function testsIn(Directory $project, Path $package): Paths|CannotJudge
+    public static function testsIn(Directory $project, Path $package, SuiteConfig $config): Paths|CannotJudge
     {
-        $suite = self::configured(Directory::at($project->root()->at($package)->value()));
+        $suite = self::configured(Directory::at($project->root()->at($package)->value()), $config);
 
-        return $suite instanceof PhpUnitSuite ? $suite->paths() : $suite;
-    }
-
-    /** The suite, of the test files the PHPUnit config declares and those of every other package's tests. */
-    private static function readIn(
-        Trees $trees,
-        Fingerprints $files,
-        Directory $project,
-        PhpUnitSuite $configured,
-    ): self|CannotJudge {
-        $packages = self::packageTestsOf($trees);
-        $read = [];
-        $contentsOf = [];
-        $sources = Sources::none();
-        $outside = Fingerprints::none();
-
-        foreach ($files as $file) {
-            if (! self::isIn($file->path(), $configured, $packages, $trees)) {
-                $outside = $outside->with($file);
-
-                continue;
-            }
-
-            $contents = $project->read($file->path());
-
-            if ($contents instanceof CannotJudge) {
-                return $contents;
-            }
-
-            if ($contents instanceof Contents) {
-                $read[] = self::testFile($file, $contents, $configured, $packages);
-                $contentsOf[$file->path()->value()] = $contents;
-                $sources = $sources->withNow($file->path(), $contents);
-            }
-        }
-
-        return new self(
-            $configured,
-            TestFiles::of(...$read),
-            $sources,
-            $outside,
-            $contentsOf,
-        );
+        return $suite instanceof TestSuite ? $suite->paths() : $suite;
     }
 
     /**
@@ -234,7 +226,7 @@ final readonly class Suite
     private static function testFile(
         Fingerprint $file,
         Contents $contents,
-        PhpUnitSuite $configured,
+        TestSuite $configured,
         array $packages,
     ): TestFile {
         return self::isTestCase($file->path(), $configured, $packages)
@@ -243,21 +235,21 @@ final readonly class Suite
     }
 
     /**
-     * The test directory of each package other than the project's root, with PHPUnit's suffix.
+     * The test directory of each package other than the project's root, where
+     * the framework keeps tests when nothing says otherwise.
      *
      * @return list<SuiteDirectory>
      */
-    private static function packageTestsOf(Trees $trees): array
+    private static function packageTestsOf(Trees $trees, SuiteDirectory $conventional): array
     {
-        $tests = TestsDirectory::conventional();
         $directories = [];
 
         foreach ($trees as $tree) {
             $package = $tree->package()->path();
-            $directory = Path::of(sprintf('%s/%s', $package->value(), $tests->value()));
+            $directory = $conventional->inPackage($package);
             $directories = $package->equals(Path::root())
                 ? $directories
-                : [...$directories, $directory->value() => SuiteDirectory::of($directory, '')];
+                : [...$directories, $directory->path()->value() => $directory];
         }
 
         return array_values($directories);
@@ -271,7 +263,7 @@ final readonly class Suite
      *
      * @param list<SuiteDirectory> $packages
      */
-    private static function isIn(Path $path, PhpUnitSuite $configured, array $packages, Trees $trees): bool
+    private static function isIn(Path $path, TestSuite $configured, array $packages, Trees $trees): bool
     {
         $tested = $configured->holds($path)
             || array_any($packages, static fn(SuiteDirectory $tests): bool => $tests->holds($path));
@@ -285,7 +277,7 @@ final readonly class Suite
      *
      * @param list<SuiteDirectory> $packages
      */
-    private static function isTestCase(Path $path, PhpUnitSuite $configured, array $packages): bool
+    private static function isTestCase(Path $path, TestSuite $configured, array $packages): bool
     {
         return $configured->holdsTestCase($path)
             || array_any($packages, static fn(SuiteDirectory $tests): bool => $tests->holdsTestCase($path));

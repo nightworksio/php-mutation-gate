@@ -47,6 +47,7 @@ use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Flows;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
 use NightWorksIO\MutationGate\Tests\Support\PeakMemoryFake;
+use NightWorksIO\MutationGate\Tests\Support\ReadSuite;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ScriptedRunner;
 use NightWorksIO\MutationGate\Tests\Support\StoppedClock;
@@ -86,7 +87,7 @@ function keyingSuite(string $canary): Suite
         Fingerprint::of(Path::of('tests/CanaryTest.php'), Digest::sha256Of($text)),
         Fingerprint::of(Path::of('src/Money.php'), Digest::sha256Of('money')),
     );
-    $suite = Suite::read(Flows::trees(), $files, Directory::at($project));
+    $suite = ReadSuite::of(Flows::trees(), $files, Directory::at($project));
 
     return $suite instanceof Suite ? $suite : throw new RuntimeException($suite->why());
 }
@@ -292,7 +293,7 @@ function keyingColocated(string $clock): Digest|Unkeyed
         $fingerprints = $fingerprints->with(Fingerprint::of(Path::of($path), Digest::sha256Of($text)));
     }
 
-    $suite = Suite::read(Flows::trees(), $fingerprints, Directory::at($project));
+    $suite = ReadSuite::of(Flows::trees(), $fingerprints, Directory::at($project));
     $runner = new RunnerFake(
         Identity::of('fake', Versions::of(Version::of('fake/runner', '1.0.0', 'abc')), Digest::of('php')),
         Groups::of(),
@@ -359,7 +360,7 @@ function keyedMutatorBase(string $body, Enabled $mutators): Digest
     $text = sprintf("<?php\nnamespace Tests\\Mutators;\nfinal class PlusToMinus { /* %s */ }\n", $body);
     Scratch::write($project, 'tests/Mutators/PlusToMinus.php', $text);
     $files = Fingerprints::of(Fingerprint::of(Path::of('tests/Mutators/PlusToMinus.php'), Digest::sha256Of($text)));
-    $suite = Suite::read(Flows::trees(), $files, Directory::at($project));
+    $suite = ReadSuite::of(Flows::trees(), $files, Directory::at($project));
     $keying = $suite instanceof Suite
         ? Keying::of(Flows::adapters(Flows::project(), [], keyingRunner('fake'), $mutators), Flows::settings(), Flows::setup(), $suite, keyingMap())
         : $suite;

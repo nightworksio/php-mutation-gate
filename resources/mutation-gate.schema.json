@@ -141,13 +141,47 @@
                     "type": "object",
                     "properties": {
                         "use": {
+                            "const": "phpspec"
+                        },
+                        "withhold": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "minLength": 1
+                            }
+                        },
+                        "memory": {
+                            "type": "string",
+                            "pattern": "^(?:-1|[1-9][0-9]*[KkMmGg]?)$"
+                        },
+                        "workers": {
+                            "enum": [
+                                "fork",
+                                "fresh"
+                            ]
+                        },
+                        "with": {
+                            "type": "object",
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": [
+                        "use"
+                    ],
+                    "additionalProperties": false
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "use": {
                             "type": "string",
                             "minLength": 1,
                             "not": {
                                 "enum": [
                                     "pest",
                                     "infection",
-                                    "phpunit"
+                                    "phpunit",
+                                    "phpspec"
                                 ]
                             }
                         },

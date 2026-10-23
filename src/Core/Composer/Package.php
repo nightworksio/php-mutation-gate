@@ -17,6 +17,7 @@ enum Package: string
     case IncludeInterceptor = 'infection/include-interceptor';
     case PhpUnit = 'phpunit/phpunit';
     case CodeCoverage = 'phpunit/php-code-coverage';
+    case PhpSpec = 'phpspec/phpspec';
     case PhpStan = 'phpstan/phpstan';
     case Mago = 'carthage-software/mago';
     case Laravel = 'laravel/framework';

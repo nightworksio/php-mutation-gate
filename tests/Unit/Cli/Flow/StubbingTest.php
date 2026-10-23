@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Project\DirectoryGlob;
-use NightWorksIO\MutationGate\Adapter\Project\PhpUnitSuite;
 use NightWorksIO\MutationGate\Cli\Config\Chosen;
 use NightWorksIO\MutationGate\Cli\FirstParty;
 use NightWorksIO\MutationGate\Cli\Flow\Composed;
@@ -12,10 +10,8 @@ use NightWorksIO\MutationGate\Cli\Flow\Stubbing;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Ci\Variables;
 use NightWorksIO\MutationGate\Core\Config\Absent;
-use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\File\Root;
 use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
 use NightWorksIO\MutationGate\Core\Mutant\Mutants;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
@@ -73,20 +69,11 @@ it('offers the ignore as a PHP config writes one where the project has no config
         ->toContain("\n    // Ignore::mutant('49e02fb39669', because: ''),\n");
 });
 
-it('cannot place a test with no covering file where the trees or the PHPUnit config cannot be read', function (string $broken): void {
-    $project = Flows::project();
+it('cannot place a test with no covering file where the trees cannot be read', function (): void {
+    $stub = stubbingOf(Flows::project(), new TreeSourceFake(CannotJudge::because('No trees.')));
 
-    if ($broken === 'config') {
-        Scratch::write($project, 'phpunit.xml', '<phpunit');
-    }
-
-    $stub = $broken === 'trees' ? stubbingOf($project, new TreeSourceFake(CannotJudge::because('No trees.'))) : stubbingOf($project);
-
-    $suite = PhpUnitSuite::declaredIn(Contents::of('<phpunit'), Path::of('phpunit.xml'), DirectoryGlob::from(Root::here()));
-    $unread = $suite instanceof CannotJudge ? $suite->why() : 'a suite';
-
-    expect($stub instanceof CannotJudge ? $stub->why() : $stub)->toBe($broken === 'trees' ? 'No trees.' : $unread);
-})->with(['trees', 'config']);
+    expect($stub instanceof CannotJudge ? $stub->why() : $stub)->toBe('No trees.');
+});
 
 /** A stub for a survivor of the security set's constant-time mutator, with these mutators registered and turned on. */
 function stubbingPinned(Enabled $mutators): Stub|CannotJudge

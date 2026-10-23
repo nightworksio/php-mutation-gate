@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
-use NightWorksIO\MutationGate\Adapter\Project\PhpUnitSuite;
 use NightWorksIO\MutationGate\Core\Assertion\AssertionStyle;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
@@ -157,11 +156,11 @@ final readonly class Stubbing
      */
     private function placed(Subject $subject): TestFile|Path|CannotJudge
     {
-        $suite = Suite::configured($this->composed->adapters->project);
+        $suite = $this->composed->adapters->suite;
         $trees = $this->composed->adapters->trees->trees();
 
-        if (! $suite instanceof PhpUnitSuite || $trees instanceof CannotJudge) {
-            return $suite instanceof CannotJudge ? $suite : $trees;
+        if ($trees instanceof CannotJudge) {
+            return $trees;
         }
 
         $source = $subject->first()->mutant()->location()->file();

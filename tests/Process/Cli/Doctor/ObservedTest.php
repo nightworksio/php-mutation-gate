@@ -254,14 +254,16 @@ it('observes both runners left to choose, and no trees where the config cannot b
         ->and(trim((string) file_get_contents(sprintf('%s/arguments.txt', $php))))->toBe(sprintf('-r %s', Platform::describing()[1]));
 })->group(...$holds);
 
-it('observes the PHP the PHPUnit runner starts as one whose opcache it turns off, and the others\' as they are', function (): void {
+it('observes the PHP a runner of the gate\'s own mutants starts as one whose opcache it turns off, and the others\' as they are', function (): void {
     $project = Scratch::copy('tests/Fixtures/Projects/Library');
     $php = sprintf('%s/php', FakePhp::printing(Described::output(['pcov' => '1.0.12'], [])));
-    $phpunit = Doctored::observed($project, $php)->of(CommandLine::nothing()->withRunner('phpunit'))->php();
-    $infection = Doctored::observed($project, $php)->of(CommandLine::nothing()->withRunner('infection'))->php();
+    $turnsOff = static function (string $runner) use ($project, $php): bool {
+        $observed = Doctored::observed($project, $php)->of(CommandLine::nothing()->withRunner($runner))->php();
 
-    expect($phpunit instanceof RunnerPhp && $phpunit->turnsOpcacheOff())->toBeTrue()
-        ->and($infection instanceof RunnerPhp && ! $infection->turnsOpcacheOff())->toBeTrue();
+        return $observed instanceof RunnerPhp && $observed->turnsOpcacheOff();
+    };
+
+    expect(array_map($turnsOff, ['phpunit', 'phpspec', 'infection', 'pest', 'acme']))->toBe([true, true, false, false, false]);
 })->group(...$holds);
 
 it('observes a runner the command line chooses, and none installed where Composer lists nothing', function (): void {

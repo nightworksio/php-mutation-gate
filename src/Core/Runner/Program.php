@@ -16,14 +16,16 @@ enum Program
     case Pest;
     case Infection;
     case PhpUnit;
+    case PhpSpec;
 
-    /** What a person calls it: Pest, Infection or PHPUnit. */
+    /** What a person calls it: Pest, Infection, PHPUnit or PhpSpec. */
     public function title(): string
     {
         return match ($this) {
             self::Pest => 'Pest',
             self::Infection => 'Infection',
             self::PhpUnit => 'PHPUnit',
+            self::PhpSpec => 'PhpSpec',
         };
     }
 }

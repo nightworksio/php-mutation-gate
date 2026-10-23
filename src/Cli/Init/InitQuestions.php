@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Cli\Init;
 
 use function array_any;
+use function array_map;
 use function count;
 use function is_string;
 
@@ -154,16 +155,16 @@ final readonly class InitQuestions
         return $this->asking->confirms(self::PLUGIN, default: false);
     }
 
-    /** The runner a person chose where both are installed and nothing chooses one; none where nobody is asked. */
+    /** The runner a person chose where two are installed and nothing chooses one; none where nobody is asked. */
     private function runner(bool $chosen): string|NotGiven
     {
-        if ($chosen || ! $this->detected->bothRunners() || ! $this->asking->isInteractive()) {
+        $runners = array_map(static fn(BuiltinRunner $runner): string => $runner->value, $this->detected->choices());
+
+        if ($chosen || $runners === [] || ! $this->asking->isInteractive()) {
             return NotGiven::value();
         }
 
-        $runners = [BuiltinRunner::Pest->value, BuiltinRunner::Infection->value];
-
-        return $this->asking->choice(self::RUNNER, $runners, BuiltinRunner::Pest->value);
+        return $this->asking->choice(self::RUNNER, $runners, $runners[0]);
     }
 
     /**

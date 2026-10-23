@@ -27,3 +27,11 @@ it('places a file of test cases for a source file at its path, named for its cla
     expect(SuiteDirectory::of(Path::of('tests/Unit'), '')->caseFor(Path::of('Domain/Money.php')))->toEqual(Path::of('tests/Unit/Domain/MoneyTest.php'))
         ->and(SuiteDirectory::of(Path::of('tests'), 'Spec.php')->caseFor(Path::of('Money.php')))->toEqual(Path::of('tests/MoneySpec.php'));
 });
+
+it('is the same directory inside a package, with the same suffix', function (): void {
+    $specs = SuiteDirectory::of(Path::of('spec'), 'Spec.php')->inPackage(Path::of('packages/billing'));
+
+    expect($specs->path())->toEqual(Path::of('packages/billing/spec'))
+        ->and($specs->holdsTestCase(Path::of('packages/billing/spec/MoneySpec.php')))->toBeTrue()
+        ->and($specs->holdsTestCase(Path::of('packages/billing/spec/MoneyTest.php')))->toBeFalse();
+});

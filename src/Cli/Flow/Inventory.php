@@ -71,7 +71,7 @@ final readonly class Inventory
         Trees $trees,
         Fingerprints $files,
     ): self|CannotJudge {
-        $suite = Suite::read($trees, $files, $adapters->project);
+        $suite = Suite::read($trees, $files, $adapters->project, $adapters->suite);
         $listings = $suite instanceof Suite ? Listings::of($adapters) : $suite;
 
         if (! $listings instanceof Listings) {

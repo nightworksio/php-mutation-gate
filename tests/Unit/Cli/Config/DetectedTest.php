@@ -55,6 +55,8 @@ it('chooses the runner that is installed', function (array $installed, BuiltinRu
     'Pest' => [['pestphp/pest', 'pestphp/pest-plugin-mutate', 'phpunit/phpunit'], BuiltinRunner::Pest],
     'Infection' => [['infection/infection', 'phpunit/phpunit'], BuiltinRunner::Infection],
     'PHPUnit alone' => [['phpunit/phpunit'], BuiltinRunner::PhpUnit],
+    'PhpSpec alone' => [['phpspec/phpspec', 'phpunit/php-code-coverage'], BuiltinRunner::PhpSpec],
+    'PhpSpec under Infection' => [['infection/infection', 'phpspec/phpspec'], BuiltinRunner::Infection],
 ]);
 
 it('asks for a choice when both runners are installed', function () use ($detected): void {
@@ -65,9 +67,17 @@ it('asks for a choice when both runners are installed', function () use ($detect
         ));
 });
 
+it('asks for a choice when both PHPUnit and PhpSpec are installed, and neither Pest nor Infection', function () use ($detected): void {
+    expect($detected('', ['phpunit/phpunit', 'phpspec/phpspec'])->runner())
+        ->toEqual(CannotJudge::because(
+            'Both phpunit/phpunit and phpspec/phpspec are installed. '
+        . 'Choose one: set runner in the config, or pass --runner.',
+        ));
+});
+
 it('cannot judge without a runner installed', function () use ($detected): void {
     expect($detected('', ['symfony/console'])->runner())->toEqual(CannotJudge::because(
-        'None of pestphp/pest-plugin-mutate, infection/infection and phpunit/phpunit is installed, '
+        'None of pestphp/pest-plugin-mutate, infection/infection, phpunit/phpunit and phpspec/phpspec is installed, '
         . 'so nothing can mutate. Install one of them.',
     ));
 });

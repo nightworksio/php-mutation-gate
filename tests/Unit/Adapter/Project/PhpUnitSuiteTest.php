@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Adapter\Project\DirectoryGlob;
 use NightWorksIO\MutationGate\Adapter\Project\PhpUnitSuite;
+use NightWorksIO\MutationGate\Adapter\Project\TestSuite;
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -19,7 +20,7 @@ afterEach(function (): void {
 });
 
 /** The suite a PHPUnit config that says this declares, its wildcards expanded in a project. */
-$suiteOf = static fn(string $config, string $project = ''): PhpUnitSuite|CannotJudge => PhpUnitSuite::declaredIn(
+$suiteOf = static fn(string $config, string $project = ''): TestSuite|CannotJudge => PhpUnitSuite::declaredIn(
     Contents::of($config),
     Path::of('phpunit.xml'),
     DirectoryGlob::from(Root::of($project)),
@@ -43,9 +44,9 @@ it('holds the files in every test suite\'s directories and those it names, less 
             </testsuites>
         </phpunit>
         XML);
-    $holds = static fn(string $file): bool => $suite instanceof PhpUnitSuite && $suite->holds(Path::of($file));
+    $holds = static fn(string $file): bool => $suite instanceof TestSuite && $suite->holds(Path::of($file));
 
-    expect($suite instanceof PhpUnitSuite ? $suite->directories() : $suite)->toEqual([
+    expect($suite instanceof TestSuite ? $suite->directories() : $suite)->toEqual([
         SuiteDirectory::of(Path::of('tests/Unit'), ''),
         SuiteDirectory::of(Path::of('tests/Feature'), ''),
     ])
@@ -74,21 +75,21 @@ it('reads each test suite by its name, with its own directories, files and exclu
         </phpunit>
         XML);
 
-    expect($suite instanceof PhpUnitSuite ? $suite->suites() : $suite)->toEqual(DeclaredSuites::of(
+    expect($suite instanceof TestSuite ? $suite->suites() : $suite)->toEqual(DeclaredSuites::of(
         DeclaredSuite::named('Unit', Paths::none(), Paths::of(Path::of('tests/Unit/fixture')), SuiteDirectory::of(Path::of('tests/Unit'), 'Spec.php')),
         DeclaredSuite::named('Feature', Paths::of(Path::of('tests/SmokeTest.php')), Paths::none(), SuiteDirectory::of(Path::of('tests/Feature'), '')),
     ))
-        ->and(PhpUnitSuite::conventional()->suites())->toEqual(DeclaredSuites::none());
+        ->and(TestSuite::conventional(SuiteDirectory::conventional())->suites())->toEqual(DeclaredSuites::none());
 });
 
 it('holds the conventional directory where the config names no test directory', function (
-    PhpUnitSuite|CannotJudge $suite,
+    TestSuite|CannotJudge $suite,
 ): void {
-    expect($suite instanceof PhpUnitSuite ? $suite->directories() : $suite)->toEqual([SuiteDirectory::conventional()])
-        ->and($suite instanceof PhpUnitSuite && $suite->holds(Path::of('tests/MoneyTest.php')))->toBeTrue();
+    expect($suite instanceof TestSuite ? $suite->directories() : $suite)->toEqual([SuiteDirectory::conventional()])
+        ->and($suite instanceof TestSuite && $suite->holds(Path::of('tests/MoneyTest.php')))->toBeTrue();
 })->with([
-    'a config with no suite' => [fn(): PhpUnitSuite|CannotJudge => $suiteOf('<phpunit/>')],
-    'the convention itself' => [fn(): PhpUnitSuite => PhpUnitSuite::conventional()],
+    'a config with no suite' => [fn(): TestSuite|CannotJudge => $suiteOf('<phpunit/>')],
+    'the convention itself' => [fn(): TestSuite => TestSuite::conventional(SuiteDirectory::conventional())],
 ]);
 
 it('tells each directory\'s files of test cases by its suffix, PHPUnit\'s where it names none, and each directory once', function () use (
@@ -109,15 +110,15 @@ it('tells each directory\'s files of test cases by its suffix, PHPUnit\'s where 
             </testsuites>
         </phpunit>
         XML);
-    $cases = static fn(string $file): bool => $suite instanceof PhpUnitSuite && $suite->holdsTestCase(Path::of($file));
+    $cases = static fn(string $file): bool => $suite instanceof TestSuite && $suite->holdsTestCase(Path::of($file));
 
-    expect($suite instanceof PhpUnitSuite ? $suite->directories() : $suite)->toEqual([
+    expect($suite instanceof TestSuite ? $suite->directories() : $suite)->toEqual([
         SuiteDirectory::of(Path::of('tests/Unit'), 'Test.php'),
         SuiteDirectory::of(Path::of('tests/Feature'), '.php'),
         SuiteDirectory::of(Path::of('tests/Unit'), 'Test.php'),
         SuiteDirectory::of(Path::of('tests/Unit'), '.phpt'),
     ])
-        ->and($suite instanceof PhpUnitSuite ? $suite->paths() : $suite)
+        ->and($suite instanceof TestSuite ? $suite->paths() : $suite)
         ->toEqual(Paths::of(Path::of('tests/Unit'), Path::of('tests/Feature')))
         ->and($cases('tests/Unit/MoneyTest.php'))->toBeTrue()
         ->and($cases('tests/Unit/money.phpt'))->toBeTrue()
@@ -150,17 +151,17 @@ it('expands a directory with a wildcard into each directory it matches, in the s
         SuiteDirectory::of(Path::of('plugins/b/tests'), 'Spec.php'),
     ];
 
-    expect($suite instanceof PhpUnitSuite ? $suite->directories() : $suite)
+    expect($suite instanceof TestSuite ? $suite->directories() : $suite)
         ->toEqual([SuiteDirectory::of(Path::of('tests'), ''), ...$plugins])
-        ->and($suite instanceof PhpUnitSuite ? $suite->paths() : $suite)
+        ->and($suite instanceof TestSuite ? $suite->paths() : $suite)
         ->toEqual(Paths::of(Path::of('tests'), Path::of('plugins/a/tests'), Path::of('plugins/b/tests')))
-        ->and($suite instanceof PhpUnitSuite ? $suite->suites() : $suite)->toEqual(DeclaredSuites::of(
+        ->and($suite instanceof TestSuite ? $suite->suites() : $suite)->toEqual(DeclaredSuites::of(
             DeclaredSuite::named('Unit', Paths::none(), Paths::none(), SuiteDirectory::of(Path::of('tests'), '')),
             DeclaredSuite::named('Plugins', Paths::none(), Paths::none(), ...$plugins),
             DeclaredSuite::named('Nowhere', Paths::none(), Paths::none()),
         ))
-        ->and($suite instanceof PhpUnitSuite && $suite->holdsTestCase(Path::of('plugins/b/tests/BSpec.php')))->toBeTrue()
-        ->and($suite instanceof PhpUnitSuite && $suite->holds(Path::of('plugins/a/src/A.php')))->toBeFalse();
+        ->and($suite instanceof TestSuite && $suite->holdsTestCase(Path::of('plugins/b/tests/BSpec.php')))->toBeTrue()
+        ->and($suite instanceof TestSuite && $suite->holds(Path::of('plugins/a/src/A.php')))->toBeFalse();
 });
 
 it('leaves out each directory an exclude with a wildcard matches, in the suite and in its named one', function () use (
@@ -185,15 +186,15 @@ it('leaves out each directory an exclude with a wildcard matches, in the suite a
         XML, $project);
     $excluded = Paths::of(Path::of('plugins/a/tests/Process'), Path::of('plugins/b/tests/Process'), Path::of('plugins/a/tests/Fixture'));
 
-    expect($suite instanceof PhpUnitSuite ? $suite->suites() : $suite)->toEqual(DeclaredSuites::of(DeclaredSuite::named(
+    expect($suite instanceof TestSuite ? $suite->suites() : $suite)->toEqual(DeclaredSuites::of(DeclaredSuite::named(
         'Plugins',
         Paths::none(),
         $excluded,
         SuiteDirectory::of(Path::of('plugins/a/tests'), ''),
         SuiteDirectory::of(Path::of('plugins/b/tests'), ''),
     )))
-        ->and($suite instanceof PhpUnitSuite && $suite->holds(Path::of('plugins/a/tests/ATest.php')))->toBeTrue()
-        ->and($suite instanceof PhpUnitSuite && $suite->holds(Path::of('plugins/b/tests/Process/ProcessTest.php')))->toBeFalse();
+        ->and($suite instanceof TestSuite && $suite->holds(Path::of('plugins/a/tests/ATest.php')))->toBeTrue()
+        ->and($suite instanceof TestSuite && $suite->holds(Path::of('plugins/b/tests/Process/ProcessTest.php')))->toBeFalse();
 });
 
 it('holds the conventional directory where every directory the config names is a wildcard that matches none', function () use (
@@ -201,7 +202,7 @@ it('holds the conventional directory where every directory the config names is a
 ): void {
     $suite = $suiteOf('<phpunit><testsuites><testsuite name="P"><directory>plugins/*/tests</directory></testsuite></testsuites></phpunit>', Scratch::directory());
 
-    expect($suite instanceof PhpUnitSuite ? $suite->directories() : $suite)->toEqual([SuiteDirectory::conventional()]);
+    expect($suite instanceof TestSuite ? $suite->directories() : $suite)->toEqual([SuiteDirectory::conventional()]);
 });
 
 it('cannot read a suite from a config that is not XML', function () use ($suiteOf): void {

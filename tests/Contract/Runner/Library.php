@@ -26,7 +26,8 @@ use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
-use NightWorksIO\MutationGate\Adapter\Project\PhpUnitSuite;
+use NightWorksIO\MutationGate\Adapter\Project\SuiteConfig;
+use NightWorksIO\MutationGate\Adapter\Project\TestSuite;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Cli\Flow\Suite;
 use NightWorksIO\MutationGate\Cli\SystemClock;
@@ -544,7 +545,7 @@ final class Library
     {
         $tests = $this->root === ''
             ? Paths::of(Path::of('tests'))
-            : Suite::testsIn(Directory::at(dirname($this->root)), $this->package);
+            : Suite::testsIn(Directory::at(dirname($this->root)), $this->package, SuiteConfig::PhpUnit);
 
         return $tests instanceof Paths ? $tests : throw new RuntimeException($tests->why());
     }
@@ -574,9 +575,9 @@ final class Library
     /** The directories the tests of a library at a root are in, as the flows read them from its PHPUnit config. */
     private static function testsIn(string $root): Paths
     {
-        $suite = Suite::configured(Directory::at($root));
+        $suite = Suite::configured(Directory::at($root), SuiteConfig::PhpUnit);
 
-        return $suite instanceof PhpUnitSuite ? $suite->paths() : throw new RuntimeException($suite->why());
+        return $suite instanceof TestSuite ? $suite->paths() : throw new RuntimeException($suite->why());
     }
 
     /** The engine of the default set, as the flows hand it to the PHPUnit runner. */
