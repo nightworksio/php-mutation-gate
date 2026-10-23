@@ -168,20 +168,22 @@ it('gives a kill how far its run went, keyed by the test files it loaded, with p
         ->and($prefix instanceof Prefix ? $prefix->key() : '')->toMatch('/^[0-9a-f]{12}$/');
 })->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
-// A mutant that ends its process before any test fails is killed with no
-// killer named, where the runner cannot tell which test it ended in. A
-// runner that sees the process end says how: its code, whether a signal
-// ended it, whether PHP recorded a fatal error in it, which `exit` is not, and
-// the end of what it printed.
-it('gives a kill that names no killer how its process ended, with patched Pest', function (): void {
+// A mutant that ends its process as a test runs is killed by that test,
+// where the runner sees which test was running. One that cannot see it, as
+// Infection, names no killer, and says how the process ended: its code,
+// whether a signal ended it, whether PHP recorded a fatal error in it, which
+// `exit` is not, and the end of what it printed.
+it('names the test a mutant ended the process in as its killer, though it ended with 0, with patched Pest', function (): void {
     Patch::applyIn(Library::vendor());
     $library = Library::pest(Patching::on(Library::canary()));
-    [$mutants, $evidence] = RunnerContracts::crashed(Library::DIRECTORY, ['src/Crash.php' => 'src/Crash.php', 'tests/CrashSpec.php' => 'tests/CrashSpec.php'], static fn(): MutationResult|CannotJudge => $library->runner()->mutate(RunnerContracts::crashRequest($library)));
-    $ended = $mutants === [] ? NotGiven::value() : $evidence->of($mutants[0]->id())->ended();
+    [$mutants, $evidence] = RunnerContracts::crashed(Library::DIRECTORY, ['src/Crash.php' => 'src/QuietCrash.php', 'tests/CrashSpec.php' => 'tests/CrashSpec.php'], static fn(): MutationResult|CannotJudge => $library->runner()->mutate(RunnerContracts::crashRequest($library)));
+    $killers = $mutants === [] ? [] : array_map(static fn(TestId $test): string => $test->value(), [...$mutants[0]->killers()]);
+    $prefix = $mutants === [] ? NotGiven::value() : $evidence->of($mutants[0]->id())->prefix();
 
-    expect(array_map(static fn(Mutant $mutant): array => [$mutant->status(), count($mutant->killers())], $mutants))->toBe([[MutantStatus::Killed, 0]])
-        ->and($ended instanceof Ended ? [is_int($ended->code()) && $ended->code() !== 0, $ended->signalled(), $ended->fatal()] : [])->toEqual([true, false, NotGiven::value()])
-        ->and($mutants === [] ? null : $evidence->of($mutants[0]->id())->prefix())->toBeInstanceOf(NotGiven::class);
+    expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::Killed])
+        ->and($killers)->toBe(['P\\Tests\\CrashSpec::__pest_evaluable_it_settles_a_code_of_none'])
+        ->and($prefix instanceof Prefix ? $prefix->position() : 0)->toBe(1)
+        ->and($mutants === [] ? null : $evidence->of($mutants[0]->id())->ended())->toBeInstanceOf(NotGiven::class);
 })->skip(fn(): bool => ! Library::isInstalled(), 'the runner contracts job installs the fixture library')->group(...$holds);
 
 it('names the test a mutant ended the process in as its killer, and so gives no ending, with PHPUnit', function (Workers $workers): void {

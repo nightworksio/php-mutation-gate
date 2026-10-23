@@ -41,8 +41,9 @@ use function register_shutdown_function;
  * the suite loaded.
  *
  * Pest loads this class before pest-plugin-mutate puts a mutated file in the
- * place of the original, so a mutant of this file would never run. It holds
- * no line a mutator changes, and the recording is the recorder's.
+ * place of the original, so a mutant of this file would never run, and the
+ * gate's own config leaves it out of the trees it mutates. The recording is
+ * the recorder's.
  */
 final class Plugin implements Bootable, HandlesArguments
 {
@@ -77,15 +78,17 @@ final class Plugin implements Bootable, HandlesArguments
         $this->seeder = Seeder::fromEnvironment();
         $this->stop = ReplayStop::fromEnvironment(Facade::instance());
 
-        if ($this->guard instanceof Guard || $this->naming instanceof Naming) {
+        if ($this->guard instanceof Guard || $this->naming instanceof Naming || $this->killers instanceof Killers) {
             register_shutdown_function($this->finish(...));
         }
     }
 
     /**
      * Writes what the guard saw, where one watches this run, and the names of
-     * the tests, where the adapter asked for them: PHP calls it once the run
-     * ends.
+     * the tests, where the adapter asked for them; then, in a mutant's own
+     * process that ends as a test runs, names that test its killer and fails
+     * the process, which may have exited with 0: PHP calls it once the
+     * process ends.
      */
     public function finish(): void
     {
@@ -96,6 +99,10 @@ final class Plugin implements Bootable, HandlesArguments
 
         if ($this->naming instanceof Naming) {
             $this->naming->write(get_declared_classes());
+        }
+
+        if ($this->killers instanceof Killers && $this->killers->endedInTest()) {
+            exit(Killers::ENDED_IN_TEST);
         }
     }
 

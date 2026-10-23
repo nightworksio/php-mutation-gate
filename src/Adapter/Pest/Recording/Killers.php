@@ -13,6 +13,7 @@ use function is_string;
 use function is_writable;
 
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\InertSetting;
 use PHPUnit\Event\EventFacadeIsSealedException;
 use PHPUnit\Event\Facade;
@@ -34,6 +35,9 @@ use PHPUnit\Event\UnknownSubscriberTypeException;
  */
 final readonly class Killers
 {
+    /** The code a mutant's own process ends with where it ended as a test ran: a failed run, as PHPUnit's is. */
+    public const int ENDED_IN_TEST = 1;
+
     private function __construct(private string $results, private string $mutated, private RunOrder $order)
     {
     }
@@ -92,7 +96,7 @@ final readonly class Killers
                 new OnPreparationStarted($killers->order),
                 new OnFailed($killers),
                 new OnErrored($killers),
-                new OnTestFinished($ran, $heartbeat),
+                new OnTestFinished($ran, $heartbeat, $killers->order),
                 new OnExecutionStarted($heartbeat),
                 new OnExecutionFinished($ran, $killers, $issues),
             );
@@ -128,10 +132,35 @@ final readonly class Killers
         $this->write(RecordEvent::Errored, $test);
     }
 
+    /** The run ended: no test runs after it. */
+    public function runEnded(): void
+    {
+        $this->order->stopped();
+    }
+
+    /**
+     * Where the process ends as a test runs, before the run ended, writes that
+     * test as one that errored, where it stood, and says so: a test the
+     * process ended in never passed, and is named its killer (ADR-0014).
+     */
+    public function endedInTest(): bool
+    {
+        $running = $this->order->running();
+
+        if ($running instanceof NotGiven) {
+            return false;
+        }
+
+        $this->erroredBy($running);
+
+        return true;
+    }
+
     /** Writes a test, and where it stood, to the mutant's killer file, as Pest's own process records it. */
     private function write(RecordEvent $event, string $test): void
     {
         $this->append(KillerFile::line($event, $test, $this->order->placed($test)));
+        $this->order->stopped();
     }
 
     private function append(string $line): void

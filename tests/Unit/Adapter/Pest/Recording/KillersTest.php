@@ -11,6 +11,8 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordEvent;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RunIssues;
+use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Tests\Support\Beats;
 use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitEvents;
@@ -143,3 +145,48 @@ it('names as killers, once PHPUnit ends its run, the tests whose issues failed i
         KillerFile::ran(0),
     ));
 });
+
+it('names the test running as its process ends as one that errored, where it stood, and says it did', function (): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    $events = new Facade();
+    $killers = Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat());
+    $test = PhpUnitEvents::runningId();
+
+    PhpUnitEvents::started($events);
+    $ended = $killers instanceof Killers && $killers->endedInTest();
+    $again = $killers instanceof Killers && $killers->endedInTest();
+
+    expect([$ended, $again])->toBe([true, false])
+        ->and(file_get_contents(KillerFile::beside($results, '/tmp/mutations/abc')))->toBe(KillerFile::line(
+            RecordEvent::Errored,
+            $test,
+            Placed::at(1, OrderDigest::of(TestId::of($test))->value(), (int) getmypid()),
+        ));
+});
+
+it('names no test where its process ends between tests, once a test was named a killer, or once the run ended', function (Closure $then): void {
+    $results = sprintf('%s/results.jsonl', Scratch::directory());
+    $events = new Facade();
+    $killers = Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat());
+
+    $before = $killers instanceof Killers && $killers->endedInTest();
+    PhpUnitEvents::started($events);
+    $then($events, $killers);
+
+    $file = KillerFile::beside($results, '/tmp/mutations/abc');
+
+    expect([$before, $killers instanceof Killers && $killers->endedInTest()])->toBe([false, false])
+        ->and(str_contains(is_file($file) ? (string) file_get_contents($file) : '', RecordEvent::Errored->value))->toBeFalse();
+})->with([
+    'the test finished' => [static function (Facade $events): void {
+        PhpUnitEvents::finished($events);
+    }],
+    'the test was named a killer' => [static function (Facade $events, Killers|Off $killers): void {
+        if ($killers instanceof Killers) {
+            $killers->killedBy('T::adds');
+        }
+    }],
+    'the run ended' => [static function (Facade $events): void {
+        PhpUnitEvents::executionFinished($events);
+    }],
+]);

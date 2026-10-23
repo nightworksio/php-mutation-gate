@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
 
 use NightWorksIO\MutationGate\Core\Mutant\OrderDigest;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 
 /**
@@ -13,12 +14,16 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
  * while it runs, after it started and before the next does, so a killer
  * that is the test started last stands where the count does; whatever
  * else is named a killer, as a class whose set-up failed, stands nowhere.
+ * A test is running from its start until it finishes, is named a killer, or
+ * the run ends.
  */
 final class RunOrder
 {
     private int $started = 0;
 
     private string $last = '';
+
+    private string $running = '';
 
     private OrderDigest $digest;
 
@@ -33,7 +38,20 @@ final class RunOrder
     {
         $this->started++;
         $this->last = $test;
+        $this->running = $test;
         $this->digest = $this->digest->with(TestId::of($test));
+    }
+
+    /** The test running stopped: it finished, was named a killer, or the run ended. */
+    public function stopped(): void
+    {
+        $this->running = '';
+    }
+
+    /** The test running, by its id; none between tests, before the first or once the run ended. */
+    public function running(): string|NotGiven
+    {
+        return $this->running === '' ? NotGiven::value() : $this->running;
     }
 
     /** Where a killer stands, by its id. */
