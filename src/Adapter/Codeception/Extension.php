@@ -79,17 +79,19 @@ final class Extension extends CodeceptionExtension
     private Candidate|NotGiven $running;
 
     /**
-     * @param array<array-key, mixed> $config  its settings, as Codeception hands them over
-     * @param array<array-key, mixed> $options the run's options
+     * @param array<array-key, mixed> $config    its settings, as Codeception hands them over
+     * @param array<array-key, mixed> $options   the run's options
+     * @param CodeCoverage|NotGiven   $measuring what measures each test's coverage; one over the driver PHP has
+     *                                           where none is given, as Codeception builds the extension
      */
-    public function __construct(array $config, array $options)
+    public function __construct(array $config, array $options, CodeCoverage|NotGiven $measuring = new NotGiven())
     {
         parent::__construct($config, $options);
         $told = Told::from($this->config);
         $results = getenv(Variable::Results->value);
         $this->selected = $told->selected();
         $this->results = is_string($results) && $results !== '' ? $results : NotGiven::value();
-        $this->covering = $this->covering($told);
+        $this->covering = $this->covering($told, $measuring);
         $this->listing = $told->listing();
         $this->running = NotGiven::value();
         self::noting(getenv(Variable::Guard->value), Opcache::ofCommandLine(ini_get(Opcache::CLI)));
@@ -183,7 +185,7 @@ final class Extension extends CodeceptionExtension
      * The coverage of each selected test, over the project's own files, where the run is told a file for it and
      * the vendor directory whose files it leaves out.
      */
-    private function covering(Told $told): Covering|NotGiven
+    private function covering(Told $told, CodeCoverage|NotGiven $measuring): Covering|NotGiven
     {
         $map = $told->coverage();
         $vendor = $told->vendor();
@@ -195,6 +197,10 @@ final class Extension extends CodeceptionExtension
         $filter = new Filter();
         $own = OwnFiles::under((string) getcwd(), $vendor);
 
-        return new Covering($map, new CodeCoverage(new Selector()->select($filter), $filter), $own);
+        return new Covering(
+            $map,
+            $measuring instanceof NotGiven ? new CodeCoverage(new Selector()->select($filter), $filter) : $measuring,
+            $own,
+        );
     }
 }

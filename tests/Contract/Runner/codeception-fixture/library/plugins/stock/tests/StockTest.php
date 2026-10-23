@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Stock\Tests;
+namespace CodeceptionLibrary\Stock;
 
 use Beside\Stock;
 use Codeception\Test\Unit;

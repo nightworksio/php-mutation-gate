@@ -51,3 +51,14 @@ it('cannot judge where Composer installed nothing, naming Codeception as the run
 
     expect($judged instanceof CannotJudge ? $judged->why() : $judged)->toContain('which Codeception judges the mutants');
 });
+
+it('cannot judge with a manifest that is not JSON, or that holds no list of packages', function (string $text): void {
+    $root = Scratch::directory();
+    Scratch::write($root, 'installed.json', $text);
+    $file = sprintf('%s/installed.json', $root);
+
+    expect(Installed::versionsIn($file))->toEqual(CannotJudge::because(sprintf(
+        '%s is not the list of installed packages Composer 2 writes, so what it installed cannot be read.',
+        $file,
+    )));
+})->with(['{', '{"packages": "none"}']);

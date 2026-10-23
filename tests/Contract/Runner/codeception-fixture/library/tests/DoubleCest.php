@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests;
+namespace CodeceptionLibrary;
 
 use Codeception\Attribute\Examples;
 use Codeception\Example;

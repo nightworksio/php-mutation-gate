@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests;
+namespace CodeceptionLibrary;
 
 use function file_put_contents;
 use function getenv;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests;
+namespace CodeceptionLibrary;
 
 use Beside\Ledger;
 use Codeception\Test\Unit;

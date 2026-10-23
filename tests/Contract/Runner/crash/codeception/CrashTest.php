@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests;
+namespace CodeceptionLibrary;
 
 use Codeception\Test\Unit;
 use Library\Crash;

@@ -20,8 +20,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Tests\\": "library/tests/",
-            "Stock\\Tests\\": "library/plugins/stock/tests/"
+            "CodeceptionLibrary\\": "library/tests/",
+            "CodeceptionLibrary\\Stock\\": "library/plugins/stock/tests/"
         }
     },
     "config": {

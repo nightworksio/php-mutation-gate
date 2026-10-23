@@ -15,10 +15,12 @@ final class HeldTest extends Unit
 {
     public function testIsHeldByItsCase(): void
     {
+        $this->expectNotToPerformAssertions();
     }
 
     #[Holds('src/Held.php')]
     public function testIsHeldByItsOwnPathToo(): void
     {
+        $this->expectNotToPerformAssertions();
     }
 }

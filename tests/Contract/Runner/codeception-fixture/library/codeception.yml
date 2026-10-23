@@ -1,6 +1,6 @@
 # The tests are in tests/ and plugins/stock/tests/, so each library's test
 # files have the same directories whatever runs them.
-namespace: Tests
+namespace: CodeceptionLibrary
 support_namespace: ''
 paths:
   tests: .

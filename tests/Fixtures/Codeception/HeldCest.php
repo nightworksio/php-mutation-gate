@@ -10,7 +10,8 @@ use NightWorksIO\MutationGate\Attribute\Holds;
 final class HeldCest
 {
     #[Holds('src/Held.php')]
-    public function isHeld(): void
+    public function isHeld(): string
     {
+        return __FUNCTION__;
     }
 }

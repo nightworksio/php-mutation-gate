@@ -218,7 +218,7 @@ it('names the test a mutant ended the process in as its killer, and so gives no 
     $prefix = $mutants === [] ? NotGiven::value() : $evidence->of($mutants[0]->id())->prefix();
 
     expect(array_map(static fn(Mutant $mutant): MutantStatus => $mutant->status(), $mutants))->toBe([MutantStatus::Killed])
-        ->and($killers)->toBe(['Tests\\CrashTest::testSettlesACodeOfNone'])
+        ->and($killers)->toBe(['CodeceptionLibrary\\CrashTest::testSettlesACodeOfNone'])
         ->and($prefix instanceof Prefix ? $prefix->position() : 0)->toBe(1)
         ->and($mutants === [] ? null : $evidence->of($mutants[0]->id())->ended())->toBeInstanceOf(NotGiven::class);
 })->skip(fn(): bool => ! Library::isCodeceptionInstalled(), 'the Codeception runner contracts steps install its library')->group(...$holds);

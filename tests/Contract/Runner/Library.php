@@ -237,7 +237,7 @@ final class Library
 
     /** @var array<string, string> what the Codeception runner names each test it is asked, by the test's id */
     private const array CODECEPTION_NAMES = [
-        'Tests\\MoneyTest::testAddsTwoAmounts' => 'tests/MoneyTest.php::testAddsTwoAmounts',
+        'CodeceptionLibrary\\MoneyTest::testAddsTwoAmounts' => 'tests/MoneyTest.php::testAddsTwoAmounts',
         'Nowhere\\GoneTest::gone' => 'Nowhere\\GoneTest::gone',
     ];
 

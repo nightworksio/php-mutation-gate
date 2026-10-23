@@ -5,18 +5,33 @@ declare(strict_types=1);
 use Codeception\Events;
 use NightWorksIO\MutationGate\Adapter\Codeception\Extension;
 use NightWorksIO\MutationGate\Adapter\Codeception\Option;
+use NightWorksIO\MutationGate\Adapter\Native\CoverageFile;
+use NightWorksIO\MutationGate\Adapter\Native\Project;
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Native\Guard;
 use NightWorksIO\MutationGate\Core\Native\Variable;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
+use NightWorksIO\MutationGate\Core\Test\TestId;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Tests\Fakes\CoverageDriverFake;
 use NightWorksIO\MutationGate\Tests\Support\CodeceptionTests;
+use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
+use SebastianBergmann\CodeCoverage\CodeCoverage;
+use SebastianBergmann\CodeCoverage\Filter;
 
-afterEach(function (): void {
-    putenv(Variable::Results->value);
-    putenv(Variable::Guard->value);
-    Scratch::sweep();
+beforeEach(function (): void {
+    GateEnvironment::clear();
 });
 
+afterEach(function (): void {
+    GateEnvironment::restore();
+    Scratch::sweep();
+});
 /**
  * The extension as Codeception builds it, told to run only the first test of HeldTest, from a file in this
  * directory, and these settings besides.
@@ -132,12 +147,36 @@ it('writes nothing once the run is done where it is told neither a listing nor a
     expect(glob(sprintf('%s/*', $root)))->toBe([sprintf('%s/selected.txt', $root)]);
 });
 
-it('writes the selected tests\' coverage map once the run is done, where it is told a file', function (): void {
-    $map = sprintf('%s/coverage.php', Scratch::directory());
-    $extension = selectingTheFirst(Scratch::directory(), [Option::Coverage->value => $map, Option::Vendor->value => '/p/vendor']);
+it('measures each selected test with what it is handed and writes the map once the run is done, where it is told a file', function (): void {
+    $root = (string) realpath(Scratch::directory());
+    $map = sprintf('%s/coverage.php', $root);
+    $source = sprintf('%s/src/Ran.php', $root);
+    Scratch::write($root, 'src/Ran.php', "<?php\n\$ran = 1;\n");
+    $measuring = new CodeCoverage(new CoverageDriverFake([[$source => [2 => 1]]]), new Filter());
+    Scratch::write($root, 'selected.txt', sprintf("%s\n", CodeceptionTests::id('testIsHeldByItsCase')));
+    $previous = getcwd();
+    chdir($root);
+    $extension = new Extension([Option::Selected->value => sprintf('%s/selected.txt', $root), Option::Coverage->value => $map, Option::Vendor->value => sprintf('%s/vendor', $root)], [], $measuring);
+    require $source;
     $extension->started(CodeceptionTests::event('testIsHeldByItsCase'));
     $extension->ended(CodeceptionTests::event('testIsHeldByItsCase', 0.25));
+    $extension->started(CodeceptionTests::event('testIsHeldByItsOwnPathToo'));
+    $extension->ended(CodeceptionTests::event('testIsHeldByItsOwnPathToo', 0.5));
+    chdir((string) $previous);
+    $unwritten = is_file($map);
     $extension->written();
+    $read = CoverageFile::read(Project::at($root, Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'), BuiltinRunner::Codeception), $map);
+    $test = TestId::of(CodeceptionTests::id('testIsHeldByItsCase'));
+
+    expect($unwritten)->toBeFalse()
+        ->and($read instanceof CoverageMap ? $read->testsCoveringFile(Path::of('src/Ran.php')) : $read)->toEqual(TestIds::of($test))
+        ->and($read instanceof CoverageMap ? $read->durationOf($test) : $read)->toEqual(Seconds::of(0.25));
+});
+
+it('measures over the driver PHP has where it is handed nothing to measure with', function (): void {
+    $root = Scratch::directory();
+    $map = sprintf('%s/coverage.php', $root);
+    selectingTheFirst($root, [Option::Coverage->value => $map, Option::Vendor->value => '/p/vendor'])->written();
 
     expect(is_file($map))->toBeTrue();
 })->skip(fn(): bool => ! extension_loaded('pcov') && ! extension_loaded('xdebug'), 'only a PHP with a coverage driver');
