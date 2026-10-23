@@ -43,7 +43,9 @@ class Outputs(unittest.TestCase):
             "tests/Contract/Runner/fixture/src/Money.php": ["pest"],
             "src/Adapter/Infection/Infection.php": ["infection-12", "infection-13"],
             "tests/Contract/Runner/infection-fixture/composer.lock": ["infection-12", "infection-13"],
-            "src/Adapter/PhpUnit/PhpUnit.php": ["infection-12", "infection-13", "phpunit"],
+            "src/Adapter/Native/NativeRunner.php": ["phpunit"],
+            "src/Core/Native/Framework.php": ["phpunit"],
+            "src/Adapter/PhpUnit/PhpUnitFramework.php": ["phpunit"],
             "bin/mutation-gate-worker": ["phpunit"],
             "src/Adapter/PhpStan/PhpStan.php": ["analysers"],
             "src/Core/Analysis/MutantCheck.php": ["analysers"],
@@ -74,7 +76,8 @@ class Outputs(unittest.TestCase):
 
     def test_runs_warm_workers_for_the_phpunit_runner_the_worker_or_its_measure(self):
         measured = (
-            "src/Adapter/PhpUnit/Worker.php",
+            "src/Adapter/Native/Warm/Worker.php",
+            "src/Adapter/PhpUnit/Warm/PhpUnitBoot.php",
             "bin/mutation-gate-worker",
             "tests/Contract/Runner/phpunit-fixture/composer.lock",
             ".github/scripts/warm_measure.py",

@@ -11,8 +11,8 @@ use Closure;
 
 use function count;
 
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Command;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Shell;
+use NightWorksIO\MutationGate\Core\Native\Command;
+use NightWorksIO\MutationGate\Core\Native\Shell;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\ProcessEnds;
 use NightWorksIO\MutationGate\Core\Runner\Ran;

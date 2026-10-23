@@ -23,3 +23,13 @@ it('has PHPUnit read each selection from its file', function (): void {
     expect(Selection::Ids->option('/g/ids.txt'))->toBe('--test-id-filter-file=/g/ids.txt')
         ->and(Selection::Files->option('/g/files.txt'))->toBe('--test-files-file=/g/files.txt');
 });
+
+it('lists what it selects in the file named for its way of selecting, exactly by ids and loosely by files', function (): void {
+    $ids = Selection::Ids->listing(['Tests\MoneyTest::testAdds']);
+    $files = Selection::Files->listing(['/p/tests/MoneyTest.php']);
+
+    expect([$ids->file(), $ids->lines(), $ids->isExact(), $ids->option('/g/ids.txt')])
+        ->toBe(['ids.txt', ['Tests\MoneyTest::testAdds'], true, '--test-id-filter-file=/g/ids.txt'])
+        ->and([$files->file(), $files->lines(), $files->isExact(), $files->option('/g/files.txt')])
+        ->toBe(['files.txt', ['/p/tests/MoneyTest.php'], false, '--test-files-file=/g/files.txt']);
+});

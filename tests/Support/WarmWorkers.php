@@ -6,10 +6,10 @@ namespace NightWorksIO\MutationGate\Tests\Support;
 
 use function array_values;
 
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Forking;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Job;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\WarmRun;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Workplace;
+use NightWorksIO\MutationGate\Adapter\Native\Warm\Forking;
+use NightWorksIO\MutationGate\Adapter\Native\Warm\Job;
+use NightWorksIO\MutationGate\Adapter\Native\Warm\WarmRun;
+use NightWorksIO\MutationGate\Adapter\Native\Warm\Workplace;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 

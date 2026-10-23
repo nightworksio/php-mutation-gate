@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Tests\Support;
 
 use LogicException;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\MemoryScan;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Project;
+use NightWorksIO\MutationGate\Adapter\Native\MemoryScan;
+use NightWorksIO\MutationGate\Adapter\Native\Project;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Core\Runner\MemoryCap;
 

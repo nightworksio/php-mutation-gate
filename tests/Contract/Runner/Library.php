@@ -18,19 +18,20 @@ use NightWorksIO\MutationGate\Adapter\Filesystem\Directory;
 use NightWorksIO\MutationGate\Adapter\Infection\Infection;
 use NightWorksIO\MutationGate\Adapter\Infection\ProcessShell as InfectionShell;
 use NightWorksIO\MutationGate\Adapter\Infection\Project as InfectionProject;
+use NightWorksIO\MutationGate\Adapter\Native\NativeRunner;
+use NightWorksIO\MutationGate\Adapter\Native\ProcessShell as PhpUnitShell;
+use NightWorksIO\MutationGate\Adapter\Native\Project as PhpUnitProject;
 use NightWorksIO\MutationGate\Adapter\Pest\Patching;
 use NightWorksIO\MutationGate\Adapter\Pest\Pest;
 use NightWorksIO\MutationGate\Adapter\Pest\ProcessShell;
 use NightWorksIO\MutationGate\Adapter\Pest\Project;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\PhpUnit;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\ProcessShell as PhpUnitShell;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Project as PhpUnitProject;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Adapter\Project\PhpUnitSuite;
 use NightWorksIO\MutationGate\Adapter\Runtime\CapDirectory;
 use NightWorksIO\MutationGate\Cli\Flow\Suite;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Config\Triage;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
@@ -55,6 +56,7 @@ use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Port\Runner;
 use NightWorksIO\MutationGate\Tests\Fakes\RunnerFake;
+use NightWorksIO\MutationGate\Tests\Support\NativePhpUnit;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
 use NightWorksIO\MutationGateDefault\DefaultExtension;
 use Pest\Mutate\Mutators\Arithmetic\MinusToPlus;
@@ -313,13 +315,18 @@ final class Library
     public static function phpunitWithin(LimitBounds $kept, string $name): self
     {
         $root = Tree::at(self::PHPUNIT_DIRECTORY);
-        $phpunit = static fn(string $root): PhpUnit => new PhpUnit(
-            PhpUnitProject::at($root, self::testsIn($root), Path::of('../vendor'), Path::of('.mutation-gate')),
-            new PhpUnitShell(new LocalProcesses(new SystemClock()), $root, getenv()),
-            self::defaultSet(),
-            $kept,
-            new CapDirectory(),
-        );
+        $phpunit = static function (string $root) use ($kept): NativeRunner {
+            $project = PhpUnitProject::at($root, self::testsIn($root), Path::of('../vendor'), Path::of('.mutation-gate'), BuiltinRunner::PhpUnit);
+
+            return new NativeRunner(
+                $project,
+                new PhpUnitShell(new LocalProcesses(new SystemClock()), $root, getenv()),
+                NativePhpUnit::in($project),
+                self::defaultSet(),
+                $kept,
+                new CapDirectory(),
+            );
+        };
 
         return new self(
             $name,

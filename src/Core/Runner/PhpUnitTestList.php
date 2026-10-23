@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Runner;
 
+use function is_string;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Format\Xml;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Test\Group;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -34,11 +37,18 @@ final readonly class PhpUnitTestList
 
     /**
      * The listing a run of a program wrote to a file, as the file reads; or
-     * why there is none: the run failed, or the file holds no list.
+     * why there is none: the run failed, or the file is not there, or holds
+     * no list.
      */
-    public static function listedIn(Ran $ran, string $xml, string $file, Program $program): TestListing|CannotJudge
-    {
-        $list = $ran->succeeded() ? simplexml_load_string($xml, options: Xml::QUIET) : false;
+    public static function listedIn(
+        Ran $ran,
+        string|false $xml,
+        string $file,
+        Program $program,
+    ): TestListing|CannotJudge {
+        $list = $ran->succeeded() && is_string($xml)
+            ? simplexml_load_string($xml, options: Xml::QUIET)
+            : NotGiven::value();
 
         if (! $list instanceof SimpleXMLElement || $list->getName() !== 'testSuite') {
             return CannotJudge::because(sprintf(self::UNREAD, $program->title(), $file, $ran->output()));

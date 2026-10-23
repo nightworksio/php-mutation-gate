@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
+use function file_put_contents;
 use function getenv;
 use function ini_get;
+use function is_string;
 
+use NightWorksIO\MutationGate\Core\Native\Guard;
+use NightWorksIO\MutationGate\Core\Native\Variable;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
 use PHPUnit\Event\Facade as Events;
 use PHPUnit\Runner\Extension\Extension as PhpUnitExtension;
@@ -26,6 +30,14 @@ final readonly class Extension implements PhpUnitExtension
     public function bootstrap(Configuration $configuration, Facade $facade, ParameterCollection $parameters): void
     {
         Recorder::listening(getenv(Variable::Results->value), Events::instance());
-        Guard::noting(getenv(Variable::Guard->value), Opcache::ofCommandLine(ini_get(Opcache::CLI)));
+        self::noting(getenv(Variable::Guard->value), Opcache::ofCommandLine(ini_get(Opcache::CLI)));
+    }
+
+    /** Says in the guard file, where one is named, whether opcache could serve a cached original. */
+    public static function noting(string|false $file, Opcache $opcache): void
+    {
+        if (is_string($file) && $file !== '') {
+            file_put_contents($file, Guard::noting($opcache), FILE_APPEND | LOCK_EX);
+        }
     }
 }

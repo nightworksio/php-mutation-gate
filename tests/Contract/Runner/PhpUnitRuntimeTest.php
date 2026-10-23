@@ -2,17 +2,18 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Coverage;
+use NightWorksIO\MutationGate\Adapter\Native\Coverage;
+use NightWorksIO\MutationGate\Adapter\Native\Invocation;
+use NightWorksIO\MutationGate\Adapter\Native\MutantRun;
+use NightWorksIO\MutationGate\Adapter\Native\Override;
+use NightWorksIO\MutationGate\Adapter\Native\ProcessShell;
+use NightWorksIO\MutationGate\Adapter\Native\Project;
+use NightWorksIO\MutationGate\Adapter\Native\TestFiles;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Installed;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Invocation;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\MutantRun;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Override;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\ProcessShell;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Project;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\TestFiles;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Line;
@@ -39,6 +40,7 @@ use NightWorksIO\MutationGate\Mutator\Engine\MadeMutants;
 use NightWorksIO\MutationGate\Mutator\Mutator;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\DecrementToIncrement;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
+use NightWorksIO\MutationGate\Tests\Support\NativePhpUnit;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitScan;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
@@ -75,7 +77,7 @@ function judgedByPhpUnit(
     array $inherited = [],
     MatrixKind $matrix = MatrixKind::FirstKiller,
 ): Mutant|CannotJudge {
-    $project = Project::at(Tree::at(PHPUNIT_LIBRARY), Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'));
+    $project = Project::at(Tree::at(PHPUNIT_LIBRARY), Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'), BuiltinRunner::PhpUnit);
     $override = Override::writtenFor($project);
     $made = Engine::with($mutator)->mutantsOf(
         Path::of($file),
@@ -88,7 +90,7 @@ function judgedByPhpUnit(
 
     $shell = new ProcessShell(new LocalProcesses(new SystemClock()), $project->root(), [...getenv(), ...$inherited]);
 
-    return new MutantRun($project, $shell, new Invocation($project, $override), new TestFiles($project), PhpUnitScan::uncapped($project), NotGiven::value())->judged(
+    return new MutantRun($project, $shell, new Invocation($project, $override, NativePhpUnit::in($project)), NativePhpUnit::in($project), PhpUnitScan::uncapped($project), NotGiven::value())->judged(
         [...$made][$nth],
         TestIds::of(...array_map(static fn(string $test): TestId => TestId::of(sprintf('Tests\%s', $test)), $covering)),
         MutationRequest::of(Paths::of(Path::of($file)), WholeSuite::tests())->searching(KillSearch::of(Ordering::runner(), $matrix)),
@@ -240,9 +242,10 @@ it('selects a test by its file where its data set\'s name has a line break, and 
 })->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
 
 it('measures which tests run each line and how long each took, and places and names each test by its file', function (): void {
-    $project = Project::at(Tree::at(PHPUNIT_LIBRARY), Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'));
+    $project = Project::at(Tree::at(PHPUNIT_LIBRARY), Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'), BuiltinRunner::PhpUnit);
     $shell = new ProcessShell(new LocalProcesses(new SystemClock()), $project->root(), getenv());
-    $map = new Coverage($project, $shell, new Invocation($project, 'unused'))
+    $phpunit = NativePhpUnit::in($project);
+    $map = new Coverage($project, $shell, new Invocation($project, 'unused', $phpunit), $phpunit)
         ->of(CoverageRun::of(Filter::matching('TallySpec'), Path::of('.mutation-gate/coverage')));
     $lines = file($project->absolute(Path::of('src/Tally.php')));
     $sum = Line::of((int) array_search("        return \$a + \$b;\n", is_array($lines) ? $lines : [], strict: true) + 1);

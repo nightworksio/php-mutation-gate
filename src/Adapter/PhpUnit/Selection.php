@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
+use NightWorksIO\MutationGate\Core\Native\Selection as SelectionFile;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
 
@@ -29,6 +30,20 @@ enum Selection: string
         }
 
         return self::Ids;
+    }
+
+    /**
+     * The selection of what these lines list, in the file named for this way
+     * of selecting.
+     *
+     * @param list<string> $lines
+     */
+    public function listing(array $lines): SelectionFile
+    {
+        return match ($this) {
+            self::Ids => SelectionFile::exactly($this->value, $lines, $this->option('%s')),
+            self::Files => SelectionFile::byFile($this->value, $lines, $this->option('%s')),
+        };
     }
 
     /** The option that has PHPUnit read the selection from the file. */

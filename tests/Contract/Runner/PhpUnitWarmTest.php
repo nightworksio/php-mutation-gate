@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Invocation;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\MutantRun;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Override;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\PreparedRun;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\ProcessShell;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Project;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\TestFiles;
-use NightWorksIO\MutationGate\Adapter\PhpUnit\Warm\Workforce;
+use NightWorksIO\MutationGate\Adapter\Native\Invocation;
+use NightWorksIO\MutationGate\Adapter\Native\MutantRun;
+use NightWorksIO\MutationGate\Adapter\Native\Override;
+use NightWorksIO\MutationGate\Adapter\Native\PreparedRun;
+use NightWorksIO\MutationGate\Adapter\Native\ProcessShell;
+use NightWorksIO\MutationGate\Adapter\Native\Project;
+use NightWorksIO\MutationGate\Adapter\Native\Warm\Workforce;
 use NightWorksIO\MutationGate\Adapter\Process\LocalProcesses;
 use NightWorksIO\MutationGate\Cli\SystemClock;
 use NightWorksIO\MutationGate\Core\CannotJudge;
+use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
@@ -31,6 +31,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
 use NightWorksIO\MutationGate\Mutator\Engine\Engine;
 use NightWorksIO\MutationGate\Mutator\Engine\MadeMutants;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus;
+use NightWorksIO\MutationGate\Tests\Support\NativePhpUnit;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitScan;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
@@ -122,16 +123,16 @@ function warmRuns(Project $project, MutantRun $run, MutationRequest $request, Se
  */
 function warmlyAndFreshly(string $root, int $places = 1, float $limit = 30.0): array
 {
-    $project = Project::at($root, Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'));
+    $project = Project::at($root, Paths::of(Path::of('tests')), Path::of('vendor'), Path::of('.mutation-gate'), BuiltinRunner::PhpUnit);
     $override = Override::writtenFor($project);
     $shell = new ProcessShell(new LocalProcesses(new SystemClock()), $root, getenv());
-    $invocation = new Invocation($project, $override instanceof CannotJudge ? '' : $override);
+    $invocation = new Invocation($project, $override instanceof CannotJudge ? '' : $override, NativePhpUnit::in($project));
     $scan = PhpUnitScan::uncapped($project);
-    $run = new MutantRun($project, $shell, $invocation, new TestFiles($project), $scan, NotGiven::value());
+    $run = new MutantRun($project, $shell, $invocation, NativePhpUnit::in($project), $scan, NotGiven::value());
     $request = MutationRequest::of(Paths::of(Path::of('src/Counter.php')), WholeSuite::tests())
         ->across(Pool::of(ProcessCount::of($places), Workers::Fork));
     $runs = array_values(array_filter(warmRuns($project, $run, $request, Seconds::of($limit)), static fn(mixed $prepared): bool => $prepared instanceof PreparedRun));
-    $forked = new Workforce($project, $shell, $invocation, $scan, $run)->judged($request, PHP_INT_MAX, $runs);
+    $forked = new Workforce($project, $shell, $invocation, $scan, $run, NativePhpUnit::in($project))->judged($request, PHP_INT_MAX, $runs);
     $warm = [];
 
     foreach (array_keys($runs) as $at) {

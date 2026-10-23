@@ -67,15 +67,23 @@ SHARED = (
     ".github/scripts/scope.py",
 )
 
-# Infection's legs drive its PHPUnit, through the PHPUnit runner's extension.
-INFECTION = ("src/Adapter/Infection/", "src/Adapter/PhpUnit/", "tests/Contract/Runner/infection-fixture/")
+INFECTION = ("src/Adapter/Infection/", "tests/Contract/Runner/infection-fixture/")
+
+# The native runner, the PHPUnit framework it drives, and its warm worker.
+NATIVE_PHPUNIT = (
+    "src/Adapter/Native/",
+    "src/Core/Native/",
+    "src/Adapter/PhpUnit/",
+    "bin/mutation-gate-worker",
+    "tests/Contract/Runner/phpunit-fixture/",
+)
 
 # Each leg's own subjects, beside SHARED.
 LEGS = {
     "pest": ("src/Adapter/Pest/", "src/Attribute/", "tests/Contract/Runner/fixture/"),
     "infection-13": INFECTION,
     "infection-12": INFECTION,
-    "phpunit": ("src/Adapter/PhpUnit/", "bin/mutation-gate-worker", "tests/Contract/Runner/phpunit-fixture/"),
+    "phpunit": NATIVE_PHPUNIT,
     "analysers": (
         "src/Adapter/PhpStan/",
         "src/Adapter/Psalm/",
@@ -96,9 +104,7 @@ OWN_FIXTURES = (
 
 # What `warm workers` measures, beside SHARED.
 WARM = (
-    "src/Adapter/PhpUnit/",
-    "bin/mutation-gate-worker",
-    "tests/Contract/Runner/phpunit-fixture/",
+    *NATIVE_PHPUNIT,
     ".github/scripts/warm_measure.py",
     ".github/workflows/end-to-end.yml",
 )

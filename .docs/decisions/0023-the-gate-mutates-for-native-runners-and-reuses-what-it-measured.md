@@ -355,10 +355,13 @@ manual.
     - **Kills:** the first killer from events, and `--kill-matrix=full` by
       leaving out `--stop-on-error` and `--stop-on-failure` (ADR-0014).
     - **Costs:** learned from the gate's own process timings (ADR-0006).
-    - `Adapter\PhpUnit` holds the extension, the runner and the override. No
-      port changes. It behaves as `RunnerBehaviour::standard()` says: it lists
-      `#[Holds]` as groups, can raise a limit, reads the map the plan handed
-      each shard, and runs a mutant on each core at once.
+    - `Adapter\Native` holds the runner, the override and the warm workers,
+      and `Adapter\PhpUnit` holds the extension and PHPUnit as the runner
+      drives it, a `Core\Native\Framework` the Cli hands the runner
+      (ADR-0027). No port changes. It behaves as
+      `RunnerBehaviour::standard()` says: it lists `#[Holds]` as groups, can
+      raise a limit, reads the map the plan handed each shard, and runs a
+      mutant on each core at once.
 
 11. **Zero-config chooses the PHPUnit runner only where nothing else fits.**
     - `runner: phpunit` is chosen only when neither Pest's mutate plugin nor
