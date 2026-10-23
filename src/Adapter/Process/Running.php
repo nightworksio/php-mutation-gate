@@ -266,8 +266,7 @@ final class Running
     private function read(): void
     {
         foreach ($this->pipes as $descriptor => $pipe) {
-            $read = stream_get_contents($pipe);
-            $this->keep($descriptor, is_string($read) ? $read : '');
+            $this->keep($descriptor, stream_get_contents($pipe));
 
             if (feof($pipe)) {
                 fclose($pipe);
@@ -276,8 +275,8 @@ final class Running
         }
     }
 
-    /** What a pipe printed, kept with what came through it before. */
-    private function keep(int $descriptor, string $read): void
+    /** What a pipe printed, kept with what came through it before; nothing where it could not be read. */
+    private function keep(int $descriptor, string|false $read): void
     {
         if ($descriptor === self::OUTPUT) {
             $this->printedOut .= $read;
