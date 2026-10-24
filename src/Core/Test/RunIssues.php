@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
+namespace NightWorksIO\MutationGate\Core\Test;
 
 /**
  * Where a mutant's own run, once its tests have run, reads the tests its

@@ -11,10 +11,19 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Naming;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Off;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\RecordLine;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\IssueKillers;
+use NightWorksIO\MutationGate\Cli\PestPlugin;
+use NightWorksIO\MutationGate\Core\Test\RunIssues;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
 use NightWorksIO\MutationGate\Tests\Support\GateEnvironment;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\Tree;
+
+/** The Pest adapter's plugin, reading issues as the plugin this package lists hands it the reader. */
+function pestPlugin(): Plugin
+{
+    return new Plugin(static fn(): RunIssues => new IssueKillers());
+}
 
 /**
  * Runs with only these of the variables the plugin reads set, and the rest
@@ -41,7 +50,7 @@ function withPluginVariables(array $set, Closure $run): object
 function pluginBootedWith(array $set): Plugin
 {
     return withPluginVariables($set, static function (): Plugin {
-        $plugin = new Plugin();
+        $plugin = pestPlugin();
         $plugin->boot();
 
         return $plugin;
@@ -58,18 +67,18 @@ function pluginBootedWith(array $set): Plugin
  */
 function argumentsHandledWith(array $set, array $arguments): array
 {
-    $handled = withPluginVariables($set, static fn(): ArrayObject => new ArrayObject(new Plugin()->handleArguments($arguments)));
+    $handled = withPluginVariables($set, static fn(): ArrayObject => new ArrayObject(pestPlugin()->handleArguments($arguments)));
 
     return array_values($handled->getArrayCopy());
 }
 
 it('records, guards, names no killer and no test, and orders nothing until Pest boots it', function (): void {
-    expect(new Plugin()->recorder())->toBe(Off::Recording)
-        ->and(new Plugin()->guard())->toBe(Off::Guarding)
-        ->and(new Plugin()->killers())->toBe(Off::NamingKillers)
-        ->and(new Plugin()->naming())->toBe(Off::NamingTests)
-        ->and(new Plugin()->seeder())->toBe(Off::Ordering)
-        ->and(new Plugin()->stop())->toBe(Off::Stopping);
+    expect(pestPlugin()->recorder())->toBe(Off::Recording)
+        ->and(pestPlugin()->guard())->toBe(Off::Guarding)
+        ->and(pestPlugin()->killers())->toBe(Off::NamingKillers)
+        ->and(pestPlugin()->naming())->toBe(Off::NamingTests)
+        ->and(pestPlugin()->seeder())->toBe(Off::Ordering)
+        ->and(pestPlugin()->stop())->toBe(Off::Stopping);
 });
 
 it('names the tests of a run that lists them for the adapter, writing the names when the run ends', function (): void {
@@ -105,7 +114,7 @@ it('guards a run the adapter starts on one mutant, writing what it saw when the 
     $guard = sprintf('%s/guard.json', Scratch::untilExit());
     $plugin = pluginBootedWith([Recorder::MUTANT => __FILE__, GateVariable::Guard->value => $guard]);
 
-    new Plugin()->finish();
+    pestPlugin()->finish();
     $unwatched = is_file($guard);
     $plugin->finish();
 
@@ -131,7 +140,7 @@ it('records where the adapter asks when Pest boots it', function (): void {
 it('is the Pest plugin this package\'s composer.json lists', function (): void {
     $manifest = json_decode((string) file_get_contents(Tree::at('composer.json')), associative: true);
 
-    expect($manifest)->toHaveKey('extra.pest.plugins', [Plugin::class]);
+    expect($manifest)->toHaveKey('extra.pest.plugins', [PestPlugin::class]);
 });
 
 it('loads the bridges to the registered mutators the adapter wrote, as it boots', function (): void {

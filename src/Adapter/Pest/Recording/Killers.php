@@ -15,6 +15,7 @@ use function is_writable;
 use NightWorksIO\MutationGate\Adapter\Pest\GateVariable;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\InertSetting;
+use NightWorksIO\MutationGate\Core\Test\RunIssues;
 use PHPUnit\Event\EventFacadeIsSealedException;
 use PHPUnit\Event\Facade;
 use PHPUnit\Event\UnknownSubscriberTypeException;
@@ -42,11 +43,11 @@ final readonly class Killers
     /**
      * Naming killers where this is a mutant's own process of a run the
      * adapter records, given the files it loaded before Pest's override
-     * started.
+     * started and where it reads the tests whose issues failed its run.
      *
      * @param list<string> $loaded
      */
-    public static function fromEnvironment(array $loaded): self|Off
+    public static function fromEnvironment(array $loaded, RunIssues $issues): self|Off
     {
         return self::listening(
             getenv(GateVariable::Results->value),
@@ -55,6 +56,7 @@ final readonly class Killers
             getenv(Recorder::MUTANT),
             Loaded::of($loaded),
             Heartbeat::onErrorOutput(),
+            $issues,
         );
     }
 
@@ -75,7 +77,7 @@ final readonly class Killers
         string|false $original,
         Loaded $loaded,
         Heartbeat $heartbeat,
-        RunIssues $issues = new IssueKillers(),
+        RunIssues $issues,
     ): self|Off {
         if (! is_string($results) || $results === '' || ! is_string($mutated) || $mutated === '') {
             return Off::NamingKillers;

@@ -63,9 +63,13 @@ use function trim;
  *   triage never counts as a kill (ADR-0004).
  * - A run that fails before any test started errored: the mutant broke
  *   the framework itself, such as by a fatal error as its file loaded.
- * - A run that fails with no test failing is unjudged, with what the
- *   framework said: it failed the run for something else, such as a warning
- *   the project fails on.
+ * - A test whose issue failed the run, of a kind the project fails a run
+ *   on, where no test failed or errored, kills it where the framework's
+ *   recorder names that test, as the PHPUnit runner's extension does
+ *   (ADR-0014).
+ * - A run that fails with no test failing and none named is unjudged, with
+ *   what the framework said: it failed the run for something else, such as
+ *   an issue raised outside any test.
  * - A run that passes with no test run, as the selection matched none, is
  *   unjudged, and so is a run with every test skipped or marked incomplete,
  *   with what the framework said where it failed the run, and a run that
