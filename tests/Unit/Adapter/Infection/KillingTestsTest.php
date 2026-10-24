@@ -81,6 +81,13 @@ it('names the tests of a class that met an error beside each test that failed', 
         ->toBe(['Tests\\A::one', 'Tests\\B::two']);
 });
 
+it('names, for a class PHPUnit warned of, each test of it the map knows, where no test failed', function (): void {
+    $output = phpunitPrinted("There was 1 PHPUnit warning:\n\n1) Tests\\A\nwarned\n\n--\n\nThere was 1 risky test:\n\n1) Tests\\B::three\nrisky\n");
+
+    expect(killerNames(printedKillers($output, new FailingIssues(), 'Tests\\A::one', 'Tests\\A::two#0', 'Tests\\B::three', 'Tests\\C::four')))
+        ->toBe(['Tests\\A::one', 'Tests\\A::two#0', 'Tests\\B::three']);
+});
+
 it('names the risky tests, and the tests PHPUnit warned of, where no test failed', function (): void {
     $output = phpunitPrinted(
         "There were 2 risky tests:\n\n1) Tests\\A::one\nTest code or tested code did not remove its own error handlers\n\n/project/tests/A.php:72\n\n"

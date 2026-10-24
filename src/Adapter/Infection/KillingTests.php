@@ -23,15 +23,15 @@ use function sprintf;
 /**
  * The tests that killed a mutant, read from what PHPUnit printed for its
  * run, which Infection's JSON log keeps as `processOutput` (see
- * PrintedTests). Where a test failed or met an error, those tests killed it,
- * and where a class's `setUpBeforeClass` did, each test of that class the
- * coverage map knows did.
+ * PrintedTests). Where a test failed or met an error, those tests killed it.
  * Where none did, the tests whose issues failed the run did (ADR-0014), as
  * the run's config fails it on them (see FailingIssues): each risky test,
  * each test PHPUnit warned of, each test a warning lists as triggering it,
  * and, for a warning raised in a test itself, the test method its line is in
- * (see TestAt), as each data set of it the coverage map knows. A run killed
- * with no such list, by a crash or a timeout, names none.
+ * (see TestAt), as each data set of it the coverage map knows. A class a
+ * list names alone, as it names one whose `setUpBeforeClass` failed, stands
+ * for each test of it the coverage map knows. A run killed with no such
+ * list, by a crash or a timeout, names none.
  */
 final readonly class KillingTests
 {
