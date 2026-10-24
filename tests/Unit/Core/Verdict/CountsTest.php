@@ -62,5 +62,6 @@ it('says how many more of the counted mutants must be killed for the score to re
         ->and($counts->shortOf(Floor::of(66.66), Uncovered::Exclude))->toBe(1)
         ->and($counts->shortOf(Floor::of(66.67), Uncovered::Exclude))->toBe(2)
         ->and($counts->shortOf(Floor::of(25), Uncovered::Count))->toBe(0)
-        ->and($counts->shortOf(Floor::of(10), Uncovered::Count))->toBe(0);
+        ->and($counts->shortOf(Floor::of(10), Uncovered::Count))->toBe(0)
+        ->and($counts->shortOf(Floor::of(0), Uncovered::Count))->toBe(0);
 });
