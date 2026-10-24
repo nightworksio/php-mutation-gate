@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
+use NightWorksIO\MutationGate\Core\Test\Defect;
+
 /**
  * A list PHPUnit prints after a run, by what it names of the tests that
  * failed the run: the tests that failed, or met an error, under `There was 1
@@ -24,11 +26,7 @@ enum PrintedList
     case Warnings;
     case Other;
 
-    /** The kind of entry each list a run's tests fail it on lists, as its header names it. */
-    private const string FAILURE = 'failure';
-
-    private const string ERROR = 'error';
-
+    /** The kind of entry each list of issues a run's tests fail it on lists, as its header names it. */
     private const string RISKY = 'risky test';
 
     private const string PHPUNIT_WARNING = 'PHPUnit warning';
@@ -44,8 +42,8 @@ enum PrintedList
     public static function headed(string $kind, bool $there, FailingIssues $failing): self
     {
         $list = match ($kind) {
-            self::FAILURE => self::Defects,
-            self::ERROR => $there ? self::Defects : self::Other,
+            Defect::Failure->value => self::Defects,
+            Defect::Error->value => $there ? self::Defects : self::Other,
             self::RISKY, self::PHPUNIT_WARNING => self::Issues,
             self::PHP_WARNING, self::WARNING => self::Warnings,
             default => self::Other,

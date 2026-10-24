@@ -15,16 +15,20 @@ use PHPUnit\Framework\TestCase;
 use function touch;
 
 // A test that depends on another, which PHPUnit skips unless the other runs
-// before it in the same run. It leaves CONTRACT_RAN, where the variable names
-// a file, only when it runs with what the other gives it. It loads
-// src/Money.php, as a control of that file serves it, and runs none of its
-// lines, so no mutant's tests change.
+// before it in the same run. The other asserts, as a run that fails on risky
+// tests, as Infection's runs do, fails on a test that asserts nothing. It
+// leaves CONTRACT_RAN, where the variable names a file, only when it runs
+// with what the other gives it. It loads src/Money.php, as a control of that
+// file serves it, and runs none of its lines, so no mutant's tests change.
 final class DependsSpec extends TestCase
 {
     #[Test]
     public function makesAValue(): int
     {
-        return 7;
+        $made = 7;
+        self::assertGreaterThan(0, $made);
+
+        return $made;
     }
 
     #[Test]

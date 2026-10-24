@@ -19,7 +19,7 @@ function phpunitPrinted(string $lists): string
 }
 
 /** The killers a run that printed this names, on a run that fails on these issues, among these tests the map knows. */
-function killersIn(string $output, FailingIssues $failing = new FailingIssues(), string ...$known): TestIds
+function printedKillers(string $output, FailingIssues $failing = new FailingIssues(), string ...$known): TestIds
 {
     return KillingTests::of($failing, TestIds::of(...array_map(TestId::of(...), $known)))->in($output);
 }
@@ -33,7 +33,7 @@ function killerNames(TestIds $tests): array
 it('names the test that failed, as the coverage map names it', function (): void {
     $output = phpunitPrinted("There was 1 failure:\n\n1) Tests\\MoneySpec::addsTwoAmounts\nFailed asserting that -1 is identical to 5.\n\n/project/tests/MoneySpec.php:18\n");
 
-    expect(killersIn($output))->toEqual(TestIds::of(TestId::of('Tests\\MoneySpec::addsTwoAmounts')));
+    expect(printedKillers($output))->toEqual(TestIds::of(TestId::of('Tests\\MoneySpec::addsTwoAmounts')));
 });
 
 it('names every test that failed or met an error, each once', function (): void {
@@ -42,7 +42,7 @@ it('names every test that failed or met an error, each once', function (): void 
         . "There was 1 failure:\n\n1) Tests\\A::one\nFailed.\n",
     );
 
-    expect(killersIn($output))->toEqual(TestIds::of(TestId::of('Tests\\A::one'), TestId::of('Tests\\B::two')));
+    expect(printedKillers($output))->toEqual(TestIds::of(TestId::of('Tests\\A::one'), TestId::of('Tests\\B::two')));
 });
 
 it('names a data set\'s test by its data set, numbered or named, as the coverage map does', function (): void {
@@ -51,7 +51,7 @@ it('names a data set\'s test by its data set, numbered or named, as the coverage
         . "2) Tests\\MoneySpec::adds@small amounts with data (1, 1, 2)\nFailed.\n",
     );
 
-    expect(killersIn($output))->toEqual(TestIds::of(
+    expect(printedKillers($output))->toEqual(TestIds::of(
         TestId::of('Tests\\MoneySpec::adds#0'),
         TestId::of('Tests\\MoneySpec::adds#small amounts'),
     ));
@@ -65,7 +65,7 @@ it('names the risky tests, and the tests PHPUnit warned of, where no test failed
         . "There was 1 PHPUnit warning:\n\n1) Tests\\B::four\nwarned\n",
     );
 
-    expect(killerNames(killersIn($output)))->toBe(['Tests\\A::one', 'Tests\\A::two#1', 'Tests\\B::three', 'Tests\\B::four']);
+    expect(killerNames(printedKillers($output)))->toBe(['Tests\\A::one', 'Tests\\A::two#1', 'Tests\\B::three', 'Tests\\B::four']);
 });
 
 it('names the tests a warning lists as triggering it, a data set\'s by its data set, however often each did', function (): void {
@@ -76,7 +76,7 @@ it('names the tests a warning lists as triggering it, a data set\'s by its data 
         . "--\n\n2 tests triggered 1 warning:\n\n1) /project/src/Loader.php:12\nuser warning\n\nTriggered by:\n\n* Tests\\Other::warns\n",
     );
 
-    expect(killerNames(killersIn($output)))->toBe(['Tests\\LoaderTest::loadsByConst', 'Tests\\LoaderTest::loads#named set', 'Tests\\Other::warns']);
+    expect(killerNames(printedKillers($output)))->toBe(['Tests\\LoaderTest::loadsByConst', 'Tests\\LoaderTest::loads#named set', 'Tests\\Other::warns']);
 });
 
 it('names, for a warning raised in a test itself, each data set the map knows of the test method its line is in', function (): void {
@@ -103,9 +103,9 @@ it('names, for a warning raised in a test itself, each data set the map knows of
         $root,
     ));
 
-    expect(killerNames(killersIn($output, new FailingIssues(), 'Tests\\TrapTest::testTraps#0', 'Tests\\TrapTest::testTraps#one', 'Tests\\TrapTest::testRestores', 'Tests\\TrapTestOther::testTraps')))
+    expect(killerNames(printedKillers($output, new FailingIssues(), 'Tests\\TrapTest::testTraps#0', 'Tests\\TrapTest::testTraps#one', 'Tests\\TrapTest::testRestores', 'Tests\\TrapTestOther::testTraps')))
         ->toBe(['Tests\\Other::warns', 'Tests\\TrapTest::testTraps#0', 'Tests\\TrapTest::testTraps#one'])
-        ->and(killerNames(killersIn($output, new FailingIssues(), 'Tests\\TrapTest::testTraps')))->toBe(['Tests\\Other::warns', 'Tests\\TrapTest::testTraps']);
+        ->and(killerNames(printedKillers($output, new FailingIssues(), 'Tests\\TrapTest::testTraps')))->toBe(['Tests\\Other::warns', 'Tests\\TrapTest::testTraps']);
 });
 
 it('names the test a warning was raised in, where it is the last the run printed or another list follows it', function (string $after): void {
@@ -113,7 +113,7 @@ it('names the test a warning was raised in, where it is the last the run printed
     Scratch::write($root, 'tests/TrapTest.php', "<?php\nnamespace Tests;\nfinal class TrapTest\n{\n    public function testTraps(): void\n    {\n    }\n}\n");
     $output = sprintf("1 test triggered 1 PHP warning:\n\n1) %s/tests/TrapTest.php:6\nwarned\n%s", $root, $after);
 
-    expect(killerNames(killersIn($output, new FailingIssues(), 'Tests\\TrapTest::testTraps')))->toBe(['Tests\\TrapTest::testTraps']);
+    expect(killerNames(printedKillers($output, new FailingIssues(), 'Tests\\TrapTest::testTraps')))->toBe(['Tests\\TrapTest::testTraps']);
 })->with([
     'the last' => [''],
     'another list after it' => ["\n--\n\nThere was 1 skipped test:\n\n1) Tests\\B::two\n"],
@@ -124,7 +124,7 @@ it('names no test for a warning raised in a test where the file is gone, its lin
     Scratch::write($root, 'tests/TrapTest.php', "<?php\nnamespace Tests;\nfinal class TrapTest\n{\n    public function testTraps(): void\n    {\n    }\n}\n");
     $output = phpunitPrinted(sprintf("1 test triggered 1 PHP warning:\n\n1) %s/%s\nwarned\n", $root, $place));
 
-    expect(killersIn($output, new FailingIssues(), $known, '.phpt/test.phpt'))->toEqual(TestIds::none());
+    expect(printedKillers($output, new FailingIssues(), $known, '.phpt/test.phpt'))->toEqual(TestIds::none());
 })->with([
     'a file that is gone' => ['tests/GoneTest.php:6', 'Tests\\TrapTest::testTraps'],
     'a line in no method' => ['tests/TrapTest.php:3', 'Tests\\TrapTest::testTraps'],
@@ -138,11 +138,11 @@ it('names only the tests that failed where one did, whatever issues the others r
         . "1 test triggered 1 PHP warning:\n\n1) /project/src/A.php:3\nwarned\n\nTriggered by:\n\n* Tests\\C::three\n",
     );
 
-    expect(killerNames(killersIn($output)))->toBe(['Tests\\A::one']);
+    expect(killerNames(printedKillers($output)))->toBe(['Tests\\A::one']);
 });
 
 it('names no test whose issues do not fail the run', function (FailingIssues $failing, string $lists): void {
-    expect(killersIn(phpunitPrinted($lists), $failing))->toEqual(TestIds::none());
+    expect(printedKillers(phpunitPrinted($lists), $failing))->toEqual(TestIds::none());
 })->with([
     'a risky test, risky tests passing' => [fn(): FailingIssues => new FailingIssues(risky: false), "There was 1 risky test:\n\n1) Tests\\A::one\nrisky\n"],
     'a warning, warnings passing' => [fn(): FailingIssues => new FailingIssues(warning: false), "1 test triggered 1 PHP warning:\n\n1) /project/src/A.php:3\nwarned\n\nTriggered by:\n\n* Tests\\A::one\n"],
@@ -151,7 +151,7 @@ it('names no test whose issues do not fail the run', function (FailingIssues $fa
 ]);
 
 it('names no test from any other list, or from a run that printed none', function (string $output): void {
-    expect(killersIn($output))->toEqual(TestIds::none());
+    expect(printedKillers($output))->toEqual(TestIds::none());
 })->with([
     'a deprecation' => [fn(): string => phpunitPrinted("1 test triggered 1 PHP deprecation:\n\n1) /project/src/A.php:3\ndeprecated\n\nTriggered by:\n\n* Tests\\A::one\n")],
     'an error PHP\'s E_USER_ERROR raised' => [fn(): string => phpunitPrinted("1 test triggered 1 error:\n\n1) Tests\\A::one\nraised\n")],
@@ -164,5 +164,5 @@ it('names no test from any other list, or from a run that printed none', functio
 it('stops naming tests once a list of another kind begins', function (): void {
     $output = phpunitPrinted("There was 1 failure:\n\n1) Tests\\A::one\nFailed.\n\n--\n\nThere were 2 skipped tests:\n\n1) Tests\\B::two\nskipped\n");
 
-    expect(killersIn($output))->toEqual(TestIds::of(TestId::of('Tests\\A::one')));
+    expect(printedKillers($output))->toEqual(TestIds::of(TestId::of('Tests\\A::one')));
 });
