@@ -21,11 +21,12 @@ use PHPUnit\Event\UnknownSubscriberTypeException;
  * Appends to the results file each test that starts, before anything of it
  * runs; each test's outcome as it finishes; each test skipped or marked
  * incomplete, alone or with its whole suite, since one set aside before it
- * was prepared never finishes; and each test class whose `setUpBeforeClass`
+ * was prepared never finishes; each test class whose `setUpBeforeClass`
  * failed or errored; and, as the run ends, each test whose issue failed it
  * where no test failed or errored. A test that started and ended none of
- * these ways is one whose process died while it ran. The outcome is forgotten as each test
- * starts and finishes, so none is written against another test.
+ * these ways is one whose process died while it ran. The outcome is
+ * forgotten as each test starts and finishes, so none is written against
+ * another test.
  */
 final class Recorder
 {

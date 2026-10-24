@@ -290,8 +290,9 @@ its parser attributes. Both change when the checkout moves.
      plugins. The class listed is the CLI's, which hands the Pest adapter's
      plugin the PHPUnit runner's reader of the tests whose issues failed a
      mutant's run (ADR-0014), as only the CLI wires one adapter to another.
-     It implements Pest's `Bootable`, `TestCaseMethodFilter` and
-     `HandlesArguments` contracts, and it does six jobs. It turns `#[Holds]`
+     Both implement Pest's `Bootable` and `HandlesArguments` contracts; the
+     adapter's plugin registers a `TestCaseMethodFilter` as it boots, and it
+     does six jobs. It turns `#[Holds]`
      into groups and reports results, both described below. To judge by
      reference, it keeps the mutated file of each mutant Pest leaves uncovered on a line
      that is not executable, and it guards each judging run. In a mutant's

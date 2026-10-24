@@ -35,9 +35,9 @@ use PHPUnit\Event\Facade;
 use function register_shutdown_function;
 
 /**
- * The Pest plugin, which the one this package lists under
- * `extra.pest.plugins` runs, handing it where a mutant's own process reads
- * the tests whose issues failed its run (see Cli\PestPlugin). In every Pest
+ * The Pest adapter's plugin, which Cli\PestPlugin, the one this package
+ * lists under `extra.pest.plugins`, runs and hands where a mutant's own
+ * process reads the tests whose issues failed its run. In every Pest
  * run it loads the bridges to the registered mutators where the adapter
  * wrote them, it turns `#[Holds]` into `holds:` groups, it records every
  * mutant's result for the adapter where the adapter asked for it, and it
