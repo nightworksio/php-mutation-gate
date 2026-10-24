@@ -120,3 +120,14 @@ it('gives no prefix where no killer started, as one whose class failed before it
     'every test passed' => [fn(): string => implode('', [Outcome::Started->line('T::passes'), Outcome::Passed->line('T::passes')])],
     'no line' => [''],
 ]);
+
+it('names a test whose issue failed the run its killer, though it passed, and credits the kill only to a selected one', function (): void {
+    $recorded = recordedFrom(
+        implode('', [Outcome::Started->line('T::risky'), Outcome::Passed->line('T::risky'), Outcome::Started->line('U::beside'), Outcome::Passed->line('U::beside'), Outcome::Issued->line('T::risky'), Outcome::Issued->line('U::beside')]),
+        TestId::of('T::risky'),
+    );
+
+    expect(killersIn($recorded))->toBe(['T::risky', 'U::beside'])
+        ->and(array_map(static fn(TestId $test): string => $test->value(), [...$recorded->credited()]))->toBe(['T::risky'])
+        ->and($recorded->skippedEach())->toBeFalse();
+});

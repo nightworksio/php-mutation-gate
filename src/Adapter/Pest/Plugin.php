@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Adapter\Pest;
 
 use function array_values;
+
+use Closure;
+
 use function get_declared_classes;
 use function get_included_files;
 use function getenv;
@@ -23,6 +26,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Recorder;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\ReplayStop;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\StartedWith;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
+use NightWorksIO\MutationGate\Core\Test\RunIssues;
 use Pest\Contracts\Plugins\Bootable;
 use Pest\Contracts\Plugins\HandlesArguments;
 use Pest\TestSuite;
@@ -31,7 +35,9 @@ use PHPUnit\Event\Facade;
 use function register_shutdown_function;
 
 /**
- * The Pest plugin this package lists under `extra.pest.plugins`. In every Pest
+ * The Pest adapter's plugin, which Cli\PestPlugin, the one this package
+ * lists under `extra.pest.plugins`, runs and hands where a mutant's own
+ * process reads the tests whose issues failed its run. In every Pest
  * run it loads the bridges to the registered mutators where the adapter
  * wrote them, it turns `#[Holds]` into `holds:` groups, it records every
  * mutant's result for the adapter where the adapter asked for it, and it
@@ -60,6 +66,11 @@ final class Plugin implements Bootable, HandlesArguments
 
     private ReplayStop|Off $stop = Off::Stopping;
 
+    /** @param Closure(): RunIssues $issues where a mutant's own process reads the tests whose issues failed its run */
+    public function __construct(private readonly Closure $issues)
+    {
+    }
+
     /**
      * The guard and the killers read what PHP had loaded when this method
      * starts, before it loads anything itself, as loaded before
@@ -74,7 +85,7 @@ final class Plugin implements Bootable, HandlesArguments
         HoldsGroups::register(TestSuite::getInstance()->tests);
         $this->recorder = Recorder::fromEnvironment();
         $this->guard = Guard::fromEnvironment($loaded);
-        $this->killers = Killers::fromEnvironment($loaded);
+        $this->killers = Killers::fromEnvironment($loaded, ($this->issues)());
         $this->naming = Naming::fromEnvironment();
         $this->seeder = Seeder::fromEnvironment();
         $this->stop = ReplayStop::fromEnvironment(Facade::instance());

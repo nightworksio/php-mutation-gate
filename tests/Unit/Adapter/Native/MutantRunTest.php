@@ -224,7 +224,13 @@ it('judges a mutant by what its run recorded, ended as and served', function (st
         "served\n",
         [MutantStatus::Errored, [], ''],
     ],
-    'unjudged where PHPUnit failed a run with no test failing' => [
+    'killed by a test whose issue failed the run, where no test failed' => [
+        fn(): string => records(Outcome::Started->line($makeAdds()->value()), Outcome::Passed->line($makeAdds()->value()), Outcome::Issued->line($makeAdds()->value())),
+        fn(): Ran => Ran::finished(succeeded: false, output: 'There was 1 risky test'),
+        "served\n",
+        [MutantStatus::Killed, ['Tests\MoneySpec::addsTwoAmounts'], ''],
+    ],
+    'unjudged where PHPUnit failed a run with no test failing and none named' => [
         fn(): string => records(Outcome::Started->line($makeAdds()->value()), Outcome::Passed->line($makeAdds()->value())),
         fn(): Ran => Ran::finished(succeeded: false, output: 'There was 1 warning'),
         "served\n",

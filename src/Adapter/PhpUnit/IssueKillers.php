@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
+namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
 use function array_merge;
 use function array_unique;
 use function array_values;
 
+use NightWorksIO\MutationGate\Core\Test\RunIssues;
 use PHPUnit\TestRunner\TestResult\Facade;
 use PHPUnit\TestRunner\TestResult\TestResult;
 use PHPUnit\TextUI\Configuration\Configuration;

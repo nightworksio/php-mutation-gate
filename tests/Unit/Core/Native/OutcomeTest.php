@@ -9,7 +9,7 @@ it('writes a line of the outcome and the test\'s id, encoded to stay on its line
         ->and(Outcome::SEPARATOR)->toBe(' ');
 });
 
-it('kills with a test that failed or errored, and with no other', function (): void {
+it('kills with a test that failed or errored, or whose issue failed the run, and with no other', function (): void {
     expect(array_map(static fn(Outcome $outcome): bool => $outcome->kills(), Outcome::cases()))
-        ->toBe([false, false, true, true, false, false]);
+        ->toBe([false, false, true, true, false, false, true]);
 });

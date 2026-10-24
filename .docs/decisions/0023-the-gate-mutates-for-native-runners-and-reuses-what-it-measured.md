@@ -273,10 +273,12 @@ manual.
    - The extension subscribes to `Test\PreparationStarted`, `Test\Failed`,
      `Test\Errored`, `Test\Passed`, `Test\Skipped`,
      `Test\MarkedIncomplete`, `TestSuite\Skipped`,
-     `Test\BeforeFirstTestMethodErrored`, `Test\BeforeFirstTestMethodFailed`
-     and `Test\Finished`, and appends each test that starts, how each test
-     ended, and each class whose `setUpBeforeClass` failed or errored, to the
-     file `MUTATION_GATE_RESULTS` names. A test skipped or marked incomplete,
+     `Test\BeforeFirstTestMethodErrored`, `Test\BeforeFirstTestMethodFailed`,
+     `Test\Finished` and `TestRunner\ExecutionFinished`, and appends each
+     test that starts, how each test ended, each class whose
+     `setUpBeforeClass` failed or errored, and, as the run ends, each test
+     whose issue failed it where no test failed or errored (ADR-0014), to
+     the file `MUTATION_GATE_RESULTS` names. A test skipped or marked incomplete,
      in its body, in `setUp`, for a requirement or with its whole class, has
      ended.
    - A test that fails or errors kills the mutant, and so does a test that
@@ -285,8 +287,11 @@ manual.
      test of its class the run selected. A run stopped at its limit timed
      out, where the mutated file ran, unless a test it selected had already
      failed or errored, which killed it.
-   - A run PHPUnit fails with no test failing, such as for a warning the
-     project fails on, leaves the mutant unjudged, with what PHPUnit said. A
+   - A test whose issue failed the run, such as a warning or a risky test
+     the project fails on, kills the mutant, and ADR-0014's check on the
+     original holds it. A run PHPUnit fails with no test failing and none
+     named, such as for an issue raised outside any test, leaves the mutant
+     unjudged, with what PHPUnit said. A
      run that passes with no test run, as its selection matched none, leaves
      it unjudged, and so does a run whose every test was skipped or marked
      incomplete, with what PHPUnit said where it failed the run.

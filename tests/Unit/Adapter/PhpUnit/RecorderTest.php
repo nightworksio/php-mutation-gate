@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\PhpUnit\IssueKillers;
 use NightWorksIO\MutationGate\Adapter\PhpUnit\Recorder;
+use NightWorksIO\MutationGate\Core\Test\RunIssues;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitEvents;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use PHPUnit\Event\Facade;
@@ -30,7 +32,7 @@ function recordedLines(string $results): array
 it('records a test as it starts, and as it finishes how it ended: failed, errored, passed, or neither', function (Closure $ending, string $recorded): void {
     $results = sprintf('%s/results.txt', Scratch::directory());
     $events = new Facade();
-    Recorder::listening($results, $events);
+    Recorder::listening($results, $events, new IssueKillers());
 
     PhpUnitEvents::started($events);
     $ending($events);
@@ -53,7 +55,7 @@ it('records a test as it starts, and as it finishes how it ended: failed, errore
 it('records a test skipped or marked incomplete as ended, whether or not it finishes', function (Closure $setAside): void {
     $results = sprintf('%s/results.txt', Scratch::directory());
     $events = new Facade();
-    Recorder::listening($results, $events);
+    Recorder::listening($results, $events, new IssueKillers());
 
     PhpUnitEvents::started($events);
     $setAside($events);
@@ -71,7 +73,7 @@ it('records a test skipped or marked incomplete as ended, whether or not it fini
 it('records every test of a suite skipped whole as ended, though none of them started', function (): void {
     $results = sprintf('%s/results.txt', Scratch::directory());
     $events = new Facade();
-    Recorder::listening($results, $events);
+    Recorder::listening($results, $events, new IssueKillers());
 
     PhpUnitEvents::suiteSkipped($events, PhpUnitEvents::test(TestCase::class, 'first'), PhpUnitEvents::test(TestCase::class, 'second'));
 
@@ -82,7 +84,7 @@ it('records every test of a suite skipped whole as ended, though none of them st
 it('records a class whose setUpBeforeClass errored or failed', function (Closure $ended): void {
     $results = sprintf('%s/results.txt', Scratch::directory());
     $events = new Facade();
-    Recorder::listening($results, $events);
+    Recorder::listening($results, $events, new IssueKillers());
 
     $ended($events);
 
@@ -99,7 +101,7 @@ it('records a class whose setUpBeforeClass errored or failed', function (Closure
 it('writes no test\'s outcome against the next test to start', function (): void {
     $results = sprintf('%s/results.txt', Scratch::directory());
     $events = new Facade();
-    Recorder::listening($results, $events);
+    Recorder::listening($results, $events, new IssueKillers());
 
     PhpUnitEvents::errored($events);
     PhpUnitEvents::started($events);
@@ -119,9 +121,25 @@ it('records nothing where no results file is named, or PHPUnit takes no more sub
     $sealed->seal();
     $results = sprintf('%s/results.txt', Scratch::directory());
 
-    Recorder::listening(results: false, events: new Facade());
-    Recorder::listening('', new Facade());
-    Recorder::listening($results, $sealed);
+    Recorder::listening(results: false, events: new Facade(), issues: new IssueKillers());
+    Recorder::listening('', new Facade(), new IssueKillers());
+    Recorder::listening($results, $sealed, new IssueKillers());
 
     expect(is_file($results))->toBeFalse();
+});
+
+it('records, once the run ends, each test whose issue failed it as its killer', function (): void {
+    $results = sprintf('%s/results.txt', Scratch::directory());
+    $events = new Facade();
+    $issues = new class implements RunIssues {
+        public function killers(): array
+        {
+            return ['Tests\\MoneyTest::risky', 'Tests\\MoneyTest::warns'];
+        }
+    };
+    Recorder::listening($results, $events, $issues);
+
+    PhpUnitEvents::executionFinished($events);
+
+    expect(file_get_contents($results))->toBe("issued Tests%5CMoneyTest%3A%3Arisky\nissued Tests%5CMoneyTest%3A%3Awarns\n");
 });

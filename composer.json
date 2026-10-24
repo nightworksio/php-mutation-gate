@@ -147,7 +147,7 @@
         },
         "pest": {
             "plugins": [
-                "NightWorksIO\\MutationGate\\Adapter\\Pest\\Plugin"
+                "NightWorksIO\\MutationGate\\Cli\\PestPlugin"
             ]
         }
     },
