@@ -297,7 +297,7 @@ it('says nothing of a killed or left-out mutant that the page shows nothing of: 
     }
 
     expect($settled)->not->toBeEmpty()
-        ->and(array_filter($settled, static fn(array $mutant): bool => array_intersect_key($mutant, array_flip($unsaid)) !== []))->toBe([]);
+        ->and(array_filter($settled, static fn(array $mutant): bool => array_intersect(array_keys($mutant), $unsaid) !== []))->toBe([]);
 })->with([
     'killed' => ['killed', ['hint', 'reproduce', 'covered', 'changed']],
     'left out' => ['left-out', ['hint', 'reproduce']],
