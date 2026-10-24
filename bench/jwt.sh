@@ -21,7 +21,14 @@ mv composer.json.new composer.json
 composer update --no-interaction --no-progress
 composer show | grep -E '^(phpunit/phpunit|infection/infection|nightworksio/mutation-gate) '
 # jwt's own PHPUnit is 11; PHPUnit 13 warns of its repeated `#[Uses]`
-# attributes and refuses `beStrictAboutTodoAnnotatedTests`.
+# attributes and refuses `beStrictAboutTodoAnnotatedTests`. Infection's
+# initial run stops at its first defect in a random order, a PHPUnit warning
+# among them, so a repeated attribute would cut its coverage short at a
+# different test each round; it is removed, as jwt's PHPUnit 11 ignored it.
+for test in $(grep -rl 'UsesClass' tests); do
+  awk '!(/^#\[PHPUnit\\UsesClass\(/ && seen[$0]++)' "${test}" > "${test}.new"
+  mv "${test}.new" "${test}"
+done
 sed -e 's/failOnRisky="true"/failOnRisky="true" failOnPhpunitWarning="false" failOnPhpunitDeprecation="false"/' \
   -e 's/ *beStrictAboutTodoAnnotatedTests="true"//' phpunit.xml.dist > phpunit.xml
 printf 'vendor/\n.mutation-gate/\nbench-*.json\nbench-*.txt\ninfection.txt\n' > .gitignore

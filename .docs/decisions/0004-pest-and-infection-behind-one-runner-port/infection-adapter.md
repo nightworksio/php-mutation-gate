@@ -167,6 +167,9 @@ it in its fourth decision.
   ones PHPUnit's output, the entry's `processOutput`, lists under `There was
   1 failure:` or `There were 2 errors:`. Each is named as the coverage map
   names it, `<class>::<method>` with `#<data set>` for a data set's test.
+  A class whose `setUpBeforeClass` failed or errored is listed by its name
+  alone, and stands for each test of it the coverage map knows, as a class
+  any list below names alone does.
   Infection's mutant runs stop at the first defect, so that is the first
   killer. Where no test failed or met an error, the run failed on an issue:
   Infection adds `failOnRisky` and `failOnWarning` to the project's PHPUnit

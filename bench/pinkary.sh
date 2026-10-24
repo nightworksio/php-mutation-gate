@@ -10,7 +10,9 @@ composer config repositories.gate "${repository}"
 # laravel/vet refuses a package it cannot fetch over https, as the gate from this checkout is.
 composer config allow-plugins.laravel/vet false
 composer install --no-interaction --no-progress
-composer require --dev --no-interaction --no-progress 'nightworksio/mutation-gate:@dev'
+# Without scripts: its post-update hook runs laravel/boost, whose commands
+# exist only once the .env this script makes later says the app is local.
+composer require --dev --no-interaction --no-progress --no-scripts 'nightworksio/mutation-gate:@dev'
 composer show | grep -E '^(pestphp/pest|pestphp/pest-plugin-mutate|phpunit/phpunit|nightworksio/mutation-gate) '
 npm install --no-audit --no-fund
 npm run build

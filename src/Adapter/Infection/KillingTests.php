@@ -28,8 +28,10 @@ use function sprintf;
  * the run's config fails it on them (see FailingIssues): each risky test,
  * each test PHPUnit warned of, each test a warning lists as triggering it,
  * and, for a warning raised in a test itself, the test method its line is in
- * (see TestAt), as each data set of it the coverage map knows. A run killed
- * with no such list, by a crash or a timeout, names none.
+ * (see TestAt), as each data set of it the coverage map knows. A class a
+ * list names alone, as it names one whose `setUpBeforeClass` failed, stands
+ * for each test of it the coverage map knows. A run killed with no such
+ * list, by a crash or a timeout, names none.
  */
 final readonly class KillingTests
 {
@@ -57,17 +59,45 @@ final readonly class KillingTests
 
         $read = $read->ended();
 
-        if (count($read->defects()) > 0) {
-            return $read->defects();
+        $defects = $this->named($read->defects());
+
+        if (count($defects) > 0) {
+            return $defects;
         }
 
-        $tests = $read->issued();
+        $tests = $this->named($read->issued());
 
         foreach ($read->places() as $place) {
             $tests = $tests->and($this->testsAt($place['file'], Line::of($place['line'])));
         }
 
         return $tests;
+    }
+
+    /** These tests, with a class among them named as each test of it the coverage map knows. */
+    private function named(TestIds $printed): TestIds
+    {
+        $named = TestIds::none();
+
+        foreach ($printed as $test) {
+            $named = TestMethod::of($test) instanceof TestMethod
+                ? $named->with($test)
+                : $named->and($this->testsOf($test->value()));
+        }
+
+        return $named;
+    }
+
+    /** The tests the coverage map knows of a class. */
+    private function testsOf(string $class): TestIds
+    {
+        $found = TestIds::none();
+
+        foreach ($this->known as $test) {
+            $found = TestMethod::classOf($test) === $class ? $found->with($test) : $found;
+        }
+
+        return $found;
     }
 
     /** The tests the coverage map knows of the test method a line of a test file is in, each data set's. */
