@@ -79,6 +79,6 @@ final readonly class RemoveIsGrantedAttribute implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test calls this without the grant and checks that it is refused.');
+        return Hint::that('Add a test that calls this without the grant and checks that it is refused.');
     }
 }

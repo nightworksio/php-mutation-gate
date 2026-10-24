@@ -17,7 +17,7 @@ it('is named in the security set, a condition, about security, with its own hint
     expect($mutator->name()->value())->toBe('security/PasswordVerifyToTrue')
         ->and($mutator->family())->toBe(MutatorFamily::Condition)
         ->and($mutator->tags())->toEqual(Tags::of(Tag::security()))
-        ->and($mutator->hint())->toEqual(Hint::that('No test checks that `password_verify()` refuses a wrong password.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that checks that `password_verify()` refuses a wrong password.'));
 });
 
 it('accepts every password under both runners', function (): void {

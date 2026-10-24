@@ -92,3 +92,16 @@ it('joins a change over several lines', function (): void {
     expect($change->removed())->toBe('return $a + $b;')
         ->and($change->expression())->toBe('$a + $b');
 });
+
+it('says the code a mutant replaced and what it put there, nothing for a side it left alone', function (string $removed, string $added, string $replaced, string $mutated): void {
+    $change = Change::of(sprintf("@@ @@\n-        %s\n%s", $removed, $added === '' ? '' : sprintf("+        %s\n", $added)));
+
+    expect($change->replaced())->toBe($replaced)
+        ->and($change->mutated())->toBe($mutated);
+})->with([
+    'an operator' => ['if ($amount < $limit) {', 'if ($amount <= $limit) {', '<', '<='],
+    'swapped operands' => ['$a = $b ?? $c;', '$a = $c ?? $b;', '$b ?? $c', '$c ?? $b'],
+    'a token added' => ['if ($found) {', 'if (! $found) {', '', '!'],
+    'a token removed' => ['if (! $found) {', 'if ($found) {', '!', ''],
+    'a line removed' => ['return null;', '', 'return null;', ''],
+]);

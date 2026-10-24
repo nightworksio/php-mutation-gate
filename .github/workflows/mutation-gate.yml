@@ -767,6 +767,7 @@ jobs:
           mapfile -t arguments < <(jq -r '.[]' <<< "${OPTIONS}")
           "${GATE}" verdict --plan=.mutation-gate/plan.json --results=.mutation-gate/results \
             --report=json:.mutation-gate/action/report.json --report=html:.mutation-gate/action/html \
+            --report=digest:.mutation-gate/action/mutation-gate-digest.txt \
             --deliver-later "${arguments[@]}" || code=$?
           echo "code=${code}" >> "${GITHUB_OUTPUT}"
       # The verdict leaves this scope's ledger and kept coverage map in its
@@ -821,6 +822,14 @@ jobs:
         if: ${{ !cancelled() && hashFiles('.mutation-gate/action/mutation-gate-report.html') != '' }}
         with:
           path: .mutation-gate/action/mutation-gate-report.html
+          archive: false
+          include-hidden-files: true
+          if-no-files-found: ignore
+      # The digest, the verdict one fact a line for an agent, beside the page.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() && hashFiles('.mutation-gate/action/mutation-gate-digest.txt') != '' }}
+        with:
+          path: .mutation-gate/action/mutation-gate-digest.txt
           archive: false
           include-hidden-files: true
           if-no-files-found: ignore

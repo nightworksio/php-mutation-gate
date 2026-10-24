@@ -17,7 +17,7 @@ it('is named in the laravel set, a removed call, about security, with its own hi
     expect($mutator->name()->value())->toBe('laravel/RemoveMiddleware')
         ->and($mutator->family())->toBe(MutatorFamily::RemovedCall)
         ->and($mutator->tags())->toEqual(Tags::of(Tag::security()))
-        ->and($mutator->hint())->toEqual(Hint::that('No test sends a request this middleware refuses.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that sends a request this middleware refuses.'));
 });
 
 it('removes the middleware a constructor adds under both runners, emptying it under Infection', function (): void {

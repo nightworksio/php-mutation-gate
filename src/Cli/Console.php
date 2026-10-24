@@ -18,6 +18,7 @@ use NightWorksIO\MutationGate\Cli\Command\BaselineCommand;
 use NightWorksIO\MutationGate\Cli\Command\ConfigSchema;
 use NightWorksIO\MutationGate\Cli\Command\ConfigShow;
 use NightWorksIO\MutationGate\Cli\Command\CoverageCommand;
+use NightWorksIO\MutationGate\Cli\Command\DigestCommand;
 use NightWorksIO\MutationGate\Cli\Command\Doctor;
 use NightWorksIO\MutationGate\Cli\Command\ExplainCommand;
 use NightWorksIO\MutationGate\Cli\Command\HookCommand;
@@ -131,6 +132,7 @@ final readonly class Console
         $application->addCommand(ReproduceCommand::command($composition));
         $application->addCommand(SurvivorsCommand::command($composition));
         $application->addCommand(ExplainCommand::command($composition));
+        $application->addCommand(DigestCommand::command($composition));
         $application->addCommand(TestsCommand::command($composition));
         $application->addCommand(StubCommand::command($composition));
         $application->addCommand(TriageCommand::command($composition));

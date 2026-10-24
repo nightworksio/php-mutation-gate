@@ -63,6 +63,6 @@ final readonly class RemoveGuardedEntry implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test posts this guarded field and checks that it is not saved.');
+        return Hint::that('Add a test that posts this guarded field and checks that it is not saved.');
     }
 }

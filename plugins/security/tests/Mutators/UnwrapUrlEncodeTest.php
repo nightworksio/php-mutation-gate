@@ -17,7 +17,7 @@ it('is named in the security set, an unwrap, about security, with its own hint',
     expect($mutator->name()->value())->toBe('security/UnwrapUrlEncode')
         ->and($mutator->family())->toBe(MutatorFamily::Unwrap)
         ->and($mutator->tags())->toEqual(Tags::of(Tag::security()))
-        ->and($mutator->hint())->toEqual(Hint::that('No test passes a reserved character and checks that it comes out encoded.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that passes a reserved character and checks that it comes out encoded.'));
 });
 
 it('leaves the value unencoded under both runners', function (): void {

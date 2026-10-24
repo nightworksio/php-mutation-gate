@@ -49,6 +49,6 @@ final readonly class UnwrapEscape implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test passes markup through `e()` and checks that it comes out escaped.');
+        return Hint::that('Add a test that passes markup through `e()` and checks that it comes out escaped.');
     }
 }

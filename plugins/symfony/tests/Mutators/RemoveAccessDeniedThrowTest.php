@@ -17,7 +17,7 @@ it('is named in the symfony set, an exception change, about security, with its o
     expect($mutator->name()->value())->toBe('symfony/RemoveAccessDeniedThrow')
         ->and($mutator->family())->toBe(MutatorFamily::Exception)
         ->and($mutator->tags())->toEqual(Tags::of(Tag::security()))
-        ->and($mutator->hint())->toEqual(Hint::that('No test checks that access is denied here.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that checks that access is denied here.'));
 });
 
 it('removes the denial under both runners, emptying it under Infection', function (): void {

@@ -78,7 +78,7 @@ it('explains a mutant no run in this checkout holds from its newest record, runn
                 @@ @@
                 -return $amount > 100;
                 +return $amount >= 100;
-                No test uses a value at the boundary of `$amount > 100`.
+                Add a test that uses a value at the boundary of `$amount > 100`.
                 Covered by: no test
                 Unit: unknown. No run has left a plan at .mutation-gate/plan.json here: run mutation-gate first.
                 History:

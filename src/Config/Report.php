@@ -36,6 +36,12 @@ final readonly class Report
         return self::writing(BuiltinReporter::Html->value, $path);
     }
 
+    /** The digest: the verdict one fact a line, for an agent. */
+    public static function digest(string $path): self
+    {
+        return self::writing(BuiltinReporter::Digest->value, $path);
+    }
+
     /** A reporter another extension registers by name, or a class, with its options, writing no file. */
     public static function uses(string $reporter, Option ...$options): self
     {

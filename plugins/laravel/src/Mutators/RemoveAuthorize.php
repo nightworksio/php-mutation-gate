@@ -75,7 +75,7 @@ final readonly class RemoveAuthorize implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test checks that the action is refused when the policy says no.');
+        return Hint::that('Add a test that checks that the action is refused when the policy says no.');
     }
 
     /** Whether the class around a statement uses `AuthorizesRequests` or extends a controller. */

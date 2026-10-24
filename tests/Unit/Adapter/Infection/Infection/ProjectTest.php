@@ -395,7 +395,7 @@ it('makes the registered mutators\' mutants through the bridges it writes as Inf
     $mutants = $result instanceof MutationResult ? iterator_to_array($result->mutants(), preserve_keys: false) : [];
 
     expect(array_map(static fn(Mutant $mutant): array => [$mutant->mutation()->mutator(), $mutant->mutation()->family(), $mutant->mutation()->hint()], $mutants))
-        ->toBe([['acme/RemoveEcho', MutatorFamily::RemovedCall, 'No test checks what is printed.']])
+        ->toBe([['acme/RemoveEcho', MutatorFamily::RemovedCall, 'Add a test that checks what is printed.']])
         ->and(is_array($generated) ? $generated['bootstrap'] : null)->toBe($at->bridges())
         ->and((string) file_get_contents($at->bridges()))
         ->toContain("return 'acme/RemoveEcho';")

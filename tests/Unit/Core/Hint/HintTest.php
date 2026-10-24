@@ -37,22 +37,22 @@ it('says what the tests miss about a survivor of each family', function (Mutator
 
     expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), NoFinding::survivor())->text())->toBe($hint);
 })->with([
-    'boundary' => [MutatorFamily::Boundary, 'if ($amount < $limit) {', 'if ($amount <= $limit) {', 'No test uses a value at the boundary of `$amount < $limit`.'],
-    'condition' => [MutatorFamily::Condition, 'if ($amount < $limit) {', 'if (! ($amount < $limit)) {', 'These tests run the condition, but none asserts on anything that depends on it.'],
-    'logical' => [MutatorFamily::Logical, 'return $a && $b;', 'return $a || $b;', 'No test has exactly one side of the `&&` true.'],
-    'arithmetic' => [MutatorFamily::Arithmetic, 'return $a + $b;', 'return $a - $b;', 'No test checks the result of `$a + $b` with a non-zero operand.'],
-    'return value' => [MutatorFamily::ReturnValue, 'return true;', 'return false;', 'Tests call `fits()`, but none asserts on what it returns.'],
-    'removed call' => [MutatorFamily::RemovedCall, '$this->save($order);', '', 'Every test passes without the call to `save()`, so nothing asserts on its effect.'],
-    'removed statement' => [MutatorFamily::RemovedCall, '$total += $price;', '', 'Every test passes without `$total += $price;`, so nothing asserts on its effect.'],
-    'literal' => [MutatorFamily::Literal, 'return 3;', 'return 4;', 'No test depends on this value being `3`.'],
-    'collection' => [MutatorFamily::Collection, 'return [$a, $b];', 'return [$a];', 'No test notices the item missing, or runs the loop with items and checks the outcome.'],
-    'exception' => [MutatorFamily::Exception, 'throw new Refused();', '', 'No test expects this exception.'],
-    'unwrap' => [MutatorFamily::Unwrap, 'return array_values($xs);', 'return $xs;', 'No test passes a value `array_values()` would change.'],
-    'unwrap of no call' => [MutatorFamily::Unwrap, 'return $xs;', 'return $ys;', 'No test passes a value this call would change.'],
-    'visibility' => [MutatorFamily::Visibility, 'public function fits(int $amount, int $limit): bool', 'protected function fits(int $amount, int $limit): bool', 'Nothing outside the class calls `fits()`. It can be narrower.'],
-    'no family, changed' => [MutatorFamily::None, 'return $a . $b;', 'return $b . $a;', 'These tests run line 9, but none fails when it becomes `return $b . $a;`.'],
-    'no family, removed' => [MutatorFamily::None, 'return $a . $b;', '', 'These tests run line 9, but none fails when it is removed.'],
-    'an unknown family' => [MutatorFamily::Unknown, 'return $a . $b;', 'return $b . $a;', 'These tests run line 9, but none fails when it becomes `return $b . $a;`.'],
+    'boundary' => [MutatorFamily::Boundary, 'if ($amount < $limit) {', 'if ($amount <= $limit) {', 'Add a test that uses a value at the boundary of `$amount < $limit`.'],
+    'condition' => [MutatorFamily::Condition, 'if ($amount < $limit) {', 'if (! ($amount < $limit)) {', 'Assert on something this condition decides: these tests run it, but none checks what it decides.'],
+    'logical' => [MutatorFamily::Logical, 'return $a && $b;', 'return $a || $b;', 'Add a test where exactly one side of the `&&` is true.'],
+    'arithmetic' => [MutatorFamily::Arithmetic, 'return $a + $b;', 'return $a - $b;', 'Add a test that checks the result of `$a + $b` with a non-zero operand.'],
+    'return value' => [MutatorFamily::ReturnValue, 'return true;', 'return false;', 'Assert on what `fits()` returns: tests call it, but none checks its result.'],
+    'removed call' => [MutatorFamily::RemovedCall, '$this->save($order);', '', 'Assert on what `save()` does: every test passes without the call.'],
+    'removed statement' => [MutatorFamily::RemovedCall, '$total += $price;', '', 'Assert on what `$total += $price;` does: every test passes without it.'],
+    'literal' => [MutatorFamily::Literal, 'return 3;', 'return 4;', 'Add an assertion that fails unless this value is `3`.'],
+    'collection' => [MutatorFamily::Collection, 'return [$a, $b];', 'return [$a];', 'Add a test that notices the item missing, or runs the loop with items and checks the outcome.'],
+    'exception' => [MutatorFamily::Exception, 'throw new Refused();', '', 'Add a test that expects this exception.'],
+    'unwrap' => [MutatorFamily::Unwrap, 'return array_values($xs);', 'return $xs;', 'Add a test that passes a value `array_values()` would change.'],
+    'unwrap of no call' => [MutatorFamily::Unwrap, 'return $xs;', 'return $ys;', 'Add a test that passes a value this call would change.'],
+    'visibility' => [MutatorFamily::Visibility, 'public function fits(int $amount, int $limit): bool', 'protected function fits(int $amount, int $limit): bool', 'Make `fits()` narrower: nothing outside the class calls it.'],
+    'no family, changed' => [MutatorFamily::None, 'return $a . $b;', 'return $b . $a;', 'Add an assertion that fails when line 9 becomes `return $b . $a;`: these tests run it, but none notices.'],
+    'no family, removed' => [MutatorFamily::None, 'return $a . $b;', '', 'Add an assertion that fails when line 9 is removed: these tests run it, but none notices.'],
+    'an unknown family' => [MutatorFamily::Unknown, 'return $a . $b;', 'return $b . $a;', 'Add an assertion that fails when line 9 becomes `return $b . $a;`: these tests run it, but none notices.'],
 ]);
 
 it('says a registered mutator\'s own sentence about its survivor, in place of its family\'s', function () use ($source): void {
@@ -83,8 +83,8 @@ it('says so where there is no function around the mutant, or no file to read', f
     expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $missing(), NoFinding::survivor())->text())->toBe($hint)
         ->and(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), Contents::of("<?php\nreturn true;\n"), NoFinding::survivor())->text())->toBe($hint);
 })->with([
-    'return value' => [MutatorFamily::ReturnValue, 'Tests run this return, but none asserts on what it returns.'],
-    'visibility' => [MutatorFamily::Visibility, 'Nothing outside the class calls this. It can be narrower.'],
+    'return value' => [MutatorFamily::ReturnValue, 'Assert on what this returns: tests run it, but none checks its result.'],
+    'visibility' => [MutatorFamily::Visibility, 'Make this narrower: nothing outside the class calls it.'],
 ]);
 
 it('names up to three judging tests of a mutant counted as not killed, then how many more', function (int $tests, string $named) use ($source): void {
@@ -97,7 +97,7 @@ it('names up to three judging tests of a mutant counted as not killed, then how 
     $mutant = Verdicts::mutant('src/Money.php:9', 'Mutator', MutatorFamily::Exception, Verdicts::diff('throw new Refused();', ''));
 
     expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::of(...$ids), $source(), NoFinding::survivor())->text())
-        ->toBe(sprintf('No test expects this exception. It is judged by %s.', $named))
+        ->toBe(sprintf('Add a test that expects this exception. It is judged by %s.', $named))
         ->and(Hint::for($mutant, MutantJudgement::Flaky, TestIds::of(...$ids), $source(), NoFinding::survivor())->text())
         ->toBe(sprintf('Its tests killed it on one run and let it survive on another, so they are the suspects. It is judged by %s.', $named))
         ->and(Hint::for($mutant, MutantJudgement::Unjudged, TestIds::of(...$ids), $source(), NoFinding::survivor())->text())
@@ -119,7 +119,7 @@ it('says what each other judgement means', function (MutantJudgement $judgement,
 
     expect(Hint::for($mutant, $judgement, TestIds::none(), $source(), NoFinding::survivor())->text())->toBe($hint);
 })->with([
-    'uncovered' => [MutantJudgement::Uncovered, 'No test runs line 8.'],
+    'uncovered' => [MutantJudgement::Uncovered, 'Add a test that runs line 8: no test runs it yet.'],
     'killed' => [MutantJudgement::Killed, 'A test fails with it in place.'],
     'killed by static analysis' => [MutantJudgement::KilledByStaticAnalysis, 'The static analyser the project runs rejects it, so it could not pass CI, which counts as killed.'],
     'errored' => [MutantJudgement::Errored, 'It crashes its tests, which counts as killed.'],
@@ -134,7 +134,7 @@ it('says what each other judgement means', function (MutantJudgement $judgement,
 ]);
 
 it('keeps a hint as it was written', function (): void {
-    expect(Hint::that('No test runs line 3.')->text())->toBe('No test runs line 3.');
+    expect(Hint::that('Add a test that runs line 3: no test runs it yet.')->text())->toBe('Add a test that runs line 3: no test runs it yet.');
 });
 
 it('names no test of a mutant that was killed, left out or never run', function (MutantJudgement $judgement) use ($source): void {
@@ -166,7 +166,7 @@ it('names the first weak test that lets a survivor through, each assertion it ma
     $finding = WeaklyAsserted::by('fits', $weak('testFits', $first, ...$written), ...$others);
 
     expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), $finding)->text())
-        ->toBe(sprintf('No test depends on this value being `3`. %s', $second));
+        ->toBe(sprintf('Add an assertion that fails unless this value is `3`. %s', $second));
 })->with([
     'one test, one assertion made twice' => [0, '`tests/MoneyTest.php::testFits` asserts only `assertNotNull`, which no change of value fails.', 'assertNotNull', 'assertNotNull'],
     'one test, three assertions' => [0, '`tests/MoneyTest.php::testFits` asserts only `->toBeInt()`, `->not->toBeNull()` and `->toBeArray()`, which no change of value fails.', '->toBeInt()', '->not->toBeNull()', '->toBeArray()'],
@@ -189,8 +189,14 @@ it('suggests deleting the callee of a surviving removal by its name, after the f
     $finding = Removable::callee(Declared::in(Path::of('src/Money.php'), 'save', Line::of(12), Line::of(14)));
 
     expect(Hint::for($mutant, MutantJudgement::Survived, TestIds::none(), $source(), $finding)->text())->toBe(
-        'Every test passes without the call to `save()`, so nothing asserts on its effect. '
+        'Assert on what `save()` does: every test passes without the call. '
         . 'No test depends on this call, and nothing `save()` does is checked either: '
         . 'if nothing outside the tests needs `save()`, it can be deleted.',
     );
+});
+
+it('leads with its first sentence, what would catch the mutant, a full stop in backticks ending nothing', function (): void {
+    expect(Hint::lead('Add a test that checks `$a . $b`. It is judged by `ATest::b`.'))->toBe('Add a test that checks `$a . $b`.')
+        ->and(Hint::lead('Add a test that expects this exception.'))->toBe('Add a test that expects this exception.')
+        ->and(Hint::lead('Assert on what `v1.2. x()` returns: tests call it.'))->toBe('Assert on what `v1.2. x()` returns: tests call it.');
 });

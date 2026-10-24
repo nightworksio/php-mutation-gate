@@ -57,6 +57,6 @@ final readonly class RemoveMiddleware implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test sends a request this middleware refuses.');
+        return Hint::that('Add a test that sends a request this middleware refuses.');
     }
 }

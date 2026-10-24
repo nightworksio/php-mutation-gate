@@ -17,7 +17,7 @@ it('describes itself by its name, family, tags and hint', function (): void {
     expect($mutator->name()->value())->toBe('acme/RemoveEcho')
         ->and($mutator->family())->toBe(MutatorFamily::RemovedCall)
         ->and($mutator->tags()->has(Tag::named('output')))->toBeTrue()
-        ->and($mutator->hint()->sentence())->toBe('No test checks what is printed.')
+        ->and($mutator->hint()->sentence())->toBe('Add a test that checks what is printed.')
         ->and($mutator->mutate(new Echo_([new Variable('a')])))->toEqual(Removal::statement());
 });
 

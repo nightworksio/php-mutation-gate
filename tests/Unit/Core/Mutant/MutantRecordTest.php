@@ -165,12 +165,12 @@ it('writes and reads back a registered mutator\'s own hint, and writes none wher
         $id,
         '19',
         Location::of(Path::of('src/Money.php'), Line::of(3), Unreported::line()),
-        Mutation::of('acme/RemoveEcho', MutatorFamily::RemovedCall, "-echo 1;", 'No test checks what is printed.'),
+        Mutation::of('acme/RemoveEcho', MutatorFamily::RemovedCall, "-echo 1;", 'Add a test that checks what is printed.'),
         MutantStatus::Survived,
         Unmeasured::duration(),
     );
 
-    expect(MutantRecord::full($hinted))->toHaveKey('hint', 'No test checks what is printed.')
+    expect(MutantRecord::full($hinted))->toHaveKey('hint', 'Add a test that checks what is printed.')
         ->and(MutantRecord::full($killed))->not->toHaveKey('hint')
         ->and(MutantRecord::readFull($read(MutantRecord::full($hinted))))->toEqual($hinted);
 });

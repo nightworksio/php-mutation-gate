@@ -17,7 +17,7 @@ it('is named in the symfony set, a condition, about security, with its own hint'
     expect($mutator->name()->value())->toBe('symfony/PasswordValidToTrue')
         ->and($mutator->family())->toBe(MutatorFamily::Condition)
         ->and($mutator->tags())->toEqual(Tags::of(Tag::security()))
-        ->and($mutator->hint())->toEqual(Hint::that('No test checks that `isPasswordValid()` refuses a wrong password.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that checks that `isPasswordValid()` refuses a wrong password.'));
 });
 
 it('accepts every password, on any receiver, under both runners', function (): void {

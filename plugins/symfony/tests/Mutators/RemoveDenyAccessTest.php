@@ -17,7 +17,7 @@ it('is named in the symfony set, a removed call, about security, with its own hi
     expect($mutator->name()->value())->toBe('symfony/RemoveDenyAccess')
         ->and($mutator->family())->toBe(MutatorFamily::RemovedCall)
         ->and($mutator->tags())->toEqual(Tags::of(Tag::security()))
-        ->and($mutator->hint())->toEqual(Hint::that('No test checks that the action is refused to a user without this grant.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that checks that the action is refused to a user without this grant.'));
 });
 
 it('removes the access check under both runners, emptying it under Infection', function (): void {

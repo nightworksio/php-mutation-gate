@@ -8,15 +8,18 @@ use function array_key_exists;
 use function array_sum;
 use function implode;
 
+use NightWorksIO\MutationGate\Core\Report\Grade;
 use NightWorksIO\MutationGate\Core\Report\JsonReport;
-use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
+use NightWorksIO\MutationGate\Core\Report\Outcome;
+use NightWorksIO\MutationGate\Core\Report\Term;
 
 use function sprintf;
 
 /**
- * The HTML report's figures: how many mutants came to each outcome, how
- * many the score leaves out, and each set's score against its floor as a
- * bar, the floor marked on it.
+ * The HTML report's figures: how many mutants came to each outcome, each
+ * graded in a word with why, how many the score leaves out, and each set's
+ * score against its floor as a bar, the floor marked on it. Each word a
+ * reader new to mutation testing may not know has its "what is this?".
  *
  * @phpstan-import-type Report from JsonReport
  * @phpstan-import-type SecurityEntry from JsonReport
@@ -25,17 +28,24 @@ final readonly class Figures
 {
     private const string CARD = <<<'HTML'
         <section class="card figures" aria-labelledby="figures-title">
-        <h2 id="figures-title">Mutants</h2>
+        <div class="card-head"><h2 id="figures-title">Mutants</h2>%s</div>
         <ul class="tiles">%s</ul>
-        <p class="aside">%s</p>
+        <div class="left-out">%s</div>
         <ul class="sets">%s</ul>
+        <div class="terms">%s</div>
         </section>
         HTML;
 
-    private const string TILE
-        = '<li class="tile tile--%s"><span class="tile-count">%d</span><span class="tile-label">%s</span></li>';
+    private const string TILE = <<<'HTML'
+        <li class="tile tile--%1$s"><span class="tile-count">%2$d</span><span class="tile-label">%3$s</span>
+        %4$s<p class="tile-why">%5$s</p>%6$s</li>
+        HTML;
 
-    private const string JUDGED = '%d judged, %d left out of the score.';
+    private const string GRADE = '<span class="grade grade--%s">%s</span>';
+
+    private const string JUDGED = '<p class="aside">%d judged, %d left out of the score. %s %s</p>%s';
+
+    private const string TERM = '<span class="term-word">%s</span>%s';
 
     private const string SET = <<<'HTML'
         <li class="set set--%1$s"><p class="set-said">%2$s</p>%3$s</li>
@@ -54,13 +64,21 @@ final readonly class Figures
     private const string AGAINST = 'Score %s against a floor of %s';
 
     /** @param Report $report */
-    public static function html(array $report): string
+    public static function html(array $report, Glossary $glossary): string
     {
-        $counts = self::counts($report['counts']);
+        $counts = Outcome::counts($report['counts']);
         $tiles = [];
 
         foreach (Outcome::counted() as $outcome) {
-            $tiles[] = sprintf(self::TILE, $outcome->value, $counts[$outcome->value], $outcome->label());
+            $tiles[] = sprintf(
+                self::TILE,
+                $outcome->value,
+                $counts[$outcome->value],
+                $outcome->label(),
+                self::grade($outcome->grade()),
+                Html::text($outcome->why()),
+                $glossary->explain($outcome->term()),
+            );
         }
 
         $sets = [];
@@ -69,33 +87,32 @@ final readonly class Figures
             $sets[] = self::set($set);
         }
 
+        $leftOut = Outcome::LeftOut;
+
         return sprintf(
             self::CARD,
+            $glossary->explain(Term::Mutant),
             implode('', $tiles),
-            sprintf(self::JUDGED, array_sum($counts), $counts[Outcome::LeftOut->value]),
+            sprintf(
+                self::JUDGED,
+                array_sum($counts),
+                $counts[$leftOut->value],
+                self::grade($leftOut->grade()),
+                Html::text($leftOut->why()),
+                $glossary->explain($leftOut->term()),
+            ),
             implode('', $sets),
+            implode('', [
+                sprintf(self::TERM, 'Score', $glossary->explain(Term::Score)),
+                sprintf(self::TERM, 'Floor', $glossary->explain(Term::Floor)),
+            ]),
         );
     }
 
-    /**
-     * How many mutants came to each outcome, by its name.
-     *
-     * @param  array<string, int> $judged how many came to each judgement, by its name
-     * @return array<string, int>
-     */
-    private static function counts(array $judged): array
+    /** An outcome's grade, said in a word so that no reader needs the colour to tell. */
+    public static function grade(Grade $grade): string
     {
-        $counts = [];
-
-        foreach (Outcome::cases() as $outcome) {
-            $counts[$outcome->value] = 0;
-        }
-
-        foreach ($judged as $judgement => $number) {
-            $counts[Outcome::of(MutantJudgement::from($judgement))->value] += $number;
-        }
-
-        return $counts;
+        return sprintf(self::GRADE, $grade->value, $grade->label());
     }
 
     /** @param SecurityEntry $set a security set, or a tree or a new-code set, which hold what it holds */

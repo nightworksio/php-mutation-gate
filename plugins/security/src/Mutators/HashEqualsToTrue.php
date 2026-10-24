@@ -48,6 +48,6 @@ final readonly class HashEqualsToTrue implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test passes a wrong token and checks that it is refused.');
+        return Hint::that('Add a test that passes a wrong token and checks that it is refused.');
     }
 }

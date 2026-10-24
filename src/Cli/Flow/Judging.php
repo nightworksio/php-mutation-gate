@@ -166,7 +166,12 @@ final readonly class Judging
 
         $reported = new Judged(
             $verdict,
-            [$recorded, ...$this->kept($assessed->ledgers), ...Reported::by($verdict, $reporters)],
+            [
+                $recorded,
+                ...$this->kept($assessed->ledgers),
+                ...KeptReport::keep($this->adapters->project, $verdict),
+                ...Reported::by($verdict, $reporters),
+            ],
             $assessed->baseline,
         );
 

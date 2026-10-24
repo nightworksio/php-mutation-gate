@@ -17,7 +17,7 @@ it('is named in the symfony set, a condition, about security, with its own hint'
     expect($mutator->name()->value())->toBe('symfony/IsGrantedToTrue')
         ->and($mutator->family())->toBe(MutatorFamily::Condition)
         ->and($mutator->tags())->toEqual(Tags::of(Tag::security()))
-        ->and($mutator->hint())->toEqual(Hint::that('No test checks what happens when this grant is denied.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that checks what happens when this grant is denied.'));
 });
 
 it('grants every check, on any receiver, under both runners', function (): void {

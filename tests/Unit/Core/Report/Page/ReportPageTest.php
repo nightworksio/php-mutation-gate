@@ -12,7 +12,10 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Reach\Packages;
 use NightWorksIO\MutationGate\Core\Reach\Reach;
 use NightWorksIO\MutationGate\Core\Report\JsonReport;
+use NightWorksIO\MutationGate\Core\Report\NextSteps;
+use NightWorksIO\MutationGate\Core\Report\Outcome;
 use NightWorksIO\MutationGate\Core\Report\Page\ReportPage;
+use NightWorksIO\MutationGate\Core\Report\Term;
 use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Runner\Version;
@@ -178,13 +181,13 @@ it('says a run was sampled, or stopped before it judged every mutant, beside its
 it('counts the mutants of each outcome, and those the score leaves out', function (): void {
     $page = pageOf(everyJudged());
 
-    expect($page)->toContain('<li class="tile tile--killed"><span class="tile-count">2</span><span class="tile-label">Killed</span></li>')
-        ->and($page)->toContain('<li class="tile tile--escaped"><span class="tile-count">3</span><span class="tile-label">Escaped</span></li>')
-        ->and($page)->toContain('<li class="tile tile--untested"><span class="tile-count">1</span><span class="tile-label">Untested</span></li>')
-        ->and($page)->toContain('<li class="tile tile--timed-out"><span class="tile-count">2</span><span class="tile-label">Timed out</span></li>')
-        ->and($page)->toContain('<li class="tile tile--errored"><span class="tile-count">1</span><span class="tile-label">Errored</span></li>')
-        ->and($page)->toContain('<p class="aside">12 judged, 3 left out of the score.</p>')
-        ->and($page)->toContain('<span class="tile-label">Killed</span></li><li class="tile tile--escaped">');
+    expect($page)->toContain('<li class="tile tile--killed"><span class="tile-count">2</span><span class="tile-label">Killed</span>')
+        ->and($page)->toContain('<li class="tile tile--escaped"><span class="tile-count">3</span><span class="tile-label">Escaped</span>')
+        ->and($page)->toContain('<li class="tile tile--untested"><span class="tile-count">1</span><span class="tile-label">Untested</span>')
+        ->and($page)->toContain('<li class="tile tile--timed-out"><span class="tile-count">2</span><span class="tile-label">Timed out</span>')
+        ->and($page)->toContain('<li class="tile tile--errored"><span class="tile-count">1</span><span class="tile-label">Errored</span>')
+        ->and($page)->toContain('<p class="aside">12 judged, 3 left out of the score.')
+        ->and($page)->toMatch('#<li class="tile tile--killed">(?:(?!<li ).)*</li><li class="tile tile--escaped">#s');
 });
 
 it('shows each tree, new-code and security set, its score as a bar against its floor where it has both', function (): void {
@@ -194,6 +197,43 @@ it('shows each tree, new-code and security set, its score as a bar against its f
         ->and($sets)->toContain('<li class="set set--failed"><p class="set-said">New code scores 0.00%, below its floor of 100.00%.</p>')
         ->and($sets)->toContain('<li class="set set--failed"><p class="set-said">Security scores 0.00%, below its floor of 100.00%.</p>')
         ->and($sets)->toContain('<li class="set set--passed"><p class="set-said">Security in packages/billing scores 100.00% against its floor of 50.00%.</p>');
+});
+
+it('opens with what mutation testing is, linking to the guide of the gate that rendered it', function (): void {
+    $provenance = Provenance::of(Version::of('nightworksio/mutation-gate', 'v1.4.0', 'abc'), Path::of('mutation-gate.baseline.json'));
+    $released = pageOf(Verdicts::passing()->withAccount(Verdicts::account()->withProvenance($provenance)));
+    $guide = 'https://github.com/nightworksio/php-mutation-gate/blob/%s/.docs/guide/reading-the-report.md#%s';
+
+    expect($released)->toContain(sprintf('<p class="intro">%s <a href="%s">How to read this report</a></p>', Term::MutationTesting->meaning(), sprintf($guide, 'v1.4.0', 'mutation-testing')))
+        ->and(pageOf(Verdicts::passing()))->toContain(sprintf($guide, 'main', 'mutation-testing'));
+});
+
+it('grades every count in a word with why, never by colour alone, and says what each word means where it appears', function (): void {
+    $page = pageOf(everyJudged());
+    $guide = 'https://github.com/nightworksio/php-mutation-gate/blob/main/.docs/guide/reading-the-report.md#%s';
+
+    foreach ([...Outcome::counted(), Outcome::LeftOut] as $outcome) {
+        expect($page)->toContain(sprintf('<span class="grade grade--%s">%s</span>', $outcome->grade()->value, $outcome->grade()->label()))
+            ->and($page)->toContain(htmlspecialchars($outcome->why(), ENT_QUOTES | ENT_HTML5));
+    }
+
+    foreach ([Term::Mutant, Term::Killed, Term::Escaped, Term::Untested, Term::TimedOut, Term::Errored, Term::LeftOut, Term::Score, Term::Floor] as $term) {
+        expect($page)->toContain(sprintf('<details class="term"><summary>What is this?</summary><p>%s <a href="%s">More in the guide</a></p></details>', str_replace(['`>`', '`>=`'], ['<code>&gt;</code>', '<code>&gt;=</code>'], $term->meaning()), sprintf($guide, $term->value)));
+    }
+
+    expect(Decoded::at(pageData($page), 'carried'))->toBe(['meaning' => Term::Carried->meaning(), 'guide' => sprintf($guide, 'carried')]);
+});
+
+it('says what to do: how many more mutants a set below its floor must catch, or that a run that passes needs nothing', function (): void {
+    $report = JsonReport::of(Verdicts::failing());
+
+    expect($report['next'])->not->toBe([])
+        ->and(pageOf(Verdicts::failing()))->toContain(sprintf("<h2 id=\"next-title\">What to do</h2>\n<ul><li>%s</li>", htmlspecialchars($report['next'][0], ENT_QUOTES | ENT_HTML5)))
+        ->and(pageOf(Verdicts::passing()))->toContain(sprintf('<ul><li>%s</li></ul>', NextSteps::NOTHING));
+});
+
+it('says of each survivor in the overview what test would catch it', function (): void {
+    expect(pageOf(Verdicts::failing()))->toContain('<p class="hint">Add a test that uses a value at the boundary of <code>$amount &lt; $limit</code>.</p>');
 });
 
 it('shows each mutant with what it came to and the gate\'s own judgement beside it', function (): void {
@@ -235,13 +275,14 @@ it('names a survivor in the overview by where it is, linking to it, those on cha
 it('names the survivors on changed lines first, and counts the mutants on changed lines and those of them surviving', function (): void {
     $page = pageOf(onChangedLines());
     $survivors = pagePart($page, '<section class="card survivors"', '</section>');
-    preg_match_all('~<code>([^<]+)</code>~', $survivors, $named);
+    preg_match_all('~<a href="#m-[^"]+"><code>([^<]+)</code></a>~', $survivors, $named);
+    $hint = '<p class="hint">Add a test that checks the result of <code>$a + 1</code> with a non-zero operand.</p>';
 
     expect($named[1])->toBe(['src/B.php:5', 'src/A.php:1', 'src/A.php:2'])
         ->and(substr_count($survivors, '</li><li>'))->toBe(2)
         ->and(substr_count($survivors, 'changed line'))->toBe(1)
-        ->and($survivors)->toContain('<span class="judgement">survived</span> <span class="chip">changed line</span></li><li>')
-        ->and($survivors)->toContain('<span class="judgement">survived</span></li></ol>' . "\n</section>")
+        ->and($survivors)->toContain(sprintf("<span class=\"judgement\">survived</span> <span class=\"chip\">changed line</span>\n%s</li><li>", $hint))
+        ->and($survivors)->toContain(sprintf("<span class=\"judgement\">survived</span>\n%s</li></ol>\n</section>", $hint))
         ->and(pagePart($page, '<section class="card files"', '</section>'))->toBe(<<<'HTML'
             <section class="card files" aria-labelledby="files-title">
             <h2 id="files-title">Files judged <span class="count">3</span></h2>
@@ -357,7 +398,8 @@ it('inlines its style and its script, so it loads nothing from a network, neithe
 
     expect($page)->toContain('<style>a::after { content: "<\/style>"; }</style>')
         ->and($page)->toContain('<script>const end = "<\/script>";</script>')
-        ->and($page)->not->toMatch('~(src|href)="https?://~');
+        ->and($page)->not->toMatch('~src="https?://~')
+        ->and($page)->not->toMatch('~<link[^>]+href="https?://~');
 });
 
 it('names the first 25 survivors and the 8 files with the most, the rest in the files below', function (int $survivors, int $more): void {
@@ -381,3 +423,16 @@ it('names the first 25 survivors and the 8 files with the most, the rest in the 
     'exactly as many as it names' => [25, 0],
     'one more' => [26, 1],
 ]);
+
+it('shows every control, separator and format character a project wrote as an escape, the data the script makes so too, so none reorders what the reader sees', function (): void {
+    $hostile = JudgedMutant::of(
+        Verdicts::mutant("src/\u{202e}php.txt\e[31m.php:3", 'Plus', MutatorFamily::Arithmetic, Verdicts::diff('$a + 1;', '$a - 1;')),
+        MutantJudgement::Survived,
+    );
+    $page = pageOf(Verdicts::of(Floor::of(80), $hostile));
+    $shown = str_replace(pageData($page), '', $page);
+
+    expect($page)->toContain('<code>src/\u{202e}php.txt\u{001b}[31m.php:3</code>')
+        ->and($shown)->not->toContain("\u{202e}")
+        ->and($shown)->not->toContain("\e");
+});

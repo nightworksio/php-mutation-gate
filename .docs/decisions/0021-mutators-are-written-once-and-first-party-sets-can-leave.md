@@ -388,8 +388,8 @@ pest-plugin-mutate 5.0.2, Infection 0.35.5 and `infection/mutator` 0.4.1:
       every open of the file during its run, so the test reads it. This
       amends ADR-0023. Infection serves it to an include only, so
       a mutator pinned by source stands down under Infection.
-    - Its hint: *Only a test that reads the source can pin a constant-time
-      comparison: one that runs it, then asserts that its file still calls
+    - Its hint: *Pin the constant-time comparison with a test that reads
+      the source: run the code, then assert that its file still calls
       `hash_equals`.*
     - `stub` writes that test in Pest's or PHPUnit's style: it calls the
       function, asserts on its result, and asserts that the function's file,

@@ -52,6 +52,6 @@ final readonly class UnwrapTransaction implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test makes the transaction fail and checks that nothing it did was kept.');
+        return Hint::that('Add a test that makes the transaction fail and checks that nothing it did was kept.');
     }
 }

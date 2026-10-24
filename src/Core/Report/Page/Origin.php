@@ -28,7 +28,7 @@ use function sprintf;
 final readonly class Origin
 {
     /** How many characters of a commit's id the line shows, as git abbreviates one. */
-    private const int SHORT = 12;
+    public const int SHORT = 12;
 
     private const string LINE = '<footer class="provenance"><ul>%s</ul></footer>';
 

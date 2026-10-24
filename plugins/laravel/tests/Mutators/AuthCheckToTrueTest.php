@@ -17,7 +17,7 @@ it('is named in the laravel set, a condition, about security, with its own hint'
     expect($mutator->name()->value())->toBe('laravel/AuthCheckToTrue')
         ->and($mutator->family())->toBe(MutatorFamily::Condition)
         ->and($mutator->tags())->toEqual(Tags::of(Tag::security()))
-        ->and($mutator->hint())->toEqual(Hint::that('No test runs this as a guest and checks what a guest is refused.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that runs this as a guest and checks what a guest is refused.'));
 });
 
 it('signs a user in for every check under both runners', function (): void {

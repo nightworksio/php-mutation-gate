@@ -5,20 +5,26 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Troubleshooting;
 
 use NightWorksIO\MutationGate\Core\Composer\Installed;
+use NightWorksIO\MutationGate\Core\Report\Term;
 use NightWorksIO\MutationGate\Core\ThisPackage;
 
 use function preg_match;
 use function sprintf;
 
 /**
- * The troubleshooting guide of the release that prints a message, which each
- * slug's link points into, so a link never outlives what it explains.
+ * The guides of the release that prints a message or renders a report: the
+ * troubleshooting guide, which each slug's link points into, and the guide
+ * to reading the report, which each term's link points into, so a link never
+ * outlives what it explains.
  */
 final readonly class Guide
 {
-    /** Where the guide of a git ref is, and a slug's section in it. */
-    private const string SECTION
-        = 'https://github.com/nightworksio/php-mutation-gate/blob/%s/.docs/guide/troubleshooting.md#%s';
+    /** Where a guide of a git ref is, by its file's name, and a section in it. */
+    private const string SECTION = '%s/blob/%s/.docs/guide/%s.md#%s';
+
+    private const string TROUBLESHOOTING = 'troubleshooting';
+
+    private const string READING = 'reading-the-report';
 
     /** A released version, as Composer spells it, with or without its `v`. */
     private const string RELEASED = '/^v?(?<version>\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)$/D';
@@ -60,6 +66,12 @@ final readonly class Guide
 
     public function link(Slug $slug): string
     {
-        return sprintf(self::SECTION, $this->ref, $slug->value);
+        return sprintf(self::SECTION, ThisPackage::REPOSITORY, $this->ref, self::TROUBLESHOOTING, $slug->value);
+    }
+
+    /** Where the guide to reading the report says what a term means. */
+    public function term(Term $term): string
+    {
+        return sprintf(self::SECTION, ThisPackage::REPOSITORY, $this->ref, self::READING, $term->value);
     }
 }

@@ -57,6 +57,6 @@ final readonly class RemoveValidationRule implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test sends input this rule alone refuses.');
+        return Hint::that('Add a test that sends input this rule alone refuses.');
     }
 }

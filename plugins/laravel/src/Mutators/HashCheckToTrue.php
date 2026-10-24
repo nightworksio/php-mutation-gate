@@ -49,6 +49,6 @@ final readonly class HashCheckToTrue implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test checks that a wrong password is refused.');
+        return Hint::that('Add a test that checks that a wrong password is refused.');
     }
 }

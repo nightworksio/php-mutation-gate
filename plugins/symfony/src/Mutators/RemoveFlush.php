@@ -60,6 +60,6 @@ final readonly class RemoveFlush implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test reads back what this flush saves.');
+        return Hint::that('Add a test that reads back what this flush saves.');
     }
 }

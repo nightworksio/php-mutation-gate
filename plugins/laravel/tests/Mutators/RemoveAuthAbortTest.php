@@ -17,7 +17,7 @@ it('is named in the laravel set, a removed call, about security, with its own hi
     expect($mutator->name()->value())->toBe('laravel/RemoveAuthAbort')
         ->and($mutator->family())->toBe(MutatorFamily::RemovedCall)
         ->and($mutator->tags())->toEqual(Tags::of(Tag::security()))
-        ->and($mutator->hint())->toEqual(Hint::that('No test checks that the request is refused when this condition holds.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that checks that the request is refused when this condition holds.'));
 });
 
 it('removes a stop that refuses with 401 or 403', function (): void {

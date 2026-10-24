@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
 use NightWorksIO\MutationGate\Adapter\Console\ProblemsReport;
 use NightWorksIO\MutationGate\Adapter\Filesystem\BadgeDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\CodeQualityReportFile;
+use NightWorksIO\MutationGate\Adapter\Filesystem\DigestReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\HtmlReportDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\JsonReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\JUnitReportFile;
@@ -236,6 +237,7 @@ it('registers the console, every file report, GitHub\'s three and the badge by n
         ->and($reporter('problems', '{"only": "changed"}'))->toBeInstanceOf(ProblemsReport::class)
         ->and($reporter('json', '{"path": "build/mutation.json"}'))->toEqual(JsonReportFile::at('build/mutation.json'))
         ->and($reporter('junit', '{"path": "build/junit.xml"}'))->toEqual(JUnitReportFile::at('build/junit.xml'))
+        ->and($reporter('digest', '{"path": "build/digest.txt"}'))->toEqual(DigestReportFile::at('build/digest.txt'))
         ->and($sarif)->toEqual(SarifReportFile::at('build/mutation.sarif'))
         ->and($reporter('gitlab', '{"path": "build/gl-code-quality.json"}'))->toEqual(CodeQualityReportFile::at('build/gl-code-quality.json'))
         ->and($reporter('sonar', '{"path": "build/mutation-sonar.json"}'))->toEqual(SonarReportFile::at(

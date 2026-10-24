@@ -1343,6 +1343,27 @@
                         "type": "object",
                         "properties": {
                             "use": {
+                                "const": "digest"
+                            },
+                            "path": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "with": {
+                                "type": "object",
+                                "additionalProperties": false
+                            }
+                        },
+                        "required": [
+                            "use",
+                            "path"
+                        ],
+                        "additionalProperties": false
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "use": {
                                 "const": "tests"
                             },
                             "path": {
@@ -1626,6 +1647,7 @@
                                         "junit",
                                         "sarif",
                                         "html",
+                                        "digest",
                                         "tests",
                                         "kill-matrix",
                                         "gitlab",
