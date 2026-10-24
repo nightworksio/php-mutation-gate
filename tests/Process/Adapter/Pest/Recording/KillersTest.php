@@ -16,7 +16,7 @@ it('keeps in the mutant\'s log the memory limit its process ran out of, where PH
     $results = sprintf('%s/results.jsonl', Scratch::directory());
     $php = new Process([PHP_BINARY, '-d', 'memory_limit=32M', '-d', 'display_errors=0', '-d', 'log_errors=0', '-r', sprintf(<<<'PHP_WRAP'
     require %s;
-    NightWorksIO\MutationGate\Adapter\Pest\Recording\Killers::listening(%s, '/tmp/mutations/abc', new PHPUnit\Event\Facade(), original: false, loaded: NightWorksIO\MutationGate\Adapter\Pest\Recording\Loaded::of([]), heartbeat: NightWorksIO\MutationGate\Adapter\Pest\Recording\Heartbeat::onErrorOutput(), issues: new NightWorksIO\MutationGate\Adapter\PhpUnit\IssueKillers());
+    NightWorksIO\MutationGate\Adapter\Pest\Recording\Killers::listening(%s, '/tmp/mutations/abc', new PHPUnit\Event\Facade(), original: false, loaded: NightWorksIO\MutationGate\Adapter\Pest\Recording\Loaded::of([]), heartbeat: NightWorksIO\MutationGate\Adapter\Pest\Recording\Heartbeat::onErrorOutput(), issues: NightWorksIO\MutationGate\Adapter\PhpUnit\IssueKillers::ofThisRun());
     register_shutdown_function(static function (): void {
         $held = [];
         for ($megabytes = 0; $megabytes < 64; $megabytes++) {
