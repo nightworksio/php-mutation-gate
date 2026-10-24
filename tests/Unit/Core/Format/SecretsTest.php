@@ -196,3 +196,62 @@ it('keeps what a process printed where only the first base64 groups of a withhel
 
     expect(Secrets::of('abcdefghijkl')->screened($sharingGroups, cut: false))->toBe($sharingGroups);
 });
+
+/** A withheld value every escaping changes in its own way, and whose words are each too short to be screened for alone. */
+const ESCAPED = "a\"b'c/d é<e>f&g+h\\i";
+
+it('keeps nothing where a withheld value appears in a form no other form of it holds', function (string $form): void {
+    expect(Secrets::of(ESCAPED)->screened(sprintf('printed %s here', $form), cut: false))->toBeInstanceOf(NotGiven::class);
+})->with([
+    'as it is' => ["a\"b'c/d é<e>f&g+h\\i"],
+    'url-encoded' => ['a%22b%27c%2Fd%20%C3%A9%3Ce%3Ef%26g%2Bh%5Ci'],
+    'form-encoded' => ['a%22b%27c%2Fd+%C3%A9%3Ce%3Ef%26g%2Bh%5Ci'],
+    'hex-encoded' => ['61226227632f6420c3a93c653e6626672b685c69'],
+    'backslash-escaped' => ["a\\\"b\\'c/d é<e>f&g+h\\\\i"],
+    'shell-escaped' => ["a\"b'\\''c/d é<e>f&g+h\\i"],
+    'SQL-quoted' => ["a\"b''c/d é<e>f&g+h\\i"],
+    'HTML 4' => ['a&quot;b&#039;c/d é&lt;e&gt;f&amp;g+h\\i'],
+    'HTML 5' => ['a&quot;b&apos;c/d é&lt;e&gt;f&amp;g+h\\i'],
+    'as var_export writes it' => ["a\"b\\'c/d é<e>f&g+h\\\\i"],
+    'JSON, its slashes and unicode escaped' => ["a\\\"b'c\\/d \\u00e9<e>f&g+h\\\\i"],
+    'JSON, its slashes as they are' => ["a\\\"b'c/d \\u00e9<e>f&g+h\\\\i"],
+    'JSON, its unicode as it is' => ["a\\\"b'c\\/d é<e>f&g+h\\\\i"],
+    'JSON, both as they are' => ["a\\\"b'c/d é<e>f&g+h\\\\i"],
+    'base64, aligned' => ['YSJiJ2MvZCDDqTxlPmYmZyto'],
+    'base64, behind one byte' => ['YidjL2Qgw6k8ZT5mJmcraFxp'],
+    'base64, behind two bytes' => ['ImInYy9kIMOpPGU+ZiZnK2hc'],
+    'url-safe base64, behind two bytes' => ['ImInYy9kIMOpPGU-ZiZnK2hc'],
+]);
+
+it('keeps what a process printed where it holds a form of a withheld value cut short at either end', function (string $printed): void {
+    expect(Secrets::of(ESCAPED)->screened($printed, cut: false))->toBe($printed);
+})->with([
+    'as var_export writes it, with its opening quote' => ["'a\"b\\'c/d é<e>f&g+h\\\\X"],
+    'as var_export writes it, without its first character' => ["\"b\\'c/d é<e>f&g+h\\\\i"],
+    'as var_export writes it, without its last character' => ["a\"b\\'c/d é<e>f&g+h\\\\X"],
+    'as JSON writes it, with its opening quote' => ["\"a\\\"b'c/d é<e>f&g+h\\\\X"],
+    'as JSON writes it, without its first character' => ["\\\"b'c/d é<e>f&g+h\\\\i"],
+    'as JSON writes it, without its last character' => ["a\\\"b'c/d é<e>f&g+h\\\\X"],
+    'base64, aligned, without its first character' => ['SJiJ2MvZCDDqTxlPmYmZyto'],
+]);
+
+it('screens for no form a control character leaves too short to be a secret', function (): void {
+    expect(Secrets::of("abc\x01\x02\x03\x04\x05\x06")->screened('printed abc here', cut: false))->toBe('printed abc here');
+});
+
+it('screens for a value trimmed, and for each of its lines trimmed, where its whitespace is part of what is compared', function (string $withheld, string $printed): void {
+    expect(Secrets::of($withheld)->screened($printed, cut: false))->toBeInstanceOf(NotGiven::class);
+})->with([
+    'a value of short words with whitespace around it' => ["  ab cd\nef\n", "printed ab cd\nef here"],
+    'a line of short words with whitespace around it' => ["head\n  ab cd ef  \ntail", 'printed ab cd ef here'],
+]);
+
+it('screens for the part of a pair after its sign, and every word of a value that also holds a URL\'s credentials', function (string $withheld, string $printed, bool $kept): void {
+    $screened = Secrets::of($withheld)->screened($printed, cut: false);
+
+    expect($kept ? $screened : $screened instanceof NotGiven)->toBe($kept ? $printed : true);
+})->with([
+    'the pair\'s value without its first character' => ['k=withheld-pair-value', 'printed ithheld-pair-value', true],
+    'a word before a URL' => ['token-long-word https://deploy:withheld-pass@host', 'printed token-long-word', false],
+    'the first of two strings in JSON' => ['{"a": "first-json-leaf", "b": "second-json-leaf"}', 'printed first-json-leaf', false],
+]);

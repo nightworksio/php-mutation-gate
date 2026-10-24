@@ -8,14 +8,12 @@ use function addslashes;
 use function array_any;
 use function array_filter;
 use function array_map;
-use function array_unique;
-use function array_values;
 use function explode;
 use function htmlspecialchars;
 use function intdiv;
 use function json_encode;
+use function ltrim;
 use function max;
-use function mb_strcut;
 use function mb_stripos;
 use function mb_strlen;
 use function mb_strstr;
@@ -64,6 +62,9 @@ final readonly class Secrets
     /** The fewest characters a withheld variable's value has to be screened for as a secret, and a form of one. */
     private const int SHORTEST = 8;
 
+    /** The bytes that continue a character UTF-8 began in an earlier byte. */
+    private const string CONTINUING = "\x80..\xBF";
+
     /** How many bytes base64 turns into one group of characters. */
     private const int GROUP_BYTES = 3;
 
@@ -111,7 +112,7 @@ final readonly class Secrets
         '/\bglpat-[A-Za-z0-9_-]{20,}/',
     ];
 
-    /** @param list<string> $forms every form of every secret, as text a terminal shows safely */
+    /** @param array<int, string> $forms every form of every secret, as text a terminal shows safely */
     private function __construct(private array $forms)
     {
     }
@@ -129,19 +130,16 @@ final readonly class Secrets
             $forms = [...$forms, ...self::formsOf($value)];
         }
 
-        return new self(array_values(array_unique(array_filter(
+        return new self(array_filter(
             array_map(Printable::text(...), $forms),
             static fn(string $form): bool => mb_strlen($form) >= self::SHORTEST,
-        ))));
+        ));
     }
 
-    /** The values of the variables these withhold, each of at least the fewest characters a secret has. */
+    /** The values of the variables these withhold, each screened for its pieces of at least the fewest characters. */
     public static function withheldIn(Variables $variables, Withheld $withheld): self
     {
-        return self::of(...array_values(array_filter(
-            $variables->matching($withheld->pattern()),
-            static fn(string $value): bool => mb_strlen(trim($value)) >= self::SHORTEST,
-        )));
+        return self::of(...$variables->matching($withheld->pattern()));
     }
 
     /**
@@ -219,7 +217,7 @@ final readonly class Secrets
      * string in it where it is JSON, each of its words and each word's part
      * after an `=`, and the user and the password of each URL in it.
      *
-     * @return list<string>
+     * @return array<int, string>
      */
     private static function piecesOf(string $value): array
     {
@@ -239,10 +237,10 @@ final readonly class Secrets
             $pieces = [...$pieces, ...explode(self::CREDENTIALS, $both, 2)];
         }
 
-        return array_values(array_unique(array_filter(
+        return array_filter(
             [...$pieces, ...self::stringsIn(Node::decode($trimmed))],
             static fn(string $piece): bool => mb_strlen($piece) >= self::SHORTEST,
-        )));
+        );
     }
 
     /**
@@ -301,7 +299,7 @@ final readonly class Secrets
             $encoded = sodium_bin2base64($aligned, SODIUM_BASE64_VARIANT_ORIGINAL);
             $whole = intdiv($before + Bytes::length($value), self::GROUP_BYTES) * self::GROUP_CHARACTERS;
             $from = $before === 0 ? 0 : self::GROUP_CHARACTERS;
-            $alone = mb_substr($encoded, $from, max(0, $whole - $from));
+            $alone = mb_substr($encoded, $from, $whole - $from);
             $forms = [...$forms, $alone, strtr($alone, '+/', '-_')];
         }
 
@@ -320,18 +318,11 @@ final readonly class Secrets
 
     /**
      * The text after as many bytes as the longest form holds, from the first
-     * character that starts at or past them.
+     * character that starts at or past them: the bytes that continue a
+     * character begun before them are dropped with it.
      */
     private function afterTheLongest(string $text): string
     {
-        $start = $this->longest();
-        $most = max(0, Bytes::length($text) - $start);
-        $rest = mb_strcut($text, $start, null, Printable::UTF8);
-
-        while (Bytes::length($rest) > $most) {
-            $rest = mb_strcut($text, ++$start, null, Printable::UTF8);
-        }
-
-        return $rest;
+        return ltrim(Bytes::from($text, $this->longest()), self::CONTINUING);
     }
 }

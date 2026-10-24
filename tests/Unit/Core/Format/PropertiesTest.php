@@ -62,3 +62,7 @@ b=2")->value(''))->toEqual(NotGiven::value())
         ->and(Properties::decode("=1
 b=2")->value('b'))->toBe('2');
 });
+
+it('goes on on the next line after a backslash where lines end with a carriage return and a line feed', function (): void {
+    expect(Properties::decode("a = one, \\\r\n    two\r\nb = 2")->value('a'))->toBe('one, two');
+});

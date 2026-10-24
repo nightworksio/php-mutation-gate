@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Format;
 
+use function mb_str_split;
 use function mb_strlen;
 use function mb_strpos;
 use function mb_substr;
@@ -37,6 +38,17 @@ final readonly class Bytes
     public static function find(string $text, string $sought, int $from): int|false
     {
         return mb_strpos($text, $sought, $from, self::ENCODING);
+    }
+
+    /**
+     * The text cut into pieces of this many bytes, the last of as many as are left; none of no text.
+     *
+     * @param  positive-int $size
+     * @return list<string>
+     */
+    public static function chunks(string $text, int $size): array
+    {
+        return mb_str_split($text, $size, self::ENCODING);
     }
 
     /** The bytes of the text from an offset to its end. */

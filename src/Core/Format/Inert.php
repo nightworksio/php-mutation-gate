@@ -49,11 +49,12 @@ final readonly class Inert
 
     public static function text(string $text): string
     {
-        $scrubbed = preg_replace(self::UNSHOWN, '', mb_scrub($text, 'UTF-8')) ?? '';
-        $parts = preg_split(self::LINE_END, $scrubbed, -1, PREG_SPLIT_DELIM_CAPTURE);
+        $scrubbed = preg_replace(self::UNSHOWN, '', mb_scrub($text, 'UTF-8')) ?? throw FormatFault::pcre();
         $inert = [];
 
-        foreach ($parts === false ? [$scrubbed] : $parts as $part) {
+        $parts = preg_split(self::LINE_END, $scrubbed, flags: PREG_SPLIT_DELIM_CAPTURE);
+
+        foreach ($parts === false ? throw FormatFault::pcre() : $parts as $part) {
             $inert[] = self::line($part);
         }
 
@@ -75,7 +76,7 @@ final readonly class Inert
 
     private static function line(string $line): string
     {
-        $anywhere = preg_replace(self::ANYWHERE, '##$1 [', $line) ?? '';
+        $anywhere = preg_replace(self::ANYWHERE, '##$1 [', $line) ?? throw FormatFault::pcre();
 
         return preg_replace(self::COMMAND, '$1\\\\::', $anywhere) ?? $anywhere;
     }

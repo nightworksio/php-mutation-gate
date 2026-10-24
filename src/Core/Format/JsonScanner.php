@@ -68,7 +68,7 @@ final readonly class JsonScanner
             $keyEnd = $this->stringEnd($at);
             $value = $this->value($this->skipped($this->skipped($keyEnd) + 1));
             $key = json_decode(implode('', array_slice($this->chars, $at, $keyEnd - $at)));
-            $members[] = JsonMember::of(is_string($key) ? $key : '', $at, $keyEnd, $value);
+            $members[] = JsonMember::of(is_string($key) ? $key : throw FormatFault::jsonKey(), $at, $keyEnd, $value);
             $at = $this->next($value->end);
         }
 
