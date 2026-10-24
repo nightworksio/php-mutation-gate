@@ -33,7 +33,7 @@ function recordedLines(string $results): array
 it('records a test as it starts, and as it finishes how it ended: failed, errored, passed, or neither', function (Closure $ending, string $recorded): void {
     $results = sprintf('%s/results.txt', Scratch::directory());
     $events = new Facade();
-    Recorder::listening($results, Extending::over($events), new IssueKillers());
+    Recorder::listening($results, Extending::over($events), IssueKillers::ofThisRun());
 
     PhpUnitEvents::started($events);
     $ending($events);
@@ -56,7 +56,7 @@ it('records a test as it starts, and as it finishes how it ended: failed, errore
 it('records a test skipped or marked incomplete as ended, whether or not it finishes', function (Closure $setAside): void {
     $results = sprintf('%s/results.txt', Scratch::directory());
     $events = new Facade();
-    Recorder::listening($results, Extending::over($events), new IssueKillers());
+    Recorder::listening($results, Extending::over($events), IssueKillers::ofThisRun());
 
     PhpUnitEvents::started($events);
     $setAside($events);
@@ -74,7 +74,7 @@ it('records a test skipped or marked incomplete as ended, whether or not it fini
 it('records every test of a suite skipped whole as ended, though none of them started', function (): void {
     $results = sprintf('%s/results.txt', Scratch::directory());
     $events = new Facade();
-    Recorder::listening($results, Extending::over($events), new IssueKillers());
+    Recorder::listening($results, Extending::over($events), IssueKillers::ofThisRun());
 
     PhpUnitEvents::suiteSkipped($events, PhpUnitEvents::test(TestCase::class, 'first'), PhpUnitEvents::test(TestCase::class, 'second'));
 
@@ -85,7 +85,7 @@ it('records every test of a suite skipped whole as ended, though none of them st
 it('records a class whose setUpBeforeClass errored or failed', function (Closure $ended): void {
     $results = sprintf('%s/results.txt', Scratch::directory());
     $events = new Facade();
-    Recorder::listening($results, Extending::over($events), new IssueKillers());
+    Recorder::listening($results, Extending::over($events), IssueKillers::ofThisRun());
 
     $ended($events);
 
@@ -102,7 +102,7 @@ it('records a class whose setUpBeforeClass errored or failed', function (Closure
 it('writes no test\'s outcome against the next test to start', function (): void {
     $results = sprintf('%s/results.txt', Scratch::directory());
     $events = new Facade();
-    Recorder::listening($results, Extending::over($events), new IssueKillers());
+    Recorder::listening($results, Extending::over($events), IssueKillers::ofThisRun());
 
     PhpUnitEvents::errored($events);
     PhpUnitEvents::started($events);
@@ -122,9 +122,9 @@ it('records nothing where no results file is named, or PHPUnit takes no more sub
     $sealed->seal();
     $results = sprintf('%s/results.txt', Scratch::directory());
 
-    Recorder::listening(results: false, events: Extending::over(new Facade()), issues: new IssueKillers());
-    Recorder::listening('', Extending::over(new Facade()), new IssueKillers());
-    Recorder::listening($results, Extending::over($sealed), new IssueKillers());
+    Recorder::listening(results: false, events: Extending::over(new Facade()), issues: IssueKillers::ofThisRun());
+    Recorder::listening('', Extending::over(new Facade()), IssueKillers::ofThisRun());
+    Recorder::listening($results, Extending::over($sealed), IssueKillers::ofThisRun());
 
     expect(is_file($results))->toBeFalse();
 });

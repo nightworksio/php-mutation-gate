@@ -22,7 +22,7 @@ it('writes how many tests a mutant\'s own process ran to its killer file once PH
     $results = sprintf('%s/results.jsonl', Scratch::directory());
     $killers = KillerFile::beside($results, '/tmp/mutations/abc');
     $events = new Facade();
-    Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: new IssueKillers());
+    Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: IssueKillers::ofThisRun());
 
     PhpUnitEvents::finished($events);
     PhpUnitEvents::finished($events);
@@ -37,7 +37,7 @@ it('writes how many tests a mutant\'s own process ran to its killer file once PH
 it('writes that a run its filter selected no test for ran none', function (): void {
     $results = sprintf('%s/results.jsonl', Scratch::directory());
     $events = new Facade();
-    Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: new IssueKillers());
+    Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: IssueKillers::ofThisRun());
 
     PhpUnitEvents::executionFinished($events);
 

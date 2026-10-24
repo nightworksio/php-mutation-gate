@@ -21,7 +21,7 @@ afterEach(function (): void {
 it('names a test that errored in a mutant\'s own process, by its id', function (): void {
     $results = sprintf('%s/results.jsonl', Scratch::directory());
     $events = new Facade();
-    Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: new IssueKillers());
+    Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: IssueKillers::ofThisRun());
 
     PhpUnitEvents::errored($events);
 

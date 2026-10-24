@@ -29,7 +29,7 @@ it('beats once as a mutant\'s own process begins its tests, and once as each fin
         original: false,
         loaded: Loaded::of([]),
         heartbeat: $beats->heartbeat(),
-        issues: new IssueKillers(),
+        issues: IssueKillers::ofThisRun(),
     );
 
     PhpUnitEvents::executionStarted($events);

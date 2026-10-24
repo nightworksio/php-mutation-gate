@@ -26,7 +26,7 @@ final readonly class PestPlugin implements Bootable, HandlesArguments
 
     public function __construct()
     {
-        $this->plugin = new Plugin(static fn(): RunIssues => new IssueKillers());
+        $this->plugin = new Plugin(static fn(): RunIssues => IssueKillers::ofThisRun());
     }
 
     public function boot(): void

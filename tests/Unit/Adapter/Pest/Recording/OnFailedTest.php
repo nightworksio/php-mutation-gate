@@ -23,7 +23,7 @@ afterEach(function (): void {
 it('names a test that failed in a mutant\'s own process, by its id', function (): void {
     $results = sprintf('%s/results.jsonl', Scratch::directory());
     $events = new Facade();
-    Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: new IssueKillers());
+    Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: IssueKillers::ofThisRun());
 
     PhpUnitEvents::failed($events);
 
@@ -39,7 +39,7 @@ it('names a test that failed in a mutant\'s own process, by its id', function ()
 it('places a test that failed at how many tests its process had started, with the digest of their order', function (): void {
     $results = sprintf('%s/results.jsonl', Scratch::directory());
     $events = new Facade();
-    Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: new IssueKillers());
+    Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: IssueKillers::ofThisRun());
 
     PhpUnitEvents::started($events);
     PhpUnitEvents::failed($events);

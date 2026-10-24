@@ -34,17 +34,17 @@ afterEach(function (): void {
 });
 
 it('names no killer unless the adapter names a results file and Pest a mutated copy', function (): void {
-    expect(Killers::listening(results: false, mutated: '/tmp/m', events: new Facade(), original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: new IssueKillers()))->toBe(Off::NamingKillers)
-        ->and(Killers::listening('', '/tmp/m', new Facade(), original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: new IssueKillers()))->toBe(Off::NamingKillers)
-        ->and(Killers::listening('/r/results.jsonl', mutated: false, events: new Facade(), original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: new IssueKillers()))->toBe(Off::NamingKillers)
-        ->and(Killers::listening('/r/results.jsonl', '', new Facade(), original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: new IssueKillers()))->toBe(Off::NamingKillers)
-        ->and(Killers::fromEnvironment([], new IssueKillers()))->toBe(Off::NamingKillers);
+    expect(Killers::listening(results: false, mutated: '/tmp/m', events: new Facade(), original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: IssueKillers::ofThisRun()))->toBe(Off::NamingKillers)
+        ->and(Killers::listening('', '/tmp/m', new Facade(), original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: IssueKillers::ofThisRun()))->toBe(Off::NamingKillers)
+        ->and(Killers::listening('/r/results.jsonl', mutated: false, events: new Facade(), original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: IssueKillers::ofThisRun()))->toBe(Off::NamingKillers)
+        ->and(Killers::listening('/r/results.jsonl', '', new Facade(), original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: IssueKillers::ofThisRun()))->toBe(Off::NamingKillers)
+        ->and(Killers::fromEnvironment([], IssueKillers::ofThisRun()))->toBe(Off::NamingKillers);
 });
 
 it('names no killer where PHPUnit takes no more subscribers, and ends without naming one', function (): void {
     $sealed = new Facade();
     $sealed->seal();
-    $killers = Killers::listening('/r/results.jsonl', '/tmp/m', $sealed, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: new IssueKillers());
+    $killers = Killers::listening('/r/results.jsonl', '/tmp/m', $sealed, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: IssueKillers::ofThisRun());
 
     expect($killers)->toBe(Off::NamingKillers)
         ->and(static fn() => Killers::endedIn($killers))->not->toThrow(EndedInTest::class);
@@ -52,7 +52,7 @@ it('names no killer where PHPUnit takes no more subscribers, and ends without na
 
 it('writes each killer as a line of its own in the file of the mutated copy it ran on, and none in the results', function (): void {
     $results = sprintf('%s/results.jsonl', Scratch::directory());
-    $killers = Killers::listening($results, '/tmp/mutations/abc', new Facade(), original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: new IssueKillers());
+    $killers = Killers::listening($results, '/tmp/mutations/abc', new Facade(), original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: IssueKillers::ofThisRun());
 
     if ($killers instanceof Killers) {
         $killers->killedBy('P\Tests\MoneySpec::__pest_evaluable_it_adds');
@@ -73,9 +73,9 @@ it('writes first that its process had loaded the original before the override, b
     $results = sprintf('%s/results.jsonl', $directory);
     $clean = sprintf('%s/clean.jsonl', $directory);
 
-    $killers = Killers::listening($results, '/tmp/mutations/abc', new Facade(), sprintf('%s/./src/Money.php', $directory), Loaded::of([$original]), new Beats()->heartbeat(), new IssueKillers());
-    Killers::listening($clean, '/tmp/mutations/abc', new Facade(), $original, Loaded::of(['/p/src/Other.php']), new Beats()->heartbeat(), new IssueKillers());
-    Killers::listening($clean, '/tmp/mutations/abc', new Facade(), original: false, loaded: Loaded::of([$original]), heartbeat: new Beats()->heartbeat(), issues: new IssueKillers());
+    $killers = Killers::listening($results, '/tmp/mutations/abc', new Facade(), sprintf('%s/./src/Money.php', $directory), Loaded::of([$original]), new Beats()->heartbeat(), IssueKillers::ofThisRun());
+    Killers::listening($clean, '/tmp/mutations/abc', new Facade(), $original, Loaded::of(['/p/src/Other.php']), new Beats()->heartbeat(), IssueKillers::ofThisRun());
+    Killers::listening($clean, '/tmp/mutations/abc', new Facade(), original: false, loaded: Loaded::of([$original]), heartbeat: new Beats()->heartbeat(), issues: IssueKillers::ofThisRun());
 
     if ($killers instanceof Killers) {
         $killers->killedBy('T::adds');
@@ -89,7 +89,7 @@ it('writes first that its process had loaded the original before the override, b
 
 it('writes a test that errored apart from one that failed, in the file of the mutated copy it ran on', function (): void {
     $results = sprintf('%s/results.jsonl', Scratch::directory());
-    $killers = Killers::listening($results, '/tmp/mutations/abc', new Facade(), original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: new IssueKillers());
+    $killers = Killers::listening($results, '/tmp/mutations/abc', new Facade(), original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: IssueKillers::ofThisRun());
 
     if ($killers instanceof Killers) {
         $killers->erroredBy('T::adds');
@@ -107,7 +107,7 @@ it('logs its process\'s errors to the mutant\'s own file, emptied of what an ear
     $log = Recorder::errorsBeside($results, '/tmp/mutations/abc');
     file_put_contents($log, "an earlier run's error\n");
 
-    Killers::listening($results, '/tmp/mutations/abc', new Facade(), original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: new IssueKillers());
+    Killers::listening($results, '/tmp/mutations/abc', new Facade(), original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: IssueKillers::ofThisRun());
     error_log('logged now');
 
     expect((string) file_get_contents($log))->toContain('logged now')
@@ -120,7 +120,7 @@ it('logs nothing to a mutant\'s log it cannot empty', function (): void {
     chmod($directory, 0o555);
 
     try {
-        Killers::listening($results, '/tmp/mutations/abc', new Facade(), original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: new IssueKillers());
+        Killers::listening($results, '/tmp/mutations/abc', new Facade(), original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: IssueKillers::ofThisRun());
         $logged = ini_get('error_log');
     } finally {
         chmod($directory, 0o755);
@@ -153,7 +153,7 @@ it('names as killers, once PHPUnit ends its run, the tests whose issues failed i
 it('names the test running as its process ends as one that errored, where it stood, and throws', function (): void {
     $results = sprintf('%s/results.jsonl', Scratch::directory());
     $events = new Facade();
-    $killers = Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: new IssueKillers());
+    $killers = Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: IssueKillers::ofThisRun());
     $test = PhpUnitEvents::runningId();
 
     PhpUnitEvents::started($events);
@@ -173,7 +173,7 @@ it('names the test running as its process ends as one that errored, where it sto
 it('names no test where its process ends between tests, once a test was named a killer, or once the run ended', function (Closure $then): void {
     $results = sprintf('%s/results.jsonl', Scratch::directory());
     $events = new Facade();
-    $killers = Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: new IssueKillers());
+    $killers = Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: IssueKillers::ofThisRun());
 
     $ended = static function () use ($killers): void {
         Killers::endedIn($killers);

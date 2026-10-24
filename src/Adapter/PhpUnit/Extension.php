@@ -28,7 +28,7 @@ final readonly class Extension implements PhpUnitExtension
 {
     public function bootstrap(Configuration $configuration, Facade $facade, ParameterCollection $parameters): void
     {
-        Recorder::listening(getenv(Variable::Results->value), $facade, new IssueKillers());
+        Recorder::listening(getenv(Variable::Results->value), $facade, IssueKillers::ofThisRun());
         self::noting(getenv(Variable::Guard->value), Opcache::ofCommandLine(ini_get(Opcache::CLI)));
     }
 

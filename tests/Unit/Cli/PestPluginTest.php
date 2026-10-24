@@ -19,7 +19,7 @@ it('is the Pest plugin Pest boots and hands arguments, handling them as the Pest
     expect(new PestPlugin())->toBeInstanceOf(Bootable::class)
         ->and(new PestPlugin())->toBeInstanceOf(HandlesArguments::class)
         ->and(new PestPlugin()->handleArguments($arguments))
-        ->toBe(new Plugin(static fn(): RunIssues => new IssueKillers())->handleArguments($arguments));
+        ->toBe(new Plugin(static fn(): RunIssues => IssueKillers::ofThisRun())->handleArguments($arguments));
 });
 
 it('boots the Pest adapter\'s plugin as Pest boots it, loading the bridges a run names', function (): void {

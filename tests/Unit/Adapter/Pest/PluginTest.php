@@ -22,7 +22,7 @@ use NightWorksIO\MutationGate\Tests\Support\Tree;
 /** The Pest adapter's plugin, reading issues as the plugin this package lists hands it the reader. */
 function pestPlugin(): Plugin
 {
-    return new Plugin(static fn(): RunIssues => new IssueKillers());
+    return new Plugin(static fn(): RunIssues => IssueKillers::ofThisRun());
 }
 
 /**
