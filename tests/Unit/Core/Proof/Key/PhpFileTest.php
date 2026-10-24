@@ -121,3 +121,11 @@ it('says whether it declares a class named in full, by the class\'s last segment
         ->and($file->declaresAnyOf('Acme\\PlusToMinusToo'))->toBeFalse()
         ->and($file->declaresAnyOf())->toBeFalse();
 });
+
+it('says whether its code names one of some names, by its last segment, in any case, and not in a comment or a string', function () use ($read): void {
+    $file = $read("<?php\n// glob\n\$a = 'scandir';\n\\Symfony\\Component\\Finder\\FINDER::create();\nfile_get_contents(\$a);\n");
+
+    expect($file->codeMentionsAnyOf('finder'))->toBeTrue()
+        ->and($file->codeMentionsAnyOf('readfile', 'file_get_contents'))->toBeTrue()
+        ->and($file->codeMentionsAnyOf('glob', 'scandir', '', '$a'))->toBeFalse();
+});

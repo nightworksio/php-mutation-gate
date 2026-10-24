@@ -77,6 +77,7 @@ use NightWorksIO\MutationGate\Core\Proof\Key\ContentKeys;
 use NightWorksIO\MutationGate\Core\Proof\Key\Exceptions;
 use NightWorksIO\MutationGate\Core\Proof\Key\Ignored;
 use NightWorksIO\MutationGate\Core\Proof\Key\Source;
+use NightWorksIO\MutationGate\Core\Proof\Key\SourceReach;
 use NightWorksIO\MutationGate\Core\Proof\Key\TestFiles;
 use NightWorksIO\MutationGate\Core\Proof\Key\Tests;
 use NightWorksIO\MutationGate\Core\Proof\Proof;
@@ -521,6 +522,7 @@ function wiringDigestsWith(AnalyserIdentity|NoAnalyser|CannotJudge $analyser): D
             Exceptions::of(Path::of('mutation-gate.json'), Path::of('mutation-gate.baseline.json'), Ignored::nothing(), Paths::none()),
         ),
         Tests::of(TestFiles::of(), Paths::none(), Paths::none()),
+        SourceReach::nothing(),
     )->digestsOf(Units::of(Unit::file(Path::of('src/Money.php'))));
 }
 

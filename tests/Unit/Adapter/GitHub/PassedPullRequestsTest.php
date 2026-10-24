@@ -166,6 +166,22 @@ it('reads only what is uncommitted when every commit since the base is the tree 
     expect($proved->changesSince(Revision::ref('base')))->toEqual($uncommitted());
 });
 
+it('asks GitHub to compare a base and a head whose names it has to have encoded', function () use ($uncommitted): void {
+    $source = Checkout::of(
+        new ChangeSourceFake(
+            Revision::ref('head#2'),
+            $uncommitted(),
+            ['base#1' => ['src/Money.php' => 'base'], Revision::workingTree()->name() => ['src/Money.php' => 'disk']],
+        ),
+        RepositoryFake::onMain(Revision::ref('head#2')),
+    );
+    $answers = provedCommits(['one']);
+    $answers[sprintf('%s/compare/base%%231...head%%232', PULL_REQUESTS_API)] = $answers[sprintf('%s/compare/base...head', PULL_REQUESTS_API)];
+    $proved = trusting($source, answering($answers), passedLedgers(['one']), [...PULL_REQUESTS_RUN, 'GITHUB_SHA' => 'head#2']);
+
+    expect($proved->changesSince(Revision::ref('base#1')))->toEqual($uncommitted());
+});
+
 it('takes the latest run of the check, wherever GitHub lists it, over an earlier one that failed and any other check', function () use ($source, $uncommitted): void {
     $rerun = [
         ...provedCommits(['one']),

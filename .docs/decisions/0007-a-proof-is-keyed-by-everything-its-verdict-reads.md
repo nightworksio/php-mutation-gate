@@ -57,7 +57,7 @@ has to bring its result with it.
    adding an ignore re-runs nothing.
 
 2. **The content key is a SHA-256 over all of the following, in this order.**
-   1. **The key's format**, `mutation-gate proof 6`. It changes whenever what
+   1. **The key's format**, `mutation-gate proof 7`. It changes whenever what
       the key means changes, so an older proof is never read as a newer one.
       Format 2 moved the test files every key reads into the base (items 7
       and 8), in the same change as ledger format 2, so the one
@@ -69,7 +69,9 @@ has to bring its result with it.
       tests once, as the paragraph after item 9 says. Format 6 puts every
       set of packages and paths a key reads in byte order, where PHP's default
       comparison put numeric-looking paths in an order that hung on the
-      order they came in.
+      order they came in. Format 7 leaves out of item 6 the PHP files a
+      coverage map shows some test executed, and reads those a unit
+      reaches in item 10.
    2. **The gate**: its installed version and source reference.
    3. **The configuration** as it affects results: the effective config after
       presets, serialised canonically, with the settings that only judge or
@@ -131,14 +133,21 @@ has to bring its result with it.
    5. **What is installed**: the digest of `vendor/composer/installed.json`. It
       catches a dependency installed differently from the lock. The lock itself
       is in the next item.
-   6. **Every file in the repository outside the test directories**, by the git
-      blob id of its content as it is on disk. That means tracked files and
-      untracked files git does not ignore. It includes source, `composer.json`,
-      `composer.lock`, the PHPUnit config, the files that define the runner
-      (ADR-0004), templates, translations and documentation. A file a tree
+   6. **Every file in the repository outside the test directories that no
+      coverage map shows run**, by the git blob id of its content as it is on
+      disk. That means tracked files and untracked files git does not ignore.
+      It includes `composer.json`, `composer.lock`, the PHPUnit config, the
+      files that define the runner (ADR-0004), every other config, templates,
+      translations, data and documentation, every PHP file outside the
+      coverage the runner collects, such as a Symfony `config/*.php`, and
+      every PHP file no test executed, a new one among them. A file a tree
       holds is source here even where the PHPUnit config keeps its tests
-      beside it, unless it is a file of test cases. Five exceptions,
-      none of which ever leaves out a file that defines the runner:
+      beside it, unless it is a file of test cases. So a change to any of
+      these, as to items 2 to 5, among them the PHP the runner runs on and
+      its extensions, resets every key. The PHP files the map shows some
+      test executed are left out here and read unit by unit in item 10; a
+      file that defines the runner never is. Five exceptions, none of which
+      ever leaves out a file that defines the runner:
       - **The gate's config file** is left out, because item 3 already holds
         what of it affects results. Each `composer.json` is hashed with its
         `extra.mutation-gate` entry removed, for the same reason.
@@ -192,6 +201,36 @@ has to bring its result with it.
       those covering its owners' files, for the fallback. If the tests
       covering a line change, the unit is judged again even when no file
       changed.
+   10. **The files outside the test directories the unit reaches**, of those
+      item 6 leaves out, each by its digest: its own file; the files its
+      covering tests executed, as the map shows them; every file those, its
+      own file, the test files item 8 reads for it and the test files item 7
+      reads name, through the project's name graph, as ADR-0023 keys a
+      coverage entry; and every file a file named so names in its
+      declarations, its bodies left out, transitively. A body acts only
+      where it runs, and the map shows where it runs, so a file the unit's
+      tests never ran acts on them through its declarations alone: a
+      constant, a default, an attribute, a parent. A file a test includes by
+      a path it builds runs, so the map shows it, or it lies outside the
+      coverage and item 6 reads it.
+
+      Where what the unit reaches cannot be traced, item 10 reads every file
+      the map shows run, and the key fails closed to format 6's reading:
+      - for a held unit, since any test can join its group;
+      - for a unit no test covers, whose tests the map does not show;
+      - where the code of a test file item 10 would read names a function or
+        class that reads a file or lists a directory without running it,
+        such as `file_get_contents`, `glob` or Symfony's `Finder`, since the
+        test can read a source no map or name shows.
+
+      Where the name graph cannot be read, item 6 keeps every file and item
+      10 reads none, and where there is no map there is no key at all. So a
+      change to a source no covering test of the unit executes, and that
+      nothing it reaches names, keeps its proof; a change to a file it
+      executes or names resets it. What no map, name or reader shows is not
+      read: a test that only reflects on a class it finds by scanning,
+      through a reader no test file names, never running a line of the
+      class nor naming it, does not reach the class's file.
 
    Items 1 to 7 are the same for every unit of a run. They are the run's
    **base**: hashed once, and its digest recorded with every proof the run
@@ -199,8 +238,10 @@ has to bring its result with it.
 
    A unit's key is the SHA-256 of these fields, each written as its length in
    bytes, a colon, the field and a line break: the format, the base's digest,
-   the digest of what item 8 reads for the unit's judging test files,
-   `unit`, the unit's path, what holds it, the number of its covered lines,
+   the digest of what item 8 reads for the unit's judging test files, the
+   digest of what item 10 reads, which is the SHA-256 of `reached`, the
+   number of files and each file's path and digest framed alike, in byte
+   order, `unit`, the unit's path, what holds it, the number of its covered lines,
    and then for each covered line, in ascending order, its number and the
    digest of the set of tests that cover it. A set's digest is the SHA-256 of
    its size and its test ids, framed alike, the ids in byte order. Each set
@@ -538,7 +579,8 @@ has to bring its result with it.
 
 | Option | Why it lost |
 |--------|-------------|
-| **Key over the files the covering tests executed** (the in-house gate's key) | Misses what no coverage map records: constants, defaults, attributes read by reflection, classes found by scanning. The key can then match while the result it names has changed. |
+| **Key over the files the covering tests executed, alone** (the in-house gate's key) | Misses what no coverage map records: constants, defaults and attributes read through a name. Item 10 adds every file those executed files and the unit's test files name, and item 6 keeps every file no map shows run. A class found by scanning and only reflected on is still not read. |
+| **Every file outside the test directories in every key** (format 6) | Strict, and no proof survives a source change anywhere in the repository, though most units' tests neither run nor name the changed file. |
 | **One proof per shard** (the in-house gate's) | A shard's contents move with every timing (ADR-0006), and one changed file in it invalidates the whole shard. |
 | **Only *passed* in a proof** | Enough at a floor of 100. Below it, a tree's score needs every unit's counts. |
 | **Floors or ignores in the key** | Raising a floor or adding an ignore would re-run every unit, though no mutant's result depends on either. |
@@ -550,12 +592,17 @@ has to bring its result with it.
 
 ## Consequences
 
-**The key is strict, and its hit rate is the price.** A source change anywhere
-in the repository invalidates every proof, because any file might be read by
-any test. Proofs pay for themselves on:
+**The key is narrowed to what each unit reaches, and guarded by what no map
+shows.** A change to a source invalidates the proofs of the units whose
+covering tests executed it or that reach it by name, and no other. A change to
+anything no map shows run, a config, an autoload or Composer file, a fixture
+of the tests, a PHP file no test executed, or the PHP and its extensions,
+invalidates every proof. Proofs pay for themselves on:
 
 - retried and re-run jobs;
 - re-runs of unchanged code;
+- source changes elsewhere, for the units whose tests neither run nor name
+  the changed files;
 - test-only changes elsewhere, except for held units and for units whose
   values ADR-0004 judges by reference, whose keys hold every test file;
 - the scheduled full run, which re-mutates only what moved since the last one.

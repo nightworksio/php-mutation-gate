@@ -107,6 +107,25 @@ final readonly class Tests
         return Paths::of(...$read);
     }
 
+    /**
+     * Whether the code of one of these files names a function or class that
+     * reads a file or lists a directory (see FileReader), so the tests it
+     * holds can read a source no map shows them run.
+     */
+    public function readFiles(Paths $files): bool
+    {
+        $readers = FileReader::names();
+
+        foreach ($files as $path) {
+            if (array_key_exists($path->value(), $this->files)
+                && $this->files[$path->value()]->php()->codeMentionsAnyOf(...$readers)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function digestOf(Path $path): Digest|Missing
     {
         return array_key_exists($path->value(), $this->files)
