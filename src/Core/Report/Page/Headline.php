@@ -14,10 +14,7 @@ use function sprintf;
 
 /**
  * The top of the HTML report: the verdict, a plain sentence on what mutation
- * testing is, why, and what to do. What decides a verdict comes first: what
- * kept the run from judging, each set below its floor, as every report says
- * it, and each failure no floor decides. A verdict nothing failed says the
- * project's score. What to do is the JSON report's `next`.
+ * testing is, why, and what to do, the JSON report's `why` and `next`.
  *
  * @phpstan-import-type Report from JsonReport
  */

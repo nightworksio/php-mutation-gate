@@ -256,7 +256,6 @@ final readonly class Change
         return $differ === [] ? count($one) : $differ[0];
     }
 
-    /** The original's code from one token to before another, as it is written. */
     /**
      * Code from the first of some of its tokens to the last, as it is spelt.
      *
