@@ -423,3 +423,16 @@ it('names the first 25 survivors and the 8 files with the most, the rest in the 
     'exactly as many as it names' => [25, 0],
     'one more' => [26, 1],
 ]);
+
+it('shows every control, separator and format character a project wrote as an escape, the data the script makes so too, so none reorders what the reader sees', function (): void {
+    $hostile = JudgedMutant::of(
+        Verdicts::mutant("src/\u{202e}php.txt\e[31m.php:3", 'Plus', MutatorFamily::Arithmetic, Verdicts::diff('$a + 1;', '$a - 1;')),
+        MutantJudgement::Survived,
+    );
+    $page = pageOf(Verdicts::of(Floor::of(80), $hostile));
+    $shown = str_replace(pageData($page), '', $page);
+
+    expect($page)->toContain('<code>src/\u{202e}php.txt\u{001b}[31m.php:3</code>')
+        ->and($shown)->not->toContain("\u{202e}")
+        ->and($shown)->not->toContain("\e");
+});

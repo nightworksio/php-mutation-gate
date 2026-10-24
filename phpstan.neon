@@ -320,6 +320,10 @@ services:
                     - Floor # the guide's section on a floor, not a manifest's key
                 'NightWorksIO\MutationGate\Core\Report\Digest\MutantDetail':
                     - TESTS # covering tests a mutant's detail names, not a ranking's top
+                    - DIFF_LINE # a diff line set in below the digest's, not a found tree's list item
+                    - DIFF # the word that opens a mutant's diff in its detail, not a record's field
+                'NightWorksIO\MutationGate\Core\Format\ShortEscape':
+                    - Backslash # the character visible text escapes, not a namespace's separator
                 'NightWorksIO\MutationGate\Core\Report\Digest\Scores':
                     - KINDS # what the digest calls each list of sets, not a gate method or a doomed unit
                 'NightWorksIO\MutationGate\Core\Config\BuiltinReporter':

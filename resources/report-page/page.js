@@ -22,6 +22,12 @@
   let mode = 'lines';
   let current = -1;
 
+  const UNSAFE = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u00ad\u061c\u180e\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff\ufff9-\ufffb]/g;
+
+  function inert(text) {
+    return text.replace(UNSAFE, (found) => '\\u{' + found.charCodeAt(0).toString(16).padStart(4, '0') + '}');
+  }
+
   function element(tag, className, text) {
     const made = document.createElement(tag);
 
@@ -30,7 +36,7 @@
     }
 
     if (text !== undefined) {
-      made.textContent = text;
+      made.textContent = inert(String(text));
     }
 
     return made;
@@ -39,7 +45,7 @@
   function prose(className, text) {
     const said = element('p', className);
     text.split('`').forEach((part, at) => {
-      said.appendChild(at % 2 === 1 ? element('code', '', part) : document.createTextNode(part));
+      said.appendChild(at % 2 === 1 ? element('code', '', part) : document.createTextNode(inert(part)));
     });
 
     return said;
@@ -161,7 +167,7 @@
     head.appendChild(tag(mutant.outcome));
     head.appendChild(element('strong', '', 'line ' + mutant.line));
     const mutator = element('span', 'mutator', mutant.mutator.slice(mutant.mutator.lastIndexOf('\\') + 1));
-    mutator.title = mutant.mutator;
+    mutator.title = inert(mutant.mutator);
     head.appendChild(mutator);
     head.appendChild(element('span', 'judgement', mutant.judgement));
 

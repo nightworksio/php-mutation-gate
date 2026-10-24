@@ -338,7 +338,10 @@ sees the same verdict.
      or a reason is set as text: escaped in the page, and in the page's
      data, which is JSON in its own script element with every `<`, `>` and
      `&` escaped, read with `JSON.parse` and set as text by the script.
-     Nothing a project writes can end an element or run.
+     Nothing a project writes can end an element or run. Every control,
+     separator and format character in it, a bidirectional override among
+     them, is shown as an escape, by the page and by its script, so none
+     reorders what the reader sees.
    - **It reads light and dark**, as the reader's system prefers, and at
      phone width.
    - **The Stryker report.** In `mutation-report.json` (`schemaVersion` 2,
@@ -392,6 +395,13 @@ sees the same verdict.
      a cluster, each member as the overview lists it, with its `stub`
      command; or `legend`, what each word the reports use means. A target
      the run does not hold exits 2.
+   - **Nothing the code under test wrote can forge a line.** Each value a
+     report took from the project, a path, a change, a hint, a test's id, a
+     warning, is written on one line with a backslash and every control,
+     line or paragraph separator and format character as a visible escape,
+     `\n` or `\u{202e}`, so no value ends its line, starts one an agent
+     would read as the gate's, or acts on a terminal. A mutant's diff is set
+     in by two spaces below its `diff` line.
    - **Where it is read.** `mutation-gate digest` renders the JSON report
      every verdict keeps at `.mutation-gate/report.json`, running nothing.
      The `digest` reporter writes the overview to its `path`; the action

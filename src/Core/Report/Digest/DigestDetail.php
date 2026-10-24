@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\Cluster\ClusterId;
 use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Format\Visible;
 use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
 
 use function sprintf;
@@ -59,7 +60,7 @@ final readonly class DigestDetail
     /** Why a target names nothing the last run holds. */
     public static function nothing(string $target): CannotJudge
     {
-        return CannotJudge::because(Fit::plain(sprintf(self::NOTHING, $target)));
+        return CannotJudge::because(Fit::plain(sprintf(self::NOTHING, Visible::line($target))));
     }
 
     /**

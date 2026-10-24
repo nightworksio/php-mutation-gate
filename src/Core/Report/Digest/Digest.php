@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report\Digest;
 
-use function explode;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Format\Visible;
 use NightWorksIO\MutationGate\Core\Report\Outcome;
 use NightWorksIO\MutationGate\Core\Report\SurvivorOrder;
 use NightWorksIO\MutationGate\Core\Report\Term;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 
 use function sprintf;
 
@@ -54,6 +55,9 @@ final readonly class Digest
 
     private const string TERM = '? %s: %s';
 
+    /** What a report's `uncovered` must be. */
+    private const string UNCOVERED = 'count or exclude';
+
     /** @throws NotInShape */
     public static function overview(Node $report, SurvivorsShown $shown): string
     {
@@ -62,7 +66,7 @@ final readonly class Digest
         return self::lines([
             sprintf(
                 self::VERDICT,
-                $report->field('judgement')->text(),
+                Visible::line($report->field('judgement')->text()),
                 Scores::percent($report->field('score')),
                 $report->field('sample')->isPresent() ? self::SAMPLED : '',
                 $report->field('cutShort')->boolean() ? self::CUT_SHORT : '',
@@ -100,7 +104,10 @@ final readonly class Digest
         $judged = [];
 
         foreach ($counts->entries() as $judgement => $number) {
-            $judged[sprintf('%s', $judgement)] = $number->integer();
+            $named = sprintf('%s', $judgement);
+            $judged[MutantJudgement::tryFrom($named) instanceof MutantJudgement
+                ? $named
+                : throw NotInShape::at($number->at(), DigestMutant::JUDGEMENT)] = $number->integer();
         }
 
         return sprintf(self::COUNTS, self::outcomes($judged));
@@ -141,7 +148,7 @@ final readonly class Digest
             $file = $mutant->file();
 
             if ($file !== $last) {
-                $lines[] = sprintf(self::FILE, $file);
+                $lines[] = sprintf(self::FILE, Visible::line($file));
             }
 
             $lines[] = $mutant->said();
@@ -152,8 +159,9 @@ final readonly class Digest
     }
 
     /**
-     * Lines as the digest writes them, each one line of text with every control and format character dropped, so
-     * nothing a project wrote can colour a terminal or reorder what an agent reads.
+     * Lines as the digest writes them. Each value a report took from the code under test is already one inert line
+     * (see Visible), so no value ends its line or starts one an agent would take for the gate's; any control or
+     * format character a line still holds is dropped.
      *
      * @param list<string> $lines
      */
@@ -161,7 +169,7 @@ final readonly class Digest
     {
         $written = [];
 
-        foreach (explode("\n", implode("\n", $lines)) as $line) {
+        foreach ($lines as $line) {
             $written[] = Fit::verbatim($line);
         }
 
@@ -177,7 +185,8 @@ final readonly class Digest
      */
     private static function survivors(Node $report): array
     {
-        $uncovered = Uncovered::from($report->field('uncovered')->text());
+        $field = $report->field('uncovered');
+        $uncovered = Uncovered::tryFrom($field->text()) ?? throw NotInShape::at($field->at(), self::UNCOVERED);
         $survivors = [];
 
         foreach ($report->field('mutants')->items() as $entry) {
@@ -207,7 +216,7 @@ final readonly class Digest
         $lines = [];
 
         foreach ($texts->items() as $text) {
-            $lines[] = sprintf($line, Fit::plain($text->text()));
+            $lines[] = sprintf($line, Visible::line($text->text()));
         }
 
         return $lines;

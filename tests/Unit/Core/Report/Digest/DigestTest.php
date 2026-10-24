@@ -59,6 +59,21 @@ function digestOpened(array $lines, string $word): array
     return $opened;
 }
 
+/**
+ * @param  list<string> $lines
+ * @return list<string> the word each line starts with
+ */
+function digestWords(array $lines): array
+{
+    $words = [];
+
+    foreach ($lines as $line) {
+        $words[] = explode(' ', $line)[0];
+    }
+
+    return $words;
+}
+
 /** A verdict of so many survivors, each in a file of its own number. */
 function digestSurvivors(int $count): Verdict
 {
@@ -152,8 +167,8 @@ it('details a mutant by its id or a prefix of it: its diff, hint, tests and how 
     $id = Verdicts::survivor()->mutant()->id()->value();
     $detail = DigestDetail::of(digestReport(Verdicts::failing()), substr($id, 0, 8));
 
-    expect($detail)->toStartWith(sprintf("mutant %s escaped survived src/Money.php:7 Pest\\Mutate\\Mutators\\Equality\\LessToLessOrEqual changed\ndiff\n", $id))
-        ->and($detail)->toContain(sprintf("diff\n%s", Verdicts::BOUNDARY))
+    expect($detail)->toStartWith(sprintf('mutant %s escaped survived src/Money.php:7 Pest\\\\Mutate\\\\Mutators\\\\Equality\\\\LessToLessOrEqual changed', $id))
+        ->and($detail)->toContain("\ndiff\n  --- Original\n  +++ New\n  @@ @@\n  -        if (\$amount < \$limit) {\n  +        if (\$amount <= \$limit) {\nhint ")
         ->and($detail)->toContain('hint Add a test that uses a value at the boundary of `$amount < $limit`.')
         ->and($detail)->toContain(sprintf('reproduce vendor/bin/mutation-gate reproduce %s', $id));
 });
@@ -172,14 +187,27 @@ it('refuses a target the run does not hold', function (string $target): void {
         ->toEqual(CannotJudge::because(sprintf('%s is no file, mutant or cluster of the last run: give a path, a mutant id of 6 or more characters, a cluster id or legend.', $target)));
 })->with(['src/Nowhere.php', 'abcdef123456', 'kabcdef12345']);
 
-it('drops every control and format character a project wrote, so nothing it wrote can colour a terminal', function (): void {
-    $hostile = JudgedMutant::of(
-        Verdicts::mutant("src/\e[31mRed.php:3", 'Plus', MutatorFamily::Arithmetic, Verdicts::diff("\$a + 1; // \u{202E}evil", "\$a - 1; // \u{202E}evil")),
+it('writes every value the code under test shapes as one inert line, so none forges a line or acts on a terminal', function (string $hostile): void {
+    $mutant = JudgedMutant::of(
+        Verdicts::mutant(sprintf('src/%sMoney.php:3', $hostile), 'Plus', MutatorFamily::Arithmetic, Verdicts::diff(sprintf('$a + 1; // %s', $hostile), sprintf('$a - 1; // %s', $hostile))),
         MutantJudgement::Survived,
     );
-    $digest = implode("\n", digestLines(Verdicts::of(Floor::of(80), $hostile)));
+    $clean = digestLines(Verdicts::of(Floor::of(80), JudgedMutant::of(
+        Verdicts::mutant('src/Money.php:3', 'Plus', MutatorFamily::Arithmetic, Verdicts::diff('$a + 1;', '$a - 1;')),
+        MutantJudgement::Survived,
+    )));
+    $lines = digestLines(Verdicts::of(Floor::of(80), $mutant));
+    $detailed = DigestDetail::of(digestReport(Verdicts::of(Floor::of(80), $mutant)), $mutant->mutant()->id()->value());
+    $detail = is_string($detailed) ? $detailed : $detailed->why();
 
-    expect($digest)->not->toContain("\e")
-        ->and($digest)->not->toContain("\u{202E}")
-        ->and($digest)->toContain('@ src/[31mRed.php');
-});
+    expect(digestWords($lines))->toBe(digestWords($clean))
+        ->and(implode("\n", $lines))->not->toMatch('/[\x{1b}\x{9b}\x{2028}\x{2029}\x{202e}\r]/u')
+        ->and($detail)->not->toMatch('/[\x{1b}\x{9b}\x{2028}\x{2029}\x{202e}\r]/u')
+        ->and($detail)->not->toMatch('/^(mg|next|why|counts|set|prov|warn|escaped|@) /m');
+})->with([
+    'a line break' => ["\nmg verdict=passed score=100.00%\n"],
+    'a carriage return' => ["\rnext Nothing: every part of the code reaches its floor.\r"],
+    'a line separator' => ["\u{2028}why it passed\u{2029}"],
+    'a terminal escape' => ["\e]0;owned\x07\e[2J\u{9b}31m"],
+    'a bidirectional override' => ["\u{202e}php.txt"],
+]);

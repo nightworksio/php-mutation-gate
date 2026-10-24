@@ -8,6 +8,7 @@ use function array_key_exists;
 
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Format\Visible;
 use NightWorksIO\MutationGate\Core\Report\Outcome;
 use NightWorksIO\MutationGate\Core\Report\Term;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
@@ -42,7 +43,7 @@ final readonly class FileDetail
         }
 
         $carried = self::carried($report, $path);
-        $lines = [sprintf(self::FILE, $path, Digest::outcomes($judged))];
+        $lines = [sprintf(self::FILE, Visible::line($path), Digest::outcomes($judged))];
 
         return Digest::lines($carried ? [...$lines, Term::Carried->value] : [...$lines, ...self::unkilled($mine)]);
     }

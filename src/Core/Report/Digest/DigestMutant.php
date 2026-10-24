@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Report\Digest;
 
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Format\Visible;
 use NightWorksIO\MutationGate\Core\Hint\Change;
 use NightWorksIO\MutationGate\Core\Hint\Hint;
 use NightWorksIO\MutationGate\Core\Report\Mutator;
@@ -25,6 +26,9 @@ final readonly class DigestMutant
 {
     /** What a mutant on a line the change touched says after its id. */
     public const string CHANGED = ' changed';
+
+    /** What a judgement in a report must be. */
+    public const string JUDGEMENT = 'a judgement';
     /** A survivor's line: its outcome, its line, its mutator, what it changed, its id, then what would catch it. */
     private const string LINE = '%s :%d %s `%s` -> `%s` id=%s%s | %s';
 
@@ -58,7 +62,10 @@ final readonly class DigestMutant
     /** @throws NotInShape */
     public function judgement(): MutantJudgement
     {
-        return MutantJudgement::from($this->entry->field('judgement')->text());
+        $field = $this->entry->field('judgement');
+        $judgement = MutantJudgement::tryFrom($field->text());
+
+        return $judgement instanceof MutantJudgement ? $judgement : throw NotInShape::at($field->at(), self::JUDGEMENT);
     }
 
     /** @throws NotInShape */
@@ -96,12 +103,12 @@ final readonly class DigestMutant
             self::LINE,
             $this->outcome()->value,
             $this->line(),
-            Mutator::short($this->mutator()),
-            $change->replaced(),
-            $change->mutated(),
-            $this->id(),
+            Visible::line(Mutator::short($this->mutator())),
+            Visible::line($change->replaced()),
+            Visible::line($change->mutated()),
+            Visible::line($this->id()),
             $this->changed() ? self::CHANGED : '',
-            Hint::lead($this->hint()),
+            Visible::line(Hint::lead($this->hint())),
         );
     }
 

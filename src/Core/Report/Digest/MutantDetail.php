@@ -4,16 +4,20 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report\Digest;
 
+use function array_key_exists;
 use function array_slice;
 use function count;
+use function explode;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Format\Visible;
 use NightWorksIO\MutationGate\Core\Mutant\IdPrefix;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
 
+use function rtrim;
 use function sprintf;
 
 /**
@@ -29,11 +33,17 @@ final readonly class MutantDetail
 
     private const string MUTANT = 'mutant %s %s %s %s:%d %s%s';
 
-    private const string DIFF = "diff\n%s";
+    private const string DIFF = 'diff';
+
+    /** A line of a mutant's diff, set in below its `diff` line, so no line of it can start one of the digest's. */
+    private const string DIFF_LINE = '  %s';
 
     private const string COVERED = 'covered %d';
 
     private const string MORE_TESTS = 'more-tests %d';
+
+    /** Where a test a mutant points at would be in the report's list of tests, which holds none there. */
+    private const string TEST = 'tests[%d]';
 
     private const string SEVERAL = '%s names %d mutants of the last run: give more of its id.';
 
@@ -57,7 +67,7 @@ final readonly class MutantDetail
         return match (count($found)) {
             0 => DigestDetail::nothing($target),
             1 => self::explained($report, $found[0]),
-            default => CannotJudge::because(sprintf(self::SEVERAL, $target, count($found))),
+            default => CannotJudge::because(sprintf(self::SEVERAL, Visible::line($target), count($found))),
         };
     }
 
@@ -71,15 +81,15 @@ final readonly class MutantDetail
         return Digest::lines([
             sprintf(
                 self::MUTANT,
-                $mutant->id(),
+                Visible::line($mutant->id()),
                 $mutant->outcome()->value,
                 $mutant->judgement()->value,
-                $mutant->file(),
+                Visible::line($mutant->file()),
                 $mutant->line(),
-                $mutant->mutator(),
+                Visible::line($mutant->mutator()),
                 $mutant->changed() ? DigestMutant::CHANGED : '',
             ),
-            ...$mutant->diff() === '' ? [] : [sprintf(self::DIFF, $mutant->diff())],
+            ...self::diff($mutant->diff()),
             ...self::field('hint', $mutant->hint()),
             ...self::field('reason', $mutant->optional('reason')),
             sprintf(self::COVERED, count($covered)),
@@ -105,7 +115,10 @@ final readonly class MutantDetail
         $lines = [];
 
         foreach ($places as $place) {
-            $lines[] = sprintf(Fit::JOINED, $name, $tests[$place]->field('id')->text());
+            $test = array_key_exists($place, $tests)
+                ? $tests[$place]
+                : throw NotInShape::missing(sprintf(self::TEST, $place));
+            $lines[] = sprintf(Fit::JOINED, $name, Visible::line($test->field('id')->text()));
         }
 
         return $lines;
@@ -114,6 +127,22 @@ final readonly class MutantDetail
     /** @return list<string> a line of a field, opened by its name; none where it says nothing */
     private static function field(string $name, string $said): array
     {
-        return $said === '' ? [] : [sprintf(Fit::JOINED, $name, $said)];
+        return $said === '' ? [] : [sprintf(Fit::JOINED, $name, Visible::line($said))];
+    }
+
+    /** @return list<string> a diff's `diff` line, then each of its lines set in below it; none for no diff */
+    private static function diff(string $diff): array
+    {
+        if ($diff === '') {
+            return [];
+        }
+
+        $lines = [self::DIFF];
+
+        foreach (explode("\n", rtrim($diff, "\n")) as $line) {
+            $lines[] = sprintf(self::DIFF_LINE, Visible::line($line));
+        }
+
+        return $lines;
     }
 }

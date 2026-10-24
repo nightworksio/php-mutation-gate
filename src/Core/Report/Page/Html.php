@@ -8,6 +8,7 @@ use function explode;
 use function htmlspecialchars;
 use function implode;
 
+use NightWorksIO\MutationGate\Core\Format\Visible;
 use NightWorksIO\MutationGate\Core\Report\Percent;
 use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
@@ -25,10 +26,14 @@ final readonly class Html
 
     private const string CODE = '<code>%s</code>';
 
-    /** Text as HTML shows it, every character that could be read as markup escaped. */
+    /**
+     * Text as HTML shows it, every character that could be read as markup
+     * escaped, and every control, separator and format character shown as an
+     * escape, so none reorders what the reader sees (see Visible).
+     */
     public static function text(string $text): string
     {
-        return htmlspecialchars($text, ENT_QUOTES | ENT_HTML5 | ENT_SUBSTITUTE, 'UTF-8');
+        return htmlspecialchars(Visible::text($text), ENT_QUOTES | ENT_HTML5 | ENT_SUBSTITUTE, 'UTF-8');
     }
 
     /** Prose as HTML shows it, escaped, each part in backticks set as code, as every report writes code in prose. */

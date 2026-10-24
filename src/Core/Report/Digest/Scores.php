@@ -6,6 +6,7 @@ namespace NightWorksIO\MutationGate\Core\Report\Digest;
 
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Format\Visible;
 use NightWorksIO\MutationGate\Core\Report\Percent;
 use NightWorksIO\MutationGate\Core\Score\Percentage;
 
@@ -50,10 +51,10 @@ final readonly class Scores
                 $lines[] = sprintf(
                     self::SET,
                     $kind,
-                    $path->isPresent() ? $path->text() : $set->field('package')->text(),
+                    Visible::line($path->isPresent() ? $path->text() : $set->field('package')->text()),
                     self::percent($set->field('score')),
                     self::percent($set->field('floor')),
-                    $set->field('judgement')->text(),
+                    Visible::line($set->field('judgement')->text()),
                 );
             }
         }

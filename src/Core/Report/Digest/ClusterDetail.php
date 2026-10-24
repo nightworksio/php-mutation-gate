@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cluster\ClusterId;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Format\Visible;
 
 use function sprintf;
 
@@ -63,7 +64,7 @@ final readonly class ClusterDetail
         }
 
         return Digest::lines([
-            sprintf(self::CLUSTER, $id->value(), $cluster->field('kind')->text(), count($members)),
+            sprintf(self::CLUSTER, $id->value(), Visible::line($cluster->field('kind')->text()), count($members)),
             ...Digest::grouped($listed),
             sprintf(self::STUB, $id->value()),
         ]);

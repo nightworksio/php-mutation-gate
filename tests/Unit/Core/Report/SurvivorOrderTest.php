@@ -25,4 +25,3 @@ it('lists the survivors on changed lines first, each part by file and then by li
         ['b.php', 9, false],
     ]);
 });
-

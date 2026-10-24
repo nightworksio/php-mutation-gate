@@ -9,6 +9,7 @@ use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Format\Visible;
 use NightWorksIO\MutationGate\Core\Report\Page\Origin;
 
 use function round;
@@ -45,16 +46,24 @@ final readonly class ProvenanceLine
         $took = $provenance->field('wallSeconds');
 
         $parts = [
-            ...$gate->isPresent()
-                ? [sprintf(self::GATE, $gate->field('version')->text(), $gate->field('reference')->text())]
+            ...$gate->isPresent() ? [self::gate($gate)] : [],
+            ...$commit->isPresent()
+                ? [sprintf(self::COMMIT, Visible::line(mb_substr($commit->text(), 0, Origin::SHORT)))]
                 : [],
-            ...$commit->isPresent() ? [sprintf(self::COMMIT, mb_substr($commit->text(), 0, Origin::SHORT))] : [],
             ...self::runner($provenance->field('runner')),
             ...$took->isPresent() ? [sprintf(self::TOOK, round($took->number()))] : [],
-            sprintf(self::BASELINE, $provenance->field('baseline')->field('state')->text()),
+            sprintf(self::BASELINE, Visible::line($provenance->field('baseline')->field('state')->text())),
         ];
 
         return sprintf(self::LINE, implode(' ', $parts));
+    }
+
+    /** @throws NotInShape */
+    private static function gate(Node $gate): string
+    {
+        $version = Visible::line($gate->field('version')->text());
+
+        return sprintf(self::GATE, $version, Visible::line($gate->field('reference')->text()));
     }
 
     /**
@@ -68,10 +77,14 @@ final readonly class ProvenanceLine
             return [];
         }
 
-        $said = [sprintf(self::RUNNER, $runner->field('name')->text())];
+        $said = [sprintf(self::RUNNER, Visible::line($runner->field('name')->text()))];
 
         foreach ($runner->field('packages')->items() as $package) {
-            $said[] = sprintf(self::PACKAGE, $package->field('package')->text(), $package->field('version')->text());
+            $said[] = sprintf(
+                self::PACKAGE,
+                Visible::line($package->field('package')->text()),
+                Visible::line($package->field('version')->text()),
+            );
         }
 
         return $said;
