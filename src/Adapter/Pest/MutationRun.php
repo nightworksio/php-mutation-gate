@@ -387,7 +387,7 @@ final readonly class MutationRun
             default => $this->bridges->loading(
                 $this->project,
                 $this->shardMap()->opened(
-                    Invocation::installedIn($this->project->vendor())
+                    Invocation::of($this->project)
                         ->mutation($request, $judgedBy, $results, $this->bridges),
                     $results,
                     $shared,

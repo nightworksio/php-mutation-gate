@@ -61,7 +61,7 @@ it('reproduces a mutant in one run of its file with only its mutator, by the tes
         ->reproduce(Reproducible::of(PestCases::mutant()), MutationRequest::of(Paths::none(), $holding)->withholding(Withheld::of('DEPLOY_*')), Seconds::of(20.0));
 
     expect($reproduced instanceof Reproduction ? [$reproduced->mutant(), $reproduced->printed()] : $reproduced)->toEqual([PestCases::mutant(), '  Mutations: 1 tested'])
-        ->and($shell->commands())->toEqual([PestCases::invocation()->mutation($request, $holding, PestCases::results($at))]);
+        ->and($shell->commands())->toEqual([PestCases::invocation($at)->mutation($request, $holding, PestCases::results($at))]);
 });
 
 it('reproduces a mutant under the cap its request carries, as the run it came from', function (): void {

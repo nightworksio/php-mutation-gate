@@ -192,7 +192,7 @@ it('runs the tests that read the value, then the fallback\'s others where the mu
     $results = Unexecutables::run($at, ['internal']);
     $shell = new ShellFake(static fn(Command $command): Ran => Unexecutables::answering($command, ['tests/OtherSpec.php']));
     $log = sprintf('--log-junit=%s/.mutation-gate/pest/trials/0/junit.xml', $at->root());
-    $judging = static fn(string $spec, float $limit): Command => Invocation::installedIn(Path::of('vendor'))
+    $judging = static fn(string $spec, float $limit): Command => Invocation::of($at)
         ->judging(Paths::of(Path::of(sprintf('tests/%s.php', $spec))), WholeSuite::tests(), Withheld::standard(), $log)
         ->within(Seconds::of($limit));
     $printed = Printed::of(Contents::of((string) file_get_contents(sprintf('%s/src/Money.php', $at->root()))), Path::of('src/Money.php'));

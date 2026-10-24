@@ -39,6 +39,7 @@ it('lists the tests of some suites into a file with the project\'s PHPUnit and i
         '--configuration=/project',
         '--list-tests-xml=/w/tests.xml',
         '--colors=never',
+        '--cache-directory=/project/.mutation-gate/phpunit-cache',
         '--testsuite=Unit',
     ]);
 });
@@ -62,6 +63,7 @@ it('runs the suite under coverage into the layout Infection reads and the lines 
         '--log-junit=/project/.gate/coverage/junit.xml',
         '--colors=never',
         '--testsuite=unit',
+        '--cache-directory=/project/.mutation-gate/phpunit-cache',
     ])->and($command->environment())->toBe(['XDEBUG_MODE' => 'coverage']);
 });
 
@@ -89,6 +91,7 @@ it('starts a run of no test on the config that loads none, with the project\'s a
         '--configuration=/project/.gate/infection/start-up/phpunit.xml',
         '--colors=never',
         '--testsuite=unit',
+        '--cache-directory=/project/.mutation-gate/phpunit-cache',
         '--filter',
         '(?!)',
         '--do-not-fail-on-empty-test-suite',
@@ -111,6 +114,7 @@ it('runs a control on its config with the project\'s arguments, selecting its te
         '--configuration=/project/.gate/infection/controls/0/phpunit.xml',
         '--colors=never',
         '--testsuite=unit',
+        '--cache-directory=/project/.mutation-gate/phpunit-cache',
         '--filter',
         '/^(?:Tests\\\\MoneyTest\:\:testAdds|Tests\\\\Tax\/Test\:\:testRate with data set \#0'
             . '|Tests\\\\TaxTest\:\:testRate with data set "384 bits"|Tests\\\\TaxTest\:\:testRate with data set "rate \=\=\= 0"'
@@ -126,6 +130,7 @@ it('runs every test of a control\'s suite where PCRE cannot compile the filter o
         '/project/vendor/bin/phpunit',
         '--configuration=/project/.gate/infection/controls/0/phpunit.xml',
         '--colors=never',
+        '--cache-directory=/project/.mutation-gate/phpunit-cache',
     ]);
 });
 
@@ -151,6 +156,7 @@ it('runs Infection on the generated config over the coverage the gate chose, rep
         '--logger-github=false',
         '--coverage=/project/.gate/coverage',
         '--skip-initial-tests',
+        '--test-framework-extra-args=--cache-directory="/project/.mutation-gate/phpunit-cache"',
         '/project/src/Money.php',
         '/project/src/Held.php',
     ])->and($command->environment())->toBe([]);
@@ -162,10 +168,10 @@ it('narrows each mutant\'s run to a group, and to the covering test methods of a
     $filter = Invocation::mutation(invokedIn(), invoked('{}'), Filter::matching('Tests\\Kernel "Test"'), DiskPath::of('/c'), ProcessCount::of(1), ['/p'], Suites::all());
 
     expect(array_slice($group->arguments(), -2))->toBe([
-        '--test-framework-extra-args=--testsuite="unit" "tests/Unit" --group="holds:src/Kernel.php"',
+        '--test-framework-extra-args=--testsuite="unit" "tests/Unit" --cache-directory="/project/.mutation-gate/phpunit-cache" --group="holds:src/Kernel.php"',
         '/p',
     ])->and(array_slice($filter->arguments(), -3))->toBe([
-        '--test-framework-extra-args=--filter="Tests\\\\Kernel \\"Test\\""',
+        '--test-framework-extra-args=--cache-directory="/project/.mutation-gate/phpunit-cache" --filter="Tests\\\\Kernel \\"Test\\""',
         '--only-covering-test-cases',
         '/p',
     ]);
@@ -178,7 +184,7 @@ it('keeps the coverage run and each mutant\'s run to the suites the run names, q
 
     expect(array_slice($coverage->arguments(), -3))->toBe(['--group', 'slow', '--testsuite=Unit Tests,Contract'])
         ->and(array_slice($mutation->arguments(), -2))->toBe([
-            '--test-framework-extra-args=--group="slow" --testsuite="Unit Tests,Contract"',
+            '--test-framework-extra-args=--cache-directory="/project/.mutation-gate/phpunit-cache" --group="slow" --testsuite="Unit Tests,Contract"',
             '/p',
         ]);
 });
@@ -190,4 +196,17 @@ it('writes the report of the lines no test ran beside the layout only for the ga
     expect($map->arguments())->toContain('--coverage-clover=/c/clover.xml')
         ->and($mutation->arguments())->not->toContain('--coverage-clover=/c/clover.xml')
         ->and(array_values(array_diff($map->arguments(), $mutation->arguments())))->toBe(['--coverage-clover=/c/clover.xml']);
+});
+
+it('keeps every PHPUnit it starts to the gate\'s own cache directory, in place of one the project\'s arguments name', function (): void {
+    $config = invoked('{"testFrameworkExtraArgs": "--cache-directory=.phpunit.cache --testsuite=unit"}');
+    $mutation = Invocation::mutation(invokedIn(), $config, WholeSuite::tests(), DiskPath::of('/c'), ProcessCount::of(1), ['/p'], Suites::all());
+    $control = Invocation::controlling(invokedIn(), $config, '/c/phpunit.xml', TestIds::none());
+
+    expect(array_slice($mutation->arguments(), -2))->toBe([
+        '--test-framework-extra-args=--testsuite="unit" --cache-directory="/project/.mutation-gate/phpunit-cache"',
+        '/p',
+    ])
+        ->and($control->arguments())->toContain('--cache-directory=/project/.mutation-gate/phpunit-cache')
+        ->and($control->arguments())->not->toContain('--cache-directory=.phpunit.cache');
 });

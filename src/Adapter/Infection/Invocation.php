@@ -12,6 +12,7 @@ use function is_file;
 use NightWorksIO\MutationGate\Core\Composer\Manifest;
 use NightWorksIO\MutationGate\Core\File\DiskPath;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Runner\PcovReach;
 use NightWorksIO\MutationGate\Core\Runner\PhpUnitOption;
 use NightWorksIO\MutationGate\Core\Runner\ProcessCount;
@@ -78,6 +79,7 @@ final readonly class Invocation
             sprintf('--configuration=%s', $config->configDirectory($project)),
             sprintf('%s=%s', PhpUnitOption::ListTestsXml->value, $file),
             PhpUnitOption::NoColors->value,
+            PhpUnitOption::caching($project->absolute(Workspace::phpUnitCache())),
             ...PhpUnitOption::inSuites($suites),
         );
     }
@@ -96,7 +98,7 @@ final readonly class Invocation
             $config->phpunit($project),
             sprintf('--configuration=%s', $startUpConfig),
             PhpUnitOption::NoColors->value,
-            ...$config->extraArguments(),
+            ...self::passed($project, $config),
             ...self::selecting(Filter::nothing()),
             ...[PhpUnitOption::DoNotFailOnEmptyTestSuite->value],
         );
@@ -125,7 +127,7 @@ final readonly class Invocation
             $config->phpunit($project),
             sprintf('--configuration=%s', $controlConfig),
             PhpUnitOption::NoColors->value,
-            ...$config->extraArguments(),
+            ...self::passed($project, $config),
             ...self::selecting($filter->compiles() ? $filter : WholeSuite::tests()),
         );
     }
@@ -154,7 +156,7 @@ final readonly class Invocation
                 ...$use === CoverageFor::Map ? [self::clover($directory)] : [],
                 sprintf('%s=%s', PhpUnitOption::LogJunit->value, $directory->child(self::JUNIT)->value()),
                 PhpUnitOption::NoColors->value,
-                ...$config->extraArguments(),
+                ...self::passed($project, $config),
                 ...($tests instanceof TestPaths ? self::filesOf($project, $tests) : self::selecting($tests)),
                 ...PhpUnitOption::inSuites($suites),
             ],
@@ -178,7 +180,11 @@ final readonly class Invocation
         array $paths,
         Suites $suites,
     ): Command {
-        $extra = [...$config->extraArguments(), ...self::narrowedTo($judgedBy), ...PhpUnitOption::inSuites($suites)];
+        $extra = [
+            ...self::passed($project, $config),
+            ...self::narrowedTo($judgedBy),
+            ...PhpUnitOption::inSuites($suites),
+        ];
 
         return Command::php(
             $project->absolute(Path::of(self::INFECTION)),
@@ -190,10 +196,24 @@ final readonly class Invocation
             '--logger-github=false',
             sprintf('--coverage=%s', $coverage->value()),
             '--skip-initial-tests',
-            ...($extra === [] ? [] : [sprintf('--test-framework-extra-args=%s', self::quoted($extra))]),
+            sprintf('--test-framework-extra-args=%s', self::quoted($extra)),
             ...($judgedBy instanceof Filter ? ['--only-covering-test-cases'] : []),
             ...$paths,
         );
+    }
+
+    /**
+     * The arguments every PHPUnit the adapter starts is passed, Infection's
+     * for a mutant among them: the project's own, and PHPUnit's caches kept
+     * in the gate's own directory for them, whatever the project's config or
+     * its arguments name, so no run writes a file a content key reads
+     * (ADR-0007).
+     *
+     * @return list<string>
+     */
+    private static function passed(Project $project, OwnConfig $config): array
+    {
+        return PhpUnitOption::cachedIn($project->absolute(Workspace::phpUnitCache()), $config->extraArguments());
     }
 
     /** A test as PHPUnit names it for a filter; an id that names no test method, such as a `.phpt` file's, as it is. */

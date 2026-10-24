@@ -5,9 +5,11 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\Bridges;
 use NightWorksIO\MutationGate\Adapter\Pest\Command;
 use NightWorksIO\MutationGate\Adapter\Pest\Invocation;
+use NightWorksIO\MutationGate\Adapter\Pest\Project;
 use NightWorksIO\MutationGate\Core\Coverage\Handed;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Mutant\Mutators;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
 use NightWorksIO\MutationGate\Core\Runner\MutationRequest;
@@ -29,13 +31,14 @@ use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Mutator\Engine\Enabled;
 use NightWorksIO\MutationGate\Mutator\MutatorSet;
 use NightWorksIO\MutationGate\Tests\Support\Mutators\PlusToMinus as AcmePlusToMinus;
+use NightWorksIO\MutationGate\Tests\Support\PestCases;
 use Pest\Mutate\Mutators\Arithmetic\PlusToMinus;
 use Pest\Mutate\Mutators\Logical\TrueToFalse;
 
 /** Pest's command lines where Composer installs packages in `vendor`. */
 function invocation(): Invocation
 {
-    return Invocation::installedIn(Path::of('vendor'));
+    return PestCases::invocationAtP();
 }
 
 /** Where pcov collects in a project at `/p` that installs packages in `vendor`. */
@@ -46,14 +49,14 @@ function reach(): PcovReach
 
 it('lists the tests of some suites into a file without colour, and of every suite naming none', function (): void {
     expect(invocation()->listing(Withheld::standard(), Suites::listed('Unit', 'Process'), '/w/tests.xml'))
-        ->toEqual(Command::pest('vendor/pestphp/pest/bin/pest', Withheld::standard(), '--list-tests-xml=/w/tests.xml', '--colors=never', '--testsuite=Unit,Process'))
+        ->toEqual(Command::pest('vendor/pestphp/pest/bin/pest', Withheld::standard(), '--cache-directory=/p/.mutation-gate/phpunit-cache', '--list-tests-xml=/w/tests.xml', '--colors=never', '--testsuite=Unit,Process'))
         ->and(invocation()->listing(Withheld::standard(), Suites::all(), '/w/tests.xml'))
-        ->toEqual(Command::pest('vendor/pestphp/pest/bin/pest', Withheld::standard(), '--list-tests-xml=/w/tests.xml', '--colors=never'));
+        ->toEqual(Command::pest('vendor/pestphp/pest/bin/pest', Withheld::standard(), '--cache-directory=/p/.mutation-gate/phpunit-cache', '--list-tests-xml=/w/tests.xml', '--colors=never'));
 });
 
 it('runs Pest\'s own script in the vendor directory the project installs into', function (): void {
-    expect(Invocation::installedIn(Path::of('lib/vendor'))->listing(Withheld::standard(), Suites::all(), 'tests.xml'))
-        ->toEqual(Command::pest('lib/vendor/pestphp/pest/bin/pest', Withheld::standard(), '--list-tests-xml=tests.xml', '--colors=never'));
+    expect(Invocation::of(Project::at('/p', Paths::none(), Workspace::root(), Path::of('lib/vendor')))->listing(Withheld::standard(), Suites::all(), 'tests.xml'))
+        ->toEqual(Command::pest('lib/vendor/pestphp/pest/bin/pest', Withheld::standard(), '--cache-directory=/p/.mutation-gate/phpunit-cache', '--list-tests-xml=tests.xml', '--colors=never'));
 });
 
 it('runs the whole suite under coverage into a directory, as --coverage expects to find it', function (): void {
@@ -71,6 +74,7 @@ it('runs the whole suite under coverage into a directory, as --coverage expects 
         '--processes=4',
         "--passthru-php='-d' 'pcov.directory=/p' '-d' 'pcov.exclude=~^/p/vendor/~'",
         '--no-tia',
+        '--cache-directory=/p/.mutation-gate/phpunit-cache',
         '--coverage-php=/p/.mutation-gate/coverage/coverage.php',
         '--log-junit=/p/.mutation-gate/coverage/junit.xml',
     ));
@@ -90,6 +94,7 @@ it('runs one group under coverage', function (): void {
         '--processes=1',
         "--passthru-php='-d' 'pcov.directory=/p' '-d' 'pcov.exclude=~^/p/vendor/~'",
         '--no-tia',
+        '--cache-directory=/p/.mutation-gate/phpunit-cache',
         '--coverage-php=/p/held/coverage.php',
         '--log-junit=/p/held/junit.xml',
         '--group',
@@ -151,6 +156,7 @@ it('starts a run of no test as pest-plugin-mutate starts a mutant\'s own run, in
     expect($command->arguments())->toBe([
         PHP_BINARY,
         'vendor/pestphp/pest/bin/pest',
+        '--cache-directory=/p/.mutation-gate/phpunit-cache',
         '--no-tia',
         '--bail',
         '--colors=never',
@@ -173,6 +179,7 @@ it('mutates some files against the whole suite, over the project\'s own config, 
     expect(invocation()->mutation($request, WholeSuite::tests(), '/p/results.jsonl'))->toEqual(Command::pest(
         'vendor/pestphp/pest/bin/pest',
         Withheld::standard(),
+        '--cache-directory=/p/.mutation-gate/phpunit-cache',
         '--mutate',
         '--no-cache',
         '--parallel',
@@ -202,6 +209,7 @@ it('mutates a tree less its held paths, by a group and some mutators, by a deadl
     expect($command->arguments())->toBe([
         PHP_BINARY,
         'vendor/pestphp/pest/bin/pest',
+        '--cache-directory=/p/.mutation-gate/phpunit-cache',
         '--mutate',
         '--no-cache',
         '--parallel',
@@ -264,6 +272,7 @@ it('judges one mutant by some test files, one after another, stopping at the fir
     expect(invocation()->judging($tests, WholeSuite::tests(), Withheld::standard()))->toEqual(Command::pest(
         'vendor/pestphp/pest/bin/pest',
         Withheld::standard(),
+        '--cache-directory=/p/.mutation-gate/phpunit-cache',
         '--no-tia',
         '--bail',
         '--colors=never',
@@ -272,6 +281,7 @@ it('judges one mutant by some test files, one after another, stopping at the fir
     ))->and(invocation()->judging($tests, Group::named('holds:src/Money.php'), Withheld::nothing())->arguments())->toBe([
         PHP_BINARY,
         'vendor/pestphp/pest/bin/pest',
+        '--cache-directory=/p/.mutation-gate/phpunit-cache',
         '--no-tia',
         '--bail',
         '--colors=never',
@@ -289,6 +299,7 @@ it('puts the options a judging run is given before its files', function (): void
     expect(invocation()->judging($tests, WholeSuite::tests(), Withheld::nothing(), '--log-junit=/r/junit.xml')->arguments())->toBe([
         PHP_BINARY,
         'vendor/pestphp/pest/bin/pest',
+        '--cache-directory=/p/.mutation-gate/phpunit-cache',
         '--no-tia',
         '--bail',
         '--colors=never',

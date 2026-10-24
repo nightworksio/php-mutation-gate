@@ -10,9 +10,19 @@ it in its fourth decision.
   vendor/bin/infection --configuration=<generated> --threads=<n>
       --no-progress --no-interaction --with-uncovered --logger-github=false
       --coverage=<dir> --skip-initial-tests
-      [--test-framework-extra-args=<the project's, and a group or filter>]
+      --test-framework-extra-args=<the project's, the cache directory, and a
+          group or filter>
       [--only-covering-test-cases] <files>
   ```
+
+  - Every PHPUnit the adapter starts, its coverage run, a listing, a run of
+    no test and a control, and each mutant's run Infection starts through
+    `--test-framework-extra-args`, is passed
+    `--cache-directory=<project>/.mutation-gate/phpunit-cache` after the
+    project's own arguments, whatever its config names, so no run writes a
+    file a content key reads (ADR-0007, ADR-0023). A cache directory the
+    project's arguments name is dropped, since PHPUnit warns of an option
+    given twice.
 
   - `--log-verbosity` is left at its default, and never `none`.
   - Infection never runs an opening suite of its own. It always reads a

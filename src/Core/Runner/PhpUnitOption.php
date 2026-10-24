@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Test\Suites;
 use function sprintf;
 use function str_contains;
 use function str_ends_with;
+use function str_starts_with;
 use function version_compare;
 
 /**
@@ -50,6 +51,13 @@ enum PhpUnitOption: string
 
     /** Shows no progress, so what PHPUnit prints is what went wrong. */
     case NoProgress = '--no-progress';
+
+    /**
+     * Keeps PHPUnit's caches, its test run history and its code coverage
+     * cache, in the directory named after `=`, whatever the project's config
+     * names.
+     */
+    case CacheDirectory = '--cache-directory';
 
     /** Leaves PHPUnit's result cache as it was, as a PHPUnit before the test run history names it. */
     case DoNotCacheResult = '--do-not-cache-result';
@@ -100,6 +108,35 @@ enum PhpUnitOption: string
     public static function inSuites(Suites $suites): array
     {
         return $suites->isAll() ? [] : [sprintf('%s=%s', self::TestSuite->value, $suites->joined())];
+    }
+
+    /** The option that keeps PHPUnit's caches in a directory: `--cache-directory=<directory>`. */
+    public static function caching(string $directory): string
+    {
+        return sprintf('%s=%s', self::CacheDirectory->value, $directory);
+    }
+
+    /**
+     * These arguments with PHPUnit's caches kept in a directory, which a
+     * cache directory they name gives way to: PHPUnit warns of an option
+     * given twice, and the warning fails a run.
+     *
+     * @param  list<string> $arguments
+     * @return list<string>
+     */
+    public static function cachedIn(string $directory, array $arguments): array
+    {
+        $kept = [];
+        $valueNext = false;
+
+        foreach ($arguments as $argument) {
+            $named = $argument === self::CacheDirectory->value;
+            $dropped = $valueNext || $named || str_starts_with($argument, self::caching(''));
+            $kept = $dropped ? $kept : [...$kept, $argument];
+            $valueNext = $named;
+        }
+
+        return [...$kept, self::caching($directory)];
     }
 
     /**

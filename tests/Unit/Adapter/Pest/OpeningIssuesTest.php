@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Core\Test\WholeSuite;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
 use NightWorksIO\MutationGate\Tests\Support\Environment;
+use NightWorksIO\MutationGate\Tests\Support\PestCases;
 use NightWorksIO\MutationGate\Tests\Support\PestRun;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\ShellFake;
@@ -107,7 +108,7 @@ it('quotes each issue the opening tests raise run again alone, with where it was
         'Deprecation in src/Money.php:9: round() is [31mdeprecated',
         OPENING_PASSED,
     )))->and($shell->commands())->toEqual([
-        Invocation::installedIn(Path::of('vendor'))
+        Invocation::of($project)
             ->opening(openingRequest(), Group::named('money'), sprintf('%s.events', openingResults($project)))
             ->within(Seconds::of(15.0)),
     ]);
@@ -231,18 +232,20 @@ it('gives the run again Pest\'s limit for the opening run\'s seconds, or the tim
 it('runs the opening tests again alone as the run selected them, withholding what it withholds, and logging PHPUnit\'s events', function (): void {
     $request = openingRequest();
 
-    expect(Invocation::installedIn(Path::of('vendor'))->opening($request, WholeSuite::tests(), '/x/results.jsonl.events'))
+    expect(PestCases::invocationAtP()->opening($request, WholeSuite::tests(), '/x/results.jsonl.events'))
         ->toEqual(Command::pest(
             'vendor/pestphp/pest/bin/pest',
             $request->withheld(),
+            '--cache-directory=/p/.mutation-gate/phpunit-cache',
             '--no-tia',
             '--colors=never',
             '--log-events-text=/x/results.jsonl.events',
         ))
-        ->and(Invocation::installedIn(Path::of('vendor'))->opening($request, Group::named('mutation-canary'), '/e'))
+        ->and(PestCases::invocationAtP()->opening($request, Group::named('mutation-canary'), '/e'))
         ->toEqual(Command::pest(
             'vendor/pestphp/pest/bin/pest',
             $request->withheld(),
+            '--cache-directory=/p/.mutation-gate/phpunit-cache',
             '--no-tia',
             '--colors=never',
             '--log-events-text=/e',
@@ -268,12 +271,13 @@ it('runs the opening tests again in the suite the run is narrowed to, withholdin
 
     $opening = Environment::during(
         ['DEPLOY_KEY' => 'secret'],
-        static fn(): Command => Invocation::installedIn(Path::of('vendor'))->opening($request, WholeSuite::tests(), '/e'),
+        static fn(): Command => PestCases::invocationAtP()->opening($request, WholeSuite::tests(), '/e'),
     );
 
     expect($opening->arguments())->toBe([
         PHP_BINARY,
         'vendor/pestphp/pest/bin/pest',
+        '--cache-directory=/p/.mutation-gate/phpunit-cache',
         '--no-tia',
         '--colors=never',
         '--log-events-text=/e',

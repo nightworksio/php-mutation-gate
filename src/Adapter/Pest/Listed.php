@@ -30,7 +30,7 @@ final readonly class Listed
             return $file;
         }
 
-        $ran = $shell->run(Invocation::installedIn($project->vendor())->listing($withheld, $suites, $file));
+        $ran = $shell->run(Invocation::of($project)->listing($withheld, $suites, $file));
         $xml = is_file($file) ? file_get_contents($file) : false;
 
         return PhpUnitTestList::listedIn($ran, $xml, $file, Program::Pest);

@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Config\BuiltinRunner;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Mutant\Reason;
 use NightWorksIO\MutationGate\Core\Native\Command;
 use NightWorksIO\MutationGate\Core\Native\Framework;
@@ -54,7 +55,11 @@ final readonly class PhpUnitFramework implements Framework
     public function __construct(private Installation $installation, private TestLayout $tests)
     {
         $history = Installed::historyIn($installation->installed());
-        $this->commandLine = new CommandLine($installation->phpunit(), $history);
+        $this->commandLine = new CommandLine(
+            $installation->phpunit(),
+            $history,
+            $installation->absolute(Workspace::phpUnitCache()),
+        );
     }
 
     public function program(): Program

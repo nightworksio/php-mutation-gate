@@ -148,6 +148,7 @@ it('starts PHPUnit with opcache off, the override, the extension and the coverin
             '--no-coverage',
             '--no-logging',
             '--do-not-record-test-run-history',
+            sprintf('--cache-directory=%s/.mutation-gate/phpunit-cache', dirname($told[Variable::Mutant->value], 2)),
             '--no-progress',
         ])
         ->and($ids)->toBe("Tests\\MoneySpec::addsTwoAmounts\n")
@@ -171,6 +172,7 @@ it('runs every covering test of a mutant under a full kill matrix, stopping at n
         '--no-coverage',
         '--no-logging',
         '--do-not-record-test-run-history',
+        sprintf('--cache-directory=%s/.mutation-gate/phpunit-cache', $project->root()),
         '--no-progress',
     ]);
 });

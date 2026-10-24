@@ -37,6 +37,10 @@ use function sprintf;
  *   run history written.
  * - For the suite's groups: listed into a file, without colour, and no test
  *   run.
+ *
+ * Each keeps PHPUnit's caches in the gate's own directory for them, whatever
+ * the project's config names, so no run writes a file a content key reads
+ * (ADR-0007).
  */
 final readonly class CommandLine
 {
@@ -44,8 +48,10 @@ final readonly class CommandLine
      * @param string        $phpunit PHPUnit's script, by its absolute path
      * @param PhpUnitOption $history the option that leaves the test run history as it was, as the installed PHPUnit
      *                               names it
+     * @param string        $cache   where PHPUnit keeps its caches, the gate's own directory for them, by its absolute
+     *                               path
      */
-    public function __construct(private string $phpunit, private PhpUnitOption $history)
+    public function __construct(private string $phpunit, private PhpUnitOption $history, private string $cache)
     {
     }
 
@@ -84,6 +90,7 @@ final readonly class CommandLine
             sprintf('%s=%s', PhpUnitOption::CoveragePhp->value, $map),
             PhpUnitOption::NoLogging->value,
             $this->history->value,
+            PhpUnitOption::caching($this->cache),
             PhpUnitOption::NoProgress->value,
             ...$this->covering($request->tests()),
             ...PhpUnitOption::inSuites($request->suites()),
@@ -97,6 +104,7 @@ final readonly class CommandLine
             $this->phpunit,
             sprintf('%s=%s', PhpUnitOption::ListTestsXml->value, $file),
             PhpUnitOption::NoColors->value,
+            PhpUnitOption::caching($this->cache),
             ...PhpUnitOption::inSuites($suites),
         ];
     }
@@ -121,6 +129,7 @@ final readonly class CommandLine
             PhpUnitOption::NoCoverage->value,
             PhpUnitOption::NoLogging->value,
             $this->history->value,
+            PhpUnitOption::caching($this->cache),
             PhpUnitOption::NoProgress->value,
             ...array_values($options),
         ];

@@ -147,6 +147,7 @@ it('starts a run of no test as a mutant\'s own run, through the extension, passi
         '--no-coverage',
         '--no-logging',
         '--do-not-record-test-run-history',
+        sprintf('--cache-directory=%s/.mutation-gate/phpunit-cache', dirname($framework->script(), 3)),
         '--no-progress',
         '--filter',
         '(?!)',
@@ -169,6 +170,7 @@ it('runs a mutant\'s tests through the extension, stopped at the first that fail
         '--no-coverage',
         '--no-logging',
         '--do-not-record-test-run-history',
+        sprintf('--cache-directory=%s/.mutation-gate/phpunit-cache', dirname($framework->script(), 3)),
         '--no-progress',
     ])
         ->and(array_slice($framework->mutant('--sel', $grouped), -2))->toBe(['--group', 'holds:src/Money.php'])
@@ -198,6 +200,7 @@ it('runs the coverage run\'s tests with their map written as --coverage-php writ
         '--coverage-php=/map.php',
         '--no-logging',
         '--do-not-record-test-run-history',
+        sprintf('--cache-directory=%s/.mutation-gate/phpunit-cache', dirname($framework->script(), 3)),
         '--no-progress',
     ])
         ->and(array_slice($framework->coverage(CoverageRun::of(Filter::matching('MoneyTest'), $into), '/map.php'), -2))->toBe(['--filter', 'MoneyTest'])
@@ -240,7 +243,7 @@ it('lists the tests of some suites into a file without colour, runs no test, and
         : Ran::finished(succeeded: false, output: 'broken'));
     $listing = $framework->listing($shell, Withheld::of('SECRET'), Suites::listed('Unit'), $file);
 
-    expect($shell->commands()[0]->arguments())->toBe([PHP_BINARY, $framework->script(), sprintf('--list-tests-xml=%s', $file), '--colors=never', '--testsuite=Unit'])
+    expect($shell->commands()[0]->arguments())->toBe([PHP_BINARY, $framework->script(), sprintf('--list-tests-xml=%s', $file), '--colors=never', sprintf('--cache-directory=%s/.mutation-gate/phpunit-cache', dirname($framework->script(), 3)), '--testsuite=Unit'])
         ->and($shell->commands()[0]->withheld())->toEqual(Withheld::standard()->and(Withheld::of('SECRET')))
         ->and($listing instanceof TestListing ? $listing->tests() : $listing)->toEqual(TestIds::of(TestId::of('Tests\MoneyTest::testAdds')));
 });

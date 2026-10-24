@@ -55,7 +55,7 @@ final readonly class Names
     ): TestNames|CannotJudge {
         $file = $project->fresh(self::FILE);
         $names = $file instanceof CannotJudge ? $file : self::written(
-            $shell->run(Invocation::installedIn($project->vendor())->listingTests($withheld, $file)),
+            $shell->run(Invocation::of($project)->listingTests($withheld, $file)),
             $file,
         );
 

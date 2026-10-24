@@ -116,7 +116,7 @@ final readonly class OpeningIssues
         Closure $left,
         string $results,
     ): self {
-        $again = Invocation::installedIn($project->vendor())->opening($request, $opensOn, self::beside($results));
+        $again = Invocation::of($project)->opening($request, $opensOn, self::beside($results));
 
         return new self($shell, $again, $left, $results, $project->root());
     }

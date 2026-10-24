@@ -34,7 +34,10 @@ use function sprintf;
  * The Pest command lines the adapter runs, each with `--no-tia` where Pest's
  * test impact analysis could narrow the run, and none with `--coverage`,
  * whose own report path would win over the gate's. Each runs Pest's own
- * script in the vendor directory, which Composer's `bin-dir` cannot move.
+ * script in the vendor directory, which Composer's `bin-dir` cannot move,
+ * and keeps PHPUnit's caches, Pest's test run history among them, in the
+ * gate's own directory for them, whatever the project's config names, so no
+ * run writes a file a content key reads (ADR-0007).
  */
 final readonly class Invocation
 {
@@ -50,21 +53,24 @@ final readonly class Invocation
     /** paratest's option of the PHP options each worker starts with. */
     private const string PASSED_ON = '--passthru-php=%s';
 
-    private function __construct(private string $script)
+    /** @param string $cache where PHPUnit keeps its caches, the gate's own directory for them, by its path on disk */
+    private function __construct(private string $script, private string $cache)
     {
     }
 
-    /** Pest's command lines, where Composer installed Pest in this vendor directory. */
-    public static function installedIn(Path $vendor): self
+    /** Pest's command lines in a project, from the vendor directory Composer installed Pest in. */
+    public static function of(Project $project): self
     {
-        return new self(sprintf(self::SCRIPT, $vendor->value()));
+        return new self(
+            sprintf(self::SCRIPT, $project->vendor()->value()),
+            $project->absolute(Workspace::phpUnitCache()),
+        );
     }
 
     /** These suites' tests and the groups each is in, listed into a file and none run. */
     public function listing(Withheld $withheld, Suites $suites, string $file): Command
     {
-        return Command::pest(
-            $this->script,
+        return $this->pest(
             $withheld,
             sprintf('%s=%s', PhpUnitOption::ListTestsXml->value, $file),
             PhpUnitOption::NoColors->value,
@@ -75,7 +81,7 @@ final readonly class Invocation
     /** Every test, listed and never run, with the plugin naming each in a file. */
     public function listingTests(Withheld $withheld, string $names): Command
     {
-        return Command::pest($this->script, $withheld, '--list-tests', PhpUnitOption::NoColors->value)
+        return $this->pest($withheld, '--list-tests', PhpUnitOption::NoColors->value)
             ->with([GateVariable::Names->value => $names]);
     }
 
@@ -100,6 +106,7 @@ final readonly class Invocation
                 $this->script,
                 ...$this->parallel($request, $reach),
                 '--no-tia',
+                PhpUnitOption::caching($this->cache),
                 sprintf('%s=%s/%s', PhpUnitOption::CoveragePhp->value, $directory, self::MAP),
                 sprintf('%s=%s/%s', PhpUnitOption::LogJunit->value, $directory, self::JUNIT),
                 ...$this->covering($request->tests()),
@@ -129,8 +136,7 @@ final readonly class Invocation
         string $results,
         Bridges $bridges = new Bridges(),
     ): Command {
-        return Command::pest(
-            $this->script,
+        return $this->pest(
             $request->withheld(),
             '--mutate',
             '--no-cache',
@@ -155,7 +161,9 @@ final readonly class Invocation
 
     /**
      * A kill's own run started again with the arguments Pest started it
-     * with, after its script, as a replay of it runs (see PrefixReplays).
+     * with, after its script, as a replay of it runs (see PrefixReplays):
+     * those hold the cache directory already, which a second would make
+     * PHPUnit warn of.
      *
      * @param list<string> $options
      */
@@ -173,8 +181,7 @@ final readonly class Invocation
      */
     public function startingUp(Withheld $withheld, string $original, string $copy): Command
     {
-        return Command::pest(
-            $this->script,
+        return $this->pest(
             $withheld,
             '--no-tia',
             '--bail',
@@ -198,8 +205,7 @@ final readonly class Invocation
      */
     public function opening(MutationRequest $request, WholeSuite|Group|Filter $opensOn, string $events): Command
     {
-        return Command::pest(
-            $this->script,
+        return $this->pest(
             $request->withheld(),
             '--no-tia',
             PhpUnitOption::NoColors->value,
@@ -228,8 +234,7 @@ final readonly class Invocation
             $files[] = $test->value();
         }
 
-        return Command::pest(
-            $this->script,
+        return $this->pest(
             $withheld,
             '--no-tia',
             '--bail',
@@ -238,6 +243,12 @@ final readonly class Invocation
             ...$options,
             ...$files,
         );
+    }
+
+    /** Pest's script with these arguments, keeping PHPUnit's caches in the gate's own directory for them. */
+    private function pest(Withheld $withheld, string ...$arguments): Command
+    {
+        return Command::pest($this->script, $withheld, PhpUnitOption::caching($this->cache), ...$arguments);
     }
 
     /**

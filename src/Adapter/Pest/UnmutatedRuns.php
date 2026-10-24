@@ -115,7 +115,7 @@ final readonly class UnmutatedRuns
         $selection = Selection::of($control->tests());
         $judgedBy = $selection->fits() ? $selection->filter() : $request->judgedBy();
 
-        return Invocation::installedIn($this->project->vendor())->judging(
+        return Invocation::of($this->project)->judging(
             Paths::none(),
             $judgedBy,
             $request->withheld(),

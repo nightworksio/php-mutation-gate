@@ -84,7 +84,7 @@ it('runs the mutants again in one run of their files with their mutators, naming
         Mutant::of($id, 'n9', $place, $change, MutantStatus::Unjudged, Unmeasured::duration())->because($notFound),
         Interpretation::unjudged($elsewhere, $notFound),
     ))->and($shell->commands())->toEqual([
-        PestCases::invocation()->mutation($request, WholeSuite::tests(), PestCases::results($at))->with(['MUTATION_GATE_ONLY' => sprintf('%s.only', PestCases::results($at))]),
+        PestCases::invocation($at)->mutation($request, WholeSuite::tests(), PestCases::results($at))->with(['MUTATION_GATE_ONLY' => sprintf('%s.only', PestCases::results($at))]),
     ])
         ->and(file_get_contents(sprintf('%s.only', PestCases::results($at))))->toBe("n1\nn9\nn8")
         ->and(new Pest($at, $shell, Patching::off(), new CapDirectory(), Triage::standard()->bounds())->retry($invocation, Mutants::none(), Seconds::of(20.0)))
@@ -102,7 +102,7 @@ it('runs mutants again on the canary group, reading the map the planning job han
     $retried = new Pest($at, $shell, PestCases::canary(), new CapDirectory(), Triage::standard()->bounds())->retry($invocation, Mutants::of(PestCases::mutant()), Seconds::of(20.0));
 
     expect($retried)->toEqual(Mutants::of(PestCases::mutant()))
-        ->and($shell->commands()[1] ?? null)->toEqual(PestCases::invocation()->mutation(
+        ->and($shell->commands()[1] ?? null)->toEqual(PestCases::invocation($at)->mutation(
             $invocation->narrowedTo(Paths::of(Path::of('src/Money.php')), Narrowing::none()->toMutators(Mutators::named(PestCases::RUN_PLUS))),
             WholeSuite::tests(),
             PestCases::results($at),
@@ -128,7 +128,7 @@ it('runs a held unit\'s mutant again by the group that holds it, withholding wha
     new Pest($at, $shell, Patching::off(), new CapDirectory(), Triage::standard()->bounds())->retry($invocation, Mutants::of(PestCases::mutant()), Seconds::of(20.0));
 
     expect($shell->commands())->toEqual([
-        PestCases::invocation()->mutation($request, $holding, PestCases::results($at))->with(['MUTATION_GATE_ONLY' => sprintf('%s.only', PestCases::results($at))]),
+        PestCases::invocation($at)->mutation($request, $holding, PestCases::results($at))->with(['MUTATION_GATE_ONLY' => sprintf('%s.only', PestCases::results($at))]),
     ]);
 });
 

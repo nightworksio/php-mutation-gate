@@ -327,7 +327,7 @@ final readonly class Pest implements Runner
     {
         $project = $this->project->in($package, $tests);
 
-        return Invocation::installedIn($project->vendor())->isIn($project)
+        return Invocation::of($project)->isIn($project)
             ? new self(
                 $project,
                 $this->shell->in($project->root()),
@@ -349,7 +349,7 @@ final readonly class Pest implements Runner
             return CannotJudge::because(sprintf(self::STALE_MAP, $map));
         }
 
-        $ran = $this->shell->run(Invocation::installedIn($this->project->vendor())
+        $ran = $this->shell->run(Invocation::of($this->project)
             ->coverage($request, $directory, PcovReach::under($this->project->root(), $this->project->vendor())));
 
         return $ran->succeeded() ? $ran : CoverageFailure::said(Program::Pest, $ran->output());

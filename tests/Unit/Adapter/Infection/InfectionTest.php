@@ -124,7 +124,7 @@ it('lists the tests of some suites PHPUnit lists into a file, and none in a proj
 
     expect($listing instanceof TestListing ? [[...$listing->groups()], $listing->inGroup(Group::named('slow'))] : $listing)
         ->toEqual([[Group::named('slow')], TestIds::of(TestId::of('SlowTest::testOne'))])
-        ->and(InfectionCases::ran($shell))->toBe([[sprintf('%s/vendor/bin/phpunit', $at->root()), sprintf('--configuration=%s', $at->root()), sprintf('--list-tests-xml=%s', $file), '--colors=never', '--testsuite=Unit']])
+        ->and(InfectionCases::ran($shell))->toBe([[sprintf('%s/vendor/bin/phpunit', $at->root()), sprintf('--configuration=%s', $at->root()), sprintf('--list-tests-xml=%s', $file), '--colors=never', sprintf('--cache-directory=%s/.mutation-gate/phpunit-cache', $at->root()), '--testsuite=Unit']])
         ->and($shell->commands()[0]->withheld())->toEqual(Withheld::standard()->and(Withheld::of('CI_JOB_TOKEN')))
         ->and(new Infection($refused, $untouched, LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory())->listing(Withheld::standard(), Suites::all()))
         ->toBeInstanceOf(CannotJudge::class)

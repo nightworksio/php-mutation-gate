@@ -89,7 +89,7 @@ final readonly class Judging
         }
 
         $selector = $scanning();
-        $invocation = Invocation::installedIn($this->project->vendor());
+        $invocation = Invocation::of($this->project);
         $trial = new Trial(
             $this->project,
             $this->shell,

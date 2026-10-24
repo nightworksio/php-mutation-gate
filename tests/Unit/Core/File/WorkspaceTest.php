@@ -16,3 +16,8 @@ it('keeps each runner\'s bridges to the registered mutators in a file of its own
     'Pest' => [BuiltinRunner::Pest, 'mutators/pest/bridges.php'],
     'Infection' => [BuiltinRunner::Infection, 'mutators/infection/bridges.php'],
 ]);
+
+it('keeps PHPUnit\'s caches under .mutation-gate, which no content key reads', function (): void {
+    expect(Workspace::phpUnitCache())->toEqual(Path::of('.mutation-gate/phpunit-cache'))
+        ->and(Workspace::phpUnitCache()->within(Workspace::root()))->toBeTrue();
+});
