@@ -7,7 +7,7 @@
 # mutators.
 set -euo pipefail
 source "${GITHUB_WORKSPACE}/bench/gate.sh"
-repository=$(jq -cn --arg url "${GITHUB_WORKSPACE}" '{type: "path", url: $url, options: {symlink: true}}')
+repository=$(jq -cn --arg url "${GITHUB_WORKSPACE}" '{type: "path", url: $url, options: {symlink: false}}')
 composer config --unset platform.php
 composer config repositories.gate "${repository}"
 composer config minimum-stability dev

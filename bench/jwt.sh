@@ -14,7 +14,7 @@ jq --arg gate "${GITHUB_WORKSPACE}" --arg phpunit "$(bench_locked phpunit/phpuni
   }
   | del(.config.platform)
   | .config["allow-plugins"] = {"infection/extension-installer": false}
-  | .repositories = [{"type": "path", "url": $gate, "options": {"symlink": true}}]
+  | .repositories = [{"type": "path", "url": $gate, "options": {"symlink": false}}]
   | .["minimum-stability"] = "dev"
   | .["prefer-stable"] = true' composer.json > composer.json.new
 mv composer.json.new composer.json
