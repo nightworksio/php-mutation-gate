@@ -336,12 +336,17 @@ sees the same verdict.
 
    - **Everything a project writes is escaped.** A path, a diff, a test name
      or a reason is set as text: escaped in the page, and in the page's
-     data, which is JSON in its own script element with every `<`, `>` and
-     `&` escaped, read with `JSON.parse` and set as text by the script.
-     Nothing a project writes can end an element or run. Every control,
+     data, whose index is JSON in its own script element with every `<`,
+     `>` and `&` escaped, and whose mutants are gzip in base64, a script
+     element for each file, read with `JSON.parse` and set as text by the
+     script. Nothing a project writes can end an element or run. Every control,
      separator and format character in it, a bidirectional override among
      them, is shown as an escape, by the page and by its script, so none
      reorders what the reader sees.
+   - **It is ready as soon as its list of files is**, whatever the run's
+     size: a file's mutants are inflated when the file is first shown, a
+     mutant carries only what the page shows of it, and a card off screen
+     is laid out when it scrolls into view.
    - **It reads light and dark**, as the reader's system prefers, and at
      phone width.
    - **The Stryker report.** In `mutation-report.json` (`schemaVersion` 2,
