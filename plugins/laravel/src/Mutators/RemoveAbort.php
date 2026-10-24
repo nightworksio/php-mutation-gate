@@ -49,6 +49,6 @@ final readonly class RemoveAbort implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test checks that the request is stopped when this condition holds.');
+        return Hint::that('Add a test that checks that the request is stopped when this condition holds.');
     }
 }

@@ -65,6 +65,6 @@ final readonly class FilterVarToInput implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test passes invalid input and checks that it is refused.');
+        return Hint::that('Add a test that passes invalid input and checks that it is refused.');
     }
 }

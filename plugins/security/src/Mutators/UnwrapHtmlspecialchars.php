@@ -56,7 +56,7 @@ final readonly class UnwrapHtmlspecialchars implements Mutator, SameChange
 
     public function hint(): Hint
     {
-        return Hint::that('No test passes markup and checks that `htmlspecialchars()` escapes it.');
+        return Hint::that('Add a test that passes markup and checks that `htmlspecialchars()` escapes it.');
     }
 
     public function madeAlsoBy(): NamedMutators

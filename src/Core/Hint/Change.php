@@ -65,6 +65,8 @@ final readonly class Change
      * @param int            $from       where the tokens that differ begin
      * @param int            $to         where they end, exclusive
      * @param list<int>      $conditions where a bracket closes a control structure's condition
+     * @param list<PhpToken> $after      the mutant's tokens
+     * @param int            $upTo       where the mutant's tokens that differ end, exclusive
      */
     private function __construct(
         private string $code,
@@ -74,6 +76,9 @@ final readonly class Change
         private int $from,
         private int $to,
         private array $conditions,
+        private string $mutated,
+        private array $after,
+        private int $upTo,
     ) {
     }
 
@@ -83,15 +88,27 @@ final readonly class Change
         $removed = self::signed($body, '-');
         $added = self::signed($body, '+');
         $code = sprintf('%s%s', self::OPENING, $removed);
+        $mutated = sprintf('%s%s', self::OPENING, $added);
         $before = self::tokensOf($code);
-        $after = self::tokensOf(sprintf('%s%s', self::OPENING, $added));
+        $after = self::tokensOf($mutated);
         $same = self::sharedPrefix($before, $after);
         $tail = self::sharedPrefix(
             array_slice(array_reverse($before), 0, count($before) - $same),
             array_slice(array_reverse($after), 0, count($after) - $same),
         );
 
-        return new self($code, $removed, $added, $before, $same, count($before) - $tail, self::conditionsIn($before));
+        return new self(
+            $code,
+            $removed,
+            $added,
+            $before,
+            $same,
+            count($before) - $tail,
+            self::conditionsIn($before),
+            $mutated,
+            $after,
+            count($after) - $tail,
+        );
     }
 
     /** The lines the mutant removed, joined and trimmed; nothing where it only added. */
@@ -128,9 +145,24 @@ final readonly class Change
     /** The original's code that differs, such as `<` or `3`; the whole removed line where nothing does. */
     public function original(): string
     {
-        $changed = $this->spelt($this->from, $this->to);
+        $changed = $this->replaced();
 
         return $changed === '' ? $this->removed : $changed;
+    }
+
+    /** The original's code the mutant replaced, such as `<`; nothing where it only inserted. */
+    public function replaced(): string
+    {
+        return $this->slice($this->code, $this->before, $this->from, $this->to);
+    }
+
+    /**
+     * What the mutant put in place of the original's code that differs, such
+     * as `<=` for `<`; nothing where it only removed.
+     */
+    public function mutated(): string
+    {
+        return $this->slice($this->mutated, $this->after, $this->from, $this->upTo);
     }
 
     /** The original expression around what differs, such as `$amount < $limit`. */
@@ -147,7 +179,7 @@ final readonly class Change
             ++$end;
         }
 
-        return $this->spelt($start, $end);
+        return $this->slice($this->code, $this->before, $start, $end);
     }
 
     /** The function or method the original calls where it differs, such as `save`; nameless where it calls none. */
@@ -225,16 +257,21 @@ final readonly class Change
     }
 
     /** The original's code from one token to before another, as it is written. */
-    private function spelt(int $from, int $to): string
+    /**
+     * Code from the first of some of its tokens to the last, as it is spelt.
+     *
+     * @param list<PhpToken> $tokens
+     */
+    private function slice(string $code, array $tokens, int $from, int $to): string
     {
         if ($from >= $to) {
             return '';
         }
 
-        $first = $this->before[$from];
-        $last = $this->before[$to - 1];
+        $first = $tokens[$from];
+        $last = $tokens[$to - 1];
 
-        return mb_strcut($this->code, $first->pos, $last->pos + Bytes::length($last->text) - $first->pos);
+        return mb_strcut($code, $first->pos, $last->pos + Bytes::length($last->text) - $first->pos);
     }
 
     private function lastSegmentOf(string $name): string

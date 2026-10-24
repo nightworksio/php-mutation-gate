@@ -53,6 +53,6 @@ final readonly class RemoveAccessDeniedThrow implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test checks that access is denied here.');
+        return Hint::that('Add a test that checks that access is denied here.');
     }
 }

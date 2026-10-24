@@ -45,6 +45,6 @@ final readonly class RemoveEcho implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test checks what is printed.');
+        return Hint::that('Add a test that checks what is printed.');
     }
 }

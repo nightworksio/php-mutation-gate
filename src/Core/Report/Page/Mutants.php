@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report\Page;
 
-use function array_diff_key;
-use function array_filter;
 use function array_key_exists;
 use function count;
 
 use NightWorksIO\MutationGate\Core\Report\JsonReport;
 use NightWorksIO\MutationGate\Core\Report\MutantJson;
+use NightWorksIO\MutationGate\Core\Report\Outcome;
+use NightWorksIO\MutationGate\Core\Report\SurvivorOrder;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
@@ -98,14 +98,11 @@ final readonly class Mutants
             }
         }
 
-        usort(
+        return SurvivorOrder::of(
             $survivors,
-            static fn(array $one, array $other): int
-                => [$one['file'], $one['line']] <=> [$other['file'], $other['line']],
+            static fn(array $mutant): bool => $mutant['changedLine'],
+            static fn(array $mutant): array => [$mutant['file'], $mutant['line']],
         );
-        $changed = array_filter($survivors, static fn(array $mutant): bool => $mutant['changedLine']);
-
-        return [...$changed, ...array_diff_key($survivors, $changed)];
     }
 
     /**

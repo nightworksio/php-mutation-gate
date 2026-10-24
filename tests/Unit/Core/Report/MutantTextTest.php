@@ -54,7 +54,7 @@ it('writes a mutant with its diff, judging tests, hint, and reproduce and explai
         '    -        if ($amount < $limit) {',
         '    +        if ($amount <= $limit) {',
         '    Judged by: MoneyTest::fits, MoneyTest::refuses, PriceTest::adds, CartTest::totals',
-        '    No test uses a value at the boundary of `$amount < $limit`. It is judged by `MoneyTest::fits`, `MoneyTest::refuses`, `PriceTest::adds` and 1 more.',
+        '    Add a test that uses a value at the boundary of `$amount < $limit`. It is judged by `MoneyTest::fits`, `MoneyTest::refuses`, `PriceTest::adds` and 1 more.',
         sprintf('    Reproduce: vendor/bin/mutation-gate reproduce %s', $id),
         sprintf('    Explain: vendor/bin/mutation-gate explain %s', $id),
     ]));

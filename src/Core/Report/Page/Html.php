@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report\Page;
 
+use function explode;
 use function htmlspecialchars;
 use function implode;
 
@@ -22,10 +23,26 @@ final readonly class Html
 {
     private const string ITEM = '<li>%s</li>';
 
+    private const string CODE = '<code>%s</code>';
+
     /** Text as HTML shows it, every character that could be read as markup escaped. */
     public static function text(string $text): string
     {
         return htmlspecialchars($text, ENT_QUOTES | ENT_HTML5 | ENT_SUBSTITUTE, 'UTF-8');
+    }
+
+    /** Prose as HTML shows it, escaped, each part in backticks set as code, as every report writes code in prose. */
+    public static function prose(string $text): string
+    {
+        $parts = [];
+        $code = false;
+
+        foreach (explode('`', $text) as $part) {
+            $parts[] = $code ? sprintf(self::CODE, self::text($part)) : self::text($part);
+            $code = ! $code;
+        }
+
+        return implode('', $parts);
     }
 
     /** A percentage the JSON report holds, as every report prints a score: `81.37%`. */

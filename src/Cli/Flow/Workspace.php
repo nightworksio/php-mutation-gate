@@ -13,7 +13,8 @@ use function sprintf;
 
 /**
  * Where the gate keeps what one job hands the next: the plan, the coverage
- * map it used, each shard's own map, and each shard's result.
+ * map it used, each shard's own map, each shard's result, and the last
+ * run's JSON report.
  */
 final readonly class Workspace
 {
@@ -90,6 +91,12 @@ final readonly class Workspace
     public static function equivalence(): Path
     {
         return Path::of(sprintf('%s/equivalence', GateDirectory::root()->value()));
+    }
+
+    /** Where the verdict keeps the JSON report of the last run, which `digest` renders. */
+    public static function report(): Path
+    {
+        return Path::of(sprintf('%s/report.json', GateDirectory::root()->value()));
     }
 
     public static function results(): Path

@@ -56,7 +56,7 @@ final readonly class UnwrapStripTags implements Mutator, SameChange
 
     public function hint(): Hint
     {
-        return Hint::that('No test passes markup and checks that `strip_tags()` removes it.');
+        return Hint::that('Add a test that passes markup and checks that `strip_tags()` removes it.');
     }
 
     public function madeAlsoBy(): NamedMutators

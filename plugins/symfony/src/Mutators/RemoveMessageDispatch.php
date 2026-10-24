@@ -59,6 +59,6 @@ final readonly class RemoveMessageDispatch implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test checks that this message is dispatched.');
+        return Hint::that('Add a test that checks that this message is dispatched.');
     }
 }

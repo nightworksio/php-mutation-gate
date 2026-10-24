@@ -50,6 +50,6 @@ final readonly class RemoveAuthAbort implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test checks that the request is refused when this condition holds.');
+        return Hint::that('Add a test that checks that the request is refused when this condition holds.');
     }
 }

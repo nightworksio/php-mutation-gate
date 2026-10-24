@@ -48,6 +48,6 @@ final readonly class CsrfValidToTrue implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test submits a wrong CSRF token and checks that it is refused.');
+        return Hint::that('Add a test that submits a wrong CSRF token and checks that it is refused.');
     }
 }

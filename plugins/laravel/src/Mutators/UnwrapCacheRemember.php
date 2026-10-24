@@ -55,6 +55,8 @@ final readonly class UnwrapCacheRemember implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test reads the value twice and checks that the second read comes from the cache.');
+        return Hint::that(
+            'Add a test that reads the value twice and checks that the second read comes from the cache.',
+        );
     }
 }

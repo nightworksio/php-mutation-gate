@@ -8,19 +8,16 @@ use function array_key_exists;
 use function implode;
 
 use NightWorksIO\MutationGate\Core\Report\JsonReport;
-use NightWorksIO\MutationGate\Core\Report\SetText;
-use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
-use NightWorksIO\MutationGate\Core\Score\Percentage;
-use NightWorksIO\MutationGate\Core\Score\Score;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 
 use function sprintf;
 
 /**
- * The top of the HTML report: the verdict and why. What decides a verdict
- * comes first: what kept the run from judging, each set below its floor, as
- * every report says it, and each failure no floor decides. A verdict nothing
- * failed says the project's score.
+ * The top of the HTML report: the verdict, a plain sentence on what mutation
+ * testing is, why, and what to do. What decides a verdict comes first: what
+ * kept the run from judging, each set below its floor, as every report says
+ * it, and each failure no floor decides. A verdict nothing failed says the
+ * project's score. What to do is the JSON report's `next`.
  *
  * @phpstan-import-type Report from JsonReport
  */
@@ -30,7 +27,12 @@ final readonly class Headline
         <header class="headline headline--%1$s">
         <p class="brand">mutation-gate</p>
         <h1><span class="status status--%1$s">%2$s</span>%3$s</h1>
+        %5$s
         <ul class="why">%4$s</ul>
+        <section class="next" aria-labelledby="next-title">
+        <h2 id="next-title">What to do</h2>
+        <ul>%6$s</ul>
+        </section>
         </header>
         HTML;
 
@@ -43,9 +45,19 @@ final readonly class Headline
     private const string CUT_SHORT = 'cut short';
 
     /** @param Report $report */
-    public static function html(array $report): string
+    public static function html(array $report, Glossary $glossary): string
     {
         $judgement = Judgement::from($report['judgement']);
+        $why = [];
+        $next = [];
+
+        foreach ($report['why'] as $reason) {
+            $why[] = Html::text($reason);
+        }
+
+        foreach ($report['next'] as $step) {
+            $next[] = Html::prose($step);
+        }
 
         return sprintf(
             self::HEAD,
@@ -55,7 +67,9 @@ final readonly class Headline
                 array_key_exists('sample', $report) ? sprintf(self::QUALIFIER, self::SAMPLED) : '',
                 $report['cutShort'] ? sprintf(self::QUALIFIER, self::CUT_SHORT) : '',
             ]),
-            Html::items(self::why($report)),
+            Html::items($why),
+            $glossary->intro(),
+            Html::items($next),
         );
     }
 
@@ -67,38 +81,5 @@ final readonly class Headline
             Judgement::NothingToMutate, Judgement::Exempt,
             Judgement::Undecided, Judgement::CannotJudge => 'Cannot judge',
         };
-    }
-
-    /**
-     * Why, a sentence each, escaped.
-     *
-     * @param  Report       $report
-     * @return list<string>
-     */
-    private static function why(array $report): array
-    {
-        $why = [];
-
-        foreach ([...$report['trees'], ...$report['newCode'], ...$report['security']] as $set) {
-            $why[] = $set['judgement'] === Judgement::Failed->value ? Html::text($set['said']) : '';
-        }
-
-        foreach ([...$report['cannotJudge'], ...$report['failures']] as $said) {
-            $why[] = Html::text($said);
-        }
-
-        return [
-            ...$why,
-            $report['cutShort'] ? SetText::CUT_SHORT : '',
-            Html::text(SetText::project(self::score($report))),
-        ];
-    }
-
-    /** @param Report $report */
-    private static function score(array $report): Score|NothingToMutate
-    {
-        return array_key_exists('score', $report)
-            ? Score::ofHundredths(Percentage::hundredthsOf($report['score']))
-            : NothingToMutate::found();
     }
 }

@@ -16,7 +16,7 @@ it('is named in the laravel set, a removed call, untagged, with its own hint', f
     expect($mutator->name()->value())->toBe('laravel/RemoveDispatch')
         ->and($mutator->family())->toBe(MutatorFamily::RemovedCall)
         ->and($mutator->tags())->toEqual(Tags::none())
-        ->and($mutator->hint())->toEqual(Hint::that('No test fakes the event, job, mail or notification and asserts that it was sent.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that fakes the event, job, mail or notification and asserts that it was sent.'));
 });
 
 it('removes each dispatch under both runners, emptying it under Infection', function (): void {

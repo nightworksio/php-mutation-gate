@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Verdict;
 
+use function max;
+
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\NothingToMutate;
+use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Core\Score\Score;
 
 /** How many mutants of a set came to each judgement, and the score they add up to. */
@@ -42,6 +46,26 @@ final readonly class Counts
      */
     public function score(Uncovered $uncovered): Score|NothingToMutate
     {
+        [$killed, $counted] = $this->tally($uncovered);
+
+        return Score::of($killed, $counted);
+    }
+
+    /** How many more of the counted mutants must be killed for the score to reach a floor; none where it does. */
+    public function shortOf(Floor $floor, Uncovered $uncovered): int
+    {
+        [$killed, $counted] = $this->tally($uncovered);
+
+        return max(0, Percentage::partReaching($floor->hundredths(), $counted) - $killed);
+    }
+
+    /**
+     * How many mutants the score counts as killed, and how many it counts.
+     *
+     * @return array{int, int}
+     */
+    private function tally(Uncovered $uncovered): array
+    {
         $killed = 0;
         $counted = 0;
 
@@ -51,6 +75,6 @@ final readonly class Counts
             $counted += $scoring === Scoring::LeftOut ? 0 : $this->number($judgement);
         }
 
-        return Score::of($killed, $counted);
+        return [$killed, $counted];
     }
 }

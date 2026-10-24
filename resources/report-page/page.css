@@ -90,6 +90,24 @@ h3 { font-size: 1rem; font-weight: 600; }
 
 .figures { grid-column: 1 / -1; }
 .count { color: var(--muted); font-weight: 500; margin-left: 4px; }
+.intro { margin: 8px 0 0; max-width: 72ch; }
+.next { margin-top: 12px; }
+.next h2 { font-size: 1rem; margin: 0; }
+.next ul { margin: 4px 0 0; padding-left: 20px; }
+.card-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+.grade { display: inline-block; margin-top: 4px; border: 1px solid currentColor; border-radius: 999px; padding: 0 8px; font-size: 0.75rem; font-weight: 600; }
+.grade--good { color: var(--killed); }
+.grade--attention { color: var(--untested); }
+.grade--bad { color: var(--escaped); }
+.tile-why { margin: 6px 0 0; font-size: 0.85rem; color: var(--muted); }
+.term { display: inline-block; font-size: 0.85rem; }
+.term summary { cursor: pointer; color: var(--link); list-style: none; }
+.term summary::-webkit-details-marker { display: none; }
+.term[open] { display: block; }
+.term p { margin: 4px 0 0; max-width: 72ch; }
+.terms { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.term-word { font-weight: 600; margin-right: 4px; }
+.hint { margin: 2px 0 0; color: var(--muted); font-size: 0.9rem; }
 .aside, .empty { color: var(--muted); margin: 8px 0 0; }
 
 .tiles { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
@@ -175,10 +193,12 @@ h3 { font-size: 1rem; font-weight: 600; }
 @media (max-width: 760px) {
   body { padding: 16px 12px 40px; }
   .overview { grid-template-columns: minmax(0, 1fr); }
-  .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-  .tile { padding: 6px 8px; }
-  .tile-count { font-size: 1.3rem; }
-  .tile-label { font-size: 0.8rem; }
+  .tiles { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .tile { padding: 6px 10px; }
+  .tile-count { display: inline; font-size: 1.2rem; margin-right: 6px; }
+  .tile-label { font-size: 0.9rem; margin-right: 6px; }
+  .tile .grade { margin-top: 0; }
+  .tile-why { margin-top: 2px; }
   .depth-body { grid-template-columns: minmax(0, 1fr); }
   .file-nav { position: static; max-height: none; border: 0; background: none; }
   .file-pick { display: flex; flex-direction: column; gap: 4px; font-weight: 600; }

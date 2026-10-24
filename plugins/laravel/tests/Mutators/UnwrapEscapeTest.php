@@ -17,7 +17,7 @@ it('is named in the laravel set, an unwrap, about security, with its own hint', 
     expect($mutator->name()->value())->toBe('laravel/UnwrapEscape')
         ->and($mutator->family())->toBe(MutatorFamily::Unwrap)
         ->and($mutator->tags())->toEqual(Tags::of(Tag::security()))
-        ->and($mutator->hint())->toEqual(Hint::that('No test passes markup through `e()` and checks that it comes out escaped.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that passes markup through `e()` and checks that it comes out escaped.'));
 });
 
 it('leaves the value unescaped under both runners', function (): void {

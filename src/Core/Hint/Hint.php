@@ -13,6 +13,8 @@ use function implode;
 use function in_array;
 use function is_string;
 use function iterator_to_array;
+use function mb_strlen;
+use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\Assertion\WeaklyAsserted;
 use NightWorksIO\MutationGate\Core\File\Contents;
@@ -42,21 +44,22 @@ final readonly class Hint
     /** How many judging tests a hint names before it counts the rest. */
     private const int NAMED = 3;
 
-    private const string BOUNDARY = 'No test uses a value at the boundary of `%s`.';
+    private const string BOUNDARY = 'Add a test that uses a value at the boundary of `%s`.';
 
-    private const string CONDITION = 'These tests run the condition, but none asserts on anything that depends on it.';
+    private const string CONDITION
+        = 'Assert on something this condition decides: these tests run it, but none checks what it decides.';
 
-    private const string LOGICAL = 'No test has exactly one side of the `%s` true.';
+    private const string LOGICAL = 'Add a test where exactly one side of the `%s` is true.';
 
-    private const string ARITHMETIC = 'No test checks the result of `%s` with a non-zero operand.';
+    private const string ARITHMETIC = 'Add a test that checks the result of `%s` with a non-zero operand.';
 
-    private const string RETURNED = 'Tests call `%s()`, but none asserts on what it returns.';
+    private const string RETURNED = 'Assert on what `%s()` returns: tests call it, but none checks its result.';
 
-    private const string RETURNED_HERE = 'Tests run this return, but none asserts on what it returns.';
+    private const string RETURNED_HERE = 'Assert on what this returns: tests run it, but none checks its result.';
 
-    private const string REMOVED = 'Every test passes without the call to `%s()`, so nothing asserts on its effect.';
+    private const string REMOVED = 'Assert on what `%s()` does: every test passes without the call.';
 
-    private const string REMOVED_HERE = 'Every test passes without `%s`, so nothing asserts on its effect.';
+    private const string REMOVED_HERE = 'Assert on what `%s` does: every test passes without it.';
 
     /** The second sentence of a surviving removal whose callee is pseudo-tested, its tests asserting other things. */
     private const string REMOVABLE
@@ -65,26 +68,28 @@ final readonly class Hint
     /** How that sentence ends. */
     private const string DELETABLE = 'if nothing outside the tests needs `%s()`, it can be deleted.';
 
-    private const string LITERAL = 'No test depends on this value being `%s`.';
+    private const string LITERAL = 'Add an assertion that fails unless this value is `%s`.';
 
     private const string COLLECTION
-        = 'No test notices the item missing, or runs the loop with items and checks the outcome.';
+        = 'Add a test that notices the item missing, or runs the loop with items and checks the outcome.';
 
-    private const string EXCEPTION = 'No test expects this exception.';
+    private const string EXCEPTION = 'Add a test that expects this exception.';
 
-    private const string UNWRAP = 'No test passes a value `%s()` would change.';
+    private const string UNWRAP = 'Add a test that passes a value `%s()` would change.';
 
-    private const string UNWRAP_HERE = 'No test passes a value this call would change.';
+    private const string UNWRAP_HERE = 'Add a test that passes a value this call would change.';
 
-    private const string VISIBLE = 'Nothing outside the class calls `%s()`. It can be narrower.';
+    private const string VISIBLE = 'Make `%s()` narrower: nothing outside the class calls it.';
 
-    private const string VISIBLE_HERE = 'Nothing outside the class calls this. It can be narrower.';
+    private const string VISIBLE_HERE = 'Make this narrower: nothing outside the class calls it.';
 
-    private const string BECOMES = 'These tests run line %d, but none fails when it becomes `%s`.';
+    private const string BECOMES
+        = 'Add an assertion that fails when line %d becomes `%s`: these tests run it, but none notices.';
 
-    private const string GOES = 'These tests run line %d, but none fails when it is removed.';
+    private const string GOES
+        = 'Add an assertion that fails when line %d is removed: these tests run it, but none notices.';
 
-    private const string UNCOVERED = 'No test runs line %d.';
+    private const string UNCOVERED = 'Add a test that runs line %d: no test runs it yet.';
 
     private const string KILLED = 'A test fails with it in place.';
 
@@ -202,6 +207,28 @@ final readonly class Hint
     public function text(): string
     {
         return $this->text;
+    }
+
+    /**
+     * The first sentence of a hint's text: what would catch the mutant,
+     * without the sentences after it that name its tests. A full stop inside
+     * backticks is code, and ends nothing.
+     */
+    public static function lead(string $text): string
+    {
+        $code = false;
+        $length = mb_strlen($text);
+
+        for ($at = 0; $at < $length; $at++) {
+            $character = mb_substr($text, $at, 1);
+            $code = $character === '`' ? ! $code : $code;
+
+            if (! $code && $character === '.' && mb_substr($text, $at + 1, 1) === ' ') {
+                return mb_substr($text, 0, $at + 1);
+            }
+        }
+
+        return $text;
     }
 
     /** A sentence, then the one naming the first weak test that lets it through, and what it asserts. */

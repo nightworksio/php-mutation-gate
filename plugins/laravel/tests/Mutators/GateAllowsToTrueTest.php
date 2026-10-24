@@ -17,7 +17,7 @@ it('is named in the laravel set, a condition about security, with its own hint',
     expect($mutator->name()->value())->toBe('laravel/GateAllowsToTrue')
         ->and($mutator->family())->toBe(MutatorFamily::Condition)
         ->and($mutator->tags())->toEqual(Tags::of(Tag::security()))
-        ->and($mutator->hint())->toEqual(Hint::that('No test checks that the action is refused when the gate says no.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that checks that the action is refused when the gate says no.'));
 });
 
 it('answers yes for the gate under both runners, by the facade or its alias', function (): void {

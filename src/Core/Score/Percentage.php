@@ -69,6 +69,12 @@ final readonly class Percentage
         return self::inHundredths(intdiv($part * self::WHOLE, $whole));
     }
 
+    /** The least part of a whole whose share, truncated as share() truncates it, reaches a percent in hundredths. */
+    public static function partReaching(int $hundredths, int $whole): int
+    {
+        return intdiv($hundredths * $whole + self::WHOLE - 1, self::WHOLE);
+    }
+
     /** A percent in hundredths, truncated rather than rounded, whether or not it is between 0 and 100. */
     public static function hundredthsOf(int|float $percent): int
     {

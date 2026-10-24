@@ -494,7 +494,7 @@ it('names the tests that judged each survivor by their names, and marks each res
 
     expect($ran->output)->toContain(sprintf(
         "\n      Judged by: tests/MoneyTest.php::it adds\n      %s It is judged by `MoneyTest::adds`.\n",
-        'No test checks the result of `$amount + $tax` with a non-zero operand.',
+        'Add a test that checks the result of `$amount + $tax` with a non-zero operand.',
     ))
         ->and($proved->output)->toContain(' (proved in run local:2026-09-30T12:00:00Z) [survived] ');
 });

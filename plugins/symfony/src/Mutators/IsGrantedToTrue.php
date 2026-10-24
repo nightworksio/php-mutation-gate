@@ -48,6 +48,6 @@ final readonly class IsGrantedToTrue implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test checks what happens when this grant is denied.');
+        return Hint::that('Add a test that checks what happens when this grant is denied.');
     }
 }

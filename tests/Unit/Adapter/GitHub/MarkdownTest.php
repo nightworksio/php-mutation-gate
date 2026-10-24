@@ -76,7 +76,7 @@ it('writes the sticky comment: the verdict, trees, new code, survivors on change
         implode("\n\n", [
             '<details><summary><code>src/Money.php:7</code> LessToLessOrEqual, survived</summary>',
             "~~~diff\n--- Original\n+++ New\n@@ @@\n-        if (\$amount < \$limit) {\n+        if (\$amount <= \$limit) {\n~~~",
-            'No test uses a value at the boundary of <code>$amount &lt; $limit</code>. It is judged by <code>MoneyTest::fits</code>, <code>MoneyTest::refuses</code>, <code>PriceTest::adds</code> and 1 more.',
+            'Add a test that uses a value at the boundary of <code>$amount &lt; $limit</code>. It is judged by <code>MoneyTest::fits</code>, <code>MoneyTest::refuses</code>, <code>PriceTest::adds</code> and 1 more.',
             sprintf('<code>vendor/bin/mutation-gate reproduce %s</code>', $survivor->mutant()->id()->value()),
             '</details>',
         ]),

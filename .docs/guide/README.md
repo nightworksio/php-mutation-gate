@@ -3,6 +3,9 @@
 Start with the [quick start](../../README.md#quick-start), then read what fits
 what you are doing.
 
+**New to mutation testing:** [reading the report](reading-the-report.md) says
+what the report shows, what is good and what is not, and what to do next.
+
 **Setting up CI:** [running the gate in CI](ci/README.md), then the page for
 your CI, then [proofs and trust](concepts/proofs-and-trust.md) before you give
 any job a credential.

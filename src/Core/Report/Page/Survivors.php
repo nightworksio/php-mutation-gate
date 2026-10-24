@@ -8,6 +8,7 @@ use function array_slice;
 use function count;
 use function implode;
 
+use NightWorksIO\MutationGate\Core\Hint\Hint;
 use NightWorksIO\MutationGate\Core\Report\MutantJson;
 use NightWorksIO\MutationGate\Core\Report\Mutator;
 
@@ -16,7 +17,8 @@ use function sprintf;
 /**
  * The HTML report's survivors: each mutant the score counts as not killed,
  * those on changed lines first, by where it is, its mutator and what it came
- * to, each a link to it in the files below. A run with none says so.
+ * to, with what test would catch it, each a link to it in the files below.
+ * A run with none says so.
  *
  * @phpstan-import-type MutantEntry from MutantJson
  */
@@ -38,7 +40,8 @@ final readonly class Survivors
         <li><a href="#m-%1$s"><code>%2$s:%3$d</code></a>
         <span class="mutator" title="%4$s">%9$s</span>
         <span class="tag tag--%5$s">%6$s</span>
-        <span class="judgement">%7$s</span>%8$s</li>
+        <span class="judgement">%7$s</span>%8$s
+        <p class="hint">%10$s</p></li>
         HTML;
 
     private const string CHANGED = ' <span class="chip">changed line</span>';
@@ -83,6 +86,7 @@ final readonly class Survivors
             Html::text($mutant['judgement']),
             $mutant['changedLine'] ? self::CHANGED : '',
             Html::text(Mutator::short($mutant['mutator'])),
+            Html::prose(Hint::lead($mutant['hint'])),
         );
     }
 

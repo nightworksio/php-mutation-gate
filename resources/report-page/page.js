@@ -45,6 +45,18 @@
     return said;
   }
 
+  function term(meant) {
+    const shown = element('details', 'term');
+    shown.appendChild(element('summary', '', 'What is this?'));
+    const said = prose('', meant.meaning + ' ');
+    const more = element('a', '', 'More in the guide');
+    more.href = meant.guide;
+    said.appendChild(more);
+    shown.appendChild(said);
+
+    return shown;
+  }
+
   function tag(outcome) {
     return element('span', 'tag tag--' + outcome, LABELS[outcome]);
   }
@@ -206,7 +218,8 @@
     pane.appendChild(counts(file));
 
     if (file.carried) {
-      pane.appendChild(element('p', 'empty', 'This run did not judge this file: a proof or an earlier run carried its result, so only its counts are shown.'));
+      pane.appendChild(element('p', 'empty', 'This run did not judge this file: its result was carried, so only its counts are shown.'));
+      pane.appendChild(term(data.carried));
 
       return;
     }

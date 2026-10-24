@@ -1,0 +1,48 @@
+<?php
+
+declare(strict_types=1);
+
+namespace NightWorksIO\MutationGate\Adapter\Filesystem;
+
+use NightWorksIO\MutationGate\Core\Config\Invalid;
+use NightWorksIO\MutationGate\Core\Config\Options;
+use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Report\Digest\Digest;
+use NightWorksIO\MutationGate\Core\Report\Digest\SurvivorsShown;
+use NightWorksIO\MutationGate\Core\Report\JsonReport;
+use NightWorksIO\MutationGate\Core\Verdict\Verdict;
+use NightWorksIO\MutationGate\Core\Written;
+use NightWorksIO\MutationGate\Extension\Configurable;
+use NightWorksIO\MutationGate\Port\Reporter;
+
+/**
+ * The reporter `digest`: the digest's overview of the verdict, one fact a
+ * line for an agent, rendered from the JSON report as `mutation-gate digest`
+ * renders it, written to the `path` its entry names (ADR-0009).
+ */
+final readonly class DigestReportFile implements Configurable, Reporter
+{
+    private function __construct(private ReportPath $path)
+    {
+    }
+
+    public static function at(string $path): self
+    {
+        return new self(ReportPath::at($path));
+    }
+
+    public static function fromOptions(Options $options): self|Invalid
+    {
+        $path = ReportPath::ofFile($options, 'The digest');
+
+        return $path instanceof Invalid ? $path : new self($path);
+    }
+
+    public function report(Verdict $verdict): Written|NotWritten
+    {
+        $report = Node::decode(JsonReport::encode($verdict));
+
+        return $this->path->write(Digest::overview($report, SurvivorsShown::first()));
+    }
+}

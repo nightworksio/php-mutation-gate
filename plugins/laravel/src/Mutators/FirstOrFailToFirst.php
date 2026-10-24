@@ -55,7 +55,7 @@ final readonly class FirstOrFailToFirst implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test asks for a record that does not exist and expects it not to be found.');
+        return Hint::that('Add a test that asks for a record that does not exist and expects it not to be found.');
     }
 
     /** The call, of the method that returns null where the one it calls fails. */

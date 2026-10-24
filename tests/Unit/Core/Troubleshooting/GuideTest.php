@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Composer\Installed;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\Report\Term;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Guide;
 use NightWorksIO\MutationGate\Core\Troubleshooting\Slug;
 
@@ -29,4 +30,11 @@ it('reads the gate\'s version from what Composer installed, and main where it li
     expect($listed instanceof Installed ? Guide::installedIn($listed)->link(Slug::NoTree) : '')->toBe(sprintf(GUIDE_AT, 'v1.2.0'))
         ->and($unlisted instanceof Installed ? Guide::installedIn($unlisted)->link(Slug::NoTree) : '')->toBe(sprintf(GUIDE_AT, 'main'))
         ->and(Guide::unreleased()->link(Slug::NoTree))->toBe(sprintf(GUIDE_AT, 'main'));
+});
+
+it('links a term into the guide to reading the report of the release Composer installed, or of main', function (): void {
+    expect(Guide::ofInstalled('v1.4.2')->term(Term::TimedOut))
+        ->toBe('https://github.com/nightworksio/php-mutation-gate/blob/v1.4.2/.docs/guide/reading-the-report.md#timed-out')
+        ->and(Guide::unreleased()->term(Term::Floor))
+        ->toBe('https://github.com/nightworksio/php-mutation-gate/blob/main/.docs/guide/reading-the-report.md#floor');
 });

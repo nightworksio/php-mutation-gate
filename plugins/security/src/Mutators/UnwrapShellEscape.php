@@ -47,6 +47,6 @@ final readonly class UnwrapShellEscape implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test passes a shell metacharacter and checks that it comes out escaped.');
+        return Hint::that('Add a test that passes a shell metacharacter and checks that it comes out escaped.');
     }
 }

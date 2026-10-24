@@ -41,11 +41,11 @@ it('prints a failing Pest test for a survivor, under the test file of its class 
                 //     @@ @@
                 //     -return $amount > 100;
                 //     +return $amount >= 100;
-                // No test uses a value at the boundary of `$amount > 100`.
+                // Add a test that uses a value at the boundary of `$amount > 100`.
                 // Call it at the boundary, then one step past it:
                 // expect(/* the code it changes */)->toBe(/* at the boundary */);
                 // expect(/* the code it changes */)->toBe(/* one step past it */);
-                expect(true)->toBeFalse('Mutant 49e02fb39669, survived: No test uses a value at the boundary of `$amount > 100`. Fill this test in.');
+                expect(true)->toBeFalse('Mutant 49e02fb39669, survived: Add a test that uses a value at the boundary of `$amount > 100`. Fill this test in.');
                 // Where no test can kill it, leave it out in ignores.entries instead, with a reason:
                 // {"mutant":"49e02fb39669","reason":""}
             });
