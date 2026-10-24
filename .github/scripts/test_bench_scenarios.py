@@ -217,7 +217,6 @@ class Running(unittest.TestCase):
             (out / "gate-unchanged-2.time").write_text(json.dumps({"seconds": 1.0, "exit": "stopped"}))
             self.assertEqual(bench_scenarios.report(described, out, result), 1)
 
-
     def test_fails_where_a_round_of_an_unchanged_re_run_reused_less_than_the_first_as_jwt_s_did(self):
         with tempfile.TemporaryDirectory() as work:
             out, result = Path(work) / "out", Path(work) / "result.json"
