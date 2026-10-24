@@ -100,7 +100,8 @@ it('shapes the project\'s config as Infection shapes a mutant\'s, with one suite
         ->and($xpath->evaluate('string(/phpunit/source/include/directory[2])'))->toBe(sprintf('%s/config/../src', $root))
         ->and($xpath->evaluate('string(/phpunit/source/include/directory[3])'))->toBe('C:\lib')
         ->and($xpath->evaluate('string(/phpunit/source/include/directory[4])'))->toBe('phar://tools.phar/src')
-        ->and($xpath->evaluate('string(/phpunit/php/ini/@value)'))->toBe('512M');
+        ->and($xpath->evaluate('string(/phpunit/php/ini/@value)'))->toBe('512M')
+        ->and($xpath->evaluate('count(/phpunit/@failOnRisky|/phpunit/@failOnWarning)'))->toEqual(0);
 });
 
 it('writes each path of a suite on the root absolute before it goes, and loads a bootstrap the config names from its directory', function (): void {
@@ -189,4 +190,36 @@ it('writes a control\'s config in a place of its own, its one suite holding the 
         ->and($xpath->evaluate('string(/phpunit/testsuites/testsuite/file[1])'))->toBe(sprintf('%s/tests/MoneyTest.php', $root))
         ->and($xpath->evaluate('string(/phpunit/testsuites/testsuite/file[2])'))->toBe(sprintf('%s/tests/R&DTest.php', $root))
         ->and($xpath->evaluate('count(/phpunit/testsuites/testsuite/file)'))->toEqual(2);
+});
+
+it('fails a control on a risky test and on a warning, as Infection fails a mutant\'s run, unless the config says otherwise', function (): void {
+    $root = (string) realpath(Scratch::directory());
+    Scratch::write($root, 'infection.json5', '{}');
+    Scratch::write($root, 'src/Money.php', '<?php');
+    $project = Project::at(Root::of($root), Paths::of(Path::of('tests')), Path::of('.gate'));
+    $control = static function (string $config) use ($root, $project): DOMXPath {
+        Scratch::write($root, 'phpunit.xml', $config);
+        $file = StartUpConfig::holding($project, ownConfigOf($project), Path::of('src/Money.php'), Paths::none(), 'controls/0');
+        $document = new DOMDocument();
+        $document->load(is_string($file) ? $file : '');
+
+        return new DOMXPath($document);
+    };
+    $silent = $control('<phpunit/>');
+    $said = $control('<phpunit failOnRisky="false" failOnWarning="FALSE"/>');
+
+    expect($silent->evaluate('string(/phpunit/@failOnRisky)'))->toBe('true')
+        ->and($silent->evaluate('string(/phpunit/@failOnWarning)'))->toBe('true')
+        ->and($said->evaluate('string(/phpunit/@failOnRisky)'))->toBe('false')
+        ->and($said->evaluate('string(/phpunit/@failOnWarning)'))->toBe('FALSE');
+});
+
+it('writes no control\'s config where the project\'s cannot be read', function (): void {
+    $root = (string) realpath(Scratch::directory());
+    Scratch::write($root, 'infection.json5', '{}');
+    Scratch::write($root, 'phpunit.xml', 'not <xml');
+    $project = Project::at(Root::of($root), Paths::of(Path::of('tests')), Path::of('.gate'));
+
+    expect(StartUpConfig::holding($project, ownConfigOf($project), Path::of('src/Money.php'), Paths::none(), 'controls/0'))
+        ->toEqual(CannotJudge::because(sprintf('PHPUnit\'s config %s/phpunit.xml is not XML the gate can read.', $root)));
 });

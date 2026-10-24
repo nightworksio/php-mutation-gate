@@ -63,6 +63,12 @@ final readonly class Enclosing
         return $this->name;
     }
 
+    /** The short name of the class it is a method of; nothing for a function, or a method of an anonymous class. */
+    public function owner(): string|Nameless
+    {
+        return $this->class;
+    }
+
     /**
      * The call a test makes to it, its parameters' names as placeholders:
      * `fits($amount, $limit)`, `$cart->fits($amount)`, `Cart::of($items)`,

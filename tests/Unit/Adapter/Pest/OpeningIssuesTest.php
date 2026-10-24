@@ -246,7 +246,8 @@ it('runs the opening tests again alone as the run selected them, withholding wha
             '--no-tia',
             '--colors=never',
             '--log-events-text=/e',
-            '--group=mutation-canary',
+            '--group',
+            'mutation-canary',
             '--do-not-fail-on-empty-test-suite',
         ));
 });

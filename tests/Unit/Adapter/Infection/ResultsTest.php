@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Infection\FailingIssues;
 use NightWorksIO\MutationGate\Adapter\Infection\Invocation;
 use NightWorksIO\MutationGate\Adapter\Infection\JUnit;
 use NightWorksIO\MutationGate\Adapter\Infection\Limits;
@@ -164,6 +165,27 @@ it('names the tests that killed a mutant, and none for one static analysis, an e
         ['src/Money.php:30', []],
         ['src/Money.php:31', []],
     ]);
+});
+
+it('names the tests whose issues failed a kill\'s run, as the config fails it on them, a warning in a test by the map\'s tests', function (): void {
+    $at = resultsProject();
+    Scratch::write($at->root(), 'tests/MoneyTest.php', "<?php\nnamespace Tests;\nfinal class MoneyTest\n{\n    public function adds(): void\n    {\n        file_get_contents('gone');\n    }\n}\n");
+    InfectionRun::log($at->own(Invocation::JSON), ['killed' => [
+        [...resultsMutant($at, 'Plus', 'src/Money.php', 11, 'return $a + $b;', 'return $a - $b;'), 'processOutput' => "There was 1 risky test:\n\n1) Tests\\MoneySpec::adds\nrisky\n"],
+        [...resultsMutant($at, 'Minus', 'src/Money.php', 12, 'return $a - $b;', 'return $a + $b;'), 'processOutput' => sprintf("1 test triggered 1 PHP warning:\n\n1) %s/tests/MoneyTest.php:7\nwarned\n", $at->root())],
+    ]]);
+    InfectionRun::text($at->own(Invocation::TEXT), []);
+    $killers = static function (FailingIssues $failing) use ($at): array {
+        $result = Results::read($at, Ran::finished(succeeded: false, output: 'exit 1'), TextLog::at($at->own(Invocation::TEXT)), resultsLimits($at), MemoryCap::standard(), NotGiven::value(), nativeMarkersAllowed: false, failing: $failing);
+
+        return $result instanceof MutationResult ? array_map(
+            static fn(Mutant $mutant): array => array_map(static fn(TestId $test): string => $test->value(), [...$mutant->killers()]),
+            iterator_to_array($result->mutants(), preserve_keys: false),
+        ) : [];
+    };
+
+    expect($killers(new FailingIssues()))->toBe([['Tests\\MoneySpec::adds'], ['Tests\\MoneyTest::adds']])
+        ->and($killers(new FailingIssues(risky: false, warning: false)))->toBe([[], []]);
 });
 
 it('reads a kill or an error whose output ran out of exactly the gate\'s cap as out of memory, with the cap and no killer', function (): void {

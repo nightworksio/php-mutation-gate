@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Adapter\Infection\FailingIssues;
 use NightWorksIO\MutationGate\Adapter\Infection\OwnConfig;
 use NightWorksIO\MutationGate\Adapter\Infection\Project;
 use NightWorksIO\MutationGate\Adapter\Infection\ProjectPhpUnit;
@@ -67,4 +68,14 @@ it('reads no display where the project has no PHPUnit config', function (): void
     [$project, $config] = infectionPhpUnit([]);
 
     expect(ProjectPhpUnit::display($project, $config))->toEqual(NotGiven::value());
+});
+
+it('reads which issues fail a mutant\'s run from the config, and Infection\'s own where there is none or it is not XML', function (): void {
+    [$project, $config] = infectionPhpUnit(['phpunit.xml' => '<phpunit failOnRisky="false"/>']);
+    [$bare, $none] = infectionPhpUnit([]);
+    [$broken, $unread] = infectionPhpUnit(['phpunit.xml' => '<phpunit failOnRisky="false"']);
+
+    expect(ProjectPhpUnit::failing($project, $config))->toEqual(new FailingIssues(risky: false))
+        ->and(ProjectPhpUnit::failing($bare, $none))->toEqual(new FailingIssues())
+        ->and(ProjectPhpUnit::failing($broken, $unread))->toEqual(new FailingIssues());
 });

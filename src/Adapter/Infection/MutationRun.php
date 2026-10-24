@@ -148,6 +148,7 @@ final readonly class MutationRun
                 ProjectPhpUnit::display($this->project, $this->config),
                 $this->nativeMarkersAllowed,
                 $this->bridges,
+                ProjectPhpUnit::failing($this->project, $this->config),
             );
 
         return $result instanceof CannotJudge ? $result : $result->withSteps(StepTimes::of(

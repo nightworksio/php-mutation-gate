@@ -92,10 +92,19 @@ final readonly class Results
         ErrorDisplay|NotGiven $display,
         bool $nativeMarkersAllowed,
         Bridges $bridges = new Bridges(),
+        FailingIssues $failing = new FailingIssues(),
     ): MutationResult|CannotJudge {
         $log = $project->own(Invocation::JSON);
+        $killing = KillingTests::of($failing, $limits->tests());
         $found = is_file($log)
-            ? self::parsed(sprintf('%s', file_get_contents($log)), $text, $cap, $display, $nativeMarkersAllowed)
+            ? self::parsed(
+                sprintf('%s', file_get_contents($log)),
+                $text,
+                $cap,
+                $display,
+                $nativeMarkersAllowed,
+                $killing,
+            )
             : self::unlogged($ran, $cap);
 
         return $found instanceof CannotJudge
@@ -118,13 +127,14 @@ final readonly class Results
         MemoryCap $cap,
         ErrorDisplay|NotGiven $display,
         bool $nativeMarkersAllowed,
+        KillingTests $killing,
     ): array|CannotJudge {
         try {
             $log = Node::decode($json);
             $problem = LogProblems::in($log, $text, $nativeMarkersAllowed);
 
             return $problem === ''
-                ? self::found($log, $text, $cap, $display)
+                ? self::found($log, $text, $cap, $display, $killing)
                 : CannotJudge::because(sprintf(self::DOES_NOT_ADD_UP, $problem));
         } catch (NotInShape $shape) {
             return CannotJudge::because(sprintf(self::NOT_IN_SHAPE, $shape->getMessage()));
@@ -136,13 +146,18 @@ final readonly class Results
      *
      * @throws NotInShape
      */
-    private static function found(Node $log, TextLog $text, MemoryCap $cap, ErrorDisplay|NotGiven $display): array
-    {
+    private static function found(
+        Node $log,
+        TextLog $text,
+        MemoryCap $cap,
+        ErrorDisplay|NotGiven $display,
+        KillingTests $killing,
+    ): array {
         $found = [];
 
         foreach (LogList::cases() as $list) {
             foreach ($log->field($list->value)->items() as $entry) {
-                $found[] = self::entry($list, $entry, $cap, $display);
+                $found[] = self::entry($list, $entry, $cap, $display, $killing);
             }
         }
 
@@ -168,8 +183,13 @@ final readonly class Results
      *
      * @throws NotInShape
      */
-    private static function entry(LogList $list, Node $entry, MemoryCap $cap, ErrorDisplay|NotGiven $display): array
-    {
+    private static function entry(
+        LogList $list,
+        Node $entry,
+        MemoryCap $cap,
+        ErrorDisplay|NotGiven $display,
+        KillingTests $killing,
+    ): array {
         $mutator = $entry->field(self::MUTATOR);
         $printed = $entry->field(self::OUTPUT);
         $output = Lenient::text($printed);
@@ -182,7 +202,7 @@ final readonly class Results
             'line' => $mutator->field('originalStartLine')->integer(),
             'mutator' => $mutator->field('mutatorName')->text(),
             'diff' => $entry->field('diff')->text(),
-            'killers' => $list->namesKillers() && ! $outOfMemory ? KillingTests::in($output) : TestIds::none(),
+            'killers' => $list->namesKillers() && ! $outOfMemory ? $killing->in($output) : TestIds::none(),
             'limit' => $named ? $cap : NotGiven::value(),
             'output' => $printed->isPresent() ? $output : NotGiven::value(),
         ];

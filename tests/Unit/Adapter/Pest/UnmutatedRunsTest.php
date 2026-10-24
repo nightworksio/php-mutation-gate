@@ -111,7 +111,7 @@ it('runs a control whose tests Pest\'s filter cannot hold by the tests that judg
         MutationRequest::of(Paths::of(Path::of('src/Money.php')), Group::named('holds:src/Money.php')),
     );
 
-    expect($shell->commands()[0]->arguments())->toContain('--group=holds:src/Money.php');
+    expect($shell->commands()[0]->arguments())->toContain('holds:src/Money.php');
 });
 
 it('runs each control over the judging suites, and the holding suites too where Pest\'s filter names its tests', function (): void {

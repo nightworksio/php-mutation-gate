@@ -4,64 +4,99 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Adapter\Infection;
 
-use function array_key_exists;
+use function count;
+use function file_get_contents;
 use function is_array;
-use function mb_substr;
+use function is_file;
 
+use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\File\Line;
+use NightWorksIO\MutationGate\Core\Php\Nameless;
+use NightWorksIO\MutationGate\Core\Test\TestAt;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
+use NightWorksIO\MutationGate\Core\Test\TestMethod;
 
-use function preg_match;
 use function preg_split;
 use function sprintf;
 
 /**
- * The tests that killed a mutant, read from what PHPUnit printed for its run,
- * which Infection's JSON log keeps as `processOutput`. PHPUnit lists the tests
- * that failed or met an error under `There was 1 failure:` or `There were 2
- * errors:`, each as `<n>) <class>::<method>`, and a data set's test as
- * `<class>::<method>#<number> with data (…)` or `…@<name> with data (…)`.
- * Each is named as the coverage map names it: `<class>::<method>`, with
- * `#<data set>` for a data set. A run killed with no such list, by a crash
- * or a timeout, names none.
+ * The tests that killed a mutant, read from what PHPUnit printed for its
+ * run, which Infection's JSON log keeps as `processOutput` (see
+ * PrintedTests). Where a test failed or met an error, those tests killed it.
+ * Where none did, the tests whose issues failed the run did (ADR-0014), as
+ * the run's config fails it on them (see FailingIssues): each risky test,
+ * each test PHPUnit warned of, each test a warning lists as triggering it,
+ * and, for a warning raised in a test itself, the test method its line is in
+ * (see TestAt), as each data set of it the coverage map knows. A run killed
+ * with no such list, by a crash or a timeout, names none.
  */
 final readonly class KillingTests
 {
-    /** A list PHPUnit prints after a run. */
-    private const string LIST = '/^There (?:was|were) \d+ /';
-
-    /** A list of the tests that failed, or that met an error. */
-    private const string DEFECTS = '/^There (?:was|were) \d+ (?:failure|error)s?:$/D';
-
-    /** One test in such a list, and the data set it ran with where it ran with one. */
-    private const string ENTRY = '/^\d+\) (?<test>[^\s#@]+::[^\s#@]+)(?:(?<set>[#@].*?) with data \(.*\))?$/D';
-
     /** The lines of what PHPUnit printed. */
     private const string LINES = '/\R/';
 
-    public static function in(string $output): TestIds
+    private function __construct(private FailingIssues $failing, private TestIds $known)
+    {
+    }
+
+    /** The killers of mutants whose runs fail on these issues, among the tests the coverage map knows. */
+    public static function of(FailingIssues $failing, TestIds $known): self
+    {
+        return new self($failing, $known);
+    }
+
+    public function in(string $output): TestIds
     {
         $lines = preg_split(self::LINES, $output);
-        $tests = TestIds::none();
-        $listing = false;
+        $read = PrintedTests::none();
 
         foreach (is_array($lines) ? $lines : [] as $line) {
-            $listing = preg_match(self::LIST, $line) === 1 ? preg_match(self::DEFECTS, $line) === 1 : $listing;
-            $tests = $listing ? self::withEntry($tests, $line) : $tests;
+            $read = $read->read($line, $this->failing);
+        }
+
+        $read = $read->ended();
+
+        if (count($read->defects()) > 0) {
+            return $read->defects();
+        }
+
+        $tests = $read->issued();
+
+        foreach ($read->places() as $place) {
+            $tests = $tests->and($this->testsAt($place['file'], Line::of($place['line'])));
         }
 
         return $tests;
     }
 
-    /** These tests, and the one a line of a list names, as the coverage map names it. */
-    private static function withEntry(TestIds $tests, string $line): TestIds
+    /** The tests the coverage map knows of the test method a line of a test file is in, each data set's. */
+    private function testsAt(string $file, Line $line): TestIds
     {
-        if (preg_match(self::ENTRY, $line, $entry) !== 1) {
-            return $tests;
+        $method = is_file($file)
+            ? TestAt::in(Contents::of(sprintf('%s', file_get_contents($file))), $line)
+            : Nameless::code();
+
+        if ($method instanceof Nameless) {
+            return TestIds::none();
         }
 
-        $set = array_key_exists('set', $entry) ? sprintf('#%s', mb_substr($entry['set'], 1)) : '';
+        $found = TestIds::none();
 
-        return $tests->with(TestId::of(sprintf('%s%s', $entry['test'], $set)));
+        foreach ($this->known as $test) {
+            $found = $this->methodOf($test) === $method->value() ? $found->with($test) : $found;
+        }
+
+        return $found;
+    }
+
+    /** The id of the test method a test runs, whatever its data set; the id itself where it names no method. */
+    private function methodOf(TestId $test): string
+    {
+        $method = TestMethod::of($test);
+
+        return $method instanceof TestMethod
+            ? TestMethod::id($method->className(), $method->method())->value()
+            : $method->value();
     }
 }

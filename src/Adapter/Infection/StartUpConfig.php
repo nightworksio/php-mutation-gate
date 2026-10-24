@@ -42,9 +42,13 @@ use function var_export;
  * control's for a control, and its bootstrap replaced by Infection's: one
  * that lowers the process's priority, serves the mutant's file through
  * Infection's include interceptor, here an unchanged copy, and then loads
- * the original bootstrap. The steps that only order, stop or report a run
- * are left out. Infection's builder is in the project's vendor, which the
- * gate's own process never loads, so the gate takes the same steps.
+ * the original bootstrap. A control's also fails on what fails a mutant's
+ * run: Infection sets `failOnRisky` and `failOnWarning` where the config
+ * sets neither (see FailingIssues), so a test whose issue killed a mutant
+ * fails its control where it raises that issue unmutated too. The steps that
+ * only order, stop or report a run are left out. Infection's builder is in
+ * the project's vendor, which the gate's own process never loads, so the
+ * gate takes the same steps.
  */
 final readonly class StartUpConfig
 {
@@ -104,7 +108,7 @@ final readonly class StartUpConfig
      */
     public static function written(Project $project, OwnConfig $config, Path $file): string|CannotJudge
     {
-        return self::holding($project, $config, $file, Paths::none(), StartUp::DIRECTORY);
+        return self::config($project, $config, $file, Paths::none(), StartUp::DIRECTORY, controls: false);
     }
 
     /**
@@ -119,13 +123,26 @@ final readonly class StartUpConfig
         Paths $tests,
         string $place,
     ): string|CannotJudge {
+        return self::config($project, $config, $file, $tests, $place, controls: true);
+    }
+
+    /** The config, failing as a mutant's run fails where it controls; or why it cannot be. */
+    private static function config(
+        Project $project,
+        OwnConfig $config,
+        Path $file,
+        Paths $tests,
+        string $place,
+        bool $controls,
+    ): string|CannotJudge {
         $original = self::original($project, $config);
         $read = $original instanceof CannotJudge
             ? $original
             : XmlFile::read($original, CannotJudge::because(sprintf(self::UNREADABLE, $original)));
-        $document = $read instanceof CannotJudge
+        $shaped = $read instanceof CannotJudge
             ? $read
             : self::shaped($read, $config->configDirectory($project), self::absoluteIn($project, $tests));
+        $document = $shaped instanceof DOMDocument && $controls ? self::failing($shaped) : $shaped;
         $written = $document instanceof CannotJudge
             ? $document
             : $project->fresh($project->own(sprintf(self::FILE, $place)));
@@ -193,6 +210,20 @@ final readonly class StartUpConfig
         return $named === '' || ! is_string($named)
             ? $project->absolute(Path::of(sprintf('%s/autoload.php', Manifest::VENDOR)))
             : $named;
+    }
+
+    /** The config, failing on a risky test and on a warning where it says nothing of either, as Infection sets it. */
+    private static function failing(DOMDocument $document): DOMDocument
+    {
+        foreach (FailingIssues::ADDED as $attribute) {
+            $root = $document->documentElement;
+            $root?->setAttribute(
+                $attribute,
+                $root->hasAttribute($attribute) ? $root->getAttribute($attribute) : 'true',
+            );
+        }
+
+        return $document;
     }
 
     /** The config, starting from this bootstrap, as Infection's setCustomBootstrapPath sets it. */

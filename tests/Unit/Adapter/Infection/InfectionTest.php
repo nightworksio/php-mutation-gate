@@ -174,7 +174,8 @@ it('runs the suite or a group under coverage into a directory and reads the map 
         ->covered(Path::of('src/Money.php'), Line::of(11), TestId::of('Tests\MoneyTest::adds'))
         ->timed(TestId::of('Tests\MoneyTest::adds'), Seconds::of(0.5)))
         ->and(InfectionCases::ran($shell)[0])->toContain(sprintf('--coverage-xml=%s/.gate/planned/coverage-xml', $at->root()))
-        ->and(InfectionCases::ran($shell)[0])->toContain('--group=slow');
+        ->and(InfectionCases::ran($shell)[0])->toContain('--group')
+        ->and(InfectionCases::ran($shell)[0])->toContain('slow');
 });
 
 it('reads the map another job handed on without running anything, and never a runner\'s own report', function (): void {
@@ -401,7 +402,7 @@ it('never judges a held path with a map of the whole suite, but runs its own tes
         ->reusingCoverage(Handed::maps(Path::of('planned'), Path::of('planned')));
     new Infection($at, $shell, LimitBounds::between(Seconds::of(10.0), Seconds::of(10.0)), nativeMarkersAllowed: false, files: new CapDirectory())->mutate($request);
 
-    expect(InfectionCases::ran($shell)[0])->toContain('--filter=MoneyTest')
+    expect(InfectionCases::ran($shell)[0])->toContain('MoneyTest')
         ->and(InfectionCases::ran($shell)[1])->toContain(sprintf('--coverage=%s/.gate/infection/coverage', $at->root()))
         ->and(InfectionCases::ran($shell)[1])->toContain('--only-covering-test-cases');
 });

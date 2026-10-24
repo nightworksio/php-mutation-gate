@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\LimitBounds;
 use NightWorksIO\MutationGate\Core\Runner\MutantLimit;
+use NightWorksIO\MutationGate\Core\Test\TestIds;
 use NightWorksIO\MutationGate\Core\Test\TestMethod;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 
@@ -36,6 +37,12 @@ final readonly class Limits
     public static function of(CoverageMap $map, JUnit $junit, LimitBounds $bounds, PatchState $state): self
     {
         return new self($map, $junit, $bounds, $state, Silenced::none());
+    }
+
+    /** Every test the coverage map knows. */
+    public function tests(): TestIds
+    {
+        return $this->map->tests();
     }
 
     /** These limits, with the mutants a patched Infection stopped at their silence limit. */
