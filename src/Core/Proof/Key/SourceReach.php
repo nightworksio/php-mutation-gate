@@ -22,6 +22,8 @@ use NightWorksIO\MutationGate\Core\Php\NamedFiles;
 use NightWorksIO\MutationGate\Core\Php\ReachedFiles;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 
+use function sort;
+
 use const SORT_STRING;
 
 use function sprintf;
@@ -30,15 +32,22 @@ use function strval;
 /**
  * Which files outside the test directories a unit's key reads one by one,
  * rather than in the base every key reads (ADR-0007): the PHP files the
- * coverage map shows some test executed, whose runs the map observes. A
- * unit's key reads those of them its own file, the files its covering tests
- * executed, its judging test files and the test files every key reads name,
- * transitively through the project's name graph, and those of them its
- * covering tests executed. Every other file outside the test directories is
- * in the base, as no map shows what runs it: a file that is no PHP, a PHP
- * file no test executed, and the config, autoload and Composer files among
- * them, so a change to one resets every key. A held unit's key reads every
- * file the map observes, since any test can join its group.
+ * coverage map shows some test executed, whose runs the map observes.
+ *
+ * A unit's key reads, of those, the files its covering tests executed; every
+ * file its own file, those files or the test files that can judge it name;
+ * and every file a file named so names in what other files can read of it,
+ * its declarations without their bodies, transitively. A body only acts
+ * where it runs, and the map shows where it runs, so a file the unit's tests
+ * never ran acts on them through its declarations alone: a constant, a
+ * default, an attribute, a parent.
+ *
+ * Every other file outside the test directories is in the base, as no map
+ * shows what runs it: a file that is no PHP, a PHP file no test executed, and
+ * the config, autoload and Composer files among them, so a change to one
+ * resets every key. Where what a unit reaches cannot be traced, its key
+ * reads every file the map observes, failing closed: for a held unit, since
+ * any test can join its group, and for a unit no test covers.
  */
 final readonly class SourceReach
 {
@@ -50,7 +59,8 @@ final readonly class SourceReach
      * @param array<string, array<string, true>> $executed the files each test executed, by the test's id
      */
     private function __construct(
-        private ReachedFiles|NotGiven $reached,
+        private NamedFiles|NotGiven $names,
+        private ReachedFiles|NotGiven $declared,
         private array $observed,
         private array $executed,
     ) {
@@ -59,11 +69,14 @@ final readonly class SourceReach
     /** No file read one by one: every file outside the test directories in the base, as where no graph is read. */
     public static function nothing(): self
     {
-        return new self(NotGiven::value(), [], []);
+        return new self(NotGiven::value(), NotGiven::value(), [], []);
     }
 
-    /** The files each unit reaches through this name graph, as this map shows its tests ran them. */
-    public static function of(NamedFiles $names, CoverageMap $map): self
+    /**
+     * The files each unit reaches through the project's name graph, and the graph of what its files declare, as
+     * this map shows its tests ran them.
+     */
+    public static function of(NamedFiles $names, NamedFiles $declarations, CoverageMap $map): self
     {
         $observed = [];
         $executed = [];
@@ -80,7 +93,7 @@ final readonly class SourceReach
             }
         }
 
-        return new self($names->reaches(), $observed, $executed);
+        return new self($names, $declarations->reaches(), $observed, $executed);
     }
 
     /**
@@ -104,14 +117,35 @@ final readonly class SourceReach
      * The files a unit's key reads one by one, each by its digest among
      * these, framed as a key reads them, in byte order.
      *
-     * @param Paths $always the test files every key reads
+     * @param Paths $tests the test files that can judge the unit, what of the test directories they read, and the
+     *                     test files every key reads
      */
-    public function readBy(Unit $unit, Paths $judges, Paths $always, CoverageMap $coverage, Fingerprints $files): string
+    public function readBy(Unit $unit, Paths $tests, CoverageMap $coverage, Fingerprints $files): string
     {
-        $reached = $this->reachedBy($unit, $judges, $always, $coverage);
-        $read = ContentKeys::framed(self::SECTION, sprintf('%d', count($reached)));
+        return $this->framedReads($this->reachedBy($unit, $tests, $coverage), $files);
+    }
 
-        foreach ($reached as $path) {
+    /**
+     * Every file the map observes, each by its digest among these, framed as
+     * {@see readBy()} frames a unit's: what a unit's key reads where what it
+     * reaches cannot be traced, as where its tests read files.
+     */
+    public function readAll(Fingerprints $files): string
+    {
+        return $this->framedReads(array_map(strval(...), array_keys($this->observed)), $files);
+    }
+
+    /**
+     * These files, each by its digest among those, framed in byte order.
+     *
+     * @param list<string> $paths
+     */
+    private function framedReads(array $paths, Fingerprints $files): string
+    {
+        sort($paths, SORT_STRING);
+        $read = ContentKeys::framed(self::SECTION, sprintf('%d', count($paths)));
+
+        foreach ($paths as $path) {
             $digest = $files->digestOf(Path::of($path));
             $read .= ContentKeys::framed($path, $digest instanceof Digest ? $digest->value() : Missing::DIGESTED);
         }
@@ -126,25 +160,28 @@ final readonly class SourceReach
     }
 
     /**
-     * The observed files a unit reaches, in byte order.
+     * The observed files a unit reaches, in byte order: the files its tests
+     * executed and its own, and what those and its test files name, followed
+     * through declarations.
      *
      * @return list<string>
      */
-    private function reachedBy(Unit $unit, Paths $judges, Paths $always, CoverageMap $coverage): array
+    private function reachedBy(Unit $unit, Paths $tests, CoverageMap $coverage): array
     {
         $executed = $this->executedBy($unit, $coverage);
         $from = [$unit->path()->value(), ...$executed];
 
-        foreach ([...$judges, ...$always] as $test) {
+        foreach ($tests as $test) {
             $from[] = $test->value();
         }
 
-        $reached = $unit->isHeld() || $this->reached instanceof NotGiven
+        $traced = ! $unit->isHeld() && count($coverage->lineSets($unit->path())) > 0;
+        $reached = ! $traced || $this->names instanceof NotGiven || $this->declared instanceof NotGiven
             ? array_keys($this->observed)
-            : $this->reached->from(...$from);
+            : $this->declared->from(...$this->names->named(...$from));
         $read = [];
 
-        foreach ([...$reached, ...$executed] as $path) {
+        foreach ([...$reached, ...$executed, $unit->path()->value()] as $path) {
             $read += array_key_exists($path, $this->observed) ? [$path => strval($path)] : [];
         }
 

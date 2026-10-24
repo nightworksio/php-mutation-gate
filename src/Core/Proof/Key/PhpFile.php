@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Proof\Key;
 
 use function array_any;
+use function array_key_exists;
 use function array_last;
 use function array_map;
 use function array_values;
@@ -41,9 +42,14 @@ final readonly class PhpFile
      * @param list<string>        $declares every class, interface, trait, enum, function and constant it
      *                                      declares, lower-cased
      * @param array<string, string> $names    every name and word it mentions, lower-cased
+     * @param array<string, string> $code     every name its code mentions, outside its strings, lower-cased
      */
-    private function __construct(private bool $onlyDeclares, private array $declares, private array $names)
-    {
+    private function __construct(
+        private bool $onlyDeclares,
+        private array $declares,
+        private array $names,
+        private array $code,
+    ) {
     }
 
     public static function read(Contents $source): self
@@ -63,6 +69,7 @@ final readonly class PhpFile
             ! $reading->refused(),
             $reading->refused() ? [] : $reading->declares(),
             self::mentionedIn($tokens),
+            self::codeIn($tokens),
         );
     }
 
@@ -95,6 +102,12 @@ final readonly class PhpFile
         return array_values($this->names);
     }
 
+    /** Whether its code, outside its strings, mentions one of these names, each matched by its last segment. */
+    public function codeMentionsAnyOf(string ...$names): bool
+    {
+        return array_any($names, fn(string $name): bool => array_key_exists($name, $this->code));
+    }
+
     private static function isSilent(PhpToken $token): bool
     {
         return $token->is(self::SILENT) || ($token->is(T_INLINE_HTML) && trim($token->text) === '');
@@ -119,6 +132,22 @@ final readonly class PhpFile
             foreach ($token->is(Words::TOKENS) ? Words::in($token->text)->all() : [] as $word) {
                 $names[$word] = $word;
             }
+        }
+
+        return $names;
+    }
+
+    /**
+     * @param  array<PhpToken>     $tokens
+     * @return array<string, string>
+     */
+    private static function codeIn(array $tokens): array
+    {
+        $names = [];
+
+        foreach ($tokens as $token) {
+            $name = $token->is(Names::TOKENS) ? self::lastSegmentOf(mb_strtolower($token->text)) : '';
+            $names += $name === '' ? [] : [$name => $name];
         }
 
         return $names;

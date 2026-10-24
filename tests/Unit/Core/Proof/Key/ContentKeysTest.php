@@ -452,7 +452,7 @@ function contentKeysPinned(CoverageMap $observed): ContentKeys
             $paths('tests/Unit/MoneyTest.php', 'tests/Unit/LedgerTest.php', 'tests/Unit/CanaryTest.php', 'tests/10', 'tests/9'),
             $paths('tests/Unit/CanaryTest.php'),
         ),
-        SourceReach::of(NamedFiles::byName(['src/A.php' => ['A'], 'src/B.php' => ['B']], ['src/A.php' => ['B'], 'src/B.php' => []]), $observed),
+        SourceReach::of(NamedFiles::byName(['src/A.php' => ['A'], 'src/B.php' => ['B']], ['src/A.php' => ['B'], 'src/B.php' => []]), NamedFiles::byName(['src/A.php' => ['A'], 'src/B.php' => ['B']], []), $observed),
     );
 }
 
@@ -472,7 +472,7 @@ it('keys each unit of a fixture with the bytes its format gives it, whatever ord
     'a unit judged by one test file' => [fn(): Unit => Unit::file(Path::of('src/A.php')), fn(): Paths => Paths::of(Path::of('tests/Unit/MoneyTest.php')), '0b1b006a345b3cf16297fef0b7a242e58061a04c109be6edf0124d6e2be64820'],
     'a unit judged by test files named by digits' => [fn(): Unit => Unit::file(Path::of('src/A.php')), fn(): Paths => Paths::of(Path::of('tests/10'), Path::of('tests/9'), Path::of('tests/Unit/LedgerTest.php')), 'ca61843cb4a460b6134f491602525d09fb2a9512e6ed45499301648e99672241'],
     'a unit judged by a test file the key does not hold' => [fn(): Unit => Unit::file(Path::of('src/B.php')), fn(): Paths => Paths::of(Path::of('tests/Unit/GoneTest.php'), Path::of('tests/Unit/MoneyTest.php')), 'b7860043c90a1a575c00b2b21d95b803febf101eb4bc3125537160e5df068244'],
-    'a unit nothing judges' => [fn(): Unit => Unit::file(Path::of('src/C.php')), fn(): Paths => Paths::none(), 'afc63dcd1a990fdc286ac365fa836569e1070acd95ee5ff62ce77d063671da64'],
+    'a unit nothing judges' => [fn(): Unit => Unit::file(Path::of('src/C.php')), fn(): Paths => Paths::none(), '0a40ce9106ad6f855db01d51ada7688b30dc1513b1d96884c73febb8e764c6c1'],
     'a unit a group holds' => [fn(): Unit => Unit::held(Path::of('src/A.php'), Group::named('holds:src/A.php')), fn(): Paths => Paths::none(), 'cb7d9b2fd16de51e48d055d451413ad52fc4fa485bfa5d8594a377b9a7169a8b'],
     'a unit a filter holds' => [fn(): Unit => Unit::held(Path::of('src/B.php'), Filter::matching('Money')), fn(): Paths => Paths::of(Path::of('tests/Unit/MoneyTest.php')), '7995a7fbe1653cda0c571cf387296a2d71c81360475b72346c4a96f4a4d7bb5f'],
 ]);

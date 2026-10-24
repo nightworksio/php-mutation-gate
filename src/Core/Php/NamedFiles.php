@@ -81,12 +81,29 @@ final readonly class NamedFiles
      */
     public static function read(array $files): self
     {
+        return self::readAs($files, $files);
+    }
+
+    /**
+     * PHP files linked as {@see read()} links them, each by the names it
+     * declares, as one reading of it says, and by the names it mentions, as
+     * another says: such as what other files can read of it, its bodies left
+     * out.
+     *
+     * @param array<string, PhpFile> $declaring  each file, read for what it declares, by its path
+     * @param array<string, PhpFile> $mentioning each file, read for what it mentions, by its path
+     */
+    public static function readAs(array $declaring, array $mentioning): self
+    {
         $declares = [];
         $mentions = [];
 
-        foreach ($files as $file => $read) {
-            $mentioned = $read->mentioned()->all();
+        foreach ($declaring as $file => $read) {
             $declares[$file] = self::declaredIn($read);
+        }
+
+        foreach ($mentioning as $file => $read) {
+            $mentioned = $read->mentioned()->all();
             $mentions[$file] = [
                 ...$mentioned,
                 ...$read->quoted()->all(),
@@ -124,6 +141,20 @@ final readonly class NamedFiles
     public function reaches(): ReachedFiles
     {
         return ReachedFiles::over($this->naming);
+    }
+
+    /** @return list<string> every file these files name, each once, in the order named, without following those */
+    public function named(string ...$from): array
+    {
+        $named = [];
+
+        foreach ($from as $file) {
+            foreach (array_key_exists($file, $this->naming) ? $this->naming[$file] : [] as $target) {
+                $named[$target] = $target;
+            }
+        }
+
+        return array_values($named);
     }
 
     /** @return list<string> these files, and every file they name, transitively, each once, in the order reached */

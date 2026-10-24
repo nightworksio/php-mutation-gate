@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Cli\Flow;
 
+use function array_map;
+
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
+use NightWorksIO\MutationGate\Core\Php\DeclarationHeaders;
 use NightWorksIO\MutationGate\Core\Php\NamedFiles;
 use NightWorksIO\MutationGate\Core\Php\PhpFile;
 use NightWorksIO\MutationGate\Core\Proof\Key\SourceReach;
@@ -47,19 +50,59 @@ final readonly class NameGraph
      */
     public function reach(Suite $suite, CoverageMap $map): SourceReach
     {
-        $names = $this->of($suite);
+        $outside = $this->outside($suite);
 
-        return $names instanceof NamedFiles ? SourceReach::of($names, $map) : SourceReach::nothing();
+        if ($outside instanceof CannotJudge) {
+            return SourceReach::nothing();
+        }
+
+        $read = [];
+        $headers = [];
+
+        foreach ($outside as $path => $contents) {
+            $read[$path] = PhpFile::read($contents);
+            $headers[$path] = PhpFile::read(DeclarationHeaders::in($contents)->asPhp());
+        }
+
+        return SourceReach::of($this->graphOf($suite, $read), NamedFiles::readAs($read, $headers), $map);
     }
 
     /** The graph of a suite's sources and every PHP file outside its test directories, or why one cannot be read. */
     public function of(Suite $suite): NamedFiles|CannotJudge
+    {
+        $outside = $this->outside($suite);
+
+        if ($outside instanceof CannotJudge) {
+            return $outside;
+        }
+
+        return $this->graphOf($suite, array_map(PhpFile::read(...), $outside));
+    }
+
+    /**
+     * The graph of a suite's sources and these PHP files outside its test directories, each read.
+     *
+     * @param array<string, PhpFile> $outside
+     */
+    private function graphOf(Suite $suite, array $outside): NamedFiles
     {
         $files = [];
 
         foreach ($suite->sources()->php() as $path => $php) {
             $files[$path->value()] = $php;
         }
+
+        return NamedFiles::read($files + $outside);
+    }
+
+    /**
+     * Every PHP file outside a suite's test directories, by its path, as it is on disk; or why one cannot be read.
+     *
+     * @return array<string, Contents>|CannotJudge
+     */
+    private function outside(Suite $suite): array|CannotJudge
+    {
+        $files = [];
 
         foreach ($suite->outside() as $file) {
             if (! $file->path()->isPhp()) {
@@ -73,10 +116,10 @@ final readonly class NameGraph
             }
 
             if ($contents instanceof Contents) {
-                $files += [$file->path()->value() => PhpFile::read($contents)];
+                $files[$file->path()->value()] = $contents;
             }
         }
 
-        return NamedFiles::read($files);
+        return $files;
     }
 }

@@ -375,3 +375,58 @@ it('reads a test file that declares a registered mutator the config turns on int
     expect(keyedMutatorBase('2', $on))->not->toEqual(keyedMutatorBase('1', $on))
         ->and(keyedMutatorBase('2', $off))->toEqual(keyedMutatorBase('1', $off));
 });
+
+/**
+ * Money's key in a project whose Money test runs src/Money.php and whose Ledger test runs src/Ledger.php without
+ * naming it, with these texts, and, where asked, a PHP file outside the tests no read can open.
+ */
+function keyingReached(string $money, string $ledger, bool $unreadable = false): Digest|Unkeyed
+{
+    $project = Scratch::directory();
+    $files = [
+        'phpunit.xml' => "<phpunit><testsuites><testsuite name=\"Unit\"><directory suffix=\"Test.php\">tests</directory></testsuite></testsuites></phpunit>\n",
+        'src/Money.php' => $money,
+        'src/Ledger.php' => $ledger,
+        'tests/MoneyTest.php' => "<?php\nit('adds', fn () => new Money());\n",
+        'tests/LedgerTest.php' => "<?php\nit('books', fn () => true);\n",
+    ];
+    $fingerprints = Fingerprints::none();
+
+    foreach ($files as $path => $text) {
+        Scratch::write($project, $path, $text);
+        $fingerprints = $fingerprints->with(Fingerprint::of(Path::of($path), Digest::sha256Of($text)));
+    }
+
+    if ($unreadable) {
+        mkdir(sprintf('%s/src/Locked.php', $project));
+        $fingerprints = $fingerprints->with(Fingerprint::of(Path::of('src/Locked.php'), Digest::sha256Of('locked')));
+    }
+
+    $suite = ReadSuite::of(Flows::trees(), $fingerprints, Directory::at($project));
+    $map = CoverageMap::empty()
+        ->covered(Path::of('src/Money.php'), Line::of(2), TestId::of('MoneyTest::adds'))
+        ->covered(Path::of('src/Ledger.php'), Line::of(2), TestId::of('LedgerTest::books'));
+    $keying = $suite instanceof Suite
+        ? Keying::of(Flows::adapters($project, [], keyingRunner('fake')), Flows::settings(), Flows::setup(), $suite, $map)
+        : $suite;
+
+    return $keying instanceof Keying
+        ? $keying->keysOf(Units::of(Unit::file(Path::of('src/Money.php'))))->keyOf(Path::of('src/Money.php'))
+        : throw new RuntimeException($keying->why());
+}
+
+it('keeps a unit\'s key where a source only another unit\'s tests run changes, and moves it where its own does', function (): void {
+    $money = "<?php\nfinal class Money { public function add(): int { return 1; } }\n";
+    $ledger = "<?php\nfinal class Ledger { public function book(): int { return 1; } }\n";
+
+    expect(keyingReached($money, $ledger))->toEqual(keyingReached($money, str_replace('1', '2', $ledger)))
+        ->and(keyingReached($money, $ledger))->not->toEqual(keyingReached(str_replace('1', '2', $money), $ledger));
+});
+
+it('reads every source outside the tests into every key, failing closed, where one cannot be read for the name graph', function (): void {
+    $money = "<?php\nfinal class Money { public function add(): int { return 1; } }\n";
+    $ledger = "<?php\nfinal class Ledger { public function book(): int { return 1; } }\n";
+
+    expect(keyingReached($money, $ledger, unreadable: true))
+        ->not->toEqual(keyingReached($money, str_replace('1', '2', $ledger), unreadable: true));
+});

@@ -68,10 +68,10 @@ use function sprintf;
  *    digest.
  * 10. The unit: its path, what judges it, and each of its covered lines with
  *    the ids of the tests that cover it.
- * 11. Of the PHP files item 6 leaves out, those the unit reaches: its own
- *    file, the files its covering tests executed, and every file those, its
- *    judging test files and the test files every key reads name,
- *    transitively, each by its digest; every one for a held unit.
+ * 11. Of the PHP files item 6 leaves out, those the unit reaches (see
+ *    SourceReach), each by its digest; every one where what it reaches
+ *    cannot be traced: for a held unit, a unit no test covers, or a unit
+ *    whose test files read files (see FileReader).
  *
  * Every field is written with its length before it, and every list with its
  * count, so no two sets of inputs hash alike. The first eight are the same
@@ -197,6 +197,7 @@ final readonly class ContentKeys
     public function keysOf(CoverageMap $coverage, Judging ...$units): Keys
     {
         $read = [];
+        $testsOf = [];
         $named = [];
         $keys = [];
         $tested = [];
@@ -216,17 +217,12 @@ final readonly class ContentKeys
             $set = $named[$object];
 
             if (! array_key_exists($set, $read)) {
-                $read[$set] = Digest::sha256Of(self::testFiles('tests', $this->tests->readBy($judges), $this->tests))
-                    ->value();
+                $supporting = $this->tests->readBy($judges);
+                $read[$set] = Digest::sha256Of(self::testFiles('tests', $supporting, $this->tests))->value();
+                $testsOf[$set] = Paths::of(...$judges, ...$supporting, ...$this->tests->inEveryKey());
             }
 
-            $sources = $this->reach->readBy(
-                $judging->unit(),
-                $judges,
-                $this->tests->inEveryKey(),
-                $coverage,
-                $this->keyed,
-            );
+            $sources = $this->sourcesOf($judging->unit(), $testsOf[$set], $coverage);
             [$key, $tested] = $this->keyReading($base, [$read[$set], $sources], $judging->unit(), $coverage, $tested);
             $keys[] = Keys::none()->with($judging->unit()->path(), $key);
         }
@@ -244,6 +240,18 @@ final readonly class ContentKeys
         }
 
         return $framed;
+    }
+
+    /**
+     * The digest of the files outside the test directories a unit's key reads
+     * on its own (item 11): what it reaches, or every file the map observes
+     * where its tests read files, as what they read cannot be traced.
+     */
+    private function sourcesOf(Unit $unit, Paths $tests, CoverageMap $coverage): string
+    {
+        return $this->tests->readFiles($tests)
+            ? $this->reach->readAll($this->keyed)
+            : $this->reach->readBy($unit, $tests, $coverage, $this->keyed);
     }
 
     /** The first five inputs, which decide a unit's mutant set besides its source. */

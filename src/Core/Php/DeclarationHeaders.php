@@ -6,8 +6,11 @@ namespace NightWorksIO\MutationGate\Core\Php;
 
 use function array_push;
 use function count;
+use function implode;
 
 use NightWorksIO\MutationGate\Core\File\Contents;
+
+use function sprintf;
 
 /**
  * What a PHP file declares that other files read, read from its tokens
@@ -32,6 +35,12 @@ final readonly class DeclarationHeaders
     public static function in(Contents $file): self
     {
         return new self(self::within(Tokens::in($file), Tokens::NONE, members: false));
+    }
+
+    /** The headers, as PHP: what of the file other files can read, without one of its bodies. */
+    public function asPhp(): Contents
+    {
+        return Contents::of(sprintf("<?php\n%s\n", implode(";\n", $this->headers)));
     }
 
     /** Whether two files declare the same things, with the same headers, in the same order. */

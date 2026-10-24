@@ -202,19 +202,35 @@ has to bring its result with it.
       covering a line change, the unit is judged again even when no file
       changed.
    10. **The files outside the test directories the unit reaches**, of those
-      item 6 leaves out, each by its digest: its own file, the files its
-      covering tests executed, as the map shows them, and every file those,
-      the test files item 8 reads for it and the test files item 7 reads
-      name, transitively, through the project's name graph, as ADR-0023
-      keys a coverage entry. A held unit reaches every one of them, since
-      any test can join its group. Where the name graph cannot be read, item
-      6 keeps every file and item 10 reads none. So a change to a source no
-      covering test of the unit executes, and that nothing it reaches names,
-      keeps its proof; a change to a file it executes or names resets it.
-      What no map or name shows is not read here: a test that only reflects
-      on a class it finds by scanning a directory, never running a line of
-      it nor naming it, does not reach that class's file, though a change to
-      it can change the test's result.
+      item 6 leaves out, each by its digest: its own file; the files its
+      covering tests executed, as the map shows them; every file those, its
+      own file, the test files item 8 reads for it and the test files item 7
+      reads name, through the project's name graph, as ADR-0023 keys a
+      coverage entry; and every file a file named so names in its
+      declarations, its bodies left out, transitively. A body acts only
+      where it runs, and the map shows where it runs, so a file the unit's
+      tests never ran acts on them through its declarations alone: a
+      constant, a default, an attribute, a parent. A file a test includes by
+      a path it builds runs, so the map shows it, or it lies outside the
+      coverage and item 6 reads it.
+
+      Where what the unit reaches cannot be traced, item 10 reads every file
+      the map shows run, and the key fails closed to format 6's reading:
+      - for a held unit, since any test can join its group;
+      - for a unit no test covers, whose tests the map does not show;
+      - where the code of a test file item 10 would read names a function or
+        class that reads a file or lists a directory without running it,
+        such as `file_get_contents`, `glob` or Symfony's `Finder`, since the
+        test can read a source no map or name shows.
+
+      Where the name graph cannot be read, item 6 keeps every file and item
+      10 reads none, and where there is no map there is no key at all. So a
+      change to a source no covering test of the unit executes, and that
+      nothing it reaches names, keeps its proof; a change to a file it
+      executes or names resets it. What no map, name or reader shows is not
+      read: a test that only reflects on a class it finds by scanning,
+      through a reader no test file names, never running a line of the
+      class nor naming it, does not reach the class's file.
 
    Items 1 to 7 are the same for every unit of a run. They are the run's
    **base**: hashed once, and its digest recorded with every proof the run
