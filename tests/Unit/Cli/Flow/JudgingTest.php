@@ -113,6 +113,21 @@ it('judges every tree whole, records the run, and reports it, timed by each shar
         ->toBe(2);
 });
 
+it('says where the verdict comes from: this gate, the commit the plan judged, the runner and the baseline file', function () use ($makeTree, $makeReporting, $makeJudged): void {
+    $verdict = JudgingRuns::verdictOf($makeJudged()(
+        Planned::twoShards(),
+        Flows::adapters(Flows::project(), [], new ProofStoreFake(), $makeTree()(Floor::of(50))),
+        JudgingRuns::settings(),
+        $makeReporting()(new ReporterFake()),
+    ));
+    $provenance = Decoded::at(JsonReport::encode($verdict), 'provenance');
+
+    expect(is_array($provenance) ? array_keys($provenance) : $provenance)->toBe(['gate', 'commit', 'runner', 'wallSeconds', 'baseline'])
+        ->and(Decoded::at(JsonReport::encode($verdict), 'provenance', 'gate'))->toBe(['package' => 'nightworksio/mutation-gate', 'version' => '1.0.0', 'reference' => 'gate'])
+        ->and(Decoded::at(JsonReport::encode($verdict), 'provenance', 'commit'))->toBe(Planned::twoShards()->commit()->name())
+        ->and(Decoded::at(JsonReport::encode($verdict), 'provenance', 'baseline', 'file'))->toBe('mutation-gate.baseline.json');
+});
+
 it('judges a plan\'s results again as the verdict did, reporting nothing and writing no ledger', function () use ($makeTree, $makeReporting, $makeJudged): void {
     $tree = $makeTree();
     $reporting = $makeReporting();

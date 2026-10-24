@@ -35,10 +35,6 @@ adopt the gate from. What exists, read at source and through GitHub's API:
   and a GitHub release with notes drawn from the conventional commits.
 - **Docs and code already disagree.** The README and ADR-0002 named two of
   the three PHPUnit config files the code reads (ADR-0017).
-- **The HTML reporter inlines Stryker's `mutation-testing-elements` viewer**
-  (ADR-0009). It is Apache-2.0, and every HTML report a user
-  publishes redistributes it. Apache-2.0 section 4 asks for a copy of the
-  licence, and any NOTICE, with each redistribution.
 - **The tooling.** Material for MkDocs entered maintenance mode on
   2025-11-05, with critical fixes promised for at least 12 months, while its
   team builds a new generator, Zensical. VitePress and Docusaurus need a Node
@@ -243,17 +239,10 @@ adopt the gate from. What exists, read at source and through GitHub's API:
     - design is decided by ADR;
     - a proposal becomes an ADR by pull request.
 
-16. **Vendored code carries its notices everywhere it goes.**
-    - The viewer's licence, and its NOTICE if upstream ships one, sit beside
-      the vendored file under `resources/`, which ships.
-    - `THIRD-PARTY-NOTICES.md` at the root lists every vendored part with
-      its version, licence and source.
-    - **Every generated HTML report** opens its inlined script with a comment
-      naming the viewer, its version, Apache-2.0 and the licence's URL.
-    - A test fails when the vendored version changes and the notices do not.
-
-    This amends ADR-0009, where the licence ships with the
-    package only.
+16. **The package vendors no third-party code.** Its dependencies come
+    through Composer, each under its own licence, and the HTML report holds
+    the gate's own style and script alone (ADR-0009), so no page a user
+    publishes redistributes anyone else's code.
 
 17. **The README's front page.**
     - **At most six badges:**
@@ -321,7 +310,7 @@ vulnerability is one private button.
 ## Related
 
 - [ADR-0002](0002-one-typed-config-from-several-formats.md): the configuration reference, which moves to `.docs/reference/`
-- [ADR-0009](0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md): the viewer's notice in every HTML report
+- [ADR-0009](0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md): the HTML report, which holds the gate's own code alone
 - [ADR-0011](0011-the-package-holds-itself-to-the-gate-it-ships.md): the `docs` job, slugs as public API, signed commits on `main`, and release notes
 - [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): the offline schemas the YAML examples are checked against
 - [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): the benchmark's table, `doctor`'s slugs, and the PHPUnit config names

@@ -5,7 +5,7 @@
 # `.git` holds compressed objects rather than text, so it comes back out.
 ignore-hidden = false
 # The vendored viewer is minified, and the fixtures are other projects' schemas.
-extend-exclude = [".git/", "vendor/", "composer.lock", "resources/mutation-testing-elements/", "tests/Fixtures/"]
+extend-exclude = [".git/", "vendor/", "composer.lock", "tests/Fixtures/"]
 
 [default]
 # A mutant's id is twelve hex digits, read as words where it starts with letters.

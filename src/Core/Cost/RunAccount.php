@@ -11,12 +11,13 @@ use NightWorksIO\MutationGate\Core\Report\NoTrend;
 use NightWorksIO\MutationGate\Core\Report\Trend;
 use NightWorksIO\MutationGate\Core\Time\Instant;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Core\Verdict\Provenance;
 
 /**
  * The account of a run beside its verdict: when each part began and how
  * long it took, what it cost, what it saved, the runs `trend.json` held
  * from before it (ADR-0016, and ADR-0017),
- * and what pruning did (ADR-0025).
+ * what pruning did (ADR-0025), and where the verdict comes from (ADR-0009).
  * A run the flows gave no timings says nothing of its cost.
  */
 final readonly class RunAccount
@@ -27,6 +28,7 @@ final readonly class RunAccount
         private Savings|NoHistory $savings,
         private Trend|NoTrend $previous,
         private PruningAccount $pruning,
+        private Provenance $provenance,
     ) {
     }
 
@@ -39,7 +41,20 @@ final readonly class RunAccount
             NoHistory::yet(),
             NoTrend::offTheDefaultBranch(),
             PruningAccount::none(),
+            Provenance::unknown(),
         );
+    }
+
+    /** This account, with where the verdict comes from. */
+    public function withProvenance(Provenance $provenance): self
+    {
+        return clone($this, ['provenance' => $provenance]);
+    }
+
+    /** Where the verdict comes from: the gate, the commit, the runner and the baseline file. */
+    public function provenance(): Provenance
+    {
+        return $this->provenance;
     }
 
     public function withTimings(RunTimings $timings): self

@@ -26,6 +26,7 @@ use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
 use NightWorksIO\MutationGate\Core\Sample\Confidence;
 use NightWorksIO\MutationGate\Core\Score\Percentage;
+use NightWorksIO\MutationGate\Core\Verdict\BaselineState;
 use NightWorksIO\MutationGate\Core\Verdict\Judgement;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
@@ -51,9 +52,10 @@ use function sprintf;
  *     additionalProperties: bool,
  * }
  * @phpstan-type Listed array{type: string, items: Leaf}
+ * @phpstan-type Rows array{type: string, items: Flat}
  * @phpstan-type Grouped array{
  *     type: string,
- *     properties: array<string, Leaf|Flat>,
+ *     properties: array<string, Leaf|Flat|Rows>,
  *     required: list<string>,
  *     additionalProperties: bool,
  * }
@@ -165,8 +167,10 @@ final readonly class ReportSchema
                     'killed' => self::WHOLE,
                     'score' => self::PERCENT,
                     'exact' => self::FLAG,
+                    'said' => self::TEXT,
                 ], ['score'])),
                 'suitesUnscored' => self::TEXT,
+                'suitesLowerBound' => self::TEXT,
                 'matrix' => self::oneOf(...MatrixKind::cases()),
                 'tests' => self::listOf(self::test([])),
                 'mutants' => self::listOfObjects(self::mutant()),
@@ -175,6 +179,7 @@ final readonly class ReportSchema
                 'warnings' => self::listOf(self::TEXT),
                 'failures' => self::listOf(self::TEXT),
                 'cannotJudge' => self::listOf(self::TEXT),
+                'provenance' => self::provenance(),
                 'run' => $run,
                 'cost' => self::object([
                     'planned' => $figure,
@@ -211,7 +216,7 @@ final readonly class ReportSchema
                     'auditSeconds' => self::SECONDS,
                     'savedSeconds' => self::SECONDS,
                 ], []),
-            ], ['sample', 'score', 'suitesUnscored', 'run', 'cost', 'savings', 'pruning']),
+            ], ['sample', 'score', 'suitesUnscored', 'suitesLowerBound', 'run', 'cost', 'savings', 'pruning']),
         ]);
     }
 
@@ -330,6 +335,23 @@ final readonly class ReportSchema
     }
 
     /** @return Shallow */
+    private static function provenance(): array
+    {
+        $package = self::object(['package' => self::TEXT, 'version' => self::TEXT, 'reference' => self::TEXT], []);
+
+        return self::object([
+            'gate' => $package,
+            'commit' => self::TEXT,
+            'runner' => self::object(['name' => self::TEXT, 'packages' => self::rowsOf($package)], []),
+            'wallSeconds' => self::SECONDS,
+            'baseline' => self::object(
+                ['file' => self::TEXT, 'state' => self::oneOf(...BaselineState::cases())],
+                ['file'],
+            ),
+        ], ['gate', 'commit', 'runner', 'wallSeconds']);
+    }
+
+    /** @return Shallow */
     private static function tree(): array
     {
         return self::object([
@@ -353,6 +375,7 @@ final readonly class ReportSchema
                 ),
             ], ['score']),
             'judgement' => self::oneOf(...Judgement::cases()),
+            'said' => self::TEXT,
             'counts' => self::counts(),
             'units' => self::listOf(self::unit([])),
             'mutants' => self::listOf(self::ID_SPELLING),
@@ -367,6 +390,7 @@ final readonly class ReportSchema
             'floor' => self::PERCENT,
             'score' => self::PERCENT,
             'judgement' => self::oneOf(Judgement::Passed, Judgement::Failed, Judgement::NothingToMutate),
+            'said' => self::TEXT,
             'counts' => self::counts(),
             'mutants' => self::listOf(self::ID_SPELLING),
         ], ['score']);
@@ -383,6 +407,7 @@ final readonly class ReportSchema
             'score' => self::PERCENT,
             'raised' => self::PERCENT,
             'judgement' => self::oneOf(Judgement::Passed, Judgement::Failed, Judgement::NothingToMutate),
+            'said' => self::TEXT,
             'counts' => self::counts(),
             'mutants' => self::listOf(self::ID_SPELLING),
         ], ['declared', 'baseline', 'floor', 'score', 'raised']);
@@ -542,6 +567,17 @@ final readonly class ReportSchema
      * @return Nested
      */
     private static function listOfObjects(array $items): array
+    {
+        return ['type' => 'array', 'items' => $items];
+    }
+
+    /**
+     * A list of objects with no object inside.
+     *
+     * @param  Flat $items
+     * @return Rows
+     */
+    private static function rowsOf(array $items): array
     {
         return ['type' => 'array', 'items' => $items];
     }

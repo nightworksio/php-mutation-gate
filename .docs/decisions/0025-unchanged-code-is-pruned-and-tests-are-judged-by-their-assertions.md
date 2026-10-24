@@ -263,14 +263,15 @@ The ledger knows every mutant's result per unit and per mutator
      which Pest runs on too, so there is no key for them. A test is in a
      suite by the file the runner names it in; a run whose tests the runner
      named none of scores no suite and says so.
-   - The console and the HTML report, above Stryker's viewer, say each
+   - The console and the HTML report, among the run's details, say each
      suite's score in a sentence; the step summary gives a table; each says
      why the scores are lower bounds where they are. They show the suites
      where the configuration declares two or more, since one suite's score
      is the run's own. The JSON report lists every declared suite as
-     `suites: [{name, covered, killed, score, exact}]`, or none with
-     `suitesUnscored` saying why. This amends ADR-0009 and
-     ADR-0014.
+     `suites: [{name, covered, killed, score, exact, said}]`, `said` the
+     sentence, with `suitesLowerBound` saying why the scores are lower
+     bounds where any is, or none with `suitesUnscored` saying why. This
+     amends ADR-0009 and ADR-0014.
 
 9. **`--suite=<name>` judges one suite's tests alone,** for a scheduled job,
    exactly under every runner.

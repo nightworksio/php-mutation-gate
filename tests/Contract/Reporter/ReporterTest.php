@@ -143,7 +143,7 @@ $reporters = [
     'HTML' => fn(): Reporter => HtmlReportDirectory::at(
         sprintf('%s/html', Scratch::directory()),
         Scratch::directory(),
-        Schema::at('resources/mutation-testing-elements'),
+        Schema::at('resources/report-page'),
     ),
     'GitHub annotations' => fn(): Reporter => Annotations::printingTo(sprintf('%s/annotations', Scratch::directory())),
     'the step summary' => fn(): Reporter => StepSummary::appendingTo(sprintf('%s/summary.md', Scratch::directory()), '', new StoppedClock('2026-09-30T12:00:00Z')),

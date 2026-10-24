@@ -194,7 +194,7 @@ final readonly class Markdown
             SavingsText::of($verdict, $lately),
             implode(' ', [
                 SetText::project($overview->score()),
-                ...$verdict->wasCutShort() ? ['The run stopped before it judged every mutant.'] : [],
+                ...$verdict->wasCutShort() ? [SetText::CUT_SHORT] : [],
                 ...$verdict->trees()->sample()->isDrawn() ? [SetText::SAMPLED] : [],
             ]),
         ];

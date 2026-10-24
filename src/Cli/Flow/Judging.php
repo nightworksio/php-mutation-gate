@@ -152,20 +152,25 @@ final readonly class Judging
         $now = $this->setup->clock->now();
         $run = RunName::of($this->adapters->environment, Instant::at($now), $plan->base())->id();
         $timings = VerdictTimings::of($run, $results, $began, $now, $this->settings->shards()->setup());
-        $verdict = $assessed->verdict->withAccount($assessed->verdict->account()->withTimings($timings));
-        $recorded = $this->recorded($plan, $results, $assessed->ledgers, $verdict, $assessed->ownScopeProofs);
+        $judged = $this->adapters->changes->judged($plan->commit());
+        $verdict = $assessed->verdict->withAccount(
+            $assessed->verdict->account()
+                ->withTimings($timings)
+                ->withProvenance(VerdictProvenance::of($this->adapters, $this->setup, $this->settings, $judged)),
+        );
+        $recorded = $this->recorded($plan, $results, $assessed, $verdict, $judged);
 
         if ($recorded instanceof CannotJudge) {
             return $recorded;
         }
 
-        $judged = new Judged(
+        $reported = new Judged(
             $verdict,
             [$recorded, ...$this->kept($assessed->ledgers), ...Reported::by($verdict, $reporters)],
             $assessed->baseline,
         );
 
-        return $assessed->refused ? $judged->refusing() : $judged;
+        return $assessed->refused ? $reported->refusing() : $reported;
     }
 
     /**
@@ -470,10 +475,11 @@ final readonly class Judging
     private function recorded(
         Plan $plan,
         Results $results,
-        Ledgers $ledgers,
+        Assessed $assessed,
         Verdict $verdict,
-        int $ownScopeProofs,
+        JudgedCommit|CannotTell $judged,
     ): string|CannotJudge {
+        $ownScopeProofs = $assessed->ownScopeProofs;
         $at = Instant::at($this->setup->clock->now());
         $run = RunName::of($this->adapters->environment, $at, $plan->base())->recording($plan->briefing()->matrix());
         $unjudged = $verdict->trees()->mutants()->counts()->number(MutantJudgement::Unjudged);
@@ -489,12 +495,11 @@ final readonly class Judging
                     ->onOwnScopeCoverage(),
             default => Passed::of($plan->commit(), $this->settings->ci()->check(), $ownScopeProofs)->passedAt($at),
         };
-        $judged = $this->adapters->changes->judged($plan->commit());
         $lastRun = $judged instanceof JudgedCommit
             ? LastRun::of($judged, $this->settings->ci()->check(), $plan->briefing()->profile())
             : $judged;
         $written = new Recorded($this->adapters, $this->settings)
-            ->write($plan, $results, $ledgers, $run, $passed, $lastRun);
+            ->write($plan, $results, $assessed->ledgers, $run, $passed, $lastRun);
 
         return match (true) {
             $written instanceof Written => $written->said(),

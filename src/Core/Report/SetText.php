@@ -34,6 +34,9 @@ final readonly class SetText
     public const string SAMPLED
         = 'The run was sampled: a sampled tree\'s score is an estimate, and the project\'s counts the mutants it ran.';
 
+    /** What every report says of a run a budget or a deadline stopped before it judged every mutant. */
+    public const string CUT_SHORT = 'The run stopped before it judged every mutant.';
+
     private const string BELOW = '%s scores %s, below its floor of %s.';
 
     private const string MET = '%s scores %s against its floor of %s.';

@@ -244,6 +244,9 @@
                             "undecided"
                         ]
                     },
+                    "said": {
+                        "type": "string"
+                    },
                     "counts": {
                         "type": "object",
                         "properties": {
@@ -363,6 +366,7 @@
                     "path",
                     "package",
                     "judgement",
+                    "said",
                     "counts",
                     "units",
                     "mutants"
@@ -394,6 +398,9 @@
                             "failed",
                             "nothing-to-mutate"
                         ]
+                    },
+                    "said": {
+                        "type": "string"
                     },
                     "counts": {
                         "type": "object",
@@ -485,6 +492,7 @@
                     "package",
                     "floor",
                     "judgement",
+                    "said",
                     "counts",
                     "mutants"
                 ],
@@ -530,6 +538,9 @@
                             "failed",
                             "nothing-to-mutate"
                         ]
+                    },
+                    "said": {
+                        "type": "string"
                     },
                     "counts": {
                         "type": "object",
@@ -620,6 +631,7 @@
                 "required": [
                     "package",
                     "judgement",
+                    "said",
                     "counts",
                     "mutants"
                 ],
@@ -649,18 +661,25 @@
                     },
                     "exact": {
                         "type": "boolean"
+                    },
+                    "said": {
+                        "type": "string"
                     }
                 },
                 "required": [
                     "name",
                     "covered",
                     "killed",
-                    "exact"
+                    "exact",
+                    "said"
                 ],
                 "additionalProperties": false
             }
         },
         "suitesUnscored": {
+            "type": "string"
+        },
+        "suitesLowerBound": {
             "type": "string"
         },
         "matrix": {
@@ -928,6 +947,97 @@
             "items": {
                 "type": "string"
             }
+        },
+        "provenance": {
+            "type": "object",
+            "properties": {
+                "gate": {
+                    "type": "object",
+                    "properties": {
+                        "package": {
+                            "type": "string"
+                        },
+                        "version": {
+                            "type": "string"
+                        },
+                        "reference": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "package",
+                        "version",
+                        "reference"
+                    ],
+                    "additionalProperties": false
+                },
+                "commit": {
+                    "type": "string"
+                },
+                "runner": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string"
+                        },
+                        "packages": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "package": {
+                                        "type": "string"
+                                    },
+                                    "version": {
+                                        "type": "string"
+                                    },
+                                    "reference": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "package",
+                                    "version",
+                                    "reference"
+                                ],
+                                "additionalProperties": false
+                            }
+                        }
+                    },
+                    "required": [
+                        "name",
+                        "packages"
+                    ],
+                    "additionalProperties": false
+                },
+                "wallSeconds": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "baseline": {
+                    "type": "object",
+                    "properties": {
+                        "file": {
+                            "type": "string"
+                        },
+                        "state": {
+                            "enum": [
+                                "current",
+                                "stale",
+                                "missing"
+                            ]
+                        }
+                    },
+                    "required": [
+                        "state"
+                    ],
+                    "additionalProperties": false
+                }
+            },
+            "required": [
+                "baseline"
+            ],
+            "additionalProperties": false
         },
         "run": {
             "type": "object",
@@ -1382,7 +1492,8 @@
         "reach",
         "warnings",
         "failures",
-        "cannotJudge"
+        "cannotJudge",
+        "provenance"
     ],
     "additionalProperties": false
 }
