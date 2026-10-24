@@ -545,7 +545,7 @@ it('gives a bridged mutant its mutator\'s own name, family and hint', function (
         ->and($bridged instanceof MutationResult ? [...$bridged->mutants()][0]->mutation()->mutator() : $bridged)
         ->toBe('acme/RemoveEcho')
         ->and($bridged instanceof MutationResult ? [...$bridged->mutants()][0]->mutation()->hint() : $bridged)
-        ->toBe('No test checks what is printed.')
+        ->toBe('Add a test that checks what is printed.')
         ->and($unbridged instanceof MutationResult ? [...$unbridged->mutants()][0]->mutation()->family() : $unbridged)
         ->toBe(MutatorFamily::Unknown);
 });

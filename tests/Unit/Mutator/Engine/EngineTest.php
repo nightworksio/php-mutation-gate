@@ -91,7 +91,7 @@ it('removes a statement a mutator removes, leaving no empty statement in its pla
     [$removed] = made(Engine::with(new RemoveEcho())->mutantsOf(Path::of('src/Ledger.php'), Contents::of(ledger())));
 
     expect($removed->mutation()->diff())->toBe("@@ @@\n-        echo 'adding';\n-")
-        ->and($removed->mutation()->hint())->toBe('No test checks what is printed.')
+        ->and($removed->mutation()->hint())->toBe('Add a test that checks what is printed.')
         ->and($removed->mutated()->text())->not->toContain('echo');
 });
 
