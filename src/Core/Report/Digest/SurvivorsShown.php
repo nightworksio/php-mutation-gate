@@ -6,13 +6,13 @@ namespace NightWorksIO\MutationGate\Core\Report\Digest;
 
 use function array_slice;
 use function count;
-use function ctype_digit;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Format\Visible;
 use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Report\Page\Survivors;
 use NightWorksIO\MutationGate\Core\Report\ProblemsShown;
+use NightWorksIO\MutationGate\Core\WholeNumber;
 
 use function sprintf;
 
@@ -40,7 +40,7 @@ final readonly class SurvivorsShown
     {
         return match (true) {
             $written === ProblemsShown::All->value => new self(NotGiven::value()),
-            ctype_digit($written) => new self((int) $written),
+            WholeNumber::isDigits($written) => new self((int) $written),
             default => CannotJudge::because(sprintf(self::UNKNOWN, Visible::line($written))),
         };
     }
