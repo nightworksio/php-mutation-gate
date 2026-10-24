@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report\Digest;
 
-use function array_key_exists;
+use function in_array;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cluster\ClusterId;
@@ -44,13 +44,13 @@ final readonly class DigestDetail
         $files = [];
 
         foreach ($mutants as $mutant) {
-            $files[$mutant->file()] = true;
+            $files[] = $mutant->file();
         }
 
         $sought = ClusterId::orMutant($target);
 
         return match (true) {
-            array_key_exists($target, $files) => FileDetail::of($report, $target, $mutants),
+            in_array($target, $files, strict: true) => FileDetail::of($report, $target, $mutants),
             $sought instanceof ClusterId => ClusterDetail::of($report, $sought, $mutants),
             $sought instanceof IdPrefix => MutantDetail::of($report, $sought, $mutants, $target),
             default => self::nothing($target),

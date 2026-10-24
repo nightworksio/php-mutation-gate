@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\Format\Fit;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Format\Visible;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Report\Outcome;
 use NightWorksIO\MutationGate\Core\Report\SurvivorOrder;
 use NightWorksIO\MutationGate\Core\Report\Term;
@@ -142,7 +143,7 @@ final readonly class Digest
     public static function grouped(array $mutants): array
     {
         $lines = [];
-        $last = '';
+        $last = NotGiven::value();
 
         foreach ($mutants as $mutant) {
             $file = $mutant->file();

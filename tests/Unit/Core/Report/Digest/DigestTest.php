@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\Revision;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest as FileDigest;
+use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Node;
 use NightWorksIO\MutationGate\Core\Format\NotInShape;
+use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
+use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Report\Digest\Digest;
 use NightWorksIO\MutationGate\Core\Report\Digest\DigestDetail;
@@ -19,6 +23,7 @@ use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Score\Floor;
+use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedMutant;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Provenance;
@@ -43,6 +48,14 @@ function digestListing(Verdict $verdict, SurvivorsShown|CannotJudge $shown): arr
     $listed = $shown instanceof SurvivorsShown ? $shown : SurvivorsShown::first();
 
     return explode("\n", rtrim(Digest::overview(digestReport($verdict), $listed), "\n"));
+}
+
+/** @return list<string> the digest's detail of a target of a verdict, a line each */
+function digestDetailLines(Verdict $verdict, string $target): array
+{
+    $detail = DigestDetail::of(digestReport($verdict), $target);
+
+    return explode("\n", is_string($detail) ? $detail : $detail->why());
 }
 
 /**
@@ -174,15 +187,6 @@ it('details a mutant by its id or a prefix of it: its diff, hint, tests and how 
         ->and($detail)->toContain(sprintf('reproduce vendor/bin/mutation-gate reproduce %s', $id));
 });
 
-it('details a cluster by its id, each member as the overview lists it', function (): void {
-    $verdict = Verdicts::named('clustered');
-    $cluster = JsonReport::of($verdict)['clusters'][0];
-    $detail = DigestDetail::of(digestReport($verdict), $cluster['id']);
-
-    expect($detail)->toStartWith(sprintf('cluster %s kind=%s members=%d', $cluster['id'], $cluster['kind'], count($cluster['members'])))
-        ->and($detail)->toEndWith(sprintf("stub mutation-gate stub %s\n", $cluster['id']));
-});
-
 it('refuses a target the run does not hold', function (string $target): void {
     expect(DigestDetail::of(digestReport(Verdicts::failing()), $target))
         ->toEqual(CannotJudge::because(sprintf('%s is no file, mutant or cluster of the last run: give a path, a mutant id of 6 or more characters, a cluster id or legend.', $target)));
@@ -237,4 +241,72 @@ it('refuses a report whose mutant points at a test its list of tests does not ho
 
     expect(static fn(): string|CannotJudge => DigestDetail::of(Node::decode((string) json_encode($report)), $id))
         ->toThrow(NotInShape::class, sprintf('tests[%d] is missing.', count($report['tests'])));
+});
+
+it('lists a mutant on a line the change did not make without saying it changed', function (): void {
+    $id = Verdicts::mutant('src/Money.php:12', 'FalseValue', MutatorFamily::Literal, Verdicts::diff('return false;', 'return true;'))->id()->value();
+
+    expect(digestOpened(digestLines(Verdicts::failing()), 'untested'))
+        ->toBe([sprintf('untested :12 FalseValue `false` -> `true` id=%s | Add a test that runs line 12: no test runs it yet.', $id)]);
+});
+
+it('details a mutant on a line the change did not make, with no line for what the report does not say of it', function (): void {
+    $id = Verdicts::killed()->id()->value();
+
+    expect(DigestDetail::of(digestReport(Verdicts::failing()), $id))->toBe(implode("\n", [
+        sprintf('mutant %s killed killed src/Money.php:9 TrueValue', $id),
+        'diff',
+        '  @@ @@',
+        '  -        return true;',
+        '  +        return false;',
+        'hint A test fails with it in place.',
+        'covered 1',
+        'test MoneyTest::fits',
+        'killed-by MoneyTest::fits',
+        sprintf('reproduce vendor/bin/mutation-gate reproduce %s', $id),
+        '',
+    ]));
+});
+
+it('names the first five tests that cover a mutant and counts the rest', function (): void {
+    $tests = [];
+
+    foreach (range(1, 7) as $each) {
+        $tests[] = TestId::of(sprintf('MoneyTest::fits%d', $each));
+    }
+
+    $matrix = KillMatrix::of(MatrixKind::FirstKiller, CoverageMap::empty()->covered(Path::of('src/Money.php'), Line::of(7), ...$tests));
+    $lines = digestDetailLines(Verdicts::failing()->withMatrix($matrix), Verdicts::survivor()->mutant()->id()->value());
+
+    expect(digestOpened($lines, 'test'))->toBe(['test MoneyTest::fits1', 'test MoneyTest::fits2', 'test MoneyTest::fits3', 'test MoneyTest::fits4', 'test MoneyTest::fits5'])
+        ->and(digestOpened($lines, 'covered'))->toBe(['covered 7'])
+        ->and(digestOpened($lines, 'more-tests'))->toBe(['more-tests 2']);
+});
+
+it('counts every mutant of a file under its outcome', function (): void {
+    $verdict = Verdicts::of(Floor::of(80), ...array_map(
+        static fn(int $line): JudgedMutant => JudgedMutant::of(
+            Verdicts::mutant(sprintf('src/Money.php:%d', $line), 'Plus', MutatorFamily::Arithmetic, Verdicts::diff(sprintf('$a + %d;', $line), sprintf('$a - %d;', $line))),
+            MutantJudgement::Survived,
+        ),
+        [3, 4, 5],
+    ));
+
+    expect(digestDetailLines($verdict, 'src/Money.php')[0])
+        ->toBe('file src/Money.php killed=0(good) escaped=3(bad) untested=0(bad) timed-out=0(attention) errored=0(attention) left-out=0(attention)');
+});
+
+it('details a cluster with its members alone, under their file, and how to stub it', function (): void {
+    $verdict = Verdicts::named('clustered');
+    $cluster = JsonReport::of($verdict)['clusters'][0]['id'];
+
+    expect(DigestDetail::of(digestReport($verdict), $cluster))->toBe(implode("\n", [
+        sprintf('cluster %s kind=expression members=3', $cluster),
+        '@ src/Cart.php',
+        'escaped :7 LessThan `<` -> `<=` id=96634e576d34 changed | Add a test that uses a value at the boundary of `$amount < $limit`.',
+        'escaped :7 LessThanNegotiation `<` -> `>` id=33e396b886dc changed | Add a test that uses a value at the boundary of `$amount < $limit`.',
+        'escaped :7 IfNegation `$amount < $limit` -> `! ($amount < $limit)` id=2034f7359228 changed | Assert on something this condition decides: these tests run it, but none checks what it decides.',
+        sprintf('stub mutation-gate stub %s', $cluster),
+        '',
+    ]));
 });
