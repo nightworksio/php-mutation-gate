@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\Cost\Cost;
 use NightWorksIO\MutationGate\Core\Cost\Rate;
 use NightWorksIO\MutationGate\Core\Cost\RunAccount;
@@ -9,8 +10,10 @@ use NightWorksIO\MutationGate\Core\Cost\RunTime;
 use NightWorksIO\MutationGate\Core\Cost\RunTimings;
 use NightWorksIO\MutationGate\Core\Cost\Savings;
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
+use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
@@ -21,10 +24,15 @@ use NightWorksIO\MutationGate\Core\Mutant\Mutation;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Mutant\Unreported;
 use NightWorksIO\MutationGate\Core\Report\JsonReport;
+use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\Uncovered;
+use NightWorksIO\MutationGate\Core\Runner\Version;
+use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
+use NightWorksIO\MutationGate\Core\Test\DeclaredSuite;
+use NightWorksIO\MutationGate\Core\Test\DeclaredSuites;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -38,6 +46,7 @@ use NightWorksIO\MutationGate\Core\Verdict\JudgedUnit;
 use NightWorksIO\MutationGate\Core\Verdict\JudgedUnits;
 use NightWorksIO\MutationGate\Core\Verdict\MutantJudgement;
 use NightWorksIO\MutationGate\Core\Verdict\Origin;
+use NightWorksIO\MutationGate\Core\Verdict\Provenance;
 use NightWorksIO\MutationGate\Core\Verdict\Survivors;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdict;
 use NightWorksIO\MutationGate\Core\Verdict\TreeVerdicts;
@@ -75,22 +84,28 @@ it('writes a sampled run\'s sample, and each tree\'s estimate, and neither for a
         ->and($whole)->not->toContain('"estimate"');
 });
 
-it('writes what each suite alone kills, and whether it is exact', function (MatrixKind $kind): void {
+it('writes what each suite alone kills, whether it is exact, and why the scores are lower bounds where they are', function (MatrixKind $kind, string $said): void {
     $report = JsonReport::encode(Killings::suited($kind));
+    $exact = $kind === MatrixKind::Full;
 
     expect(Decoded::at($report, 'suites'))->toBe([
-        ['name' => 'unit', 'covered' => 3, 'killed' => 2, 'score' => 66.66, 'exact' => $kind === MatrixKind::Full],
-        ['name' => 'feature', 'covered' => 2, 'killed' => 1, 'score' => 50.0, 'exact' => $kind === MatrixKind::Full],
+        ['name' => 'unit', 'covered' => 3, 'killed' => 2, 'score' => 66.66, 'exact' => $exact, 'said' => sprintf('unit alone kills %s66.66%% of the 3 mutants its tests cover.', $said)],
+        ['name' => 'feature', 'covered' => 2, 'killed' => 1, 'score' => 50.0, 'exact' => $exact, 'said' => sprintf('feature alone kills %s50.00%% of the 2 mutants its tests cover.', $said)],
     ])
-        ->and(json_decode($report, associative: true))->not->toHaveKey('suitesUnscored');
-})->with([MatrixKind::FirstKiller, MatrixKind::Full]);
+        ->and(json_decode($report, associative: true))->not->toHaveKey('suitesUnscored')
+        ->and(Decoded::at($report, 'suitesLowerBound'))->toBe($exact ? null : 'Each is a lower bound, from first killers: `mutation-gate run --kill-matrix=full` makes it exact.');
+})->with([[MatrixKind::FirstKiller, 'at least '], [MatrixKind::Full, '']]);
 
 it('writes no suite, with why, where the runner named no test, and none where the config declares none', function (): void {
     $unplaced = JsonReport::encode(Killings::unplaced());
     $undeclared = JsonReport::encode(Verdicts::failing());
+    $verdict = Killings::unplaced();
+    $alone = JsonReport::encode($verdict->withMatrix(KillMatrix::of(MatrixKind::FirstKiller, $verdict->matrix()->coverage())
+        ->grouping(DeclaredSuites::of(DeclaredSuite::named('unit', Paths::none(), Paths::none())))));
 
     expect(Decoded::at($unplaced, 'suites'))->toBe([])
         ->and(Decoded::at($unplaced, 'suitesUnscored'))->toBe('The runner named no test, so no suite can be scored.')
+        ->and(Decoded::at($alone, 'suitesUnscored'))->toBe('The runner named no test, so no suite can be scored.')
         ->and(Decoded::at($undeclared, 'suites'))->toBe([])
         ->and(json_decode($undeclared, associative: true))->not->toHaveKey('suitesUnscored');
 });
@@ -160,6 +175,7 @@ it('writes the verdict, the project and each tree', function (): void {
                 ['path' => 'src/Log.php', 'group' => 'holds:src/Log.php', 'origin' => 'carried'],
             ],
         ])
+        ->and(Decoded::at($report, 'trees', 0, 'said'))->toBe('src scores 44.44%, below its floor of 80.00%. That is -2.50 against the base.')
         ->and(Decoded::at($report, 'trees', 0))->not->toHaveKey('raised')
         ->and(Decoded::at($report, 'trees', 0, 'mutants'))->toHaveCount(12)
         ->and(Decoded::at($report, 'trees', 1))->toMatchArray(['path' => 'app/Legacy', 'exempt' => 'Replaced by the new billing module', 'judgement' => 'exempt'])
@@ -171,6 +187,7 @@ it('writes the verdict, the project and each tree', function (): void {
             'floor' => 100.0,
             'score' => 0.0,
             'judgement' => 'failed',
+            'said' => 'New code scores 0.00%, below its floor of 100.00%.',
             'counts' => [
                 'killed' => 0, 'killed-by-static-analysis' => 0, 'errored' => 0, 'killed-by-timeout' => 0, 'killed-by-memory-cap' => 0,
                 'survived' => 1, 'uncovered' => 0, 'unjudged' => 0, 'flaky' => 0, 'too-slow-to-judge' => 0, 'too-heavy-to-judge' => 0, 'ignored' => 0, 'ignored-by-marker' => 0,
@@ -404,6 +421,7 @@ it('writes each package\'s security set, with its floors, score, judgement, coun
             'floor' => 100.0,
             'score' => 0.0,
             'judgement' => 'failed',
+            'said' => 'Security scores 0.00%, below its floor of 100.00%.',
             'counts' => Decoded::at($report, 'security', 0, 'counts'),
             'mutants' => [Secured::mutant(MutantJudgement::Survived, 3)->mutant()->id()->value()],
         ])
@@ -451,4 +469,31 @@ it('writes each test\'s id once, so a mutant costs no more for its tests\' names
     // tests at most; with ids in every mutant, each of its twenty would grow as well.
     expect($long - $short)->toBeLessThan((50 * 2 + 200 * 3) * 200 * 1.1)
         ->and(strlen(jsonReportOfSize(1600, 20)) / strlen(jsonReportOfSize(200, 20)))->toBeLessThan(8 * 1.05);
+});
+
+it('writes where the verdict comes from: the gate, the commit, the runner and each package it drives, the run\'s time and the baseline', function (): void {
+    $provenance = Provenance::of(
+        Version::of('nightworksio/mutation-gate', 'dev-main', 'abc123'),
+        Path::of('floors.json'),
+    )->judging(Revision::ref('562bc979'))->ranBy(Identity::of(
+        'pest',
+        Versions::of(
+            Version::of('pestphp/pest', 'v4.1.0', 'def'),
+            Version::of('phpunit/phpunit', '12.4.0', ''),
+        ),
+        Digest::of(str_repeat('a', 64)),
+    ));
+    $report = JsonReport::encode(Verdicts::passing()->withAccount(Verdicts::account()->withProvenance($provenance)));
+
+    expect(Decoded::at($report, 'provenance'))->toBe([
+        'gate' => ['package' => 'nightworksio/mutation-gate', 'version' => 'dev-main', 'reference' => 'abc123'],
+        'commit' => '562bc979',
+        'runner' => ['name' => 'pest', 'packages' => [
+            ['package' => 'pestphp/pest', 'version' => 'v4.1.0', 'reference' => 'def'],
+            ['package' => 'phpunit/phpunit', 'version' => '12.4.0', 'reference' => ''],
+        ]],
+        'wallSeconds' => 360.0,
+        'baseline' => ['file' => 'floors.json', 'state' => 'stale'],
+    ])->and(Schema::errors($report, Schema::at('resources/report.schema.json')))->toBe([])
+        ->and(Decoded::at(JsonReport::encode(Verdicts::empty()), 'provenance'))->toBe(['baseline' => ['state' => 'current']]);
 });

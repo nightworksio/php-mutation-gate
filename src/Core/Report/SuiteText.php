@@ -24,7 +24,7 @@ use function sprintf;
 final readonly class SuiteText
 {
     /** The fewest suites that are shown: one suite's score is the run's own. */
-    private const int SHOWN_FROM = 2;
+    public const int SHOWN_FROM = 2;
 
     private const string EXACT = '%s alone kills %s of the %d mutants its tests cover.';
 

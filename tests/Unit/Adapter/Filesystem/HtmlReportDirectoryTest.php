@@ -8,11 +8,11 @@ use NightWorksIO\MutationGate\Core\Config\Options;
 use NightWorksIO\MutationGate\Core\Config\Problem;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\File\Path;
-use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\NotWritten;
+use NightWorksIO\MutationGate\Core\Report\JsonReport;
+use NightWorksIO\MutationGate\Core\Report\Page\ReportPage;
 use NightWorksIO\MutationGate\Core\Report\Sources;
 use NightWorksIO\MutationGate\Core\Report\Stryker;
-use NightWorksIO\MutationGate\Core\Report\StrykerPage;
 use NightWorksIO\MutationGate\Core\Written;
 use NightWorksIO\MutationGate\Tests\Support\Configs;
 use NightWorksIO\MutationGate\Tests\Support\Killings;
@@ -24,77 +24,59 @@ afterEach(function (): void {
     Scratch::sweep();
 });
 
-it('writes the report and a page that shows it with the viewer the package carries', function (): void {
+it('writes the Stryker report and the gate\'s own page of the verdict, its style and script from the package', function (): void {
     $project = Scratch::directory();
     Scratch::write($project, 'src/Money.php', Verdicts::MONEY);
     $html = sprintf('%s/build/html', $project);
-    $viewer = Schema::at('resources/mutation-testing-elements');
-    $answer = HtmlReportDirectory::at($html, $project, $viewer)->report(Verdicts::failing());
+    $page = Schema::at('resources/report-page');
+    $answer = HtmlReportDirectory::at($html, $project, $page)->report(Verdicts::failing());
     $report = Stryker::json(Verdicts::failing(), Sources::none()->with(Path::of('src/Money.php'), Contents::of(Verdicts::MONEY)));
 
     expect($answer)->toEqual(Written::to(sprintf('%s/index.html', $html)))
         ->and(file_get_contents(sprintf('%s/mutation-report.json', $html)))->toBe($report)
-        ->and(file_get_contents(sprintf('%s/index.html', $html)))->toBe(StrykerPage::html(
-            $report,
-            (string) file_get_contents(sprintf('%s/mutation-test-elements.js', $viewer)),
-            (string) file_get_contents(sprintf('%s/LICENSE', $viewer)),
+        ->and(file_get_contents(sprintf('%s/index.html', $html)))->toBe(ReportPage::html(
+            JsonReport::of(Verdicts::failing()),
+            (string) file_get_contents(sprintf('%s/page.css', $page)),
+            (string) file_get_contents(sprintf('%s/page.js', $page)),
         ));
 });
 
-it('shows what each suite alone kills above the viewer', function (): void {
+it('shows what each suite alone kills among the run\'s details, a hostile suite\'s name as escaped text', function (): void {
     $project = Scratch::directory();
     $html = sprintf('%s/build/html', $project);
-    HtmlReportDirectory::at($html, $project, Schema::at('resources/mutation-testing-elements'))
-        ->report(Killings::suited(MatrixKind::Full));
-
-    expect(file_get_contents(sprintf('%s/index.html', $html)))->toContain(
-        '<h2>Suites</h2><p>unit alone kills 66.66% of the 3 mutants its tests cover.</p>'
-        . '<p>feature alone kills 50.00% of the 2 mutants its tests cover.</p></section>',
-    );
-});
-
-it('shows a hostile suite\'s name above the viewer as escaped text', function (): void {
-    $project = Scratch::directory();
-    $html = sprintf('%s/build/html', $project);
-    HtmlReportDirectory::at($html, $project, Schema::at('resources/mutation-testing-elements'))->report(Killings::hostile());
+    HtmlReportDirectory::at($html, $project, Schema::at('resources/report-page'))->report(Killings::hostile());
     $page = (string) file_get_contents(sprintf('%s/index.html', $html));
 
-    expect($page)->toContain('<p>&lt;script&gt;alert(1)&lt;/script&gt;|x [31mred alone kills 66.66% of the 3 mutants its tests cover.</p>')
+    expect($page)->toContain('<section><h3>Suites</h3><ul><li>&lt;script&gt;alert(1)&lt;/script&gt;|x [31mred alone kills 66.66% of the 3 mutants its tests cover.</li>')
+        ->and($page)->toContain('<li>feature alone kills 50.00% of the 2 mutants its tests cover.</li>')
         ->and($page)->not->toContain('<script>alert(1)</script>')
         ->and($page)->not->toContain("\e");
 });
 
-it('carries the viewer at the version it names, with its licence', function (): void {
-    $viewer = Schema::at('resources/mutation-testing-elements');
-
-    expect(hash_file('sha256', sprintf('%s/mutation-test-elements.js', $viewer)))->toBe('751fb010242b0b44e32d84fe7fe0b9ff1da182823b94f59f5c52b001fcfc163b')
-        ->and(hash_file('sha256', sprintf('%s/LICENSE', $viewer)))->toBe('c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4')
-        ->and((string) file_get_contents(sprintf('%s/LICENSE', $viewer)))->toContain('Apache License');
-});
-
-it('finds the viewer in the package from its options, and needs a directory', function (): void {
+it('finds the page\'s style and script in the package from its options, and needs a directory', function (): void {
     $html = sprintf('%s/html', Scratch::directory());
     $reporter = HtmlReportDirectory::fromOptions(Configs::commandLine((string) json_encode(['path' => $html])));
 
-    expect($reporter)->toEqual(HtmlReportDirectory::at($html, '.', Schema::at('resources/mutation-testing-elements')))
+    expect($reporter)->toEqual(HtmlReportDirectory::at($html, '.', Schema::at('resources/report-page')))
         ->and(HtmlReportDirectory::fromOptions(Options::none()))->toEqual(Invalid::because(Problem::at(
             'path',
             'The HTML report is written to a directory, whose `path` the entry names.',
         )));
 });
 
-it('writes no page without the viewer', function (): void {
+it('writes no page without its style and script', function (string $kept): void {
     $root = Scratch::directory();
+    Scratch::write($root, sprintf('none/%s', $kept), 'kept');
 
     expect(HtmlReportDirectory::at(sprintf('%s/html', $root), $root, sprintf('%s/none', $root))->report(Verdicts::passing()))
-        ->toEqual(NotWritten::because(sprintf('The HTML report was not written: %s/none is missing, so the page would have no viewer.', $root)))
+        ->toEqual(NotWritten::because(sprintf('The HTML report was not written: %s/none holds no page.css or page.js, which the page is styled and run by.', $root)))
         ->and(is_dir(sprintf('%s/html', $root)))->toBeFalse();
-});
+})->with(['only the style' => ['page.css'], 'only the script' => ['page.js'], 'neither' => ['other.txt']]);
 
 it('says why it could not write the report', function (): void {
     $root = Scratch::directory();
     Scratch::write($root, 'html/mutation-report.json/in-the-way', '');
 
-    expect(HtmlReportDirectory::at(sprintf('%s/html', $root), $root, Schema::at('resources/mutation-testing-elements'))->report(Verdicts::passing()))
+    expect(HtmlReportDirectory::at(sprintf('%s/html', $root), $root, Schema::at('resources/report-page'))->report(Verdicts::passing()))
         ->toEqual(NotWritten::because(sprintf('%s/html/mutation-report.json could not be written.', $root)));
 });

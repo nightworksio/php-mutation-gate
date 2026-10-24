@@ -4,7 +4,7 @@
 # `.git` holds compressed objects rather than documents.
 hidden = true
 # The vendored viewer and the fixtures are other projects' files.
-exclude_path = [".git", "vendor", "resources/mutation-testing-elements", "tests/Fixtures"]
+exclude_path = [".git", "vendor", "tests/Fixtures"]
 
 exclude_loopback = true
 max_retries = 3

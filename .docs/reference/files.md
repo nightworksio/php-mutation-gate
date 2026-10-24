@@ -23,5 +23,5 @@ config and `mutation-gate.baseline.json`.
 | `.mutation-gate/publish/savings.json` | A shields.io endpoint with the time saved in the last 30 days | [0017](../decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 | `.mutation-gate/baseline.measured.json` | The baseline a CI run measured for trees with no floor, to commit as `mutation-gate.baseline.json` | [0017](../decisions/0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md) |
 | A `json`, `junit`, `sarif`, `gitlab`, `sonar` or `kill-matrix` report's `path` | That report | [0009](../decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
-| An `html` report's `path`: `index.html`, `mutation-report.json` | The HTML report and its data | [0009](../decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| An `html` report's `path`: `index.html`, `mutation-report.json` | The HTML report, and the report in the `mutation-testing-report-schema` format | [0009](../decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | A `tests` report's `path`, and the same path with `.md` | The useless, removable and weakly asserting tests, as JSON and Markdown | [0014](../decisions/0014-every-test-is-judged-by-what-it-kills.md) |

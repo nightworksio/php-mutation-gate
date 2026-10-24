@@ -218,10 +218,11 @@ running it: why is this mutant here, and has it always been?
      data set `row` and the `seconds` the coverage run measured. The table
      lists the tests in the order the mutants first name them.
    - **HTML.** The `html` report fills Stryker's `coveredBy`, `killedBy`,
-     `testsCompleted` and `testFiles`, so the viewer's test view shows which
-     tests kill, which only cover, and which cover nothing. A test's viewer
-     id is its coverage id. `testFiles` groups the tests by file, or by the
-     class the id names where the runner names the test nothing.
+     `testsCompleted` and `testFiles` of `mutation-report.json`, so a reader of
+     that schema sees which tests kill, which only cover, and which cover
+     nothing. A test's id there is its coverage id. `testFiles` groups the
+     tests by file, or by the class the id names where the runner names the
+     test nothing.
      `testsCompleted` counts the covering tests whose outcome is `killed` or
      `passed`.
 
@@ -479,7 +480,8 @@ name, from any run, with no extra cost.
 to act on whole.
 
 **The kill matrix leaves the gate in every format a tool reads:** CSV for
-spreadsheets and notebooks, JSON for scripts, and Stryker's viewer for people.
+spreadsheets and notebooks, JSON for scripts, and the gate's own HTML report
+for people.
 
 **A survivor can be understood where it is read,** in a CI log or a terminal
 with no runner, and `reproduce` stays the one command that runs it.

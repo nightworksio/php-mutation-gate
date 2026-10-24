@@ -309,6 +309,14 @@ services:
                     - FORMAT # the json report's version, not an exit code or an argument's place
                 'NightWorksIO\MutationGate\Core\Report\Commented':
                     - MOST # entries a list of the pull request comment shows, not commits a range proves
+                'NightWorksIO\MutationGate\Core\Report\Page\Files':
+                    - SHOWN # files the HTML report's overview lists, not a seed's first byte
+                'NightWorksIO\MutationGate\Core\Report\Page\Survivors':
+                    - SHOWN # survivors the HTML report's overview lists, not a dependent's cap
+                'NightWorksIO\MutationGate\Core\Report\Page\Origin':
+                    - SHORT # characters of a commit's id the HTML report shows, not a mutant id's length
+                'NightWorksIO\MutationGate\Core\Verdict\BaselineState':
+                    - Missing # a baseline file holding no floor for a scored set, not a file's missing digest
                 'NightWorksIO\MutationGate\Core\Runner\MemoryUnit':
                     - KILO # bytes in a kilobyte, as PHP counts one
                 'NightWorksIO\MutationGate\Core\Runner\DisplayWord':

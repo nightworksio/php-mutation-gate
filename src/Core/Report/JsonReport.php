@@ -10,6 +10,7 @@ use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Cluster\Cluster;
 use NightWorksIO\MutationGate\Core\Format\JsonText;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
+use NightWorksIO\MutationGate\Core\Matrix\NotFull;
 use NightWorksIO\MutationGate\Core\Matrix\SuiteScore;
 use NightWorksIO\MutationGate\Core\Matrix\SuiteScores;
 use NightWorksIO\MutationGate\Core\Reach\Reason as Cause;
@@ -43,6 +44,12 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *
  * @phpstan-import-type MutantEntry from MutantJson
  * @phpstan-import-type EstimateEntry from EstimateJson
+ * @phpstan-import-type SampleEntry from EstimateJson
+ * @phpstan-import-type ProvenanceEntry from ProvenanceJson
+ * @phpstan-import-type Run from AccountJson
+ * @phpstan-import-type CostEntry from AccountJson
+ * @phpstan-import-type Saved from AccountJson
+ * @phpstan-import-type PruningEntry from AccountJson
  *
  * @phpstan-type Numbers array<string, int>
  * @phpstan-type TestEntry array{id: string, name: string, file?: string, row?: string, seconds?: float}
@@ -59,6 +66,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *     raised?: float,
  *     estimate?: EstimateEntry,
  *     judgement: string,
+ *     said: string,
  *     counts: Numbers,
  *     units: list<UnitEntry>,
  *     mutants: list<string>,
@@ -68,6 +76,7 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *     floor: float,
  *     score?: float,
  *     judgement: string,
+ *     said: string,
  *     counts: Numbers,
  *     mutants: list<string>,
  * }
@@ -79,11 +88,47 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *     score?: float,
  *     raised?: float,
  *     judgement: string,
+ *     said: string,
  *     counts: Numbers,
  *     mutants: list<string>,
  * }
- * @phpstan-type SuiteEntry array{name: string, covered: int, killed: int, score?: float, exact: bool}
+ * @phpstan-type SuiteEntry array{
+ *     name: string,
+ *     covered: int,
+ *     killed: int,
+ *     score?: float,
+ *     exact: bool,
+ *     said: string,
+ * }
  * @phpstan-type ClusterEntry array{id: string, kind: string, members: list<string>, representative: string}
+ * @phpstan-type Report array{
+ *     format: int,
+ *     judgement: string,
+ *     cutShort: bool,
+ *     sample?: SampleEntry,
+ *     uncovered: string,
+ *     score?: float,
+ *     counts: Numbers,
+ *     trees: list<TreeEntry>,
+ *     newCode: list<NewCodeEntry>,
+ *     security: list<SecurityEntry>,
+ *     suites: list<SuiteEntry>,
+ *     suitesUnscored?: string,
+ *     suitesLowerBound?: string,
+ *     matrix: string,
+ *     tests: list<TestEntry>,
+ *     mutants: list<MutantEntry>,
+ *     clusters: list<ClusterEntry>,
+ *     reach: list<string>,
+ *     warnings: list<string>,
+ *     failures: list<string>,
+ *     cannotJudge: list<string>,
+ *     provenance: ProvenanceEntry,
+ *     run?: Run,
+ *     cost?: CostEntry,
+ *     savings?: Saved|array{noHistory: true},
+ *     pruning?: PruningEntry,
+ * }
  */
 final readonly class JsonReport
 {
@@ -92,10 +137,21 @@ final readonly class JsonReport
 
     public static function encode(Verdict $verdict): string
     {
+        return JsonText::encode(self::of($verdict));
+    }
+
+    /**
+     * The report as the data it encodes, which the HTML report renders too,
+     * so every reader of a run reads one verdict.
+     *
+     * @return Report
+     */
+    public static function of(Verdict $verdict): array
+    {
         $overview = Overview::of($verdict);
         $table = TestTable::of($verdict);
 
-        return JsonText::encode([
+        return [
             'format' => self::FORMAT,
             'judgement' => $verdict->judgement()->value,
             'cutShort' => $verdict->wasCutShort(),
@@ -106,7 +162,7 @@ final readonly class JsonReport
             'trees' => self::each($verdict->trees(), self::tree(...)),
             'newCode' => self::each($verdict->sets()->newCode(), self::newCode(...)),
             'security' => self::each($verdict->sets()->security(), self::security(...)),
-            ...self::suites(SuiteScores::of($verdict)),
+            ...self::suites(SuiteScores::of($verdict), $verdict->matrix()->whyNotFull()),
             'matrix' => $verdict->matrix()->kind()->value,
             'tests' => self::each(
                 $table->tests(),
@@ -121,8 +177,9 @@ final readonly class JsonReport
             'warnings' => self::texts($verdict->warnings(), static fn(Warning $warning): string => $warning->text()),
             'failures' => self::texts($verdict->failures(), static fn(Failure $failure): string => $failure->text()),
             'cannotJudge' => self::texts($verdict->obstacles(), static fn(CannotJudge $why): string => $why->why()),
+            'provenance' => ProvenanceJson::of($verdict),
             ...AccountJson::of($verdict),
-        ]);
+        ];
     }
 
     /** @return UnitEntry */
@@ -191,6 +248,7 @@ final readonly class JsonReport
             ...$raised instanceof Floor ? ['raised' => self::percent($raised)] : [],
             ...EstimateJson::tree($tree),
             'judgement' => $tree->judgement()->value,
+            'said' => SetText::tree($tree),
             'counts' => self::counts($tree->counts()),
             'units' => self::each($tree->units(), self::unit(...)),
             'mutants' => self::ids($tree->mutants()),
@@ -198,16 +256,28 @@ final readonly class JsonReport
     }
 
     /**
-     * What each suite the PHPUnit config declares alone kills; none, with
-     * why, where the runner named no test (ADR-0025).
+     * What each suite the PHPUnit config declares alone kills, and why the
+     * scores are lower bounds where any is; none, with why, where the runner
+     * named no test (ADR-0025).
      *
-     * @return array{suites: list<SuiteEntry>, suitesUnscored?: string}
+     * @return array{suites: list<SuiteEntry>, suitesUnscored?: string, suitesLowerBound?: string}
      */
-    private static function suites(SuiteScores $scores): array
+    private static function suites(SuiteScores $scores, NotFull $why): array
     {
-        return $scores->arePlaced() || count($scores) === 0
-            ? ['suites' => self::each($scores, self::suite(...))]
-            : ['suites' => [], 'suitesUnscored' => SuiteText::unplaced()];
+        $exact = true;
+
+        foreach ($scores as $score) {
+            $exact = $exact && $score->isExact();
+        }
+
+        return match (true) {
+            ! $scores->arePlaced() && count($scores) > 0 => ['suites' => [], 'suitesUnscored' => SuiteText::unplaced()],
+            $exact => ['suites' => self::each($scores, self::suite(...))],
+            default => [
+                'suites' => self::each($scores, self::suite(...)),
+                'suitesLowerBound' => SuiteText::lowerBound($why),
+            ],
+        };
     }
 
     /** @return SuiteEntry */
@@ -219,6 +289,7 @@ final readonly class JsonReport
             'killed' => $score->killed(),
             ...self::scored($score->score()),
             'exact' => $score->isExact(),
+            'said' => SuiteText::of($score),
         ];
     }
 
@@ -238,6 +309,7 @@ final readonly class JsonReport
             ...self::scored($set->score()),
             ...$raised instanceof Floor ? ['raised' => self::percent($raised)] : [],
             'judgement' => $set->judgement()->value,
+            'said' => SetText::security($set),
             'counts' => self::counts($set->counts()),
             'mutants' => self::ids($set->mutants()),
         ];
@@ -251,6 +323,7 @@ final readonly class JsonReport
             'floor' => self::percent($set->floor()),
             ...self::scored($set->score()),
             'judgement' => $set->judgement()->value,
+            'said' => SetText::newCode($set),
             'counts' => self::counts($set->counts()),
             'mutants' => self::ids($set->mutants()),
         ];

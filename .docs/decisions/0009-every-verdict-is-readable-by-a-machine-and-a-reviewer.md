@@ -38,7 +38,15 @@ sees the same verdict.
      proof of equivalence makes redundant, a check for equivalence that could
      not run, and a proof store opened read-only (ADR-0013);
    - failures that belong to no floor: stale ignores (ADR-0008) and held paths
-     their group does not cover (ADR-0005).
+     their group does not cover (ADR-0005);
+   - where it comes from: the gate's version, the commit judged, the runner
+     and the packages it drives, and the baseline file, which the JSON
+     report writes as `provenance`, with how long the run took and whether
+     the baseline is current, stale (a score rose above a floor) or missing
+     (a set with a score has no floor).
+
+   The JSON report also writes, for each tree, new-code and security set,
+   the sentence every report says of it, as `said`.
 
    Which reporters run, each registered by its name in the package's own
    extension (ADR-0001):
@@ -264,50 +272,82 @@ sees the same verdict.
      - **Other CIs** have no comment. The console, JUnit and the HTML report
        carry the same content there.
 
-4. **The HTML report is Stryker's viewer, carried in the package.** The HTML
-   reporter (`html`, whose `path` is a directory) writes a report in the open
-   `mutation-testing-report-schema` format and a single self-contained page.
-   The page embeds the `mutation-testing-elements` viewer, which is vendored
-   and inlined, so the page loads nothing from a network. The viewer is the
-   same one Infection's HTML log embeds.
+4. **The HTML report is the gate's own page of the verdict.** The HTML
+   reporter (`html`, whose `path` is a directory) writes `index.html`, one
+   self-contained page whose style and script are inlined, so it loads
+   nothing from a network, and the report in the open
+   `mutation-testing-report-schema` format as `mutation-report.json`. The
+   page is rendered from the JSON report (decision 1), so every reader of a
+   run reads one verdict.
 
-   The viewer computes its own score: killed and timed out over those plus
-   survived and no coverage, leaving out every other status. Each mutant is
-   therefore given the viewer status that the gate's score treats the same
-   way, so the page shows the gate's score. The gate's own status goes in
-   `statusReason`.
+   - **The overview** is read on the first screen, and without a script:
+     - the verdict as a pill, *sampled* or *cut short* beside it where it
+       was, and why: what kept the run from judging, each set below its
+       floor, as every report says it, each failure no floor decides, and
+       the project's score;
+     - how many mutants came to each outcome, and how many the score leaves
+       out;
+     - each tree, new-code and security set's score as a bar, its floor
+       marked on it;
+     - the survivors, those on changed lines first, by file, line, mutator
+       and outcome, each a link to it below, the first 25 named;
+     - the files judged, how many mutants are on changed lines and how many
+       of those survive, and the files with the most survivors;
+     - where the verdict comes from, read from the JSON report's
+       `provenance`: the gate's version, the commit judged, the runner and
+       the packages it drives, how long the run took, and whether the
+       baseline file is current, stale or missing.
+   - **Each file** is in a list beside a pane of the one chosen, the files
+     with the most survivors first; at phone width the list is a picker
+     above the pane. In the pane, each mutant that needs a test comes first,
+     with its outcome, line, mutator, the gate's own judgement, its change,
+     the tests that killed it or that none did with how many cover it, its
+     hint and the command that reproduces it; the killed and the left-out are
+     folded away. A change is shown as the lines it changed, red and green,
+     or, as the reader picks for the page, as a diff with context or side by
+     side. A file of a unit this run did not judge, whose result a proof or
+     an earlier run carried, shows its counts alone. The list and the pane
+     need the script; the overview says so where it does not run.
+   - **The outcomes** the page names, with the gate's own judgement beside
+     each as detail:
 
-   | Gate status | Viewer status |
-   |-------------|---------------|
-   | killed, errored, killed by static analysis (ADR-0020), and killed by the memory cap (ADR-0004) | `Killed` |
-   | killed by timeout | `Timeout` |
-   | survived, unjudged, flaky, too slow to judge, and too heavy to judge | `Survived` |
-   | uncovered | `NoCoverage`, or `Ignored` under `uncovered: exclude` |
-   | ignored, and ignored by a native marker | `Ignored` |
-   | equivalent, proven (ADR-0013) | `Ignored` |
+     | Outcome | Gate judgement |
+     |---------|----------------|
+     | Killed | killed, killed by static analysis (ADR-0020), killed by the memory cap (ADR-0004) |
+     | Escaped | survived, unjudged, flaky, too heavy to judge |
+     | Untested | uncovered |
+     | Timed out | killed by timeout, too slow to judge |
+     | Errored | errored |
+     | Left out | ignored, ignored by a native marker, equivalent (ADR-0013) |
 
-   Judging tests, hints and reproduce commands go in each mutant's
-   `description`. Its `coveredBy`, `killedBy` and `testsCompleted`, and the
-   report's `testFiles`, come from the kill matrix, so the viewer's test view
-   shows which tests kill, which only cover and which cover nothing
-   (ADR-0014). The schema requires a column for each location. The gate
-   takes it from the file's tokens, and a mutant it cannot place there spans
-   its lines from the first column to the end. A kill a ledger proved spans
-   its line that way too, and has no `replacement`, since the ledger keeps no
-   diff. The viewer's licence
-   (Apache-2.0) is shipped with it, and every generated page names the
-   viewer, its version and its licence in a comment (ADR-0018).
+   - **Everything a project writes is escaped.** A path, a diff, a test name
+     or a reason is set as text: escaped in the page, and in the page's
+     data, which is JSON in its own script element with every `<`, `>` and
+     `&` escaped, read with `JSON.parse` and set as text by the script.
+     Nothing a project writes can end an element or run.
+   - **It reads light and dark**, as the reader's system prefers, and at
+     phone width.
+   - **The Stryker report.** In `mutation-report.json` (`schemaVersion` 2,
+     Stryker's own thresholds of 80 and 60), each mutant is given the
+     Stryker status the gate's score treats the same way, and the gate's own
+     status goes in `statusReason`:
 
-   - **The files.** Under its `path`, the reporter writes
-     `mutation-report.json` (`schemaVersion` 2, Stryker's own thresholds of
-     80 and 60) and `index.html`.
-   - **The viewer** is `mutation-testing-elements` 3.9.0, carried in
-     `resources/mutation-testing-elements` with its licence and a test that
-     pins its checksum. The page holds the licence's text in a comment above
-     the viewer.
-   - **The report in the page** is JSON data in its own script element, with
-     every `&`, `<` and `>` escaped, and the page reads it with `JSON.parse`.
-     Nothing a diff or a test name holds can end the element.
+     | Gate status | Stryker status |
+     |-------------|----------------|
+     | killed, errored, killed by static analysis (ADR-0020), and killed by the memory cap (ADR-0004) | `Killed` |
+     | killed by timeout | `Timeout` |
+     | survived, unjudged, flaky, too slow to judge, and too heavy to judge | `Survived` |
+     | uncovered | `NoCoverage`, or `Ignored` under `uncovered: exclude` |
+     | ignored, and ignored by a native marker | `Ignored` |
+     | equivalent, proven (ADR-0013) | `Ignored` |
+
+     Judging tests, hints and reproduce commands go in each mutant's
+     `description`. Its `coveredBy`, `killedBy` and `testsCompleted`, and the
+     report's `testFiles`, come from the kill matrix (ADR-0014). The schema
+     requires a column for each location. The gate takes it from the file's
+     tokens, and a mutant it cannot place there spans its lines from the
+     first column to the end. A kill a ledger proved spans its line that way
+     too, and has no `replacement`, since the ledger keeps no diff.
 
 5. **The badge and the trend on the default branch.**
    - **The badge.** The verdict writes `badge.json` for shields.io's endpoint
@@ -431,7 +471,7 @@ sees the same verdict.
 
 | Option | Why it lost |
 |--------|-------------|
-| **Our own HTML viewer** | A UI to build and maintain. Stryker's viewer is maintained, has a published schema, and is familiar to anyone who has used Infection. |
+| **Stryker's `mutation-testing-elements` viewer as the HTML report** | It shows each file's source with its mutants, and nothing of the verdict: not whether the run passed or why, not the sets against their floors, not where the verdict comes from. Its own score leaves out what the gate counts, and its bundle is most of every page. The gate's page reads the verdict first and each file below it. |
 | **The Stryker dashboard as the report's home** | An outside service with its own account, and nothing there for Pest. An extension can add it. |
 | **Annotations through the Checks API** | More annotations per request, but it needs `checks: write` and an API client. Workflow commands need nothing, and the step summary holds the full list. |
 | **A review comment on every surviving line** | One notification per survivor per push. One sticky comment says it once and keeps saying it correctly. |
@@ -464,6 +504,6 @@ but data.
 - [ADR-0015](0015-a-survivor-reaches-the-editor-the-test-file-and-the-commit.md): the problems output, and SARIF's local root
 - [ADR-0016](0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md): the `gitlab`, chat and `otlp` reporters, the JSON report's `cost` and `run`, and `trend.json`'s `verdict`
 - [ADR-0017](0017-adopting-the-gate-takes-one-command-and-every-run-says-what-it-saved.md): the savings line, the JSON report's `savings`, `trend.json`'s times and `savings.json`
-- [ADR-0018](0018-the-documentation-is-versioned-and-tested-with-the-code.md): the viewer's notice in every HTML report
+- [ADR-0018](0018-the-documentation-is-versioned-and-tested-with-the-code.md): the package vendors no third-party code, the HTML report's included
 - [ADR-0019](0019-contributor-automation-runs-no-pull-request-content-where-it-can-write.md): the comment's planned state
 - [ADR-0028](0028-proofs-live-in-gcs-or-azure-and-survivors-reach-sonarqube.md): the `sonar` reporter

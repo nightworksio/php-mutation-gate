@@ -38,8 +38,9 @@ needs remain, and the runners' own behaviour shapes each answer.
     Pro), one check costs about 1 s of CPU with Mago's `--substitute` and
     about 1.4 s with PHPStan's warm editor mode. PHPStan's cold whole-project
     run costs 52.6 s.
-  - Mutation-testing-elements, whose viewer the HTML report embeds
-    (ADR-0009), leaves `CompileError` out of the score as an invalid mutant.
+  - Mutation-testing-elements, whose report schema the HTML report's
+    `mutation-report.json` follows (ADR-0009), leaves `CompileError` out of
+    the score as an invalid mutant.
 - **The survivors of the last push are the first thing a developer wants
   news of.** Neither runner takes a list of mutants (ADR-0006). The Runner
   port's `retry` runs named mutants again, narrowed to their file and

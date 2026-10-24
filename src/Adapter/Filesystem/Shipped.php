@@ -10,6 +10,6 @@ enum Shipped: string
     /** The CI templates `init --ci` fills in. */
     case Ci = 'ci';
 
-    /** The page and script of the HTML report, as mutation-testing-elements publishes them. */
-    case ReportElements = 'mutation-testing-elements';
+    /** The style and the script of the HTML report's page. */
+    case ReportPage = 'report-page';
 }
