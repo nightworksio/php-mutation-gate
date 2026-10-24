@@ -204,12 +204,9 @@ it('lets a mutant survive the tests that run beside one set aside in setUp', fun
 })->with(['SkippedInSetUpSpec::countsWhereItCan', 'IncompleteInSetUpSpec::countsWhereItCan'])
     ->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
 
-it('leaves unjudged, with what PHPUnit said, a mutant whose run PHPUnit fails for a warning the project fails on', function (): void {
-    $verdict = verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Tally.php', 1, ['QuirksSpec::warns'], inherited: ['FIXTURE_WARNS' => '1']));
-
-    expect($verdict[0])->toBe('unjudged')
-        ->and($verdict[1] ?? '')->toStartWith('PHPUnit failed the run, though no test that ran failed. PHPUnit said:')
-        ->and($verdict[1] ?? '')->toContain('a project warns');
+it('names the test whose warning failed a mutant\'s run on a project that fails on warnings, for the check on the original to judge', function (): void {
+    expect(verdictOf(judgedByPhpUnit(new PlusToMinus(), 'src/Tally.php', 1, ['QuirksSpec::warns'], inherited: ['FIXTURE_WARNS' => '1'])))
+        ->toBe(['killed', 'Tests\\QuirksSpec::warns']);
 })->skip(fn(): bool => ! isPhpUnitLibraryInstalled(), 'the runner contracts job installs the PHPUnit library');
 
 it('leaves unjudged a mutant a test puts PHP\'s own file wrapper back before it loads', function (): void {
