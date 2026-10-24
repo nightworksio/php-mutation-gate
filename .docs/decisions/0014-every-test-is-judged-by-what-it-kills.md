@@ -392,6 +392,11 @@ running it: why is this mutant here, and has it always been?
       the original, so a test that ends its process unmutated too is never
       read as a kill. A runner that cannot see it, as Infection, names none,
       and its evidence judges the kill.
+    - A test class whose `setUpBeforeClass` fails or errors names as its
+      killers each of its tests: the native runners read it from PHPUnit's
+      events (ADR-0023), and Infection from what PHPUnit printed, where a
+      list of failures or errors names the class alone, as each test of it
+      the coverage map knows.
     - A run that fails with no test failing or erroring names as its
       killers the tests that raised an issue its runner's configuration
       fails the run on. Pest's plugin reads them from PHPUnit's own result:

@@ -57,6 +57,30 @@ it('names a data set\'s test by its data set, numbered or named, as the coverage
     ));
 });
 
+it('names, for a class whose setUpBeforeClass met an error, each test of it the map knows, each data set\'s', function (): void {
+    $output = phpunitPrinted(
+        "There were 2 errors:\n\n1) Tests\\KeysSpec\nInvalidKeyProvided: Key cannot be empty\n\n/project/tests/Keys.php:66\n\n"
+        . "2) Tests\\KeysSpec\nInvalidKeyProvided: Key cannot be empty\n\n/project/tests/Keys.php:45\n",
+    );
+
+    expect(killerNames(printedKillers(
+        $output,
+        new FailingIssues(),
+        'Tests\\KeysSpec::signs#0',
+        'Tests\\KeysSpec::signs#1',
+        'Tests\\KeysSpec::verifies',
+        'Tests\\KeysSpecTwo::signs',
+        'Tests\\Other::signs',
+    )))->toBe(['Tests\\KeysSpec::signs#0', 'Tests\\KeysSpec::signs#1', 'Tests\\KeysSpec::verifies']);
+});
+
+it('names the tests of a class that met an error beside each test that failed', function (): void {
+    $output = phpunitPrinted("There were 2 errors:\n\n1) Tests\\A\nError: boom\n\n2) Tests\\B::two\nError: bang\n");
+
+    expect(killerNames(printedKillers($output, new FailingIssues(), 'Tests\\A::one', 'Tests\\B::two', 'Tests\\C::three')))
+        ->toBe(['Tests\\A::one', 'Tests\\B::two']);
+});
+
 it('names the risky tests, and the tests PHPUnit warned of, where no test failed', function (): void {
     $output = phpunitPrinted(
         "There were 2 risky tests:\n\n1) Tests\\A::one\nTest code or tested code did not remove its own error handlers\n\n/project/tests/A.php:72\n\n"
@@ -170,7 +194,7 @@ it('names no test from any other list, or from a run that printed none', functio
     'a warning outside any test' => [fn(): string => phpunitPrinted("There was 1 PHP warning triggered outside of tests:\n\n1) Tests\\A::one\nwarned\n")],
     'a crash' => ['PHP Fatal error:  Allowed memory size exhausted'],
     'a passing run' => ['OK (1 test, 1 assertion)'],
-    'an error before any test' => [fn(): string => phpunitPrinted("There was 1 error:\n\n1) Tests\\MoneySpec\nError in setUpBeforeClass\n")],
+    'an error before any test of a class the map knows no test of' => [fn(): string => phpunitPrinted("There was 1 error:\n\n1) Tests\\MoneySpec\nError in setUpBeforeClass\n")],
 ]);
 
 it('stops naming tests once a list of another kind begins', function (): void {

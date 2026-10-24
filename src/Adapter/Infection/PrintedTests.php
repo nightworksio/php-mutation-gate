@@ -23,7 +23,8 @@ use function sprintf;
  * for a data set's, which a list of failures prints as `<class>::<method>#0
  * with data (…)` or `…@<name> with data (…)`, and a list of the tests that
  * triggered a warning as `* <class>::<method>#<data set>`, with ` (2 times)`
- * where it triggered it more than once.
+ * where it triggered it more than once. A class whose `setUpBeforeClass`
+ * failed or errored is listed by its name alone, and named so.
  *
  * @phpstan-type Place array{file: string, line: int}
  */
@@ -32,8 +33,8 @@ final readonly class PrintedTests
     /** The header of a list, by the kind of entry it lists, `There was` or `1 test triggered` before it. */
     private const string HEADER = '/^(?:(?<there>There (?:was|were))|\d+ tests? triggered) \d+ (?<kind>.+?)s?:$/D';
 
-    /** One test in a list of tests, and the data set it ran with where it ran with one. */
-    private const string ENTRY = '/^\d+\) (?<test>[^\s#@]+::[^\s#@]+)(?:(?<set>[#@].*?) with data \(.*\))?$/D';
+    /** One test or test class in a list of tests, and the data set it ran with where it ran with one. */
+    private const string ENTRY = '/^\d+\) (?<test>[^\s#@]+)(?:(?<set>[#@].*?) with data \(.*\))?$/D';
 
     /** One warning in a list of warnings, by the file and line it was raised at. */
     private const string ISSUE = '/^\d+\) (?<file>.+):(?<line>\d+)$/D';
@@ -89,7 +90,7 @@ final readonly class PrintedTests
             : new self($this->list, $this->defects, $this->issued, [...$this->places, $pending], NotGiven::value());
     }
 
-    /** The tests that failed or met an error. */
+    /** The tests that failed or met an error, and the classes that did before any of their tests ran. */
     public function defects(): TestIds
     {
         return $this->defects;
