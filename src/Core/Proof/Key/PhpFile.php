@@ -146,8 +146,10 @@ final readonly class PhpFile
         $names = [];
 
         foreach ($tokens as $token) {
-            $name = $token->is(Names::TOKENS) ? self::lastSegmentOf(mb_strtolower($token->text)) : '';
-            $names += $name === '' ? [] : [$name => $name];
+            if ($token->is(Names::TOKENS)) {
+                $name = self::lastSegmentOf(mb_strtolower($token->text));
+                $names[$name] = $name;
+            }
         }
 
         return $names;

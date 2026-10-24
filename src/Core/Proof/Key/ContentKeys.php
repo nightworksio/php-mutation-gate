@@ -31,7 +31,6 @@ use NightWorksIO\MutationGate\Core\Runner\Identity;
 use NightWorksIO\MutationGate\Core\Runner\Version;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\Group;
-use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 use NightWorksIO\MutationGate\Core\Unit\Units;
 
@@ -200,7 +199,7 @@ final readonly class ContentKeys
         $testsOf = [];
         $named = [];
         $keys = [];
-        $tested = [];
+        $sets = SetDigests::none();
         $base = $this->base()->value();
 
         foreach ($units as $judging) {
@@ -223,7 +222,7 @@ final readonly class ContentKeys
             }
 
             $sources = $this->sourcesOf($judging->unit(), $testsOf[$set], $coverage);
-            [$key, $tested] = $this->keyReading($base, [$read[$set], $sources], $judging->unit(), $coverage, $tested);
+            $key = $this->keyReading($base, [$read[$set], $sources], $judging->unit(), $coverage, $sets);
             $keys[] = Keys::none()->with($judging->unit()->path(), $key);
         }
 
@@ -403,13 +402,11 @@ final readonly class ContentKeys
      * ascending order, with the digest of the set of tests that ran it. Each
      * set's digest is worked out once.
      *
-     * @param  string                               $base   the digest of what every key reads
-     * @param  array{string, string}                $read   the digest of what its judging test files read, and of the
-     *                                                      files outside them it reaches
-     * @param  array<string, string>                $tested each set's digest, by the name the map gives it
-     * @return array{Digest, array<string, string>}
+     * @param string                $base the digest of what every key reads
+     * @param array{string, string} $read the digest of what its judging test files read, and of the files outside
+     *                                    them it reaches
      */
-    private function keyReading(string $base, array $read, Unit $unit, CoverageMap $coverage, array $tested): array
+    private function keyReading(string $base, array $read, Unit $unit, CoverageMap $coverage, SetDigests $sets): Digest
     {
         $lines = $coverage->lineSets($unit->path());
         $fields = [
@@ -423,18 +420,11 @@ final readonly class ContentKeys
         ];
 
         foreach ($lines as $line => $set) {
-            $name = $set->name();
-
-            if (! array_key_exists($name, $tested)) {
-                $ids = array_map(static fn(TestId $test): string => $test->value(), [...$lines->testsOf($set)]);
-                $tested[$name] = Digest::sha256Of(self::framed(sprintf('%d', count($ids)), ...$ids))->value();
-            }
-
             $fields[] = sprintf('%d', $line);
-            $fields[] = $tested[$name];
+            $fields[] = $sets->of($set, $lines);
         }
 
-        return [Digest::sha256Of(self::framed(...$fields)), $tested];
+        return Digest::sha256Of(self::framed(...$fields));
     }
 
     private function judgedBy(Unit $unit): string
