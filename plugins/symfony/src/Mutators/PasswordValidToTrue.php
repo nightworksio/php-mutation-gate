@@ -48,6 +48,6 @@ final readonly class PasswordValidToTrue implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test checks that `isPasswordValid()` refuses a wrong password.');
+        return Hint::that('Add a test that checks that `isPasswordValid()` refuses a wrong password.');
     }
 }

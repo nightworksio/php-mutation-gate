@@ -17,7 +17,7 @@ it('is named in the symfony set, a removed call, about security, with its own hi
     expect($mutator->name()->value())->toBe('symfony/RemoveIsGrantedAttribute')
         ->and($mutator->family())->toBe(MutatorFamily::RemovedCall)
         ->and($mutator->tags())->toEqual(Tags::of(Tag::security()))
-        ->and($mutator->hint())->toEqual(Hint::that('No test calls this without the grant and checks that it is refused.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that calls this without the grant and checks that it is refused.'));
 });
 
 it('removes the attribute on a class under Pest, and on a method under both runners', function (): void {

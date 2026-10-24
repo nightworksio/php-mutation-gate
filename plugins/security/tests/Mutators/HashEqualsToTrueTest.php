@@ -17,7 +17,7 @@ it('is named in the security set, a condition, about security, with its own hint
     expect($mutator->name()->value())->toBe('security/HashEqualsToTrue')
         ->and($mutator->family())->toBe(MutatorFamily::Condition)
         ->and($mutator->tags())->toEqual(Tags::of(Tag::security()))
-        ->and($mutator->hint())->toEqual(Hint::that('No test passes a wrong token and checks that it is refused.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that passes a wrong token and checks that it is refused.'));
 });
 
 it('accepts every token under both runners', function (): void {

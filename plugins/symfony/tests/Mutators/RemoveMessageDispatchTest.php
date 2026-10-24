@@ -16,7 +16,7 @@ it('is named in the symfony set, a removed call, untagged, with its own hint', f
     expect($mutator->name()->value())->toBe('symfony/RemoveMessageDispatch')
         ->and($mutator->family())->toBe(MutatorFamily::RemovedCall)
         ->and($mutator->tags())->toEqual(Tags::none())
-        ->and($mutator->hint())->toEqual(Hint::that('No test checks that this message is dispatched.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that checks that this message is dispatched.'));
 });
 
 it('removes a dispatch on a bus a property, a promoted parameter or a parameter declares, under both runners', function (): void {

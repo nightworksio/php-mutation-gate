@@ -53,6 +53,6 @@ final readonly class GateAllowsToTrue implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test checks that the action is refused when the gate says no.');
+        return Hint::that('Add a test that checks that the action is refused when the gate says no.');
     }
 }

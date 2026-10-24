@@ -75,18 +75,19 @@ final readonly class ReportPage
     public static function html(array $report, string $style, string $script): string
     {
         $mutants = Mutants::of($report);
+        $glossary = Glossary::of($report);
 
         return sprintf(
             self::PAGE,
             Html::text($report['judgement']),
             str_replace('</style', '<\/style', $style),
-            Headline::html($report),
-            Figures::html($report),
+            Headline::html($report, $glossary),
+            Figures::html($report, $glossary),
             Survivors::html($mutants),
             Files::html($mutants),
             Origin::html($report),
             Details::html($report),
-            Navigation::json($report, $mutants),
+            Navigation::json($report, $mutants, $glossary),
             str_replace('</script', '<\/script', $script),
         );
     }

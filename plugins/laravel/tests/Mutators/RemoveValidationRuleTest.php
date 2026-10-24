@@ -16,7 +16,7 @@ it('is named in the laravel set, a collection change, untagged, with its own hin
     expect($mutator->name()->value())->toBe('laravel/RemoveValidationRule')
         ->and($mutator->family())->toBe(MutatorFamily::Collection)
         ->and($mutator->tags())->toEqual(Tags::none())
-        ->and($mutator->hint())->toEqual(Hint::that('No test sends input this rule alone refuses.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that sends input this rule alone refuses.'));
 });
 
 it('drops one rule of a field under both runners: an item of a list, and the first of a string', function (): void {

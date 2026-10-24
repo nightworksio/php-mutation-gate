@@ -102,3 +102,13 @@ it('rounds a percent up to hundredths, past the binary noise of multiplying it',
         ->and(Percentage::hundredthsUp(0.29))->toBe(29)
         ->and(Percentage::hundredthsUp(0.0))->toBe(0);
 });
+
+it('finds the least part of a whole whose truncated share reaches a percent', function (): void {
+    expect(Percentage::partReaching(8_000, 4))->toBe(4)
+        ->and(Percentage::partReaching(6_666, 3))->toBe(2)
+        ->and(Percentage::partReaching(6_667, 3))->toBe(3)
+        ->and(Percentage::partReaching(0, 7))->toBe(0)
+        ->and(Percentage::partReaching(10_000, 7))->toBe(7)
+        ->and(Score::of(Percentage::partReaching(8_405, 1_000), 1_000))->toEqual(Score::ofHundredths(8_410))
+        ->and(Score::of(Percentage::partReaching(8_405, 1_000) - 1, 1_000))->toEqual(Score::ofHundredths(8_400));
+});

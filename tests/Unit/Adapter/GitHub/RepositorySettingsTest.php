@@ -112,6 +112,25 @@ it('takes the checks branch protection requires where the rules require none', f
     expect($required instanceof Listed ? [...$required] : [])->toBe(['build']);
 });
 
+it('reads the checks of every rule and of protection on a branch whose name GitHub has to have encoded', function () use ($makeRead, $makeEverything): void {
+    $read = $makeRead();
+    $everything = $makeEverything();
+
+    $settings = $read([
+        ...$everything,
+        '/repos/octo/gate' => new JsonMockResponse(['default_branch' => 'release#1']),
+        '/repos/octo/gate/rules/branches/release%231' => new JsonMockResponse([
+            ['type' => 'required_status_checks', 'parameters' => ['required_status_checks' => [['context' => 'mutation / verdict']]]],
+            ['type' => 'required_status_checks', 'parameters' => ['required_status_checks' => [['context' => 'tests']]]],
+            ['type' => 'deletion'],
+        ]),
+        '/repos/octo/gate/branches/release%231' => new JsonMockResponse(['protection' => ['required_status_checks' => ['checks' => [['context' => 'build']]]]]),
+    ]);
+    $required = $settings instanceof GitHubSettings ? $settings->required() : null;
+
+    expect($required instanceof Listed ? [...$required] : $required)->toBe(['mutation / verdict', 'tests', 'build']);
+});
+
 it('says why of each setting GitHub would not show, and still reads the others', function () use ($makeRead, $makeEverything): void {
     $read = $makeRead();
     $everything = $makeEverything();

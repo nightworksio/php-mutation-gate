@@ -18,7 +18,7 @@ it('is named in the security set, an unwrap, about security, with its own hint',
     expect($mutator->name()->value())->toBe('security/UnwrapHtmlspecialchars')
         ->and($mutator->family())->toBe(MutatorFamily::Unwrap)
         ->and($mutator->tags())->toEqual(Tags::of(Tag::security()))
-        ->and($mutator->hint())->toEqual(Hint::that('No test passes markup and checks that `htmlspecialchars()` escapes it.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that passes markup and checks that `htmlspecialchars()` escapes it.'));
 });
 
 it('names the default set\'s and Pest\'s own unwraps of its function', function (): void {

@@ -314,7 +314,22 @@ services:
                 'NightWorksIO\MutationGate\Core\Report\Page\Survivors':
                     - SHOWN # survivors the HTML report's overview lists, not a dependent's cap
                 'NightWorksIO\MutationGate\Core\Report\Page\Origin':
-                    - SHORT # characters of a commit's id the HTML report shows, not a mutant id's length
+                    - SHORT # characters of a commit's id the reports show, not a mutant id's length
+                'NightWorksIO\MutationGate\Core\Report\Term':
+                    - Mutant # the guide's section on a mutant, not a doomed record's key
+                    - Floor # the guide's section on a floor, not a manifest's key
+                'NightWorksIO\MutationGate\Core\Report\Digest\MutantDetail':
+                    - TESTS # covering tests a mutant's detail names, not a ranking's top
+                    - DIFF_LINE # a diff line set in below the digest's, not a found tree's list item
+                    - DIFF # the word that opens a mutant's diff in its detail, not a record's field
+                'NightWorksIO\MutationGate\Core\Format\ShortEscape':
+                    - Backslash # the character visible text escapes, not a namespace's separator
+                'NightWorksIO\MutationGate\Core\Report\Digest\Scores':
+                    - KINDS # what the digest calls each list of sets, not a gate method or a doomed unit
+                'NightWorksIO\MutationGate\Core\Config\BuiltinReporter':
+                    - Digest # the digest reporter's name, not a plan file's digest
+                'NightWorksIO\MutationGate\Cli\Command\DigestCommand':
+                    - SURVIVORS # digest's option of how many survivors it lists, not a step or a stage
                 'NightWorksIO\MutationGate\Core\Verdict\BaselineState':
                     - Missing # a baseline file holding no floor for a scored set, not a file's missing digest
                 'NightWorksIO\MutationGate\Core\Runner\MemoryUnit':

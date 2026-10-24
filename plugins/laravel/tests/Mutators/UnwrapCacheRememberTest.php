@@ -16,7 +16,7 @@ it('is named in the laravel set, an unwrap, untagged, with its own hint', functi
     expect($mutator->name()->value())->toBe('laravel/UnwrapCacheRemember')
         ->and($mutator->family())->toBe(MutatorFamily::Unwrap)
         ->and($mutator->tags())->toEqual(Tags::none())
-        ->and($mutator->hint())->toEqual(Hint::that('No test reads the value twice and checks that the second read comes from the cache.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that reads the value twice and checks that the second read comes from the cache.'));
 });
 
 it('computes the value every time under both runners', function (): void {

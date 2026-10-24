@@ -52,6 +52,6 @@ final readonly class RemoveSessionRegenerate implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test checks that the session id changes when the user signs in.');
+        return Hint::that('Add a test that checks that the session id changes when the user signs in.');
     }
 }

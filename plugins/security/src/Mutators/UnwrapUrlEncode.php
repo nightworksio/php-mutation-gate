@@ -47,6 +47,6 @@ final readonly class UnwrapUrlEncode implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test passes a reserved character and checks that it comes out encoded.');
+        return Hint::that('Add a test that passes a reserved character and checks that it comes out encoded.');
     }
 }

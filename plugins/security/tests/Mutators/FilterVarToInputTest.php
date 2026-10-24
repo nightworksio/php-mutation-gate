@@ -17,7 +17,7 @@ it('is named in the security set, an unwrap, about security, with its own hint',
     expect($mutator->name()->value())->toBe('security/FilterVarToInput')
         ->and($mutator->family())->toBe(MutatorFamily::Unwrap)
         ->and($mutator->tags())->toEqual(Tags::of(Tag::security()))
-        ->and($mutator->hint())->toEqual(Hint::that('No test passes invalid input and checks that it is refused.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that passes invalid input and checks that it is refused.'));
 });
 
 it('takes any input as valid under both runners', function (): void {

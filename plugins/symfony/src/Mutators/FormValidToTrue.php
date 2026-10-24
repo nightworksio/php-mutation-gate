@@ -67,7 +67,7 @@ final readonly class FormValidToTrue implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test submits invalid data and checks that the form refuses it.');
+        return Hint::that('Add a test that submits invalid data and checks that the form refuses it.');
     }
 
     /** Whether a receiver is a form, by its name. */

@@ -17,7 +17,7 @@ it('is named in the security set, an unwrap, about security, with its own hint',
     expect($mutator->name()->value())->toBe('security/UnwrapShellEscape')
         ->and($mutator->family())->toBe(MutatorFamily::Unwrap)
         ->and($mutator->tags())->toEqual(Tags::of(Tag::security()))
-        ->and($mutator->hint())->toEqual(Hint::that('No test passes a shell metacharacter and checks that it comes out escaped.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that passes a shell metacharacter and checks that it comes out escaped.'));
 });
 
 it('passes the input to the shell unescaped under both runners', function (): void {

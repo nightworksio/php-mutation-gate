@@ -16,7 +16,7 @@ it('is named in the laravel set, an exception change, untagged, with its own hin
     expect($mutator->name()->value())->toBe('laravel/FirstOrFailToFirst')
         ->and($mutator->family())->toBe(MutatorFamily::Exception)
         ->and($mutator->tags())->toEqual(Tags::none())
-        ->and($mutator->hint())->toEqual(Hint::that('No test asks for a record that does not exist and expects it not to be found.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that asks for a record that does not exist and expects it not to be found.'));
 });
 
 it('finds nothing where the record is missing, on a model class and on a query, under both runners', function (): void {

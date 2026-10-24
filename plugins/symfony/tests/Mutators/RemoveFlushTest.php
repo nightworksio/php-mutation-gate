@@ -16,7 +16,7 @@ it('is named in the symfony set, a removed call, untagged, with its own hint', f
     expect($mutator->name()->value())->toBe('symfony/RemoveFlush')
         ->and($mutator->family())->toBe(MutatorFamily::RemovedCall)
         ->and($mutator->tags())->toEqual(Tags::none())
-        ->and($mutator->hint())->toEqual(Hint::that('No test reads back what this flush saves.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that reads back what this flush saves.'));
 });
 
 it('removes the flush of an entity manager, by name or as either registry method hands it out, under both runners, emptying it under Infection', function (): void {

@@ -16,7 +16,7 @@ it('is named in the laravel set, an unwrap, untagged, with its own hint', functi
     expect($mutator->name()->value())->toBe('laravel/UnwrapTransaction')
         ->and($mutator->family())->toBe(MutatorFamily::Unwrap)
         ->and($mutator->tags())->toEqual(Tags::none())
-        ->and($mutator->hint())->toEqual(Hint::that('No test makes the transaction fail and checks that nothing it did was kept.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that makes the transaction fail and checks that nothing it did was kept.'));
 });
 
 it('calls the callback without a transaction under both runners', function (): void {

@@ -56,7 +56,7 @@ final readonly class UnwrapHtmlentities implements Mutator, SameChange
 
     public function hint(): Hint
     {
-        return Hint::that('No test passes markup and checks that `htmlentities()` escapes it.');
+        return Hint::that('Add a test that passes markup and checks that `htmlentities()` escapes it.');
     }
 
     public function madeAlsoBy(): NamedMutators

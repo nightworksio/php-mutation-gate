@@ -17,7 +17,7 @@ it('is named in the laravel set, a collection change, about security, with its o
     expect($mutator->name()->value())->toBe('laravel/RemoveGuardedEntry')
         ->and($mutator->family())->toBe(MutatorFamily::Collection)
         ->and($mutator->tags())->toEqual(Tags::of(Tag::security()))
-        ->and($mutator->hint())->toEqual(Hint::that('No test posts this guarded field and checks that it is not saved.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that posts this guarded field and checks that it is not saved.'));
 });
 
 it('unguards each guarded field under Pest, and nothing under Infection, which never offers a property', function (): void {

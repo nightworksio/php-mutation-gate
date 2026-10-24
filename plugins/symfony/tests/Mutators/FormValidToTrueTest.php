@@ -16,7 +16,7 @@ it('is named in the symfony set, a condition, untagged, with its own hint', func
     expect($mutator->name()->value())->toBe('symfony/FormValidToTrue')
         ->and($mutator->family())->toBe(MutatorFamily::Condition)
         ->and($mutator->tags())->toEqual(Tags::none())
-        ->and($mutator->hint())->toEqual(Hint::that('No test submits invalid data and checks that the form refuses it.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that submits invalid data and checks that the form refuses it.'));
 });
 
 it('accepts every submission of a form under both runners', function (): void {

@@ -168,7 +168,7 @@ sees the same verdict.
      message escapes `%` and line breaks:
 
      ```text
-     ::error file=src/Money.php,line=42,title=Mutant survived%3A LessThan::No test uses a value at the boundary of `$amount < $limit`. Reproduce: vendor/bin/mutation-gate reproduce 3f9a1c2b7d04
+     ::error file=src/Money.php,line=42,title=Mutant survived%3A LessThan::Add a test that uses a value at the boundary of `$amount < $limit`. Reproduce: vendor/bin/mutation-gate reproduce 3f9a1c2b7d04
      ```
 
      Errors mark mutants in a failing set, and warnings mark the rest; the
@@ -282,15 +282,21 @@ sees the same verdict.
 
    - **The overview** is read on the first screen, and without a script:
      - the verdict as a pill, *sampled* or *cut short* beside it where it
-       was, and why: what kept the run from judging, each set below its
-       floor, as every report says it, each failure no floor decides, and
-       the project's score;
-     - how many mutants came to each outcome, and how many the score leaves
-       out;
+       was, one plain sentence on what mutation testing is, and why: the
+       JSON report's `why`, what kept the run from judging, each set below
+       its floor, as every report says it, each failure no floor decides,
+       and the project's score;
+     - what to do, the JSON report's `next`: for each set below its floor,
+       how many more mutants its tests must catch to reach it, worked out
+       from its counts; for a run that passes, that nothing has to change;
+     - how many mutants came to each outcome, each graded *Good*, *Needs
+       attention* or *Bad* in a word, never by colour alone, with a sentence
+       on why, and how many the score leaves out;
      - each tree, new-code and security set's score as a bar, its floor
        marked on it;
      - the survivors, those on changed lines first, by file, line, mutator
-       and outcome, each a link to it below, the first 25 named;
+       and outcome, with the first sentence of its hint, which says what
+       test would catch it, each a link to it below, the first 25 named;
      - the files judged, how many mutants are on changed lines and how many
        of those survive, and the files with the most survivors;
      - where the verdict comes from, read from the JSON report's
@@ -309,22 +315,33 @@ sees the same verdict.
      an earlier run carried, shows its counts alone. The list and the pane
      need the script; the overview says so where it does not run.
    - **The outcomes** the page names, with the gate's own judgement beside
-     each as detail:
+     each as detail, and the grade every report gives each:
 
-     | Outcome | Gate judgement |
-     |---------|----------------|
-     | Killed | killed, killed by static analysis (ADR-0020), killed by the memory cap (ADR-0004) |
-     | Escaped | survived, unjudged, flaky, too heavy to judge |
-     | Untested | uncovered |
-     | Timed out | killed by timeout, too slow to judge |
-     | Errored | errored |
-     | Left out | ignored, ignored by a native marker, equivalent (ADR-0013) |
+     | Outcome | Grade | Gate judgement |
+     |---------|-------|----------------|
+     | Killed | good | killed, killed by static analysis (ADR-0020), killed by the memory cap (ADR-0004) |
+     | Escaped | bad | survived, unjudged, flaky, too heavy to judge |
+     | Untested | bad | uncovered |
+     | Timed out | needs attention | killed by timeout, too slow to judge |
+     | Errored | needs attention | errored |
+     | Left out | needs attention | ignored, ignored by a native marker, equivalent (ADR-0013) |
+
+   - **A reader new to mutation testing can follow it.** Every word the page
+     uses that such a reader may not know, *mutant*, each outcome, *score*,
+     *floor* and *carried*, has a *What is this?* beside it, a native
+     disclosure that opens without a script on what it means in plain
+     English and a link to that word's section of the guide to reading the
+     report, at the tag of the gate that rendered the page, or `main` for a
+     gate that is not a release.
 
    - **Everything a project writes is escaped.** A path, a diff, a test name
      or a reason is set as text: escaped in the page, and in the page's
      data, which is JSON in its own script element with every `<`, `>` and
      `&` escaped, read with `JSON.parse` and set as text by the script.
-     Nothing a project writes can end an element or run.
+     Nothing a project writes can end an element or run. Every control,
+     separator and format character in it, a bidirectional override among
+     them, is shown as an escape, by the page and by its script, so none
+     reorders what the reader sees.
    - **It reads light and dark**, as the reader's system prefers, and at
      phone width.
    - **The Stryker report.** In `mutation-report.json` (`schemaVersion` 2,
@@ -349,7 +366,53 @@ sees the same verdict.
      first column to the end. A kill a ledger proved spans its line that way
      too, and has no `replacement`, since the ledger keeps no diff.
 
-5. **The badge and the trend on the default branch.**
+5. **The digest is the verdict for an agent.** An agent, or a terminal,
+   reads the verdict one fact a line, at a cost in tokens that does not grow
+   with the run: rendered from the JSON report as every report is, so it
+   says the verdict, the counts and the provenance as the JSON and HTML
+   reports do.
+
+   - **The overview** opens each line with a word that never changes:
+     `mg` the verdict and the project's score, *sampled* or *cut-short*
+     after it where the run was; `why` each sentence of the report's `why`;
+     `next` each of its `next`; `counts` how many mutants came to each
+     outcome with its grade, `killed=450(good)`; `set` each tree, new-code
+     and security set's score, floor and judgement; `prov` the gate's
+     version, the commit, the runner and its packages, the seconds the run
+     took and the baseline's state; `warn` each warning; then the survivors
+     the HTML report lists, in its order, each under the `@` line of its
+     file, as its outcome, line, mutator, the code it replaced and what it
+     put there, its id, `changed` where the change touched its line, and
+     the first sentence of its hint; and `more` how many it left out. It
+     lists 25 survivors, as the page does, and `--survivors=<n>` or
+     `--survivors=all` lifts that.
+   - **Depth comes on request**, one target a call, with
+     `--detail=<target>`: a file's counts and every mutant of it not
+     killed, the killed counted alone, or its counts alone where its result
+     was carried; a mutant, by its id or a prefix of six or more as
+     `explain` finds one, with its diff, its hint, the tests that cover it,
+     the first five by id, those that killed it and its reproduce command;
+     a cluster, each member as the overview lists it, with its `stub`
+     command; or `legend`, what each word the reports use means. A target
+     the run does not hold exits 2.
+   - **Nothing the code under test wrote can forge a line.** Each value a
+     report took from the project, a path, a change, a hint, a test's id, a
+     warning, is written on one line with a backslash and every control,
+     line or paragraph separator and format character as a visible escape,
+     `\n` or `\u{202e}`, so no value ends its line, starts one an agent
+     would read as the gate's, or acts on a terminal. A mutant's diff is set
+     in by two spaces below its `diff` line.
+   - **Where it is read.** `mutation-gate digest` renders the JSON report
+     every verdict keeps at `.mutation-gate/report.json`, running nothing.
+     The `digest` reporter writes the overview to its `path`; the action
+     and the reusable workflow write it beside the HTML report and upload
+     it as `mutation-gate-digest.txt`. Nothing of it goes into the pull
+     request's comment, which is written for a person.
+   - **Measured.** On a run of 475 mutants with 19 survivors the overview
+     is about 1,200 tokens, and on one of 35,548 with 1,111 survivors about
+     1,600; the JSON report of the second is about 32 million.
+
+6. **The badge and the trend on the default branch.**
    - **The badge.** The verdict writes `badge.json` for shields.io's endpoint
      badge:
 
@@ -405,7 +468,7 @@ sees the same verdict.
      On other CIs, restoring and publishing `--publish-dir` is the pipeline's
      job.
 
-6. **Every survivor has a one-line reproduce command.** In every report it is
+7. **Every survivor has a one-line reproduce command.** In every report it is
    `vendor/bin/mutation-gate reproduce <id>`. It works on any machine with the
    same code, because the id holds no absolute path (ADR-0004). Every mutant
    the score counts as not killed has one, so it is also the command that
@@ -413,29 +476,31 @@ sees the same verdict.
    also give `vendor/bin/mutation-gate explain <id>`, which explains it
    without running anything (ADR-0014).
 
-7. **Every survivor says what the tests miss.** Each runner adapter maps its
-   native mutator names to a family. Each family has one sentence, filled in
-   from the diff and from the enclosing function, found by the file's tokens.
+8. **Every survivor says what test would catch it.** Each runner adapter maps
+   its native mutator names to a family. Each family has one sentence, an
+   instruction a reader new to mutation testing can act on, filled in from
+   the diff and from the enclosing function, found by the file's tokens.
    The sentence names the judging tests (ADR-0004), where there are any: up to
    three, then *and n more*.
 
    | Family | Example | What the hint says |
    |--------|---------|--------------------|
-   | Boundary | `<` → `<=` | No test uses a value at the boundary of `$amount < $limit`. |
-   | Condition | `===` → `!==`, `if ($x)` → `if (! $x)` | These tests run the condition, but none asserts on anything that depends on it. |
-   | Logical | `&&` → `\|\|` | No test has exactly one side of the `&&` true. |
-   | Arithmetic | `+` → `-` | No test checks the result of this calculation with a non-zero operand. |
-   | Return value | `return $total;` → `return 0;` | Tests call `total()`, but none asserts on what it returns. |
-   | Removed call | `$this->save($order);` removed | Every test passes without the call to `save()`, so nothing asserts on its effect. |
-   | Literal | `3` → `4`, `true` → `false` | No test depends on this value being `3`. |
-   | Collection | an array item removed, a loop given no items | No test notices the item missing, or runs the loop with items and checks the outcome. |
-   | Exception | `throw` removed | No test expects this exception. |
-   | Unwrap | `array_values($xs)` → `$xs` | No test passes a value `array_values()` would change. |
-   | Visibility | `public` → `protected` | Nothing outside the class calls this. It can be narrower. |
-   | Uncovered (a status, not a family) | | No test runs this line. |
+   | Boundary | `<` → `<=` | Add a test that uses a value at the boundary of `$amount < $limit`. |
+   | Condition | `===` → `!==`, `if ($x)` → `if (! $x)` | Assert on something this condition decides: these tests run it, but none checks what it decides. |
+   | Logical | `&&` → `\|\|` | Add a test where exactly one side of the `&&` is true. |
+   | Arithmetic | `+` → `-` | Add a test that checks the result of `$a + $b` with a non-zero operand. |
+   | Return value | `return $total;` → `return 0;` | Assert on what `total()` returns: tests call it, but none checks its result. |
+   | Removed call | `$this->save($order);` removed | Assert on what `save()` does: every test passes without the call. |
+   | Literal | `3` → `4`, `true` → `false` | Add an assertion that fails unless this value is `3`. |
+   | Collection | an array item removed, a loop given no items | Add a test that notices the item missing, or runs the loop with items and checks the outcome. |
+   | Exception | `throw` removed | Add a test that expects this exception. |
+   | Unwrap | `array_values($xs)` → `$xs` | Add a test that passes a value `array_values()` would change. |
+   | Visibility | `public` → `protected` | Make this narrower: nothing outside the class calls it. |
+   | Uncovered (a status, not a family) | | Add a test that runs line 12: no test runs it yet. |
 
-   A mutator with no family gets the general sentence: *These tests run line
-   N, but none fails when it becomes `<mutated line>`.* A table test fails when
+   A mutator with no family gets the general sentence: *Add an assertion
+   that fails when line N becomes `<mutated line>`: these tests run it, but
+   none notices.* A table test fails when
    a mutator of a supported runner version has no family and is not explicitly
    marked as having none.
 
@@ -478,6 +543,10 @@ sees the same verdict.
 | **JUnit with a failing test case per surviving mutant** | At a floor below 100 the gate passes with survivors, and a JUnit report full of failures would contradict it. |
 | **Badge and trend through a gist, GitHub Pages or a commit to the default branch** | A gist needs a personal token. Pages needs a site and a deploy job. A commit to the default branch meets its protection rules and fills its history. A data branch written through the contents API needs neither. |
 | **Publishing from the one-step action** | Its one job runs on pull requests as well, so it would need `contents: write` wherever a pull request's code runs. The reusable workflow keeps that permission in a job that runs only on the default branch. |
+| **The digest as terse JSON, JSONL or Markdown** | Measured on the same two runs, each costs more tokens for the same facts: terse JSON about a quarter more, JSONL about half more, Markdown a tenth to a fifth more. The JSON report stays the machine contract; the digest is read, and its line words are as stable. |
+| **Depth as a flag per section, or as commands of its own** | A section of a whole run grows with the run, which is what the digest exists to avoid; a command per depth is more to learn for the same output. One target a call keeps each answer small. |
+| **The digest in the pull request's comment** | It would share the comment's 65,536 characters with what a person reads. An agent reads the artifact, or runs `digest`. |
+| **The explanations behind a *New here?* switch** | A reader new to mutation testing has to find it first, and it needs a script. A disclosure beside each word is there for whoever needs it and out of the way of whoever does not. |
 | **Hints written by a language model** | Needs a network and a key, and gives a different sentence each run. A hint has to be reproducible and reviewable, like the verdict. |
 
 ## Consequences

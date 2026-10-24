@@ -17,7 +17,7 @@ it('is named in the security set, a removed call, about security, with its own h
     expect($mutator->name()->value())->toBe('security/RemoveSessionRegenerate')
         ->and($mutator->family())->toBe(MutatorFamily::RemovedCall)
         ->and($mutator->tags())->toEqual(Tags::of(Tag::security()))
-        ->and($mutator->hint())->toEqual(Hint::that('No test checks that the session id changes when the user signs in.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that checks that the session id changes when the user signs in.'));
 });
 
 it('removes the new session id under both runners, emptying it under Infection', function (): void {

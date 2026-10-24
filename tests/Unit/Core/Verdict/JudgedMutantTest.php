@@ -61,7 +61,7 @@ it('keeps its mutant and judgement when marked', function (): void {
 it('says what its tests miss from its diff and judging tests until it is given the hint its file gives', function (): void {
     $tests = TestIds::of(TestId::of('MoneyTest::adds'));
     $judged = Judged::mutant('a', MutantJudgement::Survived)->judgedBy($tests);
-    $read = Hint::that('No test uses a value at the boundary of `$amount < $limit`.');
+    $read = Hint::that('Add a test that uses a value at the boundary of `$amount < $limit`.');
 
     expect($judged->hint())->toEqual(Hint::for($judged->mutant(), MutantJudgement::Survived, $tests, Missing::at(Path::of('src/Money.php')), NoFinding::survivor()))
         ->and($judged->hinted($read)->hint())->toBe($read)

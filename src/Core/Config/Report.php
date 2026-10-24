@@ -22,6 +22,7 @@ final readonly class Report
         BuiltinReporter::JUnit->value,
         BuiltinReporter::Sarif->value,
         BuiltinReporter::Html->value,
+        BuiltinReporter::Digest->value,
     ];
 
     private function __construct(private Choice $reporter, private Path|Absent $path)

@@ -179,6 +179,8 @@ final readonly class ReportSchema
                 'warnings' => self::listOf(self::TEXT),
                 'failures' => self::listOf(self::TEXT),
                 'cannotJudge' => self::listOf(self::TEXT),
+                'why' => self::listOf(self::TEXT),
+                'next' => self::listOf(self::TEXT),
                 'provenance' => self::provenance(),
                 'run' => $run,
                 'cost' => self::object([

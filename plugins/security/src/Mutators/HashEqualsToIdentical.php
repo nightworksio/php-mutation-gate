@@ -39,9 +39,9 @@ final readonly class HashEqualsToIdentical implements Mutator, PinnedBySource
     private const int USER = 1;
 
     /** What a survivor misses, then the test that would kill it. */
-    private const string PINNED = 'Only a test that reads the source can pin a constant-time comparison: %s';
+    private const string PINNED = 'Pin the constant-time comparison with a test that reads the source: %s';
 
-    private const string READING_TEST = 'one that runs it, then asserts that its file still calls `hash_equals`.';
+    private const string READING_TEST = 'run the code, then assert that its file still calls `hash_equals`.';
 
     public function name(): MutatorName
     {

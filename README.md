@@ -95,7 +95,7 @@ src/Money.php:7  LessToLessOrEqual  survived, on a changed line  3f9a1c2b7d04
     -        if ($amount < $limit) {
     +        if ($amount <= $limit) {
     Judged by: MoneyTest::fits, MoneyTest::refuses, PriceTest::adds, CartTest::totals
-    No test uses a value at the boundary of `$amount < $limit`. It is judged by `MoneyTest::fits`, `MoneyTest::refuses`, `PriceTest::adds` and 1 more.
+    Add a test that uses a value at the boundary of `$amount < $limit`. It is judged by `MoneyTest::fits`, `MoneyTest::refuses`, `PriceTest::adds` and 1 more.
     Reproduce: vendor/bin/mutation-gate reproduce 3f9a1c2b7d04
     Explain: vendor/bin/mutation-gate explain 3f9a1c2b7d04
 ```
@@ -105,6 +105,11 @@ floor at the score it measured. Commit it. From then on a score may not fall
 below its floor, and `vendor/bin/mutation-gate baseline --write` raises the
 floors when scores improve. `vendor/bin/mutation-gate doctor` says what would
 fail or run slowly before a run finds out.
+
+New to mutation testing? [Reading the report](.docs/guide/reading-the-report.md)
+says what the report shows, what is good and what is not, and what to do
+next. `vendor/bin/mutation-gate digest` says the last run's verdict one fact a
+line, for an agent or a terminal, running nothing.
 
 ## In CI
 
@@ -205,6 +210,7 @@ The first release is tagged when every row says *yes*.
 | | Security mode: mutators for authorisation, CSRF, escaping and constant-time comparisons, held to a floor of their own | yes | [0021](.docs/decisions/0021-mutators-are-written-once-and-first-party-sets-can-leave.md) |
 | | A hint that a surviving removal may be dead code | yes | [0025](.docs/decisions/0025-unchanged-code-is-pruned-and-tests-are-judged-by-their-assertions.md) |
 | **Visibility** | An HTML report | yes | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
+| | A digest for agents: the verdict one fact a line, the same verdict as the JSON and HTML reports at a cost in tokens that does not grow with the run, with depth one file, mutant or cluster at a time | yes | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md) |
 | | A sticky comment on the pull request, posted when the plan is made with the units it mutates, the time it should take and the changed lines no test runs, then updated with the verdict, which links the run's HTML report | yes | [0009](.docs/decisions/0009-every-verdict-is-readable-by-a-machine-and-a-reviewer.md), [0019](.docs/decisions/0019-contributor-automation-runs-no-pull-request-content-where-it-can-write.md) |
 | | A cost estimate in the PR comment: time planned, measured and spared, and money at the team's rate | yes | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |
 | | Chat alerts to Slack, Discord or a webhook when the default branch fails, cannot be judged, or recovers | yes | [0016](.docs/decisions/0016-the-gate-takes-over-from-infection-and-reports-what-a-run-costs.md) |

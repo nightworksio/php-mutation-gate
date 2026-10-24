@@ -14,8 +14,8 @@ it('makes markup, links, mentions, emphasis and cell bars inert', function (): v
 });
 
 it('shows what a hint puts in backticks as code, escaped as well', function (): void {
-    expect(Escape::text('No test uses a value at the boundary of `$amount < $limit`.'))
-        ->toBe('No test uses a value at the boundary of <code>$amount &lt; $limit</code>.');
+    expect(Escape::text('Add a test that uses a value at the boundary of `$amount < $limit`.'))
+        ->toBe('Add a test that uses a value at the boundary of <code>$amount &lt; $limit</code>.');
 });
 
 it('keeps an unmatched backtick from opening code', function (): void {

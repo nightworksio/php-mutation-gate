@@ -948,6 +948,18 @@
                 "type": "string"
             }
         },
+        "why": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "next": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
         "provenance": {
             "type": "object",
             "properties": {
@@ -1493,6 +1505,8 @@
         "warnings",
         "failures",
         "cannotJudge",
+        "why",
+        "next",
         "provenance"
     ],
     "additionalProperties": false

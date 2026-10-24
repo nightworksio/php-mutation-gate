@@ -123,6 +123,8 @@ use NightWorksIO\MutationGate\Core\Verdict\Warning;
  *     warnings: list<string>,
  *     failures: list<string>,
  *     cannotJudge: list<string>,
+ *     why: list<string>,
+ *     next: list<string>,
  *     provenance: ProvenanceEntry,
  *     run?: Run,
  *     cost?: CostEntry,
@@ -177,6 +179,8 @@ final readonly class JsonReport
             'warnings' => self::texts($verdict->warnings(), static fn(Warning $warning): string => $warning->text()),
             'failures' => self::texts($verdict->failures(), static fn(Failure $failure): string => $failure->text()),
             'cannotJudge' => self::texts($verdict->obstacles(), static fn(CannotJudge $why): string => $why->why()),
+            'why' => Reasons::of($verdict),
+            'next' => NextSteps::of($verdict),
             'provenance' => ProvenanceJson::of($verdict),
             ...AccountJson::of($verdict),
         ];

@@ -50,6 +50,6 @@ final readonly class RemoveDenyAccess implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test checks that the action is refused to a user without this grant.');
+        return Hint::that('Add a test that checks that the action is refused to a user without this grant.');
     }
 }

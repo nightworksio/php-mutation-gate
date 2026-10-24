@@ -25,6 +25,7 @@ use NightWorksIO\MutationGate\Adapter\Console\ConsoleReport;
 use NightWorksIO\MutationGate\Adapter\Console\ProblemsReport;
 use NightWorksIO\MutationGate\Adapter\Filesystem\BadgeDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\CodeQualityReportFile;
+use NightWorksIO\MutationGate\Adapter\Filesystem\DigestReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\HtmlReportDirectory;
 use NightWorksIO\MutationGate\Adapter\Filesystem\JsonReportFile;
 use NightWorksIO\MutationGate\Adapter\Filesystem\JUnitReportFile;
@@ -191,6 +192,7 @@ final readonly class FirstParty implements Extension
             ->withReporter(BuiltinReporter::JUnit->named(), JUnitReportFile::fromOptions(...))
             ->withReporter(BuiltinReporter::Sarif->named(), SarifReportFile::fromOptions(...))
             ->withReporter(BuiltinReporter::Html->named(), HtmlReportDirectory::fromOptions(...))
+            ->withReporter(BuiltinReporter::Digest->named(), DigestReportFile::fromOptions(...))
             ->withReporter(BuiltinReporter::GitHubAnnotations->named(), Annotations::fromOptions(...))
             ->withReporter(
                 BuiltinReporter::GitHubSummary->named(),

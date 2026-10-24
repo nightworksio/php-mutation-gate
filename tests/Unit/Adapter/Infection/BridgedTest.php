@@ -20,7 +20,7 @@ it('describes the mutator by its name, and by its own hint where it has one', fu
     $unhinted = Bridged::definition(new PlusToMinus());
 
     expect([$hinted->getDescription(), $hinted->getRemedies(), $hinted->getCategory()])
-        ->toBe(['acme/RemoveEcho', 'No test checks what is printed.', MutatorCategory::ORTHOGONAL_REPLACEMENT])
+        ->toBe(['acme/RemoveEcho', 'Add a test that checks what is printed.', MutatorCategory::ORTHOGONAL_REPLACEMENT])
         ->and($unhinted->getRemedies())->toBeNull();
 });
 

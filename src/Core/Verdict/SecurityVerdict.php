@@ -102,6 +102,12 @@ final readonly class SecurityVerdict
         return $this->mutants;
     }
 
+    /** How uncovered mutants count in the score. */
+    public function uncovered(): Uncovered
+    {
+        return $this->uncovered;
+    }
+
     public function counts(): Counts
     {
         return $this->mutants->counts();

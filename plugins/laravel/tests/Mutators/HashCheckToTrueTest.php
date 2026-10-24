@@ -17,7 +17,7 @@ it('is named in the laravel set, a condition, about security, with its own hint'
     expect($mutator->name()->value())->toBe('laravel/HashCheckToTrue')
         ->and($mutator->family())->toBe(MutatorFamily::Condition)
         ->and($mutator->tags())->toEqual(Tags::of(Tag::security()))
-        ->and($mutator->hint())->toEqual(Hint::that('No test checks that a wrong password is refused.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that checks that a wrong password is refused.'));
 });
 
 it('accepts every password under both runners', function (): void {

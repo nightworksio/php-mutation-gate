@@ -16,7 +16,7 @@ it('is named in the laravel set, a removed call, untagged, with its own hint', f
     expect($mutator->name()->value())->toBe('laravel/RemoveAbort')
         ->and($mutator->family())->toBe(MutatorFamily::RemovedCall)
         ->and($mutator->tags())->toEqual(Tags::none())
-        ->and($mutator->hint())->toEqual(Hint::that('No test checks that the request is stopped when this condition holds.'));
+        ->and($mutator->hint())->toEqual(Hint::that('Add a test that checks that the request is stopped when this condition holds.'));
 });
 
 it('removes a stop that refuses with no 401 or 403', function (): void {

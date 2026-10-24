@@ -19,7 +19,7 @@ it('is named in the security set, a condition, about security, with its own hint
         ->and($mutator->family())->toBe(MutatorFamily::Condition)
         ->and($mutator->tags())->toEqual(Tags::of(Tag::security()))
         ->and($mutator->hint())->toEqual(Hint::that(
-            'Only a test that reads the source can pin a constant-time comparison: one that runs it, then asserts that its file still calls `hash_equals`.',
+            'Pin the constant-time comparison with a test that reads the source: run the code, then assert that its file still calls `hash_equals`.',
         ))
         ->and($mutator->pin())->toEqual(SourcePin::call('hash_equals'))
         ->and($mutator->pin()->text())->toBe('hash_equals(');

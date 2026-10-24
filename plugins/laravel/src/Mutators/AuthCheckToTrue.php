@@ -53,6 +53,6 @@ final readonly class AuthCheckToTrue implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test runs this as a guest and checks what a guest is refused.');
+        return Hint::that('Add a test that runs this as a guest and checks what a guest is refused.');
     }
 }

@@ -60,7 +60,7 @@ final readonly class RemoveDispatch implements Mutator
 
     public function hint(): Hint
     {
-        return Hint::that('No test fakes the event, job, mail or notification and asserts that it was sent.');
+        return Hint::that('Add a test that fakes the event, job, mail or notification and asserts that it was sent.');
     }
 
     private function dispatches(Expr $call): bool
