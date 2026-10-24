@@ -499,7 +499,7 @@ it('keeps a page of many mutants small: its index names each mutant once, and ea
     $data = pageData($page);
 
     expect(Decoded::at($data, 'files', 0, 'mutators'))->toBe([MultiplicationToDivision::class])
-        ->and(array_unique(Decoded::column($data, 'mutator', 'files', 0, 'mutants')))->toBe([0])
+        ->and(Decoded::column($data, 'mutator', 'files', 0, 'mutants'))->toBe(array_fill(0, 50, 0))
         ->and(strlen($index[1] ?? ''))->toBeLessThan(2_000 * 20)
         ->and(strlen(implode('', $packed[1])))->toBeLessThan(2_000 * 36)
         ->and(strlen(pageShown($page)))->toBeLessThan(12_000);
