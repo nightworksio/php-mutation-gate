@@ -198,5 +198,6 @@ it('suggests deleting the callee of a surviving removal by its name, after the f
 it('leads with its first sentence, what would catch the mutant, a full stop in backticks ending nothing', function (): void {
     expect(Hint::lead('Add a test that checks `$a . $b`. It is judged by `ATest::b`.'))->toBe('Add a test that checks `$a . $b`.')
         ->and(Hint::lead('Add a test that expects this exception.'))->toBe('Add a test that expects this exception.')
-        ->and(Hint::lead('Assert on what `v1.2. x()` returns: tests call it.'))->toBe('Assert on what `v1.2. x()` returns: tests call it.');
+        ->and(Hint::lead('Assert on what `v1.2. x()` returns: tests call it.'))->toBe('Assert on what `v1.2. x()` returns: tests call it.')
+        ->and(Hint::lead('`a. b` is unchecked. It is judged by `ATest::b`'))->toBe('`a. b` is unchecked.');
 });

@@ -13,7 +13,7 @@ use function implode;
 use function in_array;
 use function is_string;
 use function iterator_to_array;
-use function mb_strlen;
+use function mb_str_split;
 use function mb_substr;
 
 use NightWorksIO\MutationGate\Core\Assertion\WeaklyAsserted;
@@ -217,10 +217,8 @@ final readonly class Hint
     public static function lead(string $text): string
     {
         $code = false;
-        $length = mb_strlen($text);
 
-        for ($at = 0; $at < $length; $at++) {
-            $character = mb_substr($text, $at, 1);
+        foreach (mb_str_split($text) as $at => $character) {
             $code = $character === '`' ? ! $code : $code;
 
             if (! $code && $character === '.' && mb_substr($text, $at + 1, 1) === ' ') {
