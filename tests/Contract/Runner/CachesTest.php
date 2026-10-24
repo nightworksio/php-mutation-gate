@@ -15,6 +15,7 @@ use NightWorksIO\MutationGate\Core\Proof\Key\ContentKeys;
 use NightWorksIO\MutationGate\Core\Proof\Key\Exceptions;
 use NightWorksIO\MutationGate\Core\Proof\Key\Ignored;
 use NightWorksIO\MutationGate\Core\Proof\Key\Source;
+use NightWorksIO\MutationGate\Core\Proof\Key\SourceReach;
 use NightWorksIO\MutationGate\Core\Proof\Key\TestFiles;
 use NightWorksIO\MutationGate\Core\Proof\Key\Tests;
 use NightWorksIO\MutationGate\Core\Runner\CoverageRun;
@@ -95,6 +96,7 @@ function keysOfSources(string $root): array
         Digest::of('installed'),
         Source::of($files, CiDefinitions::none(), Exceptions::of(Absent::setting(), Path::of('mutation-gate.baseline.json'), Ignored::nothing(), Paths::none())),
         Tests::of(TestFiles::of(), Paths::none(), Paths::none()),
+        SourceReach::nothing(),
     );
     $byUnit = [];
 

@@ -6,15 +6,18 @@ namespace NightWorksIO\MutationGate\Cli\Flow;
 
 use NightWorksIO\MutationGate\Core\CannotJudge;
 use NightWorksIO\MutationGate\Core\Change\CannotTell;
+use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Contents;
 use NightWorksIO\MutationGate\Core\Php\NamedFiles;
 use NightWorksIO\MutationGate\Core\Php\PhpFile;
+use NightWorksIO\MutationGate\Core\Proof\Key\SourceReach;
 
 /**
  * The project's name graph, read from the files on disk: every PHP file of
  * the suite's sources and outside its test directories, each with the files
- * it names. A carried kill follows a change through it (ADR-0008), and a
- * check finds a mutant's dependents in it (ADR-0020).
+ * it names. A carried kill follows a change through it (ADR-0008), a
+ * check finds a mutant's dependents in it (ADR-0020), and a unit's key
+ * reads the files it reaches through it (ADR-0007).
  */
 final readonly class NameGraph
 {
@@ -34,6 +37,19 @@ final readonly class NameGraph
         };
 
         return $suite instanceof Suite ? $this->of($suite) : $suite;
+    }
+
+    /**
+     * Which files outside a suite's test directories each unit's key reads on
+     * its own, through the suite's graph and what a map shows its tests ran
+     * (ADR-0007); none, every file in the base every key reads, where the
+     * graph cannot be read.
+     */
+    public function reach(Suite $suite, CoverageMap $map): SourceReach
+    {
+        $names = $this->of($suite);
+
+        return $names instanceof NamedFiles ? SourceReach::of($names, $map) : SourceReach::nothing();
     }
 
     /** The graph of a suite's sources and every PHP file outside its test directories, or why one cannot be read. */

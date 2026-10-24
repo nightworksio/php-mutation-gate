@@ -54,7 +54,11 @@ use function sprintf;
  *    file that references, or that none does (ADR-0020).
  * 5. The digest of `vendor/composer/installed.json`.
  * 6. Every file outside the test directories, by its digest, less the
- *    exceptions.
+ *    exceptions and less the PHP files the coverage map shows some test
+ *    executed, which item 11 reads unit by unit (see SourceReach). So a file
+ *    no map shows run, the config, autoload and Composer files among them,
+ *    resets every key, as do items 2 to 5, the PHP the runner runs on and
+ *    its extensions among them.
  * 7. Every CI definition that runs the gate, as it runs.
  * 8. Of the test directories, what every key reads: what runs when it is
  *    loaded, every test file the coverage map does not know, the canary
@@ -64,6 +68,10 @@ use function sprintf;
  *    digest.
  * 10. The unit: its path, what judges it, and each of its covered lines with
  *    the ids of the tests that cover it.
+ * 11. Of the PHP files item 6 leaves out, those the unit reaches: its own
+ *    file, the files its covering tests executed, and every file those, its
+ *    judging test files and the test files every key reads name,
+ *    transitively, each by its digest; every one for a held unit.
  *
  * Every field is written with its length before it, and every list with its
  * count, so no two sets of inputs hash alike. The first eight are the same
@@ -71,13 +79,15 @@ use function sprintf;
  */
 final readonly class ContentKeys
 {
-    public const string FORMAT = 'mutation-gate proof 6';
+    public const string FORMAT = 'mutation-gate proof 7';
 
     private function __construct(
         private HashContext $everyKey,
         private Tests $tests,
         private Digest $mutation,
         private Fingerprints $code,
+        private SourceReach $reach,
+        private Fingerprints $keyed,
     ) {
     }
 
@@ -90,6 +100,7 @@ final readonly class ContentKeys
         Digest $installed,
         Source $source,
         Tests $tests,
+        SourceReach $reach,
     ): self {
         $context = Digest::hashing();
         self::hashMutationReads($context, $gate, $config, $runner, $analyser, $installed);
@@ -97,7 +108,7 @@ final readonly class ContentKeys
         hash_update($mutation, self::framed('definitions'));
         self::hashFingerprintsIn($mutation, $source->definitions());
         hash_update($mutation, self::testFiles('always', $tests->inEveryKey(), $tests));
-        self::hashCodeIn($context, $source->files(), $source->ci());
+        self::hashCodeIn($context, $reach->guarded($source), $source->ci());
         hash_update($context, self::testFiles('always', $tests->inEveryKey(), $tests));
 
         return new self(
@@ -105,6 +116,8 @@ final readonly class ContentKeys
             $tests,
             Digest::finished($mutation),
             $source->outside(),
+            $reach,
+            $source->files(),
         );
     }
 
@@ -207,7 +220,14 @@ final readonly class ContentKeys
                     ->value();
             }
 
-            [$key, $tested] = $this->keyReading($base, $read[$set], $judging->unit(), $coverage, $tested);
+            $sources = $this->reach->readBy(
+                $judging->unit(),
+                $judges,
+                $this->tests->inEveryKey(),
+                $coverage,
+                $this->keyed,
+            );
+            [$key, $tested] = $this->keyReading($base, [$read[$set], $sources], $judging->unit(), $coverage, $tested);
             $keys[] = Keys::none()->with($judging->unit()->path(), $key);
         }
 
@@ -369,23 +389,25 @@ final readonly class ContentKeys
 
     /**
      * A unit's key, built from finished digests alone, so another
-     * implementation can build it alike: the format with the base and what
-     * of the test directories its judging test files read, then the unit and
-     * each of its covered lines, in ascending order, with the digest of the
-     * set of tests that ran it. Each set's digest is worked out once.
+     * implementation can build it alike: the format with the base, what of
+     * the test directories its judging test files read and the files outside
+     * them it reaches, then the unit and each of its covered lines, in
+     * ascending order, with the digest of the set of tests that ran it. Each
+     * set's digest is worked out once.
      *
      * @param  string                               $base   the digest of what every key reads
-     * @param  string                               $read   the digest of what its judging test files read
+     * @param  array{string, string}                $read   the digest of what its judging test files read, and of the
+     *                                                      files outside them it reaches
      * @param  array<string, string>                $tested each set's digest, by the name the map gives it
      * @return array{Digest, array<string, string>}
      */
-    private function keyReading(string $base, string $read, Unit $unit, CoverageMap $coverage, array $tested): array
+    private function keyReading(string $base, array $read, Unit $unit, CoverageMap $coverage, array $tested): array
     {
         $lines = $coverage->lineSets($unit->path());
         $fields = [
             self::FORMAT,
             $base,
-            $read,
+            ...$read,
             'unit',
             $unit->path()->value(),
             $this->judgedBy($unit),

@@ -33,8 +33,9 @@ use NightWorksIO\MutationGate\Core\Unit\Units;
 
 /**
  * The content key of every unit a run considers: what the gate, its config,
- * the runner, what is installed and every file outside the tests say, and of
- * the tests, what can judge the unit.
+ * the runner, what is installed and the files outside the tests no map shows
+ * run say, the files outside the tests the unit reaches, and of the tests,
+ * what can judge the unit.
  */
 final readonly class Keying
 {
@@ -72,6 +73,7 @@ final readonly class Keying
                         self::known($adapters, $map),
                         Paths::of(...self::canaries($adapters, $suite), ...self::declaring($adapters, $suite)),
                     ),
+                    new NameGraph($adapters)->reach($suite, $map),
                 ),
                 $adapters,
                 $map,

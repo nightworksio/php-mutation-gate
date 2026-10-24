@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\Php\NamedFiles;
 use NightWorksIO\MutationGate\Core\Proof\Digests;
 use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinition;
 use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinitions;
@@ -21,6 +22,7 @@ use NightWorksIO\MutationGate\Core\Proof\Key\Exceptions;
 use NightWorksIO\MutationGate\Core\Proof\Key\Ignored;
 use NightWorksIO\MutationGate\Core\Proof\Key\Judging;
 use NightWorksIO\MutationGate\Core\Proof\Key\Source;
+use NightWorksIO\MutationGate\Core\Proof\Key\SourceReach;
 use NightWorksIO\MutationGate\Core\Proof\Key\TestFile;
 use NightWorksIO\MutationGate\Core\Proof\Key\TestFiles;
 use NightWorksIO\MutationGate\Core\Proof\Key\Tests;
@@ -156,6 +158,7 @@ function contentKeyOf(
             Digest::of($installed),
             $read,
             Tests::of(TestFiles::of(...$files), contentKeyPaths($known), contentKeyPaths($canaries)),
+            SourceReach::nothing(),
         )->keyOf(contentKeyUnit($unit, $group, $filter), contentKeyJudges($judges), $coverage);
 }
 
@@ -206,7 +209,7 @@ it('hashes everything a result could depend on, in order, from finished digests'
     $keyOf = $makeKeyOf();
 
     $base = $framed(
-        'mutation-gate proof 6',
+        'mutation-gate proof 7',
         'gate',
         'nightworksio/mutation-gate',
         '1.0.0',
@@ -261,11 +264,12 @@ it('hashes everything a result could depend on, in order, from finished digests'
         'm1',
     ));
 
-    expect(ContentKeys::FORMAT)->toBe('mutation-gate proof 6')
+    expect(ContentKeys::FORMAT)->toBe('mutation-gate proof 7')
         ->and($keyOf())->toEqual($framed(
-            'mutation-gate proof 6',
+            'mutation-gate proof 7',
             $base,
             $read,
+            hash('sha256', $frame('reached', '0')),
             'unit',
             'src/A.php',
             'the whole suite',
@@ -375,15 +379,17 @@ $bare = static fn(): ContentKeys => ContentKeys::of(
     Digest::of('installed'),
     Source::of(Fingerprints::none(), CiDefinitions::none(), Exceptions::of(Path::of('a'), Path::of('b'), Ignored::nothing(), Paths::none())),
     Tests::of(TestFiles::of(), Paths::none(), Paths::none()),
+    SourceReach::nothing(),
 );
 
 it('writes what holds a unit, by its name', function (Unit $unit, string $heldBy) use ($bare, $frame, $framed): void {
     $keys = $bare();
 
     expect($keys->keyOf($unit, Paths::none(), CoverageMap::empty()))->toEqual($framed(
-        'mutation-gate proof 6',
+        'mutation-gate proof 7',
         $keys->base()->value(),
         hash('sha256', $frame('tests', '0')),
+        hash('sha256', $frame('reached', '0')),
         'unit',
         'src/A.php',
         $heldBy,
@@ -403,8 +409,12 @@ it('keys one unit after another alike', function () use ($bare): void {
     expect($keys->keyOf(Unit::file(Path::of('src/A.php')), Paths::none(), CoverageMap::empty()))->toEqual($first);
 });
 
-/** Content keys of a project with support that names support, paths of digits and a unit held each way. */
-function contentKeysPinned(): ContentKeys
+/**
+ * Content keys of a project with support that names support, paths of
+ * digits, a unit held each way, and src/A.php naming src/B.php, read unit by
+ * unit as far as a map shows its tests ran them.
+ */
+function contentKeysPinned(CoverageMap $observed): ContentKeys
 {
     $fingerprint = static fn(string $path, string $digest): Fingerprint => Fingerprint::of(Path::of($path), Digest::of($digest));
     $paths = static fn(string ...$paths): Paths => Paths::of(...array_map(Path::of(...), $paths));
@@ -442,6 +452,7 @@ function contentKeysPinned(): ContentKeys
             $paths('tests/Unit/MoneyTest.php', 'tests/Unit/LedgerTest.php', 'tests/Unit/CanaryTest.php', 'tests/10', 'tests/9'),
             $paths('tests/Unit/CanaryTest.php'),
         ),
+        SourceReach::of(NamedFiles::byName(['src/A.php' => ['A'], 'src/B.php' => ['B']], ['src/A.php' => ['B'], 'src/B.php' => []]), $observed),
     );
 }
 
@@ -453,21 +464,21 @@ it('keys each unit of a fixture with the bytes its format gives it, whatever ord
     }
 
     $coverage = $coverage->covered(Path::of('src/B.php'), Line::of(2), TestId::of('b::t'));
-    $keys = contentKeysPinned();
+    $keys = contentKeysPinned($coverage);
 
     expect($keys->keyOf($unit, $judges, $coverage))->toEqual(Digest::of($key))
         ->and($keys->keyOf($unit, Paths::of(...array_reverse([...$judges])), $coverage))->toEqual(Digest::of($key));
 })->with([
-    'a unit judged by one test file' => [fn(): Unit => Unit::file(Path::of('src/A.php')), fn(): Paths => Paths::of(Path::of('tests/Unit/MoneyTest.php')), '249a436f11cef414331285a854a88da1710a06a2837b4bba4297606c63ebe8ff'],
-    'a unit judged by test files named by digits' => [fn(): Unit => Unit::file(Path::of('src/A.php')), fn(): Paths => Paths::of(Path::of('tests/10'), Path::of('tests/9'), Path::of('tests/Unit/LedgerTest.php')), '58a81bcce1cb5fc362241b907c212dd7016a7bf1c3959774750ec5cfe484aa0e'],
-    'a unit judged by a test file the key does not hold' => [fn(): Unit => Unit::file(Path::of('src/B.php')), fn(): Paths => Paths::of(Path::of('tests/Unit/GoneTest.php'), Path::of('tests/Unit/MoneyTest.php')), 'c8b000a3e8f09ad63be05798ffe49efcbab408fb87adc28c01c675cc4740b2e4'],
-    'a unit nothing judges' => [fn(): Unit => Unit::file(Path::of('src/C.php')), fn(): Paths => Paths::none(), '117f38e456b75a61481140395b45bebe5a27457ad419a4c49005f68188d7c713'],
-    'a unit a group holds' => [fn(): Unit => Unit::held(Path::of('src/A.php'), Group::named('holds:src/A.php')), fn(): Paths => Paths::none(), 'e85da8881c3f454fa10f6ca8dff16eac82df4851c1c80ee1951ed1a669b6532b'],
-    'a unit a filter holds' => [fn(): Unit => Unit::held(Path::of('src/B.php'), Filter::matching('Money')), fn(): Paths => Paths::of(Path::of('tests/Unit/MoneyTest.php')), '00b089ef3d9f52f012f2b3a12a6e58ec7167e5a49fd11eaa2e6b2f482b60fa5f'],
+    'a unit judged by one test file' => [fn(): Unit => Unit::file(Path::of('src/A.php')), fn(): Paths => Paths::of(Path::of('tests/Unit/MoneyTest.php')), '0b1b006a345b3cf16297fef0b7a242e58061a04c109be6edf0124d6e2be64820'],
+    'a unit judged by test files named by digits' => [fn(): Unit => Unit::file(Path::of('src/A.php')), fn(): Paths => Paths::of(Path::of('tests/10'), Path::of('tests/9'), Path::of('tests/Unit/LedgerTest.php')), 'ca61843cb4a460b6134f491602525d09fb2a9512e6ed45499301648e99672241'],
+    'a unit judged by a test file the key does not hold' => [fn(): Unit => Unit::file(Path::of('src/B.php')), fn(): Paths => Paths::of(Path::of('tests/Unit/GoneTest.php'), Path::of('tests/Unit/MoneyTest.php')), 'b7860043c90a1a575c00b2b21d95b803febf101eb4bc3125537160e5df068244'],
+    'a unit nothing judges' => [fn(): Unit => Unit::file(Path::of('src/C.php')), fn(): Paths => Paths::none(), 'afc63dcd1a990fdc286ac365fa836569e1070acd95ee5ff62ce77d063671da64'],
+    'a unit a group holds' => [fn(): Unit => Unit::held(Path::of('src/A.php'), Group::named('holds:src/A.php')), fn(): Paths => Paths::none(), 'cb7d9b2fd16de51e48d055d451413ad52fc4fa485bfa5d8594a377b9a7169a8b'],
+    'a unit a filter holds' => [fn(): Unit => Unit::held(Path::of('src/B.php'), Filter::matching('Money')), fn(): Paths => Paths::of(Path::of('tests/Unit/MoneyTest.php')), '7995a7fbe1653cda0c571cf387296a2d71c81360475b72346c4a96f4a4d7bb5f'],
 ]);
 
 it('keys a unit alike whatever order packages, files or judges that read as numbers come in', function () use ($makeKeyOf): void {
-    $keys = contentKeysPinned();
+    $keys = contentKeysPinned(CoverageMap::empty());
     $orders = [['3.0', '1e2', '2x'], ['3.0', '2x', '1e2'], ['1e2', '3.0', '2x'], ['1e2', '2x', '3.0'], ['2x', '3.0', '1e2'], ['2x', '1e2', '3.0']];
     $text = static fn(Digest|Unkeyed $key): string => $key instanceof Digest ? $key->value() : $key->why();
     $judged = array_map(
@@ -498,7 +509,7 @@ it('keys many units at once as it keys each alone, reading a set of judging file
         Judging::of(Unit::held(Path::of('src/D.php'), Group::named('holds:src/D.php')), $paths('tests/9')),
         Judging::of(Unit::file(Path::of('src/E.php')), $paths('tests/9')),
     ];
-    $keys = contentKeysPinned();
+    $keys = contentKeysPinned(CoverageMap::empty());
     $alone = Keys::none();
 
     foreach ($units as $unit) {
@@ -529,6 +540,7 @@ it('keys units in time linear in the test files that judge them', function (): v
             Digest::of('installed'),
             Source::of(Fingerprints::none(), CiDefinitions::none(), Exceptions::of(Path::of('a'), Path::of('b'), Ignored::nothing(), Paths::none())),
             Tests::of(TestFiles::of(...$files), Paths::of(...$judges), Paths::none()),
+            SourceReach::nothing(),
         );
         $units = array_map(
             static fn(int $at): Judging => Judging::of(Unit::file(Path::of(sprintf('src/F%d.php', $at))), Paths::of(...($at % 2 === 0 ? $judges : array_reverse($judges)))),
@@ -548,7 +560,7 @@ it('names the base every key of a run is built on: the digest of what every key 
     $keys = $bare();
 
     expect($keys->base())->toEqual($framed(
-        'mutation-gate proof 6',
+        'mutation-gate proof 7',
         'gate',
         'nightworksio/mutation-gate',
         '1.0.0',
@@ -618,6 +630,7 @@ function contentDigestsOf(
             ),
         ),
         Tests::of(TestFiles::of(...$files), contentKeyPaths(['tests/Unit/MoneyTest.php', 'tests/Unit/OtherTest.php']), Paths::none()),
+        SourceReach::nothing(),
     )->digestsOf($units);
 }
 
@@ -625,7 +638,7 @@ it('digests what decides a mutant set, each unit\'s source, and each test file w
     $digests = contentDigestsOf(Units::of(Unit::file(Path::of('src/A.php')), Unit::held(Path::of('src'), Group::named('holds:src'))));
 
     expect($digests->mutation())->toEqual($framed(
-        'mutation-gate proof 6',
+        'mutation-gate proof 7',
         'gate',
         'nightworksio/mutation-gate',
         '1.0.0',
