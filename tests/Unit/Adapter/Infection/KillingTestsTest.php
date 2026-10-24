@@ -108,6 +108,18 @@ it('names, for a warning raised in a test itself, each data set the map knows of
         ->and(killerNames(printedKillers($output, new FailingIssues(), 'Tests\\TrapTest::testTraps')))->toBe(['Tests\\Other::warns', 'Tests\\TrapTest::testTraps']);
 });
 
+it('names the test method of each warning raised in a test itself, one after another', function (): void {
+    $root = (string) realpath(Scratch::directory());
+    Scratch::write($root, 'tests/TrapTest.php', "<?php\nnamespace Tests;\nfinal class TrapTest\n{\n    public function testTraps(): void\n    {\n    }\n\n    public function testRestores(): void\n    {\n    }\n}\n");
+    $output = phpunitPrinted(sprintf(
+        "1 test triggered 2 PHP warnings:\n\n1) %1\$s/tests/TrapTest.php:6\nwarned\n\n2) %1\$s/tests/TrapTest.php:10\nwarned again\n",
+        $root,
+    ));
+
+    expect(killerNames(printedKillers($output, new FailingIssues(), 'Tests\\TrapTest::testTraps', 'Tests\\TrapTest::testRestores')))
+        ->toBe(['Tests\\TrapTest::testTraps', 'Tests\\TrapTest::testRestores']);
+});
+
 it('names the test a warning was raised in, where it is the last the run printed or another list follows it', function (string $after): void {
     $root = (string) realpath(Scratch::directory());
     Scratch::write($root, 'tests/TrapTest.php', "<?php\nnamespace Tests;\nfinal class TrapTest\n{\n    public function testTraps(): void\n    {\n    }\n}\n");
