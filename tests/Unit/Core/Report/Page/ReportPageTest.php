@@ -38,6 +38,7 @@ use NightWorksIO\MutationGate\Tests\Support\Decoded;
 use NightWorksIO\MutationGate\Tests\Support\Killings;
 use NightWorksIO\MutationGate\Tests\Support\Secured;
 use NightWorksIO\MutationGate\Tests\Support\Verdicts;
+use Pest\Mutate\Mutators\Arithmetic\MultiplicationToDivision;
 
 /** The page of a verdict, with a style and a script that stand for the shipped ones. */
 function pageOf(Verdict $verdict): string
@@ -45,12 +46,27 @@ function pageOf(Verdict $verdict): string
     return ReportPage::html(JsonReport::of($verdict), 'body { color: red; }', 'void 0;');
 }
 
-/** What the page's navigation reads: the JSON in its data element. */
+/** What the page's navigation reads: the index in its data element, each file's packed mutants inflated into it. */
 function pageData(string $page): string
 {
     preg_match('~<script type="application/json" id="data">(.*?)</script>~s', $page, $found);
+    preg_match_all('~<script type="application/gzip" id="file-(\d+)">(.*?)</script>~s', $page, $packed, PREG_SET_ORDER);
+    $index = Decoded::at($found[1] ?? '{}');
+    $files = is_array($index) && is_array($index['files']) ? $index['files'] : [];
 
-    return $found[1] ?? '';
+    foreach ($packed as [, $at, $base64]) {
+        $held = Decoded::at((string) gzdecode(sodium_base642bin($base64, SODIUM_BASE64_VARIANT_ORIGINAL)));
+        $file = $files[(int) $at];
+        $files[(int) $at] = [...is_array($file) ? $file : [], ...is_array($held) ? $held : []];
+    }
+
+    return (string) json_encode([...is_array($index) ? $index : [], 'files' => $files]);
+}
+
+/** The page without its data: what it shows, and its markup, style and script. */
+function pageShown(string $page): string
+{
+    return (string) preg_replace('~<script type="application/(?:json|gzip)" id="[^"]+">.*?</script>~s', '', $page);
 }
 
 /**
@@ -258,11 +274,34 @@ it('gives each mutant what its pane shows: its change, the tests that killed it,
         'line' => 7,
         'outcome' => 'escaped',
         'judgement' => 'survived',
+        'changed' => true,
         'diff' => Verdicts::BOUNDARY,
-        'killedBy' => [],
+        'covered' => 0,
+        'hint' => 'Add a test that uses a value at the boundary of `$amount < $limit`. It is judged by `MoneyTest::fits`, `MoneyTest::refuses`, `PriceTest::adds` and 1 more.',
         'reproduce' => sprintf('vendor/bin/mutation-gate reproduce %s', $id),
-    ])->and(Decoded::at($data, 'files', $money, 'counts'))->toMatchArray(['escaped' => 1, 'untested' => 1, 'killed' => 1]);
+    ])->and(Decoded::at($data, 'files', $money, 'mutants', 0))->not->toHaveKey('killedBy')
+        ->and(Decoded::at($data, 'files', $money, 'mutators', 0))->toBe(Verdicts::LESS)
+        ->and(Decoded::at($data, 'files', $money, 'counts'))->toMatchArray(['escaped' => 1, 'untested' => 1, 'killed' => 1]);
 });
+
+it('says nothing of a killed or left-out mutant that the page shows nothing of: no hint, no command, and no count of a killed one\'s tests', function (string $outcome, string $unsaid): void {
+    $data = pageData(pageOf(everyJudged()));
+    $settled = [];
+
+    foreach (array_keys(Decoded::column($data, 'path', 'files')) as $file) {
+        $mutants = Decoded::at($data, 'files', $file, 'mutants');
+
+        foreach (is_array($mutants) ? $mutants : [] as $mutant) {
+            $settled = is_array($mutant) && $mutant['outcome'] === $outcome ? [...$settled, $mutant] : $settled;
+        }
+    }
+
+    expect($settled)->not->toBeEmpty()
+        ->and(array_filter($settled, static fn(array $mutant): bool => array_intersect(array_keys($mutant), explode(' ', $unsaid)) !== []))->toBe([]);
+})->with([
+    'killed' => ['killed', 'hint reproduce covered changed'],
+    'left out' => ['left-out', 'hint reproduce'],
+]);
 
 it('names a survivor in the overview by where it is, linking to it, those on changed lines first', function (): void {
     $page = pageOf(Verdicts::securedOnAChangedLine());
@@ -297,7 +336,7 @@ it('names the survivors on changed lines first, and counts the mutants on change
 it('names in the page\'s data each test that killed a mutant once, and each mutant points at its killers there', function (): void {
     $data = pageData(pageOf(Killings::verdict(MatrixKind::Full)));
 
-    expect(Decoded::at($data, 'tests'))->toBe(['tests/ATest.php::it does A', 'tests/BTest.php::it does B with data set #0', 'tests/DTest.php::it does D'])
+    expect(Decoded::at($data, 'files', 0, 'tests'))->toBe(['tests/ATest.php::it does A', 'tests/BTest.php::it does B with data set #0', 'tests/DTest.php::it does D'])
         ->and(pageByLine($data, 0, 'killedBy'))->toMatchArray([1 => [0], 2 => [0, 1], 4 => [2]]);
 });
 
@@ -323,7 +362,8 @@ it('keeps a file whose result was carried to its counts, and lists the files wit
     $log = pageFile($data, 'src/Log.php');
 
     expect(Decoded::at($data, 'files', $log, 'carried'))->toBeTrue()
-        ->and(Decoded::at($data, 'files', $log, 'mutants'))->toBe([])
+        ->and(Decoded::at($data, 'files', $log, 'ids'))->toBe([])
+        ->and(pageOf(Verdicts::failing()))->not->toContain(sprintf('id="file-%d"', $log))
         ->and(Decoded::at($data, 'files', $log, 'counts'))->toMatchArray(['errored' => 1, 'killed' => 1, 'left-out' => 3])
         ->and(Decoded::column($data, 'path', 'files'))->toBe(['src/Order.php', 'src/Money.php', 'src/Log.php'])
         ->and(Decoded::column($data, 'survivors', 'files'))->toBe([3, 2, 0]);
@@ -390,7 +430,7 @@ it('escapes everything a project writes, in the page and in its data', function 
         ->and($page)->not->toContain('<b>x</b>')
         ->and($page)->toContain('<span class="mutator" title="Pl&quot;u&apos;s">')
         ->and($page)->not->toContain('<script>alert(1)')
-        ->and(substr_count($page, '</script>'))->toBe(2)
+        ->and(substr_count($page, '</script>'))->toBe(3)
         ->and(Decoded::at(pageData($page), 'files', 0, 'mutants', 0, 'diff'))->toContain('</script><script>alert(1)</script>');
 });
 
@@ -431,9 +471,43 @@ it('shows every control, separator and format character a project wrote as an es
         MutantJudgement::Survived,
     );
     $page = pageOf(Verdicts::of(Floor::of(80), $hostile));
-    $shown = str_replace(pageData($page), '', $page);
+    $shown = pageShown($page);
 
     expect($page)->toContain('<code>src/\u{202e}php.txt\u{001b}[31m.php:3</code>')
         ->and($shown)->not->toContain("\u{202e}")
         ->and($shown)->not->toContain("\e");
+});
+
+/** Two thousand killed mutants, fifty to a file, each with a diff of its own. */
+function pageOfMany(): string
+{
+    $judged = [];
+
+    foreach (range(0, 1_999) as $at) {
+        $file = sprintf('src/Billing/Invoice%02d.php', intdiv($at, 50));
+        $line = $at % 50 + 1;
+        $mutant = Verdicts::mutant(
+            sprintf('%s:%d', $file, $line),
+            MultiplicationToDivision::class,
+            MutatorFamily::Arithmetic,
+            Verdicts::diff(sprintf('$total = $price * %d + $tax;', $line), sprintf('$total = $price / %d + $tax;', $line)),
+        );
+        $judged[] = JudgedMutant::of($mutant, MutantJudgement::Killed);
+    }
+
+    return pageOf(Verdicts::of(Floor::of(80), ...$judged));
+}
+
+it('keeps a page of many mutants small: its index names each mutant once, and each file packs its mutants', function (): void {
+    $page = pageOfMany();
+    preg_match('~<script type="application/json" id="data">(.*?)</script>~s', $page, $index);
+    preg_match_all('~<script type="application/gzip" id="file-\d+">(.*?)</script>~s', $page, $packed);
+
+    $data = pageData($page);
+
+    expect(Decoded::at($data, 'files', 0, 'mutators'))->toBe([MultiplicationToDivision::class])
+        ->and(Decoded::column($data, 'mutator', 'files', 0, 'mutants'))->toBe(array_fill(0, 50, 0))
+        ->and(strlen($index[1] ?? ''))->toBeLessThan(2_000 * 20)
+        ->and(strlen(implode('', $packed[1])))->toBeLessThan(2_000 * 36)
+        ->and(strlen(pageShown($page)))->toBeLessThan(12_000);
 });

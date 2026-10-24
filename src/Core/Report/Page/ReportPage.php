@@ -17,8 +17,9 @@ use function str_replace;
  * all of it is read without a script. Below, a list of the files beside a
  * pane of the one chosen, each mutant with what it changed, what it came to
  * and the test that killed it or that none did, which the script draws from
- * the page's data (see Navigation). Every part is rendered from the JSON report,
- * so every reader of a run reads one verdict.
+ * the page's data, each file's mutants as the file is first shown (see
+ * Navigation). Every part is rendered from the JSON report, so every reader
+ * of a run reads one verdict.
  *
  * @phpstan-import-type Report from JsonReport
  */
@@ -65,7 +66,8 @@ final readonly class ReportPage
         </section>
         %8$s
         <script type="application/json" id="data">%9$s</script>
-        <script>%10$s</script>
+        %10$s
+        <script>%11$s</script>
         </body>
         </html>
 
@@ -76,6 +78,7 @@ final readonly class ReportPage
     {
         $mutants = Mutants::of($report);
         $glossary = Glossary::of($report);
+        $navigation = Navigation::of($report, $mutants, $glossary);
 
         return sprintf(
             self::PAGE,
@@ -87,7 +90,8 @@ final readonly class ReportPage
             Files::html($mutants),
             Origin::html($report),
             Details::html($report),
-            Navigation::json($report, $mutants, $glossary),
+            $navigation->index(),
+            $navigation->packed(),
             str_replace('</script', '<\/script', $script),
         );
     }

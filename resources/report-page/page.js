@@ -21,6 +21,23 @@
 
   let mode = 'lines';
   let current = -1;
+  const loaded = new Map();
+
+  async function inflated(at) {
+    const packed = document.getElementById('file-' + at);
+    const bytes = Uint8Array.from(atob(packed.textContent), (character) => character.charCodeAt(0));
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+
+    return JSON.parse(await new Response(stream).text());
+  }
+
+  function mutantsOf(at) {
+    if (!loaded.has(at)) {
+      loaded.set(at, inflated(at));
+    }
+
+    return loaded.get(at);
+  }
 
   const UNSAFE = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u00ad\u061c\u180e\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff\ufff9-\ufffb]/g;
 
@@ -143,9 +160,11 @@
     return shown;
   }
 
-  function killers(mutant) {
-    if (mutant.killedBy.length > 0) {
-      return element('p', '', 'Killed by ' + mutant.killedBy.map((test) => data.tests[test]).join(', ') + '.');
+  function killers(mutant, held) {
+    const killedBy = mutant.killedBy || [];
+
+    if (killedBy.length > 0) {
+      return element('p', '', 'Killed by ' + killedBy.map((test) => held.tests[test]).join(', ') + '.');
     }
 
     if (mutant.outcome === 'killed') {
@@ -159,15 +178,16 @@
     return element('p', '', 'No test killed it. ' + covered);
   }
 
-  function card(mutant) {
+  function card(mutant, held) {
     const shown = element('article', 'mutant mutant--' + mutant.outcome);
     shown.id = 'm-' + mutant.id;
 
     const head = element('div', 'mutant-head');
     head.appendChild(tag(mutant.outcome));
     head.appendChild(element('strong', '', 'line ' + mutant.line));
-    const mutator = element('span', 'mutator', mutant.mutator.slice(mutant.mutator.lastIndexOf('\\') + 1));
-    mutator.title = inert(mutant.mutator);
+    const named = held.mutators[mutant.mutator];
+    const mutator = element('span', 'mutator', named.slice(named.lastIndexOf('\\') + 1));
+    mutator.title = inert(named);
     head.appendChild(mutator);
     head.appendChild(element('span', 'judgement', mutant.judgement));
 
@@ -177,7 +197,7 @@
 
     shown.appendChild(head);
     shown.appendChild(diff(mutant.diff));
-    shown.appendChild(killers(mutant));
+    shown.appendChild(killers(mutant, held));
 
     if (mutant.reason !== undefined) {
       shown.appendChild(prose('aside', mutant.reason));
@@ -191,13 +211,13 @@
     return shown;
   }
 
-  function group(outcome, mutants) {
+  function group(outcome, mutants, held) {
     const folded = element('details', 'group');
     folded.dataset.outcome = outcome;
     folded.appendChild(element('summary', '', LABELS[outcome] + ' (' + mutants.length + ')'));
     folded.addEventListener('toggle', () => {
       if (folded.open && folded.children.length === 1) {
-        mutants.forEach((mutant) => folded.appendChild(card(mutant)));
+        mutants.forEach((mutant) => folded.appendChild(card(mutant, held)));
       }
     });
 
@@ -214,8 +234,14 @@
     return line;
   }
 
-  function render(at) {
+  async function render(at) {
     const file = data.files[at];
+    const held = file.carried ? null : await mutantsOf(at);
+
+    if (at !== current) {
+      return;
+    }
+
     pane.replaceChildren();
 
     const head = element('div', 'pane-head');
@@ -230,50 +256,50 @@
       return;
     }
 
-    const open = file.mutants.filter((mutant) => !FOLDED.includes(mutant.outcome));
+    const open = held.mutants.filter((mutant) => !FOLDED.includes(mutant.outcome));
 
     if (open.length === 0) {
       pane.appendChild(element('p', 'empty', 'Every mutant of this file was killed or left out.'));
     }
 
-    open.forEach((mutant) => pane.appendChild(card(mutant)));
+    open.forEach((mutant) => pane.appendChild(card(mutant, held)));
     FOLDED.forEach((outcome) => {
-      const mutants = file.mutants.filter((mutant) => mutant.outcome === outcome);
+      const mutants = held.mutants.filter((mutant) => mutant.outcome === outcome);
 
       if (mutants.length > 0) {
-        pane.appendChild(group(outcome, mutants));
+        pane.appendChild(group(outcome, mutants, held));
       }
     });
   }
 
-  function show(at) {
+  async function show(at) {
     if (at < 0 || at >= data.files.length) {
       return;
     }
 
     current = at;
-    render(at);
     pick.value = String(at);
     list.querySelectorAll('button').forEach((button) => {
       button.setAttribute('aria-current', button.dataset.at === String(at) ? 'true' : 'false');
     });
+    await render(at);
   }
 
-  function reveal(id) {
-    const at = data.files.findIndex((file) => file.mutants.some((mutant) => mutant.id === id));
+  async function reveal(id) {
+    const at = data.files.findIndex((file) => file.ids.includes(id));
 
     if (at < 0) {
       return;
     }
 
     if (at !== current) {
-      show(at);
+      await show(at);
     }
 
     let target = document.getElementById('m-' + id);
 
     if (target === null) {
-      const outcome = data.files[at].mutants.find((mutant) => mutant.id === id).outcome;
+      const outcome = (await mutantsOf(at)).mutants.find((mutant) => mutant.id === id).outcome;
       const folded = pane.querySelector('details.group[data-outcome="' + outcome + '"]');
 
       if (folded !== null) {
