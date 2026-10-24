@@ -72,9 +72,14 @@ INFECTION = ("src/Adapter/Infection/", "tests/Contract/Runner/infection-fixture/
 # The native runner, which drives each framework that has no runner of its own.
 NATIVE = ("src/Adapter/Native/", "src/Core/Native/")
 
+# Where a run reads the tests whose issues failed it, which Pest's plugin
+# reads through the PHPUnit adapter's reader.
+RUN_ISSUES = ("src/Core/Test/RunIssues.php",)
+
 # The PHPUnit framework the native runner drives, and its warm worker.
 NATIVE_PHPUNIT = (
     *NATIVE,
+    *RUN_ISSUES,
     "src/Adapter/PhpUnit/",
     "bin/mutation-gate-worker",
     "tests/Contract/Runner/phpunit-fixture/",
@@ -101,7 +106,15 @@ NATIVE_CODECEPTION = (
 
 # Each leg's own subjects, beside SHARED.
 LEGS = {
-    "pest": ("src/Adapter/Pest/", "src/Attribute/", "tests/Contract/Runner/fixture/"),
+    "pest": (
+        *RUN_ISSUES,
+        "src/Adapter/Pest/",
+        "src/Adapter/PhpUnit/IssueKillers.php",
+        "src/Adapter/PhpUnit/IssueKind.php",
+        "src/Attribute/",
+        "src/Cli/PestPlugin.php",
+        "tests/Contract/Runner/fixture/",
+    ),
     "infection-13": INFECTION,
     "infection-12": INFECTION,
     "phpunit": NATIVE_PHPUNIT,

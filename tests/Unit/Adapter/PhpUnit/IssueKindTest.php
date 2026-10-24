@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use NightWorksIO\MutationGate\Adapter\Pest\Recording\IssueKind;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\IssueKind;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitEvents;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitResults;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;

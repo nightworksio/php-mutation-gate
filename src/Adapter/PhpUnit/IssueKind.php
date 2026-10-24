@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
+namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
 use function array_keys;
 use function array_map;

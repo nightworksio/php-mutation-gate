@@ -6,6 +6,7 @@ use NightWorksIO\MutationGate\Adapter\Pest\Recording\Heartbeat;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Killers;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Loaded;
 use NightWorksIO\MutationGate\Adapter\Pest\Silence;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\IssueKillers;
 use NightWorksIO\MutationGate\Tests\Support\Beats;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitEvents;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -28,6 +29,7 @@ it('beats once as a mutant\'s own process begins its tests, and once as each fin
         original: false,
         loaded: Loaded::of([]),
         heartbeat: $beats->heartbeat(),
+        issues: IssueKillers::ofThisRun(),
     );
 
     PhpUnitEvents::executionStarted($events);

@@ -39,6 +39,9 @@ class Outputs(unittest.TestCase):
     def test_runs_only_the_legs_whose_adapter_or_fixture_changed(self):
         cases = {
             "src/Adapter/Pest/Plugin.php": ["pest"],
+            "src/Cli/PestPlugin.php": ["pest"],
+            "src/Adapter/PhpUnit/IssueKillers.php": ["pest", "phpunit"],
+            "src/Core/Test/RunIssues.php": ["pest", "phpunit"],
             "src/Attribute/Holds.php": ["codeception", "pest", "phpspec"],
             "tests/Contract/Runner/fixture/src/Money.php": ["pest"],
             "src/Adapter/Infection/Infection.php": ["infection-12", "infection-13"],

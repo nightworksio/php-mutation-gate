@@ -12,7 +12,6 @@ use function is_string;
 use NightWorksIO\MutationGate\Core\Native\Guard;
 use NightWorksIO\MutationGate\Core\Native\Variable;
 use NightWorksIO\MutationGate\Core\Runner\Opcache;
-use PHPUnit\Event\Facade as Events;
 use PHPUnit\Runner\Extension\Extension as PhpUnitExtension;
 use PHPUnit\Runner\Extension\Facade;
 use PHPUnit\Runner\Extension\ParameterCollection;
@@ -29,7 +28,7 @@ final readonly class Extension implements PhpUnitExtension
 {
     public function bootstrap(Configuration $configuration, Facade $facade, ParameterCollection $parameters): void
     {
-        Recorder::listening(getenv(Variable::Results->value), Events::instance());
+        Recorder::listening(getenv(Variable::Results->value), $facade, IssueKillers::ofThisRun());
         self::noting(getenv(Variable::Guard->value), Opcache::ofCommandLine(ini_get(Opcache::CLI)));
     }
 

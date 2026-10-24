@@ -2,12 +2,14 @@
 
 declare(strict_types=1);
 
-namespace NightWorksIO\MutationGate\Adapter\Pest\Recording;
+namespace NightWorksIO\MutationGate\Adapter\PhpUnit;
 
 use function array_merge;
 use function array_unique;
 use function array_values;
 
+use Closure;
+use NightWorksIO\MutationGate\Core\Test\RunIssues;
 use PHPUnit\TestRunner\TestResult\Facade;
 use PHPUnit\TestRunner\TestResult\TestResult;
 use PHPUnit\TextUI\Configuration\Configuration;
@@ -24,10 +26,34 @@ use PHPUnit\TextUI\ShellExitCodeCalculator;
  */
 final readonly class IssueKillers implements RunIssues
 {
-    /** The tests this process's run names so, as PHPUnit's registry and result hold them once its tests have run. */
+    /**
+     * @param Closure(): Configuration $configuration
+     * @param Closure(): TestResult    $result
+     */
+    private function __construct(private Closure $configuration, private Closure $result)
+    {
+    }
+
+    /** The killers of the run this process runs, read from PHPUnit's registry and result once its tests have run. */
+    public static function ofThisRun(): self
+    {
+        return self::reading(Registry::get(...), Facade::result(...));
+    }
+
+    /**
+     * The killers of a run whose configuration and result these read once its tests have run.
+     *
+     * @param Closure(): Configuration $configuration
+     * @param Closure(): TestResult    $result
+     */
+    public static function reading(Closure $configuration, Closure $result): self
+    {
+        return new self($configuration, $result);
+    }
+
     public function killers(): array
     {
-        return self::of(Registry::get(), Facade::result());
+        return self::of(($this->configuration)(), ($this->result)());
     }
 
     /** @return list<string> the tests, by id, each once */

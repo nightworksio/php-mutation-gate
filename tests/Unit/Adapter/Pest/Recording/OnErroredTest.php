@@ -5,6 +5,7 @@ declare(strict_types=1);
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\KillerFile;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Killers;
 use NightWorksIO\MutationGate\Adapter\Pest\Recording\Loaded;
+use NightWorksIO\MutationGate\Adapter\PhpUnit\IssueKillers;
 use NightWorksIO\MutationGate\Tests\Support\Beats;
 use NightWorksIO\MutationGate\Tests\Support\PhpUnitEvents;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
@@ -20,7 +21,7 @@ afterEach(function (): void {
 it('names a test that errored in a mutant\'s own process, by its id', function (): void {
     $results = sprintf('%s/results.jsonl', Scratch::directory());
     $events = new Facade();
-    Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat());
+    Killers::listening($results, '/tmp/mutations/abc', $events, original: false, loaded: Loaded::of([]), heartbeat: new Beats()->heartbeat(), issues: IssueKillers::ofThisRun());
 
     PhpUnitEvents::errored($events);
 

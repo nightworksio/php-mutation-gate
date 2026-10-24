@@ -400,7 +400,8 @@ running it: why is this mutant here, and has it always been?
       the coverage map knows.
     - A run that fails with no test failing or erroring names as its
       killers the tests that raised an issue its runner's configuration
-      fails the run on. Pest's plugin reads them from PHPUnit's own result:
+      fails the run on. Pest's plugin and the PHPUnit runner's extension
+      (ADR-0023) read them from PHPUnit's own result, through one reader:
       a warning, notice or deprecation, a risky, incomplete or skipped
       test, or a warning, notice or deprecation PHPUnit raised of a test
       (`failOnWarning`, `failOnRisky` and the rest). Infection, which runs
