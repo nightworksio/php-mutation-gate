@@ -307,6 +307,28 @@ def timings(out: Path, name: str, scenario: str) -> list[dict]:
     return [json.loads(path.read_text()) for path in sorted(out.glob(f"{name}-{scenario}-*.time"))]
 
 
+def units_run(out: Path, name: str, scenario: str) -> list[int | None]:
+    """How many units each round of a scenario ran, as its report says; none for a round that wrote no report."""
+    counts: list[int | None] = []
+    for path in sorted(out.glob(f"{name}-{scenario}-*.json")):
+        try:
+            counts.append(int(json.loads(path.read_text())["run"]["units"]["run"]))
+        except (OSError, ValueError, KeyError, TypeError):
+            counts.append(None)
+    return counts
+
+
+def drifted(counts: list[int | None]) -> bool:
+    """
+    Whether a later round ran more units than the first. Each round of a
+    warm full run starts from the same commit and ledger, and each unchanged
+    re-run from a ledger that only grew, so one that runs more read other
+    keys: a file an earlier round wrote entered them.
+    """
+    known = [each for each in counts if each is not None]
+    return any(each > known[0] for each in known[1:])
+
+
 def replayed(runs: list[dict]) -> dict:
     """A PR replay's pull requests: the median and 90th percentile of those that reached a verdict, and the rest."""
     judged = [each["seconds"] for each in runs if each["exit"] in VERDICTS]
@@ -342,11 +364,22 @@ def summary(project: dict, arms: dict[str, dict]) -> str:
         cells += [f"{replay['median']:.1f} s", f"{replay['p90']:.1f} s",
                   f"{len(replay['otherwise'])} of {replay['pulls']}"] if replay else ["-", "-", "-"]
         lines.append("| " + " | ".join(cells) + " |")
+    for name, arm in arms.items():
+        for scenario in ROUNDED:
+            units = arm.get(scenario, {}).get("unitsRun", [])
+            if drifted(units):
+                ran = ", ".join("-" if each is None else str(each) for each in units)
+                lines += ["", f"**{name}, {scenario}: its rounds ran {ran} units.** A later round ran more than "
+                          "the first, so a file an earlier round wrote entered the keys the next one read."]
     return "\n".join(lines) + "\n"
 
 
 def report(project: dict, out: Path, result: Path) -> int:
-    """The result file and the step summary; 1 where a timed run of a gate arm reached no verdict."""
+    """
+    The result file and the step summary; 1 where a timed run of a gate arm
+    reached no verdict, or a round of a warm full or unchanged re-run ran
+    more units than its first.
+    """
     scenarios = project["scenarios"]
     arms: dict[str, dict] = {}
     failed = False
@@ -354,9 +387,10 @@ def report(project: dict, out: Path, result: Path) -> int:
         arms[name] = {"said": project["arms"][name]["said"]}
         for scenario in ROUNDED:
             runs = timings(out, name, scenario)
-            failed = failed or any(each["exit"] not in VERDICTS for each in runs)
+            units = units_run(out, name, scenario)
+            failed = failed or any(each["exit"] not in VERDICTS for each in runs) or drifted(units)
             arms[name][scenario] = {**bench.spread([each["seconds"] for each in runs]),
-                                    "exits": [each["exit"] for each in runs]}
+                                    "exits": [each["exit"] for each in runs], "unitsRun": units}
         arms[name]["replay"] = replayed(timings(out, name, "replay"))
     if scenarios.get("diff"):
         name = scenarios["diff"]

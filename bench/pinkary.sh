@@ -5,7 +5,7 @@
 # service the job starts.
 set -euo pipefail
 source "${GITHUB_WORKSPACE}/bench/gate.sh"
-repository=$(jq -cn --arg url "${GITHUB_WORKSPACE}" '{type: "path", url: $url, options: {symlink: true}}')
+repository=$(jq -cn --arg url "${GITHUB_WORKSPACE}" '{type: "path", url: $url, options: {symlink: false}}')
 composer config repositories.gate "${repository}"
 # laravel/vet refuses a package it cannot fetch over https, as the gate from this checkout is.
 composer config allow-plugins.laravel/vet false

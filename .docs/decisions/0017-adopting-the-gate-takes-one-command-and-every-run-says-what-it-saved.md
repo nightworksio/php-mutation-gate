@@ -431,6 +431,12 @@ would have cost without them.
       - *unchanged re-run*, labelled as the trivial case it is.
     - Each scenario's commits are laid over the prepared project, whose
       packages stay as its preparation installed them.
+    - Every round of a warm full run starts from one commit and one ledger,
+      and every unchanged re-run from a ledger that only grew, so no later
+      round runs more units than its first. One that does fails the
+      scenarios' job, with the units each round ran: a file an earlier round
+      wrote entered the keys the next one read, and its time measures that,
+      not reuse.
 
 16. **It runs on GitHub-hosted runners, on demand and monthly.**
     - It is `bench.yml` in this repository, on `workflow_dispatch` and a

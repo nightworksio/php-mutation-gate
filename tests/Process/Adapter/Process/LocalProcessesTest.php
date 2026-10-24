@@ -12,6 +12,7 @@ use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Runner\WorkerSlots;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
 use NightWorksIO\MutationGate\Core\Time\Unlimited;
+use NightWorksIO\MutationGate\Tests\Support\Ended;
 use NightWorksIO\MutationGate\Tests\Support\Measured;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use Psr\Clock\ClockInterface;
@@ -73,11 +74,10 @@ it('stops a program at its deadline with every process it started, keeping what 
     $ran = new LocalProcesses(new SystemClock())->run(
         ProcessCommand::of(Scratch::directory(), PHP_BINARY, '-r', $script)->within(Seconds::of(3.0)),
     );
-    exec(sprintf('ps -o stat= -p %d', (int) file_get_contents($pids)), $state);
 
     expect([$ran->wasStopped(), $ran->output()])->toBe([true, 'started'])
         ->and(Measured::of($ran)->seconds())->toBeLessThan(20.0)
-        ->and(array_filter($state, static fn(string $line): bool => ! str_starts_with(trim($line), 'Z')))->toBe([]);
+        ->and(Ended::process((int) file_get_contents($pids)))->toBeTrue();
 })->group(...$holds);
 
 it('stops a program that has made no progress for its silence limit since it last did, and holds one that never has only to its deadline', function (): void {
