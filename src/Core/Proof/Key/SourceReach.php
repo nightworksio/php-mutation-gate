@@ -5,11 +5,8 @@ declare(strict_types=1);
 namespace NightWorksIO\MutationGate\Core\Proof\Key;
 
 use function array_key_exists;
-use function array_keys;
-use function array_map;
 use function array_values;
 use function count;
-use function ksort;
 
 use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
@@ -27,7 +24,6 @@ use function sort;
 use const SORT_STRING;
 
 use function sprintf;
-use function strval;
 
 /**
  * Which files outside the test directories a unit's key reads one by one,
@@ -55,8 +51,9 @@ final readonly class SourceReach
     private const string SECTION = 'reached';
 
     /**
-     * @param array<string, true>                $observed each file the map shows some test executed, by its path
-     * @param array<string, array<string, true>> $executed the files each test executed, by the test's id
+     * @param array<string, string>                $observed each file the map shows some test executed, by its path
+     * @param array<string, array<string, string>> $executed the files each test executed, each by its path, by the
+     *                                                       test's id
      */
     private function __construct(
         private NamedFiles|NotGiven $names,
@@ -82,14 +79,12 @@ final readonly class SourceReach
         $executed = [];
 
         foreach ($map->files() as $file) {
-            if (! $file->isPhp()) {
-                continue;
-            }
+            if ($file->isPhp()) {
+                $observed[$file->value()] = $file->value();
 
-            $observed[$file->value()] = true;
-
-            foreach ($map->testsCoveringFile($file) as $test) {
-                $executed[$test->value()][$file->value()] = true;
+                foreach ($map->testsCoveringFile($file) as $test) {
+                    $executed[$test->value()][$file->value()] = $file->value();
+                }
             }
         }
 
@@ -132,13 +127,13 @@ final readonly class SourceReach
      */
     public function readAll(Fingerprints $files): string
     {
-        return $this->framedReads(array_map(strval(...), array_keys($this->observed)), $files);
+        return $this->framedReads($this->observed, $files);
     }
 
     /**
      * These files, each by its digest among those, framed in byte order.
      *
-     * @param list<string> $paths
+     * @param array<array-key, string> $paths
      */
     private function framedReads(array $paths, Fingerprints $files): string
     {
@@ -160,16 +155,16 @@ final readonly class SourceReach
     }
 
     /**
-     * The observed files a unit reaches, in byte order: the files its tests
-     * executed and its own, and what those and its test files name, followed
-     * through declarations.
+     * The observed files a unit reaches, each by its path: the files its
+     * tests executed, its own among them, and what those and its test files
+     * name, followed through declarations.
      *
-     * @return list<string>
+     * @return array<string, string>
      */
     private function reachedBy(Unit $unit, Paths $tests, CoverageMap $coverage): array
     {
         $executed = $this->executedBy($unit, $coverage);
-        $from = [$unit->path()->value(), ...$executed];
+        $from = array_values($executed);
 
         foreach ($tests as $test) {
             $from[] = $test->value();
@@ -177,42 +172,30 @@ final readonly class SourceReach
 
         $traced = ! $unit->isHeld() && count($coverage->lineSets($unit->path())) > 0;
         $reached = ! $traced || $this->names instanceof NotGiven || $this->declared instanceof NotGiven
-            ? array_keys($this->observed)
+            ? $this->observed
             : $this->declared->from(...$this->names->named(...$from));
         $read = [];
 
-        foreach ([...$reached, ...$executed, $unit->path()->value()] as $path) {
-            $read += array_key_exists($path, $this->observed) ? [$path => strval($path)] : [];
+        foreach ([...$reached, ...$executed] as $path) {
+            $read += array_key_exists($path, $this->observed) ? [$path => $path] : [];
         }
 
-        ksort($read, SORT_STRING);
-
-        return array_values($read);
+        return $read;
     }
 
     /**
-     * Every file the tests that cover a unit executed.
+     * Every file the tests that cover a unit executed, each by its path.
      *
-     * @return list<string>
+     * @return array<string, string>
      */
     private function executedBy(Unit $unit, CoverageMap $coverage): array
     {
         $files = [];
-        $seen = [];
-        $lines = $coverage->lineSets($unit->path());
 
-        foreach ($lines as $set) {
-            if (array_key_exists($set->name(), $seen)) {
-                continue;
-            }
-
-            $seen[$set->name()] = true;
-
-            foreach ($lines->testsOf($set) as $test) {
-                $files += array_key_exists($test->value(), $this->executed) ? $this->executed[$test->value()] : [];
-            }
+        foreach ($coverage->testsCoveringFile($unit->path()) as $test) {
+            $files += array_key_exists($test->value(), $this->executed) ? $this->executed[$test->value()] : [];
         }
 
-        return array_map(strval(...), array_keys($files));
+        return $files;
     }
 }

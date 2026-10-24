@@ -11,6 +11,7 @@ use NightWorksIO\MutationGate\Core\File\Fingerprints;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Php\NamedFiles;
 use NightWorksIO\MutationGate\Core\Proof\Key\CiDefinitions;
 use NightWorksIO\MutationGate\Core\Proof\Key\ContentKeys;
@@ -30,10 +31,10 @@ use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Unit\Unit;
 
 // A project whose src/Money.php names src/Currency.php, which its test never
-// runs, and whose test runs src/Rate.php beside it. src/Currency.php declares
-// a constant from src/Iso.php and calls src/Exchange.php in a method's body.
-// Only src/Tax.php's test runs src/Tax.php, src/Ledger.php, src/Iso.php and
-// src/Exchange.php. src/Boot.php is PHP no test executes, and composer.json,
+// runs, and whose test runs src/Rate.php beside it, which names src/Fee.php.
+// src/Currency.php declares a constant from src/Iso.php and calls
+// src/Exchange.php in a method's body. Only src/Tax.php's test runs
+// src/Tax.php, src/Ledger.php, src/Iso.php, src/Exchange.php and src/Fee.php. src/Boot.php is PHP no test executes, and composer.json,
 // phpunit.xml and the test fixture tests/fixtures/rates.json are no PHP.
 
 /** @var array<string, string> each file of the project outside its tests, with its digest */
@@ -45,6 +46,7 @@ const REACH_FILES = [
     'src/Ledger.php' => 'ledger',
     'src/Iso.php' => 'iso',
     'src/Exchange.php' => 'exchange',
+    'src/Fee.php' => 'fee',
     'src/Template.php' => 'template',
     'views/page.php' => 'page',
     'src/Boot.php' => 'boot',
@@ -52,7 +54,7 @@ const REACH_FILES = [
     'phpunit.xml' => 'phpunit',
 ];
 
-/** What the project's tests ran: Money's test Money and Rate, and Tax's test Tax, Ledger, Iso and Exchange. */
+/** What the project's tests ran: Money's test Money and Rate, and Tax's test Tax, Ledger, Iso, Exchange and Fee. */
 function reachMap(): CoverageMap
 {
     $map = CoverageMap::empty()
@@ -61,7 +63,7 @@ function reachMap(): CoverageMap
         ->covered(Path::of('src/Template.php'), Line::of(1), TestId::of('MoneyTest::adds'))
         ->covered(Path::of('src/Money.php'), Line::of(5), TestId::of('ReadingTest::reads'));
 
-    foreach (['src/Tax.php', 'src/Ledger.php', 'src/Iso.php', 'src/Exchange.php'] as $file) {
+    foreach (['src/Tax.php', 'src/Ledger.php', 'src/Iso.php', 'src/Exchange.php', 'src/Fee.php'] as $file) {
         $map = $map->covered(Path::of($file), Line::of(2), TestId::of('TaxTest::levies'));
     }
 
@@ -77,14 +79,24 @@ const REACH_DECLARES = [
     'src/Ledger.php' => ['Ledger'],
     'src/Iso.php' => ['Iso'],
     'src/Exchange.php' => ['Exchange'],
+    'src/Fee.php' => ['Fee'],
 ];
 
-/** The project's name graph: src/Money.php names src/Currency.php, which names src/Iso.php and src/Exchange.php. */
+/**
+ * The project's name graph: src/Money.php names src/Currency.php, which names src/Iso.php and src/Exchange.php, and
+ * src/Rate.php names src/Fee.php.
+ */
 function reachNames(): NamedFiles
 {
     return NamedFiles::byName(
         REACH_DECLARES,
-        ['src/Money.php' => ['Currency'], 'src/Currency.php' => ['Iso', 'Exchange'], 'tests/MoneyTest.php' => ['Money'], 'tests/TaxTest.php' => ['Tax']],
+        [
+            'src/Money.php' => ['Currency'],
+            'src/Currency.php' => ['Iso', 'Exchange'],
+            'src/Rate.php' => ['Fee'],
+            'tests/MoneyTest.php' => ['Money'],
+            'tests/TaxTest.php' => ['Tax'],
+        ],
     );
 }
 
@@ -100,7 +112,7 @@ function reachDeclarations(): NamedFiles
  *
  * @param array<string, string> $changed
  */
-function reachKeys(array $changed = [], string $fixture = 'rates', string $platform = 'php-8.5', bool $graphRead = true): ContentKeys
+function reachKeys(array $changed = [], string $fixture = 'rates', string $platform = 'php-8.5', bool $graphRead = true, CoverageMap|NotGiven $map = new NotGiven()): ContentKeys
 {
     $files = array_map(
         static fn(string $path, string $digest): Fingerprint => Fingerprint::of(Path::of($path), Digest::of($digest)),
@@ -126,7 +138,7 @@ function reachKeys(array $changed = [], string $fixture = 'rates', string $platf
             Paths::of(Path::of('tests/MoneyTest.php'), Path::of('tests/TaxTest.php'), Path::of('tests/ReadingTest.php')),
             Paths::none(),
         ),
-        $graphRead ? SourceReach::of(reachNames(), reachDeclarations(), reachMap()) : SourceReach::nothing(),
+        $graphRead ? SourceReach::of(reachNames(), reachDeclarations(), $map instanceof CoverageMap ? $map : reachMap()) : SourceReach::nothing(),
     );
 }
 
@@ -150,6 +162,7 @@ it('moves a unit\'s key where a file its tests execute, or one they or it name, 
     'its own file' => ['src/Money.php'],
     'a source its test executes beside it' => ['src/Rate.php'],
     'a source it names and never runs' => ['src/Currency.php'],
+    'a source a file its test executes names' => ['src/Fee.php'],
     'a source whose constant a file it names declares from' => ['src/Iso.php'],
     'a source its test includes by a path it builds, and so runs' => ['src/Template.php'],
 ]);
@@ -197,3 +210,20 @@ it('reads every file a map shows run, failing closed, where what a unit reaches 
     'a unit no test covers' => ['src/Currency.php', 'tests/MoneyTest.php'],
     'a unit whose test reads a file it never runs' => ['src/Money.php', 'tests/ReadingTest.php'],
 ]);
+
+it('reads the files a unit reaches in one order, whichever order its tests ran them in', function (): void {
+    $runs = ['MoneyTest::adds' => ['src/Money.php', 'src/Rate.php'], 'MoneyTest::formats' => ['src/Money.php', 'src/Template.php']];
+    $key = static function (string ...$tests) use ($runs): Digest|Unkeyed {
+        $map = CoverageMap::empty();
+
+        foreach ($tests as $test) {
+            foreach ($runs[$test] as $file) {
+                $map = $map->covered(Path::of($file), Line::of(5), TestId::of($test));
+            }
+        }
+
+        return reachKeys(map: $map)->keyOf(Unit::file(Path::of('src/Money.php')), Paths::of(Path::of('tests/MoneyTest.php')), $map);
+    };
+
+    expect($key('MoneyTest::adds', 'MoneyTest::formats'))->toEqual($key('MoneyTest::formats', 'MoneyTest::adds'));
+});

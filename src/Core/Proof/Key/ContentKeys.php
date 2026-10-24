@@ -199,7 +199,7 @@ final readonly class ContentKeys
         $testsOf = [];
         $named = [];
         $keys = [];
-        $sets = SetDigests::none();
+        $sets = SetDigests::of($coverage);
         $base = $this->base()->value();
 
         foreach ($units as $judging) {
@@ -421,7 +421,7 @@ final readonly class ContentKeys
 
         foreach ($lines as $line => $set) {
             $fields[] = sprintf('%d', $line);
-            $fields[] = $sets->of($set, $lines);
+            $fields[] = $sets->digestOf($set);
         }
 
         return Digest::sha256Of(self::framed(...$fields));
