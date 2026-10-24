@@ -9,6 +9,7 @@ use NightWorksIO\MutationGate\Core\NotGiven;
 use NightWorksIO\MutationGate\Core\Runner\Ran;
 use NightWorksIO\MutationGate\Core\Runner\SilenceLimit;
 use NightWorksIO\MutationGate\Core\Time\Seconds;
+use NightWorksIO\MutationGate\Tests\Support\Ended;
 use NightWorksIO\MutationGate\Tests\Support\Measured;
 use NightWorksIO\MutationGate\Tests\Support\Scratch;
 use NightWorksIO\MutationGate\Tests\Support\WarmWorkers;
@@ -23,30 +24,6 @@ $holds = [
 afterEach(function (): void {
     Scratch::sweep();
 });
-
-/**
- * Whether a process has ended: no longer listed, or listed only as a zombie
- * its new parent has yet to reap. It asks the process table again for up to
- * ten seconds, a third of what the process left under the stopped child
- * would live, which gives a loaded system time to reap it without the test
- * sleeping.
- */
-function workerIsGone(int $process): bool
-{
-    $until = hrtime(as_number: true) + 10_000_000_000;
-
-    while (hrtime(as_number: true) < $until) {
-        $listed = [];
-        exec(sprintf('ps -o stat= -p %d', $process), $listed);
-        $state = trim(implode('', $listed));
-
-        if ($state === '' || str_starts_with($state, 'Z')) {
-            return true;
-        }
-    }
-
-    return false;
-}
 
 it('forks a child for each run it claims, and writes how each ended with what it printed', function (): void {
     $workplace = WarmWorkers::place([WarmWorkers::run(['SAID' => 'one', 'CODE' => '3']), WarmWorkers::run(['SAID' => 'two', 'CODE' => '0'])]);
@@ -70,7 +47,7 @@ it('stops a child at its limit with every process under it, and says a child a s
 
     expect($stopped instanceof Ran ? [$stopped->wasStopped(), Measured::of($stopped)->seconds() < 20.0] : [])->toBe([true, true])
         ->and($killed instanceof Ran ? [$killed->endedBySignal(), $killed->exitCode()] : [])->toBe([true, 137])
-        ->and(workerIsGone((int) file_get_contents(sprintf('%s.under', $workplace->out(0)))))->toBeTrue();
+        ->and(Ended::process((int) file_get_contents(sprintf('%s.under', $workplace->out(0)))))->toBeTrue();
 })->group(...$holds);
 
 // The child writes to its progress file as a test of it starts or ends.

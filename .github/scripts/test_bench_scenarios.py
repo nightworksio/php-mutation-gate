@@ -217,6 +217,30 @@ class Running(unittest.TestCase):
             (out / "gate-unchanged-2.time").write_text(json.dumps({"seconds": 1.0, "exit": "stopped"}))
             self.assertEqual(bench_scenarios.report(described, out, result), 1)
 
+    def test_fails_where_a_round_of_an_unchanged_re_run_reused_less_than_the_first_as_jwt_s_did(self):
+        with tempfile.TemporaryDirectory() as work:
+            out, result = Path(work) / "out", Path(work) / "result.json"
+            out.mkdir()
+            for at, ran in ((1, 3), (2, 72), (3, 72)):
+                (out / f"gate-unchanged-{at}.time").write_text(json.dumps({"seconds": 40.0, "exit": 0}))
+                (out / f"gate-unchanged-{at}.json").write_text(
+                    json.dumps({"run": {"units": {"run": ran, "proved": 72 - ran, "carried": 0}}}))
+            described = {**PROJECT, "arms": {"gate": {"said": "the gate"}}}
+            self.assertEqual(bench_scenarios.report(described, out, result), 1)
+            self.assertEqual(json.loads(result.read_text())["arms"]["gate"]["unchanged"]["unitsRun"], [3, 72, 72])
+
+    def test_passes_a_scenario_whose_later_rounds_reuse_as_much_as_the_first_or_more_or_wrote_no_report(self):
+        for ran in ([1, 0, 0], [1, 1, 1], [0, None, 0], [None, 5, 5], []):
+            with self.subTest(ran=ran), tempfile.TemporaryDirectory() as work:
+                out, result = Path(work) / "out", Path(work) / "result.json"
+                out.mkdir()
+                for at, count in enumerate(ran, start=1):
+                    (out / f"gate-warm-{at}.time").write_text(json.dumps({"seconds": 1.0, "exit": 0}))
+                    report = {"run": {"units": {"run": count}}} if count is not None else {}
+                    (out / f"gate-warm-{at}.json").write_text(json.dumps(report))
+                described = {**PROJECT, "arms": {"gate": {"said": "the gate"}}}
+                self.assertEqual(bench_scenarios.report(described, out, result), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

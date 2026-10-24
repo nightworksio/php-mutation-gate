@@ -6,7 +6,7 @@
 set -euo pipefail
 source "${GITHUB_WORKSPACE}/bench/gate.sh"
 infection=$(jq -r '.packages[] | select(.name == "infection/infection") | .version' tools/composer.lock)
-repository=$(jq -cn --arg url "${GITHUB_WORKSPACE}" '{type: "path", url: $url, options: {symlink: true}}')
+repository=$(jq -cn --arg url "${GITHUB_WORKSPACE}" '{type: "path", url: $url, options: {symlink: false}}')
 composer config --unset platform.php
 composer config repositories.gate "${repository}"
 composer config minimum-stability dev

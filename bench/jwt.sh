@@ -14,7 +14,7 @@ jq --arg gate "${GITHUB_WORKSPACE}" --arg phpunit "$(bench_locked phpunit/phpuni
   }
   | del(.config.platform)
   | .config["allow-plugins"] = {"infection/extension-installer": false}
-  | .repositories = [{"type": "path", "url": $gate, "options": {"symlink": true}}]
+  | .repositories = [{"type": "path", "url": $gate, "options": {"symlink": false}}]
   | .["minimum-stability"] = "dev"
   | .["prefer-stable"] = true' composer.json > composer.json.new
 mv composer.json.new composer.json
@@ -31,7 +31,10 @@ for test in $(grep -rl 'UsesClass' tests); do
 done
 sed -e 's/failOnRisky="true"/failOnRisky="true" failOnPhpunitWarning="false" failOnPhpunitDeprecation="false"/' \
   -e 's/ *beStrictAboutTodoAnnotatedTests="true"//' phpunit.xml.dist > phpunit.xml
-printf 'vendor/\n.mutation-gate/\nbench-*.json\nbench-*.txt\ninfection.txt\n' > .gitignore
+# jwt's own ignores stand, its PHPUnit cache directory among them, so no
+# file a run writes changes what the next run's proofs are keyed on; the
+# phpunit.xml written above is committed all the same.
+printf '!phpunit.xml\n.mutation-gate/\nbench-*.json\nbench-*.txt\n' >> .gitignore
 bench_baselines src
 # Infection's own ignores stand, as plain Infection honours them, so both arms make the same mutants.
 printf '{"runner": {"use": "infection"}, "trees": [{"path": "src"}], "ignores": {"native": "allow"}}\n' > bench-infection.json
