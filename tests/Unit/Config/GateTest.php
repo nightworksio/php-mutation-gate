@@ -103,6 +103,7 @@ it('writes every setting of the configuration reference', function (): void {
                 Report::junit('b.xml'),
                 Report::sarif('c.sarif'),
                 Report::html('d'),
+                Report::digest('mutation-gate-digest.txt'),
                 Report::uses('Acme\\Slack', Option::of('channel', '#ci')),
                 Report::writing('acme', 'e.txt'),
             )
@@ -178,6 +179,7 @@ it('writes every setting of the configuration reference', function (): void {
             ['use' => 'junit', 'path' => 'b.xml'],
             ['use' => 'sarif', 'path' => 'c.sarif'],
             ['use' => 'html', 'path' => 'd'],
+            ['use' => 'digest', 'path' => 'mutation-gate-digest.txt'],
             ['use' => 'Acme\\Slack', 'with' => ['channel' => '#ci']],
             ['use' => 'acme', 'path' => 'e.txt'],
         ],

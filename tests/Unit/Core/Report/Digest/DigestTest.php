@@ -7,6 +7,7 @@ use NightWorksIO\MutationGate\Core\Change\Revision;
 use NightWorksIO\MutationGate\Core\File\Digest as FileDigest;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\Format\Node;
+use NightWorksIO\MutationGate\Core\Format\NotInShape;
 use NightWorksIO\MutationGate\Core\Mutant\MutatorFamily;
 use NightWorksIO\MutationGate\Core\Report\Digest\Digest;
 use NightWorksIO\MutationGate\Core\Report\Digest\DigestDetail;
@@ -211,3 +212,29 @@ it('writes every value the code under test shapes as one inert line, so none for
     'a terminal escape' => ["\e]0;owned\x07\e[2J\u{9b}31m"],
     'a bidirectional override' => ["\u{202e}php.txt"],
 ]);
+
+it('details a file no unit of a tree holds as one this run judged, each mutant not killed listed', function (): void {
+    $detail = DigestDetail::of(digestReport(digestSurvivors(1)), 'src/F01.php');
+
+    expect($detail)->toStartWith('file src/F01.php killed=0(good) escaped=1(bad) ')
+        ->and($detail)->toContain("\nescaped :1 ")
+        ->and($detail)->not->toContain("\ncarried");
+});
+
+it('details a kill a ledger proved without a diff, as the report keeps none for it', function (): void {
+    $id = Verdicts::provedKill()->mutant()->id()->value();
+    $detail = DigestDetail::of(digestReport(Verdicts::proved()), $id);
+
+    expect($detail)->toStartWith(sprintf('mutant %s killed killed src/Money.php:9 ', $id))
+        ->and($detail)->not->toContain("\ndiff")
+        ->and($detail)->toContain("\nkilled-by MoneyTest::fits\n");
+});
+
+it('refuses a report whose mutant points at a test its list of tests does not hold', function (): void {
+    $report = JsonReport::of(Verdicts::failing());
+    $id = $report['mutants'][0]['id'];
+    $report['mutants'][0]['coveredBy'] = [count($report['tests'])];
+
+    expect(static fn(): string|CannotJudge => DigestDetail::of(Node::decode((string) json_encode($report)), $id))
+        ->toThrow(NotInShape::class, sprintf('tests[%d] is missing.', count($report['tests'])));
+});
