@@ -178,7 +178,16 @@ its parser attributes. Both change when the checkout moves.
          --ignore=<held paths, or .mutation-gate>
          [--group <holds group> --do-not-fail-on-empty-test-suite]
          [--mutator=<class names>]
+         --cache-directory=<project>/.mutation-gate/phpunit-cache
      ```
+
+     - Every Pest command the adapter runs, a mutant's, its coverage map's,
+       a listing's, a run of no test's and a judging run's, keeps PHPUnit's
+       caches, Pest's test run history among them, in
+       `.mutation-gate/phpunit-cache`, whatever the project's config names,
+       so no run writes a file a content key reads (ADR-0007, ADR-0023). A
+       replay of a kill's run passes the arguments Pest started it with,
+       which hold it already.
 
      - A group or a filter is passed as its option and its value apart, as
        Pest passes its own on: PHPUnit's reading of `--name=value` ends the

@@ -48,7 +48,7 @@ final readonly class StartingUp
         }
 
         $ran = $this->shell->run(
-            Invocation::installedIn($this->project->vendor())->startingUp($withheld, $original, $copy),
+            Invocation::of($this->project)->startingUp($withheld, $original, $copy),
         );
 
         return $ran->succeeded() ? $ran->timed() : CannotJudge::because(sprintf(self::NOT_STARTED, $ran->output()));

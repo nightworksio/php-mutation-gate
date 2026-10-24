@@ -427,7 +427,7 @@ it('keeps the coverage run and every mutant\'s tests to the suite the request na
 
     expect($ran)->toHaveCount(3)
         ->and($ran[0])->toContain('--testsuite=unit')
-        ->and($ran[1])->toContain('--test-framework-extra-args=--group="holds:src/Money.php" --testsuite="unit"')
+        ->and($ran[1])->toContain(sprintf('--test-framework-extra-args=--cache-directory="%s/.mutation-gate/phpunit-cache" --group="holds:src/Money.php" --testsuite="unit"', $at->root()))
         ->and($ran[2])->toContain('--testsuite=unit');
 });
 
@@ -444,7 +444,7 @@ it('runs the holding suites too for a held unit\'s coverage and mutants, and nev
 
     expect($ran)->toHaveCount(2)
         ->and($ran[0])->toContain('--testsuite=Unit,Process')
-        ->and($ran[1])->toContain('--test-framework-extra-args=--group="holds:src/Money.php" --testsuite="Unit,Process"');
+        ->and($ran[1])->toContain(sprintf('--test-framework-extra-args=--cache-directory="%s/.mutation-gate/phpunit-cache" --group="holds:src/Money.php" --testsuite="Unit,Process"', $at->root()));
 });
 
 it('runs the holding suites too for the mutants the whole suite judges through a map the plan handed on, and not through its own', function (): void {
@@ -467,8 +467,8 @@ it('runs the holding suites too for the mutants the whole suite judges through a
     new Infection($at, $ownShell, LimitBounds::between(Seconds::of(6.0), Seconds::of(6.0)), nativeMarkersAllowed: false, files: new CapDirectory())
         ->mutate($whole);
 
-    expect(array_merge(...InfectionCases::ran($handedShell)))->toContain('--test-framework-extra-args=--testsuite="Unit,Process"')
-        ->and(array_merge(...InfectionCases::ran($ownShell)))->toContain('--test-framework-extra-args=--testsuite="Unit"');
+    expect(array_merge(...InfectionCases::ran($handedShell)))->toContain(sprintf('--test-framework-extra-args=--cache-directory="%s/.mutation-gate/phpunit-cache" --testsuite="Unit,Process"', $at->root()))
+        ->and(array_merge(...InfectionCases::ran($ownShell)))->toContain(sprintf('--test-framework-extra-args=--cache-directory="%s/.mutation-gate/phpunit-cache" --testsuite="Unit"', $at->root()));
 });
 
 it('reads the lines no test ran from the report beside the XML coverage, which leaves them out', function (): void {

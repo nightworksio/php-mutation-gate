@@ -89,9 +89,9 @@ function trialAnswering(string $guard, Ran $mutant): Closure
 }
 
 /** The run of some tests a trial starts, writing its JUnit log beside a guard in this directory. */
-function trialJudging(string $directory, Paths $tests, WholeSuite|Group $judgedBy = new WholeSuite()): Command
+function trialJudging(Project $at, string $directory, Paths $tests, WholeSuite|Group $judgedBy = new WholeSuite()): Command
 {
-    return Invocation::installedIn(Path::of('vendor'))
+    return Invocation::of($at)
         ->judging($tests, $judgedBy, Withheld::standard(), sprintf('--log-junit=%s/junit.xml', $directory));
 }
 
@@ -101,7 +101,7 @@ function trialOf(Project $at, ShellFake $shell, WholeSuite|Group $judgedBy = new
     return new Trial(
         $at,
         $shell,
-        Invocation::installedIn(Path::of('vendor')),
+        Invocation::of($at),
         $judgedBy,
         Withheld::standard(),
         $at->root(),
@@ -115,7 +115,7 @@ it('runs the tests with Pest\'s override serving the mutated copy, and a guard, 
     $at = trialProject();
     $shell = new ShellFake(trialAnswering('{"before":false,"loaded":true,"opcache":false}', Ran::finished(succeeded: false, output: '')));
     $tests = Paths::of(Path::of('tests/MoneySpec.php'));
-    $judging = trialJudging(sprintf('%s/0', $at->root()), $tests);
+    $judging = trialJudging($at, sprintf('%s/0', $at->root()), $tests);
 
     $outcome = trialOf($at, $shell)->of($tests, Path::of('src/Money.php'), '/copies/n1.php', Seconds::of(6.0));
 
@@ -343,7 +343,7 @@ it('judges nothing where the tests fail on their own, running them alone once fo
     expect($first)->toEqual(Outcome::unjudged('the selected tests fail on their own (no exit code; ran tests/A.php, tests/B.php)')->within(Seconds::of(6.0)))
         ->and($second)->toEqual($first)
         ->and($shell->commands())->toEqual([
-            trialServed($at, trialJudging(sprintf('%s/0', $at->root()), $tests, Group::named('holds:src/Money.php'))->within(Seconds::of(6.0))),
+            trialServed($at, trialJudging($at, sprintf('%s/0', $at->root()), $tests, Group::named('holds:src/Money.php'))->within(Seconds::of(6.0))),
         ]);
 });
 

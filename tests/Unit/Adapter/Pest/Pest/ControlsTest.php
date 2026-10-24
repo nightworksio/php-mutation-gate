@@ -74,7 +74,7 @@ it('runs each control with the file the mutant changes served unmutated, the nar
     $printed = Printed::of(Contents::of((string) file_get_contents(sprintf('%s/src/Money.php', $at->root()))), Path::of('src/Money.php'));
     $unmutated = sprintf('%s/.mutation-gate/pest/originals/%s.php', $at->root(), hash('xxh3', $printed instanceof Contents ? $printed->text() : ''));
     $served = [Recorder::MUTANT => sprintf('%s/src/Money.php', $at->root()), Recorder::MUTATED => $unmutated];
-    $judging = Invocation::installedIn(Path::of('vendor'));
+    $judging = Invocation::of($at);
 
     expect($baseline)->toEqual($judging->judging(Paths::of(Path::of(PestCases::spec($at))), WholeSuite::tests(), Withheld::standard())->with($served))
         ->and($confirmation)->toEqual(

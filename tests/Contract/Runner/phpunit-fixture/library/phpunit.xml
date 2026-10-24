@@ -2,9 +2,11 @@
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="../vendor/phpunit/phpunit/phpunit.xsd"
          bootstrap="../vendor/autoload.php"
+         cacheDirectory=".phpunit.cache"
          failOnPhpunitDeprecation="true"
 >
     <!-- Failing on PHPUnit's own deprecations, a run the gate starts with a deprecated option fails. -->
+    <!-- The cache directory is the project's own, which every run the gate starts leaves untouched. -->
     <!-- The suffix keeps these tests out of the package's own suites. -->
     <testsuites>
         <testsuite name="Library">

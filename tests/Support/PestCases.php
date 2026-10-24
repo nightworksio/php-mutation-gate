@@ -33,6 +33,7 @@ use NightWorksIO\MutationGate\Core\Coverage\Unplaced;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
 use NightWorksIO\MutationGate\Core\File\Paths;
+use NightWorksIO\MutationGate\Core\File\Workspace;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
 use NightWorksIO\MutationGate\Core\Mutant\Mutant;
 use NightWorksIO\MutationGate\Core\Mutant\MutantId;
@@ -126,10 +127,16 @@ final readonly class PestCases
         return Patching::on(Group::named('mutation-canary'));
     }
 
-    /** Pest's command lines in a project that installs its packages in `vendor`. */
-    public static function invocation(): Invocation
+    /** Pest's command lines in a project at `/p` that installs its packages in `vendor`. */
+    public static function invocationAtP(): Invocation
     {
-        return Invocation::installedIn(Path::of('vendor'));
+        return Invocation::of(Project::at('/p', Paths::none(), Workspace::root(), Path::of('vendor')));
+    }
+
+    /** Pest's command lines in a project. */
+    public static function invocation(Project $at): Invocation
+    {
+        return Invocation::of($at);
     }
 
     /** A project in a new directory, by its real path, holding src/Money.php, that installs its packages in `vendor` or another directory. */

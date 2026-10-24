@@ -57,7 +57,7 @@ final readonly class AloneRuns
         }
 
         $withheld = $request->withheld();
-        $invocation = Invocation::installedIn($this->project->vendor());
+        $invocation = Invocation::of($this->project);
         $commands = [];
         $keys = [];
 

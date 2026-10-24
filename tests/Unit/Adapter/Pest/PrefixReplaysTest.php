@@ -162,7 +162,7 @@ it('starts the run again as Pest started it, its file served unmutated, its reco
     $unmutated = sprintf('%s/.mutation-gate/pest/originals/%s.php', $at->root(), hash('xxh3', $printed instanceof Contents ? $printed->text() : ''));
     $command = $shell->commands()[0];
 
-    expect($command->arguments())->toBe(Invocation::installedIn(Path::of('vendor'))
+    expect($command->arguments())->toBe(Invocation::of($at)
         ->replaying(['--bail', '--filter=MoneySpec', '/p/tests/MoneySpec.php'], Withheld::standard())->arguments())
         ->and($command->environment())->toMatchArray([
             Recorder::MUTANT => sprintf('%s/src/Money.php', $at->root()),

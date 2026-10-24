@@ -69,7 +69,7 @@ final readonly class PrefixReplays
             return array_map(static fn(): ReplayVerdict => ReplayVerdict::NoTime, $replays);
         }
 
-        $invocation = Invocation::installedIn($this->project->vendor());
+        $invocation = Invocation::of($this->project);
         $started = [];
         $keys = [];
 

@@ -16,7 +16,7 @@ use function str_starts_with;
  */
 enum Option: string
 {
-    case CacheDirectory = '--cache-directory';
+    case CacheDirectory = PhpUnitOption::CacheDirectory->value;
     case OrderBy = '--order-by';
     case Record = '--record-test-run-history';
     case DoNotRecord = PhpUnitOption::DoNotRecordTestRunHistory->value;

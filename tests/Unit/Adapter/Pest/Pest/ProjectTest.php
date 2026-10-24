@@ -71,7 +71,7 @@ it('names each test as the plugin names it in a run that lists the tests, withho
         ->with(TestId::of(PestCases::RUN_ADDS), $adds)
         ->with(TestId::of('P\\Tests\\MoneySpec::__pest_evaluable_it_adds#dataset "one"'), TestRow::of($adds, '"dataset "one""'))
         ->with(TestId::of('LegacySpec::decrements#3'), TestRow::of(TestName::in(Path::of('tests/LegacySpec.php'), 'decrements'), '#3')))
-        ->and($shell->commands())->toEqual([PestCases::invocation()->listingTests(Withheld::of('CI_JOB_TOKEN'), PestCases::names($at))]);
+        ->and($shell->commands())->toEqual([PestCases::invocation($at)->listingTests(Withheld::of('CI_JOB_TOKEN'), PestCases::names($at))]);
 });
 
 it('cannot name the tests where the listing run fails, names nothing, or cannot start afresh', function (): void {
@@ -195,7 +195,7 @@ it('makes the registered mutators\' mutants through the bridges it writes for it
 
     expect(PestCases::untimed($result))->toEqual(MutationResult::of(Mutants::of(PestCases::mutant()), 0))
         ->and($shell->commands())->toEqual([
-            PestCases::invocation()->mutation(PestCases::money(), WholeSuite::tests(), PestCases::results($at), $bridges)
+            PestCases::invocation($at)->mutation(PestCases::money(), WholeSuite::tests(), PestCases::results($at), $bridges)
                 ->with(['MUTATION_GATE_MUTATORS' => $file]),
         ])
         ->and(is_file($file) ? (string) file_get_contents($file) : '')->toContain("return 'acme/PlusToMinus';");

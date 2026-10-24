@@ -256,6 +256,21 @@ manual.
      `--do-not-record-test-run-history`, it passes `--do-not-cache-result`
      instead, so a project that fails on PHPUnit's own deprecations runs on
      either.
+   - **PHPUnit's caches are the gate's own.** Every PHPUnit the gate
+     starts, for a mutant, its coverage map, a listing of the suite or a
+     run of no test, under every runner that drives PHPUnit (this one, Pest
+     and Infection, ADR-0004), is passed
+     `--cache-directory=<project>/.mutation-gate/phpunit-cache`, whatever
+     the project's config names. That directory is among the gate's own
+     files, which no content key reads (ADR-0007), so the test run history
+     and the code coverage cache a run writes leave the next run's keys as
+     they were. Without it, a project whose config names a cache directory
+     that `.gitignore` does not would change every key with each run, and
+     an unchanged run would reuse no unit.
+     A cache directory the project's own arguments name gives way to the
+     gate's, since PHPUnit warns of an option given twice. Pest makes the
+     directory its config names as it boots, before it reads its
+     arguments, and writes nothing in it; git lists no empty directory.
    - The prepended override is the gate's own `file://` wrapper. It serves
      the mutated file from before Composer's autoloader loads anything,
      `files` autoloads included, wherever PHP includes or reads the file by

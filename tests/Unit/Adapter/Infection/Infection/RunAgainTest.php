@@ -72,7 +72,7 @@ it('runs each mutant again by its unit\'s tests at the higher cap and with no de
         ->and(InfectionCases::statuses($retried))->toBe([MutantStatus::Killed, MutantStatus::Survived, MutantStatus::Unjudged])
         ->and(count($again->commands()))->toBe(3)
         ->and(InfectionCases::ran($again)[0])->toContain('holds:src/Money.php')
-        ->and(InfectionCases::ran($again)[1])->toContain('--test-framework-extra-args=--group="holds:src/Money.php"')
+        ->and(InfectionCases::ran($again)[1])->toContain(sprintf('--test-framework-extra-args=--cache-directory="%s/.mutation-gate/phpunit-cache" --group="holds:src/Money.php"', $at->root()))
         ->and($again->commands()[1]->deadline())->toEqual(Unlimited::time())
         ->and(array_map(static fn(Command $command): Withheld => $command->withheld(), $again->commands()))
         ->each->toEqual(Withheld::standard()->and(Withheld::of('DEPLOY_*')))
@@ -196,7 +196,7 @@ it('reproduces a mutant alone with only its mutator, by its unit\'s tests at the
         ->toBe([MutantStatus::Killed, 'said'])
         ->and(count($again->commands()))->toBe(2)
         ->and(InfectionCases::ran($again)[0])->toContain('holds:src/Money.php')
-        ->and(InfectionCases::ran($again)[1])->toContain('--test-framework-extra-args=--group="holds:src/Money.php"')
+        ->and(InfectionCases::ran($again)[1])->toContain(sprintf('--test-framework-extra-args=--cache-directory="%s/.mutation-gate/phpunit-cache" --group="holds:src/Money.php"', $at->root()))
         ->and(array_map(static fn(Command $command): Withheld => $command->withheld(), $again->commands()))
         ->each->toEqual(Withheld::standard()->and(Withheld::of('DEPLOY_*')))
         ->and(is_array($generated) ? [$generated['timeout'], $generated['mutators']] : [])->toBe([12.0, ['Plus' => true]]);

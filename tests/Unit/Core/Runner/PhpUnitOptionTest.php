@@ -28,3 +28,15 @@ it('keeps a run to its suites\' tests with --testsuite, comma-separated, and to 
         ->and(PhpUnitOption::inSuites(Suites::named(SuiteName::of('unit'), SuiteName::of('Contract Tests'))))->toBe(['--testsuite=unit,Contract Tests'])
         ->and(PhpUnitOption::inSuites(Suites::all()))->toBe([]);
 });
+
+it('keeps PHPUnit\'s caches in a directory with --cache-directory and the directory after =', function (): void {
+    expect(PhpUnitOption::caching('/p/.mutation-gate/phpunit-cache'))->toBe('--cache-directory=/p/.mutation-gate/phpunit-cache');
+});
+
+it('keeps PHPUnit\'s caches in a directory after the other arguments, dropping a cache directory they name either way', function (): void {
+    expect(PhpUnitOption::cachedIn('/g', []))->toBe(['--cache-directory=/g'])
+        ->and(PhpUnitOption::cachedIn('/g', ['--testsuite=unit', 'tests/Unit']))->toBe(['--testsuite=unit', 'tests/Unit', '--cache-directory=/g'])
+        ->and(PhpUnitOption::cachedIn('/g', ['--testsuite=unit', '--cache-directory=.cache', '--group=slow']))->toBe(['--testsuite=unit', '--group=slow', '--cache-directory=/g'])
+        ->and(PhpUnitOption::cachedIn('/g', ['--cache-directory', '.cache', '--group', 'slow']))->toBe(['--group', 'slow', '--cache-directory=/g'])
+        ->and(PhpUnitOption::cachedIn('/g', ['--cache-directory-x', '--cache-result']))->toBe(['--cache-directory-x', '--cache-result', '--cache-directory=/g']);
+});
