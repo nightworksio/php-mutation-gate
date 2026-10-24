@@ -108,7 +108,7 @@
   }
 
   function diff(text) {
-    if (text === '') {
+    if (text === undefined) {
       return element('p', 'aside', 'No diff was kept for it: a proof carried its kill.');
     }
 

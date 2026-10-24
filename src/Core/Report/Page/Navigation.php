@@ -21,12 +21,12 @@ use NightWorksIO\MutationGate\Core\Report\MutantJson;
 
 /**
  * What the HTML report's navigation reads: each file with its counts, and,
- * for a file of a unit this run judged, each mutant with what it changed,
- * what it came to, the gate's own judgement, the tests that killed it, or
- * how many cover it and what would kill it. The tests are named once, in a
- * list the mutants point into. It is JSON in a script element of its own,
- * every `<`, `>` and `&` escaped, so nothing a diff or a test name holds can
- * end the element.
+ * for a file of a unit this run judged, each mutant with what it changed
+ * where that was kept, what it came to, the gate's own judgement, the tests
+ * that killed it, or how many cover it and what would kill it. The tests are
+ * named once, in a list the mutants point into. It is JSON in a script
+ * element of its own, every `<`, `>` and `&` escaped, so nothing a diff or a
+ * test name holds can end the element.
  *
  * @phpstan-import-type Report from JsonReport
  * @phpstan-import-type MutantEntry from MutantJson
@@ -39,7 +39,7 @@ use NightWorksIO\MutationGate\Core\Report\MutantJson;
  *     outcome: string,
  *     judgement: string,
  *     changed: bool,
- *     diff: string,
+ *     diff?: string,
  *     killedBy: list<int>,
  *     covered: int,
  *     reason?: string,
@@ -140,7 +140,7 @@ final readonly class Navigation
             'outcome' => Mutants::outcomeOf($mutant)->value,
             'judgement' => $mutant['judgement'],
             'changed' => $mutant['changedLine'],
-            'diff' => array_key_exists('diff', $mutant) ? $mutant['diff'] : '',
+            ...array_key_exists('diff', $mutant) ? ['diff' => $mutant['diff']] : [],
             'killedBy' => $killers,
             'covered' => count($mutant['coveredBy']),
             ...array_key_exists('reason', $mutant) ? ['reason' => $mutant['reason']] : [],

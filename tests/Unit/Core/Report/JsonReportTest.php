@@ -13,6 +13,7 @@ use NightWorksIO\MutationGate\Core\Coverage\CoverageMap;
 use NightWorksIO\MutationGate\Core\File\Digest;
 use NightWorksIO\MutationGate\Core\File\Line;
 use NightWorksIO\MutationGate\Core\File\Path;
+use NightWorksIO\MutationGate\Core\File\Paths;
 use NightWorksIO\MutationGate\Core\Matrix\KillMatrix;
 use NightWorksIO\MutationGate\Core\Matrix\MatrixKind;
 use NightWorksIO\MutationGate\Core\Mutant\Location;
@@ -30,6 +31,8 @@ use NightWorksIO\MutationGate\Core\Runner\Versions;
 use NightWorksIO\MutationGate\Core\Score\Floor;
 use NightWorksIO\MutationGate\Core\Score\Percentage;
 use NightWorksIO\MutationGate\Core\Score\Unrecorded;
+use NightWorksIO\MutationGate\Core\Test\DeclaredSuite;
+use NightWorksIO\MutationGate\Core\Test\DeclaredSuites;
 use NightWorksIO\MutationGate\Core\Test\Filter;
 use NightWorksIO\MutationGate\Core\Test\TestId;
 use NightWorksIO\MutationGate\Core\Test\TestIds;
@@ -96,9 +99,13 @@ it('writes what each suite alone kills, whether it is exact, and why the scores 
 it('writes no suite, with why, where the runner named no test, and none where the config declares none', function (): void {
     $unplaced = JsonReport::encode(Killings::unplaced());
     $undeclared = JsonReport::encode(Verdicts::failing());
+    $verdict = Killings::unplaced();
+    $alone = JsonReport::encode($verdict->withMatrix(KillMatrix::of(MatrixKind::FirstKiller, $verdict->matrix()->coverage())
+        ->grouping(DeclaredSuites::of(DeclaredSuite::named('unit', Paths::none(), Paths::none())))));
 
     expect(Decoded::at($unplaced, 'suites'))->toBe([])
         ->and(Decoded::at($unplaced, 'suitesUnscored'))->toBe('The runner named no test, so no suite can be scored.')
+        ->and(Decoded::at($alone, 'suitesUnscored'))->toBe('The runner named no test, so no suite can be scored.')
         ->and(Decoded::at($undeclared, 'suites'))->toBe([])
         ->and(json_decode($undeclared, associative: true))->not->toHaveKey('suitesUnscored');
 });

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace NightWorksIO\MutationGate\Core\Report\Page;
 
+use function array_diff_key;
+use function array_filter;
 use function array_key_exists;
 use function count;
 
@@ -96,9 +98,14 @@ final readonly class Mutants
             }
         }
 
-        usort($survivors, static fn(array $one, array $other): int => self::placed($one) <=> self::placed($other));
+        usort(
+            $survivors,
+            static fn(array $one, array $other): int
+                => [$one['file'], $one['line']] <=> [$other['file'], $other['line']],
+        );
+        $changed = array_filter($survivors, static fn(array $mutant): bool => $mutant['changedLine']);
 
-        return $survivors;
+        return [...$changed, ...array_diff_key($survivors, $changed)];
     }
 
     /**
@@ -165,17 +172,6 @@ final readonly class Mutants
     private static function listed(array $file): array
     {
         return [-$file['survivors'], $file['path']];
-    }
-
-    /**
-     * Where a survivor goes among them: on a changed line first, then by file and line.
-     *
-     * @param  MutantEntry          $mutant
-     * @return array{int, string, int}
-     */
-    private static function placed(array $mutant): array
-    {
-        return [$mutant['changedLine'] ? 0 : 1, $mutant['file'], $mutant['line']];
     }
 
     /**

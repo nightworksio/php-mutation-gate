@@ -188,6 +188,12 @@ final readonly class RunnerFake implements Runner
         )->listingIn(Suites::all(), $listed);
     }
 
+    /** This runner, saying this of what it is. */
+    public function identifiedAs(Identity|CannotJudge $identity): self
+    {
+        return clone($this, ['identity' => $identity]);
+    }
+
     public function identity(Withheld $withheld): Identity|CannotJudge
     {
         return $this->identity;
